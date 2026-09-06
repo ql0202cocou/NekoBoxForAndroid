@@ -6,6 +6,7 @@ import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.bg.SagerConnection
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
+import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.TAG_BYPASS
 import io.nekohasekai.sagernet.fmt.TAG_PROXY
 import io.nekohasekai.sagernet.ktx.Logs
@@ -43,13 +44,14 @@ class TrafficLooper
         if (!DataStore.profileTrafficStatistics) return
         val traffic = mutableMapOf<Long, TrafficData>()
         withContext(Dispatchers.IO) {
+            val updated = mutableListOf<ProxyEntity>()
             data.proxy?.config?.trafficMap?.forEach { (_, ents) ->
                 for (ent in ents) {
                     // only skip this ent, not the rest of the tag's entries
                     val item = idMap[ent.id] ?: continue
                     ent.rx = item.rx
                     ent.tx = item.tx
-                    ProfileManager.updateTraffic(ent) // update DB
+                    updated.add(ent)
                     traffic[ent.id] = TrafficData(
                         id = ent.id,
                         rx = ent.rx,
@@ -57,6 +59,8 @@ class TrafficLooper
                     )
                 }
             }
+            // one write, not one per profile: close() waits for this on the main thread
+            ProfileManager.updateTraffic(updated) // update DB
         }
         data.binder.broadcast { b ->
             for (t in traffic) {
@@ -73,14 +77,16 @@ class TrafficLooper
     suspend fun persistStats() {
         if (!DataStore.profileTrafficStatistics) return
         withContext(Dispatchers.IO) {
+            val updated = mutableListOf<ProxyEntity>()
             data.proxy?.config?.trafficMap?.forEach { (_, ents) ->
                 for (ent in ents) {
                     val item = idMap[ent.id] ?: continue
                     ent.rx = item.rx
                     ent.tx = item.tx
-                    ProfileManager.updateTraffic(ent) // update DB
+                    updated.add(ent)
                 }
             }
+            ProfileManager.updateTraffic(updated) // update DB
         }
     }
 

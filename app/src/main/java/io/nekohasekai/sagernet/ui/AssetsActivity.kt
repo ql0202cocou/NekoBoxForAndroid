@@ -100,7 +100,7 @@ class AssetsActivity : ThemedActivity() {
 
     companion object {
         // the one file name libcore appends to the root store (nb4a.go InitCore)
-        private const val CA_FILE_NAME = "ca.pem"
+        const val CA_FILE_NAME = "ca.pem"
         private val CA_EXTENSIONS = listOf(".pem", ".crt", ".cer")
     }
 

@@ -106,6 +106,18 @@ object ProfileManager {
         SagerDatabase.proxyDao.updateTraffic(profile.id, profile.tx, profile.rx)
     }
 
+    // One transaction for a whole sweep: the DB runs in TRUNCATE journal mode, so every
+    // single-row update is otherwise its own commit — and the final sweep on stop runs
+    // while :bg's main thread waits on it (see ProxyInstance.close).
+    suspend fun updateTraffic(profiles: List<ProxyEntity>) {
+        if (profiles.isEmpty()) return
+        SagerDatabase.instance.runInTransaction(Runnable {
+            for (profile in profiles) {
+                SagerDatabase.proxyDao.updateTraffic(profile.id, profile.tx, profile.rx)
+            }
+        })
+    }
+
     suspend fun updateStatus(profile: ProxyEntity) {
         SagerDatabase.proxyDao.updateStatus(profile.id, profile.status, profile.ping, profile.error)
         iterator { onUpdated(profile, false) }

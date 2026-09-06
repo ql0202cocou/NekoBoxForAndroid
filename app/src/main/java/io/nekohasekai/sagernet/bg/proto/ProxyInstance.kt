@@ -73,8 +73,10 @@ class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = 
     }
 
     override fun close() {
-        // stop the looper first: its in-flight queryStats needs a live box,
-        // and it joins quickly now that the final DB write runs on Dispatchers.IO
+        // stop the looper first: its in-flight queryStats needs a live box. This
+        // blocks the caller, which is :bg's main thread (stopRunner -> killProcesses),
+        // so the wait has to stay bounded: one stats sweep to cancel the loop, then a
+        // single transaction for the final counters and a oneway binder broadcast.
         try {
             runBlocking {
                 looper?.stop()

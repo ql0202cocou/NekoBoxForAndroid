@@ -24,6 +24,7 @@ import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.isOss
 import io.nekohasekai.sagernet.ktx.isPreview
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
+import io.nekohasekai.sagernet.ui.AssetsActivity
 import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.utils.*
 import kotlinx.coroutines.DEBUG_PROPERTY_NAME
@@ -134,6 +135,14 @@ class SagerNet : Application(),
         val legacy = getExternalFilesDir(null) ?: return
         var failed = false
         for (file in legacy.listFiles { it.isFile } ?: emptyArray()) {
+            // ca.pem is deliberately left behind: the reason for the move is that any
+            // app holding WRITE_EXTERNAL_STORAGE can write the old directory on Android
+            // 10 and below, so migrating it would promote a planted root CA into the new
+            // trusted location. A genuine one is re-imported from AssetsActivity.
+            if (file.name == AssetsActivity.CA_FILE_NAME) {
+                Logs.w("Not migrating ${file.name}: import your custom CA again in route assets")
+                continue
+            }
             try {
                 val tmp = File(assetsDir, "${file.name}.migrating-${Process.myPid()}")
                 file.inputStream().use { input -> tmp.outputStream().use { input.copyTo(it) } }

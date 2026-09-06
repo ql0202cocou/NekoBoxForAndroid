@@ -1349,6 +1349,7 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             fun move(from: Int, to: Int) {
                 val first = getItemAt(from) ?: return
+                val targetId = configurationIdList[to]
                 var previousOrder = first.userOrder
                 val (step, range) = if (from < to) Pair(1, from until to) else Pair(
                     -1, from downTo to + 1
@@ -1365,6 +1366,20 @@ class ConfigurationFragment @JvmOverloads constructor(
                 configurationIdList[to] = first.id
                 updated.add(first)
                 notifyItemMoved(from, to)
+                moveInAllProfileIds(first.id, targetId, from < to)
+            }
+
+            // filter() renders from allProfileIds, so a drag has to reorder it too or
+            // the search results keep the pre-drag order. By id, not by index: while a
+            // filter is active configurationIdList holds only the matching subset and
+            // its positions do not map to the full list.
+            private fun moveInAllProfileIds(id: Long, targetId: Long, down: Boolean) {
+                val ids = allProfileIds.toMutableList()
+                if (!ids.remove(id)) return
+                val target = ids.indexOf(targetId)
+                if (target < 0) return
+                ids.add(if (down) target + 1 else target, id)
+                allProfileIds = ids
             }
 
             fun commitMove() {
@@ -1379,6 +1394,9 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             fun remove(pos: Int) {
                 if (pos < 0) return
+                // drop it from the search source as well: until the undo snackbar
+                // commits the deletion, filter() would still surface the removed profile
+                allProfileIds = allProfileIds - configurationIdList[pos]
                 configurationIdList.removeAt(pos)
                 notifyItemRemoved(pos)
             }
@@ -1388,6 +1406,10 @@ class ConfigurationFragment @JvmOverloads constructor(
                     configurationListView.post {
                         configurationList[item.id] = item
                         configurationIdList.add(index, item.id)
+                        // back into the search source too; index is a position in the
+                        // visible list, which is a subset while a filter is active
+                        allProfileIds = allProfileIds.toMutableList()
+                            .apply { add(index.coerceAtMost(size), item.id) }
                         notifyItemInserted(index)
                     }
                 }
