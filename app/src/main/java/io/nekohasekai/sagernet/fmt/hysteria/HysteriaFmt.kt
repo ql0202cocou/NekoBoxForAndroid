@@ -12,7 +12,7 @@ import java.io.File
 
 // hysteria://host:port?auth=123456&peer=sni.domain&insecure=1|0&upmbps=100&downmbps=100&alpn=hysteria&obfs=xplus&obfsParam=123456#remarks
 fun parseHysteria1(url: String): HysteriaBean {
-    val link = url.replace("hysteria://", "https://").toHttpUrlOrNull() ?: error(
+    val link = ("https://" + url.substringAfter("://")).toHttpUrlOrNull() ?: error(
         "invalid hysteria link $url"
     )
     return HysteriaBean().apply {
@@ -69,10 +69,8 @@ fun parseHysteria1(url: String): HysteriaBean {
 
 // hysteria2://[auth@]hostname[:port]/?[key=value]&[key=value]...
 fun parseHysteria2(url: String): HysteriaBean {
-    val link = url
-        .replace("hysteria2://", "https://")
-        .replace("hy2://", "https://")
-        .toHttpUrlOrNull() ?: error("invalid hysteria link $url")
+    val link = ("https://" + url.substringAfter("://")).toHttpUrlOrNull()
+        ?: error("invalid hysteria link $url")
     return HysteriaBean().apply {
         protocolVersion = 2
         serverAddress = link.host

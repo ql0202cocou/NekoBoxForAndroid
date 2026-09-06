@@ -104,7 +104,7 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
             for (pair in PublicDatabase.kvPairDao.all()) {
                 report += "\n"
                 // may contain credentials, keep them out of the sharable report
-                report += pair.key + ": " + if (pair.key == Key.GLOBAL_CUSTOM_CONFIG) "<redacted>" else Util.redactSecrets(pair.toString())
+                report += pair.key + ": " + if (pair.key == Key.GLOBAL_CUSTOM_CONFIG || pair.key == Key.CLASH_API_SECRET) "<redacted>" else Util.redactSecrets(pair.toString())
             }
         } catch (e: Exception) {
             report += "Export settings failed: " + formatThrowable(e)

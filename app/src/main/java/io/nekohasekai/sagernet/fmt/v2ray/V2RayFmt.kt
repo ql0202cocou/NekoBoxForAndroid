@@ -80,7 +80,9 @@ fun parseV2Ray(link: String): StandardV2RayBean {
     // "std" format
 
     val bean = VMessBean().apply { if (link.startsWith("vless://")) alterId = -1 }
-    val url = link.replace("vmess://", "https://").replace("vless://", "https://").toHttpUrl()
+    // scheme swap by prefix, not replace(): a global replace also rewrites a
+    // fragment or query that happens to contain the scheme string
+    val url = ("https://" + link.substringAfter("://")).toHttpUrl()
 
     if (url.password.isNotBlank()) {
         // https://github.com/v2fly/v2fly-github-io/issues/26 (rarely use)
@@ -281,7 +283,7 @@ private fun tryResolveVmess4Kitsunebi(server: String): VMessBean {
     // vmess://YXV0bzo1YWY1ZDBlYy02ZWEwLTNjNDMtOTNkYi1jYTMwMDg1MDNiZGJAMTgzLjIzMi41Ni4xNjE6MTIwMg
     // ?remarks=*%F0%9F%87%AF%F0%9F%87%B5JP%20-355%20TG@moon365free&obfsParam=%7B%22Host%22:%22183.232.56.161%22%7D&path=/v2ray&obfs=websocket&alterId=0
 
-    var result = server.replace("vmess://", "")
+    var result = server.removePrefix("vmess://")
     val indexSplit = result.indexOf("?")
     if (indexSplit > 0) {
         result = result.substring(0, indexSplit)
@@ -423,13 +425,14 @@ private fun parseCsvVMess(csv: String): VMessBean {
             it.startsWith("tls-host=") -> bean.host = it.substringAfter("=")
             it.startsWith("obfs=") -> bean.type = it.substringAfter("=")
             it.startsWith("obfs-path=") || it.contains("Host:") -> {
-                runCatching {
+                // each marker guarded on its own: substringAfter() without a match
+                // returns the whole field, which used to land in host/path
+                if (it.startsWith("obfs-path=")) runCatching {
                     bean.path = it.substringAfter("obfs-path=\"").substringBefore("\"obfs")
                 }
-                runCatching {
+                if (it.contains("Host:")) runCatching {
                     bean.host = it.substringAfter("Host:").substringBefore("[")
                 }
-
             }
 
         }

@@ -15,7 +15,7 @@ fun ShadowsocksBean.fixPluginName() {
 fun parseShadowsocks(url: String): ShadowsocksBean {
 
     if (url.substringBefore("#").contains("@")) {
-        var link = url.replace("ss://", "https://").toHttpUrlOrNull() ?: error(
+        var link = ("https://" + url.substringAfter("://")).toHttpUrlOrNull() ?: error(
             "invalid ss-android link $url"
         )
 
@@ -102,7 +102,10 @@ fun ShadowsocksBean.toUri(): String {
         builder.encodedFragment(name.urlSafe())
     }
 
-    return builder.toLink("ss").replace("$serverPort/", "$serverPort")
+    // drop the "/" path after the authority; first match only, since a plugin or
+    // fragment value containing "<port>/" must survive (userinfo is URL-safe base64
+    // and hosts carry no "/", so the authority is always the first match)
+    return builder.toLink("ss").replaceFirst("$serverPort/", "$serverPort")
 
 }
 

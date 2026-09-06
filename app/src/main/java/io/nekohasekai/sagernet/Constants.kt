@@ -141,6 +141,7 @@ object Key {
 
     const val GROUP_SUBSCRIPTION = "groupSubscription"
     const val SUBSCRIPTION_LINK = "subscriptionLink"
+    const val SUBSCRIPTION_LINK_FILE = "subscriptionLinkFile"
     const val SUBSCRIPTION_FORCE_RESOLVE = "subscriptionForceResolve"
     const val SUBSCRIPTION_DEDUPLICATION = "subscriptionDeduplication"
     const val SUBSCRIPTION_UPDATE = "subscriptionUpdate"
@@ -153,6 +154,7 @@ object Key {
 
     const val APP_TLS_VERSION = "appTLSVersion"
     const val ENABLE_CLASH_API = "enableClashAPI"
+    const val CLASH_API_SECRET = "clashApiSecret"
 }
 
 object TunImplementation {

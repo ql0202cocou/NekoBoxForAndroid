@@ -58,6 +58,11 @@
             app:title="@string/group_subscription_link"
             app:useSimpleSummaryProvider="true" />
 
+        <Preference
+            app:icon="@drawable/ic_action_note_add"
+            app:key="subscriptionLinkFile"
+            app:title="@string/action_import_file" />
+
         <SwitchPreference
             app:icon="@drawable/ic_baseline_manage_search_24"
             app:key="subscriptionForceResolve"

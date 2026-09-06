@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.ui
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.text.format.DateFormat
+import android.util.Base64
 import android.view.Menu
 import android.view.MenuItem
 import android.view.ViewGroup
@@ -26,6 +27,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.IOException
+import java.security.cert.Certificate
+import java.security.cert.CertificateFactory
 import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -95,6 +98,18 @@ class AssetsActivity : ThemedActivity() {
 
     val assetNames = arrayOf("geoip.db", "geosite.db")
 
+    companion object {
+        // the one file name libcore appends to the root store (nb4a.go InitCore)
+        private const val CA_FILE_NAME = "ca.pem"
+        private val CA_EXTENSIONS = listOf(".pem", ".crt", ".cer")
+    }
+
+    // both processes read ca.pem in SagerNet.onCreate only
+    private fun needRestart() {
+        if (isFinishing || isDestroyed) return
+        snackbar(R.string.need_restart).setAction(R.string.apply) { triggerFullRestart(this) }.show()
+    }
+
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.import_asset_menu, menu)
         return true
@@ -104,7 +119,7 @@ class AssetsActivity : ThemedActivity() {
         if (file != null) {
             // DISPLAY_NAME comes from an external document provider and may
             // contain path separators; keep only the last segment like the
-            // fallback does, so File(filesDir, fileName) cannot escape.
+            // fallback does, so File(assetsDir, fileName) cannot escape.
             // GetContent("*/*") allows arbitrary document providers; a broken
             // one may return an empty cursor or lack the DISPLAY_NAME column.
             val displayName = try {
@@ -122,14 +137,18 @@ class AssetsActivity : ThemedActivity() {
                 .substringAfter(':'))
                 .substringAfterLast('/')
 
-            if (fileName.isBlank() || fileName == ".." || !fileName.endsWith(".db")) {
+            val isCertificate = CA_EXTENSIONS.any { fileName.lowercase().endsWith(it) }
+            if (fileName.isBlank() || fileName == ".." ||
+                !(fileName.endsWith(".db") || isCertificate)
+            ) {
                 alert(getString(R.string.route_not_asset, fileName)).show()
                 return@registerForActivityResult
             }
-            val filesDir = getExternalFilesDir(null) ?: filesDir
+            val assetsDir = app.assetsDir
 
             runOnDefaultDispatcher {
-                val outFile = File(filesDir, fileName).apply {
+                // a custom CA always lands in ca.pem, whatever the picked file was called
+                val outFile = File(assetsDir, if (isCertificate) CA_FILE_NAME else fileName).apply {
                     parentFile?.mkdirs()
                 }
                 // copy aside and rename: a failed copy must not leave a truncated
@@ -138,14 +157,27 @@ class AssetsActivity : ThemedActivity() {
                 // GlobalScope: an escaping IOException (unreadable document, revoked
                 // permission, full disk) would take the whole app down
                 try {
-                    contentResolver.openInputStream(file)?.use(tmpFile.outputStream())
-                        ?: error("cannot open $fileName")
+                    if (isCertificate) {
+                        // parse, then re-encode as PEM: Go's AppendCertsFromPEM reads PEM
+                        // blocks only, while the picker also yields DER (.cer) files
+                        val certificates = contentResolver.openInputStream(file)?.use {
+                            CertificateFactory.getInstance("X.509").generateCertificates(it)
+                        } ?: error("cannot open $fileName")
+                        if (certificates.isEmpty()) {
+                            error(getString(R.string.route_not_asset, fileName))
+                        }
+                        tmpFile.writeText(certificates.joinToString("") { it.toPem() })
+                    } else {
+                        contentResolver.openInputStream(file)?.use(tmpFile.outputStream())
+                            ?: error("cannot open $fileName")
+                    }
                     if (!tmpFile.renameTo(outFile)) error("cannot replace " + outFile.name)
 
                     File(outFile.parentFile, outFile.nameWithoutExtension + ".version.txt")
                         .writeText("Custom")
 
                     adapter.reloadAssets()
+                    if (isCertificate) onMainDispatcher { needRestart() }
                 } catch (e: Exception) {
                     Logs.w(e)
                     // tryToShow, not show: this runs on GlobalScope and the
@@ -180,16 +212,18 @@ class AssetsActivity : ThemedActivity() {
         }
 
         fun reloadAssets() {
-            val filesDir = getExternalFilesDir(null) ?: filesDir
-            val files = filesDir.listFiles()
-                ?.filter { it.isFile && it.name.endsWith(".db") && it.name !in assetNames }
+            val assetsDir = app.assetsDir
+            val files = assetsDir.listFiles()?.filter {
+                it.isFile && (it.name.endsWith(".db") || it.name == CA_FILE_NAME) &&
+                        it.name !in assetNames
+            }
 
             layout.refreshLayout.post {
                 // mutate the list on the main thread: this runs on a
                 // background dispatcher while the main thread reads it
                 assets.clear()
-                assets.add(File(filesDir, "geoip.db"))
-                assets.add(File(filesDir, "geosite.db"))
+                assets.add(File(assetsDir, "geoip.db"))
+                assets.add(File(assetsDir, "geosite.db"))
                 if (files != null) assets.addAll(files)
                 notifyDataSetChanged()
             }
@@ -220,9 +254,11 @@ class AssetsActivity : ThemedActivity() {
         }
 
         override fun commit(actions: List<Pair<Int, File>>) {
-            val groups = actions.map { it.second }.toTypedArray()
+            val files = actions.map { it.second }
             runOnDefaultDispatcher {
-                groups.forEach { it.deleteRecursively() }
+                files.forEach { it.deleteRecursively() }
+                // the root store keeps a removed ca.pem until the next process start
+                if (files.any { it.name == CA_FILE_NAME }) onMainDispatcher { needRestart() }
             }
         }
 
@@ -392,6 +428,11 @@ class AssetsActivity : ThemedActivity() {
             adapter.reloadAssets()
         }
     }
+
+    private fun Certificate.toPem(): String =
+        "-----BEGIN CERTIFICATE-----\n" +
+                Base64.encodeToString(encoded, Base64.NO_WRAP).chunked(64).joinToString("\n") +
+                "\n-----END CERTIFICATE-----\n"
 
     private data class RuleAssetsProvider(
         val repoByFileName: Map<String, String>

@@ -2,6 +2,7 @@ package io.nekohasekai.sagernet.ui
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.DialogInterface
 import android.content.Intent
 import android.os.Bundle
@@ -42,6 +43,7 @@ class GroupSettingsActivity(
     // result can land before that
     private var frontProxyPreference: OutboundPreference? = null
     private var landingProxyPreference: OutboundPreference? = null
+    private var subscriptionLinkPreference: EditTextPreference? = null
 
     // A redelivered activity result (process death while the picker was
     // foreground) may run before the async re-init; init() must re-apply
@@ -51,6 +53,9 @@ class GroupSettingsActivity(
 
     @Volatile
     private var pendingLandingProxy: Long? = null
+
+    @Volatile
+    private var pendingSubscriptionLink: String? = null
 
     fun ProxyGroup.init() {
         DataStore.groupName = name ?: ""
@@ -138,6 +143,18 @@ class GroupSettingsActivity(
                     true
                 }
             }
+        }
+
+        subscriptionLinkPreference = findPreference(Key.SUBSCRIPTION_LINK)
+        findPreference<Preference>(Key.SUBSCRIPTION_LINK_FILE)!!.setOnPreferenceClickListener {
+            try {
+                selectSubscriptionFile.launch(arrayOf("*/*"))
+            } catch (_: ActivityNotFoundException) {
+                Toast.makeText(
+                    this@GroupSettingsActivity, R.string.file_manager_missing, Toast.LENGTH_SHORT
+                ).show()
+            }
+            true
         }
 
         val groupType = findPreference<SimpleMenuPreference>(Key.GROUP_TYPE)!!
@@ -263,6 +280,7 @@ class GroupSettingsActivity(
                     DataStore.landingProxy = it
                     DataStore.landingProxyTmp = 3
                 }
+                pendingSubscriptionLink?.let { DataStore.subscriptionLink = it }
 
                 onMainDispatcher {
                     supportFragmentManager.beginTransaction()
@@ -293,7 +311,7 @@ class GroupSettingsActivity(
                 entity.subscription?.subscriptionUserinfo = "";
                 // 链接或类型变了就按新订阅对待：不重置 lastUpdated 的话，
                 // 新链接的首次自动更新会按旧链接的时间点被推迟
-                entity.subscription?.lastUpdated = 0
+                entity.subscription?.lastUpdated = 0L
             }
             GroupManager.updateGroup(
                 entity.apply { serialize() }, preserveSubscriptionRuntime = keepUserInfo
@@ -431,5 +449,27 @@ class GroupSettingsActivity(
         DataStore.landingProxy = it
         DataStore.landingProxyTmp = 3
     }, { landingProxyPreference })
+
+    // A hand-typed content:// URI carries no grant; only a picked document can still
+    // be read after process death (auto-updates run in :bg), hence the persistable grant.
+    val selectSubscriptionFile = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@registerForActivityResult
+        try {
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (e: SecurityException) {
+            // provider without persistable grants: the link still works for this process
+            Logs.w(e)
+        }
+        val link = uri.toString()
+        // pending first, like the profile pickers: a redelivered result may run
+        // before the async re-init, which then re-applies it
+        pendingSubscriptionLink = link
+        DataStore.subscriptionLink = link
+        // null before the fragment is committed on a process-death restore; it
+        // reads the DataStore value when created
+        subscriptionLinkPreference?.text = link
+    }
 
 }

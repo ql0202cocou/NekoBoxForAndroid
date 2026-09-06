@@ -21,7 +21,8 @@ public class SubscriptionBean extends Serializable {
     public String customUserAgent;
     public Boolean autoUpdate;
     public Integer autoUpdateDelay;
-    public Integer lastUpdated;
+    // Long since Kryo version 4 (seconds; the in-place int is kept for older readers)
+    public Long lastUpdated;
 
     // SIP008
 
@@ -31,7 +32,8 @@ public class SubscriptionBean extends Serializable {
     // Open Online Config
 
     public String username;
-    public Integer expiryDate;
+    // Long since Kryo version 3: SIP008 "expire" is often far beyond 2038
+    public Long expiryDate;
     public List<String> protocols;
 
 
@@ -44,7 +46,7 @@ public class SubscriptionBean extends Serializable {
 
     @Override
     public void serializeToBuffer(ByteBufferOutput output) {
-        output.writeInt(2);
+        output.writeInt(4);
 
         output.writeInt(type);
 
@@ -56,13 +58,16 @@ public class SubscriptionBean extends Serializable {
         output.writeString(customUserAgent);
         output.writeBoolean(autoUpdate);
         output.writeInt(autoUpdateDelay);
-        output.writeInt(lastUpdated);
+        // clamped int in place for pre-v4 readers; the exact value follows at the end
+        output.writeInt((int) Math.min(lastUpdated, (long) Integer.MAX_VALUE));
 
         output.writeString(subscriptionUserinfo);
 
         output.writeLong(bytesUsed);
         output.writeLong(bytesRemaining);
-        output.writeInt(expiryDate);
+        output.writeLong(expiryDate);
+        // version 4: appended so a downgrade ignores it as trailing bytes
+        output.writeLong(lastUpdated);
     }
 
     public void serializeForShare(ByteBufferOutput output) {
@@ -90,12 +95,17 @@ public class SubscriptionBean extends Serializable {
         customUserAgent = input.readString();
         autoUpdate = input.readBoolean();
         autoUpdateDelay = input.readInt();
-        lastUpdated = input.readInt();
+        lastUpdated = (long) input.readInt();
         subscriptionUserinfo = input.readString();
         if (version >= 2) {
             bytesUsed = input.readLong();
             bytesRemaining = input.readLong();
-            expiryDate = input.readInt();
+            // downgrade-safe: an older build reads the high 32 bits (0 for any
+            // realistic timestamp) as the int and ignores the trailing 4 bytes
+            expiryDate = version >= 3 ? input.readLong() : (long) input.readInt();
+        }
+        if (version >= 4) {
+            lastUpdated = input.readLong();
         }
     }
 
@@ -121,13 +131,13 @@ public class SubscriptionBean extends Serializable {
         if (customUserAgent == null) customUserAgent = "";
         if (autoUpdate == null) autoUpdate = false;
         if (autoUpdateDelay == null) autoUpdateDelay = 1440;
-        if (lastUpdated == null) lastUpdated = 0;
+        if (lastUpdated == null) lastUpdated = 0L;
 
         if (bytesUsed == null) bytesUsed = 0L;
         if (bytesRemaining == null) bytesRemaining = 0L;
 
         if (username == null) username = "";
-        if (expiryDate == null) expiryDate = 0;
+        if (expiryDate == null) expiryDate = 0L;
         if (protocols == null) protocols = new ArrayList<>();
     }
 

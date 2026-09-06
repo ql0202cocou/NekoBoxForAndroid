@@ -5,7 +5,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 fun parseTrojan(server: String): TrojanBean {
 
-    val link = server.replace("trojan://", "https://").toHttpUrlOrNull()
+    val link = ("https://" + server.substringAfter("://")).toHttpUrlOrNull()
         ?: error("invalid trojan link $server")
 
     return TrojanBean().apply {

@@ -93,7 +93,7 @@ object SubscriptionUpdater {
                 if (subscriptions.isNotEmpty()) for (profile in subscriptions) {
                     val subscription = profile.subscription!!
 
-                    if (((System.currentTimeMillis() / 1000).toInt() - subscription.lastUpdated) < subscription.autoUpdateDelay * 60) {
+                    if ((System.currentTimeMillis() / 1000 - subscription.lastUpdated) < subscription.autoUpdateDelay * 60) {
                         Logs.d("work: not updating " + profile.displayName())
                         continue
                     }

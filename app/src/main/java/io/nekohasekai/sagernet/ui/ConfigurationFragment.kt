@@ -1327,6 +1327,10 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             private val updated = HashSet<ProxyEntity>()
 
+            // every id in group order, unaffected by filter(): the HashMap's key
+            // order used to scramble search results
+            private var allProfileIds: List<Long> = emptyList()
+
             fun filter(name: String) {
                 if (name.isEmpty()) {
                     reloadProfiles()
@@ -1334,11 +1338,12 @@ class ConfigurationFragment @JvmOverloads constructor(
                 }
                 configurationIdList.clear()
                 val lower = name.lowercase()
-                configurationIdList.addAll(configurationList.filter {
-                    it.value.displayName().lowercase().contains(lower) ||
-                            it.value.displayType().lowercase().contains(lower) ||
-                            it.value.displayAddress().lowercase().contains(lower)
-                }.keys)
+                configurationIdList.addAll(allProfileIds.filter { id ->
+                    val profile = configurationList[id] ?: return@filter false
+                    profile.displayName().lowercase().contains(lower) ||
+                            profile.displayType().lowercase().contains(lower) ||
+                            profile.displayAddress().lowercase().contains(lower)
+                })
                 notifyDataSetChanged()
             }
 
@@ -1407,6 +1412,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                     val pos = itemCount
                     configurationList[profile.id] = profile
                     configurationIdList.add(profile.id)
+                    allProfileIds = allProfileIds + profile.id
                     notifyItemInserted(pos)
                 }
             }
@@ -1464,6 +1470,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                 if (groupId != proxyGroup.id) return
 
                 configurationListView.post {
+                    allProfileIds = allProfileIds - profileId
                     val index = configurationIdList.indexOf(profileId)
                     if (index < 0) return@post
                     configurationIdList.removeAt(index)
@@ -1523,6 +1530,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                     configurationList.putAll(newProfiles.associateBy { it.id })
                     configurationIdList.clear()
                     configurationIdList.addAll(newProfileIds)
+                    allProfileIds = newProfileIds
                     notifyDataSetChanged()
 
                     if (selectedProfileIndex != -1) {

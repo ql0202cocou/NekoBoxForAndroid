@@ -88,7 +88,13 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
                 viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
                     try {
                         Libcore.nekoLogClear()
-                        Runtime.getRuntime().exec("/system/bin/logcat -c")
+                        // reap the child: the Process keeps its pipes open until destroyed
+                        val process = Runtime.getRuntime().exec(arrayOf("/system/bin/logcat", "-c"))
+                        try {
+                            process.waitFor()
+                        } finally {
+                            process.destroy()
+                        }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main.immediate) {
                             snackbar(e.readableMessage).show()

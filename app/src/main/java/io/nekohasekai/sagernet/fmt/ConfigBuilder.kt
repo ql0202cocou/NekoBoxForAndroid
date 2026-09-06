@@ -248,6 +248,10 @@ fun buildConfig(
             clash_api = ClashAPIOptions().apply {
                 external_controller = "127.0.0.1:9090"
                 external_ui = "../files/yacd"
+                // without a secret every app on the device can read the connection
+                // list and switch nodes through the loopback port; an exported config
+                // is shared, so it must not carry this install's secret
+                if (!forExport) secret = DataStore.requireClashApiSecret()
             }
         }
 
@@ -399,6 +403,12 @@ fun buildConfig(
                     tagOut = selectorName(entity.requireBean().displayName())
                 }
 
+                // an entry hop built earlier keeps its existing global tag ("proxy"
+                // for the main profile, the display name for a selector member):
+                // resolve it BEFORE the chain rule below, or the previous hop detours
+                // to a g-<id> that is never emitted and sing-box refuses to start
+                // with "dependency[g-N] not found"
+                if (needGlobal) globalOutbounds[proxyEntity.id]?.let { tagOut = it }
 
                 // chain rules
                 if (index > 0) {

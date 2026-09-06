@@ -20,6 +20,7 @@ import io.nekohasekai.sagernet.ktx.string
 import io.nekohasekai.sagernet.ktx.stringToInt
 import io.nekohasekai.sagernet.ktx.stringToIntIfExists
 import moe.matsuri.nb4a.TempDatabase
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
 object DataStore : OnPreferenceDataStoreChangeListener {
@@ -96,6 +97,13 @@ object DataStore : OnPreferenceDataStoreChangeListener {
 
     var appTLSVersion by configurationStore.string(Key.APP_TLS_VERSION)
     var enableClashAPI by configurationStore.boolean(Key.ENABLE_CLASH_API)
+    private var clashApiSecret by configurationStore.string(Key.CLASH_API_SECRET)
+
+    // Generated once per install and shared by :bg (ConfigBuilder) and the main
+    // process (WebviewFragment); bare hex so yacd's query-string parsing keeps it intact
+    fun requireClashApiSecret(): String = clashApiSecret.ifBlank {
+        UUID.randomUUID().toString().replace("-", "").also { clashApiSecret = it }
+    }
     var showBottomBar by configurationStore.boolean(Key.SHOW_BOTTOM_BAR)
 
     var allowInsecureOnRequest by configurationStore.boolean(Key.ALLOW_INSECURE_ON_REQUEST)
@@ -175,7 +183,11 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     // persistent: user-deleted default route rules must not be recreated on process restart
     var rulesFirstCreate by configurationStore.boolean("rulesFirstCreate")
 
-    var yacdURL by configurationStore.string("yacdURL") { "http://127.0.0.1:9090/ui" }
+    // set once SagerNet.migrateLegacyAssets moved the external-storage assets dir
+    var legacyAssetsMigrated by configurationStore.boolean("legacyAssetsMigrated")
+
+    // trailing slash: sing-box's /ui redirect drops the ?secret= query
+    var yacdURL by configurationStore.string("yacdURL") { "http://127.0.0.1:9090/ui/" }
 
     // protocol
 

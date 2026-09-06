@@ -480,7 +480,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                     text += "\n"
                     text += getString(
                         R.string.subscription_expire,
-                        Util.timeStamp2Text(subscription.expiryDate.toLong() * 1000)
+                        Util.timeStamp2Text(subscription.expiryDate * 1000)
                     )
                 }
                 groupTraffic.text = text

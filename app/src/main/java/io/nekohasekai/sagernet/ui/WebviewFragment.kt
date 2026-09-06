@@ -16,6 +16,7 @@ import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.databinding.LayoutWebviewBinding
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import moe.matsuri.nb4a.utils.WebViewUtil
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 // Fragment必须有一个无参public的构造函数，否则在数据恢复的时候，会报crash
 
@@ -57,7 +58,19 @@ class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenu
                 super.onPageFinished(view, url)
             }
         }
-        webView.loadUrl(DataStore.yacdURL)
+        webView.loadUrl(panelUrl())
+    }
+
+    // yacd reads the API secret from the query string. sing-box serves the panel at
+    // /ui/ and its /ui redirect drops the query, so load the slash form directly.
+    private fun panelUrl(): String {
+        val url = DataStore.yacdURL
+        val parsed = url.toHttpUrlOrNull() ?: return url
+        if (parsed.queryParameter("secret") != null) return url
+        return parsed.newBuilder().apply {
+            if (parsed.encodedPath == "/ui") encodedPath("/ui/")
+            addQueryParameter("secret", DataStore.requireClashApiSecret())
+        }.build().toString()
     }
 
     override fun onDestroyView() {
@@ -80,7 +93,7 @@ class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenu
                     .setView(view)
                     .setPositiveButton(android.R.string.ok) { _, _ ->
                         DataStore.yacdURL = view.text.toString()
-                        mWebView?.loadUrl(DataStore.yacdURL)
+                        mWebView?.loadUrl(panelUrl())
                     }
                     .setNegativeButton(android.R.string.cancel, null)
                     .show()

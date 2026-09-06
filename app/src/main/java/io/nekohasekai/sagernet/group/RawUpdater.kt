@@ -28,6 +28,7 @@ import org.ini4j.Ini
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
+import org.yaml.snakeyaml.LoaderOptions
 import org.yaml.snakeyaml.TypeDescription
 import org.yaml.snakeyaml.Yaml
 import org.yaml.snakeyaml.constructor.SafeConstructor
@@ -37,6 +38,11 @@ import androidx.core.net.toUri
 
 @Suppress("EXPERIMENTAL_API_USAGE")
 object RawUpdater : GroupUpdater() {
+
+    // snakeyaml 1.32+ caps a document at 3 MB of code points by default; lift it to
+    // the 32 MB body cap the HTTP client already enforces (libcore maxContentSize).
+    // The nesting-depth and alias limits that stop the crafted-YAML DoS stay default.
+    private fun yamlLoaderOptions() = LoaderOptions().apply { codePointLimit = 32 * 1024 * 1024 }
 
     @SuppressLint("Recycle")
     override suspend fun doUpdate(
@@ -106,7 +112,7 @@ object RawUpdater : GroupUpdater() {
             val used = value("upload") + value("download")
             subscription.bytesUsed = used
             subscription.bytesRemaining = value("total") - used
-            subscription.expiryDate = value("expire").toInt()
+            subscription.expiryDate = value("expire")
         }
 
         // 订阅下发的节点解析 DNS，自动写入分组设置（在 forceResolve 之前生效）。
@@ -291,7 +297,7 @@ object RawUpdater : GroupUpdater() {
                 Logs.e("Exist profiles: $existCount, new profiles: ${proxies.size}")
             }
 
-            subscription.lastUpdated = (System.currentTimeMillis() / 1000).toInt()
+            subscription.lastUpdated = System.currentTimeMillis() / 1000
             // 更新期间用户可能改过分组设置：重新读取当前行，只合并本流程负责写的
             // 字段（远端分组名 / 订阅下发的节点解析 DNS / lastUpdated /
             // subscriptionUserinfo 及流量字段），分组已被删除时（上面的检查之后）跳过写回
@@ -336,7 +342,7 @@ object RawUpdater : GroupUpdater() {
                 // A valid YAML whose root is not a map (plain cast would throw a
                 // ClassCastException out of the YAMLException catch below) falls
                 // back to the base64 / share-link parsing like any non-clash body.
-                val yaml = Yaml(SafeConstructor()).apply {
+                val yaml = Yaml(SafeConstructor(yamlLoaderOptions())).apply {
                     addTypeDescription(TypeDescription(String::class.java, "str"))
                 }.load(text) as? Map<*, *> ?: throw YAMLException("Root node is not a map")
 
@@ -800,10 +806,10 @@ object RawUpdater : GroupUpdater() {
                                         "ip" -> ip = opt.value.toString()
                                         "port" -> bean.serverPort = opt.value.toString().toInt()
 
-                                        "token" -> {
-                                            bean.protocolVersion = 4
-                                            bean.token = opt.value.toString()
-                                        }
+                                        // mihomo treats a "token" node as TUIC v4, which the
+                                        // core dropped; importing it would only fail at connect
+                                        // time, so skip it like an unsupported ss plugin
+                                        "token" -> error("unsupported TUIC v4 (token) node")
 
                                         "uuid" -> bean.uuid = opt.value.toString()
 
@@ -915,7 +921,7 @@ object RawUpdater : GroupUpdater() {
     fun parseProxyServerNameserver(text: String): String? {
         if (!text.contains("proxies:")) return null
         return try {
-            val yaml = Yaml(SafeConstructor()).load(text) as Map<*, *>
+            val yaml = Yaml(SafeConstructor(yamlLoaderOptions())).load(text) as Map<*, *>
             val dns = yaml["dns"] as? Map<*, *>
             listOfNotNull(
                 dns?.get("proxy-server-nameserver"),

@@ -11,6 +11,7 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.os.Build
 import android.os.PowerManager
+import android.os.Process
 import android.os.StrictMode
 import android.os.UserManager
 import androidx.annotation.RequiresApi
@@ -47,7 +48,11 @@ class SagerNet : Application(),
 
     private val nativeInterface = NativeInterface()
 
-    val externalAssets: File by lazy { getExternalFilesDir(null) ?: filesDir }
+    // Replaceable assets (geoip/geosite, rule-set files, ca.pem) live in internal storage.
+    // Releases up to 1.7.3 used getExternalFilesDir(), which any app holding
+    // WRITE_EXTERNAL_STORAGE can write to on Android 10 and below — enough to plant a
+    // trusted CA or swap the routing databases. migrateLegacyAssets moves it over once.
+    val assetsDir: File by lazy { File(filesDir, "assets") }
     val process: String = JavaUtil.getProcessName()
     private val isMainProcess = process == BuildConfig.APPLICATION_ID
     val isBgProcess = process.endsWith(":bg")
@@ -66,13 +71,16 @@ class SagerNet : Application(),
         OkHttp.initialize(this)
 
         if (isMainProcess || isBgProcess) {
-            externalAssets.mkdirs()
+            assetsDir.mkdirs()
+            // before initCore: its asset extraction fills an empty new location from the
+            // APK, and the user's own files must win over that
+            migrateLegacyAssets()
             Seq.setContext(this)
             Libcore.initCore(
                 process,
                 cacheDir.absolutePath + "/",
                 filesDir.absolutePath + "/",
-                externalAssets.absolutePath + "/",
+                assetsDir.absolutePath + "/",
                 DataStore.logBufSize,
                 DataStore.logLevel > 0,
                 nativeInterface, nativeInterface, LocalResolverImpl
@@ -115,6 +123,32 @@ class SagerNet : Application(),
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         updateNotificationChannels()
+    }
+
+    // One-time move of the external assets dir used up to 1.7.3. Both processes run this at
+    // start, so copy through a per-process temp file and rename; the legacy copy
+    // overwrites whatever initCore may have extracted on a start where external storage
+    // was not mounted yet (then the flag stays unset and the move is retried).
+    private fun migrateLegacyAssets() {
+        if (DataStore.legacyAssetsMigrated) return
+        val legacy = getExternalFilesDir(null) ?: return
+        var failed = false
+        for (file in legacy.listFiles { it.isFile } ?: emptyArray()) {
+            try {
+                val tmp = File(assetsDir, "${file.name}.migrating-${Process.myPid()}")
+                file.inputStream().use { input -> tmp.outputStream().use { input.copyTo(it) } }
+                if (!tmp.renameTo(File(assetsDir, file.name))) {
+                    tmp.delete()
+                    error("rename failed")
+                }
+                file.delete()
+            } catch (e: Exception) {
+                // keep the source: the next start retries
+                failed = true
+                Logs.w("migrate asset ${file.name} failed", e)
+            }
+        }
+        if (!failed) DataStore.legacyAssetsMigrated = true
     }
 
     // Kept so WorkManager can initialize itself on demand in :bg, where
