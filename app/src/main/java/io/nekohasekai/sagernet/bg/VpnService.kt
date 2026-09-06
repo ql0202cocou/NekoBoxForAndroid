@@ -71,7 +71,7 @@ class VpnService : BaseVpnService(),
     }
 
     @Suppress("EXPERIMENTAL_API_USAGE")
-    override fun killProcesses() {
+    override suspend fun killProcesses() {
         conn?.closeQuietly()
         conn = null
         super.killProcesses()

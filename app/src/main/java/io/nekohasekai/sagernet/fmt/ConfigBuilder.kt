@@ -52,6 +52,10 @@ const val TAG_BLOCK = "block"
 
 const val LOCALHOST = "127.0.0.1"
 
+// The Clash API endpoint this build serves. The dashboard hands the API secret to this
+// exact host:port and to nothing else, so both sides have to read the same constant.
+const val CLASH_API_LISTEN = "$LOCALHOST:9090"
+
 // Shape of the tags buildConfig generates itself (g-<entryId>, c-<chainId>-…);
 // a user-chosen profile name matching it would collide with one.
 private val GENERATED_TAG_SHAPE = Regex("g-\\d+|c-\\d+.*")
@@ -246,7 +250,7 @@ fun buildConfig(
     return MyOptions().apply {
         if (!forTest && DataStore.enableClashAPI) experimental = ExperimentalOptions().apply {
             clash_api = ClashAPIOptions().apply {
-                external_controller = "127.0.0.1:9090"
+                external_controller = CLASH_API_LISTEN
                 external_ui = "../files/yacd"
                 // without a secret every app on the device can read the connection
                 // list and switch nodes through the loopback port; an exported config

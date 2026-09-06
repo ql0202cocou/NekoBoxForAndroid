@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.snackbar.Snackbar
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.databinding.LayoutAssetItemBinding
 import io.nekohasekai.sagernet.databinding.LayoutAssetsBinding
@@ -99,8 +100,6 @@ class AssetsActivity : ThemedActivity() {
     val assetNames = arrayOf("geoip.db", "geosite.db")
 
     companion object {
-        // the one file name libcore appends to the root store (nb4a.go InitCore)
-        const val CA_FILE_NAME = "ca.pem"
         private val CA_EXTENSIONS = listOf(".pem", ".crt", ".cer")
     }
 
@@ -148,7 +147,9 @@ class AssetsActivity : ThemedActivity() {
 
             runOnDefaultDispatcher {
                 // a custom CA always lands in ca.pem, whatever the picked file was called
-                val outFile = File(assetsDir, if (isCertificate) CA_FILE_NAME else fileName).apply {
+                val outFile = File(
+                    assetsDir, if (isCertificate) SagerNet.CA_FILE_NAME else fileName
+                ).apply {
                     parentFile?.mkdirs()
                 }
                 // copy aside and rename: a failed copy must not leave a truncated
@@ -214,7 +215,7 @@ class AssetsActivity : ThemedActivity() {
         fun reloadAssets() {
             val assetsDir = app.assetsDir
             val files = assetsDir.listFiles()?.filter {
-                it.isFile && (it.name.endsWith(".db") || it.name == CA_FILE_NAME) &&
+                it.isFile && (it.name.endsWith(".db") || it.name == SagerNet.CA_FILE_NAME) &&
                         it.name !in assetNames
             }
 
@@ -258,7 +259,9 @@ class AssetsActivity : ThemedActivity() {
             runOnDefaultDispatcher {
                 files.forEach { it.deleteRecursively() }
                 // the root store keeps a removed ca.pem until the next process start
-                if (files.any { it.name == CA_FILE_NAME }) onMainDispatcher { needRestart() }
+                if (files.any { it.name == SagerNet.CA_FILE_NAME }) {
+                    onMainDispatcher { needRestart() }
+                }
             }
         }
 

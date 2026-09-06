@@ -35,36 +35,30 @@ class TrafficLooper
     private val tagMap = ConcurrentHashMap<String, TrafficUpdater.TrafficLooperData>() // tag to 1 data
 
     suspend fun stop() {
-        // both ProxyInstance.launch's post-close recheck and close() can end
-        // up calling stop(); persist and broadcast only once
-        if (!stopped.compareAndSet(false, true)) return
-        // wait for the loop to finish so no in-flight queryStats hits a closed box
+        if (stopLoop()) postFinalTraffic()
+    }
+
+    // Cancel the loop, and only that: an in-flight queryStats needs a live box, so this
+    // is the one part the teardown has to await before closing it. Both
+    // ProxyInstance.launch's post-close recheck and BaseService.killProcesses can get
+    // here; true goes to the caller that actually stopped it, which then owns the final
+    // post below.
+    suspend fun stopLoop(): Boolean {
+        if (!stopped.compareAndSet(false, true)) return false
         job?.cancelAndJoin()
-        // finally traffic post
+        return true
+    }
+
+    // Final counters and UI post. Reads in-memory state and writes the DB, so it needs
+    // no live box and must not sit between the loop and box.close().
+    suspend fun postFinalTraffic() {
         if (!DataStore.profileTrafficStatistics) return
-        val traffic = mutableMapOf<Long, TrafficData>()
-        withContext(Dispatchers.IO) {
-            val updated = mutableListOf<ProxyEntity>()
-            data.proxy?.config?.trafficMap?.forEach { (_, ents) ->
-                for (ent in ents) {
-                    // only skip this ent, not the rest of the tag's entries
-                    val item = idMap[ent.id] ?: continue
-                    ent.rx = item.rx
-                    ent.tx = item.tx
-                    updated.add(ent)
-                    traffic[ent.id] = TrafficData(
-                        id = ent.id,
-                        rx = ent.rx,
-                        tx = ent.tx,
-                    )
-                }
-            }
-            // one write, not one per profile: close() waits for this on the main thread
-            ProfileManager.updateTraffic(updated) // update DB
-        }
+        // one entity per id: two chains can carry the same profile under different tags
+        val traffic = flushStats().distinctBy { it.id }
+            .map { TrafficData(id = it.id, rx = it.rx, tx = it.tx) }
         data.binder.broadcast { b ->
             for (t in traffic) {
-                b.cbTrafficUpdate(t.value)
+                b.cbTrafficUpdate(t)
             }
         }
         Logs.d("finally traffic post done")
@@ -76,18 +70,23 @@ class TrafficLooper
     // losing it all.
     suspend fun persistStats() {
         if (!DataStore.profileTrafficStatistics) return
-        withContext(Dispatchers.IO) {
-            val updated = mutableListOf<ProxyEntity>()
-            data.proxy?.config?.trafficMap?.forEach { (_, ents) ->
-                for (ent in ents) {
-                    val item = idMap[ent.id] ?: continue
-                    ent.rx = item.rx
-                    ent.tx = item.tx
-                    updated.add(ent)
-                }
+        flushStats()
+    }
+
+    // copy the live counters onto the entities and write them all in one transaction
+    private suspend fun flushStats(): List<ProxyEntity> = withContext(Dispatchers.IO) {
+        val updated = mutableListOf<ProxyEntity>()
+        data.proxy?.config?.trafficMap?.forEach { (_, ents) ->
+            for (ent in ents) {
+                // only skip this ent, not the rest of the tag's entries
+                val item = idMap[ent.id] ?: continue
+                ent.rx = item.rx
+                ent.tx = item.tx
+                updated.add(ent)
             }
-            ProfileManager.updateTraffic(updated) // update DB
         }
+        ProfileManager.updateTraffic(updated) // update DB
+        updated
     }
 
     fun start() {

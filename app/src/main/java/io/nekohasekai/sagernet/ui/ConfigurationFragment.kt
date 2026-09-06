@@ -1235,7 +1235,9 @@ class ConfigurationFragment @JvmOverloads constructor(
                     override fun getDragDirs(
                         recyclerView: RecyclerView,
                         viewHolder: RecyclerView.ViewHolder,
-                    ) = if (isEnabled) super.getDragDirs(recyclerView, viewHolder) else 0
+                    ) = if (isEnabled && adapter?.isFiltered != true) {
+                        super.getDragDirs(recyclerView, viewHolder)
+                    } else 0
 
                     override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                     }
@@ -1329,7 +1331,13 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             // every id in group order, unaffected by filter(): the HashMap's key
             // order used to scramble search results
-            private var allProfileIds: List<Long> = emptyList()
+            private val allProfileIds = mutableListOf<Long>()
+
+            // Derived, not tracked: the visible list is always a subsequence of
+            // allProfileIds, so a shorter one means a filter is hiding rows and its
+            // positions no longer map to the search source. Dragging is disabled while
+            // that holds (getDragDirs), which keeps move() in a single index space.
+            val isFiltered get() = configurationIdList.size != allProfileIds.size
 
             fun filter(name: String) {
                 if (name.isEmpty()) {
@@ -1347,9 +1355,10 @@ class ConfigurationFragment @JvmOverloads constructor(
                 notifyDataSetChanged()
             }
 
+            // dragging is disabled while filtering, so the visible list and the search
+            // source share indices here and both can be permuted in one pass
             fun move(from: Int, to: Int) {
                 val first = getItemAt(from) ?: return
-                val targetId = configurationIdList[to]
                 var previousOrder = first.userOrder
                 val (step, range) = if (from < to) Pair(1, from until to) else Pair(
                     -1, from downTo to + 1
@@ -1360,26 +1369,14 @@ class ConfigurationFragment @JvmOverloads constructor(
                     next.userOrder = previousOrder
                     previousOrder = order
                     configurationIdList[i] = next.id
+                    allProfileIds[i] = next.id
                     updated.add(next)
                 }
                 first.userOrder = previousOrder
                 configurationIdList[to] = first.id
+                allProfileIds[to] = first.id
                 updated.add(first)
                 notifyItemMoved(from, to)
-                moveInAllProfileIds(first.id, targetId, from < to)
-            }
-
-            // filter() renders from allProfileIds, so a drag has to reorder it too or
-            // the search results keep the pre-drag order. By id, not by index: while a
-            // filter is active configurationIdList holds only the matching subset and
-            // its positions do not map to the full list.
-            private fun moveInAllProfileIds(id: Long, targetId: Long, down: Boolean) {
-                val ids = allProfileIds.toMutableList()
-                if (!ids.remove(id)) return
-                val target = ids.indexOf(targetId)
-                if (target < 0) return
-                ids.add(if (down) target + 1 else target, id)
-                allProfileIds = ids
             }
 
             fun commitMove() {
@@ -1396,7 +1393,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                 if (pos < 0) return
                 // drop it from the search source as well: until the undo snackbar
                 // commits the deletion, filter() would still surface the removed profile
-                allProfileIds = allProfileIds - configurationIdList[pos]
+                allProfileIds.remove(configurationIdList[pos])
                 configurationIdList.removeAt(pos)
                 notifyItemRemoved(pos)
             }
@@ -1406,10 +1403,15 @@ class ConfigurationFragment @JvmOverloads constructor(
                     configurationListView.post {
                         configurationList[item.id] = item
                         configurationIdList.add(index, item.id)
-                        // back into the search source too; index is a position in the
-                        // visible list, which is a subset while a filter is active
-                        allProfileIds = allProfileIds.toMutableList()
-                            .apply { add(index.coerceAtMost(size), item.id) }
+                        // back into the search source, anchored on the row it was
+                        // restored above: deleting is allowed while filtering, and
+                        // `index` is then a visible position the full list has never
+                        // shared
+                        val anchor = configurationIdList.getOrNull(index + 1)
+                        allProfileIds.add(
+                            anchor?.let { allProfileIds.indexOf(it) }?.takeIf { it >= 0 }
+                                ?: allProfileIds.size, item.id
+                        )
                         notifyItemInserted(index)
                     }
                 }
@@ -1434,7 +1436,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                     val pos = itemCount
                     configurationList[profile.id] = profile
                     configurationIdList.add(profile.id)
-                    allProfileIds = allProfileIds + profile.id
+                    allProfileIds.add(profile.id)
                     notifyItemInserted(pos)
                 }
             }
@@ -1492,7 +1494,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                 if (groupId != proxyGroup.id) return
 
                 configurationListView.post {
-                    allProfileIds = allProfileIds - profileId
+                    allProfileIds.remove(profileId)
                     val index = configurationIdList.indexOf(profileId)
                     if (index < 0) return@post
                     configurationIdList.removeAt(index)
@@ -1552,7 +1554,8 @@ class ConfigurationFragment @JvmOverloads constructor(
                     configurationList.putAll(newProfiles.associateBy { it.id })
                     configurationIdList.clear()
                     configurationIdList.addAll(newProfileIds)
-                    allProfileIds = newProfileIds
+                    allProfileIds.clear()
+                    allProfileIds.addAll(newProfileIds)
                     notifyDataSetChanged()
 
                     if (selectedProfileIndex != -1) {

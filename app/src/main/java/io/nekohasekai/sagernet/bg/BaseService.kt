@@ -274,8 +274,14 @@ class BaseService {
             else startService(Intent(this, javaClass))
         }
 
-        fun killProcesses() {
+        suspend fun killProcesses() {
+            // only the loop has to stop before the box does — its queryStats needs a
+            // live box. The final counters and broadcast touch neither, so they run
+            // after the close instead of holding up the teardown.
+            val looper = data.proxy?.looper
+            val postFinalTraffic = looper?.stopLoop() == true
             data.proxy?.close()
+            if (postFinalTraffic) looper?.postFinalTraffic()
             wakeLock?.apply {
                 release()
                 wakeLock = null

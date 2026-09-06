@@ -6,7 +6,6 @@ import io.nekohasekai.sagernet.bg.ServiceNotification
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
-import kotlinx.coroutines.runBlocking
 import moe.matsuri.nb4a.utils.JavaUtil
 import moe.matsuri.nb4a.utils.Util
 
@@ -73,18 +72,12 @@ class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = 
     }
 
     override fun close() {
-        // stop the looper first: its in-flight queryStats needs a live box. This
-        // blocks the caller, which is :bg's main thread (stopRunner -> killProcesses),
-        // so the wait has to stay bounded: one stats sweep to cancel the loop, then a
-        // single transaction for the final counters and a oneway binder broadcast.
-        try {
-            runBlocking {
-                looper?.stop()
-            }
-        } finally {
-            looper = null
-            super.close()
-        }
+        // The looper is cancelled by BaseService.killProcesses before this runs: its
+        // in-flight queryStats needs a live box, and close() cannot suspend to wait for
+        // one. Blocking here instead would park :bg's main thread on a stats sweep that
+        // cancellation cannot interrupt once it is inside its JNI calls.
+        looper = null
+        super.close()
     }
 
 }

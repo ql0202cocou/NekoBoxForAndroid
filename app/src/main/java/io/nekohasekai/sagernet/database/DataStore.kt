@@ -16,6 +16,7 @@ import io.nekohasekai.sagernet.ktx.boolean
 import io.nekohasekai.sagernet.ktx.int
 import io.nekohasekai.sagernet.ktx.long
 import io.nekohasekai.sagernet.ktx.parsePort
+import io.nekohasekai.sagernet.fmt.CLASH_API_LISTEN
 import io.nekohasekai.sagernet.ktx.string
 import io.nekohasekai.sagernet.ktx.stringToInt
 import io.nekohasekai.sagernet.ktx.stringToIntIfExists
@@ -187,7 +188,7 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var legacyAssetsMigrated by configurationStore.boolean("legacyAssetsMigrated")
 
     // trailing slash: sing-box's /ui redirect drops the ?secret= query
-    var yacdURL by configurationStore.string("yacdURL") { "http://127.0.0.1:9090/ui/" }
+    var yacdURL by configurationStore.string("yacdURL") { "http://$CLASH_API_LISTEN/ui/" }
 
     // protocol
 
