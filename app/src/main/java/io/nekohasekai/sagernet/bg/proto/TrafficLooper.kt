@@ -27,6 +27,9 @@ class TrafficLooper
     val data: BaseService.Data, private val sc: CoroutineScope
 ) {
 
+    // written by start() on the Default dispatcher, read by stopLoop() on main;
+    // the stopped CAS alone gives that read no happens-before
+    @Volatile
     private var job: Job? = null
     private val stopped = AtomicBoolean(false)
     // loop() fills these (under statsLock) while selectMain() (via

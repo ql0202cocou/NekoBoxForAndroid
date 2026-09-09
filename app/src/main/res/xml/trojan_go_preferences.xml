@@ -34,7 +34,7 @@
             app:summary="@string/allow_insecure_sum"
             app:title="@string/allow_insecure" />
         <moe.matsuri.nb4a.ui.SimpleMenuPreference
-            app:defaultValue="none"
+            app:defaultValue="original"
             app:entries="@array/trojan_go_networks_entry"
             app:entryValues="@array/trojan_go_networks_value"
             app:icon="@drawable/ic_baseline_compare_arrows_24"
@@ -42,6 +42,7 @@
             app:title="@string/network"
             app:useSimpleSummaryProvider="true" />
         <moe.matsuri.nb4a.ui.SimpleMenuPreference
+            app:defaultValue="none"
             app:entries="@array/trojan_go_security_entry"
             app:entryValues="@array/trojan_go_security_value"
             app:icon="@drawable/ic_baseline_layers_24"

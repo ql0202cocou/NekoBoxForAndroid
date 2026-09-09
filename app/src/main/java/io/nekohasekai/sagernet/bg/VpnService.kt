@@ -91,52 +91,65 @@ class VpnService : BaseVpnService(),
     // silently dropped by the system — no SecurityException to handle
     @SuppressLint("MissingPermission")
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (DataStore.serviceMode == Key.MODE_VPN) {
-            if (prepare(this) != null) {
-                // VPN permission was revoked; starting an activity from the
-                // background is silently blocked since Android 10, so ask
-                // via a notification instead.
-                val request = NotificationCompat.Builder(this, "service-vpn-request")
-                    .setContentTitle(getString(R.string.service_vpn))
-                    .setContentText(getString(R.string.vpn_permission_required))
-                    .setContentIntent(
-                        PendingIntent.getActivity(
-                            this,
-                            0,
-                            Intent(this, VpnRequestActivity::class.java),
-                            ServiceNotification.flags
-                        )
-                    )
-                    .setSmallIcon(R.drawable.ic_service_active)
-                    .setAutoCancel(true)
-                    .build()
-                // Started via startForegroundService(): not calling startForeground()
-                // gets :bg ANR-killed, and the stopRunner() below does not clear that
-                // while an activity still holds a binding. Post the request as the
-                // foreground notification, then detach it so it outlives us.
-                try {
-                    if (Build.VERSION.SDK_INT >= 34) {
-                        startForeground(
-                            NOTIFICATION_ID_VPN_REQUEST,
-                            request,
-                            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
-                        )
-                    } else {
-                        startForeground(NOTIFICATION_ID_VPN_REQUEST, request)
-                    }
-                    ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_DETACH)
-                } catch (e: Exception) {
-                    Logs.w(e)
-                    NotificationManagerCompat.from(this).notify(
-                        NOTIFICATION_ID_VPN_REQUEST, request
-                    )
-                }
-            } else return super<BaseService.Interface>.onStartCommand(intent, flags, startId)
+        val vpnMode = DataStore.serviceMode == Key.MODE_VPN
+        if (vpnMode && prepare(this) == null) {
+            return super<BaseService.Interface>.onStartCommand(intent, flags, startId)
         }
-        // Reaching here means the VPN cannot run: permission was revoked
-        // (request notification posted above) or the service was started
-        // while not in VPN mode. Log it — this stop is silent otherwise.
+        // Reaching here means the VPN cannot run: permission was revoked, or the
+        // service was started while not in VPN mode (a restart racing a mode
+        // switch). Log it — this stop is silent otherwise.
         Logs.w("VpnService cannot run (mode=${DataStore.serviceMode}), stopping")
+        val notification = if (vpnMode) {
+            // VPN permission was revoked; starting an activity from the
+            // background is silently blocked since Android 10, so ask
+            // via a notification instead.
+            NotificationCompat.Builder(this, "service-vpn-request")
+                .setContentTitle(getString(R.string.service_vpn))
+                .setContentText(getString(R.string.vpn_permission_required))
+                .setContentIntent(
+                    PendingIntent.getActivity(
+                        this,
+                        0,
+                        Intent(this, VpnRequestActivity::class.java),
+                        ServiceNotification.flags
+                    )
+                )
+                .setSmallIcon(R.drawable.ic_service_active)
+                .setAutoCancel(true)
+                .build()
+        } else {
+            // placeholder, removed again below
+            NotificationCompat.Builder(this, "service-vpn")
+                .setContentTitle(getString(R.string.service_vpn))
+                .setSmallIcon(R.drawable.ic_service_active)
+                .build()
+        }
+        // Started via startForegroundService(): not calling startForeground()
+        // gets :bg killed at the stopSelf() of the stopRunner() below, and an
+        // activity still holding a binding does not clear that. Post the request
+        // as the foreground notification, then detach it so it outlives us; the
+        // placeholder is removed instead. specialUse, not systemExempted: the
+        // VPN app-op may be missing here.
+        try {
+            if (Build.VERSION.SDK_INT >= 34) {
+                startForeground(
+                    NOTIFICATION_ID_VPN_REQUEST,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
+                )
+            } else {
+                startForeground(NOTIFICATION_ID_VPN_REQUEST, notification)
+            }
+            ServiceCompat.stopForeground(
+                this,
+                if (vpnMode) ServiceCompat.STOP_FOREGROUND_DETACH else ServiceCompat.STOP_FOREGROUND_REMOVE
+            )
+        } catch (e: Exception) {
+            Logs.w(e)
+            if (vpnMode) NotificationManagerCompat.from(this).notify(
+                NOTIFICATION_ID_VPN_REQUEST, notification
+            )
+        }
         stopRunner()
         return Service.START_NOT_STICKY
     }

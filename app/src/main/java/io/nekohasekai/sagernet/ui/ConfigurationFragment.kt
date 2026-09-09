@@ -300,10 +300,12 @@ class ConfigurationFragment @JvmOverloads constructor(
 
     private val importFile =
         registerForActivityResult(ActivityResultContracts.GetContent()) { file ->
+            // GlobalScope: the import outlives this fragment, so go through the app
+            // context and report only while still attached
             if (file != null) runOnDefaultDispatcher {
                 try {
                     val fileName =
-                        requireContext().contentResolver.query(file, null, null, null, null)
+                        app.contentResolver.query(file, null, null, null, null)
                             ?.use { cursor ->
                                 cursor.moveToFirst()
                                 cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME)
@@ -314,7 +316,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                         // try parse wireguard zip
                         // use(): a throwing parseRaw used to leak the fd
                         ZipInputStream(
-                            requireContext().contentResolver.openInputStream(file)!!
+                            app.contentResolver.openInputStream(file)!!
                         ).use { zip ->
                             while (true) {
                                 val entry = zip.nextEntry ?: break
@@ -327,21 +329,21 @@ class ConfigurationFragment @JvmOverloads constructor(
                         }
                     } else {
                         val fileText =
-                            requireContext().contentResolver.openInputStream(file)!!.use {
+                            app.contentResolver.openInputStream(file)!!.use {
                                 it.bufferedReader().readText()
                             }
                         RawUpdater.parseRaw(fileText, fileName ?: "")
                             ?.let { pl -> proxies.addAll(pl) }
                     }
                     if (proxies.isEmpty()) onMainDispatcher {
-                        snackbar(getString(R.string.no_proxies_found_in_file)).show()
+                        if (isAdded) snackbar(R.string.no_proxies_found_in_file).show()
                     } else import(proxies)
                 } catch (e: SubscriptionFoundException) {
                     (activity as? MainActivity)?.importSubscription(e.link.toUri())
                 } catch (e: Exception) {
                     Logs.w(e)
                     onMainDispatcher {
-                        snackbar(e.readableMessage).show()
+                        if (isAdded) snackbar(e.readableMessage).show()
                     }
                 }
             }
@@ -354,10 +356,9 @@ class ConfigurationFragment @JvmOverloads constructor(
         }
         onMainDispatcher {
             DataStore.editingGroup = targetId
-            snackbar(
-                requireContext().resources.getQuantityString(
-                    R.plurals.added, proxies.size, proxies.size
-                )
+            // GlobalScope caller: the fragment may be gone by now
+            if (isAdded) snackbar(
+                app.resources.getQuantityString(R.plurals.added, proxies.size, proxies.size)
             ).show()
         }
 
@@ -377,7 +378,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                     try {
                         val proxies = RawUpdater.parseRaw(text)
                         if (proxies.isNullOrEmpty()) onMainDispatcher {
-                            snackbar(getString(R.string.no_proxies_found_in_clipboard)).show()
+                            if (isAdded) snackbar(R.string.no_proxies_found_in_clipboard).show()
                         } else import(proxies)
                     } catch (e: SubscriptionFoundException) {
                         (activity as? MainActivity)?.importSubscription(e.link.toUri())
@@ -385,7 +386,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                         Logs.w(e)
 
                         onMainDispatcher {
-                            snackbar(e.readableMessage).show()
+                            if (isAdded) snackbar(e.readableMessage).show()
                         }
                     }
                 }

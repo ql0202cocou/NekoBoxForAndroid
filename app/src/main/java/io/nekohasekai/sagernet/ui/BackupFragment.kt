@@ -90,6 +90,9 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
             viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
                 val backup = doBackup(profile, rule, setting)
                 app.cacheDir.mkdirs()
+                // each share leaves a file holding every credential behind: keep only this one
+                app.cacheDir.listFiles { f -> f.name.startsWith("nekobox_backup_") }
+                    ?.forEach { it.delete() }
                 val cacheFile = File(
                     app.cacheDir,
                     "nekobox_backup_${SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())}.json"

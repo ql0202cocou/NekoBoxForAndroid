@@ -272,7 +272,7 @@
     </string-array>
 
     <string-array name="trojan_go_networks_value">
-        <item>none</item>
+        <item>original</item>
         <item>ws</item>
     </string-array>
 

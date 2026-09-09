@@ -21,6 +21,9 @@ class AppListPreference : Preference {
     ) : super(context, attrs, defStyleAttr, defStyleRes)
 
     override fun getSummary(): CharSequence {
+        // the cache fills asynchronously at app start; a restored route editor
+        // can bind this preference before it is there
+        PackageCache.awaitLoadSync()
         val packages = DataStore.routePackages.split("\n").filter { it.isNotBlank() }.map {
             PackageCache.installedPackages[it]?.applicationInfo?.loadLabel(app.packageManager)
                 ?: PackageCache.installedPluginPackages[it]?.applicationInfo?.loadLabel(app.packageManager)

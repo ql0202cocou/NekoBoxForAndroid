@@ -207,8 +207,12 @@ class GroupSettingsActivity(
         override fun AlertDialog.Builder.prepare(listener: DialogInterface.OnClickListener) {
             setTitle(R.string.unsaved_changes_prompt)
             setPositiveButton(R.string.yes) { _, _ ->
+                // resolve on the main thread: the dialog is detached right after
+                // this click, and requireActivity() on the Default dispatcher
+                // would race it
+                val activity = requireActivity() as GroupSettingsActivity
                 runOnDefaultDispatcher {
-                    (requireActivity() as GroupSettingsActivity).saveAndExit()
+                    activity.saveAndExit()
                 }
             }
             setNegativeButton(R.string.no) { _, _ ->
@@ -322,7 +326,9 @@ class GroupSettingsActivity(
 
     }
 
-    val child by lazy { supportFragmentManager.findFragmentById(R.id.settings) as? MyPreferenceFragmentCompat }
+    // a getter, not lazy: the fragment is committed after an async DB read, and a
+    // menu click before that would cache null for good
+    val child get() = supportFragmentManager.findFragmentById(R.id.settings) as? MyPreferenceFragmentCompat
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.profile_config_menu, menu)

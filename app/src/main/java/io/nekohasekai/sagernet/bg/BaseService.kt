@@ -174,8 +174,11 @@ class BaseService {
         }
 
         override fun urlTest(): Int {
-            // close() nulls data on the main thread while this runs on a binder thread
-            val box = data?.proxy?.box ?: error("core not started")
+            // close() nulls data on the main thread while this runs on a binder
+            // thread; box is lateinit, and a restart in progress has data.proxy
+            // set before loadConfig() assigns it
+            val box = data?.proxy?.takeIf { it.isInitialized() }?.box
+                ?: error("core not started")
             try {
                 return Libcore.urlTest(
                     box, DataStore.connectionTestURL, 3000
@@ -299,8 +302,6 @@ class BaseService {
             DataStore.vpnService = null
 
             if (data.state == State.Stopping) return
-            data.notification?.destroy()
-            data.notification = null
             this as Service
 
             data.changeState(State.Stopping)
@@ -317,6 +318,13 @@ class BaseService {
                     }
                     data.proxy = null
                 }
+                // Stay in the foreground until here: a start arriving while
+                // Stopping is dropped by onStartCommand, and with the
+                // notification already gone that startForegroundService() would
+                // have no startForeground() to pair with — the platform kills
+                // :bg for it at the stopSelf() below.
+                data.notification?.destroy()
+                data.notification = null
 
                 // change the state
                 data.changeState(State.Stopped, msg)

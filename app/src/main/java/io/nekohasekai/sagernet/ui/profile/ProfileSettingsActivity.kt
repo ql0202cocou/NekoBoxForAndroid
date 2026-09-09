@@ -58,8 +58,12 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         override fun AlertDialog.Builder.prepare(listener: DialogInterface.OnClickListener) {
             setTitle(R.string.unsaved_changes_prompt)
             setPositiveButton(R.string.yes) { _, _ ->
+                // resolve on the main thread: the dialog is detached right after
+                // this click, and requireActivity() on the Default dispatcher
+                // would race it
+                val activity = requireActivity() as ProfileSettingsActivity<*>
                 runOnDefaultDispatcher {
-                    (requireActivity() as ProfileSettingsActivity<*>).saveAndExit()
+                    activity.saveAndExit()
                 }
             }
             setNegativeButton(R.string.no) { _, _ ->
@@ -96,6 +100,11 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
     val proxyEntity by lazy { SagerDatabase.proxyDao.getById(DataStore.editingId) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Before super.onCreate(): a restored MyPreferenceFragmentCompat runs
+        // createPreferences() from there, and the StandardV2Ray editor reads the
+        // lazy proxyEntity in it — with the in-memory cache gone after process
+        // death editingId would still be 0 and null would be cached for good.
+        DataStore.editingId = intent.getLongExtra(EXTRA_PROFILE_ID, 0L)
         super.onCreate(savedInstanceState)
         setSupportActionBar(findViewById(R.id.toolbar))
         supportActionBar?.apply {
@@ -174,7 +183,10 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
     }
 
-    val child by lazy { supportFragmentManager.findFragmentById(R.id.settings) as? MyPreferenceFragmentCompat }
+    // a getter, not lazy: the fragment is committed after an async DB read, and a
+    // menu click before that would cache null (or, after process death, the
+    // restored fragment that init() then replaces) for good
+    val child get() = supportFragmentManager.findFragmentById(R.id.settings) as? MyPreferenceFragmentCompat
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.profile_config_menu, menu)
@@ -313,7 +325,10 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             R.id.action_custom_outbound_json -> {
                 activity?.proxyEntity?.apply {
                     val bean = requireBean()
+                    // seeding the editor is not an edit: keep dirty as it was
+                    val dirty = DataStore.dirty
                     DataStore.serverCustomOutbound = bean.customOutboundJson
+                    DataStore.dirty = dirty
                     callbackCustomOutbound = { bean.customOutboundJson = it }
                     resultCallbackCustomOutbound.launch(
                         Intent(
@@ -329,7 +344,9 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             R.id.action_custom_config_json -> {
                 activity?.proxyEntity?.apply {
                     val bean = requireBean()
+                    val dirty = DataStore.dirty
                     DataStore.serverCustom = bean.customConfigJson
+                    DataStore.dirty = dirty
                     callbackCustom = { bean.customConfigJson = it }
                     resultCallbackCustom.launch(
                         Intent(

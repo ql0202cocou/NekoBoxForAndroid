@@ -2,6 +2,7 @@ package io.nekohasekai.sagernet.ktx
 
 import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -17,11 +18,14 @@ fun Context.alert(text: String): AlertDialog {
 fun Fragment.alert(text: String) = requireContext().alert(text)
 
 fun AlertDialog.tryToShow() {
+    // Dialog wraps the context it was given in a ContextThemeWrapper: unwrap to
+    // the hosting Activity before asking whether it is still alive (a plain
+    // `context as Activity` threw here and the dialog never showed)
+    val activity = generateSequence(context) { (it as? ContextWrapper)?.baseContext }
+        .filterIsInstance<Activity>().firstOrNull()
+    if (activity != null && (activity.isFinishing || activity.isDestroyed)) return
     try {
-        val activity = context as Activity
-        if (!activity.isFinishing) {
-            show()
-        }
+        show()
     } catch (e: Exception) {
         Logs.e(e)
     }

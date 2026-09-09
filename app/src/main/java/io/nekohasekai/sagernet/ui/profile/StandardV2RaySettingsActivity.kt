@@ -105,6 +105,8 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
         (uuid.preference as EditTextPreference).bindPasswordPreference()
 
         type.preference.isVisible = !isHttp
+        // ProxyEntity.singMux() builds multiplex for VMess/Trojan only
+        findPreference<PreferenceCategory>(Key.SERVER_MUX_CATEGORY)!!.isVisible = !isHttp
         uuid.preference.isVisible = !isHttp
         packetEncoding.preference.isVisible = isVmess || isVless
         alterId.preference.isVisible = isVmess

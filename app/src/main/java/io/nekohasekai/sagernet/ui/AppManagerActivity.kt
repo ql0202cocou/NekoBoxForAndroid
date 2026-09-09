@@ -2,6 +2,7 @@ package io.nekohasekai.sagernet.ui
 
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.os.Bundle
@@ -49,8 +50,13 @@ class AppManagerActivity : ThemedActivity() {
         private const val SWITCH = "switch"
 
         private val cachedApps
-            get() = PackageCache.installedPackages.toMutableMap().apply {
-                remove(BuildConfig.APPLICATION_ID)
+            get(): MutableMap<String, PackageInfo> {
+                // register() runs asynchronously at app start; a cold restore
+                // straight into this activity can get here before it finished
+                PackageCache.awaitLoadSync()
+                return PackageCache.installedPackages.toMutableMap().apply {
+                    remove(BuildConfig.APPLICATION_ID)
+                }
             }
     }
 

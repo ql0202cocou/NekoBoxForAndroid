@@ -262,8 +262,10 @@ abstract class BoxInstance(
             deleteCacheFiles()
         }
 
+        // gomobile turns a Go-side error (DeferPanicToError) into an exception;
+        // uncaught in stopRunner's coroutine it would crash :bg mid-teardown
         if (::box.isInitialized) {
-            box.close()
+            runCatching { box.close() }.onFailure { Logs.w(it) }
         }
     }
 

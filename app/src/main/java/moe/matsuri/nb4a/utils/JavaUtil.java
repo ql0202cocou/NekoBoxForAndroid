@@ -71,8 +71,9 @@ public class JavaUtil {
 
     @RequiresApi(api = Build.VERSION_CODES.P)
     private static void tryLockOrRecreateFile(File file) {
-        try {
-            FileLock tryLock = new RandomAccessFile(file, "rw").getChannel().tryLock();
+        // try-with-resources: the RandomAccessFile used to stay open until the finalizer
+        try (RandomAccessFile raf = new RandomAccessFile(file, "rw")) {
+            FileLock tryLock = raf.getChannel().tryLock();
             if (tryLock != null) {
                 tryLock.close();
             } else {

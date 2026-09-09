@@ -100,6 +100,7 @@ object Key {
     const val SERVER_TLS_CAMOUFLAGE_CATEGORY = "serverTlsCamouflageCategory"
     const val SERVER_ECH_CATEORY = "serverECHCategory"
     const val SERVER_WS_CATEGORY = "serverWsCategory"
+    const val SERVER_MUX_CATEGORY = "serverMuxCategory"
     const val SERVER_SS_CATEGORY = "serverSsCategory"
     const val SERVER_HEADERS = "serverHeaders"
     const val SERVER_ALLOW_INSECURE = "serverAllowInsecure"

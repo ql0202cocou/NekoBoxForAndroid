@@ -285,7 +285,7 @@ class AssetsActivity : ThemedActivity() {
                     try {
                         versionFile.readText().trim()
                     } catch (e: Throwable) {
-                        snackbar(e.readableMessage)
+                        snackbar(e.readableMessage).show()
                         "<unknown>"
                     }
                 } else {

@@ -78,13 +78,16 @@ abstract class ThemedActivity : AppCompatActivity {
     internal open fun snackbarInternal(text: CharSequence): Snackbar = throw NotImplementedError()
 
     override fun onSupportNavigateUp(): Boolean {
-        if (!super.onSupportNavigateUp()) finish()
+        // the toolbar X takes the back path, so guardUnsavedChanges covers it too;
+        // without a guard the dispatcher's fallback just finishes
+        if (!super.onSupportNavigateUp()) onBackPressedDispatcher.onBackPressed()
         return true
     }
 
     /**
-     * Guard the back gesture when there are unsaved edits. Predictive back routes through
-     * [onBackPressedDispatcher] and skips `onBackPressed()` overrides, so register here instead.
+     * Guard the back gesture and the toolbar X when there are unsaved edits. Predictive back
+     * routes through [onBackPressedDispatcher] and skips `onBackPressed()` overrides, so
+     * register here instead; [onSupportNavigateUp] feeds the X into the same dispatcher.
      */
     protected fun guardUnsavedChanges(isDirty: () -> Boolean, dialog: () -> DialogFragment) {
         onBackPressedDispatcher.addCallback(this) {

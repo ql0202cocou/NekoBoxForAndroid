@@ -2,6 +2,7 @@ package io.nekohasekai.sagernet.ui
 
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.os.Bundle
@@ -46,8 +47,13 @@ class AppListActivity : ThemedActivity() {
         private const val SYS_APPS = "sys_apps"
 
         private val cachedApps
-            get() = PackageCache.installedPackages.toMutableMap().apply {
-                remove(BuildConfig.APPLICATION_ID)
+            get(): MutableMap<String, PackageInfo> {
+                // register() runs asynchronously at app start; a cold restore
+                // straight into this activity can get here before it finished
+                PackageCache.awaitLoadSync()
+                return PackageCache.installedPackages.toMutableMap().apply {
+                    remove(BuildConfig.APPLICATION_ID)
+                }
             }
     }
 
@@ -196,10 +202,10 @@ class AppListActivity : ThemedActivity() {
         // editor re-initializes asynchronously, so routePackages may still
         // be blank here; starting from it would corrupt the app list on the
         // next edit. Bail out and let the user re-enter from the editor.
-        // (read as Int: routeOutbound is persisted via stringToInt, so the
-        // row's string field stays null even after the editor's init)
+        // (read as String: routeOutbound is persisted via stringToInt, so the
+        // row is TYPE_STRING and getInt() would never see it)
         if (savedInstanceState != null &&
-            DataStore.profileCacheStore.getInt(Key.ROUTE_OUTBOUND) == null
+            DataStore.profileCacheStore.getString(Key.ROUTE_OUTBOUND) == null
         ) {
             finish()
             return

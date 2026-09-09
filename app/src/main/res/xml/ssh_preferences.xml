@@ -41,8 +41,7 @@
         <EditTextPreference
             app:icon="@drawable/ic_baseline_vpn_key_24"
             app:key="serverPrivateKey"
-            app:title="@string/ssh_private_key"
-            app:useSimpleSummaryProvider="true" />
+            app:title="@string/ssh_private_key" />
 
         <EditTextPreference
             app:dialogLayout="@layout/layout_password_dialog"
