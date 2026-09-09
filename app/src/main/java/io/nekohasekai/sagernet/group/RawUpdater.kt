@@ -136,7 +136,9 @@ object RawUpdater : GroupUpdater() {
                 var name = proxy.displayName()
                 while (proxiesMap.containsKey(name)) {
                     index++
-                    name = name.replace(" (${index - 1})", "")
+                    // suffix only: a global replace also ate a " (1)" that is part
+                    // of the node's own name ("HK (1) Premium")
+                    name = name.removeSuffix(" (${index - 1})")
                     name = "$name ($index)"
                     proxy.name = name
                 }
@@ -425,6 +427,7 @@ object RawUpdater : GroupUpdater() {
                                     password = proxy["password"]?.toString()
                                     method = clashCipher(proxy["cipher"] as String)
                                     plugin = ssPlugin.joinToString(";")
+                                    sUoT = proxy["udp-over-tcp"]?.toString() == "true"
                                     name = proxy["name"]?.toString()
                                 })
                             }
@@ -613,6 +616,14 @@ object RawUpdater : GroupUpdater() {
 
                                                     "padding" -> bean.muxPadding =
                                                         smuxOpt.value.toString() == "true"
+
+                                                    // same numbering as ProxyEntity.singMux
+                                                    "protocol" -> bean.muxType =
+                                                        when (smuxOpt.value?.toString()) {
+                                                            "smux" -> 1
+                                                            "yamux" -> 2
+                                                            else -> 0 // h2mux, mihomo's default
+                                                        }
                                                 }
                                             }
                                         }
@@ -860,9 +871,11 @@ object RawUpdater : GroupUpdater() {
                 proxies.forEach {
                     it.initializeDefaultValues()
                     if (it is StandardV2RayBean) {
-                        // 1. SNI
-                        if (it.isTLS() && it.sni.isNullOrBlank() && !it.host.isNullOrBlank() && !it.host.isIpAddress()) {
-                            it.sni = it.host
+                        // 1. SNI; h2-opts/http-opts hosts arrive newline-joined and the
+                        // SNI can only carry one of them
+                        val host = it.host.substringBefore("\n")
+                        if (it.isTLS() && it.sni.isNullOrBlank() && host.isNotBlank() && !host.isIpAddress()) {
+                            it.sni = host
                         }
                         // 2. globalClientFingerprint
                         if (!it.realityPubKey.isNullOrBlank() && it.utlsFingerprint.isNullOrBlank()) {
@@ -890,7 +903,10 @@ object RawUpdater : GroupUpdater() {
 
         try {
             val json = JSONTokener(text).nextValue()
-            return parseJSON(json)
+            // An unrecognized JSON object (an API error body served with 200, an
+            // unsupported schema) must fall through like every other path, not
+            // come back as "0 nodes": doUpdate would delete the whole group.
+            parseJSON(json).takeIf { it.isNotEmpty() }?.let { return it }
         } catch (ignored: Exception) {
         }
 
@@ -990,6 +1006,15 @@ object RawUpdater : GroupUpdater() {
 
                 json.has("method") -> {
                     return listOf(json.parseShadowsocks())
+                }
+
+                // SIP008 online config: {"version": 1, "servers": [{server, server_port,
+                // password, method, plugin, plugin_opts, remarks}, ...]}
+                json.optJSONArray("servers") != null -> {
+                    return json.getJSONArray("servers")
+                        .filterIsInstance<JSONObject>()
+                        .filter { it.has("server") }
+                        .map { it.parseShadowsocks() }
                 }
 
                 json.has("remote_addr") -> {

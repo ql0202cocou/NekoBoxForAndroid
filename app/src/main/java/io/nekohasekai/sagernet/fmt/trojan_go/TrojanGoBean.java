@@ -96,6 +96,9 @@ public class TrojanGoBean extends AbstractBean {
         if (password == null) password = "";
         if (sni == null) sni = "";
         if (JavaUtil.isNullOrBlank(type)) type = "original";
+        // the editor's NONE entry used to be stored as "none", which is not a
+        // trojan-go transport and leaked into share links as type=none
+        if ("none".equals(type)) type = "original";
         if (host == null) host = "";
         if (path == null) path = "";
         if (JavaUtil.isNullOrBlank(encryption)) encryption = "none";

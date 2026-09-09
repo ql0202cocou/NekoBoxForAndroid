@@ -12,18 +12,21 @@ fun ShadowsocksBean.fixPluginName() {
     }
 }
 
+// Error messages carry no link on purpose: they end up in neko.log, and the
+// v2rayN form (ss://<base64 of method:password@host:port>) has no "@" for
+// redactSecrets to mask, so the credentials would land there in the clear.
 fun parseShadowsocks(url: String): ShadowsocksBean {
 
     if (url.substringBefore("#").contains("@")) {
         var link = ("https://" + url.substringAfter("://")).toHttpUrlOrNull() ?: error(
-            "invalid ss-android link $url"
+            "invalid ss-android link"
         )
 
         if (link.username.isBlank()) { // fix justmysocks's shit link
             link = (("https://" + url.substringAfter("ss://")
                 .substringBefore("#")
                 .decodeBase64UrlSafe()).toHttpUrlOrNull()
-                ?: error("invalid jms link $url")
+                ?: error("invalid jms link")
                     ).newBuilder().apply {
                 // substringAfter("#") returns the whole url when there is no '#'
                 url.substringAfter("#", "").takeIf { it.isNotEmpty() }?.let { fragment(it) }
@@ -69,7 +72,7 @@ fun parseShadowsocks(url: String): ShadowsocksBean {
         if (v2Url.contains("#")) v2Url = v2Url.substringBefore("#")
 
         val link = ("https://" + v2Url.substringAfter("ss://")
-            .decodeBase64UrlSafe()).toHttpUrlOrNull() ?: error("invalid v2rayN link $url")
+            .decodeBase64UrlSafe()).toHttpUrlOrNull() ?: error("invalid v2rayN ss link")
 
         return ShadowsocksBean().apply {
             serverAddress = link.host

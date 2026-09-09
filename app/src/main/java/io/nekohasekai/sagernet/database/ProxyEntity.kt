@@ -220,25 +220,29 @@ data class ProxyEntity(
     }
 
 
+    // Share links and backup records: strict, so damaged bytes throw instead of
+    // importing as a half-filled bean (the Room column converters stay lenient)
     fun putByteArray(byteArray: ByteArray) {
+        fun <T : Serializable> load(bean: T): T? =
+            if (byteArray.isEmpty()) null else KryoConverters.deserialize(bean, byteArray)
         when (type) {
-            TYPE_SOCKS -> socksBean = KryoConverters.socksDeserialize(byteArray)
-            TYPE_HTTP -> httpBean = KryoConverters.httpDeserialize(byteArray)
-            TYPE_SS -> ssBean = KryoConverters.shadowsocksDeserialize(byteArray)
-            TYPE_VMESS -> vmessBean = KryoConverters.vmessDeserialize(byteArray)
-            TYPE_TROJAN -> trojanBean = KryoConverters.trojanDeserialize(byteArray)
-            TYPE_TROJAN_GO -> trojanGoBean = KryoConverters.trojanGoDeserialize(byteArray)
-            TYPE_MIERU -> mieruBean = KryoConverters.mieruDeserialize(byteArray)
-            TYPE_NAIVE -> naiveBean = KryoConverters.naiveDeserialize(byteArray)
-            TYPE_HYSTERIA -> hysteriaBean = KryoConverters.hysteriaDeserialize(byteArray)
-            TYPE_SSH -> sshBean = KryoConverters.sshDeserialize(byteArray)
-            TYPE_WG -> wgBean = KryoConverters.wireguardDeserialize(byteArray)
-            TYPE_TUIC -> tuicBean = KryoConverters.tuicDeserialize(byteArray)
-            TYPE_SHADOWTLS -> shadowTLSBean = KryoConverters.shadowTLSDeserialize(byteArray)
-            TYPE_ANYTLS -> anyTLSBean = KryoConverters.anyTLSDeserialize(byteArray)
-            TYPE_CHAIN -> chainBean = KryoConverters.chainDeserialize(byteArray)
-            TYPE_NEKO -> nekoBean = KryoConverters.nekoDeserialize(byteArray)
-            TYPE_CONFIG -> configBean = KryoConverters.configDeserialize(byteArray)
+            TYPE_SOCKS -> socksBean = load(SOCKSBean())
+            TYPE_HTTP -> httpBean = load(HttpBean())
+            TYPE_SS -> ssBean = load(ShadowsocksBean())
+            TYPE_VMESS -> vmessBean = load(VMessBean())
+            TYPE_TROJAN -> trojanBean = load(TrojanBean())
+            TYPE_TROJAN_GO -> trojanGoBean = load(TrojanGoBean())
+            TYPE_MIERU -> mieruBean = load(MieruBean())
+            TYPE_NAIVE -> naiveBean = load(NaiveBean())
+            TYPE_HYSTERIA -> hysteriaBean = load(HysteriaBean())
+            TYPE_SSH -> sshBean = load(SSHBean())
+            TYPE_WG -> wgBean = load(WireGuardBean())
+            TYPE_TUIC -> tuicBean = load(TuicBean())
+            TYPE_SHADOWTLS -> shadowTLSBean = load(ShadowTLSBean())
+            TYPE_ANYTLS -> anyTLSBean = load(AnyTLSBean())
+            TYPE_CHAIN -> chainBean = load(ChainBean())
+            TYPE_NEKO -> nekoBean = load(NekoBean())
+            TYPE_CONFIG -> configBean = load(ConfigBean())
         }
     }
 

@@ -23,10 +23,12 @@ fun HttpUrl.Builder.toLink(scheme: String, appendDefaultPort: Boolean = true): S
         url = url.newBuilder().port(14514).build()
         replace = true
     }
-    // replaceFirst: the scheme prefix and the placeholder port sit at the front;
-    // a global replace would also rewrite user-controlled path/query content
+    // replaceFirst: the scheme prefix sits at the front, and a global replace
+    // would also rewrite user-controlled path/query content. The placeholder is
+    // matched together with the "/" that always follows the port: the userinfo
+    // comes first and could start with "14514", but "/" is percent-encoded there.
     return url.toString().replaceFirst("${url.scheme}://", "$scheme://").let {
-        if (replace) it.replaceFirst(":14514", ":$defaultPort") else it
+        if (replace) it.replaceFirst(":14514/", ":$defaultPort/") else it
     }
 }
 

@@ -309,7 +309,7 @@ private fun tryResolveVmess4Kitsunebi(server: String): VMessBean {
 
         val url = ("https://localhost/path?" + server.substringAfter("?")).toHttpUrl()
         url.queryParameter("remarks")?.apply { name = this }
-        url.queryParameter("alterId")?.apply { alterId = this.toInt() }
+        url.queryParameter("alterId")?.apply { alterId = this.toIntOrNull() ?: 0 }
         url.queryParameter("path")?.apply { path = this }
         url.queryParameter("tls")?.apply { security = "tls" }
         url.queryParameter("allowInsecure")
@@ -350,7 +350,8 @@ fun parseV2RayN(link: String): VMessBean {
 
     bean.name = vmessQRCode.ps
     bean.serverAddress = vmessQRCode.add
-    bean.serverPort = vmessQRCode.port.toIntOrNull()
+    // reject rather than fall back to the 1080 default: a bogus profile looks imported
+    bean.serverPort = vmessQRCode.port.toIntOrNull() ?: throw Exception("invalid VmessQRCode port")
     bean.encryption = vmessQRCode.scy
     bean.uuid = vmessQRCode.id
     bean.alterId = vmessQRCode.aid.toIntOrNull()
@@ -409,12 +410,14 @@ fun parseV2RayN(link: String): VMessBean {
 
 private fun parseCsvVMess(csv: String): VMessBean {
 
-    val args = csv.split(",")
+    // Quantumult writes "name = vmess, host, port, ..." with a space after every
+    // comma; untrimmed, the port never parsed and the host kept its leading space
+    val args = csv.split(",").map { it.trim() }
 
     val bean = VMessBean()
 
     bean.serverAddress = args[1]
-    bean.serverPort = args[2].toInt()
+    bean.serverPort = args[2].toIntOrNull() ?: error("invalid port in csv vmess")
     bean.encryption = args[3]
     bean.uuid = args[4].replace("\"", "")
 

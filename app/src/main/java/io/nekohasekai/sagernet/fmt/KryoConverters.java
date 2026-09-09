@@ -6,7 +6,6 @@ import com.esotericsoftware.kryo.KryoException;
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 
 import io.nekohasekai.sagernet.database.SubscriptionBean;
@@ -46,126 +45,136 @@ public class KryoConverters {
         return out.toByteArray();
     }
 
+    // Strict: damaged bytes throw, so a share link, backup record or parcel is
+    // rejected instead of turning into a half-filled bean.
     public static <T extends Serializable> T deserialize(T bean, byte[] bytes) {
         if (bytes == null) return bean;
-        ByteArrayInputStream input = new ByteArrayInputStream(bytes);
-        ByteBufferInput buffer = KryosKt.byteBuffer(input);
-        try {
-            bean.deserializeFromBuffer(buffer);
-        } catch (KryoException e) {
-            Logs.INSTANCE.w(e);
-        }
+        // bounded: rejects lengths a crafted link could use to OOM the process
+        ByteBufferInput buffer = KryosKt.byteBuffer(bytes);
+        bean.deserializeFromBuffer(buffer);
         bean.initializeDefaultValues();
         return bean;
+    }
+
+    // Room column path: a damaged row settles for a half-filled bean so the
+    // rest of the query still loads and the row stays visible and deletable.
+    private static <T extends Serializable> T deserializeLenient(T bean, byte[] bytes) {
+        try {
+            return deserialize(bean, bytes);
+        } catch (KryoException e) {
+            Logs.INSTANCE.w(e);
+            bean.initializeDefaultValues();
+            return bean;
+        }
     }
 
     @TypeConverter
     public static SOCKSBean socksDeserialize(byte[] bytes) {
         if (JavaUtil.isEmpty(bytes)) return null;
-        return deserialize(new SOCKSBean(), bytes);
+        return deserializeLenient(new SOCKSBean(), bytes);
     }
 
     @TypeConverter
     public static HttpBean httpDeserialize(byte[] bytes) {
         if (JavaUtil.isEmpty(bytes)) return null;
-        return deserialize(new HttpBean(), bytes);
+        return deserializeLenient(new HttpBean(), bytes);
     }
 
     @TypeConverter
     public static ShadowsocksBean shadowsocksDeserialize(byte[] bytes) {
         if (JavaUtil.isEmpty(bytes)) return null;
-        return deserialize(new ShadowsocksBean(), bytes);
+        return deserializeLenient(new ShadowsocksBean(), bytes);
     }
 
     @TypeConverter
     public static ConfigBean configDeserialize(byte[] bytes) {
         if (JavaUtil.isEmpty(bytes)) return null;
-        return deserialize(new ConfigBean(), bytes);
+        return deserializeLenient(new ConfigBean(), bytes);
     }
 
     @TypeConverter
     public static VMessBean vmessDeserialize(byte[] bytes) {
         if (JavaUtil.isEmpty(bytes)) return null;
-        return deserialize(new VMessBean(), bytes);
+        return deserializeLenient(new VMessBean(), bytes);
     }
 
     @TypeConverter
     public static TrojanBean trojanDeserialize(byte[] bytes) {
         if (JavaUtil.isEmpty(bytes)) return null;
-        return deserialize(new TrojanBean(), bytes);
+        return deserializeLenient(new TrojanBean(), bytes);
     }
 
     @TypeConverter
     public static TrojanGoBean trojanGoDeserialize(byte[] bytes) {
         if (JavaUtil.isEmpty(bytes)) return null;
-        return deserialize(new TrojanGoBean(), bytes);
+        return deserializeLenient(new TrojanGoBean(), bytes);
     }
 
     @TypeConverter
     public static MieruBean mieruDeserialize(byte[] bytes) {
         if (JavaUtil.isEmpty(bytes)) return null;
-        return deserialize(new MieruBean(), bytes);
+        return deserializeLenient(new MieruBean(), bytes);
     }
 
     @TypeConverter
     public static NaiveBean naiveDeserialize(byte[] bytes) {
         if (JavaUtil.isEmpty(bytes)) return null;
-        return deserialize(new NaiveBean(), bytes);
+        return deserializeLenient(new NaiveBean(), bytes);
     }
 
     @TypeConverter
     public static HysteriaBean hysteriaDeserialize(byte[] bytes) {
         if (JavaUtil.isEmpty(bytes)) return null;
-        return deserialize(new HysteriaBean(), bytes);
+        return deserializeLenient(new HysteriaBean(), bytes);
     }
 
     @TypeConverter
     public static SSHBean sshDeserialize(byte[] bytes) {
         if (JavaUtil.isEmpty(bytes)) return null;
-        return deserialize(new SSHBean(), bytes);
+        return deserializeLenient(new SSHBean(), bytes);
     }
 
     @TypeConverter
     public static WireGuardBean wireguardDeserialize(byte[] bytes) {
         if (JavaUtil.isEmpty(bytes)) return null;
-        return deserialize(new WireGuardBean(), bytes);
+        return deserializeLenient(new WireGuardBean(), bytes);
     }
 
     @TypeConverter
     public static TuicBean tuicDeserialize(byte[] bytes) {
         if (JavaUtil.isEmpty(bytes)) return null;
-        return deserialize(new TuicBean(), bytes);
+        return deserializeLenient(new TuicBean(), bytes);
     }
 
     @TypeConverter
     public static ShadowTLSBean shadowTLSDeserialize(byte[] bytes) {
         if (JavaUtil.isEmpty(bytes)) return null;
-        return deserialize(new ShadowTLSBean(), bytes);
+        return deserializeLenient(new ShadowTLSBean(), bytes);
     }
 
     @TypeConverter
     public static AnyTLSBean anyTLSDeserialize(byte[] bytes) {
         if (JavaUtil.isEmpty(bytes)) return null;
-        return deserialize(new AnyTLSBean(), bytes);
+        return deserializeLenient(new AnyTLSBean(), bytes);
     }
 
 
     @TypeConverter
     public static ChainBean chainDeserialize(byte[] bytes) {
         if (JavaUtil.isEmpty(bytes)) return null;
-        return deserialize(new ChainBean(), bytes);
+        return deserializeLenient(new ChainBean(), bytes);
     }
 
     @TypeConverter
     public static NekoBean nekoDeserialize(byte[] bytes) {
         if (JavaUtil.isEmpty(bytes)) return null;
-        return deserialize(new NekoBean(), bytes);
+        return deserializeLenient(new NekoBean(), bytes);
     }
 
     @TypeConverter
     public static SubscriptionBean subscriptionDeserialize(byte[] bytes) {
         if (JavaUtil.isEmpty(bytes)) return null;
-        return deserialize(new SubscriptionBean(), bytes);
+        return deserializeLenient(new SubscriptionBean(), bytes);
     }
 
 }

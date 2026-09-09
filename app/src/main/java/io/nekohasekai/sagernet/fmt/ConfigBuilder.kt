@@ -680,6 +680,9 @@ fun buildConfig(
 
                 if (rule_set != null) generateRuleSet(rule_set, ruleSets)
 
+                // A malformed range already fails box start ("bad port range");
+                // a malformed single port must not be dropped silently, which
+                // would widen the rule to every port.
                 if (rule.port.isNotBlank()) {
                     port = mutableListOf<Int>()
                     port_range = mutableListOf<String>()
@@ -687,7 +690,7 @@ fun buildConfig(
                         if (it.contains(":")) {
                             port_range.add(it)
                         } else {
-                            it.toIntOrNull()?.apply { port.add(this) }
+                            port.add(it.toIntOrNull() ?: error("invalid dst port \"$it\" in rule ${rule.displayName()}"))
                         }
                     }
                 }
@@ -698,7 +701,7 @@ fun buildConfig(
                         if (it.contains(":")) {
                             source_port_range.add(it)
                         } else {
-                            it.toIntOrNull()?.apply { source_port.add(this) }
+                            source_port.add(it.toIntOrNull() ?: error("invalid src port \"$it\" in rule ${rule.displayName()}"))
                         }
                     }
                 }

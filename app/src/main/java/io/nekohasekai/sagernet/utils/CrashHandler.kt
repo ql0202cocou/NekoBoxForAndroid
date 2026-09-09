@@ -104,7 +104,14 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
             for (pair in PublicDatabase.kvPairDao.all()) {
                 report += "\n"
                 // may contain credentials, keep them out of the sharable report
-                report += pair.key + ": " + if (pair.key == Key.GLOBAL_CUSTOM_CONFIG || pair.key == Key.CLASH_API_SECRET) "<redacted>" else Util.redactSecrets(pair.toString())
+                report += pair.key + ": " + when (pair.key) {
+                    Key.GLOBAL_CUSTOM_CONFIG, Key.CLASH_API_SECRET -> "<redacted>"
+                    // the proxied-app list is the user's business
+                    Key.INDIVIDUAL -> "<omitted>"
+                    // a DoH path may carry a per-user id (NextDNS, ControlD)
+                    Key.REMOTE_DNS, Key.DIRECT_DNS -> Util.redactUrlPath(pair.toString())
+                    else -> Util.redactSecrets(pair.toString())
+                }
             }
         } catch (e: Exception) {
             report += "Export settings failed: " + formatThrowable(e)

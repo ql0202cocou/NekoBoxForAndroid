@@ -4,19 +4,12 @@
 -keep class io.nekohasekai.sagernet.** { *;}
 -keep class moe.matsuri.nb4a.** { *;}
 
-# Clean Kotlin
+# Clean Kotlin: parameter checks only. The expression/field/!!/lateinit intrinsics
+# stay: stripped, a null or uninitialized value travels on and crashes later with
+# an unrelated NPE, and the crash report points at the wrong place.
 -assumenosideeffects class kotlin.jvm.internal.Intrinsics {
     static void checkParameterIsNotNull(java.lang.Object, java.lang.String);
-    static void checkExpressionValueIsNotNull(java.lang.Object, java.lang.String);
-    static void checkNotNullExpressionValue(java.lang.Object, java.lang.String);
-    static void checkReturnedValueIsNotNull(java.lang.Object, java.lang.String, java.lang.String);
-    static void checkReturnedValueIsNotNull(java.lang.Object, java.lang.String);
-    static void checkFieldIsNotNull(java.lang.Object, java.lang.String, java.lang.String);
-    static void checkFieldIsNotNull(java.lang.Object, java.lang.String);
-    static void checkNotNull(java.lang.Object);
-    static void checkNotNull(java.lang.Object, java.lang.String);
     static void checkNotNullParameter(java.lang.Object, java.lang.String);
-    static void throwUninitializedPropertyAccessException(java.lang.String);
 }
 
 # ini4j

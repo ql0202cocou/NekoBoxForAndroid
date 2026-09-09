@@ -216,4 +216,12 @@ object Util {
         result = URL_USERINFO_BARE.replace(result) { it.groupValues[1] + "***@" }
         return result
     }
+
+    // scheme://host/path: everything after the host
+    private val URL_PATH = Regex("""(://[^/\s]+)/\S*""")
+
+    // keep scheme and host only; DoH addresses carry a per-user id in the path
+    // (NextDNS, ControlD, AdGuard private)
+    fun redactUrlPath(text: String): String =
+        URL_PATH.replace(text) { it.groupValues[1] + "/***" }
 }
