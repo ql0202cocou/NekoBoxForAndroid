@@ -10,6 +10,7 @@ package libcore
 
 typedef int (*android_res_nsend_t)(uint64_t network, const uint8_t* msg, size_t msglen, int flags);
 typedef int (*android_res_nresult_t)(int fd, int* rcode, uint8_t* resp, size_t resp_len);
+typedef void (*android_res_cancel_t)(int nsend_fd);
 
 static int call_android_res_nsend(void* sym, uint64_t network, const uint8_t* msg, size_t msglen, int flags) {
     android_res_nsend_t f = (android_res_nsend_t)sym;
@@ -21,6 +22,11 @@ static int call_android_res_nresult(void* sym, int fd, int* rcode, uint8_t* resp
     android_res_nresult_t f = (android_res_nresult_t)sym;
     if (!f) return -1;
     return f(fd, rcode, resp, resp_len);
+}
+
+static void call_android_res_cancel(void* sym, int nsend_fd) {
+    android_res_cancel_t f = (android_res_cancel_t)sym;
+    if (f) f(nsend_fd);
 }
 */
 import "C"
@@ -58,6 +64,13 @@ func init() {
 		return
 	}
 
+	symNameCancel := C.CString("android_res_cancel")
+	defer C.free(unsafe.Pointer(symNameCancel))
+	androidResCancelSym := C.dlsym(libHandle, symNameCancel)
+	if androidResCancelSym == nil {
+		return
+	}
+
 	callAndroidResNSend := func(network uint64, msg []byte) (int, error) {
 		if len(msg) == 0 {
 			return 0, errors.New("empty payload")
@@ -79,6 +92,10 @@ func init() {
 		return int(rcode), int(n)
 	}
 
+	callAndroidResCancel := func(fd int) {
+		C.call_android_res_cancel(androidResCancelSym, C.int(fd))
+	}
+
 	// set rawQueryFunc
 	rawQueryFunc = func(ctx context.Context, networkHandle int64, request []byte) ([]byte, error) {
 		fd, err := callAndroidResNSend(uint64(networkHandle), request)
@@ -88,9 +105,17 @@ func init() {
 		if fd < 0 {
 			return nil, unix.Errno(-fd)
 		}
-		// bionic hands us a plain socket fd; close() is the documented way to
-		// release it (res_nclose operates on resolver state, not this fd).
-		defer unix.Close(fd)
+		// fd ownership follows the NDK contract: android_res_nresult "closes
+		// |fd| before returning", so only a query abandoned before it (timeout,
+		// cancel, poll error) is released here, via android_res_cancel. A close
+		// after nresult would hit a number the runtime may already have handed
+		// to another socket.
+		settled := false
+		defer func() {
+			if !settled {
+				callAndroidResCancel(fd)
+			}
+		}()
 
 		// wait for response (timeout 5000 ms), polling in short slices so a
 		// cancelled context returns promptly instead of after the full timeout
@@ -126,7 +151,8 @@ func init() {
 			}
 		}
 
-		// read response into buffer
+		// read response into buffer; nresult closes fd
+		settled = true
 		response := make([]byte, 8192)
 		_, n := callAndroidResNResult(fd, response)
 		if n < 0 {

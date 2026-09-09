@@ -56,15 +56,16 @@ func newChangeReqAttribute(changeIP bool, changePort bool) *attribute {
 	return newAttribute(attributeChangeRequest, value)
 }
 
-//      0                   1                   2                   3
-//      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-//     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//     |x x x x x x x x|    Family     |         X-Port                |
-//     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//     |                X-Address (Variable)
-//     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//	0                   1                   2                   3
+//	0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 //
-//             Figure 6: Format of XOR-MAPPED-ADDRESS Attribute
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+// |x x x x x x x x|    Family     |         X-Port                |
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+// |                X-Address (Variable)
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//
+//	Figure 6: Format of XOR-MAPPED-ADDRESS Attribute
 func (v *attribute) xorAddr(transID []byte) *Host {
 	// 4 bytes header + 4 bytes IPv4 or 16 bytes IPv6 address;
 	// the value comes from the server, so reject malformed lengths.
@@ -85,17 +86,18 @@ func (v *attribute) xorAddr(transID []byte) *Host {
 	return &Host{family, net.IP(xorIP).String(), port ^ x}
 }
 
-//       0                   1                   2                   3
-//       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-//      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//      |0 0 0 0 0 0 0 0|    Family     |           Port                |
-//      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-//      |                                                               |
-//      |                 Address (32 bits or 128 bits)                 |
-//      |                                                               |
-//      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//	0                   1                   2                   3
+//	0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 //
-//               Figure 5: Format of MAPPED-ADDRESS Attribute
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+// |0 0 0 0 0 0 0 0|    Family     |           Port                |
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+// |                                                               |
+// |                 Address (32 bits or 128 bits)                 |
+// |                                                               |
+// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//
+//	Figure 5: Format of MAPPED-ADDRESS Attribute
 func (v *attribute) rawAddr() *Host {
 	// 4 bytes header + at least 4 bytes address; the value comes
 	// from the server, so reject malformed lengths.

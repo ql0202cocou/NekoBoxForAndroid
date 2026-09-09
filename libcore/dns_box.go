@@ -16,7 +16,6 @@ import (
 	"github.com/sagernet/sing/common"
 	E "github.com/sagernet/sing/common/exceptions"
 	M "github.com/sagernet/sing/common/metadata"
-	"github.com/sagernet/sing/common/task"
 
 	mDNS "github.com/miekg/dns"
 )
@@ -65,72 +64,82 @@ func (p *platformLocalDNSTransport) ExchangeAsync(ctx context.Context, message *
 }
 
 func (p *platformLocalDNSTransport) Exchange(ctx context.Context, message *mDNS.Msg) (*mDNS.Msg, error) {
-	if p.raw && rawQueryFunc != nil {
+	if p.raw {
 		// Raw - Android 10 及以上才有
 
 		messageBytes, err := message.Pack()
 		if err != nil {
 			return nil, err
 		}
-		msg, err := rawQueryFunc(ctx, p.iif.NetworkHandle(), messageBytes)
-		if err != nil {
-			return nil, err
-		}
-		responseMessage := new(mDNS.Msg)
-		err = responseMessage.Unpack(msg)
-		if err != nil {
-			return nil, err
-		}
-		return responseMessage, nil
-	} else {
-		// Lookup - Android 10 以下
-
-		if len(message.Question) == 0 {
-			return nil, E.New("query has no question")
-		}
-		question := message.Question[0]
-		var network string
-		switch question.Qtype {
-		case mDNS.TypeA:
-			network = "ip4"
-		case mDNS.TypeAAAA:
-			network = "ip6"
-		default:
-			return nil, E.New("only IP queries are supported by current version of Android")
-		}
-
-		done := make(chan struct{})
-		response := &ExchangeContext{
-			context: ctx,
-			done: sync.OnceFunc(func() {
-				close(done)
-			}),
-		}
-
-		var responseAddrs []netip.Addr
-		var group task.Group
-		group.Append0(func(ctx context.Context) error {
-			err := p.iif.Lookup(response, network, question.Name)
+		if rawQueryFunc != nil {
+			msg, err := rawQueryFunc(ctx, p.iif.NetworkHandle(), messageBytes)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			select {
-			case <-done:
-			case <-ctx.Done():
-				return context.Canceled
+			responseMessage := new(mDNS.Msg)
+			err = responseMessage.Unpack(msg)
+			if err != nil {
+				return nil, err
 			}
-			if response.error != nil {
-				return response.error
-			}
-			responseAddrs = response.addresses
-			return nil
+			return responseMessage, nil
+		}
+		// libandroid.so symbols unavailable: the platform side runs the same
+		// raw query through android.net.DnsResolver
+		response, err := awaitPlatform(ctx, func(c *ExchangeContext) error {
+			return p.iif.Exchange(c, messageBytes)
 		})
-		err := group.Run(ctx)
 		if err != nil {
 			return nil, err
 		}
-		return dns.FixedResponse(message.Id, question, responseAddrs, constant.DefaultDNSTTL), nil
+		return &response.message, nil
 	}
+
+	// Lookup - Android 10 以下
+
+	if len(message.Question) == 0 {
+		return nil, E.New("query has no question")
+	}
+	question := message.Question[0]
+	var network string
+	switch question.Qtype {
+	case mDNS.TypeA:
+		network = "ip4"
+	case mDNS.TypeAAAA:
+		network = "ip6"
+	default:
+		return nil, E.New("only IP queries are supported by current version of Android")
+	}
+
+	response, err := awaitPlatform(ctx, func(c *ExchangeContext) error {
+		return p.iif.Lookup(c, network, question.Name)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return dns.FixedResponse(message.Id, question, response.addresses, constant.DefaultDNSTTL), nil
+}
+
+// awaitPlatform runs one platform resolver call and waits for its callback
+// (Success/RawSuccess/ErrorCode/ErrnoCode settle done exactly once) or the
+// context, whichever comes first.
+func awaitPlatform(ctx context.Context, call func(*ExchangeContext) error) (*ExchangeContext, error) {
+	done := make(chan struct{})
+	response := &ExchangeContext{
+		context: ctx,
+		done:    sync.OnceFunc(func() { close(done) }),
+	}
+	if err := call(response); err != nil {
+		return nil, err
+	}
+	select {
+	case <-done:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	if response.error != nil {
+		return nil, response.error
+	}
+	return response, nil
 }
 
 type Func interface {

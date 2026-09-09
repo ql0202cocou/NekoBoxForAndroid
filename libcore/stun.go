@@ -23,9 +23,11 @@ func StunTest(server string) (ret *StunResult) {
 	// Old NAT Type Test
 	client := stun.NewClient()
 	client.SetServerAddr(server)
-	nat, host, err, fakeFullCone := client.Discover()
-	if err != nil {
-		text += fmt.Sprintln("Discover Error:", err.Error())
+	nat, host, discoverErr, fakeFullCone := client.Discover()
+	if discoverErr != nil {
+		text += fmt.Sprintln("Discover Error:", discoverErr.Error())
+	} else {
+		text += fmt.Sprintln("NAT Type:", nat)
 	}
 
 	if fakeFullCone {
@@ -33,7 +35,6 @@ func StunTest(server string) (ret *StunResult) {
 	}
 
 	if host != nil {
-		text += fmt.Sprintln("NAT Type:", nat)
 		text += fmt.Sprintln("External IP Family:", host.Family())
 		text += fmt.Sprintln("External IP:", host.IP())
 		text += fmt.Sprintln("External Port:", host.Port())
@@ -52,7 +53,9 @@ func StunTest(server string) (ret *StunResult) {
 		text += fmt.Sprintln("Normal NAT Type:", natBehavior.NormalType())
 	}
 
-	ret.Success = true
+	// Discover is the test proper; a BehaviorTest failure (e.g. "Not behind a
+	// NAT.") is reported inside the text instead of failing the whole run.
+	ret.Success = discoverErr == nil
 	ret.Text = strings.TrimRight(text, "\n")
 	return ret
 }

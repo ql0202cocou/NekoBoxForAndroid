@@ -90,6 +90,12 @@ type BoxInstance struct {
 func NewSingBoxInstance(config string, localTransport LocalDNSTransport) (b *BoxInstance, err error) {
 	defer device.DeferPanicToError("NewSingBoxInstance", func(err_ error) { err = err_ })
 
+	// custom CA and (in :bg) the geo assets must be in place before the box
+	// opens rule-sets and dials; see assetsReady
+	if ready := assetsReady; ready != nil {
+		<-ready
+	}
+
 	// create box context
 	ctx, cancel := context.WithCancel(context.Background())
 	// Cancel unless we hand the context off to a BoxInstance; covers every error return.
@@ -143,23 +149,14 @@ func (b *BoxInstance) Start() (err error) {
 	b.access.Lock()
 	defer b.access.Unlock()
 
-	defer device.DeferPanicToError("box.Start", func(err_ error) {
-		// a panic interrupts the body wherever it happened; if Box.Start
-		// panicked after state was set to 1, roll back so Start can be retried
-		if b.state == 1 {
-			b.state = 0
-		}
-		err = err_
-	})
+	defer device.DeferPanicToError("box.Start", func(err_ error) { err = err_ })
 
 	if b.state == 0 {
 		b.state = 1
-		err = b.Box.Start()
-		if err != nil {
-			// allow retry after a failed start
-			b.state = 0
-		}
-		return err
+		// Box.Start closes the box itself when it fails, so a retry on this
+		// instance is pointless; the state stays 1 on purpose so that Close()
+		// still cancels the context and drops the main-instance reference.
+		return b.Box.Start()
 	}
 	return errors.New("already started")
 }

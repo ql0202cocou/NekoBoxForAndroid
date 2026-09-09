@@ -6,42 +6,43 @@ import (
 	"log"
 	"net"
 	"os"
-	"reflect"
 	"syscall"
 	"time"
 )
 
-func getOneFd(socket int) (int, error) {
-	// recvmsg
-	buf := make([]byte, syscall.CmsgSpace(4))
-	_, _, _, _, err := syscall.Recvmsg(socket, nil, buf, 0)
+// getOneFd receives the single SCM_RIGHTS fd the peer sends. It reads through
+// the net.Conn (runtime poller) instead of a raw recvmsg on the accepted socket:
+// accepted fds are non-blocking, so a raw call issued before the peer's sendmsg
+// landed returned EAGAIN and the caller's deadline never applied. The poller
+// also receives with MSG_CMSG_CLOEXEC, so the fd cannot leak into a plugin
+// process forked meanwhile.
+func getOneFd(c *net.UnixConn) (int, error) {
+	oob := make([]byte, syscall.CmsgSpace(4))
+	var data [1]byte // senders on stream sockets carry one dummy byte with the rights
+	_, oobn, _, _, err := c.ReadMsgUnix(data[:], oob)
 	if err != nil {
 		return 0, err
 	}
 
-	// parse control msgs
-	var msgs []syscall.SocketControlMessage
-	msgs, _ = syscall.ParseSocketControlMessage(buf)
-
+	msgs, err := syscall.ParseSocketControlMessage(oob[:oobn])
+	if err != nil {
+		return 0, err
+	}
 	if len(msgs) != 1 {
-		return 0, fmt.Errorf("invaild msgs count: %d", len(msgs))
+		return 0, fmt.Errorf("invalid msgs count: %d", len(msgs))
 	}
 
-	var fds []int
-	fds, _ = syscall.ParseUnixRights(&msgs[0])
+	fds, err := syscall.ParseUnixRights(&msgs[0])
+	if err != nil {
+		return 0, err
+	}
 	if len(fds) != 1 {
-		return 0, fmt.Errorf("invaild fds count: %d", len(fds))
+		for _, fd := range fds {
+			syscall.Close(fd)
+		}
+		return 0, fmt.Errorf("invalid fds count: %d", len(fds))
 	}
 	return fds[0], nil
-}
-
-// GetFdFromConn get net.Conn's file descriptor.
-func GetFdFromConn(l net.Conn) int {
-	v := reflect.ValueOf(l)
-	netFD := reflect.Indirect(reflect.Indirect(v).FieldByName("fd"))
-	pfd := reflect.Indirect(netFD.FieldByName("pfd"))
-	fd := int(pfd.FieldByName("Sysfd").Int())
-	return fd
 }
 
 func ServeProtect(path string, verbose bool, fwmark int, protectCtl func(fd int) error) (io.Closer, error) {
@@ -58,7 +59,7 @@ func ServeProtect(path string, verbose bool, fwmark int, protectCtl func(fd int)
 
 	go func(ctl func(fd int) error) {
 		for {
-			c, err := l.Accept()
+			c, err := l.AcceptUnix()
 			if err != nil {
 				if verbose {
 					log.Println("protect server accept:", err)
@@ -67,14 +68,13 @@ func ServeProtect(path string, verbose bool, fwmark int, protectCtl func(fd int)
 			}
 
 			go func() {
-				socket := GetFdFromConn(c)
 				defer c.Close()
 
 				// bound the handshake so a peer that connects but never
 				// sends can't park the goroutine (and its fds) forever
 				c.SetDeadline(time.Now().Add(5 * time.Second))
 
-				fd, err := getOneFd(socket)
+				fd, err := getOneFd(c)
 				if err != nil {
 					if verbose {
 						log.Println("protect server getOneFd:", err)

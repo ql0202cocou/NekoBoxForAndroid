@@ -11,11 +11,17 @@ rm -rf $BUILD/android \
   $BUILD/javac-output \
   $BUILD/src
 
-if [ -z "$GOPATH" ]; then
-  GOPATH=$(go env GOPATH)
+# go install honours GOBIN over GOPATH/bin, and init.sh installs gomobile-matsuri
+# wherever that resolves to; look in the same place.
+GOBIN_DIR=$(go env GOBIN)
+if [ -z "$GOBIN_DIR" ]; then
+  if [ -z "$GOPATH" ]; then
+    GOPATH=$(go env GOPATH)
+  fi
+  GOBIN_DIR="$GOPATH/bin"
 fi
 
-export PATH="$GOPATH/bin:$PATH"
+export PATH="$GOBIN_DIR:$PATH"
 mkdir -p "$BUILD"
 
 # NDK r25's linker defaults to max-page-size=4096, producing a libgojni.so that cannot be
@@ -25,7 +31,7 @@ mkdir -p "$BUILD"
 # linkname-able upstream) to lock writes to systemRoots; drop this if the Go
 # upgrade ever removes the escape hatch and rework certs.go instead.
 export GOBIND=gobind-matsuri
-"$GOPATH"/bin/gomobile-matsuri bind -v -androidapi 21 -target android/arm64,android/amd64 -cache "$(realpath $BUILD)" -trimpath -ldflags='-s -w -checklinkname=0 -extldflags=-Wl,-z,max-page-size=16384' -tags='with_conntrack,with_gvisor,with_quic,with_wireguard,with_utls,with_clash_api' . || exit 1
+"$GOBIN_DIR"/gomobile-matsuri bind -v -androidapi 21 -target android/arm64,android/amd64 -cache "$(realpath $BUILD)" -trimpath -ldflags='-s -w -checklinkname=0 -extldflags=-Wl,-z,max-page-size=16384' -tags='with_conntrack,with_gvisor,with_quic,with_wireguard,with_utls,with_clash_api' . || exit 1
 rm -r libcore-sources.jar
 
 proj=../app/libs

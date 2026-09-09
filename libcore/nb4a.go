@@ -22,6 +22,12 @@ import (
 //go:linkname resourcePaths github.com/sagernet/sing-box/constant.resourcePaths
 var resourcePaths []string
 
+// assetsReady is closed once InitCore's background setup has finished: the
+// custom CA load and, in :bg, the APK asset extraction. NewSingBoxInstance
+// waits on it, because a box created while geoip.db/geosite.db are still being
+// extracted (fresh install) fails to open its geo rule-sets.
+var assetsReady chan struct{}
+
 func NekoLogPrintln(s string) {
 	log.Println(s)
 }
@@ -75,7 +81,10 @@ func InitCore(process, cachePath, internalAssets, externalAssets string,
 	nekoutils.Selector_OnProxySelected = intfNB4A.Selector_OnProxySelected
 
 	// Set up some component
+	ready := make(chan struct{})
+	assetsReady = ready
 	go func() {
+		defer close(ready)
 		defer device.DeferPanicToError("InitCore-go", func(err error) { log.Println(err) })
 
 		// certs
