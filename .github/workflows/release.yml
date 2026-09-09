@@ -8,6 +8,12 @@ on:
       publish:
         description: "Publish: If want ignore"
         required: false
+# One run per tag at a time: two concurrent runs would both `ghr -delete` and
+# recreate the release/tag, the later one overwriting the earlier one's APKs.
+# Not cancelled: a build must not be aborted halfway through a publish.
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
 # Least privilege for every job; the publish job widens contents to write.
 # Reusable workflows cannot exceed what is granted here.
 permissions:

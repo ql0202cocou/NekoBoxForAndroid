@@ -1,6 +1,10 @@
 name: Preview Build
 on:
   workflow_dispatch:
+# one preview build per ref at a time (see release.yml)
+concurrency:
+  group: preview-${{ github.ref }}
+  cancel-in-progress: false
 # Least privilege for every job; reusable workflows cannot exceed this.
 permissions:
   contents: read

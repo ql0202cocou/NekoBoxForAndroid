@@ -49,6 +49,10 @@ jobs:
           # assets.sh resolves the latest geoip/geosite release via the GitHub API;
           # unauthenticated calls from shared runner IPs hit the 60/h rate limit.
           GITHUB_TOKEN: ${{ github.token }}
+          # secrets reach the shell through env, never interpolated into the script
+          # body (same rule as the tag in release.yml); Helpers.kt reads LOCAL_PROPERTIES
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          LOCAL_PROPERTIES: ${{ secrets.LOCAL_PROPERTIES }}
         run: |
           echo "sdk.dir=${ANDROID_HOME}" > local.properties
           # only point ndk.dir at NDK 25 when it is actually installed; the app has
@@ -56,8 +60,7 @@ jobs:
           if [ -d "${ANDROID_HOME}/ndk/25.0.8775105" ]; then
             echo "ndk.dir=${ANDROID_HOME}/ndk/25.0.8775105" >> local.properties
           fi
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
-          export LOCAL_PROPERTIES="${{ secrets.LOCAL_PROPERTIES }}"
+          echo "$KEYSTORE_BASE64" | base64 -d > release.keystore
           ./run init action gradle
           ./gradlew ${{ inputs.gradle-task }}
           APK=$(find app/build/outputs/apk -name '*arm64-v8a*.apk' | head -n 1)
@@ -68,14 +71,20 @@ jobs:
           echo "APK=$(dirname "$APK")" >> $GITHUB_ENV
       - name: Verify APK signature
         # Release builds (oss AND preview — signing is buildType-level in Helpers.kt) must be
-        # signed. Helpers.kt only wires the signing config when KEYSTORE_PASS exists, so a
-        # missing KEYSTORE_BASE64/LOCAL_PROPERTIES secret silently produces unsigned APKs
-        # (an empty decoded keystore file fails the same way). Fail loudly before upload.
+        # signed by the release certificate. Helpers.kt only wires the signing config when
+        # KEYSTORE_PASS exists, so a missing KEYSTORE_BASE64/LOCAL_PROPERTIES secret silently
+        # produces unsigned APKs (an empty decoded keystore file fails the same way), and a
+        # secret pointing at some other keystore would still verify. Fail loudly before upload.
+        env:
+          # `apksigner verify --print-certs` on any published APK prints this digest
+          EXPECTED_CERT_SHA256: f1e8777b6ed766dffc87f6772d7002c2ed5d0ff1b21c75f0e7f80c651a1958c6
         run: |
           FAILED=0
           while IFS= read -r apk; do
-            if ! "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$apk"; then
-              echo "::error::$apk is unsigned or failed signature verification"
+            CERT=$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$apk" 2>/dev/null \
+              | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+            if [ "$CERT" != "$EXPECTED_CERT_SHA256" ]; then
+              echo "::error::$apk is unsigned or signed with an unexpected certificate (${CERT:-none})"
               FAILED=1
             fi
           done < <(find app/build/outputs/apk -name '*.apk')
