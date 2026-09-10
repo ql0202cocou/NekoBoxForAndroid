@@ -32,6 +32,9 @@ fun buildSingBoxEndpointWireGuardBean(bean: WireGuardBean): SingBoxOptions.Endpo
             // sing-box rejects a peer with an empty allowed_ips ("missing allowed ips
             // for peer"). The single-peer outbound used to imply a default route.
             allowed_ips = listOf("0.0.0.0/0", "::/0")
+            if (bean.peerKeepalive > 0) {
+                persistent_keepalive_interval = bean.peerKeepalive
+            }
             if (bean.reserved.isNotBlank()) {
                 reserved = genReservedList(bean.reserved)
                     ?: error("WireGuard reserved must contain exactly three bytes (0..255)")

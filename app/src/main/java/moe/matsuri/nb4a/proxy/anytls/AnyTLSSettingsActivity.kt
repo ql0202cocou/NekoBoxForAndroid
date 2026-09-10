@@ -36,6 +36,7 @@ class AnyTLSSettingsActivity : ProfileSettingsActivity<AnyTLSBean>() {
     private val allowInsecure = pbm.add(PreferenceBinding(Type.Bool, "allowInsecure"))
     private val utlsFingerprint = pbm.add(PreferenceBinding(Type.Text, "utlsFingerprint"))
     private val echConfig = pbm.add(PreferenceBinding(Type.Text, "echConfig"))
+    private val enableECH = pbm.add(PreferenceBinding(Type.Bool, "enableECH"))
 
     override fun AnyTLSBean.init() {
         pbm.writeToCacheAll(this)

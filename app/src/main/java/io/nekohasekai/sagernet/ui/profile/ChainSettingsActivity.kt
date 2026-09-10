@@ -144,6 +144,12 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
 
     inner class ProxiesAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
+        // Dangling member ids (their profiles were deleted) render as
+        // non-interactive placeholder rows after the member rows; keeping them
+        // out of proxyList preserves the index arithmetic in move()/remove()
+        // and the existing cache-rewrite semantics.
+        private val missingIds = ArrayList<Long>()
+
         suspend fun reload() {
             awaitEditorReady()
             val idList = cachedProxyIds()
@@ -164,8 +170,10 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
                     return@onMainDispatcher
                 }
                 proxyList.clear()
+                missingIds.clear()
                 for (id in idList) {
-                    profiles[id]?.let { proxyList.add(it) }
+                    val profile = profiles[id]
+                    if (profile != null) proxyList.add(profile) else missingIds.add(id)
                 }
                 notifyDataSetChanged()
             }
@@ -188,18 +196,26 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
         }
 
         override fun getItemId(position: Int): Long {
-            return if (position == 0) 0 else proxyList[position - 1].id
+            return when {
+                position == 0 -> 0
+                position <= proxyList.size -> proxyList[position - 1].id
+                else -> -missingIds[position - 1 - proxyList.size]
+            }
         }
 
         override fun getItemViewType(position: Int): Int {
-            return if (position == 0) 0 else 1
+            return when {
+                position == 0 -> 0
+                position <= proxyList.size -> 1
+                else -> 2
+            }
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-            return if (viewType == 0) {
-                AddHolder(LayoutAddEntityBinding.inflate(layoutInflater, parent, false))
-            } else {
-                ProfileHolder(LayoutProfileBinding.inflate(layoutInflater, parent, false))
+            return when (viewType) {
+                0 -> AddHolder(LayoutAddEntityBinding.inflate(layoutInflater, parent, false))
+                1 -> ProfileHolder(LayoutProfileBinding.inflate(layoutInflater, parent, false))
+                else -> MissingHolder(LayoutProfileBinding.inflate(layoutInflater, parent, false))
             }
         }
 
@@ -208,11 +224,13 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
                 holder.bind()
             } else if (holder is ProfileHolder) {
                 holder.bind(proxyList[position - 1])
+            } else if (holder is MissingHolder) {
+                holder.bind(missingIds[position - 1 - proxyList.size])
             }
         }
 
         override fun getItemCount(): Int {
-            return proxyList.size + 1
+            return proxyList.size + missingIds.size + 1
         }
 
     }
@@ -359,6 +377,28 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
                 })
             }
 
+            shareLayout.isVisible = false
+        }
+
+    }
+
+    // A chain member whose profile was deleted: read-only row, no listeners,
+    // and ItemTouchHelper gates drag/swipe on ProfileHolder, so it can neither
+    // be selected, replaced nor moved.
+    inner class MissingHolder(binding: LayoutProfileBinding) :
+        RecyclerView.ViewHolder(binding.root) {
+
+        val profileName = binding.profileName
+        val profileType = binding.profileType
+        val trafficText: TextView = binding.trafficText
+        val editButton = binding.edit
+        val shareLayout = binding.share
+
+        fun bind(id: Long) {
+            profileName.text = itemView.context.getString(R.string.deleted_profile)
+            profileType.text = "#$id"
+            trafficText.isVisible = false
+            editButton.isVisible = false
             shareLayout.isVisible = false
         }
 

@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.fmt.hysteria
 
+import android.util.Base64
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.ktx.*
@@ -28,7 +29,13 @@ fun parseHysteria1(url: String): HysteriaBean {
             sni = it
         }
         link.queryParameter("auth")?.takeIf { it.isNotBlank() }?.also {
-            authPayloadType = HysteriaBean.TYPE_STRING
+            // "authType" is our own marker (like "ca"/"hopInterval"); unknown
+            // values are ignored and the payload stays a plaintext string
+            authPayloadType = if (link.queryParameter("authType") == "base64") {
+                HysteriaBean.TYPE_BASE64
+            } else {
+                HysteriaBean.TYPE_STRING
+            }
             authPayload = it
         }
         link.queryParameter("insecure")?.also {
@@ -148,10 +155,24 @@ fun HysteriaBean.toUri(): String {
             builder.addQueryParameter("peer", sni)
         }
         if (authPayload.isNotBlank()) {
-            // Known limitation: the hysteria URI format has no marker for the auth
-            // payload type, so a TYPE_BASE64 payload (JSON "auth") re-imports as
-            // TYPE_STRING and no longer round-trips.
-            builder.addQueryParameter("auth", authPayload)
+            if (authPayloadType == HysteriaBean.TYPE_BASE64) {
+                // The URI "auth" parameter is plaintext by spec. A payload that
+                // decodes to printable UTF-8 is written as-is for interoperability;
+                // anything else keeps the base64 text with our own "authType"
+                // marker (like "ca"/"hopInterval") so it round-trips.
+                val decoded = runCatching { Base64.decode(authPayload, Base64.DEFAULT) }.getOrNull()
+                val text = decoded?.let { String(it, Charsets.UTF_8) }
+                if (text != null && text.isNotEmpty() && text.none(Char::isISOControl) &&
+                    text.toByteArray(Charsets.UTF_8).contentEquals(decoded)
+                ) {
+                    builder.addQueryParameter("auth", text)
+                } else {
+                    builder.addQueryParameter("auth", authPayload)
+                    builder.addQueryParameter("authType", "base64")
+                }
+            } else {
+                builder.addQueryParameter("auth", authPayload)
+            }
         }
         builder.addQueryParameter("upmbps", "$uploadMbps")
         builder.addQueryParameter("downmbps", "$downloadMbps")
@@ -328,6 +349,11 @@ fun HysteriaBean.canUseSingBox(): Boolean {
 }
 
 fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean): SingBoxOptions.SingBoxOption {
+    // sing-box has no compatible option (its certificate_public_key_sha256 is
+    // an SPKI hash), so the pin is stored without effect on this core
+    if (bean.certificateFingerprint.isNotBlank()) {
+        Logs.w("certificate fingerprint pinning is not supported by sing-box, ignored")
+    }
     val ports = parseHysteriaPorts(bean.serverPorts)
     return when (bean.protocolVersion) {
         1 -> SingBoxOptions.Outbound_HysteriaOptions().apply {

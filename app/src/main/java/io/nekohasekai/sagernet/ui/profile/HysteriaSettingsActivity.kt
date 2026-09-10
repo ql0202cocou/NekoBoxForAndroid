@@ -13,6 +13,7 @@ import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.fmt.hysteria.isHysteria1PluginHopInterval
 import io.nekohasekai.sagernet.fmt.hysteria.isHysteria1PluginWindow
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
+import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 import moe.matsuri.nb4a.ui.SimpleMenuPreference
 
 class HysteriaSettingsActivity : ProfileSettingsActivity<HysteriaBean>() {
@@ -20,6 +21,10 @@ class HysteriaSettingsActivity : ProfileSettingsActivity<HysteriaBean>() {
     override fun validateEditor(): String? {
         if (runCatching { parseHysteriaPorts(DataStore.serverPorts) }.isFailure) {
             return getString(R.string.hysteria_ports_error)
+        }
+        val certPin = DataStore.serverCertificateFingerprint
+        if (certPin.isNotBlank() && !isCertificateFingerprint(certPin)) {
+            return getString(R.string.certificate_fingerprint_error)
         }
         // faketcp / wechat-video run on the hysteria 1 plugin, which enforces its own
         // minimums; the sing-box path accepts any non-negative value
@@ -50,6 +55,7 @@ class HysteriaSettingsActivity : ProfileSettingsActivity<HysteriaBean>() {
         DataStore.serverSNI = sni
         DataStore.serverALPN = alpn
         DataStore.serverCertificates = caText
+        DataStore.serverCertificateFingerprint = certificateFingerprint
         DataStore.serverAllowInsecure = allowInsecure
         DataStore.serverUploadSpeed = uploadMbps
         DataStore.serverDownloadSpeed = downloadMbps
@@ -71,6 +77,7 @@ class HysteriaSettingsActivity : ProfileSettingsActivity<HysteriaBean>() {
         sni = DataStore.serverSNI
         alpn = DataStore.serverALPN
         caText = DataStore.serverCertificates
+        certificateFingerprint = DataStore.serverCertificateFingerprint
         allowInsecure = DataStore.serverAllowInsecure
         uploadMbps = DataStore.serverUploadSpeed
         downloadMbps = DataStore.serverDownloadSpeed
@@ -162,6 +169,12 @@ class HysteriaSettingsActivity : ProfileSettingsActivity<HysteriaBean>() {
         findPreference<EditTextPreference>(Key.SERVER_OBFS)!!.bindPasswordPreference()
 
         findPreference<EditTextPreference>(Key.SERVER_HOP_INTERVAL)!!.bindIntegerPreference()
+
+        // mihomo's only consumer of this value hex-decodes it into 32 bytes
+        findPreference<EditTextPreference>(Key.SERVER_CERTIFICATE_FINGERPRINT)!!
+            .bindValidatedPreference(R.string.certificate_fingerprint_error) {
+                it.isBlank() || isCertificateFingerprint(it)
+            }
     }
 
 }

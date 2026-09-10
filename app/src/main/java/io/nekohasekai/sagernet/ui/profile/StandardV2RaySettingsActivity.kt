@@ -17,6 +17,7 @@ import io.nekohasekai.sagernet.fmt.v2ray.isRealityShortId
 import moe.matsuri.nb4a.proxy.PreferenceBinding
 import moe.matsuri.nb4a.proxy.PreferenceBindingManager
 import moe.matsuri.nb4a.proxy.Type
+import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 import moe.matsuri.nb4a.ui.SimpleMenuPreference
 
 abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV2RayBean>() {
@@ -40,6 +41,8 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
     private val sni = pbm.add(PreferenceBinding(Type.Text, "sni"))
     private val alpn = pbm.add(PreferenceBinding(Type.Text, "alpn"))
     private val certificates = pbm.add(PreferenceBinding(Type.Text, "certificates"))
+    private val certificateFingerprint =
+        pbm.add(PreferenceBinding(Type.Text, "certificateFingerprint"))
     private val allowInsecure = pbm.add(PreferenceBinding(Type.Bool, "allowInsecure"))
     private val utlsFingerprint = pbm.add(PreferenceBinding(Type.Text, "utlsFingerprint"))
     private val realityPubKey = pbm.add(PreferenceBinding(Type.Text, "realityPubKey"))
@@ -56,8 +59,13 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
     private val muxConcurrency = pbm.add(PreferenceBinding(Type.TextToInt, "muxConcurrency"))
 
     override fun validateEditor(): String? {
-        // REALITY fields stay hidden and unused while TLS is off; an empty key means no REALITY
+        // REALITY and pinning fields stay hidden and unused while TLS is off
         if (security.readStringFromCache() != "tls") return null
+        val certPin = certificateFingerprint.readStringFromCache()
+        if (certPin.isNotBlank() && !isCertificateFingerprint(certPin)) {
+            return getString(R.string.certificate_fingerprint_error)
+        }
+        // an empty REALITY key means no REALITY
         val publicKey = realityPubKey.readStringFromCache()
         if (publicKey.isEmpty()) return null
         return when {
@@ -136,6 +144,11 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
             .bindValidatedPreference(R.string.reality_short_id_error, ::isRealityShortId)
         (realityMldsa65Verify.preference as EditTextPreference)
             .bindValidatedPreference(R.string.reality_mldsa65_error, ::isRealityMldsa65Verify)
+        // mihomo's only consumer of this value hex-decodes it into 32 bytes
+        (certificateFingerprint.preference as EditTextPreference)
+            .bindValidatedPreference(R.string.certificate_fingerprint_error) {
+                it.isBlank() || isCertificateFingerprint(it)
+            }
 
         type.preference.isVisible = !isHttp
         // ProxyEntity.singMux() builds multiplex for VMess/Trojan only

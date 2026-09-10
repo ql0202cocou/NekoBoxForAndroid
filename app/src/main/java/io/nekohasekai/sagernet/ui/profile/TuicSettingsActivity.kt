@@ -9,10 +9,17 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.fmt.tuic.TuicBean
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
+import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 
 class TuicSettingsActivity : ProfileSettingsActivity<TuicBean>() {
 
     override fun createEntity() = TuicBean().applyDefaultValues()
+
+    override fun validateEditor(): String? {
+        val certPin = DataStore.serverCertificateFingerprint
+        return if (certPin.isBlank() || isCertificateFingerprint(certPin)) null
+        else getString(R.string.certificate_fingerprint_error)
+    }
 
     override fun TuicBean.init() {
         DataStore.profileName = name
@@ -22,6 +29,7 @@ class TuicSettingsActivity : ProfileSettingsActivity<TuicBean>() {
         DataStore.serverPassword = token
         DataStore.serverALPN = alpn
         DataStore.serverCertificates = caText
+        DataStore.serverCertificateFingerprint = certificateFingerprint
         DataStore.serverUDPRelayMode = udpRelayMode
         DataStore.serverCongestionController = congestionController
         DataStore.serverDisableSNI = disableSNI
@@ -38,6 +46,7 @@ class TuicSettingsActivity : ProfileSettingsActivity<TuicBean>() {
         token = DataStore.serverPassword
         alpn = DataStore.serverALPN
         caText = DataStore.serverCertificates
+        certificateFingerprint = DataStore.serverCertificateFingerprint
         udpRelayMode = DataStore.serverUDPRelayMode
         congestionController = DataStore.serverCongestionController
         disableSNI = DataStore.serverDisableSNI
@@ -63,6 +72,12 @@ class TuicSettingsActivity : ProfileSettingsActivity<TuicBean>() {
         }
 
         findPreference<EditTextPreference>(Key.SERVER_PASSWORD)!!.bindPasswordPreference()
+
+        // mihomo's only consumer of this value hex-decodes it into 32 bytes
+        findPreference<EditTextPreference>(Key.SERVER_CERTIFICATE_FINGERPRINT)!!
+            .bindValidatedPreference(R.string.certificate_fingerprint_error) {
+                it.isBlank() || isCertificateFingerprint(it)
+            }
     }
 
 }

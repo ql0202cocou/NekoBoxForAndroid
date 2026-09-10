@@ -265,18 +265,22 @@ class ConfigurationFragment @JvmOverloads constructor(
 
     override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
         runOnMainDispatcher {
-            // editingGroup
-            if (key == Key.PROFILE_GROUP) {
-                val targetId = DataStore.editingGroup
-                if (targetId > 0 && targetId != DataStore.selectedGroup) {
-                    DataStore.selectedGroup = targetId
-                    val targetIndex = adapter.groupList.indexOfFirst { it.id == targetId }
-                    if (targetIndex >= 0) {
-                        groupPager.setCurrentItem(targetIndex, false)
-                    } else {
-                        adapter.reload()
-                    }
-                }
+            // editingGroup: an editor took the user to the edited group
+            if (key == Key.PROFILE_GROUP) selectGroupTab(DataStore.editingGroup)
+        }
+    }
+
+    // Switch the pager to a group tab. import() calls this directly: the
+    // cache is editor-owned, so changing tabs must not write PROFILE_GROUP
+    // into it.
+    private fun selectGroupTab(targetId: Long) {
+        if (targetId > 0 && targetId != DataStore.selectedGroup) {
+            DataStore.selectedGroup = targetId
+            val targetIndex = adapter.groupList.indexOfFirst { it.id == targetId }
+            if (targetIndex >= 0) {
+                groupPager.setCurrentItem(targetIndex, false)
+            } else {
+                adapter.reload()
             }
         }
     }
@@ -362,7 +366,9 @@ class ConfigurationFragment @JvmOverloads constructor(
             ProfileManager.createProfile(targetId, proxy)
         }
         onMainDispatcher {
-            DataStore.editingGroup = targetId
+            // Same tab switch the PROFILE_GROUP cache listener performs; the
+            // view (and its adapter) may be gone for a GlobalScope caller
+            if (::adapter.isInitialized) selectGroupTab(targetId)
             // GlobalScope caller: the fragment may be gone by now
             if (isAdded) snackbar(
                 app.resources.getQuantityString(R.plurals.added, proxies.size, proxies.size)
@@ -1809,7 +1815,8 @@ class ConfigurationFragment @JvmOverloads constructor(
                         R.id.action_config_export_clipboard -> export(entity.exportConfig().first)
                         R.id.action_config_export_file -> {
                             val cfg = entity.exportConfig()
-                            DataStore.serverConfig = cfg.first
+                            (parentFragment as ConfigurationFragment).pendingExportConfig =
+                                cfg.first
                             startFilesForResult(
                                 (parentFragment as ConfigurationFragment).exportConfig, cfg.second
                             )
@@ -1826,12 +1833,16 @@ class ConfigurationFragment @JvmOverloads constructor(
 
     }
 
+    // Content of a config export awaiting the picked document; kept in a
+    // field (not the editor-owned profileCacheStore) and still lost with the
+    // process, which writeToDocument refuses to write instead of truncating
+    // the picked file.
+    private var pendingExportConfig = ""
+
     private val exportConfig =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { data ->
             if (data != null) {
-                // profileCacheStore dies with the process; a blank config must not
-                // truncate the picked document
-                runOnDefaultDispatcher { writeToDocument(data, DataStore.serverConfig) }
+                runOnDefaultDispatcher { writeToDocument(data, pendingExportConfig) }
             }
         }
 

@@ -32,6 +32,12 @@ public class TuicBean extends AbstractBean {
     public String customJSON;
     public Integer protocolVersion;
     public String uuid;
+    // seconds; 0 leaves the sing-box "heartbeat" option unset
+    public Integer heartbeatInterval;
+    // SHA-256 hash of a served certificate (mihomo "fingerprint"). Stored
+    // without effect: TUIC runs on sing-box here, which has no compatible
+    // option (a build-time warning is logged).
+    public String certificateFingerprint;
 
     @Override
     public void initializeDefaultValues() {
@@ -50,11 +56,13 @@ public class TuicBean extends AbstractBean {
         if (customJSON == null) customJSON = "";
         if (protocolVersion == null) protocolVersion = 5;
         if (uuid == null) uuid = "";
+        if (heartbeatInterval == null) heartbeatInterval = 0;
+        if (certificateFingerprint == null) certificateFingerprint = "";
     }
 
     @Override
     public void serialize(ByteBufferOutput output) {
-        output.writeInt(2);
+        output.writeInt(4);
         super.serialize(output);
         output.writeString(token);
         output.writeString(caText);
@@ -70,6 +78,8 @@ public class TuicBean extends AbstractBean {
         output.writeString(customJSON);
         output.writeInt(protocolVersion);
         output.writeString(uuid);
+        output.writeInt(heartbeatInterval);
+        output.writeString(certificateFingerprint);
     }
 
     @Override
@@ -95,6 +105,12 @@ public class TuicBean extends AbstractBean {
             uuid = input.readString();
         } else {
             protocolVersion = 4;
+        }
+        if (version >= 3) {
+            heartbeatInterval = input.readInt();
+        }
+        if (version >= 4) {
+            certificateFingerprint = input.readString();
         }
     }
 

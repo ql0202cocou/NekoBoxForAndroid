@@ -34,13 +34,15 @@ fun buildSingBoxOutboundAnyTLSBean(bean: AnyTLSBean): SingBoxOptions.Outbound_An
                     fingerprint = it
                 }
             }
-            bean.echConfig.blankAsNull()?.let {
+            if (bean.enableECH || !bean.echConfig.isNullOrBlank()) {
                 // In new version, some complex options will be deprecated, so we just do this.
                 ech = SingBoxOptions.OutboundECHOptions().apply {
                     enabled = true
-                    // sing-box only accepts an "ECH CONFIGS" PEM block; a mihomo
-                    // subscription hands us bare base64
-                    config = it.echAsPem().lines()
+                    bean.echConfig.blankAsNull()?.let {
+                        // sing-box only accepts an "ECH CONFIGS" PEM block; a mihomo
+                        // subscription hands us bare base64
+                        config = it.echAsPem().lines()
+                    }
                 }
             }
         }
@@ -75,6 +77,8 @@ fun AnyTLSBean.toUri(): String {
     }
     if (!echConfig.isNullOrBlank()) {
         builder.addQueryParameter("ech", echConfig)
+    } else if (enableECH) {
+        builder.addQueryParameter("ech", "1")
     }
     return builder.toLink("anytls")
 }
@@ -106,9 +110,9 @@ fun parseAnytls(url: String): AnyTLSBean {
             certificateFingerprint = it
         }
         (link.queryParameter("ech") ?: link.queryParameter("echConfig"))?.let {
-            // "1" marks enable-only; there is no enableECH flag to carry it,
-            // and storing it as a config makes both cores reject the profile
-            if (it != "1") echConfig = it
+            // "1" marks enable-only; storing it as a config would make both
+            // cores reject the profile
+            if (it == "1") enableECH = true else echConfig = it
         }
     }
 }

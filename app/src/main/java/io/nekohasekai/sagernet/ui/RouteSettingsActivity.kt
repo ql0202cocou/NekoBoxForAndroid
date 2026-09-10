@@ -25,9 +25,14 @@ import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.database.EditorSessionState
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.RuleEntity
 import io.nekohasekai.sagernet.database.SagerDatabase
+import io.nekohasekai.sagernet.database.STATE_EDITOR_SESSION
+import io.nekohasekai.sagernet.database.checkEditorSession
+import io.nekohasekai.sagernet.database.claimEditorSession
+import io.nekohasekai.sagernet.database.renewEditorSession
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
@@ -235,8 +240,34 @@ class RouteSettingsActivity(
         const val EXTRA_PACKAGE_NAME = "pkg"
     }
 
+    // Token proving this Activity still owns the shared profileCacheStore;
+    // persisted so a restore can detect another editor taking it over.
+    private var editorSession = 0L
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putLong(STATE_EDITOR_SESSION, editorSession)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Session ownership of the shared profileCacheStore (see
+        // EditorSession.kt): a first creation resets the cache and claims it,
+        // a restore verifies the claim.
+        var sessionTakenOver = false
+        if (savedInstanceState == null) {
+            editorSession = claimEditorSession()
+        } else {
+            editorSession = savedInstanceState.getLong(STATE_EDITOR_SESSION, 0L)
+            sessionTakenOver = checkEditorSession(editorSession) == EditorSessionState.TAKEN_OVER
+        }
         super.onCreate(savedInstanceState)
+        if (sessionTakenOver) {
+            // Another top-level editor claimed the cache meanwhile; saving
+            // from here would write into the wrong rule.
+            Toast.makeText(this, R.string.editor_session_lost, Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
         setSupportActionBar(findViewById(R.id.toolbar))
         supportActionBar?.apply {
             setTitle(R.string.cag_route)
@@ -273,6 +304,10 @@ class RouteSettingsActivity(
                     DataStore.routeOutboundRule = it
                     DataStore.routeOutbound = 3
                 }
+
+                // The cache was empty (process death): re-claim the session so
+                // later recreations still match this editor's token
+                renewEditorSession(editorSession)
 
                 onMainDispatcher {
                     supportFragmentManager.beginTransaction()

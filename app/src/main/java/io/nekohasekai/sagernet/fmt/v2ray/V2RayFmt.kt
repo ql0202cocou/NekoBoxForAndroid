@@ -703,6 +703,12 @@ fun buildSingBoxOutboundStreamSettings(bean: StandardV2RayBean): V2RayTransportO
 
 fun buildSingBoxOutboundTLS(bean: StandardV2RayBean): OutboundTLSOptions? {
     if (bean.security != "tls") return null
+    // sing-box has no compatible option: its certificate_public_key_sha256 is
+    // an SPKI hash, not interchangeable with a certificate SHA-256, so the pin
+    // is stored without effect on this core (Xray honors it instead)
+    if (bean.certificateFingerprint.isNotBlank()) {
+        Logs.w("certificate fingerprint pinning is not supported by sing-box, ignored")
+    }
     return OutboundTLSOptions().apply {
         enabled = true
         insecure = bean.allowInsecure || DataStore.globalAllowInsecure

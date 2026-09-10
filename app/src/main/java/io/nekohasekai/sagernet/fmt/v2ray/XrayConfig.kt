@@ -2,6 +2,7 @@ package io.nekohasekai.sagernet.fmt.v2ray
 
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ktx.toStringPretty
+import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 import moe.matsuri.nb4a.utils.echAsBase64
 import moe.matsuri.nb4a.utils.listByLineOrComma
 import org.json.JSONArray
@@ -178,7 +179,19 @@ private fun buildXrayStreamSettings(bean: VMessBean): JSONObject {
                 if (bean.alpn.isNotBlank()) {
                     put("alpn", JSONArray(bean.alpn.listByLineOrComma()))
                 }
-                if (bean.allowInsecure || DataStore.globalAllowInsecure) {
+                // Pinning wins over allowInsecure, the same policy as
+                // buildMihomoConfig: Xray hex-decodes pinnedPeerCertSha256 like
+                // mihomo and checks it against every served certificate with
+                // InsecureSkipVerify on (transport/internet/tls/pin.go), so a
+                // pin already skips the name/expiry checks allowInsecure is
+                // used for.
+                val certPin = bean.certificateFingerprint.takeIf { it.isNotBlank() }
+                if (certPin != null) {
+                    require(isCertificateFingerprint(certPin)) {
+                        "Invalid certificate fingerprint: expected a SHA-256 digest of 64 hex characters (colons allowed)"
+                    }
+                    put("pinnedPeerCertSha256", certPin)
+                } else if (bean.allowInsecure || DataStore.globalAllowInsecure) {
                     put("allowInsecure", true)
                 }
                 fp?.let { put("fingerprint", it) }

@@ -65,6 +65,7 @@ object Key {
     const val PROFILE_TRAFFIC_STATISTICS = "profileTrafficStatistics"
 
     const val PROFILE_DIRTY = "profileDirty"
+    const val EDITOR_SESSION = "editorSession"
     const val PROFILE_ID = "profileId"
     const val PROFILE_NAME = "profileName"
     const val PROFILE_GROUP = "profileGroup"
@@ -92,6 +93,7 @@ object Key {
     const val SERVER_ENCRYPTION = "serverEncryption"
     const val SERVER_ALPN = "serverALPN"
     const val SERVER_CERTIFICATES = "serverCertificates"
+    const val SERVER_CERTIFICATE_FINGERPRINT = "serverCertificateFingerprint"
     const val SERVER_MTU = "serverMTU"
 
     const val SERVER_CONFIG = "serverConfig"

@@ -53,6 +53,8 @@ fun buildMihomoConfig(
             // mihomo base64-decodes this string; a sing-box style PEM fails
             "config" to bean.echConfig.echAsBase64(),
         )
+    } else if (bean.enableECH) {
+        proxy["ech-opts"] = linkedMapOf<String, Any?>("enable" to true)
     }
 
     val listener = LinkedHashMap<String, Any?>()

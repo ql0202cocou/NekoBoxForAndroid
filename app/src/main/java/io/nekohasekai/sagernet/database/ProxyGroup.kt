@@ -36,7 +36,7 @@ data class ProxyGroup(
     override fun serializeToBuffer(output: ByteBufferOutput) {
         if (export) {
 
-            output.writeInt(1)
+            output.writeInt(2)
             output.writeString(name)
             output.writeInt(type)
             // a corrupted backup restore can leave a subscription group without one
@@ -44,6 +44,9 @@ data class ProxyGroup(
             subscription.serializeForShare(output)
             // version 1: portable DoH address used to resolve the group's node domains
             output.writeString(proxyServerNameserver)
+            // version 2: selector flag; frontProxy/landingProxy are local row ids
+            // and stay unexported
+            output.writeBoolean(isSelector)
 
         } else {
             output.writeInt(2)
@@ -78,6 +81,9 @@ data class ProxyGroup(
             subscription.deserializeFromShare(input)
             if (version >= 1) {
                 proxyServerNameserver = input.readString()
+            }
+            if (version >= 2) {
+                isSelector = input.readBoolean()
             }
         } else {
             val version = input.readInt()

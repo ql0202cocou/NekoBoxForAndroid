@@ -1,12 +1,16 @@
 package io.nekohasekai.sagernet.fmt.tuic
 
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.linkBuilder
 import io.nekohasekai.sagernet.ktx.toLink
 import io.nekohasekai.sagernet.ktx.urlSafe
 import moe.matsuri.nb4a.SingBoxOptions
 import moe.matsuri.nb4a.utils.listByLineOrComma
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+
+private val tuicUuidRegex =
+    Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 
 fun parseTuic(url: String): TuicBean {
     // https://github.com/daeuniverse/dae/discussions/182
@@ -28,6 +32,11 @@ fun parseTuic(url: String): TuicBean {
             uuid = parts[0]
             token = parts.getOrElse(1) { "" }
         } else {
+            // a v4 link carries only a token in the userinfo, while a v5 uuid
+            // is a standard UUID; without it the link cannot be a valid v5 node
+            if (rawPass.isEmpty() && !rawUser.matches(tuicUuidRegex)) {
+                error("TUIC v4 link (token only) is not supported")
+            }
             uuid = rawUser
             token = rawPass
         }
@@ -80,6 +89,11 @@ fun TuicBean.toUri(): String {
 
 fun buildSingBoxOutboundTuicBean(bean: TuicBean): SingBoxOptions.Outbound_TUICOptions {
     if (bean.protocolVersion == 4) throw Exception("TUIC v4 is no longer supported")
+    // sing-box has no compatible option (its certificate_public_key_sha256 is
+    // an SPKI hash), so the pin is stored without effect on this core
+    if (bean.certificateFingerprint.isNotBlank()) {
+        Logs.w("certificate fingerprint pinning is not supported by sing-box, ignored")
+    }
     return SingBoxOptions.Outbound_TUICOptions().apply {
         type = "tuic"
         server = bean.serverAddress
@@ -91,6 +105,9 @@ fun buildSingBoxOutboundTuicBean(bean: TuicBean): SingBoxOptions.Outbound_TUICOp
             "quic" -> udp_relay_mode = "quic"
         }
         zero_rtt_handshake = bean.reduceRTT
+        if (bean.heartbeatInterval > 0) {
+            heartbeat = "${bean.heartbeatInterval}s"
+        }
         tls = SingBoxOptions.OutboundTLSOptions().apply {
             if (bean.sni.isNotBlank()) {
                 server_name = bean.sni

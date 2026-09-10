@@ -31,11 +31,6 @@ class TrojanGoSettingsActivity : ProfileSettingsActivity<TrojanGoBean>() {
             DataStore.serverPassword1 = encryption.substringAfter(":", "")
         } else {
             DataStore.serverEncryption = encryption
-            // the cache is shared by every editor and never reset: drop what the
-            // previous one left here (SSHSettingsActivity keeps the key passphrase
-            // in serverPassword1), or picking "ss" below offers it as the password
-            DataStore.profileCacheStore.remove(Key.SERVER_METHOD)
-            DataStore.profileCacheStore.remove(Key.SERVER_PASSWORD1)
         }
     }
 

@@ -46,6 +46,11 @@ public class HysteriaBean extends AbstractBean {
     public static final int PROTOCOL_WECHAT_VIDEO = 2;
     public Integer protocol;
 
+    // SHA-256 hash of a served certificate (mihomo "fingerprint"). Stored
+    // without effect: neither sing-box nor the hysteria 1 plugin has a
+    // compatible option (the sing-box builder logs a build-time warning).
+    public String certificateFingerprint;
+
     @Override
     public boolean canMapping() {
         return protocol != PROTOCOL_FAKETCP;
@@ -78,11 +83,12 @@ public class HysteriaBean extends AbstractBean {
         if (disableMtuDiscovery == null) disableMtuDiscovery = false;
         if (hopInterval == null) hopInterval = 10;
         if (serverPorts == null) serverPorts = "443";
+        if (certificateFingerprint == null) certificateFingerprint = "";
     }
 
     @Override
     public void serialize(ByteBufferOutput output) {
-        output.writeInt(7);
+        output.writeInt(8);
         super.serialize(output);
 
         output.writeInt(protocolVersion);
@@ -104,6 +110,7 @@ public class HysteriaBean extends AbstractBean {
         output.writeBoolean(disableMtuDiscovery);
         output.writeInt(hopInterval);
         output.writeString(serverPorts);
+        output.writeString(certificateFingerprint);
     }
 
     @Override
@@ -147,6 +154,9 @@ public class HysteriaBean extends AbstractBean {
             } else {
                 serverPorts = serverPort.toString();
             }
+        }
+        if (version >= 8) {
+            certificateFingerprint = input.readString();
         }
     }
 

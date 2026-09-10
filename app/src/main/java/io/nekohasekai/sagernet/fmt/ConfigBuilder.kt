@@ -181,7 +181,14 @@ fun buildConfig(
                 val beansMap = beans.associateBy { it.id }
                 val beanList = ArrayList<ProxyEntity>()
                 for (proxyId in bean.proxies) {
-                    val item = beansMap[proxyId] ?: continue
+                    val item = beansMap[proxyId]
+                    if (item == null) {
+                        // A partially missing chain keeps building with the
+                        // remaining members (legacy semantics), but the
+                        // dangling id should not vanish silently
+                        Logs.w("chain profile $id references missing profile $proxyId, skipped")
+                        continue
+                    }
                     beanList.addAll(item.resolveChainInternal(visiting))
                 }
                 return beanList.asReversed()
@@ -211,6 +218,14 @@ fun buildConfig(
         val thisGroup = SagerDatabase.groupDao.getById(groupId)
         val frontProxy = thisGroup?.frontProxy?.let { SagerDatabase.proxyDao.getById(it) }
         val landingProxy = thisGroup?.landingProxy?.let { SagerDatabase.proxyDao.getById(it) }
+        if (thisGroup != null) {
+            if (thisGroup.frontProxy > 0 && frontProxy == null) {
+                Logs.w("group $groupId front proxy ${thisGroup.frontProxy} no longer exists, ignored")
+            }
+            if (thisGroup.landingProxy > 0 && landingProxy == null) {
+                Logs.w("group $groupId landing proxy ${thisGroup.landingProxy} no longer exists, ignored")
+            }
+        }
         val list = resolveChainInternal()
         if (frontProxy != null) {
             list.add(frontProxy)

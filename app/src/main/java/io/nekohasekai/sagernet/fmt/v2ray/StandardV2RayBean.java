@@ -43,6 +43,11 @@ public abstract class StandardV2RayBean extends AbstractBean {
     // Xray-only: sing-box 1.13 has no ML-DSA-65 REALITY support
     public String realityMldsa65Verify;
 
+    // SHA-256 hash of a served certificate (mihomo "fingerprint" / Xray
+    // pinnedPeerCertSha256). sing-box cannot express it: its
+    // certificate_public_key_sha256 is an SPKI hash, not interchangeable, so
+    // there the value is stored without effect (a build-time warning is logged).
+    public String certificateFingerprint;
 
     // --------------------------------------- //
 
@@ -104,6 +109,7 @@ public abstract class StandardV2RayBean extends AbstractBean {
         if (realityPubKey == null) realityPubKey = "";
         if (realityShortId == null) realityShortId = "";
         if (realityMldsa65Verify == null) realityMldsa65Verify = "";
+        if (certificateFingerprint == null) certificateFingerprint = "";
 
         if (enableECH == null) enableECH = false;
         if (JavaUtil.isNullOrBlank(echConfig)) echConfig = "";
@@ -116,7 +122,7 @@ public abstract class StandardV2RayBean extends AbstractBean {
 
     @Override
     public void serialize(ByteBufferOutput output) {
-        output.writeInt(5);
+        output.writeInt(6);
         super.serialize(output);
         output.writeString(uuid);
         output.writeString(encryption);
@@ -171,6 +177,7 @@ public abstract class StandardV2RayBean extends AbstractBean {
         output.writeInt(muxConcurrency);
 
         output.writeString(realityMldsa65Verify);
+        output.writeString(certificateFingerprint);
     }
 
     @Override
@@ -265,6 +272,9 @@ public abstract class StandardV2RayBean extends AbstractBean {
 
         if (version >= 5) {
             realityMldsa65Verify = input.readString();
+        }
+        if (version >= 6) {
+            certificateFingerprint = input.readString();
         }
     }
 

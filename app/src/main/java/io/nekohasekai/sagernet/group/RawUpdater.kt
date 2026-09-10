@@ -22,6 +22,7 @@ import io.nekohasekai.sagernet.ktx.*
 import libcore.Libcore
 import moe.matsuri.nb4a.Protocols
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
+import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 import moe.matsuri.nb4a.proxy.config.ConfigBean
 import moe.matsuri.nb4a.utils.Util
 import org.ini4j.Ini
@@ -494,6 +495,9 @@ object RawUpdater : GroupUpdater() {
                                         "skip-cert-verify" -> bean.allowInsecure =
                                             opt.value.clashBoolean()
 
+                                        "fingerprint" -> bean.certificateFingerprint =
+                                            parseCertificateFingerprint(opt.value)
+
                                         "client-fingerprint" -> bean.utlsFingerprint =
                                             opt.value as String
 
@@ -672,8 +676,9 @@ object RawUpdater : GroupUpdater() {
                                         }
 
                                         "ech-opts" -> (opt.value as? Map<String, Any?>)?.also {
-                                            // AnyTLSBean has no enableECH; a non-blank
-                                            // echConfig enables ECH on both builders.
+                                            if (it["enable"]?.toString() == "true") {
+                                                bean.enableECH = true
+                                            }
                                             if (it["enable"]?.toString() != "false") {
                                                 bean.echConfig =
                                                     it["config"]?.toString() ?: ""
@@ -723,6 +728,9 @@ object RawUpdater : GroupUpdater() {
                                         "ca-str" -> bean.caText = opt.value.toString()
 
                                         "sni" -> bean.sni = opt.value.toString()
+
+                                        "fingerprint" -> bean.certificateFingerprint =
+                                            parseCertificateFingerprint(opt.value)
 
                                         "skip-cert-verify" -> bean.allowInsecure =
                                             opt.value.clashBoolean()
@@ -777,6 +785,9 @@ object RawUpdater : GroupUpdater() {
 
                                         "sni" -> bean.sni = opt.value.toString()
 
+                                        "fingerprint" -> bean.certificateFingerprint =
+                                            parseCertificateFingerprint(opt.value)
+
                                         "skip-cert-verify" -> bean.allowInsecure =
                                             opt.value.clashBoolean()
 
@@ -815,7 +826,10 @@ object RawUpdater : GroupUpdater() {
                                         // mihomo treats a "token" node as TUIC v4, which the
                                         // core dropped; importing it would only fail at connect
                                         // time, so skip it like an unsupported ss plugin
-                                        "token" -> error("unsupported TUIC v4 (token) node")
+                                        "token" -> {
+                                            Logs.w("Skipping TUIC v4 (token) node: v4 is not supported")
+                                            error("unsupported TUIC v4 (token) node")
+                                        }
 
                                         "uuid" -> bean.uuid = opt.value.toString()
 
@@ -834,6 +848,9 @@ object RawUpdater : GroupUpdater() {
 
                                         "ca-str" -> bean.caText = opt.value.toString()
 
+                                        "fingerprint" -> bean.certificateFingerprint =
+                                            parseCertificateFingerprint(opt.value)
+
                                         "fast-open" -> bean.fastConnect =
                                             opt.value.clashBoolean()
 
@@ -847,6 +864,12 @@ object RawUpdater : GroupUpdater() {
 
                                         "udp-relay-mode" -> bean.udpRelayMode = opt.value.toString()
 
+                                        // mihomo milliseconds, sing-box seconds (rounded)
+                                        "heartbeat-interval" -> bean.heartbeatInterval =
+                                            opt.value.toString().toLongOrNull()
+                                                ?.let { ((it + 500) / 1000).toInt().coerceAtLeast(0) }
+                                                ?: bean.heartbeatInterval
+
                                     }
                                 }
                                 if (ip.isNotBlank()) {
@@ -856,6 +879,53 @@ object RawUpdater : GroupUpdater() {
                                         bean.sni = domain
                                     }
                                 }
+                                proxies.add(bean)
+                            }
+
+                            "wireguard" -> {
+                                val bean = WireGuardBean().applyDefaultValues()
+                                val localAddresses = mutableListOf<String>()
+                                for (opt in proxy) {
+                                    if (opt.value == null) continue
+                                    when (opt.key.replace("_", "-")) {
+                                        "name" -> bean.name = opt.value.toString()
+                                        "server" -> bean.serverAddress = opt.value.toString()
+                                        "port" -> bean.serverPort = opt.value.toString().toInt()
+                                        "ip", "ipv6" -> {
+                                            val address = opt.value.toString()
+                                            if (address.isNotBlank()) localAddresses.add(address)
+                                        }
+
+                                        "private-key" -> bean.privateKey = opt.value.toString()
+                                        "public-key" -> bean.peerPublicKey = opt.value.toString()
+                                        "pre-shared-key" -> bean.peerPreSharedKey =
+                                            opt.value.toString()
+
+                                        "mtu" -> bean.mtu =
+                                            opt.value.toString().toIntOrNull() ?: bean.mtu
+
+                                        // mihomo writes the three reserved bytes as a
+                                        // list; the bean keeps genReservedList's comma form
+                                        "reserved" -> bean.reserved =
+                                            (opt.value as? List<*>)?.joinToString(",") {
+                                                it?.toString() ?: ""
+                                            } ?: opt.value.toString()
+
+                                        "persistent-keepalive" -> bean.peerKeepalive =
+                                            opt.value.toString().toIntOrNull() ?: 0
+
+                                        // stored for export round-trips only; the builder
+                                        // keeps the default route allowed_ips
+                                        "allowed-ips" -> bean.peerAllowedIps =
+                                            (opt.value as? List<*>)?.mapNotNull { it?.toString() }
+                                                ?.joinToString(",") ?: opt.value.toString()
+
+                                        "remote-dns-resolve", "amnezia-wg-option" -> Logs.w(
+                                            "clash wireguard ${opt.key.replace("_", "-")} is unsupported, dropped"
+                                        )
+                                    }
+                                }
+                                bean.localAddress = localAddresses.joinToString("\n")
                                 proxies.add(bean)
                             }
                         }
@@ -961,6 +1031,17 @@ object RawUpdater : GroupUpdater() {
         }
     }
 
+    // mihomo "fingerprint" is the SHA-256 hash of a served certificate; a value
+    // in any other shape would only fail inside the core, so it is dropped here
+    private fun parseCertificateFingerprint(value: Any?): String {
+        val text = value?.toString() ?: ""
+        if (text.isNotEmpty() && !isCertificateFingerprint(text)) {
+            Logs.w("clash fingerprint is not a SHA-256 digest, dropped")
+            return ""
+        }
+        return text
+    }
+
     fun parseWireGuard(conf: String): List<WireGuardBean> {
         val ini = Ini(StringReader(conf))
         val iface = ini["Interface"] ?: error("Missing 'Interface' selection")
@@ -968,22 +1049,55 @@ object RawUpdater : GroupUpdater() {
         val localAddresses = iface.getAll("Address")
         if (localAddresses.isNullOrEmpty()) error("Empty address in 'Interface' selection")
         bean.localAddress = localAddresses.flatMap { it.split(",") }.joinToString("\n")
-        bean.privateKey = iface["PrivateKey"]
-        bean.mtu = iface["MTU"]?.toIntOrNull()
+        bean.privateKey = iface["PrivateKey"].orEmpty()
+        if (bean.privateKey.isBlank()) {
+            // an empty key only surfaced as an opaque error at start time
+            Logs.w("WireGuard profile skipped: missing PrivateKey in 'Interface' selection")
+            error("Missing PrivateKey in 'Interface' selection")
+        }
+        bean.mtu = iface["MTU"]?.toIntOrNull() ?: bean.mtu
+        // The app has no per-profile DNS model; keep dropping the field but say so
+        if (!iface.getAll("DNS").isNullOrEmpty()) {
+            Logs.w("WireGuard 'Interface' DNS field dropped")
+        }
         val peers = ini.getAll("Peer")
         if (peers.isNullOrEmpty()) error("Missing 'Peer' selections")
         val beans = mutableListOf<WireGuardBean>()
         for (peer in peers) {
             val endpoint = peer["Endpoint"]
-            if (endpoint.isNullOrBlank() || !endpoint.contains(":")) {
+            if (endpoint.isNullOrBlank()) {
                 continue
             }
 
             val peerBean = bean.clone()
-            peerBean.serverAddress = endpoint.substringBeforeLast(":")
-            peerBean.serverPort = endpoint.substringAfterLast(":").toIntOrNull() ?: continue
+            // [v6]:port | host:port; a bare IPv6 endpoint (no brackets, several
+            // colons) cannot be told apart from host:port, so it is dropped
+            val colons = endpoint.count { it == ':' }
+            when {
+                endpoint.startsWith("[") -> {
+                    val end = endpoint.indexOf(']')
+                    if (end < 0) continue
+                    peerBean.serverAddress = endpoint.substring(1, end)
+                    peerBean.serverPort =
+                        endpoint.substring(end + 1).removePrefix(":").toIntOrNull() ?: continue
+                }
+
+                colons == 1 -> {
+                    peerBean.serverAddress = endpoint.substringBefore(":")
+                    peerBean.serverPort = endpoint.substringAfter(":").toIntOrNull() ?: continue
+                }
+
+                colons > 1 -> {
+                    Logs.w("WireGuard peer skipped: bare IPv6 endpoint without brackets")
+                    continue
+                }
+
+                else -> continue
+            }
             peerBean.peerPublicKey = peer["PublicKey"] ?: continue
             peerBean.peerPreSharedKey = peer["PresharedKey"]
+            peerBean.peerKeepalive = peer["PersistentKeepalive"]?.toIntOrNull() ?: 0
+            peerBean.peerAllowedIps = peer["AllowedIPs"].orEmpty()
             beans.add(peerBean.applyDefaultValues())
         }
         if (beans.isEmpty()) error("Empty available peer list")

@@ -4417,7 +4417,8 @@ public class SingBoxOptions {
 
         public Boolean zero_rtt_handshake;
 
-        public Long heartbeat;
+        // badoption.Duration: JSON string ("10s"); a number would be nanoseconds
+        public String heartbeat;
 
         public String network;
 

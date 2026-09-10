@@ -199,6 +199,8 @@
     <string name="config_settings">Config Settings</string>
     <string name="circular_reference">Circular reference</string>
     <string name="circular_reference_sum">The route cannot contain itself.</string>
+    <string name="deleted_profile">Deleted profile</string>
+    <string name="editor_session_lost">This editing session was taken over by another editor; closing without saving.</string>
     <string name="clear_profiles">Clear</string>
     <string name="action_export_file">Export to file</string>
     <string name="action_export_clipboard">Export to Clipboard</string>
@@ -363,6 +365,8 @@
     <string name="wireguard_local_address">Local Address</string>
     <string name="wireguard_public_key">Peer Public Key</string>
     <string name="wireguard_psk">Peer Pre-Shared Key</string>
+    <string name="wireguard_peer_keepalive">Persistent Keepalive (seconds)</string>
+    <string name="wireguard_peer_allowed_ips">Peer Allowed IPs</string>
 
     <string name="tun_implementation">TUN Implementation</string>
     <string name="resolve_destination">Resolve Destination</string>

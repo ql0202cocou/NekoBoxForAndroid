@@ -25,8 +25,11 @@ class WireGuardSettingsActivity : ProfileSettingsActivity<WireGuardBean>() {
             }
         }
         val value = reserved.readStringFromCache()
-        return if (value.isBlank() || genReservedList(value) != null) null
-        else getString(R.string.wireguard_reserved_error)
+        if (!(value.isBlank() || genReservedList(value) != null)) {
+            return getString(R.string.wireguard_reserved_error)
+        }
+        return if (isWireGuardLocalAddressList(peerAllowedIps.readStringFromCache())) null
+        else getString(R.string.wireguard_address_error)
     }
 
     override fun createEntity() = WireGuardBean()
@@ -41,6 +44,8 @@ class WireGuardSettingsActivity : ProfileSettingsActivity<WireGuardBean>() {
     private val peerPreSharedKey = pbm.add(PreferenceBinding(Type.Text, "peerPreSharedKey"))
     private val mtu = pbm.add(PreferenceBinding(Type.TextToInt, "mtu"))
     private val reserved = pbm.add(PreferenceBinding(Type.Text, "reserved"))
+    private val peerKeepalive = pbm.add(PreferenceBinding(Type.TextToInt, "peerKeepalive"))
+    private val peerAllowedIps = pbm.add(PreferenceBinding(Type.Text, "peerAllowedIps"))
 
     override fun WireGuardBean.init() {
         pbm.writeToCacheAll(this)
@@ -76,6 +81,12 @@ class WireGuardSettingsActivity : ProfileSettingsActivity<WireGuardBean>() {
         (reserved.preference as EditTextPreference).setOnPreferenceChangeListener { _, value ->
             val valid = value is String && (value.isBlank() || genReservedList(value) != null)
             if (!valid) Toast.makeText(requireContext(), R.string.wireguard_reserved_error, Toast.LENGTH_LONG).show()
+            valid
+        }
+        (peerKeepalive.preference as EditTextPreference).bindIntegerPreference()
+        (peerAllowedIps.preference as EditTextPreference).setOnPreferenceChangeListener { _, value ->
+            val valid = value is String && isWireGuardLocalAddressList(value)
+            if (!valid) Toast.makeText(requireContext(), R.string.wireguard_address_error, Toast.LENGTH_LONG).show()
             valid
         }
     }
