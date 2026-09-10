@@ -6,7 +6,6 @@ import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
 import io.nekohasekai.sagernet.fmt.naive.NaiveBean
 
 class NaiveSettingsActivity : ProfileSettingsActivity<NaiveBean>() {
@@ -48,9 +47,7 @@ class NaiveSettingsActivity : ProfileSettingsActivity<NaiveBean>() {
         addPreferencesFromResource(R.xml.naive_preferences)
         findPreference<EditTextPreference>(Key.SERVER_PORT)!!.bindPortPreference()
         findPreference<EditTextPreference>(Key.SERVER_PASSWORD)!!.bindPasswordPreference()
-        findPreference<EditTextPreference>(Key.SERVER_INSECURE_CONCURRENCY)!!.apply {
-            setOnBindEditTextListener(EditTextPreferenceModifiers.Number)
-        }
+        findPreference<EditTextPreference>(Key.SERVER_INSECURE_CONCURRENCY)!!.bindIntegerPreference()
     }
 
     override fun finish() {

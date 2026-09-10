@@ -78,6 +78,7 @@ class KeyValuePair() : Parcelable {
         get() = if (valueType == TYPE_STRING) String(value) else null
     val stringSet: Set<String>?
         get() = if (valueType == TYPE_STRING_SET) {
+            validate()
             val buffer = ByteBuffer.wrap(value)
             val result = HashSet<String>()
             while (buffer.hasRemaining()) {
@@ -87,6 +88,34 @@ class KeyValuePair() : Parcelable {
             }
             result
         } else null
+
+    // A Parcel only validates its byte array envelope, not the typed payload.
+    // Reject corrupt backup settings before they reach the persistent database.
+    @Suppress("DEPRECATION")
+    fun validate() {
+        val expectedSize = when (valueType) {
+            TYPE_UNINITIALIZED -> 0
+            TYPE_BOOLEAN -> 1
+            TYPE_FLOAT, TYPE_INT -> 4
+            TYPE_LONG -> 8
+            TYPE_STRING, TYPE_STRING_SET -> null
+            else -> throw IllegalArgumentException("Unknown setting value type")
+        }
+        require(expectedSize == null || value.size == expectedSize) {
+            "Invalid setting value size"
+        }
+        if (valueType == TYPE_STRING_SET) {
+            val buffer = ByteBuffer.wrap(value)
+            while (buffer.hasRemaining()) {
+                require(buffer.remaining() >= 4) { "Truncated setting string length" }
+                val length = buffer.int
+                require(length >= 0 && length <= buffer.remaining()) {
+                    "Invalid setting string length"
+                }
+                buffer.position(buffer.position() + length)
+            }
+        }
+    }
 
     @Ignore
     constructor(key: String) : this() {

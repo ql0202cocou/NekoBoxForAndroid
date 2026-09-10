@@ -92,7 +92,7 @@ class PreferenceBinding(
         }
     }
 
-    val preference by lazy {
-        pf!!.findPreference<Preference>(cacheName)!!
-    }
+    // A restored editor may replace its preference fragment after cache init.
+    // Resolve against the current fragment rather than retaining its old view.
+    val preference get() = pf!!.findPreference<Preference>(cacheName)!!
 }

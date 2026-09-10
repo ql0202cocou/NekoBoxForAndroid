@@ -53,6 +53,9 @@ public class ChainBean extends InternalBean {
             input.readInt();
         }
         int length = input.readInt();
+        if (length < 0 || length > (input.limit() - input.position()) / Long.BYTES) {
+            throw new com.esotericsoftware.kryo.KryoException("Invalid chain length");
+        }
         proxies = new ArrayList<>();
         for (int i = 0; i < length; i++) {
             proxies.add(input.readLong());

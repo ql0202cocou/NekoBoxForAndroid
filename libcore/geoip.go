@@ -2,7 +2,6 @@ package libcore
 
 import (
 	"fmt"
-	"net"
 	"path/filepath"
 	"strings"
 
@@ -24,34 +23,27 @@ func (g *geoip) Open(path string) error {
 
 func (g *geoip) Rules(countryCode string) ([]option.HeadlessRule, error) {
 	networks := g.geoipReader.Networks(maxminddb.SkipAliasedNetworks)
-	countryMap := make(map[string][]*net.IPNet)
-	var (
-		ipNet           *net.IPNet
-		nextCountryCode string
-		err             error
-	)
+	countryCode = strings.ToLower(countryCode)
+	var cidrs []string
+	var nextCountryCode string
 	for networks.Next() {
-		ipNet, err = networks.Network(&nextCountryCode)
+		ipNet, err := networks.Network(&nextCountryCode)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get network: %w", err)
 		}
-		countryMap[nextCountryCode] = append(countryMap[nextCountryCode], ipNet)
+		// A rule only needs its own country. Do not retain all other
+		// networks in a map on every rule-set load.
+		if nextCountryCode == countryCode {
+			cidrs = append(cidrs, ipNet.String())
+		}
 	}
 	if err := networks.Err(); err != nil {
 		return nil, fmt.Errorf("failed to iterate networks: %w", err)
 	}
-
-	ipNets := countryMap[strings.ToLower(countryCode)]
-
-	if len(ipNets) == 0 {
+	if len(cidrs) == 0 {
 		return nil, fmt.Errorf("no networks found for country code: %s", countryCode)
 	}
-
-	var headlessRule option.DefaultHeadlessRule
-	headlessRule.IPCIDR = make([]string, 0, len(ipNets))
-	for _, cidr := range ipNets {
-		headlessRule.IPCIDR = append(headlessRule.IPCIDR, cidr.String())
-	}
+	headlessRule := option.DefaultHeadlessRule{IPCIDR: cidrs}
 
 	return []option.HeadlessRule{
 		{

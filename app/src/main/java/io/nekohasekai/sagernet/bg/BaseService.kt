@@ -116,7 +116,7 @@ class BaseService {
         }
     }
 
-    class Binder(private var data: Data? = null) : ISagerNetService.Stub(), CoroutineScope,
+    class Binder(@Volatile private var data: Data? = null) : ISagerNetService.Stub(), CoroutineScope,
         AutoCloseable {
         private val callbacks = object : RemoteCallbackList<ISagerNetServiceCallback>() {
             override fun onCallbackDied(callback: ISagerNetServiceCallback?, cookie: Any?) {
@@ -200,6 +200,7 @@ class BaseService {
 
         override fun close() {
             callbacks.kill()
+            callbackIdMap.clear()
             cancel()
             data = null
         }
@@ -283,8 +284,16 @@ class BaseService {
             // after the close instead of holding up the teardown.
             val looper = data.proxy?.looper
             val postFinalTraffic = looper?.stopLoop() == true
-            data.proxy?.close()
-            if (postFinalTraffic) looper?.postFinalTraffic()
+            data.proxy?.let {
+                it.close()
+                it.awaitProcessesClosed()
+            }
+            if (postFinalTraffic) {
+                // A database write failure must not strand the service in
+                // Stopping with its wake lock and foreground notification held.
+                runCatching { looper?.postFinalTraffic() }
+                    .onFailure { Logs.w("Final traffic persistence failed", it) }
+            }
             wakeLock?.apply {
                 release()
                 wakeLock = null

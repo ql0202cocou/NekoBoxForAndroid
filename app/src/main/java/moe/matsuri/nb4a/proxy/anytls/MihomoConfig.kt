@@ -1,7 +1,6 @@
 package moe.matsuri.nb4a.proxy.anytls
 
 import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.ktx.Logs
 import moe.matsuri.nb4a.utils.JavaUtil
 import moe.matsuri.nb4a.utils.echAsBase64
 import moe.matsuri.nb4a.utils.listByLineOrComma
@@ -76,12 +75,10 @@ fun buildMihomoConfig(
 
 // SHA-256 (lowercase hex) of the first certificate in the PEM, matching
 // mihomo's `fingerprint` pinning format.
-private fun certificateSha256(pem: String): String? = runCatching {
+private fun certificateSha256(pem: String): String = runCatching {
     val der = CertificateFactory.getInstance("X.509")
         .generateCertificate(pem.byteInputStream()).encoded
     JavaUtil.bytesToHex(MessageDigest.getInstance("SHA-256").digest(der))
 }.getOrElse {
-    // a malformed PEM silently drops the pinning and falls back to plain chain verification
-    Logs.w("failed to parse certificates PEM for fingerprint pinning", it)
-    null
+    throw IllegalArgumentException("Invalid AnyTLS certificate for mihomo fingerprint pinning", it)
 }

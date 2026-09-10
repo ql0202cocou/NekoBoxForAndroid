@@ -27,12 +27,25 @@ is_elf() {
   [ "$(head -c 4 "$1" 2>/dev/null | od -An -tx1 | tr -d ' \n')" = "7f454c46" ]
 }
 
+check_pinned() {
+  # $1: file, $2: core (XRAY|MIHOMO), $3: abi
+  local var="$2_SHA256_${3//-/_}"
+  local expect="${!var}"
+  [ -n "$expect" ] || { echo "no pinned sha256 for $2 $3"; return 1; }
+  local actual=$(shasum -a 256 "$1" | awk '{print $1}')
+  [ "$actual" = "$expect" ] || { echo "pinned sha256 mismatch for $1: $actual != $expect"; return 1; }
+}
+
 # skip when the installed cores already match the pinned versions
-# (ELF magic check, so an interrupted previous run's truncated .so is not
-# mistaken for an up-to-date install)
+# Verify cached bytes too: the version stamp and ELF header do not detect
+# corruption or replacement of a cached binary.
 if [ "$(cat "$STAMP" 2>/dev/null)" = "$WANT" ] \
   && is_elf "$DIR/arm64-v8a/libxray.so" && is_elf "$DIR/x86_64/libxray.so" \
-  && is_elf "$DIR/arm64-v8a/libmihomo.so" && is_elf "$DIR/x86_64/libmihomo.so"; then
+  && is_elf "$DIR/arm64-v8a/libmihomo.so" && is_elf "$DIR/x86_64/libmihomo.so" \
+  && check_pinned "$DIR/arm64-v8a/libxray.so" XRAY arm64-v8a \
+  && check_pinned "$DIR/x86_64/libxray.so" XRAY x86_64 \
+  && check_pinned "$DIR/arm64-v8a/libmihomo.so" MIHOMO arm64-v8a \
+  && check_pinned "$DIR/x86_64/libmihomo.so" MIHOMO x86_64; then
   echo ">> plugin cores up to date ($WANT)"
   exit 0
 fi
@@ -56,14 +69,6 @@ check_elf() {
   is_elf "$1" || { echo "$1 is not an ELF binary"; exit 1; }
 }
 
-check_pinned() {
-  # $1: file, $2: core (XRAY|MIHOMO), $3: abi
-  local var="$2_SHA256_${3//-/_}"
-  local expect="${!var}"
-  [ -n "$expect" ] || { echo "no pinned sha256 for $2 $3"; exit 1; }
-  local actual=$(shasum -a 256 "$1" | awk '{print $1}')
-  [ "$actual" = "$expect" ] || { echo "pinned sha256 mismatch for $1: $actual != $expect"; exit 1; }
-}
 
 upstream_arch() {
   # $1: abi, $2: the upstream's name for arm64-v8a (both use amd64 for x86_64)

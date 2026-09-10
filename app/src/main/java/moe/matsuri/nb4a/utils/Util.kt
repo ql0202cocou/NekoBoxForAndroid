@@ -208,12 +208,18 @@ object Util {
     // replacement contains a colon and therefore cannot be re-matched here
     private val URL_USERINFO_BARE = Regex("""(://)[^"\s:@/]+@""")
 
+    private val URL_QUERY_SECRET = Regex(
+        """([?&](?:password|token|secret|auth|key|access_token)=)[^&#\s"']*""",
+        RegexOption.IGNORE_CASE
+    )
+
     // keep credentials out of the exportable log / crash report
     fun redactSecrets(text: String): String {
         var result = SENSITIVE_JSON_VALUE.replace(text) { it.groupValues[1] + "\"***\"" }
         result = SENSITIVE_YAML_VALUE.replace(result) { it.groupValues[1] + "***" }
         result = URL_USERINFO_PASSWORD.replace(result) { it.groupValues[1] + ":***@" }
         result = URL_USERINFO_BARE.replace(result) { it.groupValues[1] + "***@" }
+        result = URL_QUERY_SECRET.replace(result) { it.groupValues[1] + "***" }
         return result
     }
 

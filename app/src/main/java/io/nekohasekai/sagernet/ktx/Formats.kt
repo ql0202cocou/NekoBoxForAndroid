@@ -132,7 +132,7 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
             runCatching {
                 entities.add(parseHttp(this))
             }.onFailure {
-                Logs.w(Util.redactSecrets(it.stackTraceToString()))
+                Logs.w("Proxy link rejected: ${it.javaClass.simpleName}")
                 val clashUrl = HttpUrl.Builder()
                     .scheme("https")
                     .host("install-config")
@@ -150,7 +150,7 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
                 runCatching {
                     entities.add(parse(this))
                 }.onFailure {
-                    Logs.w(Util.redactSecrets(it.stackTraceToString()))
+                    Logs.w("Proxy link rejected: ${it.javaClass.simpleName}")
                 }
                 return
             }

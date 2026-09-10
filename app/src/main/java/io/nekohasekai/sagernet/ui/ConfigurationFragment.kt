@@ -58,6 +58,8 @@ import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.toUniversalLink
 import io.nekohasekai.sagernet.group.GroupUpdater
 import io.nekohasekai.sagernet.group.RawUpdater
+import io.nekohasekai.sagernet.ktx.MAX_IMPORT_BYTES
+import io.nekohasekai.sagernet.ktx.readBytesLimited
 import io.nekohasekai.sagernet.ktx.FixedLinearLayoutManager
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.SubscriptionFoundException
@@ -318,10 +320,15 @@ class ConfigurationFragment @JvmOverloads constructor(
                         ZipInputStream(
                             app.contentResolver.openInputStream(file)!!
                         ).use { zip ->
+                            var remaining = MAX_IMPORT_BYTES
+                            var entries = 0
                             while (true) {
                                 val entry = zip.nextEntry ?: break
+                                require(++entries <= 4096) { "Too many ZIP entries" }
+                                val bytes = zip.readBytesLimited(remaining)
+                                remaining -= bytes.size
                                 if (entry.isDirectory) continue
-                                val fileText = zip.bufferedReader().readText()
+                                val fileText = bytes.toString(Charsets.UTF_8)
                                 RawUpdater.parseRaw(fileText, entry.name)
                                     ?.let { pl -> proxies.addAll(pl) }
                                 zip.closeEntry()
@@ -330,7 +337,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                     } else {
                         val fileText =
                             app.contentResolver.openInputStream(file)!!.use {
-                                it.bufferedReader().readText()
+                                it.readBytesLimited().toString(Charsets.UTF_8)
                             }
                         RawUpdater.parseRaw(fileText, fileName ?: "")
                             ?.let { pl -> proxies.addAll(pl) }

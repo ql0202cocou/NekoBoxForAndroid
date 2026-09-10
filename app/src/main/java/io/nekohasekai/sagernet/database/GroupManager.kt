@@ -119,7 +119,7 @@ object GroupManager {
         val current = updated ?: return
         iterator { groupUpdated(current) }
         // 分组类型可能在订阅与基本之间切换：不再订阅的分组要取消周期任务，
-        // 新订阅的分组要排上；reconfigureUpdater 内部先 cancel 再按现状重排
+        // 新订阅的分组要排上；reconfigureUpdater 按现状更新，全部关闭时才取消
         SubscriptionUpdater.reconfigureUpdater()
     }
 

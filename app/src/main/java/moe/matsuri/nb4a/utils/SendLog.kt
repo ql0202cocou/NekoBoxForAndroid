@@ -52,6 +52,10 @@ object SendLog {
         logFile.appendText("\n")
         logFile.appendBytes(getNekoLog(0))
 
+        // Native cores and logcat bypass the Kotlin logging call sites. Apply
+        // the same redaction to the complete report before granting access.
+        logFile.writeText(Util.redactSecrets(logFile.readText()))
+
         return logFile
     }
 

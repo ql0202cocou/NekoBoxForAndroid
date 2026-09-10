@@ -465,4 +465,9 @@
     <string name="minimize">Minimize</string>
     <string name="app_list_permission_denied">Unable to read installed apps.\nThis is usually because the system has restricted app read permissions.\nPlease grant permissions in the system settings.</string>
     <string name="open_app_settings">Open System Settings</string>
+    <string name="integer_range_error">Enter an integer between %1$d and %2$d.</string>
+    <string name="hysteria_ports_error">Use ports from 1 to 65535, separated by commas. Ranges such as 1000:2000 must be in ascending order.</string>
+    <string name="wireguard_reserved_error">Reserved must be empty or contain exactly three integers from 0 to 255.</string>
+    <string name="wireguard_key_error">Enter a standard Base64 key that decodes to 32 bytes. The pre-shared key may be empty.</string>
+    <string name="wireguard_address_error">Use IPv4/prefix (0–32) or IPv6/prefix (0–128), separated by commas or new lines.</string>
 </resources>

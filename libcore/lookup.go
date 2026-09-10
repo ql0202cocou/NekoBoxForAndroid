@@ -22,6 +22,39 @@ func LookupHost(server string, domain string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	return lookupHost(ctx, server, domain)
+}
+
+// LookupHosts tries newline-separated servers in order within one ten-second
+// budget, including A/AAAA queries and UDP-to-TCP retries.
+func LookupHosts(servers string, domain string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return lookupHosts(ctx, servers, domain)
+}
+
+func lookupHosts(ctx context.Context, servers string, domain string) (string, error) {
+	for _, server := range strings.Split(servers, "\n") {
+		server = strings.TrimSpace(server)
+		if server == "" {
+			continue
+		}
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
+		addresses, err := lookupHost(ctx, server, domain)
+		if err == nil {
+			return addresses, nil
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	// Do not expose server URLs (which may contain credentials) in errors.
+	return "", fmt.Errorf("no DNS server returned addresses")
+}
+
+func lookupHost(ctx context.Context, server string, domain string) (string, error) {
 	// An empty answer covers NOERROR-empty, NXDOMAIN and REFUSED alike —
 	// lookupHostType does not inspect Rcode, so those all return (nil, nil) and
 	// still reach the AAAA leg. Only a transport-level failure short-circuits,
@@ -57,6 +90,12 @@ func lookupHostType(ctx context.Context, server string, domain string, queryType
 		address = withDefaultPort(address, "53")
 		client := &mDNS.Client{Net: scheme, Timeout: 5 * time.Second}
 		response, _, err = client.ExchangeContext(ctx, query, address)
+		// A truncated UDP answer is incomplete even when it contains some A/AAAA
+		// records. Retry the same question over TCP within the original deadline.
+		if err == nil && scheme == "udp" && response.Truncated {
+			client.Net = "tcp"
+			response, _, err = client.ExchangeContext(ctx, query, address)
+		}
 	case "tls":
 		address = withDefaultPort(address, "853")
 		host, _, _ := net.SplitHostPort(address)
@@ -116,6 +155,9 @@ func exchangeHTTPS(ctx context.Context, server string, query *mDNS.Msg) (*mDNS.M
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("DNS over HTTPS returned HTTP %d", resp.StatusCode)
+	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
 	if err != nil {
 		return nil, err

@@ -113,18 +113,23 @@ fun ShadowsocksBean.toUri(): String {
 }
 
 fun JSONObject.parseShadowsocks(): ShadowsocksBean {
+    val address = getStr("server")?.takeIf { it.isNotBlank() }
+        ?: error("Missing Shadowsocks server")
+    val port = getIntNya("server_port")?.takeIf { it in 1..65535 }
+        ?: error("Invalid Shadowsocks port")
+    val cipher = getStr("method") ?: error("Missing Shadowsocks method")
     return ShadowsocksBean().apply {
-        serverAddress = getStr("server")
-        serverPort = getIntNya("server_port")
+        serverAddress = address
+        serverPort = port
         password = getStr("password")
-        method = getStr("method")
+        method = cipher
         name = optString("remarks", "")
 
         val pId = getStr("plugin")
         if (!pId.isNullOrBlank()) {
             plugin = pId + ";" + optString("plugin_opts", "")
         }
-    }
+    }.applyDefaultValues()
 }
 
 fun buildSingBoxOutboundShadowsocksBean(bean: ShadowsocksBean): SingBoxOptions.Outbound_ShadowsocksOptions {

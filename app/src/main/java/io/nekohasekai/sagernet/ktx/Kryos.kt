@@ -31,8 +31,9 @@ class BoundedByteBufferInput(bytes: ByteArray) : ByteBufferInput(bytes) {
         if (readVarIntFlag()) {
             val start = position()
             val count = readVarIntFlag(true)
-            setPosition(start)
+            if (count < 0) throw KryoException("Invalid string length")
             if (count > 1) checkRemaining(count - 1, "string")
+            setPosition(start)
         }
         return super.readString()
     }

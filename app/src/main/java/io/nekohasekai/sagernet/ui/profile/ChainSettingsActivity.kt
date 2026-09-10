@@ -13,6 +13,9 @@ import androidx.activity.result.component1
 import androidx.activity.result.component2
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.isVisible
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import androidx.preference.PreferenceFragmentCompat
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -56,7 +59,7 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
 
     override fun ChainBean.serialize() {
         name = DataStore.profileName
-        proxies = proxyList.map { it.id }
+        proxies = cachedProxyIds()
         initializeDefaultValues()
     }
 
@@ -129,14 +132,20 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
             }
         }
 
-        runOnDefaultDispatcher {
-            configurationAdapter.reload()
+        lifecycleScope.launch(Dispatchers.Default) {
+            awaitEditorReady()
+            // Restored fragments can create their view inside super.onCreate,
+            // before this Activity has installed its adapter. Queue on Main
+            // before accessing it so Activity.onCreate can finish first.
+            val adapter = onMainDispatcher { configurationAdapter }
+            adapter.reload()
         }
     }
 
     inner class ProxiesAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
         suspend fun reload() {
+            awaitEditorReady()
             val idList = cachedProxyIds()
             val profiles = if (idList.isNotEmpty()) {
                 ProfileManager.getProfiles(idList).map { it.id to it }.toMap()
@@ -151,7 +160,7 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
                 // list from stale ids and wiping that selection.
                 val currentIds = cachedProxyIds()
                 if (currentIds != idList) {
-                    runOnDefaultDispatcher { reload() }
+                    lifecycleScope.launch(Dispatchers.Default) { reload() }
                     return@onMainDispatcher
                 }
                 proxyList.clear()
@@ -262,14 +271,14 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
 
     val selectProfileForAdd =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { (resultCode, data) ->
-            if (resultCode == Activity.RESULT_OK) runOnDefaultDispatcher {
-                DataStore.dirty = true
+            if (resultCode == Activity.RESULT_OK) lifecycleScope.launch(Dispatchers.Default) {
+                awaitEditorReady()
 
                 val profile = ProfileManager.getProfile(
-                    data!!.getLongExtra(
+                    data?.getLongExtra(
                         ProfileSelectActivity.EXTRA_PROFILE_ID, 0
-                    )
-                ) ?: return@runOnDefaultDispatcher
+                    ) ?: return@launch
+                ) ?: return@launch
 
                 if (!testProfileAllowed(profile)) {
                     onMainDispatcher {
@@ -278,7 +287,7 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
                             .setPositiveButton(android.R.string.ok, null).show()
                     }
                 } else {
-                    configurationList.post {
+                    onMainDispatcher {
                         // reload() rebuilds proxyList from DataStore.serverProtocol
                         // asynchronously, so after a process-death restore the
                         // list may still be empty here. Write the selection
@@ -292,7 +301,8 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
                             ids.add(profile.id)
                         }
                         DataStore.serverProtocol = ids.joinToString(",")
-                        runOnDefaultDispatcher { configurationAdapter.reload() }
+                        DataStore.dirty = true
+                        lifecycleScope.launch(Dispatchers.Default) { configurationAdapter.reload() }
                     }
                 }
             }

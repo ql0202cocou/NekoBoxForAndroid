@@ -23,39 +23,45 @@ object DefaultNetworkListener {
         class Start(val key: Any, val listener: (Network?) -> Unit) : NetworkMessage()
         class Stop(val key: Any) : NetworkMessage()
 
-        class Put(val network: Network) : NetworkMessage()
-        class Update(val network: Network) : NetworkMessage()
-        class Lost(val network: Network) : NetworkMessage()
+        class Put(val source: Callback, val network: Network) : NetworkMessage()
+        class Update(val source: Callback, val network: Network) : NetworkMessage()
+        class Lost(val source: Callback, val network: Network) : NetworkMessage()
     }
 
     private val networkActor = GlobalScope.actor<NetworkMessage>(Dispatchers.Unconfined) {
         val listeners = mutableMapOf<Any, (Network?) -> Unit>()
         var network: Network? = null
+        var activeCallback: Callback? = null
         for (message in channel) when (message) {
             is NetworkMessage.Start -> {
-                if (listeners.isEmpty()) register()
+                if (activeCallback == null) {
+                    val callback = Callback()
+                    if (register(callback)) activeCallback = callback
+                }
                 listeners[message.key] = message.listener
-                if (network != null) message.listener(network)
+                if (network != null) {
+                    notifyNetworkListeners(listOf(message.listener), network) { Logs.w(it) }
+                }
             }
             is NetworkMessage.Stop -> if (listeners.isNotEmpty() && // was not empty
                 listeners.remove(message.key) != null && listeners.isEmpty()
             ) {
                 network = null
-                unregister()
+                val callback = activeCallback
+                activeCallback = null
+                if (callback != null) unregister(callback)
             }
 
-            is NetworkMessage.Put -> {
+            is NetworkMessage.Put -> if (message.source === activeCallback) {
                 network = message.network
-                listeners.values.forEach { it(network) }
+                notifyNetworkListeners(listeners.values, network) { Logs.w(it) }
             }
-            is NetworkMessage.Update -> if (network == message.network) listeners.values.forEach {
-                it(
-                    network
-                )
+            is NetworkMessage.Update -> if (message.source === activeCallback && network == message.network) {
+                notifyNetworkListeners(listeners.values, network) { Logs.w(it) }
             }
-            is NetworkMessage.Lost -> if (network == message.network) {
+            is NetworkMessage.Lost -> if (message.source === activeCallback && network == message.network) {
                 network = null
-                listeners.values.forEach { it(null) }
+                notifyNetworkListeners(listeners.values, network) { Logs.w(it) }
             }
         }
     }
@@ -66,18 +72,18 @@ object DefaultNetworkListener {
     suspend fun stop(key: Any) = networkActor.send(NetworkMessage.Stop(key))
 
     // NB: this runs in ConnectivityThread, and this behavior cannot be changed until API 26
-    private object Callback : ConnectivityManager.NetworkCallback() {
+    private class Callback : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) =
-            runBlocking { networkActor.send(NetworkMessage.Put(network)) }
+            runBlocking { networkActor.send(NetworkMessage.Put(this@Callback, network)) }
 
         override fun onCapabilitiesChanged(
             network: Network, networkCapabilities: NetworkCapabilities
         ) { // it's a good idea to refresh capabilities
-            runBlocking { networkActor.send(NetworkMessage.Update(network)) }
+            runBlocking { networkActor.send(NetworkMessage.Update(this@Callback, network)) }
         }
 
         override fun onLost(network: Network) =
-            runBlocking { networkActor.send(NetworkMessage.Lost(network)) }
+            runBlocking { networkActor.send(NetworkMessage.Lost(this@Callback, network)) }
     }
 
     private val request = NetworkRequest.Builder().apply {
@@ -100,37 +106,41 @@ object DefaultNetworkListener {
      *
      * Source: https://android.googlesource.com/platform/frameworks/base/+/2df4c7d/services/core/java/com/android/server/ConnectivityService.java#887
      */
-    private fun register() {
-        try {
+    private fun register(callback: Callback): Boolean {
+        return try {
             when (Build.VERSION.SDK_INT) {
                 in 31..Int.MAX_VALUE -> @RequiresApi(31) {
                     SagerNet.connectivity.registerBestMatchingNetworkCallback(
-                        request, Callback, mainHandler
+                        request, callback, mainHandler
                     )
                 }
                 in 28 until 31 -> @RequiresApi(28) {  // we want REQUEST here instead of LISTEN
-                    SagerNet.connectivity.requestNetwork(request, Callback, mainHandler)
+                    SagerNet.connectivity.requestNetwork(request, callback, mainHandler)
                 }
                 in 26 until 28 -> @RequiresApi(26) {
-                    SagerNet.connectivity.registerDefaultNetworkCallback(Callback, mainHandler)
+                    SagerNet.connectivity.registerDefaultNetworkCallback(callback, mainHandler)
                 }
                 in 24 until 26 -> @RequiresApi(24) {
-                    SagerNet.connectivity.registerDefaultNetworkCallback(Callback)
+                    SagerNet.connectivity.registerDefaultNetworkCallback(callback)
                 }
                 else -> {
-                    SagerNet.connectivity.requestNetwork(request, Callback)
+                    SagerNet.connectivity.requestNetwork(request, callback)
                     // known bug on API 23: https://stackoverflow.com/a/33509180/2245107
                 }
             }
+            true
         } catch (e: Exception) {
             Logs.w(e)
+            // A partially successful platform registration must not leak.
+            unregister(callback)
+            false
         }
     }
 
-    private fun unregister() {
+    private fun unregister(callback: Callback) {
         // throws IllegalArgumentException if register() failed; an
         // uncaught throw here kills the actor and every later send fails
-        runCatching { SagerNet.connectivity.unregisterNetworkCallback(Callback) }
+        runCatching { SagerNet.connectivity.unregisterNetworkCallback(callback) }
             .onFailure { Logs.w(it) }
     }
 }

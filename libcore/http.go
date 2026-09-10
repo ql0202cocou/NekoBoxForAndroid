@@ -565,7 +565,5 @@ func (h *httpResponse) WriteTo(path string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
-	_, err = io.Copy(file, h.Body)
-	return err
+	return copyAndClose(file, h.Body)
 }

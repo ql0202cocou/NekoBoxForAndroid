@@ -9,7 +9,19 @@ import androidx.annotation.MainThread
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.utils.Commandline
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.channels.Channel
 import libcore.Libcore
 import java.io.File
@@ -40,7 +52,7 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
         var looperStarted = false
 
         private fun streamLogger(input: InputStream, logger: (String) -> Unit) = try {
-            input.bufferedReader().forEachLine(logger)
+            input.bufferedReader().use { it.forEachLine(logger) }
         } catch (_: IOException) {
         }    // ignore
 
@@ -62,13 +74,20 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
             // suspension point, so a live process always has a thread parked in
             // waitFor and the cleanup below can always receive its exit code
             fun spawnLoggers() {
-                thread(name = "stderr-$cmdName") {
-                    streamLogger(process.errorStream) { Libcore.nekoLogPrintln("[$cmdName] $it") }
+                val child = process
+                thread(name = "stderr-$cmdName", isDaemon = true) {
+                    streamLogger(child.errorStream) { Libcore.nekoLogPrintln("[$cmdName] $it") }
                 }
-                thread(name = "stdout-$cmdName") {
-                    streamLogger(process.inputStream) { Libcore.nekoLogPrintln("[$cmdName] $it") }
-                    // this thread also acts as a daemon thread for waitFor
-                    runBlocking { exitChannel.send(process.waitFor()) }
+                thread(name = "stdout-$cmdName", isDaemon = true) {
+                    streamLogger(child.inputStream) { Libcore.nekoLogPrintln("[$cmdName] $it") }
+                }
+                // Descendants can inherit stdout/stderr after this child exits.
+                // Reaping must not wait for those pipes to reach EOF.
+                thread(name = "wait-$cmdName", isDaemon = true) {
+                    exitChannel.trySend(child.waitFor())
+                    runCatching { child.outputStream.close() }
+                    runCatching { child.inputStream.close() }
+                    runCatching { child.errorStream.close() }
                 }
             }
             try {
@@ -77,6 +96,7 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
                     val startTime = SystemClock.elapsedRealtime()
                     val exitCode = exitChannel.receive()
                     running = false
+                    coroutineContext.ensureActive()
                     when {
                         SystemClock.elapsedRealtime() - startTime < 1000 -> throw IOException(
                             "$cmdName exits too fast (exit code: $exitCode)"
@@ -93,7 +113,11 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
                 }
             } catch (e: IOException) {
                 Logs.w("error occurred. stop guard: ${Commandline.toString(cmd)}")
-                GlobalScope.launch(Dispatchers.Main) { onFatal(e) }
+                if (coroutineContext.isActive) {
+                    GlobalScope.launch(Dispatchers.Main) {
+                        if (this@GuardedProcessPool.coroutineContext.isActive) onFatal(e)
+                    }
+                }
             } finally {
                 if (running) withContext(NonCancellable) {  // clean-up cannot be cancelled
                     if (Build.VERSION.SDK_INT < 24) {

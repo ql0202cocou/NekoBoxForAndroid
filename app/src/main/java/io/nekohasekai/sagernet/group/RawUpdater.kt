@@ -28,21 +28,12 @@ import org.ini4j.Ini
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
-import org.yaml.snakeyaml.LoaderOptions
-import org.yaml.snakeyaml.TypeDescription
-import org.yaml.snakeyaml.Yaml
-import org.yaml.snakeyaml.constructor.SafeConstructor
 import org.yaml.snakeyaml.error.YAMLException
 import java.io.StringReader
 import androidx.core.net.toUri
 
 @Suppress("EXPERIMENTAL_API_USAGE")
 object RawUpdater : GroupUpdater() {
-
-    // snakeyaml 1.32+ caps a document at 3 MB of code points by default; lift it to
-    // the 32 MB body cap the HTTP client already enforces (libcore maxContentSize).
-    // The nesting-depth and alias limits that stop the crafted-YAML DoS stay default.
-    private fun yamlLoaderOptions() = LoaderOptions().apply { codePointLimit = 32 * 1024 * 1024 }
 
     @SuppressLint("Recycle")
     override suspend fun doUpdate(
@@ -58,8 +49,7 @@ object RawUpdater : GroupUpdater() {
         var remoteGroupName: String? = null
         if (link.startsWith("content://")) {
             val contentText = app.contentResolver.openInputStream(link.toUri())
-                ?.bufferedReader()
-                ?.use { it.readText() }
+                ?.use { it.readBytesLimited().toString(Charsets.UTF_8) }
                 ?: error(app.getString(R.string.no_proxies_found_in_subscription))
 
             subscriptionText = contentText
@@ -278,7 +268,14 @@ object RawUpdater : GroupUpdater() {
             for (entity in toUpdate) {
                 val current = SagerDatabase.proxyDao.getById(entity.id) ?: continue
                 current.userOrder = entity.userOrder
-                current.putBean(entity.requireBean())
+                val currentBean = current.requireBean()
+                val updatedBean = entity.requireBean().apply {
+                    // Overrides may have been edited during DNS resolution.
+                    // Preserve them from the transaction's fresh row too.
+                    customOutboundJson = currentBean.customOutboundJson
+                    customConfigJson = currentBean.customConfigJson
+                }
+                current.putBean(updatedBean)
                 updatedCount += SagerDatabase.proxyDao.updateProxy(current)
             }
             Logs.d("Updated profiles: $updatedCount")
@@ -330,6 +327,7 @@ object RawUpdater : GroupUpdater() {
     @Suppress("UNCHECKED_CAST")
     suspend fun parseRaw(text: String, fileName: String = ""): List<AbstractBean>? {
 
+        require(text.length <= MAX_IMPORT_BYTES) { "Import exceeds size limit" }
         val proxies = mutableListOf<AbstractBean>()
 
         if (text.contains("proxies:")) {
@@ -344,9 +342,7 @@ object RawUpdater : GroupUpdater() {
                 // A valid YAML whose root is not a map (plain cast would throw a
                 // ClassCastException out of the YAMLException catch below) falls
                 // back to the base64 / share-link parsing like any non-clash body.
-                val yaml = Yaml(SafeConstructor(yamlLoaderOptions())).apply {
-                    addTypeDescription(TypeDescription(String::class.java, "str"))
-                }.load(text) as? Map<*, *> ?: throw YAMLException("Root node is not a map")
+                val yaml = clashYaml().load(text) as? Map<*, *> ?: throw YAMLException("Root node is not a map")
 
                 val globalClientFingerprint = yaml["global-client-fingerprint"]?.toString() ?: ""
 
@@ -357,7 +353,6 @@ object RawUpdater : GroupUpdater() {
                 for (proxyEntry in (yaml["proxies"] as? List<*> ?: error(
                     app.getString(R.string.no_proxies_found_in_file)
                 ))) {
-                    // Note: YAML numbers parsed as "Long"
 
                     // Skip a single broken node instead of failing the whole update
                     runCatching {
@@ -380,10 +375,10 @@ object RawUpdater : GroupUpdater() {
                                     serverPort = proxy["port"].toString().toInt()
                                     username = proxy["username"]?.toString()
                                     password = proxy["password"]?.toString()
-                                    setTLS(proxy["tls"]?.toString() == "true")
+                                    setTLS(proxy["tls"].clashBoolean())
                                     sni = proxy["sni"]?.toString()
                                     name = proxy["name"]?.toString()
-                                    allowInsecure = proxy["skip-cert-verify"]?.toString() == "true"
+                                    allowInsecure = proxy["skip-cert-verify"].clashBoolean()
                                 })
                             }
 
@@ -407,10 +402,10 @@ object RawUpdater : GroupUpdater() {
                                             ssPlugin.apply {
                                                 add("v2ray-plugin")
                                                 add("mode=" + (opts["mode"]?.toString() ?: ""))
-                                                if (opts["tls"]?.toString() == "true") add("tls")
+                                                if (opts["tls"].clashBoolean()) add("tls")
                                                 add("host=" + (opts["host"]?.toString() ?: ""))
                                                 add("path=" + (opts["path"]?.toString() ?: ""))
-                                                if (opts["mux"]?.toString() == "true") add("mux=8")
+                                                if (opts["mux"].clashBoolean()) add("mux=8")
                                             }
                                         }
 
@@ -427,7 +422,7 @@ object RawUpdater : GroupUpdater() {
                                     password = proxy["password"]?.toString()
                                     method = clashCipher(proxy["cipher"] as String)
                                     plugin = ssPlugin.joinToString(";")
-                                    sUoT = proxy["udp-over-tcp"]?.toString() == "true"
+                                    sUoT = proxy["udp-over-tcp"].clashBoolean()
                                     name = proxy["name"]?.toString()
                                 })
                             }
@@ -488,7 +483,7 @@ object RawUpdater : GroupUpdater() {
 
                                         "tls" -> if (bean is VMessBean) {
                                             bean.security =
-                                                if (opt.value as? Boolean == true) "tls" else ""
+                                                if (opt.value.clashBoolean()) "tls" else ""
                                         }
 
                                         "servername", "sni" -> bean.sni = opt.value?.toString()
@@ -497,7 +492,7 @@ object RawUpdater : GroupUpdater() {
                                             (opt.value as? List<Any>)?.joinToString("\n")
 
                                         "skip-cert-verify" -> bean.allowInsecure =
-                                            opt.value.toString() == "true"
+                                            opt.value.clashBoolean()
 
                                         "client-fingerprint" -> bean.utlsFingerprint =
                                             opt.value as String
@@ -549,7 +544,7 @@ object RawUpdater : GroupUpdater() {
                                                     }
 
                                                     "v2ray-http-upgrade" -> {
-                                                        if (wsOpt.value as? Boolean == true) {
+                                                        if (wsOpt.value.clashBoolean()) {
                                                             bean.type = "httpupgrade"
                                                         }
                                                     }
@@ -609,13 +604,13 @@ object RawUpdater : GroupUpdater() {
                                             for (smuxOpt in it) {
                                                 when (smuxOpt.key) {
                                                     "enabled" -> bean.enableMux =
-                                                        smuxOpt.value.toString() == "true"
+                                                        smuxOpt.value.clashBoolean()
 
                                                     "max-streams" -> bean.muxConcurrency =
                                                         smuxOpt.value.toString().toInt()
 
                                                     "padding" -> bean.muxPadding =
-                                                        smuxOpt.value.toString() == "true"
+                                                        smuxOpt.value.clashBoolean()
 
                                                     // same numbering as ProxyEntity.singMux
                                                     "protocol" -> bean.muxType =
@@ -632,7 +627,7 @@ object RawUpdater : GroupUpdater() {
                                             for (echOpt in it) {
                                                 when (echOpt.key) {
                                                     "enable" -> bean.enableECH =
-                                                        echOpt.value.toString() == "true"
+                                                        echOpt.value.clashBoolean()
 
                                                     "config" -> bean.echConfig =
                                                         echOpt.value?.toString() ?: ""
@@ -658,7 +653,7 @@ object RawUpdater : GroupUpdater() {
 
                                         "sni" -> bean.sni = opt.value.toString()
                                         "skip-cert-verify" -> bean.allowInsecure =
-                                            opt.value.toString() == "true"
+                                            opt.value.clashBoolean()
 
                                         // mihomo's "certificate"/"private-key" are the mTLS
                                         // CLIENT cert (ca.GetTLSConfig -> GetClientCertificate),
@@ -730,7 +725,7 @@ object RawUpdater : GroupUpdater() {
                                         "sni" -> bean.sni = opt.value.toString()
 
                                         "skip-cert-verify" -> bean.allowInsecure =
-                                            opt.value.toString() == "true"
+                                            opt.value.clashBoolean()
 
                                         "up" -> bean.uploadMbps =
                                             opt.value.toString().substringBefore(" ").toIntOrNull()
@@ -747,7 +742,7 @@ object RawUpdater : GroupUpdater() {
                                             opt.value.toString().toIntOrNull() ?: 0
 
                                         "disable-mtu-discovery" -> bean.disableMtuDiscovery =
-                                            opt.value.toString() == "true" || opt.value.toString() == "1"
+                                            opt.value.clashBoolean() || opt.value.toString() == "1"
 
                                         "hop-interval" -> bean.hopInterval =
                                             opt.value.toString().toIntOrNull() ?: bean.hopInterval
@@ -783,7 +778,7 @@ object RawUpdater : GroupUpdater() {
                                         "sni" -> bean.sni = opt.value.toString()
 
                                         "skip-cert-verify" -> bean.allowInsecure =
-                                            opt.value.toString() == "true"
+                                            opt.value.clashBoolean()
 
                                         "up" -> bean.uploadMbps =
                                             opt.value.toString().substringBefore(" ").toIntOrNull() ?: 0
@@ -827,20 +822,20 @@ object RawUpdater : GroupUpdater() {
                                         "password" -> bean.token = opt.value.toString()
 
                                         "skip-cert-verify" -> bean.allowInsecure =
-                                            opt.value.toString() == "true"
+                                            opt.value.clashBoolean()
 
                                         "disable-sni" -> bean.disableSNI =
-                                            opt.value.toString() == "true"
+                                            opt.value.clashBoolean()
 
                                         "reduce-rtt" -> bean.reduceRTT =
-                                            opt.value.toString() == "true"
+                                            opt.value.clashBoolean()
 
                                         "sni" -> bean.sni = opt.value.toString()
 
                                         "ca-str" -> bean.caText = opt.value.toString()
 
                                         "fast-open" -> bean.fastConnect =
-                                            opt.value.toString() == "true"
+                                            opt.value.clashBoolean()
 
                                         "alpn" -> {
                                             val alpn = (opt.value as? (List<String>))
@@ -864,7 +859,7 @@ object RawUpdater : GroupUpdater() {
                                 proxies.add(bean)
                             }
                         }
-                    }.onFailure { Logs.w(Util.redactSecrets(it.stackTraceToString())) }
+                    }.onFailure { Logs.w("Subscription entry rejected: ${it.javaClass.simpleName}") }
                 }
 
                 // Fix ent
@@ -886,7 +881,7 @@ object RawUpdater : GroupUpdater() {
                 }
                 return proxies.takeIf { it.isNotEmpty() } ?: error("Not found")
             } catch (e: YAMLException) {
-                Logs.w(Util.redactSecrets(e.stackTraceToString()))
+                Logs.w("Subscription parsing failed: ${e.javaClass.simpleName}")
             }
         } else if (text.contains("[Interface]")) {
             // wireguard
@@ -897,12 +892,12 @@ object RawUpdater : GroupUpdater() {
                 })
                 return proxies
             } catch (e: Exception) {
-                Logs.w(Util.redactSecrets(e.stackTraceToString()))
+                Logs.w("Subscription parsing failed: ${e.javaClass.simpleName}")
             }
         }
 
         try {
-            val json = JSONTokener(text).nextValue()
+            val json = JSONTokener(text.checkJsonNesting()).nextValue()
             // An unrecognized JSON object (an API error body served with 200, an
             // unsupported schema) must fall through like every other path, not
             // come back as "0 nodes": doUpdate would delete the whole group.
@@ -914,7 +909,7 @@ object RawUpdater : GroupUpdater() {
             return parseProxies(text.decodeBase64UrlSafe()).takeIf { it.isNotEmpty() }
                 ?: error("Not found")
         } catch (e: Exception) {
-            Logs.w(Util.redactSecrets(e.stackTraceToString()))
+            Logs.w("Subscription parsing failed: ${e.javaClass.simpleName}")
         }
 
         try {
@@ -937,7 +932,7 @@ object RawUpdater : GroupUpdater() {
     fun parseProxyServerNameserver(text: String): String? {
         if (!text.contains("proxies:")) return null
         return try {
-            val yaml = Yaml(SafeConstructor(yamlLoaderOptions())).load(text) as Map<*, *>
+            val yaml = clashYaml().load(text) as Map<*, *>
             val dns = yaml["dns"] as? Map<*, *>
             listOfNotNull(
                 dns?.get("proxy-server-nameserver"),
@@ -954,7 +949,7 @@ object RawUpdater : GroupUpdater() {
                     .takeIf { it.isNotBlank() }
             }
         } catch (e: Exception) {
-            Logs.w(e)
+            Logs.w("Subscription DNS parsing failed: ${e.javaClass.simpleName}")
             null
         }
     }
@@ -995,7 +990,8 @@ object RawUpdater : GroupUpdater() {
         return beans
     }
 
-    fun parseJSON(json: Any): List<AbstractBean> {
+    fun parseJSON(json: Any, depth: Int = 0): List<AbstractBean> {
+        require(depth <= 32) { "JSON subscription nesting exceeds limit" }
         val proxies = ArrayList<AbstractBean>()
 
         if (json is JSONObject) {
@@ -1014,7 +1010,7 @@ object RawUpdater : GroupUpdater() {
                     return json.getJSONArray("servers")
                         .filterIsInstance<JSONObject>()
                         .filter { it.has("server") }
-                        .map { it.parseShadowsocks() }
+                        .mapNotNull { entry -> runCatching { entry.parseShadowsocks() }.getOrNull() }
                 }
 
                 json.has("remote_addr") -> {
@@ -1050,11 +1046,12 @@ object RawUpdater : GroupUpdater() {
                     })
                 }
             }
-        } else {
-            json as JSONArray
-            json.forEach { _, it ->
-                if (isJsonObjectValid(it)) {
-                    proxies.addAll(parseJSON(it))
+        } else if (json is JSONArray) {
+            // Scalars and malformed nodes must not discard valid siblings.
+            json.forEach { _, entry ->
+                if (entry is JSONObject || entry is JSONArray) {
+                    runCatching { parseJSON(entry, depth + 1) }
+                        .getOrNull()?.let { proxies.addAll(it) }
                 }
             }
         }

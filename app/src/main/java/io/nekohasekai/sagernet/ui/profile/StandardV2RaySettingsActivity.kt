@@ -100,7 +100,9 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
 
         (serverPort.preference as EditTextPreference).bindPortPreference()
 
-        (alterId.preference as EditTextPreference).bindPortPreference()
+        (alterId.preference as EditTextPreference).bindIntegerPreference(0, 65535)
+        (wsMaxEarlyData.preference as EditTextPreference).bindIntegerPreference()
+        (muxConcurrency.preference as EditTextPreference).bindIntegerPreference()
 
         (uuid.preference as EditTextPreference).bindPasswordPreference()
 

@@ -1,18 +1,23 @@
 package io.nekohasekai.sagernet.ui.profile
 
 import android.os.Bundle
+import android.widget.Toast
+import io.nekohasekai.sagernet.fmt.hysteria.parseHysteriaPorts
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreference
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import moe.matsuri.nb4a.ui.SimpleMenuPreference
 
 class HysteriaSettingsActivity : ProfileSettingsActivity<HysteriaBean>() {
+
+    override fun validateEditor(): String? =
+        if (runCatching { parseHysteriaPorts(DataStore.serverPorts) }.isSuccess) null
+        else getString(R.string.hysteria_ports_error)
 
     override fun createEntity() = HysteriaBean().applyDefaultValues()
 
@@ -63,6 +68,11 @@ class HysteriaSettingsActivity : ProfileSettingsActivity<HysteriaBean>() {
         rootKey: String?,
     ) {
         addPreferencesFromResource(R.xml.hysteria_preferences)
+        findPreference<EditTextPreference>("serverPorts")!!.setOnPreferenceChangeListener { _, value ->
+            val valid = value is String && runCatching { parseHysteriaPorts(value) }.isSuccess
+            if (!valid) Toast.makeText(requireContext(), R.string.hysteria_ports_error, Toast.LENGTH_LONG).show()
+            valid
+        }
 
         val authType = findPreference<SimpleMenuPreference>(Key.SERVER_AUTH_TYPE)!!
         val authPayload = findPreference<EditTextPreference>(Key.SERVER_PASSWORD)!!
@@ -76,6 +86,10 @@ class HysteriaSettingsActivity : ProfileSettingsActivity<HysteriaBean>() {
         val alpn = findPreference<EditTextPreference>(Key.SERVER_ALPN)!!
 
         fun updateVersion(v: Int) {
+            // Hysteria 1 requires bandwidth; Hysteria 2 accepts zero for auto.
+            val minSpeed = if (v == 2) 0 else 1
+            findPreference<EditTextPreference>(Key.SERVER_UPLOAD_SPEED)!!.bindIntegerPreference(minSpeed)
+            findPreference<EditTextPreference>(Key.SERVER_DOWNLOAD_SPEED)!!.bindIntegerPreference(minSpeed)
             if (v == 2) {
                 // hy2 has no protocol option; reset a stale faketcp/wechat
                 // value so serialize() cannot write back an illegal
@@ -121,25 +135,16 @@ class HysteriaSettingsActivity : ProfileSettingsActivity<HysteriaBean>() {
         }
         updateVersion(DataStore.protocolVersion)
 
-        findPreference<EditTextPreference>(Key.SERVER_UPLOAD_SPEED)!!.apply {
-            setOnBindEditTextListener(EditTextPreferenceModifiers.Number)
-        }
-        findPreference<EditTextPreference>(Key.SERVER_DOWNLOAD_SPEED)!!.apply {
-            setOnBindEditTextListener(EditTextPreferenceModifiers.Number)
-        }
-        findPreference<EditTextPreference>(Key.SERVER_STREAM_RECEIVE_WINDOW)!!.apply {
-            setOnBindEditTextListener(EditTextPreferenceModifiers.Number)
-        }
-        findPreference<EditTextPreference>(Key.SERVER_CONNECTION_RECEIVE_WINDOW)!!.apply {
-            setOnBindEditTextListener(EditTextPreferenceModifiers.Number)
-        }
+        // Empty windows are stored as zero and omitted by the Hysteria 1 builder.
+        findPreference<EditTextPreference>(Key.SERVER_STREAM_RECEIVE_WINDOW)!!
+            .bindIntegerPreference(allowEmpty = true)
+        findPreference<EditTextPreference>(Key.SERVER_CONNECTION_RECEIVE_WINDOW)!!
+            .bindIntegerPreference(allowEmpty = true)
 
         findPreference<EditTextPreference>(Key.SERVER_PASSWORD)!!.bindPasswordPreference()
         findPreference<EditTextPreference>(Key.SERVER_OBFS)!!.bindPasswordPreference()
 
-        findPreference<EditTextPreference>(Key.SERVER_HOP_INTERVAL)!!.apply {
-            setOnBindEditTextListener(EditTextPreferenceModifiers.Number)
-        }
+        findPreference<EditTextPreference>(Key.SERVER_HOP_INTERVAL)!!.bindIntegerPreference()
     }
 
 }

@@ -19,7 +19,11 @@ import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.buildXrayConfig
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.plugin.PluginManager
-import kotlinx.coroutines.*
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.plus
 import libcore.BoxInstance
 import libcore.Libcore
 import moe.matsuri.nb4a.net.LocalResolverImpl
@@ -242,6 +246,11 @@ abstract class BoxInstance(
     protected fun closeAfterLateInit() {
         deleteCacheFiles()
         if (::box.isInitialized) runCatching { box.close() }
+    }
+
+    // Called after close(): joining suspends Main while guard finalizers run.
+    suspend fun awaitProcessesClosed() {
+        if (::processes.isInitialized) processes.coroutineContext[Job]?.join()
     }
 
     @OptIn(DelicateCoroutinesApi::class)

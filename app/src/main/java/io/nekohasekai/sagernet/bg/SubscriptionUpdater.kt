@@ -20,18 +20,33 @@ import io.nekohasekai.sagernet.group.GroupUpdater
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.ExecutionException
+import com.google.common.util.concurrent.ListenableFuture
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 object SubscriptionUpdater {
 
     private const val WORK_NAME = "SubscriptionUpdater"
 
-    suspend fun reconfigureUpdater() {
+    private val schedulingMutex = Mutex()
+
+    suspend fun reconfigureUpdater() = schedulingMutex.withLock {
+        reconfigureLocked()
+    }
+
+    private suspend fun reconfigureLocked() {
         val workManager = RemoteWorkManager.getInstance(app)
-        workManager.cancelUniqueWork(WORK_NAME)
 
         val subscriptions = SagerDatabase.groupDao.subscriptions()
             .filter { it.subscription?.autoUpdate == true }
-        if (subscriptions.isEmpty()) return
+        if (subscriptions.isEmpty()) {
+            workManager.cancelUniqueWork(WORK_NAME).awaitSchedulingCompletion()
+            return
+        }
 
         // PeriodicWorkRequest.MIN_PERIODIC_INTERVAL_MILLIS
         var minDelay =
@@ -62,7 +77,7 @@ object SubscriptionUpdater {
                     if (minInitDelay > 0) setInitialDelay(minInitDelay, TimeUnit.SECONDS)
                 }
                 .build()
-        )
+        ).awaitSchedulingCompletion()
     }
 
     class UpdateTask(
@@ -93,7 +108,7 @@ object SubscriptionUpdater {
                 if (subscriptions.isNotEmpty()) for (profile in subscriptions) {
                     val subscription = profile.subscription!!
 
-                    if ((System.currentTimeMillis() / 1000 - subscription.lastUpdated) < subscription.autoUpdateDelay * 60) {
+                    if ((System.currentTimeMillis() / 1000 - subscription.lastUpdated) < subscription.autoUpdateDelay * 60L) {
                         Logs.d("work: not updating " + profile.displayName())
                         continue
                     }
@@ -118,4 +133,19 @@ object SubscriptionUpdater {
         }
     }
 
+}
+
+// Do not release the scheduling mutex while an already-submitted Binder
+// operation is pending. Cancelling its local Future does not undo remote work.
+internal suspend fun ListenableFuture<*>.awaitSchedulingCompletion(): Unit = suspendCoroutine { continuation ->
+    addListener({
+        try {
+            get()
+            continuation.resume(Unit)
+        } catch (e: ExecutionException) {
+            continuation.resumeWithException(e.cause ?: e)
+        } catch (e: Exception) {
+            continuation.resumeWithException(e)
+        }
+    }, { command -> command.run() })
 }

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -eo pipefail
 
 DIR=app/src/main/assets/sing-box
 
@@ -8,14 +8,14 @@ DIR=app/src/main/assets/sing-box
 # succeeded, so a failed download cannot leave an empty assets dir behind.
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
-cd $TMP
+cd "$TMP"
 
 get_latest_release() {
   # Unauthenticated API calls are rate-limited to 60/h per IP, which shared CI
   # runner IPs exhaust constantly — pass GITHUB_TOKEN when the workflow provides it.
   local auth=()
   [ -n "$GITHUB_TOKEN" ] && auth=(-H "Authorization: Bearer $GITHUB_TOKEN")
-  curl --silent "${auth[@]}" "https://api.github.com/repos/$1/releases/latest" | # Get latest release from GitHub api
+  curl -fLSs "${auth[@]}" "https://api.github.com/repos/$1/releases/latest" | # Get latest release from GitHub api
     grep '"tag_name":' |                                                          # Get tag line
     sed -E 's/.*"([^"]+)".*/\1/'                                                  # Pluck JSON value
 }
@@ -55,6 +55,4 @@ xz -9 geosite.db
 
 ####
 cd "$OLDPWD"
-rm -rf $DIR
-mkdir -p $DIR
-mv "$TMP"/* $DIR/
+bash buildScript/lib/replace-assets.sh "$TMP" "$DIR"

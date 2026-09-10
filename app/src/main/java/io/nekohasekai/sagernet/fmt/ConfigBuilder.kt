@@ -26,6 +26,7 @@ import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import io.nekohasekai.sagernet.fmt.wireguard.buildSingBoxEndpointWireGuardBean
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.isIpAddress
+import io.nekohasekai.sagernet.ktx.parseNumericAddress
 import io.nekohasekai.sagernet.ktx.usableNameservers
 import io.nekohasekai.sagernet.ktx.mkPort
 import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
@@ -65,21 +66,30 @@ private val GENERATED_TAG_SHAPE = Regex("g-\\d+|c-\\d+.*")
 private fun makeDnsServer(address: String, tag: String): DNSServerOptions {
     fun DNSServerOptions.setAuthority(authority: String) {
         // [v6]:port | host:port | bare v6 | host
+        val invalid = "Invalid DNS server authority"
+        require(authority.isNotBlank() && authority.none { it.isWhitespace() || it in "/?#@" }) { invalid }
         var host = authority
-        var port: Int? = null
+        var portText: String? = null
         if (authority.startsWith("[")) {
             val end = authority.indexOf(']')
-            // "[" without "]" is unparseable — fail like the unknown-scheme
-            // branch instead of crashing on substring(1, -1)
-            if (end < 0) throw Exception("unsupported DNS server address: $address")
+            require(end > 1) { invalid }
             host = authority.substring(1, end)
-            port = authority.substringAfter("]:", "").toIntOrNull()
-        } else if (authority.indexOf(':') >= 0 && authority.indexOf(':') == authority.lastIndexOf(':')) {
+            require(host.contains(':') && host.parseNumericAddress() != null) { invalid }
+            val suffix = authority.substring(end + 1)
+            require(suffix.isEmpty() || suffix.startsWith(":")) { invalid }
+            if (suffix.isNotEmpty()) portText = suffix.substring(1)
+        } else if (authority.count { it == ':' } == 1) {
             host = authority.substringBefore(':')
-            port = authority.substringAfter(':').toIntOrNull()
+            portText = authority.substringAfter(':')
+        } else if (authority.contains(':')) {
+            require(authority.parseNumericAddress() != null) { invalid }
         }
+        require(host.isNotBlank() && '[' !in host && ']' !in host) { invalid }
         server = host
-        if (port != null && port > 0) server_port = port
+        if (portText != null) {
+            server_port = portText.toIntOrNull()?.takeIf { it in 1..65535 }
+                ?: throw IllegalArgumentException(invalid)
+        }
     }
 
     return DNSServerOptions().apply {
@@ -893,9 +903,13 @@ fun buildConfig(
                     ip_is_private = true
                 })
             }
-            // block mcast
+            // Source and destination conditions in one default rule are ANDed.
+            // Separate rules reject multicast/reserved traffic in either direction.
             route.rules.add(Rule_DefaultOptions().apply {
                 ip_cidr = listOf("224.0.0.0/3", "ff00::/8")
+                action = "reject"
+            })
+            route.rules.add(Rule_DefaultOptions().apply {
                 source_ip_cidr = listOf("224.0.0.0/3", "ff00::/8")
                 action = "reject"
             })
@@ -948,8 +962,7 @@ fun buildConfig(
                 }.getOrElse {
                     // scheme + authority only: a DoH path can embed tokens
                     Logs.w(
-                        "Skip unsupported group nameserver: " +
-                                address.substringAfter("://").substringBefore("/")
+                        "Skip unsupported group nameserver at index $index: ${it.javaClass.simpleName}"
                     )
                     return@mapIndexedNotNull null
                 }

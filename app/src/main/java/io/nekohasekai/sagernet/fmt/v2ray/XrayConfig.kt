@@ -98,13 +98,10 @@ private fun buildXrayStreamSettings(bean: VMessBean): JSONObject {
                 put("wsSettings", JSONObject().apply {
                     // Xray only reads early data from "?ed=N" in the path; the
                     // maxEarlyData/earlyDataHeaderName keys are silently ignored.
-                    var path = bean.path.takeIf { it.isNotBlank() } ?: "/"
-                    if (bean.wsMaxEarlyData > 0 &&
-                        !path.contains("?ed=") && !path.contains("&ed=")
-                    ) {
-                        // the path may already carry a query, so "?" is not always right
-                        path += (if (path.contains("?")) "&" else "?") +
-                            "ed=${bean.wsMaxEarlyData}"
+                    val earlyData = bean.resolveWsEarlyData()
+                    var path = earlyData.path
+                    earlyData.maxEarlyData?.let {
+                        path += (if (path.contains("?")) "&" else "?") + "ed=$it"
                     }
                     put("path", path)
                     if (bean.host.isNotBlank()) {
@@ -156,7 +153,9 @@ private fun buildXrayStreamSettings(bean: VMessBean): JSONObject {
 
         // security
         val fp = bean.effectiveUtlsFingerprint()
-        if (bean.realityPubKey.isNotBlank()) {
+        // Hidden REALITY fields survive disabling TLS in the editor. Honor the
+        // security switch, matching buildSingBoxOutboundTLS, before using them.
+        if (bean.security == "tls" && bean.realityPubKey.isNotBlank()) {
             put("security", "reality")
             put("realitySettings", JSONObject().apply {
                 if (sni != null) put("serverName", sni)

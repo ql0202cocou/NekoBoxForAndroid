@@ -574,7 +574,6 @@ data class ProxyEntity(
             }
         ).apply {
             putExtra(ProfileSettingsActivity.EXTRA_PROFILE_ID, id)
-            putExtra(ProfileSettingsActivity.EXTRA_IS_SUBSCRIPTION, isSubscription)
         }
     }
 

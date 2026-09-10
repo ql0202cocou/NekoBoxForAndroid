@@ -14,12 +14,12 @@ Functional neko commits (on top of the 1.12.x upstream base):
 | Commit | Title | Notes |
 |---|---|---|
 | `a863df9b` | add boxapi | v2ray stats API used by the Android app (`boxapi/`). 1.14: `adapter.ConnectionTracker` gained `RoutedFlow` (L3 forwarding) — implemented in `boxapi/v2ray_stats_service.go` mirroring `experimental/v2rayapi/stats.go` |
-| `6b4fdc8c` | nekoutils: add geoip geosite | `nekoutils/srs.go` helpers for libcore assets |
+| `6b4fdc8c` | nekoutils: add geoip geosite | `nekoutils/srs.go` helpers for libcore assets; `route/rule/rule_set_local.go` resolves `geoip:` / `geosite:` paths through those helpers before ordinary file loading, without a file watcher |
 | `7cf44f37` | nekoutils: add selector callback | `nekoutils/callback.go`, group selector callback |
 | `721602a8` | dialer: add DoNotSelectInterface | dialer option to skip VPN interface selection |
 | ~~`0bc13363`~~ | ~~temp fix gvisor close~~ | **removed 2026-08-28**: upstream sing-tun's `GVisor.Close()` already contains the same fix (`Attach(nil)` + `CleanupEndpoints().Abort()`), and the patch's `unsafe.Pointer` field punning no longer matches sing-tun's `GVisor` layout (extra fields), so the punned `stack` was always nil — dead code that would read a garbage pointer on the next layout change |
 | `d294d39b` | outbound/vless: disable flow when mux is enable | still unaddressed upstream as of 1.14.0 |
-| `44169a9b` | fix needCacheFile | cache file handling fix |
+| `44169a9b` | fix needCacheFile | `box.go` creates the cache service only when `experimental.cache_file` is present and enabled; a Clash API configuration alone does not enable it |
 
 The `1.12.x-neko-1` commits only bump `constant/version.go` and carry no code
 changes.

@@ -30,8 +30,8 @@ func extractAssets() {
 
 // 这里解压的是 apk 里面的
 func extractAssetName(name string, useOfficialAssets bool) error {
-	// 支持非官方源的，就是 replaceable，放 Android 目录
-	// 不支持非官方源的，就放 file 目录
+	// Replaceable assets also live in app-internal storage; the external
+	// path name is retained for compatibility with the native interface.
 	replaceable := true
 
 	var version string
@@ -114,6 +114,8 @@ func extractAssetName(name string, useOfficialAssets bool) error {
 	extractXz := func(f asset.File) error {
 		tmpXzName := dstName + ".xz"
 		tmpName := dstName + ".tmp"
+		defer os.Remove(tmpXzName)
+		defer os.Remove(tmpName)
 		err := extractAsset(f, tmpXzName)
 		if err == nil {
 			// decompress to a temp file and rename atomically, so a
@@ -133,6 +135,7 @@ func extractAssetName(name string, useOfficialAssets bool) error {
 
 	extracZip := func(f asset.File, outDir string) error {
 		tmpZipName := dstName + ".zip"
+		defer os.Remove(tmpZipName)
 		err := extractAsset(f, tmpZipName)
 		if err == nil {
 			err = Unzip(tmpZipName, outDir)
@@ -148,7 +151,11 @@ func extractAssetName(name string, useOfficialAssets bool) error {
 		if err := extractXz(f); err != nil {
 			return err
 		}
-	} else if f, err := asset.Open("yacd.zip"); err == nil && name == yacdDstFolder {
+	} else if name == yacdDstFolder {
+		f, err := asset.Open("yacd.zip")
+		if err != nil {
+			return fmt.Errorf("open yacd asset: %w", err)
+		}
 		os.RemoveAll(dstName)
 		// Remove leftover Yacd-* dirs from a previous extraction killed
 		// before the rename, so the glob below can succeed again.
@@ -183,13 +190,7 @@ func extractAssetName(name string, useOfficialAssets bool) error {
 
 	// extraction succeeded, only now bump the version file,
 	// otherwise a broken file would be kept forever
-	o, err := os.Create(dir + version)
-	if err != nil {
-		return fmt.Errorf("create version: %v", err)
-	}
-	_, err = io.WriteString(o, assetVersion)
-	o.Close()
-	return err
+	return os.WriteFile(dir+version, []byte(assetVersion), 0600)
 }
 
 func extractAsset(i asset.File, path string) error {
@@ -198,8 +199,7 @@ func extractAsset(i asset.File, path string) error {
 	if err != nil {
 		return err
 	}
-	defer o.Close()
-	_, err = io.Copy(o, i)
+	err = copyAndClose(o, i)
 	if err == nil {
 		log.Println("Extract >>", path)
 	}

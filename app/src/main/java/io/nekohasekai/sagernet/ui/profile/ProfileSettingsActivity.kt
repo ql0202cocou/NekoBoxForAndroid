@@ -21,8 +21,14 @@ import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import androidx.core.view.isVisible
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import androidx.preference.EditTextPreference
 import androidx.preference.Preference
+import androidx.preference.PreferenceCategory
+import androidx.preference.PreferenceGroup
 import androidx.preference.PreferenceDataStore
 import androidx.preference.PreferenceFragmentCompat
 import com.github.shadowsocks.plugin.Empty
@@ -90,12 +96,15 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
     companion object {
         const val EXTRA_PROFILE_ID = "id"
-        const val EXTRA_IS_SUBSCRIPTION = "sub"
     }
 
     abstract fun createEntity(): T
     abstract fun T.init()
     abstract fun T.serialize()
+
+    private val editorReady = CompletableDeferred<Unit>()
+
+    protected suspend fun awaitEditorReady() = editorReady.await()
 
     val proxyEntity by lazy { SagerDatabase.proxyDao.getById(DataStore.editingId) }
 
@@ -122,40 +131,64 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         if (savedInstanceState == null || DataStore.profileCacheStore.getString(Key.PROFILE_CORE) == null) {
             val editingId = intent.getLongExtra(EXTRA_PROFILE_ID, 0L)
             DataStore.editingId = editingId
-            runOnDefaultDispatcher {
+            lifecycleScope.launch(Dispatchers.Default) {
                 if (editingId == 0L) {
                     DataStore.editingGroup = DataStore.selectedGroupForImport()
+                    createEntity().applyDefaultValues().init()
                     DataStore.profileCacheStore.putString(
                         Key.PROFILE_CORE, ProxyEntity.CORE_AUTO.toString()
                     )
-                    createEntity().applyDefaultValues().init()
                 } else {
                     if (proxyEntity == null) {
                         onMainDispatcher {
                             finish()
                         }
-                        return@runOnDefaultDispatcher
+                        editorReady.cancel()
+                        return@launch
                     }
                     DataStore.editingGroup = proxyEntity!!.groupId
+                    (proxyEntity!!.requireBean() as T).init()
                     DataStore.profileCacheStore.putString(
                         Key.PROFILE_CORE, proxyEntity!!.core.toString()
                     )
-                    (proxyEntity!!.requireBean() as T).init()
                 }
 
                 onMainDispatcher {
                     supportFragmentManager.beginTransaction()
                         .replace(R.id.settings, MyPreferenceFragmentCompat())
-                        .commit()
+                        .commitNow()
+                    editorReady.complete(Unit)
                 }
+            }.invokeOnCompletion {
+                if (!editorReady.isCompleted) editorReady.cancel()
             }
-
-
+        } else {
+            editorReady.complete(Unit)
         }
 
     }
 
+    protected open fun validateEditor(): String? = null
+
     open suspend fun saveAndExit() {
+        awaitEditorReady()
+        val canSave = onMainDispatcher {
+            val screen = child?.preferenceScreen ?: return@onMainDispatcher false
+            validateEditor()?.let { message ->
+                Toast.makeText(this@ProfileSettingsActivity, message, Toast.LENGTH_LONG).show()
+                return@onMainDispatcher false
+            }
+            val invalid = screen.findInvalidIntegerPreference()
+            if (invalid != null) {
+                Toast.makeText(
+                    this@ProfileSettingsActivity,
+                    "${invalid.title}: ${getString(R.string.integer_range_error, invalid.extras.getInt(INTEGER_MIN), invalid.extras.getInt(INTEGER_MAX))}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            invalid == null
+        }
+        if (!canSave) return
 
         val editingId = DataStore.editingId
         // entity-level field, not part of the bean; seeded in onCreate
@@ -464,7 +497,48 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 }
 
 fun EditTextPreference.bindPortPreference(): EditTextPreference {
+    bindIntegerPreference(1, 65535)
     setOnBindEditTextListener(EditTextPreferenceModifiers.Port)
+    return this
+}
+
+private const val INTEGER_MIN = "editor.integer.min"
+private const val INTEGER_MAX = "editor.integer.max"
+private const val INTEGER_ALLOW_EMPTY = "editor.integer.allowEmpty"
+
+private fun Preference.findInvalidIntegerPreference(): EditTextPreference? {
+    // Categories report isEnabled=false even when their children are enabled.
+    val disabled = if (this is PreferenceCategory) shouldDisableDependents() else !isEnabled
+    if (!isVisible || disabled) return null
+    if (this is EditTextPreference && extras.containsKey(INTEGER_MIN)) {
+        val value = DataStore.profileCacheStore.getString(key)
+        if (!io.nekohasekai.sagernet.database.preference.isIntegerInRange(
+                value, extras.getInt(INTEGER_MIN), extras.getInt(INTEGER_MAX),
+                extras.getBoolean(INTEGER_ALLOW_EMPTY)
+            )) return this
+    }
+    if (this is PreferenceGroup) {
+        for (index in 0 until preferenceCount) {
+            getPreference(index).findInvalidIntegerPreference()?.let { return it }
+        }
+    }
+    return null
+}
+
+fun EditTextPreference.bindIntegerPreference(
+    min: Int = 0, max: Int = Int.MAX_VALUE, allowEmpty: Boolean = false,
+): EditTextPreference {
+    extras.putInt(INTEGER_MIN, min)
+    extras.putInt(INTEGER_MAX, max)
+    extras.putBoolean(INTEGER_ALLOW_EMPTY, allowEmpty)
+    setOnBindEditTextListener(EditTextPreferenceModifiers.Number)
+    setOnPreferenceChangeListener { _, value ->
+        val valid = io.nekohasekai.sagernet.database.preference.isIntegerInRange(value, min, max, allowEmpty)
+        if (!valid) {
+            Toast.makeText(context, context.getString(R.string.integer_range_error, min, max), Toast.LENGTH_LONG).show()
+        }
+        valid
+    }
     return this
 }
 

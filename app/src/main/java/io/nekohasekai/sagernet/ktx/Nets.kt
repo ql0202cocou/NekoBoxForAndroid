@@ -84,23 +84,19 @@ fun String?.usableNameservers(): List<String> = this?.lineSequence()
     }
     ?.distinct()?.toList() ?: emptyList()
 
-// Resolve via the group's proxyServerNameserver (first usable address, e.g. DoH);
-// returns null on failure so callers can fall back to system DNS.
-// Note: Libcore.lookupHost does not cache, so callers on a per-profile path
-// should memoize — a dead nameserver costs the full timeout every call.
+// Try the group's nameservers in order within one native ten-second budget.
+// This synchronous bridge does not propagate coroutine cancellation; callers on
+// a per-profile path should memoize to avoid repeating failed lookups.
 fun lookupViaNameserver(nameserver: String?, domain: String): List<InetAddress>? {
-    val server = nameserver.usableNameservers().firstOrNull() ?: return null
+    val servers = nameserver.usableNameservers()
+    if (servers.isEmpty()) return null
     return try {
-        Libcore.lookupHost(server, domain).lineSequence()
+        Libcore.lookupHosts(servers.joinToString("\n"), domain).lineSequence()
             .mapNotNull { it.trim().parseNumericAddress() }
             .toList().takeIf { it.isNotEmpty() }
     } catch (e: Exception) {
-        // scheme + authority only: a DoH path can embed tokens
-        Logs.d(
-            "Lookup $domain via " +
-                    server.substringAfter("://").substringBefore("/") +
-                    " failed: ${e.readableMessage}"
-        )
+        // Resolver errors may include the full DoH URL and its credentials.
+        Logs.d("Group DNS lookup failed: ${e.javaClass.simpleName}")
         null
     }
 }

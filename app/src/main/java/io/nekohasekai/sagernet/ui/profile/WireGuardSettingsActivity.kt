@@ -1,16 +1,33 @@
 package io.nekohasekai.sagernet.ui.profile
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
+import io.nekohasekai.sagernet.fmt.wireguard.genReservedList
+import io.nekohasekai.sagernet.fmt.wireguard.isWireGuardKey
+import io.nekohasekai.sagernet.fmt.wireguard.isWireGuardLocalAddressList
 import moe.matsuri.nb4a.proxy.PreferenceBinding
 import moe.matsuri.nb4a.proxy.PreferenceBindingManager
 import moe.matsuri.nb4a.proxy.Type
 
 class WireGuardSettingsActivity : ProfileSettingsActivity<WireGuardBean>() {
+
+    override fun validateEditor(): String? {
+        if (!isWireGuardLocalAddressList(localAddress.readStringFromCache())) {
+            return getString(R.string.wireguard_address_error)
+        }
+        for ((binding, optional) in listOf(privateKey to false, peerPublicKey to false, peerPreSharedKey to true)) {
+            if (!isWireGuardKey(binding.readStringFromCache(), optional)) {
+                return "${binding.preference.title}: ${getString(R.string.wireguard_key_error)}"
+            }
+        }
+        val value = reserved.readStringFromCache()
+        return if (value.isBlank() || genReservedList(value) != null) null
+        else getString(R.string.wireguard_reserved_error)
+    }
 
     override fun createEntity() = WireGuardBean()
 
@@ -42,7 +59,25 @@ class WireGuardSettingsActivity : ProfileSettingsActivity<WireGuardBean>() {
 
         (serverPort.preference as EditTextPreference).bindPortPreference()
         (privateKey.preference as EditTextPreference).bindPasswordPreference()
-        (mtu.preference as EditTextPreference).setOnBindEditTextListener(EditTextPreferenceModifiers.Number)
+        (mtu.preference as EditTextPreference).bindIntegerPreference()
+        (localAddress.preference as EditTextPreference).setOnPreferenceChangeListener { _, value ->
+            val valid = value is String && isWireGuardLocalAddressList(value)
+            if (!valid) Toast.makeText(requireContext(), R.string.wireguard_address_error, Toast.LENGTH_LONG).show()
+            valid
+        }
+        (peerPreSharedKey.preference as EditTextPreference).bindPasswordPreference()
+        for ((binding, optional) in listOf(privateKey to false, peerPublicKey to false, peerPreSharedKey to true)) {
+            (binding.preference as EditTextPreference).setOnPreferenceChangeListener { _, value ->
+                val valid = value is String && isWireGuardKey(value, optional)
+                if (!valid) Toast.makeText(requireContext(), R.string.wireguard_key_error, Toast.LENGTH_LONG).show()
+                valid
+            }
+        }
+        (reserved.preference as EditTextPreference).setOnPreferenceChangeListener { _, value ->
+            val valid = value is String && (value.isBlank() || genReservedList(value) != null)
+            if (!valid) Toast.makeText(requireContext(), R.string.wireguard_reserved_error, Toast.LENGTH_LONG).show()
+            valid
+        }
     }
 
 }

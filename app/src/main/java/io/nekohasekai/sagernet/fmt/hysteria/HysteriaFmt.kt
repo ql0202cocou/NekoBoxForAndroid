@@ -122,13 +122,16 @@ fun HysteriaBean.toUri(): String {
         }
     }
     //
+    val ports = parseHysteriaPorts(serverPorts)
     val builder = linkBuilder()
         .host(serverAddress)
-        .port(getFirstPort(serverPorts))
+        .port(ports.first().first)
         .username(un)
         .password(pw)
-    if (isMultiPort(displayAddress())) {
-        builder.addQueryParameter("mport", serverPorts)
+    if (ports.size > 1 || ports[0].first != ports[0].last) {
+        builder.addQueryParameter("mport", ports.joinToString(",") {
+            if (it.first == it.last) it.first.toString() else "${it.first}-${it.last}"
+        })
     }
     if (name.isNotBlank()) {
         builder.encodedFragment(name.urlSafe())
@@ -228,6 +231,9 @@ fun HysteriaBean.buildHysteria1Config(port: Int, cacheFile: (() -> File)?): Stri
     if (protocolVersion != 1) {
         throw Exception("error version: $protocolVersion")
     }
+    val ports = parseHysteriaPorts(serverPorts).joinToString(",") {
+        if (it.first == it.last) it.first.toString() else "${it.first}-${it.last}"
+    }
     return JSONObject().apply {
         // When the node got a mapping inbound (chain member), finalAddress is
         // rewritten to LOCALHOST and the plugin must dial the mapping port —
@@ -237,7 +243,7 @@ fun HysteriaBean.buildHysteria1Config(port: Int, cacheFile: (() -> File)?): Stri
         if (finalAddress == LOCALHOST && serverAddress != LOCALHOST) {
             put("server", "$LOCALHOST:$finalPort")
         } else {
-            put("server", displayAddress())
+            put("server", "${serverAddress.wrapIPV6Host()}:$ports")
         }
         when (protocol) {
             HysteriaBean.PROTOCOL_FAKETCP -> {
@@ -306,15 +312,15 @@ fun HysteriaBean.canUseSingBox(): Boolean {
 }
 
 fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean): SingBoxOptions.SingBoxOption {
+    val ports = parseHysteriaPorts(bean.serverPorts)
     return when (bean.protocolVersion) {
         1 -> SingBoxOptions.Outbound_HysteriaOptions().apply {
             type = "hysteria"
             server = bean.serverAddress
-            val port = bean.serverPorts.toIntOrNull()
-            if (port != null) {
-                server_port = port
+            if (ports.size == 1 && ports[0].first == ports[0].last) {
+                server_port = ports[0].first
             } else {
-                server_ports = hopPortsToSingboxList(bean.serverPorts)
+                server_ports = ports.map { "${it.first}:${it.last}" }
             }
             hop_interval = "${bean.hopInterval}s"
             up_mbps = bean.uploadMbps
@@ -349,11 +355,10 @@ fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean): SingBoxOptions.SingBox
         2 -> SingBoxOptions.Outbound_Hysteria2Options().apply {
             type = "hysteria2"
             server = bean.serverAddress
-            val port = bean.serverPorts.toIntOrNull()
-            if (port != null) {
-                server_port = port
+            if (ports.size == 1 && ports[0].first == ports[0].last) {
+                server_port = ports[0].first
             } else {
-                server_ports = hopPortsToSingboxList(bean.serverPorts)
+                server_ports = ports.map { "${it.first}:${it.last}" }
             }
             hop_interval = "${bean.hopInterval}s"
             up_mbps = bean.uploadMbps
@@ -382,17 +387,5 @@ fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean): SingBoxOptions.SingBox
     }
 }
 
-fun hopPortsToSingboxList(s: String): List<String> {
-    return s.split(",").mapNotNull {
-        val pRange = it.replace("-", ":")
-        if (pRange.split(":").size == 2) {
-            pRange
-        } else if (it.toIntOrNull() != null) {
-            // single port: sing-quic's ParsePorts requires a "from:to" pair
-            // per entry, a bare port fails the whole box config load
-            "$it:$it"
-        } else {
-            null
-        }
-    }
-}
+fun hopPortsToSingboxList(s: String): List<String> =
+    parseHysteriaPorts(s).map { "${it.first}:${it.last}" }

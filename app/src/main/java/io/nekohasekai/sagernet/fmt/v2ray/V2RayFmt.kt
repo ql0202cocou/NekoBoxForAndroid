@@ -619,18 +619,20 @@ fun StandardV2RayBean.toUriVMessVLESSTrojan(isTrojan: Boolean): String {
 class WsEarlyData(val path: String, val maxEarlyData: Int?, val headerName: String?)
 
 fun StandardV2RayBean.resolveWsEarlyData(): WsEarlyData {
-    // "?ed=N" when the path carries no query of its own, "&ed=N" when it does —
-    // both forms are in the wild (this is what buildXrayStreamSettings emits too).
-    // sing-box only knows max_early_data, so a marker left in the path there means
-    // no early data at all plus a stray "&ed=N" sent as part of the request path.
-    val edIndex = path.indexOf("?ed=").takeIf { it >= 0 } ?: path.indexOf("&ed=")
-    val basePath = (if (edIndex >= 0) path.substring(0, edIndex) else path)
-        .takeIf { it.isNotBlank() } ?: "/"
-    val maxEarlyData = wsMaxEarlyData.takeIf { it > 0 } ?: if (edIndex >= 0) {
-        path.substring(edIndex + 4).substringBefore("&").toIntOrNull() ?: 2048
-    } else null
+    // Remove only the early-data parameter, preserving unrelated query values.
+    val queryIndex = path.indexOf('?').takeIf { it >= 0 } ?: path.indexOf("&ed=")
+    val parameters = if (queryIndex >= 0) path.substring(queryIndex + 1).split('&') else emptyList()
+    val embedded = parameters.firstOrNull { it.startsWith("ed=") }
+    val basePath = if (embedded != null) {
+        val remaining = parameters.filterNot { it.startsWith("ed=") }.joinToString("&")
+        path.substring(0, queryIndex).ifBlank { "/" } +
+            if (remaining.isNotEmpty()) "?$remaining" else ""
+    } else path.ifBlank { "/" }
+    val maxEarlyData = wsMaxEarlyData.takeIf { it > 0 } ?: embedded?.let {
+        it.substringAfter("=").toIntOrNull() ?: 2048
+    }
     val headerName = earlyDataHeaderName.takeIf { it.isNotBlank() }
-        ?: if (edIndex >= 0) "Sec-WebSocket-Protocol" else null
+        ?: if (embedded != null) "Sec-WebSocket-Protocol" else null
     return WsEarlyData(basePath, maxEarlyData, headerName)
 }
 

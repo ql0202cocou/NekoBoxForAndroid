@@ -214,10 +214,10 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
 
         val content = try {
             JSONObject((app.contentResolver.openInputStream(file) ?: return).use {
-                it.bufferedReader().readText()
+                it.readBytesLimited().toString(Charsets.UTF_8).checkJsonNesting()
             })
         } catch (e: Exception) {
-            Logs.w(e)
+            Logs.w("Backup parsing failed: ${e.javaClass.simpleName}")
             invalid()
             return
         }
@@ -296,8 +296,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
             val array = content.getJSONArray(key)
             for (i in 0 until array.length()) {
                 val encoded = array.get(i)
-                require(encoded is String) { "$key[$i] is not an encoded record" }
-                val item = decode(encoded)
+                val item = if (encoded is String) decode(encoded) else null
                 if (item == null) {
                     skippedRecords++
                 } else {
@@ -336,7 +335,9 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         } else null
         val settings = if (setting && content.has("settings")) {
             decodeArray("settings") { encoded ->
-                unmarshal(encoded, KeyValuePair.CREATOR::createFromParcel)
+                unmarshal(encoded) {
+                    KeyValuePair.CREATOR.createFromParcel(it).also { pair -> pair.validate() }
+                }
             }
         } else null
 

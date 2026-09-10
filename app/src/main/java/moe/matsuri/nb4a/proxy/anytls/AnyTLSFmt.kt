@@ -11,6 +11,9 @@ import moe.matsuri.nb4a.utils.listByLineOrComma
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 fun buildSingBoxOutboundAnyTLSBean(bean: AnyTLSBean): SingBoxOptions.Outbound_AnyTLSOptions {
+    require(bean.certificateFingerprint.isNullOrBlank()) {
+        "AnyTLS certificate fingerprint requires the mihomo core; sing-box only supports public-key pinning"
+    }
     return SingBoxOptions.Outbound_AnyTLSOptions().apply {
         type = "anytls"
         server = bean.serverAddress

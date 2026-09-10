@@ -62,6 +62,7 @@ class MieruSettingsActivity : ProfileSettingsActivity<MieruBean>() {
         findPreference<EditTextPreference>(Key.SERVER_PASSWORD)!!.bindPasswordPreference()
         val protocol = findPreference<SimpleMenuPreference>(Key.SERVER_PROTOCOL)!!
         val mtu = findPreference<EditTextPreference>(Key.SERVER_MTU)!!
+        mtu.bindIntegerPreference()
         mtu.isVisible = protocol.value.equals("UDP")
         protocol.setOnPreferenceChangeListener { _, newValue ->
             mtu.isVisible = newValue.equals("UDP")

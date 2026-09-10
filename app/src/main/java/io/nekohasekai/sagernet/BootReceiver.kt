@@ -32,8 +32,8 @@ class BootReceiver : BroadcastReceiver() {
             else -> return
         }
 
-        // keep the process alive until the reconfigure finishes, otherwise it
-        // can be killed between cancelUniqueWork and enqueue
+        // Keep the process alive until WorkManager acknowledges scheduling,
+        // rather than finishing immediately after submitting the Binder call.
         val pendingResult = goAsync()
         runOnDefaultDispatcher {
             try {
