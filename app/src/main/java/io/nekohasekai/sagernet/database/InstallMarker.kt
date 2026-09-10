@@ -11,8 +11,14 @@ import java.util.UUID
 // excludes it) so the secret stays per-install. Runs under RestoreJournal's lock
 // in both processes before either reads the secret.
 object InstallMarker {
+    private val marker get() = File(app.noBackupFilesDir, "install.id")
+
+    // Lock-free pre-check: the marker is there on every start but the first, and
+    // taking the cross-process lock for a stat() serializes main against :bg.
+    fun isMissing() = !marker.exists()
+
     fun ensure() {
-        val marker = File(app.noBackupFilesDir, "install.id")
+        val marker = marker
         if (marker.exists()) return
         DataStore.resetClashApiSecret()
         val tmp = File(app.noBackupFilesDir, "install.id.tmp")

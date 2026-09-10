@@ -9,16 +9,13 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.fmt.tuic.TuicBean
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
-import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 
 class TuicSettingsActivity : ProfileSettingsActivity<TuicBean>() {
 
     override fun createEntity() = TuicBean().applyDefaultValues()
 
     override fun validateEditor(): String? {
-        val certPin = DataStore.serverCertificateFingerprint
-        return if (certPin.isBlank() || isCertificateFingerprint(certPin)) null
-        else getString(R.string.certificate_fingerprint_error)
+        return certificateFingerprintError(DataStore.serverCertificateFingerprint)
     }
 
     override fun TuicBean.init() {
@@ -73,11 +70,8 @@ class TuicSettingsActivity : ProfileSettingsActivity<TuicBean>() {
 
         findPreference<EditTextPreference>(Key.SERVER_PASSWORD)!!.bindPasswordPreference()
 
-        // mihomo's only consumer of this value hex-decodes it into 32 bytes
         findPreference<EditTextPreference>(Key.SERVER_CERTIFICATE_FINGERPRINT)!!
-            .bindValidatedPreference(R.string.certificate_fingerprint_error) {
-                it.isBlank() || isCertificateFingerprint(it)
-            }
+            .bindCertificateFingerprintPreference()
     }
 
 }

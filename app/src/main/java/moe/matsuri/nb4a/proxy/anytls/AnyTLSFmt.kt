@@ -5,6 +5,7 @@ import io.nekohasekai.sagernet.ktx.blankAsNull
 import io.nekohasekai.sagernet.ktx.linkBuilder
 import io.nekohasekai.sagernet.ktx.toLink
 import io.nekohasekai.sagernet.ktx.urlSafe
+import io.nekohasekai.sagernet.ktx.withHttpScheme
 import moe.matsuri.nb4a.SingBoxOptions
 import moe.matsuri.nb4a.utils.echAsPem
 import moe.matsuri.nb4a.utils.listByLineOrComma
@@ -85,7 +86,7 @@ fun AnyTLSBean.toUri(): String {
 
 fun parseAnytls(url: String): AnyTLSBean {
     // https://github.com/anytls/anytls-go/blob/main/docs/uri_scheme.md
-    val link = ("https://" + url.substringAfter("://")).toHttpUrlOrNull() ?: error(
+    val link = url.withHttpScheme().toHttpUrlOrNull() ?: error(
         "invalid anytls link $url"
     )
     return AnyTLSBean().apply {

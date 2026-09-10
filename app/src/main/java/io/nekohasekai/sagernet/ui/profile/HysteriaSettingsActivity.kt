@@ -1,7 +1,6 @@
 package io.nekohasekai.sagernet.ui.profile
 
 import android.os.Bundle
-import android.widget.Toast
 import io.nekohasekai.sagernet.fmt.hysteria.parseHysteriaPorts
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceFragmentCompat
@@ -13,7 +12,6 @@ import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.fmt.hysteria.isHysteria1PluginHopInterval
 import io.nekohasekai.sagernet.fmt.hysteria.isHysteria1PluginWindow
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
-import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 import moe.matsuri.nb4a.ui.SimpleMenuPreference
 
 class HysteriaSettingsActivity : ProfileSettingsActivity<HysteriaBean>() {
@@ -22,10 +20,7 @@ class HysteriaSettingsActivity : ProfileSettingsActivity<HysteriaBean>() {
         if (runCatching { parseHysteriaPorts(DataStore.serverPorts) }.isFailure) {
             return getString(R.string.hysteria_ports_error)
         }
-        val certPin = DataStore.serverCertificateFingerprint
-        if (certPin.isNotBlank() && !isCertificateFingerprint(certPin)) {
-            return getString(R.string.certificate_fingerprint_error)
-        }
+        certificateFingerprintError(DataStore.serverCertificateFingerprint)?.let { return it }
         // faketcp / wechat-video run on the hysteria 1 plugin, which enforces its own
         // minimums; the sing-box path accepts any non-negative value
         if (DataStore.protocolVersion != 1 || DataStore.serverProtocolInt == HysteriaBean.PROTOCOL_UDP) {
@@ -92,11 +87,10 @@ class HysteriaSettingsActivity : ProfileSettingsActivity<HysteriaBean>() {
         rootKey: String?,
     ) {
         addPreferencesFromResource(R.xml.hysteria_preferences)
-        findPreference<EditTextPreference>("serverPorts")!!.setOnPreferenceChangeListener { _, value ->
-            val valid = value is String && runCatching { parseHysteriaPorts(value) }.isSuccess
-            if (!valid) Toast.makeText(requireContext(), R.string.hysteria_ports_error, Toast.LENGTH_LONG).show()
-            valid
-        }
+        findPreference<EditTextPreference>("serverPorts")!!
+            .bindValidatedPreference(R.string.hysteria_ports_error) {
+                runCatching { parseHysteriaPorts(it) }.isSuccess
+            }
 
         val authType = findPreference<SimpleMenuPreference>(Key.SERVER_AUTH_TYPE)!!
         val authPayload = findPreference<EditTextPreference>(Key.SERVER_PASSWORD)!!
@@ -170,11 +164,8 @@ class HysteriaSettingsActivity : ProfileSettingsActivity<HysteriaBean>() {
 
         findPreference<EditTextPreference>(Key.SERVER_HOP_INTERVAL)!!.bindIntegerPreference()
 
-        // mihomo's only consumer of this value hex-decodes it into 32 bytes
         findPreference<EditTextPreference>(Key.SERVER_CERTIFICATE_FINGERPRINT)!!
-            .bindValidatedPreference(R.string.certificate_fingerprint_error) {
-                it.isBlank() || isCertificateFingerprint(it)
-            }
+            .bindCertificateFingerprintPreference()
     }
 
 }

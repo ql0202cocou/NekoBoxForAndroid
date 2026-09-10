@@ -28,6 +28,20 @@ object DefaultNetworkListener {
         class Lost(val source: Callback, val network: Network) : NetworkMessage()
     }
 
+    // A subscriber failure must not kill the process-wide network actor or prevent
+    // the remaining subscribers from receiving this and subsequent network events.
+    private fun notifyListener(listener: (Network?) -> Unit, network: Network?) {
+        try {
+            listener(network)
+        } catch (e: Exception) {
+            Logs.w(e)
+        }
+    }
+
+    private fun notifyListeners(listeners: Collection<(Network?) -> Unit>, network: Network?) {
+        for (listener in listeners) notifyListener(listener, network)
+    }
+
     private val networkActor = GlobalScope.actor<NetworkMessage>(Dispatchers.Unconfined) {
         val listeners = mutableMapOf<Any, (Network?) -> Unit>()
         var network: Network? = null
@@ -39,9 +53,7 @@ object DefaultNetworkListener {
                     if (register(callback)) activeCallback = callback
                 }
                 listeners[message.key] = message.listener
-                if (network != null) {
-                    notifyNetworkListeners(listOf(message.listener), network) { Logs.w(it) }
-                }
+                if (network != null) notifyListener(message.listener, network)
             }
             is NetworkMessage.Stop -> if (listeners.isNotEmpty() && // was not empty
                 listeners.remove(message.key) != null && listeners.isEmpty()
@@ -54,14 +66,14 @@ object DefaultNetworkListener {
 
             is NetworkMessage.Put -> if (message.source === activeCallback) {
                 network = message.network
-                notifyNetworkListeners(listeners.values, network) { Logs.w(it) }
+                notifyListeners(listeners.values, network)
             }
             is NetworkMessage.Update -> if (message.source === activeCallback && network == message.network) {
-                notifyNetworkListeners(listeners.values, network) { Logs.w(it) }
+                notifyListeners(listeners.values, network)
             }
             is NetworkMessage.Lost -> if (message.source === activeCallback && network == message.network) {
                 network = null
-                notifyNetworkListeners(listeners.values, network) { Logs.w(it) }
+                notifyListeners(listeners.values, network)
             }
         }
     }

@@ -8,7 +8,7 @@ import org.json.JSONObject
 
 fun parseNaive(link: String): NaiveBean {
     val proto = link.substringAfter("+").substringBefore(":")
-    val url = ("https://" + link.substringAfter("://")).toHttpUrlOrNull()
+    val url = link.withHttpScheme().toHttpUrlOrNull()
         ?: error("Invalid naive link: $link")
     return NaiveBean().also {
         it.proto = proto

@@ -27,6 +27,7 @@ import io.nekohasekai.sagernet.fmt.wireguard.buildSingBoxEndpointWireGuardBean
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.isIpAddress
 import io.nekohasekai.sagernet.ktx.parseNumericAddress
+import io.nekohasekai.sagernet.ktx.splitHostPort
 import io.nekohasekai.sagernet.ktx.usableNameservers
 import io.nekohasekai.sagernet.ktx.mkPort
 import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
@@ -65,24 +66,15 @@ private val GENERATED_TAG_SHAPE = Regex("g-\\d+|c-\\d+.*")
 // servers the same way sing-box 1.13's internal upgrade did.
 private fun makeDnsServer(address: String, tag: String): DNSServerOptions {
     fun DNSServerOptions.setAuthority(authority: String) {
-        // [v6]:port | host:port | bare v6 | host
         val invalid = "Invalid DNS server authority"
         require(authority.isNotBlank() && authority.none { it.isWhitespace() || it in "/?#@" }) { invalid }
-        var host = authority
-        var portText: String? = null
+        val (host, portText) = authority.splitHostPort()
+            ?: throw IllegalArgumentException(invalid)
+        // Brackets promise an IPv6 literal, and only a bare one may keep its colons.
         if (authority.startsWith("[")) {
-            val end = authority.indexOf(']')
-            require(end > 1) { invalid }
-            host = authority.substring(1, end)
-            require(host.contains(':') && host.parseNumericAddress() != null) { invalid }
-            val suffix = authority.substring(end + 1)
-            require(suffix.isEmpty() || suffix.startsWith(":")) { invalid }
-            if (suffix.isNotEmpty()) portText = suffix.substring(1)
-        } else if (authority.count { it == ':' } == 1) {
-            host = authority.substringBefore(':')
-            portText = authority.substringAfter(':')
-        } else if (authority.contains(':')) {
-            require(authority.parseNumericAddress() != null) { invalid }
+            require(':' in host && host.parseNumericAddress() != null) { invalid }
+        } else {
+            require(':' !in host || host.parseNumericAddress() != null) { invalid }
         }
         require(host.isNotBlank() && '[' !in host && ']' !in host) { invalid }
         server = host

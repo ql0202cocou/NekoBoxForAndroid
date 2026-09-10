@@ -7,9 +7,10 @@ import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import io.nekohasekai.sagernet.ui.profile.ProfileSettingsActivity
+import io.nekohasekai.sagernet.ui.profile.bindCertificateFingerprintPreference
 import io.nekohasekai.sagernet.ui.profile.bindPasswordPreference
 import io.nekohasekai.sagernet.ui.profile.bindPortPreference
-import io.nekohasekai.sagernet.ui.profile.bindValidatedPreference
+import io.nekohasekai.sagernet.ui.profile.certificateFingerprintError
 import moe.matsuri.nb4a.proxy.PreferenceBinding
 import moe.matsuri.nb4a.proxy.PreferenceBindingManager
 import moe.matsuri.nb4a.proxy.Type
@@ -18,9 +19,7 @@ class AnyTLSSettingsActivity : ProfileSettingsActivity<AnyTLSBean>() {
     override fun createEntity() = AnyTLSBean().applyDefaultValues()
 
     override fun validateEditor(): String? {
-        val value = certificateFingerprint.readStringFromCache()
-        return if (value.isBlank() || isCertificateFingerprint(value)) null
-        else getString(R.string.certificate_fingerprint_error)
+        return certificateFingerprintError(certificateFingerprint.readStringFromCache())
     }
 
     private val pbm = PreferenceBindingManager()
@@ -55,10 +54,7 @@ class AnyTLSSettingsActivity : ProfileSettingsActivity<AnyTLSBean>() {
 
         findPreference<EditTextPreference>(Key.SERVER_PORT)!!.bindPortPreference()
         findPreference<EditTextPreference>("password")!!.bindPasswordPreference()
-        // mihomo's only consumer of this value hex-decodes it into 32 bytes
         findPreference<EditTextPreference>("certificateFingerprint")!!
-            .bindValidatedPreference(R.string.certificate_fingerprint_error) {
-                it.isBlank() || isCertificateFingerprint(it)
-            }
+            .bindCertificateFingerprintPreference()
     }
 }

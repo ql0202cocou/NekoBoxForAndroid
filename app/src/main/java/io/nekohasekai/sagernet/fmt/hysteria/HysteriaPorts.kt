@@ -16,3 +16,15 @@ fun parseHysteriaPorts(value: String): List<IntRange> = value.split(',').map { i
     require(first <= last) { "Hysteria port range is reversed" }
     first..last
 }
+
+// "443" / "1000-2000,8443": the hysteria URI "mport" and hysteria 1 plugin form.
+fun List<IntRange>.joinHysteriaPorts(): String = joinToString(",") {
+    if (it.first == it.last) it.first.toString() else "${it.first}-${it.last}"
+}
+
+// sing-box server_ports, which always spells out both ends of a range.
+fun List<IntRange>.toSingBoxPorts(): List<String> = map { "${it.first}:${it.last}" }
+
+// The single port to dial, or null when the value really hops.
+fun List<IntRange>.singlePortOrNull(): Int? =
+    first().first.takeIf { size == 1 && first().first == first().last }

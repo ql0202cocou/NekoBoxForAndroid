@@ -36,7 +36,7 @@ import moe.matsuri.nb4a.ui.SimpleMenuPreference
 @Suppress("UNCHECKED_CAST")
 class GroupSettingsActivity(
     @LayoutRes resId: Int = R.layout.layout_config_settings,
-) : ThemedActivity(resId),
+) : EditorActivity(resId),
     OnPreferenceDataStoreChangeListener {
 
     // null until the preference fragment is committed; a redelivered picker
@@ -242,34 +242,10 @@ class GroupSettingsActivity(
     }
 
     @SuppressLint("CommitTransaction")
-    // Token proving this Activity still owns the shared profileCacheStore;
-    // persisted so a restore can detect another editor taking it over.
-    private var editorSession = 0L
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        outState.putLong(STATE_EDITOR_SESSION, editorSession)
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Session ownership of the shared profileCacheStore (see
-        // EditorSession.kt): a first creation resets the cache and claims it,
-        // a restore verifies the claim.
-        var sessionTakenOver = false
-        if (savedInstanceState == null) {
-            editorSession = claimEditorSession()
-        } else {
-            editorSession = savedInstanceState.getLong(STATE_EDITOR_SESSION, 0L)
-            sessionTakenOver = checkEditorSession(editorSession) == EditorSessionState.TAKEN_OVER
-        }
+        beginEditorSession(savedInstanceState)
         super.onCreate(savedInstanceState)
-        if (sessionTakenOver) {
-            // Another top-level editor claimed the cache meanwhile; saving
-            // from here would write into the wrong group.
-            Toast.makeText(this, R.string.editor_session_lost, Toast.LENGTH_LONG).show()
-            finish()
-            return
-        }
+        if (finishIfEditorSessionLost()) return
         setSupportActionBar(findViewById(R.id.toolbar))
         supportActionBar?.apply {
             setTitle(R.string.group_settings)
@@ -314,7 +290,7 @@ class GroupSettingsActivity(
 
                 // The cache was empty (process death): re-claim the session so
                 // later recreations still match this editor's token
-                renewEditorSession(editorSession)
+                renewEditorSessionToken()
 
                 onMainDispatcher {
                     supportFragmentManager.beginTransaction()

@@ -18,7 +18,7 @@ fun ShadowsocksBean.fixPluginName() {
 fun parseShadowsocks(url: String): ShadowsocksBean {
 
     if (url.substringBefore("#").contains("@")) {
-        var link = ("https://" + url.substringAfter("://")).toHttpUrlOrNull() ?: error(
+        var link = url.withHttpScheme().toHttpUrlOrNull() ?: error(
             "invalid ss-android link"
         )
 

@@ -10,7 +10,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 fun parseTrojanGo(server: String): TrojanGoBean {
-    val link = ("https://" + server.substringAfter("://")).toHttpUrlOrNull() ?: error(
+    val link = server.withHttpScheme().toHttpUrlOrNull() ?: error(
         "invalid trojan-link link $server"
     )
     return TrojanGoBean().apply {

@@ -13,7 +13,7 @@ import java.io.File
 
 // hysteria://host:port?auth=123456&peer=sni.domain&insecure=1|0&upmbps=100&downmbps=100&alpn=hysteria&obfs=xplus&obfsParam=123456#remarks
 fun parseHysteria1(url: String): HysteriaBean {
-    val link = ("https://" + url.substringAfter("://")).toHttpUrlOrNull() ?: error(
+    val link = url.withHttpScheme().toHttpUrlOrNull() ?: error(
         "invalid hysteria link $url"
     )
     return HysteriaBean().apply {
@@ -76,7 +76,7 @@ fun parseHysteria1(url: String): HysteriaBean {
 
 // hysteria2://[auth@]hostname[:port]/?[key=value]&[key=value]...
 fun parseHysteria2(url: String): HysteriaBean {
-    val link = ("https://" + url.substringAfter("://")).toHttpUrlOrNull()
+    val link = url.withHttpScheme().toHttpUrlOrNull()
         ?: error("invalid hysteria link $url")
     return HysteriaBean().apply {
         protocolVersion = 2
@@ -135,10 +135,8 @@ fun HysteriaBean.toUri(): String {
         .port(ports.first().first)
         .username(un)
         .password(pw)
-    if (ports.size > 1 || ports[0].first != ports[0].last) {
-        builder.addQueryParameter("mport", ports.joinToString(",") {
-            if (it.first == it.last) it.first.toString() else "${it.first}-${it.last}"
-        })
+    if (ports.singlePortOrNull() == null) {
+        builder.addQueryParameter("mport", ports.joinHysteriaPorts())
     }
     if (name.isNotBlank()) {
         builder.encodedFragment(name.urlSafe())
@@ -213,35 +211,17 @@ fun JSONObject.parseHysteria1Json(): HysteriaBean {
     // TODO parse HY2 JSON+YAML
     return HysteriaBean().apply {
         protocolVersion = 1
-        // Same authority criterion as parseWireGuard / makeDnsServer:
-        // [v6]:port | host:port | bare v6 | host. A bare IPv6 address has no
-        // port to split off and must keep all its colons; the default port
-        // only applies when no port was given at all.
         val server = optString("server")
-        when {
-            server.startsWith("[") -> {
-                val end = server.indexOf(']')
-                if (end > 1) {
-                    serverAddress = server.substring(1, end)
-                    serverPorts = server.substring(end + 1)
-                        .takeIf { it.startsWith(":") }?.substring(1)?.ifBlank { null } ?: "443"
-                } else {
-                    serverAddress = server
-                    serverPorts = "443"
-                }
-            }
-
-            server.count { it == ':' } == 1 -> {
-                serverAddress = server.substringBefore(':')
-                serverPorts = server.substringAfter(':', "").ifBlank { "443" }
-            }
-
-            else -> {
-                // no colon at all, or a bare IPv6 address (multiple colons)
-                serverAddress = server
-                serverPorts = "443"
-            }
+        // Only a bracketed value can fail to split, and the address is still the
+        // bracketed part; an unterminated or empty bracket keeps the whole value,
+        // the same as a bare IPv6 one. The default port applies whenever no port
+        // was given.
+        val (host, portText) = server.splitHostPort() ?: run {
+            val end = server.indexOf(']')
+            (if (end > 1) server.substring(1, end) else server) to null
         }
+        serverAddress = host
+        serverPorts = portText?.ifBlank { null } ?: "443"
         uploadMbps = getIntNya("up_mbps")
         downloadMbps = getIntNya("down_mbps")
         obfuscation = getStr("obfs")
@@ -292,9 +272,7 @@ fun HysteriaBean.buildHysteria1Config(port: Int, cacheFile: (() -> File)?): Stri
     require(isHysteria1PluginHopInterval(hopInterval)) {
         "hysteria 1 hop interval must be 0 or at least 8 seconds"
     }
-    val ports = parseHysteriaPorts(serverPorts).joinToString(",") {
-        if (it.first == it.last) it.first.toString() else "${it.first}-${it.last}"
-    }
+    val ports = parseHysteriaPorts(serverPorts).joinHysteriaPorts()
     return JSONObject().apply {
         // When the node got a mapping inbound (chain member), finalAddress is
         // rewritten to LOCALHOST and the plugin must dial the mapping port —
@@ -365,9 +343,10 @@ fun isMultiPort(hyAddr: String): Boolean {
     return false
 }
 
-fun getFirstPort(portStr: String): Int {
-    return portStr.substringBefore(":").substringBefore(",").substringBefore("-").toIntOrNull() ?: 443
-}
+// Same parser as everywhere else; a value the editor would have rejected keeps
+// falling back to the default port instead of failing the caller.
+fun getFirstPort(portStr: String): Int =
+    runCatching { parseHysteriaPorts(portStr).first().first }.getOrDefault(443)
 
 fun HysteriaBean.canUseSingBox(): Boolean {
     if (protocol != HysteriaBean.PROTOCOL_UDP) return false
@@ -381,15 +360,13 @@ fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean): SingBoxOptions.SingBox
         Logs.w("certificate fingerprint pinning is not supported by sing-box, ignored")
     }
     val ports = parseHysteriaPorts(bean.serverPorts)
+    val singlePort = ports.singlePortOrNull()
     return when (bean.protocolVersion) {
         1 -> SingBoxOptions.Outbound_HysteriaOptions().apply {
             type = "hysteria"
             server = bean.serverAddress
-            if (ports.size == 1 && ports[0].first == ports[0].last) {
-                server_port = ports[0].first
-            } else {
-                server_ports = ports.map { "${it.first}:${it.last}" }
-            }
+            if (singlePort != null) server_port = singlePort
+            else server_ports = ports.toSingBoxPorts()
             hop_interval = "${bean.hopInterval}s"
             up_mbps = bean.uploadMbps
             down_mbps = bean.downloadMbps
@@ -423,11 +400,8 @@ fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean): SingBoxOptions.SingBox
         2 -> SingBoxOptions.Outbound_Hysteria2Options().apply {
             type = "hysteria2"
             server = bean.serverAddress
-            if (ports.size == 1 && ports[0].first == ports[0].last) {
-                server_port = ports[0].first
-            } else {
-                server_ports = ports.map { "${it.first}:${it.last}" }
-            }
+            if (singlePort != null) server_port = singlePort
+            else server_ports = ports.toSingBoxPorts()
             hop_interval = "${bean.hopInterval}s"
             up_mbps = bean.uploadMbps
             down_mbps = bean.downloadMbps
@@ -454,6 +428,3 @@ fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean): SingBoxOptions.SingBox
         else -> error("error_version $bean.protocolVersion")
     }
 }
-
-fun hopPortsToSingboxList(s: String): List<String> =
-    parseHysteriaPorts(s).map { "${it.first}:${it.last}" }

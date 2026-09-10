@@ -668,7 +668,7 @@ object RawUpdater : GroupUpdater() {
                                         )
 
                                         "fingerprint" -> bean.certificateFingerprint =
-                                            opt.value.toString()
+                                            parseCertificateFingerprint(opt.value)
 
                                         "alpn" -> {
                                             val alpn = (opt.value as? (List<String>))
@@ -676,10 +676,11 @@ object RawUpdater : GroupUpdater() {
                                         }
 
                                         "ech-opts" -> (opt.value as? Map<String, Any?>)?.also {
-                                            if (it["enable"]?.toString() == "true") {
-                                                bean.enableECH = true
-                                            }
-                                            if (it["enable"]?.toString() != "false") {
+                                            val enable = it["enable"]
+                                            bean.enableECH = enable.clashBoolean()
+                                            // mihomo turns ECH on from the config
+                                            // alone when "enable" is absent
+                                            if (enable == null || bean.enableECH) {
                                                 bean.echConfig =
                                                     it["config"]?.toString() ?: ""
                                             }
@@ -1070,30 +1071,15 @@ object RawUpdater : GroupUpdater() {
             }
 
             val peerBean = bean.clone()
-            // [v6]:port | host:port; a bare IPv6 endpoint (no brackets, several
-            // colons) cannot be told apart from host:port, so it is dropped
-            val colons = endpoint.count { it == ':' }
-            when {
-                endpoint.startsWith("[") -> {
-                    val end = endpoint.indexOf(']')
-                    if (end < 0) continue
-                    peerBean.serverAddress = endpoint.substring(1, end)
-                    peerBean.serverPort =
-                        endpoint.substring(end + 1).removePrefix(":").toIntOrNull() ?: continue
-                }
-
-                colons == 1 -> {
-                    peerBean.serverAddress = endpoint.substringBefore(":")
-                    peerBean.serverPort = endpoint.substringAfter(":").toIntOrNull() ?: continue
-                }
-
-                colons > 1 -> {
-                    Logs.w("WireGuard peer skipped: bare IPv6 endpoint without brackets")
-                    continue
-                }
-
-                else -> continue
+            // A bare IPv6 endpoint (no brackets, several colons) cannot be told
+            // apart from host:port, and an endpoint without a port is unusable
+            val (host, portText) = endpoint.splitHostPort() ?: continue
+            if (':' in host && !endpoint.startsWith("[")) {
+                Logs.w("WireGuard peer skipped: bare IPv6 endpoint without brackets")
+                continue
             }
+            peerBean.serverAddress = host
+            peerBean.serverPort = portText?.toIntOrNull() ?: continue
             peerBean.peerPublicKey = peer["PublicKey"] ?: continue
             peerBean.peerPreSharedKey = peer["PresharedKey"]
             peerBean.peerKeepalive = peer["PersistentKeepalive"]?.toIntOrNull() ?: 0

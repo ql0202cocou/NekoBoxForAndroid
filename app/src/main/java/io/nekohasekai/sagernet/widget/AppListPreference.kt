@@ -24,11 +24,10 @@ class AppListPreference : Preference {
         // the cache fills asynchronously at app start; a restored route editor
         // can bind this preference before it is there
         PackageCache.awaitLoadSync()
-        val packages = DataStore.routePackages.split("\n").filter { it.isNotBlank() }.map {
-            PackageCache.installedPackages[it]?.applicationInfo?.loadLabel(app.packageManager)
-                ?: PackageCache.installedPluginPackages[it]?.applicationInfo?.loadLabel(app.packageManager)
-                ?: it
-        }
+        // loadLabel() memoizes; loading each label from the PackageManager again
+        // would repeat that work on every rebind of this preference
+        val packages = DataStore.routePackages.split("\n").filter { it.isNotBlank() }
+            .map { PackageCache.loadLabel(it) }
         if (packages.isEmpty()) {
             return context.getString(androidx.preference.R.string.not_set)
         }

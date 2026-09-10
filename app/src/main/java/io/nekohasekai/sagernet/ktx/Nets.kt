@@ -20,6 +20,12 @@ import java.util.concurrent.ConcurrentHashMap
 
 fun linkBuilder() = HttpUrl.Builder().scheme("https")
 
+// Profile links share the authority/query shape of an HTTP URL, so okhttp can parse
+// them once the scheme is swapped. Rebuilding the prefix — rather than replace() —
+// keeps a "://" inside the query or fragment untouched.
+fun String.withHttpScheme(scheme: String = "https"): String =
+    "$scheme://" + substringAfter("://")
+
 fun HttpUrl.Builder.toLink(scheme: String, appendDefaultPort: Boolean = true): String {
     var url = build()
     val defaultPort = HttpUrl.defaultPort(url.scheme)
@@ -67,6 +73,24 @@ fun String.wrapIPV6Host(): String {
     } else {
         return this
     }
+}
+
+// [v6]:port | host:port | bare v6 | host -> host plus the raw port text, or null
+// when no port was given at all. Returns null for a value that cannot be split:
+// an unterminated or empty bracket, or a bracket followed by anything but ":port".
+// A bare IPv6 address has no port to split off and must keep all its colons, so it
+// reports no port; callers decide whether to default, reject or skip such a value,
+// and whether the host still has to parse as an address.
+fun String.splitHostPort(): Pair<String, String?>? {
+    if (startsWith("[")) {
+        val end = indexOf(']')
+        if (end <= 1) return null
+        val suffix = substring(end + 1)
+        if (suffix.isNotEmpty() && !suffix.startsWith(":")) return null
+        return substring(1, end) to suffix.drop(1).takeIf { suffix.isNotEmpty() }
+    }
+    if (count { it == ':' } == 1) return substringBefore(':') to substringAfter(':')
+    return this to null
 }
 
 // True for loopback/unspecified DNS addresses (127.0.0.1, [::1]:53, udp://0.0.0.0 …):

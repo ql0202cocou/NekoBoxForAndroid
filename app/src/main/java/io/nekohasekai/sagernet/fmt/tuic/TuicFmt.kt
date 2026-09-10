@@ -5,6 +5,7 @@ import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.linkBuilder
 import io.nekohasekai.sagernet.ktx.toLink
 import io.nekohasekai.sagernet.ktx.urlSafe
+import io.nekohasekai.sagernet.ktx.withHttpScheme
 import moe.matsuri.nb4a.SingBoxOptions
 import moe.matsuri.nb4a.utils.listByLineOrComma
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -14,7 +15,7 @@ private val tuicUuidRegex =
 
 fun parseTuic(url: String): TuicBean {
     // https://github.com/daeuniverse/dae/discussions/182
-    val link = ("https://" + url.substringAfter("://")).toHttpUrlOrNull() ?: error(
+    val link = url.withHttpScheme().toHttpUrlOrNull() ?: error(
         "invalid tuic link $url"
     )
     return TuicBean().apply {

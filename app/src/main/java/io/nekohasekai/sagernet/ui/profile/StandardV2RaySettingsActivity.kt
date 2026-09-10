@@ -17,7 +17,6 @@ import io.nekohasekai.sagernet.fmt.v2ray.isRealityShortId
 import moe.matsuri.nb4a.proxy.PreferenceBinding
 import moe.matsuri.nb4a.proxy.PreferenceBindingManager
 import moe.matsuri.nb4a.proxy.Type
-import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 import moe.matsuri.nb4a.ui.SimpleMenuPreference
 
 abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV2RayBean>() {
@@ -61,10 +60,7 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
     override fun validateEditor(): String? {
         // REALITY and pinning fields stay hidden and unused while TLS is off
         if (security.readStringFromCache() != "tls") return null
-        val certPin = certificateFingerprint.readStringFromCache()
-        if (certPin.isNotBlank() && !isCertificateFingerprint(certPin)) {
-            return getString(R.string.certificate_fingerprint_error)
-        }
+        certificateFingerprintError(certificateFingerprint.readStringFromCache())?.let { return it }
         // an empty REALITY key means no REALITY
         val publicKey = realityPubKey.readStringFromCache()
         if (publicKey.isEmpty()) return null
@@ -144,11 +140,8 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
             .bindValidatedPreference(R.string.reality_short_id_error, ::isRealityShortId)
         (realityMldsa65Verify.preference as EditTextPreference)
             .bindValidatedPreference(R.string.reality_mldsa65_error, ::isRealityMldsa65Verify)
-        // mihomo's only consumer of this value hex-decodes it into 32 bytes
         (certificateFingerprint.preference as EditTextPreference)
-            .bindValidatedPreference(R.string.certificate_fingerprint_error) {
-                it.isBlank() || isCertificateFingerprint(it)
-            }
+            .bindCertificateFingerprintPreference()
 
         type.preference.isVisible = !isHttp
         // ProxyEntity.singMux() builds multiplex for VMess/Trojan only

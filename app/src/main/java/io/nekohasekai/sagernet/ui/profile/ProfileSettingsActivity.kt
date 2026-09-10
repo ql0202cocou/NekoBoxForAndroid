@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.ui.profile
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.DialogInterface
 import android.content.Intent
 import android.os.Build
@@ -37,28 +38,24 @@ import com.github.shadowsocks.plugin.fragment.AlertDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.*
 import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.database.EditorSessionState
 import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.SagerDatabase
-import io.nekohasekai.sagernet.database.STATE_EDITOR_SESSION
-import io.nekohasekai.sagernet.database.checkEditorSession
-import io.nekohasekai.sagernet.database.claimEditorSession
-import io.nekohasekai.sagernet.database.renewEditorSession
 import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.databinding.LayoutGroupItemBinding
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.ktx.*
-import io.nekohasekai.sagernet.ui.ThemedActivity
+import io.nekohasekai.sagernet.ui.EditorActivity
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import kotlinx.parcelize.Parcelize
+import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 
 @Suppress("UNCHECKED_CAST")
 abstract class ProfileSettingsActivity<T : AbstractBean>(
     @LayoutRes resId: Int = R.layout.layout_config_settings,
-) : ThemedActivity(resId), OnPreferenceDataStoreChangeListener {
+) : EditorActivity(resId), OnPreferenceDataStoreChangeListener {
 
     /**
      * Whether the preference list is the bottom-most scrollable view of the screen. Chain
@@ -112,44 +109,19 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
     protected suspend fun awaitEditorReady() = editorReady.await()
 
-    // Token proving this Activity still owns the shared profileCacheStore;
-    // persisted so a restore can detect another editor taking it over.
-    private var editorSession = 0L
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        outState.putLong(STATE_EDITOR_SESSION, editorSession)
-    }
-
     val proxyEntity by lazy { SagerDatabase.proxyDao.getById(DataStore.editingId) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Session ownership of the shared profileCacheStore (see
-        // EditorSession.kt): a first creation resets the cache and claims it,
-        // a restore verifies the claim. The reset must run before editingId
-        // or any other key is written.
-        var sessionTakenOver = false
-        if (savedInstanceState == null) {
-            editorSession = claimEditorSession()
-        } else {
-            editorSession = savedInstanceState.getLong(STATE_EDITOR_SESSION, 0L)
-            sessionTakenOver = checkEditorSession(editorSession) == EditorSessionState.TAKEN_OVER
-        }
+        beginEditorSession(savedInstanceState)
         // Before super.onCreate(): a restored MyPreferenceFragmentCompat runs
         // createPreferences() from there, and the StandardV2Ray editor reads the
         // lazy proxyEntity in it — with the in-memory cache gone after process
         // death editingId would still be 0 and null would be cached for good.
-        if (!sessionTakenOver) {
+        if (ownsEditorSession) {
             DataStore.editingId = intent.getLongExtra(EXTRA_PROFILE_ID, 0L)
         }
         super.onCreate(savedInstanceState)
-        if (sessionTakenOver) {
-            // Another top-level editor claimed the cache meanwhile; saving
-            // from here would write into the wrong profile.
-            Toast.makeText(this, R.string.editor_session_lost, Toast.LENGTH_LONG).show()
-            finish()
-            return
-        }
+        if (finishIfEditorSessionLost()) return
         setSupportActionBar(findViewById(R.id.toolbar))
         supportActionBar?.apply {
             setTitle(R.string.profile_config)
@@ -164,8 +136,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         // the cache is empty; re-initialize from the intent extras, or the blank
         // editor would save a garbage profile.
         if (savedInstanceState == null || DataStore.profileCacheStore.getString(Key.PROFILE_CORE) == null) {
-            val editingId = intent.getLongExtra(EXTRA_PROFILE_ID, 0L)
-            DataStore.editingId = editingId
+            val editingId = DataStore.editingId
             lifecycleScope.launch(Dispatchers.Default) {
                 if (editingId == 0L) {
                     DataStore.editingGroup = DataStore.selectedGroupForImport()
@@ -190,7 +161,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
                 // The cache was empty (process death): re-claim the session so
                 // later recreations still match this editor's token
-                renewEditorSession(editorSession)
+                renewEditorSessionToken()
 
                 onMainDispatcher {
                     supportFragmentManager.beginTransaction()
@@ -612,3 +583,16 @@ fun EditTextPreference.bindValidatedPreference(
     }
     return this
 }
+
+// Every pin-capable protocol editor shares one rule: blank means no pinning, and
+// mihomo's only consumer of the value hex-decodes it into 32 bytes.
+fun EditTextPreference.bindCertificateFingerprintPreference(): EditTextPreference =
+    bindValidatedPreference(R.string.certificate_fingerprint_error) {
+        it.isBlank() || isCertificateFingerprint(it)
+    }
+
+// Save-time half of bindCertificateFingerprintPreference(), for values that were
+// imported or cached before the check existed. Null when the pin is acceptable.
+fun Context.certificateFingerprintError(value: String): String? =
+    if (value.isBlank() || isCertificateFingerprint(value)) null
+    else getString(R.string.certificate_fingerprint_error)

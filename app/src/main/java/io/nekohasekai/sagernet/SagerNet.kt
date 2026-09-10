@@ -86,7 +86,7 @@ class SagerNet : Application(),
                 if (result == RestoreJournal.Result.GAVE_UP && isMainProcess) {
                     Toast.makeText(this, R.string.restore_replay_failed, Toast.LENGTH_LONG).show()
                 }
-                journal.withLock { InstallMarker.ensure() }
+                if (InstallMarker.isMissing()) journal.withLock { InstallMarker.ensure() }
             } catch (e: Exception) {
                 Logs.w(e)
             }

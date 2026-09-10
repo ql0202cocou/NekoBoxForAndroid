@@ -4,13 +4,14 @@ import io.nekohasekai.sagernet.ktx.decodeBase64UrlSafe
 import io.nekohasekai.sagernet.ktx.toLink
 import io.nekohasekai.sagernet.ktx.unUrlSafe
 import io.nekohasekai.sagernet.ktx.urlSafe
+import io.nekohasekai.sagernet.ktx.withHttpScheme
 import moe.matsuri.nb4a.SingBoxOptions
 import moe.matsuri.nb4a.utils.Util
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 fun parseSOCKS(link: String): SOCKSBean {
-    val url = ("http://" + link.substringAfter("://")).toHttpUrlOrNull()
+    val url = link.withHttpScheme("http").toHttpUrlOrNull()
         ?: error("Not supported: $link")
 
     return SOCKSBean().apply {

@@ -82,7 +82,7 @@ fun parseV2Ray(link: String): StandardV2RayBean {
     val bean = VMessBean().apply { if (link.startsWith("vless://")) alterId = -1 }
     // scheme swap by prefix, not replace(): a global replace also rewrites a
     // fragment or query that happens to contain the scheme string
-    val url = ("https://" + link.substringAfter("://")).toHttpUrl()
+    val url = link.withHttpScheme().toHttpUrl()
 
     if (url.password.isNotBlank()) {
         // https://github.com/v2fly/v2fly-github-io/issues/26 (rarely use)
