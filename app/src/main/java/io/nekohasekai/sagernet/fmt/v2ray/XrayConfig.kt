@@ -15,11 +15,22 @@ import org.json.JSONObject
 fun VMessBean.xrayLacksTransport(): Boolean =
     type == "quic" || (type == "http" && isTLS())
 
+// Xray-core rejects allowInsecure at build time since 2026-06-01 (removed
+// feature, pinned v26.3.27 infra/conf/transport_internet.go); sing-box still
+// implements "insecure", so these profiles run there — the same fallback as
+// xrayLacksTransport. A certificate pin is unaffected: pinnedPeerCertSha256
+// is the offered replacement and wins over allowInsecure anyway.
+fun VMessBean.xrayLacksAllowInsecure(): Boolean =
+    isTLS() && certificateFingerprint.isBlank() && (allowInsecure || DataStore.globalAllowInsecure)
+
 // Builds an Xray-core client config for a VMess/VLESS profile:
 // a local socks inbound chained from sing-box, and the profile as outbound.
 fun buildXrayConfig(bean: VMessBean, port: Int): String {
     if (bean.xrayLacksTransport()) {
         error("xray-core no longer supports the ${bean.type} transport, use the sing-box core for this profile")
+    }
+    if (bean.xrayLacksAllowInsecure()) {
+        error("xray-core no longer supports allowInsecure, use a certificate fingerprint or the sing-box core for this profile")
     }
     val user = JSONObject().apply {
         put("id", bean.uuid)

@@ -213,9 +213,35 @@ fun JSONObject.parseHysteria1Json(): HysteriaBean {
     // TODO parse HY2 JSON+YAML
     return HysteriaBean().apply {
         protocolVersion = 1
-        serverAddress = optString("server").substringBeforeLast(":")
-        // Without a ":" substringAfterLast returns the whole host; default to 443.
-        serverPorts = optString("server").substringAfterLast(":", "").ifBlank { "443" }
+        // Same authority criterion as parseWireGuard / makeDnsServer:
+        // [v6]:port | host:port | bare v6 | host. A bare IPv6 address has no
+        // port to split off and must keep all its colons; the default port
+        // only applies when no port was given at all.
+        val server = optString("server")
+        when {
+            server.startsWith("[") -> {
+                val end = server.indexOf(']')
+                if (end > 1) {
+                    serverAddress = server.substring(1, end)
+                    serverPorts = server.substring(end + 1)
+                        .takeIf { it.startsWith(":") }?.substring(1)?.ifBlank { null } ?: "443"
+                } else {
+                    serverAddress = server
+                    serverPorts = "443"
+                }
+            }
+
+            server.count { it == ':' } == 1 -> {
+                serverAddress = server.substringBefore(':')
+                serverPorts = server.substringAfter(':', "").ifBlank { "443" }
+            }
+
+            else -> {
+                // no colon at all, or a bare IPv6 address (multiple colons)
+                serverAddress = server
+                serverPorts = "443"
+            }
+        }
         uploadMbps = getIntNya("up_mbps")
         downloadMbps = getIntNya("down_mbps")
         obfuscation = getStr("obfs")

@@ -389,9 +389,12 @@ data class ProxyEntity(
     fun resolvedCore(): Int {
         if (core != CORE_AUTO) return core
         return when (type) {
-            // xray dropped the h2/quic transports; those profiles only run on sing-box
+            // xray dropped the h2/quic transports and, after 2026-06-01,
+            // allowInsecure; those profiles only run on sing-box
             TYPE_VMESS ->
-                if (vmessBean!!.isVLESS && !vmessBean!!.xrayLacksTransport()) CORE_XRAY else CORE_SING_BOX
+                if (vmessBean!!.isVLESS && !vmessBean!!.xrayLacksTransport() &&
+                    !vmessBean!!.xrayLacksAllowInsecure()
+                ) CORE_XRAY else CORE_SING_BOX
 
             TYPE_ANYTLS -> CORE_MIHOMO
             else -> CORE_SING_BOX
