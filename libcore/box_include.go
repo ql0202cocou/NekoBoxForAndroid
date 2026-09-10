@@ -109,6 +109,8 @@ func nekoboxAndroidDNSTransportRegistry(localTransport LocalDNSTransport) *dns.T
 	quic.RegisterTransport(registry)
 	quic.RegisterHTTP3Transport(registry)
 
+	registerSequentialTransport(registry)
+
 	if localTransport == nil {
 		local.RegisterTransport(registry)
 	} else {

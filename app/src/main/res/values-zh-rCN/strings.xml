@@ -404,4 +404,14 @@
     <string name="wireguard_reserved_error">Reserved 必须为空，或包含三个 0 到 255 之间的整数。</string>
     <string name="wireguard_key_error">请输入解码后为 32 字节的标准 Base64 密钥。预共享密钥可以留空。</string>
     <string name="wireguard_address_error">请使用 IPv4/前缀长度（0–32）或 IPv6/前缀长度（0–128），多个地址用逗号或换行分隔。</string>
+    <string name="reality_public_key_error">请输入 REALITY 公钥：43 个 URL 安全 Base64 字符（32 字节）。</string>
+    <string name="reality_short_id_error">REALITY Short ID 必须留空，或为不超过 16 位、长度为偶数的十六进制字符。</string>
+    <string name="reality_mldsa65_error">请输入 REALITY mldsa65Verify 密钥：2603 个 URL 安全 Base64 字符（1952 字节），或留空。</string>
+    <string name="certificate_fingerprint_error">请输入 SHA-256 证书指纹：64 位十六进制字符，可含冒号。</string>
+    <string name="hysteria_receive_window_error">使用 faketcp 或 wechat-video 时，接收窗口必须留空或不小于 65536。</string>
+    <string name="hysteria_hop_interval_error">使用 faketcp 或 wechat-video 时，跳端口间隔必须为 0 或不小于 8 秒。</string>
+    <string name="server_address_error">请输入不含空格和斜杠的服务器域名或 IP 地址。</string>
+    <string name="reality_ech_conflict_error">REALITY 不能与 ECH 同时启用：sing-box 会拒绝该配置，Xray 会忽略 ECH。</string>
+    <string name="restore_pending">备份恢复尚未完成，完成后再启动服务。</string>
+    <string name="restore_replay_failed">中断的备份恢复未能完成，请查看日志并重新导入备份。</string>
 </resources>

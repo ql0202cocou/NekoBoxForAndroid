@@ -235,6 +235,29 @@ fun buildConfig(
     // forTest honors it too: a fake node domain may only resolve through it.
     val groupNameservers = group?.proxyServerNameserver.usableNameservers()
     val groupNsDomains = LinkedHashSet<String>()
+    // Parse once up front: both the DNS servers/rules below and the outbound
+    // domain_resolver bindings in buildChain must reference only successfully
+    // parsed servers. An address makeDnsServer cannot parse must not take down
+    // the whole config build — skip it and keep the remaining servers.
+    // (scheme + authority only get logged: a DoH path can embed tokens)
+    val groupDnsServers = groupNameservers.mapIndexedNotNull { index, address ->
+        runCatching {
+            makeDnsServer(address, "dns-group-$index").apply {
+                // no detour either (see dns-direct): 1.14 dials directly
+                // by default and detouring to the empty direct outbound
+                // kills the box at start
+                domain_resolver = "dns-local"
+            }
+        }.getOrElse {
+            Logs.w(
+                "Skip unsupported group nameserver at index $index: ${it.javaClass.simpleName}"
+            )
+            null
+        }
+    }
+    // libcore-only neko-sequential transport chaining the group nameservers
+    // in order with dns-direct as the last resort
+    val groupSequentialTag = "dns-node-${proxy.groupId}"
     val isVPN = DataStore.serviceMode == Key.MODE_VPN
     val bind = if (!forTest && DataStore.allowAccess) "0.0.0.0" else LOCALHOST
     val remoteDns = DataStore.remoteDns.split("\n")
@@ -342,6 +365,16 @@ fun buildConfig(
             auto_detect_interface = true
             rules = mutableListOf()
             rule_set = mutableListOf()
+            // Safety net for every dialer without an explicit resolver
+            // (cross-group chain members, endpoints, custom JSON outbounds),
+            // replacing the deprecated resolve-through-DNS-rules path
+            // sing-box may remove. Exports skip it on purpose: vanilla
+            // sing-box 1.14 still walks the kept DNS rules for outbounds
+            // without a resolver, which preserves group nameserver fallback.
+            if (!forExport) default_domain_resolver = DomainResolveOptions().apply {
+                server = "dns-direct"
+                if (!forTest) strategy = SingBoxOptionsUtil.domainStrategy("server")
+            }
         }
 
         // returns outbound tag
@@ -521,15 +554,29 @@ fun buildConfig(
                     } catch (_: Exception) {
                     }
 
-                    // domain_strategy
+                    // domain resolution: this group's own domain nodes resolve
+                    // through the group's ordered nameserver chain (the
+                    // neko-sequential transport); every other dialer falls
+                    // back to route.default_domain_resolver. Exports skip the
+                    // binding: neko-sequential is libcore-only, and vanilla
+                    // sing-box 1.14 still resolves outbounds through the kept
+                    // dns-group-N rules. User custom JSON merges after this
+                    // and wins if it carries its own domain_resolver.
                     pastEntity?.requireBean()?.apply {
                         // don't loopback
                         if (defaultServerDomainStrategy != "" && !serverAddress.isIpAddress()) {
                             domainListDNSDirectForce.add("full:$serverAddress")
                         }
                     }
-                    _hack_config_map["domain_strategy"] =
-                        if (forTest) "" else defaultServerDomainStrategy
+                    if (!forExport && groupDnsServers.isNotEmpty() &&
+                        proxyEntity.groupId == proxy.groupId &&
+                        bean.serverAddress.isNotBlank() && !bean.serverAddress.isIpAddress()
+                    ) {
+                        _hack_config_map["domain_resolver"] = DomainResolveOptions().apply {
+                            server = groupSequentialTag
+                            if (!forTest) strategy = defaultServerDomainStrategy
+                        }
+                    }
 
                     _hack_config_map["tag"] = tagOut
 
@@ -928,8 +975,11 @@ fun buildConfig(
                     disable_cache = true
                 })
             }
-            // avoid loopback
-            dns.rules.add(0, DNSRule_DefaultOptions().apply {
+            // avoid loopback: with route.default_domain_resolver in place,
+            // dialer resolution no longer walks DNS rules, so this rule is
+            // dead in-app. Exports keep it: vanilla sing-box 1.14 still
+            // resolves outbounds through DNS rules.
+            if (forExport) dns.rules.add(0, DNSRule_DefaultOptions().apply {
                 outbound = mutableListOf("any")
                 server = "dns-direct"
                 strategy = directStrategy
@@ -944,33 +994,24 @@ fun buildConfig(
             }
         }
 
-        // per-group nameserver: this group's node server domains resolve via it,
-        // multiple servers are tried in order (neko dns rule fallback).
-        // Kept for forTest too: node domains must resolve or the test cannot dial.
-        // A mirrored/hand-entered address makeDnsServer cannot parse must not take
-        // down the whole config build — skip it and keep the remaining servers.
-        if (groupNameservers.isNotEmpty() && groupNsDomains.isNotEmpty()) {
-            val groupRules = groupNameservers.mapIndexedNotNull { index, address ->
-                val tag = "dns-group-$index"
-                val dnsServer = runCatching {
-                    makeDnsServer(address, tag).apply {
-                        // no detour either (see dns-direct): 1.14 dials directly
-                        // by default and detouring to the empty direct outbound
-                        // kills the box at start
-                        domain_resolver = "dns-local"
-                    }
-                }.getOrElse {
-                    // scheme + authority only: a DoH path can embed tokens
-                    Logs.w(
-                        "Skip unsupported group nameserver at index $index: ${it.javaClass.simpleName}"
-                    )
-                    return@mapIndexedNotNull null
-                }
-                dns.servers.add(dnsServer)
+        // per-group nameserver: this group's node server domains resolve via
+        // it, multiple servers are tried in order. User-hijacked queries keep
+        // using the DNS rules below (neko rule fallback); outbound resolution
+        // binds to the neko-sequential transport instead (see buildChain).
+        // Kept for forTest too: node domains must resolve or the test cannot
+        // dial. Unparseable addresses were already skipped in groupDnsServers.
+        if (groupDnsServers.isNotEmpty() && groupNsDomains.isNotEmpty()) {
+            dns.servers.addAll(groupDnsServers)
+            if (!forExport) dns.servers.add(DNSServerOptions().apply {
+                type = "neko-sequential"
+                tag = groupSequentialTag
+                servers = groupDnsServers.map { it.tag } + "dns-direct"
+            })
+            val groupRules = groupDnsServers.map { dnsServer ->
                 DNSRule_DefaultOptions().apply {
                     domain = groupNsDomains.toList()
-                    server = tag
-                    strategy = autoDnsDomainStrategy(SingBoxOptionsUtil.domainStrategy(tag))
+                    server = dnsServer.tag
+                    strategy = autoDnsDomainStrategy(SingBoxOptionsUtil.domainStrategy(dnsServer.tag))
                     fallback = true
                 }
             }

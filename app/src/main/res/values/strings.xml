@@ -470,4 +470,14 @@
     <string name="wireguard_reserved_error">Reserved must be empty or contain exactly three integers from 0 to 255.</string>
     <string name="wireguard_key_error">Enter a standard Base64 key that decodes to 32 bytes. The pre-shared key may be empty.</string>
     <string name="wireguard_address_error">Use IPv4/prefix (0–32) or IPv6/prefix (0–128), separated by commas or new lines.</string>
+    <string name="reality_public_key_error">Enter a REALITY public key: 43 URL-safe Base64 characters (32 bytes).</string>
+    <string name="reality_short_id_error">The REALITY short ID must be empty or up to 16 hexadecimal characters of even length.</string>
+    <string name="reality_mldsa65_error">Enter a REALITY mldsa65Verify key: 2603 URL-safe Base64 characters (1952 bytes), or leave it empty.</string>
+    <string name="certificate_fingerprint_error">Enter a SHA-256 certificate fingerprint: 64 hexadecimal characters, colons allowed.</string>
+    <string name="hysteria_receive_window_error">With faketcp or wechat-video, receive windows must be empty or at least 65536.</string>
+    <string name="hysteria_hop_interval_error">With faketcp or wechat-video, the hop interval must be 0 or at least 8 seconds.</string>
+    <string name="server_address_error">Enter a server host name or IP address without spaces or slashes.</string>
+    <string name="reality_ech_conflict_error">REALITY cannot be combined with ECH: sing-box rejects the profile and Xray ignores ECH.</string>
+    <string name="restore_pending">A backup restore has not finished yet. Start the service again after it completes.</string>
+    <string name="restore_replay_failed">The interrupted backup restore could not be completed. Check the log and import the backup again.</string>
 </resources>

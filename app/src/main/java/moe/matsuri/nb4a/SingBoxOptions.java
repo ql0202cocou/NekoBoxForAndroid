@@ -362,11 +362,22 @@ public class SingBoxOptions {
 
         public String domain_resolver;
 
+        // neko-sequential member tags (libcore-only transport type)
+        public List<String> servers;
+
         public String inet4_range;
 
         public String inet6_range;
 
         public String detour;
+
+    }
+
+    public static class DomainResolveOptions extends SingBoxOption {
+
+        public String server;
+
+        public String strategy;
 
     }
 
@@ -1087,6 +1098,9 @@ public class SingBoxOptions {
         public String default_interface;
 
         public Integer default_mark;
+
+        // safety net for dialers without an explicit domain_resolver
+        public DomainResolveOptions default_domain_resolver;
 
     }
 

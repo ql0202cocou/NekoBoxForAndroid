@@ -710,6 +710,7 @@ fun buildSingBoxOutboundTLS(bean: StandardV2RayBean): OutboundTLSOptions? {
         if (bean.alpn.isNotBlank()) alpn = bean.alpn.listByLineOrComma()
         if (bean.certificates.isNotBlank()) certificate = bean.certificates
         if (bean.realityPubKey.isNotBlank()) {
+            bean.requireValidReality()
             reality = OutboundRealityOptions().apply {
                 enabled = true
                 public_key = bean.realityPubKey

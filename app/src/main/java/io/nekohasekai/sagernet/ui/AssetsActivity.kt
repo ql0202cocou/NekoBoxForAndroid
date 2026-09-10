@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.ui
 
 import android.os.Bundle
+import android.os.Process
 import android.provider.OpenableColumns
 import android.text.format.DateFormat
 import android.util.Base64
@@ -38,6 +39,9 @@ class AssetsActivity : ThemedActivity() {
     lateinit var adapter: AssetAdapter
     lateinit var layout: LayoutAssetsBinding
     lateinit var undoManager: UndoSnackbarManager<File>
+
+    // same file libcore locks around its extraction (assets_lock.go)
+    private val assetsLock get() = File(app.filesDir, "assets.lock")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -153,8 +157,9 @@ class AssetsActivity : ThemedActivity() {
                     parentFile?.mkdirs()
                 }
                 // copy aside and rename: a failed copy must not leave a truncated
-                // db where the previous, working one was
-                val tmpFile = File(outFile.parentFile, outFile.name + ".tmp")
+                // db where the previous, working one was. The pid keeps the name
+                // apart from libcore's own extraction temp file in :bg.
+                val tmpFile = File(outFile.parentFile, "${outFile.name}.tmp.${Process.myPid()}")
                 // GlobalScope: an escaping IOException (unreadable document, revoked
                 // permission, full disk) would take the whole app down
                 try {
@@ -172,10 +177,12 @@ class AssetsActivity : ThemedActivity() {
                         contentResolver.openInputStream(file)?.use(tmpFile.outputStream())
                             ?: error("cannot open $fileName")
                     }
-                    if (!tmpFile.renameTo(outFile)) error("cannot replace " + outFile.name)
-
-                    File(outFile.parentFile, outFile.nameWithoutExtension + ".version.txt")
-                        .writeText("Custom")
+                    // publish under the lock libcore holds while extracting the same file
+                    lockFile(assetsLock) {
+                        if (!tmpFile.renameTo(outFile)) error("cannot replace " + outFile.name)
+                        File(outFile.parentFile, outFile.nameWithoutExtension + ".version.txt")
+                            .writeText("Custom")
+                    }
 
                     adapter.reloadAssets()
                     if (isCertificate) onMainDispatcher { needRestart() }
@@ -395,21 +402,25 @@ class AssetsActivity : ThemedActivity() {
 
             // download aside and rename: a truncated download must not leave a
             // corrupted db behind (box may mmap it). The release assets are plain
-            // .db files, so there is nothing to decompress here.
-            val cacheFile = File(file.parentFile, file.name + ".tmp")
+            // .db files, so there is nothing to decompress here. The pid keeps the
+            // name apart from libcore's own extraction temp file in :bg.
+            val cacheFile = File(file.parentFile, "${file.name}.tmp.${Process.myPid()}")
             cacheFile.parentFile?.mkdirs()
 
             try {
                 response.writeTo(cacheFile.canonicalPath)
-                if (!cacheFile.renameTo(file)) {
-                    throw IOException("cannot replace ${file.absolutePath}")
+                // only the publish runs under the lock: holding it through the download
+                // would stall a :bg start waiting to extract the same file
+                lockFile(assetsLock) {
+                    if (!cacheFile.renameTo(file)) {
+                        throw IOException("cannot replace ${file.absolutePath}")
+                    }
+                    versionFile.writeText(tagName)
                 }
             } finally {
                 // no-op after a successful rename; drops a truncated download otherwise
                 cacheFile.delete()
             }
-
-            versionFile.writeText(tagName)
 
             onMainDispatcher {
                 snackbar(R.string.route_asset_updated).show()

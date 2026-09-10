@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import io.nekohasekai.sagernet.bg.SubscriptionUpdater
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.database.RestoreJournal
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 
@@ -51,7 +52,9 @@ class BootReceiver : BroadcastReceiver() {
         val doStart = when (intent.action) {
             Intent.ACTION_LOCKED_BOOT_COMPLETED -> false // DataStore.directBootAware
             else -> Build.VERSION.SDK_INT < 24 || SagerNet.user.isUserUnlocked
-        } && DataStore.selectedProxy > 0
+        } && DataStore.selectedProxy > 0 &&
+            // an interrupted restore that could not be replayed yet: the data is half-old
+            !RestoreJournal.default.isPending()
 
         if (doStart) SagerNet.startService()
     }

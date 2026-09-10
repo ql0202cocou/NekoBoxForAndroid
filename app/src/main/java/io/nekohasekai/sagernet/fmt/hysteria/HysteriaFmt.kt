@@ -158,7 +158,7 @@ fun HysteriaBean.toUri(): String {
         // custom parameter (like anytls's cert/certfp), not part of the standard URI
         builder.addQueryParameter("hopInterval", "$hopInterval")
         if (alpn.isNotBlank()) {
-            builder.addQueryParameter("alpn", alpn)
+            builder.addQueryParameter("alpn", alpn.replace("\n", ","))
         }
         if (obfuscation.isNotBlank()) {
             builder.addQueryParameter("obfs", "xplus")
@@ -227,9 +227,23 @@ fun JSONObject.parseHysteria1Json(): HysteriaBean {
     }
 }
 
+// apernet/hysteria v1.3.5 app/cmd/config.go clientConfig.Check(): the plugin (used for
+// faketcp / wechat-video) rejects a non-zero receive window below 65536 and a non-zero
+// hop_interval below 8 seconds; zero keeps the plugin defaults. The sing-box path has
+// no such minimums, so the editor applies these only when the plugin will run.
+fun isHysteria1PluginWindow(value: Int): Boolean = value == 0 || value >= 65536
+
+fun isHysteria1PluginHopInterval(value: Int): Boolean = value == 0 || value >= 8
+
 fun HysteriaBean.buildHysteria1Config(port: Int, cacheFile: (() -> File)?): String {
     if (protocolVersion != 1) {
         throw Exception("error version: $protocolVersion")
+    }
+    require(isHysteria1PluginWindow(streamReceiveWindow) && isHysteria1PluginWindow(connectionReceiveWindow)) {
+        "hysteria 1 receive windows must be 0 or at least 65536"
+    }
+    require(isHysteria1PluginHopInterval(hopInterval)) {
+        "hysteria 1 hop interval must be 0 or at least 8 seconds"
     }
     val ports = parseHysteriaPorts(serverPorts).joinToString(",") {
         if (it.first == it.last) it.first.toString() else "${it.first}-${it.last}"
@@ -279,7 +293,9 @@ fun HysteriaBean.buildHysteria1Config(port: Int, cacheFile: (() -> File)?): Stri
         if (serverName.isNotBlank()) {
             put("server_name", serverName)
         }
-        if (alpn.isNotBlank()) put("alpn", alpn)
+        // hysteria 1 offers exactly one ALPN (NextProtos: []string{config.ALPN}); a
+        // Clash import joins several with "\n", which would corrupt the handshake
+        alpn.listByLineOrComma().firstOrNull()?.let { put("alpn", it) }
         if (caText.isNotBlank() && cacheFile != null) {
             val caFile = cacheFile()
             caFile.writeText(caText)

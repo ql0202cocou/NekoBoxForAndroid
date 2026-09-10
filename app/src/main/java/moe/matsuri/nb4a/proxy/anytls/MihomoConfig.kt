@@ -35,8 +35,11 @@ fun buildMihomoConfig(
     // in-chain. Pinning wins over allowInsecure: mihomo implements `fingerprint` as
     // InsecureSkipVerify + VerifyConnection, so a leaf hash match already skips the
     // name/expiry checks that make users reach for allowInsecure.
-    val certPin = bean.certificateFingerprint.takeIf { it.isNotBlank() }
-        ?: bean.certificates.takeIf { it.isNotBlank() }?.let(::certificateSha256)
+    val explicitPin = bean.certificateFingerprint.takeIf { it.isNotBlank() }
+    if (explicitPin != null) require(isCertificateFingerprint(explicitPin)) {
+        "Invalid AnyTLS certificate fingerprint: expected a SHA-256 digest of 64 hex characters (colons allowed)"
+    }
+    val certPin = explicitPin ?: bean.certificates.takeIf { it.isNotBlank() }?.let(::certificateSha256)
     if (certPin != null) {
         proxy["fingerprint"] = certPin
     } else if (bean.allowInsecure || DataStore.globalAllowInsecure) {
@@ -71,6 +74,14 @@ fun buildMihomoConfig(
     config["rules"] = listOf("MATCH,$MIHOMO_PROXY_NAME")
 
     return Yaml().dump(config)
+}
+
+// mihomo `fingerprint` (component/ca/fingerprint.go): colons stripped, whitespace
+// trimmed, hex-decoded to exactly 32 bytes; compared with every certificate in the
+// served chain, so a CA hash only matches when the server sends that CA.
+fun isCertificateFingerprint(value: String): Boolean {
+    val hex = value.replace(":", "").trim()
+    return hex.length == 64 && hex.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }
 }
 
 // SHA-256 (lowercase hex) of the first certificate in the PEM, matching

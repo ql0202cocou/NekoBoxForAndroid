@@ -156,6 +156,10 @@ private fun buildXrayStreamSettings(bean: VMessBean): JSONObject {
         // Hidden REALITY fields survive disabling TLS in the editor. Honor the
         // security switch, matching buildSingBoxOutboundTLS, before using them.
         if (bean.security == "tls" && bean.realityPubKey.isNotBlank()) {
+            bean.requireValidReality()
+            require(isRealityMldsa65Verify(bean.realityMldsa65Verify)) {
+                "Invalid REALITY mldsa65Verify: expected 2603 URL-safe Base64 characters (1952 bytes)"
+            }
             put("security", "reality")
             put("realitySettings", JSONObject().apply {
                 if (sni != null) put("serverName", sni)

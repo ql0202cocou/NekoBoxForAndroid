@@ -4,7 +4,12 @@ package io.nekohasekai.sagernet.ktx
 
 import android.os.SystemClock
 import io.nekohasekai.sagernet.BuildConfig
-
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import libcore.Libcore
 import moe.matsuri.nb4a.utils.NGUtil
 import okhttp3.HttpUrl
@@ -35,6 +40,12 @@ fun HttpUrl.Builder.toLink(scheme: String, appendDefaultPort: Boolean = true): S
 fun String.isIpAddress(): Boolean {
     return NGUtil.isIpv4Address(this) || NGUtil.isIpv6Address(this)
 }
+
+// Editor check for a server host: a blank value would silently become 127.0.0.1 in
+// initializeDefaultValues, and whitespace or a path only fails later at dial time.
+// No host name or IP literal contains either, bracketed IPv6 included.
+fun isServerAddress(value: String): Boolean =
+    value.isNotBlank() && value.none { it.isWhitespace() || it == '/' }
 
 fun String.isIpAddressV6(): Boolean {
     return NGUtil.isIpv6Address(this)
@@ -85,15 +96,31 @@ fun String?.usableNameservers(): List<String> = this?.lineSequence()
     ?.distinct()?.toList() ?: emptyList()
 
 // Try the group's nameservers in order within one native ten-second budget.
-// This synchronous bridge does not propagate coroutine cancellation; callers on
-// a per-profile path should memoize to avoid repeating failed lookups.
-fun lookupViaNameserver(nameserver: String?, domain: String): List<InetAddress>? {
+// Cancelling the caller cancels the native context, so the blocking gomobile
+// call returns at once instead of running out the budget; callers on a
+// per-profile path should still memoize to avoid repeating failed lookups.
+suspend fun lookupViaNameserver(nameserver: String?, domain: String): List<InetAddress>? {
     val servers = nameserver.usableNameservers()
     if (servers.isEmpty()) return null
+    val task = Libcore.startLookupHosts(servers.joinToString("\n"), domain)
     return try {
-        Libcore.lookupHosts(servers.joinToString("\n"), domain).lineSequence()
+        withContext(Dispatchers.IO) {
+            val guard = launch { try { awaitCancellation() } finally { task.cancel() } }
+            try {
+                task.await()
+            } catch (e: Exception) {
+                // the native "context canceled" error must surface as cancellation, or
+                // the caller would swallow it and fall through to the system resolver
+                ensureActive()
+                throw e
+            } finally {
+                guard.cancel()
+            }
+        }.lineSequence()
             .mapNotNull { it.trim().parseNumericAddress() }
             .toList().takeIf { it.isNotEmpty() }
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         // Resolver errors may include the full DoH URL and its credentials.
         Logs.d("Group DNS lookup failed: ${e.javaClass.simpleName}")

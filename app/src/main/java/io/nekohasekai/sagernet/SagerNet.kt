@@ -14,12 +14,16 @@ import android.os.PowerManager
 import android.os.Process
 import android.os.StrictMode
 import android.os.UserManager
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import go.Seq
 import io.nekohasekai.sagernet.bg.SagerConnection
+import io.nekohasekai.sagernet.database.BackupRestore
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.database.InstallMarker
+import io.nekohasekai.sagernet.database.RestoreJournal
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.isOss
 import io.nekohasekai.sagernet.ktx.isPreview
@@ -71,6 +75,22 @@ class SagerNet : Application(),
         OkHttp.initialize(this)
 
         if (isMainProcess || isBgProcess) {
+            // Finish a restore interrupted between its two database commits before
+            // anything reads either database; the same lock then settles the
+            // per-install marker so both processes agree on the Clash secret.
+            try {
+                val journal = RestoreJournal.default
+                val result = journal.completePending { content, profile, rule, setting ->
+                    BackupRestore.commit(BackupRestore.decode(content, profile, rule, setting), null)
+                }
+                if (result == RestoreJournal.Result.GAVE_UP && isMainProcess) {
+                    Toast.makeText(this, R.string.restore_replay_failed, Toast.LENGTH_LONG).show()
+                }
+                journal.withLock { InstallMarker.ensure() }
+            } catch (e: Exception) {
+                Logs.w(e)
+            }
+
             assetsDir.mkdirs()
             // before initCore: its asset extraction fills an empty new location from the
             // APK, and the user's own files must win over that

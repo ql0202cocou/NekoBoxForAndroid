@@ -69,7 +69,7 @@ fun TuicBean.toUri(): String {
 
     if (sni.isNotBlank()) builder.addQueryParameter("sni", sni)
     if (caText.isNotBlank()) builder.addQueryParameter("ca", caText)
-    if (alpn.isNotBlank()) builder.addQueryParameter("alpn", alpn)
+    if (alpn.isNotBlank()) builder.addQueryParameter("alpn", alpn.replace("\n", ","))
     if (allowInsecure) builder.addQueryParameter("allow_insecure", "1")
     if (disableSNI) builder.addQueryParameter("disable_sni", "1")
     if (reduceRTT) builder.addQueryParameter("zero_rtt", "1")

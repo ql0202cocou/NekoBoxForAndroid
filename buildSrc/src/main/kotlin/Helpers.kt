@@ -194,6 +194,21 @@ fun Project.setupApp() {
         }
     }
 
+    // The geo assets are downloaded by buildScript/lib/assets.sh, not checked in. Without
+    // them the APK builds fine and libcore only logs "Extract geoip.db failed" at runtime,
+    // so an APK from a tree where the download never ran (or a replacement was killed
+    // halfway) must fail here instead.
+    tasks.named("preBuild").configure {
+        doFirst {
+            val missing = listOf(
+                "geoip.db.xz", "geoip.version.txt", "geosite.db.xz", "geosite.version.txt"
+            ).filterNot { file("src/main/assets/sing-box/$it").isFile }
+            check(missing.isEmpty()) {
+                "missing sing-box assets ${missing.joinToString()}: run ./run lib assets first"
+            }
+        }
+    }
+
     // AGP 9 removed applicationVariants/outputFileName; the APKs are renamed by a
     // SingleArtifact.APK transform instead, so build/outputs/apk keeps the same names.
     extensions.getByName<ApplicationAndroidComponentsExtension>("androidComponents").onVariants { variant ->

@@ -11,6 +11,9 @@ import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
+import io.nekohasekai.sagernet.fmt.v2ray.isRealityMldsa65Verify
+import io.nekohasekai.sagernet.fmt.v2ray.isRealityPublicKey
+import io.nekohasekai.sagernet.fmt.v2ray.isRealityShortId
 import moe.matsuri.nb4a.proxy.PreferenceBinding
 import moe.matsuri.nb4a.proxy.PreferenceBindingManager
 import moe.matsuri.nb4a.proxy.Type
@@ -51,6 +54,23 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
     private val muxPadding = pbm.add(PreferenceBinding(Type.Bool, "muxPadding"))
     private val muxType = pbm.add(PreferenceBinding(Type.TextToInt, "muxType"))
     private val muxConcurrency = pbm.add(PreferenceBinding(Type.TextToInt, "muxConcurrency"))
+
+    override fun validateEditor(): String? {
+        // REALITY fields stay hidden and unused while TLS is off; an empty key means no REALITY
+        if (security.readStringFromCache() != "tls") return null
+        val publicKey = realityPubKey.readStringFromCache()
+        if (publicKey.isEmpty()) return null
+        return when {
+            !isRealityPublicKey(publicKey) -> getString(R.string.reality_public_key_error)
+            !isRealityShortId(realityShortId.readStringFromCache()) ->
+                getString(R.string.reality_short_id_error)
+            !isRealityMldsa65Verify(realityMldsa65Verify.readStringFromCache()) ->
+                getString(R.string.reality_mldsa65_error)
+            // sing-box rejects the pair ("Reality is conflict with ECH"), Xray drops ECH
+            enableECH.readBoolFromCache() -> getString(R.string.reality_ech_conflict_error)
+            else -> null
+        }
+    }
 
     override fun StandardV2RayBean.init() {
         if (this is TrojanBean) {
@@ -105,6 +125,17 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
         (muxConcurrency.preference as EditTextPreference).bindIntegerPreference()
 
         (uuid.preference as EditTextPreference).bindPasswordPreference()
+
+        // both cores reject malformed REALITY keys, and sing-box panics on an
+        // overlong short ID, so refuse them at input time as well as on save
+        (realityPubKey.preference as EditTextPreference)
+            .bindValidatedPreference(R.string.reality_public_key_error) {
+                it.isEmpty() || isRealityPublicKey(it)
+            }
+        (realityShortId.preference as EditTextPreference)
+            .bindValidatedPreference(R.string.reality_short_id_error, ::isRealityShortId)
+        (realityMldsa65Verify.preference as EditTextPreference)
+            .bindValidatedPreference(R.string.reality_mldsa65_error, ::isRealityMldsa65Verify)
 
         type.preference.isVisible = !isHttp
         // ProxyEntity.singMux() builds multiplex for VMess/Trojan only

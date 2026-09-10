@@ -30,6 +30,15 @@ func extractAssets() {
 
 // 这里解压的是 apk 里面的
 func extractAssetName(name string, useOfficialAssets bool) error {
+	// The main process may be importing or downloading the same file from
+	// AssetsActivity right now: version check, extraction and publish run under
+	// the shared record lock (see assets_lock.go).
+	return withAssetsLock(internalAssetsPath+"assets.lock", func() error {
+		return extractAssetNameLocked(name, useOfficialAssets)
+	})
+}
+
+func extractAssetNameLocked(name string, useOfficialAssets bool) error {
 	// Replaceable assets also live in app-internal storage; the external
 	// path name is retained for compatibility with the native interface.
 	replaceable := true
@@ -112,8 +121,8 @@ func extractAssetName(name string, useOfficialAssets bool) error {
 	}
 
 	extractXz := func(f asset.File) error {
-		tmpXzName := dstName + ".xz"
-		tmpName := dstName + ".tmp"
+		tmpXzName := tempName(dstName, "xz")
+		tmpName := tempName(dstName, "tmp")
 		defer os.Remove(tmpXzName)
 		defer os.Remove(tmpName)
 		err := extractAsset(f, tmpXzName)
@@ -134,7 +143,7 @@ func extractAssetName(name string, useOfficialAssets bool) error {
 	}
 
 	extracZip := func(f asset.File, outDir string) error {
-		tmpZipName := dstName + ".zip"
+		tmpZipName := tempName(dstName, "zip")
 		defer os.Remove(tmpZipName)
 		err := extractAsset(f, tmpZipName)
 		if err == nil {
@@ -156,12 +165,14 @@ func extractAssetName(name string, useOfficialAssets bool) error {
 		if err != nil {
 			return fmt.Errorf("open yacd asset: %w", err)
 		}
-		os.RemoveAll(dstName)
-		// Remove leftover Yacd-* dirs from a previous extraction killed
-		// before the rename, so the glob below can succeed again.
-		if leftovers, _ := filepath.Glob(internalAssetsPath + "/Yacd-*"); len(leftovers) > 0 {
-			for _, leftover := range leftovers {
-				os.RemoveAll(leftover)
+		// Remove leftovers of a previous extraction killed midway (the zip's
+		// Yacd-* top directory, or the old panel awaiting deletion), so the
+		// glob below can succeed again.
+		for _, pattern := range []string{"/Yacd-*", "/" + yacdDstFolder + ".old.*"} {
+			if leftovers, _ := filepath.Glob(internalAssetsPath + pattern); len(leftovers) > 0 {
+				for _, leftover := range leftovers {
+					os.RemoveAll(leftover)
+				}
 			}
 		}
 		if err := extracZip(f, internalAssetsPath); err != nil {
@@ -179,10 +190,19 @@ func extractAssetName(name string, useOfficialAssets bool) error {
 			}
 			return fmt.Errorf("glob Yacd found %d result, expect 1", len(m))
 		}
-		err = os.Rename(m[0], dstName)
-		if err != nil {
+		// Keep the current panel until the new one is complete: the directory is
+		// missing only between the two renames, not for the whole extraction.
+		old := tempName(dstName, "old")
+		if _, err := os.Stat(dstName); err == nil {
+			if err := os.Rename(dstName, old); err != nil {
+				return fmt.Errorf("move old Yacd: %v", err)
+			}
+		}
+		if err := os.Rename(m[0], dstName); err != nil {
+			os.Rename(old, dstName)
 			return fmt.Errorf("rename Yacd: %v", err)
 		}
+		os.RemoveAll(old)
 	} else {
 		// TODO normal file
 		return fmt.Errorf("no asset found for %s", name)

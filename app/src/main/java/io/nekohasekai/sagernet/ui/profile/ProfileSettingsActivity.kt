@@ -16,6 +16,7 @@ import androidx.activity.result.component1
 import androidx.activity.result.component2
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.LayoutRes
+import androidx.annotation.StringRes
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
@@ -178,6 +179,16 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                 Toast.makeText(this@ProfileSettingsActivity, message, Toast.LENGTH_LONG).show()
                 return@onMainDispatcher false
             }
+            // every protocol editor with a server field shares this check
+            val address = screen.findPreference<EditTextPreference>(Key.SERVER_ADDRESS)
+            if (address != null && address.isVisible && address.isEnabled &&
+                !isServerAddress(DataStore.serverAddress)
+            ) {
+                Toast.makeText(
+                    this@ProfileSettingsActivity, R.string.server_address_error, Toast.LENGTH_LONG
+                ).show()
+                return@onMainDispatcher false
+            }
             val invalid = screen.findInvalidIntegerPreference()
             if (invalid != null) {
                 Toast.makeText(
@@ -289,6 +300,10 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                 ).show()
                 Logs.e(e)
             }
+            // input-time counterpart of the save check in saveAndExit(); null for
+            // editors without a server field (chain, custom config)
+            findPreference<EditTextPreference>(Key.SERVER_ADDRESS)
+                ?.bindValidatedPreference(R.string.server_address_error, ::isServerAddress)
         }
 
         override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -544,5 +559,18 @@ fun EditTextPreference.bindIntegerPreference(
 
 fun EditTextPreference.bindPasswordPreference(): EditTextPreference {
     summaryProvider = ProfileSettingsActivity.PasswordSummaryProvider
+    return this
+}
+
+// Rejects an edit that fails `valid` with a toast; pair it with validateEditor() so
+// values that were imported or cached before the check existed are caught on save.
+fun EditTextPreference.bindValidatedPreference(
+    @StringRes message: Int, valid: (String) -> Boolean,
+): EditTextPreference {
+    setOnPreferenceChangeListener { _, value ->
+        val ok = value is String && valid(value)
+        if (!ok) Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        ok
+    }
     return this
 }

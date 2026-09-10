@@ -10,14 +10,31 @@ import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
+import io.nekohasekai.sagernet.fmt.hysteria.isHysteria1PluginHopInterval
+import io.nekohasekai.sagernet.fmt.hysteria.isHysteria1PluginWindow
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import moe.matsuri.nb4a.ui.SimpleMenuPreference
 
 class HysteriaSettingsActivity : ProfileSettingsActivity<HysteriaBean>() {
 
-    override fun validateEditor(): String? =
-        if (runCatching { parseHysteriaPorts(DataStore.serverPorts) }.isSuccess) null
-        else getString(R.string.hysteria_ports_error)
+    override fun validateEditor(): String? {
+        if (runCatching { parseHysteriaPorts(DataStore.serverPorts) }.isFailure) {
+            return getString(R.string.hysteria_ports_error)
+        }
+        // faketcp / wechat-video run on the hysteria 1 plugin, which enforces its own
+        // minimums; the sing-box path accepts any non-negative value
+        if (DataStore.protocolVersion != 1 || DataStore.serverProtocolInt == HysteriaBean.PROTOCOL_UDP) {
+            return null
+        }
+        return when {
+            !isHysteria1PluginWindow(DataStore.serverStreamReceiveWindow) ||
+                !isHysteria1PluginWindow(DataStore.serverConnectionReceiveWindow) ->
+                getString(R.string.hysteria_receive_window_error)
+            !isHysteria1PluginHopInterval(DataStore.serverHopInterval) ->
+                getString(R.string.hysteria_hop_interval_error)
+            else -> null
+        }
+    }
 
     override fun createEntity() = HysteriaBean().applyDefaultValues()
 

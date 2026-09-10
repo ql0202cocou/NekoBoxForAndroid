@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -33,6 +34,39 @@ func LookupHosts(servers string, domain string) (string, error) {
 	return lookupHosts(ctx, servers, domain)
 }
 
+// LookupTask runs LookupHosts off the calling thread so Kotlin can cancel the
+// native context when its coroutine is cancelled; a plain gomobile call would
+// block the caller for the whole ten-second budget regardless.
+type LookupTask struct {
+	cancel context.CancelFunc
+	done   chan struct{}
+	result string
+	err    error
+}
+
+func StartLookupHosts(servers string, domain string) *LookupTask {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	task := &LookupTask{cancel: cancel, done: make(chan struct{})}
+	go func() {
+		defer close(task.done)
+		defer cancel()
+		task.result, task.err = lookupHosts(ctx, servers, domain)
+	}()
+	return task
+}
+
+// Await blocks until the lookup finishes or Cancel is called. Not named Wait:
+// gomobile would emit a Java method clashing with the final Object.wait().
+func (t *LookupTask) Await() (string, error) {
+	<-t.done
+	return t.result, t.err
+}
+
+// Cancel is safe from any thread, before or after completion.
+func (t *LookupTask) Cancel() {
+	t.cancel()
+}
+
 func lookupHosts(ctx context.Context, servers string, domain string) (string, error) {
 	for _, server := range strings.Split(servers, "\n") {
 		server = strings.TrimSpace(server)
@@ -45,6 +79,12 @@ func lookupHosts(ctx context.Context, servers string, domain string) (string, er
 		addresses, err := lookupHost(ctx, server, domain)
 		if err == nil {
 			return addresses, nil
+		}
+		// The budget is gone: do not touch the next server. Checked on the
+		// error as well as on ctx.Err(), because the socket deadline can fire a
+		// moment before the context's own timer marks it done.
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			return "", err
 		}
 	}
 	if err := ctx.Err(); err != nil {
@@ -89,12 +129,12 @@ func lookupHostType(ctx context.Context, server string, domain string, queryType
 	case "udp", "tcp":
 		address = withDefaultPort(address, "53")
 		client := &mDNS.Client{Net: scheme, Timeout: 5 * time.Second}
-		response, _, err = client.ExchangeContext(ctx, query, address)
+		response, err = exchangeCancellable(ctx, client, query, address)
 		// A truncated UDP answer is incomplete even when it contains some A/AAAA
 		// records. Retry the same question over TCP within the original deadline.
 		if err == nil && scheme == "udp" && response.Truncated {
 			client.Net = "tcp"
-			response, _, err = client.ExchangeContext(ctx, query, address)
+			response, err = exchangeCancellable(ctx, client, query, address)
 		}
 	case "tls":
 		address = withDefaultPort(address, "853")
@@ -104,7 +144,7 @@ func lookupHostType(ctx context.Context, server string, domain string, queryType
 			Timeout:   5 * time.Second,
 			TLSConfig: &tls.Config{ServerName: host},
 		}
-		response, _, err = client.ExchangeContext(ctx, query, address)
+		response, err = exchangeCancellable(ctx, client, query, address)
 	case "https":
 		response, err = exchangeHTTPS(ctx, server, query)
 	default:
@@ -128,6 +168,32 @@ func lookupHostType(ctx context.Context, server string, domain string, queryType
 		}
 	}
 	return addresses, nil
+}
+
+// miekg/dns maps only the context deadline onto socket deadlines, so a context
+// cancelled mid-exchange would still wait out the client timeout. Closing the
+// connection when ctx is done makes a Kotlin-side cancel return immediately.
+func exchangeCancellable(ctx context.Context, client *mDNS.Client, query *mDNS.Msg, address string) (*mDNS.Msg, error) {
+	conn, err := client.DialContext(ctx, address)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	stop := context.AfterFunc(ctx, func() { conn.Close() })
+	defer stop()
+	response, _, err := client.ExchangeWithConnContext(ctx, query, conn)
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+		// miekg/dns derives the socket deadline from ctx.Deadline(); the read can
+		// time out before the context's timer has run, so report the budget as
+		// exhausted rather than as a generic i/o timeout that would be retried.
+		if deadline, ok := ctx.Deadline(); ok && !time.Now().Before(deadline) {
+			return nil, context.DeadlineExceeded
+		}
+	}
+	return response, err
 }
 
 // withDefaultPort appends the default port unless address already has one.

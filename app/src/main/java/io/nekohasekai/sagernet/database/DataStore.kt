@@ -105,6 +105,12 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     fun requireClashApiSecret(): String = clashApiSecret.ifBlank {
         UUID.randomUUID().toString().replace("-", "").also { clashApiSecret = it }
     }
+
+    // Per-install: a restored configuration.db must not carry another
+    // installation's secret (InstallMarker); the next access regenerates it.
+    fun resetClashApiSecret() {
+        clashApiSecret = ""
+    }
     var showBottomBar by configurationStore.boolean(Key.SHOW_BOTTOM_BAR)
 
     var allowInsecureOnRequest by configurationStore.boolean(Key.ALLOW_INSECURE_ON_REQUEST)
@@ -182,10 +188,10 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var profileTrafficStatistics by configurationStore.boolean(Key.PROFILE_TRAFFIC_STATISTICS) { true }
 
     // persistent: user-deleted default route rules must not be recreated on process restart
-    var rulesFirstCreate by configurationStore.boolean("rulesFirstCreate")
+    var rulesFirstCreate by configurationStore.boolean(Key.RULES_FIRST_CREATE)
 
     // set once SagerNet.migrateLegacyAssets moved the external-storage assets dir
-    var legacyAssetsMigrated by configurationStore.boolean("legacyAssetsMigrated")
+    var legacyAssetsMigrated by configurationStore.boolean(Key.LEGACY_ASSETS_MIGRATED)
 
     // trailing slash: sing-box's /ui redirect drops the ?secret= query
     var yacdURL by configurationStore.string("yacdURL") { "http://$CLASH_API_LISTEN/ui/" }

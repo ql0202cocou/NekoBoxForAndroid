@@ -15,6 +15,7 @@ import io.nekohasekai.sagernet.aidl.ISagerNetService
 import io.nekohasekai.sagernet.aidl.ISagerNetServiceCallback
 import io.nekohasekai.sagernet.bg.proto.ProxyInstance
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.database.RestoreJournal
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.plugin.PluginManager
@@ -413,6 +414,13 @@ class BaseService {
             if (data.state != State.Stopped) return Service.START_NOT_STICKY
             val profile = SagerDatabase.proxyDao.getById(DataStore.selectedProxy)
             this as Context
+            if (RestoreJournal.default.isPending()) {
+                // a restore interrupted between its two commits could not be replayed at
+                // startup: profiles and settings do not match yet
+                data.notification = createNotification("")
+                stopRunner(false, getString(R.string.restore_pending))
+                return Service.START_NOT_STICKY
+            }
             if (profile == null) { // gracefully shutdown: https://stackoverflow.com/q/47337857/2245107
                 data.notification = createNotification("")
                 stopRunner(false, getString(R.string.profile_empty))
