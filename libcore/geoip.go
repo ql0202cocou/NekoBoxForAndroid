@@ -2,8 +2,11 @@ package libcore
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/oschwald/maxminddb-golang"
 	C "github.com/sagernet/sing-box/constant"
@@ -53,13 +56,65 @@ func (g *geoip) Rules(countryCode string) ([]option.HeadlessRule, error) {
 	}, nil
 }
 
-func init() {
-	nekoutils.GetGeoIPHeadlessRules = func(name string) ([]option.HeadlessRule, error) {
-		g := new(geoip)
-		if err := g.Open(filepath.Join(externalAssetsPath, "geoip.db")); err != nil {
+// Loading one geoip rule-set walks the whole mmdb tree, so repeated loads of
+// the same country (several rule-sets referencing it, box rebuilds on profile
+// switch or URL tests) each paid a full scan plus file open. The cache keeps
+// one shared reader and the per-country results of countries actually used;
+// only a newly referenced country costs a scan. Assets updates replace
+// geoip.db while the process is alive, so everything is keyed to the file's
+// path/size/mtime and rebuilt when it changes. The mutex doubles as
+// singleflight: concurrent first loads of different countries serialize
+// instead of scanning in parallel.
+var geoipCache = struct {
+	sync.Mutex
+	path      string
+	size      int64
+	modTime   time.Time
+	reader    *maxminddb.Reader
+	countries map[string][]option.HeadlessRule
+}{}
+
+func geoipRules(countryCode string) ([]option.HeadlessRule, error) {
+	geoipCache.Lock()
+	defer geoipCache.Unlock()
+
+	path := filepath.Join(externalAssetsPath, "geoip.db")
+	stat, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+	if geoipCache.reader == nil || geoipCache.path != path ||
+		geoipCache.size != stat.Size() || !geoipCache.modTime.Equal(stat.ModTime()) {
+		if geoipCache.reader != nil {
+			geoipCache.reader.Close()
+		}
+		reader, err := maxminddb.Open(path)
+		if err != nil {
+			geoipCache.reader = nil
+			geoipCache.countries = nil
 			return nil, err
 		}
-		defer g.geoipReader.Close()
-		return g.Rules(name)
+		geoipCache.path = path
+		geoipCache.size = stat.Size()
+		geoipCache.modTime = stat.ModTime()
+		geoipCache.reader = reader
+		geoipCache.countries = make(map[string][]option.HeadlessRule)
 	}
+
+	countryCode = strings.ToLower(countryCode)
+	if rules, loaded := geoipCache.countries[countryCode]; loaded {
+		return rules, nil
+	}
+	rules, err := (&geoip{geoipReader: geoipCache.reader}).Rules(countryCode)
+	if err != nil {
+		// Failures (unknown country) are not cached: they stay errors on
+		// every call, like before.
+		return nil, err
+	}
+	geoipCache.countries[countryCode] = rules
+	return rules, nil
+}
+
+func init() {
+	nekoutils.GetGeoIPHeadlessRules = geoipRules
 }
