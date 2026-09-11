@@ -16,7 +16,7 @@ object NGUtil {
         return try {
             Integer.parseInt(str)
         } catch (e: Exception) {
-            e.printStackTrace()
+            Logs.i("Parse int failed $e")
             0
         }
     }
@@ -54,7 +54,7 @@ object NGUtil {
         return try {
             Base64.encodeToString(text.toByteArray(charset("UTF-8")), Base64.NO_WRAP)
         } catch (e: Exception) {
-            e.printStackTrace()
+            Logs.e("Base64 encode failed", e)
             ""
         }
     }

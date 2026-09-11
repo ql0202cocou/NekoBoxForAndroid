@@ -208,10 +208,9 @@ fun HysteriaBean.toUri(): String {
 }
 
 fun JSONObject.parseHysteria1Json(): HysteriaBean {
-    // TODO parse HY2 JSON+YAML
     return HysteriaBean().apply {
         protocolVersion = 1
-        val server = optString("server")
+        val server = getStr("server") ?: error("Missing hysteria1 server")
         // Only a bracketed value can fail to split, and the address is still the
         // bracketed part; an unterminated or empty bracket keeps the whole value,
         // the same as a bare IPv6 one. The default port applies whenever no port
@@ -252,6 +251,66 @@ fun JSONObject.parseHysteria1Json(): HysteriaBean {
         connectionReceiveWindow = getIntNya("recv_window")
         disableMtuDiscovery = getBool("disable_mtu_discovery")
     }
+}
+
+// sing-box hysteria2 outbound:
+// {"type": "hysteria2", "server", "server_port" | "server_ports", "password",
+//  "up_mbps", "down_mbps", "hop_interval", "obfs": {...}, "tls": {...}, "tag"}
+fun JSONObject.parseHysteria2Json(): HysteriaBean {
+    return HysteriaBean().apply {
+        protocolVersion = 2
+        name = getStr("tag")
+        val server = getStr("server") ?: error("Missing hysteria2 server")
+        // Same authority criterion as parseHysteria1Json: a bare IPv6 address
+        // keeps all its colons, and the default port applies whenever no port
+        // was given.
+        val (host, portText) = server.splitHostPort() ?: run {
+            val end = server.indexOf(']')
+            (if (end > 1) server.substring(1, end) else server) to null
+        }
+        serverAddress = host
+        serverPorts = portText?.ifBlank { null } ?: "443"
+        getIntNya("server_port")?.also {
+            serverPorts = it.toString()
+        }
+        // sing-box spells hopping ranges "first:last"; the shared parser keeps
+        // the bean's hysteria form, the same normalization as clash "ports"
+        optJSONArray("server_ports")?.also { ranges ->
+            val ports = runCatching {
+                (0 until ranges.length()).map { ranges.optString(it) }
+                    .filter { it.isNotBlank() }
+                    .flatMap { parseHysteriaPorts(it) }
+                    .joinHysteriaPorts()
+            }.getOrNull()
+            if (!ports.isNullOrBlank()) {
+                serverPorts = ports
+            }
+        }
+        uploadMbps = getIntNya("up_mbps")
+        downloadMbps = getIntNya("down_mbps")
+        // sing-box duration text ("10s"); a value without the unit also parses
+        getStr("hop_interval")?.also {
+            hopInterval = it.removeSuffix("s").toIntOrNull() ?: hopInterval
+        }
+        authPayload = getStr("password")
+        optJSONObject("obfs")?.also { obfs ->
+            val type = obfs.getStr("type")
+            // salamander is the only obfs sing-box and the hysteria2 builder know
+            if (type == null || type == "salamander") {
+                obfuscation = obfs.getStr("password")
+            } else {
+                Logs.w("unsupported hysteria2 obfs type $type, dropped")
+            }
+        }
+        optJSONObject("tls")?.apply {
+            sni = getStr("server_name")
+            getBool("insecure")?.also { allowInsecure = it }
+            // inline PEM only, like clash "ca-str"; "certificate_path" is a local
+            // file and stays unimported
+            caText = getStr("certificate")
+            // no "alpn" here: hysteria2 mandates h3 and the sing-box builder hardcodes it
+        }
+    }.applyDefaultValues()
 }
 
 // apernet/hysteria v1.3.5 app/cmd/config.go clientConfig.Check(): the plugin (used for

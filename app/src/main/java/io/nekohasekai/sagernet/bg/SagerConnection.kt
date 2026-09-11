@@ -111,7 +111,7 @@ class SagerConnection(
         try {
             service?.registerCallback(serviceCallback, id)
         } catch (e: Exception) {
-            e.printStackTrace()
+            Logs.w("Failed to update connection id", e)
         }
     }
 
@@ -127,7 +127,7 @@ class SagerConnection(
             service.registerCallback(serviceCallback, connectionId)
             callbackRegistered = true
         } catch (e: RemoteException) {
-            e.printStackTrace()
+            Logs.w("Failed to register service callback", e)
         }
         callback?.onServiceConnected(service)
     }

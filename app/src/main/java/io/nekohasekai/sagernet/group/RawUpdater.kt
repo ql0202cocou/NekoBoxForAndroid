@@ -7,6 +7,7 @@ import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.fmt.hysteria.parseHysteria1Json
+import io.nekohasekai.sagernet.fmt.hysteria.parseHysteria2Json
 import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
 import io.nekohasekai.sagernet.fmt.shadowsocks.parseShadowsocks
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
@@ -359,6 +360,9 @@ object RawUpdater : GroupUpdater() {
                     runCatching {
                         val proxy = proxyEntry as? Map<String, Any?>
                             ?: error("proxy entry is not a map")
+                        // A blank/absent server would silently become 127.0.0.1 in
+                        // initializeDefaultValues; reject the node instead
+                        if (proxy["server"]?.toString().isNullOrBlank()) error("missing server")
                         when (proxy["type"] as String) {
                             "socks5" -> {
                                 proxies.add(SOCKSBean().apply {
@@ -768,7 +772,7 @@ object RawUpdater : GroupUpdater() {
                                 proxies.add(bean)
                             }
 
-                            "hysteria2" -> {
+                            "hysteria2", "hy2" -> {
                                 val bean = HysteriaBean()
                                 bean.protocolVersion = 2
                                 var hopPorts = ""
@@ -1074,6 +1078,10 @@ object RawUpdater : GroupUpdater() {
             // A bare IPv6 endpoint (no brackets, several colons) cannot be told
             // apart from host:port, and an endpoint without a port is unusable
             val (host, portText) = endpoint.splitHostPort() ?: continue
+            if (host.isBlank()) {
+                Logs.w("WireGuard peer skipped: endpoint without host")
+                continue
+            }
             if (':' in host && !endpoint.startsWith("[")) {
                 Logs.w("WireGuard peer skipped: bare IPv6 endpoint without brackets")
                 continue
@@ -1096,6 +1104,12 @@ object RawUpdater : GroupUpdater() {
 
         if (json is JSONObject) {
             when {
+                // before the hysteria 1 branch: a sing-box hysteria2 outbound also
+                // carries "server" and may carry "up_mbps"
+                json.getStr("type") == "hysteria2" -> {
+                    return listOf(json.parseHysteria2Json())
+                }
+
                 json.has("server") && (json.has("up") || json.has("up_mbps")) -> {
                     return listOf(json.parseHysteria1Json())
                 }

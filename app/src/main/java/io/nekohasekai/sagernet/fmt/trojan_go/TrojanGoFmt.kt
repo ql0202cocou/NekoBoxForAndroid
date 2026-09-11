@@ -137,7 +137,7 @@ fun TrojanGoBean.buildTrojanGoConfig(port: Int): String {
 
 fun JSONObject.parseTrojanGo(): TrojanGoBean {
     return TrojanGoBean().applyDefaultValues().apply {
-        serverAddress = optString("remote_addr", serverAddress)
+        serverAddress = getStr("remote_addr") ?: error("Missing trojan-go server")
         serverPort = optInt("remote_port", serverPort)
         when (val pass = get("password")) {
             is String -> {
