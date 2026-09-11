@@ -1165,6 +1165,7 @@ object RawUpdater : GroupUpdater() {
             json.forEach { _, entry ->
                 if (entry is JSONObject || entry is JSONArray) {
                     runCatching { parseJSON(entry, depth + 1) }
+                        .onFailure { Logs.w("Subscription entry rejected: ${it.javaClass.simpleName}") }
                         .getOrNull()?.let { proxies.addAll(it) }
                 }
             }
