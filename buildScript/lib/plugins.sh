@@ -7,7 +7,7 @@
 set -e
 
 XRAY_VERSION="v26.3.27"
-MIHOMO_VERSION="v1.19.30"
+MIHOMO_VERSION="v1.19.31"
 
 # sha256 of the extracted binaries (exactly what ships in the APK), frozen when
 # the versions above were bumped — recompute and update them together. Guards
@@ -15,8 +15,8 @@ MIHOMO_VERSION="v1.19.30"
 # checksums at all, and Xray's .dgst sits next to the asset it describes.
 XRAY_SHA256_arm64_v8a=19101a8191d6d606da975f719c8cdb80b8710b87ab17edc00ef74b9e39588714
 XRAY_SHA256_x86_64=26b2ac1e596242847a247df9e932ac480bf6072c5c686517f5a3017320895814
-MIHOMO_SHA256_arm64_v8a=94344144936968f25e7089bbeac2d87f3caf67574ba433511424724ad7435dad
-MIHOMO_SHA256_x86_64=07f38978fae8067d110acdd78a02af6d37ef8b8719ef67d4f9c0d6c22b9e7781
+MIHOMO_SHA256_arm64_v8a=dbd8af275219a097d66362d543b32f65ba0d4de9d96a49bf5e9abdcdad3af6f1
+MIHOMO_SHA256_x86_64=b3a9f4daba6351d7cefe512eeea735b380c8a6c441966ef84ab1e5ff0b5c4dac
 
 ABIS="arm64-v8a x86_64"
 DIR=app/executableSo
