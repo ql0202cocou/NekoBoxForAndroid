@@ -32,7 +32,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private const val REPO_URL = "https://github.com/ql0202cocou/QuinMoForAndroid"
+private const val REPO_URL = "https://github.com/ql0202cocou/NekoBoxForAndroid"
 
 class AboutFragment : ToolbarFragment(R.layout.layout_about) {
 
