@@ -10,5 +10,5 @@ tasks.register<Delete>("clean") {
 }
 
 plugins {
-    id("com.google.devtools.ksp") version "2.3.11" apply false
+    alias(libs.plugins.ksp) apply false
 }

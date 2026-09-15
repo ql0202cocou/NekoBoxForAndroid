@@ -1,0 +1,69 @@
+[versions]
+# Gradle plugin (root build.gradle.kts); AGP / Kotlin plugin versions stay in buildSrc
+ksp = "2.3.11"
+
+kotlinx-coroutines = "1.11.0"
+androidx-core = "1.19.0"
+androidx-recyclerview = "1.4.0"
+androidx-activity = "1.13.0"
+androidx-fragment = "1.9.0"
+androidx-browser = "1.10.0"
+androidx-swiperefreshlayout = "1.2.0"
+androidx-constraintlayout = "2.2.2"
+androidx-navigation = "2.9.8"
+androidx-preference = "1.2.1"
+androidx-appcompat = "1.8.0"
+androidx-work = "2.11.2"
+androidx-room = "2.8.4"
+
+material = "1.14.0"
+gson = "2.14.0"
+zxing-lite = "2.1.1"
+blacksquircle = "2.9.0"
+okhttp = "5.5.0"
+snakeyaml = "2.7"
+material-about = "3.2.0-rc01"
+process-phoenix = "2.1.2"
+kryo = "5.6.2"
+guava = "33.7.1-android"
+ini4j = "0.5.4"
+recyclerview-fastscroll = "2.0.1"
+desugar-jdk-libs = "2.1.5"
+
+[libraries]
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "androidx-core" }
+androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "androidx-recyclerview" }
+androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version.ref = "androidx-activity" }
+androidx-fragment-ktx = { group = "androidx.fragment", name = "fragment-ktx", version.ref = "androidx-fragment" }
+androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "androidx-browser" }
+androidx-swiperefreshlayout = { group = "androidx.swiperefreshlayout", name = "swiperefreshlayout", version.ref = "androidx-swiperefreshlayout" }
+androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "androidx-constraintlayout" }
+androidx-navigation-fragment-ktx = { group = "androidx.navigation", name = "navigation-fragment-ktx", version.ref = "androidx-navigation" }
+androidx-navigation-ui-ktx = { group = "androidx.navigation", name = "navigation-ui-ktx", version.ref = "androidx-navigation" }
+androidx-preference-ktx = { group = "androidx.preference", name = "preference-ktx", version.ref = "androidx-preference" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "androidx-appcompat" }
+androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "androidx-work" }
+androidx-work-multiprocess = { group = "androidx.work", name = "work-multiprocess", version.ref = "androidx-work" }
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "androidx-room" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "androidx-room" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "androidx-room" }
+
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
+zxing-lite = { group = "com.github.jenly1314", name = "zxing-lite", version.ref = "zxing-lite" }
+blacksquircle-editorkit = { group = "com.blacksquircle.ui", name = "editorkit", version.ref = "blacksquircle" }
+blacksquircle-language-base = { group = "com.blacksquircle.ui", name = "language-base", version.ref = "blacksquircle" }
+blacksquircle-language-json = { group = "com.blacksquircle.ui", name = "language-json", version.ref = "blacksquircle" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+snakeyaml = { group = "org.yaml", name = "snakeyaml", version.ref = "snakeyaml" }
+material-about = { group = "com.github.daniel-stoneuk", name = "material-about-library", version.ref = "material-about" }
+process-phoenix = { group = "com.jakewharton", name = "process-phoenix", version.ref = "process-phoenix" }
+kryo = { group = "com.esotericsoftware", name = "kryo", version.ref = "kryo" }
+guava = { group = "com.google.guava", name = "guava", version.ref = "guava" }
+ini4j = { group = "org.ini4j", name = "ini4j", version.ref = "ini4j" }
+recyclerview-fastscroll = { group = "com.simplecityapps", name = "recyclerview-fastscroll", version.ref = "recyclerview-fastscroll" }
+desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugar-jdk-libs" }
+
+[plugins]
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
