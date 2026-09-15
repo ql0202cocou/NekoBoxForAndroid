@@ -1,11 +1,11 @@
 # QuinMo for Android
 
-[![API](https://img.shields.io/badge/API-21%2B-brightgreen.svg?style=flat)](https://android-arsenal.com/api?level=21)
+[![API](https://img.shields.io/badge/API-23%2B-brightgreen.svg?style=flat)](https://android-arsenal.com/api?level=23)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-orange.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 sing-box / universal proxy toolchain for Android.
 
-一款使用 sing-box 的 Android 通用代理软件.
+一款使用 sing-box 的 Android 通用代理软件，内置 mihomo 和 Xray 插件.
 
 ## 支持的代理协议 / Supported Proxy Protocols
 
@@ -54,4 +54,4 @@ Web Dashboard:
 
 ## Fork 信息 / Fork Information
 
-本仓库是 [MatsuriDayo/NekoBoxForAndroid](https://github.com/MatsuriDayo/NekoBoxForAndroid) 的 fork，上游放弃维护后本仓库由本人独立维护，仅在此 README 中说明 fork 关系，未在 GitHub 上建立 fork 关联。仓库我改了一个名字，目的是进一步的规避检索，这个项目是我的个人项目，今后也不打算推广本项目的任何成果，这个项目仅仅只是方便我自己在手机上使用 Github 、 OpenRouter 等等开发者服务，请见谅。
+本仓库是 [MatsuriDayo/NekoBoxForAndroid](https://github.com/MatsuriDayo/NekoBoxForAndroid) 的 fork，上游放弃维护后本仓库由本人独立维护，仅在此 README 中说明 fork 关系，未在 GitHub 上建立 fork 关联。这个项目是我的个人项目，今后也不打算推广本项目的任何成果，这个项目仅仅只是方便我自己在手机上使用 Github 、 OpenRouter 等等开发者服务，请见谅。
