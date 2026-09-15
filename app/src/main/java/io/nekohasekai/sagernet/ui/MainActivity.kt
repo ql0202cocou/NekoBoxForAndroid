@@ -374,7 +374,6 @@ class MainActivity : ThemedActivity(),
             if (binding.fab.isShown) {
                 anchorView = binding.fab
             }
-            // TODO
         }
     }
 
