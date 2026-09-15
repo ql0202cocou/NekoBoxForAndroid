@@ -5,8 +5,8 @@ on:
       tag:
         description: "Release Tag"
         required: true
-      publish:
-        description: "Publish: If want ignore"
+      skip_publish:
+        description: "Skip publishing to GitHub Releases (set y to skip)"
         required: false
 # One run per tag at a time: two concurrent runs would both `ghr -delete` and
 # recreate the release/tag, the later one overwriting the earlier one's APKs.
@@ -55,7 +55,7 @@ jobs:
     secrets: inherit
   publish:
     name: Publish Release
-    if: github.event.inputs.publish != 'y'
+    if: github.event.inputs.skip_publish != 'y'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -66,7 +66,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.tag }}
-      - name: Donwload Artifacts
+      - name: Download Artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: APKs
@@ -92,4 +92,4 @@ jobs:
           # tag at the target commitish; without -c that is the default branch head,
           # so re-running a release for an older tag would silently move it off the
           # commit these APKs were built from. HEAD here is the checked-out tag.
-          ./ghr -delete -c "$(git rev-parse HEAD)" -t "$GITHUB_TOKEN" -n "$TAG" "$TAG" apks
+          ./ghr -delete -c "$(git rev-parse HEAD)" -n "$TAG" "$TAG" apks
