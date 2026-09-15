@@ -59,6 +59,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref }}
+      - name: Version Consistency Check
+        # guards the versions pinned in several places (go.mod pair, NDK, Go,
+        # compileSdk/build-tools) against drifting apart; no toolchain needed
+        run: ./run lib check_versions
       - name: Install Golang
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
