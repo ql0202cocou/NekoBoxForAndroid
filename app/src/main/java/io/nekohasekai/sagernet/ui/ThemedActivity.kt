@@ -13,7 +13,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.graphics.ColorUtils
 import androidx.fragment.app.DialogFragment
 import com.google.android.material.snackbar.Snackbar
-import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.ktx.showAllowingStateLoss
 import io.nekohasekai.sagernet.utils.Theme
@@ -39,7 +38,7 @@ abstract class ThemedActivity : AppCompatActivity {
             // day/night (Black theme is #2B2B2B in light mode, Yellow/Lime are light in dark
             // mode), so pick the icon colour from that background instead of the UI mode.
             // The navigation bar is over the themed surface, where the day/night default is right.
-            val appBarLuminance = ColorUtils.calculateLuminance(getColorAttr(R.attr.colorPrimary))
+            val appBarLuminance = ColorUtils.calculateLuminance(getColorAttr(androidx.appcompat.R.attr.colorPrimary))
             val statusBarStyle = if (appBarLuminance < 0.5) {
                 SystemBarStyle.dark(Color.TRANSPARENT)
             } else {
