@@ -107,9 +107,12 @@ func (t *SequentialTransport) Exchange(ctx context.Context, message *mDNS.Msg) (
 		if err != nil {
 			t.logger.DebugContext(ctx, "member ", member, " failed: ", err)
 			lastResponse, lastErr = nil, err
-		} else {
+		} else if response != nil {
 			t.logger.DebugContext(ctx, "member ", member, " answered ", mDNS.RcodeToString[response.Rcode])
 			lastResponse, lastErr = response, nil
+		} else {
+			t.logger.DebugContext(ctx, "member ", member, " returned no response")
+			lastResponse, lastErr = nil, E.New("member ", member, " returned no response")
 		}
 	}
 	return lastResponse, lastErr
