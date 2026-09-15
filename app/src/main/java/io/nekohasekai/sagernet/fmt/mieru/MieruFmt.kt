@@ -18,6 +18,7 @@
 
 package io.nekohasekai.sagernet.fmt.mieru
 
+import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ktx.toStringPretty
 import org.json.JSONArray
 import org.json.JSONObject
@@ -37,8 +38,16 @@ fun MieruBean.buildMieruConfig(port: Int): String {
     return JSONObject().apply {
         put("activeProfile", "default")
         put("socks5Port", port)
-        // TODO: follow NekoBox logging level.
-        put("loggingLevel", "INFO")
+        // same scale as ConfigBuilder's sing-box mapping; mieru spells them in caps
+        put(
+            "loggingLevel", when (DataStore.logLevel) {
+                0 -> "FATAL"
+                1 -> "WARN"
+                3 -> "DEBUG"
+                4 -> "TRACE"
+                else -> "INFO"
+            }
+        )
         put("profiles", JSONArray().apply {
             put(JSONObject().apply {
                 put("profileName", "default")
