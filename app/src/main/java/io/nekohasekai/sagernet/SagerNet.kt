@@ -273,9 +273,19 @@ class SagerNet : Application(),
             }
         }
 
-        fun startService() = ContextCompat.startForegroundService(
-            application, Intent(application, SagerConnection.serviceClass)
-        )
+        // Android 12+ throws ForegroundServiceStartNotAllowedException — an
+        // IllegalStateException subclass, so the single catch below covers it
+        // without an API-gated class reference — when called from the
+        // background (BootReceiver on boot), and 8-11 throw a plain
+        // IllegalStateException. Losing the start is better than crashing.
+        fun startService() = try {
+            ContextCompat.startForegroundService(
+                application, Intent(application, SagerConnection.serviceClass)
+            )
+        } catch (e: IllegalStateException) {
+            Logs.w(e)
+            null
+        }
 
         fun reloadService() =
             application.sendBroadcast(Intent(Action.RELOAD).setPackage(application.packageName))
