@@ -8,22 +8,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_CONFIG
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.fmt.ConfigBuildResult.IndexEntity
-import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
-import io.nekohasekai.sagernet.fmt.hysteria.buildSingBoxOutboundHysteriaBean
-import io.nekohasekai.sagernet.fmt.hysteria.getFirstPort
 import io.nekohasekai.sagernet.fmt.internal.ChainBean
-import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
-import io.nekohasekai.sagernet.fmt.shadowsocks.buildSingBoxOutboundShadowsocksBean
-import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
-import io.nekohasekai.sagernet.fmt.socks.buildSingBoxOutboundSocksBean
-import io.nekohasekai.sagernet.fmt.ssh.SSHBean
-import io.nekohasekai.sagernet.fmt.ssh.buildSingBoxOutboundSSHBean
-import io.nekohasekai.sagernet.fmt.tuic.TuicBean
-import io.nekohasekai.sagernet.fmt.tuic.buildSingBoxOutboundTuicBean
-import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
-import io.nekohasekai.sagernet.fmt.v2ray.buildSingBoxOutboundStandardV2RayBean
-import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
-import io.nekohasekai.sagernet.fmt.wireguard.buildSingBoxEndpointWireGuardBean
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.isIpAddress
 import io.nekohasekai.sagernet.ktx.parseNumericAddress
@@ -35,11 +20,7 @@ import io.nekohasekai.sagernet.utils.PackageCache
 import moe.matsuri.nb4a.*
 import moe.matsuri.nb4a.SingBoxOptions.*
 import moe.matsuri.nb4a.plugin.Plugins
-import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
-import moe.matsuri.nb4a.proxy.anytls.buildSingBoxOutboundAnyTLSBean
 import moe.matsuri.nb4a.proxy.config.ConfigBean
-import moe.matsuri.nb4a.proxy.shadowtls.ShadowTLSBean
-import moe.matsuri.nb4a.proxy.shadowtls.buildSingBoxOutboundShadowTLSBean
 import moe.matsuri.nb4a.utils.JavaUtil.gson
 import moe.matsuri.nb4a.utils.Util
 import moe.matsuri.nb4a.utils.listByLineOrComma
@@ -507,38 +488,7 @@ fun buildConfig(
                 } else {
                     // internal outbound
 
-                    currentOutbound = when (bean) {
-                        is ConfigBean -> CustomSingBoxOption(bean.config)
-
-                        is ShadowTLSBean -> // before StandardV2RayBean
-                            buildSingBoxOutboundShadowTLSBean(bean)
-
-                        is StandardV2RayBean -> // http/trojan/vmess/vless
-                            buildSingBoxOutboundStandardV2RayBean(bean)
-
-                        is HysteriaBean ->
-                            buildSingBoxOutboundHysteriaBean(bean)
-
-                        is TuicBean ->
-                            buildSingBoxOutboundTuicBean(bean)
-
-                        is SOCKSBean ->
-                            buildSingBoxOutboundSocksBean(bean)
-
-                        is ShadowsocksBean ->
-                            buildSingBoxOutboundShadowsocksBean(bean)
-
-                        is WireGuardBean ->
-                            buildSingBoxEndpointWireGuardBean(bean)
-
-                        is SSHBean ->
-                            buildSingBoxOutboundSSHBean(bean)
-
-                        is AnyTLSBean ->
-                            buildSingBoxOutboundAnyTLSBean(bean)
-
-                        else -> throw IllegalStateException("can't reach")
-                    }
+                    currentOutbound = buildSingBoxOutbound(bean)
 
                     // internal mux
                     if (!muxApplied) {
@@ -598,10 +548,7 @@ fun buildConfig(
                     // With ss protect, don't use mapping
                     var needExternal = true
                     if (index == profileList.lastIndex) {
-                        val pluginId = when (bean) {
-                            is HysteriaBean -> if (bean.protocolVersion == 1) "hysteria-plugin" else "hysteria2-plugin"
-                            else -> ""
-                        }
+                        val pluginId = externalPluginId(bean)
                         if (Plugins.isUsingMatsuriExe(pluginId)) {
                             needExternal = false
                         } else if (Plugins.getPluginExternal(pluginId) != null) {
@@ -620,11 +567,7 @@ fun buildConfig(
                             tag = "$chainTag-mapping-${proxyEntity.id}"
 
                             override_address = bean.serverAddress
-                            // HysteriaBean keeps the real port in serverPorts; serverPort is a stale default
-                            override_port = when (bean) {
-                                is HysteriaBean -> getFirstPort(bean.serverPorts)
-                                else -> bean.serverPort
-                            }
+                            override_port = effectiveServerPort(bean)
 
                             pastInboundTag = tag
 

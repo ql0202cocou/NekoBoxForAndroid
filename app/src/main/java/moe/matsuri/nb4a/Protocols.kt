@@ -2,10 +2,9 @@ package moe.matsuri.nb4a
 
 import android.content.Context
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_NEKO
 import io.nekohasekai.sagernet.fmt.AbstractBean
-import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
-import io.nekohasekai.sagernet.fmt.hysteria.getFirstPort
+import io.nekohasekai.sagernet.fmt.effectiveServerPort
+import io.nekohasekai.sagernet.fmt.protocolColorAttr
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.getColorAttr
 import moe.matsuri.nb4a.proxy.config.ConfigBean
@@ -23,11 +22,7 @@ object Protocols {
             if (bean is ConfigBean) {
                 return bean.config
             }
-            // HysteriaBean keeps the real port in serverPorts; serverPort is a stale default
-            val port = when (bean) {
-                is HysteriaBean -> getFirstPort(bean.serverPorts)
-                else -> bean.serverPort
-            }
+            val port = effectiveServerPort(bean)
             return bean.serverAddress + ":" + port + ":" + type
         }
 
@@ -49,10 +44,7 @@ object Protocols {
     // Display
 
     fun Context.getProtocolColor(type: Int): Int {
-        return when (type) {
-            TYPE_NEKO -> getColorAttr(android.R.attr.textColorPrimary)
-            else -> getColorAttr(R.attr.accentOrTextSecondary)
-        }
+        return getColorAttr(protocolColorAttr(type))
     }
 
     // Test

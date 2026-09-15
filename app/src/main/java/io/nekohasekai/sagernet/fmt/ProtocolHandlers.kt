@@ -1,0 +1,376 @@
+package io.nekohasekai.sagernet.fmt
+
+import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.database.ProxyEntity
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_MIHOMO
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_SING_BOX
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_ANYTLS
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_CHAIN
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_CONFIG
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_HTTP
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_HYSTERIA
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_MIERU
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_NAIVE
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_NEKO
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_SHADOWTLS
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_SOCKS
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_SS
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_SSH
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_TROJAN
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_TROJAN_GO
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_TUIC
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_VMESS
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_WG
+import io.nekohasekai.sagernet.fmt.http.HttpBean
+import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
+import io.nekohasekai.sagernet.fmt.hysteria.buildSingBoxOutboundHysteriaBean
+import io.nekohasekai.sagernet.fmt.hysteria.canUseSingBox
+import io.nekohasekai.sagernet.fmt.hysteria.getFirstPort
+import io.nekohasekai.sagernet.fmt.internal.ChainBean
+import io.nekohasekai.sagernet.fmt.mieru.MieruBean
+import io.nekohasekai.sagernet.fmt.naive.NaiveBean
+import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
+import io.nekohasekai.sagernet.fmt.shadowsocks.buildSingBoxOutboundShadowsocksBean
+import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
+import io.nekohasekai.sagernet.fmt.socks.buildSingBoxOutboundSocksBean
+import io.nekohasekai.sagernet.fmt.ssh.SSHBean
+import io.nekohasekai.sagernet.fmt.ssh.buildSingBoxOutboundSSHBean
+import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
+import io.nekohasekai.sagernet.fmt.trojan_go.TrojanGoBean
+import io.nekohasekai.sagernet.fmt.tuic.TuicBean
+import io.nekohasekai.sagernet.fmt.tuic.buildSingBoxOutboundTuicBean
+import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
+import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
+import io.nekohasekai.sagernet.fmt.v2ray.buildSingBoxOutboundStandardV2RayBean
+import io.nekohasekai.sagernet.fmt.v2ray.isTLS
+import io.nekohasekai.sagernet.fmt.v2ray.xrayLacksAllowInsecure
+import io.nekohasekai.sagernet.fmt.v2ray.xrayLacksTransport
+import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
+import io.nekohasekai.sagernet.fmt.wireguard.buildSingBoxEndpointWireGuardBean
+import moe.matsuri.nb4a.SingBoxOptions.CustomSingBoxOption
+import moe.matsuri.nb4a.SingBoxOptions.MultiplexOptions
+import moe.matsuri.nb4a.SingBoxOptions.SingBoxOption
+import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
+import moe.matsuri.nb4a.proxy.anytls.buildSingBoxOutboundAnyTLSBean
+import moe.matsuri.nb4a.proxy.config.ConfigBean
+import moe.matsuri.nb4a.proxy.neko.NekoBean
+import moe.matsuri.nb4a.proxy.shadowtls.ShadowTLSBean
+import moe.matsuri.nb4a.proxy.shadowtls.buildSingBoxOutboundShadowTLSBean
+
+// Central per-protocol dispatch. Every `when (type)` on ProxyEntity.TYPE_* and
+// every per-bean-class `when (bean)` moved from ProxyEntity / ConfigBuilder /
+// Protocols lives here, so adding a protocol touches one file. All mappings
+// were moved verbatim from their call sites; a missing branch is intentional
+// unless proven otherwise — do not "complete" a table on sight.
+
+// type -> bean field, deserialized from kryo bytes (was ProxyEntity.putByteArray).
+// Unknown types are deliberately ignored: no else branch.
+fun ProxyEntity.putBeanBytes(byteArray: ByteArray) {
+    fun <T : Serializable> load(bean: T): T? =
+        if (byteArray.isEmpty()) null else KryoConverters.deserialize(bean, byteArray)
+    when (type) {
+        TYPE_SOCKS -> socksBean = load(SOCKSBean())
+        TYPE_HTTP -> httpBean = load(HttpBean())
+        TYPE_SS -> ssBean = load(ShadowsocksBean())
+        TYPE_VMESS -> vmessBean = load(VMessBean())
+        TYPE_TROJAN -> trojanBean = load(TrojanBean())
+        TYPE_TROJAN_GO -> trojanGoBean = load(TrojanGoBean())
+        TYPE_MIERU -> mieruBean = load(MieruBean())
+        TYPE_NAIVE -> naiveBean = load(NaiveBean())
+        TYPE_HYSTERIA -> hysteriaBean = load(HysteriaBean())
+        TYPE_SSH -> sshBean = load(SSHBean())
+        TYPE_WG -> wgBean = load(WireGuardBean())
+        TYPE_TUIC -> tuicBean = load(TuicBean())
+        TYPE_SHADOWTLS -> shadowTLSBean = load(ShadowTLSBean())
+        TYPE_ANYTLS -> anyTLSBean = load(AnyTLSBean())
+        TYPE_CHAIN -> chainBean = load(ChainBean())
+        TYPE_NEKO -> nekoBean = load(NekoBean())
+        TYPE_CONFIG -> configBean = load(ConfigBean())
+    }
+}
+
+// type -> human readable protocol name (was ProxyEntity.displayType)
+fun ProxyEntity.protocolDisplayType(): String = when (type) {
+    TYPE_SOCKS -> socksBean!!.protocolName()
+    TYPE_HTTP -> if (httpBean!!.isTLS()) "HTTPS" else "HTTP"
+    TYPE_SS -> "Shadowsocks"
+    TYPE_VMESS -> if (vmessBean!!.isVLESS) "VLESS" else "VMess"
+    TYPE_TROJAN -> "Trojan"
+    TYPE_TROJAN_GO -> "Trojan-Go"
+    TYPE_MIERU -> "Mieru"
+    TYPE_NAIVE -> "Naïve"
+    TYPE_HYSTERIA -> "Hysteria" + hysteriaBean!!.protocolVersion
+    TYPE_SSH -> "SSH"
+    TYPE_WG -> "WireGuard"
+    TYPE_TUIC -> "TUIC"
+    TYPE_SHADOWTLS -> "ShadowTLS"
+    TYPE_ANYTLS -> "AnyTLS"
+    TYPE_CHAIN -> ProxyEntity.chainName
+    TYPE_NEKO -> nekoBean!!.displayType()
+    TYPE_CONFIG -> configBean!!.displayType()
+    else -> "Undefined type $type"
+}
+
+// type -> held bean field, null when the field was never filled
+// (was the when in ProxyEntity.requireBean)
+fun ProxyEntity.beanForType(): AbstractBean? = when (type) {
+    TYPE_SOCKS -> socksBean
+    TYPE_HTTP -> httpBean
+    TYPE_SS -> ssBean
+    TYPE_VMESS -> vmessBean
+    TYPE_TROJAN -> trojanBean
+    TYPE_TROJAN_GO -> trojanGoBean
+    TYPE_MIERU -> mieruBean
+    TYPE_NAIVE -> naiveBean
+    TYPE_HYSTERIA -> hysteriaBean
+    TYPE_SSH -> sshBean
+    TYPE_WG -> wgBean
+    TYPE_TUIC -> tuicBean
+    TYPE_SHADOWTLS -> shadowTLSBean
+    TYPE_ANYTLS -> anyTLSBean
+    TYPE_CHAIN -> chainBean
+    TYPE_NEKO -> nekoBean
+    TYPE_CONFIG -> configBean
+    else -> error("Undefined type $type")
+}
+
+// type -> whether the protocol has a share link at all (was ProxyEntity.haveLink)
+fun ProxyEntity.typeHasLink(): Boolean {
+    return when (type) {
+        TYPE_CHAIN -> false
+        else -> true
+    }
+}
+
+// type -> core used when ProxyEntity.core is CORE_AUTO (was the when in
+// ProxyEntity.resolvedCore)
+fun ProxyEntity.coreForType(): Int {
+    return when (type) {
+        // xray dropped the h2/quic transports and, after 2026-06-01,
+        // allowInsecure; those profiles only run on sing-box
+        TYPE_VMESS ->
+            if (vmessBean!!.isVLESS && !vmessBean!!.xrayLacksTransport() &&
+                !vmessBean!!.xrayLacksAllowInsecure()
+            ) CORE_XRAY else CORE_SING_BOX
+
+        TYPE_ANYTLS -> CORE_MIHOMO
+        else -> CORE_SING_BOX
+    }
+}
+
+// type -> whether the profile runs on an external core process
+// (was ProxyEntity.needExternal)
+fun ProxyEntity.needsExternalCore(): Boolean {
+    return when (type) {
+        TYPE_TROJAN_GO -> true
+        TYPE_MIERU -> true
+        TYPE_NAIVE -> true
+        TYPE_VMESS -> resolvedCore() == CORE_XRAY
+        TYPE_HYSTERIA -> !hysteriaBean!!.canUseSingBox()
+        TYPE_ANYTLS -> resolvedCore() == CORE_MIHOMO
+        TYPE_NEKO -> true
+        else -> false
+    }
+}
+
+// type -> sing-box multiplex options, null for protocols without mux support
+// (was ProxyEntity.singMux)
+fun ProxyEntity.singMuxForType(): MultiplexOptions? {
+    return when (type) {
+        // vision flow doesn't support mux: vendored sing-box silently clears the
+        // flow when multiplex is enabled (the Xray path guards this in XrayConfig)
+        TYPE_VMESS -> if (vmessBean!!.isVisionFlow) null else MultiplexOptions().apply {
+            enabled = vmessBean!!.enableMux
+            padding = vmessBean!!.muxPadding
+            max_streams = vmessBean!!.muxConcurrency
+            protocol = when (vmessBean!!.muxType) {
+                1 -> "smux"
+                2 -> "yamux"
+                else -> "h2mux"
+            }
+        }
+
+        TYPE_TROJAN -> MultiplexOptions().apply {
+            enabled = trojanBean!!.enableMux
+            padding = trojanBean!!.muxPadding
+            max_streams = trojanBean!!.muxConcurrency
+            protocol = when (trojanBean!!.muxType) {
+                1 -> "smux"
+                2 -> "yamux"
+                else -> "h2mux"
+            }
+        }
+
+        else -> null
+    }
+}
+
+// bean class -> type constant + bean field assignment (was ProxyEntity.putBean);
+// clears every bean field before setting the matching one
+fun ProxyEntity.assignBean(bean: AbstractBean): ProxyEntity {
+    socksBean = null
+    httpBean = null
+    ssBean = null
+    vmessBean = null
+    trojanBean = null
+    trojanGoBean = null
+    mieruBean = null
+    naiveBean = null
+    hysteriaBean = null
+    sshBean = null
+    wgBean = null
+    tuicBean = null
+    shadowTLSBean = null
+    anyTLSBean = null
+    chainBean = null
+    configBean = null
+    nekoBean = null
+
+    when (bean) {
+        is SOCKSBean -> {
+            type = TYPE_SOCKS
+            socksBean = bean
+        }
+
+        is HttpBean -> {
+            type = TYPE_HTTP
+            httpBean = bean
+        }
+
+        is ShadowsocksBean -> {
+            type = TYPE_SS
+            ssBean = bean
+        }
+
+        is VMessBean -> {
+            type = TYPE_VMESS
+            vmessBean = bean
+        }
+
+        is TrojanBean -> {
+            type = TYPE_TROJAN
+            trojanBean = bean
+        }
+
+        is TrojanGoBean -> {
+            type = TYPE_TROJAN_GO
+            trojanGoBean = bean
+        }
+
+        is MieruBean -> {
+            type = TYPE_MIERU
+            mieruBean = bean
+        }
+
+        is NaiveBean -> {
+            type = TYPE_NAIVE
+            naiveBean = bean
+        }
+
+        is HysteriaBean -> {
+            type = TYPE_HYSTERIA
+            hysteriaBean = bean
+        }
+
+        is SSHBean -> {
+            type = TYPE_SSH
+            sshBean = bean
+        }
+
+        is WireGuardBean -> {
+            type = TYPE_WG
+            wgBean = bean
+        }
+
+        is TuicBean -> {
+            type = TYPE_TUIC
+            tuicBean = bean
+        }
+
+        is ShadowTLSBean -> {
+            type = TYPE_SHADOWTLS
+            shadowTLSBean = bean
+        }
+
+        is AnyTLSBean -> {
+            type = TYPE_ANYTLS
+            anyTLSBean = bean
+        }
+
+        is ChainBean -> {
+            type = TYPE_CHAIN
+            chainBean = bean
+        }
+
+        is NekoBean -> {
+            type = TYPE_NEKO
+            nekoBean = bean
+        }
+
+        is ConfigBean -> {
+            type = TYPE_CONFIG
+            configBean = bean
+        }
+
+        else -> error("Undefined type $type")
+    }
+    return this
+}
+
+// bean class -> sing-box outbound/endpoint for internally-served protocols
+// (was the when in ConfigBuilder.buildChain)
+fun buildSingBoxOutbound(bean: AbstractBean): SingBoxOption = when (bean) {
+    is ConfigBean -> CustomSingBoxOption(bean.config)
+
+    is ShadowTLSBean -> // before StandardV2RayBean
+        buildSingBoxOutboundShadowTLSBean(bean)
+
+    is StandardV2RayBean -> // http/trojan/vmess/vless
+        buildSingBoxOutboundStandardV2RayBean(bean)
+
+    is HysteriaBean ->
+        buildSingBoxOutboundHysteriaBean(bean)
+
+    is TuicBean ->
+        buildSingBoxOutboundTuicBean(bean)
+
+    is SOCKSBean ->
+        buildSingBoxOutboundSocksBean(bean)
+
+    is ShadowsocksBean ->
+        buildSingBoxOutboundShadowsocksBean(bean)
+
+    is WireGuardBean ->
+        buildSingBoxEndpointWireGuardBean(bean)
+
+    is SSHBean ->
+        buildSingBoxOutboundSSHBean(bean)
+
+    is AnyTLSBean ->
+        buildSingBoxOutboundAnyTLSBean(bean)
+
+    else -> throw IllegalStateException("can't reach")
+}
+
+// bean class -> external plugin id, "" when the protocol has no plugin
+// (was the pluginId when in ConfigBuilder.buildChain)
+fun externalPluginId(bean: AbstractBean): String = when (bean) {
+    is HysteriaBean -> if (bean.protocolVersion == 1) "hysteria-plugin" else "hysteria2-plugin"
+    else -> ""
+}
+
+// HysteriaBean keeps the real port in serverPorts; serverPort is a stale default
+// (shared by ConfigBuilder's mapping inbound and Protocols.Deduplication)
+fun effectiveServerPort(bean: AbstractBean): Int = when (bean) {
+    is HysteriaBean -> getFirstPort(bean.serverPorts)
+    else -> bean.serverPort
+}
+
+// type -> color attribute for the profile list (was Protocols.getProtocolColor)
+fun protocolColorAttr(type: Int): Int {
+    return when (type) {
+        TYPE_NEKO -> android.R.attr.textColorPrimary
+        else -> R.attr.accentOrTextSecondary
+    }
+}

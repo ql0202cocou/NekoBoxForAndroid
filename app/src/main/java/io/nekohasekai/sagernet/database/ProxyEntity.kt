@@ -1,7 +1,5 @@
 package io.nekohasekai.sagernet.database
 
-import android.content.Context
-import android.content.Intent
 import androidx.room.*
 import com.esotericsoftware.kryo.io.ByteBufferInput
 import com.esotericsoftware.kryo.io.ByteBufferOutput
@@ -30,16 +28,12 @@ import io.nekohasekai.sagernet.fmt.tuic.toUri
 import io.nekohasekai.sagernet.fmt.v2ray.*
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import io.nekohasekai.sagernet.ktx.app
-import io.nekohasekai.sagernet.ui.profile.*
 import moe.matsuri.nb4a.SingBoxOptions.MultiplexOptions
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
-import moe.matsuri.nb4a.proxy.anytls.AnyTLSSettingsActivity
 import moe.matsuri.nb4a.proxy.anytls.buildMihomoConfig
 import moe.matsuri.nb4a.proxy.anytls.toUri
 import moe.matsuri.nb4a.proxy.config.ConfigBean
-import moe.matsuri.nb4a.proxy.config.ConfigSettingActivity
 import moe.matsuri.nb4a.proxy.neko.*
-import moe.matsuri.nb4a.proxy.shadowtls.ShadowTLSSettingsActivity
 import java.io.File
 
 // Fields owned by the profile editor. Room's partial-entity update keeps
@@ -223,81 +217,20 @@ data class ProxyEntity(
     // Share links and backup records: strict, so damaged bytes throw instead of
     // importing as a half-filled bean (the Room column converters stay lenient)
     fun putByteArray(byteArray: ByteArray) {
-        fun <T : Serializable> load(bean: T): T? =
-            if (byteArray.isEmpty()) null else KryoConverters.deserialize(bean, byteArray)
-        when (type) {
-            TYPE_SOCKS -> socksBean = load(SOCKSBean())
-            TYPE_HTTP -> httpBean = load(HttpBean())
-            TYPE_SS -> ssBean = load(ShadowsocksBean())
-            TYPE_VMESS -> vmessBean = load(VMessBean())
-            TYPE_TROJAN -> trojanBean = load(TrojanBean())
-            TYPE_TROJAN_GO -> trojanGoBean = load(TrojanGoBean())
-            TYPE_MIERU -> mieruBean = load(MieruBean())
-            TYPE_NAIVE -> naiveBean = load(NaiveBean())
-            TYPE_HYSTERIA -> hysteriaBean = load(HysteriaBean())
-            TYPE_SSH -> sshBean = load(SSHBean())
-            TYPE_WG -> wgBean = load(WireGuardBean())
-            TYPE_TUIC -> tuicBean = load(TuicBean())
-            TYPE_SHADOWTLS -> shadowTLSBean = load(ShadowTLSBean())
-            TYPE_ANYTLS -> anyTLSBean = load(AnyTLSBean())
-            TYPE_CHAIN -> chainBean = load(ChainBean())
-            TYPE_NEKO -> nekoBean = load(NekoBean())
-            TYPE_CONFIG -> configBean = load(ConfigBean())
-        }
+        putBeanBytes(byteArray)
     }
 
-    fun displayType(): String = when (type) {
-        TYPE_SOCKS -> socksBean!!.protocolName()
-        TYPE_HTTP -> if (httpBean!!.isTLS()) "HTTPS" else "HTTP"
-        TYPE_SS -> "Shadowsocks"
-        TYPE_VMESS -> if (vmessBean!!.isVLESS) "VLESS" else "VMess"
-        TYPE_TROJAN -> "Trojan"
-        TYPE_TROJAN_GO -> "Trojan-Go"
-        TYPE_MIERU -> "Mieru"
-        TYPE_NAIVE -> "Naïve"
-        TYPE_HYSTERIA -> "Hysteria" + hysteriaBean!!.protocolVersion
-        TYPE_SSH -> "SSH"
-        TYPE_WG -> "WireGuard"
-        TYPE_TUIC -> "TUIC"
-        TYPE_SHADOWTLS -> "ShadowTLS"
-        TYPE_ANYTLS -> "AnyTLS"
-        TYPE_CHAIN -> chainName
-        TYPE_NEKO -> nekoBean!!.displayType()
-        TYPE_CONFIG -> configBean!!.displayType()
-        else -> "Undefined type $type"
-    }
+    fun displayType(): String = protocolDisplayType()
 
     fun displayName() = requireBean().displayName()
     fun displayAddress() = requireBean().displayAddress()
 
     fun requireBean(): AbstractBean {
-        return when (type) {
-            TYPE_SOCKS -> socksBean
-            TYPE_HTTP -> httpBean
-            TYPE_SS -> ssBean
-            TYPE_VMESS -> vmessBean
-            TYPE_TROJAN -> trojanBean
-            TYPE_TROJAN_GO -> trojanGoBean
-            TYPE_MIERU -> mieruBean
-            TYPE_NAIVE -> naiveBean
-            TYPE_HYSTERIA -> hysteriaBean
-            TYPE_SSH -> sshBean
-            TYPE_WG -> wgBean
-            TYPE_TUIC -> tuicBean
-            TYPE_SHADOWTLS -> shadowTLSBean
-            TYPE_ANYTLS -> anyTLSBean
-            TYPE_CHAIN -> chainBean
-            TYPE_NEKO -> nekoBean
-            TYPE_CONFIG -> configBean
-            else -> error("Undefined type $type")
-        } ?: error("Null ${displayType()} profile")
+        return beanForType() ?: error("Null ${displayType()} profile")
     }
 
     fun haveLink(): Boolean {
-        return when (type) {
-            TYPE_CHAIN -> false
-            else -> true
-        }
+        return typeHasLink()
     }
 
     fun haveStandardLink(): Boolean {
@@ -388,196 +321,19 @@ data class ProxyEntity(
 
     fun resolvedCore(): Int {
         if (core != CORE_AUTO) return core
-        return when (type) {
-            // xray dropped the h2/quic transports and, after 2026-06-01,
-            // allowInsecure; those profiles only run on sing-box
-            TYPE_VMESS ->
-                if (vmessBean!!.isVLESS && !vmessBean!!.xrayLacksTransport() &&
-                    !vmessBean!!.xrayLacksAllowInsecure()
-                ) CORE_XRAY else CORE_SING_BOX
-
-            TYPE_ANYTLS -> CORE_MIHOMO
-            else -> CORE_SING_BOX
-        }
+        return coreForType()
     }
 
     fun needExternal(): Boolean {
-        return when (type) {
-            TYPE_TROJAN_GO -> true
-            TYPE_MIERU -> true
-            TYPE_NAIVE -> true
-            TYPE_VMESS -> resolvedCore() == CORE_XRAY
-            TYPE_HYSTERIA -> !hysteriaBean!!.canUseSingBox()
-            TYPE_ANYTLS -> resolvedCore() == CORE_MIHOMO
-            TYPE_NEKO -> true
-            else -> false
-        }
+        return needsExternalCore()
     }
 
     fun singMux(): MultiplexOptions? {
-        return when (type) {
-            // vision flow doesn't support mux: vendored sing-box silently clears the
-            // flow when multiplex is enabled (the Xray path guards this in XrayConfig)
-            TYPE_VMESS -> if (vmessBean!!.isVisionFlow) null else MultiplexOptions().apply {
-                enabled = vmessBean!!.enableMux
-                padding = vmessBean!!.muxPadding
-                max_streams = vmessBean!!.muxConcurrency
-                protocol = when (vmessBean!!.muxType) {
-                    1 -> "smux"
-                    2 -> "yamux"
-                    else -> "h2mux"
-                }
-            }
-
-            TYPE_TROJAN -> MultiplexOptions().apply {
-                enabled = trojanBean!!.enableMux
-                padding = trojanBean!!.muxPadding
-                max_streams = trojanBean!!.muxConcurrency
-                protocol = when (trojanBean!!.muxType) {
-                    1 -> "smux"
-                    2 -> "yamux"
-                    else -> "h2mux"
-                }
-            }
-
-            else -> null
-        }
+        return singMuxForType()
     }
 
     fun putBean(bean: AbstractBean): ProxyEntity {
-        socksBean = null
-        httpBean = null
-        ssBean = null
-        vmessBean = null
-        trojanBean = null
-        trojanGoBean = null
-        mieruBean = null
-        naiveBean = null
-        hysteriaBean = null
-        sshBean = null
-        wgBean = null
-        tuicBean = null
-        shadowTLSBean = null
-        anyTLSBean = null
-        chainBean = null
-        configBean = null
-        nekoBean = null
-
-        when (bean) {
-            is SOCKSBean -> {
-                type = TYPE_SOCKS
-                socksBean = bean
-            }
-
-            is HttpBean -> {
-                type = TYPE_HTTP
-                httpBean = bean
-            }
-
-            is ShadowsocksBean -> {
-                type = TYPE_SS
-                ssBean = bean
-            }
-
-            is VMessBean -> {
-                type = TYPE_VMESS
-                vmessBean = bean
-            }
-
-            is TrojanBean -> {
-                type = TYPE_TROJAN
-                trojanBean = bean
-            }
-
-            is TrojanGoBean -> {
-                type = TYPE_TROJAN_GO
-                trojanGoBean = bean
-            }
-
-            is MieruBean -> {
-                type = TYPE_MIERU
-                mieruBean = bean
-            }
-
-            is NaiveBean -> {
-                type = TYPE_NAIVE
-                naiveBean = bean
-            }
-
-            is HysteriaBean -> {
-                type = TYPE_HYSTERIA
-                hysteriaBean = bean
-            }
-
-            is SSHBean -> {
-                type = TYPE_SSH
-                sshBean = bean
-            }
-
-            is WireGuardBean -> {
-                type = TYPE_WG
-                wgBean = bean
-            }
-
-            is TuicBean -> {
-                type = TYPE_TUIC
-                tuicBean = bean
-            }
-
-            is ShadowTLSBean -> {
-                type = TYPE_SHADOWTLS
-                shadowTLSBean = bean
-            }
-
-            is AnyTLSBean -> {
-                type = TYPE_ANYTLS
-                anyTLSBean = bean
-            }
-
-            is ChainBean -> {
-                type = TYPE_CHAIN
-                chainBean = bean
-            }
-
-            is NekoBean -> {
-                type = TYPE_NEKO
-                nekoBean = bean
-            }
-
-            is ConfigBean -> {
-                type = TYPE_CONFIG
-                configBean = bean
-            }
-
-            else -> error("Undefined type $type")
-        }
-        return this
-    }
-
-    fun settingIntent(ctx: Context, isSubscription: Boolean): Intent {
-        return Intent(
-            ctx, when (type) {
-                TYPE_SOCKS -> SocksSettingsActivity::class.java
-                TYPE_HTTP -> HttpSettingsActivity::class.java
-                TYPE_SS -> ShadowsocksSettingsActivity::class.java
-                TYPE_VMESS -> VMessSettingsActivity::class.java
-                TYPE_TROJAN -> TrojanSettingsActivity::class.java
-                TYPE_TROJAN_GO -> TrojanGoSettingsActivity::class.java
-                TYPE_MIERU -> MieruSettingsActivity::class.java
-                TYPE_NAIVE -> NaiveSettingsActivity::class.java
-                TYPE_HYSTERIA -> HysteriaSettingsActivity::class.java
-                TYPE_SSH -> SSHSettingsActivity::class.java
-                TYPE_WG -> WireGuardSettingsActivity::class.java
-                TYPE_TUIC -> TuicSettingsActivity::class.java
-                TYPE_SHADOWTLS -> ShadowTLSSettingsActivity::class.java
-                TYPE_ANYTLS -> AnyTLSSettingsActivity::class.java
-                TYPE_CHAIN -> ChainSettingsActivity::class.java
-                TYPE_CONFIG -> ConfigSettingActivity::class.java
-                else -> throw IllegalArgumentException()
-            }
-        ).apply {
-            putExtra(ProfileSettingsActivity.EXTRA_PROFILE_ID, id)
-        }
+        return assignBean(bean)
     }
 
     @androidx.room.Dao
