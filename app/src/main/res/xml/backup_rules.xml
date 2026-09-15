@@ -2,9 +2,7 @@
 <data-extraction-rules xmlns:tools="http://schemas.android.com/tools"
     tools:ignore="FullBackupContent">
     <cloud-backup>
-        <include
-            domain="database"
-            path="sager_net.db" />
+        <!-- sager_net.db holds proxy credentials; keep them off cloud backups. -->
         <include
             domain="database"
             path="configuration.db" />
