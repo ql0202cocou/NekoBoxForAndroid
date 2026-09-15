@@ -112,6 +112,7 @@ import moe.matsuri.nb4a.proxy.anytls.AnyTLSSettingsActivity
 import moe.matsuri.nb4a.proxy.config.ConfigSettingActivity
 import moe.matsuri.nb4a.proxy.shadowtls.ShadowTLSSettingsActivity
 import moe.matsuri.nb4a.ui.ConnectionTestNotification
+import java.io.FileNotFoundException
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.UnknownHostException
@@ -318,12 +319,13 @@ class ConfigurationFragment @JvmOverloads constructor(
                                     .let(cursor::getString)
                             }
                     val proxies = mutableListOf<AbstractBean>()
+                    // SAF providers may grant the uri but fail to open it
+                    val inputStream = app.contentResolver.openInputStream(file)
+                        ?: throw FileNotFoundException(file.toString())
                     if (fileName != null && fileName.endsWith(".zip")) {
                         // try parse wireguard zip
                         // use(): a throwing parseRaw used to leak the fd
-                        ZipInputStream(
-                            app.contentResolver.openInputStream(file)!!
-                        ).use { zip ->
+                        ZipInputStream(inputStream).use { zip ->
                             var remaining = MAX_IMPORT_BYTES
                             var entries = 0
                             while (true) {
@@ -339,10 +341,9 @@ class ConfigurationFragment @JvmOverloads constructor(
                             }
                         }
                     } else {
-                        val fileText =
-                            app.contentResolver.openInputStream(file)!!.use {
-                                it.readBytesLimited().toString(Charsets.UTF_8)
-                            }
+                        val fileText = inputStream.use {
+                            it.readBytesLimited().toString(Charsets.UTF_8)
+                        }
                         RawUpdater.parseRaw(fileText, fileName ?: "")
                             ?.let { pl -> proxies.addAll(pl) }
                     }

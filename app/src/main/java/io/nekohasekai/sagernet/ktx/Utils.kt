@@ -40,6 +40,7 @@ import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.ui.ThemedActivity
 import kotlinx.coroutines.delay
 import moe.matsuri.nb4a.utils.NGUtil
+import java.io.FileNotFoundException
 import java.net.InetAddress
 import java.net.URLEncoder
 import java.util.concurrent.atomic.AtomicInteger
@@ -197,9 +198,9 @@ suspend fun Fragment.writeToDocument(uri: Uri, content: String) {
     val message = if (content.isBlank()) {
         app.getString(R.string.action_export_err)
     } else try {
-        app.contentResolver.openOutputStream(uri)!!.use { stream ->
-            stream.bufferedWriter().use { it.write(content) }
-        }
+        val stream = app.contentResolver.openOutputStream(uri)
+            ?: throw FileNotFoundException(uri.toString())
+        stream.use { it.bufferedWriter().use { writer -> writer.write(content) } }
         app.getString(R.string.action_export_msg)
     } catch (e: Exception) {
         Logs.w(e)
