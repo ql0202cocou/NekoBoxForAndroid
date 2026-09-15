@@ -3,6 +3,7 @@ import com.android.build.api.artifact.SingleArtifact
 import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.api.variant.ApplicationAndroidComponentsExtension
 import org.gradle.api.DefaultTask
+import org.gradle.api.GradleException
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
 import org.gradle.api.file.DirectoryProperty
@@ -105,6 +106,21 @@ fun Project.setupAppCommon() {
     val keystorePwd = lp.getProperty("KEYSTORE_PASS") ?: System.getenv("KEYSTORE_PASS")
     val alias = lp.getProperty("ALIAS_NAME") ?: System.getenv("ALIAS_NAME")
     val pwd = lp.getProperty("ALIAS_PASS") ?: System.getenv("ALIAS_PASS")
+
+    // Fail at configuration time when the signing credentials are only partially
+    // provided, instead of erroring at the signing step. None set at all stays
+    // unsigned on purpose (F-Droid builds need that).
+    val missingSigning = listOfNotNull(
+        "KEYSTORE_PASS".takeIf { keystorePwd == null },
+        "ALIAS_NAME".takeIf { alias == null },
+        "ALIAS_PASS".takeIf { pwd == null },
+    )
+    if (missingSigning.isNotEmpty() && missingSigning.size < 3) {
+        throw GradleException(
+            "incomplete release signing config: missing ${missingSigning.joinToString(", ")}" +
+                " (set all of KEYSTORE_PASS, ALIAS_NAME, ALIAS_PASS, or none for an unsigned build)"
+        )
+    }
 
     android.apply {
         if (keystorePwd != null) {
