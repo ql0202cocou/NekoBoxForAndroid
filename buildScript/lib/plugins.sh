@@ -4,7 +4,7 @@
 # into app/executableSo/<abi>/lib*.so (gitignored, packaged via jniLibs).
 # Pinned versions; bump here when upgrading.
 
-set -e
+set -eo pipefail
 
 XRAY_VERSION="v26.3.27"
 MIHOMO_VERSION="v1.19.31"
