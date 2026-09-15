@@ -6,6 +6,10 @@ set -e
 
 SOURCE=$1
 DESTINATION=$2
+if [ -z "$SOURCE" ] || [ -z "$DESTINATION" ]; then
+  echo "usage: $0 <source-dir> <destination-dir>" >&2
+  exit 2
+fi
 PARENT=$(dirname "$DESTINATION")
 mkdir -p "$PARENT"
 
