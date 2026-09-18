@@ -38,3 +38,20 @@ extracted the patch set with `diff -ru` against the upstream tag and re-applied
 it by hand — see git history. The 1.14.0 → 1.14.1 rebase used the same
 `diff -ruN` extraction plus `patch`; only `box.go` (needCacheFile) and
 `route/route.go` (NewTracker closure) needed manual conflict resolution.
+
+## go.mod divergence from upstream
+
+`check_versions` requires every module shared with `libcore/go.mod` to sit at
+the same version in both files, so dependency bumps land here too. As of
+2026-09-18 this go.mod diverges from the upstream v1.14.1 one:
+
+- `go` directive `1.26.0` (upstream `1.25.5`) — forced by `x/sys` below
+- `github.com/miekg/dns v1.1.73` (upstream v1.1.72)
+- `golang.org/x/mod v0.38.0` (upstream v0.37.0)
+- `golang.org/x/sys v0.48.0` (upstream v0.47.0) — declares `go 1.26.0`,
+  which is what pushes the go directive up; upstream sing-box ≥ 1.14 requires
+  Go 1.25+ and its own CI builds with Go 1.26.8, so 1.26 stays within the
+  upstream-supported range
+
+Apply such bumps with `go mod tidy` in this directory (it also drops stale
+indirect entries), and re-run `./run lib check_versions` afterwards.

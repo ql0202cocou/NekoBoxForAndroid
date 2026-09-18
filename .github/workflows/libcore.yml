@@ -24,15 +24,16 @@ jobs:
           # exclusions keep the post-job key re-evaluation off the gitignored build outputs
           # the toolchain versions are pinned in the key so a Go/NDK bump forces a rebuild.
           # NOTE: only the minor line is in the key, and go-version below floats within
-          # it, so a Go 1.25.x patch release does NOT invalidate the cache — clear the
+          # it, so a Go 1.26.x patch release does NOT invalidate the cache — clear the
           # Actions cache by hand when a patch matters (e.g. a crypto/tls fix).
-          key: libcore-go1.25-ndk25.0.8775105-${{ hashFiles('.github/workflows/libcore.yml', 'run', 'buildScript/lib/core.sh', 'buildScript/lib/core/**', 'buildScript/init/env.sh', 'buildScript/init/env_ndk.sh', 'libcore/**', '!libcore/.build/**', '!libcore/libcore.aar') }}
+          key: libcore-go1.26-ndk25.0.8775105-${{ hashFiles('.github/workflows/libcore.yml', 'run', 'buildScript/lib/core.sh', 'buildScript/lib/core/**', 'buildScript/init/env.sh', 'buildScript/init/env_ndk.sh', 'libcore/**', '!libcore/.build/**', '!libcore/libcore.aar') }}
       - name: Install Golang
         if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          # pinned to the 1.25 line; ^1.25 drifted to 1.26.x while go.mod says 1.25.5
-          go-version: '1.25'
+          # pinned to the 1.26 line; a floating ^1.26 would drift to 1.27.x
+          # while go.mod says 1.26.0
+          go-version: '1.26'
           cache-dependency-path: libcore/go.sum
       - name: Install NDK 25.0.8775105
         if: steps.cache.outputs.cache-hit != 'true'
@@ -66,8 +67,8 @@ jobs:
       - name: Install Golang
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          # same 1.25 line as the build job above and libcore/go.mod
-          go-version: '1.25'
+          # same 1.26 line as the build job above and libcore/go.mod
+          go-version: '1.26'
           cache-dependency-path: libcore/go.sum
       - name: Go Test
         # -checklinkname=0 is required: libcore/certs.go linknames
