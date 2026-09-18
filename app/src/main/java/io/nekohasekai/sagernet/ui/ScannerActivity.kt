@@ -17,12 +17,13 @@ import androidx.core.content.getSystemService
 import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import com.google.zxing.Result
-import com.king.zxing.CameraScan
-import com.king.zxing.DefaultCameraScan
+import com.king.camera.scan.AnalyzeResult
+import com.king.camera.scan.BaseCameraScan
+import com.king.camera.scan.CameraScan
+import com.king.camera.scan.util.LogUtils
+import com.king.camera.scan.util.PermissionUtils
 import com.king.zxing.analyze.QRCodeAnalyzer
 import com.king.zxing.util.CodeUtils
-import com.king.zxing.util.LogUtils
-import com.king.zxing.util.PermissionUtils
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
@@ -39,10 +40,10 @@ import kotlin.math.roundToInt
 
 
 class ScannerActivity : ThemedActivity(),
-    CameraScan.OnScanResultCallback {
+    CameraScan.OnScanResultCallback<Result> {
 
     lateinit var binding: LayoutScannerBinding
-    lateinit var cameraScan: CameraScan
+    lateinit var cameraScan: CameraScan<Result>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -107,17 +108,15 @@ class ScannerActivity : ThemedActivity(),
     /**
      * 接收扫码结果回调
      * @param result 扫码结果
-     * @return 返回true表示拦截，将不自动执行后续逻辑，为false表示不拦截，默认不拦截
      */
-    override fun onScanResultCallback(result: Result?): Boolean {
-        if (!importStarted.compareAndSet(false, true)) return true
+    override fun onScanResultCallback(result: AnalyzeResult<Result>) {
+        if (!importStarted.compareAndSet(false, true)) return
         lifecycleScope.launch {
             val outcome = withContext(Dispatchers.Default) {
-                importScans(listOf { result })
+                importScans(listOf { result.result })
             }
             completeImport(outcome)
         }
-        return true
     }
 
     private suspend fun importScans(scans: List<() -> Result?>): ImportOutcome {
@@ -217,10 +216,9 @@ class ScannerActivity : ThemedActivity(),
      * 初始化CameraScan
      */
     fun initCameraScan() {
-        cameraScan = DefaultCameraScan(this, binding.previewView)
+        cameraScan = BaseCameraScan(this, binding.previewView)
         cameraScan.setAnalyzer(QRCodeAnalyzer())
         cameraScan.setOnScanResultCallback(this)
-        cameraScan.setNeedAutoZoom(true)
     }
 
     /**
