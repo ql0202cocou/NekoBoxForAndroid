@@ -7,6 +7,6 @@ apply(from = "../repositories.gradle.kts")
 
 dependencies {
     // Gradle Plugins
-    implementation("com.android.tools.build:gradle:9.1.1")
-    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.10")
+    implementation("com.android.tools.build:gradle:9.4.0")
+    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.20")
 }
