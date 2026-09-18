@@ -53,7 +53,12 @@ for side in core box; do
   mod="$GO_MOD"; [ "$side" = box ] && mod="$BOX_MOD"
   requires "$mod" > "$TMP/$side.all"
   local_replaces "$mod" > "$TMP/$side.skip"
-  awk 'NR==FNR { skip[$1]=1; next } !($1 in skip)' "$TMP/$side.skip" "$TMP/$side.all" > "$TMP/$side"
+  # FILENAME == ARGV[1] instead of NR==FNR: with an empty skip file NR==FNR
+  # stays true for every record of the .all file (NR and FNR increment in
+  # lockstep), so the whole file would be swallowed into `skip` and the
+  # comparison silently reduced to nothing — sing-box/go.mod has no local
+  # replaces, which is exactly the empty-skip-file case
+  awk 'FILENAME == ARGV[1] { skip[$1]=1; next } !($1 in skip)' "$TMP/$side.skip" "$TMP/$side.all" > "$TMP/$side"
 done
 
 comm -12 <(cut -d' ' -f1 "$TMP/core") <(cut -d' ' -f1 "$TMP/box") > "$TMP/common"
