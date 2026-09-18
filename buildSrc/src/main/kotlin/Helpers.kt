@@ -44,7 +44,7 @@ fun Project.setupCommon() {
         buildToolsVersion = "36.0.0"
         compileSdk = 37
         defaultConfig {
-            minSdk = 23
+            minSdk = 24
             targetSdk = 36
         }
         buildTypes {
@@ -54,7 +54,7 @@ fun Project.setupCommon() {
         }
         // built-in Kotlin (AGP 9) takes its jvmTarget from targetCompatibility; core 1.19's
         // inline functions are JVM 11 bytecode, so the target cannot stay at 1.8 (AGP 9's
-        // default is 11 as well; D8 desugars it for minSdk 23)
+        // default is 11 as well; D8 desugars it for minSdk 24)
         compileOptions {
             sourceCompatibility = JavaVersion.VERSION_11
             targetCompatibility = JavaVersion.VERSION_11

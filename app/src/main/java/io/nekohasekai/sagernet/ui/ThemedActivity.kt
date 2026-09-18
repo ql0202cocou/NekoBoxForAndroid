@@ -42,7 +42,7 @@ abstract class ThemedActivity : AppCompatActivity {
             val statusBarStyle = if (appBarLuminance < 0.5) {
                 SystemBarStyle.dark(Color.TRANSPARENT)
             } else {
-                // the dark scrim only ever applied below API 23, which minSdk 23 no longer reaches
+                // the dark scrim only ever applied below API 23, which the minSdk no longer reaches
                 SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
             }
             enableEdgeToEdge(statusBarStyle = statusBarStyle)
