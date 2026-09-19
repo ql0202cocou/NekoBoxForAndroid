@@ -2,7 +2,6 @@ package io.nekohasekai.sagernet.database
 
 import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.Key
-import io.nekohasekai.sagernet.bg.SubscriptionUpdater
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -100,9 +99,6 @@ object GroupManager {
         group.userOrder = SagerDatabase.groupDao.nextOrder() ?: 1
         group.id = SagerDatabase.groupDao.createGroup(group.applyDefaultValues())
         iterator { groupAdd(group) }
-        if (group.type == GroupType.SUBSCRIPTION) {
-            SubscriptionUpdater.reconfigureUpdater()
-        }
         return group
     }
 
@@ -129,9 +125,6 @@ object GroupManager {
         }
         val current = updated ?: return
         iterator { groupUpdated(current) }
-        // 分组类型可能在订阅与基本之间切换：不再订阅的分组要取消周期任务，
-        // 新订阅的分组要排上；reconfigureUpdater 按现状更新，全部关闭时才取消
-        SubscriptionUpdater.reconfigureUpdater()
     }
 
     suspend fun updateSortOrder(groupId: Long, order: Int) {
@@ -160,7 +153,6 @@ object GroupManager {
         }
         if (DataStore.selectedGroup in groupIds) resetSelectedGroup()
         for (groupId in groupIds) iterator { groupRemoved(groupId) }
-        SubscriptionUpdater.reconfigureUpdater()
     }
 
     // Profiles deleted with their group may still be referenced as another

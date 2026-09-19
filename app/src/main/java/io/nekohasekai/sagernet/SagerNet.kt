@@ -21,7 +21,9 @@ import androidx.core.content.getSystemService
 import go.Seq
 import io.nekohasekai.sagernet.bg.SagerConnection
 import io.nekohasekai.sagernet.database.BackupRestore
+import io.nekohasekai.sagernet.bg.SubscriptionUpdater
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.InstallMarker
 import io.nekohasekai.sagernet.database.RestoreJournal
 import io.nekohasekai.sagernet.ktx.Logs
@@ -108,6 +110,9 @@ class SagerNet : Application(),
 
             // fix multi process issue in Android 9+
             JavaUtil.handleWebviewDir(this)
+
+            // both processes edit groups: the UI here, GroupUpdater in :bg
+            GroupManager.addListener(SubscriptionUpdater)
 
             runOnDefaultDispatcher {
                 PackageCache.register()

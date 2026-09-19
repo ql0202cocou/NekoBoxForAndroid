@@ -13,7 +13,9 @@ import androidx.work.multiprocess.RemoteListenableWorker.ARGUMENT_CLASS_NAME
 import androidx.work.multiprocess.RemoteListenableWorker.ARGUMENT_PACKAGE_NAME
 import androidx.work.multiprocess.RemoteWorkManager
 import androidx.work.multiprocess.RemoteWorkerService
+import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.SubscriptionBean
@@ -29,7 +31,13 @@ import kotlin.coroutines.suspendCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-object SubscriptionUpdater {
+// Re-plans the periodic work whenever GroupManager mutates a group (registered
+// in SagerNet.onCreate for both processes): a new subscription group has to be
+// scheduled, an update may switch a group between subscription and basic, and
+// a deletion may leave nothing to schedule. reconfigureLocked recomputes from
+// the DB and enqueues with UPDATE, which keeps the period, so the extra runs
+// on postUpdate(group) (e.g. after a subscription finished updating) are cheap.
+object SubscriptionUpdater : GroupManager.Listener {
 
     private const val WORK_NAME = "SubscriptionUpdater"
 
@@ -44,6 +52,21 @@ object SubscriptionUpdater {
     suspend fun reconfigureUpdater() = schedulingMutex.withLock {
         reconfigureLocked()
     }
+
+    override suspend fun groupAdd(group: ProxyGroup) {
+        if (group.type == GroupType.SUBSCRIPTION) reconfigureUpdater()
+    }
+
+    override suspend fun groupUpdated(group: ProxyGroup) {
+        reconfigureUpdater()
+    }
+
+    override suspend fun groupRemoved(groupId: Long) {
+        reconfigureUpdater()
+    }
+
+    // a reload only, the row is unchanged
+    override suspend fun groupUpdated(groupId: Long) {}
 
     private suspend fun reconfigureLocked() {
         val workManager = RemoteWorkManager.getInstance(app)
