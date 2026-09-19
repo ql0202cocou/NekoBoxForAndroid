@@ -1,6 +1,5 @@
 package io.nekohasekai.sagernet.bg.proto
 
-import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.bg.AbstractInstance
 import io.nekohasekai.sagernet.bg.GuardedProcessPool
 import io.nekohasekai.sagernet.database.ProxyEntity
@@ -47,6 +46,13 @@ abstract class BoxInstance(
         cacheFiles.clear()
     }
 
+    // Plugin configs get their own directory; the files init() hands out via
+    // newCacheFile (the hysteria CA) land in cacheDir itself.
+    private val pluginConfigDir = File(app.cacheDir, "tmpcfg")
+
+    private fun writeCacheFile(prefix: String, ext: String, content: String): File =
+        newCacheFile(prefix, ext, pluginConfigDir).apply { writeText(content) }
+
     fun isInitialized(): Boolean {
         return ::config.isInitialized && ::box.isInitialized
     }
@@ -84,13 +90,6 @@ abstract class BoxInstance(
         // A cancelled TestInstance may reach here after close(): starting the
         // box and plugins now would leak them, so bail out instead.
         if (isClosed()) return
-
-        // TODO move, this is not box
-        val cacheDir = File(SagerNet.application.cacheDir, "tmpcfg")
-
-        fun writeCacheFile(prefix: String, ext: String, content: String): File {
-            return newCacheFile(prefix, ext, cacheDir).apply { writeText(content) }
-        }
 
         for ((chain) in config.externalIndex) {
             for ((port, profile) in chain) {
