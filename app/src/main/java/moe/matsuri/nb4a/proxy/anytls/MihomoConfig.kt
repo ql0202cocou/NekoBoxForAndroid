@@ -1,6 +1,7 @@
 package moe.matsuri.nb4a.proxy.anytls
 
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.fmt.effectiveAllowInsecure
 import moe.matsuri.nb4a.utils.JavaUtil
 import moe.matsuri.nb4a.utils.echAsBase64
 import moe.matsuri.nb4a.utils.listByLineOrComma
@@ -42,7 +43,7 @@ fun buildMihomoConfig(
     val certPin = explicitPin ?: bean.certificates.takeIf { it.isNotBlank() }?.let(::certificateSha256)
     if (certPin != null) {
         proxy["fingerprint"] = certPin
-    } else if (bean.allowInsecure || DataStore.globalAllowInsecure) {
+    } else if (effectiveAllowInsecure(bean.allowInsecure)) {
         proxy["skip-cert-verify"] = true
     }
     if (bean.utlsFingerprint.isNotBlank()) proxy["client-fingerprint"] = bean.utlsFingerprint

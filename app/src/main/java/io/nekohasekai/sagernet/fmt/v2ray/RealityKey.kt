@@ -24,11 +24,13 @@ fun isRealityMldsa65Verify(value: String): Boolean =
     value.isEmpty() || value.isRawUrlBase64Of(1952)
 
 // Every REALITY-capable builder checks the key material before it reaches a core.
-fun StandardV2RayBean.requireValidReality() {
-    require(isRealityPublicKey(realityPubKey)) {
+fun requireValidReality(publicKey: String, shortId: String) {
+    require(isRealityPublicKey(publicKey)) {
         "Invalid REALITY public key: expected 43 URL-safe Base64 characters (32 bytes)"
     }
-    require(isRealityShortId(realityShortId)) {
+    require(isRealityShortId(shortId)) {
         "Invalid REALITY short ID: expected up to 16 hex characters of even length"
     }
 }
+
+fun StandardV2RayBean.requireValidReality() = requireValidReality(realityPubKey, realityShortId)

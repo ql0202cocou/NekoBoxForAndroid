@@ -22,41 +22,61 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_TROJAN_GO
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_TUIC
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_VMESS
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_WG
+import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.fmt.http.HttpBean
+import io.nekohasekai.sagernet.fmt.http.toUri
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
+import io.nekohasekai.sagernet.fmt.hysteria.buildHysteria1Config
 import io.nekohasekai.sagernet.fmt.hysteria.buildSingBoxOutboundHysteriaBean
 import io.nekohasekai.sagernet.fmt.hysteria.canUseSingBox
 import io.nekohasekai.sagernet.fmt.hysteria.getFirstPort
+import io.nekohasekai.sagernet.fmt.hysteria.toUri
 import io.nekohasekai.sagernet.fmt.internal.ChainBean
 import io.nekohasekai.sagernet.fmt.mieru.MieruBean
+import io.nekohasekai.sagernet.fmt.mieru.buildMieruConfig
 import io.nekohasekai.sagernet.fmt.naive.NaiveBean
+import io.nekohasekai.sagernet.fmt.naive.buildNaiveConfig
+import io.nekohasekai.sagernet.fmt.naive.toUri
 import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
 import io.nekohasekai.sagernet.fmt.shadowsocks.buildSingBoxOutboundShadowsocksBean
+import io.nekohasekai.sagernet.fmt.shadowsocks.toUri
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
 import io.nekohasekai.sagernet.fmt.socks.buildSingBoxOutboundSocksBean
+import io.nekohasekai.sagernet.fmt.socks.toUri
 import io.nekohasekai.sagernet.fmt.ssh.SSHBean
 import io.nekohasekai.sagernet.fmt.ssh.buildSingBoxOutboundSSHBean
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.fmt.trojan_go.TrojanGoBean
+import io.nekohasekai.sagernet.fmt.trojan_go.buildTrojanGoConfig
+import io.nekohasekai.sagernet.fmt.trojan_go.toUri
 import io.nekohasekai.sagernet.fmt.tuic.TuicBean
 import io.nekohasekai.sagernet.fmt.tuic.buildSingBoxOutboundTuicBean
+import io.nekohasekai.sagernet.fmt.tuic.toUri
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.buildSingBoxOutboundStandardV2RayBean
+import io.nekohasekai.sagernet.fmt.v2ray.buildXrayConfig
+import io.nekohasekai.sagernet.fmt.v2ray.effectiveUtlsFingerprint
 import io.nekohasekai.sagernet.fmt.v2ray.isTLS
+import io.nekohasekai.sagernet.fmt.v2ray.muxProtocolName
+import io.nekohasekai.sagernet.fmt.v2ray.toUriVMessVLESSTrojan
 import io.nekohasekai.sagernet.fmt.v2ray.xrayLacksAllowInsecure
 import io.nekohasekai.sagernet.fmt.v2ray.xrayLacksTransport
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import io.nekohasekai.sagernet.fmt.wireguard.buildSingBoxEndpointWireGuardBean
+import io.nekohasekai.sagernet.ktx.app
 import moe.matsuri.nb4a.SingBoxOptions.CustomSingBoxOption
 import moe.matsuri.nb4a.SingBoxOptions.MultiplexOptions
 import moe.matsuri.nb4a.SingBoxOptions.SingBoxOption
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.proxy.anytls.buildSingBoxOutboundAnyTLSBean
+import moe.matsuri.nb4a.proxy.anytls.buildMihomoConfig
+import moe.matsuri.nb4a.proxy.anytls.toUri
 import moe.matsuri.nb4a.proxy.config.ConfigBean
 import moe.matsuri.nb4a.proxy.neko.NekoBean
 import moe.matsuri.nb4a.proxy.shadowtls.ShadowTLSBean
 import moe.matsuri.nb4a.proxy.shadowtls.buildSingBoxOutboundShadowTLSBean
+import java.io.File
 
 // Central per-protocol dispatch. Every `when (type)` on ProxyEntity.TYPE_* and
 // every per-bean-class `when (bean)` moved from ProxyEntity / ConfigBuilder /
@@ -178,27 +198,16 @@ fun ProxyEntity.needsExternalCore(): Boolean {
 // (was ProxyEntity.singMux)
 fun ProxyEntity.singMuxForType(): MultiplexOptions? {
     return when (type) {
-        // vision flow doesn't support mux: vendored sing-box silently clears the
-        // flow when multiplex is enabled (the Xray path guards this in XrayConfig)
-        TYPE_VMESS -> if (vmessBean!!.isVisionFlow) null else MultiplexOptions().apply {
-            enabled = vmessBean!!.enableMux
-            padding = vmessBean!!.muxPadding
-            max_streams = vmessBean!!.muxConcurrency
-            protocol = when (vmessBean!!.muxType) {
-                1 -> "smux"
-                2 -> "yamux"
-                else -> "h2mux"
-            }
-        }
-
-        TYPE_TROJAN -> MultiplexOptions().apply {
-            enabled = trojanBean!!.enableMux
-            padding = trojanBean!!.muxPadding
-            max_streams = trojanBean!!.muxConcurrency
-            protocol = when (trojanBean!!.muxType) {
-                1 -> "smux"
-                2 -> "yamux"
-                else -> "h2mux"
+        // vmess/vless/trojan share the StandardV2RayBean mux fields. Vision flow
+        // doesn't support mux: vendored sing-box silently clears the flow when
+        // multiplex is enabled (the Xray path guards this in XrayConfig); only
+        // VLESS can carry the flow, so the check is a no-op for trojan.
+        TYPE_VMESS, TYPE_TROJAN -> (requireBean() as StandardV2RayBean).let { bean ->
+            if (bean.isVisionFlow) null else MultiplexOptions().apply {
+                enabled = bean.enableMux
+                padding = bean.muxPadding
+                max_streams = bean.muxConcurrency
+                protocol = muxProtocolName(bean.muxType)
             }
         }
 
@@ -373,4 +382,210 @@ fun protocolColorAttr(type: Int): Int {
         TYPE_NEKO -> android.R.attr.textColorPrimary
         else -> R.attr.accentOrTextSecondary
     }
+}
+
+// bean class -> whether a standard (protocol-specific) share link exists
+// (was ProxyEntity.haveStandardLink)
+fun hasStandardLink(bean: AbstractBean): Boolean = when (bean) {
+    is SSHBean -> false
+    is WireGuardBean -> false
+    is ShadowTLSBean -> false
+    is NekoBean -> false
+    is ConfigBean -> false
+    else -> true
+}
+
+// bean class -> standard share link, the universal link for the rest
+// (was ProxyEntity.toStdLink)
+fun standardLink(bean: AbstractBean): String = when (bean) {
+    is SOCKSBean -> bean.toUri()
+    is HttpBean -> bean.toUri()
+    is ShadowsocksBean -> bean.toUri()
+    is VMessBean -> bean.toUriVMessVLESSTrojan(false)
+    is TrojanBean -> bean.toUriVMessVLESSTrojan(true)
+    is TrojanGoBean -> bean.toUri()
+    is NaiveBean -> bean.toUri()
+    is HysteriaBean -> bean.toUri()
+    is TuicBean -> bean.toUri()
+    is AnyTLSBean -> bean.toUri()
+    is NekoBean -> ""
+    else -> bean.toUniversalLink()
+}
+
+// bean class -> sing-box udp_over_tcp for the outbound (was a reflective
+// "sUoT" field lookup in ConfigBuilder.buildChain)
+fun udpOverTcp(bean: AbstractBean): Boolean = when (bean) {
+    is ShadowsocksBean -> bean.sUoT == true
+    is SOCKSBean -> bean.sUoT == true
+    is NaiveBean -> bean.sUoT == true
+    else -> false
+}
+
+// bean class -> whether GroupUpdater may replace serverAddress with a resolved
+// IP (was the when in GroupUpdater.resolveAddresses)
+fun supportsAddressRewrite(bean: AbstractBean): Boolean = when (bean) {
+    is NaiveBean -> false // SNI rewrite unsupported
+    else -> true
+}
+
+// bean class -> keep the TLS SNI on the hostname before serverAddress is
+// rewritten to an IP (was the when in GroupUpdater.rewriteAddress). http,
+// trojan, vmess/vless and shadowtls all go through the StandardV2RayBean
+// branch, gated on TLS being enabled.
+fun fillSniFromServerAddress(bean: AbstractBean) {
+    when (bean) {
+        is StandardV2RayBean -> if (bean.isTLS() && bean.sni.isBlank()) bean.sni = bean.serverAddress
+        is TrojanGoBean -> if (bean.sni.isBlank()) bean.sni = bean.serverAddress
+        is HysteriaBean -> if (bean.sni.isBlank()) bean.sni = bean.serverAddress
+        is TuicBean -> if (bean.sni.isNullOrBlank()) bean.sni = bean.serverAddress
+        is AnyTLSBean -> if (bean.sni.isNullOrBlank()) bean.sni = bean.serverAddress
+    }
+}
+
+// bean class -> TLS settings for buildSingBoxOutboundTLS, null when the
+// protocol (or this profile's security setting) has no TLS
+fun tlsFields(bean: AbstractBean): TlsFields? = when (bean) {
+    is StandardV2RayBean -> if (!bean.isTLS()) null else TlsFields(
+        sni = bean.sni,
+        alpn = bean.alpn,
+        certificate = bean.certificates,
+        allowInsecure = bean.allowInsecure,
+        certificateFingerprint = bean.certificateFingerprint,
+        utlsFingerprint = bean.effectiveUtlsFingerprint(),
+        enableECH = bean.enableECH == true,
+        echConfig = bean.echConfig,
+        realityPublicKey = bean.realityPubKey,
+        realityShortId = bean.realityShortId,
+    )
+
+    is HysteriaBean -> TlsFields(
+        sni = bean.sni,
+        alpn = bean.alpn,
+        certificate = bean.caText,
+        allowInsecure = bean.allowInsecure,
+        certificateFingerprint = bean.certificateFingerprint,
+    )
+
+    is TuicBean -> TlsFields(
+        sni = bean.sni,
+        alpn = bean.alpn,
+        certificate = bean.caText,
+        allowInsecure = bean.allowInsecure,
+        certificateFingerprint = bean.certificateFingerprint,
+    )
+
+    is AnyTLSBean -> TlsFields(
+        sni = bean.sni,
+        alpn = bean.alpn,
+        certificate = bean.certificates,
+        allowInsecure = bean.allowInsecure,
+        certificateFingerprint = bean.certificateFingerprint,
+        utlsFingerprint = bean.utlsFingerprint,
+        // a pinned config enables ECH on its own (mihomo parity)
+        enableECH = bean.enableECH == true || !bean.echConfig.isNullOrBlank(),
+        echConfig = bean.echConfig,
+    )
+
+    else -> null
+}
+
+// External core process for a profile served by a plugin binary: which plugin,
+// its config for a local socks port, and how to start it. BoxInstance.init /
+// launch and ProxyEntity.exportConfig each carried a copy of this switch.
+// Profiles without an entry (NekoBean) are skipped by the callers, as before.
+class ExternalCore(
+    val pluginId: String,
+    // cacheFile(prefix, ext) hands out a temp file the config may reference
+    // (the hysteria CA); mihomoController is the Clash API port/secret of a
+    // self-test, null otherwise
+    val config: (port: Int, cacheFile: (String, String) -> File, mihomoController: Pair<Int, String>?) -> String,
+    // writeCacheFile(prefix, ext, content) persists the config and any extra
+    // file the process reads
+    val launch: (pluginPath: String, config: String, writeCacheFile: (String, String, String) -> File) -> ExternalCoreLaunch,
+)
+
+class ExternalCoreLaunch(val commands: List<String>, val env: Map<String, String> = emptyMap())
+
+fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
+    is TrojanGoBean -> ExternalCore(
+        "trojan-go-plugin",
+        config = { port, _, _ -> bean.buildTrojanGoConfig(port) },
+        launch = { pluginPath, config, writeCacheFile ->
+            val configFile = writeCacheFile("trojan_go", "json", config)
+            ExternalCoreLaunch(listOf(pluginPath, "-config", configFile.absolutePath))
+        },
+    )
+
+    is MieruBean -> ExternalCore(
+        "mieru-plugin",
+        config = { port, _, _ -> bean.buildMieruConfig(port) },
+        launch = { pluginPath, config, writeCacheFile ->
+            val configFile = writeCacheFile("mieru", "json", config)
+            ExternalCoreLaunch(
+                listOf(pluginPath, "run"),
+                mapOf(
+                    "MIERU_CONFIG_JSON_FILE" to configFile.absolutePath,
+                    "MIERU_PROTECT_PATH" to "protect_path",
+                ),
+            )
+        },
+    )
+
+    is NaiveBean -> ExternalCore(
+        "naive-plugin",
+        config = { port, _, _ -> bean.buildNaiveConfig(port) },
+        launch = { pluginPath, config, writeCacheFile ->
+            val configFile = writeCacheFile("naive", "json", config)
+            val env = mutableMapOf<String, String>()
+            if (bean.certificates.isNotBlank()) {
+                env["SSL_CERT_FILE"] = writeCacheFile("naive", "crt", bean.certificates).absolutePath
+            }
+            ExternalCoreLaunch(listOf(pluginPath, configFile.absolutePath), env)
+        },
+    )
+
+    is HysteriaBean -> ExternalCore(
+        "hysteria-plugin",
+        config = { port, cacheFile, _ -> bean.buildHysteria1Config(port) { cacheFile("hysteria", "ca") } },
+        launch = { pluginPath, config, writeCacheFile ->
+            val configFile = writeCacheFile("hysteria", "json", config)
+            val commands = mutableListOf(
+                pluginPath,
+                "--no-check",
+                "--config",
+                configFile.absolutePath,
+                "--log-level",
+                if (DataStore.logLevel > 0) "trace" else "warn",
+                "client"
+            )
+            if (bean.protocol == HysteriaBean.PROTOCOL_FAKETCP) {
+                commands.addAll(0, listOf("su", "-c"))
+            }
+            ExternalCoreLaunch(commands)
+        },
+    )
+
+    is VMessBean -> ExternalCore(
+        "xray-plugin",
+        config = { port, _, _ -> buildXrayConfig(bean, port) },
+        launch = { pluginPath, config, writeCacheFile ->
+            val configFile = writeCacheFile("xray", "json", config)
+            ExternalCoreLaunch(listOf(pluginPath, "run", "-c", configFile.absolutePath))
+        },
+    )
+
+    is AnyTLSBean -> ExternalCore(
+        "mihomo-plugin",
+        config = { port, _, controller ->
+            buildMihomoConfig(bean, port, controller?.first, controller?.second ?: "")
+        },
+        launch = { pluginPath, config, writeCacheFile ->
+            val configFile = writeCacheFile("mihomo", "yaml", config)
+            ExternalCoreLaunch(
+                listOf(pluginPath, "-d", app.noBackupFilesDir.absolutePath, "-f", configFile.absolutePath)
+            )
+        },
+    )
+
+    else -> null
 }

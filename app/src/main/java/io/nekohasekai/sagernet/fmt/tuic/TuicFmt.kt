@@ -1,13 +1,11 @@
 package io.nekohasekai.sagernet.fmt.tuic
 
-import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.ktx.Logs
+import io.nekohasekai.sagernet.fmt.buildSingBoxOutboundTLS
 import io.nekohasekai.sagernet.ktx.linkBuilder
 import io.nekohasekai.sagernet.ktx.toLink
 import io.nekohasekai.sagernet.ktx.urlSafe
 import io.nekohasekai.sagernet.ktx.withHttpScheme
 import moe.matsuri.nb4a.SingBoxOptions
-import moe.matsuri.nb4a.utils.listByLineOrComma
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 private val tuicUuidRegex =
@@ -90,11 +88,6 @@ fun TuicBean.toUri(): String {
 
 fun buildSingBoxOutboundTuicBean(bean: TuicBean): SingBoxOptions.Outbound_TUICOptions {
     if (bean.protocolVersion == 4) throw Exception("TUIC v4 is no longer supported")
-    // sing-box has no compatible option (its certificate_public_key_sha256 is
-    // an SPKI hash), so the pin is stored without effect on this core
-    if (bean.certificateFingerprint.isNotBlank()) {
-        Logs.w("certificate fingerprint pinning is not supported by sing-box, ignored")
-    }
     return SingBoxOptions.Outbound_TUICOptions().apply {
         type = "tuic"
         server = bean.serverAddress
@@ -109,19 +102,6 @@ fun buildSingBoxOutboundTuicBean(bean: TuicBean): SingBoxOptions.Outbound_TUICOp
         if (bean.heartbeatInterval > 0) {
             heartbeat = "${bean.heartbeatInterval}s"
         }
-        tls = SingBoxOptions.OutboundTLSOptions().apply {
-            if (bean.sni.isNotBlank()) {
-                server_name = bean.sni
-            }
-            if (bean.alpn.isNotBlank()) {
-                alpn = bean.alpn.listByLineOrComma()
-            }
-            if (bean.caText.isNotBlank()) {
-                certificate = bean.caText
-            }
-            disable_sni = bean.disableSNI
-            insecure = bean.allowInsecure || DataStore.globalAllowInsecure
-            enabled = true
-        }
+        tls = buildSingBoxOutboundTLS(bean)?.apply { disable_sni = bean.disableSNI }
     }
 }

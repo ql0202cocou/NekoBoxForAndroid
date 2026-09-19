@@ -11,6 +11,7 @@ import io.nekohasekai.sagernet.fmt.tuic.TuicBean
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.isTLS
+import io.nekohasekai.sagernet.fmt.v2ray.muxProtocolType
 import io.nekohasekai.sagernet.fmt.v2ray.setTLS
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import io.nekohasekai.sagernet.ktx.*
@@ -304,13 +305,8 @@ fun parseClash(text: String): List<AbstractBean> {
                                         "padding" -> bean.muxPadding =
                                             smuxOpt.value.clashBoolean()
 
-                                        // same numbering as ProxyEntity.singMux
                                         "protocol" -> bean.muxType =
-                                            when (smuxOpt.value?.toString()) {
-                                                "smux" -> 1
-                                                "yamux" -> 2
-                                                else -> 0 // h2mux, mihomo's default
-                                            }
+                                            muxProtocolType(smuxOpt.value?.toString())
                                     }
                                 }
                             }

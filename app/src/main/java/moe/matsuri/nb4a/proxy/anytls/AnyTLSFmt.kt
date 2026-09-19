@@ -1,14 +1,11 @@
 package moe.matsuri.nb4a.proxy.anytls
 
-import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.ktx.blankAsNull
+import io.nekohasekai.sagernet.fmt.buildSingBoxOutboundTLS
 import io.nekohasekai.sagernet.ktx.linkBuilder
 import io.nekohasekai.sagernet.ktx.toLink
 import io.nekohasekai.sagernet.ktx.urlSafe
 import io.nekohasekai.sagernet.ktx.withHttpScheme
 import moe.matsuri.nb4a.SingBoxOptions
-import moe.matsuri.nb4a.utils.echAsPem
-import moe.matsuri.nb4a.utils.listByLineOrComma
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 fun buildSingBoxOutboundAnyTLSBean(bean: AnyTLSBean): SingBoxOptions.Outbound_AnyTLSOptions {
@@ -21,32 +18,7 @@ fun buildSingBoxOutboundAnyTLSBean(bean: AnyTLSBean): SingBoxOptions.Outbound_An
         server_port = bean.serverPort
         password = bean.password
 
-        tls = SingBoxOptions.OutboundTLSOptions().apply {
-            enabled = true
-            server_name = bean.sni.blankAsNull()
-            if (bean.allowInsecure || DataStore.globalAllowInsecure) insecure = true
-            alpn = bean.alpn.blankAsNull()?.listByLineOrComma()
-            bean.certificates.blankAsNull()?.let {
-                certificate = it
-            }
-            bean.utlsFingerprint.blankAsNull()?.let {
-                utls = SingBoxOptions.OutboundUTLSOptions().apply {
-                    enabled = true
-                    fingerprint = it
-                }
-            }
-            if (bean.enableECH || !bean.echConfig.isNullOrBlank()) {
-                // In new version, some complex options will be deprecated, so we just do this.
-                ech = SingBoxOptions.OutboundECHOptions().apply {
-                    enabled = true
-                    bean.echConfig.blankAsNull()?.let {
-                        // sing-box only accepts an "ECH CONFIGS" PEM block; a mihomo
-                        // subscription hands us bare base64
-                        config = it.echAsPem().lines()
-                    }
-                }
-            }
-        }
+        tls = buildSingBoxOutboundTLS(bean)
     }
 }
 

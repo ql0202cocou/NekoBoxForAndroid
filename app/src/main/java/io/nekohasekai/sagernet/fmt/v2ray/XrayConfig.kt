@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.fmt.v2ray
 
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.fmt.effectiveAllowInsecure
 import io.nekohasekai.sagernet.ktx.toStringPretty
 import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 import moe.matsuri.nb4a.utils.echAsBase64
@@ -21,7 +22,7 @@ fun VMessBean.xrayLacksTransport(): Boolean =
 // xrayLacksTransport. A certificate pin is unaffected: pinnedPeerCertSha256
 // is the offered replacement and wins over allowInsecure anyway.
 fun VMessBean.xrayLacksAllowInsecure(): Boolean =
-    isTLS() && certificateFingerprint.isBlank() && (allowInsecure || DataStore.globalAllowInsecure)
+    isTLS() && certificateFingerprint.isBlank() && effectiveAllowInsecure(allowInsecure)
 
 // Builds an Xray-core client config for a VMess/VLESS profile:
 // a local socks inbound chained from sing-box, and the profile as outbound.
@@ -202,7 +203,7 @@ private fun buildXrayStreamSettings(bean: VMessBean): JSONObject {
                         "Invalid certificate fingerprint: expected a SHA-256 digest of 64 hex characters (colons allowed)"
                     }
                     put("pinnedPeerCertSha256", certPin)
-                } else if (bean.allowInsecure || DataStore.globalAllowInsecure) {
+                } else if (effectiveAllowInsecure(bean.allowInsecure)) {
                     put("allowInsecure", true)
                 }
                 fp?.let { put("fingerprint", it) }

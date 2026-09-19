@@ -6,17 +6,10 @@ import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.database.SubscriptionBean
 import io.nekohasekai.sagernet.fmt.AbstractBean
-import io.nekohasekai.sagernet.fmt.http.HttpBean
-import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
-import io.nekohasekai.sagernet.fmt.naive.NaiveBean
-import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
-import io.nekohasekai.sagernet.fmt.trojan_go.TrojanGoBean
-import io.nekohasekai.sagernet.fmt.tuic.TuicBean
-import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
-import io.nekohasekai.sagernet.fmt.v2ray.isTLS
+import io.nekohasekai.sagernet.fmt.fillSniFromServerAddress
+import io.nekohasekai.sagernet.fmt.supportsAddressRewrite
 import io.nekohasekai.sagernet.ktx.*
 import kotlinx.coroutines.*
-import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import java.io.File
 import java.io.RandomAccessFile
 import java.net.Inet4Address
@@ -64,11 +57,7 @@ abstract class GroupUpdater {
         try {
             coroutineScope {
                 for (profile in profiles) {
-                    when (profile) {
-                        // SNI rewrite unsupported
-                        is NaiveBean -> continue
-                    }
-
+                    if (!supportsAddressRewrite(profile)) continue
                     if (profile.serverAddress.isIpAddress()) continue
 
                     launch(lookupPool) {
@@ -112,36 +101,8 @@ abstract class GroupUpdater {
         bean: AbstractBean, addresses: List<InetAddress>, ipv6First: Boolean
     ) {
         val address = addresses.sortedBy { (it is Inet4Address) == ipv6First }[0].hostAddress
-
-        with(bean) {
-            when (this) {
-                is HttpBean -> {
-                    if (isTLS() && sni.isBlank()) sni = bean.serverAddress
-                }
-                is StandardV2RayBean -> {
-                    when (security) {
-                        "tls" -> if (sni.isBlank()) sni = bean.serverAddress
-                    }
-                }
-                is TrojanBean -> {
-                    if (sni.isBlank()) sni = bean.serverAddress
-                }
-                is TrojanGoBean -> {
-                    if (sni.isBlank()) sni = bean.serverAddress
-                }
-                is HysteriaBean -> {
-                    if (sni.isBlank()) sni = bean.serverAddress
-                }
-                is TuicBean -> {
-                    if (sni.isNullOrBlank()) sni = bean.serverAddress
-                }
-                is AnyTLSBean -> {
-                    if (sni.isNullOrBlank()) sni = bean.serverAddress
-                }
-            }
-
-            bean.serverAddress = address
-        }
+        fillSniFromServerAddress(bean)
+        bean.serverAddress = address
     }
 
     companion object {

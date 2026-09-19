@@ -6,32 +6,22 @@ import com.esotericsoftware.kryo.io.ByteBufferOutput
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.fmt.*
 import io.nekohasekai.sagernet.fmt.http.HttpBean
-import io.nekohasekai.sagernet.fmt.http.toUri
 import io.nekohasekai.sagernet.fmt.hysteria.*
 import io.nekohasekai.sagernet.fmt.internal.ChainBean
 import io.nekohasekai.sagernet.fmt.mieru.MieruBean
-import io.nekohasekai.sagernet.fmt.mieru.buildMieruConfig
 import io.nekohasekai.sagernet.fmt.naive.NaiveBean
-import io.nekohasekai.sagernet.fmt.naive.buildNaiveConfig
-import io.nekohasekai.sagernet.fmt.naive.toUri
 import io.nekohasekai.sagernet.fmt.shadowsocks.*
 import moe.matsuri.nb4a.proxy.shadowtls.ShadowTLSBean
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
-import io.nekohasekai.sagernet.fmt.socks.toUri
 import io.nekohasekai.sagernet.fmt.ssh.SSHBean
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.fmt.trojan_go.TrojanGoBean
-import io.nekohasekai.sagernet.fmt.trojan_go.buildTrojanGoConfig
-import io.nekohasekai.sagernet.fmt.trojan_go.toUri
 import io.nekohasekai.sagernet.fmt.tuic.TuicBean
-import io.nekohasekai.sagernet.fmt.tuic.toUri
 import io.nekohasekai.sagernet.fmt.v2ray.*
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import io.nekohasekai.sagernet.ktx.app
 import moe.matsuri.nb4a.SingBoxOptions.MultiplexOptions
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
-import moe.matsuri.nb4a.proxy.anytls.buildMihomoConfig
-import moe.matsuri.nb4a.proxy.anytls.toUri
 import moe.matsuri.nb4a.proxy.config.ConfigBean
 import moe.matsuri.nb4a.proxy.neko.*
 import java.io.File
@@ -233,90 +223,32 @@ data class ProxyEntity(
         return typeHasLink()
     }
 
-    fun haveStandardLink(): Boolean {
-        return when (requireBean()) {
-            is SSHBean -> false
-            is WireGuardBean -> false
-            is ShadowTLSBean -> false
-            is NekoBean -> false
-            is ConfigBean -> false
-            else -> true
-        }
-    }
+    fun haveStandardLink(): Boolean = hasStandardLink(requireBean())
 
-    fun toStdLink(compact: Boolean = false): String = with(requireBean()) {
-        when (this) {
-            is SOCKSBean -> toUri()
-            is HttpBean -> toUri()
-            is ShadowsocksBean -> toUri()
-            is VMessBean -> toUriVMessVLESSTrojan(false)
-            is TrojanBean -> toUriVMessVLESSTrojan(true)
-            is TrojanGoBean -> toUri()
-            is NaiveBean -> toUri()
-            is HysteriaBean -> toUri()
-            is TuicBean -> toUri()
-            is AnyTLSBean -> toUri()
-            is NekoBean -> ""
-            else -> toUniversalLink()
-        }
-    }
+    fun toStdLink(compact: Boolean = false): String = standardLink(requireBean())
 
     fun exportConfig(): Pair<String, String> {
         var name = "${requireBean().displayName()}.json"
-
-        return with(requireBean()) {
-            StringBuilder().apply {
-                val config = buildConfig(this@ProxyEntity, forExport = true)
-                append(config.config)
-
-                if (!config.externalIndex.all { it.chain.isEmpty() }) {
-                    name = "profiles.txt"
-                }
-
-                for ((chain) in config.externalIndex) {
-                    chain.entries.forEachIndexed { index, (port, profile) ->
-                        when (val bean = profile.requireBean()) {
-                            is TrojanGoBean -> {
-                                append("\n\n")
-                                append(bean.buildTrojanGoConfig(port))
-                            }
-
-                            is MieruBean -> {
-                                append("\n\n")
-                                append(bean.buildMieruConfig(port))
-                            }
-
-                            is NaiveBean -> {
-                                append("\n\n")
-                                append(bean.buildNaiveConfig(port))
-                            }
-
-                            is HysteriaBean -> {
-                                append("\n\n")
-                                var caFile: File? = null
-                                append(bean.buildHysteria1Config(port) {
-                                    File.createTempFile("hysteria_", ".ca", app.cacheDir)
-                                        .also { caFile = it }
-                                })
-                                // the exported JSON keeps the path, but the temp
-                                // file itself must not linger in cacheDir
-                                caFile?.let { runCatching { it.delete() } }
-                            }
-
-                            is VMessBean -> {
-                                append("\n\n")
-                                append(buildXrayConfig(bean, port))
-                            }
-
-                            is AnyTLSBean -> {
-                                append("\n\n")
-                                append(buildMihomoConfig(bean, port))
-                            }
-                        }
-                    }
-                }
-            }.toString()
-        } to name
+        val config = buildConfig(this, forExport = true)
+        if (!config.externalIndex.all { it.chain.isEmpty() }) {
+            name = "profiles.txt"
+        }
+        val text = StringBuilder(config.config)
+        // an external core config may reference a temp file (the hysteria CA);
+        // the exported JSON keeps the path, but the file itself must not
+        // linger in cacheDir
+        val tempFiles = ArrayList<File>()
+        for ((chain) in config.externalIndex) {
+            for ((port, profile) in chain) {
+                val core = externalCore(profile.requireBean()) ?: continue
+                text.append("\n\n")
+                text.append(core.config(port, { prefix, ext ->
+                    File.createTempFile(prefix + "_", ".$ext", app.cacheDir).also { tempFiles.add(it) }
+                }, null))
+            }
+        }
+        tempFiles.forEach { runCatching { it.delete() } }
+        return text.toString() to name
     }
 
     fun resolvedCore(): Int {

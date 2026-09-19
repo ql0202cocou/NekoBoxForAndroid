@@ -1,8 +1,8 @@
 package io.nekohasekai.sagernet.fmt.hysteria
 
 import android.util.Base64
-import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.fmt.LOCALHOST
+import io.nekohasekai.sagernet.fmt.buildSingBoxOutboundTLS
 import io.nekohasekai.sagernet.ktx.*
 import moe.matsuri.nb4a.SingBoxOptions
 import moe.matsuri.nb4a.utils.listByLineOrComma
@@ -413,11 +413,6 @@ fun HysteriaBean.canUseSingBox(): Boolean {
 }
 
 fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean): SingBoxOptions.SingBoxOption {
-    // sing-box has no compatible option (its certificate_public_key_sha256 is
-    // an SPKI hash), so the pin is stored without effect on this core
-    if (bean.certificateFingerprint.isNotBlank()) {
-        Logs.w("certificate fingerprint pinning is not supported by sing-box, ignored")
-    }
     val ports = parseHysteriaPorts(bean.serverPorts)
     val singlePort = ports.singlePortOrNull()
     return when (bean.protocolVersion) {
@@ -441,19 +436,7 @@ fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean): SingBoxOptions.SingBox
             if (bean.connectionReceiveWindow > 0) {
                 recv_window = bean.connectionReceiveWindow.toLong()
             }
-            tls = SingBoxOptions.OutboundTLSOptions().apply {
-                if (bean.sni.isNotBlank()) {
-                    server_name = bean.sni
-                }
-                if (bean.alpn.isNotBlank()) {
-                    alpn = bean.alpn.listByLineOrComma()
-                }
-                if (bean.caText.isNotBlank()) {
-                    certificate = bean.caText
-                }
-                insecure = bean.allowInsecure || DataStore.globalAllowInsecure
-                enabled = true
-            }
+            tls = buildSingBoxOutboundTLS(bean)
         }
 
         2 -> SingBoxOptions.Outbound_Hysteria2Options().apply {
@@ -471,17 +454,8 @@ fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean): SingBoxOptions.SingBox
                 }
             }
             password = bean.authPayload
-            tls = SingBoxOptions.OutboundTLSOptions().apply {
-                if (bean.sni.isNotBlank()) {
-                    server_name = bean.sni
-                }
-                alpn = listOf("h3")
-                if (bean.caText.isNotBlank()) {
-                    certificate = bean.caText
-                }
-                insecure = bean.allowInsecure || DataStore.globalAllowInsecure
-                enabled = true
-            }
+            // hysteria2 mandates h3 whatever the profile's alpn says
+            tls = buildSingBoxOutboundTLS(bean)?.apply { alpn = listOf("h3") }
         }
 
         else -> error("error_version $bean.protocolVersion")

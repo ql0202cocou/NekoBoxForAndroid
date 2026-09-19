@@ -3,13 +3,12 @@ package io.nekohasekai.sagernet.fmt.v2ray
 import android.text.TextUtils
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
-import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.fmt.buildSingBoxOutboundTLS
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.ktx.*
 import moe.matsuri.nb4a.SingBoxOptions.*
 import moe.matsuri.nb4a.utils.NGUtil
-import moe.matsuri.nb4a.utils.echAsPem
 import moe.matsuri.nb4a.utils.listByLineOrComma
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -701,45 +700,18 @@ fun buildSingBoxOutboundStreamSettings(bean: StandardV2RayBean): V2RayTransportO
     return null
 }
 
-fun buildSingBoxOutboundTLS(bean: StandardV2RayBean): OutboundTLSOptions? {
-    if (bean.security != "tls") return null
-    // sing-box has no compatible option: its certificate_public_key_sha256 is
-    // an SPKI hash, not interchangeable with a certificate SHA-256, so the pin
-    // is stored without effect on this core (Xray honors it instead)
-    if (bean.certificateFingerprint.isNotBlank()) {
-        Logs.w("certificate fingerprint pinning is not supported by sing-box, ignored")
-    }
-    return OutboundTLSOptions().apply {
-        enabled = true
-        insecure = bean.allowInsecure || DataStore.globalAllowInsecure
-        if (bean.sni.isNotBlank()) server_name = bean.sni
-        if (bean.alpn.isNotBlank()) alpn = bean.alpn.listByLineOrComma()
-        if (bean.certificates.isNotBlank()) certificate = bean.certificates
-        if (bean.realityPubKey.isNotBlank()) {
-            bean.requireValidReality()
-            reality = OutboundRealityOptions().apply {
-                enabled = true
-                public_key = bean.realityPubKey
-                short_id = bean.realityShortId
-            }
-        }
-        val fp = bean.effectiveUtlsFingerprint()
-        if (!fp.isNullOrBlank()) {
-            utls = OutboundUTLSOptions().apply {
-                enabled = true
-                fingerprint = fp
-            }
-        }
-        if (bean.enableECH) {
-            ech = OutboundECHOptions().apply {
-                enabled = true
-                if (bean.echConfig.isNotBlank()) {
-                    // sing-box only accepts an "ECH CONFIGS" PEM block
-                    config = bean.echConfig.echAsPem().lines()
-                }
-            }
-        }
-    }
+// StandardV2RayBean.muxType <-> multiplex protocol name (sing-box and mihomo
+// spell them the same); 0 is h2mux, mihomo's default
+fun muxProtocolName(type: Int): String = when (type) {
+    1 -> "smux"
+    2 -> "yamux"
+    else -> "h2mux"
+}
+
+fun muxProtocolType(name: String?): Int = when (name) {
+    "smux" -> 1
+    "yamux" -> 2
+    else -> 0
 }
 
 fun buildSingBoxOutboundStandardV2RayBean(bean: StandardV2RayBean): Outbound {
