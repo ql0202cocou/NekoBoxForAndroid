@@ -4,9 +4,9 @@ import android.content.Context
 import android.util.AttributeSet
 import androidx.preference.Preference
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.utils.PackageCache
+import io.nekohasekai.sagernet.database.EditorCache
 
 class AppListPreference : Preference {
 
@@ -26,7 +26,7 @@ class AppListPreference : Preference {
         PackageCache.awaitLoadSync()
         // loadLabel() memoizes; loading each label from the PackageManager again
         // would repeat that work on every rebind of this preference
-        val packages = DataStore.routePackages.split("\n").filter { it.isNotBlank() }
+        val packages = EditorCache.routePackages.split("\n").filter { it.isNotBlank() }
             .map { PackageCache.loadLabel(it) }
         if (packages.isEmpty()) {
             return context.getString(androidx.preference.R.string.not_set)

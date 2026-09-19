@@ -7,30 +7,30 @@ import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreference
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.fmt.hysteria.isHysteria1PluginHopInterval
 import io.nekohasekai.sagernet.fmt.hysteria.isHysteria1PluginWindow
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import moe.matsuri.nb4a.ui.SimpleMenuPreference
+import io.nekohasekai.sagernet.database.EditorCache
 
 class HysteriaSettingsActivity : ProfileSettingsActivity<HysteriaBean>() {
 
     override fun validateEditor(): String? {
-        if (runCatching { parseHysteriaPorts(DataStore.serverPorts) }.isFailure) {
+        if (runCatching { parseHysteriaPorts(EditorCache.serverPorts) }.isFailure) {
             return getString(R.string.hysteria_ports_error)
         }
-        certificateFingerprintError(DataStore.serverCertificateFingerprint)?.let { return it }
+        certificateFingerprintError(EditorCache.serverCertificateFingerprint)?.let { return it }
         // faketcp / wechat-video run on the hysteria 1 plugin, which enforces its own
         // minimums; the sing-box path accepts any non-negative value
-        if (DataStore.protocolVersion != 1 || DataStore.serverProtocolInt == HysteriaBean.PROTOCOL_UDP) {
+        if (EditorCache.protocolVersion != 1 || EditorCache.serverProtocolInt == HysteriaBean.PROTOCOL_UDP) {
             return null
         }
         return when {
-            !isHysteria1PluginWindow(DataStore.serverStreamReceiveWindow) ||
-                !isHysteria1PluginWindow(DataStore.serverConnectionReceiveWindow) ->
+            !isHysteria1PluginWindow(EditorCache.serverStreamReceiveWindow) ||
+                !isHysteria1PluginWindow(EditorCache.serverConnectionReceiveWindow) ->
                 getString(R.string.hysteria_receive_window_error)
-            !isHysteria1PluginHopInterval(DataStore.serverHopInterval) ->
+            !isHysteria1PluginHopInterval(EditorCache.serverHopInterval) ->
                 getString(R.string.hysteria_hop_interval_error)
             else -> null
         }
@@ -39,47 +39,47 @@ class HysteriaSettingsActivity : ProfileSettingsActivity<HysteriaBean>() {
     override fun createEntity() = HysteriaBean().applyDefaultValues()
 
     override fun HysteriaBean.init() {
-        DataStore.profileName = name
-        DataStore.protocolVersion = protocolVersion
-        DataStore.serverAddress = serverAddress
-        DataStore.serverPorts = serverPorts
-        DataStore.serverObfs = obfuscation
-        DataStore.serverAuthType = authPayloadType
-        DataStore.serverProtocolInt = protocol
-        DataStore.serverPassword = authPayload
-        DataStore.serverSNI = sni
-        DataStore.serverALPN = alpn
-        DataStore.serverCertificates = caText
-        DataStore.serverCertificateFingerprint = certificateFingerprint
-        DataStore.serverAllowInsecure = allowInsecure
-        DataStore.serverUploadSpeed = uploadMbps
-        DataStore.serverDownloadSpeed = downloadMbps
-        DataStore.serverStreamReceiveWindow = streamReceiveWindow
-        DataStore.serverConnectionReceiveWindow = connectionReceiveWindow
-        DataStore.serverDisableMtuDiscovery = disableMtuDiscovery
-        DataStore.serverHopInterval = hopInterval
+        EditorCache.profileName = name
+        EditorCache.protocolVersion = protocolVersion
+        EditorCache.serverAddress = serverAddress
+        EditorCache.serverPorts = serverPorts
+        EditorCache.serverObfs = obfuscation
+        EditorCache.serverAuthType = authPayloadType
+        EditorCache.serverProtocolInt = protocol
+        EditorCache.serverPassword = authPayload
+        EditorCache.serverSNI = sni
+        EditorCache.serverALPN = alpn
+        EditorCache.serverCertificates = caText
+        EditorCache.serverCertificateFingerprint = certificateFingerprint
+        EditorCache.serverAllowInsecure = allowInsecure
+        EditorCache.serverUploadSpeed = uploadMbps
+        EditorCache.serverDownloadSpeed = downloadMbps
+        EditorCache.serverStreamReceiveWindow = streamReceiveWindow
+        EditorCache.serverConnectionReceiveWindow = connectionReceiveWindow
+        EditorCache.serverDisableMtuDiscovery = disableMtuDiscovery
+        EditorCache.serverHopInterval = hopInterval
     }
 
     override fun HysteriaBean.serialize() {
-        name = DataStore.profileName
-        protocolVersion = DataStore.protocolVersion
-        serverAddress = DataStore.serverAddress
-        serverPorts = DataStore.serverPorts
-        obfuscation = DataStore.serverObfs
-        authPayloadType = DataStore.serverAuthType
-        authPayload = DataStore.serverPassword
-        protocol = DataStore.serverProtocolInt
-        sni = DataStore.serverSNI
-        alpn = DataStore.serverALPN
-        caText = DataStore.serverCertificates
-        certificateFingerprint = DataStore.serverCertificateFingerprint
-        allowInsecure = DataStore.serverAllowInsecure
-        uploadMbps = DataStore.serverUploadSpeed
-        downloadMbps = DataStore.serverDownloadSpeed
-        streamReceiveWindow = DataStore.serverStreamReceiveWindow
-        connectionReceiveWindow = DataStore.serverConnectionReceiveWindow
-        disableMtuDiscovery = DataStore.serverDisableMtuDiscovery
-        hopInterval = DataStore.serverHopInterval
+        name = EditorCache.profileName
+        protocolVersion = EditorCache.protocolVersion
+        serverAddress = EditorCache.serverAddress
+        serverPorts = EditorCache.serverPorts
+        obfuscation = EditorCache.serverObfs
+        authPayloadType = EditorCache.serverAuthType
+        authPayload = EditorCache.serverPassword
+        protocol = EditorCache.serverProtocolInt
+        sni = EditorCache.serverSNI
+        alpn = EditorCache.serverALPN
+        caText = EditorCache.serverCertificates
+        certificateFingerprint = EditorCache.serverCertificateFingerprint
+        allowInsecure = EditorCache.serverAllowInsecure
+        uploadMbps = EditorCache.serverUploadSpeed
+        downloadMbps = EditorCache.serverDownloadSpeed
+        streamReceiveWindow = EditorCache.serverStreamReceiveWindow
+        connectionReceiveWindow = EditorCache.serverConnectionReceiveWindow
+        disableMtuDiscovery = EditorCache.serverDisableMtuDiscovery
+        hopInterval = EditorCache.serverHopInterval
     }
 
     override fun PreferenceFragmentCompat.createPreferences(
@@ -151,7 +151,7 @@ class HysteriaSettingsActivity : ProfileSettingsActivity<HysteriaBean>() {
             updateVersion(newValue.toString().toIntOrNull() ?: 1)
             true
         }
-        updateVersion(DataStore.protocolVersion)
+        updateVersion(EditorCache.protocolVersion)
 
         // Empty windows are stored as zero and omitted by the Hysteria 1 builder.
         findPreference<EditTextPreference>(Key.SERVER_STREAM_RECEIVE_WINDOW)!!

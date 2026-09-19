@@ -35,7 +35,6 @@ import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.ISagerNetService
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.bg.SagerConnection
-import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.ui.ThemedActivity
 import kotlinx.coroutines.delay
@@ -46,6 +45,7 @@ import java.net.URLEncoder
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.Continuation
 import kotlin.reflect.KProperty
+import io.nekohasekai.sagernet.bg.ServiceRegistry
 
 fun String?.blankAsNull(): String? = if (isNullOrBlank()) null else this
 
@@ -198,7 +198,7 @@ suspend fun Fragment.writeToDocument(uri: Uri, content: String) {
 }
 
 fun Fragment.needReload() {
-    if (DataStore.serviceState.started) {
+    if (ServiceRegistry.state.started) {
         snackbar(getString(R.string.need_reload)).setAction(R.string.apply) {
             SagerNet.reloadService()
         }.show()

@@ -36,6 +36,7 @@ import io.nekohasekai.sagernet.widget.QRCodeDialog
 import kotlinx.coroutines.sync.withLock
 import moe.matsuri.nb4a.Protocols
 import moe.matsuri.nb4a.Protocols.getProtocolColor
+import io.nekohasekai.sagernet.bg.ServiceRegistry
 
 class ConfigurationHolder(
     private val groupFragment: ProfileListFragment, val view: View
@@ -82,12 +83,12 @@ class ConfigurationHolder(
 
                     if (update) {
                         ProfileManager.postUpdate(lastSelected)
-                        if (DataStore.serviceState.canStop && groupFragment.reloadAccess.tryLock()) {
+                        if (ServiceRegistry.state.canStop && groupFragment.reloadAccess.tryLock()) {
                             SagerNet.reloadService()
                             groupFragment.reloadAccess.unlock()
                         }
                     } else if (SagerNet.isTv) {
-                        if (DataStore.serviceState.started) {
+                        if (ServiceRegistry.state.started) {
                             SagerNet.stopService()
                         } else {
                             SagerNet.startService()
@@ -194,7 +195,7 @@ class ConfigurationHolder(
         runOnDefaultDispatcher {
             val selected = (groupFragment.selectedItem?.id ?: DataStore.selectedProxy) == proxyEntity.id
             val started =
-                selected && DataStore.serviceState.started && DataStore.currentProfile == proxyEntity.id
+                selected && ServiceRegistry.state.started && DataStore.currentProfile == proxyEntity.id
             onMainDispatcher {
                 editButton.isEnabled = !started
                 removeButton.isEnabled = !started

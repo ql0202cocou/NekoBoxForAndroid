@@ -55,7 +55,7 @@ class VpnService : BaseVpnService(),
     private var metered = false
 
     override suspend fun startProcesses() {
-        DataStore.vpnService = this
+        ServiceRegistry.vpnService = this
         super.startProcesses() // launch proxy instance
     }
 
@@ -289,7 +289,7 @@ class VpnService : BaseVpnService(),
     }
 
     override fun onDestroy() {
-        DataStore.vpnService = null
+        ServiceRegistry.vpnService = null
         super.onDestroy()
         destroyRunner()
     }

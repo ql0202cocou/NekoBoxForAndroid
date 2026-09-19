@@ -18,6 +18,7 @@ import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.utils.Theme
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import moe.matsuri.nb4a.ui.*
+import io.nekohasekai.sagernet.bg.ServiceRegistry
 
 class SettingsPreferenceFragment : PreferenceFragmentCompat() {
 
@@ -45,7 +46,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
 
         val appTheme = findPreference<ColorPickerPreference>(Key.APP_THEME)!!
         appTheme.setOnPreferenceChangeListener { _, newTheme ->
-            if (DataStore.serviceState.started) {
+            if (ServiceRegistry.state.started) {
                 SagerNet.reloadService()
             }
             val theme = Theme.getTheme(newTheme as Int)
@@ -135,7 +136,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         }
 
         serviceMode.setOnPreferenceChangeListener { _, _ ->
-            if (DataStore.serviceState.started) SagerNet.stopService()
+            if (ServiceRegistry.state.started) SagerNet.stopService()
             true
         }
 

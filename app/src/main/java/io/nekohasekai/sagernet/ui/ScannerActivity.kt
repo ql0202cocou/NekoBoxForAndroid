@@ -37,6 +37,7 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.max
 import kotlin.math.roundToInt
+import io.nekohasekai.sagernet.database.GroupManager
 
 
 class ScannerActivity : ThemedActivity(),
@@ -141,7 +142,7 @@ class ScannerActivity : ThemedActivity(),
         val results = RawUpdater.parseRaw(text)
             ?.takeIf { it.isNotEmpty() }
             ?: error(app.getString(R.string.action_import_err))
-        val currentGroupId = DataStore.selectedGroupForImport()
+        val currentGroupId = GroupManager.selectedGroupForImport()
         if (DataStore.selectedGroup != currentGroupId) {
             DataStore.selectedGroup = currentGroupId
         }

@@ -22,7 +22,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.databinding.LayoutAddEntityBinding
@@ -32,6 +31,7 @@ import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.ui.ProfileSelectActivity
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import moe.matsuri.nb4a.Protocols.getProtocolColor
+import io.nekohasekai.sagernet.database.EditorCache
 
 class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout_chain_settings) {
 
@@ -42,23 +42,23 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
     val proxyList = ArrayList<ProxyEntity>()
 
     // Keep the cache in sync with proxyList so a rotation (which rebuilds
-    // proxyList from DataStore.serverProtocol in reload()) does not lose
+    // proxyList from EditorCache.serverProtocol in reload()) does not lose
     // unsaved member edits.
     fun updateProxiesCache() {
-        DataStore.serverProtocol = proxyList.joinToString(",") { it.id.toString() }
+        EditorCache.serverProtocol = proxyList.joinToString(",") { it.id.toString() }
     }
 
     // Inverse of updateProxiesCache().
     fun cachedProxyIds(): List<Long> =
-        DataStore.serverProtocol.split(",").filter { it.isNotBlank() }.map { it.toLong() }
+        EditorCache.serverProtocol.split(",").filter { it.isNotBlank() }.map { it.toLong() }
 
     override fun ChainBean.init() {
-        DataStore.profileName = name
-        DataStore.serverProtocol = proxies.joinToString(",")
+        EditorCache.profileName = name
+        EditorCache.serverProtocol = proxies.joinToString(",")
     }
 
     override fun ChainBean.serialize() {
-        name = DataStore.profileName
+        name = EditorCache.profileName
         proxies = cachedProxyIds()
         initializeDefaultValues()
     }
@@ -185,14 +185,14 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
             proxyList[from - 1] = toMove
             notifyItemMoved(from, to)
             updateProxiesCache()
-            DataStore.dirty = true
+            EditorCache.dirty = true
         }
 
         fun remove(index: Int) {
             proxyList.removeAt(index - 1)
             notifyItemRemoved(index)
             updateProxiesCache()
-            DataStore.dirty = true
+            EditorCache.dirty = true
         }
 
         override fun getItemId(position: Int): Long {
@@ -236,7 +236,7 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
     }
 
     fun testProfileAllowed(profile: ProxyEntity): Boolean {
-        if (profile.id == DataStore.editingId) return false
+        if (profile.id == EditorCache.editingId) return false
 
         for (entity in proxyList) {
             if (testProfileContains(entity, profile)) return false
@@ -245,7 +245,7 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
         // reverse check: the candidate's own subtree must not contain the chain
         // being edited, or adding it would close a loop (chain A holds chain B
         // while B is being edited to add A)
-        val editing = ProfileManager.getProfile(DataStore.editingId)
+        val editing = ProfileManager.getProfile(EditorCache.editingId)
         if (editing != null && testProfileContains(profile, editing)) return false
 
         return true
@@ -306,7 +306,7 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
                     }
                 } else {
                     onMainDispatcher {
-                        // reload() rebuilds proxyList from DataStore.serverProtocol
+                        // reload() rebuilds proxyList from EditorCache.serverProtocol
                         // asynchronously, so after a process-death restore the
                         // list may still be empty here. Write the selection
                         // through the same cache instead of indexing proxyList
@@ -318,8 +318,8 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
                         } else {
                             ids.add(profile.id)
                         }
-                        DataStore.serverProtocol = ids.joinToString(",")
-                        DataStore.dirty = true
+                        EditorCache.serverProtocol = ids.joinToString(",")
+                        EditorCache.dirty = true
                         lifecycleScope.launch(Dispatchers.Default) { configurationAdapter.reload() }
                     }
                 }

@@ -6,47 +6,47 @@ import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.fmt.trojan_go.TrojanGoBean
 import io.nekohasekai.sagernet.ktx.app
 import moe.matsuri.nb4a.ui.SimpleMenuPreference
+import io.nekohasekai.sagernet.database.EditorCache
 
 class TrojanGoSettingsActivity : ProfileSettingsActivity<TrojanGoBean>() {
 
     override fun createEntity() = TrojanGoBean()
 
     override fun TrojanGoBean.init() {
-        DataStore.profileName = name
-        DataStore.serverAddress = serverAddress
-        DataStore.serverPort = serverPort
-        DataStore.serverPassword = password
-        DataStore.serverSNI = sni
-        DataStore.serverAllowInsecure = allowInsecure
-        DataStore.serverNetwork = type
-        DataStore.serverHost = host
-        DataStore.serverPath = path
+        EditorCache.profileName = name
+        EditorCache.serverAddress = serverAddress
+        EditorCache.serverPort = serverPort
+        EditorCache.serverPassword = password
+        EditorCache.serverSNI = sni
+        EditorCache.serverAllowInsecure = allowInsecure
+        EditorCache.serverNetwork = type
+        EditorCache.serverHost = host
+        EditorCache.serverPath = path
         if (encryption.startsWith("ss;")) {
-            DataStore.serverEncryption = "ss"
-            DataStore.serverMethod = encryption.substringAfter(";").substringBefore(":")
-            DataStore.serverPassword1 = encryption.substringAfter(":", "")
+            EditorCache.serverEncryption = "ss"
+            EditorCache.serverMethod = encryption.substringAfter(";").substringBefore(":")
+            EditorCache.serverPassword1 = encryption.substringAfter(":", "")
         } else {
-            DataStore.serverEncryption = encryption
+            EditorCache.serverEncryption = encryption
         }
     }
 
     override fun TrojanGoBean.serialize() {
-        name = DataStore.profileName
-        serverAddress = DataStore.serverAddress
-        serverPort = DataStore.serverPort
-        password = DataStore.serverPassword
-        sni = DataStore.serverSNI
-        allowInsecure = DataStore.serverAllowInsecure
-        type = DataStore.serverNetwork
-        host = DataStore.serverHost
-        path = DataStore.serverPath
-        encryption = when (val security = DataStore.serverEncryption) {
+        name = EditorCache.profileName
+        serverAddress = EditorCache.serverAddress
+        serverPort = EditorCache.serverPort
+        password = EditorCache.serverPassword
+        sni = EditorCache.serverSNI
+        allowInsecure = EditorCache.serverAllowInsecure
+        type = EditorCache.serverNetwork
+        host = EditorCache.serverHost
+        path = EditorCache.serverPath
+        encryption = when (val security = EditorCache.serverEncryption) {
             "ss" -> {
-                "ss;" + DataStore.serverMethod + ":" + DataStore.serverPassword1
+                "ss;" + EditorCache.serverMethod + ":" + EditorCache.serverPassword1
             }
             else -> {
                 security

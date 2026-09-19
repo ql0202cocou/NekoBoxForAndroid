@@ -3,9 +3,9 @@ package io.nekohasekai.sagernet.widget
 import android.content.Context
 import android.util.AttributeSet
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
 import moe.matsuri.nb4a.ui.SimpleMenuPreference
+import io.nekohasekai.sagernet.database.EditorCache
 
 class OutboundPreference
 @JvmOverloads constructor(
@@ -19,7 +19,7 @@ class OutboundPreference
 
     override fun getSummary(): CharSequence? {
         if (value == "3") {
-            val routeOutbound = DataStore.profileCacheStore.getLong(key + "Long") ?: 0
+            val routeOutbound = EditorCache.profileCacheStore.getLong(key + "Long") ?: 0
             if (routeOutbound > 0) {
                 ProfileManager.getProfile(routeOutbound)?.displayName()?.let {
                     return it

@@ -4,11 +4,11 @@ import android.os.Bundle
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
 import moe.matsuri.nb4a.proxy.PreferenceBinding
 import moe.matsuri.nb4a.proxy.PreferenceBindingManager
 import moe.matsuri.nb4a.proxy.Type
+import io.nekohasekai.sagernet.database.EditorCache
 
 class ShadowsocksSettingsActivity : ProfileSettingsActivity<ShadowsocksBean>() {
 
@@ -29,8 +29,8 @@ class ShadowsocksSettingsActivity : ProfileSettingsActivity<ShadowsocksBean>() {
     override fun ShadowsocksBean.init() {
         pbm.writeToCacheAll(this)
 
-        DataStore.profileCacheStore.putString("pluginName", plugin.substringBefore(";"))
-        DataStore.profileCacheStore.putString("pluginConfig", plugin.substringAfter(";", ""))
+        EditorCache.profileCacheStore.putString("pluginName", plugin.substringBefore(";"))
+        EditorCache.profileCacheStore.putString("pluginConfig", plugin.substringAfter(";", ""))
     }
 
     override fun ShadowsocksBean.serialize() {

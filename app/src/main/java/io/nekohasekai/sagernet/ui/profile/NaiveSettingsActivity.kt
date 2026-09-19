@@ -7,37 +7,38 @@ import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.fmt.naive.NaiveBean
+import io.nekohasekai.sagernet.database.EditorCache
 
 class NaiveSettingsActivity : ProfileSettingsActivity<NaiveBean>() {
 
     override fun createEntity() = NaiveBean()
 
     override fun NaiveBean.init() {
-        DataStore.profileName = name
-        DataStore.serverAddress = serverAddress
-        DataStore.serverPort = serverPort
-        DataStore.serverUsername = username
-        DataStore.serverPassword = password
-        DataStore.serverProtocol = proto
-        DataStore.serverSNI = sni
-        DataStore.serverCertificates = certificates
-        DataStore.serverHeaders = extraHeaders
-        DataStore.serverInsecureConcurrency = insecureConcurrency
-        DataStore.profileCacheStore.putBoolean("sUoT", sUoT)
+        EditorCache.profileName = name
+        EditorCache.serverAddress = serverAddress
+        EditorCache.serverPort = serverPort
+        EditorCache.serverUsername = username
+        EditorCache.serverPassword = password
+        EditorCache.serverProtocol = proto
+        EditorCache.serverSNI = sni
+        EditorCache.serverCertificates = certificates
+        EditorCache.serverHeaders = extraHeaders
+        EditorCache.serverInsecureConcurrency = insecureConcurrency
+        EditorCache.profileCacheStore.putBoolean("sUoT", sUoT)
     }
 
     override fun NaiveBean.serialize() {
-        name = DataStore.profileName
-        serverAddress = DataStore.serverAddress
-        serverPort = DataStore.serverPort
-        username = DataStore.serverUsername
-        password = DataStore.serverPassword
-        proto = DataStore.serverProtocol
-        sni = DataStore.serverSNI
-        certificates = DataStore.serverCertificates
-        extraHeaders = DataStore.serverHeaders.replace("\r\n", "\n")
-        insecureConcurrency = DataStore.serverInsecureConcurrency
-        sUoT = DataStore.profileCacheStore.getBoolean("sUoT")
+        name = EditorCache.profileName
+        serverAddress = EditorCache.serverAddress
+        serverPort = EditorCache.serverPort
+        username = EditorCache.serverUsername
+        password = EditorCache.serverPassword
+        proto = EditorCache.serverProtocol
+        sni = EditorCache.serverSNI
+        certificates = EditorCache.serverCertificates
+        extraHeaders = EditorCache.serverHeaders.replace("\r\n", "\n")
+        insecureConcurrency = EditorCache.serverInsecureConcurrency
+        sUoT = EditorCache.profileCacheStore.getBoolean("sUoT")
     }
 
     override fun PreferenceFragmentCompat.createPreferences(
@@ -51,9 +52,9 @@ class NaiveSettingsActivity : ProfileSettingsActivity<NaiveBean>() {
     }
 
     override fun finish() {
-        if (DataStore.profileName == "喵要打开隐藏功能") {
+        if (EditorCache.profileName == "喵要打开隐藏功能") {
             DataStore.isExpert = true
-        } else if (DataStore.profileName == "喵要关闭隐藏功能") {
+        } else if (EditorCache.profileName == "喵要关闭隐藏功能") {
             DataStore.isExpert = false
         }
         super.finish()

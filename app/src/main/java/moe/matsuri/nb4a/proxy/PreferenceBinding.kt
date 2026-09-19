@@ -2,9 +2,9 @@ package moe.matsuri.nb4a.proxy
 
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
-import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.readableMessage
+import io.nekohasekai.sagernet.database.EditorCache
 
 object Type {
     const val Text = 0
@@ -23,15 +23,15 @@ class PreferenceBinding(
     var disable = false
 
     fun readStringFromCache(): String {
-        return DataStore.profileCacheStore.getString(cacheName) ?: ""
+        return EditorCache.profileCacheStore.getString(cacheName) ?: ""
     }
 
     fun readBoolFromCache(): Boolean {
-        return DataStore.profileCacheStore.getBoolean(cacheName, false)
+        return EditorCache.profileCacheStore.getBoolean(cacheName, false)
     }
 
     fun readStringToIntFromCache(): Int {
-        val value = DataStore.profileCacheStore.getString(cacheName)?.toIntOrNull() ?: 0
+        val value = EditorCache.profileCacheStore.getString(cacheName)?.toIntOrNull() ?: 0
 //        Logs.d("readStringToIntFromCache $value $cacheName -> $fieldName")
         return value
     }
@@ -64,18 +64,18 @@ class PreferenceBinding(
             Type.Text -> {
                 if (value is String) {
 //                    Logs.d("writeToCache TEXT $value $cacheName -> $fieldName")
-                    DataStore.profileCacheStore.putString(cacheName, value)
+                    EditorCache.profileCacheStore.putString(cacheName, value)
                 }
             }
             Type.TextToInt -> {
                 if (value is Int) {
 //                    Logs.d("writeToCache TEXT2INT $value $cacheName -> $fieldName")
-                    DataStore.profileCacheStore.putString(cacheName, value.toString())
+                    EditorCache.profileCacheStore.putString(cacheName, value.toString())
                 }
             }
             Type.Bool -> {
                 if (value is Boolean) {
-                    DataStore.profileCacheStore.putBoolean(cacheName, value)
+                    EditorCache.profileCacheStore.putBoolean(cacheName, value)
                 }
             }
         }

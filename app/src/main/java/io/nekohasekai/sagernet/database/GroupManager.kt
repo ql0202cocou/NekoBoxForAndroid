@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.database
 
 import io.nekohasekai.sagernet.GroupType
+import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.bg.SubscriptionUpdater
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import java.util.concurrent.CopyOnWriteArrayList
@@ -172,8 +173,42 @@ object GroupManager {
         SagerDatabase.groupDao.resetDanglingLandingProxies()
     }
 
-    // Mirrors the fallback in DataStore.currentGroup(): fall back to the first
-    // remaining group, or -1 so currentGroup() recreates the ungrouped group.
+    // Trusts any positive selection without a lookup (callers that need the
+    // row use currentGroup()); otherwise falls back like currentGroup().
+    @Synchronized
+    fun currentGroupId(): Long {
+        val currentSelected = DataStore.configurationStore.getLong(Key.PROFILE_GROUP, -1)
+        if (currentSelected > 0L) return currentSelected
+        return currentGroup().id
+    }
+
+    // The selected group, or the first existing one, or a fresh ungrouped
+    // group; the fallback is written back as the selection.
+    @Synchronized
+    fun currentGroup(): ProxyGroup {
+        val currentSelected = DataStore.configurationStore.getLong(Key.PROFILE_GROUP, -1)
+        if (currentSelected > 0L) {
+            SagerDatabase.groupDao.getById(currentSelected)?.let { return it }
+        }
+        val group = SagerDatabase.groupDao.allGroups().firstOrNull()
+            ?: ProxyGroup(ungrouped = true).apply {
+                id = SagerDatabase.groupDao.createGroup(this)
+            }
+        DataStore.selectedGroup = group.id
+        return group
+    }
+
+    fun selectedGroupForImport(): Long {
+        val current = currentGroup()
+        if (current.type == GroupType.BASIC) return current.id
+        val groups = SagerDatabase.groupDao.allGroups()
+        // no BASIC group yet (e.g. fresh install importing a subscription first):
+        // fall back to the current group, which currentGroup() creates if needed
+        return groups.find { it.type == GroupType.BASIC }?.id ?: current.id
+    }
+
+    // Mirrors the fallback in currentGroup(): fall back to the first remaining
+    // group, or -1 so currentGroup() recreates the ungrouped group.
     fun resetSelectedGroup() {
         DataStore.selectedGroup = SagerDatabase.groupDao.allGroups().firstOrNull()?.id ?: -1L
     }

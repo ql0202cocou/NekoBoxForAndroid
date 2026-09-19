@@ -82,6 +82,8 @@ import java.net.UnknownHostException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.zip.ZipInputStream
+import io.nekohasekai.sagernet.database.GroupManager
+import io.nekohasekai.sagernet.database.EditorCache
 
 class ConfigurationFragment @JvmOverloads constructor(
     val select: Boolean = false, val selectedItem: ProxyEntity? = null, val titleRes: Int = 0,
@@ -222,14 +224,14 @@ class ConfigurationFragment @JvmOverloads constructor(
         // Same re-registration guard as the adapter listeners above:
         // onViewCreated runs again after the detach/attach in onCreate,
         // while onDestroy only unregisters once.
-        DataStore.profileCacheStore.unregisterChangeListener(this)
-        DataStore.profileCacheStore.registerChangeListener(this)
+        EditorCache.profileCacheStore.unregisterChangeListener(this)
+        EditorCache.profileCacheStore.registerChangeListener(this)
     }
 
     override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
         runOnMainDispatcher {
             // editingGroup: an editor took the user to the edited group
-            if (key == Key.PROFILE_GROUP) selectGroupTab(DataStore.editingGroup)
+            if (key == Key.PROFILE_GROUP) selectGroupTab(EditorCache.editingGroup)
         }
     }
 
@@ -249,7 +251,7 @@ class ConfigurationFragment @JvmOverloads constructor(
     }
 
     override fun onDestroy() {
-        DataStore.profileCacheStore.unregisterChangeListener(this)
+        EditorCache.profileCacheStore.unregisterChangeListener(this)
 
         if (::adapter.isInitialized) {
             GroupRepository.removeListener(adapter)
@@ -324,7 +326,7 @@ class ConfigurationFragment @JvmOverloads constructor(
         }
 
     suspend fun import(proxies: List<AbstractBean>) {
-        val targetId = DataStore.selectedGroupForImport()
+        val targetId = GroupManager.selectedGroupForImport()
         for (proxy in proxies) {
             ProfileRepository.createProfile(targetId, proxy)
         }
@@ -443,7 +445,7 @@ class ConfigurationFragment @JvmOverloads constructor(
             }
 
             R.id.action_update_subscription -> {
-                val group = DataStore.currentGroup()
+                val group = GroupManager.currentGroup()
                 if (group.type != GroupType.SUBSCRIPTION) {
                     snackbar(R.string.group_not_subscription).show()
                     Logs.e("onMenuItemClick: Group(${group.displayName()}) is not subscription")
@@ -456,7 +458,7 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             R.id.action_clear_traffic_statistics -> {
                 runOnDefaultDispatcher {
-                    val toClear = ProfileRepository.getProfilesByGroup(DataStore.currentGroupId())
+                    val toClear = ProfileRepository.getProfilesByGroup(GroupManager.currentGroupId())
                         .filter { it.tx != 0L || it.rx != 0L }
                     if (toClear.isNotEmpty()) {
                         ProfileRepository.clearTraffic(toClear)
@@ -471,7 +473,7 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             R.id.action_connection_test_clear_results -> {
                 runOnDefaultDispatcher {
-                    val toClear = ProfileRepository.getProfilesByGroup(DataStore.currentGroupId())
+                    val toClear = ProfileRepository.getProfilesByGroup(GroupManager.currentGroupId())
                         .filter { it.status != 0 }
                     ProfileRepository.clearTestResults(toClear)
                     // the bare column write posts nothing, so refresh the list here
@@ -481,7 +483,7 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             R.id.action_connection_test_delete_unavailable -> {
                 runOnDefaultDispatcher {
-                    val profiles = ProfileRepository.getProfilesByGroup(DataStore.currentGroupId())
+                    val profiles = ProfileRepository.getProfilesByGroup(GroupManager.currentGroupId())
                     val toClear = mutableListOf<ProxyEntity>()
                     if (profiles.isNotEmpty()) for (profile in profiles) {
                         if (profile.status != 0 && profile.status != 1) {
@@ -506,7 +508,7 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             R.id.action_remove_duplicate -> {
                 runOnDefaultDispatcher {
-                    val profiles = ProfileRepository.getProfilesByGroup(DataStore.currentGroupId())
+                    val profiles = ProfileRepository.getProfilesByGroup(GroupManager.currentGroupId())
                     val toClear = mutableListOf<ProxyEntity>()
                     val uniqueProxies = LinkedHashSet<Protocols.Deduplication>()
                     for (pf in profiles) {
@@ -560,7 +562,7 @@ class ConfigurationFragment @JvmOverloads constructor(
         val test = TestDialog(this)
         val dialog = test.builder.show()
         val testJobs = mutableListOf<Job>()
-        val group = DataStore.currentGroup()
+        val group = GroupManager.currentGroup()
 
         val mainJob = runOnDefaultDispatcher {
             val profilesList = ProfileRepository.getProfilesByGroup(group.id).filter {
@@ -695,7 +697,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                         Logs.w(e)
                     }
                 }
-                GroupRepository.postReload(DataStore.currentGroupId())
+                GroupRepository.postReload(GroupManager.currentGroupId())
                 DataStore.runningTest.set(false)
             }
         }
@@ -715,7 +717,7 @@ class ConfigurationFragment @JvmOverloads constructor(
         val test = TestDialog(this)
         val dialog = test.builder.show()
         val testJobs = mutableListOf<Job>()
-        val group = DataStore.currentGroup()
+        val group = GroupManager.currentGroup()
 
         val mainJob = runOnDefaultDispatcher {
             val profilesList = ProfileRepository.getProfilesByGroup(group.id)
@@ -768,7 +770,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                         Logs.w(e)
                     }
                 }
-                GroupRepository.postReload(DataStore.currentGroupId())
+                GroupRepository.postReload(GroupManager.currentGroupId())
                 DataStore.runningTest.set(false)
             }
         }

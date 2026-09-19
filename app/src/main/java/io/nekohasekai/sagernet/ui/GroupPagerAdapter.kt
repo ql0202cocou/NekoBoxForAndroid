@@ -41,7 +41,7 @@ class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentS
                 }
             }
 
-            var selectedGroup = fragment.selectedItem?.groupId ?: DataStore.currentGroupId()
+            var selectedGroup = fragment.selectedItem?.groupId ?: GroupManager.currentGroupId()
             var set = false
             if (selectedGroup > 0L) {
                 selectedGroupIndex = newGroupList.indexOfFirst { it.id == selectedGroup }

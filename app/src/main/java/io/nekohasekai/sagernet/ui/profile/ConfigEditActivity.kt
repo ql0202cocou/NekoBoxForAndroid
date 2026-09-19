@@ -30,6 +30,7 @@ import io.nekohasekai.sagernet.widget.padForSystemBars
 import io.nekohasekai.sagernet.widget.safeDrawingTypes
 import moe.matsuri.nb4a.ui.ExtendedKeyboard
 import org.json.JSONObject
+import io.nekohasekai.sagernet.database.EditorCache
 
 class ConfigEditActivity : ThemedActivity() {
 
@@ -86,12 +87,12 @@ class ConfigEditActivity : ThemedActivity() {
             if (useConfigStore) {
                 setTextContent(DataStore.configurationStore.getString(key) ?: "")
             } else {
-                setTextContent(DataStore.profileCacheStore.getString(key) ?: "")
+                setTextContent(EditorCache.profileCacheStore.getString(key) ?: "")
             }
             addTextChangedListener {
                 if (!dirty) {
                     dirty = true
-                    DataStore.dirty = true
+                    EditorCache.dirty = true
                 }
             }
         }
@@ -177,7 +178,7 @@ class ConfigEditActivity : ThemedActivity() {
             if (useConfigStore) {
                 DataStore.configurationStore.putString(key, it)
             } else {
-                DataStore.profileCacheStore.putString(key, it)
+                EditorCache.profileCacheStore.putString(key, it)
             }
             finish()
         }

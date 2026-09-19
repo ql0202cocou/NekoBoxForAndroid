@@ -10,6 +10,7 @@ import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ui.profile.ConfigEditActivity
+import io.nekohasekai.sagernet.database.EditorCache
 
 class EditConfigPreference : Preference {
 
@@ -46,7 +47,7 @@ class EditConfigPreference : Preference {
 
     override fun getSummary(): CharSequence {
         val config =
-            (if (useConfigStore) DataStore.configurationStore.getString(configKey) else DataStore.serverConfig)
+            (if (useConfigStore) DataStore.configurationStore.getString(configKey) else EditorCache.serverConfig)
                 ?: ""
         return if (config.isBlank()) {
             return app.resources.getString(androidx.preference.R.string.not_set)

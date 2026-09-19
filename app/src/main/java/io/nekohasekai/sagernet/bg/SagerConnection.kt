@@ -71,7 +71,7 @@ class SagerConnection(
         override fun stateChanged(state: Int, profileName: String?, msg: String?) {
             if (state < 0) return // skip private
             val s = BaseService.State.values()[state]
-            DataStore.serviceState = s
+            ServiceRegistry.state = s
             runOnMainDispatcher {
                 // re-read at execution time: disconnect() may have run while
                 // this lambda was queued, and a stale copy would still fire

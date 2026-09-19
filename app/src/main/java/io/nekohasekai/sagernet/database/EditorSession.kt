@@ -19,9 +19,9 @@ enum class EditorSessionState { OWNER, CACHE_LOST, TAKEN_OVER }
 // cache. Must run before the editor writes any of its own keys (editingId
 // included).
 fun claimEditorSession(): Long {
-    DataStore.profileCacheStore.reset()
+    EditorCache.profileCacheStore.reset()
     val token = SystemClock.elapsedRealtimeNanos()
-    DataStore.profileCacheStore.putLong(Key.EDITOR_SESSION, token)
+    EditorCache.profileCacheStore.putLong(Key.EDITOR_SESSION, token)
     return token
 }
 
@@ -30,7 +30,7 @@ fun claimEditorSession(): Long {
 // (the caller re-initializes as before); TAKEN_OVER means another top-level
 // editor claimed the cache meanwhile.
 fun checkEditorSession(savedToken: Long): EditorSessionState {
-    val cached = DataStore.profileCacheStore.getLong(Key.EDITOR_SESSION)
+    val cached = EditorCache.profileCacheStore.getLong(Key.EDITOR_SESSION)
     return when {
         cached == null -> EditorSessionState.CACHE_LOST
         cached == savedToken -> EditorSessionState.OWNER
@@ -41,5 +41,5 @@ fun checkEditorSession(savedToken: Long): EditorSessionState {
 // Re-claim with the same token after a process-death re-init rewrote the
 // cache, so later recreations still match.
 fun renewEditorSession(savedToken: Long) {
-    DataStore.profileCacheStore.putLong(Key.EDITOR_SESSION, savedToken)
+    EditorCache.profileCacheStore.putLong(Key.EDITOR_SESSION, savedToken)
 }

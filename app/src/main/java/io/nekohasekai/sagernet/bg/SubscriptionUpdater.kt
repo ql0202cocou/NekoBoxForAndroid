@@ -14,7 +14,6 @@ import androidx.work.multiprocess.RemoteListenableWorker.ARGUMENT_PACKAGE_NAME
 import androidx.work.multiprocess.RemoteWorkManager
 import androidx.work.multiprocess.RemoteWorkerService
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.SubscriptionBean
@@ -66,7 +65,7 @@ object SubscriptionUpdater {
         if (minDelay < 15) minDelay = 15
 
         // Scheduling stays in the main process, but UpdateTask has to run in :bg —
-        // the only process whose DataStore.serviceState tracks the service. These two
+        // the only process whose ServiceRegistry.state tracks the service. These two
         // arguments make WorkManager delegate the request to RemoteWorkerService
         // (manifest-pinned to :bg); without them the work would never do anything.
         val remoteArgs = Data.Builder()
@@ -105,7 +104,7 @@ object SubscriptionUpdater {
         override suspend fun doRemoteWork(): Result {
             try {
                 var subscriptions = autoUpdateSubscriptions()
-                if (!DataStore.serviceState.connected) {
+                if (!ServiceRegistry.state.connected) {
                     Logs.d("work: not connected")
                     subscriptions = subscriptions.filter { (_, subscription) -> !subscription.updateWhenConnectedOnly }
                 }

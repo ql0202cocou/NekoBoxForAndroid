@@ -24,7 +24,6 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
-import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.RuleEntity
 import io.nekohasekai.sagernet.database.SagerDatabase
@@ -39,6 +38,7 @@ import io.nekohasekai.sagernet.widget.padForSystemBars
 import io.nekohasekai.sagernet.widget.OutboundPreference
 import kotlinx.parcelize.Parcelize
 import moe.matsuri.nb4a.ui.EditConfigPreference
+import io.nekohasekai.sagernet.database.EditorCache
 
 @Suppress("UNCHECKED_CAST")
 class RouteSettingsActivity(
@@ -62,44 +62,44 @@ class RouteSettingsActivity(
     }
 
     fun RuleEntity.init() {
-        DataStore.routeName = name
-        DataStore.serverConfig = config
-        DataStore.routeDomain = domains
-        DataStore.routeIP = ip
-        DataStore.routePort = port
-        DataStore.routeSourcePort = sourcePort
-        DataStore.routeNetwork = network
-        DataStore.routeSource = source
-        DataStore.routeProtocol = protocol
-        DataStore.routeOutboundRule = outbound
-        DataStore.routeOutbound = when (outbound) {
+        EditorCache.routeName = name
+        EditorCache.serverConfig = config
+        EditorCache.routeDomain = domains
+        EditorCache.routeIP = ip
+        EditorCache.routePort = port
+        EditorCache.routeSourcePort = sourcePort
+        EditorCache.routeNetwork = network
+        EditorCache.routeSource = source
+        EditorCache.routeProtocol = protocol
+        EditorCache.routeOutboundRule = outbound
+        EditorCache.routeOutbound = when (outbound) {
             0L -> 0
             -1L -> 1
             -2L -> 2
             else -> 3
         }
-        DataStore.routePackages = packages.joinToString("\n")
+        EditorCache.routePackages = packages.joinToString("\n")
     }
 
     fun RuleEntity.serialize() {
-        name = DataStore.routeName
-        config = DataStore.serverConfig
-        domains = DataStore.routeDomain
-        ip = DataStore.routeIP
-        port = DataStore.routePort
-        sourcePort = DataStore.routeSourcePort
-        network = DataStore.routeNetwork
-        source = DataStore.routeSource
-        protocol = DataStore.routeProtocol
-        outbound = when (DataStore.routeOutbound) {
+        name = EditorCache.routeName
+        config = EditorCache.serverConfig
+        domains = EditorCache.routeDomain
+        ip = EditorCache.routeIP
+        port = EditorCache.routePort
+        sourcePort = EditorCache.routeSourcePort
+        network = EditorCache.routeNetwork
+        source = EditorCache.routeSource
+        protocol = EditorCache.routeProtocol
+        outbound = when (EditorCache.routeOutbound) {
             0 -> 0L
             1 -> -1L
             2 -> -2L
-            else -> DataStore.routeOutboundRule
+            else -> EditorCache.routeOutboundRule
         }
-        packages = DataStore.routePackages.split("\n").filter { it.isNotBlank() }.toSet()
+        packages = EditorCache.routePackages.split("\n").filter { it.isNotBlank() }.toSet()
 
-        if (DataStore.editingId == 0L) {
+        if (EditorCache.editingId == 0L) {
             enabled = true
         }
     }
@@ -107,7 +107,7 @@ class RouteSettingsActivity(
     private lateinit var editConfigPreference: EditConfigPreference
 
     fun needSave(): Boolean {
-        return DataStore.dirty
+        return EditorCache.dirty
     }
 
     fun PreferenceFragmentCompat.createPreferences(
@@ -139,8 +139,8 @@ class RouteSettingsActivity(
             // Set pending before the DataStore writes so the re-init either
             // re-applies it (callback ran first) or loses to these writes.
             pendingRouteOutbound = profile.id
-            DataStore.routeOutboundRule = profile.id
-            DataStore.routeOutbound = 3
+            EditorCache.routeOutboundRule = profile.id
+            EditorCache.routeOutbound = 3
             onMainDispatcher {
                 // The fragment may not be committed yet on a process-death
                 // restore; it reads the DataStore values when created.
@@ -155,7 +155,7 @@ class RouteSettingsActivity(
         ActivityResultContracts.StartActivityForResult()
     ) { (_, _) ->
         // The fragment may not be committed yet on a process-death restore;
-        // AppListActivity already wrote DataStore.routePackages, so skipping
+        // AppListActivity already wrote EditorCache.routePackages, so skipping
         // the refresh loses nothing.
         if (::apps.isInitialized) {
             apps.postUpdate()
@@ -252,9 +252,9 @@ class RouteSettingsActivity(
         // the process. On a process-death restore savedInstanceState != null but
         // the cache is empty; re-initialize from the intent extras, or the blank
         // editor would save a garbage rule.
-        if (savedInstanceState == null || DataStore.profileCacheStore.getString(Key.ROUTE_OUTBOUND) == null) {
+        if (savedInstanceState == null || EditorCache.profileCacheStore.getString(Key.ROUTE_OUTBOUND) == null) {
             val editingId = intent.getLongExtra(EXTRA_ROUTE_ID, 0L)
-            DataStore.editingId = editingId
+            EditorCache.editingId = editingId
             runOnDefaultDispatcher {
                 if (editingId == 0L) {
                     init(intent.getStringExtra(EXTRA_PACKAGE_NAME))
@@ -272,8 +272,8 @@ class RouteSettingsActivity(
                 // Re-apply a picker result redelivered before this init ran,
                 // so the user's selection wins over the entity values.
                 pendingRouteOutbound?.let {
-                    DataStore.routeOutboundRule = it
-                    DataStore.routeOutbound = 3
+                    EditorCache.routeOutboundRule = it
+                    EditorCache.routeOutbound = 3
                 }
 
                 // The cache was empty (process death): re-claim the session so
@@ -294,7 +294,7 @@ class RouteSettingsActivity(
 
     suspend fun saveAndExit() {
 
-        val editingId = DataStore.editingId
+        val editingId = EditorCache.editingId
 
         // Only block a brand-new empty route; an existing rule left unchanged
         // just exits without saving.
@@ -315,7 +315,7 @@ class RouteSettingsActivity(
 
             ProfileManager.createRule(RuleEntity().apply { serialize() })
         } else if (needSave()) {
-            val entity = SagerDatabase.rulesDao.getById(DataStore.editingId)
+            val entity = SagerDatabase.rulesDao.getById(EditorCache.editingId)
             if (entity == null) {
                 finish()
                 return
@@ -339,13 +339,13 @@ class RouteSettingsActivity(
     override fun onOptionsItemSelected(item: MenuItem) = child?.onMenuItemSelected(item) == true
 
     override fun onDestroy() {
-        DataStore.profileCacheStore.unregisterChangeListener(this)
+        EditorCache.profileCacheStore.unregisterChangeListener(this)
         super.onDestroy()
     }
 
     override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
         if (key != Key.PROFILE_DIRTY) {
-            DataStore.dirty = true
+            EditorCache.dirty = true
         }
     }
 
@@ -354,7 +354,7 @@ class RouteSettingsActivity(
         var activity: RouteSettingsActivity? = null
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
-            preferenceManager.preferenceDataStore = DataStore.profileCacheStore
+            preferenceManager.preferenceDataStore = EditorCache.profileCacheStore
             try {
                 activity = (requireActivity() as RouteSettingsActivity).apply {
                     createPreferences(savedInstanceState, rootKey)
@@ -379,19 +379,19 @@ class RouteSettingsActivity(
                 // Only clear dirty on first creation; resetting it after a
                 // recreation (rotation) would silently drop unsaved edits.
                 if (savedInstanceState == null) {
-                    DataStore.dirty = false
+                    EditorCache.dirty = false
                 }
-                DataStore.profileCacheStore.registerChangeListener(this)
+                EditorCache.profileCacheStore.registerChangeListener(this)
             }
         }
 
         fun onMenuItemSelected(item: MenuItem) = when (item.itemId) {
             R.id.action_delete -> {
-                if (DataStore.editingId == 0L) {
+                if (EditorCache.editingId == 0L) {
                     requireActivity().finish()
                 } else {
                     DeleteConfirmationDialogFragment().apply {
-                        arg(ProfileIdArg(DataStore.editingId))
+                        arg(ProfileIdArg(EditorCache.editingId))
                         key()
                     }.show(parentFragmentManager, null)
                 }

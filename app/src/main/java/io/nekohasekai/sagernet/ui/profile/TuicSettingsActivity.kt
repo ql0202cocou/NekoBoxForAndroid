@@ -6,50 +6,50 @@ import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreference
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.fmt.tuic.TuicBean
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
+import io.nekohasekai.sagernet.database.EditorCache
 
 class TuicSettingsActivity : ProfileSettingsActivity<TuicBean>() {
 
     override fun createEntity() = TuicBean().applyDefaultValues()
 
     override fun validateEditor(): String? {
-        return certificateFingerprintError(DataStore.serverCertificateFingerprint)
+        return certificateFingerprintError(EditorCache.serverCertificateFingerprint)
     }
 
     override fun TuicBean.init() {
-        DataStore.profileName = name
-        DataStore.serverAddress = serverAddress
-        DataStore.serverPort = serverPort
-        DataStore.serverUsername = uuid
-        DataStore.serverPassword = token
-        DataStore.serverALPN = alpn
-        DataStore.serverCertificates = caText
-        DataStore.serverCertificateFingerprint = certificateFingerprint
-        DataStore.serverUDPRelayMode = udpRelayMode
-        DataStore.serverCongestionController = congestionController
-        DataStore.serverDisableSNI = disableSNI
-        DataStore.serverSNI = sni
-        DataStore.serverReduceRTT = reduceRTT
-        DataStore.serverAllowInsecure = allowInsecure
+        EditorCache.profileName = name
+        EditorCache.serverAddress = serverAddress
+        EditorCache.serverPort = serverPort
+        EditorCache.serverUsername = uuid
+        EditorCache.serverPassword = token
+        EditorCache.serverALPN = alpn
+        EditorCache.serverCertificates = caText
+        EditorCache.serverCertificateFingerprint = certificateFingerprint
+        EditorCache.serverUDPRelayMode = udpRelayMode
+        EditorCache.serverCongestionController = congestionController
+        EditorCache.serverDisableSNI = disableSNI
+        EditorCache.serverSNI = sni
+        EditorCache.serverReduceRTT = reduceRTT
+        EditorCache.serverAllowInsecure = allowInsecure
     }
 
     override fun TuicBean.serialize() {
-        name = DataStore.profileName
-        serverAddress = DataStore.serverAddress
-        serverPort = DataStore.serverPort
-        uuid = DataStore.serverUsername
-        token = DataStore.serverPassword
-        alpn = DataStore.serverALPN
-        caText = DataStore.serverCertificates
-        certificateFingerprint = DataStore.serverCertificateFingerprint
-        udpRelayMode = DataStore.serverUDPRelayMode
-        congestionController = DataStore.serverCongestionController
-        disableSNI = DataStore.serverDisableSNI
-        sni = DataStore.serverSNI
-        reduceRTT = DataStore.serverReduceRTT
-        allowInsecure = DataStore.serverAllowInsecure
+        name = EditorCache.profileName
+        serverAddress = EditorCache.serverAddress
+        serverPort = EditorCache.serverPort
+        uuid = EditorCache.serverUsername
+        token = EditorCache.serverPassword
+        alpn = EditorCache.serverALPN
+        caText = EditorCache.serverCertificates
+        certificateFingerprint = EditorCache.serverCertificateFingerprint
+        udpRelayMode = EditorCache.serverUDPRelayMode
+        congestionController = EditorCache.serverCongestionController
+        disableSNI = EditorCache.serverDisableSNI
+        sni = EditorCache.serverSNI
+        reduceRTT = EditorCache.serverReduceRTT
+        allowInsecure = EditorCache.serverAllowInsecure
     }
 
     override fun PreferenceFragmentCompat.createPreferences(

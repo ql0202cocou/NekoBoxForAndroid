@@ -19,6 +19,7 @@ import io.nekohasekai.sagernet.ktx.launchCustomTab
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import moe.matsuri.nb4a.utils.WebViewUtil
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import io.nekohasekai.sagernet.bg.ServiceRegistry
 
 // Fragment必须有一个无参public的构造函数，否则在数据恢复的时候，会报crash
 
@@ -104,7 +105,7 @@ class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenu
         val parsed = url.toHttpUrlOrNull() ?: return url
         if (parsed.queryParameter("secret") != null) return url
         if ("${parsed.host}:${parsed.port}" != CLASH_API_LISTEN) return url
-        if (!DataStore.enableClashAPI || !DataStore.serviceState.started) return url
+        if (!DataStore.enableClashAPI || !ServiceRegistry.state.started) return url
         return parsed.newBuilder().apply {
             if (parsed.encodedPath == "/ui") encodedPath("/ui/")
             addQueryParameter("secret", DataStore.requireClashApiSecret())

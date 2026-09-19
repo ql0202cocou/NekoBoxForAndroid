@@ -13,7 +13,6 @@ import androidx.recyclerview.widget.RecyclerView
 import io.nekohasekai.sagernet.GroupOrder
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.bg.BaseService
-import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.ProxyEntity
@@ -25,6 +24,7 @@ import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import kotlinx.coroutines.sync.Mutex
+import io.nekohasekai.sagernet.bg.ServiceRegistry
 
 class ProfileListFragment : Fragment() {
 
@@ -69,7 +69,7 @@ class ProfileListFragment : Fragment() {
 
     private val isEnabled: Boolean
         get() {
-            return DataStore.serviceState.let { it.canStop || it == BaseService.State.Stopped }
+            return ServiceRegistry.state.let { it.canStop || it == BaseService.State.Stopped }
         }
 
     lateinit var layoutManager: LinearLayoutManager

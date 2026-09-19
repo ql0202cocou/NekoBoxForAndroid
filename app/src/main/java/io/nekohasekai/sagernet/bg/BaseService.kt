@@ -116,7 +116,7 @@ class BaseService {
         fun changeState(s: State, msg: String? = null) {
             if (state == s && msg == null) return
             state = s
-            DataStore.serviceState = s
+            ServiceRegistry.state = s
             binder.stateChanged(s, msg)
         }
     }
@@ -319,8 +319,8 @@ class BaseService {
         }
 
         fun stopRunner(restart: Boolean = false, msg: String? = null) {
-            DataStore.baseService = null
-            DataStore.vpnService = null
+            ServiceRegistry.baseService = null
+            ServiceRegistry.vpnService = null
 
             if (data.state == State.Stopping) return
 
@@ -394,7 +394,7 @@ class BaseService {
                     }
                     SagerNet.connectivity.getLinkProperties(network)?.also { link ->
                         SagerNet.underlyingNetwork = network
-                        DataStore.vpnService?.updateUnderlyingNetwork()
+                        ServiceRegistry.vpnService?.updateUnderlyingNetwork()
                         //
                         val oldName = data.upstreamInterfaceName
                         val newName = link.interfaceName
@@ -433,7 +433,7 @@ class BaseService {
         }
 
         fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-            DataStore.baseService = this
+            ServiceRegistry.baseService = this
 
             val data = data
             if (data.state != State.Stopped) return Service.START_NOT_STICKY

@@ -28,7 +28,6 @@ import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
-import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.databinding.LayoutAppListBinding
 import io.nekohasekai.sagernet.databinding.LayoutAppsItemBinding
 import io.nekohasekai.sagernet.ktx.crossFadeFrom
@@ -40,6 +39,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.coroutineContext
+import io.nekohasekai.sagernet.database.EditorCache
 
 class AppListActivity : ThemedActivity() {
     companion object {
@@ -94,7 +94,7 @@ class AppListActivity : ThemedActivity() {
 
         override fun onClick(v: View?) {
             if (isProxiedApp(item)) proxiedUids.delete(item.uid) else proxiedUids[item.uid] = true
-            DataStore.routePackages = apps.filter { isProxiedApp(it) }
+            EditorCache.routePackages = apps.filter { isProxiedApp(it) }
                 .joinToString("\n") { it.packageName }
             appsAdapter.notifyItemRangeChanged(0, appsAdapter.itemCount, SWITCH)
         }
@@ -165,7 +165,7 @@ class AppListActivity : ThemedActivity() {
     private var apps = emptyList<ProxiedApp>()
     private val appsAdapter = AppsAdapter()
 
-    private fun initProxiedUids(str: String = DataStore.routePackages) {
+    private fun initProxiedUids(str: String = EditorCache.routePackages) {
         proxiedUids.clear()
         val apps = cachedApps
         for (line in str.lineSequence()) {
@@ -205,7 +205,7 @@ class AppListActivity : ThemedActivity() {
         // (read as String: routeOutbound is persisted via stringToInt, so the
         // row is TYPE_STRING and getInt() would never see it)
         if (savedInstanceState != null &&
-            DataStore.profileCacheStore.getString(Key.ROUTE_OUTBOUND) == null
+            EditorCache.profileCacheStore.getString(Key.ROUTE_OUTBOUND) == null
         ) {
             finish()
             return
@@ -277,7 +277,7 @@ class AppListActivity : ThemedActivity() {
                         proxiedUids[app.uid] = true
                     }
                 }
-                DataStore.routePackages = apps.filter { isProxiedApp(it) }
+                EditorCache.routePackages = apps.filter { isProxiedApp(it) }
                     .joinToString("\n") { it.packageName }
                 apps = apps.sortedWith(compareBy({ !isProxiedApp(it) }, { it.name.toString() }))
                 appsAdapter.filter.filter(binding.search.text?.toString() ?: "")
@@ -287,13 +287,13 @@ class AppListActivity : ThemedActivity() {
 
             R.id.action_clear_selections -> {
                 proxiedUids.clear()
-                DataStore.routePackages = ""
+                EditorCache.routePackages = ""
                 apps = apps.sortedWith(compareBy({ !isProxiedApp(it) }, { it.name.toString() }))
                 appsAdapter.filter.filter(binding.search.text?.toString() ?: "")
             }
 
             R.id.action_export_clipboard -> {
-                val success = SagerNet.trySetPrimaryClip("false\n${DataStore.routePackages}")
+                val success = SagerNet.trySetPrimaryClip("false\n${EditorCache.routePackages}")
                 Snackbar.make(
                     binding.list,
                     if (success) R.string.action_export_msg else R.string.action_export_err,
@@ -309,7 +309,7 @@ class AppListActivity : ThemedActivity() {
                     val i = proxiedAppString.indexOf('\n')
                     try {
                         val apps = if (i < 0) "" else proxiedAppString.substring(i + 1)
-                        DataStore.routePackages = apps
+                        EditorCache.routePackages = apps
                         Snackbar.make(
                             binding.list, R.string.action_import_msg, Snackbar.LENGTH_LONG
                         ).show()

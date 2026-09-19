@@ -49,6 +49,7 @@ import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import moe.matsuri.nb4a.utils.Util
+import io.nekohasekai.sagernet.bg.ServiceRegistry
 
 class MainActivity : ThemedActivity(),
     SagerConnection.Callback,
@@ -94,11 +95,11 @@ class MainActivity : ThemedActivity(),
         }
 
         binding.fab.setOnClickListener {
-            if (DataStore.serviceState.canStop) SagerNet.stopService() else connect.launch(
+            if (ServiceRegistry.state.canStop) SagerNet.stopService() else connect.launch(
                 null
             )
         }
-        binding.stats.setOnClickListener { if (DataStore.serviceState.connected) binding.stats.testConnection() }
+        binding.stats.setOnClickListener { if (ServiceRegistry.state.connected) binding.stats.testConnection() }
 
         setContentView(binding.root)
         changeState(BaseService.State.Idle)
@@ -154,7 +155,7 @@ class MainActivity : ThemedActivity(),
     }
 
     fun urlTest(): Int {
-        if (!DataStore.serviceState.connected || connection.service == null) {
+        if (!ServiceRegistry.state.connected || connection.service == null) {
             error("not started")
         }
         return connection.service!!.urlTest()
@@ -246,7 +247,7 @@ class MainActivity : ThemedActivity(),
     }
 
     private suspend fun finishImportProfile(profile: AbstractBean) {
-        val targetId = DataStore.selectedGroupForImport()
+        val targetId = GroupManager.selectedGroupForImport()
 
         ProfileManager.createProfile(targetId, profile)
 
@@ -360,9 +361,9 @@ class MainActivity : ThemedActivity(),
         msg: String? = null,
         animate: Boolean = false,
     ) {
-        DataStore.serviceState = state
+        ServiceRegistry.state = state
 
-        binding.fab.changeState(state, DataStore.serviceState, animate)
+        binding.fab.changeState(state, ServiceRegistry.state, animate)
         binding.stats.changeState(state)
         if (msg != null) snackbar(getString(R.string.vpn_error, msg)).show()
     }
@@ -426,7 +427,7 @@ class MainActivity : ThemedActivity(),
         when (key) {
             Key.SERVICE_MODE -> onBinderDied()
             Key.PROXY_APPS, Key.BYPASS_MODE, Key.INDIVIDUAL -> {
-                if (DataStore.serviceState.canStop) {
+                if (ServiceRegistry.state.canStop) {
                     snackbar(getString(R.string.need_reload)).setAction(R.string.apply) {
                         SagerNet.reloadService()
                     }.show()

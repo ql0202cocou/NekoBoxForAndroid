@@ -24,33 +24,33 @@ import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.fmt.mieru.MieruBean
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import moe.matsuri.nb4a.ui.SimpleMenuPreference
+import io.nekohasekai.sagernet.database.EditorCache
 
 class MieruSettingsActivity : ProfileSettingsActivity<MieruBean>() {
 
     override fun createEntity() = MieruBean().applyDefaultValues()
 
     override fun MieruBean.init() {
-        DataStore.profileName = name
-        DataStore.serverAddress = serverAddress
-        DataStore.serverPort = serverPort
-        DataStore.serverProtocol = protocol
-        DataStore.serverUsername = username
-        DataStore.serverPassword = password
-        DataStore.serverMTU = mtu
+        EditorCache.profileName = name
+        EditorCache.serverAddress = serverAddress
+        EditorCache.serverPort = serverPort
+        EditorCache.serverProtocol = protocol
+        EditorCache.serverUsername = username
+        EditorCache.serverPassword = password
+        EditorCache.serverMTU = mtu
     }
 
     override fun MieruBean.serialize() {
-        name = DataStore.profileName
-        serverAddress = DataStore.serverAddress
-        serverPort = DataStore.serverPort
-        protocol = DataStore.serverProtocol
-        username = DataStore.serverUsername
-        password = DataStore.serverPassword
-        mtu = DataStore.serverMTU
+        name = EditorCache.profileName
+        serverAddress = EditorCache.serverAddress
+        serverPort = EditorCache.serverPort
+        protocol = EditorCache.serverProtocol
+        username = EditorCache.serverUsername
+        password = EditorCache.serverPassword
+        mtu = EditorCache.serverMTU
     }
 
     override fun PreferenceFragmentCompat.createPreferences(

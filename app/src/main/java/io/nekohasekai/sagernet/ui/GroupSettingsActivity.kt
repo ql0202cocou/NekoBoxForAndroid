@@ -58,53 +58,53 @@ class GroupSettingsActivity(
     private var pendingSubscriptionLink: String? = null
 
     fun ProxyGroup.init() {
-        DataStore.groupName = name ?: ""
-        DataStore.groupType = type
-        DataStore.groupOrder = order
-        DataStore.groupIsSelector = isSelector
+        EditorCache.groupName = name ?: ""
+        EditorCache.groupType = type
+        EditorCache.groupOrder = order
+        EditorCache.groupIsSelector = isSelector
 
-        DataStore.frontProxy = frontProxy
-        DataStore.landingProxy = landingProxy
-        DataStore.frontProxyTmp = if (frontProxy >= 0) 3 else 0
-        DataStore.landingProxyTmp = if (landingProxy >= 0) 3 else 0
-        DataStore.proxyServerNameserver = proxyServerNameserver
+        EditorCache.frontProxy = frontProxy
+        EditorCache.landingProxy = landingProxy
+        EditorCache.frontProxyTmp = if (frontProxy >= 0) 3 else 0
+        EditorCache.landingProxyTmp = if (landingProxy >= 0) 3 else 0
+        EditorCache.proxyServerNameserver = proxyServerNameserver
 
         val subscription = subscription ?: SubscriptionBean().applyDefaultValues()
-        DataStore.subscriptionLink = subscription.link
-        DataStore.subscriptionForceResolve = subscription.forceResolve
-        DataStore.subscriptionDeduplication = subscription.deduplication
-        DataStore.subscriptionUpdateWhenConnectedOnly = subscription.updateWhenConnectedOnly
-        DataStore.subscriptionUserAgent = subscription.customUserAgent
-        DataStore.subscriptionAutoUpdate = subscription.autoUpdate
-        DataStore.subscriptionAutoUpdateDelay = subscription.autoUpdateDelay
+        EditorCache.subscriptionLink = subscription.link
+        EditorCache.subscriptionForceResolve = subscription.forceResolve
+        EditorCache.subscriptionDeduplication = subscription.deduplication
+        EditorCache.subscriptionUpdateWhenConnectedOnly = subscription.updateWhenConnectedOnly
+        EditorCache.subscriptionUserAgent = subscription.customUserAgent
+        EditorCache.subscriptionAutoUpdate = subscription.autoUpdate
+        EditorCache.subscriptionAutoUpdateDelay = subscription.autoUpdateDelay
     }
 
     fun ProxyGroup.serialize() {
-        name = DataStore.groupName.takeIf { it.isNotBlank() } ?: "My group"
-        type = DataStore.groupType
-        order = DataStore.groupOrder
-        isSelector = DataStore.groupIsSelector
+        name = EditorCache.groupName.takeIf { it.isNotBlank() } ?: "My group"
+        type = EditorCache.groupType
+        order = EditorCache.groupOrder
+        isSelector = EditorCache.groupIsSelector
 
-        frontProxy = if (DataStore.frontProxyTmp == 3) DataStore.frontProxy else -1
-        landingProxy = if (DataStore.landingProxyTmp == 3) DataStore.landingProxy else -1
-        proxyServerNameserver = DataStore.proxyServerNameserver.trim()
+        frontProxy = if (EditorCache.frontProxyTmp == 3) EditorCache.frontProxy else -1
+        landingProxy = if (EditorCache.landingProxyTmp == 3) EditorCache.landingProxy else -1
+        proxyServerNameserver = EditorCache.proxyServerNameserver.trim()
 
         val isSubscription = type == GroupType.SUBSCRIPTION
         if (isSubscription) {
             subscription = (subscription ?: SubscriptionBean().applyDefaultValues()).apply {
-                link = DataStore.subscriptionLink
-                forceResolve = DataStore.subscriptionForceResolve
-                deduplication = DataStore.subscriptionDeduplication
-                updateWhenConnectedOnly = DataStore.subscriptionUpdateWhenConnectedOnly
-                customUserAgent = DataStore.subscriptionUserAgent
-                autoUpdate = DataStore.subscriptionAutoUpdate
-                autoUpdateDelay = DataStore.subscriptionAutoUpdateDelay
+                link = EditorCache.subscriptionLink
+                forceResolve = EditorCache.subscriptionForceResolve
+                deduplication = EditorCache.subscriptionDeduplication
+                updateWhenConnectedOnly = EditorCache.subscriptionUpdateWhenConnectedOnly
+                customUserAgent = EditorCache.subscriptionUserAgent
+                autoUpdate = EditorCache.subscriptionAutoUpdate
+                autoUpdateDelay = EditorCache.subscriptionAutoUpdateDelay
             }
         }
     }
 
     fun needSave(): Boolean {
-        if (!DataStore.dirty) return false
+        if (!EditorCache.dirty) return false
         return true
     }
 
@@ -161,7 +161,7 @@ class GroupSettingsActivity(
         val groupSubscription = findPreference<PreferenceCategory>(Key.GROUP_SUBSCRIPTION)!!
         val subscriptionUpdate = findPreference<PreferenceCategory>(Key.SUBSCRIPTION_UPDATE)!!
 
-        fun updateGroupType(groupType: Int = DataStore.groupType) {
+        fun updateGroupType(groupType: Int = EditorCache.groupType) {
             val isSubscription = groupType == GroupType.SUBSCRIPTION
             groupSubscription.isVisible = isSubscription
             subscriptionUpdate.isVisible = isSubscription
@@ -259,9 +259,9 @@ class GroupSettingsActivity(
         // the process. On a process-death restore savedInstanceState != null but
         // the cache is empty; re-initialize from the intent extras, or the blank
         // editor would save a garbage group.
-        if (savedInstanceState == null || DataStore.profileCacheStore.getString(Key.GROUP_TYPE) == null) {
+        if (savedInstanceState == null || EditorCache.profileCacheStore.getString(Key.GROUP_TYPE) == null) {
             val editingId = intent.getLongExtra(EXTRA_GROUP_ID, 0L)
-            DataStore.editingId = editingId
+            EditorCache.editingId = editingId
             runOnDefaultDispatcher {
                 if (editingId == 0L) {
                     ProxyGroup().init()
@@ -279,14 +279,14 @@ class GroupSettingsActivity(
                 // Re-apply a picker result redelivered before this init ran,
                 // so the user's selection wins over the entity values.
                 pendingFrontProxy?.let {
-                    DataStore.frontProxy = it
-                    DataStore.frontProxyTmp = 3
+                    EditorCache.frontProxy = it
+                    EditorCache.frontProxyTmp = 3
                 }
                 pendingLandingProxy?.let {
-                    DataStore.landingProxy = it
-                    DataStore.landingProxyTmp = 3
+                    EditorCache.landingProxy = it
+                    EditorCache.landingProxyTmp = 3
                 }
-                pendingSubscriptionLink?.let { DataStore.subscriptionLink = it }
+                pendingSubscriptionLink?.let { EditorCache.subscriptionLink = it }
 
                 // The cache was empty (process death): re-claim the session so
                 // later recreations still match this editor's token
@@ -305,18 +305,18 @@ class GroupSettingsActivity(
 
     suspend fun saveAndExit() {
 
-        val editingId = DataStore.editingId
+        val editingId = EditorCache.editingId
         if (editingId == 0L) {
             GroupManager.createGroup(ProxyGroup().apply { serialize() })
         } else if (needSave()) {
-            val entity = SagerDatabase.groupDao.getById(DataStore.editingId)
+            val entity = SagerDatabase.groupDao.getById(EditorCache.editingId)
             if (entity == null) {
                 finish()
                 return
             }
             val keepUserInfo = (entity.type == GroupType.SUBSCRIPTION &&
-                    DataStore.groupType == GroupType.SUBSCRIPTION &&
-                    entity.subscription?.link == DataStore.subscriptionLink)
+                    EditorCache.groupType == GroupType.SUBSCRIPTION &&
+                    entity.subscription?.link == EditorCache.subscriptionLink)
             if (!keepUserInfo) {
                 entity.subscription?.subscriptionUserinfo = "";
                 // 链接或类型变了就按新订阅对待：不重置 lastUpdated 的话，
@@ -345,13 +345,13 @@ class GroupSettingsActivity(
     override fun onOptionsItemSelected(item: MenuItem) = child?.onMenuItemSelected(item) == true
 
     override fun onDestroy() {
-        DataStore.profileCacheStore.unregisterChangeListener(this)
+        EditorCache.profileCacheStore.unregisterChangeListener(this)
         super.onDestroy()
     }
 
     override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
         if (key != Key.PROFILE_DIRTY) {
-            DataStore.dirty = true
+            EditorCache.dirty = true
         }
     }
 
@@ -360,7 +360,7 @@ class GroupSettingsActivity(
         var activity: GroupSettingsActivity? = null
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
-            preferenceManager.preferenceDataStore = DataStore.profileCacheStore
+            preferenceManager.preferenceDataStore = EditorCache.profileCacheStore
             try {
                 activity = (requireActivity() as GroupSettingsActivity).apply {
                     createPreferences(savedInstanceState, rootKey)
@@ -384,19 +384,19 @@ class GroupSettingsActivity(
                 // Only clear dirty on first creation; resetting it after a
                 // recreation (rotation) would silently drop unsaved edits.
                 if (savedInstanceState == null) {
-                    DataStore.dirty = false
+                    EditorCache.dirty = false
                 }
-                DataStore.profileCacheStore.registerChangeListener(this)
+                EditorCache.profileCacheStore.registerChangeListener(this)
             }
         }
 
         fun onMenuItemSelected(item: MenuItem) = when (item.itemId) {
             R.id.action_delete -> {
-                if (DataStore.editingId == 0L) {
+                if (EditorCache.editingId == 0L) {
                     requireActivity().finish()
                 } else {
                     DeleteConfirmationDialogFragment().apply {
-                        arg(GroupIdArg(DataStore.editingId))
+                        arg(GroupIdArg(EditorCache.editingId))
                         key()
                     }.show(parentFragmentManager, null)
                 }
@@ -452,14 +452,14 @@ class GroupSettingsActivity(
     // results, so keep front before landing.
     val selectProfileForAddFront = profilePicker({
         pendingFrontProxy = it
-        DataStore.frontProxy = it
-        DataStore.frontProxyTmp = 3
+        EditorCache.frontProxy = it
+        EditorCache.frontProxyTmp = 3
     }, { frontProxyPreference })
 
     val selectProfileForAddLanding = profilePicker({
         pendingLandingProxy = it
-        DataStore.landingProxy = it
-        DataStore.landingProxyTmp = 3
+        EditorCache.landingProxy = it
+        EditorCache.landingProxyTmp = 3
     }, { landingProxyPreference })
 
     // A hand-typed content:// URI carries no grant; only a picked document can still
@@ -478,7 +478,7 @@ class GroupSettingsActivity(
         // pending first, like the profile pickers: a redelivered result may run
         // before the async re-init, which then re-applies it
         pendingSubscriptionLink = link
-        DataStore.subscriptionLink = link
+        EditorCache.subscriptionLink = link
         // null before the fragment is committed on a process-death restore; it
         // reads the DataStore value when created
         subscriptionLinkPreference?.text = link

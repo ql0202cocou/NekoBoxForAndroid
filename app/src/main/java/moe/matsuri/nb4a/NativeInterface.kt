@@ -18,6 +18,7 @@ import libcore.BoxPlatformInterface
 import libcore.Libcore
 import libcore.NB4AInterface
 import java.net.InetSocketAddress
+import io.nekohasekai.sagernet.bg.ServiceRegistry
 
 class NativeInterface : BoxPlatformInterface, NB4AInterface {
 
@@ -26,12 +27,12 @@ class NativeInterface : BoxPlatformInterface, NB4AInterface {
     override fun autoDetectInterfaceControl(fd: Int) {
         // failure must throw so the Go side (bg dial / protect server) doesn't
         // treat an unprotected socket as protected
-        val vpn = DataStore.vpnService ?: throw Exception("no VpnService")
+        val vpn = ServiceRegistry.vpnService ?: throw Exception("no VpnService")
         if (!vpn.protect(fd)) throw Exception("VpnService.protect failed")
     }
 
     override fun openTun(singTunOptionsJson: String, tunPlatformOptionsJson: String): Long {
-        val vpn = DataStore.vpnService ?: throw Exception("no VpnService")
+        val vpn = ServiceRegistry.vpnService ?: throw Exception("no VpnService")
         return vpn.startVpn(singTunOptionsJson, tunPlatformOptionsJson).toLong()
     }
 
@@ -89,7 +90,7 @@ class NativeInterface : BoxPlatformInterface, NB4AInterface {
             return
         }
         Libcore.resetAllConnections(true)
-        DataStore.baseService?.apply {
+        ServiceRegistry.baseService?.apply {
             // serial dispatcher: rapid switches A->B must persist in event
             // order, the Default pool could run B's coroutine before A's
             runOnSerialDispatcher {

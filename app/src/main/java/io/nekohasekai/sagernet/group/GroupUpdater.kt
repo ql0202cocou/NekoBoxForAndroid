@@ -18,6 +18,7 @@ import java.nio.channels.FileLock
 import java.util.*
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
+import io.nekohasekai.sagernet.bg.ServiceRegistry
 
 @Suppress("EXPERIMENTAL_API_USAGE")
 abstract class GroupUpdater {
@@ -65,7 +66,7 @@ abstract class GroupUpdater {
                             val results = if (
                                 SagerNet.underlyingNetwork != null &&
                                 DataStore.enableFakeDns &&
-                                DataStore.serviceState.started &&
+                                ServiceRegistry.state.started &&
                                 DataStore.serviceMode == Key.MODE_VPN
                             ) {
                                 // FakeDNS
@@ -155,7 +156,7 @@ abstract class GroupUpdater {
                     try {
                         GroupManager.postReload(proxyGroup.id)
 
-                        val connected = DataStore.serviceState.connected
+                        val connected = ServiceRegistry.state.connected
                         val userInterface = GroupManager.userInterface
                         val subscription = proxyGroup.subscription
                         if (subscription == null) {

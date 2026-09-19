@@ -51,6 +51,7 @@ import io.nekohasekai.sagernet.ui.EditorActivity
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import kotlinx.parcelize.Parcelize
 import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
+import io.nekohasekai.sagernet.database.EditorCache
 
 @Suppress("UNCHECKED_CAST")
 abstract class ProfileSettingsActivity<T : AbstractBean>(
@@ -109,7 +110,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
     protected suspend fun awaitEditorReady() = editorReady.await()
 
-    val proxyEntity by lazy { SagerDatabase.proxyDao.getById(DataStore.editingId) }
+    val proxyEntity by lazy { SagerDatabase.proxyDao.getById(EditorCache.editingId) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         beginEditorSession(savedInstanceState)
@@ -118,7 +119,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         // lazy proxyEntity in it — with the in-memory cache gone after process
         // death editingId would still be 0 and null would be cached for good.
         if (ownsEditorSession) {
-            DataStore.editingId = intent.getLongExtra(EXTRA_PROFILE_ID, 0L)
+            EditorCache.editingId = intent.getLongExtra(EXTRA_PROFILE_ID, 0L)
         }
         super.onCreate(savedInstanceState)
         if (finishIfEditorSessionLost()) return
@@ -129,19 +130,19 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             setHomeAsUpIndicator(R.drawable.ic_navigation_close)
         }
 
-        guardUnsavedChanges({ DataStore.dirty }) { UnsavedChangesDialogFragment().apply { key() } }
+        guardUnsavedChanges({ EditorCache.dirty }) { UnsavedChangesDialogFragment().apply { key() } }
 
         // The edit state lives in the in-memory profileCacheStore and dies with
         // the process. On a process-death restore savedInstanceState != null but
         // the cache is empty; re-initialize from the intent extras, or the blank
         // editor would save a garbage profile.
-        if (savedInstanceState == null || DataStore.profileCacheStore.getString(Key.PROFILE_CORE) == null) {
-            val editingId = DataStore.editingId
+        if (savedInstanceState == null || EditorCache.profileCacheStore.getString(Key.PROFILE_CORE) == null) {
+            val editingId = EditorCache.editingId
             lifecycleScope.launch(Dispatchers.Default) {
                 if (editingId == 0L) {
-                    DataStore.editingGroup = DataStore.selectedGroupForImport()
+                    EditorCache.editingGroup = GroupManager.selectedGroupForImport()
                     createEntity().applyDefaultValues().init()
-                    DataStore.profileCacheStore.putString(
+                    EditorCache.profileCacheStore.putString(
                         Key.PROFILE_CORE, ProxyEntity.CORE_AUTO.toString()
                     )
                 } else {
@@ -152,9 +153,9 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                         editorReady.cancel()
                         return@launch
                     }
-                    DataStore.editingGroup = proxyEntity!!.groupId
+                    EditorCache.editingGroup = proxyEntity!!.groupId
                     (proxyEntity!!.requireBean() as T).init()
-                    DataStore.profileCacheStore.putString(
+                    EditorCache.profileCacheStore.putString(
                         Key.PROFILE_CORE, proxyEntity!!.core.toString()
                     )
                 }
@@ -191,7 +192,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             // every protocol editor with a server field shares this check
             val address = screen.findPreference<EditTextPreference>(Key.SERVER_ADDRESS)
             if (address != null && address.isVisible && address.isEnabled &&
-                !isServerAddress(DataStore.serverAddress)
+                !isServerAddress(EditorCache.serverAddress)
             ) {
                 Toast.makeText(
                     this@ProfileSettingsActivity, R.string.server_address_error, Toast.LENGTH_LONG
@@ -210,12 +211,12 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         }
         if (!canSave) return
 
-        val editingId = DataStore.editingId
+        val editingId = EditorCache.editingId
         // entity-level field, not part of the bean; seeded in onCreate
-        val profileCore = DataStore.profileCacheStore.getString(Key.PROFILE_CORE)
+        val profileCore = EditorCache.profileCacheStore.getString(Key.PROFILE_CORE)
             ?.toIntOrNull() ?: ProxyEntity.CORE_AUTO
         if (editingId == 0L) {
-            val editingGroup = DataStore.editingGroup
+            val editingGroup = EditorCache.editingGroup
             ProfileManager.createProfile(
                 editingGroup, createEntity().apply { serialize() }, profileCore
             )
@@ -244,22 +245,22 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.profile_config_menu, menu)
         menu.findItem(R.id.action_move)?.apply {
-            if (DataStore.editingId != 0L // not new profile
-                && SagerDatabase.groupDao.getById(DataStore.editingGroup)?.type == GroupType.BASIC // not in subscription group
+            if (EditorCache.editingId != 0L // not new profile
+                && SagerDatabase.groupDao.getById(EditorCache.editingGroup)?.type == GroupType.BASIC // not in subscription group
                 && SagerDatabase.groupDao.allGroups()
                     .filter { it.type == GroupType.BASIC }.size > 1 // have other basic group
             ) isVisible = true
         }
         menu.findItem(R.id.action_create_shortcut)?.apply {
-            if (Build.VERSION.SDK_INT >= 26 && DataStore.editingId != 0L) {
+            if (Build.VERSION.SDK_INT >= 26 && EditorCache.editingId != 0L) {
                 isVisible = true // not new profile
             }
         }
         // shared menu item; they need an existing entity, hide them for a new
         // profile (the click body would silently no-op on a null proxyEntity).
-        // DataStore.editingId is set synchronously in onCreate, so this is
+        // EditorCache.editingId is set synchronously in onCreate, so this is
         // already stable when the menu is created.
-        val hasEntity = DataStore.editingId != 0L
+        val hasEntity = EditorCache.editingId != 0L
         menu.findItem(R.id.action_custom_outbound_json)?.isVisible = hasEntity
         menu.findItem(R.id.action_custom_config_json)?.isVisible = hasEntity
         return true
@@ -269,13 +270,13 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
     override fun onOptionsItemSelected(item: MenuItem) = child?.onMenuItemSelected(item) == true
 
     override fun onDestroy() {
-        DataStore.profileCacheStore.unregisterChangeListener(this)
+        EditorCache.profileCacheStore.unregisterChangeListener(this)
         super.onDestroy()
     }
 
     override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
         if (key != Key.PROFILE_DIRTY) {
-            DataStore.dirty = true
+            EditorCache.dirty = true
         }
     }
 
@@ -296,7 +297,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         var activity: ProfileSettingsActivity<*>? = null
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
-            preferenceManager.preferenceDataStore = DataStore.profileCacheStore
+            preferenceManager.preferenceDataStore = EditorCache.profileCacheStore
             try {
                 activity = (requireActivity() as ProfileSettingsActivity<*>).apply {
                     createPreferences(savedInstanceState, rootKey)
@@ -325,9 +326,9 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                 // Only clear dirty on first creation; resetting it after a
                 // recreation (rotation) would silently drop unsaved edits.
                 if (savedInstanceState == null) {
-                    DataStore.dirty = false
+                    EditorCache.dirty = false
                 }
-                DataStore.profileCacheStore.registerChangeListener(this)
+                EditorCache.profileCacheStore.registerChangeListener(this)
                 // Re-attach the custom JSON callbacks: after a recreation the
                 // result of ConfigEditActivity arrives at this new instance
                 // while the callbacks set by the menu handler died with the
@@ -345,25 +346,25 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         val resultCallbackCustom = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { (_, _) ->
-            callbackCustom?.let { it(DataStore.serverCustom) }
+            callbackCustom?.let { it(EditorCache.serverCustom) }
         }
 
         val resultCallbackCustomOutbound = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { (_, _) ->
-            callbackCustomOutbound?.let { it(DataStore.serverCustomOutbound) }
+            callbackCustomOutbound?.let { it(EditorCache.serverCustomOutbound) }
         }
 
         @SuppressLint("CheckResult")
         fun onMenuItemSelected(item: MenuItem) = when (item.itemId) {
             R.id.action_delete -> {
-                if (DataStore.editingId == 0L) {
+                if (EditorCache.editingId == 0L) {
                     requireActivity().finish()
                 } else {
                     DeleteConfirmationDialogFragment().apply {
                         arg(
                             ProfileIdArg(
-                                DataStore.editingId, DataStore.editingGroup
+                                EditorCache.editingId, EditorCache.editingGroup
                             )
                         )
                         key()
@@ -383,9 +384,9 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                 activity?.proxyEntity?.apply {
                     val bean = requireBean()
                     // seeding the editor is not an edit: keep dirty as it was
-                    val dirty = DataStore.dirty
-                    DataStore.serverCustomOutbound = bean.customOutboundJson
-                    DataStore.dirty = dirty
+                    val dirty = EditorCache.dirty
+                    EditorCache.serverCustomOutbound = bean.customOutboundJson
+                    EditorCache.dirty = dirty
                     callbackCustomOutbound = { bean.customOutboundJson = it }
                     resultCallbackCustomOutbound.launch(
                         Intent(
@@ -401,9 +402,9 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             R.id.action_custom_config_json -> {
                 activity?.proxyEntity?.apply {
                     val bean = requireBean()
-                    val dirty = DataStore.dirty
-                    DataStore.serverCustom = bean.customConfigJson
-                    DataStore.dirty = dirty
+                    val dirty = EditorCache.dirty
+                    EditorCache.serverCustom = bean.customConfigJson
+                    EditorCache.dirty = dirty
                     callbackCustom = { bean.customConfigJson = it }
                     resultCallbackCustom.launch(
                         Intent(
@@ -460,7 +461,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                                             activity.proxyEntity?.groupId = moved.groupId
                                             GroupManager.postUpdate(oldGroupId) // reload
                                             GroupManager.postUpdate(newGroupId)
-                                            DataStore.editingGroup = newGroupId // post switch animation
+                                            EditorCache.editingGroup = newGroupId // post switch animation
                                             runOnMainDispatcher {
                                                 activity.finish()
                                             }
@@ -475,7 +476,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                     MaterialAlertDialogBuilder(activity).setView(scrollView).show()
                 }
 
-                if (DataStore.dirty) {
+                if (EditorCache.dirty) {
                     // Moving finishes the editor without applying the edits;
                     // confirm like the back guard instead of silently dropping them.
                     MaterialAlertDialogBuilder(activity).setTitle(R.string.unsaved_changes_prompt)
@@ -535,7 +536,7 @@ private fun Preference.findInvalidIntegerPreference(): EditTextPreference? {
     val disabled = if (this is PreferenceCategory) shouldDisableDependents() else !isEnabled
     if (!isVisible || disabled) return null
     if (this is EditTextPreference && extras.containsKey(INTEGER_MIN)) {
-        val value = DataStore.profileCacheStore.getString(key)
+        val value = EditorCache.profileCacheStore.getString(key)
         if (!io.nekohasekai.sagernet.database.preference.isIntegerInRange(
                 value, extras.getInt(INTEGER_MIN), extras.getInt(INTEGER_MAX),
                 extras.getBoolean(INTEGER_ALLOW_EMPTY)
