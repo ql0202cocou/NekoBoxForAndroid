@@ -11,6 +11,8 @@
 #      directive in libcore/go.mod
 #   d. compileSdk / buildToolsVersion in buildSrc Helpers.kt must match the SDK
 #      platform / build-tools installed in build-apk.yml
+#   e. libcore/sing-box/ 必须等于上游 tag + libcore/patches/ 里的补丁：
+#      克隆上游 tag、应用补丁后与 vendored 树 diff 对比
 # Bumping any of these means editing every place it appears; this script is the
 # guard that nothing was missed. Run from the repo root: ./run lib check_versions
 
@@ -101,6 +103,26 @@ if [ -z "$BTV_HELPERS" ] || [ "$BTV_HELPERS" != "$BTV_CI" ]; then
 fi
 if [ -z "$CSDK_HELPERS" ] || [ "$CSDK_HELPERS" != "$CSDK_CI" ]; then
   fail "compileSdk: Helpers.kt has ${CSDK_HELPERS:-none} but $APK_YML has android-${CSDK_CI:-none}"
+fi
+
+#### e. sing-box vendored tree == upstream tag + patch artifact
+
+# 校验 vendored sing-box 与可重放补丁一致：克隆上游 tag、应用补丁后 diff 对比。
+# vendored 树每次改动都必须重新生成补丁（命令见 libcore/sing-box/NEKO.md）。
+# clients/ 是上游的 git submodule 占位，vendored 树不携带；NEKO.md 是补丁集
+# 之外的管理文档——二者都不参与生成与对比。
+BOX_BASE_TAG=v1.14.1
+BOX_PATCH=libcore/patches/sing-box-v1.14.1-neko-1.diff
+if [ ! -f "$BOX_PATCH" ]; then
+  fail "$BOX_PATCH missing; regenerate it as documented in libcore/sing-box/NEKO.md"
+else
+  git clone -q -c advice.detachedHead=false --depth 1 --branch "$BOX_BASE_TAG" https://github.com/SagerNet/sing-box "$TMP/box-base"
+  if ! patch -d "$TMP/box-base" -p1 -s -t < "$BOX_PATCH"; then
+    fail "$BOX_PATCH does not apply cleanly on sing-box $BOX_BASE_TAG"
+  elif ! diff -r -q --exclude=.git --exclude=clients --exclude=NEKO.md "$TMP/box-base" libcore/sing-box > "$TMP/box.diff"; then
+    fail "sing-box $BOX_BASE_TAG + $BOX_PATCH diverges from libcore/sing-box (regenerate the patch):
+$(cat "$TMP/box.diff")"
+  fi
 fi
 
 ####

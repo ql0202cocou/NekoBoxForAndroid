@@ -28,15 +28,44 @@ Additional patches maintained by this fork (not from MatsuriDayo):
 
 | Patch | Notes |
 |---|---|
-| dns: rule action `fallback` | `option/rule_action.go` (`DNSRouteActionOptions.Fallback`, JSON `fallback`), `route/rule/rule_action.go` (`RuleActionDNSRoute.Fallback`), `dns/router.go`: when a DNS query routed by a rule with `fallback: true` fails, matching continues at the next DNS rule instead of returning the error. Any non-success rcode counts as a failure, so a split-horizon server is never the final word. Used by the Android app to implement ordered multi-server fallback for per-group proxy-server nameservers. Since the `domain_resolver` migration (2026-09-10), outbound resolution no longer walks DNS rules — it binds to libcore's `neko-sequential` transport instead — so this patch only serves user-hijacked queries that match a `dns-group-N` rule. **1.14 rebase**: the DNS router was rewritten around a rule-walk state machine shared by `Exchange` and `Lookup`; the patch now marks the walk's pending exchange (`dnsPendingExchange.fallback`) and, on failure (skipping context cancellation), advances `state.ruleIndex` and re-enters the walk in `resumeExchangeWithRules`. `exchangeWithRulesAsync`'s direct-`ExchangeAsync` fast path is bypassed for fallback rules. Armed/speculative race paths (unused by the app) do not fall back. |
-| router: lock `trackers` | `route/router.go`, `route/route.go`: upstream appends to `Router.trackers` without synchronization, and the Android app calls `AppendTracker` (via `SetV2rayStats`) while the box is already routing, so the append raced the per-connection reads in `RouteConnection`/`RoutePacketConnection` (slice growth tearing). Added a `sync.RWMutex` (`trackersAccess`): `AppendTracker` takes the write lock, the read paths take the read lock. 1.14: a third read site (L3 `NewTracker` closure building `tun.FlowTracker`s) is covered too. 1.14.1: upstream moved the forward log line inside the `NewTracker` closure (`metadataCopy`); the RLock now wraps the tracker reads after it. Drop if upstream adds its own locking. |
+| dns: rule action `fallback` | `option/rule_action.go` (`DNSRouteActionOptions.Fallback`, JSON `fallback`), `route/rule/rule_action.go` (`RuleActionDNSRoute.Fallback`), `dns/router.go`: when a DNS query routed by a rule with `fallback: true` fails, matching continues at the next DNS rule instead of returning the error. Any non-success rcode counts as a failure, so a split-horizon server is never the final word. Used by the Android app to implement ordered multi-server fallback for per-group proxy-server nameservers. Since the `domain_resolver` migration (2026-09-10), outbound resolution no longer walks DNS rules — it binds to libcore's `neko-sequential` transport instead — so this patch only serves user-hijacked queries that match a `dns-group-N` rule. **1.14 rebase**: the DNS router was rewritten around a rule-walk state machine shared by `Exchange` and `Lookup`; the patch now marks the walk's pending exchange (`dnsPendingExchange.fallback`) and, on failure (skipping context cancellation), advances `state.ruleIndex` and re-enters the walk in `resumeExchangeWithRules`. `exchangeWithRulesAsync`'s direct-`ExchangeAsync` fast path is bypassed for fallback rules. Armed/speculative race paths (unused by the app) do not fall back. Regression tests: `dns/router_fallback_test.go` (fork-added, part of the patch artifact). |
+| router: lock `trackers` | `route/router.go`, `route/route.go`: upstream appends to `Router.trackers` without synchronization, and the Android app calls `AppendTracker` (via `SetV2rayStats`) while the box is already routing, so the append raced the per-connection reads in `RouteConnection`/`RoutePacketConnection` (slice growth tearing). Added a `sync.RWMutex` (`trackersAccess`): `AppendTracker` takes the write lock, the read paths take the read lock. 1.14: a third read site (L3 `NewTracker` closure building `tun.FlowTracker`s) is covered too. 1.14.1: upstream moved the forward log line inside the `NewTracker` closure (`metadataCopy`); the RLock now wraps the tracker reads after it. Drop if upstream adds its own locking. Regression/concurrency tests: `route/router_tracker_test.go` (fork-added, part of the patch artifact). |
+
+## Replayable patch artifact
+
+The whole patch set is materialized as a single replayable diff,
+`libcore/patches/sing-box-v1.14.1-neko-1.diff`: a clean clone of upstream tag
+v1.14.1 plus this file applied with `patch -p1` reproduces this directory
+exactly. Excluded from the artifact (and from the verification comparison):
+`.git`, the `clients/` git submodule placeholders (not carried here), and this
+`NEKO.md` (a management document, not part of the patches). Everything else is
+in the diff — modified upstream files, new files (`boxapi/`, `nekoutils/`, the
+fork's `*_test.go` additions) and the `go.mod`/`go.sum` divergence documented
+below. `./run lib check_versions` replays the artifact against a fresh clone
+and fails on any drift.
+
+Regenerate the artifact after EVERY change to this directory (from the repo
+root):
+
+```bash
+TMP=$(mktemp -d)
+git clone --depth 1 --branch v1.14.1 https://github.com/SagerNet/sing-box "$TMP/a"
+cp -R libcore/sing-box "$TMP/b"
+(cd "$TMP" && diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a b) \
+  > libcore/patches/sing-box-v1.14.1-neko-1.diff
+```
+
+The `a`/`b` directory names are load-bearing: they keep the diff header paths
+deterministic (`patch -p1` strips them). `diff` exiting 1 just means
+"differences found", which is the expected outcome here.
 
 How to upgrade the base: clone upstream SagerNet/sing-box, merge or rebase the
 patches onto the new tag, resolve conflicts, replace this directory with the
-result (without `.git`), and update this file. The 1.13.18 → 1.14.0 rebase
-extracted the patch set with `diff -ru` against the upstream tag and re-applied
-it by hand — see git history. The 1.14.0 → 1.14.1 rebase used the same
-`diff -ruN` extraction plus `patch`; only `box.go` (needCacheFile) and
+result (without `.git`), regenerate the patch artifact as above (renamed for
+the new tag and patch-set version), and update this file. The 1.13.18 → 1.14.0
+rebase extracted the patch set with `diff -ru` against the upstream tag and
+re-applied it by hand — see git history. The 1.14.0 → 1.14.1 rebase used the
+same `diff -ruN` extraction plus `patch`; only `box.go` (needCacheFile) and
 `route/route.go` (NewTracker closure) needed manual conflict resolution.
 
 ## go.mod divergence from upstream

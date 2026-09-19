@@ -84,3 +84,9 @@ jobs:
           NEKO_TEST_GEOIP_DB: ${{ github.workspace }}/app/src/main/assets/sing-box/geoip.db
           NEKO_TEST_GEOSITE_DB: ${{ github.workspace }}/app/src/main/assets/sing-box/geosite.db
         run: cd libcore && go test -ldflags=-checklinkname=0 ./...
+      - name: Go Test (sing-box, race)
+        # vendored sing-box 是嵌套 module，上面的 ./... 覆盖不到它；
+        # 这里用 -race 跑补丁所在的包（含两个自建补丁的回归测试：
+        # dns fallback 动作、trackersAccess 锁）。
+        # -race 需要 CGO，ubuntu runner 默认 CGO_ENABLED=1
+        run: cd libcore/sing-box && go test -race ./dns/... ./route/...

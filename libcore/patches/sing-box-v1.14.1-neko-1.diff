@@ -1,0 +1,1148 @@
+diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/box.go b/box.go
+--- a/box.go	2026-09-20 00:14:55
++++ b/box.go	2026-09-20 00:14:55
+@@ -155,7 +155,7 @@
+ 	var needCacheFile bool
+ 	var needClashAPI bool
+ 	var needV2RayAPI bool
+-	if experimentalOptions.CacheFile != nil && experimentalOptions.CacheFile.Enabled || options.PlatformLogWriter != nil {
++	if experimentalOptions.CacheFile != nil && experimentalOptions.CacheFile.Enabled {
+ 		needCacheFile = true
+ 	}
+ 	if experimentalOptions.ClashAPI != nil {
+diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/boxapi/go_http.go b/boxapi/go_http.go
+--- a/boxapi/go_http.go	1970-01-01 07:30:00
++++ b/boxapi/go_http.go	2026-09-20 00:14:56
+@@ -0,0 +1,30 @@
++package boxapi
++
++import (
++	"context"
++	"net"
++	"net/http"
++	"time"
++
++	box "github.com/sagernet/sing-box"
++	"github.com/sagernet/sing-box/adapter"
++)
++
++func CreateProxyHttpClient(box *box.Box, tracker adapter.ConnectionTracker) *http.Client {
++	transport := &http.Transport{
++		TLSHandshakeTimeout:   time.Second * 3,
++		ResponseHeaderTimeout: time.Second * 3,
++	}
++
++	if box != nil {
++		transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
++			return DialContext(ctx, box, tracker, network, addr)
++		}
++	}
++
++	client := &http.Client{
++		Transport: transport,
++	}
++
++	return client
++}
+diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/boxapi/go_net.go b/boxapi/go_net.go
+--- a/boxapi/go_net.go	1970-01-01 07:30:00
++++ b/boxapi/go_net.go	2026-09-20 00:14:56
+@@ -0,0 +1,23 @@
++package boxapi
++
++import (
++	"context"
++	"net"
++
++	box "github.com/sagernet/sing-box"
++	"github.com/sagernet/sing-box/adapter"
++	"github.com/sagernet/sing-box/common/dialer"
++	"github.com/sagernet/sing/common/metadata"
++)
++
++func DialContext(ctx context.Context, box *box.Box, tracker adapter.ConnectionTracker, network, addr string) (net.Conn, error) {
++	defOutboundTag := box.Outbound().Default().Tag()
++	conn, err := dialer.NewDetour(box.Outbound(), defOutboundTag, true).DialContext(ctx, network, metadata.ParseSocksaddr(addr))
++	if err != nil {
++		return nil, err
++	}
++	if ss, ok := tracker.(*SbStatsService); ok {
++		conn = ss.RoutedConnectionInternal("", defOutboundTag, "", conn, false)
++	}
++	return conn, nil
++}
+diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/boxapi/v2ray_server.go b/boxapi/v2ray_server.go
+--- a/boxapi/v2ray_server.go	1970-01-01 07:30:00
++++ b/boxapi/v2ray_server.go	2026-09-20 00:14:56
+@@ -0,0 +1,32 @@
++package boxapi
++
++import (
++	"context"
++
++	"github.com/sagernet/sing-box/adapter"
++	"github.com/sagernet/sing-box/option"
++)
++
++type SbV2rayServer struct {
++	ss *SbStatsService
++}
++
++func NewSbV2rayServer(options option.V2RayStatsServiceOptions) *SbV2rayServer {
++	return &SbV2rayServer{
++		ss: NewSbStatsService(options),
++	}
++}
++
++func (s *SbV2rayServer) Start() error                            { return nil }
++func (s *SbV2rayServer) Close() error                            { return nil }
++func (s *SbV2rayServer) StatsService() adapter.ConnectionTracker { return s.ss }
++
++// NekoRay style API
++
++func (s *SbV2rayServer) QueryStats(name string) int64 {
++	value, err := s.ss.GetStats(context.TODO(), name, true)
++	if err == nil {
++		return value
++	}
++	return 0
++}
+diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/boxapi/v2ray_stats_service.go b/boxapi/v2ray_stats_service.go
+--- a/boxapi/v2ray_stats_service.go	1970-01-01 07:30:00
++++ b/boxapi/v2ray_stats_service.go	2026-09-20 00:14:56
+@@ -0,0 +1,205 @@
++package boxapi
++
++import (
++	"context"
++	"net"
++	"sync"
++	"sync/atomic"
++	"time"
++
++	"github.com/sagernet/sing-box/adapter"
++	"github.com/sagernet/sing-box/option"
++	"github.com/sagernet/sing-tun"
++	"github.com/sagernet/sing/common/bufio"
++	E "github.com/sagernet/sing/common/exceptions"
++	N "github.com/sagernet/sing/common/network"
++)
++
++type SbStatsService struct {
++	createdAt time.Time
++	inbounds  map[string]bool
++	outbounds map[string]bool
++	users     map[string]bool
++	access    sync.Mutex
++	counters  map[string]*atomic.Int64
++}
++
++func NewSbStatsService(options option.V2RayStatsServiceOptions) *SbStatsService {
++	if !options.Enabled {
++		return nil
++	}
++	inbounds := make(map[string]bool)
++	outbounds := make(map[string]bool)
++	users := make(map[string]bool)
++	for _, inbound := range options.Inbounds {
++		inbounds[inbound] = true
++	}
++	for _, outbound := range options.Outbounds {
++		outbounds[outbound] = true
++	}
++	for _, user := range options.Users {
++		users[user] = true
++	}
++	return &SbStatsService{
++		createdAt: time.Now(),
++		inbounds:  inbounds,
++		outbounds: outbounds,
++		users:     users,
++		counters:  make(map[string]*atomic.Int64),
++	}
++}
++
++func (s *SbStatsService) RoutedConnection(ctx context.Context, conn net.Conn, metadata adapter.InboundContext, matchedRule adapter.Rule, matchOutbound adapter.Outbound) net.Conn {
++	inbound := metadata.Inbound
++	user := metadata.User
++	outbound := matchOutbound.Tag()
++	return s.RoutedConnectionInternal(inbound, outbound, user, conn, true)
++}
++
++func (s *SbStatsService) RoutedConnectionInternal(inbound string, outbound string, user string, conn net.Conn, directIn bool) net.Conn {
++	var readCounter []*atomic.Int64
++	var writeCounter []*atomic.Int64
++	countInbound := inbound != "" && s.inbounds[inbound]
++	countOutbound := outbound != "" && s.outbounds[outbound]
++	countUser := user != "" && s.users[user]
++	if !countInbound && !countOutbound && !countUser {
++		return conn
++	}
++	s.access.Lock()
++	if countInbound {
++		readCounter = append(readCounter, s.loadOrCreateCounter("inbound>>>"+inbound+">>>traffic>>>uplink"))
++		writeCounter = append(writeCounter, s.loadOrCreateCounter("inbound>>>"+inbound+">>>traffic>>>downlink"))
++	}
++	if countOutbound {
++		readCounter = append(readCounter, s.loadOrCreateCounter("outbound>>>"+outbound+">>>traffic>>>uplink"))
++		writeCounter = append(writeCounter, s.loadOrCreateCounter("outbound>>>"+outbound+">>>traffic>>>downlink"))
++	}
++	if countUser {
++		readCounter = append(readCounter, s.loadOrCreateCounter("user>>>"+user+">>>traffic>>>uplink"))
++		writeCounter = append(writeCounter, s.loadOrCreateCounter("user>>>"+user+">>>traffic>>>downlink"))
++	}
++	s.access.Unlock()
++	if directIn {
++		conn = bufio.NewInt64CounterConn(conn, readCounter, writeCounter)
++	} else {
++		conn = bufio.NewInt64CounterConn(conn, writeCounter, readCounter)
++	}
++	return conn
++}
++
++func (s *SbStatsService) RoutedPacketConnection(ctx context.Context, conn N.PacketConn, metadata adapter.InboundContext, matchedRule adapter.Rule, matchOutbound adapter.Outbound) N.PacketConn {
++	inbound := metadata.Inbound
++	user := metadata.User
++	outbound := matchOutbound.Tag()
++	var readCounter []*atomic.Int64
++	var writeCounter []*atomic.Int64
++	countInbound := inbound != "" && s.inbounds[inbound]
++	countOutbound := outbound != "" && s.outbounds[outbound]
++	countUser := user != "" && s.users[user]
++	if !countInbound && !countOutbound && !countUser {
++		return conn
++	}
++	s.access.Lock()
++	if countInbound {
++		readCounter = append(readCounter, s.loadOrCreateCounter("inbound>>>"+inbound+">>>traffic>>>uplink"))
++		writeCounter = append(writeCounter, s.loadOrCreateCounter("inbound>>>"+inbound+">>>traffic>>>downlink"))
++	}
++	if countOutbound {
++		readCounter = append(readCounter, s.loadOrCreateCounter("outbound>>>"+outbound+">>>traffic>>>uplink"))
++		writeCounter = append(writeCounter, s.loadOrCreateCounter("outbound>>>"+outbound+">>>traffic>>>downlink"))
++	}
++	if countUser {
++		readCounter = append(readCounter, s.loadOrCreateCounter("user>>>"+user+">>>traffic>>>uplink"))
++		writeCounter = append(writeCounter, s.loadOrCreateCounter("user>>>"+user+">>>traffic>>>downlink"))
++	}
++	s.access.Unlock()
++	return bufio.NewInt64CounterPacketConn(conn, readCounter, nil, writeCounter, nil)
++}
++
++func (s *SbStatsService) RoutedFlow(ctx context.Context, metadata adapter.InboundContext, matchedRule adapter.Rule, matchOutbound adapter.Outbound) tun.FlowTracker {
++	inbound := metadata.Inbound
++	user := metadata.User
++	outbound := matchOutbound.Tag()
++	var uplinkCounter []*atomic.Int64
++	var downlinkCounter []*atomic.Int64
++	countInbound := inbound != "" && s.inbounds[inbound]
++	countOutbound := outbound != "" && s.outbounds[outbound]
++	countUser := user != "" && s.users[user]
++	if !countInbound && !countOutbound && !countUser {
++		return nil
++	}
++	s.access.Lock()
++	if countInbound {
++		uplinkCounter = append(uplinkCounter, s.loadOrCreateCounter("inbound>>>"+inbound+">>>traffic>>>uplink"))
++		downlinkCounter = append(downlinkCounter, s.loadOrCreateCounter("inbound>>>"+inbound+">>>traffic>>>downlink"))
++	}
++	if countOutbound {
++		uplinkCounter = append(uplinkCounter, s.loadOrCreateCounter("outbound>>>"+outbound+">>>traffic>>>uplink"))
++		downlinkCounter = append(downlinkCounter, s.loadOrCreateCounter("outbound>>>"+outbound+">>>traffic>>>downlink"))
++	}
++	if countUser {
++		uplinkCounter = append(uplinkCounter, s.loadOrCreateCounter("user>>>"+user+">>>traffic>>>uplink"))
++		downlinkCounter = append(downlinkCounter, s.loadOrCreateCounter("user>>>"+user+">>>traffic>>>downlink"))
++	}
++	s.access.Unlock()
++	return &statsFlowTracker{uplinkCounter: uplinkCounter, downlinkCounter: downlinkCounter}
++}
++
++var _ tun.FlowTracker = (*statsFlowTracker)(nil)
++
++type statsFlowTracker struct {
++	uplinkCounter   []*atomic.Int64
++	downlinkCounter []*atomic.Int64
++}
++
++func (t *statsFlowTracker) AttachFlow(handle tun.FlowHandle) {
++}
++
++func (t *statsFlowTracker) CountForward(n int) {
++	for _, counter := range t.uplinkCounter {
++		counter.Add(int64(n))
++	}
++}
++
++func (t *statsFlowTracker) CountReverse(n int) {
++	for _, counter := range t.downlinkCounter {
++		counter.Add(int64(n))
++	}
++}
++
++func (t *statsFlowTracker) FlowEstablished() {
++}
++
++func (t *statsFlowTracker) CloseFlow(reason tun.FlowCloseReason) {
++}
++
++func (s *SbStatsService) GetStats(ctx context.Context, name string, reset bool) (int64, error) {
++	s.access.Lock()
++	counter, loaded := s.counters[name]
++	s.access.Unlock()
++	if !loaded {
++		return 0, E.New(name, " not found.")
++	}
++	var value int64
++	if reset {
++		value = counter.Swap(0)
++	} else {
++		value = counter.Load()
++	}
++	return value, nil
++}
++
++// QueryStats
++
++// GetSysStats
++
++//nolint:staticcheck
++func (s *SbStatsService) loadOrCreateCounter(name string) *atomic.Int64 {
++	counter, loaded := s.counters[name]
++	if loaded {
++		return counter
++	}
++	counter = &atomic.Int64{}
++	s.counters[name] = counter
++	return counter
++}
+diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/common/dialer/default.go b/common/dialer/default.go
+--- a/common/dialer/default.go	2026-09-20 00:14:55
++++ b/common/dialer/default.go	2026-09-20 00:14:55
+@@ -25,6 +25,8 @@
+ 	"github.com/database64128/tfo-go/v2"
+ )
+ 
++var DoNotSelectInterface = false
++
+ var (
+ 	_ ParallelInterfaceDialer = (*DefaultDialer)(nil)
+ 	_ UDPListener             = (*DefaultDialer)(nil)
+@@ -270,7 +272,7 @@
+ 	} else if address.IsDomain() {
+ 		return nil, E.New("domain not resolved")
+ 	}
+-	if d.networkStrategy == nil {
++	if DoNotSelectInterface || d.networkStrategy == nil {
+ 		conn, err := listener.ListenNetworkNamespace[net.Conn](ctx, d.netns, func() (net.Conn, error) {
+ 			switch N.NetworkName(network) {
+ 			case N.NetworkUDP:
+@@ -341,7 +343,7 @@
+ }
+ 
+ func (d *DefaultDialer) ListenPacket(ctx context.Context, destination M.Socksaddr) (net.PacketConn, error) {
+-	if d.networkStrategy == nil {
++	if DoNotSelectInterface || d.networkStrategy == nil {
+ 		packetConn, err := listener.ListenNetworkNamespace[net.PacketConn](ctx, d.netns, func() (net.PacketConn, error) {
+ 			listenConfig := d.udpListener
+ 			if d.autoDetectBindFunc != nil {
+diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/constant/version.go b/constant/version.go
+--- a/constant/version.go	2026-09-20 00:14:55
++++ b/constant/version.go	2026-09-20 00:14:56
+@@ -1,3 +1,3 @@
+ package constant
+ 
+-var Version = "unknown"
++var Version = "1.14.1-neko-1"
+diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/dns/router.go b/dns/router.go
+--- a/dns/router.go	2026-09-20 00:14:55
++++ b/dns/router.go	2026-09-20 00:14:56
+@@ -497,6 +497,8 @@
+ 	transport adapter.DNSTransport
+ 	options   adapter.DNSQueryOptions
+ 	future    *dnsEvaluatedFuture
++	// neko: on query failure, continue matching the next DNS rule
++	fallback bool
+ }
+ 
+ type dnsWalkSuspension struct {
+@@ -735,7 +737,7 @@
+ 			if state.terminalFuture != nil && state.terminalIndex == state.ruleIndex {
+ 				return exchangeWithRulesResult{}, &dnsWalkSuspension{pending: &dnsPendingExchange{transport: state.terminalFuture.transport, future: state.terminalFuture}}
+ 			}
+-			return exchangeWithRulesResult{}, &dnsWalkSuspension{pending: &dnsPendingExchange{transport: transport, options: queryOptions}}
++			return exchangeWithRulesResult{}, &dnsWalkSuspension{pending: &dnsPendingExchange{transport: transport, options: queryOptions, fallback: action.Fallback}}
+ 		case *R.RuleActionReject:
+ 			if len(state.armedRules) > 0 {
+ 				return exchangeWithRulesResult{}, &dnsWalkSuspension{drain: true}
+@@ -790,7 +792,18 @@
+ 		}
+ 		if suspension != nil {
+ 			if suspension.pending != nil {
+-				return r.finishPendingExchange(ctx, message, state, suspension.pending)
++				result := r.finishPendingExchange(ctx, message, state, suspension.pending)
++				// neko: on query failure, continue matching at the next DNS rule.
++				// Besides transport failures, a non-success rcode (NXDOMAIN & co.)
++				// counts too: a split-horizon server must not be the final word.
++				if suspension.pending.fallback && ctx.Err() == nil &&
++					(result.err != nil || (result.response != nil && result.response.Rcode != mDNS.RcodeSuccess)) {
++					r.logger.DebugContext(ctx, "fallback to next DNS rule after failure")
++					state.ruleIndex++
++					suspension = nil
++					continue
++				}
++				return result
+ 			}
+ 			if (suspension.await != nil && !suspension.await.resolved()) || (suspension.drain && len(state.armedRules) > 0) {
+ 				select {
+@@ -933,7 +946,7 @@
+ 		callback(result)
+ 		return
+ 	}
+-	if suspension.pending != nil && suspension.pending.future == nil {
++	if suspension.pending != nil && suspension.pending.future == nil && !suspension.pending.fallback {
+ 		cancelDNSFutures(state)
+ 		pending := suspension.pending
+ 		r.client.ExchangeAsync(adapter.OverrideContext(ctx), pending.transport, message, r.finalizeExchangeOptions(pending.options), nil, func(response *mDNS.Msg, err error) {
+diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/dns/router_fallback_test.go b/dns/router_fallback_test.go
+--- a/dns/router_fallback_test.go	1970-01-01 07:30:00
++++ b/dns/router_fallback_test.go	2026-09-20 00:14:56
+@@ -0,0 +1,190 @@
++package dns
++
++// Regression tests for the neko DNS rule action `fallback` patch (see
++// NEKO.md): when a query routed by a rule with `fallback: true` fails — a
++// transport error or any non-success rcode — matching continues at the next
++// DNS rule instead of returning the failure.
++
++import (
++	"context"
++	"errors"
++	"net/netip"
++	"testing"
++
++	"github.com/sagernet/sing-box/adapter"
++	C "github.com/sagernet/sing-box/constant"
++	"github.com/sagernet/sing-box/option"
++
++	mDNS "github.com/miekg/dns"
++	"github.com/stretchr/testify/require"
++)
++
++func fallbackRouteRule(server string, fallback bool) option.DNSRule {
++	return option.DNSRule{
++		Type: "",
++		DefaultOptions: option.DefaultDNSRule{
++			DNSRuleAction: option.DNSRuleAction{
++				Action: C.RuleActionTypeRoute,
++				RouteOptions: option.DNSRouteActionOptions{
++					Server:   server,
++					Fallback: fallback,
++				},
++			},
++		},
++	}
++}
++
++// A transport error on a fallback rule continues matching at the next rule.
++func TestDNSFallbackContinuesOnTransportError(t *testing.T) {
++	t.Parallel()
++	broken := &fakeDNSTransport{tag: "broken", exchangeErr: errors.New("server unreachable")}
++	final := &fakeDNSTransport{tag: "final", rcode: mDNS.RcodeSuccess, address: netip.MustParseAddr("192.0.2.1")}
++	router := raceTestRouter(t, broken, final)
++	rules := raceTestRules(t, []option.DNSRule{
++		fallbackRouteRule("broken", true),
++		fallbackRouteRule("final", false),
++	})
++	result := raceTestExchange(router, rules)
++	require.NoError(t, result.err)
++	require.Equal(t, netip.MustParseAddr("192.0.2.1"), responseAddress(t, result.response))
++	require.Equal(t, int32(1), broken.queryCount.Load())
++	require.Equal(t, int32(1), final.queryCount.Load())
++}
++
++// A non-success rcode (NXDOMAIN from a split-horizon server) on a fallback
++// rule also continues matching at the next rule.
++func TestDNSFallbackContinuesOnNXDOMAIN(t *testing.T) {
++	t.Parallel()
++	broken := &fakeDNSTransport{tag: "broken", rcode: mDNS.RcodeNameError}
++	final := &fakeDNSTransport{tag: "final", rcode: mDNS.RcodeSuccess, address: netip.MustParseAddr("192.0.2.1")}
++	router := raceTestRouter(t, broken, final)
++	rules := raceTestRules(t, []option.DNSRule{
++		fallbackRouteRule("broken", true),
++		fallbackRouteRule("final", false),
++	})
++	result := raceTestExchange(router, rules)
++	require.NoError(t, result.err)
++	require.Equal(t, netip.MustParseAddr("192.0.2.1"), responseAddress(t, result.response))
++	require.Equal(t, int32(1), broken.queryCount.Load())
++	require.Equal(t, int32(1), final.queryCount.Load())
++}
++
++// A successful answer on a fallback rule is final: the next rule is never
++// queried.
++func TestDNSFallbackStopsOnSuccess(t *testing.T) {
++	t.Parallel()
++	first := &fakeDNSTransport{tag: "first", rcode: mDNS.RcodeSuccess, address: netip.MustParseAddr("192.0.2.1")}
++	final := &fakeDNSTransport{tag: "final", rcode: mDNS.RcodeSuccess, address: netip.MustParseAddr("192.0.2.2")}
++	router := raceTestRouter(t, first, final)
++	rules := raceTestRules(t, []option.DNSRule{
++		fallbackRouteRule("first", true),
++		fallbackRouteRule("final", false),
++	})
++	result := raceTestExchange(router, rules)
++	require.NoError(t, result.err)
++	require.Equal(t, netip.MustParseAddr("192.0.2.1"), responseAddress(t, result.response))
++	require.Equal(t, int32(1), first.queryCount.Load())
++	require.Equal(t, int32(0), final.queryCount.Load())
++}
++
++// Without `fallback` a failing rule is the final word: the failure is
++// returned and the next rule is never queried.
++func TestDNSRouteFailureWithoutFallback(t *testing.T) {
++	t.Parallel()
++	broken := &fakeDNSTransport{tag: "broken", rcode: mDNS.RcodeNameError}
++	final := &fakeDNSTransport{tag: "final", rcode: mDNS.RcodeSuccess, address: netip.MustParseAddr("192.0.2.1")}
++	router := raceTestRouter(t, broken, final)
++	rules := raceTestRules(t, []option.DNSRule{
++		fallbackRouteRule("broken", false),
++		fallbackRouteRule("final", false),
++	})
++	result := raceTestExchange(router, rules)
++	require.NoError(t, result.err)
++	require.NotNil(t, result.response)
++	require.Equal(t, mDNS.RcodeNameError, result.response.Rcode)
++	require.Equal(t, int32(1), broken.queryCount.Load())
++	require.Equal(t, int32(0), final.queryCount.Load())
++}
++
++// When no further rule matches, fallback continues to the default transport.
++func TestDNSFallbackToDefaultTransport(t *testing.T) {
++	t.Parallel()
++	broken := &fakeDNSTransport{tag: "broken", rcode: mDNS.RcodeNameError}
++	final := &fakeDNSTransport{tag: "final", rcode: mDNS.RcodeSuccess, address: netip.MustParseAddr("192.0.2.1")}
++	router := raceTestRouter(t, broken, final)
++	rules := raceTestRules(t, []option.DNSRule{
++		fallbackRouteRule("broken", true),
++	})
++	result := raceTestExchange(router, rules)
++	require.NoError(t, result.err)
++	require.Equal(t, netip.MustParseAddr("192.0.2.1"), responseAddress(t, result.response))
++	require.Equal(t, int32(1), broken.queryCount.Load())
++	require.Equal(t, int32(1), final.queryCount.Load())
++}
++
++// The async walk path must honor fallback too (the direct-ExchangeAsync fast
++// path is bypassed for fallback rules).
++func TestDNSFallbackExchangeAsync(t *testing.T) {
++	t.Parallel()
++	broken := &fakeDNSTransport{tag: "broken", rcode: mDNS.RcodeNameError}
++	final := &fakeDNSTransport{tag: "final", rcode: mDNS.RcodeSuccess, address: netip.MustParseAddr("192.0.2.1")}
++	router := raceTestRouter(t, broken, final)
++	rules := raceTestRules(t, []option.DNSRule{
++		fallbackRouteRule("broken", true),
++		fallbackRouteRule("final", false),
++	})
++	message := &mDNS.Msg{
++		MsgHdr: mDNS.MsgHdr{
++			Id:               1,
++			RecursionDesired: true,
++		},
++		Question: []mDNS.Question{{
++			Name:   "race.example.org.",
++			Qtype:  mDNS.TypeA,
++			Qclass: mDNS.ClassINET,
++		}},
++	}
++	metadata := &adapter.InboundContext{
++		Domain:    "race.example.org",
++		QueryType: mDNS.TypeA,
++	}
++	ctx := adapter.WithContext(context.Background(), metadata)
++	done := make(chan exchangeWithRulesResult, 1)
++	router.exchangeWithRulesAsync(ctx, rules, message, adapter.DNSQueryOptions{}, false, func(result exchangeWithRulesResult) {
++		done <- result
++	})
++	result := <-done
++	require.NoError(t, result.err)
++	require.Equal(t, netip.MustParseAddr("192.0.2.1"), responseAddress(t, result.response))
++	require.Equal(t, int32(1), broken.queryCount.Load())
++	require.Equal(t, int32(1), final.queryCount.Load())
++}
++
++// End-to-end through the public Exchange entry: a query matching a fallback
++// rule comes back with the next server's answer.
++func TestDNSFallbackThroughExchange(t *testing.T) {
++	t.Parallel()
++	broken := &fakeDNSTransport{tag: "broken", rcode: mDNS.RcodeNameError}
++	final := &fakeDNSTransport{tag: "final", rcode: mDNS.RcodeSuccess, address: netip.MustParseAddr("192.0.2.1")}
++	router := raceTestRouter(t, broken, final)
++	router.rules = raceTestRules(t, []option.DNSRule{
++		fallbackRouteRule("broken", true),
++		fallbackRouteRule("final", false),
++	})
++	message := &mDNS.Msg{
++		MsgHdr: mDNS.MsgHdr{
++			Id:               1,
++			RecursionDesired: true,
++		},
++		Question: []mDNS.Question{{
++			Name:   "fallback.example.org.",
++			Qtype:  mDNS.TypeA,
++			Qclass: mDNS.ClassINET,
++		}},
++	}
++	response, err := router.Exchange(context.Background(), message, adapter.DNSQueryOptions{})
++	require.NoError(t, err)
++	require.Equal(t, netip.MustParseAddr("192.0.2.1"), responseAddress(t, response))
++	require.Equal(t, int32(1), broken.queryCount.Load())
++	require.Equal(t, int32(1), final.queryCount.Load())
++}
+diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/go.mod b/go.mod
+--- a/go.mod	2026-09-20 00:14:55
++++ b/go.mod	2026-09-20 00:14:55
+@@ -1,6 +1,6 @@
+ module github.com/sagernet/sing-box
+ 
+-go 1.25.5
++go 1.26.0
+ 
+ require (
+ 	filippo.io/age v1.3.1
+@@ -29,7 +29,7 @@
+ 	github.com/mdlayher/netlink v1.11.2
+ 	github.com/metacubex/utls v1.8.7
+ 	github.com/mholt/acmez/v3 v3.1.6
+-	github.com/miekg/dns v1.1.72
++	github.com/miekg/dns v1.1.73
+ 	github.com/openai/openai-go/v3 v3.26.0
+ 	github.com/oschwald/maxminddb-golang v1.13.1
+ 	github.com/pkg/sftp v1.13.10
+@@ -70,10 +70,10 @@
+ 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
+ 	golang.org/x/crypto v0.54.0
+ 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f
+-	golang.org/x/mod v0.37.0
++	golang.org/x/mod v0.38.0
+ 	golang.org/x/net v0.57.0
+ 	golang.org/x/sync v0.22.0
+-	golang.org/x/sys v0.47.0
++	golang.org/x/sys v0.48.0
+ 	golang.org/x/term v0.45.0
+ 	golang.org/x/text v0.40.0
+ 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10
+@@ -190,7 +190,6 @@
+ 	go4.org/mem v0.0.0-20240501181205-ae6ca9944745 // indirect
+ 	golang.org/x/oauth2 v0.36.0 // indirect
+ 	golang.org/x/time v0.15.0 // indirect
+-	golang.org/x/tools v0.47.0 // indirect
+ 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
+ 	golang.zx2c4.com/wireguard/windows v0.5.3 // indirect
+ 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
+diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/go.sum b/go.sum
+--- a/go.sum	2026-09-20 00:14:55
++++ b/go.sum	2026-09-20 00:14:55
+@@ -205,8 +205,8 @@
+ github.com/metacubex/utls v1.8.7/go.mod h1:kncGGVhFaoGn5M3pFe3SXhZCzsbCJayNOH4UEqTKTko=
+ github.com/mholt/acmez/v3 v3.1.6 h1:eGVQNObP0pBN4sxqrXeg7MYqTOWyoiYpQqITVWlrevk=
+ github.com/mholt/acmez/v3 v3.1.6/go.mod h1:5nTPosTGosLxF3+LU4ygbgMRFDhbAVpqMI4+a4aHLBY=
+-github.com/miekg/dns v1.1.72 h1:vhmr+TF2A3tuoGNkLDFK9zi36F2LS+hKTRW0Uf8kbzI=
+-github.com/miekg/dns v1.1.72/go.mod h1:+EuEPhdHOsfk6Wk5TT2CzssZdqkmFhf8r+aVyDEToIs=
++github.com/miekg/dns v1.1.73 h1:uhT8nJxmTrPJYClxVxTCX+CVn6qnzSiybRk72Z6DgrE=
++github.com/miekg/dns v1.1.73/go.mod h1:RW2Obtfd5NZHvOFe3zYG0W8koWOQtAzyHaLo8vASBuQ=
+ github.com/mitchellh/go-ps v1.0.0 h1:i6ampVEEF4wQFF+bkYfwYgY+F/uYJDktmvLPf7qIgjc=
+ github.com/mitchellh/go-ps v1.0.0/go.mod h1:J4lOc8z8yJs6vUwklHw2XEIiT4z4C40KtWVN3nvg8Pg=
+ github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 h1:zYyBkD/k9seD2A7fsi6Oo2LfFZAehjjQMERAvZLEDnQ=
+@@ -459,8 +459,8 @@
+ golang.org/x/mod v0.12.0/go.mod h1:iBbtSCu2XBx23ZKBPSOrRkjjQPZFPuis4dIYUhu/chs=
+ golang.org/x/mod v0.15.0/go.mod h1:hTbmBsO62+eylJbnUtE2MGJUyE7QWk4xUqPFrRgJ+7c=
+ golang.org/x/mod v0.17.0/go.mod h1:hTbmBsO62+eylJbnUtE2MGJUyE7QWk4xUqPFrRgJ+7c=
+-golang.org/x/mod v0.37.0 h1:vF1DjpVEshcIqoEaauuHebaLk1O1forxjxBaVn884JQ=
+-golang.org/x/mod v0.37.0/go.mod h1:m8S8VeM9r4dzDwjrKO0a1sZP3YjeMamRRlD+fmR2Q/0=
++golang.org/x/mod v0.38.0 h1:MECBjubtXD7yj4HrhIUcywNaGeNVUdfVnxmPajOk4yk=
++golang.org/x/mod v0.38.0/go.mod h1:V6Xz0pq8TQ3dGqVQ1FVHuelZpAL0uNhSkk9ogYP3c40=
+ golang.org/x/net v0.0.0-20180724234803-3673e40ba225/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
+ golang.org/x/net v0.0.0-20180826012351-8a410e7b638d/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
+ golang.org/x/net v0.0.0-20190213061140-3a22650c66bd/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
+@@ -512,8 +512,8 @@
+ golang.org/x/sys v0.17.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
+ golang.org/x/sys v0.20.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
+ golang.org/x/sys v0.28.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
+-golang.org/x/sys v0.47.0 h1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=
+-golang.org/x/sys v0.47.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=
++golang.org/x/sys v0.48.0 h1:bbX/i/6MgT9BVLM9RT1thmxL04yeTAhbEz4SyadbXoo=
++golang.org/x/sys v0.48.0/go.mod h1:hNLxWAXmnKAxqDtdwIYC4bM9oQPEecfsnNMuSxOs3og=
+ golang.org/x/telemetry v0.0.0-20240228155512-f48c80bd79b2/go.mod h1:TeRTkGYfJXctD9OcfyVLyj2J3IxLnKwHJR8f4D8a3YE=
+ golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
+ golang.org/x/term v0.0.0-20210927222741-03fcf44c2211/go.mod h1:jbD1KX2456YbFQfuXm/mYQcufACuNUgVhRMnK/tPxf8=
+@@ -550,8 +550,6 @@
+ golang.org/x/tools v0.6.0/go.mod h1:Xwgl3UAJ/d3gWutnCtw505GrjyAbvKui8lOU390QaIU=
+ golang.org/x/tools v0.13.0/go.mod h1:HvlwmtVNQAhOuCjW7xxvovg8wbNq7LwfXh/k7wXUl58=
+ golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d/go.mod h1:aiJjzUbINMkxbQROHiO6hDPo2LHcIPhhQsa9DLh0yGk=
+-golang.org/x/tools v0.47.0 h1:7Kn5x/d1svx/PzryTsqeoZN4TZwqeH5pGWjefhLi/1Q=
+-golang.org/x/tools v0.47.0/go.mod h1:dFHnyTvFWY212G+h7ZY4Vsp/K3U4/7W9TyVaAul8uCA=
+ golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
+ golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
+ golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
+diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/nekoutils/callback.go b/nekoutils/callback.go
+--- a/nekoutils/callback.go	1970-01-01 07:30:00
++++ b/nekoutils/callback.go	2026-09-20 00:14:56
+@@ -0,0 +1,3 @@
++package nekoutils
++
++var Selector_OnProxySelected func(selectorTag string, tag string)
+diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/nekoutils/srs.go b/nekoutils/srs.go
+--- a/nekoutils/srs.go	1970-01-01 07:30:00
++++ b/nekoutils/srs.go	2026-09-20 00:14:56
+@@ -0,0 +1,7 @@
++package nekoutils
++
++import "github.com/sagernet/sing-box/option"
++
++var GetGeoIPHeadlessRules func(name string) ([]option.HeadlessRule, error)
++
++var GetGeoSiteHeadlessRules func(name string) ([]option.HeadlessRule, error)
+diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/option/rule_action.go b/option/rule_action.go
+--- a/option/rule_action.go	2026-09-20 00:14:55
++++ b/option/rule_action.go	2026-09-20 00:14:55
+@@ -213,6 +213,8 @@
+ type DNSRouteActionOptions struct {
+ 	Server      string `json:"server,omitempty" reference:"dns_server"`
+ 	Speculative bool   `json:"speculative,omitempty"`
++	// neko: on query failure, continue matching the next DNS rule
++	Fallback bool `json:"fallback,omitempty"`
+ 	AbstractDNSRouteActionOptions
+ }
+ 
+diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/protocol/group/selector.go b/protocol/group/selector.go
+--- a/protocol/group/selector.go	2026-09-20 00:14:55
++++ b/protocol/group/selector.go	2026-09-20 00:14:55
+@@ -10,6 +10,7 @@
+ 	"github.com/sagernet/sing-box/common/urltest"
+ 	C "github.com/sagernet/sing-box/constant"
+ 	"github.com/sagernet/sing-box/log"
++	"github.com/sagernet/sing-box/nekoutils"
+ 	"github.com/sagernet/sing-box/option"
+ 	"github.com/sagernet/sing/common"
+ 	E "github.com/sagernet/sing/common/exceptions"
+@@ -138,6 +139,9 @@
+ 		}
+ 	}
+ 	s.interruptGroup.Interrupt(s.interruptExternalConnections)
++	if nekoutils.Selector_OnProxySelected != nil {
++		nekoutils.Selector_OnProxySelected(s.Tag(), tag)
++	}
+ 	if s.history != nil {
+ 		s.history.NotifyUpdated()
+ 	}
+diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/protocol/vless/outbound.go b/protocol/vless/outbound.go
+--- a/protocol/vless/outbound.go	2026-09-20 00:14:55
++++ b/protocol/vless/outbound.go	2026-09-20 00:14:55
+@@ -88,11 +88,15 @@
+ 			return nil, E.New("unknown packet encoding: ", *options.PacketEncoding)
+ 		}
+ 	}
++	muxOpts := common.PtrValueOrDefault(options.Multiplex)
++	if muxOpts.Enabled {
++		options.Flow = ""
++	}
+ 	outbound.client, err = vless.NewClient(options.UUID, options.Flow, logger)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+-	outbound.multiplexDialer, err = mux.NewClientWithOptions((*vlessDialer)(outbound), logger, common.PtrValueOrDefault(options.Multiplex))
++	outbound.multiplexDialer, err = mux.NewClientWithOptions((*vlessDialer)(outbound), logger, muxOpts)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/route/route.go b/route/route.go
+--- a/route/route.go	2026-09-20 00:14:55
++++ b/route/route.go	2026-09-20 00:14:55
+@@ -167,9 +167,11 @@
+ 		metadata.RouteRule = selectedRule.String()
+ 	}
+ 	metadata.RouteOutbound = selectedOutbound.Tag()
++	r.trackersAccess.RLock()
+ 	for _, tracker := range r.trackers {
+ 		conn = tracker.RoutedConnection(ctx, conn, metadata, selectedRule, selectedOutbound)
+ 	}
++	r.trackersAccess.RUnlock()
+ 	if outboundHandler, isHandler := selectedOutbound.(adapter.ConnectionHandler); isHandler {
+ 		outboundHandler.NewConnection(ctx, conn, metadata, onClose)
+ 	} else {
+@@ -299,9 +301,11 @@
+ 		metadata.RouteRule = selectedRule.String()
+ 	}
+ 	metadata.RouteOutbound = selectedOutbound.Tag()
++	r.trackersAccess.RLock()
+ 	for _, tracker := range r.trackers {
+ 		conn = tracker.RoutedPacketConnection(ctx, conn, metadata, selectedRule, selectedOutbound)
+ 	}
++	r.trackersAccess.RUnlock()
+ 	if metadata.FakeIP {
+ 		conn = newFakeIPNATPacketConn(bufio.NewNetPacketConn(conn), metadata.OriginDestination, metadata.Destination)
+ 	}
+@@ -526,6 +530,8 @@
+ 	metadataCopy := *metadata
+ 	result.NewTracker = func() tun.FlowTracker {
+ 		r.logger.InfoContext(ctx, "pre-match: forward ", metadataCopy.Network, " connection from ", metadataCopy.Source.AddrString(), " to ", metadataCopy.Destination.AddrString(), " via outbound/", outbound.Type(), "[", outbound.Tag(), "]")
++		r.trackersAccess.RLock()
++		defer r.trackersAccess.RUnlock()
+ 		flowTrackers := make([]tun.FlowTracker, 0, len(r.trackers)+1)
+ 		flowTrackers = append(flowTrackers, newFlowLogger(ctx, r.logger, metadataCopy, outbound))
+ 		for _, tracker := range r.trackers {
+diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/route/router.go b/route/router.go
+--- a/route/router.go	2026-09-20 00:14:55
++++ b/route/router.go	2026-09-20 00:14:55
+@@ -4,6 +4,7 @@
+ 	"context"
+ 	"os"
+ 	"runtime"
++	"sync"
+ 	"time"
+ 
+ 	"github.com/sagernet/sing-box/adapter"
+@@ -45,6 +46,7 @@
+ 	processCache      *freelru.Cache[processCacheKey, processCacheEntry]
+ 	neighborResolver  adapter.NeighborResolver
+ 	pauseManager      pause.Manager
++	trackersAccess    sync.RWMutex
+ 	trackers          []adapter.ConnectionTracker
+ 	platformInterface adapter.PlatformInterface
+ 	started           bool
+@@ -270,6 +272,8 @@
+ }
+ 
+ func (r *Router) AppendTracker(tracker adapter.ConnectionTracker) {
++	r.trackersAccess.Lock()
++	defer r.trackersAccess.Unlock()
+ 	r.trackers = append(r.trackers, tracker)
+ }
+ 
+diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/route/router_tracker_test.go b/route/router_tracker_test.go
+--- a/route/router_tracker_test.go	1970-01-01 07:30:00
++++ b/route/router_tracker_test.go	2026-09-20 00:14:55
+@@ -0,0 +1,262 @@
++package route
++
++// Regression tests for the neko `trackersAccess` lock patch (see NEKO.md):
++// upstream appends to Router.trackers without synchronization while the
++// Android app calls AppendTracker (via SetV2rayStats) on an already routing
++// box, so the append raced the per-connection tracker reads. These tests run
++// AppendTracker concurrently with all three read paths (RouteConnectionEx,
++// RoutePacketConnectionEx, PreMatch's NewTracker closure) and are meant to be
++// executed with -race.
++
++import (
++	"context"
++	"errors"
++	"net"
++	"net/netip"
++	"sync"
++	"sync/atomic"
++	"testing"
++
++	"github.com/sagernet/sing-box/adapter"
++	"github.com/sagernet/sing-box/log"
++	"github.com/sagernet/sing-tun"
++	"github.com/sagernet/sing/common/bufio"
++	M "github.com/sagernet/sing/common/metadata"
++	N "github.com/sagernet/sing/common/network"
++
++	"github.com/stretchr/testify/require"
++)
++
++type trackerTestOutbound struct{}
++
++func (o *trackerTestOutbound) Type() string           { return "direct" }
++func (o *trackerTestOutbound) Tag() string            { return "out" }
++func (o *trackerTestOutbound) Network() []string      { return []string{N.NetworkTCP, N.NetworkUDP} }
++func (o *trackerTestOutbound) Dependencies() []string { return nil }
++
++func (o *trackerTestOutbound) DialContext(ctx context.Context, network string, destination M.Socksaddr) (net.Conn, error) {
++	return nil, errors.New("not implemented")
++}
++
++func (o *trackerTestOutbound) ListenPacket(ctx context.Context, destination M.Socksaddr) (net.PacketConn, error) {
++	return nil, errors.New("not implemented")
++}
++
++func (o *trackerTestOutbound) PortAddresses() (v4 netip.Addr, v6 netip.Addr) {
++	return netip.Addr{}, netip.Addr{}
++}
++
++func (o *trackerTestOutbound) PortMTU() uint32                          { return 0 }
++func (o *trackerTestOutbound) AttachReturn(returnPath tun.Return) error { return nil }
++func (o *trackerTestOutbound) DetachReturn(returnPath tun.Return) error { return nil }
++func (o *trackerTestOutbound) WritePackets(packets [][]byte) error      { return nil }
++
++func (o *trackerTestOutbound) PreMatchFlow(network string, destination netip.Addr) adapter.PreMatchAction {
++	return adapter.PreMatchFlow
++}
++
++type trackerTestOutboundManager struct {
++	defaultOutbound adapter.Outbound
++}
++
++func (m *trackerTestOutboundManager) Start(stage adapter.StartStage) error { return nil }
++func (m *trackerTestOutboundManager) Close() error                         { return nil }
++func (m *trackerTestOutboundManager) Outbounds() []adapter.Outbound {
++	return []adapter.Outbound{m.defaultOutbound}
++}
++func (m *trackerTestOutboundManager) Outbound(tag string) (adapter.Outbound, bool) {
++	return m.defaultOutbound, tag == m.defaultOutbound.Tag()
++}
++func (m *trackerTestOutboundManager) Default() adapter.Outbound { return m.defaultOutbound }
++func (m *trackerTestOutboundManager) Remove(tag string) error   { return nil }
++func (m *trackerTestOutboundManager) Create(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, outboundType string, options any) error {
++	return nil
++}
++
++type trackerTestConnectionManager struct{}
++
++func (m *trackerTestConnectionManager) Start(stage adapter.StartStage) error { return nil }
++func (m *trackerTestConnectionManager) Close() error                         { return nil }
++func (m *trackerTestConnectionManager) Count() int                           { return 0 }
++func (m *trackerTestConnectionManager) CloseAll()                            {}
++func (m *trackerTestConnectionManager) TrackConn(conn net.Conn) net.Conn     { return conn }
++func (m *trackerTestConnectionManager) TrackPacketConn(conn net.PacketConn) net.PacketConn {
++	return conn
++}
++func (m *trackerTestConnectionManager) NewConnection(ctx context.Context, this N.Dialer, conn net.Conn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
++	conn.Close()
++	onClose(nil)
++}
++func (m *trackerTestConnectionManager) NewPacketConnection(ctx context.Context, this N.Dialer, conn N.PacketConn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
++	conn.Close()
++	onClose(nil)
++}
++
++type trackerTestDNSTransportManager struct{}
++
++func (m *trackerTestDNSTransportManager) Start(stage adapter.StartStage) error { return nil }
++func (m *trackerTestDNSTransportManager) Close() error                         { return nil }
++func (m *trackerTestDNSTransportManager) Transports() []adapter.DNSTransport   { return nil }
++func (m *trackerTestDNSTransportManager) Transport(tag string) (adapter.DNSTransport, bool) {
++	return nil, false
++}
++func (m *trackerTestDNSTransportManager) Default() adapter.DNSTransport   { return nil }
++func (m *trackerTestDNSTransportManager) FakeIP() adapter.FakeIPTransport { return nil }
++func (m *trackerTestDNSTransportManager) Remove(tag string) error         { return nil }
++func (m *trackerTestDNSTransportManager) Create(ctx context.Context, logger log.ContextLogger, tag string, outboundType string, options any) error {
++	return nil
++}
++
++type trackerTestCounters struct {
++	connections       atomic.Int32
++	packetConnections atomic.Int32
++	flows             atomic.Int32
++}
++
++type countingConnectionTracker struct {
++	counters *trackerTestCounters
++}
++
++func (t *countingConnectionTracker) RoutedConnection(ctx context.Context, conn net.Conn, metadata adapter.InboundContext, matchedRule adapter.Rule, matchOutbound adapter.Outbound) net.Conn {
++	t.counters.connections.Add(1)
++	return conn
++}
++
++func (t *countingConnectionTracker) RoutedPacketConnection(ctx context.Context, conn N.PacketConn, metadata adapter.InboundContext, matchedRule adapter.Rule, matchOutbound adapter.Outbound) N.PacketConn {
++	t.counters.packetConnections.Add(1)
++	return conn
++}
++
++func (t *countingConnectionTracker) RoutedFlow(ctx context.Context, metadata adapter.InboundContext, matchedRule adapter.Rule, matchOutbound adapter.Outbound) tun.FlowTracker {
++	t.counters.flows.Add(1)
++	return nil
++}
++
++func newTrackerTestRouter() *Router {
++	return &Router{
++		ctx:          context.Background(),
++		logger:       log.NewNOPFactory().NewLogger("test"),
++		outbound:     &trackerTestOutboundManager{defaultOutbound: &trackerTestOutbound{}},
++		connection:   &trackerTestConnectionManager{},
++		dnsTransport: &trackerTestDNSTransportManager{},
++	}
++}
++
++func routeTrackerTestTCP(router *Router) {
++	client, server := net.Pipe()
++	defer server.Close()
++	router.RouteConnectionEx(context.Background(), client, adapter.InboundContext{
++		Domain:      "example.com",
++		Source:      M.ParseSocksaddrHostPort("10.0.0.1", 12345),
++		Destination: M.ParseSocksaddrHostPort("example.com", 443),
++	}, func(it error) {})
++}
++
++func routeTrackerTestUDP(router *Router) {
++	udpConn, err := net.ListenPacket("udp", "127.0.0.1:0")
++	if err != nil {
++		return
++	}
++	router.RoutePacketConnectionEx(context.Background(), bufio.NewPacketConn(udpConn), adapter.InboundContext{
++		Domain:      "example.com",
++		Source:      M.ParseSocksaddrHostPort("10.0.0.1", 12345),
++		Destination: M.ParseSocksaddrHostPort("example.com", 443),
++	}, func(it error) {})
++}
++
++func preMatchTrackerTestFlow(router *Router) {
++	destination := M.SocksaddrFrom(netip.MustParseAddr("198.51.100.1"), 443)
++	result := router.PreMatch(adapter.InboundContext{
++		Network:     N.NetworkUDP,
++		Domain:      "example.com",
++		Source:      M.ParseSocksaddrHostPort("10.0.0.1", 12345),
++		Destination: destination,
++	}, nil)
++	if result.Action != adapter.PreMatchFlow || result.NewTracker == nil {
++		return
++	}
++	result.NewTracker()
++}
++
++// Every appended tracker is invoked once per routed connection on each of the
++// three read paths.
++func TestRouterTrackersInvoked(t *testing.T) {
++	t.Parallel()
++	router := newTrackerTestRouter()
++	counters := &trackerTestCounters{}
++	for range 3 {
++		router.AppendTracker(&countingConnectionTracker{counters: counters})
++	}
++	routeTrackerTestTCP(router)
++	require.Equal(t, int32(3), counters.connections.Load())
++	routeTrackerTestUDP(router)
++	require.Equal(t, int32(3), counters.packetConnections.Load())
++	preMatchTrackerTestFlow(router)
++	require.Equal(t, int32(3), counters.flows.Load())
++}
++
++// AppendTracker concurrent with the routing read paths must not race; run
++// with -race. After the dust settles every tracker must still be invoked on
++// each path.
++func TestRouterTrackersConcurrentAppend(t *testing.T) {
++	t.Parallel()
++	router := newTrackerTestRouter()
++	counters := &trackerTestCounters{}
++	const (
++		writers          = 4
++		appendsPerWriter = 25
++		readers          = 4
++		maxReadRounds    = 1000
++	)
++	stopReaders := make(chan struct{})
++	var writerWG, readerWG sync.WaitGroup
++	for range writers {
++		writerWG.Add(1)
++		go func() {
++			defer writerWG.Done()
++			for range appendsPerWriter {
++				router.AppendTracker(&countingConnectionTracker{counters: counters})
++			}
++		}()
++	}
++	for reader := range readers {
++		readerWG.Add(1)
++		go func() {
++			defer readerWG.Done()
++			for round := 0; round < maxReadRounds; round++ {
++				select {
++				case <-stopReaders:
++					return
++				default:
++				}
++				switch reader % 3 {
++				case 0:
++					routeTrackerTestTCP(router)
++				case 1:
++					routeTrackerTestUDP(router)
++				default:
++					preMatchTrackerTestFlow(router)
++				}
++			}
++		}()
++	}
++	writerWG.Wait()
++	close(stopReaders)
++	readerWG.Wait()
++
++	const totalTrackers = writers * appendsPerWriter
++	router.trackersAccess.RLock()
++	trackerCount := len(router.trackers)
++	router.trackersAccess.RUnlock()
++	require.Equal(t, totalTrackers, trackerCount)
++
++	counters.connections.Store(0)
++	counters.packetConnections.Store(0)
++	counters.flows.Store(0)
++	routeTrackerTestTCP(router)
++	require.Equal(t, int32(totalTrackers), counters.connections.Load())
++	routeTrackerTestUDP(router)
++	require.Equal(t, int32(totalTrackers), counters.packetConnections.Load())
++	preMatchTrackerTestFlow(router)
++	require.Equal(t, int32(totalTrackers), counters.flows.Load())
++}
+diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/route/rule/rule_action.go b/route/rule/rule_action.go
+--- a/route/rule/rule_action.go	2026-09-20 00:14:55
++++ b/route/rule/rule_action.go	2026-09-20 00:14:55
+@@ -132,6 +132,8 @@
+ 		return &RuleActionDNSRoute{
+ 			Server:      action.RouteOptions.Server,
+ 			Speculative: action.RouteOptions.Speculative,
++			// neko: on query failure, continue matching the next DNS rule
++			Fallback: action.RouteOptions.Fallback,
+ 			RuleActionDNSRouteOptions: RuleActionDNSRouteOptions{
+ 				Strategy:               C.DomainStrategy(action.RouteOptions.Strategy),
+ 				Timeout:                time.Duration(action.RouteOptions.Timeout),
+@@ -295,6 +297,8 @@
+ type RuleActionDNSRoute struct {
+ 	Server      string
+ 	Speculative bool
++	// neko: on query failure, continue matching the next DNS rule
++	Fallback bool
+ 	RuleActionDNSRouteOptions
+ }
+ 
+diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/route/rule/rule_set_local.go b/route/rule/rule_set_local.go
+--- a/route/rule/rule_set_local.go	2026-09-20 00:14:55
++++ b/route/rule/rule_set_local.go	2026-09-20 00:14:55
+@@ -11,6 +11,7 @@
+ 	"github.com/sagernet/sing-box/adapter"
+ 	"github.com/sagernet/sing-box/common/srs"
+ 	C "github.com/sagernet/sing-box/constant"
++	"github.com/sagernet/sing-box/nekoutils"
+ 	"github.com/sagernet/sing-box/option"
+ 	"github.com/sagernet/sing/common"
+ 	E "github.com/sagernet/sing/common/exceptions"
+@@ -54,6 +55,28 @@
+ 			return nil, err
+ 		}
+ 	} else {
++		if strings.HasPrefix(options.LocalOptions.Path, "geoip:") {
++			rules, err := nekoutils.GetGeoIPHeadlessRules(strings.TrimPrefix(options.LocalOptions.Path, "geoip:"))
++			if err != nil {
++				return nil, err
++			}
++			err = ruleSet.reloadRules(rules)
++			if err != nil {
++				return nil, err
++			}
++			return ruleSet, nil
++		}
++		if strings.HasPrefix(options.LocalOptions.Path, "geosite:") {
++			rules, err := nekoutils.GetGeoSiteHeadlessRules(strings.TrimPrefix(options.LocalOptions.Path, "geosite:"))
++			if err != nil {
++				return nil, err
++			}
++			err = ruleSet.reloadRules(rules)
++			if err != nil {
++				return nil, err
++			}
++			return ruleSet, nil
++		}
+ 		filePath := filemanager.BasePath(ctx, strings.ReplaceAll(options.LocalOptions.Path, C.RuleSetTagPlaceholder, tag))
+ 		filePath, _ = filepath.Abs(filePath)
+ 		err := ruleSet.reloadFile(filePath)
