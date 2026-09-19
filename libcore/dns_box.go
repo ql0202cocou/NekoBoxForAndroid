@@ -59,9 +59,14 @@ func (p *platformLocalDNSTransport) Reset() {
 }
 
 func (p *platformLocalDNSTransport) ExchangeAsync(ctx context.Context, message *mDNS.Msg, callback func(response *mDNS.Msg, err error)) {
+	exchangeAsync(ctx, message, p.Exchange, callback)
+}
+
+// exchangeAsync adapts a blocking Exchange to the callback form of
+// adapter.DNSTransport, shared by the transports in this package.
+func exchangeAsync(ctx context.Context, message *mDNS.Msg, exchange func(context.Context, *mDNS.Msg) (*mDNS.Msg, error), callback func(*mDNS.Msg, error)) {
 	go func() {
-		response, err := p.Exchange(ctx, message)
-		callback(response, err)
+		callback(exchange(ctx, message))
 	}()
 }
 

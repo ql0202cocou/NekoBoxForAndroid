@@ -194,10 +194,18 @@ func withDefaultPort(address, port string) string {
 	return net.JoinHostPort(strings.Trim(address, "[]"), port)
 }
 
-// dohClient is private so DoH does not ride http.DefaultClient, whose shared
-// global transport also picks up proxy settings from the environment. The
-// timeout is a backstop; callers already bound every exchange with a context.
-var dohClient = &http.Client{Timeout: 10 * time.Second}
+// dohClient is private so DoH does not ride http.DefaultClient. A nil
+// Transport would still be http.DefaultTransport, which picks up proxy
+// settings from the environment, so it gets the same configuration minus the
+// proxy. The timeout is a backstop; callers already bound every exchange with
+// a context.
+var dohClient = &http.Client{Timeout: 10 * time.Second, Transport: noProxyTransport()}
+
+func noProxyTransport() *http.Transport {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = nil
+	return transport
+}
 
 func exchangeHTTPS(ctx context.Context, server string, query *mDNS.Msg) (*mDNS.Msg, error) {
 	body, err := query.Pack()

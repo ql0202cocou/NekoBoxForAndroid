@@ -12,32 +12,27 @@ import (
 	"github.com/sagernet/sing-box/option"
 )
 
-type geosite struct {
-	geositeReader *geosites.Reader
-	file          *os.File
-}
-
-func (g *geosite) Open(path string) (err error) {
-	defer device.DeferPanicToError("geosite.Open", func(err_ error) { err = err_ })
+// openGeoSite opens a sing-geosite database. The reader keeps reading from
+// the file, so the file is what invalidation closes.
+func openGeoSite(path string) (reader *geosites.Reader, closer io.Closer, err error) {
+	defer device.DeferPanicToError("openGeoSite", func(err_ error) { err = err_ })
 
 	file, err := os.Open(path)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-	geositeReader, _, err := geosites.NewReader(file)
+	reader, _, err = geosites.NewReader(file)
 	if err != nil {
 		file.Close()
-		return err
+		return nil, nil, err
 	}
-	g.geositeReader = geositeReader
-	g.file = file
-	return nil
+	return reader, file, nil
 }
 
-func (g *geosite) Rules(code string) (rules []option.HeadlessRule, err error) {
-	defer device.DeferPanicToError("geosite.Rules", func(err_ error) { err = err_ })
+func geositeRulesFrom(reader *geosites.Reader, code string) (rules []option.HeadlessRule, err error) {
+	defer device.DeferPanicToError("geositeRulesFrom", func(err_ error) { err = err_ })
 
-	sourceSet, err := g.geositeReader.Read(code)
+	sourceSet, err := reader.Read(code)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read geosite code %s :%w", code, err)
 	}
@@ -59,20 +54,11 @@ func (g *geosite) Rules(code string) (rules []option.HeadlessRule, err error) {
 	}, nil
 }
 
-// See geoCache for the caching rationale. The reader needs its underlying
-// file as the closer, and codes are matched exactly.
+// See geoCache for the caching rationale. Codes are matched exactly.
 var geositeCache = geoCache[*geosites.Reader]{
 	dbName: "geosite.db",
-	open: func(path string) (*geosites.Reader, io.Closer, error) {
-		g := new(geosite)
-		if err := g.Open(path); err != nil {
-			return nil, nil, err
-		}
-		return g.geositeReader, g.file, nil
-	},
-	load: func(reader *geosites.Reader, code string) ([]option.HeadlessRule, error) {
-		return (&geosite{geositeReader: reader}).Rules(code)
-	},
+	open:   openGeoSite,
+	load:   geositeRulesFrom,
 }
 
 func geositeRules(code string) ([]option.HeadlessRule, error) {

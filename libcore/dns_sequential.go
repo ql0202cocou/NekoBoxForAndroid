@@ -28,7 +28,7 @@ type SequentialDNSServerOptions struct {
 }
 
 func registerSequentialTransport(registry *dns.TransportRegistry) {
-	dns.RegisterTransport(registry, DNSTypeSequential, NewSequentialTransport)
+	dns.RegisterTransport(registry, DNSTypeSequential, newSequentialTransport)
 }
 
 var _ adapter.DNSTransport = (*SequentialTransport)(nil)
@@ -40,8 +40,8 @@ type SequentialTransport struct {
 	members []string
 }
 
-func NewSequentialTransport(ctx context.Context, logger log.ContextLogger, tag string, options SequentialDNSServerOptions) (ret adapter.DNSTransport, err error) {
-	defer device.DeferPanicToError("NewSequentialTransport", func(err_ error) { err = err_ })
+func newSequentialTransport(ctx context.Context, logger log.ContextLogger, tag string, options SequentialDNSServerOptions) (ret adapter.DNSTransport, err error) {
+	defer device.DeferPanicToError("newSequentialTransport", func(err_ error) { err = err_ })
 
 	if len(options.Servers) == 0 {
 		return nil, E.New("empty member servers")
@@ -126,8 +126,5 @@ func (t *SequentialTransport) Exchange(ctx context.Context, message *mDNS.Msg) (
 }
 
 func (t *SequentialTransport) ExchangeAsync(ctx context.Context, message *mDNS.Msg, callback func(response *mDNS.Msg, err error)) {
-	go func() {
-		response, err := t.Exchange(ctx, message)
-		callback(response, err)
-	}()
+	exchangeAsync(ctx, message, t.Exchange, callback)
 }

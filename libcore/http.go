@@ -158,7 +158,7 @@ func (c *httpClient) KeepAlive() {
 func (c *httpClient) NewRequest() HTTPRequest {
 	defer device.DeferPanicToError("http NewRequest", nil)
 
-	req := &httpRequest{httpClient: c, tls: c.tls.Clone()}
+	req := &httpRequest{client: c, tls: c.tls.Clone()}
 	req.request = http.Request{
 		Method: "GET",
 		Header: http.Header{},
@@ -171,7 +171,7 @@ func (c *httpClient) NewRequest() HTTPRequest {
 // timeouts, ForceAttemptHTTP2), so this cannot drift out of sync with
 // NewHttpClient/TrySocks5/KeepAlive.
 func (r *httpRequest) perRequestTransport() *http.Transport {
-	t := r.h1h2Transport.Clone()
+	t := r.client.h1h2Transport.Clone()
 	t.TLSClientConfig = r.tls
 	t.DisableKeepAlives = true // an isolated pool must not outlive the request
 	return t
@@ -184,8 +184,8 @@ func (c *httpClient) Close() {
 }
 
 type httpRequest struct {
-	*httpClient
-	// tls shadows the client's config with a per-request clone, so a request
+	client *httpClient
+	// tls is a per-request clone of the client's config, so a request
 	// changing it (AllowInsecure) cannot disable verification for every later
 	// request on the same client. The shared transport keeps using the client's
 	// own config; see perRequestTransport.
@@ -233,10 +233,10 @@ func (r *httpRequest) SetUserAgent(userAgent string) {
 func (r *httpRequest) Execute() (resp HTTPResponse, err error) {
 	defer device.DeferPanicToError("http execute", func(err_ error) { err = err_ })
 	// full direct
-	if r.tryH3Direct && !r.trySocks5 {
+	if r.client.tryH3Direct && !r.client.trySocks5 {
 		return r.doH3Direct()
 	}
-	client := &r.h1h2Client
+	client := &r.client.h1h2Client
 	// ownTransport is set only when this request needs an isolated transport;
 	// its idle pool is then tied to the response's Close below, since nobody
 	// else ever closes it (DisableKeepAlives only stops reuse).
@@ -247,28 +247,25 @@ func (r *httpRequest) Execute() (resp HTTPResponse, err error) {
 		ownTransport = r.perRequestTransport()
 		client = &http.Client{
 			Transport: ownTransport,
-			Timeout:   r.h1h2Client.Timeout,
+			Timeout:   client.Timeout,
 		}
 	}
 	response, err := client.Do(&r.request)
+	if err == nil && response.StatusCode != http.StatusOK {
+		// errorString consumes and closes the body
+		err = errors.New((&httpResponse{Response: response}).errorString())
+	}
 	if err != nil {
 		if ownTransport != nil {
 			ownTransport.CloseIdleConnections()
 		}
 		// trySocks5 && tryH3Direct
-		if r.tryH3Direct && errors.Is(err, errFailConnectSocks5) {
+		if r.client.tryH3Direct && errors.Is(err, errFailConnectSocks5) {
 			return r.doH3Direct()
 		}
 		return nil, err
 	}
 	httpResp := &httpResponse{Response: response}
-	if response.StatusCode != http.StatusOK {
-		err := errors.New(httpResp.errorString())
-		if ownTransport != nil {
-			ownTransport.CloseIdleConnections()
-		}
-		return nil, err
-	}
 	if ownTransport != nil {
 		// Tie the cloned transport's lifetime to the response body, the same
 		// way doH3Direct ties the winning h3 transport to it.

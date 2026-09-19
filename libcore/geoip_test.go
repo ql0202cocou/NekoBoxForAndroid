@@ -16,15 +16,15 @@ func TestGeoIPCountryRules(t *testing.T) {
 	if path == "" {
 		t.Skip("set NEKO_TEST_GEOIP_DB to a sing-geoip database")
 	}
-	g := new(geoip)
-	if err := g.Open(path); err != nil {
+	reader, _, err := openGeoIP(path)
+	if err != nil {
 		t.Fatal(err)
 	}
-	defer g.geoipReader.Close()
+	defer reader.Close()
 	// Reproduce the previous all-country grouping independently, then compare
 	// the optimized path against it, including its case-insensitive input.
 	want := make(map[string][]string)
-	networks := g.geoipReader.Networks(maxminddb.SkipAliasedNetworks)
+	networks := reader.Networks(maxminddb.SkipAliasedNetworks)
 	for networks.Next() {
 		var country string
 		ipnet, err := networks.Network(&country)
@@ -44,7 +44,7 @@ func TestGeoIPCountryRules(t *testing.T) {
 	sort.Strings(countries)
 	for _, country := range countries {
 		cidrs := want[country]
-		rules, err := g.Rules(strings.ToUpper(country))
+		rules, err := geoipRulesFrom(reader, strings.ToUpper(country))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -59,7 +59,7 @@ func TestGeoIPCountryRules(t *testing.T) {
 	if checked == 0 {
 		t.Fatal("empty fixture")
 	}
-	if _, err := g.Rules("not-a-country"); err == nil {
+	if _, err := geoipRulesFrom(reader, "not-a-country"); err == nil {
 		t.Fatal("missing country accepted")
 	}
 }

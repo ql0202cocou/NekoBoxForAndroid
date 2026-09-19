@@ -70,7 +70,7 @@ func newSeqQuery() *mDNS.Msg {
 func newSequentialTestTransport(t *testing.T, manager *stubDNSTransportManager, tag string, members ...string) *SequentialTransport {
 	t.Helper()
 	ctx := service.ContextWith(context.Background(), adapter.DNSTransportManager(manager))
-	transport, err := NewSequentialTransport(ctx, log.NewNOPFactory().NewLogger("test"), tag, SequentialDNSServerOptions{Servers: members})
+	transport, err := newSequentialTransport(ctx, log.NewNOPFactory().NewLogger("test"), tag, SequentialDNSServerOptions{Servers: members})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,10 +199,10 @@ func TestSequentialConstructorValidation(t *testing.T) {
 	ctx := service.ContextWith(context.Background(), adapter.DNSTransportManager(manager))
 	logger := log.NewNOPFactory().NewLogger("test")
 
-	if _, err := NewSequentialTransport(ctx, logger, "seq", SequentialDNSServerOptions{}); err == nil {
+	if _, err := newSequentialTransport(ctx, logger, "seq", SequentialDNSServerOptions{}); err == nil {
 		t.Fatal("empty member servers must be rejected")
 	}
-	if _, err := NewSequentialTransport(ctx, logger, "seq", SequentialDNSServerOptions{Servers: []string{"a", "seq"}}); err == nil {
+	if _, err := newSequentialTransport(ctx, logger, "seq", SequentialDNSServerOptions{Servers: []string{"a", "seq"}}); err == nil {
 		t.Fatal("self member must be rejected")
 	}
 }
