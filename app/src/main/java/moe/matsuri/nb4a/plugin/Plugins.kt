@@ -111,11 +111,8 @@ object Plugins {
         .build()
 
     private fun getExtPluginOld(pluginId: String): List<ProviderInfo> {
-        var flags = PackageManager.GET_META_DATA
-        if (Build.VERSION.SDK_INT >= 24) {
-            flags =
-                flags or PackageManager.MATCH_DIRECT_BOOT_UNAWARE or PackageManager.MATCH_DIRECT_BOOT_AWARE
-        }
+        val flags = PackageManager.GET_META_DATA or
+            PackageManager.MATCH_DIRECT_BOOT_UNAWARE or PackageManager.MATCH_DIRECT_BOOT_AWARE
         val list1 = SagerNet.application.packageManager.queryIntentContentProviders(
             Intent(ACTION_NATIVE_PLUGIN, buildUri(pluginId, "io.nekohasekai.sagernet")), flags
         )
