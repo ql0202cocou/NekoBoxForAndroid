@@ -25,9 +25,5 @@ jniLibs/
 /CLAUDE.md
 /.claude/worktrees/
 
-# local Go tests, kept out of the repo per maintainer decision
-/libcore/*_test.go
-/libcore/stun/*_test.go
-
 # submodules
 /external
