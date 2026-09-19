@@ -6,6 +6,7 @@ import io.nekohasekai.sagernet.bg.VpnService
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_CONFIG
+import io.nekohasekai.sagernet.database.RuleEntity
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.fmt.ConfigBuildResult.IndexEntity
 import io.nekohasekai.sagernet.fmt.internal.ChainBean
@@ -129,6 +130,18 @@ fun buildConfig(
         }
     }
 
+    return ConfigBuild(proxy, forTest, forExport).build()
+}
+
+// One config build. The state below is shared by the sections build() runs
+// in order; each section was a stretch of the former single buildConfig
+// function and keeps its body, only the captured locals became properties.
+// Sections that fill the sing-box options are extensions on MyOptions so
+// their bodies read the same as inside the original MyOptions().apply.
+private class ConfigBuild(
+    val proxy: ProxyEntity, val forTest: Boolean, val forExport: Boolean,
+) {
+
     val trafficMap = HashMap<String, List<ProxyEntity>>()
     val tagMap = HashMap<Long, String>()
     val globalOutbounds = HashMap<Long, String>()
@@ -214,7 +227,10 @@ fun buildConfig(
         if (forTest) mapOf() else SagerDatabase.proxyDao.getEntities(extraRules.mapNotNull { rule ->
             rule.outbound.takeIf { it > 0 && it != proxy.id }
         }.toHashSet().toList()).associateBy { it.id }
-    val buildSelector = !forTest && group?.isSelector == true && !forExport
+    // the group whose members become selector outbounds; null builds a plain
+    // chain (tests and exports always do)
+    val selectorGroup = group?.takeIf { !forTest && it.isSelector && !forExport }
+    val buildSelector = selectorGroup != null
     val userDNSRuleList = mutableListOf<DNSRule_DefaultOptions>()
     val domainListDNSDirectForce = mutableListOf<String>()
     val bypassDNSBeans = hashSetOf<AbstractBean>()
@@ -268,7 +284,54 @@ fun buildConfig(
         }
     }
 
-    return MyOptions().apply {
+    fun autoDnsDomainStrategy(s: String): String? {
+        if (s.isNotEmpty()) {
+            return s
+        }
+        return when (ipv6Mode) {
+            IPv6Mode.DISABLE -> "ipv4_only"
+            IPv6Mode.ENABLE -> "prefer_ipv4"
+            IPv6Mode.PREFER -> "prefer_ipv6"
+            IPv6Mode.ONLY -> "ipv6_only"
+            else -> null
+        }
+    }
+
+    // sing-box 1.14 has no server-level strategy (legacy DNS format removed):
+    // the final server's strategy becomes the DNS default (below), the rest
+    // are carried by the rule actions routing to each server.
+    val directStrategy = autoDnsDomainStrategy(SingBoxOptionsUtil.domainStrategy("dns-direct"))
+    val remoteStrategy = autoDnsDomainStrategy(SingBoxOptionsUtil.domainStrategy("dns-remote"))
+
+    fun build(): ConfigBuildResult {
+        val options = MyOptions().apply {
+            applyLogAndClashApi()
+            dns = DNSOptions().apply {
+                servers = mutableListOf()
+                rules = mutableListOf()
+            }
+            buildInbounds()
+            initRoute()
+            buildOutbounds()
+            applyUserRules()
+            buildDns()
+            applyBuiltinRules()
+            applyGroupNameserver()
+            if (!forTest) _hack_custom_config = DataStore.globalCustomConfig
+        }
+        val configMap = options.asMap()
+        Util.mergeJSON(configMap, proxy.requireBean().customConfigJson)
+        return ConfigBuildResult(
+            gson.toJson(configMap),
+            externalIndexMap,
+            proxy.id,
+            trafficMap,
+            tagMap,
+            selectorGroup?.id ?: -1L
+        )
+    }
+
+    private fun MyOptions.applyLogAndClashApi() {
         if (!forTest && DataStore.enableClashAPI) experimental = ExperimentalOptions().apply {
             clash_api = ClashAPIOptions().apply {
                 external_controller = CLASH_API_LISTEN
@@ -290,31 +353,9 @@ fun buildConfig(
                 else -> "info"
             }
         }
+    }
 
-        dns = DNSOptions().apply {
-            servers = mutableListOf()
-            rules = mutableListOf()
-        }
-
-        fun autoDnsDomainStrategy(s: String): String? {
-            if (s.isNotEmpty()) {
-                return s
-            }
-            return when (ipv6Mode) {
-                IPv6Mode.DISABLE -> "ipv4_only"
-                IPv6Mode.ENABLE -> "prefer_ipv4"
-                IPv6Mode.PREFER -> "prefer_ipv6"
-                IPv6Mode.ONLY -> "ipv6_only"
-                else -> null
-            }
-        }
-
-        // sing-box 1.14 has no server-level strategy (legacy DNS format removed):
-        // the final server's strategy becomes the DNS default (below), the rest
-        // are carried by the rule actions routing to each server.
-        val directStrategy = autoDnsDomainStrategy(SingBoxOptionsUtil.domainStrategy("dns-direct"))
-        val remoteStrategy = autoDnsDomainStrategy(SingBoxOptionsUtil.domainStrategy("dns-remote"))
-
+    private fun MyOptions.buildInbounds() {
         inbounds = mutableListOf()
 
         if (!forTest) {
@@ -344,7 +385,9 @@ fun buildConfig(
                 listen_port = DataStore.mixedPort
             })
         }
+    }
 
+    private fun MyOptions.initRoute() {
         outbounds = mutableListOf()
         endpoints = mutableListOf()
 
@@ -364,238 +407,239 @@ fun buildConfig(
                 if (!forTest) strategy = SingBoxOptionsUtil.domainStrategy("server")
             }
         }
+    }
 
-        // returns outbound tag
-        fun buildChain(
-            chainId: Long, entity: ProxyEntity
-        ): String {
-            val profileList = entity.resolveChain()
-            // A chain whose members all dangle resolves to nothing: the config would
-            // lack the outbound rules reference and sing-box would fail with a cryptic
-            // "outbound not found". Fail loudly here instead, like the loop guard.
-            if (profileList.isEmpty()) {
-                error("chain profile ${entity.id} (${entity.requireBean().displayName()}) has no valid member")
+    // returns outbound tag
+    private fun MyOptions.buildChain(chainId: Long, entity: ProxyEntity): String {
+        val profileList = entity.resolveChain()
+        // A chain whose members all dangle resolves to nothing: the config would
+        // lack the outbound rules reference and sing-box would fail with a cryptic
+        // "outbound not found". Fail loudly here instead, like the loop guard.
+        if (profileList.isEmpty()) {
+            error("chain profile ${entity.id} (${entity.requireBean().displayName()}) has no valid member")
+        }
+        builtProfiles.add(entity.id)
+        profileList.forEach { builtProfiles.add(it.id) }
+        // dedup by id and keep insertion order: a HashSet<ProxyEntity>
+        // collapses two fully identical entities (the collapsed node's
+        // traffic never lands in the DB) and iterates in arbitrary order
+        val chainTrafficList = (profileList + entity).distinctBy { it.id }
+
+        var currentOutbound: SingBoxOption
+        lateinit var pastOutbound: SingBoxOption
+        lateinit var pastInboundTag: String
+        var pastEntity: ProxyEntity? = null
+        val externalChainMap = LinkedHashMap<Int, ProxyEntity>()
+        externalIndexMap.add(IndexEntity(externalChainMap))
+        val chainOutbounds = ArrayList<SingBoxOption>()
+
+        // chainTagOut: v2ray outbound tag for this chain
+        var chainTagOut = ""
+        val chainTag = "c-$chainId"
+        var muxApplied = false
+
+        val defaultServerDomainStrategy = SingBoxOptionsUtil.domainStrategy("server")
+
+        profileList.forEachIndexed { index, proxyEntity ->
+            val bean = proxyEntity.requireBean()
+
+            // only this group's own nodes: resolveChain() also pulls in the group's front/
+            // landing proxy and any cross-group chain member, whose domains this group's
+            // (often private, split-horizon) nameserver has no business being asked about
+            if (groupNameservers.isNotEmpty() &&
+                proxyEntity.groupId == proxy.groupId &&
+                bean.serverAddress.isNotBlank() && !bean.serverAddress.isIpAddress()
+            ) {
+                groupNsDomains += bean.serverAddress
             }
-            builtProfiles.add(entity.id)
-            profileList.forEach { builtProfiles.add(it.id) }
-            // dedup by id and keep insertion order: a HashSet<ProxyEntity>
-            // collapses two fully identical entities (the collapsed node's
-            // traffic never lands in the DB) and iterates in arbitrary order
-            val chainTrafficList = (profileList + entity).distinctBy { it.id }
 
-            var currentOutbound: SingBoxOption
-            lateinit var pastOutbound: SingBoxOption
-            lateinit var pastInboundTag: String
-            var pastEntity: ProxyEntity? = null
-            val externalChainMap = LinkedHashMap<Int, ProxyEntity>()
-            externalIndexMap.add(IndexEntity(externalChainMap))
-            val chainOutbounds = ArrayList<SingBoxOption>()
+            // tagOut: v2ray outbound tag for a profile
+            // profile2 (in) (global)   tag g-(id)
+            // profile1                 tag (chainTag)-(id)
+            // profile0 (out)           tag (chainTag)-(id) / single: "proxy"
+            var tagOut = "$chainTag-${proxyEntity.id}"
 
-            // chainTagOut: v2ray outbound tag for this chain
-            var chainTagOut = ""
-            val chainTag = "c-$chainId"
-            var muxApplied = false
+            // needGlobal: can only contain one?
+            var needGlobal = false
 
-            val defaultServerDomainStrategy = SingBoxOptionsUtil.domainStrategy("server")
+            // first profile set as global
+            if (index == profileList.lastIndex) {
+                needGlobal = true
+                tagOut = "g-" + proxyEntity.id
+                bypassDNSBeans += proxyEntity.requireBean()
+            }
 
-            profileList.forEachIndexed { index, proxyEntity ->
-                val bean = proxyEntity.requireBean()
+            // last profile set as "proxy"
+            if (chainId == 0L && index == 0) {
+                tagOut = TAG_PROXY
+            }
 
-                // only this group's own nodes: resolveChain() also pulls in the group's front/
-                // landing proxy and any cross-group chain member, whose domains this group's
-                // (often private, split-horizon) nameserver has no business being asked about
-                if (groupNameservers.isNotEmpty() &&
+            // selector human readable name: use the profile being built,
+            // not profileList[0] (which is the group's landing proxy when set)
+            if (buildSelector && index == 0) {
+                tagOut = selectorName(entity.requireBean().displayName())
+            }
+
+            // an entry hop built earlier keeps its existing global tag ("proxy"
+            // for the main profile, the display name for a selector member):
+            // resolve it BEFORE the chain rule below, or the previous hop detours
+            // to a g-<id> that is never emitted and sing-box refuses to start
+            // with "dependency[g-N] not found"
+            if (needGlobal) globalOutbounds[proxyEntity.id]?.let { tagOut = it }
+
+            // chain rules
+            if (index > 0) {
+                // chain route/proxy rules
+                // pastInboundTag is only assigned when the past profile got a
+                // mapping inbound, which also requires canMapping() (NekoBean /
+                // hy1 faketcp can't); those chain via detour like internal nodes
+                if (pastEntity!!.needExternal() && pastEntity.requireBean().canMapping()) {
+                    route.rules.add(Rule_DefaultOptions().apply {
+                        inbound = listOf(pastInboundTag)
+                        outbound = tagOut
+                    })
+                } else {
+                    // wireguard is an endpoint since sing-box 1.13, but the
+                    // endpoint options embed DialerOptions, so detour works
+                    // the same as for outbounds (the builder never sets
+                    // listen_port, which sing-box would reject with detour)
+                    pastOutbound._hack_config_map["detour"] = tagOut
+                }
+            } else {
+                // index == 0 means last profile in chain / not chain
+                chainTagOut = tagOut
+            }
+
+            // now tagOut is determined
+            if (needGlobal) {
+                globalOutbounds[proxyEntity.id]?.let {
+                    if (index == 0) chainTagOut = it // single, duplicate chain
+                    return@forEachIndexed
+                }
+                globalOutbounds[proxyEntity.id] = tagOut
+            }
+
+            if (proxyEntity.needExternal()) { // externel outbound
+                val localPort = mkPort()
+                externalChainMap[localPort] = proxyEntity
+                currentOutbound = Outbound_SocksOptions().apply {
+                    type = "socks"
+                    server = LOCALHOST
+                    server_port = localPort
+                }
+            } else {
+                // internal outbound
+
+                currentOutbound = buildSingBoxOutbound(bean)
+
+                // internal mux
+                if (!muxApplied) {
+                    val muxObj = proxyEntity.singMux()
+                    if (muxObj != null && muxObj.enabled) {
+                        muxApplied = true
+                        currentOutbound._hack_config_map["multiplex"] = muxObj.asMap()
+                    }
+                }
+            }
+
+            // internal & external
+            currentOutbound.apply {
+                // udp over tcp
+                if (udpOverTcp(bean)) {
+                    _hack_config_map["udp_over_tcp"] = true
+                }
+
+                // domain resolution: this group's own domain nodes resolve
+                // through the group's ordered nameserver chain (the
+                // neko-sequential transport); every other dialer falls
+                // back to route.default_domain_resolver. Exports skip the
+                // binding: neko-sequential is libcore-only, and vanilla
+                // sing-box 1.14 still resolves outbounds through the kept
+                // dns-group-N rules. User custom JSON merges after this
+                // and wins if it carries its own domain_resolver.
+                pastEntity?.requireBean()?.apply {
+                    // don't loopback
+                    if (defaultServerDomainStrategy != "" && !serverAddress.isIpAddress()) {
+                        domainListDNSDirectForce.add("full:$serverAddress")
+                    }
+                }
+                if (!forExport && groupDnsServers.isNotEmpty() &&
                     proxyEntity.groupId == proxy.groupId &&
                     bean.serverAddress.isNotBlank() && !bean.serverAddress.isIpAddress()
                 ) {
-                    groupNsDomains += bean.serverAddress
-                }
-
-                // tagOut: v2ray outbound tag for a profile
-                // profile2 (in) (global)   tag g-(id)
-                // profile1                 tag (chainTag)-(id)
-                // profile0 (out)           tag (chainTag)-(id) / single: "proxy"
-                var tagOut = "$chainTag-${proxyEntity.id}"
-
-                // needGlobal: can only contain one?
-                var needGlobal = false
-
-                // first profile set as global
-                if (index == profileList.lastIndex) {
-                    needGlobal = true
-                    tagOut = "g-" + proxyEntity.id
-                    bypassDNSBeans += proxyEntity.requireBean()
-                }
-
-                // last profile set as "proxy"
-                if (chainId == 0L && index == 0) {
-                    tagOut = TAG_PROXY
-                }
-
-                // selector human readable name: use the profile being built,
-                // not profileList[0] (which is the group's landing proxy when set)
-                if (buildSelector && index == 0) {
-                    tagOut = selectorName(entity.requireBean().displayName())
-                }
-
-                // an entry hop built earlier keeps its existing global tag ("proxy"
-                // for the main profile, the display name for a selector member):
-                // resolve it BEFORE the chain rule below, or the previous hop detours
-                // to a g-<id> that is never emitted and sing-box refuses to start
-                // with "dependency[g-N] not found"
-                if (needGlobal) globalOutbounds[proxyEntity.id]?.let { tagOut = it }
-
-                // chain rules
-                if (index > 0) {
-                    // chain route/proxy rules
-                    // pastInboundTag is only assigned when the past profile got a
-                    // mapping inbound, which also requires canMapping() (NekoBean /
-                    // hy1 faketcp can't); those chain via detour like internal nodes
-                    if (pastEntity!!.needExternal() && pastEntity.requireBean().canMapping()) {
-                        route.rules.add(Rule_DefaultOptions().apply {
-                            inbound = listOf(pastInboundTag)
-                            outbound = tagOut
-                        })
-                    } else {
-                        // wireguard is an endpoint since sing-box 1.13, but the
-                        // endpoint options embed DialerOptions, so detour works
-                        // the same as for outbounds (the builder never sets
-                        // listen_port, which sing-box would reject with detour)
-                        pastOutbound._hack_config_map["detour"] = tagOut
-                    }
-                } else {
-                    // index == 0 means last profile in chain / not chain
-                    chainTagOut = tagOut
-                }
-
-                // now tagOut is determined
-                if (needGlobal) {
-                    globalOutbounds[proxyEntity.id]?.let {
-                        if (index == 0) chainTagOut = it // single, duplicate chain
-                        return@forEachIndexed
-                    }
-                    globalOutbounds[proxyEntity.id] = tagOut
-                }
-
-                if (proxyEntity.needExternal()) { // externel outbound
-                    val localPort = mkPort()
-                    externalChainMap[localPort] = proxyEntity
-                    currentOutbound = Outbound_SocksOptions().apply {
-                        type = "socks"
-                        server = LOCALHOST
-                        server_port = localPort
-                    }
-                } else {
-                    // internal outbound
-
-                    currentOutbound = buildSingBoxOutbound(bean)
-
-                    // internal mux
-                    if (!muxApplied) {
-                        val muxObj = proxyEntity.singMux()
-                        if (muxObj != null && muxObj.enabled) {
-                            muxApplied = true
-                            currentOutbound._hack_config_map["multiplex"] = muxObj.asMap()
-                        }
+                    _hack_config_map["domain_resolver"] = DomainResolveOptions().apply {
+                        server = groupSequentialTag
+                        if (!forTest) strategy = defaultServerDomainStrategy
                     }
                 }
 
-                // internal & external
-                currentOutbound.apply {
-                    // udp over tcp
-                    if (udpOverTcp(bean)) {
-                        _hack_config_map["udp_over_tcp"] = true
-                    }
+                _hack_config_map["tag"] = tagOut
 
-                    // domain resolution: this group's own domain nodes resolve
-                    // through the group's ordered nameserver chain (the
-                    // neko-sequential transport); every other dialer falls
-                    // back to route.default_domain_resolver. Exports skip the
-                    // binding: neko-sequential is libcore-only, and vanilla
-                    // sing-box 1.14 still resolves outbounds through the kept
-                    // dns-group-N rules. User custom JSON merges after this
-                    // and wins if it carries its own domain_resolver.
-                    pastEntity?.requireBean()?.apply {
-                        // don't loopback
-                        if (defaultServerDomainStrategy != "" && !serverAddress.isIpAddress()) {
-                            domainListDNSDirectForce.add("full:$serverAddress")
-                        }
-                    }
-                    if (!forExport && groupDnsServers.isNotEmpty() &&
-                        proxyEntity.groupId == proxy.groupId &&
-                        bean.serverAddress.isNotBlank() && !bean.serverAddress.isIpAddress()
-                    ) {
-                        _hack_config_map["domain_resolver"] = DomainResolveOptions().apply {
-                            server = groupSequentialTag
-                            if (!forTest) strategy = defaultServerDomainStrategy
-                        }
-                    }
-
-                    _hack_config_map["tag"] = tagOut
-
-                    _hack_custom_config = bean.customOutboundJson
-                }
-
-                // External proxy need a dokodemo-door inbound to forward the traffic
-                // For external proxy software, their traffic must goes to v2ray-core to use protected fd.
-                bean.finalAddress = bean.serverAddress
-                bean.finalPort = bean.serverPort
-                if (bean.canMapping() && proxyEntity.needExternal()) {
-                    // With ss protect, don't use mapping
-                    var needExternal = true
-                    if (index == profileList.lastIndex) {
-                        val pluginId = externalPluginId(bean)
-                        if (Plugins.isUsingMatsuriExe(pluginId)) {
-                            needExternal = false
-                        } else if (Plugins.getPluginExternal(pluginId) != null) {
-                            throw Exception("You are using an unsupported $pluginId, please download the correct plugin.")
-                        }
-                    }
-                    if (needExternal) {
-                        val mappingPort = mkPort()
-                        bean.finalAddress = LOCALHOST
-                        bean.finalPort = mappingPort
-
-                        inbounds.add(Inbound_DirectOptions().apply {
-                            type = "direct"
-                            listen = LOCALHOST
-                            listen_port = mappingPort
-                            tag = "$chainTag-mapping-${proxyEntity.id}"
-
-                            override_address = bean.serverAddress
-                            override_port = effectiveServerPort(bean)
-
-                            pastInboundTag = tag
-
-                            // no chain rule and not outbound, so need to set to direct
-                            if (index == profileList.lastIndex) {
-                                route.rules.add(Rule_DefaultOptions().apply {
-                                    inbound = listOf(tag)
-                                    outbound = TAG_DIRECT
-                                })
-                            }
-                        })
-                    }
-                }
-
-                // wireguard is an endpoint since sing-box 1.13; its tag still resolves as an outbound
-                if (currentOutbound is SingBoxOptions.Endpoint) {
-                    endpoints.add(currentOutbound)
-                } else {
-                    outbounds.add(currentOutbound)
-                }
-                chainOutbounds.add(currentOutbound)
-                pastOutbound = currentOutbound
-                pastEntity = proxyEntity
+                _hack_custom_config = bean.customOutboundJson
             }
 
-            trafficMap[chainTagOut] = chainTrafficList
-            return chainTagOut
+            // External proxy need a dokodemo-door inbound to forward the traffic
+            // For external proxy software, their traffic must goes to v2ray-core to use protected fd.
+            bean.finalAddress = bean.serverAddress
+            bean.finalPort = bean.serverPort
+            if (bean.canMapping() && proxyEntity.needExternal()) {
+                // With ss protect, don't use mapping
+                var needExternal = true
+                if (index == profileList.lastIndex) {
+                    val pluginId = externalPluginId(bean)
+                    if (Plugins.isUsingMatsuriExe(pluginId)) {
+                        needExternal = false
+                    } else if (Plugins.getPluginExternal(pluginId) != null) {
+                        throw Exception("You are using an unsupported $pluginId, please download the correct plugin.")
+                    }
+                }
+                if (needExternal) {
+                    val mappingPort = mkPort()
+                    bean.finalAddress = LOCALHOST
+                    bean.finalPort = mappingPort
+
+                    inbounds.add(Inbound_DirectOptions().apply {
+                        type = "direct"
+                        listen = LOCALHOST
+                        listen_port = mappingPort
+                        tag = "$chainTag-mapping-${proxyEntity.id}"
+
+                        override_address = bean.serverAddress
+                        override_port = effectiveServerPort(bean)
+
+                        pastInboundTag = tag
+
+                        // no chain rule and not outbound, so need to set to direct
+                        if (index == profileList.lastIndex) {
+                            route.rules.add(Rule_DefaultOptions().apply {
+                                inbound = listOf(tag)
+                                outbound = TAG_DIRECT
+                            })
+                        }
+                    })
+                }
+            }
+
+            // wireguard is an endpoint since sing-box 1.13; its tag still resolves as an outbound
+            if (currentOutbound is SingBoxOptions.Endpoint) {
+                endpoints.add(currentOutbound)
+            } else {
+                outbounds.add(currentOutbound)
+            }
+            chainOutbounds.add(currentOutbound)
+            pastOutbound = currentOutbound
+            pastEntity = proxyEntity
         }
 
+        trafficMap[chainTagOut] = chainTrafficList
+        return chainTagOut
+    }
+
+    private fun MyOptions.buildOutbounds() {
         // build outbounds
-        if (buildSelector) {
-            val list = group.id.let { SagerDatabase.proxyDao.getByGroup(it) }
+        val selectorGroup = selectorGroup
+        if (selectorGroup != null) {
+            val list = SagerDatabase.proxyDao.getByGroup(selectorGroup.id)
             list.forEach {
                 // already built inside another member's chain: rebuilding
                 // would duplicate its outbound/inbound tags (same guard as
@@ -646,154 +690,159 @@ fun buildConfig(
             tagMap[key] = buildChain(key, p)
         }
 
-        // apply user rules
-        for (rule in extraRules) {
-            if (rule.packages.isNotEmpty()) {
-                PackageCache.awaitLoadSync()
-            }
-            if (!isVPN && rule.packages.isNotEmpty()) {
-                // once per rule, not per package; buildConfig runs on a Looper-less
-                // background thread in the :bg process, so post the Toast to main
-                runOnMainDispatcher {
-                    Toast.makeText(
-                        SagerNet.application,
-                        SagerNet.application.getString(R.string.route_need_vpn, rule.displayName()),
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
-            val uidList = rule.packages.map {
-                PackageCache[it]?.takeIf { uid -> uid >= 1000 }
-            }.toHashSet().filterNotNull()
-            val ruleSets = mutableListOf<RuleSet>()
+        for (freedom in arrayOf(TAG_DIRECT, TAG_BYPASS)) outbounds.add(Outbound().apply {
+            tag = freedom
+            type = "direct"
+        })
+    }
 
-            val ruleObj = Rule_DefaultOptions().apply {
-                if (uidList.isNotEmpty()) {
-                    PackageCache.awaitLoadSync()
-                    user_id = uidList
-                }
-                var domainList: List<String>? = null
-                if (rule.domains.isNotBlank()) {
-                    domainList = rule.domains.listByLineOrComma()
-                    makeSingBoxRule(domainList, false)
-                }
-                if (rule.ip.isNotBlank()) {
-                    makeSingBoxRule(rule.ip.listByLineOrComma(), true)
-                }
-
-                if (rule_set != null) generateRuleSet(rule_set, ruleSets)
-
-                // A malformed range already fails box start ("bad port range");
-                // a malformed single port must not be dropped silently, which
-                // would widen the rule to every port.
-                if (rule.port.isNotBlank()) {
-                    port = mutableListOf<Int>()
-                    port_range = mutableListOf<String>()
-                    rule.port.listByLineOrComma().map {
-                        if (it.contains(":")) {
-                            port_range.add(it)
-                        } else {
-                            port.add(it.toIntOrNull() ?: error("invalid dst port \"$it\" in rule ${rule.displayName()}"))
-                        }
-                    }
-                }
-                if (rule.sourcePort.isNotBlank()) {
-                    source_port = mutableListOf<Int>()
-                    source_port_range = mutableListOf<String>()
-                    rule.sourcePort.listByLineOrComma().map {
-                        if (it.contains(":")) {
-                            source_port_range.add(it)
-                        } else {
-                            source_port.add(it.toIntOrNull() ?: error("invalid src port \"$it\" in rule ${rule.displayName()}"))
-                        }
-                    }
-                }
-                if (rule.network.isNotBlank()) {
-                    network = listOf(rule.network)
-                }
-                if (rule.source.isNotBlank()) {
-                    source_ip_cidr = rule.source.listByLineOrComma()
-                }
-                if (rule.protocol.isNotBlank()) {
-                    protocol = rule.protocol.listByLineOrComma()
-                }
-
-                fun makeDnsRuleObj(): DNSRule_DefaultOptions {
-                    return DNSRule_DefaultOptions().apply {
-                        if (uidList.isNotEmpty()) user_id = uidList
-                        domainList?.let { makeSingBoxRule(it) }
-                    }
-                }
-
-                when (rule.outbound) {
-                    -1L -> {
-                        userDNSRuleList += makeDnsRuleObj().apply {
-                            server = "dns-direct"
-                            strategy = directStrategy
-                        }
-                    }
-
-                    0L -> {
-                        if (useFakeDns) userDNSRuleList += makeDnsRuleObj().apply {
-                            server = "dns-fake"
-                            strategy = "ipv4_only"
-                            inbound = listOf("tun-in")
-                        }
-                        userDNSRuleList += makeDnsRuleObj().apply {
-                            server = "dns-remote"
-                            strategy = remoteStrategy
-                        }
-                    }
-
-                    -2L -> {
-                        userDNSRuleList += makeDnsRuleObj().apply {
-                            action = "predefined"
-                            rcode = "NOERROR"
-                        }
-                    }
-                }
-
-                outbound = when (val outId = rule.outbound) {
-                    0L -> TAG_PROXY
-                    -1L -> TAG_BYPASS
-                    -2L -> TAG_BLOCK
-                    else -> if (outId == proxy.id) TAG_PROXY else tagMap[outId] ?: ""
-                }
-
-                _hack_custom_config = rule.config
-            }
-
-            if (!ruleObj.checkEmpty()) {
-                if (ruleObj.outbound.isNullOrBlank()) {
-                    runOnMainDispatcher {
-                        Toast.makeText(
-                            SagerNet.application,
-                            "Warning: " + rule.displayName() + ": A non-existent outbound was specified.",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-                } else {
-                    // block 改用新的写法
-                    if (ruleObj.outbound == TAG_BLOCK) {
-                        ruleObj.outbound = null
-                        ruleObj.action = "reject"
-                    }
-                    route.rules.add(ruleObj)
-                    route.rule_set.addAll(ruleSets)
-                }
-            }
-        }
+    private fun MyOptions.applyUserRules() {
+        for (rule in extraRules) applyUserRule(rule)
 
         // 对 rule_set tag 去重
         if (route.rule_set != null) {
             route.rule_set = route.rule_set.distinctBy { it.tag }
         }
+    }
 
-        for (freedom in arrayOf(TAG_DIRECT, TAG_BYPASS)) outbounds.add(Outbound().apply {
-            tag = freedom
-            type = "direct"
-        })
+    private fun MyOptions.applyUserRule(rule: RuleEntity) {
+        if (rule.packages.isNotEmpty()) {
+            PackageCache.awaitLoadSync()
+        }
+        if (!isVPN && rule.packages.isNotEmpty()) {
+            // once per rule, not per package; buildConfig runs on a Looper-less
+            // background thread in the :bg process, so post the Toast to main
+            runOnMainDispatcher {
+                Toast.makeText(
+                    SagerNet.application,
+                    SagerNet.application.getString(R.string.route_need_vpn, rule.displayName()),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+        val uidList = rule.packages.map {
+            PackageCache[it]?.takeIf { uid -> uid >= 1000 }
+        }.toHashSet().filterNotNull()
+        val ruleSets = mutableListOf<RuleSet>()
 
+        val ruleObj = Rule_DefaultOptions().apply {
+            if (uidList.isNotEmpty()) {
+                PackageCache.awaitLoadSync()
+                user_id = uidList
+            }
+            var domainList: List<String>? = null
+            if (rule.domains.isNotBlank()) {
+                domainList = rule.domains.listByLineOrComma()
+                makeSingBoxRule(domainList, false)
+            }
+            if (rule.ip.isNotBlank()) {
+                makeSingBoxRule(rule.ip.listByLineOrComma(), true)
+            }
+
+            if (rule_set != null) generateRuleSet(rule_set, ruleSets)
+
+            // A malformed range already fails box start ("bad port range");
+            // a malformed single port must not be dropped silently, which
+            // would widen the rule to every port.
+            if (rule.port.isNotBlank()) {
+                port = mutableListOf<Int>()
+                port_range = mutableListOf<String>()
+                rule.port.listByLineOrComma().map {
+                    if (it.contains(":")) {
+                        port_range.add(it)
+                    } else {
+                        port.add(it.toIntOrNull() ?: error("invalid dst port \"$it\" in rule ${rule.displayName()}"))
+                    }
+                }
+            }
+            if (rule.sourcePort.isNotBlank()) {
+                source_port = mutableListOf<Int>()
+                source_port_range = mutableListOf<String>()
+                rule.sourcePort.listByLineOrComma().map {
+                    if (it.contains(":")) {
+                        source_port_range.add(it)
+                    } else {
+                        source_port.add(it.toIntOrNull() ?: error("invalid src port \"$it\" in rule ${rule.displayName()}"))
+                    }
+                }
+            }
+            if (rule.network.isNotBlank()) {
+                network = listOf(rule.network)
+            }
+            if (rule.source.isNotBlank()) {
+                source_ip_cidr = rule.source.listByLineOrComma()
+            }
+            if (rule.protocol.isNotBlank()) {
+                protocol = rule.protocol.listByLineOrComma()
+            }
+
+            fun makeDnsRuleObj(): DNSRule_DefaultOptions {
+                return DNSRule_DefaultOptions().apply {
+                    if (uidList.isNotEmpty()) user_id = uidList
+                    domainList?.let { makeSingBoxRule(it) }
+                }
+            }
+
+            when (rule.outbound) {
+                -1L -> {
+                    userDNSRuleList += makeDnsRuleObj().apply {
+                        server = "dns-direct"
+                        strategy = directStrategy
+                    }
+                }
+
+                0L -> {
+                    if (useFakeDns) userDNSRuleList += makeDnsRuleObj().apply {
+                        server = "dns-fake"
+                        strategy = "ipv4_only"
+                        inbound = listOf("tun-in")
+                    }
+                    userDNSRuleList += makeDnsRuleObj().apply {
+                        server = "dns-remote"
+                        strategy = remoteStrategy
+                    }
+                }
+
+                -2L -> {
+                    userDNSRuleList += makeDnsRuleObj().apply {
+                        action = "predefined"
+                        rcode = "NOERROR"
+                    }
+                }
+            }
+
+            outbound = when (val outId = rule.outbound) {
+                0L -> TAG_PROXY
+                -1L -> TAG_BYPASS
+                -2L -> TAG_BLOCK
+                else -> if (outId == proxy.id) TAG_PROXY else tagMap[outId] ?: ""
+            }
+
+            _hack_custom_config = rule.config
+        }
+
+        if (!ruleObj.checkEmpty()) {
+            if (ruleObj.outbound.isNullOrBlank()) {
+                runOnMainDispatcher {
+                    Toast.makeText(
+                        SagerNet.application,
+                        "Warning: " + rule.displayName() + ": A non-existent outbound was specified.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            } else {
+                // block 改用新的写法
+                if (ruleObj.outbound == TAG_BLOCK) {
+                    ruleObj.outbound = null
+                    ruleObj.action = "reject"
+                }
+                route.rules.add(ruleObj)
+                route.rule_set.addAll(ruleSets)
+            }
+        }
+    }
+
+    private fun MyOptions.buildDns() {
         // Bypass Lookup for the first profile
         bypassDNSBeans.forEach {
             var serverAddr = it.serverAddress
@@ -866,7 +915,9 @@ fun buildConfig(
                 if (!it.checkEmpty()) dns.rules.add(it)
             }
         }
+    }
 
+    private fun MyOptions.applyBuiltinRules() {
         if (forTest) {
             dns.rules = mutableListOf()
         } else {
@@ -939,7 +990,9 @@ fun buildConfig(
                 })
             }
         }
+    }
 
+    private fun MyOptions.applyGroupNameserver() {
         // per-group nameserver: this group's node server domains resolve via
         // it, multiple servers are tried in order. User-hijacked queries keep
         // using the DNS rules below (neko rule fallback); outbound resolution
@@ -964,19 +1017,5 @@ fun buildConfig(
             // top priority DNS rules, in server order
             dns.rules.addAll(0, groupRules)
         }
-
-        if (!forTest) _hack_custom_config = DataStore.globalCustomConfig
-    }.let {
-        val configMap = it.asMap()
-        Util.mergeJSON(configMap, proxy.requireBean().customConfigJson)
-        ConfigBuildResult(
-            gson.toJson(configMap),
-            externalIndexMap,
-            proxy.id,
-            trafficMap,
-            tagMap,
-            if (buildSelector) group.id else -1L
-        )
     }
-
 }
