@@ -81,4 +81,7 @@ dependencies {
     implementation(libs.androidx.room.ktx)
 
     coreLibraryDesugaring(libs.desugar.jdk.libs)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

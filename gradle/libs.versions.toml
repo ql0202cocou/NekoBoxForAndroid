@@ -28,9 +28,11 @@ kryo = "5.6.2"
 guava = "33.7.1-android"
 recyclerview-fastscroll = "2.0.1"
 desugar-jdk-libs = "2.1.5"
+junit = "4.13.2"
 
 [libraries]
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "androidx-core" }
 androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "androidx-recyclerview" }
 androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version.ref = "androidx-activity" }
@@ -62,6 +64,7 @@ kryo = { group = "com.esotericsoftware", name = "kryo", version.ref = "kryo" }
 guava = { group = "com.google.guava", name = "guava", version.ref = "guava" }
 recyclerview-fastscroll = { group = "com.simplecityapps", name = "recyclerview-fastscroll", version.ref = "recyclerview-fastscroll" }
 desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugar-jdk-libs" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
 
 [plugins]
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
