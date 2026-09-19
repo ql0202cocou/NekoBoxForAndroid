@@ -70,8 +70,17 @@ jobs:
           # same 1.26 line as the build job above and libcore/go.mod
           go-version: '1.26'
           cache-dependency-path: libcore/go.sum
+      - name: Download Geo Assets
+        # the geo cache tests need real databases; the download script verifies
+        # pinned sha256, and the .xz is kept so the assets dir is untouched
+        run: |
+          ./run lib assets
+          xz -dk app/src/main/assets/sing-box/geoip.db.xz app/src/main/assets/sing-box/geosite.db.xz
       - name: Go Test
         # -checklinkname=0 is required: libcore/certs.go linknames
         # crypto/x509.systemRootsMu, which Go 1.23+ rejects at link time
         # (same flag as libcore/build.sh)
+        env:
+          NEKO_TEST_GEOIP_DB: ${{ github.workspace }}/app/src/main/assets/sing-box/geoip.db
+          NEKO_TEST_GEOSITE_DB: ${{ github.workspace }}/app/src/main/assets/sing-box/geosite.db
         run: cd libcore && go test -ldflags=-checklinkname=0 ./...
