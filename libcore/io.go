@@ -2,6 +2,8 @@ package libcore
 
 import (
 	"archive/zip"
+	"errors"
+	"fmt"
 	"io"
 	"libcore/device"
 	"os"
@@ -9,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/sagernet/sing/common"
-	E "github.com/sagernet/sing/common/exceptions"
 	"github.com/ulikunitz/xz"
 )
 
@@ -54,7 +55,7 @@ func unzip(archive string, path string) (err error) {
 	for _, file := range r.File {
 		filePath := filepath.Join(path, file.Name)
 		if !strings.HasPrefix(filePath, filepath.Clean(path)+string(os.PathSeparator)) {
-			return E.New("zip entry ", file.Name, " escapes destination ", path)
+			return fmt.Errorf("zip entry %s escapes destination %s", file.Name, path)
 		}
 
 		if file.FileInfo().IsDir() {
@@ -83,12 +84,9 @@ func unzip(archive string, path string) (err error) {
 			return err
 		}
 
-		var errs error
 		_, err = io.Copy(newFile, zipFile)
-		errs = E.Errors(errs, err)
-		errs = E.Errors(errs, common.Close(zipFile, newFile))
-		if errs != nil {
-			return errs
+		if err := errors.Join(err, common.Close(zipFile, newFile)); err != nil {
+			return err
 		}
 	}
 

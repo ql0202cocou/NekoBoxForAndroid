@@ -17,7 +17,6 @@ import (
 	sblog "github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
 	tun "github.com/sagernet/sing-tun"
-	E "github.com/sagernet/sing/common/exceptions"
 	"github.com/sagernet/sing/common/logger"
 	N "github.com/sagernet/sing/common/network"
 	"golang.org/x/sys/unix"
@@ -60,10 +59,10 @@ func (w *boxPlatformInterfaceWrapper) OpenInterface(options *tun.Options, platfo
 	defer device.DeferPanicToError("boxPlatformInterface.OpenInterface", func(err_ error) { err = err_ })
 
 	if len(options.IncludeUID) > 0 || len(options.ExcludeUID) > 0 {
-		return nil, E.New("android: unsupported uid options")
+		return nil, errors.New("android: unsupported uid options")
 	}
 	if len(options.IncludeAndroidUser) > 0 {
-		return nil, E.New("android: unsupported android_user option")
+		return nil, errors.New("android: unsupported android_user option")
 	}
 	a, _ := json.Marshal(options)
 	b, _ := json.Marshal(platformOptions)
@@ -159,7 +158,7 @@ func (w *boxPlatformInterfaceWrapper) FindConnectionOwner(request *adapter.FindC
 	case syscall.IPPROTO_UDP:
 		network = N.NetworkUDP
 	default:
-		return nil, E.New("unknown ip protocol: ", request.IpProtocol)
+		return nil, fmt.Errorf("unknown ip protocol: %d", request.IpProtocol)
 	}
 	var uid int32
 	if useProcfs {
@@ -169,7 +168,7 @@ func (w *boxPlatformInterfaceWrapper) FindConnectionOwner(request *adapter.FindC
 		}
 		uid = procfs.ResolveSocketByProcSearch(network, netip.AddrPortFrom(sourceAddr, uint16(request.SourcePort)), netip.AddrPort{})
 		if uid == -1 {
-			return nil, E.New("procfs: not found")
+			return nil, errors.New("procfs: not found")
 		}
 	} else {
 		u, err := intfBox.FindConnectionOwner(request.IpProtocol, request.SourceAddress, request.SourcePort, request.DestinationAddress, request.DestinationPort)
@@ -180,7 +179,7 @@ func (w *boxPlatformInterfaceWrapper) FindConnectionOwner(request *adapter.FindC
 		if uid < 0 {
 			// INVALID_UID: keep parity with the procfs path, otherwise
 			// PackageNameByUid(-1) would misattribute the connection
-			return nil, E.New("connection owner: not found")
+			return nil, errors.New("connection owner: not found")
 		}
 	}
 	owner = &adapter.ConnectionOwner{UserId: uid}
