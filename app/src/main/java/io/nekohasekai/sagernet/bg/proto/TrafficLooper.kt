@@ -100,8 +100,15 @@ class TrafficLooper(val data: BaseService.Data) {
         if (stopped.get()) job?.cancel()
     }
 
+    private companion object {
+        // selectorNowId 的哨兵初值：表示 selector 尚未发生过任何选择。
+        // 只要求不是 idMap 的有效键——不能是保留键 -1（bypass 项），
+        // 也不可能是真实 profile id（Room 自增 id 从 1 开始）
+        const val SELECTOR_ID_NONE = -2L
+    }
+
     @Volatile
-    var selectorNowId = -114514L
+    var selectorNowId = SELECTOR_ID_NONE
 
     @Volatile
     var selectorNowFakeTag = ""

@@ -52,8 +52,6 @@ class VpnService : BaseVpnService(),
         Logs.w(e)
     }
 
-    private var metered = false
-
     override suspend fun startProcesses() {
         ServiceRegistry.vpnService = this
         super.startProcesses() // launch proxy instance
@@ -187,10 +185,9 @@ class VpnService : BaseVpnService(),
         val packageName = packageName
         val proxyApps = DataStore.proxyApps
         var bypass = DataStore.bypass
-        val workaroundSYSTEM = false /* DataStore.tunImplementation == TunImplementation.SYSTEM */
         // read once: proxy is cleared on the main thread during shutdown
         val proxy = data.proxy ?: error("proxy not started")
-        val needBypassRootUid = workaroundSYSTEM || proxy.config.trafficMap.values.any {
+        val needBypassRootUid = proxy.config.trafficMap.values.any {
             it[0].hysteriaBean?.protocol == HysteriaBean.PROTOCOL_FAKETCP
         }
 
@@ -251,8 +248,7 @@ class VpnService : BaseVpnService(),
             builder.setHttpProxy(ProxyInfo.buildDirectProxy(LOCALHOST, DataStore.mixedPort))
         }
 
-        metered = DataStore.meteredNetwork
-        if (Build.VERSION.SDK_INT >= 29) builder.setMetered(metered)
+        if (Build.VERSION.SDK_INT >= 29) builder.setMetered(DataStore.meteredNetwork)
         val c = builder.establish() ?: throw NullConnectionException()
         // killProcesses (main thread) may null conn between establish() and
         // the fd read below; keep a local reference

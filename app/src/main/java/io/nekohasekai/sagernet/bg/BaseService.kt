@@ -26,19 +26,22 @@ import kotlinx.coroutines.sync.withLock
 import libcore.Libcore
 import moe.matsuri.nb4a.Protocols
 import moe.matsuri.nb4a.utils.Util
+import java.io.IOException
 import java.net.UnknownHostException
 import java.util.concurrent.ConcurrentHashMap
 
 class BaseService {
 
+    // 警告：ordinal 即跨进程 IPC 线格式——Binder.getState() 返回 ordinal，
+    // 主进程 SagerConnection 用 State.values()[state] 还原。
+    // 顺序即 IPC 契约：新值只准追加在末尾，不准插入/重排既有值。
     enum class State(
         val canStop: Boolean = false,
         val started: Boolean = false,
         val connected: Boolean = false,
     ) {
-        /**
-         * Idle state is only used by UI and will never be returned by BaseService.
-         */
+        // Idle 不由 BaseService 主动上报：Binder.getState() 在 data == null
+        //（服务正在退出）时返回它，UI（如 TileService）按 Stopped 处理
         Idle, Connecting(true, true, false), Connected(true, true, true), Stopping, Stopped,
     }
 
@@ -102,6 +105,8 @@ class BaseService {
 
                 // Action.CLOSE (notification button / tile / UI): log it, or an
                 // exported log shows a clean teardown with no identifiable cause
+                // 警告：兜底分支收到即停服务。IntentFilter 新增 action 时必须在
+                // 上面的 when 里加对应分支，否则该广播一落到这里就误停服务
                 else -> {
                     Logs.i("Broadcast ${intent.action}: stopping service")
                     service.stopRunner()
@@ -437,7 +442,17 @@ class BaseService {
 
             val data = data
             if (data.state != State.Stopped) return Service.START_NOT_STICKY
-            val profile = ProfileManager.getProfile(DataStore.selectedProxy)
+            val profile = try {
+                ProfileManager.getProfile(DataStore.selectedProxy)
+            } catch (e: IOException) {
+                // 数据库打不开时 getProfile 抛 IOException（见 ProfileManager 的
+                // guardedRead 契约）。与下方空 profile 路径一样优雅停止：未捕获异常
+                // 会杀死 :bg 进程，而崩溃后的重启兜底会再次走到这里，形成崩溃循环
+                Logs.w(e)
+                data.notification = createNotification("")
+                stopRunner(false, "${service.getString(R.string.service_failed)}: ${e.readableMessage}")
+                return Service.START_NOT_STICKY
+            }
             if (RestoreJournal.default.isPending()) {
                 // a restore interrupted between its two commits could not be replayed at
                 // startup: profiles and settings do not match yet

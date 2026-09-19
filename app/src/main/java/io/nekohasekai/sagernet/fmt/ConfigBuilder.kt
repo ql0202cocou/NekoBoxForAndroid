@@ -412,6 +412,13 @@ private class ConfigBuild(
 
     // returns outbound tag
     // The state one hop of buildChain hands to the next.
+    //
+    // 隐含不变量：linkHop 在 index > 0 分支解引用 chain.pastEntity!! /
+    // pastOutbound / pastInboundTag，其安全依赖「buildHop 因 linkHop 返回 null
+    // 而提前返回（needGlobal 命中已构建的全局 outbound）只可能发生在
+    // index == profileList.lastIndex 那一跳」——lastIndex 之后没有下一跳，
+    // 这些字段不会再被读取；中间跳若提前返回，下一跳读到的是上一跳的状态
+    // 或直接未初始化。修改 needGlobal 的置真条件时必须保住这条不变量。
     private class ChainState(val chainId: Long, val entity: ProxyEntity, val profileList: List<ProxyEntity>) {
         val chainTag = "c-$chainId"
         // chainTagOut: v2ray outbound tag for this chain

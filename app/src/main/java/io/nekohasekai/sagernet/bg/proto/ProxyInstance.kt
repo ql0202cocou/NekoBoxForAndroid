@@ -48,10 +48,6 @@ class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = 
         }
     }
 
-    override suspend fun loadConfig() {
-        super.loadConfig()
-    }
-
     override fun launch() {
         // same guard as BoxInstance.launch: a closed instance must not become the
         // main instance (and start the protect server) on its way out
