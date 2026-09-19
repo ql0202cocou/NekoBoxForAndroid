@@ -302,6 +302,7 @@ private class ConfigBuild(
     // are carried by the rule actions routing to each server.
     val directStrategy = autoDnsDomainStrategy(SingBoxOptionsUtil.domainStrategy("dns-direct"))
     val remoteStrategy = autoDnsDomainStrategy(SingBoxOptionsUtil.domainStrategy("dns-remote"))
+    val defaultServerDomainStrategy = SingBoxOptionsUtil.domainStrategy("server")
 
     fun build(): ConfigBuildResult {
         val options = MyOptions().apply {
@@ -410,6 +411,18 @@ private class ConfigBuild(
     }
 
     // returns outbound tag
+    // The state one hop of buildChain hands to the next.
+    private class ChainState(val chainId: Long, val entity: ProxyEntity, val profileList: List<ProxyEntity>) {
+        val chainTag = "c-$chainId"
+        // chainTagOut: v2ray outbound tag for this chain
+        var chainTagOut = ""
+        val externalChainMap = LinkedHashMap<Int, ProxyEntity>()
+        var muxApplied = false
+        lateinit var pastOutbound: SingBoxOption
+        lateinit var pastInboundTag: String
+        var pastEntity: ProxyEntity? = null
+    }
+
     private fun MyOptions.buildChain(chainId: Long, entity: ProxyEntity): String {
         val profileList = entity.resolveChain()
         // A chain whose members all dangle resolves to nothing: the config would
@@ -425,214 +438,225 @@ private class ConfigBuild(
         // traffic never lands in the DB) and iterates in arbitrary order
         val chainTrafficList = (profileList + entity).distinctBy { it.id }
 
-        var currentOutbound: SingBoxOption
-        lateinit var pastOutbound: SingBoxOption
-        lateinit var pastInboundTag: String
-        var pastEntity: ProxyEntity? = null
-        val externalChainMap = LinkedHashMap<Int, ProxyEntity>()
-        externalIndexMap.add(IndexEntity(externalChainMap))
-        val chainOutbounds = ArrayList<SingBoxOption>()
+        val chain = ChainState(chainId, entity, profileList)
+        externalIndexMap.add(IndexEntity(chain.externalChainMap))
 
-        // chainTagOut: v2ray outbound tag for this chain
-        var chainTagOut = ""
-        val chainTag = "c-$chainId"
-        var muxApplied = false
+        profileList.forEachIndexed { index, proxyEntity -> buildHop(chain, index, proxyEntity) }
 
-        val defaultServerDomainStrategy = SingBoxOptionsUtil.domainStrategy("server")
+        trafficMap[chain.chainTagOut] = chainTrafficList
+        return chain.chainTagOut
+    }
 
-        profileList.forEachIndexed { index, proxyEntity ->
-            val bean = proxyEntity.requireBean()
+    private fun MyOptions.buildHop(chain: ChainState, index: Int, proxyEntity: ProxyEntity) {
+        val bean = proxyEntity.requireBean()
 
-            // only this group's own nodes: resolveChain() also pulls in the group's front/
-            // landing proxy and any cross-group chain member, whose domains this group's
-            // (often private, split-horizon) nameserver has no business being asked about
-            if (groupNameservers.isNotEmpty() &&
+        // only this group's own nodes: resolveChain() also pulls in the group's front/
+        // landing proxy and any cross-group chain member, whose domains this group's
+        // (often private, split-horizon) nameserver has no business being asked about
+        if (groupNameservers.isNotEmpty() &&
+            proxyEntity.groupId == proxy.groupId &&
+            bean.serverAddress.isNotBlank() && !bean.serverAddress.isIpAddress()
+        ) {
+            groupNsDomains += bean.serverAddress
+        }
+
+        val tagOut = linkHop(chain, index, proxyEntity) ?: return
+        val currentOutbound = buildHopOutbound(chain, proxyEntity, bean, tagOut)
+        mapExternalHop(chain, index, proxyEntity, bean)
+
+        // wireguard is an endpoint since sing-box 1.13; its tag still resolves as an outbound
+        if (currentOutbound is SingBoxOptions.Endpoint) {
+            endpoints.add(currentOutbound)
+        } else {
+            outbounds.add(currentOutbound)
+        }
+        chain.pastOutbound = currentOutbound
+        chain.pastEntity = proxyEntity
+    }
+
+    // Settles the hop's outbound tag and wires the previous hop to it; null
+    // when the hop is a global outbound built earlier, so there is nothing to build.
+    private fun MyOptions.linkHop(chain: ChainState, index: Int, proxyEntity: ProxyEntity): String? {
+        val profileList = chain.profileList
+        val chainTag = chain.chainTag
+        // tagOut: v2ray outbound tag for a profile
+        // profile2 (in) (global)   tag g-(id)
+        // profile1                 tag (chainTag)-(id)
+        // profile0 (out)           tag (chainTag)-(id) / single: "proxy"
+        var tagOut = "$chainTag-${proxyEntity.id}"
+
+        // needGlobal: can only contain one?
+        var needGlobal = false
+
+        // first profile set as global
+        if (index == profileList.lastIndex) {
+            needGlobal = true
+            tagOut = "g-" + proxyEntity.id
+            bypassDNSBeans += proxyEntity.requireBean()
+        }
+
+        // last profile set as "proxy"
+        if (chain.chainId == 0L && index == 0) {
+            tagOut = TAG_PROXY
+        }
+
+        // selector human readable name: use the profile being built,
+        // not profileList[0] (which is the group's landing proxy when set)
+        if (buildSelector && index == 0) {
+            tagOut = selectorName(chain.entity.requireBean().displayName())
+        }
+
+        // an entry hop built earlier keeps its existing global tag ("proxy"
+        // for the main profile, the display name for a selector member):
+        // resolve it BEFORE the chain rule below, or the previous hop detours
+        // to a g-<id> that is never emitted and sing-box refuses to start
+        // with "dependency[g-N] not found"
+        if (needGlobal) globalOutbounds[proxyEntity.id]?.let { tagOut = it }
+
+        // chain rules
+        if (index > 0) {
+            // chain route/proxy rules
+            // pastInboundTag is only assigned when the past profile got a
+            // mapping inbound, which also requires canMapping() (NekoBean /
+            // hy1 faketcp can't); those chain via detour like internal nodes
+            val pastEntity = chain.pastEntity!!
+            if (pastEntity.needExternal() && pastEntity.requireBean().canMapping()) {
+                route.rules.add(Rule_DefaultOptions().apply {
+                    inbound = listOf(chain.pastInboundTag)
+                    outbound = tagOut
+                })
+            } else {
+                // wireguard is an endpoint since sing-box 1.13, but the
+                // endpoint options embed DialerOptions, so detour works
+                // the same as for outbounds (the builder never sets
+                // listen_port, which sing-box would reject with detour)
+                chain.pastOutbound._hack_config_map["detour"] = tagOut
+            }
+        } else {
+            // index == 0 means last profile in chain / not chain
+            chain.chainTagOut = tagOut
+        }
+
+        // now tagOut is determined
+        if (needGlobal) {
+            globalOutbounds[proxyEntity.id]?.let {
+                if (index == 0) chain.chainTagOut = it // single, duplicate chain
+                return null
+            }
+            globalOutbounds[proxyEntity.id] = tagOut
+        }
+        return tagOut
+    }
+
+    private fun MyOptions.buildHopOutbound(
+        chain: ChainState, proxyEntity: ProxyEntity, bean: AbstractBean, tagOut: String,
+    ): SingBoxOption {
+        val currentOutbound: SingBoxOption
+        if (proxyEntity.needExternal()) { // externel outbound
+            val localPort = mkPort()
+            chain.externalChainMap[localPort] = proxyEntity
+            currentOutbound = Outbound_SocksOptions().apply {
+                type = "socks"
+                server = LOCALHOST
+                server_port = localPort
+            }
+        } else {
+            // internal outbound
+
+            currentOutbound = buildSingBoxOutbound(bean)
+
+            // internal mux
+            if (!chain.muxApplied) {
+                val muxObj = proxyEntity.singMux()
+                if (muxObj != null && muxObj.enabled) {
+                    chain.muxApplied = true
+                    currentOutbound._hack_config_map["multiplex"] = muxObj.asMap()
+                }
+            }
+        }
+
+        // internal & external
+        currentOutbound.apply {
+            // udp over tcp
+            if (udpOverTcp(bean)) {
+                _hack_config_map["udp_over_tcp"] = true
+            }
+
+            // domain resolution: this group's own domain nodes resolve
+            // through the group's ordered nameserver chain (the
+            // neko-sequential transport); every other dialer falls
+            // back to route.default_domain_resolver. Exports skip the
+            // binding: neko-sequential is libcore-only, and vanilla
+            // sing-box 1.14 still resolves outbounds through the kept
+            // dns-group-N rules. User custom JSON merges after this
+            // and wins if it carries its own domain_resolver.
+            chain.pastEntity?.requireBean()?.apply {
+                // don't loopback
+                if (defaultServerDomainStrategy != "" && !serverAddress.isIpAddress()) {
+                    domainListDNSDirectForce.add("full:$serverAddress")
+                }
+            }
+            if (!forExport && groupDnsServers.isNotEmpty() &&
                 proxyEntity.groupId == proxy.groupId &&
                 bean.serverAddress.isNotBlank() && !bean.serverAddress.isIpAddress()
             ) {
-                groupNsDomains += bean.serverAddress
-            }
-
-            // tagOut: v2ray outbound tag for a profile
-            // profile2 (in) (global)   tag g-(id)
-            // profile1                 tag (chainTag)-(id)
-            // profile0 (out)           tag (chainTag)-(id) / single: "proxy"
-            var tagOut = "$chainTag-${proxyEntity.id}"
-
-            // needGlobal: can only contain one?
-            var needGlobal = false
-
-            // first profile set as global
-            if (index == profileList.lastIndex) {
-                needGlobal = true
-                tagOut = "g-" + proxyEntity.id
-                bypassDNSBeans += proxyEntity.requireBean()
-            }
-
-            // last profile set as "proxy"
-            if (chainId == 0L && index == 0) {
-                tagOut = TAG_PROXY
-            }
-
-            // selector human readable name: use the profile being built,
-            // not profileList[0] (which is the group's landing proxy when set)
-            if (buildSelector && index == 0) {
-                tagOut = selectorName(entity.requireBean().displayName())
-            }
-
-            // an entry hop built earlier keeps its existing global tag ("proxy"
-            // for the main profile, the display name for a selector member):
-            // resolve it BEFORE the chain rule below, or the previous hop detours
-            // to a g-<id> that is never emitted and sing-box refuses to start
-            // with "dependency[g-N] not found"
-            if (needGlobal) globalOutbounds[proxyEntity.id]?.let { tagOut = it }
-
-            // chain rules
-            if (index > 0) {
-                // chain route/proxy rules
-                // pastInboundTag is only assigned when the past profile got a
-                // mapping inbound, which also requires canMapping() (NekoBean /
-                // hy1 faketcp can't); those chain via detour like internal nodes
-                if (pastEntity!!.needExternal() && pastEntity.requireBean().canMapping()) {
-                    route.rules.add(Rule_DefaultOptions().apply {
-                        inbound = listOf(pastInboundTag)
-                        outbound = tagOut
-                    })
-                } else {
-                    // wireguard is an endpoint since sing-box 1.13, but the
-                    // endpoint options embed DialerOptions, so detour works
-                    // the same as for outbounds (the builder never sets
-                    // listen_port, which sing-box would reject with detour)
-                    pastOutbound._hack_config_map["detour"] = tagOut
-                }
-            } else {
-                // index == 0 means last profile in chain / not chain
-                chainTagOut = tagOut
-            }
-
-            // now tagOut is determined
-            if (needGlobal) {
-                globalOutbounds[proxyEntity.id]?.let {
-                    if (index == 0) chainTagOut = it // single, duplicate chain
-                    return@forEachIndexed
-                }
-                globalOutbounds[proxyEntity.id] = tagOut
-            }
-
-            if (proxyEntity.needExternal()) { // externel outbound
-                val localPort = mkPort()
-                externalChainMap[localPort] = proxyEntity
-                currentOutbound = Outbound_SocksOptions().apply {
-                    type = "socks"
-                    server = LOCALHOST
-                    server_port = localPort
-                }
-            } else {
-                // internal outbound
-
-                currentOutbound = buildSingBoxOutbound(bean)
-
-                // internal mux
-                if (!muxApplied) {
-                    val muxObj = proxyEntity.singMux()
-                    if (muxObj != null && muxObj.enabled) {
-                        muxApplied = true
-                        currentOutbound._hack_config_map["multiplex"] = muxObj.asMap()
-                    }
+                _hack_config_map["domain_resolver"] = DomainResolveOptions().apply {
+                    server = groupSequentialTag
+                    if (!forTest) strategy = defaultServerDomainStrategy
                 }
             }
 
-            // internal & external
-            currentOutbound.apply {
-                // udp over tcp
-                if (udpOverTcp(bean)) {
-                    _hack_config_map["udp_over_tcp"] = true
-                }
+            _hack_config_map["tag"] = tagOut
 
-                // domain resolution: this group's own domain nodes resolve
-                // through the group's ordered nameserver chain (the
-                // neko-sequential transport); every other dialer falls
-                // back to route.default_domain_resolver. Exports skip the
-                // binding: neko-sequential is libcore-only, and vanilla
-                // sing-box 1.14 still resolves outbounds through the kept
-                // dns-group-N rules. User custom JSON merges after this
-                // and wins if it carries its own domain_resolver.
-                pastEntity?.requireBean()?.apply {
-                    // don't loopback
-                    if (defaultServerDomainStrategy != "" && !serverAddress.isIpAddress()) {
-                        domainListDNSDirectForce.add("full:$serverAddress")
-                    }
-                }
-                if (!forExport && groupDnsServers.isNotEmpty() &&
-                    proxyEntity.groupId == proxy.groupId &&
-                    bean.serverAddress.isNotBlank() && !bean.serverAddress.isIpAddress()
-                ) {
-                    _hack_config_map["domain_resolver"] = DomainResolveOptions().apply {
-                        server = groupSequentialTag
-                        if (!forTest) strategy = defaultServerDomainStrategy
-                    }
-                }
-
-                _hack_config_map["tag"] = tagOut
-
-                _hack_custom_config = bean.customOutboundJson
-            }
-
-            // External proxy need a dokodemo-door inbound to forward the traffic
-            // For external proxy software, their traffic must goes to v2ray-core to use protected fd.
-            bean.finalAddress = bean.serverAddress
-            bean.finalPort = bean.serverPort
-            if (bean.canMapping() && proxyEntity.needExternal()) {
-                // With ss protect, don't use mapping
-                var needExternal = true
-                if (index == profileList.lastIndex) {
-                    val pluginId = externalPluginId(bean)
-                    if (Plugins.isUsingMatsuriExe(pluginId)) {
-                        needExternal = false
-                    } else if (Plugins.getPluginExternal(pluginId) != null) {
-                        throw Exception("You are using an unsupported $pluginId, please download the correct plugin.")
-                    }
-                }
-                if (needExternal) {
-                    val mappingPort = mkPort()
-                    bean.finalAddress = LOCALHOST
-                    bean.finalPort = mappingPort
-
-                    inbounds.add(Inbound_DirectOptions().apply {
-                        type = "direct"
-                        listen = LOCALHOST
-                        listen_port = mappingPort
-                        tag = "$chainTag-mapping-${proxyEntity.id}"
-
-                        override_address = bean.serverAddress
-                        override_port = effectiveServerPort(bean)
-
-                        pastInboundTag = tag
-
-                        // no chain rule and not outbound, so need to set to direct
-                        if (index == profileList.lastIndex) {
-                            route.rules.add(Rule_DefaultOptions().apply {
-                                inbound = listOf(tag)
-                                outbound = TAG_DIRECT
-                            })
-                        }
-                    })
-                }
-            }
-
-            // wireguard is an endpoint since sing-box 1.13; its tag still resolves as an outbound
-            if (currentOutbound is SingBoxOptions.Endpoint) {
-                endpoints.add(currentOutbound)
-            } else {
-                outbounds.add(currentOutbound)
-            }
-            chainOutbounds.add(currentOutbound)
-            pastOutbound = currentOutbound
-            pastEntity = proxyEntity
+            _hack_custom_config = bean.customOutboundJson
         }
+        return currentOutbound
+    }
 
-        trafficMap[chainTagOut] = chainTrafficList
-        return chainTagOut
+    private fun MyOptions.mapExternalHop(
+        chain: ChainState, index: Int, proxyEntity: ProxyEntity, bean: AbstractBean,
+    ) {
+        // External proxy need a dokodemo-door inbound to forward the traffic
+        // For external proxy software, their traffic must goes to v2ray-core to use protected fd.
+        bean.finalAddress = bean.serverAddress
+        bean.finalPort = bean.serverPort
+        if (bean.canMapping() && proxyEntity.needExternal()) {
+            // With ss protect, don't use mapping
+            var needExternal = true
+            if (index == chain.profileList.lastIndex) {
+                val pluginId = externalPluginId(bean)
+                if (Plugins.isUsingMatsuriExe(pluginId)) {
+                    needExternal = false
+                } else if (Plugins.getPluginExternal(pluginId) != null) {
+                    throw Exception("You are using an unsupported $pluginId, please download the correct plugin.")
+                }
+            }
+            if (needExternal) {
+                val mappingPort = mkPort()
+                bean.finalAddress = LOCALHOST
+                bean.finalPort = mappingPort
+
+                inbounds.add(Inbound_DirectOptions().apply {
+                    type = "direct"
+                    listen = LOCALHOST
+                    listen_port = mappingPort
+                    tag = "${chain.chainTag}-mapping-${proxyEntity.id}"
+
+                    override_address = bean.serverAddress
+                    override_port = effectiveServerPort(bean)
+
+                    chain.pastInboundTag = tag
+
+                    // no chain rule and not outbound, so need to set to direct
+                    if (index == chain.profileList.lastIndex) {
+                        route.rules.add(Rule_DefaultOptions().apply {
+                            inbound = listOf(tag)
+                            outbound = TAG_DIRECT
+                        })
+                    }
+                })
+            }
+        }
     }
 
     private fun MyOptions.buildOutbounds() {
