@@ -11,24 +11,22 @@ import io.nekohasekai.sagernet.fmt.TAG_BYPASS
 import io.nekohasekai.sagernet.fmt.TAG_PROXY
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.coroutines.coroutineContext
 
-class TrafficLooper
-    (
-    val data: BaseService.Data, private val sc: CoroutineScope
-) {
+class TrafficLooper(val data: BaseService.Data) {
 
-    // written by start() on the Default dispatcher, read by stopLoop() on main;
-    // the stopped CAS alone gives that read no happens-before
+    // The loop's own job on appScope (loop() checks its own context, the one
+    // stopLoop's cancel turns inactive). Written by start() on the Default
+    // dispatcher, read by stopLoop() on main; the stopped CAS alone gives that
+    // read no happens-before.
     @Volatile
     private var job: Job? = null
     private val stopped = AtomicBoolean(false)
@@ -96,7 +94,7 @@ class TrafficLooper
         // stop() may have already won the CAS (close() raced ProxyInstance.launch);
         // launching now would leave a loop on a closed box that stop() can never cancel
         if (stopped.get()) return
-        job = sc.launch { loop() }
+        job = runOnDefaultDispatcher { loop() }
         // stop() won the CAS between the check above and the job assignment, saw a
         // null job and skipped cancelAndJoin; cancel here so the loop cannot leak
         if (stopped.get()) job?.cancel()
@@ -183,7 +181,7 @@ class TrafficLooper
         // for display
         val itemBypass = TrafficUpdater.TrafficLooperData(tag = TAG_BYPASS)
 
-        while (sc.isActive) {
+        while (coroutineContext.isActive) {
             proxy = data.proxy
             if (proxy == null) {
                 delay(loopDelay)
@@ -233,7 +231,7 @@ class TrafficLooper
             synchronized(statsLock) {
                 trafficUpdater?.updateAll()
             }
-            if (!sc.isActive) return
+            if (!coroutineContext.isActive) return
 
             if (countingOnly) {
                 delay(loopDelay)
