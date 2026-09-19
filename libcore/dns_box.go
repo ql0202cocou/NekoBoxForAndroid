@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 
 	"github.com/sagernet/sing-box/adapter"
@@ -22,6 +23,8 @@ import (
 	mDNS "github.com/miekg/dns"
 )
 
+// rawQueryFunc 只在 dns_android.go 的 init() 里赋值（android && cgo 时）；
+// init 的完成先于一切后续 goroutine，读取无需额外同步。
 var rawQueryFunc func(ctx context.Context, networkHandle int64, request []byte) ([]byte, error)
 
 type LocalDNSTransport interface {
@@ -31,7 +34,9 @@ type LocalDNSTransport interface {
 	Exchange(ctx *ExchangeContext, message []byte) error
 }
 
-var gLocalDNSTransport *platformLocalDNSTransport = nil
+// gLocalDNSTransport 由 InitCore 写入一次，之后被任意 goroutine（如
+// http_h3.go 的 ECH 配置拉取）读取，故用 atomic.Pointer 发布。
+var gLocalDNSTransport atomic.Pointer[platformLocalDNSTransport]
 
 type platformLocalDNSTransport struct {
 	dns.TransportAdapter

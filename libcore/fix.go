@@ -1,7 +1,6 @@
 package libcore
 
 // https://github.com/golang/go/issues/46893
-// TODO: remove after `bulkBarrierPreWrite: unaligned arguments` fixed
 // Fixed in cmd/cgo for Go 1.26 (CL 692935 aligns the export argument
 // struct). The wrapper stays even on 1.26: *StringBox is part of the
 // gomobile-bound API surface consumed by the app, and upstream sing-box

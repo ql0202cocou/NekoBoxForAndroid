@@ -29,9 +29,9 @@ func (stubLocalDNSTransport) Exchange(ctx *ExchangeContext, message []byte) erro
 
 func useStubLocalDNSTransport(t *testing.T) {
 	t.Helper()
-	saved := gLocalDNSTransport
-	gLocalDNSTransport = newPlatformTransport(stubLocalDNSTransport{}, "", option.LocalDNSServerOptions{})
-	t.Cleanup(func() { gLocalDNSTransport = saved })
+	saved := gLocalDNSTransport.Load()
+	gLocalDNSTransport.Store(newPlatformTransport(stubLocalDNSTransport{}, "", option.LocalDNSServerOptions{}))
+	t.Cleanup(func() { gLocalDNSTransport.Store(saved) })
 }
 
 func executeH3(t *testing.T, url string, insecure bool) HTTPResponse {

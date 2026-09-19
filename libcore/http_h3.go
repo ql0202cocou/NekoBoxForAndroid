@@ -57,7 +57,7 @@ func (r *httpRequest) echTransport() *http.Transport {
 			if host, _, _ := net.SplitHostPort(addr); host != "" {
 				domain = host
 			}
-			echTls := ech.NewECHClientConfig(domain, r.tls, gLocalDNSTransport)
+			echTls := ech.NewECHClientConfig(domain, r.tls, gLocalDNSTransport.Load())
 			return echTls.Client(ctx, c)
 		},
 		ResponseHeaderTimeout: httpResponseHeaderTimeout,

@@ -8,6 +8,7 @@ import (
 	"runtime/debug"
 	"slices"
 	"strings"
+	"sync/atomic"
 	_ "unsafe"
 
 	"log"
@@ -22,16 +23,14 @@ import (
 //go:linkname resourcePaths github.com/sagernet/sing-box/constant.resourcePaths
 var resourcePaths []string
 
-// assetsReady is closed once InitCore's background setup has finished: the
-// custom CA load and, in :bg, the APK asset extraction. NewSingBoxInstance
-// waits on it, because a box created while geoip.db/geosite.db are still being
-// extracted (fresh install) fails to open its geo rule-sets.
+// assetsReady 在 InitCore 的后台初始化完成（加载自定义 CA，:bg 进程解压
+// APK 资产）后关闭；NewSingBoxInstance 会等待它，否则首次安装时
+// geoip.db/geosite.db 还在解压，建出来的 box 打不开 geo rule-set。
 //
-// The variable itself is written and read without synchronization; the
-// happens-before comes from the call order instead: Application.onCreate
-// calls InitCore before any box is created, so the assignment above is
-// visible to every NewSingBoxInstance call.
-var assetsReady chan struct{}
+// InitCore 在应用主线程写入，NewSingBoxInstance 在 Kotlin 协程线程读取
+// （bg/proto/BoxInstance.kt），两侧没有共同的锁，故用 atomic.Pointer
+// 发布，不能靠调用顺序提供可见性。
+var assetsReady atomic.Pointer[chan struct{}]
 
 func VersionBox() string {
 	defer device.DeferPanicToError("VersionBox", nil)
@@ -82,13 +81,14 @@ func InitCore(process, cachePath, internalAssets, externalAssets string,
 	if1 NB4AInterface, if2 BoxPlatformInterface, if3 LocalDNSTransport,
 ) {
 	defer device.DeferPanicToError("InitCore", nil)
-	isBgProcess = strings.HasSuffix(process, ":bg")
+	isBg := strings.HasSuffix(process, ":bg")
+	isBgProcess.Store(isBg)
 
 	neko_common.RunMode = neko_common.RunMode_NekoBoxForAndroid
-	intfNB4A = if1
-	intfBox = if2
-	useProcfs = intfBox.UseProcFS()
-	gLocalDNSTransport = newPlatformTransport(if3, "", option.LocalDNSServerOptions{})
+	intfNB4A.Store(if1)
+	intfBox.Store(if2)
+	useProcfs.Store(if2.UseProcFS())
+	gLocalDNSTransport.Store(newPlatformTransport(if3, "", option.LocalDNSServerOptions{}))
 
 	// Working dir
 	tmp := filepath.Join(cachePath, "../no_backup")
@@ -98,40 +98,43 @@ func InitCore(process, cachePath, internalAssets, externalAssets string,
 	if err := os.Chdir(tmp); err != nil {
 		log.Println("failed to chdir to working dir:", err)
 	}
+	// protect socket 用绝对路径发布，protect.go / platform_box.go 不再依赖进程 CWD
+	protectPath := filepath.Join(tmp, "protect_path")
+	protectSocketPath.Store(&protectPath)
 
 	// sing-box fs
 	if !slices.Contains(resourcePaths, externalAssets) {
 		resourcePaths = append(resourcePaths, externalAssets)
 	}
-	externalAssetsPath = externalAssets
-	internalAssetsPath = internalAssets
+	externalAssetsPath.Store(externalAssets)
+	internalAssetsPath.Store(internalAssets)
 
 	// Set up log
 	if maxLogSizeKb < 50 {
 		maxLogSizeKb = 50
 	}
 	neko_log.LogWriterDisable = !logEnable
-	neko_log.TruncateOnStart = isBgProcess
+	neko_log.TruncateOnStart = isBg
 	neko_log.SetupLog(int(maxLogSizeKb)*1024, filepath.Join(cachePath, "neko.log"))
 
 	// nekoutils
-	nekoutils.Selector_OnProxySelected = intfNB4A.Selector_OnProxySelected
+	nekoutils.Selector_OnProxySelected = if1.Selector_OnProxySelected
 
 	// Set up some component
 	ready := make(chan struct{})
-	assetsReady = ready
+	assetsReady.Store(&ready)
 	go func() {
 		defer close(ready)
 		defer device.DeferPanicToError("InitCore-go", nil)
 
 		// certs
-		pem, err := os.ReadFile(filepath.Join(externalAssetsPath, "ca.pem"))
+		pem, err := os.ReadFile(filepath.Join(externalAssetsDir(), "ca.pem"))
 		if err == nil {
 			updateRootCACerts(pem)
 		}
 
 		// bg
-		if isBgProcess {
+		if isBg {
 			extractAssets()
 		}
 	}()

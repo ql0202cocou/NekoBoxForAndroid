@@ -43,14 +43,14 @@ func (d *geoCacheTestDriver[T]) setup(t *testing.T) string {
 		t.Fatal(err)
 	}
 
-	oldAssetsPath := externalAssetsPath
+	oldAssetsPath := externalAssetsDir()
 	d.cache.Lock()
 	old := d.cache.state
 	d.cache.state = geoState[T]{}
 	d.cache.Unlock()
-	externalAssetsPath = dir
+	externalAssetsPath.Store(dir)
 	t.Cleanup(func() {
-		externalAssetsPath = oldAssetsPath
+		externalAssetsPath.Store(oldAssetsPath)
 		d.cache.Lock()
 		defer d.cache.Unlock()
 		if d.cache.state.closer != nil && d.cache.state.closer != old.closer {

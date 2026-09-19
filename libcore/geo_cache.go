@@ -47,7 +47,7 @@ func (c *geoCache[T]) rules(key string) ([]option.HeadlessRule, error) {
 	c.Lock()
 	defer c.Unlock()
 
-	path := filepath.Join(externalAssetsPath, c.dbName)
+	path := filepath.Join(externalAssetsDir(), c.dbName)
 	stat, err := os.Stat(path)
 	if err != nil {
 		return nil, err

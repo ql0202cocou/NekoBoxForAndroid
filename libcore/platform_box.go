@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"libcore/device"
 	"libcore/procfs"
-	"log"
 	"net/netip"
 	"strings"
 	"syscall"
@@ -38,17 +37,21 @@ func (w *boxPlatformInterfaceWrapper) AutoDetectInterfaceControl(fd int) (err er
 	defer device.DeferPanicToError("boxPlatformInterface.AutoDetectInterfaceControl", func(err_ error) { err = err_ })
 
 	// call protect_path
-	if !isBgProcess {
+	if !isBgProcess.Load() {
 		// Log but don't return the error: the main-process URL test dials
 		// directly when the VPN is not running, and a missing protect socket
 		// is the normal case then — failing the dial would break the test.
-		if err := sendFdToProtect(fd, "protect_path"); err != nil {
-			log.Printf("protect fd %d via protect_path failed: %v", fd, err)
+		if path := protectSocketPath.Load(); path != nil {
+			if err := sendFdToProtect(fd, *path); err != nil {
+				warnProtectFailed(fd, err)
+			}
+		} else {
+			warnProtectFailed(fd, errors.New("protect socket path not initialized"))
 		}
 		return nil
 	}
 	// bg process call VPNService
-	return intfBox.AutoDetectInterfaceControl(int32(fd))
+	return boxIntf().AutoDetectInterfaceControl(int32(fd))
 }
 
 func (w *boxPlatformInterfaceWrapper) UsePlatformInterface() bool {
@@ -66,7 +69,7 @@ func (w *boxPlatformInterfaceWrapper) OpenInterface(options *tun.Options, platfo
 	}
 	a, _ := json.Marshal(options)
 	b, _ := json.Marshal(platformOptions)
-	tunFd, err := intfBox.OpenTun(string(a), string(b))
+	tunFd, err := boxIntf().OpenTun(string(a), string(b))
 	if err != nil {
 		return nil, fmt.Errorf("intfBox.OpenTun: %w", err)
 	}
@@ -129,7 +132,7 @@ func (w *boxPlatformInterfaceWrapper) ReadWIFIState(ctx context.Context) adapter
 
 	// Format is "ssid,bssid"; split from the end since the SSID may contain commas
 	// while the BSSID is a MAC address and never does.
-	state := intfBox.WIFIState()
+	state := boxIntf().WIFIState()
 	sep := strings.LastIndex(state, ",")
 	if sep < 0 {
 		return adapter.WIFIState{}
@@ -161,7 +164,7 @@ func (w *boxPlatformInterfaceWrapper) FindConnectionOwner(request *adapter.FindC
 		return nil, fmt.Errorf("unknown ip protocol: %d", request.IpProtocol)
 	}
 	var uid int32
-	if useProcfs {
+	if useProcfs.Load() {
 		sourceAddr, err := netip.ParseAddr(request.SourceAddress)
 		if err != nil {
 			return nil, err
@@ -171,7 +174,7 @@ func (w *boxPlatformInterfaceWrapper) FindConnectionOwner(request *adapter.FindC
 			return nil, errors.New("procfs: not found")
 		}
 	} else {
-		u, err := intfBox.FindConnectionOwner(request.IpProtocol, request.SourceAddress, request.SourcePort, request.DestinationAddress, request.DestinationPort)
+		u, err := boxIntf().FindConnectionOwner(request.IpProtocol, request.SourceAddress, request.SourcePort, request.DestinationAddress, request.DestinationPort)
 		if err != nil {
 			return nil, err
 		}
@@ -183,7 +186,7 @@ func (w *boxPlatformInterfaceWrapper) FindConnectionOwner(request *adapter.FindC
 		}
 	}
 	owner = &adapter.ConnectionOwner{UserId: uid}
-	if packageName, err := intfBox.PackageNameByUid(uid); err == nil && packageName != "" {
+	if packageName, err := boxIntf().PackageNameByUid(uid); err == nil && packageName != "" {
 		owner.AndroidPackageNames = []string{packageName}
 	}
 	return owner, nil

@@ -12,27 +12,29 @@ import (
 	"golang.org/x/mobile/asset"
 )
 
-// assetSpec describes one asset bundled in the APK. Replaceable assets (the
-// geo databases) can be imported or downloaded by the user from
-// AssetsActivity and live under externalAssetsPath; the rest stay under
-// internalAssetsPath and always follow the APK's version.
+// assetSpec 描述 APK 内打包的一个资产。可替换资产（geo 数据库）可在
+// AssetsActivity 里由用户导入或下载，位于 externalAssetsPath；其余资产位于
+// internalAssetsPath，始终跟随 APK 自带版本。
 type assetSpec struct {
-	version     string // version file, next to the asset and inside the APK
-	apkPrefix   string // directory of the asset inside the APK
+	name        string // 资产文件名
+	version     string // 版本文件名，位于资产旁及 APK 内
+	apkPrefix   string // 资产在 APK 内的目录
 	replaceable bool
 }
 
-var assetSpecs = map[string]assetSpec{
-	geoipDat:      {version: geoipVersion, apkPrefix: apkAssetPrefixSingBox, replaceable: true},
-	geositeDat:    {version: geositeVersion, apkPrefix: apkAssetPrefixSingBox, replaceable: true},
-	yacdDstFolder: {version: yacdVersion},
+// assetSpecs 是资产清单的唯一数据源（原来是 map 加 extractAssets 里的
+// 硬编码列表双份维护）；extractAssets 按此 slice 的顺序解压。
+var assetSpecs = []assetSpec{
+	{name: geoipDat, version: geoipVersion, apkPrefix: apkAssetPrefixSingBox, replaceable: true},
+	{name: geositeDat, version: geositeVersion, apkPrefix: apkAssetPrefixSingBox, replaceable: true},
+	{name: yacdDstFolder, version: yacdVersion},
 }
 
 func extractAssets() {
-	useOfficialAssets := intfNB4A.UseOfficialAssets()
-	for _, name := range []string{geoipDat, geositeDat, yacdDstFolder} {
-		if err := extractAssetName(name, useOfficialAssets); err != nil {
-			log.Println("Extract", name, "failed:", err)
+	useOfficialAssets := nb4aIntf().UseOfficialAssets()
+	for _, spec := range assetSpecs {
+		if err := extractAssetName(spec.name, useOfficialAssets); err != nil {
+			log.Println("Extract", spec.name, "failed:", err)
 		}
 	}
 }
@@ -42,21 +44,28 @@ func extractAssetName(name string, useOfficialAssets bool) error {
 	// The main process may be importing or downloading the same file from
 	// AssetsActivity right now: version check, extraction and publish run under
 	// the shared record lock (see assets_lock.go).
-	return withAssetsLock(internalAssetsPath+"assets.lock", func() error {
+	return withAssetsLock(internalAssetsDir()+"assets.lock", func() error {
 		return extractAssetNameLocked(name, useOfficialAssets)
 	})
 }
 
 func extractAssetNameLocked(name string, useOfficialAssets bool) error {
-	spec, known := assetSpecs[name]
+	var spec assetSpec
+	known := false
+	for _, s := range assetSpecs {
+		if s.name == name {
+			spec, known = s, true
+			break
+		}
+	}
 	if !known {
 		return fmt.Errorf("unknown asset %s", name)
 	}
 	// Replaceable assets also live in app-internal storage; the external
 	// path name is retained for compatibility with the native interface.
-	dir := internalAssetsPath
+	dir := internalAssetsDir()
 	if spec.replaceable {
-		dir = externalAssetsPath
+		dir = externalAssetsDir()
 	}
 	dstName := dir + name
 
@@ -107,12 +116,12 @@ func extractAssetNameLocked(name string, useOfficialAssets bool) error {
 func readAPKAssetVersion(name string) (string, error) {
 	av, err := asset.Open(name)
 	if err != nil {
-		return "", fmt.Errorf("open version in assets: %v", err)
+		return "", fmt.Errorf("open version in assets: %w", err)
 	}
 	b, err := io.ReadAll(av)
 	av.Close()
 	if err != nil {
-		return "", fmt.Errorf("read internal version: %v", err)
+		return "", fmt.Errorf("read internal version: %w", err)
 	}
 	return string(b), nil
 }
@@ -164,16 +173,16 @@ func extractYacd(dstName string) error {
 	// Yacd-* top directory, or the old panel awaiting deletion), so the
 	// glob below can succeed again.
 	for _, pattern := range []string{"/Yacd-*", "/" + yacdDstFolder + ".old.*"} {
-		if leftovers, _ := filepath.Glob(internalAssetsPath + pattern); len(leftovers) > 0 {
+		if leftovers, _ := filepath.Glob(internalAssetsDir() + pattern); len(leftovers) > 0 {
 			for _, leftover := range leftovers {
 				os.RemoveAll(leftover)
 			}
 		}
 	}
-	if err := extractZip(f, dstName, internalAssetsPath); err != nil {
+	if err := extractZip(f, dstName, internalAssetsDir()); err != nil {
 		return err
 	}
-	m, err := filepath.Glob(internalAssetsPath + "/Yacd-*")
+	m, err := filepath.Glob(internalAssetsDir() + "/Yacd-*")
 	if err != nil {
 		return fmt.Errorf("glob Yacd: %v", err)
 	}
