@@ -29,8 +29,11 @@ type attribute struct {
 func newAttribute(types uint16, value []byte) *attribute {
 	att := new(attribute)
 	att.types = types
+	// RFC 5389 section 15: the length is the size of the value in bytes,
+	// NOT including the padding; the value is stored padded to a multiple
+	// of 4 so it can be serialized as-is.
+	att.length = uint16(len(value))
 	att.value = padding(value)
-	att.length = uint16(len(att.value))
 	return att
 }
 
@@ -107,10 +110,12 @@ func (v *attribute) rawAddr() *Host {
 	host := new(Host)
 	host.family = uint16(v.value[1])
 	host.port = binary.BigEndian.Uint16(v.value[2:4])
-	// Truncate if IPv4, otherwise net.IP sometimes renders it as an IPv6 address.
+	value := v.value
+	// Truncate a copy if IPv4, otherwise net.IP sometimes renders it as an
+	// IPv6 address; never mutate the attribute itself.
 	if host.family == attributeFamilyIPv4 {
-		v.value = v.value[:8]
+		value = value[:8]
 	}
-	host.ip = net.IP(v.value[4:]).String()
+	host.ip = net.IP(value[4:]).String()
 	return host
 }

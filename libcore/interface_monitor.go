@@ -6,8 +6,12 @@ import (
 	"github.com/sagernet/sing/common/x/list"
 )
 
-// wtf
-
+// interfaceMonitorStub is a no-op tun.DefaultInterfaceMonitor: the default
+// network is tracked on the Kotlin side by DefaultNetworkListener (a
+// ConnectivityManager callback, see utils/DefaultNetworkListener.kt), which
+// reacts to changes by resetting connections. sing-box gets no interface
+// information here and must not start its own monitor, so DefaultInterface
+// stays nil and callbacks are dropped.
 type interfaceMonitorStub struct{}
 
 func (s *interfaceMonitorStub) Start() error {

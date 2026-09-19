@@ -29,6 +29,9 @@ func (c *Client) sendWithLog(conn net.PacketConn, addr *net.UDPAddr, changeIP bo
 	if resp == nil && changeIP == false && changePort == false {
 		return nil, errors.New("NAT blocked.")
 	}
+	if resp != nil && resp.serverAddr == nil {
+		return nil, errors.New("Server error: no server address.")
+	}
 	if resp != nil && !addrCompare(resp.serverAddr, addr, changeIP, changePort) {
 		return nil, errors.New("Server error: response IP/port")
 	}
@@ -37,7 +40,7 @@ func (c *Client) sendWithLog(conn net.PacketConn, addr *net.UDPAddr, changeIP bo
 
 // Make sure IP and port  have or haven't change
 func addrCompare(host *Host, addr *net.UDPAddr, IPChange, portChange bool) bool {
-	isIPChange := host.IP() != addr.IP.String()
+	isIPChange := !ipEqual(host.IP(), addr.IP.String())
 	isPortChange := host.Port() != uint16(addr.Port)
 	return isIPChange == IPChange && isPortChange == portChange
 }

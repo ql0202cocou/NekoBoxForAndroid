@@ -38,6 +38,8 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/sagernet/sing-box/dns"
+
 	"golang.org/x/sys/unix"
 )
 
@@ -117,6 +119,12 @@ func init() {
 			}
 		}()
 
+		// a context cancelled before the first poll must return immediately
+		// instead of waiting out a whole poll slice
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
 		// wait for response (timeout 5000 ms), polling in short slices so a
 		// cancelled context returns promptly instead of after the full timeout
 		pfds := []unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN | unix.POLLERR}}
@@ -154,11 +162,15 @@ func init() {
 		// read response into buffer; nresult closes fd
 		settled = true
 		response := make([]byte, 8192)
-		_, n := callAndroidResNResult(fd, response)
+		rcode, n := callAndroidResNResult(fd, response)
 		if n < 0 {
 			return nil, unix.Errno(-n)
 		}
 		if n == 0 {
+			if rcode != 0 {
+				// e.g. NXDOMAIN with an empty body: keep the real rcode
+				return nil, dns.RcodeError(rcode)
+			}
 			return nil, os.ErrInvalid
 		}
 		return response[:n], nil

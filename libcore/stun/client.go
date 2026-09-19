@@ -15,9 +15,8 @@
 package stun
 
 import (
-	"errors"
 	"net"
-	"strconv"
+	"time"
 )
 
 // Client is a STUN client, which can be set STUN server address and is used
@@ -25,8 +24,15 @@ import (
 type Client struct {
 	serverAddr   string
 	softwareName string
-	conn         net.PacketConn
 	logger       *Logger
+	// Retransmission parameters set by SetRetransmission; zero values mean
+	// the RFC 3489 defaults in net.go.
+	retransmitCount   int
+	retransmitTimeout time.Duration
+	retransmitMax     time.Duration
+	// deadline set by SetDeadline bounds all requests issued by this client
+	// (shared across Discover and BehaviorTest calls); zero means no limit.
+	deadline time.Time
 }
 
 // NewClient returns a client without network connection. The network
@@ -38,108 +44,73 @@ func NewClient() *Client {
 	return c
 }
 
-// NewClientWithConnection returns a client which uses the given connection.
-// Please note the connection should be acquired via net.Listen* method.
-func NewClientWithConnection(conn net.PacketConn) *Client {
-	c := new(Client)
-	c.conn = conn
-	c.SetSoftwareName(DefaultSoftwareName)
-	c.logger = NewLogger()
-	return c
-}
-
-// SetVerbose sets the client to be in the verbose mode, which prints
-// information in the discover process.
-func (c *Client) SetVerbose(v bool) {
-	c.logger.SetDebug(v)
-}
-
-// SetVVerbose sets the client to be in the double verbose mode, which prints
-// information and packet in the discover process.
-func (c *Client) SetVVerbose(v bool) {
-	c.logger.SetInfo(v)
-}
-
-// SetServerHost allows user to set the STUN hostname and port.
-func (c *Client) SetServerHost(host string, port int) {
-	c.serverAddr = net.JoinHostPort(host, strconv.Itoa(port))
-}
-
 // SetServerAddr allows user to set the transport layer STUN server address.
 func (c *Client) SetServerAddr(address string) {
 	c.serverAddr = address
 }
 
-// SetSoftwareName allows user to set the name of the software, which is used
-// for logging purpose (NOT used in the current implementation).
+// SetSoftwareName allows user to set the name of the software, which is sent
+// to the server as the SOFTWARE attribute of every request.
 func (c *Client) SetSoftwareName(name string) {
 	c.softwareName = name
 }
 
-// Discover contacts the STUN server and gets the response of NAT type, host
-// for UDP punching.
-func (c *Client) Discover() (NATType, *Host, error, bool) {
+// SetRetransmission overrides the RFC 3489 retransmission parameters: at
+// most count requests are sent per test, starting with an interval of
+// initialTimeout, doubling every retransmit until the interval reaches
+// maxTimeout. Non-positive values restore the RFC 3489 defaults.
+func (c *Client) SetRetransmission(count int, initialTimeout, maxTimeout time.Duration) {
+	c.retransmitCount = count
+	c.retransmitTimeout = initialTimeout
+	c.retransmitMax = maxTimeout
+}
+
+// SetDeadline sets an overall deadline shared by all requests this client
+// issues (Discover and BehaviorTest combined): each read is capped at the
+// deadline and pending retransmissions are skipped once it has passed. A
+// zero value disables the limit.
+func (c *Client) SetDeadline(t time.Time) {
+	c.deadline = t
+}
+
+// resolveServerAddr resolves the configured STUN server address, falling
+// back to DefaultServerAddr when none is set.
+func (c *Client) resolveServerAddr() (*net.UDPAddr, error) {
 	if c.serverAddr == "" {
 		c.SetServerAddr(DefaultServerAddr)
 	}
-	serverUDPAddr, err := net.ResolveUDPAddr("udp", c.serverAddr)
+	return net.ResolveUDPAddr("udp", c.serverAddr)
+}
+
+// connection creates a new UDP connection; the caller owns and closes it.
+func (c *Client) connection() (net.PacketConn, error) {
+	return net.ListenUDP("udp", nil)
+}
+
+// Discover contacts the STUN server and gets the response of NAT type, host
+// for UDP punching.
+func (c *Client) Discover() (NATType, *Host, bool, error) {
+	serverUDPAddr, err := c.resolveServerAddr()
 	if err != nil {
-		return NATError, nil, err, false
+		return NATError, nil, false, err
 	}
-	// Use the connection passed to the client if it is not nil, otherwise
-	// create a connection and close it at the end.
-	conn := c.conn
-	if conn == nil {
-		conn, err = net.ListenUDP("udp", nil)
-		if err != nil {
-			return NATError, nil, err, false
-		}
-		defer conn.Close()
+	conn, err := c.connection()
+	if err != nil {
+		return NATError, nil, false, err
 	}
+	defer conn.Close()
 	return c.discover(conn, serverUDPAddr)
 }
 
 func (c *Client) BehaviorTest() (*NATBehavior, error) {
-	if c.serverAddr == "" {
-		c.SetServerAddr(DefaultServerAddr)
-	}
-	serverUDPAddr, err := net.ResolveUDPAddr("udp", c.serverAddr)
+	serverUDPAddr, err := c.resolveServerAddr()
 	if err != nil {
 		return nil, err
 	}
-	// Use the connection passed to the client if it is not nil, otherwise
-	// create a connection and close it at the end.
-	conn := c.conn
-	if conn == nil {
-		conn, err = net.ListenUDP("udp", nil)
-		if err != nil {
-			return nil, err
-		}
-		defer conn.Close()
+	conn, err := c.connection()
+	if err != nil {
+		return nil, err
 	}
+	defer conn.Close()
 	return c.behaviorTest(conn, serverUDPAddr)
-}
-
-// Keepalive sends and receives a bind request, which ensures the mapping stays open
-// Only applicable when client was created with a connection.
-func (c *Client) Keepalive() (*Host, error) {
-	if c.conn == nil {
-		return nil, errors.New("no connection available")
-	}
-	if c.serverAddr == "" {
-		c.SetServerAddr(DefaultServerAddr)
-	}
-	serverUDPAddr, err := net.ResolveUDPAddr("udp", c.serverAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := c.test1(c.conn, serverUDPAddr)
-	if err != nil {
-		return nil, err
-	}
-	if resp == nil || resp.packet == nil {
-		return nil, errors.New("failed to contact")
-	}
-	return resp.mappedAddr, nil
 }

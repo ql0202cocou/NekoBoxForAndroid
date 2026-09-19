@@ -2,11 +2,9 @@ package libcore
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
+	"io"
+	"libcore/device"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/oschwald/maxminddb-golang"
 	C "github.com/sagernet/sing-box/constant"
@@ -18,13 +16,20 @@ type geoip struct {
 	geoipReader *maxminddb.Reader
 }
 
-func (g *geoip) Open(path string) error {
+func (g *geoip) Open(path string) (err error) {
+	defer device.DeferPanicToError("geoip.Open", func(err_ error) { err = err_ })
+
 	geoipReader, err := maxminddb.Open(path)
+	if err != nil {
+		return err
+	}
 	g.geoipReader = geoipReader
-	return err
+	return nil
 }
 
-func (g *geoip) Rules(countryCode string) ([]option.HeadlessRule, error) {
+func (g *geoip) Rules(countryCode string) (rules []option.HeadlessRule, err error) {
+	defer device.DeferPanicToError("geoip.Rules", func(err_ error) { err = err_ })
+
 	networks := g.geoipReader.Networks(maxminddb.SkipAliasedNetworks)
 	countryCode = strings.ToLower(countryCode)
 	var cidrs []string
@@ -56,63 +61,25 @@ func (g *geoip) Rules(countryCode string) ([]option.HeadlessRule, error) {
 	}, nil
 }
 
-// Loading one geoip rule-set walks the whole mmdb tree, so repeated loads of
-// the same country (several rule-sets referencing it, box rebuilds on profile
-// switch or URL tests) each paid a full scan plus file open. The cache keeps
-// one shared reader and the per-country results of countries actually used;
-// only a newly referenced country costs a scan. Assets updates replace
-// geoip.db while the process is alive, so everything is keyed to the file's
-// path/size/mtime and rebuilt when it changes. The mutex doubles as
-// singleflight: concurrent first loads of different countries serialize
-// instead of scanning in parallel.
-var geoipCache = struct {
-	sync.Mutex
-	path      string
-	size      int64
-	modTime   time.Time
-	reader    *maxminddb.Reader
-	countries map[string][]option.HeadlessRule
-}{}
+// See geoCache for the caching rationale. The reader doubles as the closer,
+// and country codes are matched case-insensitively.
+var geoipCache = geoCache[*maxminddb.Reader]{
+	dbName: "geoip.db",
+	open: func(path string) (*maxminddb.Reader, io.Closer, error) {
+		g := new(geoip)
+		if err := g.Open(path); err != nil {
+			return nil, nil, err
+		}
+		return g.geoipReader, g.geoipReader, nil
+	},
+	normalize: strings.ToLower,
+	load: func(reader *maxminddb.Reader, countryCode string) ([]option.HeadlessRule, error) {
+		return (&geoip{geoipReader: reader}).Rules(countryCode)
+	},
+}
 
 func geoipRules(countryCode string) ([]option.HeadlessRule, error) {
-	geoipCache.Lock()
-	defer geoipCache.Unlock()
-
-	path := filepath.Join(externalAssetsPath, "geoip.db")
-	stat, err := os.Stat(path)
-	if err != nil {
-		return nil, err
-	}
-	if geoipCache.reader == nil || geoipCache.path != path ||
-		geoipCache.size != stat.Size() || !geoipCache.modTime.Equal(stat.ModTime()) {
-		if geoipCache.reader != nil {
-			geoipCache.reader.Close()
-		}
-		reader, err := maxminddb.Open(path)
-		if err != nil {
-			geoipCache.reader = nil
-			geoipCache.countries = nil
-			return nil, err
-		}
-		geoipCache.path = path
-		geoipCache.size = stat.Size()
-		geoipCache.modTime = stat.ModTime()
-		geoipCache.reader = reader
-		geoipCache.countries = make(map[string][]option.HeadlessRule)
-	}
-
-	countryCode = strings.ToLower(countryCode)
-	if rules, loaded := geoipCache.countries[countryCode]; loaded {
-		return rules, nil
-	}
-	rules, err := (&geoip{geoipReader: geoipCache.reader}).Rules(countryCode)
-	if err != nil {
-		// Failures (unknown country) are not cached: they stay errors on
-		// every call, like before.
-		return nil, err
-	}
-	geoipCache.countries[countryCode] = rules
-	return rules, nil
+	return geoipCache.rules(countryCode)
 }
 
 func init() {

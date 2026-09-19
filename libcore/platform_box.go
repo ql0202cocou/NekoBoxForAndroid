@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"libcore/device"
 	"libcore/procfs"
 	"log"
 	"net/netip"
@@ -34,7 +35,9 @@ func (w *boxPlatformInterfaceWrapper) UsePlatformAutoDetectInterfaceControl() bo
 	return true
 }
 
-func (w *boxPlatformInterfaceWrapper) AutoDetectInterfaceControl(fd int) error {
+func (w *boxPlatformInterfaceWrapper) AutoDetectInterfaceControl(fd int) (err error) {
+	defer device.DeferPanicToError("boxPlatformInterface.AutoDetectInterfaceControl", func(err_ error) { err = err_ })
+
 	// call protect_path
 	if !isBgProcess {
 		// Log but don't return the error: the main-process URL test dials
@@ -53,7 +56,9 @@ func (w *boxPlatformInterfaceWrapper) UsePlatformInterface() bool {
 	return true
 }
 
-func (w *boxPlatformInterfaceWrapper) OpenInterface(options *tun.Options, platformOptions option.TunPlatformOptions) (tun.Tun, error) {
+func (w *boxPlatformInterfaceWrapper) OpenInterface(options *tun.Options, platformOptions option.TunPlatformOptions) (ret tun.Tun, err error) {
+	defer device.DeferPanicToError("boxPlatformInterface.OpenInterface", func(err_ error) { err = err_ })
+
 	if len(options.IncludeUID) > 0 || len(options.ExcludeUID) > 0 {
 		return nil, E.New("android: unsupported uid options")
 	}
@@ -64,20 +69,20 @@ func (w *boxPlatformInterfaceWrapper) OpenInterface(options *tun.Options, platfo
 	b, _ := json.Marshal(platformOptions)
 	tunFd, err := intfBox.OpenTun(string(a), string(b))
 	if err != nil {
-		return nil, fmt.Errorf("intfBox.OpenTun: %v", err)
+		return nil, fmt.Errorf("intfBox.OpenTun: %w", err)
 	}
 	// The original fd is owned by the Kotlin side (closed via conn.close());
 	// dup it so the sing-box tun owns its own copy and manages its lifecycle.
 	// Use F_DUPFD_CLOEXEC so plugin binaries exec'd by :bg don't inherit it.
 	tunFd, err = unix.FcntlInt(uintptr(tunFd), unix.F_DUPFD_CLOEXEC, 0)
 	if err != nil {
-		return nil, fmt.Errorf("F_DUPFD_CLOEXEC: %v", err)
+		return nil, fmt.Errorf("F_DUPFD_CLOEXEC: %w", err)
 	}
 	//
 	options.FileDescriptor = int(tunFd)
 	tunStack, err := tun.New(*options)
 	if err != nil {
-		syscall.Close(tunFd)
+		unix.Close(tunFd)
 		return nil, err
 	}
 	return tunStack, nil
@@ -121,6 +126,8 @@ func (w *boxPlatformInterfaceWrapper) RequestPermissionForWIFIState() error {
 }
 
 func (w *boxPlatformInterfaceWrapper) ReadWIFIState(ctx context.Context) adapter.WIFIState {
+	defer device.DeferPanicToError("boxPlatformInterface.ReadWIFIState", nil)
+
 	// Format is "ssid,bssid"; split from the end since the SSID may contain commas
 	// while the BSSID is a MAC address and never does.
 	state := intfBox.WIFIState()
@@ -142,7 +149,9 @@ func (w *boxPlatformInterfaceWrapper) UsePlatformConnectionOwnerFinder() bool {
 	return true
 }
 
-func (w *boxPlatformInterfaceWrapper) FindConnectionOwner(request *adapter.FindConnectionOwnerRequest) (*adapter.ConnectionOwner, error) {
+func (w *boxPlatformInterfaceWrapper) FindConnectionOwner(request *adapter.FindConnectionOwnerRequest) (owner *adapter.ConnectionOwner, err error) {
+	defer device.DeferPanicToError("boxPlatformInterface.FindConnectionOwner", func(err_ error) { err = err_ })
+
 	var network string
 	switch request.IpProtocol {
 	case syscall.IPPROTO_TCP:
@@ -174,7 +183,7 @@ func (w *boxPlatformInterfaceWrapper) FindConnectionOwner(request *adapter.FindC
 			return nil, E.New("connection owner: not found")
 		}
 	}
-	owner := &adapter.ConnectionOwner{UserId: uid}
+	owner = &adapter.ConnectionOwner{UserId: uid}
 	if packageName, err := intfBox.PackageNameByUid(uid); err == nil && packageName != "" {
 		owner.AndroidPackageNames = []string{packageName}
 	}
@@ -249,18 +258,6 @@ func (w *boxPlatformInterfaceWrapper) CreateBridge(options adapter.BridgeOptions
 	return nil, errors.New("not implemented")
 }
 
-// io.Writer
-
-var disableSingBoxLog = false
-
-func (w *boxPlatformInterfaceWrapper) Write(p []byte) (n int, err error) {
-	// use neko_log
-	if !disableSingBoxLog {
-		log.Print(string(p))
-	}
-	return len(p), nil
-}
-
 // 日志
 
 type boxPlatformLogWriterWrapper struct {
@@ -271,6 +268,8 @@ var boxPlatformLogWriter sblog.PlatformWriter = &boxPlatformLogWriterWrapper{}
 func (w *boxPlatformLogWriterWrapper) DisableColors() bool { return true }
 
 func (w *boxPlatformLogWriterWrapper) WriteMessage(level uint8, message string) {
+	defer device.DeferPanicToError("boxPlatformLogWriter.WriteMessage", nil)
+
 	if !strings.HasSuffix(message, "\n") {
 		message += "\n"
 	}

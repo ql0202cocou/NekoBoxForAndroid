@@ -4,16 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"libcore/device"
 	"log"
 	"net/http"
-	"runtime"
-	"runtime/debug"
 	"strings"
 	"sync"
 
-	"github.com/matsuridayo/libneko/protect_server"
 	"github.com/matsuridayo/libneko/speedtest"
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/boxapi"
@@ -21,7 +17,6 @@ import (
 
 	box "github.com/sagernet/sing-box"
 	"github.com/sagernet/sing-box/common/dialer"
-	"github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing/service"
 	"github.com/sagernet/sing/service/pause"
@@ -40,40 +35,33 @@ func getMainInstance() *BoxInstance {
 	return mainInstance
 }
 
-func VersionBox() string {
-	version := []string{
-		"sing-box: " + constant.Version,
-		runtime.Version() + "@" + runtime.GOOS + "/" + runtime.GOARCH,
-	}
-
-	var tags string
-	debugInfo, loaded := debug.ReadBuildInfo()
-	if loaded {
-		for _, setting := range debugInfo.Settings {
-			switch setting.Key {
-			case "-tags":
-				tags = setting.Value
-			}
-		}
-	}
-
-	if tags != "" {
-		version = append(version, tags)
-	}
-
-	return strings.Join(version, "\n")
-}
-
 func ResetAllConnections(system bool) {
+	defer device.DeferPanicToError("ResetAllConnections", nil)
+
 	if system {
 		// conntrack was removed in sing-box 1.13; ResetNetwork closes all connections
-		main := getMainInstance()
-		if main != nil {
-			main.Network().ResetNetwork(context.Background())
+		if main := getMainInstance(); main != nil {
+			// getMainInstance released mainInstanceAccess already, so taking
+			// main.access here cannot deadlock against Close's
+			// b.access -> mainInstanceAccess order (same pattern as UrlTest).
+			// The lock is held across ResetNetwork: on a closed box it would
+			// call InterfaceUpdated on closed endpoints, with no guaranteed
+			// behavior.
+			if main.lockIfOpen() {
+				main.Network().ResetNetwork(context.Background())
+				main.access.Unlock()
+			}
 		}
 		log.Println("Reset system connections done")
 	}
 }
+
+// BoxInstance lifecycle states, in the order they are reached.
+const (
+	boxNew = iota
+	boxStarted
+	boxClosed
+)
 
 type BoxInstance struct {
 	access sync.Mutex
@@ -116,7 +104,7 @@ func NewSingBoxInstance(config string, localTransport LocalDNSTransport) (b *Box
 	var options option.Options
 	err = options.UnmarshalJSONContext(ctx, []byte(config))
 	if err != nil {
-		return nil, fmt.Errorf("decode config: %v", err)
+		return nil, fmt.Errorf("decode config: %w", err)
 	}
 
 	// create box
@@ -126,7 +114,7 @@ func NewSingBoxInstance(config string, localTransport LocalDNSTransport) (b *Box
 		PlatformLogWriter: boxPlatformLogWriter,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("create service: %v", err)
+		return nil, fmt.Errorf("create service: %w", err)
 	}
 
 	b = &BoxInstance{
@@ -145,16 +133,30 @@ func NewSingBoxInstance(config string, localTransport LocalDNSTransport) (b *Box
 	return b, nil
 }
 
+// lockIfOpen takes b.access unless the instance is already closed; on false
+// the lock is not held and the caller has nothing to do. The state check has
+// to happen under the lock, otherwise a concurrent Close can tear the box
+// down between the check and whatever the caller does with it.
+func (b *BoxInstance) lockIfOpen() bool {
+	b.access.Lock()
+	if b.state == boxClosed {
+		b.access.Unlock()
+		return false
+	}
+	return true
+}
+
 func (b *BoxInstance) Start() (err error) {
 	b.access.Lock()
 	defer b.access.Unlock()
 
 	defer device.DeferPanicToError("box.Start", func(err_ error) { err = err_ })
 
-	if b.state == 0 {
-		b.state = 1
+	if b.state == boxNew {
+		b.state = boxStarted
 		// Box.Start closes the box itself when it fails, so a retry on this
-		// instance is pointless; the state stays 1 on purpose so that Close()
+		// instance is pointless; the state stays boxStarted on purpose so that
+		// Close()
 		// still cancels the context and drops the main-instance reference.
 		return b.Box.Start()
 	}
@@ -168,10 +170,10 @@ func (b *BoxInstance) Close() (err error) {
 	defer device.DeferPanicToError("box.Close", func(err_ error) { err = err_ })
 
 	// no double close
-	if b.state == 2 {
+	if b.state == boxClosed {
 		return nil
 	}
-	b.state = 2
+	b.state = boxClosed
 
 	// clear main instance
 	mainInstanceAccess.Lock()
@@ -193,18 +195,29 @@ func (b *BoxInstance) Close() (err error) {
 }
 
 func (b *BoxInstance) Sleep() {
+	defer device.DeferPanicToError("box.Sleep", nil)
+
 	if b.pauseManager != nil {
 		b.pauseManager.DevicePause()
 	}
 }
 
 func (b *BoxInstance) Wake() {
+	defer device.DeferPanicToError("box.Wake", nil)
+
 	if b.pauseManager != nil {
 		b.pauseManager.DeviceWake()
 	}
 }
 
 func (b *BoxInstance) SetAsMain() {
+	defer device.DeferPanicToError("box.SetAsMain", nil)
+
+	// b.access -> mainInstanceAccess is the same lock order as Close.
+	if !b.lockIfOpen() {
+		return
+	}
+	defer b.access.Unlock()
 	mainInstanceAccess.Lock()
 	defer mainInstanceAccess.Unlock()
 	mainInstance = b
@@ -212,8 +225,13 @@ func (b *BoxInstance) SetAsMain() {
 }
 
 func (b *BoxInstance) SetV2rayStats(outbounds string) {
-	b.access.Lock()
+	defer device.DeferPanicToError("box.SetV2rayStats", nil)
+
+	if !b.lockIfOpen() {
+		return
+	}
 	defer b.access.Unlock()
+
 	if b.v2api != nil {
 		log.Println("duplicate call of SetV2rayStats")
 		return
@@ -226,8 +244,13 @@ func (b *BoxInstance) SetV2rayStats(outbounds string) {
 }
 
 func (b *BoxInstance) QueryStats(tag, direct string) int64 {
-	b.access.Lock()
+	defer device.DeferPanicToError("box.QueryStats", nil)
+
+	if !b.lockIfOpen() {
+		return 0
+	}
 	defer b.access.Unlock()
+
 	if b.v2api == nil {
 		return 0
 	}
@@ -235,6 +258,8 @@ func (b *BoxInstance) QueryStats(tag, direct string) int64 {
 }
 
 func (b *BoxInstance) SelectOutbound(tag string) bool {
+	defer device.DeferPanicToError("box.SelectOutbound", nil)
+
 	if b.selector != nil {
 		return b.selector.SelectOutbound(tag)
 	}
@@ -245,11 +270,10 @@ func (b *BoxInstance) SelectOutbound(tag string) bool {
 // whole build: a concurrent Close could otherwise tear the box down between the state
 // check and CreateProxyHttpClient, panicking inside it.
 func (b *BoxInstance) newProxyHttpClient() (*http.Client, error) {
-	b.access.Lock()
-	defer b.access.Unlock()
-	if b.state == 2 {
+	if !b.lockIfOpen() {
 		return nil, errors.New("instance is closed")
 	}
+	defer b.access.Unlock()
 	var connectionTracker adapter.ConnectionTracker
 	if b.v2api != nil {
 		connectionTracker = b.v2api.StatsService()
@@ -272,23 +296,4 @@ func UrlTest(i *BoxInstance, link string, timeout int32) (latency int32, err err
 		return 0, err
 	}
 	return speedtest.UrlTest(httpClient, link, timeout, speedtest.UrlTestStandard_RTT)
-}
-
-var protectCloser io.Closer
-
-func goServeProtect(start bool) {
-	if protectCloser != nil {
-		protectCloser.Close()
-		protectCloser = nil
-	}
-	if start {
-		closer, err := protect_server.ServeProtect("protect_path", false, 0, func(fd int) error {
-			return intfBox.AutoDetectInterfaceControl(int32(fd))
-		})
-		if err != nil {
-			log.Println("protect server start failed:", err)
-			return
-		}
-		protectCloser = closer
-	}
 }

@@ -1,9 +1,11 @@
-// libbox/dns.go
+// Platform "local" DNS transport: bridges sing-box DNS exchanges to the
+// Android-side resolver through the ExchangeContext callbacks.
 
 package libcore
 
 import (
 	"context"
+	"libcore/device"
 	"net/netip"
 	"strings"
 	"sync"
@@ -63,7 +65,9 @@ func (p *platformLocalDNSTransport) ExchangeAsync(ctx context.Context, message *
 	}()
 }
 
-func (p *platformLocalDNSTransport) Exchange(ctx context.Context, message *mDNS.Msg) (*mDNS.Msg, error) {
+func (p *platformLocalDNSTransport) Exchange(ctx context.Context, message *mDNS.Msg) (ret *mDNS.Msg, err error) {
+	defer device.DeferPanicToError("platformLocalDNSTransport.Exchange", func(err_ error) { err = err_ })
+
 	if p.raw {
 		// Raw - Android 10 及以上才有
 
@@ -120,19 +124,18 @@ func (p *platformLocalDNSTransport) Exchange(ctx context.Context, message *mDNS.
 }
 
 // awaitPlatform runs one platform resolver call and waits for its callback
-// (Success/RawSuccess/ErrorCode/ErrnoCode settle done exactly once) or the
-// context, whichever comes first.
+// (Success/RawSuccess/ErrorCode/ErrnoCode settle the context exactly once) or
+// the context, whichever comes first.
 func awaitPlatform(ctx context.Context, call func(*ExchangeContext) error) (*ExchangeContext, error) {
-	done := make(chan struct{})
 	response := &ExchangeContext{
-		context: ctx,
-		done:    sync.OnceFunc(func() { close(done) }),
+		context:  ctx,
+		doneChan: make(chan struct{}),
 	}
 	if err := call(response); err != nil {
 		return nil, err
 	}
 	select {
-	case <-done:
+	case <-response.doneChan:
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
@@ -151,39 +154,75 @@ type ExchangeContext struct {
 	message   mDNS.Msg
 	addresses []netip.Addr
 	error     error
-	done      func()
+	// settle makes the whole settle — field writes plus close(doneChan) —
+	// run exactly once, so a second callback (e.g. the platform catch path
+	// invoking ErrnoCode after RawSuccess) is a no-op instead of racing the
+	// field reads awaitPlatform makes after doneChan is closed.
+	settle   sync.Once
+	doneChan chan struct{}
 }
 
 func (c *ExchangeContext) OnCancel(callback Func) {
+	defer device.DeferPanicToError("ExchangeContext.OnCancel", nil)
+
 	go func() {
-		<-c.context.Done()
-		callback.Invoke()
+		defer device.DeferPanicToError("ExchangeContext.OnCancel", nil)
+
+		select {
+		case <-c.context.Done():
+			callback.Invoke()
+		case <-c.doneChan:
+			// already settled: nothing left to cancel
+		}
 	}()
 }
 
-func (c *ExchangeContext) Success(result string) {
-	c.addresses = common.Map(common.Filter(strings.Split(result, "\n"), func(it string) bool {
-		return !common.IsEmpty(it)
-	}), func(it string) netip.Addr {
-		return M.ParseSocksaddrHostPort(it, 0).Unwrap().Addr
+// settleWith runs fn as the one settle of this exchange. doneChan is closed
+// even if fn panics: an unsettled exchange would block awaitPlatform until the
+// context deadline. Every callback below goes through it, so a new one cannot
+// forget the close.
+func (c *ExchangeContext) settleWith(name string, fn func()) {
+	defer device.DeferPanicToError(name, nil)
+
+	c.settle.Do(func() {
+		defer close(c.doneChan)
+		fn()
 	})
-	c.done()
+}
+
+func (c *ExchangeContext) Success(result string) {
+	c.settleWith("ExchangeContext.Success", func() {
+		lines := common.Filter(strings.Split(result, "\n"), func(it string) bool {
+			return !common.IsEmpty(it)
+		})
+		addresses := common.Map(lines, func(it string) netip.Addr {
+			return M.ParseSocksaddrHostPort(it, 0).Unwrap().Addr
+		})
+		// the platform side may echo malformed lines; drop everything that did
+		// not parse to an IP address instead of failing the whole exchange
+		c.addresses = common.Filter(addresses, func(it netip.Addr) bool {
+			return it.IsValid()
+		})
+	})
 }
 
 func (c *ExchangeContext) RawSuccess(result []byte) {
-	err := c.message.Unpack(result)
-	if err != nil {
-		c.error = E.Cause(err, "parse response")
-	}
-	c.done()
+	c.settleWith("ExchangeContext.RawSuccess", func() {
+		err := c.message.Unpack(result)
+		if err != nil {
+			c.error = E.Cause(err, "parse response")
+		}
+	})
 }
 
 func (c *ExchangeContext) ErrorCode(code int32) {
-	c.error = dns.RcodeError(code)
-	c.done()
+	c.settleWith("ExchangeContext.ErrorCode", func() {
+		c.error = dns.RcodeError(code)
+	})
 }
 
 func (c *ExchangeContext) ErrnoCode(code int32) {
-	c.error = syscall.Errno(code)
-	c.done()
+	c.settleWith("ExchangeContext.ErrnoCode", func() {
+		c.error = syscall.Errno(code)
+	})
 }

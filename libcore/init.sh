@@ -2,7 +2,7 @@
 
 set -e
 
-chmod -R 777 .build 2>/dev/null || true
+chmod -R u+w .build 2>/dev/null || true
 rm -rf .build 2>/dev/null || true
 
 # go install honours GOBIN over GOPATH/bin; without this the mv below fails with

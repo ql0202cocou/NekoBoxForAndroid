@@ -64,17 +64,17 @@ import (
 //	                               |N
 //	                               |       Port
 //	                               +------>Restricted
-func (c *Client) discover(conn net.PacketConn, addr *net.UDPAddr) (_ NATType, _ *Host, _ error, fakeFullCone bool) {
+func (c *Client) discover(conn net.PacketConn, addr *net.UDPAddr) (_ NATType, _ *Host, fakeFullCone bool, _ error) {
 	// Perform test1 to check if it is under NAT.
 	c.logger.Debugln("Do Test1")
 	c.logger.Debugln("Send To:", addr)
 	resp, err := c.test1(conn, addr)
 	if err != nil {
-		return NATError, nil, err, fakeFullCone
+		return NATError, nil, fakeFullCone, err
 	}
 	c.logger.Debugln("Received:", resp)
 	if resp == nil {
-		return NATBlocked, nil, nil, fakeFullCone
+		return NATBlocked, nil, fakeFullCone, nil
 	}
 	// identical used to check if it is open Internet or not.
 	identical := resp.identical
@@ -84,10 +84,13 @@ func (c *Client) discover(conn net.PacketConn, addr *net.UDPAddr) (_ NATType, _ 
 	mappedAddr := resp.mappedAddr
 	// mappedAddr shall not be nil
 	if mappedAddr == nil {
-		return NATError, nil, errors.New("Server error: no mapped address."), fakeFullCone
+		return NATError, nil, fakeFullCone, errors.New("Server error: no mapped address.")
+	}
+	if resp.serverAddr == nil {
+		return NATError, mappedAddr, fakeFullCone, errors.New("Server error: no server address.")
 	}
 	// Make sure IP and port are not changed.
-	if resp.serverAddr.IP() != addr.IP.String() ||
+	if !ipEqual(resp.serverAddr.IP(), addr.IP.String()) ||
 		resp.serverAddr.Port() != uint16(addr.Port) {
 		fakeFullCone = true
 	}
@@ -98,7 +101,7 @@ func (c *Client) discover(conn net.PacketConn, addr *net.UDPAddr) (_ NATType, _ 
 	}
 	// changedAddr shall not be nil
 	if changedAddr == nil {
-		return NATError, mappedAddr, errors.New("Server error: no changed address."), fakeFullCone
+		return NATError, mappedAddr, fakeFullCone, errors.New("Server error: no changed address.")
 	}
 	// Perform test2 to see if the client can receive packet sent from
 	// another IP and port.
@@ -106,23 +109,23 @@ func (c *Client) discover(conn net.PacketConn, addr *net.UDPAddr) (_ NATType, _ 
 	c.logger.Debugln("Send To:", addr)
 	resp, err = c.test2(conn, addr)
 	if err != nil {
-		return NATError, mappedAddr, err, fakeFullCone
+		return NATError, mappedAddr, fakeFullCone, err
 	}
 	c.logger.Debugln("Received:", resp)
 	// Make sure IP and port are changed.
-	if resp != nil &&
-		(resp.serverAddr.IP() == addr.IP.String() ||
+	if resp != nil && resp.serverAddr != nil &&
+		(ipEqual(resp.serverAddr.IP(), addr.IP.String()) ||
 			resp.serverAddr.Port() == uint16(addr.Port)) {
 		fakeFullCone = true
 	}
 	if identical {
 		if resp == nil {
-			return SymmetricUDPFirewall, mappedAddr, nil, fakeFullCone
+			return SymmetricUDPFirewall, mappedAddr, fakeFullCone, nil
 		}
-		return NATNone, mappedAddr, nil, fakeFullCone
+		return NATNone, mappedAddr, fakeFullCone, nil
 	}
 	if resp != nil {
-		return NATFull, mappedAddr, nil, fakeFullCone
+		return NATFull, mappedAddr, fakeFullCone, nil
 	}
 	// Perform test1 to another IP and port to see if the NAT use the same
 	// external IP.
@@ -130,25 +133,28 @@ func (c *Client) discover(conn net.PacketConn, addr *net.UDPAddr) (_ NATType, _ 
 	c.logger.Debugln("Send To:", changedAddr)
 	caddr, err := net.ResolveUDPAddr("udp", changedAddr.String())
 	if err != nil {
-		return NATError, mappedAddr, err, fakeFullCone
+		return NATError, mappedAddr, fakeFullCone, err
 	}
 	resp, err = c.test1(conn, caddr)
 	if err != nil {
-		return NATError, mappedAddr, err, fakeFullCone
+		return NATError, mappedAddr, fakeFullCone, err
 	}
 	c.logger.Debugln("Received:", resp)
 	if resp == nil {
 		// It should be NAT_BLOCKED, but will be detected in the first
 		// step. So this will never happen.
-		return NATUnknown, mappedAddr, nil, fakeFullCone
+		return NATUnknown, mappedAddr, fakeFullCone, nil
+	}
+	if resp.serverAddr == nil {
+		return NATError, mappedAddr, fakeFullCone, errors.New("Server error: no server address.")
 	}
 	// Make sure IP/port is not changed.
-	if resp.serverAddr.IP() != caddr.IP.String() ||
+	if !ipEqual(resp.serverAddr.IP(), caddr.IP.String()) ||
 		resp.serverAddr.Port() != uint16(caddr.Port) {
 		fakeFullCone = true
 	}
 	if resp.mappedAddr == nil {
-		return NATError, mappedAddr, errors.New("Server error: no mapped address."), fakeFullCone
+		return NATError, mappedAddr, fakeFullCone, errors.New("Server error: no mapped address.")
 	}
 	if mappedAddr.IP() == resp.mappedAddr.IP() && mappedAddr.Port() == resp.mappedAddr.Port() {
 		// Perform test3 to see if the client can receive packet sent
@@ -157,20 +163,23 @@ func (c *Client) discover(conn net.PacketConn, addr *net.UDPAddr) (_ NATType, _ 
 		c.logger.Debugln("Send To:", caddr)
 		resp, err = c.test3(conn, caddr)
 		if err != nil {
-			return NATError, mappedAddr, err, fakeFullCone
+			return NATError, mappedAddr, fakeFullCone, err
 		}
 		c.logger.Debugln("Received:", resp)
 		if resp == nil {
-			return NATPortRestricted, mappedAddr, nil, fakeFullCone
+			return NATPortRestricted, mappedAddr, fakeFullCone, nil
+		}
+		if resp.serverAddr == nil {
+			return NATError, mappedAddr, fakeFullCone, errors.New("Server error: no server address.")
 		}
 		// Make sure IP is not changed, and port is changed.
-		if resp.serverAddr.IP() != caddr.IP.String() ||
+		if !ipEqual(resp.serverAddr.IP(), caddr.IP.String()) ||
 			resp.serverAddr.Port() == uint16(caddr.Port) {
 			fakeFullCone = true
 		}
-		return NATRestricted, mappedAddr, nil, fakeFullCone
+		return NATRestricted, mappedAddr, fakeFullCone, nil
 	}
-	return NATSymmetric, mappedAddr, nil, fakeFullCone
+	return NATSymmetric, mappedAddr, fakeFullCone, nil
 }
 
 func (c *Client) behaviorTest(conn net.PacketConn, addr *net.UDPAddr) (*NATBehavior, error) {

@@ -2,8 +2,9 @@ package libcore
 
 import (
 	"fmt"
+	"io"
+	"libcore/device"
 	"os"
-	"path/filepath"
 
 	geosites "github.com/sagernet/sing-box/common/geosite"
 	C "github.com/sagernet/sing-box/constant"
@@ -16,7 +17,9 @@ type geosite struct {
 	file          *os.File
 }
 
-func (g *geosite) Open(path string) error {
+func (g *geosite) Open(path string) (err error) {
+	defer device.DeferPanicToError("geosite.Open", func(err_ error) { err = err_ })
+
 	file, err := os.Open(path)
 	if err != nil {
 		return err
@@ -31,11 +34,9 @@ func (g *geosite) Open(path string) error {
 	return nil
 }
 
-func (g *geosite) Close() error {
-	return g.file.Close()
-}
+func (g *geosite) Rules(code string) (rules []option.HeadlessRule, err error) {
+	defer device.DeferPanicToError("geosite.Rules", func(err_ error) { err = err_ })
 
-func (g *geosite) Rules(code string) ([]option.HeadlessRule, error) {
 	sourceSet, err := g.geositeReader.Read(code)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read geosite code %s :%w", code, err)
@@ -58,15 +59,26 @@ func (g *geosite) Rules(code string) ([]option.HeadlessRule, error) {
 	}, nil
 }
 
-func init() {
-	nekoutils.GetGeoSiteHeadlessRules = func(name string) ([]option.HeadlessRule, error) {
+// See geoCache for the caching rationale. The reader needs its underlying
+// file as the closer, and codes are matched exactly.
+var geositeCache = geoCache[*geosites.Reader]{
+	dbName: "geosite.db",
+	open: func(path string) (*geosites.Reader, io.Closer, error) {
 		g := new(geosite)
-		if err := g.Open(filepath.Join(externalAssetsPath, "geosite.db")); err != nil {
-			return nil, err
+		if err := g.Open(path); err != nil {
+			return nil, nil, err
 		}
-		// Rules reads all items into memory eagerly, so the file can be
-		// closed as soon as it returns.
-		defer g.Close()
-		return g.Rules(name)
-	}
+		return g.geositeReader, g.file, nil
+	},
+	load: func(reader *geosites.Reader, code string) ([]option.HeadlessRule, error) {
+		return (&geosite{geositeReader: reader}).Rules(code)
+	},
+}
+
+func geositeRules(code string) ([]option.HeadlessRule, error) {
+	return geositeCache.rules(code)
+}
+
+func init() {
+	nekoutils.GetGeoSiteHeadlessRules = geositeRules
 }

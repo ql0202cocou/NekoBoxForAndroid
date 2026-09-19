@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"libcore/device"
 	"net"
 	"net/http"
 	"strings"
@@ -14,25 +15,6 @@ import (
 
 	mDNS "github.com/miekg/dns"
 )
-
-// LookupHost resolves domain via the given DNS server address
-// (plain IP/host or udp/tcp/tls/https URL), and returns the
-// resolved IP addresses joined by newline.
-// Used by subscription forceResolve; unsupported schemes return an error.
-func LookupHost(server string, domain string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	return lookupHost(ctx, server, domain)
-}
-
-// LookupHosts tries newline-separated servers in order within one ten-second
-// budget, including A/AAAA queries and UDP-to-TCP retries.
-func LookupHosts(servers string, domain string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	return lookupHosts(ctx, servers, domain)
-}
 
 // LookupTask runs LookupHosts off the calling thread so Kotlin can cancel the
 // native context when its coroutine is cancelled; a plain gomobile call would
@@ -45,11 +27,14 @@ type LookupTask struct {
 }
 
 func StartLookupHosts(servers string, domain string) *LookupTask {
+	defer device.DeferPanicToError("StartLookupHosts", nil)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	task := &LookupTask{cancel: cancel, done: make(chan struct{})}
 	go func() {
 		defer close(task.done)
 		defer cancel()
+		defer device.DeferPanicToError("StartLookupHosts", func(err error) { task.err = err })
 		task.result, task.err = lookupHosts(ctx, servers, domain)
 	}()
 	return task
@@ -57,13 +42,17 @@ func StartLookupHosts(servers string, domain string) *LookupTask {
 
 // Await blocks until the lookup finishes or Cancel is called. Not named Wait:
 // gomobile would emit a Java method clashing with the final Object.wait().
-func (t *LookupTask) Await() (string, error) {
+func (t *LookupTask) Await() (ret string, err error) {
+	defer device.DeferPanicToError("LookupTask.Await", func(err_ error) { err = err_ })
+
 	<-t.done
 	return t.result, t.err
 }
 
 // Cancel is safe from any thread, before or after completion.
 func (t *LookupTask) Cancel() {
+	defer device.DeferPanicToError("LookupTask.Cancel", nil)
+
 	t.cancel()
 }
 
@@ -205,6 +194,11 @@ func withDefaultPort(address, port string) string {
 	return net.JoinHostPort(strings.Trim(address, "[]"), port)
 }
 
+// dohClient is private so DoH does not ride http.DefaultClient, whose shared
+// global transport also picks up proxy settings from the environment. The
+// timeout is a backstop; callers already bound every exchange with a context.
+var dohClient = &http.Client{Timeout: 10 * time.Second}
+
 func exchangeHTTPS(ctx context.Context, server string, query *mDNS.Msg) (*mDNS.Msg, error) {
 	body, err := query.Pack()
 	if err != nil {
@@ -216,7 +210,7 @@ func exchangeHTTPS(ctx context.Context, server string, query *mDNS.Msg) (*mDNS.M
 	}
 	req.Header.Set("Content-Type", "application/dns-message")
 	req.Header.Set("Accept", "application/dns-message")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := dohClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

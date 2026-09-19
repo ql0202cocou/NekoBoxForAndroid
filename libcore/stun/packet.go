@@ -18,6 +18,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math"
 )
 
@@ -53,18 +54,40 @@ func newPacketFromBytes(packetBytes []byte) (*packet, error) {
 	pkt.length = binary.BigEndian.Uint16(packetBytes[2:4])
 	pkt.transID = packetBytes[4:20]
 	pkt.attributes = make([]attribute, 0, 10)
+	// RFC 5389 section 6: every STUN message carries the magic cookie in
+	// the transaction id field. The requests built by newPacket always set
+	// it and a server echoes the transaction id verbatim, so a packet
+	// without the cookie is not a reply to one of our requests.
+	if binary.BigEndian.Uint32(packetBytes[4:8]) != magicCookie {
+		return nil, errors.New("Received packet magic cookie mismatch.")
+	}
+	// This client only ever sends binding requests, so the only valid
+	// incoming messages are binding responses and binding error responses
+	// (RFC 5389 section 7); reject everything else.
+	switch pkt.types {
+	case typeBindingResponse, typeBindingErrorResponse:
+	default:
+		return nil, fmt.Errorf("Received packet is not a binding response (type 0x%04x).", pkt.types)
+	}
 	packetBytes = packetBytes[20:]
-	for pos := uint16(0); pos+4 < uint16(len(packetBytes)); {
+	// The header length covers the attributes only (the 20-byte header is
+	// excluded); reject truncated packets and ignore trailing garbage.
+	if int(pkt.length) > len(packetBytes) {
+		return nil, errors.New("Received data length mismatch.")
+	}
+	packetBytes = packetBytes[:pkt.length]
+	// pos+4 <= len: a zero-length attribute exactly at the end is valid.
+	for pos := 0; pos+4 <= len(packetBytes); {
 		types := binary.BigEndian.Uint16(packetBytes[pos : pos+2])
-		length := binary.BigEndian.Uint16(packetBytes[pos+2 : pos+4])
+		length := int(binary.BigEndian.Uint16(packetBytes[pos+2 : pos+4]))
 		end := pos + 4 + length
-		if end < pos+4 || end > uint16(len(packetBytes)) {
+		if end > len(packetBytes) {
 			return nil, errors.New("Received data format mismatch.")
 		}
 		value := packetBytes[pos+4 : end]
 		attribute := newAttribute(types, value)
 		pkt.addAttribute(*attribute)
-		pos += align(length) + 4
+		pos += int(align(uint16(length))) + 4
 	}
 	return pkt, nil
 }
@@ -90,12 +113,31 @@ func (v *packet) bytes() []byte {
 	return packetBytes
 }
 
-func (v *packet) getSourceAddr() *Host {
-	return v.getRawAddr(attributeSourceAddress)
-}
-
 func (v *packet) getMappedAddr() *Host {
 	return v.getRawAddr(attributeMappedAddress)
+}
+
+// errorCode returns an error describing the ERROR-CODE attribute of an
+// error response (RFC 5389 section 15.6), falling back to a generic error
+// when the attribute is missing or malformed.
+func (v *packet) errorCode() error {
+	for _, a := range v.attributes {
+		if a.types != attributeErrorCode {
+			continue
+		}
+		// 2 bytes reserved, 1 byte class (hundreds), 1 byte number, then
+		// the reason phrase.
+		if len(a.value) < 4 {
+			break
+		}
+		code := int(a.value[2]&0x07)*100 + int(a.value[3])
+		reason := string(a.value[4:])
+		if name, ok := errorCodeStr[code]; ok {
+			return fmt.Errorf("Server error: %d %s: %s", code, name, reason)
+		}
+		return fmt.Errorf("Server error: %d: %s", code, reason)
+	}
+	return errors.New("Server error: binding error response.")
 }
 
 func (v *packet) getChangedAddr() *Host {

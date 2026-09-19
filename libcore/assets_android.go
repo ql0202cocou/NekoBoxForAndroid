@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"golang.org/x/mobile/asset"
 )
@@ -100,17 +99,7 @@ func extractAssetNameLocked(name string, useOfficialAssets bool) error {
 			_ = os.RemoveAll(dstName)
 		} else {
 			localVersion = string(b)
-			if localVersion == "Custom" {
-				doExtract = false
-			} else {
-				av, err := strconv.ParseUint(assetVersion, 10, 64)
-				if err != nil {
-					doExtract = assetVersion != localVersion
-				} else {
-					lv, err := strconv.ParseUint(localVersion, 10, 64)
-					doExtract = err != nil || av > lv
-				}
-			}
+			doExtract = shouldUpdateAsset(localVersion, assetVersion)
 		}
 	} else {
 		//非官方源不升级
@@ -142,7 +131,7 @@ func extractAssetNameLocked(name string, useOfficialAssets bool) error {
 		return nil
 	}
 
-	extracZip := func(f asset.File, outDir string) error {
+	extractZip := func(f asset.File, outDir string) error {
 		tmpZipName := tempName(dstName, "zip")
 		defer os.Remove(tmpZipName)
 		err := extractAsset(f, tmpZipName)
@@ -175,7 +164,7 @@ func extractAssetNameLocked(name string, useOfficialAssets bool) error {
 				}
 			}
 		}
-		if err := extracZip(f, internalAssetsPath); err != nil {
+		if err := extractZip(f, internalAssetsPath); err != nil {
 			return err
 		}
 		m, err := filepath.Glob(internalAssetsPath + "/Yacd-*")

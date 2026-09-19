@@ -3,6 +3,7 @@ package libcore
 import (
 	"archive/zip"
 	"io"
+	"libcore/device"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,7 +13,9 @@ import (
 	"github.com/ulikunitz/xz"
 )
 
-func Unxz(archive string, path string) error {
+func Unxz(archive string, path string) (err error) {
+	defer device.DeferPanicToError("Unxz", func(err_ error) { err = err_ })
+
 	i, err := os.Open(archive)
 	if err != nil {
 		return err
@@ -34,7 +37,9 @@ func Unxz(archive string, path string) error {
 	return cerr
 }
 
-func Unzip(archive string, path string) error {
+func Unzip(archive string, path string) (err error) {
+	defer device.DeferPanicToError("Unzip", func(err_ error) { err = err_ })
+
 	r, err := zip.OpenReader(archive)
 	if err != nil {
 		return err
@@ -58,6 +63,13 @@ func Unzip(archive string, path string) error {
 				return err
 			}
 			continue
+		}
+
+		// Zip entries are not guaranteed to be ordered: a file may appear
+		// before the directory entry of its parent.
+		err = os.MkdirAll(filepath.Dir(filePath), os.ModePerm)
+		if err != nil {
+			return err
 		}
 
 		newFile, err := os.Create(filePath)

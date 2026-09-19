@@ -47,11 +47,6 @@ const (
 	NATRestricted
 	NATPortRestricted
 	SymmetricUDPFirewall
-
-	// Deprecated spellings of these constants
-	NATSymetric             = NATSymmetric
-	NATSymetricUDPFirewall  = SymmetricUDPFirewall
-	NATSymmetricUDPFirewall = SymmetricUDPFirewall
 )
 
 const (
@@ -135,6 +130,31 @@ const (
 	errorServerError                  = 500
 	errorInsufficientCapacity         = 508
 )
+
+// errorCodeStr names the error codes above, used to describe the ERROR-CODE
+// attribute of a binding error response (RFC 5389 section 15.6).
+var errorCodeStr = map[int]string{
+	errorTryAlternate:                 "Try Alternate",
+	errorBadRequest:                   "Bad Request",
+	errorUnauthorized:                 "Unauthorized",
+	errorUnassigned402:                "Unassigned 402",
+	errorForbidden:                    "Forbidden",
+	errorUnknownAttribute:             "Unknown Attribute",
+	errorAllocationMismatch:           "Allocation Mismatch",
+	errorStaleNonce:                   "Stale Nonce",
+	errorUnassigned439:                "Unassigned 439",
+	errorAddressFamilyNotSupported:    "Address Family Not Supported",
+	errorWrongCredentials:             "Wrong Credentials",
+	errorUnsupportedTransportProtocol: "Unsupported Transport Protocol",
+	errorPeerAddressFamilyMismatch:    "Peer Address Family Mismatch",
+	errorConnectionAlreadyExists:      "Connection Already Exists",
+	errorConnectionTimeoutOrFailure:   "Connection Timeout or Failure",
+	errorAllocationQuotaReached:       "Allocation Quota Reached",
+	errorRoleConflict:                 "Role Conflict",
+	errorServerError:                  "Server Error",
+	errorInsufficientCapacity:         "Insufficient Capacity",
+}
+
 const (
 	attributeFamilyIPv4 = 0x01
 	attributeFamilyIPV6 = 0x02

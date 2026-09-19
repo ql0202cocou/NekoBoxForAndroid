@@ -16,18 +16,39 @@ package stun
 
 import (
 	"net"
+	"net/netip"
 )
 
-// Padding the length of the byte slice to multiple of 4.
+// Padding the length of the byte slice to multiple of 4. It returns a new
+// slice instead of appending, so the caller's backing array is never
+// modified or aliased.
 func padding(bytes []byte) []byte {
 	length := uint16(len(bytes))
-	return append(bytes, make([]byte, align(length)-length)...)
+	padded := make([]byte, align(length))
+	copy(padded, bytes)
+	return padded
 }
 
 // Align the uint16 number to the smallest multiple of 4, which is larger than
 // or equal to the uint16 number.
 func align(n uint16) uint16 {
 	return (n + 3) & 0xfffc
+}
+
+// ipEqual reports whether two IP address strings denote the same address, so
+// different textual forms of one address (compressed vs. full IPv6,
+// IPv4-mapped IPv6) compare equal. Unparsable input falls back to a plain
+// string comparison.
+func ipEqual(a, b string) bool {
+	aa, err := netip.ParseAddr(a)
+	if err != nil {
+		return a == b
+	}
+	bb, err := netip.ParseAddr(b)
+	if err != nil {
+		return a == b
+	}
+	return aa.Unmap() == bb.Unmap()
 }
 
 // isLocalAddress check if localRemote is a local address.

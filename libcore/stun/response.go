@@ -29,7 +29,7 @@ type response struct {
 }
 
 func newResponse(pkt *packet, conn net.PacketConn) *response {
-	resp := &response{pkt, nil, nil, nil, nil, false}
+	resp := &response{packet: pkt}
 	if pkt == nil {
 		return resp
 	}

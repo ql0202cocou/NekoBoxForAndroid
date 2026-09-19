@@ -3,6 +3,7 @@ package libcore
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"libcore/device"
 	"libcore/stun"
@@ -12,6 +13,14 @@ type StunResult struct {
 	Text    string
 	Success bool
 }
+
+// Time budget of a whole StunTest run (Discover + BehaviorTest combined).
+// With the retransmission parameters below a single STUN test blocks at most
+// 100+200+400+800+1600 = 3.1s, and every read is additionally capped at this
+// overall deadline, so a call always returns within ~25s even when UDP is
+// black-holed; with the RFC 3489 library defaults it could block for over a
+// minute with no way to cancel.
+const stunTestBudget = 25 * time.Second
 
 func StunTest(server string) (ret *StunResult) {
 	ret = &StunResult{}
@@ -23,7 +32,9 @@ func StunTest(server string) (ret *StunResult) {
 	// Old NAT Type Test
 	client := stun.NewClient()
 	client.SetServerAddr(server)
-	nat, host, discoverErr, fakeFullCone := client.Discover()
+	client.SetDeadline(time.Now().Add(stunTestBudget))
+	client.SetRetransmission(5, 100*time.Millisecond, 1600*time.Millisecond)
+	nat, host, fakeFullCone, discoverErr := client.Discover()
 	if discoverErr != nil {
 		text += fmt.Sprintln("Discover Error:", discoverErr.Error())
 	} else {

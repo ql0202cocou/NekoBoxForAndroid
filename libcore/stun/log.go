@@ -17,69 +17,39 @@ package stun
 import (
 	"log"
 	"os"
+	"sync/atomic"
 )
 
 // Logger is a simple logger specified for this STUN client.
 type Logger struct {
-	log.Logger
-	debug bool
-	info  bool
+	// logger is a named field instead of an embedded one: embedding
+	// log.Logger by value copies its mutex, and embedding it by pointer
+	// would still promote the Fatal* (os.Exit) methods into the API of
+	// this package.
+	logger *log.Logger
+	debug  atomic.Bool
+	info   atomic.Bool
 }
 
 // NewLogger creates a default logger.
+// Note: the output goes to stdout, which is not visible in Android logcat,
+// so this logger is only useful for desktop debugging of this vendored
+// package; it is kept dependency-free instead of being wired to the app's
+// logger.
 func NewLogger() *Logger {
-	logger := &Logger{*log.New(os.Stdout, "", log.LstdFlags), false, false}
-	return logger
-}
-
-// SetDebug sets the logger running in debug mode or not.
-func (l *Logger) SetDebug(v bool) {
-	l.debug = v
-}
-
-// SetInfo sets the logger running in info mode or not.
-func (l *Logger) SetInfo(v bool) {
-	l.info = v
-}
-
-// Debug outputs the log in the format of log.Print.
-func (l *Logger) Debug(v ...interface{}) {
-	if l.debug {
-		l.Print(v...)
-	}
-}
-
-// Debugf outputs the log in the format of log.Printf.
-func (l *Logger) Debugf(format string, v ...interface{}) {
-	if l.debug {
-		l.Printf(format, v...)
-	}
+	return &Logger{logger: log.New(os.Stdout, "", log.LstdFlags)}
 }
 
 // Debugln outputs the log in the format of log.Println.
 func (l *Logger) Debugln(v ...interface{}) {
-	if l.debug {
-		l.Println(v...)
+	if l.debug.Load() {
+		l.logger.Println(v...)
 	}
 }
 
 // Info outputs the log in the format of log.Print.
 func (l *Logger) Info(v ...interface{}) {
-	if l.info {
-		l.Print(v...)
-	}
-}
-
-// Infof outputs the log in the format of log.Printf.
-func (l *Logger) Infof(format string, v ...interface{}) {
-	if l.info {
-		l.Printf(format, v...)
-	}
-}
-
-// Infoln outputs the log in the format of log.Println.
-func (l *Logger) Infoln(v ...interface{}) {
-	if l.info {
-		l.Println(v...)
+	if l.info.Load() {
+		l.logger.Print(v...)
 	}
 }

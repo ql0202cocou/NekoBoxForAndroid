@@ -23,6 +23,8 @@ import (
 )
 
 const (
+	// RFC 3489 retransmission defaults, used unless the client overrides
+	// them via SetRetransmission.
 	numRetransmit  = 9
 	defaultTimeout = 100
 	maxTimeout     = 1600
@@ -56,31 +58,60 @@ func (c *Client) sendBindingReq(conn net.PacketConn, addr net.Addr, changeIP boo
 // of 100ms, doubling every retransmit until the interval reaches 1.6s.
 // Retransmissions continue with intervals of 1.6s until a response is
 // received, or a total of 9 requests have been sent.
+// The defaults can be overridden with SetRetransmission, and every read is
+// additionally capped at the client deadline set with SetDeadline.
 func (c *Client) send(pkt *packet, conn net.PacketConn, addr net.Addr) (*response, error) {
-	c.logger.Info("\n" + hex.Dump(pkt.bytes()))
-	timeout := defaultTimeout
+	// Serialize the request once: retransmissions below resend the same
+	// bytes.
+	pktBytes := pkt.bytes()
+	c.logger.Info("\n" + hex.Dump(pktBytes))
+	// Hand the connection back without the read deadlines set below, so
+	// unrelated reads on the connection afterwards are not affected by
+	// them.
+	defer conn.SetReadDeadline(time.Time{})
+	count := c.retransmitCount
+	if count <= 0 {
+		count = numRetransmit
+	}
+	timeout := c.retransmitTimeout
+	if timeout <= 0 {
+		timeout = defaultTimeout * time.Millisecond
+	}
+	maxT := c.retransmitMax
+	if maxT <= 0 {
+		maxT = maxTimeout * time.Millisecond
+	}
 	packetBytes := make([]byte, maxPacketSize)
-	for i := 0; i < numRetransmit; i++ {
+	for i := 0; i < count; i++ {
+		// Stop retransmitting once the overall deadline has passed.
+		if !c.deadline.IsZero() && !time.Now().Before(c.deadline) {
+			break
+		}
 		// Send packet to the server.
-		length, err := conn.WriteTo(pkt.bytes(), addr)
+		length, err := conn.WriteTo(pktBytes, addr)
 		if err != nil {
 			return nil, err
 		}
-		if length != len(pkt.bytes()) {
+		if length != len(pktBytes) {
 			return nil, errors.New("Error in sending data.")
 		}
-		err = conn.SetReadDeadline(time.Now().Add(time.Duration(timeout) * time.Millisecond))
+		readDeadline := time.Now().Add(timeout)
+		if !c.deadline.IsZero() && c.deadline.Before(readDeadline) {
+			readDeadline = c.deadline
+		}
+		err = conn.SetReadDeadline(readDeadline)
 		if err != nil {
 			return nil, err
 		}
-		if timeout < maxTimeout {
+		if timeout < maxT {
 			timeout *= 2
 		}
 		for {
 			// Read from the port.
 			length, raddr, err := conn.ReadFrom(packetBytes)
 			if err != nil {
-				if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
+				var nerr net.Error
+				if errors.As(err, &nerr) && nerr.Timeout() {
 					break
 				}
 				return nil, err
@@ -97,8 +128,16 @@ func (c *Client) send(pkt *packet, conn net.PacketConn, addr net.Addr) (*respons
 				continue
 			}
 			c.logger.Info("\n" + hex.Dump(packetBytes[0:length]))
+			// RFC 5389 section 7: an error response is a valid reply to
+			// the request, but it is not a successful binding response.
+			if p.types == typeBindingErrorResponse {
+				return nil, p.errorCode()
+			}
 			resp := newResponse(p, conn)
 			resp.serverAddr = newHostFromStr(raddr.String())
+			if resp.serverAddr == nil {
+				return nil, errors.New("Server error: cannot parse server address.")
+			}
 			return resp, err
 		}
 	}

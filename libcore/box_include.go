@@ -103,7 +103,6 @@ func nekoboxAndroidDNSTransportRegistry(localTransport LocalDNSTransport) *dns.T
 	transport.RegisterTLS(registry)
 	transport.RegisterHTTPS(registry)
 	hosts.RegisterTransport(registry)
-	// local.RegisterTransport(registry)
 	fakeip.RegisterTransport(registry)
 
 	quic.RegisterTransport(registry)

@@ -4,6 +4,7 @@ import (
 	"libcore/device"
 	"os"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"slices"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/matsuridayo/libneko/neko_common"
 	"github.com/matsuridayo/libneko/neko_log"
+	"github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/nekoutils"
 	"github.com/sagernet/sing-box/option"
 )
@@ -24,17 +26,54 @@ var resourcePaths []string
 // custom CA load and, in :bg, the APK asset extraction. NewSingBoxInstance
 // waits on it, because a box created while geoip.db/geosite.db are still being
 // extracted (fresh install) fails to open its geo rule-sets.
+//
+// The variable itself is written and read without synchronization; the
+// happens-before comes from the call order instead: Application.onCreate
+// calls InitCore before any box is created, so the assignment above is
+// visible to every NewSingBoxInstance call.
 var assetsReady chan struct{}
 
+func VersionBox() string {
+	defer device.DeferPanicToError("VersionBox", nil)
+
+	version := []string{
+		"sing-box: " + constant.Version,
+		runtime.Version() + "@" + runtime.GOOS + "/" + runtime.GOARCH,
+	}
+
+	var tags string
+	debugInfo, loaded := debug.ReadBuildInfo()
+	if loaded {
+		for _, setting := range debugInfo.Settings {
+			switch setting.Key {
+			case "-tags":
+				tags = setting.Value
+			}
+		}
+	}
+
+	if tags != "" {
+		version = append(version, tags)
+	}
+
+	return strings.Join(version, "\n")
+}
+
 func NekoLogPrintln(s string) {
+	defer device.DeferPanicToError("NekoLogPrintln", nil)
+
 	log.Println(s)
 }
 
 func NekoLogClear() {
+	defer device.DeferPanicToError("NekoLogClear", nil)
+
 	neko_log.LogWriter.Truncate()
 }
 
 func ForceGc() {
+	defer device.DeferPanicToError("ForceGc", nil)
+
 	go debug.FreeOSMemory()
 }
 
@@ -42,7 +81,7 @@ func InitCore(process, cachePath, internalAssets, externalAssets string,
 	maxLogSizeKb int32, logEnable bool,
 	if1 NB4AInterface, if2 BoxPlatformInterface, if3 LocalDNSTransport,
 ) {
-	defer device.DeferPanicToError("InitCore", func(err error) { log.Println(err) })
+	defer device.DeferPanicToError("InitCore", nil)
 	isBgProcess = strings.HasSuffix(process, ":bg")
 
 	neko_common.RunMode = neko_common.RunMode_NekoBoxForAndroid
@@ -83,10 +122,10 @@ func InitCore(process, cachePath, internalAssets, externalAssets string,
 	assetsReady = ready
 	go func() {
 		defer close(ready)
-		defer device.DeferPanicToError("InitCore-go", func(err error) { log.Println(err) })
+		defer device.DeferPanicToError("InitCore-go", nil)
 
 		// certs
-		pem, err := os.ReadFile(externalAssetsPath + "ca.pem")
+		pem, err := os.ReadFile(filepath.Join(externalAssetsPath, "ca.pem"))
 		if err == nil {
 			updateRootCACerts(pem)
 		}

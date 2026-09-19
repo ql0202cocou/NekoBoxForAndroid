@@ -2,6 +2,7 @@ package libcore
 
 import (
 	"context"
+	"libcore/device"
 
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/dns"
@@ -39,7 +40,9 @@ type SequentialTransport struct {
 	members []string
 }
 
-func NewSequentialTransport(ctx context.Context, logger log.ContextLogger, tag string, options SequentialDNSServerOptions) (adapter.DNSTransport, error) {
+func NewSequentialTransport(ctx context.Context, logger log.ContextLogger, tag string, options SequentialDNSServerOptions) (ret adapter.DNSTransport, err error) {
+	defer device.DeferPanicToError("NewSequentialTransport", func(err_ error) { err = err_ })
+
 	if len(options.Servers) == 0 {
 		return nil, E.New("empty member servers")
 	}
@@ -60,7 +63,9 @@ func NewSequentialTransport(ctx context.Context, logger log.ContextLogger, tag s
 	}, nil
 }
 
-func (t *SequentialTransport) Start(stage adapter.StartStage) error {
+func (t *SequentialTransport) Start(stage adapter.StartStage) (err error) {
+	defer device.DeferPanicToError("SequentialTransport.Start", func(err_ error) { err = err_ })
+
 	if stage != adapter.StartStateStart {
 		return nil
 	}
@@ -85,7 +90,9 @@ func (t *SequentialTransport) Close() error {
 func (t *SequentialTransport) Reset() {
 }
 
-func (t *SequentialTransport) Exchange(ctx context.Context, message *mDNS.Msg) (*mDNS.Msg, error) {
+func (t *SequentialTransport) Exchange(ctx context.Context, message *mDNS.Msg) (ret *mDNS.Msg, err error) {
+	defer device.DeferPanicToError("SequentialTransport.Exchange", func(err_ error) { err = err_ })
+
 	var lastResponse *mDNS.Msg
 	var lastErr error
 	for _, member := range t.members {

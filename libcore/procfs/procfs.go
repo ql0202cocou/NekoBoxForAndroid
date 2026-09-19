@@ -1,3 +1,13 @@
+// Package procfs resolves the UID owning a socket via /proc/net/{tcp,tcp6,udp,udp6}.
+//
+// Vendored from sing-box's experimental/libbox/internal/procfs, with local
+// divergences — do NOT blind-sync with upstream:
+//  1. Upstream's two init() functions (endianness detection and header parse)
+//     are merged into one here.
+//  2. init() failure paths log instead of failing silently, because upstream
+//     leaves the -1 indexes indistinguishable from a real "not found".
+//  3. ResolveSocketByProcSearch continues on strconv.Atoi failure where
+//     upstream returns -1.
 package procfs
 
 import (
@@ -5,6 +15,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"net"
 	"net/netip"
 	"os"
@@ -27,6 +38,59 @@ func init() {
 		nativeEndian = binary.BigEndian
 	} else {
 		nativeEndian = binary.LittleEndian
+	}
+
+	// Column indexes are learned once from the tcp header and then applied to
+	// tcp6/udp/udp6 in ResolveSocketByProcSearch, assuming all four files share
+	// the same column layout (holds on Linux: they are emitted by the same
+	// kernel seq_file code).
+	file, err := os.Open("/proc/net/tcp")
+	if err != nil {
+		// Without the header parse below, ResolveSocketByProcSearch always
+		// returns -1, indistinguishable from a real "not found" at the caller.
+		log.Println("procfs: open /proc/net/tcp failed:", err)
+		return
+	}
+
+	defer file.Close()
+
+	reader := bufio.NewReader(file)
+
+	header, _, err := reader.ReadLine()
+	if err != nil {
+		log.Println("procfs: read /proc/net/tcp header failed:", err)
+		return
+	}
+
+	columns := strings.Fields(string(header))
+
+	var txQueue, rxQueue, tr, tmWhen bool
+
+	for idx, col := range columns {
+		offset := 0
+
+		if txQueue && rxQueue {
+			offset--
+		}
+
+		if tr && tmWhen {
+			offset--
+		}
+
+		switch col {
+		case "tx_queue":
+			txQueue = true
+		case "rx_queue":
+			rxQueue = true
+		case "tr":
+			tr = true
+		case "tm->when":
+			tmWhen = true
+		case "local_address":
+			netIndexOfLocal = idx + offset
+		case "uid":
+			netIndexOfUid = idx + offset
+		}
 	}
 }
 
@@ -80,7 +144,7 @@ func ResolveSocketByProcSearch(network string, source, _ netip.AddrPort) int32 {
 		if strings.EqualFold(local, fields[netIndexOfLocal]) {
 			uid, err := strconv.Atoi(fields[netIndexOfUid])
 			if err != nil {
-				return -1
+				continue
 			}
 
 			return int32(uid)
@@ -98,51 +162,4 @@ func nativeEndianIP(ip net.IP) []byte {
 	}
 
 	return result
-}
-
-func init() {
-	file, err := os.Open("/proc/net/tcp")
-	if err != nil {
-		return
-	}
-
-	defer file.Close()
-
-	reader := bufio.NewReader(file)
-
-	header, _, err := reader.ReadLine()
-	if err != nil {
-		return
-	}
-
-	columns := strings.Fields(string(header))
-
-	var txQueue, rxQueue, tr, tmWhen bool
-
-	for idx, col := range columns {
-		offset := 0
-
-		if txQueue && rxQueue {
-			offset--
-		}
-
-		if tr && tmWhen {
-			offset--
-		}
-
-		switch col {
-		case "tx_queue":
-			txQueue = true
-		case "rx_queue":
-			rxQueue = true
-		case "tr":
-			tr = true
-		case "tm->when":
-			tmWhen = true
-		case "local_address":
-			netIndexOfLocal = idx + offset
-		case "uid":
-			netIndexOfUid = idx + offset
-		}
-	}
 }

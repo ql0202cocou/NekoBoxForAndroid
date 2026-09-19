@@ -17,7 +17,8 @@
 //
 // It is extremely easy to use -- just one line of code.
 //
-//	nat, host, err := stun.NewClient().Discover()
+//	nat, host, fakeFullCone, err := stun.NewClient().Discover()
 //
-// More details please go to `main.go`.
+// For more details see the README file and the upstream repository:
+// https://github.com/ccding/go-stun
 package stun
