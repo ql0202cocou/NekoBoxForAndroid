@@ -15,7 +15,6 @@ import io.nekohasekai.sagernet.fmt.CLASH_API_LISTEN
 import io.nekohasekai.sagernet.ktx.string
 import io.nekohasekai.sagernet.ktx.stringToInt
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicBoolean
 
 object DataStore {
 
@@ -28,10 +27,6 @@ object DataStore {
     var selectedGroup by configurationStore.long(Key.PROFILE_GROUP) { GroupManager.currentGroupId() } // "ungrouped" group id = 1
 
     // main
-
-    // pingTest/urlTest set it on the main thread and clear it on a background
-    // dispatcher; the CAS keeps two quick taps from starting two tests
-    val runningTest = AtomicBoolean(false)
 
     var appTLSVersion by configurationStore.string(Key.APP_TLS_VERSION)
     var enableClashAPI by configurationStore.boolean(Key.ENABLE_CLASH_API)

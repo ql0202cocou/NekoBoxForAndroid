@@ -81,9 +81,15 @@ import java.net.Socket
 import java.net.UnknownHostException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.zip.ZipInputStream
 import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.EditorCache
+
+// pingTest/urlTest set it on the main thread and clear it on a background
+// dispatcher; the CAS keeps two quick taps from starting two tests. Process
+// wide, not a fragment field: a recreated fragment must not start a second one.
+private val runningTest = AtomicBoolean(false)
 
 class ConfigurationFragment @JvmOverloads constructor(
     val select: Boolean = false, val selectedItem: ProxyEntity? = null, val titleRes: Int = 0,
@@ -558,7 +564,7 @@ class ConfigurationFragment @JvmOverloads constructor(
     @OptIn(DelicateCoroutinesApi::class)
     @Suppress("EXPERIMENTAL_API_USAGE")
     fun pingTest(icmpPing: Boolean) {
-        if (!DataStore.runningTest.compareAndSet(false, true)) return
+        if (!runningTest.compareAndSet(false, true)) return
         val test = TestDialog(this)
         val dialog = test.builder.show()
         val testJobs = mutableListOf<Job>()
@@ -698,7 +704,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                     }
                 }
                 GroupRepository.postReload(GroupManager.currentGroupId())
-                DataStore.runningTest.set(false)
+                runningTest.set(false)
             }
         }
         test.minimize = {
@@ -713,7 +719,7 @@ class ConfigurationFragment @JvmOverloads constructor(
 
     @OptIn(DelicateCoroutinesApi::class)
     fun urlTest() {
-        if (!DataStore.runningTest.compareAndSet(false, true)) return
+        if (!runningTest.compareAndSet(false, true)) return
         val test = TestDialog(this)
         val dialog = test.builder.show()
         val testJobs = mutableListOf<Job>()
@@ -771,7 +777,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                     }
                 }
                 GroupRepository.postReload(GroupManager.currentGroupId())
-                DataStore.runningTest.set(false)
+                runningTest.set(false)
             }
         }
         test.minimize = {
