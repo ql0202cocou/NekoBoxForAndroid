@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.database.preference
 
 import androidx.preference.PreferenceDataStore
+import java.util.concurrent.CopyOnWriteArraySet
 
 @Suppress("MemberVisibilityCanBePrivate", "unused")
 open class RoomPreferenceDataStore(private val kvPairDao: KeyValuePair.Dao) :
@@ -68,23 +69,18 @@ open class RoomPreferenceDataStore(private val kvPairDao: KeyValuePair.Dao) :
         fireChangeListener(key)
     }
 
-    private val listeners = HashSet<OnPreferenceDataStoreChangeListener>()
+    // copy-on-write: iteration walks a snapshot, so a listener may register or
+    // unregister while being notified
+    private val listeners = CopyOnWriteArraySet<OnPreferenceDataStoreChangeListener>()
     private fun fireChangeListener(key: String) {
-        val listeners = synchronized(listeners) {
-            listeners.toList()
-        }
-        listeners.forEach { it.onPreferenceDataStoreChanged(this, key) }
+        for (listener in listeners) listener.onPreferenceDataStoreChanged(this, key)
     }
 
     fun registerChangeListener(listener: OnPreferenceDataStoreChangeListener) {
-        synchronized(listeners) {
-            listeners.add(listener)
-        }
+        listeners.add(listener)
     }
 
     fun unregisterChangeListener(listener: OnPreferenceDataStoreChangeListener) {
-        synchronized(listeners) {
-            listeners.remove(listener)
-        }
+        listeners.remove(listener)
     }
 }

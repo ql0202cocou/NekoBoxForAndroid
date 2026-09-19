@@ -10,7 +10,6 @@ import android.content.pm.ServiceInfo
 import android.net.ProxyInfo
 import android.os.Build
 import android.os.ParcelFileDescriptor
-import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
@@ -55,19 +54,9 @@ class VpnService : BaseVpnService(),
 
     private var metered = false
 
-    override var upstreamInterfaceName: String? = null
-
     override suspend fun startProcesses() {
         DataStore.vpnService = this
         super.startProcesses() // launch proxy instance
-    }
-
-    override var wakeLock: PowerManager.WakeLock? = null
-
-    @SuppressLint("WakelockTimeout")
-    override fun acquireWakeLock() {
-        wakeLock = SagerNet.power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "sagernet:vpn")
-            .apply { acquire() }
     }
 
     @Suppress("EXPERIMENTAL_API_USAGE")
@@ -83,7 +72,8 @@ class VpnService : BaseVpnService(),
     }
 
     override val data = BaseService.Data(this)
-    override val tag = "SagerNetVpnService"
+    override val service: Service get() = this
+    override val wakeLockTag = "sagernet:vpn"
     override fun createNotification(profileName: String) =
         ServiceNotification(this, profileName, "service-vpn")
 
@@ -154,8 +144,7 @@ class VpnService : BaseVpnService(),
         return Service.START_NOT_STICKY
     }
 
-    inner class NullConnectionException : NullPointerException(),
-        BaseService.ExpectedException {
+    inner class NullConnectionException : NullPointerException() {
         override fun getLocalizedMessage() = getString(R.string.reboot_required)
     }
 
@@ -302,6 +291,6 @@ class VpnService : BaseVpnService(),
     override fun onDestroy() {
         DataStore.vpnService = null
         super.onDestroy()
-        data.binder.close()
+        destroyRunner()
     }
 }

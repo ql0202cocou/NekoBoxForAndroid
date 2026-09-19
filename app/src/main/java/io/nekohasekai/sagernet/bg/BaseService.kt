@@ -1,7 +1,7 @@
 package io.nekohasekai.sagernet.bg
 
+import android.annotation.SuppressLint
 import android.app.Service
-import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.*
@@ -15,8 +15,8 @@ import io.nekohasekai.sagernet.aidl.ISagerNetService
 import io.nekohasekai.sagernet.aidl.ISagerNetServiceCallback
 import io.nekohasekai.sagernet.bg.proto.ProxyInstance
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.RestoreJournal
-import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.plugin.PluginManager
 import io.nekohasekai.sagernet.utils.DefaultNetworkListener
@@ -42,8 +42,6 @@ class BaseService {
         Idle, Connecting(true, true, false), Connected(true, true, true), Stopping, Stopped,
     }
 
-    interface ExpectedException
-
     class Data internal constructor(private val service: Interface) {
         // written on the main thread, read on binder threads and by gomobile
         // Go threads (NativeInterface selector_OnProxySelected)
@@ -55,6 +53,12 @@ class BaseService {
 
         @Volatile
         var notification: ServiceNotification? = null
+
+        // main thread only: lateInit acquires, killProcesses releases
+        var wakeLock: PowerManager.WakeLock? = null
+
+        // serial dispatcher only, see Interface.preInit
+        var upstreamInterfaceName: String? = null
 
         val receiver = broadcastReceiver { ctx, intent ->
             when (intent.action) {
@@ -160,7 +164,9 @@ class BaseService {
                         try {
                             work(callbacks.getBroadcastItem(it))
                         } catch (_: RemoteException) {
-                        } catch (_: Exception) {
+                        } catch (e: Exception) {
+                            // a bug in the callback body, not a dead client: keep it visible
+                            Logs.w(e)
                         }
                     }
                 } finally {
@@ -209,7 +215,12 @@ class BaseService {
 
     interface Interface {
         val data: Data
-        val tag: String
+
+        // Every implementer is a Service; an interface cannot say so in its
+        // type, so the defaults below reach the Context through this instead
+        // of casting `this`.
+        val service: Service
+        val wakeLockTag: String
         fun createNotification(profileName: String): ServiceNotification
 
         fun onBind(intent: Intent): IBinder? =
@@ -217,7 +228,7 @@ class BaseService {
 
         fun reload() {
             if (DataStore.selectedProxy == 0L) {
-                stopRunner(false, (this as Context).getString(R.string.profile_empty))
+                stopRunner(false, service.getString(R.string.profile_empty))
                 return
             }
             // canReloadSelector() builds a whole config, DB reads included, and
@@ -227,7 +238,7 @@ class BaseService {
             runOnDefaultDispatcher {
                 try {
                     if (canReloadSelector()) {
-                        val ent = SagerDatabase.proxyDao.getById(DataStore.selectedProxy)
+                        val ent = ProfileManager.getProfile(DataStore.selectedProxy)
                         val tag = data.proxy?.config?.profileTagMap?.get(ent?.id) ?: ""
                         if (tag.isNotBlank() && ent != null) {
                             // select from GUI
@@ -260,7 +271,7 @@ class BaseService {
 
         fun canReloadSelector(): Boolean {
             if ((data.proxy?.config?.selectorGroupId ?: -1L) < 0) return false
-            val ent = SagerDatabase.proxyDao.getById(DataStore.selectedProxy) ?: return false
+            val ent = ProfileManager.getProfile(DataStore.selectedProxy) ?: return false
             val tmpBox = ProxyInstance(ent)
             tmpBox.buildConfigTmp()
             if (tmpBox.lastSelectorGroupId == data.proxy?.lastSelectorGroupId) {
@@ -274,9 +285,9 @@ class BaseService {
         }
 
         fun startRunner() {
-            this as Context
-            if (Build.VERSION.SDK_INT >= 26) startForegroundService(Intent(this, javaClass))
-            else startService(Intent(this, javaClass))
+            val intent = Intent(service, service.javaClass)
+            if (Build.VERSION.SDK_INT >= 26) service.startForegroundService(intent)
+            else service.startService(intent)
         }
 
         suspend fun killProcesses() {
@@ -292,12 +303,12 @@ class BaseService {
             if (postFinalTraffic) {
                 // A database write failure must not strand the service in
                 // Stopping with its wake lock and foreground notification held.
-                runCatching { looper?.postFinalTraffic() }
+                runCatching { looper.postFinalTraffic() }
                     .onFailure { Logs.w("Final traffic persistence failed", it) }
             }
-            wakeLock?.apply {
+            data.wakeLock?.apply {
                 release()
-                wakeLock = null
+                data.wakeLock = null
             }
             // post from the main queue like the preInit start send, so on a
             // restart the Stop always reaches the listener actor before the
@@ -312,7 +323,6 @@ class BaseService {
             DataStore.vpnService = null
 
             if (data.state == State.Stopping) return
-            this as Service
 
             data.changeState(State.Stopping)
 
@@ -323,7 +333,7 @@ class BaseService {
                     killProcesses()
                     val data = data
                     if (data.closeReceiverRegistered) {
-                        unregisterReceiver(data.receiver)
+                        service.unregisterReceiver(data.receiver)
                         data.closeReceiverRegistered = false
                     }
                     data.proxy = null
@@ -340,9 +350,23 @@ class BaseService {
                 data.changeState(State.Stopped, msg)
                 // stop the service if nothing has bound to it
                 if (restart) startRunner() else {
-                    stopSelf()
+                    service.stopSelf()
                 }
             }
+        }
+
+        // onDestroy: stopRunner has normally run (it ends in stopSelf) and this
+        // only closes the binder; on a framework-driven destroy it also drops
+        // the receiver and the notification stopRunner would have released.
+        fun destroyRunner() {
+            val data = data
+            if (data.closeReceiverRegistered) {
+                service.unregisterReceiver(data.receiver)
+                data.closeReceiverRegistered = false
+            }
+            data.notification?.destroy()
+            data.notification = null
+            data.binder.close()
         }
 
         fun persistStats() {
@@ -353,9 +377,6 @@ class BaseService {
                 data.proxy?.looper?.persistStats()
             }
         }
-
-        // networks
-        var upstreamInterfaceName: String?
 
         suspend fun preInit() {
             DefaultNetworkListener.start(this) { network ->
@@ -368,19 +389,20 @@ class BaseService {
                     // reference like the main-process listener does
                     if (network == null) {
                         SagerNet.underlyingNetwork = null
-                        upstreamInterfaceName = null
+                        data.upstreamInterfaceName = null
                         return@runOnSerialDispatcher
                     }
                     SagerNet.connectivity.getLinkProperties(network)?.also { link ->
                         SagerNet.underlyingNetwork = network
                         DataStore.vpnService?.updateUnderlyingNetwork()
                         //
-                        val oldName = upstreamInterfaceName
-                        if (oldName != link.interfaceName) {
-                            upstreamInterfaceName = link.interfaceName
+                        val oldName = data.upstreamInterfaceName
+                        val newName = link.interfaceName
+                        if (oldName != newName) {
+                            data.upstreamInterfaceName = newName
                         }
-                        if (oldName != null && upstreamInterfaceName != null && oldName != upstreamInterfaceName) {
-                            Logs.d("Network changed: $oldName -> $upstreamInterfaceName")
+                        if (oldName != null && newName != null && oldName != newName) {
+                            Logs.d("Network changed: $oldName -> $newName")
                             if (DataStore.networkChangeResetConnections) {
                                 Libcore.resetAllConnections(true)
                             }
@@ -390,13 +412,16 @@ class BaseService {
             }
         }
 
-        var wakeLock: PowerManager.WakeLock?
-        fun acquireWakeLock()
+        @SuppressLint("WakelockTimeout")
+        fun acquireWakeLock() {
+            data.wakeLock = SagerNet.power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, wakeLockTag)
+                .apply { acquire() }
+        }
 
         suspend fun lateInit() {
-            wakeLock?.apply {
+            data.wakeLock?.apply {
                 release()
-                wakeLock = null
+                data.wakeLock = null
             }
 
             if (DataStore.acquireWakeLock) {
@@ -412,18 +437,17 @@ class BaseService {
 
             val data = data
             if (data.state != State.Stopped) return Service.START_NOT_STICKY
-            val profile = SagerDatabase.proxyDao.getById(DataStore.selectedProxy)
-            this as Context
+            val profile = ProfileManager.getProfile(DataStore.selectedProxy)
             if (RestoreJournal.default.isPending()) {
                 // a restore interrupted between its two commits could not be replayed at
                 // startup: profiles and settings do not match yet
                 data.notification = createNotification("")
-                stopRunner(false, getString(R.string.restore_pending))
+                stopRunner(false, service.getString(R.string.restore_pending))
                 return Service.START_NOT_STICKY
             }
             if (profile == null) { // gracefully shutdown: https://stackoverflow.com/q/47337857/2245107
                 data.notification = createNotification("")
-                stopRunner(false, getString(R.string.profile_empty))
+                stopRunner(false, service.getString(R.string.profile_empty))
                 return Service.START_NOT_STICKY
             }
 
@@ -441,10 +465,10 @@ class BaseService {
                     addAction(Action.CLEAR_TRAFFIC_STATISTICS)
                 }
                 ContextCompat.registerReceiver(
-                    this,
+                    service,
                     data.receiver,
                     filter,
-                    "$packageName.SERVICE",
+                    "${service.packageName}.SERVICE",
                     null,
                     ContextCompat.RECEIVER_EXPORTED
                 )
@@ -472,9 +496,9 @@ class BaseService {
                     lateInit()
                 } catch (_: CancellationException) { // if the job was cancelled, it is canceller's responsibility to call stopRunner
                 } catch (_: UnknownHostException) {
-                    stopRunner(false, getString(R.string.invalid_server))
+                    stopRunner(false, service.getString(R.string.invalid_server))
                 } catch (e: PluginManager.PluginNotFoundException) {
-                    Toast.makeText(this@Interface, e.readableMessage, Toast.LENGTH_SHORT).show()
+                    Toast.makeText(service, e.readableMessage, Toast.LENGTH_SHORT).show()
                     Logs.w(e)
                     data.binder.missingPlugin(e.plugin)
                     stopRunner(false, null)
@@ -486,7 +510,7 @@ class BaseService {
                         Logs.w(exc)
                     }
                     stopRunner(
-                        false, "${getString(R.string.service_failed)}: ${exc.readableMessage}"
+                        false, "${service.getString(R.string.service_failed)}: ${exc.readableMessage}"
                     )
                 } finally {
                     data.connectingJob = null

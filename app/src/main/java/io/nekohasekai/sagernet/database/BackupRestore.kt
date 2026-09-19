@@ -164,8 +164,7 @@ object BackupRestore {
                     if (DataStore.selectedGroup > 0L &&
                         SagerDatabase.groupDao.getById(DataStore.selectedGroup) == null
                     ) {
-                        DataStore.selectedGroup =
-                            SagerDatabase.groupDao.allGroups().firstOrNull()?.id ?: -1L
+                        GroupManager.resetSelectedGroup()
                     }
                     if (DataStore.selectedProxy > 0L &&
                         SagerDatabase.proxyDao.getById(DataStore.selectedProxy) == null

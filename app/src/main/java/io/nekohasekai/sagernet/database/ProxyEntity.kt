@@ -225,7 +225,7 @@ data class ProxyEntity(
 
     fun haveStandardLink(): Boolean = hasStandardLink(requireBean())
 
-    fun toStdLink(compact: Boolean = false): String = standardLink(requireBean())
+    fun toStdLink(): String = standardLink(requireBean())
 
     fun exportConfig(): Pair<String, String> {
         var name = "${requireBean().displayName()}.json"
@@ -298,8 +298,6 @@ data class ProxyEntity(
         @Query("DELETE FROM proxy_entities WHERE groupId in (:groupId)")
         fun deleteByGroup(groupId: LongArray)
 
-        @Delete
-        fun deleteProxy(proxy: ProxyEntity): Int
 
         @Delete
         fun deleteProxy(proxies: List<ProxyEntity>): Int

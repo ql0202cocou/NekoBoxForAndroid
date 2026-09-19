@@ -3,8 +3,8 @@ package io.nekohasekai.sagernet.bg.proto
 import android.os.SystemClock
 import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.bg.GuardedProcessPool
+import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.ProxyEntity
-import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.fmt.buildConfig
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.mkPort
@@ -39,7 +39,7 @@ class TestInstance(profile: ProxyEntity, val link: String, private val timeout: 
     // the delay through the proxy itself. Chained profiles keep the sing-box path.
     private val mihomoController: Pair<Int, String>? by lazy {
         if (profile.type != ProxyEntity.TYPE_ANYTLS || !profile.needExternal()) return@lazy null
-        val group = SagerDatabase.groupDao.getById(profile.groupId) ?: return@lazy null
+        val group = GroupManager.getGroup(profile.groupId) ?: return@lazy null
         if (group.frontProxy > 0 || group.landingProxy > 0) return@lazy null
         mkPort() to UUID.randomUUID().toString().replace("-", "")
     }
@@ -123,7 +123,7 @@ class TestInstance(profile: ProxyEntity, val link: String, private val timeout: 
     // Poll mihomo's Clash API until the core is up (replaces a fixed startup delay),
     // then let mihomo measure the delay through the proxy:
     // mihomo -> sing-box mapping inbound -> real server.
-    private fun mihomoDelay(controller: Pair<Int, String>): Int {
+    private suspend fun mihomoDelay(controller: Pair<Int, String>): Int {
         val (port, secret) = controller
         val client = sharedHttpClient.newBuilder()
             .connectTimeout(2, TimeUnit.SECONDS)
@@ -145,7 +145,7 @@ class TestInstance(profile: ProxyEntity, val link: String, private val timeout: 
             } catch (_: IOException) {
             }
             if (ready) break
-            Thread.sleep(100)
+            delay(100)
         }
         if (!ready) throw IOException("mihomo controller not ready")
 

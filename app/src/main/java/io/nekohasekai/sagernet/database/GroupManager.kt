@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.database
 import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.bg.SubscriptionUpdater
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
+import java.util.concurrent.CopyOnWriteArrayList
 
 object GroupManager {
 
@@ -30,27 +31,26 @@ object GroupManager {
         suspend fun onUpdateFailure(group: ProxyGroup, message: String)
     }
 
-    private val listeners = ArrayList<Listener>()
+    // copy-on-write: iteration walks a snapshot, so a listener may add or
+    // remove listeners while being notified
+    private val listeners = CopyOnWriteArrayList<Listener>()
     var userInterface: Interface? = null
 
     suspend fun iterator(what: suspend Listener.() -> Unit) {
-        synchronized(listeners) {
-            listeners.toList()
-        }.forEach { listener ->
-            what(listener)
-        }
+        for (listener in listeners) what(listener)
     }
 
     fun addListener(listener: Listener) {
-        synchronized(listeners) {
-            listeners.add(listener)
-        }
+        listeners.add(listener)
     }
 
     fun removeListener(listener: Listener) {
-        synchronized(listeners) {
-            listeners.remove(listener)
-        }
+        listeners.remove(listener)
+    }
+
+    // Same SQLException handling as ProfileManager.getProfile.
+    fun getGroup(groupId: Long): ProxyGroup? = guardedRead(null) {
+        SagerDatabase.groupDao.getById(groupId)
     }
 
     suspend fun clearGroup(groupId: Long) {
@@ -138,36 +138,27 @@ object GroupManager {
         postUpdate(groupId)
     }
 
-    suspend fun deleteGroup(groupId: Long) {
-        val selected = DataStore.selectedProxy
-        if (selected > 0L && SagerDatabase.proxyDao.getById(selected)?.groupId == groupId) {
-            DataStore.selectedProxy = 0L
-        }
-        SagerDatabase.instance.runInTransaction {
-            SagerDatabase.groupDao.deleteById(groupId)
-            SagerDatabase.proxyDao.deleteByGroup(groupId)
-            resetDanglingGroupProxies()
-        }
-        if (DataStore.selectedGroup == groupId) resetSelectedGroup()
-        iterator { groupRemoved(groupId) }
-        SubscriptionUpdater.reconfigureUpdater()
+    suspend fun deleteGroup(groupId: Long) = deleteGroups(listOf(groupId)) {
+        SagerDatabase.groupDao.deleteById(groupId)
     }
 
-    suspend fun deleteGroup(group: List<ProxyGroup>) {
+    suspend fun deleteGroup(group: List<ProxyGroup>) = deleteGroups(group.map { it.id }) {
+        SagerDatabase.groupDao.deleteGroup(group)
+    }
+
+    // deleteRows removes the group rows themselves inside the transaction.
+    private suspend fun deleteGroups(groupIds: List<Long>, deleteRows: () -> Unit) {
         val selected = DataStore.selectedProxy
-        val selectedGroupId = if (selected > 0L) {
-            SagerDatabase.proxyDao.getById(selected)?.groupId
-        } else null
-        if (selectedGroupId != null && group.any { it.id == selectedGroupId }) {
+        if (selected > 0L && SagerDatabase.proxyDao.getById(selected)?.groupId in groupIds) {
             DataStore.selectedProxy = 0L
         }
         SagerDatabase.instance.runInTransaction {
-            SagerDatabase.groupDao.deleteGroup(group)
-            SagerDatabase.proxyDao.deleteByGroup(group.map { it.id }.toLongArray())
+            deleteRows()
+            SagerDatabase.proxyDao.deleteByGroup(groupIds.toLongArray())
             resetDanglingGroupProxies()
         }
-        if (group.any { it.id == DataStore.selectedGroup }) resetSelectedGroup()
-        for (proxyGroup in group) iterator { groupRemoved(proxyGroup.id) }
+        if (DataStore.selectedGroup in groupIds) resetSelectedGroup()
+        for (groupId in groupIds) iterator { groupRemoved(groupId) }
         SubscriptionUpdater.reconfigureUpdater()
     }
 
@@ -183,7 +174,7 @@ object GroupManager {
 
     // Mirrors the fallback in DataStore.currentGroup(): fall back to the first
     // remaining group, or -1 so currentGroup() recreates the ungrouped group.
-    private fun resetSelectedGroup() {
+    fun resetSelectedGroup() {
         DataStore.selectedGroup = SagerDatabase.groupDao.allGroups().firstOrNull()?.id ?: -1L
     }
 

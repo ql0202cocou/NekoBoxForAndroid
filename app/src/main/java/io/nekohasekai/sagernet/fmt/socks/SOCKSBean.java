@@ -16,16 +16,6 @@ public class SOCKSBean extends AbstractBean {
 
     public Boolean sUoT;
 
-    public int protocolVersion() {
-        switch (protocol) {
-            case 0:
-            case 1:
-                return 4;
-            default:
-                return 5;
-        }
-    }
-
     public String protocolName() {
         switch (protocol) {
             case 0:

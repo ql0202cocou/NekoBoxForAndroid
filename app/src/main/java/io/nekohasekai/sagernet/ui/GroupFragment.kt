@@ -158,7 +158,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                     // writeToDocument refuses a blank export instead of truncating
                     // the picked file: a group with no shareable node writes nothing
                     writeToDocument(data, profiles.filter { it.haveLink() }
-                        .joinToString("\n") { it.toStdLink(compact = true) })
+                        .joinToString("\n") { it.toStdLink() })
                 }
             }
         }
@@ -364,7 +364,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                     runOnDefaultDispatcher {
                         val profiles = ProfileRepository.getProfilesByGroup(proxyGroup.id)
                         val links = profiles.filter { it.haveLink() }
-                            .joinToString("\n") { it.toStdLink(compact = true) }
+                            .joinToString("\n") { it.toStdLink() }
                         onMainDispatcher {
                             SagerNet.trySetPrimaryClip(links)
                             snackbar(getString(androidx.browser.R.string.copy_toast_msg)).show()

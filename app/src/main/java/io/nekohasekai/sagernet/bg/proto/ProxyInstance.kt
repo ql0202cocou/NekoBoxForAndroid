@@ -15,6 +15,10 @@ class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = 
     var notTmp = true
 
     var lastSelectorGroupId = -1L
+
+    // written on the serial dispatcher (NativeInterface selector callback),
+    // read on binder threads (Binder.getProfileName)
+    @Volatile
     var displayProfileName = ServiceNotification.genTitle(profile)
 
     // for TrafficLooper (written on the Default dispatcher in launch(),

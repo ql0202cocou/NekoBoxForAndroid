@@ -49,18 +49,6 @@ import kotlin.reflect.KProperty
 
 fun String?.blankAsNull(): String? = if (isNullOrBlank()) null else this
 
-inline fun <T> Iterable<T>.forEachTry(action: (T) -> Unit) {
-    var result: Exception? = null
-    for (element in this) try {
-        action(element)
-    } catch (e: Exception) {
-        if (result == null) result = e else result.addSuppressed(e)
-    }
-    if (result != null) {
-        throw result
-    }
-}
-
 val Throwable.readableMessage
     get() = localizedMessage.takeIf { !it.isNullOrBlank() } ?: javaClass.simpleName
 

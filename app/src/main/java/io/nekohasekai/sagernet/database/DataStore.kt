@@ -1,7 +1,6 @@
 package io.nekohasekai.sagernet.database
 
 import android.os.Binder
-import androidx.preference.PreferenceDataStore
 import io.nekohasekai.sagernet.CONNECTION_TEST_URL
 import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.IPv6Mode
@@ -9,7 +8,6 @@ import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.TunImplementation
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.bg.VpnService
-import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
 import io.nekohasekai.sagernet.database.preference.RoomPreferenceDataStore
 import io.nekohasekai.sagernet.ktx.boolean
@@ -24,7 +22,7 @@ import moe.matsuri.nb4a.TempDatabase
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
-object DataStore : OnPreferenceDataStoreChangeListener {
+object DataStore {
 
     // share service state in main & bg process
     @Volatile
@@ -52,37 +50,27 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     // dispatcher; the CAS keeps two quick taps from starting two tests
     val runningTest = AtomicBoolean(false)
 
+    // Trusts any positive selection without a lookup (callers that need the
+    // row use currentGroup()); otherwise falls back like currentGroup().
     @Synchronized
     fun currentGroupId(): Long {
         val currentSelected = configurationStore.getLong(Key.PROFILE_GROUP, -1)
         if (currentSelected > 0L) return currentSelected
-        val groups = SagerDatabase.groupDao.allGroups()
-        if (groups.isNotEmpty()) {
-            val groupId = groups[0].id
-            selectedGroup = groupId
-            return groupId
-        }
-        val groupId = SagerDatabase.groupDao.createGroup(ProxyGroup(ungrouped = true))
-        selectedGroup = groupId
-        return groupId
+        return currentGroup().id
     }
 
+    // The selected group, or the first existing one, or a fresh ungrouped
+    // group; the fallback is written back as the selection.
     @Synchronized
     fun currentGroup(): ProxyGroup {
-        var group: ProxyGroup? = null
         val currentSelected = configurationStore.getLong(Key.PROFILE_GROUP, -1)
         if (currentSelected > 0L) {
-            group = SagerDatabase.groupDao.getById(currentSelected)
+            SagerDatabase.groupDao.getById(currentSelected)?.let { return it }
         }
-        if (group != null) return group
-        val groups = SagerDatabase.groupDao.allGroups()
-        if (groups.isEmpty()) {
-            group = ProxyGroup(ungrouped = true).apply {
+        val group = SagerDatabase.groupDao.allGroups().firstOrNull()
+            ?: ProxyGroup(ungrouped = true).apply {
                 id = SagerDatabase.groupDao.createGroup(this)
             }
-        } else {
-            group = groups[0]
-        }
         selectedGroup = group.id
         return group
     }
@@ -284,7 +272,4 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var subscriptionUserAgent by profileCacheStore.string(Key.SUBSCRIPTION_USER_AGENT)
     var subscriptionAutoUpdate by profileCacheStore.boolean(Key.SUBSCRIPTION_AUTO_UPDATE)
     var subscriptionAutoUpdateDelay by profileCacheStore.stringToInt(Key.SUBSCRIPTION_AUTO_UPDATE_DELAY) { 360 }
-
-    override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
-    }
 }

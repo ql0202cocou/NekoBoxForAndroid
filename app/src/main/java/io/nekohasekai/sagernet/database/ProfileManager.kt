@@ -10,7 +10,18 @@ import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import java.io.IOException
 import android.database.SQLException
 import java.util.*
+import java.util.concurrent.CopyOnWriteArrayList
 
+// A database that cannot be opened is an I/O failure for the caller; any
+// other SQL failure is logged and reads as "no such row".
+internal inline fun <T> guardedRead(fallback: T, read: () -> T): T = try {
+    read()
+} catch (ex: SQLiteCantOpenDatabaseException) {
+    throw IOException(ex)
+} catch (ex: SQLException) {
+    Logs.w(ex)
+    fallback
+}
 
 object ProfileManager {
 
@@ -28,48 +39,33 @@ object ProfileManager {
         suspend fun onCleared()
     }
 
-    private val listeners = ArrayList<Listener>()
-    private val ruleListeners = ArrayList<RuleListener>()
+    // copy-on-write: iteration walks a snapshot, so a listener may add or
+    // remove listeners while being notified
+    private val listeners = CopyOnWriteArrayList<Listener>()
+    private val ruleListeners = CopyOnWriteArrayList<RuleListener>()
 
     suspend fun iterator(what: suspend Listener.() -> Unit) {
-        synchronized(listeners) {
-            listeners.toList()
-        }.forEach { listener ->
-            what(listener)
-        }
+        for (listener in listeners) what(listener)
     }
 
     suspend fun ruleIterator(what: suspend RuleListener.() -> Unit) {
-        val ruleListeners = synchronized(ruleListeners) {
-            ruleListeners.toList()
-        }
-        for (listener in ruleListeners) {
-            what(listener)
-        }
+        for (listener in ruleListeners) what(listener)
     }
 
     fun addListener(listener: Listener) {
-        synchronized(listeners) {
-            listeners.add(listener)
-        }
+        listeners.add(listener)
     }
 
     fun removeListener(listener: Listener) {
-        synchronized(listeners) {
-            listeners.remove(listener)
-        }
+        listeners.remove(listener)
     }
 
     fun addListener(listener: RuleListener) {
-        synchronized(ruleListeners) {
-            ruleListeners.add(listener)
-        }
+        ruleListeners.add(listener)
     }
 
     fun removeListener(listener: RuleListener) {
-        synchronized(ruleListeners) {
-            ruleListeners.remove(listener)
-        }
+        ruleListeners.remove(listener)
     }
 
     suspend fun createProfile(groupId: Long, bean: AbstractBean, core: Int = 0): ProxyEntity {
@@ -135,12 +131,15 @@ object ProfileManager {
         }
     }
 
-    private suspend fun deleteProfile2(groupId: Long, profileId: Long) {
-        if (SagerDatabase.proxyDao.deleteById(profileId) == 0) return
+    // Removes the row and drops a selection pointing at it; false when the
+    // profile no longer existed. Listeners are notified by the callers, which
+    // order that against their own fixups.
+    private fun deleteProfileRow(profileId: Long): Boolean {
+        if (SagerDatabase.proxyDao.deleteById(profileId) == 0) return false
         if (DataStore.selectedProxy == profileId) {
             DataStore.selectedProxy = 0L
         }
-        iterator { onRemoved(groupId, profileId) }
+        return true
     }
 
     // Bulk-delete path: listeners fire per profile, but the expensive fixups
@@ -148,7 +147,9 @@ object ProfileManager {
     // instead of per profile.
     suspend fun deleteProfiles(profiles: List<ProxyEntity>) {
         if (profiles.isEmpty()) return
-        for (profile in profiles) deleteProfile2(profile.groupId, profile.id)
+        for (profile in profiles) {
+            if (deleteProfileRow(profile.id)) iterator { onRemoved(profile.groupId, profile.id) }
+        }
         GroupManager.resetDanglingGroupProxies()
         val groupId = profiles.first().groupId
         if (SagerDatabase.proxyDao.countByGroup(groupId) > 1) {
@@ -157,10 +158,7 @@ object ProfileManager {
     }
 
     suspend fun deleteProfile(groupId: Long, profileId: Long) {
-        if (SagerDatabase.proxyDao.deleteById(profileId) == 0) return
-        if (DataStore.selectedProxy == profileId) {
-            DataStore.selectedProxy = 0L
-        }
+        if (!deleteProfileRow(profileId)) return
         // the profile may be referenced as a group's frontProxy/landingProxy
         GroupManager.resetDanglingGroupProxies()
         iterator { onRemoved(groupId, profileId) }
@@ -171,26 +169,12 @@ object ProfileManager {
 
     fun getProfile(profileId: Long): ProxyEntity? {
         if (profileId == 0L) return null
-        return try {
-            SagerDatabase.proxyDao.getById(profileId)
-        } catch (ex: SQLiteCantOpenDatabaseException) {
-            throw IOException(ex)
-        } catch (ex: SQLException) {
-            Logs.w(ex)
-            null
-        }
+        return guardedRead(null) { SagerDatabase.proxyDao.getById(profileId) }
     }
 
     fun getProfiles(profileIds: List<Long>): List<ProxyEntity> {
         if (profileIds.isEmpty()) return listOf()
-        return try {
-            SagerDatabase.proxyDao.getEntities(profileIds)
-        } catch (ex: SQLiteCantOpenDatabaseException) {
-            throw IOException(ex)
-        } catch (ex: SQLException) {
-            Logs.w(ex)
-            listOf()
-        }
+        return guardedRead(listOf()) { SagerDatabase.proxyDao.getEntities(profileIds) }
     }
 
     // postUpdate: post to listeners, don't change the DB

@@ -15,7 +15,9 @@ import androidx.work.multiprocess.RemoteWorkManager
 import androidx.work.multiprocess.RemoteWorkerService
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.database.SagerDatabase
+import io.nekohasekai.sagernet.database.SubscriptionBean
 import io.nekohasekai.sagernet.group.GroupUpdater
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
@@ -34,6 +36,12 @@ object SubscriptionUpdater {
 
     private val schedulingMutex = Mutex()
 
+    // subscription groups with auto update on, paired with their non-null settings
+    private suspend fun autoUpdateSubscriptions(): List<Pair<ProxyGroup, SubscriptionBean>> =
+        SagerDatabase.groupDao.subscriptions().mapNotNull { group ->
+            group.subscription?.takeIf { it.autoUpdate }?.let { group to it }
+        }
+
     suspend fun reconfigureUpdater() = schedulingMutex.withLock {
         reconfigureLocked()
     }
@@ -41,22 +49,20 @@ object SubscriptionUpdater {
     private suspend fun reconfigureLocked() {
         val workManager = RemoteWorkManager.getInstance(app)
 
-        val subscriptions = SagerDatabase.groupDao.subscriptions()
-            .filter { it.subscription?.autoUpdate == true }
+        val subscriptions = autoUpdateSubscriptions().map { it.second }
         if (subscriptions.isEmpty()) {
             workManager.cancelUniqueWork(WORK_NAME).awaitSchedulingCompletion()
             return
         }
 
         // PeriodicWorkRequest.MIN_PERIODIC_INTERVAL_MILLIS
-        var minDelay =
-            subscriptions.minByOrNull { it.subscription!!.autoUpdateDelay }!!.subscription!!.autoUpdateDelay.toLong()
+        var minDelay = subscriptions.minOf { it.autoUpdateDelay }.toLong()
         val now = System.currentTimeMillis() / 1000L
         // Seconds until the soonest-due subscription, each against its own
         // autoUpdateDelay; an overdue one makes this negative, so no initial
         // delay is set and the update runs immediately.
         val minInitDelay =
-            subscriptions.minOf { it.subscription!!.lastUpdated + it.subscription!!.autoUpdateDelay * 60L - now }
+            subscriptions.minOf { it.lastUpdated + it.autoUpdateDelay * 60L - now }
         if (minDelay < 15) minDelay = 15
 
         // Scheduling stays in the main process, but UpdateTask has to run in :bg —
@@ -98,16 +104,13 @@ object SubscriptionUpdater {
         @SuppressLint("MissingPermission")
         override suspend fun doRemoteWork(): Result {
             try {
-                var subscriptions =
-                    SagerDatabase.groupDao.subscriptions().filter { it.subscription?.autoUpdate == true }
+                var subscriptions = autoUpdateSubscriptions()
                 if (!DataStore.serviceState.connected) {
                     Logs.d("work: not connected")
-                    subscriptions = subscriptions.filter { !it.subscription!!.updateWhenConnectedOnly }
+                    subscriptions = subscriptions.filter { (_, subscription) -> !subscription.updateWhenConnectedOnly }
                 }
 
-                if (subscriptions.isNotEmpty()) for (profile in subscriptions) {
-                    val subscription = profile.subscription!!
-
+                for ((profile, subscription) in subscriptions) {
                     if ((System.currentTimeMillis() / 1000 - subscription.lastUpdated) < subscription.autoUpdateDelay * 60L) {
                         Logs.d("work: not updating " + profile.displayName())
                         continue

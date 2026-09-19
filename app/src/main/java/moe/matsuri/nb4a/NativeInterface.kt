@@ -9,7 +9,7 @@ import androidx.annotation.RequiresApi
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.bg.ServiceNotification
 import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.database.SagerDatabase
+import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.runOnSerialDispatcher
@@ -97,7 +97,7 @@ class NativeInterface : BoxPlatformInterface, NB4AInterface {
                 val proxy = data.proxy ?: return@runOnSerialDispatcher
                 val id = proxy.config.profileTagMap
                     .filterValues { it == tag }.keys.firstOrNull() ?: -1
-                val ent = SagerDatabase.proxyDao.getById(id) ?: return@runOnSerialDispatcher
+                val ent = ProfileManager.getProfile(id) ?: return@runOnSerialDispatcher
                 // persist here too: the binder broadcast below only reaches a
                 // bound MainActivity, and an unpersisted selection is rolled
                 // back to the stale selectedProxy on the next service reload

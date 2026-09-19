@@ -6,7 +6,7 @@ import androidx.annotation.RequiresApi
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.ISagerNetService
-import io.nekohasekai.sagernet.database.SagerDatabase
+import io.nekohasekai.sagernet.database.ProfileManager
 import android.service.quicksettings.TileService as BaseTileService
 
 @RequiresApi(24)
@@ -31,7 +31,7 @@ class TileService : BaseTileService(), SagerConnection.Callback {
     }
 
     override fun cbSelectorUpdate(id: Long) {
-        val profile = SagerDatabase.proxyDao.getById(id) ?: return
+        val profile = ProfileManager.getProfile(id) ?: return
         updateTile(BaseService.State.Connected, profile.displayName())
     }
 

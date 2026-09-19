@@ -61,6 +61,9 @@ class SagerConnection(
     }
 
     private var connectionActive = false
+
+    // binderDied clears these from a binder thread; the main thread reads them
+    @Volatile
     private var callbackRegistered = false
     private var callback: Callback? = null
     private val serviceCallback = object : ISagerNetServiceCallback.Stub() {
@@ -104,6 +107,7 @@ class SagerConnection(
 
     private var binder: IBinder? = null
 
+    @Volatile
     var service: ISagerNetService? = null
 
     fun updateConnectionId(id: Int) {

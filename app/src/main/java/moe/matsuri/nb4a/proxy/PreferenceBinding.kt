@@ -9,7 +9,6 @@ import io.nekohasekai.sagernet.ktx.readableMessage
 object Type {
     const val Text = 0
     const val TextToInt = 1
-    const val Int = 2
     const val Bool = 3
 }
 
@@ -31,10 +30,6 @@ class PreferenceBinding(
         return DataStore.profileCacheStore.getBoolean(cacheName, false)
     }
 
-    fun readIntFromCache(): Int {
-        return DataStore.profileCacheStore.getInt(cacheName, 0)
-    }
-
     fun readStringToIntFromCache(): Int {
         val value = DataStore.profileCacheStore.getString(cacheName)?.toIntOrNull() ?: 0
 //        Logs.d("readStringToIntFromCache $value $cacheName -> $fieldName")
@@ -52,7 +47,6 @@ class PreferenceBinding(
         when (type) {
             Type.Text -> f.set(bean, readStringFromCache())
             Type.TextToInt -> f.set(bean, readStringToIntFromCache())
-            Type.Int -> f.set(bean, readIntFromCache())
             Type.Bool -> f.set(bean, readBoolFromCache())
         }
     }
@@ -77,11 +71,6 @@ class PreferenceBinding(
                 if (value is Int) {
 //                    Logs.d("writeToCache TEXT2INT $value $cacheName -> $fieldName")
                     DataStore.profileCacheStore.putString(cacheName, value.toString())
-                }
-            }
-            Type.Int -> {
-                if (value is Int) {
-                    DataStore.profileCacheStore.putInt(cacheName, value)
                 }
             }
             Type.Bool -> {

@@ -42,21 +42,6 @@ inline fun JSONArray.forEach(action: (Int, Any) -> Unit) {
     }
 }
 
-fun isJsonObjectValid(j: Any): Boolean {
-    if (j is JSONObject) return true
-    if (j is JSONArray) return true
-    try {
-        JSONObject(j as String)
-    } catch (ex: JSONException) {
-        try {
-            JSONArray(j)
-        } catch (ex1: JSONException) {
-            return false
-        }
-    }
-    return true
-}
-
 // wtf hutool
 fun JSONObject.getStr(name: String): String? {
     val obj = this.opt(name) ?: return null

@@ -20,8 +20,8 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.SpeedDisplayData
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.ProxyEntity
-import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.getColorAttr
@@ -44,16 +44,18 @@ import java.util.concurrent.atomic.AtomicBoolean
  * See also: https://github.com/aosp-mirror/platform_frameworks_base/commit/070d142993403cc2c42eca808ff3fafcee220ac4
  */
 class ServiceNotification(
-    private val service: BaseService.Interface, title: String,
+    private val owner: BaseService.Interface, title: String,
     channel: String, visible: Boolean = false,
 ) : BroadcastReceiver() {
+    private val service: Service = owner.service
+
     companion object {
         const val notificationId = 1
         val flags = PendingIntent.FLAG_IMMUTABLE
 
         fun genTitle(ent: ProxyEntity): String {
             val gn = if (DataStore.showGroupInNotification)
-                SagerDatabase.groupDao.getById(ent.groupId)?.displayName() else null
+                GroupManager.getGroup(ent.groupId)?.displayName() else null
             return if (gn == null) ent.displayName() else "[$gn] ${ent.displayName()}"
         }
     }
@@ -65,7 +67,7 @@ class ServiceNotification(
     suspend fun postNotificationSpeedUpdate(stats: SpeedDisplayData) {
         useBuilder {
             if (showDirectSpeed) {
-                val speedDetail = (service as Context).getString(
+                val speedDetail = service.getString(
                     R.string.speed_detail, service.getString(
                         R.string.speed, Formatter.formatFileSize(service, stats.txRateProxy)
                     ), service.getString(
@@ -81,7 +83,7 @@ class ServiceNotification(
                 it.setStyle(NotificationCompat.BigTextStyle().bigText(speedDetail))
                 it.setContentText(speedDetail)
             } else {
-                val speedSimple = (service as Context).getString(
+                val speedSimple = service.getString(
                     R.string.traffic, service.getString(
                         R.string.speed, Formatter.formatFileSize(service, stats.txRateProxy)
                     ), service.getString(
@@ -119,7 +121,7 @@ class ServiceNotification(
 
     private val showDirectSpeed = DataStore.showDirectSpeed
 
-    private val builder = NotificationCompat.Builder(service as Context, channel)
+    private val builder = NotificationCompat.Builder(service, channel)
         .setWhen(0)
         .setTicker(service.getString(R.string.forward_success))
         .setContentTitle(title)
@@ -138,8 +140,6 @@ class ServiceNotification(
     }
 
     init {
-        service as Context
-
         Theme.apply(app)
         Theme.apply(service)
         builder.color = service.getColorAttr(androidx.appcompat.R.attr.colorPrimary)
@@ -156,7 +156,6 @@ class ServiceNotification(
     }
 
     private suspend fun updateActions() {
-        service as Context
         useBuilder {
             it.clearActions()
 
@@ -189,7 +188,7 @@ class ServiceNotification(
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (service.data.state == BaseService.State.Connected) {
+        if (owner.data.state == BaseService.State.Connected) {
             listenPostSpeed = intent.action == Intent.ACTION_SCREEN_ON
         }
     }
@@ -205,9 +204,9 @@ class ServiceNotification(
                     // a SecurityException and the service would silently degrade to a background one
                     val type = if (service is VpnService) FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
                     else FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-                    (service as Service).startForeground(notificationId, notification, type)
+                    service.startForeground(notificationId, notification, type)
                 } else {
-                    (service as Service).startForeground(notificationId, notification)
+                    service.startForeground(notificationId, notification)
                 }
             } catch (e: Exception) {
                 // the service cannot survive in the background without this;
@@ -231,7 +230,7 @@ class ServiceNotification(
     @SuppressLint("MissingPermission")
     private suspend fun update() = useBuilder {
         if (destroyed.get()) return@useBuilder
-        NotificationManagerCompat.from(service as Service).notify(notificationId, it.build())
+        NotificationManagerCompat.from(service).notify(notificationId, it.build())
     }
 
     fun destroy() {
@@ -239,7 +238,6 @@ class ServiceNotification(
         // take the same lock so a notify cannot slip in between the flag
         // check and stopForeground. Called on the main thread; the lock is
         // never held across a suspension, so runBlocking cannot deadlock.
-        val service = service as Service
         runBlocking {
             buildLock.withLock {
                 destroyed.set(true)

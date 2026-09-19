@@ -15,8 +15,7 @@ object Executable {
         "libxray.so", "libmihomo.so"
     )
 
-    fun killAll(alsoKillBg: Boolean = false) {
-        // kill bg may fail
+    fun killAll() {
         val myPid = Process.myPid()
         for (process in File("/proc").listFiles { _, name -> name.isDigitsOnly() } ?: return) {
             val exe = File(
@@ -27,21 +26,18 @@ object Executable {
             } catch (_: IOException) {
                 continue
             }.split(Character.MIN_VALUE, limit = 2).first())
-            val isPlugin = EXECUTABLES.contains(exe.name)
-            if (!isPlugin && !(alsoKillBg && exe.name.endsWith(":bg"))) continue
-            if (isPlugin) {
-                // Only kill this (:bg) process's own children or orphaned
-                // leftovers of a dead one: the main process runs the same
-                // plugin binaries for TestInstance URL tests and killing
-                // those breaks concurrent tests.
-                val ppid = try {
-                    File(process, "stat").readText()
-                        .substringAfterLast(')').trim().split(' ')[1].toIntOrNull()
-                } catch (_: Exception) {
-                    null
-                } ?: continue
-                if (ppid != myPid && ppid != 1) continue
-            }
+            if (!EXECUTABLES.contains(exe.name)) continue
+            // Only kill this (:bg) process's own children or orphaned
+            // leftovers of a dead one: the main process runs the same
+            // plugin binaries for TestInstance URL tests and killing
+            // those breaks concurrent tests.
+            val ppid = try {
+                File(process, "stat").readText()
+                    .substringAfterLast(')').trim().split(' ')[1].toIntOrNull()
+            } catch (_: Exception) {
+                null
+            } ?: continue
+            if (ppid != myPid && ppid != 1) continue
             try {
                 Os.kill(process.name.toInt(), OsConstants.SIGKILL)
                 Logs.w("SIGKILL ${exe.name} (${process.name}) succeed")
