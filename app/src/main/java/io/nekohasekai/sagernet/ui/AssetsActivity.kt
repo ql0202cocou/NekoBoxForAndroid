@@ -160,7 +160,7 @@ class AssetsActivity : ThemedActivity() {
                 // db where the previous, working one was. The pid keeps the name
                 // apart from libcore's own extraction temp file in :bg.
                 val tmpFile = File(outFile.parentFile, "${outFile.name}.tmp.${Process.myPid()}")
-                // GlobalScope: an escaping IOException (unreadable document, revoked
+                // appScope: an escaping IOException (unreadable document, revoked
                 // permission, full disk) would take the whole app down
                 try {
                     if (isCertificate) {
@@ -188,7 +188,7 @@ class AssetsActivity : ThemedActivity() {
                     if (isCertificate) onMainDispatcher { needRestart() }
                 } catch (e: Exception) {
                     Logs.w(e)
-                    // tryToShow, not show: this runs on GlobalScope and the
+                    // tryToShow, not show: this runs on appScope and the
                     // activity may be gone by now (BadTokenException)
                     onMainDispatcher { alert(e.readableMessage).tryToShow() }
                 } finally {
@@ -381,20 +381,26 @@ class AssetsActivity : ThemedActivity() {
                 setURL("https://api.github.com/repos/$repo/releases/latest")
             }.execute()
 
-            val release = JSONObject(Util.getStringBox(response.contentString))
-            val tagName = release.optString("tag_name")
+            val browserDownloadUrl: String?
+            val tagName: String
+            try {
+                val release = JSONObject(Util.getStringBox(response.contentString))
+                tagName = release.optString("tag_name")
 
-            if (tagName == localVersion) {
-                onMainDispatcher {
-                    snackbar(R.string.route_asset_no_update).show()
+                if (tagName == localVersion) {
+                    onMainDispatcher {
+                        snackbar(R.string.route_asset_no_update).show()
+                    }
+                    return
                 }
-                return
-            }
 
-            val releaseAssets = release.getJSONArray("assets").filterIsInstance<JSONObject>()
-            val assetToDownload = releaseAssets.find { it.getStr("name") == fileName }
-                ?: error("File $fileName not found in release ${release["url"]}")
-            val browserDownloadUrl = assetToDownload.getStr("browser_download_url")
+                val releaseAssets = release.getJSONArray("assets").filterIsInstance<JSONObject>()
+                val assetToDownload = releaseAssets.find { it.getStr("name") == fileName }
+                    ?: error("File $fileName not found in release ${release["url"]}")
+                browserDownloadUrl = assetToDownload.getStr("browser_download_url")
+            } finally {
+                response.close()
+            }
 
             response = client.newRequest().apply {
                 setURL(browserDownloadUrl)
@@ -418,6 +424,7 @@ class AssetsActivity : ThemedActivity() {
                     versionFile.writeText(tagName)
                 }
             } finally {
+                response.close()
                 // no-op after a successful rename; drops a truncated download otherwise
                 cacheFile.delete()
             }

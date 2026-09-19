@@ -60,10 +60,10 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         // onViewCreated can run again (rotation): unregister the previous
         // adapter before replacing it
         if (::groupAdapter.isInitialized) {
-            GroupManager.removeListener(groupAdapter)
+            GroupRepository.removeListener(groupAdapter)
         }
         groupAdapter = GroupAdapter()
-        GroupManager.addListener(groupAdapter)
+        GroupRepository.addListener(groupAdapter)
         groupListView.adapter = groupAdapter
 
         undoManager = UndoSnackbarManager(activity, groupAdapter)
@@ -126,7 +126,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                 MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.confirm)
                     .setMessage(R.string.update_all_subscription)
                     .setPositiveButton(R.string.yes) { _, _ ->
-                        SagerDatabase.groupDao.allGroups()
+                        GroupRepository.getAllGroups()
                             .filter { it.type == GroupType.SUBSCRIPTION }
                             .forEach {
                                 GroupUpdater.startUpdate(it, true)
@@ -154,7 +154,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             if (data != null) {
                 val groupId = selectedGroupId
                 runOnDefaultDispatcher {
-                    val profiles = SagerDatabase.proxyDao.getByGroup(groupId)
+                    val profiles = ProfileRepository.getProfilesByGroup(groupId)
                     // writeToDocument refuses a blank export instead of truncating
                     // the picked file: a group with no shareable node writes nothing
                     writeToDocument(data, profiles.filter { it.haveLink() }
@@ -170,9 +170,9 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         val groupList = ArrayList<ProxyGroup>()
 
         suspend fun reload() {
-            val groups = SagerDatabase.groupDao.allGroups().toMutableList()
+            val groups = GroupRepository.getAllGroups().toMutableList()
             val ungrouped = groups.find { it.ungrouped }
-            if (ungrouped != null && groups.size > 1 && SagerDatabase.proxyDao.countByGroup(ungrouped.id) == 0L) groups.removeAll { it.ungrouped }
+            if (ungrouped != null && groups.size > 1 && ProfileRepository.countProfilesByGroup(ungrouped.id) == 0L) groups.removeAll { it.ungrouped }
             groupListView.post {
                 groupList.clear()
                 groupList.addAll(groups)
@@ -232,11 +232,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             val updated = HashSet(updated)
             this.updated.clear()
             runOnDefaultDispatcher {
-                SagerDatabase.instance.runInTransaction {
-                    updated.forEach {
-                        SagerDatabase.groupDao.updateUserOrder(it.id, it.userOrder)
-                    }
-                }
+                GroupRepository.updateUserOrders(updated)
             }
         }
 
@@ -255,7 +251,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         override fun commit(actions: List<Pair<Int, ProxyGroup>>) {
             val groups = actions.map { it.second }
             runOnDefaultDispatcher {
-                GroupManager.deleteGroup(groups)
+                GroupRepository.deleteGroups(groups)
                 reload()
             }
         }
@@ -279,7 +275,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                 val index = groupList.indexOfFirst { it.id == groupId }
                 if (index == -1) return@onMainDispatcher
                 undoManager.flush()
-                if (SagerDatabase.groupDao.allGroups().size <= 2) {
+                if (GroupRepository.getAllGroups().size <= 2) {
                     runOnDefaultDispatcher {
                         reload()
                     }
@@ -322,7 +318,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
 
     override fun onDestroy() {
         if (::groupAdapter.isInitialized) {
-            GroupManager.removeListener(groupAdapter)
+            GroupRepository.removeListener(groupAdapter)
         }
 
         super.onDestroy()
@@ -366,7 +362,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
 
                 R.id.action_export_clipboard -> {
                     runOnDefaultDispatcher {
-                        val profiles = SagerDatabase.proxyDao.getByGroup(proxyGroup.id)
+                        val profiles = ProfileRepository.getProfilesByGroup(proxyGroup.id)
                         val links = profiles.filter { it.haveLink() }
                             .joinToString("\n") { it.toStdLink(compact = true) }
                         onMainDispatcher {
@@ -385,7 +381,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                         .setMessage(R.string.clear_profiles_message)
                         .setPositiveButton(R.string.yes) { _, _ ->
                             runOnDefaultDispatcher {
-                                GroupManager.clearGroup(proxyGroup.id)
+                                GroupRepository.clearGroup(proxyGroup.id)
                             }
                         }
                         .setNegativeButton(android.R.string.cancel, null)
@@ -539,7 +535,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             groupUser.text = subscription?.username ?: ""
 
             runOnDefaultDispatcher {
-                val size = SagerDatabase.proxyDao.countByGroup(group.id)
+                val size = ProfileRepository.countProfilesByGroup(group.id)
                 onMainDispatcher {
                     // the holder may have been recycled while counting
                     if (proxyGroup.id != group.id) return@onMainDispatcher

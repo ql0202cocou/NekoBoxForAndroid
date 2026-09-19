@@ -122,6 +122,19 @@ object ProfileManager {
         iterator { onUpdated(profile, false) }
     }
 
+    // Batch counterpart, one transaction like updateTraffic(List). It posts no
+    // update: sweeps over a whole group refresh the list once themselves.
+    suspend fun updateStatus(profiles: List<ProxyEntity>) {
+        if (profiles.isEmpty()) return
+        SagerDatabase.instance.runInTransaction {
+            for (profile in profiles) {
+                SagerDatabase.proxyDao.updateStatus(
+                    profile.id, profile.status, profile.ping, profile.error
+                )
+            }
+        }
+    }
+
     private suspend fun deleteProfile2(groupId: Long, profileId: Long) {
         if (SagerDatabase.proxyDao.deleteById(profileId) == 0) return
         if (DataStore.selectedProxy == profileId) {

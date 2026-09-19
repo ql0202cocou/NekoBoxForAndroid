@@ -8,11 +8,10 @@ import android.system.OsConstants
 import androidx.annotation.MainThread
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.ktx.Logs
+import io.nekohasekai.sagernet.ktx.appScope
 import io.nekohasekai.sagernet.utils.Commandline
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancel
@@ -64,7 +63,6 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
 
         fun destroy() = process.destroy()
 
-        @OptIn(DelicateCoroutinesApi::class)
         suspend fun looper(onRestartCallback: (suspend () -> Unit)?) {
             looperStarted = true
             var running = true
@@ -114,7 +112,7 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
             } catch (e: IOException) {
                 Logs.w("error occurred. stop guard: ${Commandline.toString(cmd)}")
                 if (coroutineContext.isActive) {
-                    GlobalScope.launch(Dispatchers.Main) {
+                    appScope.launch(Dispatchers.Main) {
                         if (this@GuardedProcessPool.coroutineContext.isActive) onFatal(e)
                     }
                 }

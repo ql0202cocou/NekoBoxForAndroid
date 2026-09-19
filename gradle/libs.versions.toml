@@ -26,7 +26,6 @@ material-about = "3.2.0-rc01"
 process-phoenix = "3.0.0"
 kryo = "5.6.2"
 guava = "33.7.1-android"
-ini4j = "0.5.4"
 recyclerview-fastscroll = "2.0.1"
 desugar-jdk-libs = "2.1.5"
 
@@ -61,7 +60,6 @@ material-about = { group = "com.github.daniel-stoneuk", name = "material-about-l
 process-phoenix = { group = "com.jakewharton", name = "process-phoenix", version.ref = "process-phoenix" }
 kryo = { group = "com.esotericsoftware", name = "kryo", version.ref = "kryo" }
 guava = { group = "com.google.guava", name = "guava", version.ref = "guava" }
-ini4j = { group = "org.ini4j", name = "ini4j", version.ref = "ini4j" }
 recyclerview-fastscroll = { group = "com.simplecityapps", name = "recyclerview-fastscroll", version.ref = "recyclerview-fastscroll" }
 desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugar-jdk-libs" }
 

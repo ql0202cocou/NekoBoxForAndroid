@@ -26,10 +26,9 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.bg.proto.UrlTest
 import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.database.GroupManager
-import io.nekohasekai.sagernet.database.ProfileManager
+import io.nekohasekai.sagernet.database.GroupRepository
+import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.ProxyEntity
-import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.group.GroupUpdater
@@ -177,12 +176,12 @@ class ConfigurationFragment @JvmOverloads constructor(
         // onViewCreated can run again (rotation): unregister the previous
         // adapter before replacing it
         if (::adapter.isInitialized) {
-            ProfileManager.removeListener(adapter)
-            GroupManager.removeListener(adapter)
+            ProfileRepository.removeListener(adapter)
+            GroupRepository.removeListener(adapter)
         }
         adapter = GroupPagerAdapter(this)
-        ProfileManager.addListener(adapter)
-        GroupManager.addListener(adapter)
+        ProfileRepository.addListener(adapter)
+        GroupRepository.addListener(adapter)
 
         groupPager.adapter = adapter
         groupPager.offscreenPageLimit = 2
@@ -253,8 +252,8 @@ class ConfigurationFragment @JvmOverloads constructor(
         DataStore.profileCacheStore.unregisterChangeListener(this)
 
         if (::adapter.isInitialized) {
-            GroupManager.removeListener(adapter)
-            ProfileManager.removeListener(adapter)
+            GroupRepository.removeListener(adapter)
+            ProfileRepository.removeListener(adapter)
         }
 
         super.onDestroy()
@@ -270,7 +269,7 @@ class ConfigurationFragment @JvmOverloads constructor(
 
     private val importFile =
         registerForActivityResult(ActivityResultContracts.GetContent()) { file ->
-            // GlobalScope: the import outlives this fragment, so go through the app
+            // appScope: the import outlives this fragment, so go through the app
             // context and report only while still attached
             if (file != null) runOnDefaultDispatcher {
                 try {
@@ -327,13 +326,13 @@ class ConfigurationFragment @JvmOverloads constructor(
     suspend fun import(proxies: List<AbstractBean>) {
         val targetId = DataStore.selectedGroupForImport()
         for (proxy in proxies) {
-            ProfileManager.createProfile(targetId, proxy)
+            ProfileRepository.createProfile(targetId, proxy)
         }
         onMainDispatcher {
             // Same tab switch the PROFILE_GROUP cache listener performs; the
-            // view (and its adapter) may be gone for a GlobalScope caller
+            // view (and its adapter) may be gone for an appScope caller
             if (::adapter.isInitialized) selectGroupTab(targetId)
-            // GlobalScope caller: the fragment may be gone by now
+            // appScope caller: the fragment may be gone by now
             if (isAdded) snackbar(
                 app.resources.getQuantityString(R.plurals.added, proxies.size, proxies.size)
             ).show()
@@ -457,50 +456,32 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             R.id.action_clear_traffic_statistics -> {
                 runOnDefaultDispatcher {
-                    val toClear = SagerDatabase.proxyDao.getByGroup(DataStore.currentGroupId())
+                    val toClear = ProfileRepository.getProfilesByGroup(DataStore.currentGroupId())
                         .filter { it.tx != 0L || it.rx != 0L }
                     if (toClear.isNotEmpty()) {
-                        // tx/rx only, and in one transaction like GroupManager.rearrange:
-                        // a full-row update would roll back the status/ping a concurrent
-                        // URL test just wrote, and a write per row would be N commits
-                        // against :bg's own traffic writer
-                        SagerDatabase.instance.runInTransaction {
-                            for (profile in toClear) {
-                                profile.tx = 0
-                                profile.rx = 0
-                                SagerDatabase.proxyDao.updateTraffic(profile.id, 0, 0)
-                            }
-                        }
+                        ProfileRepository.clearTraffic(toClear)
                         // :bg keeps its own counters; without this the running
                         // looper persists the pre-clear totals right back
                         SagerNet.clearTrafficStatistics(toClear.map { it.id }.toLongArray())
                         // the bare column write posts nothing, so refresh the list here
-                        for (profile in toClear) ProfileManager.postUpdate(profile)
+                        for (profile in toClear) ProfileRepository.postUpdate(profile)
                     }
                 }
             }
 
             R.id.action_connection_test_clear_results -> {
                 runOnDefaultDispatcher {
-                    val toClear = SagerDatabase.proxyDao.getByGroup(DataStore.currentGroupId())
+                    val toClear = ProfileRepository.getProfilesByGroup(DataStore.currentGroupId())
                         .filter { it.status != 0 }
-                    SagerDatabase.instance.runInTransaction {
-                        for (profile in toClear) {
-                            profile.status = 0
-                            profile.ping = 0
-                            profile.error = null
-                            SagerDatabase.proxyDao.updateStatus(profile.id, 0, 0, null)
-                        }
-                    }
-                    // updateStatus posts on its own, but not from inside the
-                    // transaction above (it is suspend)
-                    for (profile in toClear) ProfileManager.postUpdate(profile)
+                    ProfileRepository.clearTestResults(toClear)
+                    // the bare column write posts nothing, so refresh the list here
+                    for (profile in toClear) ProfileRepository.postUpdate(profile)
                 }
             }
 
             R.id.action_connection_test_delete_unavailable -> {
                 runOnDefaultDispatcher {
-                    val profiles = SagerDatabase.proxyDao.getByGroup(DataStore.currentGroupId())
+                    val profiles = ProfileRepository.getProfilesByGroup(DataStore.currentGroupId())
                     val toClear = mutableListOf<ProxyEntity>()
                     if (profiles.isNotEmpty()) for (profile in profiles) {
                         if (profile.status != 0 && profile.status != 1) {
@@ -513,7 +494,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                                 .setMessage(R.string.delete_confirm_prompt)
                                 .setPositiveButton(R.string.yes) { _, _ ->
                                     runOnDefaultDispatcher {
-                                        ProfileManager.deleteProfiles(toClear)
+                                        ProfileRepository.deleteProfiles(toClear)
                                     }
                                 }
                                 .setNegativeButton(R.string.no, null)
@@ -525,7 +506,7 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             R.id.action_remove_duplicate -> {
                 runOnDefaultDispatcher {
-                    val profiles = SagerDatabase.proxyDao.getByGroup(DataStore.currentGroupId())
+                    val profiles = ProfileRepository.getProfilesByGroup(DataStore.currentGroupId())
                     val toClear = mutableListOf<ProxyEntity>()
                     val uniqueProxies = LinkedHashSet<Protocols.Deduplication>()
                     for (pf in profiles) {
@@ -551,7 +532,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                                 )
                                 .setPositiveButton(R.string.yes) { _, _ ->
                                     runOnDefaultDispatcher {
-                                        ProfileManager.deleteProfiles(toClear)
+                                        ProfileRepository.deleteProfiles(toClear)
                                     }
                                 }
                                 .setNegativeButton(R.string.no, null)
@@ -582,7 +563,7 @@ class ConfigurationFragment @JvmOverloads constructor(
         val group = DataStore.currentGroup()
 
         val mainJob = runOnDefaultDispatcher {
-            val profilesList = SagerDatabase.proxyDao.getByGroup(group.id).filter {
+            val profilesList = ProfileRepository.getProfilesByGroup(group.id).filter {
                 if (icmpPing) {
                     if (it.requireBean().canICMPing()) {
                         return@filter true
@@ -699,7 +680,7 @@ class ConfigurationFragment @JvmOverloads constructor(
         }
         test.cancel = {
             test.dialogStatus.set(2)
-            // the activity may already be destroyed when the GlobalScope test
+            // the activity may already be destroyed when the appScope test
             // job finishes; dismiss() then throws "not attached to window manager"
             runCatching { dialog.dismiss() }
             runOnDefaultDispatcher {
@@ -709,12 +690,12 @@ class ConfigurationFragment @JvmOverloads constructor(
                 // full-row update would roll back tx/rx persisted by :bg since
                 test.results.forEach {
                     try {
-                        ProfileManager.updateStatus(it)
+                        ProfileRepository.updateStatus(it)
                     } catch (e: Exception) {
                         Logs.w(e)
                     }
                 }
-                GroupManager.postReload(DataStore.currentGroupId())
+                GroupRepository.postReload(DataStore.currentGroupId())
                 DataStore.runningTest.set(false)
             }
         }
@@ -737,7 +718,7 @@ class ConfigurationFragment @JvmOverloads constructor(
         val group = DataStore.currentGroup()
 
         val mainJob = runOnDefaultDispatcher {
-            val profilesList = SagerDatabase.proxyDao.getByGroup(group.id)
+            val profilesList = ProfileRepository.getProfilesByGroup(group.id)
             test.proxyN = profilesList.size
             val profiles = ConcurrentLinkedQueue(profilesList)
             repeat(DataStore.connectionTestConcurrent) {
@@ -772,7 +753,7 @@ class ConfigurationFragment @JvmOverloads constructor(
         }
         test.cancel = {
             test.dialogStatus.set(2)
-            // the activity may already be destroyed when the GlobalScope test
+            // the activity may already be destroyed when the appScope test
             // job finishes; dismiss() then throws "not attached to window manager"
             runCatching { dialog.dismiss() }
             runOnDefaultDispatcher {
@@ -782,12 +763,12 @@ class ConfigurationFragment @JvmOverloads constructor(
                 // full-row update would roll back tx/rx persisted by :bg since
                 test.results.forEach {
                     try {
-                        ProfileManager.updateStatus(it)
+                        ProfileRepository.updateStatus(it)
                     } catch (e: Exception) {
                         Logs.w(e)
                     }
                 }
-                GroupManager.postReload(DataStore.currentGroupId())
+                GroupRepository.postReload(DataStore.currentGroupId())
                 DataStore.runningTest.set(false)
             }
         }

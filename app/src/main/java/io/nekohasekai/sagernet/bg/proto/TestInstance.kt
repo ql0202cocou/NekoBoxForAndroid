@@ -63,7 +63,7 @@ class TestInstance(profile: ProxyEntity, val link: String, private val timeout: 
                 cont.tryResumeWithException(it)
             }
             c.invokeOnCancellation {
-                // The test below runs on GlobalScope and outlives the caller;
+                // The test below runs on appScope and outlives the caller;
                 // close the instance so its box and plugin processes don't
                 // linger after the caller gave up. close() is idempotent.
                 runCatching { close() }

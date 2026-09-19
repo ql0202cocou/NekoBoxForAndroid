@@ -192,7 +192,7 @@ fun Fragment.startFilesForResult(
 // was built from died with the process: refuse instead of truncating the picked file
 // to 0 bytes and reporting success.
 suspend fun Fragment.writeToDocument(uri: Uri, content: String) {
-    // Callers dispatch this on GlobalScope and the fragment can be detached by
+    // Callers dispatch this on appScope and the fragment can be detached by
     // now. The SAF grant belongs to the package, so write through the app
     // context regardless, and only report if there is still a UI to report to.
     val message = if (content.isBlank()) {

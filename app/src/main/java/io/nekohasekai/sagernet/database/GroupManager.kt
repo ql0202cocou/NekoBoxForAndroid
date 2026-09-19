@@ -73,6 +73,16 @@ object GroupManager {
         }
     }
 
+    // Same column-only, single-transaction write as rearrange, for orders the
+    // user dragged into place rather than ones derived from the row order.
+    fun updateUserOrders(groups: Collection<ProxyGroup>) {
+        SagerDatabase.instance.runInTransaction {
+            for (group in groups) {
+                SagerDatabase.groupDao.updateUserOrder(group.id, group.userOrder)
+            }
+        }
+    }
+
     suspend fun postUpdate(group: ProxyGroup) {
         iterator { groupUpdated(group) }
     }

@@ -65,12 +65,6 @@ class NativeInterface : BoxPlatformInterface, NB4AInterface {
         return ""
     }
 
-    override fun uidByPackageName(packageName: String): Int {
-        PackageCache.awaitLoadSync()
-        // unknown package: -1, since 0 is root's valid uid
-        return PackageCache[packageName] ?: -1
-    }
-
     // connectionInfo is deprecated since API 31 in favour of a NetworkCallback with
     // FLAG_INCLUDE_LOCATION_INFO; sing-box pulls WIFIState() synchronously, so the
     // getter is kept until the callback-based replacement is wired up

@@ -19,9 +19,7 @@ import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.buildXrayConfig
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.plugin.PluginManager
-import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.plus
 import libcore.BoxInstance
@@ -253,7 +251,6 @@ abstract class BoxInstance(
         if (::processes.isInitialized) processes.coroutineContext[Job]?.join()
     }
 
-    @OptIn(DelicateCoroutinesApi::class)
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
 
@@ -264,7 +261,7 @@ abstract class BoxInstance(
         // instead of joining here — close() may run on the main thread, where
         // joining would deadlock the loopers' Main-dispatched cleanup.
         if (::processes.isInitialized) {
-            processes.close(GlobalScope + Dispatchers.IO).invokeOnCompletion {
+            processes.close(appScope + Dispatchers.IO).invokeOnCompletion {
                 deleteCacheFiles()
             }
         } else {

@@ -12,9 +12,6 @@
     static void checkNotNullParameter(java.lang.Object, java.lang.String);
 }
 
-# ini4j
--keep public class org.ini4j.spi.** { <init>(); }
-
 # SnakeYaml
 -keep class org.yaml.snakeyaml.** { *; }
 

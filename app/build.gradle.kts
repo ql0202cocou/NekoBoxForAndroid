@@ -70,7 +70,6 @@ dependencies {
     implementation(libs.process.phoenix)
     implementation(libs.kryo)
     implementation(libs.guava)
-    implementation(libs.ini4j)
 
     implementation(libs.recyclerview.fastscroll) {
         exclude(group = "androidx.recyclerview")

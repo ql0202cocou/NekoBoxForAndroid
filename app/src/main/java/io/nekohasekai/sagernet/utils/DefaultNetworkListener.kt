@@ -10,14 +10,13 @@ import android.os.Looper
 import androidx.annotation.RequiresApi
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.ktx.Logs
-import kotlinx.coroutines.DelicateCoroutinesApi
+import io.nekohasekai.sagernet.ktx.appScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.ObsoleteCoroutinesApi
 import kotlinx.coroutines.channels.actor
 import kotlinx.coroutines.runBlocking
 
-@OptIn(DelicateCoroutinesApi::class, ObsoleteCoroutinesApi::class)
+@OptIn(ObsoleteCoroutinesApi::class)
 object DefaultNetworkListener {
     private sealed class NetworkMessage {
         class Start(val key: Any, val listener: (Network?) -> Unit) : NetworkMessage()
@@ -42,7 +41,7 @@ object DefaultNetworkListener {
         for (listener in listeners) notifyListener(listener, network)
     }
 
-    private val networkActor = GlobalScope.actor<NetworkMessage>(Dispatchers.Unconfined) {
+    private val networkActor = appScope.actor<NetworkMessage>(Dispatchers.Unconfined) {
         val listeners = mutableMapOf<Any, (Network?) -> Unit>()
         var network: Network? = null
         var activeCallback: Callback? = null
