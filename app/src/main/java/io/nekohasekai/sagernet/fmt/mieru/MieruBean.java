@@ -18,15 +18,12 @@
 
 package io.nekohasekai.sagernet.fmt.mieru;
 
-import androidx.annotation.NonNull;
 
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
 
-import org.jetbrains.annotations.NotNull;
 
 import io.nekohasekai.sagernet.fmt.AbstractBean;
-import io.nekohasekai.sagernet.fmt.KryoConverters;
 
 public class MieruBean extends AbstractBean {
 
@@ -66,22 +63,4 @@ public class MieruBean extends AbstractBean {
         }
     }
 
-    @NotNull
-    @Override
-    public MieruBean clone() {
-        return KryoConverters.deserialize(new MieruBean(), KryoConverters.serialize(this));
-    }
-
-    public static final Creator<MieruBean> CREATOR = new CREATOR<MieruBean>() {
-        @NonNull
-        @Override
-        public MieruBean newInstance() {
-            return new MieruBean();
-        }
-
-        @Override
-        public MieruBean[] newArray(int size) {
-            return new MieruBean[size];
-        }
-    };
 }

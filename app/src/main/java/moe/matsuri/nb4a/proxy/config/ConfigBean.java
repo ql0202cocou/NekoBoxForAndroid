@@ -1,14 +1,11 @@
 package moe.matsuri.nb4a.proxy.config;
 
-import androidx.annotation.NonNull;
 
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
 import com.google.gson.JsonObject;
 
-import org.jetbrains.annotations.NotNull;
 
-import io.nekohasekai.sagernet.fmt.KryoConverters;
 import io.nekohasekai.sagernet.fmt.internal.InternalBean;
 import moe.matsuri.nb4a.utils.JavaUtil;
 
@@ -62,22 +59,4 @@ public class ConfigBean extends InternalBean {
         return type != null && type == 0 ? "sing-box config" : "sing-box outbound";
     }
 
-    @NotNull
-    @Override
-    public ConfigBean clone() {
-        return KryoConverters.deserialize(new ConfigBean(), KryoConverters.serialize(this));
-    }
-
-    public static final Creator<ConfigBean> CREATOR = new CREATOR<ConfigBean>() {
-        @NonNull
-        @Override
-        public ConfigBean newInstance() {
-            return new ConfigBean();
-        }
-
-        @Override
-        public ConfigBean[] newArray(int size) {
-            return new ConfigBean[size];
-        }
-    };
 }

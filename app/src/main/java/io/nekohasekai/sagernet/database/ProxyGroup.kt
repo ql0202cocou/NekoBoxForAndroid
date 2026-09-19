@@ -6,7 +6,7 @@ import com.esotericsoftware.kryo.io.ByteBufferOutput
 import io.nekohasekai.sagernet.GroupOrder
 import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.fmt.Serializable
+import io.nekohasekai.sagernet.fmt.ParcelableSerializable
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
 
@@ -24,7 +24,7 @@ data class ProxyGroup(
     var landingProxy: Long = -1L,
     // DNS server used to resolve the node server domains of this group
     @ColumnInfo(defaultValue = "") var proxyServerNameserver: String = ""
-) : Serializable() {
+) : ParcelableSerializable() {
 
     @Transient
     var export = false
@@ -173,7 +173,7 @@ data class ProxyGroup(
 
     companion object {
         @JvmField
-        val CREATOR = object : Serializable.CREATOR<ProxyGroup>() {
+        val CREATOR = object : ParcelableSerializable.CREATOR<ProxyGroup>() {
 
             override fun newInstance(): ProxyGroup {
                 return ProxyGroup()

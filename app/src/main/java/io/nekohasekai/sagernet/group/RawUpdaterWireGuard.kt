@@ -30,7 +30,7 @@ fun parseWireGuard(conf: String): List<WireGuardBean> {
             continue
         }
 
-        val peerBean = bean.clone()
+        val peerBean = bean.clone() as WireGuardBean
         // A bare IPv6 endpoint (no brackets, several colons) cannot be told
         // apart from host:port, and an endpoint without a port is unusable
         val (host, portText) = endpoint.splitHostPort() ?: continue

@@ -1,13 +1,10 @@
 package io.nekohasekai.sagernet.fmt.trojan;
 
-import androidx.annotation.NonNull;
 
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
 
-import org.jetbrains.annotations.NotNull;
 
-import io.nekohasekai.sagernet.fmt.KryoConverters;
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean;
 
 public class TrojanBean extends StandardV2RayBean {
@@ -47,22 +44,4 @@ public class TrojanBean extends StandardV2RayBean {
         }
     }
 
-    @NotNull
-    @Override
-    public TrojanBean clone() {
-        return KryoConverters.deserialize(new TrojanBean(), KryoConverters.serialize(this));
-    }
-
-    public static final Creator<TrojanBean> CREATOR = new CREATOR<TrojanBean>() {
-        @NonNull
-        @Override
-        public TrojanBean newInstance() {
-            return new TrojanBean();
-        }
-
-        @Override
-        public TrojanBean[] newArray(int size) {
-            return new TrojanBean[size];
-        }
-    };
 }

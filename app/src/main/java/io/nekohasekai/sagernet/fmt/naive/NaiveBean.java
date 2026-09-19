@@ -1,14 +1,11 @@
 package io.nekohasekai.sagernet.fmt.naive;
 
-import androidx.annotation.NonNull;
 
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
 
-import org.jetbrains.annotations.NotNull;
 
 import io.nekohasekai.sagernet.fmt.AbstractBean;
-import io.nekohasekai.sagernet.fmt.KryoConverters;
 
 public class NaiveBean extends AbstractBean {
 
@@ -75,22 +72,4 @@ public class NaiveBean extends AbstractBean {
         }
     }
 
-    @NotNull
-    @Override
-    public NaiveBean clone() {
-        return KryoConverters.deserialize(new NaiveBean(), KryoConverters.serialize(this));
-    }
-
-    public static final Creator<NaiveBean> CREATOR = new CREATOR<NaiveBean>() {
-        @NonNull
-        @Override
-        public NaiveBean newInstance() {
-            return new NaiveBean();
-        }
-
-        @Override
-        public NaiveBean[] newArray(int size) {
-            return new NaiveBean[size];
-        }
-    };
 }

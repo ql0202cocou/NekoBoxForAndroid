@@ -1,16 +1,13 @@
 package io.nekohasekai.sagernet.fmt.internal;
 
-import androidx.annotation.NonNull;
 
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
 
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import io.nekohasekai.sagernet.fmt.KryoConverters;
 import moe.matsuri.nb4a.utils.JavaUtil;
 
 public class ChainBean extends InternalBean {
@@ -62,22 +59,4 @@ public class ChainBean extends InternalBean {
         }
     }
 
-    @NotNull
-    @Override
-    public ChainBean clone() {
-        return KryoConverters.deserialize(new ChainBean(), KryoConverters.serialize(this));
-    }
-
-    public static final Creator<ChainBean> CREATOR = new CREATOR<ChainBean>() {
-        @NonNull
-        @Override
-        public ChainBean newInstance() {
-            return new ChainBean();
-        }
-
-        @Override
-        public ChainBean[] newArray(int size) {
-            return new ChainBean[size];
-        }
-    };
 }

@@ -1,14 +1,11 @@
 package io.nekohasekai.sagernet.fmt.socks;
 
-import androidx.annotation.NonNull;
 
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
 
-import org.jetbrains.annotations.NotNull;
 
 import io.nekohasekai.sagernet.fmt.AbstractBean;
-import io.nekohasekai.sagernet.fmt.KryoConverters;
 
 public class SOCKSBean extends AbstractBean {
 
@@ -84,24 +81,5 @@ public class SOCKSBean extends AbstractBean {
             sUoT = input.readBoolean();
         }
     }
-
-    @NotNull
-    @Override
-    public SOCKSBean clone() {
-        return KryoConverters.deserialize(new SOCKSBean(), KryoConverters.serialize(this));
-    }
-
-    public static final Creator<SOCKSBean> CREATOR = new CREATOR<SOCKSBean>() {
-        @NonNull
-        @Override
-        public SOCKSBean newInstance() {
-            return new SOCKSBean();
-        }
-
-        @Override
-        public SOCKSBean[] newArray(int size) {
-            return new SOCKSBean[size];
-        }
-    };
 
 }

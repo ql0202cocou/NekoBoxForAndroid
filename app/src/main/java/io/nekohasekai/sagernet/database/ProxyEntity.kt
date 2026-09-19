@@ -107,7 +107,7 @@ data class ProxyEntity(
     var chainBean: ChainBean? = null,
     var nekoBean: NekoBean? = null,
     var configBean: ConfigBean? = null,
-) : Serializable() {
+) : ParcelableSerializable() {
 
     companion object {
         const val TYPE_SOCKS = 0

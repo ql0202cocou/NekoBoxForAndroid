@@ -111,9 +111,19 @@ public abstract class AbstractBean extends Serializable {
         serverPort = input.readInt();
     }
 
+    // Kryo round-trip into a fresh instance of the concrete class; every bean
+    // has a public no-arg constructor (the parsers and Room rely on it too).
     @NotNull
     @Override
-    public abstract AbstractBean clone();
+    public AbstractBean clone() {
+        AbstractBean copy;
+        try {
+            copy = getClass().getDeclaredConstructor().newInstance();
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+        return KryoConverters.deserialize(copy, KryoConverters.serialize(this));
+    }
 
     // Serializes this bean without the name, holding this instance's monitor so
     // concurrent equals/hashCode calls can't observe the temporary flag flip.

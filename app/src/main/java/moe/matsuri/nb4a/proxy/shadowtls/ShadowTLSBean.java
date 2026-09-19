@@ -1,13 +1,10 @@
 package moe.matsuri.nb4a.proxy.shadowtls;
 
-import androidx.annotation.NonNull;
 
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
 
-import org.jetbrains.annotations.NotNull;
 
-import io.nekohasekai.sagernet.fmt.KryoConverters;
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean;
 
 public class ShadowTLSBean extends StandardV2RayBean {
@@ -40,22 +37,4 @@ public class ShadowTLSBean extends StandardV2RayBean {
         password = input.readString();
     }
 
-    @NotNull
-    @Override
-    public ShadowTLSBean clone() {
-        return KryoConverters.deserialize(new ShadowTLSBean(), KryoConverters.serialize(this));
-    }
-
-    public static final Creator<ShadowTLSBean> CREATOR = new CREATOR<ShadowTLSBean>() {
-        @NonNull
-        @Override
-        public ShadowTLSBean newInstance() {
-            return new ShadowTLSBean();
-        }
-
-        @Override
-        public ShadowTLSBean[] newArray(int size) {
-            return new ShadowTLSBean[size];
-        }
-    };
 }

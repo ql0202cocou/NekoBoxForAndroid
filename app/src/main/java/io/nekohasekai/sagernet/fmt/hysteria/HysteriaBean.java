@@ -1,14 +1,11 @@
 package io.nekohasekai.sagernet.fmt.hysteria;
 
-import androidx.annotation.NonNull;
 
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
 
-import org.jetbrains.annotations.NotNull;
 
 import io.nekohasekai.sagernet.fmt.AbstractBean;
-import io.nekohasekai.sagernet.fmt.KryoConverters;
 import io.nekohasekai.sagernet.ktx.NetsKt;
 import kotlin.text.StringsKt;
 
@@ -170,22 +167,4 @@ public class HysteriaBean extends AbstractBean {
         return false;
     }
 
-    @NotNull
-    @Override
-    public HysteriaBean clone() {
-        return KryoConverters.deserialize(new HysteriaBean(), KryoConverters.serialize(this));
-    }
-
-    public static final Creator<HysteriaBean> CREATOR = new CREATOR<HysteriaBean>() {
-        @NonNull
-        @Override
-        public HysteriaBean newInstance() {
-            return new HysteriaBean();
-        }
-
-        @Override
-        public HysteriaBean[] newArray(int size) {
-            return new HysteriaBean[size];
-        }
-    };
 }

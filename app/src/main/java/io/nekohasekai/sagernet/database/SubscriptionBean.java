@@ -1,6 +1,5 @@
 package io.nekohasekai.sagernet.database;
 
-import androidx.annotation.NonNull;
 
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
@@ -35,7 +34,6 @@ public class SubscriptionBean extends Serializable {
     // Long since Kryo version 3: SIP008 "expire" is often far beyond 2038
     public Long expiryDate;
     public List<String> protocols;
-
 
     // https://github.com/crossutility/Quantumult/blob/master/extra-subscription-feature.md
 
@@ -140,18 +138,5 @@ public class SubscriptionBean extends Serializable {
         if (expiryDate == null) expiryDate = 0L;
         if (protocols == null) protocols = new ArrayList<>();
     }
-
-    public static final Creator<SubscriptionBean> CREATOR = new CREATOR<SubscriptionBean>() {
-        @NonNull
-        @Override
-        public SubscriptionBean newInstance() {
-            return new SubscriptionBean();
-        }
-
-        @Override
-        public SubscriptionBean[] newArray(int size) {
-            return new SubscriptionBean[size];
-        }
-    };
 
 }

@@ -1,6 +1,5 @@
 package moe.matsuri.nb4a.proxy.neko;
 
-import androidx.annotation.NonNull;
 
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
@@ -9,7 +8,6 @@ import org.jetbrains.annotations.NotNull;
 import org.json.JSONObject;
 
 import io.nekohasekai.sagernet.fmt.AbstractBean;
-import io.nekohasekai.sagernet.fmt.KryoConverters;
 import io.nekohasekai.sagernet.ktx.Logs;
 
 public class NekoBean extends AbstractBean {
@@ -74,22 +72,4 @@ public class NekoBean extends AbstractBean {
         return false;
     }
 
-    @NotNull
-    @Override
-    public NekoBean clone() {
-        return KryoConverters.deserialize(new NekoBean(), KryoConverters.serialize(this));
-    }
-
-    public static final Creator<NekoBean> CREATOR = new CREATOR<NekoBean>() {
-        @NonNull
-        @Override
-        public NekoBean newInstance() {
-            return new NekoBean();
-        }
-
-        @Override
-        public NekoBean[] newArray(int size) {
-            return new NekoBean[size];
-        }
-    };
 }

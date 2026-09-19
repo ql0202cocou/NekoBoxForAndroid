@@ -1,14 +1,11 @@
 package io.nekohasekai.sagernet.fmt.wireguard;
 
-import androidx.annotation.NonNull;
 
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
 
-import org.jetbrains.annotations.NotNull;
 
 import io.nekohasekai.sagernet.fmt.AbstractBean;
-import io.nekohasekai.sagernet.fmt.KryoConverters;
 
 public class WireGuardBean extends AbstractBean {
 
@@ -76,22 +73,4 @@ public class WireGuardBean extends AbstractBean {
         return false;
     }
 
-    @NotNull
-    @Override
-    public WireGuardBean clone() {
-        return KryoConverters.deserialize(new WireGuardBean(), KryoConverters.serialize(this));
-    }
-
-    public static final Creator<WireGuardBean> CREATOR = new CREATOR<WireGuardBean>() {
-        @NonNull
-        @Override
-        public WireGuardBean newInstance() {
-            return new WireGuardBean();
-        }
-
-        @Override
-        public WireGuardBean[] newArray(int size) {
-            return new WireGuardBean[size];
-        }
-    };
 }

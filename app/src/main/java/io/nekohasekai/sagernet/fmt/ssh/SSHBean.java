@@ -1,14 +1,11 @@
 package io.nekohasekai.sagernet.fmt.ssh;
 
-import androidx.annotation.NonNull;
 
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
 
-import org.jetbrains.annotations.NotNull;
 
 import io.nekohasekai.sagernet.fmt.AbstractBean;
-import io.nekohasekai.sagernet.fmt.KryoConverters;
 
 public class SSHBean extends AbstractBean {
 
@@ -77,22 +74,4 @@ public class SSHBean extends AbstractBean {
         publicKey = input.readString();
     }
 
-    @NotNull
-    @Override
-    public SSHBean clone() {
-        return KryoConverters.deserialize(new SSHBean(), KryoConverters.serialize(this));
-    }
-
-    public static final Creator<SSHBean> CREATOR = new CREATOR<SSHBean>() {
-        @NonNull
-        @Override
-        public SSHBean newInstance() {
-            return new SSHBean();
-        }
-
-        @Override
-        public SSHBean[] newArray(int size) {
-            return new SSHBean[size];
-        }
-    };
 }

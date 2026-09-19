@@ -1,14 +1,11 @@
 package io.nekohasekai.sagernet.fmt.trojan_go;
 
-import androidx.annotation.NonNull;
 
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
 
-import org.jetbrains.annotations.NotNull;
 
 import io.nekohasekai.sagernet.fmt.AbstractBean;
-import io.nekohasekai.sagernet.fmt.KryoConverters;
 import moe.matsuri.nb4a.utils.JavaUtil;
 
 public class TrojanGoBean extends AbstractBean {
@@ -149,22 +146,4 @@ public class TrojanGoBean extends AbstractBean {
         }
     }
 
-    @NotNull
-    @Override
-    public TrojanGoBean clone() {
-        return KryoConverters.deserialize(new TrojanGoBean(), KryoConverters.serialize(this));
-    }
-
-    public static final Creator<TrojanGoBean> CREATOR = new CREATOR<TrojanGoBean>() {
-        @NonNull
-        @Override
-        public TrojanGoBean newInstance() {
-            return new TrojanGoBean();
-        }
-
-        @Override
-        public TrojanGoBean[] newArray(int size) {
-            return new TrojanGoBean[size];
-        }
-    };
 }

@@ -1,14 +1,11 @@
 package io.nekohasekai.sagernet.fmt.tuic;
 
-import androidx.annotation.NonNull;
 
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
 
-import org.jetbrains.annotations.NotNull;
 
 import io.nekohasekai.sagernet.fmt.AbstractBean;
-import io.nekohasekai.sagernet.fmt.KryoConverters;
 
 public class TuicBean extends AbstractBean {
 
@@ -119,22 +116,4 @@ public class TuicBean extends AbstractBean {
         return false;
     }
 
-    @NotNull
-    @Override
-    public TuicBean clone() {
-        return KryoConverters.deserialize(new TuicBean(), KryoConverters.serialize(this));
-    }
-
-    public static final Creator<TuicBean> CREATOR = new CREATOR<TuicBean>() {
-        @NonNull
-        @Override
-        public TuicBean newInstance() {
-            return new TuicBean();
-        }
-
-        @Override
-        public TuicBean[] newArray(int size) {
-            return new TuicBean[size];
-        }
-    };
 }

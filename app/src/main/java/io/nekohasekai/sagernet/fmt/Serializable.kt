@@ -5,10 +5,17 @@ import android.os.Parcelable
 import com.esotericsoftware.kryo.io.ByteBufferInput
 import com.esotericsoftware.kryo.io.ByteBufferOutput
 
-abstract class Serializable : Parcelable {
+// The Kryo contract shared by beans and entities; see KryoConverters.
+abstract class Serializable {
     abstract fun initializeDefaultValues()
     abstract fun serializeToBuffer(output: ByteBufferOutput)
     abstract fun deserializeFromBuffer(input: ByteBufferInput)
+}
+
+// Entities that cross an activity or process boundary carry their Kryo bytes
+// in a Parcel. Beans stay plain Serializable: they only ever travel inside an
+// entity, so they need no CREATOR of their own.
+abstract class ParcelableSerializable : Serializable(), Parcelable {
 
     override fun describeContents() = 0
 
@@ -16,12 +23,11 @@ abstract class Serializable : Parcelable {
         dest.writeByteArray(KryoConverters.serialize(this))
     }
 
-    abstract class CREATOR<T : Serializable> : Parcelable.Creator<T> {
+    abstract class CREATOR<T : ParcelableSerializable> : Parcelable.Creator<T> {
         abstract fun newInstance(): T
 
         override fun createFromParcel(source: Parcel): T {
             return KryoConverters.deserialize(newInstance(), source.createByteArray())
         }
     }
-
 }

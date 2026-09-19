@@ -1,29 +1,14 @@
 package moe.matsuri.nb4a.proxy.anytls;
 
-import androidx.annotation.NonNull;
 
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
 
-import org.jetbrains.annotations.NotNull;
 
 import io.nekohasekai.sagernet.fmt.AbstractBean;
-import io.nekohasekai.sagernet.fmt.KryoConverters;
 
 public class AnyTLSBean extends AbstractBean {
 
-    public static final Creator<AnyTLSBean> CREATOR = new CREATOR<AnyTLSBean>() {
-        @NonNull
-        @Override
-        public AnyTLSBean newInstance() {
-            return new AnyTLSBean();
-        }
-
-        @Override
-        public AnyTLSBean[] newArray(int size) {
-            return new AnyTLSBean[size];
-        }
-    };
     public String password;
     public String sni;
     public String alpn;
@@ -87,9 +72,4 @@ public class AnyTLSBean extends AbstractBean {
         }
     }
 
-    @NotNull
-    @Override
-    public AnyTLSBean clone() {
-        return KryoConverters.deserialize(new AnyTLSBean(), KryoConverters.serialize(this));
-    }
 }

@@ -1,14 +1,11 @@
 package io.nekohasekai.sagernet.fmt.shadowsocks;
 
-import androidx.annotation.NonNull;
 
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
 
-import org.jetbrains.annotations.NotNull;
 
 import io.nekohasekai.sagernet.fmt.AbstractBean;
-import io.nekohasekai.sagernet.fmt.KryoConverters;
 import moe.matsuri.nb4a.utils.JavaUtil;
 
 public class ShadowsocksBean extends AbstractBean {
@@ -51,22 +48,4 @@ public class ShadowsocksBean extends AbstractBean {
         }
     }
 
-    @NotNull
-    @Override
-    public ShadowsocksBean clone() {
-        return KryoConverters.deserialize(new ShadowsocksBean(), KryoConverters.serialize(this));
-    }
-
-    public static final Creator<ShadowsocksBean> CREATOR = new CREATOR<ShadowsocksBean>() {
-        @NonNull
-        @Override
-        public ShadowsocksBean newInstance() {
-            return new ShadowsocksBean();
-        }
-
-        @Override
-        public ShadowsocksBean[] newArray(int size) {
-            return new ShadowsocksBean[size];
-        }
-    };
 }
