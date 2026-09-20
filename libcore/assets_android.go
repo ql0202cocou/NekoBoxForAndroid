@@ -203,7 +203,9 @@ func extractYacd(dstName string) error {
 		}
 	}
 	if err := os.Rename(m[0], dstName); err != nil {
-		os.Rename(old, dstName)
+		if rollbackErr := os.Rename(old, dstName); rollbackErr != nil {
+			log.Println("Extract rollback Yacd failed:", rollbackErr)
+		}
 		return fmt.Errorf("rename Yacd: %v", err)
 	}
 	os.RemoveAll(old)

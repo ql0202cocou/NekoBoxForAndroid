@@ -7,6 +7,8 @@ import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.IOException
 import android.database.SQLException
 import java.util.*
@@ -219,68 +221,82 @@ object ProfileManager {
         }
     }
 
+    suspend fun clearRules() {
+        SagerDatabase.rulesDao.reset()
+        ruleIterator { onCleared() }
+    }
+
+    // 「检查标记-创建默认规则」不是原子的：rulesFirstCreate 为 false 时两个并发
+    // 调用会各自创建一整套默认规则，用进程内 Mutex 串行化创建段
+    private val defaultRulesMutex = Mutex()
+
     suspend fun getRules(): List<RuleEntity> {
         var rules = SagerDatabase.rulesDao.allRules()
         if (!DataStore.rulesFirstCreate) {
-            // A previous attempt may have crashed midway through creation;
-            // skip the default rules it already created instead of duplicating them.
-            suspend fun createDefaultRule(rule: RuleEntity, post: Boolean = true) {
-                val exists = rules.any {
-                    it.port == rule.port && it.network == rule.network &&
-                            it.domains == rule.domains && it.ip == rule.ip &&
-                            it.outbound == rule.outbound
+            defaultRulesMutex.withLock {
+                // 等锁期间另一个调用可能已全部建完，锁内复查标记避免重复创建
+                if (!DataStore.rulesFirstCreate) {
+                    // A previous attempt may have crashed midway through creation;
+                    // skip the default rules it already created instead of duplicating them.
+                    suspend fun createDefaultRule(rule: RuleEntity, post: Boolean = true) {
+                        val exists = rules.any {
+                            it.port == rule.port && it.network == rule.network &&
+                                    it.domains == rule.domains && it.ip == rule.ip &&
+                                    it.outbound == rule.outbound
+                        }
+                        if (!exists) createRule(rule, post)
+                    }
+                    createDefaultRule(
+                        RuleEntity(
+                            name = app.getString(R.string.route_opt_block_quic),
+                            port = "443",
+                            network = "udp",
+                            outbound = -2
+                        )
+                    )
+                    createDefaultRule(
+                        RuleEntity(
+                            name = app.getString(R.string.route_opt_block_ads),
+                            domains = "geosite:category-ads-all",
+                            outbound = -2
+                        )
+                    )
+                    val fuckedCountry = mutableListOf("cn:中国")
+                    if (Locale.getDefault().country != Locale.CHINA.country) {
+                        // 非中文用户
+                        fuckedCountry += "ir:Iran"
+                        fuckedCountry += "ru:Russia"
+                    }
+                    for (c in fuckedCountry) {
+                        val country = c.substringBefore(":")
+                        val displayCountry = c.substringAfter(":")
+                        //
+                        if (country == "cn") createDefaultRule(
+                            RuleEntity(
+                                name = app.getString(R.string.route_play_store, displayCountry),
+                                domains = "googleapis.cn",
+                            ), false
+                        )
+                        createDefaultRule(
+                            RuleEntity(
+                                name = app.getString(R.string.route_bypass_domain, displayCountry),
+                                domains = "geosite:$country",
+                                outbound = -1
+                            ), false
+                        )
+                        createDefaultRule(
+                            RuleEntity(
+                                name = app.getString(R.string.route_bypass_ip, displayCountry),
+                                ip = "geoip:$country",
+                                outbound = -1
+                            ), false
+                        )
+                    }
+                    // mark only after all default rules were created successfully
+                    DataStore.rulesFirstCreate = true
                 }
-                if (!exists) createRule(rule, post)
+                rules = SagerDatabase.rulesDao.allRules()
             }
-            createDefaultRule(
-                RuleEntity(
-                    name = app.getString(R.string.route_opt_block_quic),
-                    port = "443",
-                    network = "udp",
-                    outbound = -2
-                )
-            )
-            createDefaultRule(
-                RuleEntity(
-                    name = app.getString(R.string.route_opt_block_ads),
-                    domains = "geosite:category-ads-all",
-                    outbound = -2
-                )
-            )
-            val fuckedCountry = mutableListOf("cn:中国")
-            if (Locale.getDefault().country != Locale.CHINA.country) {
-                // 非中文用户
-                fuckedCountry += "ir:Iran"
-                fuckedCountry += "ru:Russia"
-            }
-            for (c in fuckedCountry) {
-                val country = c.substringBefore(":")
-                val displayCountry = c.substringAfter(":")
-                //
-                if (country == "cn") createDefaultRule(
-                    RuleEntity(
-                        name = app.getString(R.string.route_play_store, displayCountry),
-                        domains = "googleapis.cn",
-                    ), false
-                )
-                createDefaultRule(
-                    RuleEntity(
-                        name = app.getString(R.string.route_bypass_domain, displayCountry),
-                        domains = "geosite:$country",
-                        outbound = -1
-                    ), false
-                )
-                createDefaultRule(
-                    RuleEntity(
-                        name = app.getString(R.string.route_bypass_ip, displayCountry),
-                        ip = "geoip:$country",
-                        outbound = -1
-                    ), false
-                )
-            }
-            // mark only after all default rules were created successfully
-            DataStore.rulesFirstCreate = true
-            rules = SagerDatabase.rulesDao.allRules()
         }
         return rules
     }

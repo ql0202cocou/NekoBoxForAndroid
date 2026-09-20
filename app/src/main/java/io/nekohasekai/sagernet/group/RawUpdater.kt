@@ -35,6 +35,10 @@ object RawUpdater : GroupUpdater() {
             subscriptionText = contentText
             proxies = parseRaw(contentText)
                 ?: error(app.getString(R.string.no_proxies_found_in_subscription))
+
+            // 本地文件没有 Subscription-Userinfo 响应头：订阅从 http(s) 改成
+            // content:// 后显式清掉残留，下面的解析块会把流量字段一并归零
+            subscription.subscriptionUserinfo = ""
         } else {
 
             val response = Libcore.newHttpClient().apply {
@@ -273,6 +277,12 @@ object RawUpdater : GroupUpdater() {
             }
             // 被删节点可能是其他分组的 frontProxy/landingProxy，清理悬挂引用
             if (toDelete.isNotEmpty()) GroupManager.resetDanglingGroupProxies()
+            // 被撤下的也可能是当前活动节点：不清掉选择的话，下次 reload 时
+            // ProfileManager.getProfile(selectedProxy) 返回 null，VPN 静默停止
+            // （与 ProfileManager.deleteProfileRow / GroupManager.clearGroup 相同处理）
+            if (toDelete.any { it.id == DataStore.selectedProxy }) {
+                DataStore.selectedProxy = 0L
+            }
 
             val existCount = SagerDatabase.proxyDao.countByGroup(proxyGroup.id).toInt()
 

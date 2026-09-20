@@ -95,7 +95,10 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
                     .setMessage(R.string.clear_profiles_message)
                     .setPositiveButton(R.string.yes) { _, _ ->
                         runOnDefaultDispatcher {
-                            SagerDatabase.rulesDao.reset()
+                            // 走 ProfileManager 让 RuleListener 收到 onCleared；
+                            // 本 adapter 的 onCleared 只清空列表，重建默认规则
+                            // 并刷新仍由下面的手动 reload 完成（两者均幂等）
+                            ProfileManager.clearRules()
                             DataStore.rulesFirstCreate = false
                             ruleAdapter.reload()
                         }

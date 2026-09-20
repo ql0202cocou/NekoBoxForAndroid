@@ -39,7 +39,12 @@ public class KryoConverters {
         if (bean == null) return NULL;
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteBufferOutput buffer = KryosKt.byteBuffer(out);
-        bean.serializeToBuffer(buffer);
+        // 序列化入口都对同一实例互斥：AbstractBean.serializeForComparison 会在
+        // 持锁期间翻转 serializeWithoutName，UniversalFmt 会翻转 ProxyGroup.export，
+        // 不互斥时并发写出的字节流可能缺字段，反序列化即错位
+        synchronized (bean) {
+            bean.serializeToBuffer(buffer);
+        }
         buffer.flush();
         buffer.close();
         return out.toByteArray();

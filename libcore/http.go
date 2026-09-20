@@ -121,6 +121,9 @@ func (c *httpClient) TrySocks5(port int32) {
 	c.h1h2Transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
 		socksConn, err := dialer.DialContext(ctx, "tcp", "127.0.0.1:"+strconv.Itoa(int(port)))
 		if err == nil {
+			// ClientHandshake5 是阻塞读写且不感知 ctx：加 deadline 兜底，
+			// 否则对端不应答时握手会无限挂起，泄漏 goroutine 和 fd
+			socksConn.SetDeadline(time.Now().Add(httpDialTimeout))
 			_, err = socks.ClientHandshake5(socksConn, socks5.CommandConnect, metadata.ParseSocksaddr(addr), "", "")
 		}
 		if err != nil {
@@ -133,6 +136,8 @@ func (c *httpClient) TrySocks5(port int32) {
 			// no H3 fallback: dial the target directly instead
 			return dialer.DialContext(ctx, network, addr)
 		}
+		// 握手成功后清零 deadline，之后的读写超时由 HTTP 层接管
+		socksConn.SetDeadline(time.Time{})
 		return socksConn, nil
 	}
 	c.trySocks5 = true

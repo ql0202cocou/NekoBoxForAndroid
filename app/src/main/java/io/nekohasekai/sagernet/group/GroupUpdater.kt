@@ -203,7 +203,9 @@ abstract class GroupUpdater {
         suspend fun finishUpdate(proxyGroup: ProxyGroup) {
             updating.remove(proxyGroup.id)
             progress.remove(proxyGroup.id)
-            GroupManager.postUpdate(proxyGroup)
+            // 传入的是更新开始前的旧快照，直接广播会把用户期间的编辑视觉回滚；
+            // 按 id 的通知路径会重读当前行（分组已被删除时则不再广播）
+            GroupManager.postUpdate(proxyGroup.id)
         }
 
     }

@@ -45,6 +45,10 @@ fun parseHysteria1(url: String): HysteriaBean {
         link.queryParameter("ca")?.also {
             caText = it
         }
+        // 证书 SHA-256 指纹，自家参数（与 anytls 的 certfp 同名）
+        link.queryParameter("certfp")?.also {
+            certificateFingerprint = it
+        }
         link.queryParameter("upmbps")?.also {
             uploadMbps = it.toIntOrNull() ?: uploadMbps
         }
@@ -102,6 +106,10 @@ fun parseHysteria2(url: String): HysteriaBean {
         link.queryParameter("ca")?.also {
             caText = it
         }
+        // 证书 SHA-256 指纹，自家参数（与 anytls 的 certfp 同名）
+        link.queryParameter("certfp")?.also {
+            certificateFingerprint = it
+        }
         link.queryParameter("upmbps")?.also {
             uploadMbps = it.toIntOrNull() ?: uploadMbps
         }
@@ -147,6 +155,9 @@ fun HysteriaBean.toUri(): String {
     // custom CA, our own invention (same "ca" name as tuic)
     if (caText.isNotBlank()) {
         builder.addQueryParameter("ca", caText)
+    }
+    if (certificateFingerprint.isNotBlank()) {
+        builder.addQueryParameter("certfp", certificateFingerprint)
     }
     if (protocolVersion == 1) {
         if (sni.isNotBlank()) {

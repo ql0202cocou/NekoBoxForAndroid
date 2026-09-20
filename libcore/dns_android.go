@@ -161,7 +161,8 @@ func init() {
 
 		// read response into buffer; nresult closes fd
 		settled = true
-		response := make([]byte, 8192)
+		// 65535 是 DNS 消息长度上限：缓冲不足时超大响应会被 bionic 截断
+		response := make([]byte, 65535)
 		rcode, n := callAndroidResNResult(fd, response)
 		if n < 0 {
 			return nil, unix.Errno(-n)

@@ -27,22 +27,30 @@ class GroupInterfaceAdapter(val context: ThemedActivity) : GroupManager.Interfac
                     cont.tryResume(false)
                     return@runOnMainDispatcher
                 }
+                // observer 必须在每条恢复路径上摘掉，否则每弹一次窗就泄漏一个。
+                // 按钮点击也会触发 dismiss，正常路径统一走 OnDismissListener；
+                // activity 销毁时 onDismiss 不会回调，由 onDestroy 自注销兜底
+                val observer = object : DefaultLifecycleObserver {
+                    override fun onDestroy(owner: LifecycleOwner) {
+                        owner.lifecycle.removeObserver(this)
+                        cont.tryResume(false)
+                    }
+                }
+                context.lifecycle.addObserver(observer)
                 MaterialAlertDialogBuilder(context).setTitle(R.string.confirm)
                     .setMessage(message)
                     .setPositiveButton(R.string.yes) { _, _ -> cont.tryResume(true) }
                     .setNegativeButton(R.string.no) { _, _ -> cont.tryResume(false) }
                     // Buttons dismiss the dialog too; tryResume ignores the second call.
                     // A dismissed dialog counts as refusal.
-                    .setOnDismissListener { _ -> cont.tryResume(false) }
+                    .setOnDismissListener { _ ->
+                        context.lifecycle.removeObserver(observer)
+                        cont.tryResume(false)
+                    }
                     .show()
                 // onDismiss is NOT fired when the activity is destroyed (the dialog
                 // just leaks its window), so resume on ON_DESTROY as well, or the
                 // coroutine would hang forever with the group's updating lock held.
-                context.lifecycle.addObserver(object : DefaultLifecycleObserver {
-                    override fun onDestroy(owner: LifecycleOwner) {
-                        cont.tryResume(false)
-                    }
-                })
             }
         }
     }
@@ -124,16 +132,22 @@ class GroupInterfaceAdapter(val context: ThemedActivity) : GroupManager.Interfac
                     cont.tryResume(Unit)
                     return@runOnMainDispatcher
                 }
+                // 同 confirm()：正常路径由 dismiss 摘掉 observer，onDestroy 自注销兜底
+                val observer = object : DefaultLifecycleObserver {
+                    override fun onDestroy(owner: LifecycleOwner) {
+                        owner.lifecycle.removeObserver(this)
+                        cont.tryResume(Unit)
+                    }
+                }
+                context.lifecycle.addObserver(observer)
                 MaterialAlertDialogBuilder(context).setTitle(R.string.ooc_warning)
                     .setMessage(message)
                     .setPositiveButton(android.R.string.ok) { _, _ -> cont.tryResume(Unit) }
-                    .setOnDismissListener { _ -> cont.tryResume(Unit) }
-                    .show()
-                context.lifecycle.addObserver(object : DefaultLifecycleObserver {
-                    override fun onDestroy(owner: LifecycleOwner) {
+                    .setOnDismissListener { _ ->
+                        context.lifecycle.removeObserver(observer)
                         cont.tryResume(Unit)
                     }
-                })
+                    .show()
             }
         }
     }

@@ -183,11 +183,18 @@ object GroupManager {
             SagerDatabase.groupDao.getById(currentSelected)?.let { return it }
         }
         val group = SagerDatabase.groupDao.allGroups().firstOrNull()
-            ?: ProxyGroup(ungrouped = true).apply {
-                id = SagerDatabase.groupDao.createGroup(this)
-            }
+            ?: createInitialGroup()
         DataStore.selectedGroup = group.id
         return group
+    }
+
+    // 全新安装时 main 与 :bg 可能同时走到创建分支，@Synchronized 只挡得住进程内；
+    // 与恢复日志/安装标记共用同一把跨进程文件锁，锁内按同一查询复查是否已被
+    // 对方进程创建（双检），避免落出两个 ungrouped 分组
+    private fun createInitialGroup(): ProxyGroup = RestoreJournal.default.withLock {
+        SagerDatabase.groupDao.allGroups().firstOrNull() ?: ProxyGroup(ungrouped = true).apply {
+            id = SagerDatabase.groupDao.createGroup(this)
+        }
     }
 
     fun selectedGroupForImport(): Long {

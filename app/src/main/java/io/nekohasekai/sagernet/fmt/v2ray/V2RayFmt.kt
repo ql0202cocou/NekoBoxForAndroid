@@ -14,6 +14,9 @@ import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.json.JSONObject
 
+private val uuidRegex =
+    Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+
 data class VmessQRCode(
     var v: String = "",
     var ps: String = "",
@@ -45,6 +48,9 @@ data class VmessQRCode(
     // "cert" matches the ducksoft query param
     @SerializedName("cert", alternate = ["certificates"])
     var cert: String = "",
+    // "certfp" matches the ducksoft query param
+    @SerializedName("certfp", alternate = ["certificateFingerprint"])
+    var certfp: String = "",
     var packetEncoding: String = "",
     // ws early data, same names as the ducksoft query params
     var ed: Int = 0,
@@ -145,6 +151,15 @@ fun parseV2Ray(link: String): StandardV2RayBean {
         bean.parseDuckSoft(url)
     }
 
+    // std 兜底也要过最小校验：vmess:// 后接非法 base64 时 parseV2RayN 与
+    // Kitsunebi 都已失败，残片仍可能被 toHttpUrl 解析成「能导入但必挂」的
+    // 节点；抛异常让 parseProxies 按解析失败跳过
+    if (bean.serverAddress.isNullOrBlank() || bean.uuid.isNullOrBlank() ||
+        !bean.uuid.matches(uuidRegex)
+    ) {
+        error("invalid link $link")
+    }
+
     return bean
 }
 
@@ -191,6 +206,10 @@ fun StandardV2RayBean.parseDuckSoft(url: HttpUrl) {
             }
             url.queryParameter("cert")?.let {
                 certificates = it
+            }
+            // 自家参数，与 anytls 的 certfp 同名
+            (url.queryParameter("certfp") ?: url.queryParameter("certificateFingerprint"))?.let {
+                certificateFingerprint = it
             }
             url.queryParameter("pbk")?.let {
                 realityPubKey = it
@@ -377,6 +396,7 @@ fun parseV2RayN(link: String): VMessBean {
             bean.alpn = vmessQRCode.alpn
             bean.utlsFingerprint = vmessQRCode.fp
             if (!vmessQRCode.cert.isNullOrBlank()) bean.certificates = vmessQRCode.cert
+            if (!vmessQRCode.certfp.isNullOrBlank()) bean.certificateFingerprint = vmessQRCode.certfp
             if (!vmessQRCode.verify_cert) bean.allowInsecure = true
             if (!vmessQRCode.ech.isNullOrBlank()) {
                 bean.enableECH = true
@@ -476,6 +496,9 @@ fun VMessBean.toV2rayN(): String {
             if (bean.certificates.isNotBlank()) {
                 cert = bean.certificates
             }
+            if (bean.certificateFingerprint.isNotBlank()) {
+                certfp = bean.certificateFingerprint
+            }
             if (bean.realityPubKey.isNotBlank()) {
                 tls = "reality"
                 pbk = bean.realityPubKey
@@ -573,6 +596,9 @@ fun StandardV2RayBean.toUriVMessVLESSTrojan(isTrojan: Boolean): String {
                 }
                 if (certificates.isNotBlank()) {
                     builder.addQueryParameter("cert", certificates)
+                }
+                if (certificateFingerprint.isNotBlank()) {
+                    builder.addQueryParameter("certfp", certificateFingerprint)
                 }
                 if (allowInsecure) {
                     builder.addQueryParameter("allowInsecure", "1")

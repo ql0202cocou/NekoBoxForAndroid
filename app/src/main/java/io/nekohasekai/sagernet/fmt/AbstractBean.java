@@ -125,8 +125,9 @@ public abstract class AbstractBean extends Serializable {
         return KryoConverters.deserialize(copy, KryoConverters.serialize(this));
     }
 
-    // Serializes this bean without the name, holding this instance's monitor so
-    // concurrent equals/hashCode calls can't observe the temporary flag flip.
+    // 比较前临时去掉 name 再序列化；持有本实例监视器，并发的 equals/hashCode
+    // 看不到这次翻转。KryoConverters.serialize 也抢同一把锁，因此 Room 写库、
+    // 分享链接和 clone() 同样观察不到。
     private synchronized byte[] serializeForComparison() {
         try {
             serializeWithoutName = true;

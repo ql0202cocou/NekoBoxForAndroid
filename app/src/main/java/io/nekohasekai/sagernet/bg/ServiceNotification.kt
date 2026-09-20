@@ -25,6 +25,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.getColorAttr
+import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
 import io.nekohasekai.sagernet.ui.SwitchActivity
 import io.nekohasekai.sagernet.utils.Theme
@@ -209,14 +210,18 @@ class ServiceNotification(
                     service.startForeground(notificationId, notification)
                 }
             } catch (e: Exception) {
-                // the service cannot survive in the background without this;
-                // keep it out of the log-less Toast-only path
+                // startForeground 失败时服务从未前台化，约 10 秒后会被系统按
+                // FGS ANR 杀死；优雅停止让状态机回到 Stopped。通知销毁由
+                // stopRunner 里的 destroy() 配对完成，这里不单独处理
                 Logs.w(e)
                 Toast.makeText(
                     SagerNet.application,
                     "startForeground: $e",
                     Toast.LENGTH_LONG
                 ).show()
+                owner.stopRunner(
+                    false, "${service.getString(R.string.service_failed)}: ${e.readableMessage}"
+                )
             }
         }
 

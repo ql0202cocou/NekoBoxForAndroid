@@ -3,7 +3,6 @@ package io.nekohasekai.sagernet.bg
 import android.os.Build
 import android.os.SystemClock
 import android.system.OsConstants
-import androidx.annotation.MainThread
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.appScope
@@ -52,7 +51,20 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
             }.start()
         }
 
-        fun destroy() = process.destroy()
+        // 只在 looper 从未跑起来的路径调用（start() 里池已取消、close() 里
+        // looperStarted 仍为 false），此时不存在任何 waitFor 线程：只 destroy
+        // 不回收，子进程会变僵尸、管道 fd 也会残留，故补一个回收线程。
+        // waitFor 可能阻塞，必须在线程里做，绝不占用调用线程
+        fun destroy() {
+            process.destroy()
+            val cmdName = File(cmd.first()).nameWithoutExtension
+            thread(name = "reap-$cmdName", isDaemon = true) {
+                runCatching { process.waitFor() }
+                runCatching { process.outputStream.close() }
+                runCatching { process.inputStream.close() }
+                runCatching { process.errorStream.close() }
+            }
+        }
 
         suspend fun looper(onRestartCallback: (suspend () -> Unit)?) {
             looperStarted = true
@@ -148,7 +160,9 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
         processCount.incrementAndGet()
     }
 
-    @MainThread
+    // 任意线程可调（BoxInstance.close 在主线程、TestInstance 的
+    // invokeOnCancellation 在取消发生的线程）：cancel()、
+    // CopyOnWriteArrayList 遍历、Process.destroy 都线程安全
     fun close(scope: CoroutineScope): Job {
         cancel()
         // reap processes whose looper coroutine was cancelled before its

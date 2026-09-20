@@ -47,6 +47,10 @@ fun parseTuic(url: String): TuicBean {
         link.queryParameter("ca")?.let {
             caText = it
         }
+        // 证书 SHA-256 指纹，自家参数（与 anytls 的 certfp 同名）
+        link.queryParameter("certfp")?.let {
+            certificateFingerprint = it
+        }
         link.queryParameter("congestion_control")?.let {
             congestionController = it
         }
@@ -77,6 +81,7 @@ fun TuicBean.toUri(): String {
 
     if (sni.isNotBlank()) builder.addQueryParameter("sni", sni)
     if (caText.isNotBlank()) builder.addQueryParameter("ca", caText)
+    if (certificateFingerprint.isNotBlank()) builder.addQueryParameter("certfp", certificateFingerprint)
     if (alpn.isNotBlank()) builder.addQueryParameter("alpn", alpn.replace("\n", ","))
     if (allowInsecure) builder.addQueryParameter("allow_insecure", "1")
     if (disableSNI) builder.addQueryParameter("disable_sni", "1")

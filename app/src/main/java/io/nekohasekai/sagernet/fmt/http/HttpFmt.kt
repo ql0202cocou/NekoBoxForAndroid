@@ -26,6 +26,9 @@ fun parseHttp(link: String): HttpBean {
             httpUrl.queryParameter("cert")?.let {
                 certificates = it
             }
+            httpUrl.queryParameter("certfp")?.let {
+                certificateFingerprint = it
+            }
             httpUrl.queryParameter("fp")?.let {
                 utlsFingerprint = it
             }
@@ -63,6 +66,9 @@ fun HttpBean.toUri(): String {
         }
         if (certificates.isNotBlank()) {
             builder.addQueryParameter("cert", certificates)
+        }
+        if (certificateFingerprint.isNotBlank()) {
+            builder.addQueryParameter("certfp", certificateFingerprint)
         }
         if (utlsFingerprint.isNotBlank()) {
             builder.addQueryParameter("fp", utlsFingerprint)

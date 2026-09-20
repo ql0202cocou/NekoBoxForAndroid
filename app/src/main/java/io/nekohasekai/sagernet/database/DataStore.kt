@@ -35,7 +35,13 @@ object DataStore {
     // Generated once per install and shared by :bg (ConfigBuilder) and the main
     // process (WebviewFragment); bare hex so yacd's query-string parsing keeps it intact
     fun requireClashApiSecret(): String = clashApiSecret.ifBlank {
-        UUID.randomUUID().toString().replace("-", "").also { clashApiSecret = it }
+        // 首次「生成并写回」在 :bg 与 main 之间存在竞争；与 InstallMarker 共用
+        // 恢复日志的跨进程锁，锁内复查，晚到的进程直接用已生成的值
+        RestoreJournal.default.withLock {
+            clashApiSecret.ifBlank {
+                UUID.randomUUID().toString().replace("-", "").also { clashApiSecret = it }
+            }
+        }
     }
 
     // Per-install: a restored configuration.db must not carry another

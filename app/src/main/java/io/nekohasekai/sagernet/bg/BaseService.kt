@@ -289,10 +289,18 @@ class BaseService {
             data.proxy!!.launch()
         }
 
+        // 与 SagerNet.startService 同一层防御：Android 12+ 在后台抛
+        // ForegroundServiceStartNotAllowedException（IllegalStateException
+        // 子类，单个 catch 即可覆盖，无需按 API 引用该类），8-11 抛普通
+        // IllegalStateException。丢掉这次启动好过让进程崩溃
         fun startRunner() {
             val intent = Intent(service, service.javaClass)
-            if (Build.VERSION.SDK_INT >= 26) service.startForegroundService(intent)
-            else service.startService(intent)
+            try {
+                if (Build.VERSION.SDK_INT >= 26) service.startForegroundService(intent)
+                else service.startService(intent)
+            } catch (e: IllegalStateException) {
+                Logs.w(e)
+            }
         }
 
         suspend fun killProcesses() {
@@ -360,9 +368,11 @@ class BaseService {
             }
         }
 
-        // onDestroy: stopRunner has normally run (it ends in stopSelf) and this
-        // only closes the binder; on a framework-driven destroy it also drops
-        // the receiver and the notification stopRunner would have released.
+        // onDestroy：正常路径 stopRunner 已跑过（它最后 stopSelf），运行期资源
+        // 由 killProcesses 释放完毕，下面全是幂等 no-op；框架直接 destroy 时
+        // stopRunner 没跑过，receiver、notification 和 box / 插件进程 / wakeLock
+        // 都会残留，这里 best-effort 兜底释放。VpnService 的 tun fd 由其实现的
+        // override 处理
         fun destroyRunner() {
             val data = data
             if (data.closeReceiverRegistered) {
@@ -371,6 +381,14 @@ class BaseService {
             }
             data.notification?.destroy()
             data.notification = null
+            // close() 内有 CAS 保证幂等；box 走 JNI、进程池异步关闭，
+            // 异常不能带上 onDestroy
+            runCatching { data.proxy?.close() }.onFailure { Logs.w(it) }
+            data.proxy = null
+            data.wakeLock?.apply {
+                runCatching { release() }.onFailure { Logs.w(it) }
+                data.wakeLock = null
+            }
             data.binder.close()
         }
 

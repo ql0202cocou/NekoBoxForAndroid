@@ -64,6 +64,14 @@ class VpnService : BaseVpnService(),
         super.killProcesses()
     }
 
+    // tun fd 是 VpnService 私有的运行期资源，BaseService 的 destroyRunner
+    // 兜底看不到它；框架驱动 destroy 时在此关闭，结构与 killProcesses 一致
+    override fun destroyRunner() {
+        conn?.closeQuietly()
+        conn = null
+        super.destroyRunner()
+    }
+
     override fun onBind(intent: Intent) = when (intent.action) {
         SERVICE_INTERFACE -> super<BaseVpnService>.onBind(intent)
         else -> super<BaseService.Interface>.onBind(intent)

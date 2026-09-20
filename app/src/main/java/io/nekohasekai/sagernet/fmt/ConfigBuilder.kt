@@ -318,7 +318,9 @@ private class ConfigBuild(
             buildDns()
             applyBuiltinRules()
             applyGroupNameserver()
-            if (!forTest) _hack_custom_config = DataStore.globalCustomConfig
+            // 与 applyLogAndClashApi 排除 secret 同理：导出配置会被分享，
+            // 不能混入本机全局自定义配置
+            if (!forTest && !forExport) _hack_custom_config = DataStore.globalCustomConfig
         }
         val configMap = options.asMap()
         Util.mergeJSON(configMap, proxy.requireBean().customConfigJson)

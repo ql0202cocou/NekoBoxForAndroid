@@ -128,7 +128,13 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
         val updated = HashSet(updated)
         this.updated.clear()
         runOnDefaultDispatcher {
-            updated.forEach { SagerDatabase.proxyDao.updateOrder(it.id, it.userOrder) }
+            if (updated.isNotEmpty()) {
+                // 整次拖拽的落库包在一个事务里，逐行独立提交会产生 N 次 commit
+                // （同 RouteFragment.commitMove 的写法）
+                SagerDatabase.instance.runInTransaction {
+                    updated.forEach { SagerDatabase.proxyDao.updateOrder(it.id, it.userOrder) }
+                }
+            }
         }
     }
 

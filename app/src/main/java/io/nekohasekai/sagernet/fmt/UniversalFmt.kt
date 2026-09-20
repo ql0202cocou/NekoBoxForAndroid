@@ -29,8 +29,15 @@ fun AbstractBean.toUniversalLink(): String {
 
 fun ProxyGroup.toUniversalLink(): String {
     var link = "sn://subscription?"
-    export = true
-    link += Util.b64EncodeUrlSafe(Util.zlibCompress(KryoConverters.serialize(this), 9))
-    export = false
+    // 持锁覆盖整个 翻转-序列化-复位 过程，与 KryoConverters.serialize 内部的
+    // synchronized(bean) 互斥；try/finally 保证中途异常时标志复位
+    synchronized(this) {
+        export = true
+        try {
+            link += Util.b64EncodeUrlSafe(Util.zlibCompress(KryoConverters.serialize(this), 9))
+        } finally {
+            export = false
+        }
+    }
     return link
 }
