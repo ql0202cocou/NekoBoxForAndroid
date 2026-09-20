@@ -236,18 +236,21 @@ data class ProxyEntity(
         val text = StringBuilder(config.config)
         // an external core config may reference a temp file (the hysteria CA);
         // the exported JSON keeps the path, but the file itself must not
-        // linger in cacheDir
+        // linger in cacheDir — core.config() 中途抛异常时也要清掉已创建的
         val tempFiles = ArrayList<File>()
-        for ((chain) in config.externalIndex) {
-            for ((port, profile) in chain) {
-                val core = externalCore(profile.requireBean()) ?: continue
-                text.append("\n\n")
-                text.append(core.config(port, { prefix, ext ->
-                    File.createTempFile(prefix + "_", ".$ext", app.cacheDir).also { tempFiles.add(it) }
-                }, null))
+        try {
+            for ((chain) in config.externalIndex) {
+                for ((port, profile) in chain) {
+                    val core = externalCore(profile.requireBean()) ?: continue
+                    text.append("\n\n")
+                    text.append(core.config(port, { prefix, ext ->
+                        File.createTempFile(prefix + "_", ".$ext", app.cacheDir).also { tempFiles.add(it) }
+                    }, null))
+                }
             }
+        } finally {
+            tempFiles.forEach { runCatching { it.delete() } }
         }
-        tempFiles.forEach { runCatching { it.delete() } }
         return text.toString() to name
     }
 

@@ -84,13 +84,11 @@ private fun checkClashPort(proxy: Map<String, Any?>) {
     when (proxy["type"] as? String) {
         "hysteria", "hysteria2", "hy2" -> {
             // hysteria 允许 ports（端口跳跃）替代 port，优先级与
-            // parseClashHysteria 一致（ports 非空时覆盖 port）；预检用
-            // parseHysteriaPorts 的 runCatching，不合格只跳过本节点
+            // parseClashHysteria 一致（ports 非空时覆盖 port）；
+            // parseHysteriaPorts 不合格时自己抛，只跳过本节点
             val ports = proxy["ports"]?.toString()?.takeIf { it.isNotBlank() }
-                ?: proxy["port"]?.toString()
-            if (ports == null || runCatching { parseHysteriaPorts(ports) }.isFailure) {
-                error("invalid hysteria ports")
-            }
+                ?: proxy["port"]?.toString() ?: error("missing hysteria port")
+            parseHysteriaPorts(ports)
         }
 
         "socks5", "http", "ss", "vmess", "vless", "trojan", "anytls", "tuic", "wireguard" -> {

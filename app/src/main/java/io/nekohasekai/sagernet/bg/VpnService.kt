@@ -57,18 +57,21 @@ class VpnService : BaseVpnService(),
         super.startProcesses() // launch proxy instance
     }
 
-    @Suppress("EXPERIMENTAL_API_USAGE")
-    override suspend fun killProcesses() {
+    // tun fd 是 VpnService 私有的运行期资源，BaseService 的两条释放路径都看
+    // 不到它：正常停止走 killProcesses，框架直接 destroy 走 destroyRunner
+    private fun closeTun() {
         conn?.closeQuietly()
         conn = null
+    }
+
+    @Suppress("EXPERIMENTAL_API_USAGE")
+    override suspend fun killProcesses() {
+        closeTun()
         super.killProcesses()
     }
 
-    // tun fd 是 VpnService 私有的运行期资源，BaseService 的 destroyRunner
-    // 兜底看不到它；框架驱动 destroy 时在此关闭，结构与 killProcesses 一致
     override fun destroyRunner() {
-        conn?.closeQuietly()
-        conn = null
+        closeTun()
         super.destroyRunner()
     }
 

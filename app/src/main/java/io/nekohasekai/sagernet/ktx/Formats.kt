@@ -22,6 +22,10 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 
+// 标准 UUID：vmess/vless 的 uuid 与 tuic v5 的用户名都按这个判别
+val uuidRegex =
+    Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+
 // JSON & Base64
 
 fun JSONObject.toStringPretty(): String {

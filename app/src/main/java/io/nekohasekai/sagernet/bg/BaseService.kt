@@ -296,8 +296,7 @@ class BaseService {
         fun startRunner() {
             val intent = Intent(service, service.javaClass)
             try {
-                if (Build.VERSION.SDK_INT >= 26) service.startForegroundService(intent)
-                else service.startService(intent)
+                ContextCompat.startForegroundService(service, intent)
             } catch (e: IllegalStateException) {
                 Logs.w(e)
             }
@@ -373,14 +372,31 @@ class BaseService {
         // stopRunner 没跑过，receiver、notification 和 box / 插件进程 / wakeLock
         // 都会残留，这里 best-effort 兜底释放。VpnService 的 tun fd 由其实现的
         // override 处理
+        // Job.cancel() 的成员与同名扩展在本文件（CoroutineScope.cancel 扩展被
+        // Binder.close 使用，通配 import 引入）同时可见：编译期恒解析到成员，
+        // lint 的跨环境歧义警告在此不适用
+        @Suppress("MemberExtensionConflict")
         fun destroyRunner() {
             val data = data
+            // stopRunner 之外的另一条出口：注册表同样要清，否则
+            // NativeInterface.selector_OnProxySelected 会拿到已销毁的服务
+            ServiceRegistry.baseService = null
+            // 框架 destroy 可能落在 connectingJob 的挂起点之间：不取消的话它
+            // 恢复后会在已关闭的实例上 init 出无人回收的 box
+            data.connectingJob?.cancel()
             if (data.closeReceiverRegistered) {
                 service.unregisterReceiver(data.receiver)
                 data.closeReceiverRegistered = false
             }
             data.notification?.destroy()
             data.notification = null
+            // 流量循环与网络监听也是 killProcesses 负责的运行期资源，这里同样
+            // 兜底。looper 要先于 box 关闭停下（其 queryStats 需要存活 box），
+            // 且必须先捕获引用：close() 会把 looper 字段置 null。stopLoop /
+            // Stop 消息都是幂等的，正常路径重复执行无害
+            val looper = data.proxy?.looper
+            if (looper != null) runOnDefaultDispatcher { looper.stopLoop() }
+            runOnMainDispatcher { DefaultNetworkListener.stop(this) }
             // close() 内有 CAS 保证幂等；box 走 JNI、进程池异步关闭，
             // 异常不能带上 onDestroy
             runCatching { data.proxy?.close() }.onFailure { Logs.w(it) }

@@ -494,6 +494,13 @@ private class ConfigBuild(
         // profile0 (out)           tag (chainTag)-(id) / single: "proxy"
         var tagOut = "$chainTag-${proxyEntity.id}"
 
+        // 同一节点在链中出现两次时，保留基础名的两跳会生成同名 outbound，
+        // sing-box 直接拒绝整个配置；给第二次起的出现追加序号。首尾跳随后
+        // 会被改名（proxy / selector 显示名 / g-(id)），不受此影响
+        if (profileList.subList(0, index).any { it.id == proxyEntity.id }) {
+            tagOut += "-$index"
+        }
+
         // needGlobal: can only contain one?
         var needGlobal = false
 
@@ -1044,7 +1051,9 @@ private class ConfigBuild(
                     domain = groupNsDomains.toList()
                     server = dnsServer.tag
                     strategy = autoDnsDomainStrategy(SingBoxOptionsUtil.domainStrategy(dnsServer.tag))
-                    fallback = true
+                    // fallback 是 neko 补丁专有字段（原版 sing-box 对 DNS 规则
+                    // 禁未知字段，解析即硬错误），导出配置不能携带
+                    if (!forExport) fallback = true
                 }
             }
             // top priority DNS rules, in server order

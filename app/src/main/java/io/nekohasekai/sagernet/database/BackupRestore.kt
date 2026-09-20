@@ -157,21 +157,17 @@ object BackupRestore {
                     val merged = mergeSettings(settings, dao.all(), rules != null)
                     dao.reset()
                     dao.insert(merged)
-                    // Imported selections may reference rows that do not exist here (e.g.
-                    // a settings-only import): currentGroupId() trusts any positive value
-                    // and the configuration page would stay blank; the service would try
-                    // to start a missing profile.
-                    if (DataStore.selectedGroup > 0L &&
-                        SagerDatabase.groupDao.getById(DataStore.selectedGroup) == null
-                    ) {
-                        GroupManager.resetSelectedGroup()
-                    }
-                    if (DataStore.selectedProxy > 0L &&
-                        SagerDatabase.proxyDao.getById(DataStore.selectedProxy) == null
-                    ) {
-                        DataStore.selectedProxy = 0L
-                    }
+                    fixDanglingSelections()
                 }
+            } else if (profiles != null) {
+                // profiles-only 导入同样整表替换了分组与节点，本地选择可能悬挂
+                fixDanglingSelections()
+            }
+            if (rules != null && settings == null) {
+                // rules 表已被导入内容整表替换（权威状态）；旗标留在 false 会让
+                // getRules() 把默认规则再追加一遍。settings 一并导入时旗标随
+                // mergeSettings 走，不在此处理
+                DataStore.rulesFirstCreate = true
             }
             journal?.clear()
         } catch (failure: Throwable) {
@@ -188,6 +184,31 @@ object BackupRestore {
                 journal?.clear()
             }
             throw failure
+        }
+    }
+
+    // Imported selections may reference rows that do not exist here (e.g. a
+    // settings-only or profiles-only import): currentGroupId() trusts any
+    // positive value and the configuration page would stay blank; the service
+    // would try to start a missing profile.
+    // selectedGroup 必须裸读而不是走委托属性：属性的惰性默认值是
+    // GroupManager.currentGroupId()，键缺失时会一路走到
+    // createInitialGroup() → RestoreJournal 文件锁，而启动重放路径
+    // （completePending）正持着同一把锁——同进程重叠加锁直接抛
+    // OverlappingFileLockException，恢复因此注定失败；交互导入路径则会在
+    // PublicDatabase 事务内等文件锁，与持锁等写库的 :bg 互相死等。此处惰性
+    // 默认值本就无意义：紧接着的 dangling 分支会 resetSelectedGroup()。
+    private fun fixDanglingSelections() {
+        val selectedGroup = DataStore.configurationStore.getLong(Key.PROFILE_GROUP, -1)
+        if (selectedGroup > 0L &&
+            SagerDatabase.groupDao.getById(selectedGroup) == null
+        ) {
+            GroupManager.resetSelectedGroup()
+        }
+        if (DataStore.selectedProxy > 0L &&
+            SagerDatabase.proxyDao.getById(DataStore.selectedProxy) == null
+        ) {
+            DataStore.selectedProxy = 0L
         }
     }
 }

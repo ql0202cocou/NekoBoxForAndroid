@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.fmt.shadowsocks
 import io.nekohasekai.sagernet.ktx.*
 import moe.matsuri.nb4a.SingBoxOptions
 import moe.matsuri.nb4a.utils.Util
+import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.json.JSONObject
 
@@ -10,6 +11,16 @@ fun ShadowsocksBean.fixPluginName() {
     if (plugin.startsWith("simple-obfs")) {
         plugin = plugin.replaceFirst("simple-obfs", "obfs-local")
     }
+}
+
+// parseShadowsocks 三个分支共用的查询串部分。整体 base64 的 v2rayN 变体把
+// ?plugin= / ?uot= 一起编码在内，静默丢掉即成无混淆的死节点 / UDP 静默直连
+private fun ShadowsocksBean.applySsQuery(link: HttpUrl) {
+    plugin = link.queryParameter("plugin") ?: ""
+    link.queryParameter("uot")?.let {
+        if (it == "1" || it == "true") sUoT = true
+    }
+    fixPluginName()
 }
 
 // Error messages carry no link on purpose: they end up in neko.log, and the
@@ -41,12 +52,8 @@ fun parseShadowsocks(url: String): ShadowsocksBean {
                 serverPort = link.port
                 method = link.username
                 password = link.password
-                plugin = link.queryParameter("plugin") ?: ""
-                link.queryParameter("uot")?.let {
-                    if (it == "1" || it == "true") sUoT = true
-                }
                 name = link.fragment
-                fixPluginName()
+                applySsQuery(link)
             }
         }
 
@@ -58,12 +65,8 @@ fun parseShadowsocks(url: String): ShadowsocksBean {
             serverPort = link.port
             method = methodAndPswd.substringBefore(":")
             password = methodAndPswd.substringAfter(":")
-            plugin = link.queryParameter("plugin") ?: ""
-            link.queryParameter("uot")?.let {
-                if (it == "1" || it == "true") sUoT = true
-            }
             name = link.fragment
-            fixPluginName()
+            applySsQuery(link)
         }
     } else {
         // v2rayN style
@@ -79,9 +82,10 @@ fun parseShadowsocks(url: String): ShadowsocksBean {
             serverPort = link.port
             method = link.username
             password = link.password
-            plugin = ""
+            // 整段 base64 里没有 "#"，备注只能从原始 url 上取
             val remarks = url.substringAfter("#", "").unUrlSafe()
             if (remarks.isNotBlank()) name = remarks
+            applySsQuery(link)
         }
     }
 

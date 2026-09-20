@@ -39,6 +39,9 @@ class TileService : BaseTileService(), SagerConnection.Callback {
     }
 
     override fun onStopListening() {
+        // 本次监听会话里没等到的 tap 不能留到下次 bind 成功时补发：
+        // 那会在用户无操作的时刻启停 VPN
+        tapPending = false
         connection.disconnect(this)
         super.onStopListening()
     }

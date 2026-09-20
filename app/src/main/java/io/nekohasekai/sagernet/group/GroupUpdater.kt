@@ -178,6 +178,15 @@ abstract class GroupUpdater {
                         } catch (e: CancellationException) {
                             // don't swallow cancellation (nor report it as a failure)
                             throw e
+                        } catch (e: SubscriptionFoundException) {
+                            // 订阅内容本身是订阅导入链接（clash://install-config /
+                            // sn://subscription），该异常没有 message，直接展示会
+                            // 退化成裸类名，换成本地化提示
+                            Logs.w(e)
+                            userInterface?.onUpdateFailure(
+                                proxyGroup, app.getString(R.string.subscription_is_link)
+                            )
+                            false
                         } catch (e: Throwable) {
                             Logs.w(e)
                             userInterface?.onUpdateFailure(proxyGroup, e.readableMessage)

@@ -32,7 +32,9 @@ class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentS
         runOnDefaultDispatcher {
             var newGroupList = ArrayList(SagerDatabase.groupDao.allGroups())
             if (newGroupList.isEmpty()) {
-                SagerDatabase.groupDao.createGroup(ProxyGroup(ungrouped = true))
+                // 走 GroupManager 的锁内双检创建：直接写 DAO 时，并发 reload 或与
+                // :bg 的 currentGroup() 竞争会落出两个 ungrouped 分组
+                GroupManager.currentGroup()
                 newGroupList = ArrayList(SagerDatabase.groupDao.allGroups())
             }
             newGroupList.find { it.ungrouped }?.let {

@@ -3,13 +3,11 @@ package io.nekohasekai.sagernet.fmt.tuic
 import io.nekohasekai.sagernet.fmt.buildSingBoxOutboundTLS
 import io.nekohasekai.sagernet.ktx.linkBuilder
 import io.nekohasekai.sagernet.ktx.toLink
+import io.nekohasekai.sagernet.ktx.uuidRegex
 import io.nekohasekai.sagernet.ktx.urlSafe
 import io.nekohasekai.sagernet.ktx.withHttpScheme
 import moe.matsuri.nb4a.SingBoxOptions
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-
-private val tuicUuidRegex =
-    Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 
 fun parseTuic(url: String): TuicBean {
     // https://github.com/daeuniverse/dae/discussions/182
@@ -33,7 +31,7 @@ fun parseTuic(url: String): TuicBean {
         } else {
             // a v4 link carries only a token in the userinfo, while a v5 uuid
             // is a standard UUID; without it the link cannot be a valid v5 node
-            if (rawPass.isEmpty() && !rawUser.matches(tuicUuidRegex)) {
+            if (rawPass.isEmpty() && !rawUser.matches(uuidRegex)) {
                 error("TUIC v4 link (token only) is not supported")
             }
             uuid = rawUser

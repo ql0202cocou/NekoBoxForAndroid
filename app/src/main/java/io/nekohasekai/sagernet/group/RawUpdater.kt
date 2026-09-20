@@ -277,12 +277,6 @@ object RawUpdater : GroupUpdater() {
             }
             // 被删节点可能是其他分组的 frontProxy/landingProxy，清理悬挂引用
             if (toDelete.isNotEmpty()) GroupManager.resetDanglingGroupProxies()
-            // 被撤下的也可能是当前活动节点：不清掉选择的话，下次 reload 时
-            // ProfileManager.getProfile(selectedProxy) 返回 null，VPN 静默停止
-            // （与 ProfileManager.deleteProfileRow / GroupManager.clearGroup 相同处理）
-            if (toDelete.any { it.id == DataStore.selectedProxy }) {
-                DataStore.selectedProxy = 0L
-            }
 
             val existCount = SagerDatabase.proxyDao.countByGroup(proxyGroup.id).toInt()
 
@@ -312,6 +306,15 @@ object RawUpdater : GroupUpdater() {
                 }
                 SagerDatabase.groupDao.updateGroup(current)
             }
+        }
+        // DataStore 写的是 PublicDatabase（独立库文件），不加入上面的
+        // SagerDatabase 事务；挪到事务成功后执行，避免回滚留下「选择已清、
+        // 节点未删」的中间态。语义同 ProfileManager.deleteProfileRow /
+        // GroupManager.clearGroup：不清掉的话下次 reload 时
+        // ProfileManager.getProfile(selectedProxy) 返回 null，VPN 静默停止
+        val selectedProxy = DataStore.selectedProxy
+        if (toDelete.any { it.id == selectedProxy }) {
+            DataStore.selectedProxy = 0L
         }
         userInterface?.onUpdateSuccess(
             proxyGroup, changed, added, updated, deleted, duplicate, byUser

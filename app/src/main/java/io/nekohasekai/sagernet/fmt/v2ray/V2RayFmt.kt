@@ -14,9 +14,6 @@ import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.json.JSONObject
 
-private val uuidRegex =
-    Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
-
 data class VmessQRCode(
     var v: String = "",
     var ps: String = "",
@@ -323,6 +320,12 @@ private fun tryResolveVmess4Kitsunebi(server: String): VMessBean {
         serverPort = NGUtil.parseInt(arr22[1])
         uuid = arr21[1]
         encryption = arr21[0]
+        // 与 parseV2Ray 的 std 兜底同一层最小校验：畸形链接不该导入成必坏节点
+        if (serverPort !in 1..65535 || serverAddress.isBlank() ||
+            !uuid.matches(uuidRegex)
+        ) {
+            error("invalid kitsunebi vmess link")
+        }
         if (indexSplit < 0) return@apply
 
         val url = ("https://localhost/path?" + server.substringAfter("?")).toHttpUrl()

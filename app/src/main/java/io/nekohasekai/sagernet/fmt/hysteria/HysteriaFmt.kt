@@ -23,6 +23,10 @@ fun parseHysteria1(url: String): HysteriaBean {
         name = link.fragment
 
         link.queryParameter("mport")?.also {
+            // 入口校验（与 clash 的 checkClashPort 一致）：畸形端口串留到
+            // toUri / 构建期才炸，分组导出路径没有兜底。parseHysteriaPorts
+            // 自己 require() 出具体原因，调用方按坏节点跳过
+            parseHysteriaPorts(it)
             serverPorts = it
         }
         link.queryParameter("peer")?.also {
@@ -94,6 +98,10 @@ fun parseHysteria2(url: String): HysteriaBean {
         name = link.fragment
 
         link.queryParameter("mport")?.also {
+            // 入口校验（与 clash 的 checkClashPort 一致）：畸形端口串留到
+            // toUri / 构建期才炸，分组导出路径没有兜底。parseHysteriaPorts
+            // 自己 require() 出具体原因，调用方按坏节点跳过
+            parseHysteriaPorts(it)
             serverPorts = it
         }
         link.queryParameter("sni")?.also {
@@ -232,6 +240,8 @@ fun JSONObject.parseHysteria1Json(): HysteriaBean {
         }
         serverAddress = host
         serverPorts = portText?.ifBlank { null } ?: "443"
+        // 与链接入口一致：端口文本先过一遍解析，畸形值按坏节点跳过
+        parseHysteriaPorts(serverPorts)
         uploadMbps = getIntNya("up_mbps")
         downloadMbps = getIntNya("down_mbps")
         obfuscation = getStr("obfs")
@@ -261,7 +271,10 @@ fun JSONObject.parseHysteria1Json(): HysteriaBean {
         streamReceiveWindow = getIntNya("recv_window_conn")
         connectionReceiveWindow = getIntNya("recv_window")
         disableMtuDiscovery = getBool("disable_mtu_discovery")
-    }
+        // JSON 订阅分支从 RawUpdaterJson 早返回，绕过了那里的
+        // initializeDefaultValues：auth/protocol 等字段缺省保持 null，会在
+        // 去重比较与入库序列化时空拆箱。与 parseHysteria2Json 对齐补上
+    }.applyDefaultValues()
 }
 
 // sing-box hysteria2 outbound:
@@ -284,6 +297,8 @@ fun JSONObject.parseHysteria2Json(): HysteriaBean {
         getIntNya("server_port")?.also {
             serverPorts = it.toString()
         }
+        // 与链接入口一致：端口文本先过一遍解析，畸形值按坏节点跳过
+        parseHysteriaPorts(serverPorts)
         // sing-box spells hopping ranges "first:last"; the shared parser keeps
         // the bean's hysteria form, the same normalization as clash "ports"
         optJSONArray("server_ports")?.also { ranges ->

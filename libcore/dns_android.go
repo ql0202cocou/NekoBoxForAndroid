@@ -35,6 +35,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -97,6 +98,13 @@ func init() {
 	callAndroidResCancel := func(fd int) {
 		C.call_android_res_cancel(androidResCancelSym, C.int(fd))
 	}
+
+	// 65535 是 DNS 消息长度上限：缓冲不足时超大响应会被 bionic 截断。每次
+	// 查询都新分配 64 KiB 会把 VPN 期间的每条解析都推上大对象分配路径，故池化
+	dnsResponsePool := &sync.Pool{New: func() any {
+		buf := make([]byte, 65535)
+		return &buf
+	}}
 
 	// set rawQueryFunc
 	rawQueryFunc = func(ctx context.Context, networkHandle int64, request []byte) ([]byte, error) {
@@ -161,9 +169,9 @@ func init() {
 
 		// read response into buffer; nresult closes fd
 		settled = true
-		// 65535 是 DNS 消息长度上限：缓冲不足时超大响应会被 bionic 截断
-		response := make([]byte, 65535)
-		rcode, n := callAndroidResNResult(fd, response)
+		buf := dnsResponsePool.Get().(*[]byte)
+		defer dnsResponsePool.Put(buf)
+		rcode, n := callAndroidResNResult(fd, *buf)
 		if n < 0 {
 			return nil, unix.Errno(-n)
 		}
@@ -174,6 +182,7 @@ func init() {
 			}
 			return nil, os.ErrInvalid
 		}
-		return response[:n], nil
+		// 只把实到的字节交出去：返回 buf 的子切片会让整块 64 KiB 随响应存活
+		return append([]byte(nil), (*buf)[:n]...), nil
 	}
 }

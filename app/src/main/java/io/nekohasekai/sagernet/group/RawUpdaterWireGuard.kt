@@ -43,7 +43,7 @@ fun parseWireGuard(conf: String): List<WireGuardBean> {
             continue
         }
         peerBean.serverAddress = host
-        peerBean.serverPort = portText?.toIntOrNull() ?: continue
+        peerBean.serverPort = portText?.toIntOrNull()?.takeIf { it in 1..65535 } ?: continue
         peerBean.peerPublicKey = peer["PublicKey"] ?: continue
         peerBean.peerPreSharedKey = peer["PresharedKey"]
         peerBean.peerKeepalive = peer["PersistentKeepalive"]?.toIntOrNull() ?: 0

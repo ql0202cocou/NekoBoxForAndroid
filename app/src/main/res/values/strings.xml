@@ -241,6 +241,7 @@
     <string name="error_title">Error</string>
     <string name="no_proxies_found">No proxies found in the link</string>
     <string name="no_proxies_found_in_subscription">No proxies found in the subscription</string>
+    <string name="subscription_is_link">The subscription content is itself a subscription link and cannot be updated</string>
     <string name="no_proxies_found_in_file">No proxies found in the file</string>
     <string name="no_proxies_found_in_clipboard">No proxies found in the clipboard</string>
     <string name="deduplication">Deduplication</string>

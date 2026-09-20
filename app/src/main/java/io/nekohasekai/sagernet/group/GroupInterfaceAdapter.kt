@@ -17,42 +17,46 @@ import kotlin.coroutines.Continuation
 
 class GroupInterfaceAdapter(val context: ThemedActivity) : GroupManager.Interface {
 
-    override suspend fun confirm(message: String): Boolean {
-        return suspendCancellableCoroutine { c ->
-            // CancellableContinuation hides the ktx tryResume extension behind
-            // its internal member; view it as a plain Continuation instead.
-            val cont = c as Continuation<Boolean>
-            runOnMainDispatcher {
-                if (context.isFinishing || context.isDestroyed) {
-                    cont.tryResume(false)
-                    return@runOnMainDispatcher
-                }
-                // observer 必须在每条恢复路径上摘掉，否则每弹一次窗就泄漏一个。
-                // 按钮点击也会触发 dismiss，正常路径统一走 OnDismissListener；
-                // activity 销毁时 onDismiss 不会回调，由 onDestroy 自注销兜底
-                val observer = object : DefaultLifecycleObserver {
-                    override fun onDestroy(owner: LifecycleOwner) {
-                        owner.lifecycle.removeObserver(this)
-                        cont.tryResume(false)
-                    }
-                }
-                context.lifecycle.addObserver(observer)
-                MaterialAlertDialogBuilder(context).setTitle(R.string.confirm)
-                    .setMessage(message)
-                    .setPositiveButton(R.string.yes) { _, _ -> cont.tryResume(true) }
-                    .setNegativeButton(R.string.no) { _, _ -> cont.tryResume(false) }
-                    // Buttons dismiss the dialog too; tryResume ignores the second call.
-                    // A dismissed dialog counts as refusal.
-                    .setOnDismissListener { _ ->
-                        context.lifecycle.removeObserver(observer)
-                        cont.tryResume(false)
-                    }
-                    .show()
-                // onDismiss is NOT fired when the activity is destroyed (the dialog
-                // just leaks its window), so resume on ON_DESTROY as well, or the
-                // coroutine would hang forever with the group's updating lock held.
+    // 弹窗的生命周期样板：activity 已死则立刻按 dismissValue 恢复；否则挂
+    // observer 后弹窗，按钮点击也会触发 dismiss，正常路径统一走
+    // OnDismissListener 摘 observer 并恢复（tryResume 忽略第二次）。activity
+    // 销毁时 onDismiss 不回调（窗口直接泄漏），不靠 observer 兜底的话协程会
+    // 攥着分组的 updating 锁永远挂住；observer 必须在每条恢复路径上摘掉，
+    // 否则每弹一次窗就泄漏一个
+    private suspend fun <T> showDialog(
+        dismissValue: T,
+        configure: MaterialAlertDialogBuilder.(Continuation<T>) -> MaterialAlertDialogBuilder,
+    ): T = suspendCancellableCoroutine { c ->
+        // CancellableContinuation hides the ktx tryResume extension behind
+        // its internal member; view it as a plain Continuation instead.
+        @Suppress("UNCHECKED_CAST") val cont = c as Continuation<T>
+        runOnMainDispatcher {
+            if (context.isFinishing || context.isDestroyed) {
+                cont.tryResume(dismissValue)
+                return@runOnMainDispatcher
             }
+            val observer = object : DefaultLifecycleObserver {
+                override fun onDestroy(owner: LifecycleOwner) {
+                    owner.lifecycle.removeObserver(this)
+                    cont.tryResume(dismissValue)
+                }
+            }
+            context.lifecycle.addObserver(observer)
+            MaterialAlertDialogBuilder(context).configure(cont)
+                .setOnDismissListener { _ ->
+                    context.lifecycle.removeObserver(observer)
+                    cont.tryResume(dismissValue)
+                }
+                .show()
         }
+    }
+
+    // A dismissed dialog counts as refusal.
+    override suspend fun confirm(message: String): Boolean = showDialog(false) { cont ->
+        setTitle(R.string.confirm)
+            .setMessage(message)
+            .setPositiveButton(R.string.yes) { _, _ -> cont.tryResume(true) }
+            .setNegativeButton(R.string.no) { _, _ -> cont.tryResume(false) }
     }
 
     override suspend fun onUpdateSuccess(
@@ -98,8 +102,10 @@ class GroupInterfaceAdapter(val context: ThemedActivity) : GroupManager.Interfac
             )
         }
 
-        onMainDispatcher {
-            if (context.isFinishing || context.isDestroyed) return@onMainDispatcher
+        // 用 launch 而不是挂起调用方：snackbar 后的 1 秒延迟和弹窗不该占用
+        // 订阅更新的分组锁（executeUpdate 的 finally 要等本回调返回才释放）
+        runOnMainDispatcher {
+            if (context.isFinishing || context.isDestroyed) return@runOnMainDispatcher
             context.snackbar(
                 context.getString(R.string.group_updated, group.name, changed)
             ).show()
@@ -107,7 +113,7 @@ class GroupInterfaceAdapter(val context: ThemedActivity) : GroupManager.Interfac
 
             // Showing a dialog on a destroyed activity throws BadTokenException;
             // don't let it bubble up and misreport the successful update as failed.
-            if (context.isFinishing || context.isDestroyed) return@onMainDispatcher
+            if (context.isFinishing || context.isDestroyed) return@runOnMainDispatcher
             runCatching {
                 MaterialAlertDialogBuilder(context).setTitle(
                     context.getString(R.string.group_diff, group.displayName())
@@ -124,32 +130,10 @@ class GroupInterfaceAdapter(val context: ThemedActivity) : GroupManager.Interfac
         }
     }
 
-    override suspend fun alert(message: String) {
-        return suspendCancellableCoroutine { c ->
-            val cont = c as Continuation<Unit>
-            runOnMainDispatcher {
-                if (context.isFinishing || context.isDestroyed) {
-                    cont.tryResume(Unit)
-                    return@runOnMainDispatcher
-                }
-                // 同 confirm()：正常路径由 dismiss 摘掉 observer，onDestroy 自注销兜底
-                val observer = object : DefaultLifecycleObserver {
-                    override fun onDestroy(owner: LifecycleOwner) {
-                        owner.lifecycle.removeObserver(this)
-                        cont.tryResume(Unit)
-                    }
-                }
-                context.lifecycle.addObserver(observer)
-                MaterialAlertDialogBuilder(context).setTitle(R.string.ooc_warning)
-                    .setMessage(message)
-                    .setPositiveButton(android.R.string.ok) { _, _ -> cont.tryResume(Unit) }
-                    .setOnDismissListener { _ ->
-                        context.lifecycle.removeObserver(observer)
-                        cont.tryResume(Unit)
-                    }
-                    .show()
-            }
-        }
+    override suspend fun alert(message: String) = showDialog(Unit) { cont ->
+        setTitle(R.string.ooc_warning)
+            .setMessage(message)
+            .setPositiveButton(android.R.string.ok) { _, _ -> cont.tryResume(Unit) }
     }
 
 }

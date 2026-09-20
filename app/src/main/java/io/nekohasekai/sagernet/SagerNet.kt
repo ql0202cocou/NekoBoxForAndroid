@@ -80,11 +80,13 @@ class SagerNet : Application(),
             // Finish a restore interrupted between its two database commits before
             // anything reads either database; the same lock then settles the
             // per-install marker so both processes agree on the Clash secret.
+            var restoreReplayed = false
             try {
                 val journal = RestoreJournal.default
                 val result = journal.completePending { content, profile, rule, setting ->
                     BackupRestore.commit(BackupRestore.decode(content, profile, rule, setting), null)
                 }
+                restoreReplayed = result == RestoreJournal.Result.REPLAYED
                 if (result == RestoreJournal.Result.GAVE_UP && isMainProcess) {
                     Toast.makeText(this, R.string.restore_replay_failed, Toast.LENGTH_LONG).show()
                 }
@@ -113,6 +115,19 @@ class SagerNet : Application(),
 
             // both processes edit groups: the UI here, GroupUpdater in :bg
             GroupManager.addListener(SubscriptionUpdater)
+
+            // 恢复重放直接写库、绕过 GroupManager 事件：分组集合可能已变
+            // （新增或删光了自动更新订阅），在此补一次调度重排
+            if (restoreReplayed) runOnDefaultDispatcher {
+                SubscriptionUpdater.reconfigureUpdater()
+            }
+
+            // 渠道创建一次即被系统持久化，但全新安装/云恢复后 :bg 可能先于主
+            // 进程运行（开机广播、添加 QS tile 都不经过主进程），渠道缺失时
+            // 订阅更新进度与 FGS 通知会被系统静默丢弃。:bg 要在 onStartCommand
+            // 可能发通知之前建好，只能同步做；主进程仍走下面那次异步调用，
+            // 不往冷启动关键路径上加 binder 往返
+            if (isBgProcess) updateNotificationChannels()
 
             runOnDefaultDispatcher {
                 PackageCache.register()

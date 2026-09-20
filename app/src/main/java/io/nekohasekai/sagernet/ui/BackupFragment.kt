@@ -18,6 +18,7 @@ import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.bg.Executable
+import io.nekohasekai.sagernet.bg.SubscriptionUpdater
 import io.nekohasekai.sagernet.database.*
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
 import io.nekohasekai.sagernet.databinding.LayoutBackupBinding
@@ -255,6 +256,9 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                                     ).show()
                                 }
                             }
+                            // 恢复绕过 GroupManager 事件，重启也不会重排持久化的
+                            // WorkManager 任务：导入后按新的分组集合重排一次订阅调度
+                            SubscriptionUpdater.reconfigureUpdater()
                             triggerFullRestart(app)
                         }.onFailure {
                             Logs.w(it)

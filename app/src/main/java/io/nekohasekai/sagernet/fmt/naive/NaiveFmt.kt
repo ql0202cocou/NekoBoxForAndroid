@@ -8,6 +8,9 @@ import org.json.JSONObject
 
 fun parseNaive(link: String): NaiveBean {
     val proto = link.substringAfter("+").substringBefore(":")
+    // proto 只有 https/quic 两个合法值；其余 scheme（包括不带 "+proto" 的
+    // 写法）导入即成死节点，入口直接拒绝
+    if (proto != "https" && proto != "quic") error("unsupported naive proto: $proto")
     val url = link.withHttpScheme().toHttpUrlOrNull()
         ?: error("Invalid naive link: $link")
     return NaiveBean().also {
@@ -29,11 +32,12 @@ fun parseNaive(link: String): NaiveBean {
     }
 }
 
-fun NaiveBean.toUri(proxyOnly: Boolean = false, proxyHost: String = finalAddress): String {
-    // finalAddress/finalPort 是 transient，配置构建时会被改写（映射地址、SNI），
-    // 所以分享链接必须用 serverAddress/serverPort；proxyOnly 时由调用方传入
-    // 构建期的局部地址，避免把改写写回 bean
-    val builder = if (proxyOnly) {
+// proxyHost 非 null 即「本地 naive 进程要连的上游地址」：finalAddress/finalPort
+// 是 transient，配置构建时会被改写（映射地址、SNI），所以分享链接必须用
+// serverAddress/serverPort，构建期的局部地址由调用方显式传入，不给「忘了传」
+// 留一个默认读 bean 的后门
+fun NaiveBean.toUri(proxyHost: String? = null): String {
+    val builder = if (proxyHost != null) {
         linkBuilder().host(proxyHost).port(finalPort)
     } else {
         linkBuilder().host(serverAddress).port(serverPort)
@@ -44,7 +48,7 @@ fun NaiveBean.toUri(proxyOnly: Boolean = false, proxyHost: String = finalAddress
             builder.password(password)
         }
     }
-    if (!proxyOnly) {
+    if (proxyHost == null) {
         if (sni.isNotBlank()) {
             builder.addQueryParameter("sni", sni)
         }
@@ -64,7 +68,7 @@ fun NaiveBean.toUri(proxyOnly: Boolean = false, proxyHost: String = finalAddress
             builder.addQueryParameter("insecure-concurrency", "$insecureConcurrency")
         }
     }
-    return builder.toLink(if (proxyOnly) proto else "naive+$proto", false)
+    return builder.toLink(if (proxyHost != null) proto else "naive+$proto", false)
 }
 
 fun NaiveBean.buildNaiveConfig(port: Int): String {
@@ -91,7 +95,7 @@ fun NaiveBean.buildNaiveConfig(port: Int): String {
         }
 
         put("listen", "socks://$LOCALHOST:$port")
-        put("proxy", toUri(true, address))
+        put("proxy", toUri(address))
         if (extraHeaders.isNotBlank()) {
             put("extra-headers", extraHeaders.split("\n").joinToString("\r\n"))
         }

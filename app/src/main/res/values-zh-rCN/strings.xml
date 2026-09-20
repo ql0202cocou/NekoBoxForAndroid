@@ -279,6 +279,7 @@
     <string name="profile_import">导入配置</string>
     <string name="profile_import_message">确认要导入配置 %s？</string>
     <string name="no_proxies_found_in_subscription">未在此订阅内找到服务器配置</string>
+    <string name="subscription_is_link">订阅内容本身是另一个订阅链接，无法更新</string>
     <string name="action_export">导出</string>
     <string name="clear_profiles_message">您确定要清空该分组吗\?</string>
     <string name="remote_dns">远程 DNS</string>

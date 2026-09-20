@@ -149,16 +149,26 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         outState.putLong(KEY_SELECTED_GROUP, selectedGroupId)
     }
 
+    // 库里可能还留着入口校验加固前导入的坏节点：一个节点的 toStdLink 抛异常
+    // 不该让整组导出崩溃主进程。返回 null 表示失败已经提示过
+    private suspend fun stdLinksOfGroup(groupId: Long): String? = runCatching {
+        ProfileRepository.getProfilesByGroup(groupId)
+            .filter { it.haveLink() }.joinToString("\n") { it.toStdLink() }
+    }.getOrElse {
+        Logs.w(it)
+        onMainDispatcher { snackbar(it.readableMessage).show() }
+        null
+    }
+
     private val exportProfiles =
         registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { data ->
             if (data != null) {
                 val groupId = selectedGroupId
                 runOnDefaultDispatcher {
-                    val profiles = ProfileRepository.getProfilesByGroup(groupId)
+                    val links = stdLinksOfGroup(groupId) ?: return@runOnDefaultDispatcher
                     // writeToDocument refuses a blank export instead of truncating
                     // the picked file: a group with no shareable node writes nothing
-                    writeToDocument(data, profiles.filter { it.haveLink() }
-                        .joinToString("\n") { it.toStdLink() })
+                    writeToDocument(data, links)
                 }
             }
         }
@@ -362,9 +372,8 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
 
                 R.id.action_export_clipboard -> {
                     runOnDefaultDispatcher {
-                        val profiles = ProfileRepository.getProfilesByGroup(proxyGroup.id)
-                        val links = profiles.filter { it.haveLink() }
-                            .joinToString("\n") { it.toStdLink() }
+                        val links = stdLinksOfGroup(proxyGroup.id)
+                            ?: return@runOnDefaultDispatcher
                         onMainDispatcher {
                             SagerNet.trySetPrimaryClip(links)
                             snackbar(getString(androidx.browser.R.string.copy_toast_msg)).show()
