@@ -5,7 +5,8 @@
 > 验证：`app:compileOssDebugKotlin` + `app:testOssDebugUnitTest` +
 > `app:lintOssRelease` 全绿；libcore `go vet` / `go test -checklinkname=0` /
 > sing-box 受影响包测试 / `check_versions` 全绿（sing-box 补丁集随之升为
-> `1.14.1-neko-2`，引用点已同步）。
+> `1.14.1-neko-2`，引用点已同步）。修复后经 `/simplify` 复审（复用 / 简化 /
+> 效率 / 层次四角度），修复记录已按复审后的最终形态更正。
 
 - 日期：2026-09-20，基于 main 工作区（cc83b64 附近）。
 - 范围：libcore 全部（顶层 Go API、sing-box neko 补丁面、libneko/stun/ech/device/procfs）+ app 的 `bg/`（含 `bg/proto/`）与 `group/` 订阅更新。
@@ -89,40 +90,66 @@
 
 ## 修复记录（2026-09-20，与发现编号对应）
 
-- **M1**：`BaseService.Data` 新增主线程 confined 的 `pendingStart`；`onStartCommand`
-  在 Stopping 时置位，`stopRunner` 尾部在 `changeState(Stopped)` 后消费并与
-  `restart` 合并重放 `startRunner()`；正常启动路径防御性清零。
-- **M2**：`uniquifyNames` 改 `HashMap<名字, 下一序号>` 一次遍历 O(n)，语义与原版
-  逐项对拍一致（含节点本名带 " (1)" 的情形）；未采纳「先去重再 uniquify」（会
-  改变 duplicate 报告语义，超出最小修复）。
-- **低 1**：`BoxInstance.close()` 改 try/finally，`box.close()` 进 finally，
-  `processes.close()` 异常时补 `deleteCacheFiles()`；`killProcesses` 的
-  `it.close()` 包 runCatching（与 destroyRunner 对齐）。
-- **低 2**：`SubscriptionUpdater` 新增 `reconfigureSafely()`（CancellationException
-  重抛，其余 Throwable 记日志），三个 listener override 改走它。
-- **低 3**：`GuardedProcessPool` 池 Job 改 SupervisorJob + looper 体逐迭代
-  catch Exception（CE/IOException 维持原语义）。
-- **低 4**：`TrafficLooper.loop` 循环体 catch Exception 记日志 + 补 delay 防空转。
+- **M1**：`BaseService.Data` 新增主线程 confined 的 `pendingStart`，是停止期间
+  启动意图的唯一载体：`stopRunner(restart)` 入口先把 `restart` 记进去再做
+  Stopping 判重（已在 Stopping 时只留意图），`onStartCommand` 与 `reload()` 在
+  Stopping 时同样置位，尾部 `changeState(Stopped)` 后读取并清零、重放
+  `startRunner()`。无防御性清零（不变式保证进入 Stopped 前已消费）。
+- **M2**：`uniquifyNames` 改原地改名（返回 Unit）：`HashSet` 记已占用名字 +
+  `HashMap<基础名, 下一序号>`，一次遍历 O(n)，语义与原版逐项对拍一致（含节点
+  本名带 " (1)" 的情形）；未采纳「先去重再 uniquify」（会改变 duplicate 报告
+  语义，超出最小修复）。
+- **低 1**：`BoxInstance.close()` 契约改为「从不抛出」：`processes.close()` 与
+  `box.close()` 各自 runCatching，前者失败则直接补 `deleteCacheFiles()`；
+  `killProcesses` / `destroyRunner` 因此不再各包一层 runCatching（TestInstance
+  的取消回调保留其 runCatching，那是取消回调自身的契约）。
+- **低 2**：兜底上提到 `GroupManager.iterator`：逐 listener try/catch（CE 重抛，
+  Exception 记日志），与 `DefaultNetworkListener.notifyListener` 同一策略，
+  覆盖全部 5 个 listener；`SubscriptionUpdater` 不再需要 `reconfigureSafely`。
+- **低 3**：`GuardedProcessPool` looper 外层 catch 从 IOException 放宽到
+  Exception（CE 先重抛），非 IO 异常包成 IOException 走既有 `onFatal →
+  stopRunner`。未用「逐迭代吞掉继续守护」——`start()` 失败后 continue 会让
+  guard 永远挂在 `exitChannel.receive()`；池 Job 保持 `Job()`（SupervisorJob
+  只影响兄弟取消，挡不住逃逸异常崩溃 :bg）。
+- **低 4**：`TrafficLooper.loop` 循环体抽成局部 `loopOnce()`，`while` 里
+  try/catch 一次（CE 重抛，Exception 记日志）后统一 `delay`，body 不再各处
+  重复 delay。
 - **低 5**：`persistStats` 包 `withTimeoutOrNull(3000)`。
-- **低 6/7/8/14**：`show()` destroyed 检查；`stateChanged` 用 `getOrElse` 回落
-  Stopped；`lastSelectorGroupId` 加 @Volatile；`ProxyInstance.close()` 中文注释
-  固化顺序契约。
-- **低 9**：系统 DNS 回退改 `lookupSystemDns()`：appScope 上异步 + 10s
-  `withTimeoutOrNull`（lint 冲突已用 `isCompleted` 规避）。
+- **低 6/7/8/14**：`destroyed` 检查统一进 `useBuilder`（同一把 buildLock），
+  `show()`/`update()` 不再各查一遍；字段声明提到 `init` 之前——主线程无协程
+  上下文时构造（onStartCommand 的三条错误路径）`runOnMainDispatcher` 会同步
+  执行 init 里的 `show()`，原先「在 show() 里查 destroyed」会在未初始化字段上
+  NPE。ordinal 解码收敛为 `State.fromOrdinal`（`stateChanged`、
+  `stateOrStopped`、MainActivity 三处共用）；`lastSelectorGroupId` 加
+  @Volatile；`ProxyInstance.close()` 中文注释固化顺序契约。
+- **低 9**：改 `lookupBlocking(domain, resolve)`：appScope 上异步 + 10s
+  `withTimeoutOrNull`，超时 `cancel()` 掉还没开跑的 lookup；系统解析器回退与
+  FakeDNS 的 `underlyingNetwork.getAllByName`（同样不可取消的阻塞 JNI）两条
+  路径共用（`cancel()` 触发的 lint MemberExtensionConflict 按 destroyRunner
+  先例 @Suppress）。
 - **低 10**：UpdateTask 加 `NetworkType.CONNECTED` 约束。
-- **低 11**：`showDialog` 加 `invokeOnCancellation` dismiss + 主线程分发前
-  `isCancelled` 守卫；`onUpdateSuccess` 名单截断前 50 条 + 「… 等 N 项」。
-- **低 12/13**：`deleteCacheFiles` 转 `Dispatchers.IO`；`launch()` 末尾补查
-  `isClosed()` 清理残留插件配置。
-- **低 15**：`NewHttpClient` 与 `NewSingBoxInstance` 一样等待 `assetsReady`。
+- **低 11**：`showDialog` 主线程分发前 `isCancelled` 守卫，`invokeOnCancellation`
+  在 `show()` 之后注册（已取消则立即回调），不再需要捕获可空 dialog 变量；
+  `onUpdateSuccess` 名单先 `take(50)` 再格式化，超出部分用字符串资源
+  `group_diff_more`（en / zh-rCN / zh-rTW / zh-rHK）折成一行。
+- **低 12/13**：`GuardedProcessPool.close(scope, onClosed)` 在 guard 全部退出后
+  于 scope 的调度器上执行回调，`BoxInstance.close` 传 `::deleteCacheFiles`，
+  线程由 scope 一处决定（原「invokeOnCompletion 在 Main 触发」的推理不成立：
+  返回的 Job 本就在 IO 上完成）；`launch()` 末尾补查 `isClosed()` 清理残留
+  插件配置。
+- **低 15**：`waitAssetsReady()` 抽成共用函数，`NewHttpClient` 与
+  `NewSingBoxInstance` 都走它。
 - **低 16**：`route.go` 两处 RLock 改闭包内 defer（临界区不变）。
 - **低 17**：`DialParallelInterface`/`ListenSerialInterfacePacket` 入口在
   `DoNotSelectInterface` 时直接回落普通拨号（而非置 nil strategy——会被
   `d.networkStrategy` 回读击穿）。
 - **低 18**：`StatsService()` nil 检查返回 nil interface。
 - **低 19**：neko_log 仅 `f != nil` 才入 writers；`InitCore` 记录 SetupLog 错误。
-- **低 20**：echTransport 拨号加 `Timeout: httpDialTimeout`。
-- **低 21**：`getOneFd` 在 `len(msgs) != 1` 分支遍历关闭已接收 fd。
+- **低 20**：`newHTTPDialer()` 供 `NewHttpClient` 与 echTransport 两处共用，
+  拨号超时由构造保证一致。
+- **低 21**：`getOneFd` 先收齐全部控制消息的 SCM_RIGHTS fd 再做唯一一次数量
+  校验，不对则 `closeFds` 全部关闭（合并原 `len(msgs) != 1` / `len(fds) != 1`
+  两分支）。
 - **低 22**：procfs 源地址 `Unmap()` 归一化后再判断 Is6。
 - **低 23**：`Sleep()`/`Wake()` 走 `lockIfOpen`。
 - **低 24**：TrySocks5 直连回退加中文注释说明语义（行为不变）。

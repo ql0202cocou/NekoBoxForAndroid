@@ -30,7 +30,6 @@ import com.google.common.util.concurrent.ListenableFuture
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -52,35 +51,23 @@ object SubscriptionUpdater : GroupManager.Listener {
             group.subscription?.takeIf { it.autoUpdate }?.let { group to it }
         }
 
+    // listener 路径上的排期失败（DB 读取、RemoteWorkManager binder 往返）由
+    // GroupManager.iterator 记日志吞掉：WorkManager 的任务是持久的，这次排不上
+    // 等下次分组事件再排即可
     suspend fun reconfigureUpdater() = schedulingMutex.withLock {
         reconfigureLocked()
     }
 
-    // 排期失败只在 listener 里记日志，不向调用方传播：DB 读取或
-    // RemoteWorkManager binder 往返抛出的异常会顺着 GroupManager 的
-    // listener 遍历传回 createGroup / updateGroup / deleteGroup 的 UI
-    // 调用方造成崩溃，而分组编辑本身已经落库；WorkManager 的任务是持久的，
-    // 这次排不上等下次分组事件再排即可
-    private suspend fun reconfigureSafely() {
-        try {
-            reconfigureUpdater()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Throwable) {
-            Logs.w(e)
-        }
-    }
-
     override suspend fun groupAdd(group: ProxyGroup) {
-        if (group.type == GroupType.SUBSCRIPTION) reconfigureSafely()
+        if (group.type == GroupType.SUBSCRIPTION) reconfigureUpdater()
     }
 
     override suspend fun groupUpdated(group: ProxyGroup) {
-        reconfigureSafely()
+        reconfigureUpdater()
     }
 
     override suspend fun groupRemoved(groupId: Long) {
-        reconfigureSafely()
+        reconfigureUpdater()
     }
 
     // a reload only, the row is unchanged

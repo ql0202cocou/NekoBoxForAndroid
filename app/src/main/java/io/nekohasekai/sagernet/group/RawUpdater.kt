@@ -106,31 +106,26 @@ object RawUpdater : GroupUpdater() {
         }
 
         // nameMap 以 displayName 为键，先保证唯一；forceResolve 把无名节点的
-        // 地址改写成 IP 后 displayName 可能再次撞名，resolve 后还要再跑一遍
-        fun uniquifyNames(list: List<AbstractBean>): List<AbstractBean> {
+        // 地址改写成 IP 后 displayName 可能再次撞名，resolve 后还要再跑一遍。
+        // 原地改名：首个同名节点名字不变，后续追加 " (1)"/" (2)" 后缀
+        fun uniquifyNames(list: List<AbstractBean>) {
             // 输入是不可信的订阅内容，同名节点逐个扫表查重是 O(n²)，几十万个
             // 同名节点会卡死更新任务（期间一直持有跨进程文件锁），这里用哈希表
-            // 做到 O(n)：首个同名节点名字不变，后续追加 " (1)"/" (2)" 后缀
-            // 名字 -> 下一个可用序号（1 表示名字本身已被占）
-            val used = HashMap<String, Int>()
+            // 做到 O(n)。只对改名后的新名字查重：节点本名里带 " (1)" 这类串时
+            // （"HK (1) Premium"）不会被当成序号剥掉
+            val taken = HashSet<String>()
+            val next = HashMap<String, Int>() // 基础名 -> 下一个要试的序号
             for (proxy in list) {
                 val base = proxy.displayName()
-                var index = used[base]
-                if (index == null) {
-                    used[base] = 1
-                    continue
-                }
-                // 只对改名后的新名字查重：节点本名里带 " (1)" 这类串时
-                // （"HK (1) Premium"）不会被当成序号剥掉
+                if (taken.add(base)) continue
+                var index = next[base] ?: 1
                 var name = "$base ($index)"
-                while (used.containsKey(name)) name = "$base (${++index})"
-                used[base] = index + 1
-                used[name] = 1
+                while (!taken.add(name)) name = "$base (${++index})"
+                next[base] = index + 1
                 proxy.name = name
             }
-            return list
         }
-        proxies = uniquifyNames(proxies)
+        uniquifyNames(proxies)
 
         val exists = SagerDatabase.proxyDao.getByGroup(proxyGroup.id)
         val duplicate = ArrayList<String>()
@@ -156,7 +151,7 @@ object RawUpdater : GroupUpdater() {
             forceResolve(proxies, proxyGroup.id, proxyGroup.proxyServerNameserver)
             // resolve 把无名节点的 displayName 改写成了 IP:port，撞名的要重新
             // 编号，否则下面 associateBy 会静默丢节点
-            proxies = uniquifyNames(proxies)
+            uniquifyNames(proxies)
         }
 
         Logs.d("New profiles: ${proxies.size}")

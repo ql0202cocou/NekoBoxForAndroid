@@ -40,18 +40,13 @@ type raceResult struct {
 // a server that accepts but never answers must not occupy the whole race
 // window.
 func (r *httpRequest) echTransport() *http.Transport {
+	// Plain http URLs never reach DialTLSContext; bound both dials like
+	// NewHttpClient does instead of falling back to the transport default.
+	dialer := newHTTPDialer()
 	return &http.Transport{
-		// Plain http URLs never reach DialTLSContext; bound their dial like
-		// NewHttpClient does instead of falling back to the transport default.
-		DialContext: (&net.Dialer{
-			Timeout:   httpDialTimeout,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
+		DialContext: dialer.DialContext,
 		DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			// 与 NewHttpClient 的拨号超时对齐（函数注释宣称 bounds mirror
-			// NewHttpClient）；实际还有 waitCtx/reqCtx 兜底
-			d := net.Dialer{Timeout: httpDialTimeout}
-			c, err := d.DialContext(ctx, network, addr)
+			c, err := dialer.DialContext(ctx, network, addr)
 			if err != nil {
 				return c, err
 			}

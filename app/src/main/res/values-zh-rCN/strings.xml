@@ -170,6 +170,7 @@
     <string name="alpn">应用层协议协商</string>
     <string name="group_duplicate">重复:
         \n%s</string>
+    <string name="group_diff_more">… 等 %d 项</string>
     <string name="deduplication">去重</string>
     <string name="version_x">版本 (%s)</string>
     <string name="ss_cat">Shadowsocks 设置</string>

@@ -2,7 +2,9 @@ package io.nekohasekai.sagernet.database
 
 import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.Key
+import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
+import kotlinx.coroutines.CancellationException
 import java.util.concurrent.CopyOnWriteArrayList
 
 object GroupManager {
@@ -36,8 +38,19 @@ object GroupManager {
     private val listeners = CopyOnWriteArrayList<Listener>()
     var userInterface: Interface? = null
 
+    // 单个 listener 失败只记日志：异常会顺着这里传回 createGroup / updateGroup /
+    // deleteGroup 的 UI 调用方造成崩溃，而分组编辑本身已经落库，也不该中断
+    // 其余 listener 的通知（与 DefaultNetworkListener.notifyListener 同一策略）
     suspend fun iterator(what: suspend Listener.() -> Unit) {
-        for (listener in listeners) what(listener)
+        for (listener in listeners) {
+            try {
+                what(listener)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Logs.w(e)
+            }
+        }
     }
 
     fun addListener(listener: Listener) {

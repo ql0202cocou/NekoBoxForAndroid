@@ -82,25 +82,26 @@ type httpClient struct {
 func NewHttpClient() HTTPClient {
 	defer device.DeferPanicToError("NewHttpClient", nil)
 
-	// 自定义 CA 由 InitCore 的后台 goroutine 异步加载，assetsReady 关闭才
-	// 代表就绪（见 nb4a.go）。NewSingBoxInstance 已等待它，但订阅更新等路径
-	// 在进程启动后立刻就会发 TLS 请求，可能抢在 CA 加载完成前校验证书，
-	// 这里同样等待（就绪窗口为毫秒级）
-	if ready := assetsReady.Load(); ready != nil {
-		<-*ready
-	}
+	// 自定义 CA 由 InitCore 的后台 goroutine 异步加载（见 assetsReady）：
+	// 订阅更新等路径在进程启动后立刻就会发 TLS 请求，可能抢在 CA 加载完成前
+	// 校验证书，这里同 NewSingBoxInstance 一样等待（主进程只等 CA 读取，
+	// 毫秒级；:bg 还会等 extractAssets，仅 APK 升级后首次启动时较长）
+	waitAssetsReady()
 
 	client := new(httpClient)
 	client.h1h2Client.Transport = &client.h1h2Transport
 	client.h1h2Client.Timeout = httpOverallTimeout
 	client.h1h2Transport.TLSClientConfig = &client.tls
 	client.h1h2Transport.DisableKeepAlives = true
-	client.h1h2Transport.DialContext = (&net.Dialer{
-		Timeout:   httpDialTimeout,
-		KeepAlive: 30 * time.Second,
-	}).DialContext
+	client.h1h2Transport.DialContext = newHTTPDialer().DialContext
 	client.h1h2Transport.ResponseHeaderTimeout = httpResponseHeaderTimeout
 	return client
+}
+
+// newHTTPDialer 是 NewHttpClient 与 echTransport 共用的拨号器，两处的拨号
+// 超时由此保持一致
+func newHTTPDialer() *net.Dialer {
+	return &net.Dialer{Timeout: httpDialTimeout, KeepAlive: 30 * time.Second}
 }
 
 // ModernTLS requires TLS 1.2 or later.

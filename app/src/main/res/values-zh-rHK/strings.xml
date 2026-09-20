@@ -58,6 +58,7 @@
     <string name="group_diff">變化 (%s)</string>
     <string name="group_duplicate">重複：
 \n%s</string>
+    <string name="group_diff_more">… 等 %d 項</string>
     <string name="general_settings">應用程式設定</string>
     <string name="cag_misc">其他設定</string>
     <string name="speed">%s/s</string>

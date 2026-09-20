@@ -1,6 +1,5 @@
 package io.nekohasekai.sagernet.group
 
-import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -32,14 +31,8 @@ class GroupInterfaceAdapter(val context: ThemedActivity) : GroupManager.Interfac
         // CancellableContinuation hides the ktx tryResume extension behind
         // its internal member; view it as a plain Continuation instead.
         @Suppress("UNCHECKED_CAST") val cont = c as Continuation<T>
-        // 取消回调跑在取消发生的线程上，dismiss 必须回主线程
-        var dialog: AlertDialog? = null
-        c.invokeOnCancellation {
-            runOnMainDispatcher { dialog?.dismiss() }
-        }
         runOnMainDispatcher {
-            // 取消可能赶在这次分发之前发生，那时弹窗还没创建，无需 dismiss
-            // （对已取消的协程 tryResume 是空操作）
+            // 已取消的协程 tryResume 是空操作，弹窗不用再建
             if (context.isFinishing || context.isDestroyed || c.isCancelled) {
                 cont.tryResume(dismissValue)
                 return@runOnMainDispatcher
@@ -51,12 +44,15 @@ class GroupInterfaceAdapter(val context: ThemedActivity) : GroupManager.Interfac
                 }
             }
             context.lifecycle.addObserver(observer)
-            dialog = MaterialAlertDialogBuilder(context).configure(cont)
+            val dialog = MaterialAlertDialogBuilder(context).configure(cont)
                 .setOnDismissListener { _ ->
                     context.lifecycle.removeObserver(observer)
                     cont.tryResume(dismissValue)
                 }
                 .show()
+            // 已取消时立即回调（弹窗刚建就拆）；取消回调跑在取消发生的线程上，
+            // dismiss 必须回主线程
+            c.invokeOnCancellation { runOnMainDispatcher { dialog.dismiss() } }
         }
     }
 
@@ -88,29 +84,38 @@ class GroupInterfaceAdapter(val context: ThemedActivity) : GroupManager.Interfac
             return
         }
 
-        // 每类名单只列前 50 条，超出的折成一行总数：数万节点的订阅首更
-        // 全量拼进单个对话框会让主线程渲染卡死
-        fun joinNames(names: List<String>): String {
-            if (names.size <= 50) return names.joinToString("\n", postfix = "\n\n")
-            return names.take(50).joinToString("\n", postfix = "\n") +
-                    "… 等 ${names.size} 项\n\n"
+        // 每类名单只列前 maxLines 条，超出的折成一行总数：数万节点的订阅首更
+        // 全量拼进单个对话框会让主线程渲染卡死。调用方先 take 再格式化，
+        // 不为只显示几十条而把全量名单都格式化一遍
+        val maxLines = 50
+        fun joinNames(total: Int, shown: List<String>): String {
+            val lines = if (total > shown.size) {
+                shown + context.getString(R.string.group_diff_more, total)
+            } else shown
+            return lines.joinToString("\n", postfix = "\n\n")
         }
 
         var status = ""
         if (added.isNotEmpty()) {
-            status += context.getString(R.string.group_added, joinNames(added))
+            status += context.getString(
+                R.string.group_added, joinNames(added.size, added.take(maxLines))
+            )
         }
         if (updated.isNotEmpty()) {
             status += context.getString(R.string.group_changed,
-                joinNames(updated.map {
+                joinNames(updated.size, updated.entries.take(maxLines).map {
                     if (it.key == it.value) it.key else "${it.key} => ${it.value}"
                 }))
         }
         if (deleted.isNotEmpty()) {
-            status += context.getString(R.string.group_deleted, joinNames(deleted))
+            status += context.getString(
+                R.string.group_deleted, joinNames(deleted.size, deleted.take(maxLines))
+            )
         }
         if (duplicate.isNotEmpty()) {
-            status += context.getString(R.string.group_duplicate, joinNames(duplicate))
+            status += context.getString(
+                R.string.group_duplicate, joinNames(duplicate.size, duplicate.take(maxLines))
+            )
         }
 
         // 用 launch 而不是挂起调用方：snackbar 后的 1 秒延迟和弹窗不该占用

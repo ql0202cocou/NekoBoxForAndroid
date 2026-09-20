@@ -80,9 +80,7 @@ func NewSingBoxInstance(config string, localTransport LocalDNSTransport) (b *Box
 
 	// custom CA and (in :bg) the geo assets must be in place before the box
 	// opens rule-sets and dials; see assetsReady
-	if ready := assetsReady.Load(); ready != nil {
-		<-*ready
-	}
+	waitAssetsReady()
 
 	// create box context
 	ctx, cancel := context.WithCancel(context.Background())

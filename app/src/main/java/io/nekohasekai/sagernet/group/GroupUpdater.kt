@@ -70,14 +70,15 @@ abstract class GroupUpdater {
                                 DataStore.serviceMode == Key.MODE_VPN
                             ) {
                                 // FakeDNS
-                                SagerNet.underlyingNetwork!!
-                                    .getAllByName(profile.serverAddress)
-                                    .filterNotNull()
+                                lookupBlocking(
+                                    profile.serverAddress,
+                                    SagerNet.underlyingNetwork!!::getAllByName
+                                )
                             } else {
                                 // 分组指定了节点解析 DNS 时优先使用，失败回退系统 DNS
                                 // System DNS is enough (when VPN connected, it uses v2ray-core)
                                 lookupViaNameserver(groupNameserver, profile.serverAddress)
-                                    ?: lookupSystemDns(profile.serverAddress)
+                                    ?: lookupBlocking(profile.serverAddress, InetAddress::getAllByName)
                             }
                             if (results.isEmpty()) error("empty response")
                             rewriteAddress(profile, results, ipv6First)
@@ -98,22 +99,26 @@ abstract class GroupUpdater {
         }
     }
 
-    // 系统 DNS 回退：getAllByName 是没有超时的阻塞 JNI 调用，协程取消也打
-    // 不断，会一直攥住 lookupPool 线程（coroutineScope 挂住期间更新持有跨进程
-    // 文件锁）。把它挂到 appScope 上跑、这里只等 10 秒（与 lookupViaNameserver
-    // 的原生十秒预算一致）：超时按解析失败处理并记日志，残留的调用在系统
-    // 解析器返回后自行结束，结果直接丢弃
-    private suspend fun lookupSystemDns(domain: String): List<InetAddress> {
+    // 系统解析器与 FakeDNS 下的 underlyingNetwork 两条 getAllByName 都是没有
+    // 超时的阻塞 JNI 调用，协程取消也打不断，会一直攥住 lookupPool 线程
+    //（coroutineScope 挂住期间更新持有跨进程文件锁）。把它挂到 appScope 上跑、
+    // 这里只等 10 秒（与 lookupViaNameserver 的原生十秒预算一致）：超时按解析
+    // 失败处理并取消 lookup——还没开跑的不再执行，已在跑的在解析器返回后
+    // 自行结束，结果直接丢弃。
+    // Job.cancel() 成员与同名 CoroutineScope 扩展（通配 import）同时可见：编译期
+    // 恒解析到成员，lint 的跨环境歧义警告在此不适用（同 BaseService.destroyRunner）
+    @Suppress("MemberExtensionConflict")
+    private suspend fun lookupBlocking(
+        domain: String, resolve: (String) -> Array<InetAddress>
+    ): List<InetAddress> {
         val lookup = appScope.async(Dispatchers.IO) {
-            runCatching { InetAddress.getAllByName(domain).filterNotNull() }.getOrNull()
+            runCatching { resolve(domain).filterNotNull() }.getOrDefault(emptyList())
         }
-        val results = withTimeoutOrNull(10_000L) { lookup.await() }
-        // await 返回 null 是解析失败；超时则是 lookup 还在跑，两者都按失败处理
-        if (results == null) {
-            if (!lookup.isCompleted) Logs.w("System DNS lookup for $domain timed out")
-            return emptyList()
+        return withTimeoutOrNull(10_000L) { lookup.await() } ?: run {
+            lookup.cancel()
+            Logs.w("DNS lookup for $domain timed out")
+            emptyList()
         }
-        return results
     }
 
     protected fun rewriteAddress(

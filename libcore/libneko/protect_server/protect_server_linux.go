@@ -28,30 +28,28 @@ func getOneFd(c *net.UnixConn) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if len(msgs) != 1 {
-		// msgs 里可能已携带 SCM_RIGHTS fd，直接返回会泄漏；
-		// 参照下方 len(fds) != 1 分支逐个解析关闭
-		for i := range msgs {
-			if fds, err := syscall.ParseUnixRights(&msgs[i]); err == nil {
-				for _, fd := range fds {
-					syscall.Close(fd)
-				}
-			}
+	// 先收齐全部控制消息携带的 SCM_RIGHTS fd 再校验数量：数量不对时逐个
+	// 关闭，否则已经接收的 fd 会泄漏（对端恒发 1 个，此处纯防御）
+	var fds []int
+	for i := range msgs {
+		rights, err := syscall.ParseUnixRights(&msgs[i])
+		if err != nil {
+			closeFds(fds)
+			return 0, err
 		}
-		return 0, fmt.Errorf("invalid msgs count: %d", len(msgs))
-	}
-
-	fds, err := syscall.ParseUnixRights(&msgs[0])
-	if err != nil {
-		return 0, err
+		fds = append(fds, rights...)
 	}
 	if len(fds) != 1 {
-		for _, fd := range fds {
-			syscall.Close(fd)
-		}
+		closeFds(fds)
 		return 0, fmt.Errorf("invalid fds count: %d", len(fds))
 	}
 	return fds[0], nil
+}
+
+func closeFds(fds []int) {
+	for _, fd := range fds {
+		syscall.Close(fd)
+	}
 }
 
 func ServeProtect(path string, verbose bool, fwmark int, protectCtl func(fd int) error) (io.Closer, error) {

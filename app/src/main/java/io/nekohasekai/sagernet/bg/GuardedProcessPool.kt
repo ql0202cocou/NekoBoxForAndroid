@@ -12,7 +12,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.ensureActive
@@ -99,40 +98,37 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
             try {
                 spawnLoggers()
                 while (true) {
-                    try {
-                        val startTime = SystemClock.elapsedRealtime()
-                        val exitCode = exitChannel.receive()
-                        running = false
-                        coroutineContext.ensureActive()
-                        when {
-                            SystemClock.elapsedRealtime() - startTime < 1000 -> throw IOException(
-                                "$cmdName exits too fast (exit code: $exitCode)"
-                            )
+                    val startTime = SystemClock.elapsedRealtime()
+                    val exitCode = exitChannel.receive()
+                    running = false
+                    coroutineContext.ensureActive()
+                    when {
+                        SystemClock.elapsedRealtime() - startTime < 1000 -> throw IOException(
+                            "$cmdName exits too fast (exit code: $exitCode)"
+                        )
 
-                            exitCode == 128 + OsConstants.SIGKILL -> Logs.w("$cmdName was killed")
-                            else -> Logs.w(IOException("$cmdName unexpectedly exits with code $exitCode"))
-                        }
-                        Logs.i("restart process: ${Commandline.toString(cmd)} (last exit code: $exitCode)")
-                        start()
-                        running = true
-                        spawnLoggers() // before the suspending callback below
-                        onRestartCallback?.invoke()
-                    } catch (e: CancellationException) {
-                        throw e // 池关闭/服务停止的正常拆毁路径，必须重抛不吞
-                    } catch (e: IOException) {
-                        throw e // 维持原语义：交给外层 catch 停守护并走 onFatal
-                    } catch (e: Exception) {
-                        // 意外异常（如 onRestartCallback 里的 bug）不能逃出
-                        // looper：没有 CoroutineExceptionHandler 兜底，逃逸即崩溃
-                        // :bg。记录后继续按循环语义守护该进程
-                        Logs.w(e)
+                        exitCode == 128 + OsConstants.SIGKILL -> Logs.w("$cmdName was killed")
+                        else -> Logs.w(IOException("$cmdName unexpectedly exits with code $exitCode"))
                     }
+                    Logs.i("restart process: ${Commandline.toString(cmd)} (last exit code: $exitCode)")
+                    start()
+                    running = true
+                    spawnLoggers() // before the suspending callback below
+                    onRestartCallback?.invoke()
                 }
-            } catch (e: IOException) {
+            } catch (e: CancellationException) {
+                throw e // 池关闭/服务停止的正常拆毁路径
+            } catch (e: Exception) {
+                // IOException 是进程退得太快 / 重启失败；其余意外异常（如
+                // onRestartCallback 里的 bug）同样按守护失败处理：逃逸出协程会
+                // 崩溃 :bg（池没有 CoroutineExceptionHandler），吞掉则 start()
+                // 已失败的 guard 会永远挂在 exitChannel.receive() 上不再守护
                 Logs.w("error occurred. stop guard: ${Commandline.toString(cmd)}")
                 if (coroutineContext.isActive) {
                     appScope.launch(Dispatchers.Main) {
-                        if (this@GuardedProcessPool.coroutineContext.isActive) onFatal(e)
+                        if (this@GuardedProcessPool.coroutineContext.isActive) {
+                            onFatal(e as? IOException ?: IOException(e))
+                        }
                     }
                 }
             } finally {
@@ -149,9 +145,7 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
         }
     }
 
-    // SupervisorJob：单个 guard 的 looper 失败不会取消整个池（其余 guard 继续
-    // 守护）；looper 体内已兜底 Exception，这里再堵一条结构性的传播路径
-    override val coroutineContext = Dispatchers.Main.immediate + SupervisorJob()
+    override val coroutineContext = Dispatchers.Main.immediate + Job()
     val processCount = AtomicInteger(0)
 
     // every successfully started guard, so close() can reap processes whose
@@ -180,18 +174,21 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
 
     // 任意线程可调（BoxInstance.close 在主线程、TestInstance 的
     // invokeOnCancellation 在取消发生的线程）：cancel()、
-    // CopyOnWriteArrayList 遍历、Process.destroy 都线程安全
-    fun close(scope: CoroutineScope): Job {
+    // CopyOnWriteArrayList 遍历、Process.destroy 都线程安全。
+    // onClosed 在每个 guard looper（含其杀进程的 finally）退出后于 scope 的
+    // 调度器上执行；调用方把「进程全部停掉之后」的收尾放在这里而不是 join
+    //（在主线程 join 会死锁 looper 的 Main 分发清理）。返回的 Job 在 onClosed
+    // 跑完后完成，供能安全等待的调用方（测试）join
+    fun close(scope: CoroutineScope, onClosed: () -> Unit = {}): Job {
         cancel()
         // reap processes whose looper coroutine was cancelled before its
         // first dispatch; guards with a started looper clean up in their own
         // finally, so an unconditional destroy here would cut the graceful
         // shutdown short
         guards.forEach { if (!it.looperStarted) it.destroy() }
-        // The returned Job completes once every guard looper — including its
-        // process-killing finally — has exited; callers that must outlive the
-        // guards hook onto it instead of joining (joining from the main
-        // thread would deadlock the loopers' Main-dispatched cleanup).
-        return scope.launch { this@GuardedProcessPool.coroutineContext[Job]!!.cancelAndJoin() }
+        return scope.launch {
+            this@GuardedProcessPool.coroutineContext[Job]!!.cancelAndJoin()
+            onClosed()
+        }
     }
 }

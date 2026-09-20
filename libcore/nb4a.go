@@ -32,6 +32,13 @@ var resourcePaths []string
 // 发布，不能靠调用顺序提供可见性。
 var assetsReady atomic.Pointer[chan struct{}]
 
+// waitAssetsReady 阻塞到 InitCore 的后台初始化完成；InitCore 之前调用则直接返回
+func waitAssetsReady() {
+	if ready := assetsReady.Load(); ready != nil {
+		<-*ready
+	}
+}
+
 func VersionBox() string {
 	defer device.DeferPanicToError("VersionBox", nil)
 

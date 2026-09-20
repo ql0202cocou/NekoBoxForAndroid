@@ -134,8 +134,16 @@ class ServiceNotification(
 
     private val buildLock = Mutex()
 
+    // stopRunner 销毁通知时 Go 回调线程可能还在排队投递标题/速度更新，init 里
+    // post 的 show() 也可能排在 destroy() 之后执行；销毁后再 notify /
+    // startForeground 会把通知复活成幽灵通知，统一在 useBuilder 里拦。
+    // 必须声明在 init 之前：主线程上无协程上下文时构造（onStartCommand 的
+    // 错误路径）runOnMainDispatcher 会同步执行 init 里的 show()
+    private val destroyed = AtomicBoolean(false)
+
     private suspend fun useBuilder(f: (NotificationCompat.Builder) -> Unit) {
         buildLock.withLock {
+            if (destroyed.get()) return
             f(builder)
         }
     }
@@ -197,9 +205,6 @@ class ServiceNotification(
 
     private suspend fun show() =
         useBuilder {
-            // 与 update() 同一兜底：init 里 post 的 show 可能排在 destroy() 之后
-            // 执行，已销毁时不得再 startForeground 把通知复活成幽灵通知
-            if (destroyed.get()) return@useBuilder
             val notification = it.build()
             try {
                 if (Build.VERSION.SDK_INT >= 34) {
@@ -228,21 +233,15 @@ class ServiceNotification(
             }
         }
 
-    // stopRunner destroys the notification while Go callback threads may
-    // still be queueing title/speed posts; re-posting after destroy would
-    // revive it as a ghost notification
-    private val destroyed = AtomicBoolean(false)
-
     // POST_NOTIFICATIONS is requested in MainActivity; when denied, notify() is
     // silently dropped by the system — no SecurityException to handle
     @SuppressLint("MissingPermission")
     private suspend fun update() = useBuilder {
-        if (destroyed.get()) return@useBuilder
         NotificationManagerCompat.from(service).notify(notificationId, it.build())
     }
 
     fun destroy() {
-        // update() checks `destroyed` under buildLock on Go callback threads;
+        // useBuilder checks `destroyed` under buildLock on Go callback threads;
         // take the same lock so a notify cannot slip in between the flag
         // check and stopForeground. Called on the main thread; the lock is
         // never held across a suspension, so runBlocking cannot deadlock.
