@@ -87,10 +87,12 @@ object SubscriptionUpdater : GroupManager.Listener {
             subscriptions.minOf { it.lastUpdated + it.autoUpdateDelay * 60L - now }
         if (minDelay < 15) minDelay = 15
 
-        // Scheduling stays in the main process, but UpdateTask has to run in :bg —
-        // the only process whose ServiceRegistry.state tracks the service. These two
-        // arguments make WorkManager delegate the request to RemoteWorkerService
-        // (manifest-pinned to :bg); without them the work would never do anything.
+        // 排期由哪个进程发起都行：listener 在主进程和 :bg 都注册，:bg 每跑完一次
+        // 订阅更新就会经 GroupUpdater.finishUpdate → postUpdate(id) 走到这里，
+        // RemoteWorkManager 本就是跨进程 API，UPDATE 策略保证重复入队不重置周期。
+        // 但 UpdateTask 必须落在 :bg —— 只有该进程的 ServiceRegistry.state 跟着
+        // 服务走。下面两个参数让 WorkManager 把请求转交给 RemoteWorkerService
+        // （manifest 里钉在 :bg）；不加的话这个 work 排上了也什么都不做
         val remoteArgs = Data.Builder()
             .putString(ARGUMENT_PACKAGE_NAME, app.packageName)
             .putString(ARGUMENT_CLASS_NAME, RemoteWorkerService::class.java.name)
