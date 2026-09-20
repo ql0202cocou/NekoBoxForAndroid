@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.group
 
 import io.nekohasekai.sagernet.fmt.AbstractBean
+import io.nekohasekai.sagernet.fmt.filterValidEndpoint
 import io.nekohasekai.sagernet.fmt.hysteria.parseHysteria1Json
 import io.nekohasekai.sagernet.fmt.hysteria.parseHysteria2Json
 import io.nekohasekai.sagernet.fmt.shadowsocks.parseShadowsocks
@@ -87,7 +88,13 @@ fun parseJSON(json: Any, depth: Int = 0): List<AbstractBean> {
         }
     }
 
-    // 单一出口：所有分支的节点统一在这里归一化，不再依赖各叶子 parser 自觉
-    proxies.forEach { it.initializeDefaultValues() }
-    return proxies
+    // 单一出口：所有分支的节点统一在这里校验 + 归一化，不再依赖各叶子
+    // parser 自觉。嵌套层原样上交，由 depth 0 一次做完；校验必须早于
+    // initializeDefaultValues，否则缺省被填成 127.0.0.1:1080 就验不出缺失。
+    // 坏节点丢弃后若整批为空，parseRaw 会按「这条策略没解析出东西」继续往
+    // 下试，与叶子 parser 直接抛异常的效果一致
+    if (depth > 0) return proxies
+    val valid = proxies.filterValidEndpoint()
+    valid.forEach { it.initializeDefaultValues() }
+    return valid
 }

@@ -80,19 +80,19 @@ class SagerNet : Application(),
             // Finish a restore interrupted between its two database commits before
             // anything reads either database; the same lock then settles the
             // per-install marker so both processes agree on the Clash secret.
-            var restoreReplayed = false
-            try {
+            val restoreReplayed = try {
                 val journal = RestoreJournal.default
                 val result = journal.completePending { content, profile, rule, setting ->
                     BackupRestore.commit(BackupRestore.decode(content, profile, rule, setting), null)
                 }
-                restoreReplayed = result == RestoreJournal.Result.REPLAYED
                 if (result == RestoreJournal.Result.GAVE_UP && isMainProcess) {
                     Toast.makeText(this, R.string.restore_replay_failed, Toast.LENGTH_LONG).show()
                 }
                 if (InstallMarker.isMissing()) journal.withLock { InstallMarker.ensure() }
+                result == RestoreJournal.Result.REPLAYED
             } catch (e: Exception) {
                 Logs.w(e)
+                false
             }
 
             assetsDir.mkdirs()

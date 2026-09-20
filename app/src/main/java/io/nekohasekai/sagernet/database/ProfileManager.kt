@@ -143,13 +143,11 @@ object ProfileManager {
         }
     }
 
-    // Removes the row and drops a selection pointing at it; false when the
-    // profile no longer existed. Listeners are notified by the callers, which
-    // order that against their own fixups.
+    // Removes the row; false when the profile no longer existed. Listeners are
+    // notified by the callers, which order that against their own fixups —
+    // 清选择也归调用处，整批删完调一次就够，不必每行查一次库
     private fun deleteProfileRow(profileId: Long): Boolean {
-        if (SagerDatabase.proxyDao.deleteById(profileId) == 0) return false
-        clearSelectedProxyIfGone()
-        return true
+        return SagerDatabase.proxyDao.deleteById(profileId) != 0
     }
 
     // Bulk-delete path: listeners fire per profile, but the expensive fixups
@@ -170,11 +168,14 @@ object ProfileManager {
                 GroupManager.rearrange(groupId)
             }
         }
+        // DataStore 写的是 PublicDatabase，放在 SagerDatabase 事务外
+        clearSelectedProxyIfGone()
         for (profile in removed) iterator { onRemoved(profile.groupId, profile.id) }
     }
 
     suspend fun deleteProfile(groupId: Long, profileId: Long) {
         if (!deleteProfileRow(profileId)) return
+        clearSelectedProxyIfGone()
         // the profile may be referenced as a group's frontProxy/landingProxy
         GroupManager.resetDanglingGroupProxies()
         iterator { onRemoved(groupId, profileId) }
@@ -245,12 +246,11 @@ object ProfileManager {
     private val defaultRulesMutex = Mutex()
 
     suspend fun getRules(): List<RuleEntity> {
-        if (DataStore.rulesFirstCreate) return SagerDatabase.rulesDao.allRules()
-        return defaultRulesMutex.withLock {
+        if (!DataStore.rulesFirstCreate) defaultRulesMutex.withLock {
             // 等锁期间另一个调用可能已全部建完，锁内复查标记避免重复创建
             if (!DataStore.rulesFirstCreate) createDefaultRules()
-            SagerDatabase.rulesDao.allRules()
         }
+        return SagerDatabase.rulesDao.allRules()
     }
 
     // 只允许在 defaultRulesMutex 内调用

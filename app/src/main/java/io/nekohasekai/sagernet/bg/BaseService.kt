@@ -302,7 +302,30 @@ class BaseService {
             }
         }
 
+        // 子类私有的运行期资源（VpnService 的 tun fd）。运行期资源有两条释放
+        // 路径——正常停止走 killProcesses，框架直接 destroy 走 destroyRunner
+        // ——两条都在最前面调这个钩子，子类因此只需覆盖这一处
+        fun releaseSubclassResources() {}
+
+        // wakeLock 与网络监听：两条释放路径里时序无差别的部分，共用一份。
+        // looper 与 box 不放进来，它们的时序两条路径本就不同：正常停止要等
+        // （stopLoop 的返回值决定是否落最后一笔流量，close 之后还要
+        // awaitProcessesClosed），而 onDestroy 不能阻塞，只能 detach。
+        // release() 包 runCatching：teardown 中途抛异常会让服务卡在
+        // Stopping，wakeLock 与前台通知一直握着
+        fun releaseWakeLockAndNetworkListener() {
+            runCatching { data.wakeLock?.release() }.onFailure { Logs.w(it) }
+            data.wakeLock = null
+            // post from the main queue like the preInit start send, so on a
+            // restart the Stop always reaches the listener actor before the
+            // new Start (a Default-dispatcher send could overtake it)
+            runOnMainDispatcher {
+                DefaultNetworkListener.stop(this)
+            }
+        }
+
         suspend fun killProcesses() {
+            releaseSubclassResources()
             // only the loop has to stop before the box does — its queryStats needs a
             // live box. The final counters and broadcast touch neither, so they run
             // after the close instead of holding up the teardown.
@@ -318,16 +341,8 @@ class BaseService {
                 runCatching { looper.postFinalTraffic() }
                     .onFailure { Logs.w("Final traffic persistence failed", it) }
             }
-            data.wakeLock?.apply {
-                release()
-                data.wakeLock = null
-            }
-            // post from the main queue like the preInit start send, so on a
-            // restart the Stop always reaches the listener actor before the
-            // new Start (a Default-dispatcher send could overtake it)
-            runOnMainDispatcher {
-                DefaultNetworkListener.stop(this)
-            }
+            // wakeLock 撑到这里再放：上面的等待期间设备不应休眠
+            releaseWakeLockAndNetworkListener()
         }
 
         fun stopRunner(restart: Boolean = false, msg: String? = null) {
@@ -370,14 +385,15 @@ class BaseService {
         // onDestroy：正常路径 stopRunner 已跑过（它最后 stopSelf），运行期资源
         // 由 killProcesses 释放完毕，下面全是幂等 no-op；框架直接 destroy 时
         // stopRunner 没跑过，receiver、notification 和 box / 插件进程 / wakeLock
-        // 都会残留，这里 best-effort 兜底释放。VpnService 的 tun fd 由其实现的
-        // override 处理
+        // 都会残留，这里 best-effort 兜底释放。子类私有的资源由
+        // releaseSubclassResources 钩子覆盖，与 killProcesses 共用
         // Job.cancel() 的成员与同名扩展在本文件（CoroutineScope.cancel 扩展被
         // Binder.close 使用，通配 import 引入）同时可见：编译期恒解析到成员，
         // lint 的跨环境歧义警告在此不适用
         @Suppress("MemberExtensionConflict")
         fun destroyRunner() {
             val data = data
+            releaseSubclassResources()
             // stopRunner 之外的另一条出口：注册表同样要清，否则
             // NativeInterface.selector_OnProxySelected 会拿到已销毁的服务
             ServiceRegistry.baseService = null
@@ -390,21 +406,18 @@ class BaseService {
             }
             data.notification?.destroy()
             data.notification = null
-            // 流量循环与网络监听也是 killProcesses 负责的运行期资源，这里同样
-            // 兜底。looper 要先于 box 关闭停下（其 queryStats 需要存活 box），
-            // 且必须先捕获引用：close() 会把 looper 字段置 null。stopLoop /
-            // Stop 消息都是幂等的，正常路径重复执行无害
+            // 流量循环也是 killProcesses 负责的运行期资源，这里同样兜底。
+            // looper 要先于 box 关闭停下（其 queryStats 需要存活 box），且必须
+            // 先捕获引用：close() 会把 looper 字段置 null。onDestroy 不能阻塞，
+            // 所以只 detach 不等；stopLoop / Stop 消息都是幂等的，正常路径
+            // 重复执行无害
             val looper = data.proxy?.looper
             if (looper != null) runOnDefaultDispatcher { looper.stopLoop() }
-            runOnMainDispatcher { DefaultNetworkListener.stop(this) }
             // close() 内有 CAS 保证幂等；box 走 JNI、进程池异步关闭，
             // 异常不能带上 onDestroy
             runCatching { data.proxy?.close() }.onFailure { Logs.w(it) }
             data.proxy = null
-            data.wakeLock?.apply {
-                runCatching { release() }.onFailure { Logs.w(it) }
-                data.wakeLock = null
-            }
+            releaseWakeLockAndNetworkListener()
             data.binder.close()
         }
 

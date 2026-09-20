@@ -161,11 +161,17 @@ object GroupManager {
         SagerDatabase.groupDao.resetDanglingLandingProxies()
     }
 
+    // 必须裸读 configurationStore 而不是 DataStore.selectedGroup 委托属性：
+    // 属性的惰性默认值会走 currentGroupId() → createInitialGroup() →
+    // RestoreJournal 文件锁，在 completePending 持锁重放或 PublicDatabase
+    // 事务内调用会重入 / 死等
+    private fun rawSelectedGroup() = DataStore.configurationStore.getLong(Key.PROFILE_GROUP, -1)
+
     // Trusts any positive selection without a lookup (callers that need the
     // row use currentGroup()); otherwise falls back like currentGroup().
     @Synchronized
     fun currentGroupId(): Long {
-        val currentSelected = DataStore.configurationStore.getLong(Key.PROFILE_GROUP, -1)
+        val currentSelected = rawSelectedGroup()
         if (currentSelected > 0L) return currentSelected
         return currentGroup().id
     }
@@ -174,7 +180,7 @@ object GroupManager {
     // group; the fallback is written back as the selection.
     @Synchronized
     fun currentGroup(): ProxyGroup {
-        val currentSelected = DataStore.configurationStore.getLong(Key.PROFILE_GROUP, -1)
+        val currentSelected = rawSelectedGroup()
         if (currentSelected > 0L) {
             SagerDatabase.groupDao.getById(currentSelected)?.let { return it }
         }
@@ -208,13 +214,9 @@ object GroupManager {
         DataStore.selectedGroup = SagerDatabase.groupDao.allGroups().firstOrNull()?.id ?: -1L
     }
 
-    // 选中分组指向的行已不存在时按 resetSelectedGroup 回退。必须裸读
-    // configurationStore 而不是 DataStore.selectedGroup 委托属性：属性的
-    // 惰性默认值会走 currentGroupId() → createInitialGroup() →
-    // RestoreJournal 文件锁，在 completePending 持锁重放或 PublicDatabase
-    // 事务内调用会重入 / 死等
+    // 选中分组指向的行已不存在时按 resetSelectedGroup 回退
     fun resetSelectedGroupIfGone() {
-        val selected = DataStore.configurationStore.getLong(Key.PROFILE_GROUP, -1)
+        val selected = rawSelectedGroup()
         if (selected > 0L && SagerDatabase.groupDao.getById(selected) == null) {
             resetSelectedGroup()
         }

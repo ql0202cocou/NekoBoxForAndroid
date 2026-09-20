@@ -150,10 +150,9 @@ fun parseV2Ray(link: String): StandardV2RayBean {
 
     // std 兜底也要过最小校验：vmess:// 后接非法 base64 时 parseV2RayN 与
     // Kitsunebi 都已失败，残片仍可能被 toHttpUrl 解析成「能导入但必挂」的
-    // 节点；抛异常让 parseProxies 按解析失败跳过
-    if (bean.serverAddress.isNullOrBlank() || bean.uuid.isNullOrBlank() ||
-        !bean.uuid.matches(uuidRegex)
-    ) {
+    // 节点；抛异常让 parseProxies 按解析失败跳过。地址与端口由
+    // parseProxies 的 requireValidEndpoint 统一验，这里只管 uuid
+    if (bean.uuid.isNullOrBlank() || !bean.uuid.matches(uuidRegex)) {
         error("invalid link $link")
     }
 
@@ -320,10 +319,9 @@ private fun tryResolveVmess4Kitsunebi(server: String): VMessBean {
         serverPort = NGUtil.parseInt(arr22[1])
         uuid = arr21[1]
         encryption = arr21[0]
-        // 与 parseV2Ray 的 std 兜底同一层最小校验：畸形链接不该导入成必坏节点
-        if (serverPort !in 1..65535 || serverAddress.isBlank() ||
-            !uuid.matches(uuidRegex)
-        ) {
+        // 与 parseV2Ray 的 std 兜底同一层最小校验：畸形链接不该导入成必坏
+        // 节点。地址与端口同样交给 requireValidEndpoint
+        if (!uuid.matches(uuidRegex)) {
             error("invalid kitsunebi vmess link")
         }
         if (indexSplit < 0) return@apply

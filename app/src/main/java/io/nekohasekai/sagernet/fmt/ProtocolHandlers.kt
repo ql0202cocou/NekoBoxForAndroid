@@ -65,6 +65,7 @@ import io.nekohasekai.sagernet.fmt.v2ray.xrayLacksAllowInsecure
 import io.nekohasekai.sagernet.fmt.v2ray.xrayLacksTransport
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import io.nekohasekai.sagernet.fmt.wireguard.buildSingBoxEndpointWireGuardBean
+import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import moe.matsuri.nb4a.SingBoxOptions.CustomSingBoxOption
 import moe.matsuri.nb4a.SingBoxOptions.MultiplexOptions
@@ -382,18 +383,22 @@ fun effectiveServerPort(bean: AbstractBean): Int = when (bean) {
 // hysteria 的端口在 serverPorts（支持端口跳跃），单独验；ConfigBean 的
 // 端点写在 config JSON 里，bean 的 address/port 字段无意义，豁免
 fun AbstractBean.requireValidEndpoint() {
-    when (this) {
-        is ConfigBean -> {}
-        is HysteriaBean -> {
-            if (serverAddress.isNullOrBlank()) error("missing server")
-            parseHysteriaPorts(serverPorts ?: error("missing hysteria port"))
-        }
-        else -> {
-            if (serverAddress.isNullOrBlank()) error("missing server")
-            val port = serverPort
-            if (port == null || port !in 1..65535) error("invalid port")
-        }
+    if (this is ConfigBean) return
+    if (serverAddress.isNullOrBlank()) error("missing server")
+    if (this is HysteriaBean) {
+        parseHysteriaPorts(serverPorts ?: error("missing hysteria port"))
+    } else {
+        val port = serverPort
+        if (port == null || port !in 1..65535) error("invalid port")
     }
+}
+
+// 各订阅入口共用的「坏节点丢弃，不拖垮整批」过滤，同样必须早于
+// initializeDefaultValues
+fun List<AbstractBean>.filterValidEndpoint(): List<AbstractBean> = filter { bean ->
+    runCatching { bean.requireValidEndpoint() }
+        .onFailure { Logs.w("Subscription entry rejected: ${it.javaClass.simpleName}") }
+        .isSuccess
 }
 
 // type -> color attribute for the profile list (was Protocols.getProtocolColor)

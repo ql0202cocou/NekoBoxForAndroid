@@ -45,6 +45,14 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
         } catch (_: IOException) {
         }    // ignore
 
+        private val cmdName = File(cmd.first()).nameWithoutExtension
+
+        private fun closeStreams(child: Process) {
+            runCatching { child.outputStream.close() }
+            runCatching { child.inputStream.close() }
+            runCatching { child.errorStream.close() }
+        }
+
         fun start() {
             process = ProcessBuilder(cmd).directory(SagerNet.application.noBackupFilesDir).apply {
                 environment().putAll(env)
@@ -57,19 +65,16 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
         // waitFor 可能阻塞，必须在线程里做，绝不占用调用线程
         fun destroy() {
             process.destroy()
-            val cmdName = File(cmd.first()).nameWithoutExtension
+            val child = process
             thread(name = "reap-$cmdName", isDaemon = true) {
-                runCatching { process.waitFor() }
-                runCatching { process.outputStream.close() }
-                runCatching { process.inputStream.close() }
-                runCatching { process.errorStream.close() }
+                runCatching { child.waitFor() }
+                closeStreams(child)
             }
         }
 
         suspend fun looper(onRestartCallback: (suspend () -> Unit)?) {
             looperStarted = true
             var running = true
-            val cmdName = File(cmd.first()).nameWithoutExtension
             val exitChannel = Channel<Int>(1) // buffered: cleanup may give up receiving, and a blocked send would leak the daemon thread
             // called for every process right after it starts, never across a
             // suspension point, so a live process always has a thread parked in
@@ -86,9 +91,7 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
                 // Reaping must not wait for those pipes to reach EOF.
                 thread(name = "wait-$cmdName", isDaemon = true) {
                     exitChannel.trySend(child.waitFor())
-                    runCatching { child.outputStream.close() }
-                    runCatching { child.inputStream.close() }
-                    runCatching { child.errorStream.close() }
+                    closeStreams(child)
                 }
             }
             try {
