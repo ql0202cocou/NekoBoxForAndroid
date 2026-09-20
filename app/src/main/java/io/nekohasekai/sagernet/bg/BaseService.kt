@@ -118,6 +118,11 @@ class BaseService {
         val binder = Binder(this)
         var connectingJob: Job? = null
 
+        // Stopping 期间到达的启动请求：onStartCommand 记入，stopRunner 尾部消费
+        // 并在停止完成后重放（详见这两处）。只在主线程读写——onStartCommand 与
+        // stopRunner 尾部的 runOnMainDispatcher 块都跑在主线程，无需 volatile
+        var pendingStart = false
+
         fun changeState(s: State, msg: String? = null) {
             if (state == s && msg == null) return
             state = s
@@ -332,7 +337,10 @@ class BaseService {
             val looper = data.proxy?.looper
             val postFinalTraffic = looper?.stopLoop() == true
             data.proxy?.let {
-                it.close()
+                // close() 内 processes.close() 存在理论上的抛异常路径（OOM 级），
+                // 异常会沿 stopRunner 的 coroutineScope 传到 Main 未捕获 → :bg 崩溃。
+                // 与 destroyRunner 的兜底对齐；失败后仍照常 awaitProcessesClosed()
+                runCatching { it.close() }.onFailure { Logs.w(it) }
                 it.awaitProcessesClosed()
             }
             if (postFinalTraffic) {
@@ -365,18 +373,21 @@ class BaseService {
                     }
                     data.proxy = null
                 }
-                // Stay in the foreground until here: a start arriving while
-                // Stopping is dropped by onStartCommand, and with the
-                // notification already gone that startForegroundService() would
-                // have no startForeground() to pair with — the platform kills
-                // :bg for it at the stopSelf() below.
+                // 前台状态一直保持到这里才解除：Stopping 期间到达的
+                // startForegroundService 由 onStartCommand 记入 pendingStart、待停止
+                // 完成后重放，若通知提前销毁，那次启动就没有 startForeground() 与之
+                // 配对——平台会因此在下面的 stopSelf() 处杀死 :bg
                 data.notification?.destroy()
                 data.notification = null
 
                 // change the state
                 data.changeState(State.Stopped, msg)
+                // 消费 Stopping 期间到达的启动请求并与显式 restart 合并：
+                // 以前这种启动意图被静默丢弃，用户只能再点一次
+                val needRestart = restart || data.pendingStart
+                data.pendingStart = false
                 // stop the service if nothing has bound to it
-                if (restart) startRunner() else {
+                if (needRestart) startRunner() else {
                     service.stopSelf()
                 }
             }
@@ -426,7 +437,11 @@ class BaseService {
             // the looper never persists its counters; block until they are
             // written. proxy/looper are null when not fully started.
             runBlocking {
-                data.proxy?.looper?.persistStats()
+                // 该广播在主线程上处理，DB 极端慢时无限阻塞会拖出广播 ANR；
+                // 超时即放弃——丢最后一笔统计好过关机时 ANR
+                withTimeoutOrNull(3000) {
+                    data.proxy?.looper?.persistStats()
+                }
             }
         }
 
@@ -488,7 +503,18 @@ class BaseService {
             ServiceRegistry.baseService = this
 
             val data = data
-            if (data.state != State.Stopped) return Service.START_NOT_STICKY
+            if (data.state != State.Stopped) {
+                // Stopping 窗口（stopRunner 里 killProcesses 挂起等待 looper/box/
+                // 插件进程池）可达数百毫秒，期间主线程可投递新的 onStartCommand；
+                // 这种启动意图以前被静默丢弃，用户只能再点一次。现在记入
+                // pendingStart，由 stopRunner 尾部在停止完成后重放
+                if (data.state == State.Stopping) data.pendingStart = true
+                return Service.START_NOT_STICKY
+            }
+            // 本次启动正常进行时防御性清零：不变式上此处必为 false（只在
+            // Stopping 期间置位，进入 Stopped 前已被 stopRunner 尾部消费），
+            // 不让任何意外残留值影响后续停止
+            data.pendingStart = false
             val profile = try {
                 ProfileManager.getProfile(DataStore.selectedProxy)
             } catch (e: IOException) {

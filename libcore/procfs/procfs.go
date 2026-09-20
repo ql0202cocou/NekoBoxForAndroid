@@ -8,6 +8,10 @@
 //     leaves the -1 indexes indistinguishable from a real "not found".
 //  3. ResolveSocketByProcSearch continues on strconv.Atoi failure where
 //     upstream returns -1.
+//  4. ResolveSocketByProcSearch 先用 Unmap() 归一化源地址再判断 Is6：
+//     IPv4-mapped IPv6 地址（::ffff:x.x.x.x）的 Is6 为 true，但 IPv4
+//     socket 内核记录在 /proc/net/tcp，直接判断会错查 tcp6，导致按
+//     应用分流失效。
 package procfs
 
 import (
@@ -107,11 +111,13 @@ func ResolveSocketByProcSearch(network string, source, _ netip.AddrPort) int32 {
 		path += "udp"
 	}
 
-	if source.Addr().Is6() {
+	// IPv4-mapped IPv6 源地址先 Unmap 归一化，见文件头分叉记录 4
+	addr := source.Addr().Unmap()
+	if addr.Is6() {
 		path += "6"
 	}
 
-	sIP := source.Addr().AsSlice()
+	sIP := addr.AsSlice()
 	if len(sIP) == 0 {
 		return -1
 	}

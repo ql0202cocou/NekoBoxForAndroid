@@ -295,6 +295,12 @@ func (d *DefaultDialer) DialContext(ctx context.Context, network string, address
 }
 
 func (d *DefaultDialer) DialParallelInterface(ctx context.Context, network string, address M.Socksaddr, strategy *C.NetworkStrategy, interfaceType []C.InterfaceType, fallbackInterfaceType []C.InterfaceType, fallbackDelay time.Duration) (net.Conn, error) {
+	// DoNotSelectInterface 时接口选择与 Android VPN protect 语义冲突
+	// （libcore 的 init 置 true，见 DialContext 的同名分支）：即使调用方
+	// 显式传入非 nil strategy 也必须忽略，兜底走普通拨号
+	if DoNotSelectInterface {
+		return d.DialContext(ctx, network, address)
+	}
 	if strategy == nil {
 		strategy = d.networkStrategy
 	}
@@ -377,6 +383,11 @@ func (d *DefaultDialer) DialerForICMPDestination(destination netip.Addr) net.Dia
 }
 
 func (d *DefaultDialer) ListenSerialInterfacePacket(ctx context.Context, destination M.Socksaddr, strategy *C.NetworkStrategy, interfaceType []C.InterfaceType, fallbackInterfaceType []C.InterfaceType, fallbackDelay time.Duration) (net.PacketConn, error) {
+	// 同 DialParallelInterface：DoNotSelectInterface 时忽略显式传入的
+	// strategy，兜底走普通 ListenPacket
+	if DoNotSelectInterface {
+		return d.ListenPacket(ctx, destination)
+	}
 	if strategy == nil {
 		strategy = d.networkStrategy
 	}

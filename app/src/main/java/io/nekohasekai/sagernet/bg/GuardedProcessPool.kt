@@ -7,10 +7,12 @@ import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.appScope
 import io.nekohasekai.sagernet.utils.Commandline
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.ensureActive
@@ -97,23 +99,34 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
             try {
                 spawnLoggers()
                 while (true) {
-                    val startTime = SystemClock.elapsedRealtime()
-                    val exitCode = exitChannel.receive()
-                    running = false
-                    coroutineContext.ensureActive()
-                    when {
-                        SystemClock.elapsedRealtime() - startTime < 1000 -> throw IOException(
-                            "$cmdName exits too fast (exit code: $exitCode)"
-                        )
+                    try {
+                        val startTime = SystemClock.elapsedRealtime()
+                        val exitCode = exitChannel.receive()
+                        running = false
+                        coroutineContext.ensureActive()
+                        when {
+                            SystemClock.elapsedRealtime() - startTime < 1000 -> throw IOException(
+                                "$cmdName exits too fast (exit code: $exitCode)"
+                            )
 
-                        exitCode == 128 + OsConstants.SIGKILL -> Logs.w("$cmdName was killed")
-                        else -> Logs.w(IOException("$cmdName unexpectedly exits with code $exitCode"))
+                            exitCode == 128 + OsConstants.SIGKILL -> Logs.w("$cmdName was killed")
+                            else -> Logs.w(IOException("$cmdName unexpectedly exits with code $exitCode"))
+                        }
+                        Logs.i("restart process: ${Commandline.toString(cmd)} (last exit code: $exitCode)")
+                        start()
+                        running = true
+                        spawnLoggers() // before the suspending callback below
+                        onRestartCallback?.invoke()
+                    } catch (e: CancellationException) {
+                        throw e // 池关闭/服务停止的正常拆毁路径，必须重抛不吞
+                    } catch (e: IOException) {
+                        throw e // 维持原语义：交给外层 catch 停守护并走 onFatal
+                    } catch (e: Exception) {
+                        // 意外异常（如 onRestartCallback 里的 bug）不能逃出
+                        // looper：没有 CoroutineExceptionHandler 兜底，逃逸即崩溃
+                        // :bg。记录后继续按循环语义守护该进程
+                        Logs.w(e)
                     }
-                    Logs.i("restart process: ${Commandline.toString(cmd)} (last exit code: $exitCode)")
-                    start()
-                    running = true
-                    spawnLoggers() // before the suspending callback below
-                    onRestartCallback?.invoke()
                 }
             } catch (e: IOException) {
                 Logs.w("error occurred. stop guard: ${Commandline.toString(cmd)}")
@@ -136,7 +149,9 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
         }
     }
 
-    override val coroutineContext = Dispatchers.Main.immediate + Job()
+    // SupervisorJob：单个 guard 的 looper 失败不会取消整个池（其余 guard 继续
+    // 守护）；looper 体内已兜底 Exception，这里再堵一条结构性的传播路径
+    override val coroutineContext = Dispatchers.Main.immediate + SupervisorJob()
     val processCount = AtomicInteger(0)
 
     // every successfully started guard, so close() can reap processes whose

@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.group
 
+import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -22,7 +23,8 @@ class GroupInterfaceAdapter(val context: ThemedActivity) : GroupManager.Interfac
     // OnDismissListener 摘 observer 并恢复（tryResume 忽略第二次）。activity
     // 销毁时 onDismiss 不回调（窗口直接泄漏），不靠 observer 兜底的话协程会
     // 攥着分组的 updating 锁永远挂住；observer 必须在每条恢复路径上摘掉，
-    // 否则每弹一次窗就泄漏一个
+    // 否则每弹一次窗就泄漏一个。调用方协程被取消时弹窗不会自行消失，
+    // 由 invokeOnCancellation dismiss 进同一条收尾路径
     private suspend fun <T> showDialog(
         dismissValue: T,
         configure: MaterialAlertDialogBuilder.(Continuation<T>) -> MaterialAlertDialogBuilder,
@@ -30,8 +32,15 @@ class GroupInterfaceAdapter(val context: ThemedActivity) : GroupManager.Interfac
         // CancellableContinuation hides the ktx tryResume extension behind
         // its internal member; view it as a plain Continuation instead.
         @Suppress("UNCHECKED_CAST") val cont = c as Continuation<T>
+        // 取消回调跑在取消发生的线程上，dismiss 必须回主线程
+        var dialog: AlertDialog? = null
+        c.invokeOnCancellation {
+            runOnMainDispatcher { dialog?.dismiss() }
+        }
         runOnMainDispatcher {
-            if (context.isFinishing || context.isDestroyed) {
+            // 取消可能赶在这次分发之前发生，那时弹窗还没创建，无需 dismiss
+            // （对已取消的协程 tryResume 是空操作）
+            if (context.isFinishing || context.isDestroyed || c.isCancelled) {
                 cont.tryResume(dismissValue)
                 return@runOnMainDispatcher
             }
@@ -42,7 +51,7 @@ class GroupInterfaceAdapter(val context: ThemedActivity) : GroupManager.Interfac
                 }
             }
             context.lifecycle.addObserver(observer)
-            MaterialAlertDialogBuilder(context).configure(cont)
+            dialog = MaterialAlertDialogBuilder(context).configure(cont)
                 .setOnDismissListener { _ ->
                     context.lifecycle.removeObserver(observer)
                     cont.tryResume(dismissValue)
@@ -79,27 +88,29 @@ class GroupInterfaceAdapter(val context: ThemedActivity) : GroupManager.Interfac
             return
         }
 
+        // 每类名单只列前 50 条，超出的折成一行总数：数万节点的订阅首更
+        // 全量拼进单个对话框会让主线程渲染卡死
+        fun joinNames(names: List<String>): String {
+            if (names.size <= 50) return names.joinToString("\n", postfix = "\n\n")
+            return names.take(50).joinToString("\n", postfix = "\n") +
+                    "… 等 ${names.size} 项\n\n"
+        }
+
         var status = ""
         if (added.isNotEmpty()) {
-            status += context.getString(
-                R.string.group_added, added.joinToString("\n", postfix = "\n\n")
-            )
+            status += context.getString(R.string.group_added, joinNames(added))
         }
         if (updated.isNotEmpty()) {
             status += context.getString(R.string.group_changed,
-                updated.map { it }.joinToString("\n", postfix = "\n\n") {
+                joinNames(updated.map {
                     if (it.key == it.value) it.key else "${it.key} => ${it.value}"
-                })
+                }))
         }
         if (deleted.isNotEmpty()) {
-            status += context.getString(
-                R.string.group_deleted, deleted.joinToString("\n", postfix = "\n\n")
-            )
+            status += context.getString(R.string.group_deleted, joinNames(deleted))
         }
         if (duplicate.isNotEmpty()) {
-            status += context.getString(
-                R.string.group_duplicate, duplicate.joinToString("\n", postfix = "\n\n")
-            )
+            status += context.getString(R.string.group_duplicate, joinNames(duplicate))
         }
 
         // 用 launch 而不是挂起调用方：snackbar 后的 1 秒延迟和弹窗不该占用

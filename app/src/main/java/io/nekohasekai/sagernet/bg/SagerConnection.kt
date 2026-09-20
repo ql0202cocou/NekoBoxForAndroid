@@ -70,7 +70,10 @@ class SagerConnection(
 
         override fun stateChanged(state: Int, profileName: String?, msg: String?) {
             if (state < 0) return // skip private
-            val s = BaseService.State.values()[state]
+            // 跨进程版本漂移时 :bg 可发来本版本不存在的 ordinal（State 只准追加
+            // 新值），越界照 stateOrStopped 的模式回落 Stopped——binder 线程上的
+            // AIOOBE 会直接崩溃主进程
+            val s = BaseService.State.values().getOrElse(state) { BaseService.State.Stopped }
             ServiceRegistry.state = s
             runOnMainDispatcher {
                 // re-read at execution time: disconnect() may have run while

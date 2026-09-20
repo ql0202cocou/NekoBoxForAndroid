@@ -14,6 +14,8 @@ class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = 
 
     var notTmp = true
 
+    // 写于 buildConfig（主线程），读于 canReloadSelector（binder/Default 线程）
+    @Volatile
     var lastSelectorGroupId = -1L
 
     // written on the serial dispatcher (NativeInterface selector callback),
@@ -76,6 +78,9 @@ class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = 
         // in-flight queryStats needs a live box, and close() cannot suspend to wait for
         // one. Blocking here instead would park :bg's main thread on a stats sweep that
         // cancellation cannot interrupt once it is inside its JNI calls.
+        // 顺序契约：调用方必须先停 looper 再 close()——killProcesses 先挂起等
+        // stopLoop()，destroyRunner 先 post stopLoop()。新调用方不得绕过这一
+        // 顺序直接调 close()
         looper = null
         super.close()
     }

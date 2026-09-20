@@ -108,21 +108,27 @@ object RawUpdater : GroupUpdater() {
         // nameMap 以 displayName 为键，先保证唯一；forceResolve 把无名节点的
         // 地址改写成 IP 后 displayName 可能再次撞名，resolve 后还要再跑一遍
         fun uniquifyNames(list: List<AbstractBean>): List<AbstractBean> {
-            val proxiesMap = LinkedHashMap<String, AbstractBean>()
+            // 输入是不可信的订阅内容，同名节点逐个扫表查重是 O(n²)，几十万个
+            // 同名节点会卡死更新任务（期间一直持有跨进程文件锁），这里用哈希表
+            // 做到 O(n)：首个同名节点名字不变，后续追加 " (1)"/" (2)" 后缀
+            // 名字 -> 下一个可用序号（1 表示名字本身已被占）
+            val used = HashMap<String, Int>()
             for (proxy in list) {
-                var index = 0
-                var name = proxy.displayName()
-                while (proxiesMap.containsKey(name)) {
-                    index++
-                    // suffix only: a global replace also ate a " (1)" that is part
-                    // of the node's own name ("HK (1) Premium")
-                    name = name.removeSuffix(" (${index - 1})")
-                    name = "$name ($index)"
-                    proxy.name = name
+                val base = proxy.displayName()
+                var index = used[base]
+                if (index == null) {
+                    used[base] = 1
+                    continue
                 }
-                proxiesMap[proxy.displayName()] = proxy
+                // 只对改名后的新名字查重：节点本名里带 " (1)" 这类串时
+                // （"HK (1) Premium"）不会被当成序号剥掉
+                var name = "$base ($index)"
+                while (used.containsKey(name)) name = "$base (${++index})"
+                used[base] = index + 1
+                used[name] = 1
+                proxy.name = name
             }
-            return proxiesMap.values.toList()
+            return list
         }
         proxies = uniquifyNames(proxies)
 

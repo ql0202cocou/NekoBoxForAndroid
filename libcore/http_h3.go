@@ -48,7 +48,9 @@ func (r *httpRequest) echTransport() *http.Transport {
 			KeepAlive: 30 * time.Second,
 		}).DialContext,
 		DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			var d net.Dialer
+			// 与 NewHttpClient 的拨号超时对齐（函数注释宣称 bounds mirror
+			// NewHttpClient）；实际还有 waitCtx/reqCtx 兜底
+			d := net.Dialer{Timeout: httpDialTimeout}
 			c, err := d.DialContext(ctx, network, addr)
 			if err != nil {
 				return c, err

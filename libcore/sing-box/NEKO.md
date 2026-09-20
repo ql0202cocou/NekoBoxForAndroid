@@ -2,7 +2,7 @@
 
 This directory is a vendored copy of upstream
 [SagerNet/sing-box](https://github.com/SagerNet/sing-box) **v1.14.1** plus the
-NekoBox patch set (`1.14.1-neko-1`). The patches originate from
+NekoBox patch set (`1.14.1-neko-2`). The patches originate from
 `MatsuriDayo/sing-box` (`aed32ee3066cdbc7d471e3e0415c5134088962df`,
 `1.12.19-neko-1`); upstream NekoBox is unmaintained, so this fork maintains and
 rebases the patches itself. When rebasing onto a newer upstream sing-box
@@ -30,11 +30,14 @@ Additional patches maintained by this fork (not from MatsuriDayo):
 |---|---|
 | dns: rule action `fallback` | `option/rule_action.go` (`DNSRouteActionOptions.Fallback`, JSON `fallback`), `route/rule/rule_action.go` (`RuleActionDNSRoute.Fallback`), `dns/router.go`: when a DNS query routed by a rule with `fallback: true` fails, matching continues at the next DNS rule instead of returning the error. Any non-success rcode counts as a failure, so a split-horizon server is never the final word. Used by the Android app to implement ordered multi-server fallback for per-group proxy-server nameservers. Since the `domain_resolver` migration (2026-09-10), outbound resolution no longer walks DNS rules — it binds to libcore's `neko-sequential` transport instead — so this patch only serves user-hijacked queries that match a `dns-group-N` rule. **1.14 rebase**: the DNS router was rewritten around a rule-walk state machine shared by `Exchange` and `Lookup`; the patch now marks the walk's pending exchange (`dnsPendingExchange.fallback`) and, on failure (skipping context cancellation), advances `state.ruleIndex` and re-enters the walk in `resumeExchangeWithRules`. `exchangeWithRulesAsync`'s direct-`ExchangeAsync` fast path is bypassed for fallback rules. Armed/speculative race paths (unused by the app) do not fall back. Regression tests: `dns/router_fallback_test.go` (fork-added, part of the patch artifact). |
 | router: lock `trackers` | `route/router.go`, `route/route.go`: upstream appends to `Router.trackers` without synchronization, and the Android app calls `AppendTracker` (via `SetV2rayStats`) while the box is already routing, so the append raced the per-connection reads in `RouteConnection`/`RoutePacketConnection` (slice growth tearing). Added a `sync.RWMutex` (`trackersAccess`): `AppendTracker` takes the write lock, the read paths take the read lock. 1.14: a third read site (L3 `NewTracker` closure building `tun.FlowTracker`s) is covered too. 1.14.1: upstream moved the forward log line inside the `NewTracker` closure (`metadataCopy`); the RLock now wraps the tracker reads after it. Drop if upstream adds its own locking. Regression/concurrency tests: `route/router_tracker_test.go` (fork-added, part of the patch artifact). |
+| router: tracker read locks unlock via `defer` (neko-2) | `route/route.go`: the two `trackersAccess.RLock()` sites in `routeConnection`/`routePacketConnection` unlocked with a plain `RUnlock()`; a tracker panic would skip it and block `AppendTracker`'s write lock forever. Both now unlock via `defer` inside an immediately-invoked closure, keeping the critical section unchanged (the third site, `PreMatch`'s `NewTracker` closure, already used `defer`). |
+| dialer: interface-selection entry points honor `DoNotSelectInterface` (neko-2) | `common/dialer/default.go`: `DialParallelInterface`/`ListenSerialInterfacePacket` are public and accept an explicit `strategy`; `DialContext`/`ListenPacket` check `DoNotSelectInterface` first, but these two did not, so a future upstream caller passing a non-nil strategy would silently get interface selection — which conflicts with Android VPN protect semantics (libcore sets `DoNotSelectInterface = true` in `init`). Both now fall back to the plain dial/listen path when `DoNotSelectInterface` is set. |
+| boxapi: `StatsService()` returns a nil interface when disabled (neko-2) | `boxapi/v2ray_server.go`: `NewSbStatsService` returns nil when `!Enabled`; boxing that into `adapter.ConnectionTracker` produced a non-nil interface wrapping a nil `*SbStatsService`, which would panic on the first routed connection after `AppendTracker`. `StatsService()` now returns a nil interface when the service is nil. |
 
 ## Replayable patch artifact
 
 The whole patch set is materialized as a single replayable diff,
-`libcore/patches/sing-box-v1.14.1-neko-1.diff`: a clean clone of upstream tag
+`libcore/patches/sing-box-v1.14.1-neko-2.diff`: a clean clone of upstream tag
 v1.14.1 plus this file applied with `patch -p1` reproduces this directory
 exactly. Excluded from the artifact (and from the verification comparison):
 `.git`, the `clients/` git submodule placeholders (not carried here), and this
@@ -52,7 +55,7 @@ TMP=$(mktemp -d)
 git clone --depth 1 --branch v1.14.1 https://github.com/SagerNet/sing-box "$TMP/a"
 cp -R libcore/sing-box "$TMP/b"
 (cd "$TMP" && diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a b) \
-  > libcore/patches/sing-box-v1.14.1-neko-1.diff
+  > libcore/patches/sing-box-v1.14.1-neko-2.diff
 ```
 
 The `a`/`b` directory names are load-bearing: they keep the diff header paths

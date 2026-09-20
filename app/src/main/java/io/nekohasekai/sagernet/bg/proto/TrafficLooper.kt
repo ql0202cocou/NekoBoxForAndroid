@@ -11,6 +11,7 @@ import io.nekohasekai.sagernet.fmt.TAG_BYPASS
 import io.nekohasekai.sagernet.fmt.TAG_PROXY
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
@@ -189,110 +190,120 @@ class TrafficLooper(val data: BaseService.Data) {
         val itemBypass = TrafficUpdater.TrafficLooperData(tag = TAG_BYPASS)
 
         while (coroutineContext.isActive) {
-            proxy = data.proxy
-            if (proxy == null) {
-                delay(loopDelay)
-                continue
-            }
-
-            if (trafficUpdater == null) {
-                if (!proxy.isInitialized()) {
+            try {
+                proxy = data.proxy
+                if (proxy == null) {
                     delay(loopDelay)
                     continue
                 }
-                // under statsLock: a selectMain sneaking in mid-fill would see a
-                // half-populated idMap and drop the switch (id lookup fails)
-                synchronized(statsLock) {
-                    idMap.clear()
-                    idMap[-1] = itemBypass
-                    //
-                    val tags = hashSetOf(TAG_PROXY, TAG_BYPASS)
-                    proxy.config.trafficMap.forEach { (tag, ents) ->
-                        tags.add(tag)
-                        for (ent in ents) {
-                            val item = TrafficUpdater.TrafficLooperData(
-                                tag = tag,
-                                rx = ent.rx,
-                                tx = ent.tx,
-                                rxBase = ent.rx,
-                                txBase = ent.tx,
-                                ignore = proxy.config.selectorGroupId >= 0L,
-                            )
-                            idMap[ent.id] = item
-                            tagMap[tag] = item
-                            Logs.d("traffic count $tag to ${ent.id}")
-                        }
+
+                if (trafficUpdater == null) {
+                    if (!proxy.isInitialized()) {
+                        delay(loopDelay)
+                        continue
                     }
-                    if (proxy.config.selectorGroupId >= 0L) {
-                        selectMain(proxy.config.mainEntId)
-                    }
-                    //
-                    trafficUpdater = TrafficUpdater(
-                        box = proxy.box, items = idMap.values.toList()
-                    )
-                    proxy.box.setV2rayStats(tags.joinToString("\n"))
-                }
-            }
-
-            // mutually exclusive with selectMain, see statsLock
-            synchronized(statsLock) {
-                trafficUpdater?.updateAll()
-            }
-            if (!coroutineContext.isActive) return
-
-            if (countingOnly) {
-                delay(loopDelay)
-                continue
-            }
-
-            // add all non-bypass to "main"
-            var mainTxRate = 0L
-            var mainRxRate = 0L
-            var mainTx = 0L
-            var mainRx = 0L
-            tagMap.forEach { (_, it) ->
-                if (!it.ignore) {
-                    mainTxRate += it.txRate
-                    mainRxRate += it.rxRate
-                }
-                mainTx += it.tx - it.txBase
-                mainRx += it.rx - it.rxBase
-            }
-
-            // speed
-            val speed = SpeedDisplayData(
-                mainTxRate,
-                mainRxRate,
-                if (showDirectSpeed) itemBypass.txRate else 0L,
-                if (showDirectSpeed) itemBypass.rxRate else 0L,
-                mainTx,
-                mainRx
-            )
-
-            // broadcast (MainActivity)
-            if (data.state == BaseService.State.Connected
-                && data.binder.callbackIdMap.containsValue(SagerConnection.CONNECTION_ID_MAIN_ACTIVITY_FOREGROUND)
-            ) {
-                data.binder.broadcast { b ->
-                    if (data.binder.callbackIdMap[b.asBinder()] == SagerConnection.CONNECTION_ID_MAIN_ACTIVITY_FOREGROUND) {
-                        b.cbSpeedUpdate(speed)
-                        if (profileTrafficStatistics) {
-                            idMap.forEach { (id, item) ->
-                                b.cbTrafficUpdate(
-                                    TrafficData(id = id, rx = item.rx, tx = item.tx) // display
+                    // under statsLock: a selectMain sneaking in mid-fill would see a
+                    // half-populated idMap and drop the switch (id lookup fails)
+                    synchronized(statsLock) {
+                        idMap.clear()
+                        idMap[-1] = itemBypass
+                        //
+                        val tags = hashSetOf(TAG_PROXY, TAG_BYPASS)
+                        proxy.config.trafficMap.forEach { (tag, ents) ->
+                            tags.add(tag)
+                            for (ent in ents) {
+                                val item = TrafficUpdater.TrafficLooperData(
+                                    tag = tag,
+                                    rx = ent.rx,
+                                    tx = ent.tx,
+                                    rxBase = ent.rx,
+                                    txBase = ent.tx,
+                                    ignore = proxy.config.selectorGroupId >= 0L,
                                 )
+                                idMap[ent.id] = item
+                                tagMap[tag] = item
+                                Logs.d("traffic count $tag to ${ent.id}")
+                            }
+                        }
+                        if (proxy.config.selectorGroupId >= 0L) {
+                            selectMain(proxy.config.mainEntId)
+                        }
+                        //
+                        trafficUpdater = TrafficUpdater(
+                            box = proxy.box, items = idMap.values.toList()
+                        )
+                        proxy.box.setV2rayStats(tags.joinToString("\n"))
+                    }
+                }
+
+                // mutually exclusive with selectMain, see statsLock
+                synchronized(statsLock) {
+                    trafficUpdater?.updateAll()
+                }
+                if (!coroutineContext.isActive) return
+
+                if (countingOnly) {
+                    delay(loopDelay)
+                    continue
+                }
+
+                // add all non-bypass to "main"
+                var mainTxRate = 0L
+                var mainRxRate = 0L
+                var mainTx = 0L
+                var mainRx = 0L
+                tagMap.forEach { (_, it) ->
+                    if (!it.ignore) {
+                        mainTxRate += it.txRate
+                        mainRxRate += it.rxRate
+                    }
+                    mainTx += it.tx - it.txBase
+                    mainRx += it.rx - it.rxBase
+                }
+
+                // speed
+                val speed = SpeedDisplayData(
+                    mainTxRate,
+                    mainRxRate,
+                    if (showDirectSpeed) itemBypass.txRate else 0L,
+                    if (showDirectSpeed) itemBypass.rxRate else 0L,
+                    mainTx,
+                    mainRx
+                )
+
+                // broadcast (MainActivity)
+                if (data.state == BaseService.State.Connected
+                    && data.binder.callbackIdMap.containsValue(SagerConnection.CONNECTION_ID_MAIN_ACTIVITY_FOREGROUND)
+                ) {
+                    data.binder.broadcast { b ->
+                        if (data.binder.callbackIdMap[b.asBinder()] == SagerConnection.CONNECTION_ID_MAIN_ACTIVITY_FOREGROUND) {
+                            b.cbSpeedUpdate(speed)
+                            if (profileTrafficStatistics) {
+                                idMap.forEach { (id, item) ->
+                                    b.cbTrafficUpdate(
+                                        TrafficData(id = id, rx = item.rx, tx = item.tx) // display
+                                    )
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            // ServiceNotification
-            data.notification?.apply {
-                if (listenPostSpeed) postNotificationSpeedUpdate(speed)
-            }
+                // ServiceNotification
+                data.notification?.apply {
+                    if (listenPostSpeed) postNotificationSpeedUpdate(speed)
+                }
 
-            delay(loopDelay)
+                delay(loopDelay)
+            } catch (e: CancellationException) {
+                throw e // stopLoop() 的取消是循环的正常退出路径，必须重抛不吞
+            } catch (e: Exception) {
+                // 通知更新、DataStore 读取等意外异常不能逃出循环：本协程跑在
+                // appScope 上且没有 CoroutineExceptionHandler，逃逸即崩溃 :bg。
+                // 补一次 delay 再进下一轮，避免异常持续发生时空转烧 CPU
+                Logs.w(e)
+                delay(loopDelay)
+            }
         }
     }
 }

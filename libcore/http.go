@@ -82,6 +82,14 @@ type httpClient struct {
 func NewHttpClient() HTTPClient {
 	defer device.DeferPanicToError("NewHttpClient", nil)
 
+	// 自定义 CA 由 InitCore 的后台 goroutine 异步加载，assetsReady 关闭才
+	// 代表就绪（见 nb4a.go）。NewSingBoxInstance 已等待它，但订阅更新等路径
+	// 在进程启动后立刻就会发 TLS 请求，可能抢在 CA 加载完成前校验证书，
+	// 这里同样等待（就绪窗口为毫秒级）
+	if ready := assetsReady.Load(); ready != nil {
+		<-*ready
+	}
+
 	client := new(httpClient)
 	client.h1h2Client.Transport = &client.h1h2Transport
 	client.h1h2Client.Timeout = httpOverallTimeout
@@ -133,6 +141,9 @@ func (c *httpClient) TrySocks5(port int32) {
 			if c.tryH3Direct {
 				return nil, errFailConnectSocks5
 			}
+			// 直连回退用的是纯 net.Dialer，不经过 VPN protect：VPN 运行中且
+			// 本地 socks 不可达时，这部分 "direct" 流量会被自身 tun 捕获、
+			// 经代理出站。触发条件苛刻，行为与上游一致，故保持现状不改。
 			// no H3 fallback: dial the target directly instead
 			return dialer.DialContext(ctx, network, addr)
 		}

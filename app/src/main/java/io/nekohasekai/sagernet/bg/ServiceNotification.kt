@@ -197,6 +197,9 @@ class ServiceNotification(
 
     private suspend fun show() =
         useBuilder {
+            // 与 update() 同一兜底：init 里 post 的 show 可能排在 destroy() 之后
+            // 执行，已销毁时不得再 startForeground 把通知复活成幽灵通知
+            if (destroyed.get()) return@useBuilder
             val notification = it.build()
             try {
                 if (Build.VERSION.SDK_INT >= 34) {

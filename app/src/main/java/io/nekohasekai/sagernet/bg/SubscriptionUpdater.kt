@@ -4,8 +4,10 @@ import android.annotation.SuppressLint
 import android.content.Context
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.work.Constraints
 import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy.UPDATE
+import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkerParameters
 import androidx.work.multiprocess.RemoteCoroutineWorker
@@ -28,6 +30,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -53,16 +56,31 @@ object SubscriptionUpdater : GroupManager.Listener {
         reconfigureLocked()
     }
 
+    // 排期失败只在 listener 里记日志，不向调用方传播：DB 读取或
+    // RemoteWorkManager binder 往返抛出的异常会顺着 GroupManager 的
+    // listener 遍历传回 createGroup / updateGroup / deleteGroup 的 UI
+    // 调用方造成崩溃，而分组编辑本身已经落库；WorkManager 的任务是持久的，
+    // 这次排不上等下次分组事件再排即可
+    private suspend fun reconfigureSafely() {
+        try {
+            reconfigureUpdater()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            Logs.w(e)
+        }
+    }
+
     override suspend fun groupAdd(group: ProxyGroup) {
-        if (group.type == GroupType.SUBSCRIPTION) reconfigureUpdater()
+        if (group.type == GroupType.SUBSCRIPTION) reconfigureSafely()
     }
 
     override suspend fun groupUpdated(group: ProxyGroup) {
-        reconfigureUpdater()
+        reconfigureSafely()
     }
 
     override suspend fun groupRemoved(groupId: Long) {
-        reconfigureUpdater()
+        reconfigureSafely()
     }
 
     // a reload only, the row is unchanged
@@ -103,6 +121,10 @@ object SubscriptionUpdater : GroupManager.Listener {
             UPDATE,
             PeriodicWorkRequest.Builder(UpdateTask::class.java, minDelay, TimeUnit.MINUTES)
                 .setInputData(remoteArgs)
+                // 订阅更新离不开网络：无网时整个周期跳过，不空跑
+                .setConstraints(
+                    Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+                )
                 .apply {
                     if (minInitDelay > 0) setInitialDelay(minInitDelay, TimeUnit.SECONDS)
                 }

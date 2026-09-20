@@ -77,7 +77,7 @@ abstract class GroupUpdater {
                                 // 分组指定了节点解析 DNS 时优先使用，失败回退系统 DNS
                                 // System DNS is enough (when VPN connected, it uses v2ray-core)
                                 lookupViaNameserver(groupNameserver, profile.serverAddress)
-                                    ?: InetAddress.getAllByName(profile.serverAddress).filterNotNull()
+                                    ?: lookupSystemDns(profile.serverAddress)
                             }
                             if (results.isEmpty()) error("empty response")
                             rewriteAddress(profile, results, ipv6First)
@@ -96,6 +96,24 @@ abstract class GroupUpdater {
         } finally {
             lookupPool.close()
         }
+    }
+
+    // 系统 DNS 回退：getAllByName 是没有超时的阻塞 JNI 调用，协程取消也打
+    // 不断，会一直攥住 lookupPool 线程（coroutineScope 挂住期间更新持有跨进程
+    // 文件锁）。把它挂到 appScope 上跑、这里只等 10 秒（与 lookupViaNameserver
+    // 的原生十秒预算一致）：超时按解析失败处理并记日志，残留的调用在系统
+    // 解析器返回后自行结束，结果直接丢弃
+    private suspend fun lookupSystemDns(domain: String): List<InetAddress> {
+        val lookup = appScope.async(Dispatchers.IO) {
+            runCatching { InetAddress.getAllByName(domain).filterNotNull() }.getOrNull()
+        }
+        val results = withTimeoutOrNull(10_000L) { lookup.await() }
+        // await 返回 null 是解析失败；超时则是 lookup 还在跑，两者都按失败处理
+        if (results == null) {
+            if (!lookup.isCompleted) Logs.w("System DNS lookup for $domain timed out")
+            return emptyList()
+        }
+        return results
     }
 
     protected fun rewriteAddress(

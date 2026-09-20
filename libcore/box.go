@@ -197,6 +197,12 @@ func (b *BoxInstance) Close() (err error) {
 func (b *BoxInstance) Sleep() {
 	defer device.DeferPanicToError("box.Sleep", nil)
 
+	// 与 SetV2rayStats 等兄弟方法一致：box 已关闭时不再 emit pause 事件
+	if !b.lockIfOpen() {
+		return
+	}
+	defer b.access.Unlock()
+
 	if b.pauseManager != nil {
 		b.pauseManager.DevicePause()
 	}
@@ -204,6 +210,12 @@ func (b *BoxInstance) Sleep() {
 
 func (b *BoxInstance) Wake() {
 	defer device.DeferPanicToError("box.Wake", nil)
+
+	// 同 Sleep：box 已关闭时不再 emit pause 事件
+	if !b.lockIfOpen() {
+		return
+	}
+	defer b.access.Unlock()
 
 	if b.pauseManager != nil {
 		b.pauseManager.DeviceWake()

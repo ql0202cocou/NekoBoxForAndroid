@@ -115,7 +115,11 @@ func InitCore(process, cachePath, internalAssets, externalAssets string,
 	}
 	neko_log.LogWriterDisable = !logEnable
 	neko_log.TruncateOnStart = isBg
-	neko_log.SetupLog(int(maxLogSizeKb)*1024, filepath.Join(cachePath, "neko.log"))
+	// 日志文件打不开时 SetupLog 退化为仅 stdout/GUI 输出（见 neko_log），
+	// 记一条日志后继续，不能让进程起不来
+	if err := neko_log.SetupLog(int(maxLogSizeKb)*1024, filepath.Join(cachePath, "neko.log")); err != nil {
+		log.Println("SetupLog:", err)
+	}
 
 	// nekoutils
 	nekoutils.Selector_OnProxySelected = if1.Selector_OnProxySelected

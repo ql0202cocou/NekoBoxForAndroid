@@ -10,6 +10,7 @@ import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.plugin.PluginManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import libcore.BoxInstance
 import libcore.Libcore
@@ -101,6 +102,12 @@ abstract class BoxInstance(
         }
 
         box.start()
+
+        // 上面的 isClosed() 守卫与 writeCacheFile/processes.start 不是原子的：
+        // TestInstance 的取消落在 launch() 中途时 close() 已清过 cacheFiles，
+        // 之后加进来的插件配置文件无人再删（进程与 box 由 close() 兜底，
+        // 仅 cacheDir/tmpcfg 残留），这里补清一次
+        if (isClosed()) deleteCacheFiles()
     }
 
     private val closed = AtomicBoolean(false)
@@ -127,24 +134,31 @@ abstract class BoxInstance(
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
 
-        // Stop the plugin processes before deleting their config files: the
-        // Job returned by GuardedProcessPool.close completes once every guard
-        // looper has exited, so only then is no guard left to restart a
-        // plugin whose config file is already gone. Hook the deletion onto it
-        // instead of joining here — close() may run on the main thread, where
-        // joining would deadlock the loopers' Main-dispatched cleanup.
-        if (::processes.isInitialized) {
-            processes.close(appScope + Dispatchers.IO).invokeOnCompletion {
+        try {
+            // 先停插件进程再删它们的配置文件：GuardedProcessPool.close 返回的
+            // Job 在每个 guard looper 退出后才完成，此刻才不会有 guard 重启
+            // 一个配置文件已被删掉的插件。删除挂在 Job 上而不是在这里 join
+            // —— close() 可能在主线程跑，join 会死锁 looper 的 Main 分发清理
+            if (::processes.isInitialized) {
+                processes.close(appScope + Dispatchers.IO).invokeOnCompletion {
+                    // invokeOnCompletion 在使 Job 完成的线程上同步执行，guard
+                    // looper 退出在 Main.immediate，删文件要转去 IO 线程
+                    appScope.launch(Dispatchers.IO) { deleteCacheFiles() }
+                }
+            } else {
                 deleteCacheFiles()
             }
-        } else {
+        } catch (e: Throwable) {
+            // processes.close() 抛异常（OOM 级）时上面的删除回调没有挂上，
+            // 这里尽力补删一次；box.close() 由 finally 保证仍会执行
+            Logs.w(e)
             deleteCacheFiles()
-        }
-
-        // gomobile turns a Go-side error (DeferPanicToError) into an exception;
-        // uncaught in stopRunner's coroutine it would crash :bg mid-teardown
-        if (::box.isInitialized) {
-            runCatching { box.close() }.onFailure { Logs.w(it) }
+        } finally {
+            // gomobile 把 Go 侧错误（DeferPanicToError）转成异常；在
+            // stopRunner 的协程里不接住会让 :bg 在关停途中崩溃
+            if (::box.isInitialized) {
+                runCatching { box.close() }.onFailure { Logs.w(it) }
+            }
         }
     }
 

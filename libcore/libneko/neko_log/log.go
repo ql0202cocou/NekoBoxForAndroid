@@ -62,12 +62,17 @@ func SetupLog(maxSize int, path string) (err error) {
 		log.Println(err)
 	}
 
-	//
+	// 日志文件打开失败时 f 是 nil 的 *os.File：放进 writers 后是
+	// typed-nil，Write 里的 w == nil 拦不住接口非空，文件日志会静默丢失，
+	// 所以只有 f 非 nil（打开成功）才放入 writers
 	LogWriter = &logWriter{}
 	if neko_common.RunMode == neko_common.RunMode_NekoBoxForAndroid {
-		LogWriter.writers = []io.Writer{NB4AGuiLogWriter, f}
+		LogWriter.writers = []io.Writer{NB4AGuiLogWriter}
 	} else {
-		LogWriter.writers = []io.Writer{os.Stdout, f}
+		LogWriter.writers = []io.Writer{os.Stdout}
+	}
+	if f != nil {
+		LogWriter.writers = append(LogWriter.writers, f)
 	}
 	// setup std log
 	log.SetFlags(log.LstdFlags | log.LUTC)

@@ -29,6 +29,15 @@ func getOneFd(c *net.UnixConn) (int, error) {
 		return 0, err
 	}
 	if len(msgs) != 1 {
+		// msgs 里可能已携带 SCM_RIGHTS fd，直接返回会泄漏；
+		// 参照下方 len(fds) != 1 分支逐个解析关闭
+		for i := range msgs {
+			if fds, err := syscall.ParseUnixRights(&msgs[i]); err == nil {
+				for _, fd := range fds {
+					syscall.Close(fd)
+				}
+			}
+		}
 		return 0, fmt.Errorf("invalid msgs count: %d", len(msgs))
 	}
 
