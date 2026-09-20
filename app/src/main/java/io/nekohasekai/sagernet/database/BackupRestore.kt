@@ -191,24 +191,11 @@ object BackupRestore {
     // settings-only or profiles-only import): currentGroupId() trusts any
     // positive value and the configuration page would stay blank; the service
     // would try to start a missing profile.
-    // selectedGroup 必须裸读而不是走委托属性：属性的惰性默认值是
-    // GroupManager.currentGroupId()，键缺失时会一路走到
-    // createInitialGroup() → RestoreJournal 文件锁，而启动重放路径
-    // （completePending）正持着同一把锁——同进程重叠加锁直接抛
-    // OverlappingFileLockException，恢复因此注定失败；交互导入路径则会在
-    // PublicDatabase 事务内等文件锁，与持锁等写库的 :bg 互相死等。此处惰性
-    // 默认值本就无意义：紧接着的 dangling 分支会 resetSelectedGroup()。
+    // 两个清理函数都不带惰性默认值副作用，可以在 RestoreJournal 文件锁持有
+    // 期间（completePending 重放）和 PublicDatabase 事务内安全调用；
+    // selectedGroup 为何不能走委托属性，见 GroupManager.resetSelectedGroupIfGone
     private fun fixDanglingSelections() {
-        val selectedGroup = DataStore.configurationStore.getLong(Key.PROFILE_GROUP, -1)
-        if (selectedGroup > 0L &&
-            SagerDatabase.groupDao.getById(selectedGroup) == null
-        ) {
-            GroupManager.resetSelectedGroup()
-        }
-        if (DataStore.selectedProxy > 0L &&
-            SagerDatabase.proxyDao.getById(DataStore.selectedProxy) == null
-        ) {
-            DataStore.selectedProxy = 0L
-        }
+        GroupManager.resetSelectedGroupIfGone()
+        ProfileManager.clearSelectedProxyIfGone()
     }
 }

@@ -8,6 +8,7 @@ import io.nekohasekai.sagernet.fmt.hysteria.parseHysteria1
 import io.nekohasekai.sagernet.fmt.hysteria.parseHysteria2
 import io.nekohasekai.sagernet.fmt.naive.parseNaive
 import io.nekohasekai.sagernet.fmt.parseUniversal
+import io.nekohasekai.sagernet.fmt.requireValidEndpoint
 import io.nekohasekai.sagernet.fmt.shadowsocks.parseShadowsocks
 import io.nekohasekai.sagernet.fmt.socks.parseSOCKS
 import io.nekohasekai.sagernet.fmt.trojan.parseTrojan
@@ -152,9 +153,19 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
     for (link in linksByLine) {
         link.parseLink(entitiesByLine)
     }
-    entities.forEach { it.initializeDefaultValues() }
-    entitiesByLine.forEach { it.initializeDefaultValues() }
-    return if (entities.size > entitiesByLine.size) entities else entitiesByLine
+    // 端点校验必须在 initializeDefaultValues 之前：缺省会被填成
+    // 127.0.0.1:1080，之后就验不出缺失；坏节点丢弃，不拖垮整批
+    val validEntities = entities.filterValidEndpoint()
+    val validEntitiesByLine = entitiesByLine.filterValidEndpoint()
+    validEntities.forEach { it.initializeDefaultValues() }
+    validEntitiesByLine.forEach { it.initializeDefaultValues() }
+    return if (validEntities.size > validEntitiesByLine.size) validEntities else validEntitiesByLine
+}
+
+private fun List<AbstractBean>.filterValidEndpoint(): List<AbstractBean> = filter { bean ->
+    runCatching { bean.requireValidEndpoint() }
+        .onFailure { Logs.w("Subscription entry rejected: ${it.javaClass.simpleName}") }
+        .isSuccess
 }
 
 fun <T : Serializable> T.applyDefaultValues(): T {

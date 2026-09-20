@@ -54,11 +54,8 @@ object GroupManager {
     }
 
     suspend fun clearGroup(groupId: Long) {
-        val selected = DataStore.selectedProxy
-        if (selected > 0L && SagerDatabase.proxyDao.getById(selected)?.groupId == groupId) {
-            DataStore.selectedProxy = 0L
-        }
         SagerDatabase.proxyDao.deleteAll(groupId)
+        ProfileManager.clearSelectedProxyIfGone()
         resetDanglingGroupProxies()
         iterator { groupUpdated(groupId) }
     }
@@ -142,16 +139,15 @@ object GroupManager {
 
     // deleteRows removes the group rows themselves inside the transaction.
     private suspend fun deleteGroups(groupIds: List<Long>, deleteRows: () -> Unit) {
-        val selected = DataStore.selectedProxy
-        if (selected > 0L && SagerDatabase.proxyDao.getById(selected)?.groupId in groupIds) {
-            DataStore.selectedProxy = 0L
-        }
         SagerDatabase.instance.runInTransaction {
             deleteRows()
             SagerDatabase.proxyDao.deleteByGroup(groupIds.toLongArray())
             resetDanglingGroupProxies()
         }
-        if (DataStore.selectedGroup in groupIds) resetSelectedGroup()
+        // DataStore 写的是 PublicDatabase，不参与上面的 SagerDatabase 事务；
+        // 事务成功后再清选择，避免回滚留下「选择已清、行未删」的中间态
+        ProfileManager.clearSelectedProxyIfGone()
+        resetSelectedGroupIfGone()
         for (groupId in groupIds) iterator { groupRemoved(groupId) }
     }
 
@@ -210,6 +206,18 @@ object GroupManager {
     // group, or -1 so currentGroup() recreates the ungrouped group.
     fun resetSelectedGroup() {
         DataStore.selectedGroup = SagerDatabase.groupDao.allGroups().firstOrNull()?.id ?: -1L
+    }
+
+    // 选中分组指向的行已不存在时按 resetSelectedGroup 回退。必须裸读
+    // configurationStore 而不是 DataStore.selectedGroup 委托属性：属性的
+    // 惰性默认值会走 currentGroupId() → createInitialGroup() →
+    // RestoreJournal 文件锁，在 completePending 持锁重放或 PublicDatabase
+    // 事务内调用会重入 / 死等
+    fun resetSelectedGroupIfGone() {
+        val selected = DataStore.configurationStore.getLong(Key.PROFILE_GROUP, -1)
+        if (selected > 0L && SagerDatabase.groupDao.getById(selected) == null) {
+            resetSelectedGroup()
+        }
     }
 
 }

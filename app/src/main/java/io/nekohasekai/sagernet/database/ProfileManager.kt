@@ -133,14 +133,22 @@ object ProfileManager {
         }
     }
 
+    // 选中节点指向的行已不存在时清掉选择；在删除行之后调用，调用处不必各自
+    // 匹配删除列表。不清的话下次 reload 时 getProfile(selectedProxy) 返回
+    // null，VPN 静默停止
+    fun clearSelectedProxyIfGone() {
+        val selected = DataStore.selectedProxy
+        if (selected > 0L && SagerDatabase.proxyDao.getById(selected) == null) {
+            DataStore.selectedProxy = 0L
+        }
+    }
+
     // Removes the row and drops a selection pointing at it; false when the
     // profile no longer existed. Listeners are notified by the callers, which
     // order that against their own fixups.
     private fun deleteProfileRow(profileId: Long): Boolean {
         if (SagerDatabase.proxyDao.deleteById(profileId) == 0) return false
-        if (DataStore.selectedProxy == profileId) {
-            DataStore.selectedProxy = 0L
-        }
+        clearSelectedProxyIfGone()
         return true
     }
 

@@ -16,64 +16,68 @@ fun parseJSON(json: Any, depth: Int = 0): List<AbstractBean> {
 
     if (json is JSONObject) {
         when {
-            // before the hysteria 1 branch: a sing-box hysteria2 outbound also
-            // carries "server" and may carry "up_mbps"
+            // 必须排在 hysteria 1 分支之前：sing-box 的 hysteria2 outbound
+            // 同样带 "server"，也可能带 "up_mbps"
             json.getStr("type") == "hysteria2" -> {
-                return listOf(json.parseHysteria2Json())
+                proxies.add(json.parseHysteria2Json())
             }
 
             json.has("server") && (json.has("up") || json.has("up_mbps")) -> {
-                return listOf(json.parseHysteria1Json())
+                proxies.add(json.parseHysteria1Json())
             }
 
             json.has("method") -> {
-                return listOf(json.parseShadowsocks())
+                proxies.add(json.parseShadowsocks())
             }
 
-            // SIP008 online config: {"version": 1, "servers": [{server, server_port,
+            // SIP008 在线配置：{"version": 1, "servers": [{server, server_port,
             // password, method, plugin, plugin_opts, remarks}, ...]}
             json.optJSONArray("servers") != null -> {
-                return json.getJSONArray("servers")
-                    .filterIsInstance<JSONObject>()
-                    .filter { it.has("server") }
-                    .mapNotNull { entry -> runCatching { entry.parseShadowsocks() }.getOrNull() }
+                proxies.addAll(
+                    json.getJSONArray("servers")
+                        .filterIsInstance<JSONObject>()
+                        .filter { it.has("server") }
+                        .mapNotNull { entry -> runCatching { entry.parseShadowsocks() }.getOrNull() }
+                )
             }
 
             json.has("remote_addr") -> {
-                return listOf(json.parseTrojanGo())
+                proxies.add(json.parseTrojanGo())
             }
 
             json.has("outbounds") -> {
-                return json.getJSONArray("outbounds")
-                    .filterIsInstance<JSONObject>()
-                    .mapNotNull {
-                        val ty = it.getStr("type")
-                        if (ty == null || ty == "" ||
-                            ty == "dns" || ty == "block" || ty == "direct" || ty == "selector" || ty == "urltest"
-                        ) {
-                            null
-                        } else {
-                            it
+                proxies.addAll(
+                    json.getJSONArray("outbounds")
+                        .filterIsInstance<JSONObject>()
+                        .mapNotNull {
+                            val ty = it.getStr("type")
+                            if (ty == null || ty == "" ||
+                                ty == "dns" || ty == "block" || ty == "direct" || ty == "selector" || ty == "urltest"
+                            ) {
+                                null
+                            } else {
+                                it
+                            }
+                        }.map {
+                            ConfigBean().apply {
+                                applyDefaultValues()
+                                type = 1
+                                config = it.toStringPretty()
+                                name = it.getStr("tag")
+                            }
                         }
-                    }.map {
-                        ConfigBean().apply {
-                            applyDefaultValues()
-                            type = 1
-                            config = it.toStringPretty()
-                            name = it.getStr("tag")
-                        }
-                    }
+                )
             }
 
             json.has("server") && json.has("server_port") -> {
-                return listOf(ConfigBean().applyDefaultValues().apply {
+                proxies.add(ConfigBean().applyDefaultValues().apply {
                     type = 1
                     config = json.toStringPretty()
                 })
             }
         }
     } else if (json is JSONArray) {
-        // Scalars and malformed nodes must not discard valid siblings.
+        // 标量或坏节点不能拖垮同层的有效节点
         json.forEach { _, entry ->
             if (entry is JSONObject || entry is JSONArray) {
                 runCatching { parseJSON(entry, depth + 1) }
@@ -83,6 +87,7 @@ fun parseJSON(json: Any, depth: Int = 0): List<AbstractBean> {
         }
     }
 
+    // 单一出口：所有分支的节点统一在这里归一化，不再依赖各叶子 parser 自觉
     proxies.forEach { it.initializeDefaultValues() }
     return proxies
 }

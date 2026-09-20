@@ -6,7 +6,7 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
-import io.nekohasekai.sagernet.fmt.hysteria.parseHysteriaPorts
+import io.nekohasekai.sagernet.fmt.requireValidEndpoint
 import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
@@ -45,11 +45,11 @@ fun parseClash(text: String): List<AbstractBean> {
         runCatching {
             val proxy = proxyEntry as? Map<String, Any?>
                 ?: error("proxy entry is not a map")
-            // A blank/absent server would silently become 127.0.0.1 in
-            // initializeDefaultValues; reject the node instead
-            if (proxy["server"]?.toString().isNullOrBlank()) error("missing server")
-            checkClashPort(proxy)
-            parseClashProxy(proxy)?.let { proxies.add(it) }
+            // 端点在 bean 上统一校验；必须早于下方的 initializeDefaultValues，
+            // 否则缺省被填成 127.0.0.1:1080 就验不出缺失
+            val bean = parseClashProxy(proxy) ?: return@runCatching
+            bean.requireValidEndpoint()
+            proxies.add(bean)
         }.onFailure { Logs.w("Subscription entry rejected: ${it.javaClass.simpleName}") }
     }
 
@@ -75,30 +75,6 @@ private fun parseClashProxy(proxy: Map<String, Any?>): AbstractBean? = when (pro
     "tuic" -> parseClashTuic(proxy)
     "wireguard" -> parseClashWireGuard(proxy)
     else -> null
-}
-
-// 端口与 server 同等在入口校验：tuic/wireguard/anytls 缺 port 时不会抛异常，
-// 会带着 bean 默认的 1080 静默通过解析，永远是死节点。error() 交给调用处的
-// runCatching 按「跳过坏节点」处理，与缺 server 一致。
-private fun checkClashPort(proxy: Map<String, Any?>) {
-    when (proxy["type"] as? String) {
-        "hysteria", "hysteria2", "hy2" -> {
-            // hysteria 允许 ports（端口跳跃）替代 port，优先级与
-            // parseClashHysteria 一致（ports 非空时覆盖 port）；
-            // parseHysteriaPorts 不合格时自己抛，只跳过本节点
-            val ports = proxy["ports"]?.toString()?.takeIf { it.isNotBlank() }
-                ?: proxy["port"]?.toString() ?: error("missing hysteria port")
-            parseHysteriaPorts(ports)
-        }
-
-        "socks5", "http", "ss", "vmess", "vless", "trojan", "anytls", "tuic", "wireguard" -> {
-            val port = proxy["port"]?.toString()?.toIntOrNull()
-            if (port == null || port !in 1..65535) error("invalid port")
-        }
-
-        // 未知类型由 parseClashProxy 返回 null 静默跳过，端口不在此拦截
-        else -> {}
-    }
 }
 
 private fun parseClashSocks(proxy: Map<String, Any?>) = SOCKSBean().apply {
@@ -591,7 +567,9 @@ private fun parseClashTuic(proxy: Map<String, Any?>): TuicBean {
 }
 
 private fun parseClashWireGuard(proxy: Map<String, Any?>): WireGuardBean {
-    val bean = WireGuardBean().applyDefaultValues()
+    // 不做 applyDefaultValues：serverPort 填了默认值后，缺 port 的节点会
+    // 瞒过 requireValidEndpoint；归一化统一由调用处尾部完成
+    val bean = WireGuardBean()
     val localAddresses = mutableListOf<String>()
     for (opt in proxy) {
         if (opt.value == null) continue

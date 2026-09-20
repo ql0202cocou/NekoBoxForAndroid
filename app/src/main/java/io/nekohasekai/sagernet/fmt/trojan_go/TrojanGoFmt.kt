@@ -138,7 +138,9 @@ fun TrojanGoBean.buildTrojanGoConfig(port: Int): String {
 fun JSONObject.parseTrojanGo(): TrojanGoBean {
     return TrojanGoBean().applyDefaultValues().apply {
         serverAddress = getStr("remote_addr") ?: error("Missing trojan-go server")
-        serverPort = optInt("remote_port", serverPort)
+        // 默认值给 0 而不是 serverPort：applyDefaultValues 已把它填成 1080，
+        // 缺 remote_port 时用它会绕过下方的范围校验
+        serverPort = optInt("remote_port", 0)
         // 入口校验：越界端口留到 toUri 的 okhttp port() 才抛，分组导出无兜底
         if (serverPort !in 1..65535) error("invalid trojan-go port")
         when (val pass = get("password")) {
