@@ -8,6 +8,9 @@ on:
       skip_publish:
         description: "Skip publishing to GitHub Releases (set y to skip)"
         required: false
+      prerelease:
+        description: "Publish as a pre-release, never marked Latest (set y)"
+        required: false
 # One run per tag at a time: two concurrent runs would both `ghr -delete` and
 # recreate the release/tag, the later one overwriting the earlier one's APKs.
 # Not cancelled: a build must not be aborted halfway through a publish.
@@ -74,6 +77,7 @@ jobs:
       - name: Release
         env:
           TAG: ${{ inputs.tag }}
+          PRERELEASE: ${{ inputs.prerelease }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           wget -O ghr.tar.gz https://github.com/tcnksm/ghr/releases/download/v0.13.0/ghr_v0.13.0_linux_amd64.tar.gz
@@ -92,4 +96,10 @@ jobs:
           # tag at the target commitish; without -c that is the default branch head,
           # so re-running a release for an older tag would silently move it off the
           # commit these APKs were built from. HEAD here is the checked-out tag.
-          ./ghr -delete -c "$(git rev-parse HEAD)" -n "$TAG" "$TAG" apks
+          # 预览版在创建时就带 -prerelease：事后再改的话，发布后到改完之间它是
+          # 正式 release，会短暂顶掉 Latest
+          PRERELEASE_FLAG=()
+          if [ "$PRERELEASE" = "y" ]; then
+            PRERELEASE_FLAG=(-prerelease)
+          fi
+          ./ghr -delete -c "$(git rev-parse HEAD)" "${PRERELEASE_FLAG[@]}" -n "$TAG" "$TAG" apks
