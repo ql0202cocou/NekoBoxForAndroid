@@ -84,7 +84,7 @@ class BaseService {
                         } else {
                             p.box.wake()
                             if (DataStore.wakeResetConnections) {
-                                Libcore.resetAllConnections(true)
+                                Libcore.resetAllConnections()
                             }
                         }
                     }
@@ -101,7 +101,7 @@ class BaseService {
                 }
 
                 Action.RESET_UPSTREAM_CONNECTIONS -> runOnDefaultDispatcher {
-                    Libcore.resetAllConnections(true)
+                    Libcore.resetAllConnections()
                     runOnMainDispatcher {
                         Util.collapseStatusBar(ctx)
                         Toast.makeText(ctx, "Reset upstream connections done", Toast.LENGTH_SHORT)
@@ -473,7 +473,7 @@ class BaseService {
                         if (oldName != null && newName != null && oldName != newName) {
                             Logs.d("Network changed: $oldName -> $newName")
                             if (DataStore.networkChangeResetConnections) {
-                                Libcore.resetAllConnections(true)
+                                Libcore.resetAllConnections()
                             }
                         }
                     }

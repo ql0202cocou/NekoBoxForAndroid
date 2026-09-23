@@ -35,25 +35,21 @@ func getMainInstance() *BoxInstance {
 	return mainInstance
 }
 
-func ResetAllConnections(system bool) {
+func ResetAllConnections() {
 	defer device.DeferPanicToError("ResetAllConnections", nil)
 
-	if system {
-		// conntrack was removed in sing-box 1.13; ResetNetwork closes all connections
-		if main := getMainInstance(); main != nil {
-			// getMainInstance released mainInstanceAccess already, so taking
-			// main.access here cannot deadlock against Close's
-			// b.access -> mainInstanceAccess order (same pattern as UrlTest).
-			// The lock is held across ResetNetwork: on a closed box it would
-			// call InterfaceUpdated on closed endpoints, with no guaranteed
-			// behavior.
-			if main.lockIfOpen() {
-				main.Network().ResetNetwork(context.Background())
-				main.access.Unlock()
-			}
+	// sing-box 1.13 移除了 conntrack，改由 ResetNetwork 关闭所有连接
+	if main := getMainInstance(); main != nil {
+		// getMainInstance 已释放 mainInstanceAccess，此处再取 main.access
+		// 不会与 Close 的 b.access -> mainInstanceAccess 加锁顺序死锁（同
+		// UrlTest）。ResetNetwork 期间持锁：对已关闭的 box 调用会在已关闭的
+		// 端点上执行 InterfaceUpdated，行为无保证
+		if main.lockIfOpen() {
+			main.Network().ResetNetwork(context.Background())
+			main.access.Unlock()
 		}
-		log.Println("Reset system connections done")
 	}
+	log.Println("Reset system connections done")
 }
 
 // BoxInstance lifecycle states, in the order they are reached.
@@ -182,14 +178,8 @@ func (b *BoxInstance) Close() (err error) {
 	mainInstanceAccess.Unlock()
 
 	// close box
-	if b.cancel != nil {
-		b.cancel()
-	}
-	if b.Box != nil {
-		return b.Box.Close()
-	}
-
-	return nil
+	b.cancel()
+	return b.Box.Close()
 }
 
 func (b *BoxInstance) Sleep() {

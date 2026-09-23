@@ -4,13 +4,11 @@ import (
 	"archive/zip"
 	"errors"
 	"fmt"
-	"io"
 	"libcore/device"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/sagernet/sing/common"
 	"github.com/ulikunitz/xz"
 )
 
@@ -30,12 +28,7 @@ func unxz(archive string, path string) (err error) {
 	if err != nil {
 		return err
 	}
-	_, err = io.Copy(o, r)
-	cerr := o.Close()
-	if err != nil {
-		return err
-	}
-	return cerr
+	return copyAndClose(o, r)
 }
 
 func unzip(archive string, path string) (err error) {
@@ -84,8 +77,7 @@ func unzip(archive string, path string) (err error) {
 			return err
 		}
 
-		_, err = io.Copy(newFile, zipFile)
-		if err := errors.Join(err, common.Close(zipFile, newFile)); err != nil {
+		if err := errors.Join(copyAndClose(newFile, zipFile), zipFile.Close()); err != nil {
 			return err
 		}
 	}

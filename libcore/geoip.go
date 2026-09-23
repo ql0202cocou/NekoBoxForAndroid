@@ -60,7 +60,7 @@ func geoipRulesFrom(reader *maxminddb.Reader, countryCode string) (rules []optio
 // See geoCache for the caching rationale. Country codes are matched
 // case-insensitively.
 var geoipCache = geoCache[*maxminddb.Reader]{
-	dbName:    "geoip.db",
+	dbName:    geoipDat,
 	open:      openGeoIP,
 	normalize: strings.ToLower,
 	load:      geoipRulesFrom,

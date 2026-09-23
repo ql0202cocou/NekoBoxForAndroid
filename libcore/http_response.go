@@ -13,6 +13,16 @@ import (
 // maxContentSize caps response bodies read by getContent (32 MB).
 const maxContentSize = 32 * 1024 * 1024
 
+// readAllLimited 读完 r，超过 maxContentSize 时丢弃内容并报错；多读 1 字节
+// 用来区分“恰好等于上限”与“超出上限”。what 是错误信息里的主语
+func readAllLimited(r io.Reader, what string) ([]byte, error) {
+	b, err := io.ReadAll(io.LimitReader(r, maxContentSize+1))
+	if err == nil && len(b) > maxContentSize {
+		return nil, fmt.Errorf("%s too large, limit is %d bytes", what, maxContentSize)
+	}
+	return b, err
+}
+
 type httpResponse struct {
 	*http.Response
 
@@ -78,11 +88,7 @@ func (h *httpResponse) getContent() (content []byte, err error) {
 
 	h.getContentOnce.Do(func() {
 		defer h.Close()
-		h.content, h.contentError = io.ReadAll(io.LimitReader(h.Body, maxContentSize+1))
-		if h.contentError == nil && len(h.content) > maxContentSize {
-			h.content = nil
-			h.contentError = fmt.Errorf("content too large, limit is %d bytes", maxContentSize)
-		}
+		h.content, h.contentError = readAllLimited(h.Body, "content")
 	})
 	return h.content, h.contentError
 }

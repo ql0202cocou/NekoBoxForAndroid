@@ -56,7 +56,7 @@ func geositeRulesFrom(reader *geosites.Reader, code string) (rules []option.Head
 
 // See geoCache for the caching rationale. Codes are matched exactly.
 var geositeCache = geoCache[*geosites.Reader]{
-	dbName: "geosite.db",
+	dbName: geositeDat,
 	open:   openGeoSite,
 	load:   geositeRulesFrom,
 }

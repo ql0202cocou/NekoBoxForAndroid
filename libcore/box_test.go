@@ -175,5 +175,5 @@ func TestBoxInstanceResetAllConnectionsAfterClose(t *testing.T) {
 		mainInstanceAccess.Unlock()
 	}()
 
-	ResetAllConnections(true)
+	ResetAllConnections()
 }

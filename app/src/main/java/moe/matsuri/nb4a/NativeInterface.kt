@@ -1,7 +1,6 @@
 package moe.matsuri.nb4a
 
 import android.content.Context
-import android.net.ConnectivityManager
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Build.VERSION_CODES
@@ -89,7 +88,7 @@ class NativeInterface : BoxPlatformInterface, NB4AInterface {
             Logs.d("other selector: $selectorTag")
             return
         }
-        Libcore.resetAllConnections(true)
+        Libcore.resetAllConnections()
         ServiceRegistry.baseService?.apply {
             // serial dispatcher: rapid switches A->B must persist in event
             // order, the Default pool could run B's coroutine before A's

@@ -33,41 +33,30 @@ var assetSpecs = []assetSpec{
 func extractAssets() {
 	useOfficialAssets := nb4aIntf().UseOfficialAssets()
 	for _, spec := range assetSpecs {
-		if err := extractAssetName(spec.name, useOfficialAssets); err != nil {
+		if err := extractAssetName(spec, useOfficialAssets); err != nil {
 			log.Println("Extract", spec.name, "failed:", err)
 		}
 	}
 }
 
 // extractAssetName extracts one asset bundled in the APK.
-func extractAssetName(name string, useOfficialAssets bool) error {
+func extractAssetName(spec assetSpec, useOfficialAssets bool) error {
 	// The main process may be importing or downloading the same file from
 	// AssetsActivity right now: version check, extraction and publish run under
 	// the shared record lock (see assets_lock.go).
 	return withAssetsLock(internalAssetsDir()+"assets.lock", func() error {
-		return extractAssetNameLocked(name, useOfficialAssets)
+		return extractAssetNameLocked(spec, useOfficialAssets)
 	})
 }
 
-func extractAssetNameLocked(name string, useOfficialAssets bool) error {
-	var spec assetSpec
-	known := false
-	for _, s := range assetSpecs {
-		if s.name == name {
-			spec, known = s, true
-			break
-		}
-	}
-	if !known {
-		return fmt.Errorf("unknown asset %s", name)
-	}
+func extractAssetNameLocked(spec assetSpec, useOfficialAssets bool) error {
 	// Replaceable assets also live in app-internal storage; the external
 	// path name is retained for compatibility with the native interface.
 	dir := internalAssetsDir()
 	if spec.replaceable {
 		dir = externalAssetsDir()
 	}
-	dstName := dir + name
+	dstName := dir + spec.name
 
 	assetVersion, err := readAPKAssetVersion(spec.apkPrefix + spec.version)
 	if err != nil {
@@ -79,7 +68,7 @@ func extractAssetNameLocked(name string, useOfficialAssets bool) error {
 		// assetFileMissing
 		doExtract = true
 	} else if useOfficialAssets || !spec.replaceable {
-		// 官方源升级
+		// 官方源升级；非官方源的可替换资产不升级
 		b, err := os.ReadFile(dir + spec.version)
 		if err != nil {
 			// versionFileMissing: the extracted file may be stale or partial
@@ -88,23 +77,21 @@ func extractAssetNameLocked(name string, useOfficialAssets bool) error {
 		} else {
 			doExtract = shouldUpdateAsset(string(b), assetVersion)
 		}
-	} else {
-		//非官方源不升级
 	}
 	if !doExtract {
 		return nil
 	}
 
-	if f, err := asset.Open(spec.apkPrefix + name + ".xz"); err == nil {
+	if f, err := asset.Open(spec.apkPrefix + spec.name + ".xz"); err == nil {
 		if err := extractXz(f, dstName); err != nil {
 			return err
 		}
-	} else if name == yacdDstFolder {
+	} else if spec.name == yacdDstFolder {
 		if err := extractYacd(dstName); err != nil {
 			return err
 		}
 	} else {
-		return fmt.Errorf("no asset found for %s", name)
+		return fmt.Errorf("no asset found for %s", spec.name)
 	}
 
 	// extraction succeeded, only now bump the version file,
@@ -136,13 +123,11 @@ func extractXz(f asset.File, dstName string) error {
 	err := extractAsset(f, tmpXzName)
 	if err == nil {
 		err = unxz(tmpXzName, tmpName)
-		os.Remove(tmpXzName)
 	}
 	if err == nil {
 		err = os.Rename(tmpName, dstName)
 	}
 	if err != nil {
-		os.Remove(tmpName)
 		return fmt.Errorf("extract xz: %v", err)
 	}
 	return nil
@@ -154,7 +139,6 @@ func extractZip(f asset.File, dstName string, outDir string) error {
 	err := extractAsset(f, tmpZipName)
 	if err == nil {
 		err = unzip(tmpZipName, outDir)
-		os.Remove(tmpZipName)
 	}
 	if err != nil {
 		return fmt.Errorf("extract zip: %v", err)
@@ -173,10 +157,9 @@ func extractYacd(dstName string) error {
 	// Yacd-* top directory, or the old panel awaiting deletion), so the
 	// glob below can succeed again.
 	for _, pattern := range []string{"/Yacd-*", "/" + yacdDstFolder + ".old.*"} {
-		if leftovers, _ := filepath.Glob(internalAssetsDir() + pattern); len(leftovers) > 0 {
-			for _, leftover := range leftovers {
-				os.RemoveAll(leftover)
-			}
+		leftovers, _ := filepath.Glob(internalAssetsDir() + pattern)
+		for _, leftover := range leftovers {
+			os.RemoveAll(leftover)
 		}
 	}
 	if err := extractZip(f, dstName, internalAssetsDir()); err != nil {

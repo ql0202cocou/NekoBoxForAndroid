@@ -90,13 +90,10 @@ func (r *httpRequest) doH3Direct() (HTTPResponse, error) {
 		// Bound the buffered body like getContent bounds responses: the race
 		// holds the entire body in memory and hands every racer a reader over
 		// it, so an unbounded body could exhaust memory.
-		bodyBytes, err = io.ReadAll(io.LimitReader(r.request.Body, maxContentSize+1))
+		bodyBytes, err = readAllLimited(r.request.Body, "request body")
 		r.request.Body.Close()
 		if err != nil {
 			return nil, err
-		}
-		if len(bodyBytes) > maxContentSize {
-			return nil, fmt.Errorf("request body too large, limit is %d bytes", maxContentSize)
 		}
 		r.request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 	}

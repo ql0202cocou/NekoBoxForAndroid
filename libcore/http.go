@@ -48,7 +48,6 @@ type HTTPClient interface {
 
 type HTTPRequest interface {
 	SetURL(link string) error
-	SetHeader(key string, value string)
 	SetUserAgent(userAgent string)
 	AllowInsecure()
 	Execute() (HTTPResponse, error)
@@ -233,12 +232,6 @@ func (r *httpRequest) SetURL(link string) (err error) {
 		r.request.SetBasicAuth(user, password)
 	}
 	return
-}
-
-func (r *httpRequest) SetHeader(key string, value string) {
-	defer device.DeferPanicToError("http SetHeader", nil)
-
-	r.request.Header.Set(key, value)
 }
 
 func (r *httpRequest) SetUserAgent(userAgent string) {
