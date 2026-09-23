@@ -1,6 +1,7 @@
 package moe.matsuri.nb4a.proxy.anytls
 
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.fmt.effectiveAllowInsecure
 import moe.matsuri.nb4a.utils.JavaUtil
 import moe.matsuri.nb4a.utils.echAsBase64
@@ -61,7 +62,7 @@ fun buildMihomoConfig(
     val listener = LinkedHashMap<String, Any?>()
     listener["name"] = "socks-in"
     listener["type"] = "socks"
-    listener["listen"] = "127.0.0.1"
+    listener["listen"] = LOCALHOST
     listener["port"] = port
     listener["udp"] = true
 
@@ -69,7 +70,7 @@ fun buildMihomoConfig(
     config["log-level"] = if (DataStore.logLevel > 0) "debug" else "warning"
     config["mode"] = "rule"
     if (controllerPort != null) {
-        config["external-controller"] = "127.0.0.1:$controllerPort"
+        config["external-controller"] = "$LOCALHOST:$controllerPort"
         config["secret"] = controllerSecret
     }
     config["listeners"] = listOf(listener)

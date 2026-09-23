@@ -22,15 +22,15 @@ import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 import org.yaml.snakeyaml.error.YAMLException
 
-fun parseClash(text: String): List<AbstractBean> {
-    // SafeConstructor: never instantiate arbitrary classes from a
-    // remote subscription (CVE-2022-1471). loadAs(Map) is unsupported
-    // under it, but load() yields the same LinkedHashMap structure.
-    // A valid YAML whose root is not a map (plain cast would throw a
-    // ClassCastException out of the YAMLException catch below) falls
-    // back to the base64 / share-link parsing like any non-clash body.
-    val yaml = clashYaml().load(text) as? Map<*, *> ?: throw YAMLException("Root node is not a map")
+// clash 订阅的 YAML 根节点。SafeConstructor：远端订阅绝不能实例化任意类
+// （CVE-2022-1471）；它不支持 loadAs(Map)，但 load() 得到的是同样的
+// LinkedHashMap 结构。合法 YAML 但根节点不是 map 时同样抛 YAMLException
+// （直接强转会抛 ClassCastException，漏过 parseRaw 的 YAMLException 捕获），
+// 让它像其他非 clash 内容一样回退到 base64 / 分享链接解析
+fun loadClashYaml(text: String): Map<*, *> =
+    clashYaml().load(text) as? Map<*, *> ?: throw YAMLException("Root node is not a map")
 
+fun parseClash(yaml: Map<*, *>): List<AbstractBean> {
     val globalClientFingerprint = yaml["global-client-fingerprint"]?.toString() ?: ""
 
     val proxies = mutableListOf<AbstractBean>()
@@ -187,6 +187,8 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>): StandardV2RayBean {
                 }
             }
 
+            // 不走 packetEncodingType：mihomo 不认 "packet"，未知值也要显式归 0
+            // （覆盖上面 vless 默认的 xudp）
             "packet-encoding" -> if (bean is VMessBean) {
                 bean.packetEncoding = when ((opt.value as? String)) {
                     "packetaddr" -> 1

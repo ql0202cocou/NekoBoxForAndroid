@@ -21,6 +21,10 @@ object LocalResolverImpl : LocalDNSTransport {
 
     private const val RCODE_NXDOMAIN = 3
 
+    // 没有对应 errno 的本地解析失败统一报这个值；Go 侧包成 syscall.Errno，
+    // 不与任何真实 errno 重合，只作「本地解析出错」的标记
+    private const val ERRNO_UNKNOWN = 114514
+
     // API 37 deprecates getInstance() in favour of DnsResolver(Context, Looper); the old
     // entry point is the only one below 37 and still works there, so keep it until the
     // Looper semantics of the constructor are documented
@@ -53,19 +57,13 @@ object LocalResolverImpl : LocalDNSTransport {
                     ctx.rawSuccess(answer)
                 } catch (e: Exception) {
                     Logs.w(e)
-                    ctx.errnoCode(114514)
+                    ctx.errnoCode(ERRNO_UNKNOWN)
                 }
             }
 
             override fun onError(error: DnsResolver.DnsException) {
                 try {
-                    val cause = error.cause
-                    if (cause is ErrnoException) {
-                        ctx.errnoCode(cause.errno)
-                    } else {
-                        Logs.w(error)
-                        ctx.errnoCode(114514)
-                    }
+                    ctx.fail(error)
                 } catch (e: Exception) {
                     Logs.w(e)
                 }
@@ -80,6 +78,18 @@ object LocalResolverImpl : LocalDNSTransport {
             signal,
             callback
         )
+    }
+
+    // DnsResolver 回调报错：底层是 ErrnoException 就原样上报 errno，否则记日志报 ERRNO_UNKNOWN。
+    // 参数用 Exception 而非 DnsResolver.DnsException（API 29），免得本函数也要标 @RequiresApi
+    private fun ExchangeContext.fail(error: Exception) {
+        val cause = error.cause
+        if (cause is ErrnoException) {
+            errnoCode(cause.errno)
+        } else {
+            Logs.w(error)
+            errnoCode(ERRNO_UNKNOWN)
+        }
     }
 
     override fun lookup(ctx: ExchangeContext, network: String, domain: String) {
@@ -97,22 +107,16 @@ object LocalResolverImpl : LocalDNSTransport {
                         }
                     } catch (e: Exception) {
                         Logs.w(e)
-                        ctx.errnoCode(114514)
+                        ctx.errnoCode(ERRNO_UNKNOWN)
                     }
                 }
 
                 override fun onError(error: DnsResolver.DnsException) {
                     try {
-                        val cause = error.cause
-                        if (cause is ErrnoException) {
-                            ctx.errnoCode(cause.errno)
-                        } else {
-                            Logs.w(error)
-                            ctx.errnoCode(114514)
-                        }
+                        ctx.fail(error)
                     } catch (e: Exception) {
                         Logs.w(e)
-                        ctx.errnoCode(114514)
+                        ctx.errnoCode(ERRNO_UNKNOWN)
                     }
                 }
             }
@@ -155,13 +159,13 @@ object LocalResolverImpl : LocalDNSTransport {
                     if (answer != null) {
                         ctx.success(answer.mapNotNull { it.hostAddress }.joinToString("\n"))
                     } else {
-                        ctx.errnoCode(114514)
+                        ctx.errnoCode(ERRNO_UNKNOWN)
                     }
                 } catch (e: UnknownHostException) {
                     ctx.errorCode(RCODE_NXDOMAIN)
                 } catch (e: Exception) {
                     Logs.w(e)
-                    ctx.errnoCode(114514)
+                    ctx.errnoCode(ERRNO_UNKNOWN)
                 }
             }
         }

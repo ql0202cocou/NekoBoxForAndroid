@@ -6,6 +6,7 @@ import io.nekohasekai.sagernet.fmt.buildSingBoxOutboundTLS
 import io.nekohasekai.sagernet.ktx.*
 import moe.matsuri.nb4a.SingBoxOptions
 import moe.matsuri.nb4a.utils.listByLineOrComma
+import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.json.JSONObject
 import java.io.File
@@ -22,9 +23,7 @@ fun parseHysteria1(url: String): HysteriaBean {
         serverPorts = link.port.toString()
         name = link.fragment
 
-        link.queryParameter("mport")?.also {
-            serverPorts = it
-        }
+        applyCommonQuery(link)
         link.queryParameter("peer")?.also {
             sni = it
         }
@@ -37,26 +36,6 @@ fun parseHysteria1(url: String): HysteriaBean {
                 HysteriaBean.TYPE_STRING
             }
             authPayload = it
-        }
-        link.queryParameter("insecure")?.also {
-            allowInsecure = it == "1" || it == "true"
-        }
-        // custom CA, our own invention (same "ca" name as tuic)
-        link.queryParameter("ca")?.also {
-            caText = it
-        }
-        // 证书 SHA-256 指纹，自家参数（与 anytls 的 certfp 同名）
-        link.queryParameter("certfp")?.also {
-            certificateFingerprint = it
-        }
-        link.queryParameter("upmbps")?.also {
-            uploadMbps = it.toIntOrNull() ?: uploadMbps
-        }
-        link.queryParameter("downmbps")?.also {
-            downloadMbps = it.toIntOrNull() ?: downloadMbps
-        }
-        link.queryParameter("hopInterval")?.also {
-            hopInterval = it.toIntOrNull() ?: hopInterval
         }
         link.queryParameter("alpn")?.also {
             alpn = it
@@ -93,35 +72,40 @@ fun parseHysteria2(url: String): HysteriaBean {
         }
         name = link.fragment
 
-        link.queryParameter("mport")?.also {
-            serverPorts = it
-        }
+        applyCommonQuery(link)
         link.queryParameter("sni")?.also {
             sni = it
-        }
-        link.queryParameter("insecure")?.also {
-            allowInsecure = it == "1" || it == "true"
-        }
-        // custom CA, our own invention (same "ca" name as tuic)
-        link.queryParameter("ca")?.also {
-            caText = it
-        }
-        // 证书 SHA-256 指纹，自家参数（与 anytls 的 certfp 同名）
-        link.queryParameter("certfp")?.also {
-            certificateFingerprint = it
-        }
-        link.queryParameter("upmbps")?.also {
-            uploadMbps = it.toIntOrNull() ?: uploadMbps
-        }
-        link.queryParameter("downmbps")?.also {
-            downloadMbps = it.toIntOrNull() ?: downloadMbps
-        }
-        link.queryParameter("hopInterval")?.also {
-            hopInterval = it.toIntOrNull() ?: hopInterval
         }
         link.queryParameter("obfs-password")?.also {
             obfuscation = it
         }
+    }
+}
+
+// hysteria 1/2 链接共有的查询参数；mport 覆盖 serverPorts，须在按端口赋值之后调用
+private fun HysteriaBean.applyCommonQuery(link: HttpUrl) {
+    link.queryParameter("mport")?.also {
+        serverPorts = it
+    }
+    link.queryParameter("insecure")?.also {
+        allowInsecure = it == "1" || it == "true"
+    }
+    // 自定义 CA，自家参数（与 tuic 的 "ca" 同名）
+    link.queryParameter("ca")?.also {
+        caText = it
+    }
+    // 证书 SHA-256 指纹，自家参数（与 anytls 的 certfp 同名）
+    link.queryParameter("certfp")?.also {
+        certificateFingerprint = it
+    }
+    link.queryParameter("upmbps")?.also {
+        uploadMbps = it.toIntOrNull() ?: uploadMbps
+    }
+    link.queryParameter("downmbps")?.also {
+        downloadMbps = it.toIntOrNull() ?: downloadMbps
+    }
+    link.queryParameter("hopInterval")?.also {
+        hopInterval = it.toIntOrNull() ?: hopInterval
     }
 }
 
@@ -221,17 +205,7 @@ fun HysteriaBean.toUri(): String {
 fun JSONObject.parseHysteria1Json(): HysteriaBean {
     return HysteriaBean().apply {
         protocolVersion = 1
-        val server = getStr("server") ?: error("Missing hysteria1 server")
-        // Only a bracketed value can fail to split, and the address is still the
-        // bracketed part; an unterminated or empty bracket keeps the whole value,
-        // the same as a bare IPv6 one. The default port applies whenever no port
-        // was given.
-        val (host, portText) = server.splitHostPort() ?: run {
-            val end = server.indexOf(']')
-            (if (end > 1) server.substring(1, end) else server) to null
-        }
-        serverAddress = host
-        serverPorts = portText?.ifBlank { null } ?: "443"
+        applyJsonServer(getStr("server") ?: error("Missing hysteria1 server"))
         uploadMbps = getIntNya("up_mbps")
         downloadMbps = getIntNya("down_mbps")
         obfuscation = getStr("obfs")
@@ -271,16 +245,7 @@ fun JSONObject.parseHysteria2Json(): HysteriaBean {
     return HysteriaBean().apply {
         protocolVersion = 2
         name = getStr("tag")
-        val server = getStr("server") ?: error("Missing hysteria2 server")
-        // Same authority criterion as parseHysteria1Json: a bare IPv6 address
-        // keeps all its colons, and the default port applies whenever no port
-        // was given.
-        val (host, portText) = server.splitHostPort() ?: run {
-            val end = server.indexOf(']')
-            (if (end > 1) server.substring(1, end) else server) to null
-        }
-        serverAddress = host
-        serverPorts = portText?.ifBlank { null } ?: "443"
+        applyJsonServer(getStr("server") ?: error("Missing hysteria2 server"))
         getIntNya("server_port")?.also {
             serverPorts = it.toString()
         }
@@ -322,6 +287,17 @@ fun JSONObject.parseHysteria2Json(): HysteriaBean {
             // no "alpn" here: hysteria2 mandates h3 and the sing-box builder hardcodes it
         }
     }
+}
+
+// JSON 的 "server" 字段：只有带方括号的值会拆分失败，地址仍取括号内部分；
+// 括号未闭合或为空时保留原值（与裸 IPv6 一样保留全部冒号）。没给端口就用 443
+private fun HysteriaBean.applyJsonServer(server: String) {
+    val (host, portText) = server.splitHostPort() ?: run {
+        val end = server.indexOf(']')
+        (if (end > 1) server.substring(1, end) else server) to null
+    }
+    serverAddress = host
+    serverPorts = portText?.ifBlank { null } ?: "443"
 }
 
 // apernet/hysteria v1.3.5 app/cmd/config.go clientConfig.Check(): the plugin (used for

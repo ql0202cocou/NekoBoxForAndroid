@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.fmt.v2ray
 
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.fmt.effectiveAllowInsecure
 import io.nekohasekai.sagernet.ktx.toStringPretty
 import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
@@ -88,7 +89,7 @@ fun buildXrayConfig(bean: VMessBean, port: Int): String {
         })
         put("inbounds", JSONArray().apply {
             put(JSONObject().apply {
-                put("listen", "127.0.0.1")
+                put("listen", LOCALHOST)
                 put("port", port)
                 put("protocol", "socks")
                 put("settings", JSONObject().apply { put("udp", true) })

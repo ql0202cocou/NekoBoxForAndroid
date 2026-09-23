@@ -32,23 +32,14 @@ object Util {
     }
 
     fun b64Decode(b: String): ByteArray {
-        var ret: ByteArray? = null
-
         // padding 自动处理，不用理
         // URLSafe 需要替换这两个，不要用 URL_SAFE 否则处理非 Safe 的时候会乱码
         val str = b.replace("-", "+").replace("_", "/")
 
-        val flags = listOf(
-            Base64.DEFAULT, // 多行
-            Base64.NO_WRAP, // 单行
-        )
-
-        for (flag in flags) {
-            try {
-                ret = Base64.decode(str, flag)
-            } catch (_: Exception) {
-            }
-            if (ret != null) return ret
+        // android.util.Base64 解码只看 URL_SAFE 一个标志，单行 / 多行都由 DEFAULT 处理
+        try {
+            return Base64.decode(str, Base64.DEFAULT)
+        } catch (_: Exception) {
         }
 
         throw IllegalStateException("Cannot decode base64")

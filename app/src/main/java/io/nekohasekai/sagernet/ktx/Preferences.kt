@@ -44,13 +44,6 @@ fun RoomPreferenceDataStore.long(
     defaultValue: () -> Long = { 0L },
 ) = PreferenceProxy(name, defaultValue, ::getLong, ::putLong)
 
-fun RoomPreferenceDataStore.stringToLong(
-    name: String,
-    defaultValue: () -> Long = { 0L },
-) = PreferenceProxy(name, defaultValue, { key ->
-    getString(key)?.toLongOrNull()
-}, { key, value -> putString(key, "$value") })
-
 class PreferenceProxy<T>(
     val name: String,
     val defaultValue: () -> T,

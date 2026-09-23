@@ -20,7 +20,6 @@ import moe.matsuri.nb4a.utils.JavaUtil.gson
 import moe.matsuri.nb4a.utils.Util
 import okhttp3.HttpUrl
 import org.json.JSONArray
-import org.json.JSONException
 import org.json.JSONObject
 
 // 标准 UUID：vmess/vless 的 uuid 与 tuic v5 的用户名都按这个判别
@@ -87,6 +86,8 @@ fun String.decodeBase64UrlSafe(): String {
 
 class SubscriptionFoundException(val link: String) : RuntimeException()
 
+private val httpLinkRegex = "(http|https)://.*".toRegex()
+
 suspend fun parseProxies(text: String): List<AbstractBean> {
     val links = text.split('\n').flatMap { it.trim().split(' ') }
     val linksByLine = text.split('\n').map { it.trim() }
@@ -118,7 +119,7 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
             throw SubscriptionFoundException(this)
         }
 
-        if (matches("(http|https)://.*".toRegex())) {
+        if (matches(httpLinkRegex)) {
             runCatching {
                 entities.add(parseHttp(this))
             }.onFailure {
@@ -150,14 +151,19 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
     for (link in links) {
         link.parseLink(entities)
     }
-    for (link in linksByLine) {
-        link.parseLink(entitiesByLine)
+    // 没有一行含空格时两种切分完全相同，第二遍只会解析出同样的节点，直接复用第一遍
+    val sameSplit = linksByLine == links
+    if (!sameSplit) {
+        for (link in linksByLine) {
+            link.parseLink(entitiesByLine)
+        }
     }
     // 端点校验必须在 initializeDefaultValues 之前：缺省会被填成
     // 127.0.0.1:1080，之后就验不出缺失；坏节点丢弃，不拖垮整批。
     // 两份候选各自过滤后比大小，只归一化胜出的那份（两份是不同的 bean 实例）
     val validEntities = entities.filterValidEndpoint()
-    val validEntitiesByLine = entitiesByLine.filterValidEndpoint()
+    val validEntitiesByLine =
+        if (sameSplit) validEntities else entitiesByLine.filterValidEndpoint()
     val result =
         if (validEntities.size > validEntitiesByLine.size) validEntities else validEntitiesByLine
     result.forEach { it.initializeDefaultValues() }

@@ -26,6 +26,7 @@ object RawUpdater : GroupUpdater() {
         val link = subscription.link
         var proxies: List<AbstractBean>
         val subscriptionText: String
+        var clashRoot: Map<*, *>? = null
         var remoteGroupName: String? = null
         if (link.startsWith("content://")) {
             val contentText = app.contentResolver.openInputStream(link.toUri())
@@ -33,7 +34,7 @@ object RawUpdater : GroupUpdater() {
                 ?: error(app.getString(R.string.no_proxies_found_in_subscription))
 
             subscriptionText = contentText
-            proxies = parseRaw(contentText)
+            proxies = parseRaw(contentText) { clashRoot = it }
                 ?: error(app.getString(R.string.no_proxies_found_in_subscription))
 
             // 本地文件没有 Subscription-Userinfo 响应头：订阅从 http(s) 改成
@@ -57,7 +58,7 @@ object RawUpdater : GroupUpdater() {
             try {
                 val responseText = Util.getStringBox(response.contentString)
                 subscriptionText = responseText
-                proxies = parseRaw(responseText)
+                proxies = parseRaw(responseText) { clashRoot = it }
                     ?: error(app.getString(R.string.no_proxies_found))
 
                 subscription.subscriptionUserinfo =
@@ -95,8 +96,8 @@ object RawUpdater : GroupUpdater() {
 
         // 订阅下发的节点解析 DNS，自动写入分组设置（在 forceResolve 之前生效）。
         // clash/YAML 订阅撤下该键时同步清空残留值；base64/分享链接订阅本就
-        // 没有此键（parseProxyServerNameserver 对非 YAML 也返回 null），不能误清
-        val subscriptionNameserver = parseProxyServerNameserver(subscriptionText)
+        // 没有此键（非 YAML 拿不到 clashRoot，parseProxyServerNameserver 返回 null），不能误清
+        val subscriptionNameserver = parseProxyServerNameserver(clashRoot)
         val clearSubscriptionNameserver = subscriptionNameserver == null &&
                 subscriptionText.contains("proxies:")
         if (subscriptionNameserver != null) {
@@ -317,14 +318,20 @@ object RawUpdater : GroupUpdater() {
         )
     }
 
-    suspend fun parseRaw(text: String, fileName: String = ""): List<AbstractBean>? {
+    // onClashYaml：clash YAML 根节点载入成功时回调（无论节点解析成败），
+    // doUpdate 借它读 dns 段，免得把整份订阅再解析一遍
+    suspend fun parseRaw(
+        text: String,
+        fileName: String = "",
+        onClashYaml: (Map<*, *>) -> Unit = {},
+    ): List<AbstractBean>? {
 
         require(text.length <= MAX_IMPORT_BYTES) { "Import exceeds size limit" }
 
         if (text.contains("proxies:")) {
             // clash & meta
             try {
-                return parseClash(text)
+                return parseClash(loadClashYaml(text).also(onClashYaml))
             } catch (e: YAMLException) {
                 Logs.w("Subscription parsing failed: ${e.javaClass.simpleName}")
             }
@@ -378,11 +385,11 @@ object RawUpdater : GroupUpdater() {
     // （如指向 mihomo 自身 dns.listen 的 127.0.0.1:7874）出了原核心就是死地址，同样丢弃；
     // #h3 之类 mihomo 私有后缀也一并剥掉，否则会漏进 sing-box 的 DoH path。
     // 候选键按优先级逐个尝试：proxy-server-nameserver 存在但过滤后为空时
-    // 同样回退 nameserver —— mihomo 语义里前者的上游就是后者
-    fun parseProxyServerNameserver(text: String): String? {
-        if (!text.contains("proxies:")) return null
+    // 同样回退 nameserver —— mihomo 语义里前者的上游就是后者。
+    // 入参是 parseRaw 载入的 clash YAML 根节点，没有（非 clash 订阅或 YAML 无效）时返回 null
+    fun parseProxyServerNameserver(yaml: Map<*, *>?): String? {
+        if (yaml == null) return null
         return try {
-            val yaml = clashYaml().load(text) as Map<*, *>
             val dns = yaml["dns"] as? Map<*, *>
             listOfNotNull(
                 dns?.get("proxy-server-nameserver"),

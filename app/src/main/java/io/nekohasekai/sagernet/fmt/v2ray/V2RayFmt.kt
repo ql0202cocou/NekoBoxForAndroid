@@ -119,7 +119,7 @@ fun parseV2Ray(link: String): StandardV2RayBean {
                 }
             }
 
-            "ws" -> {
+            "ws", "httpupgrade" -> {
                 url.queryParameter("path")?.let {
                     bean.path = it
                 }
@@ -131,15 +131,6 @@ fun parseV2Ray(link: String): StandardV2RayBean {
             "grpc" -> {
                 url.queryParameter("serviceName")?.let {
                     bean.path = it
-                }
-            }
-
-            "httpupgrade" -> {
-                url.queryParameter("path")?.let {
-                    bean.path = it
-                }
-                url.queryParameter("host")?.let {
-                    bean.host = it
                 }
             }
         }
@@ -225,42 +216,26 @@ fun StandardV2RayBean.parseDuckSoft(url: HttpUrl) {
     }
 
     when (type) {
-        "http" -> {
+        "http", "ws", "httpupgrade" -> {
             url.queryParameter("host")?.let {
                 host = it
             }
             url.queryParameter("path")?.let {
                 path = it
             }
-        }
+            if (type == "ws") {
+                url.queryParameter("ed")?.let { ed ->
+                    wsMaxEarlyData = ed.toIntOrNull()
 
-        "ws" -> {
-            url.queryParameter("host")?.let {
-                host = it
-            }
-            url.queryParameter("path")?.let {
-                path = it
-            }
-            url.queryParameter("ed")?.let { ed ->
-                wsMaxEarlyData = ed.toIntOrNull()
-
-                url.queryParameter("eh")?.let {
-                    earlyDataHeaderName = it
+                    url.queryParameter("eh")?.let {
+                        earlyDataHeaderName = it
+                    }
                 }
             }
         }
 
         "grpc" -> {
             url.queryParameter("serviceName")?.let {
-                path = it
-            }
-        }
-
-        "httpupgrade" -> {
-            url.queryParameter("host")?.let {
-                host = it
-            }
-            url.queryParameter("path")?.let {
                 path = it
             }
         }
@@ -273,13 +248,7 @@ fun StandardV2RayBean.parseDuckSoft(url: HttpUrl) {
         }
     }
 
-    url.queryParameter("packetEncoding")?.let {
-        when (it) {
-            // we export "packetaddr", v2rayN writes "packet"
-            "packetaddr", "packet" -> packetEncoding = 1
-            "xudp" -> packetEncoding = 2
-        }
-    }
+    packetEncodingType(url.queryParameter("packetEncoding"))?.let { packetEncoding = it }
 
     url.queryParameter("flow")?.let {
         if (isVLESS) {
@@ -412,11 +381,7 @@ fun parseV2RayN(link: String): VMessBean {
         }
     }
 
-    when (vmessQRCode.packetEncoding) {
-        // we export "packetaddr", v2rayN writes "packet"
-        "packetaddr", "packet" -> bean.packetEncoding = 1
-        "xudp" -> bean.packetEncoding = 2
-    }
+    packetEncodingType(vmessQRCode.packetEncoding)?.let { bean.packetEncoding = it }
 
     if (bean.type == "ws" && vmessQRCode.ed > 0) {
         bean.wsMaxEarlyData = vmessQRCode.ed
@@ -510,10 +475,7 @@ fun VMessBean.toV2rayN(): String {
             }
         }
 
-        when (bean.packetEncoding) {
-            1 -> packetEncoding = "packetaddr"
-            2 -> packetEncoding = "xudp"
-        }
+        packetEncodingName(bean.packetEncoding)?.let { packetEncoding = it }
 
         if (net == "ws" && bean.wsMaxEarlyData > 0) {
             ed = bean.wsMaxEarlyData
@@ -623,15 +585,7 @@ fun StandardV2RayBean.toUriVMessVLESSTrojan(isTrojan: Boolean): String {
         }
     }
 
-    when (packetEncoding) {
-        1 -> {
-            builder.addQueryParameter("packetEncoding", "packetaddr")
-        }
-
-        2 -> {
-            builder.addQueryParameter("packetEncoding", "xudp")
-        }
-    }
+    packetEncodingName(packetEncoding)?.let { builder.addQueryParameter("packetEncoding", it) }
 
     if (name.isNotBlank()) {
         builder.encodedFragment(name.urlSafe())
@@ -741,6 +695,22 @@ fun muxProtocolType(name: String?): Int = when (name) {
     else -> 0
 }
 
+// StandardV2RayBean.packetEncoding <-> 分享链接 / sing-box 的 packet encoding 名；
+// 0 与未知值都返回 null，由调用处决定省略还是写空串
+fun packetEncodingName(type: Int?): String? = when (type) {
+    1 -> "packetaddr"
+    2 -> "xudp"
+    else -> null
+}
+
+// 分享链接解析用；未知值返回 null，调用处保持字段不动
+fun packetEncodingType(name: String?): Int? = when (name) {
+    // 我们导出 "packetaddr"，v2rayN 写的是 "packet"
+    "packetaddr", "packet" -> 1
+    "xudp" -> 2
+    else -> null
+}
+
 fun buildSingBoxOutboundStandardV2RayBean(bean: StandardV2RayBean): Outbound {
     when (bean) {
         is HttpBean -> {
@@ -763,11 +733,8 @@ fun buildSingBoxOutboundStandardV2RayBean(bean: StandardV2RayBean): Outbound {
                 if (bean.encryption.isNotBlank() && bean.encryption != "auto") {
                     flow = bean.encryption
                 }
-                when (bean.packetEncoding) {
-                    0 -> packet_encoding = ""
-                    1 -> packet_encoding = "packetaddr"
-                    2 -> packet_encoding = "xudp"
-                }
+                packet_encoding =
+                    if (bean.packetEncoding == 0) "" else packetEncodingName(bean.packetEncoding)
                 tls = buildSingBoxOutboundTLS(bean)
                 transport = buildSingBoxOutboundStreamSettings(bean)
             }
@@ -778,11 +745,8 @@ fun buildSingBoxOutboundStandardV2RayBean(bean: StandardV2RayBean): Outbound {
                 uuid = bean.uuid
                 alter_id = bean.alterId
                 security = bean.encryption.takeIf { it.isNotBlank() } ?: "auto"
-                when (bean.packetEncoding) {
-                    0 -> packet_encoding = ""
-                    1 -> packet_encoding = "packetaddr"
-                    2 -> packet_encoding = "xudp"
-                }
+                packet_encoding =
+                    if (bean.packetEncoding == 0) "" else packetEncodingName(bean.packetEncoding)
                 tls = buildSingBoxOutboundTLS(bean)
                 transport = buildSingBoxOutboundStreamSettings(bean)
             }
