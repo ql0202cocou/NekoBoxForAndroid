@@ -46,7 +46,6 @@ class NaiveSettingsActivity : ProfileSettingsActivity<NaiveBean>() {
         rootKey: String?,
     ) {
         addPreferencesFromResource(R.xml.naive_preferences)
-        findPreference<EditTextPreference>(Key.SERVER_PORT)!!.bindPortPreference()
         findPreference<EditTextPreference>(Key.SERVER_PASSWORD)!!.bindPasswordPreference()
         findPreference<EditTextPreference>(Key.SERVER_INSECURE_CONCURRENCY)!!.bindIntegerPreference()
     }

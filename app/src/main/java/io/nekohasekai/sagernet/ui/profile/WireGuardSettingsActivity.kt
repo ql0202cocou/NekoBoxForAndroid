@@ -61,7 +61,6 @@ class WireGuardSettingsActivity : ProfileSettingsActivity<WireGuardBean>() {
         addPreferencesFromResource(R.xml.wireguard_preferences)
         pbm.setPreferenceFragment(this)
 
-        (serverPort.preference as EditTextPreference).bindPortPreference()
         (privateKey.preference as EditTextPreference).bindPasswordPreference()
         (mtu.preference as EditTextPreference).bindIntegerPreference()
         (localAddress.preference as EditTextPreference)

@@ -122,8 +122,6 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
         val isVmess = bean is VMessBean && !bean.isVLESS
         val isVless = bean.isVLESS
 
-        (serverPort.preference as EditTextPreference).bindPortPreference()
-
         (alterId.preference as EditTextPreference).bindIntegerPreference(0, 65535)
         (wsMaxEarlyData.preference as EditTextPreference).bindIntegerPreference()
         (muxConcurrency.preference as EditTextPreference).bindIntegerPreference()

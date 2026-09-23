@@ -1,16 +1,12 @@
 package io.nekohasekai.sagernet.ui
 
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.DialogInterface
 import android.content.Intent
 import android.os.Bundle
 import android.os.Parcelable
 import android.text.InputType
-import android.view.Menu
-import android.view.MenuItem
-import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.LayoutRes
@@ -21,14 +17,11 @@ import com.github.shadowsocks.plugin.fragment.AlertDialogFragment
 import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.*
-import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
-import io.nekohasekai.sagernet.widget.padForSystemBars
 import io.nekohasekai.sagernet.widget.OutboundPreference
 import kotlinx.parcelize.Parcelize
 import moe.matsuri.nb4a.ui.SimpleMenuPreference
@@ -36,8 +29,7 @@ import moe.matsuri.nb4a.ui.SimpleMenuPreference
 @Suppress("UNCHECKED_CAST")
 class GroupSettingsActivity(
     @LayoutRes resId: Int = R.layout.layout_config_settings,
-) : EditorActivity(resId),
-    OnPreferenceDataStoreChangeListener {
+) : EditorActivity(resId) {
 
     // null until the preference fragment is committed; a redelivered picker
     // result can land before that
@@ -103,12 +95,9 @@ class GroupSettingsActivity(
         }
     }
 
-    fun needSave(): Boolean {
-        if (!EditorCache.dirty) return false
-        return true
-    }
+    fun needSave() = EditorCache.dirty
 
-    fun PreferenceFragmentCompat.createPreferences(
+    override fun PreferenceFragmentCompat.createPreferences(
         savedInstanceState: Bundle?,
         rootKey: String?,
     ) {
@@ -203,25 +192,6 @@ class GroupSettingsActivity(
         }
     }
 
-    class UnsavedChangesDialogFragment : AlertDialogFragment<Empty, Empty>() {
-        override fun AlertDialog.Builder.prepare(listener: DialogInterface.OnClickListener) {
-            setTitle(R.string.unsaved_changes_prompt)
-            setPositiveButton(R.string.yes) { _, _ ->
-                // resolve on the main thread: the dialog is detached right after
-                // this click, and requireActivity() on the Default dispatcher
-                // would race it
-                val activity = requireActivity() as GroupSettingsActivity
-                runOnDefaultDispatcher {
-                    activity.saveAndExit()
-                }
-            }
-            setNegativeButton(R.string.no) { _, _ ->
-                requireActivity().finish()
-            }
-            setNeutralButton(android.R.string.cancel, null)
-        }
-    }
-
     @Parcelize
     data class GroupIdArg(val groupId: Long) : Parcelable
     class DeleteConfirmationDialogFragment : AlertDialogFragment<GroupIdArg, Empty>() {
@@ -235,6 +205,11 @@ class GroupSettingsActivity(
             }
             setNegativeButton(R.string.no, null)
         }
+    }
+
+    override fun deleteConfirmationDialog() = DeleteConfirmationDialogFragment().apply {
+        arg(GroupIdArg(EditorCache.editingId))
+        key()
     }
 
     companion object {
@@ -294,7 +269,7 @@ class GroupSettingsActivity(
 
                 onMainDispatcher {
                     supportFragmentManager.beginTransaction()
-                        .replace(R.id.settings, MyPreferenceFragmentCompat())
+                        .replace(R.id.settings, EditorPreferenceFragment())
                         .commit()
                 }
             }
@@ -303,7 +278,7 @@ class GroupSettingsActivity(
 
     }
 
-    suspend fun saveAndExit() {
+    override suspend fun saveAndExit() {
 
         val editingId = EditorCache.editingId
         if (editingId == 0L) {
@@ -330,122 +305,6 @@ class GroupSettingsActivity(
 
         finish()
 
-    }
-
-    // a getter, not lazy: the fragment is committed after an async DB read, and a
-    // menu click before that would cache null for good
-    val child get() = supportFragmentManager.findFragmentById(R.id.settings) as? MyPreferenceFragmentCompat
-
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.profile_config_menu, menu)
-        return true
-    }
-
-    // the fragment may not be committed yet when the menu is clicked
-    override fun onOptionsItemSelected(item: MenuItem) = child?.onMenuItemSelected(item) == true
-
-    override fun onDestroy() {
-        EditorCache.profileCacheStore.unregisterChangeListener(this)
-        super.onDestroy()
-    }
-
-    override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
-        if (key != Key.PROFILE_DIRTY) {
-            EditorCache.dirty = true
-        }
-    }
-
-    class MyPreferenceFragmentCompat : PreferenceFragmentCompat() {
-
-        var activity: GroupSettingsActivity? = null
-
-        override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
-            preferenceManager.preferenceDataStore = EditorCache.profileCacheStore
-            try {
-                activity = (requireActivity() as GroupSettingsActivity).apply {
-                    createPreferences(savedInstanceState, rootKey)
-                }
-            } catch (e: Exception) {
-                Toast.makeText(
-                    SagerNet.application,
-                    "Error on createPreferences, please try again.",
-                    Toast.LENGTH_SHORT
-                ).show()
-                Logs.e(e)
-            }
-        }
-
-        override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-            super.onViewCreated(view, savedInstanceState)
-
-            listView.padForSystemBars()
-
-            activity?.apply {
-                // Only clear dirty on first creation; resetting it after a
-                // recreation (rotation) would silently drop unsaved edits.
-                if (savedInstanceState == null) {
-                    EditorCache.dirty = false
-                }
-                EditorCache.profileCacheStore.registerChangeListener(this)
-            }
-        }
-
-        fun onMenuItemSelected(item: MenuItem) = when (item.itemId) {
-            R.id.action_delete -> {
-                if (EditorCache.editingId == 0L) {
-                    requireActivity().finish()
-                } else {
-                    DeleteConfirmationDialogFragment().apply {
-                        arg(GroupIdArg(EditorCache.editingId))
-                        key()
-                    }.show(parentFragmentManager, null)
-                }
-                true
-            }
-
-            R.id.action_apply -> {
-                runOnDefaultDispatcher {
-                    activity?.saveAndExit()
-                }
-                true
-            }
-
-            else -> false
-        }
-
-    }
-
-    object PasswordSummaryProvider : Preference.SummaryProvider<EditTextPreference> {
-
-        override fun provideSummary(preference: EditTextPreference): CharSequence {
-            val text = preference.text
-            return if (text.isNullOrBlank()) {
-                preference.context.getString(androidx.preference.R.string.not_set)
-            } else {
-                "\u2022".repeat(text.length)
-            }
-        }
-
-    }
-
-    private fun profilePicker(
-        onSelected: (Long) -> Unit,
-        preference: () -> OutboundPreference?,
-    ) = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        if (it.resultCode == Activity.RESULT_OK) runOnDefaultDispatcher {
-            val profile = ProfileManager.getProfile(
-                it.data!!.getLongExtra(ProfileSelectActivity.EXTRA_PROFILE_ID, 0)
-            ) ?: return@runOnDefaultDispatcher
-            // onSelected sets the pending value before the DataStore writes, so
-            // the re-init either re-applies it (callback ran first) or loses to
-            // these writes.
-            onSelected(profile.id)
-            onMainDispatcher {
-                // The fragment may not be committed yet on a process-death
-                // restore; it reads the DataStore values when created.
-                preference()?.value = "3"
-            }
-        }
     }
 
     // Registration order fixes the request keys the framework uses to redeliver

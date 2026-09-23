@@ -1,40 +1,29 @@
 package io.nekohasekai.sagernet.ui
 
-import android.app.Activity
 import android.content.DialogInterface
 import android.content.Intent
 import android.os.Bundle
 import android.os.Parcelable
-import android.view.Menu
-import android.view.MenuItem
 import android.view.View
-import android.widget.Toast
 import androidx.activity.result.component1
 import androidx.activity.result.component2
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.LayoutRes
 import androidx.appcompat.app.AlertDialog
-import androidx.preference.EditTextPreference
-import androidx.preference.Preference
-import androidx.preference.PreferenceDataStore
 import androidx.preference.PreferenceFragmentCompat
 import com.github.shadowsocks.plugin.Empty
 import com.github.shadowsocks.plugin.fragment.AlertDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.RuleEntity
 import io.nekohasekai.sagernet.database.SagerDatabase
-import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
-import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.utils.PackageCache
 import io.nekohasekai.sagernet.widget.AppListPreference
-import io.nekohasekai.sagernet.widget.padForSystemBars
 import io.nekohasekai.sagernet.widget.OutboundPreference
 import kotlinx.parcelize.Parcelize
 import moe.matsuri.nb4a.ui.EditConfigPreference
@@ -43,8 +32,7 @@ import io.nekohasekai.sagernet.database.EditorCache
 @Suppress("UNCHECKED_CAST")
 class RouteSettingsActivity(
     @LayoutRes resId: Int = R.layout.layout_settings_activity,
-) : EditorActivity(resId),
-    OnPreferenceDataStoreChangeListener {
+) : EditorActivity(resId) {
 
     // A redelivered activity result (process death while the picker was
     // foreground) may run before the async re-init; init() must re-apply
@@ -110,7 +98,7 @@ class RouteSettingsActivity(
         return EditorCache.dirty
     }
 
-    fun PreferenceFragmentCompat.createPreferences(
+    override fun PreferenceFragmentCompat.createPreferences(
         savedInstanceState: Bundle?,
         rootKey: String?,
     ) {
@@ -127,29 +115,11 @@ class RouteSettingsActivity(
         }
     }
 
-    val selectProfileForAdd = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { (resultCode, data) ->
-        if (resultCode == Activity.RESULT_OK) runOnDefaultDispatcher {
-            val profile = ProfileManager.getProfile(
-                data!!.getLongExtra(
-                    ProfileSelectActivity.EXTRA_PROFILE_ID, 0
-                )
-            ) ?: return@runOnDefaultDispatcher
-            // Set pending before the DataStore writes so the re-init either
-            // re-applies it (callback ran first) or loses to these writes.
-            pendingRouteOutbound = profile.id
-            EditorCache.routeOutboundRule = profile.id
-            EditorCache.routeOutbound = 3
-            onMainDispatcher {
-                // The fragment may not be committed yet on a process-death
-                // restore; it reads the DataStore values when created.
-                if (::outbound.isInitialized) {
-                    outbound.value = "3"
-                }
-            }
-        }
-    }
+    val selectProfileForAdd = profilePicker({
+        pendingRouteOutbound = it
+        EditorCache.routeOutboundRule = it
+        EditorCache.routeOutbound = 3
+    }, { if (::outbound.isInitialized) outbound else null })
 
     val selectAppList = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -165,7 +135,7 @@ class RouteSettingsActivity(
     lateinit var outbound: OutboundPreference
     lateinit var apps: AppListPreference
 
-    fun PreferenceFragmentCompat.viewCreated(view: View, savedInstanceState: Bundle?) {
+    override fun PreferenceFragmentCompat.viewCreated(view: View, savedInstanceState: Bundle?) {
         outbound = findPreference(Key.ROUTE_OUTBOUND)!!
         apps = findPreference(Key.ROUTE_PACKAGES)!!
 
@@ -192,29 +162,6 @@ class RouteSettingsActivity(
         }
     }
 
-    fun displayPreferenceDialog(preference: Preference): Boolean {
-        return false
-    }
-
-    class UnsavedChangesDialogFragment : AlertDialogFragment<Empty, Empty>() {
-        override fun AlertDialog.Builder.prepare(listener: DialogInterface.OnClickListener) {
-            setTitle(R.string.unsaved_changes_prompt)
-            setPositiveButton(R.string.yes) { _, _ ->
-                // resolve on the main thread: the dialog is detached right after
-                // this click, and requireActivity() on the Default dispatcher
-                // would race it
-                val activity = requireActivity() as RouteSettingsActivity
-                runOnDefaultDispatcher {
-                    activity.saveAndExit()
-                }
-            }
-            setNegativeButton(R.string.no) { _, _ ->
-                requireActivity().finish()
-            }
-            setNeutralButton(android.R.string.cancel, null)
-        }
-    }
-
     @Parcelize
     data class ProfileIdArg(val ruleId: Long) : Parcelable
     class DeleteConfirmationDialogFragment : AlertDialogFragment<ProfileIdArg, Empty>() {
@@ -228,6 +175,11 @@ class RouteSettingsActivity(
             }
             setNegativeButton(R.string.no, null)
         }
+    }
+
+    override fun deleteConfirmationDialog() = DeleteConfirmationDialogFragment().apply {
+        arg(ProfileIdArg(EditorCache.editingId))
+        key()
     }
 
     companion object {
@@ -282,7 +234,7 @@ class RouteSettingsActivity(
 
                 onMainDispatcher {
                     supportFragmentManager.beginTransaction()
-                        .replace(R.id.settings, MyPreferenceFragmentCompat())
+                        .replace(R.id.settings, EditorPreferenceFragment())
                         .commit()
                 }
             }
@@ -292,7 +244,7 @@ class RouteSettingsActivity(
 
     }
 
-    suspend fun saveAndExit() {
+    override suspend fun saveAndExit() {
 
         val editingId = EditorCache.editingId
 
@@ -323,110 +275,6 @@ class RouteSettingsActivity(
             ProfileManager.updateRule(entity.apply { serialize() })
         }
         finish()
-
-    }
-
-    // a getter, not lazy: the fragment is committed after an async DB read, and a
-    // menu click before that would cache null for good
-    val child get() = supportFragmentManager.findFragmentById(R.id.settings) as? MyPreferenceFragmentCompat
-
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.profile_config_menu, menu)
-        return true
-    }
-
-    // the fragment may not be committed yet when the menu is clicked
-    override fun onOptionsItemSelected(item: MenuItem) = child?.onMenuItemSelected(item) == true
-
-    override fun onDestroy() {
-        EditorCache.profileCacheStore.unregisterChangeListener(this)
-        super.onDestroy()
-    }
-
-    override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
-        if (key != Key.PROFILE_DIRTY) {
-            EditorCache.dirty = true
-        }
-    }
-
-    class MyPreferenceFragmentCompat : PreferenceFragmentCompat() {
-
-        var activity: RouteSettingsActivity? = null
-
-        override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
-            preferenceManager.preferenceDataStore = EditorCache.profileCacheStore
-            try {
-                activity = (requireActivity() as RouteSettingsActivity).apply {
-                    createPreferences(savedInstanceState, rootKey)
-                }
-            } catch (e: Exception) {
-                Toast.makeText(
-                    SagerNet.application,
-                    "Error on createPreferences, please try again.",
-                    Toast.LENGTH_SHORT
-                ).show()
-                Logs.e(e)
-            }
-        }
-
-        override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-            super.onViewCreated(view, savedInstanceState)
-
-            listView.padForSystemBars()
-
-            activity?.apply {
-                viewCreated(view, savedInstanceState)
-                // Only clear dirty on first creation; resetting it after a
-                // recreation (rotation) would silently drop unsaved edits.
-                if (savedInstanceState == null) {
-                    EditorCache.dirty = false
-                }
-                EditorCache.profileCacheStore.registerChangeListener(this)
-            }
-        }
-
-        fun onMenuItemSelected(item: MenuItem) = when (item.itemId) {
-            R.id.action_delete -> {
-                if (EditorCache.editingId == 0L) {
-                    requireActivity().finish()
-                } else {
-                    DeleteConfirmationDialogFragment().apply {
-                        arg(ProfileIdArg(EditorCache.editingId))
-                        key()
-                    }.show(parentFragmentManager, null)
-                }
-                true
-            }
-
-            R.id.action_apply -> {
-                runOnDefaultDispatcher {
-                    activity?.saveAndExit()
-                }
-                true
-            }
-
-            else -> false
-        }
-
-        override fun onDisplayPreferenceDialog(preference: Preference) {
-            activity?.apply {
-                if (displayPreferenceDialog(preference)) return
-            }
-            super.onDisplayPreferenceDialog(preference)
-        }
-
-    }
-
-    object PasswordSummaryProvider : Preference.SummaryProvider<EditTextPreference> {
-
-        override fun provideSummary(preference: EditTextPreference): CharSequence {
-            val text = preference.text
-            return if (text.isNullOrBlank()) {
-                preference.context.getString(androidx.preference.R.string.not_set)
-            } else {
-                "\u2022".repeat(text.length)
-            }
-        }
 
     }
 

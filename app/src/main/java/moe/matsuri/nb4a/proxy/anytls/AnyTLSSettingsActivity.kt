@@ -3,13 +3,11 @@ package moe.matsuri.nb4a.proxy.anytls
 import android.os.Bundle
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceFragmentCompat
-import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import io.nekohasekai.sagernet.ui.profile.ProfileSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.bindCertificateFingerprintPreference
 import io.nekohasekai.sagernet.ui.profile.bindPasswordPreference
-import io.nekohasekai.sagernet.ui.profile.bindPortPreference
 import io.nekohasekai.sagernet.ui.profile.certificateFingerprintError
 import moe.matsuri.nb4a.proxy.PreferenceBinding
 import moe.matsuri.nb4a.proxy.PreferenceBindingManager
@@ -52,7 +50,6 @@ class AnyTLSSettingsActivity : ProfileSettingsActivity<AnyTLSBean>() {
     ) {
         addPreferencesFromResource(R.xml.anytls_preferences)
 
-        findPreference<EditTextPreference>(Key.SERVER_PORT)!!.bindPortPreference()
         findPreference<EditTextPreference>("password")!!.bindPasswordPreference()
         findPreference<EditTextPreference>("certificateFingerprint")!!
             .bindCertificateFingerprintPreference()

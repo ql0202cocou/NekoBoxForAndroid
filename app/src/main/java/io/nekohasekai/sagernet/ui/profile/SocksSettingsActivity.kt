@@ -41,7 +41,6 @@ class SocksSettingsActivity : ProfileSettingsActivity<SOCKSBean>() {
         rootKey: String?,
     ) {
         addPreferencesFromResource(R.xml.socks_preferences)
-        findPreference<EditTextPreference>(Key.SERVER_PORT)!!.bindPortPreference()
         val password = findPreference<EditTextPreference>(Key.SERVER_PASSWORD)!!.bindPasswordPreference()
         val protocol = findPreference<SimpleMenuPreference>(Key.SERVER_PROTOCOL)!!
 

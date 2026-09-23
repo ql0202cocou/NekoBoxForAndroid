@@ -48,7 +48,6 @@ class ShadowsocksSettingsActivity : ProfileSettingsActivity<ShadowsocksBean>() {
         addPreferencesFromResource(R.xml.shadowsocks_preferences)
         pbm.setPreferenceFragment(this)
 
-        (serverPort.preference as EditTextPreference).bindPortPreference()
         (password.preference as EditTextPreference).bindPasswordPreference()
     }
 

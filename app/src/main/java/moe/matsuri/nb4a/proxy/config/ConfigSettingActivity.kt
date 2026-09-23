@@ -1,18 +1,14 @@
 package moe.matsuri.nb4a.proxy.config
 
 import android.os.Bundle
-import androidx.preference.PreferenceDataStore
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.ui.profile.ProfileSettingsActivity
 import moe.matsuri.nb4a.ui.EditConfigPreference
 import io.nekohasekai.sagernet.database.EditorCache
 
-class ConfigSettingActivity :
-    ProfileSettingsActivity<ConfigBean>(),
-    OnPreferenceDataStoreChangeListener {
+class ConfigSettingActivity : ProfileSettingsActivity<ConfigBean>() {
 
     private val isOutboundOnlyKey = "isOutboundOnly"
 
@@ -30,12 +26,6 @@ class ConfigSettingActivity :
         type = if (EditorCache.profileCacheStore.getBoolean(isOutboundOnlyKey, false)) 1 else 0
         name = EditorCache.profileName
         config = EditorCache.serverConfig
-    }
-
-    override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
-        if (key != Key.PROFILE_DIRTY) {
-            EditorCache.dirty = true
-        }
     }
 
     private lateinit var editConfigPreference: EditConfigPreference

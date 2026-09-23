@@ -256,7 +256,7 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
         anotherProfile: ProxyEntity,
         visiting: MutableSet<Long> = mutableSetOf(),
     ): Boolean {
-        if (profile.type != 8 || anotherProfile.type != 8) return false
+        if (profile.type != ProxyEntity.TYPE_CHAIN || anotherProfile.type != ProxyEntity.TYPE_CHAIN) return false
         if (profile.id == anotherProfile.id) return true
         // Guard against chain loops in already-corrupted data (A contains B,
         // B contains A): stop descending on re-entry instead of overflowing

@@ -58,8 +58,6 @@ class TuicSettingsActivity : ProfileSettingsActivity<TuicBean>() {
     ) {
         addPreferencesFromResource(R.xml.tuic_preferences)
 
-        findPreference<EditTextPreference>(Key.SERVER_PORT)!!.bindPortPreference()
-
         val disableSNI = findPreference<SwitchPreference>(Key.SERVER_DISABLE_SNI)!!
         val sni = findPreference<EditTextPreference>(Key.SERVER_SNI)!!
         sni.isEnabled = !disableSNI.isChecked

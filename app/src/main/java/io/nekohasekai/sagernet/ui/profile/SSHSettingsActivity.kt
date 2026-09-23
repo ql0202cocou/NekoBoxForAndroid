@@ -50,7 +50,6 @@ class SSHSettingsActivity : ProfileSettingsActivity<SSHBean>() {
         rootKey: String?,
     ) {
         addPreferencesFromResource(R.xml.ssh_preferences)
-        findPreference<EditTextPreference>(Key.SERVER_PORT)!!.bindPortPreference()
         val password = findPreference<EditTextPreference>(Key.SERVER_PASSWORD)!!.bindPasswordPreference()
         val privateKey = findPreference<EditTextPreference>(Key.SERVER_PRIVATE_KEY)!!
         val privateKeyPassphrase = findPreference<EditTextPreference>(Key.SERVER_PASSWORD1)!!.bindPasswordPreference()

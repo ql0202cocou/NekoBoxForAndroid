@@ -68,7 +68,6 @@ class TrojanGoSettingsActivity : ProfileSettingsActivity<TrojanGoBean>() {
         rootKey: String?,
     ) {
         addPreferencesFromResource(R.xml.trojan_go_preferences)
-        findPreference<EditTextPreference>(Key.SERVER_PORT)!!.bindPortPreference()
         findPreference<EditTextPreference>(Key.SERVER_PASSWORD)!!.bindPasswordPreference()
         findPreference<EditTextPreference>(Key.SERVER_PASSWORD1)!!.bindPasswordPreference()
         wsCategory = findPreference(Key.SERVER_WS_CATEGORY)!!

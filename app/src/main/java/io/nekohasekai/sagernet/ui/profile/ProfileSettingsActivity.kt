@@ -31,8 +31,6 @@ import androidx.preference.EditTextPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceGroup
-import androidx.preference.PreferenceDataStore
-import androidx.preference.PreferenceFragmentCompat
 import com.github.shadowsocks.plugin.Empty
 import com.github.shadowsocks.plugin.fragment.AlertDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -43,12 +41,10 @@ import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
-import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.databinding.LayoutGroupItemBinding
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.ui.EditorActivity
-import io.nekohasekai.sagernet.widget.padForSystemBars
 import kotlinx.parcelize.Parcelize
 import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 import io.nekohasekai.sagernet.database.EditorCache
@@ -56,32 +52,7 @@ import io.nekohasekai.sagernet.database.EditorCache
 @Suppress("UNCHECKED_CAST")
 abstract class ProfileSettingsActivity<T : AbstractBean>(
     @LayoutRes resId: Int = R.layout.layout_config_settings,
-) : EditorActivity(resId), OnPreferenceDataStoreChangeListener {
-
-    /**
-     * Whether the preference list is the bottom-most scrollable view of the screen. Chain
-     * settings put a separate node list below it, which then owns the bottom inset instead.
-     */
-    open val preferenceListReachesBottom = true
-
-    class UnsavedChangesDialogFragment : AlertDialogFragment<Empty, Empty>() {
-        override fun AlertDialog.Builder.prepare(listener: DialogInterface.OnClickListener) {
-            setTitle(R.string.unsaved_changes_prompt)
-            setPositiveButton(R.string.yes) { _, _ ->
-                // resolve on the main thread: the dialog is detached right after
-                // this click, and requireActivity() on the Default dispatcher
-                // would race it
-                val activity = requireActivity() as ProfileSettingsActivity<*>
-                runOnDefaultDispatcher {
-                    activity.saveAndExit()
-                }
-            }
-            setNegativeButton(R.string.no) { _, _ ->
-                requireActivity().finish()
-            }
-            setNeutralButton(android.R.string.cancel, null)
-        }
-    }
+) : EditorActivity(resId) {
 
     @Parcelize
     data class ProfileIdArg(val profileId: Long, val groupId: Long) : Parcelable
@@ -96,6 +67,11 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             }
             setNegativeButton(R.string.no, null)
         }
+    }
+
+    override fun deleteConfirmationDialog() = DeleteConfirmationDialogFragment().apply {
+        arg(ProfileIdArg(EditorCache.editingId, EditorCache.editingGroup))
+        key()
     }
 
     companion object {
@@ -181,7 +157,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
     protected open fun validateEditor(): String? = null
 
-    open suspend fun saveAndExit() {
+    override suspend fun saveAndExit() {
         awaitEditorReady()
         val canSave = onMainDispatcher {
             val screen = child?.preferenceScreen ?: return@onMainDispatcher false
@@ -237,13 +213,8 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
     }
 
-    // a getter, not lazy: the fragment is committed after an async DB read, and a
-    // menu click before that would cache null (or, after process death, the
-    // restored fragment that init() then replaces) for good
-    val child get() = supportFragmentManager.findFragmentById(R.id.settings) as? MyPreferenceFragmentCompat
-
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.profile_config_menu, menu)
+        super.onCreateOptionsMenu(menu)
         menu.findItem(R.id.action_move)?.apply {
             if (EditorCache.editingId != 0L // not new profile
                 && SagerDatabase.groupDao.getById(EditorCache.editingGroup)?.type == GroupType.BASIC // not in subscription group
@@ -266,77 +237,28 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         return true
     }
 
-    // the fragment may not be committed yet when the menu is clicked
-    override fun onOptionsItemSelected(item: MenuItem) = child?.onMenuItemSelected(item) == true
+    class MyPreferenceFragmentCompat : EditorPreferenceFragment() {
 
-    override fun onDestroy() {
-        EditorCache.profileCacheStore.unregisterChangeListener(this)
-        super.onDestroy()
-    }
-
-    override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
-        if (key != Key.PROFILE_DIRTY) {
-            EditorCache.dirty = true
-        }
-    }
-
-    abstract fun PreferenceFragmentCompat.createPreferences(
-        savedInstanceState: Bundle?,
-        rootKey: String?,
-    )
-
-    open fun PreferenceFragmentCompat.viewCreated(view: View, savedInstanceState: Bundle?) {
-    }
-
-    open fun PreferenceFragmentCompat.displayPreferenceDialog(preference: Preference): Boolean {
-        return false
-    }
-
-    class MyPreferenceFragmentCompat : PreferenceFragmentCompat() {
-
-        var activity: ProfileSettingsActivity<*>? = null
+        // 基类 activity 的具体类型，同样在 createPreferences 抛异常时为 null
+        private val profileActivity get() = activity as ProfileSettingsActivity<*>?
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
-            preferenceManager.preferenceDataStore = EditorCache.profileCacheStore
-            try {
-                activity = (requireActivity() as ProfileSettingsActivity<*>).apply {
-                    createPreferences(savedInstanceState, rootKey)
-                }
-            } catch (e: Exception) {
-                Toast.makeText(
-                    SagerNet.application,
-                    "Error on createPreferences, please try again.",
-                    Toast.LENGTH_SHORT
-                ).show()
-                Logs.e(e)
-            }
+            super.onCreatePreferences(savedInstanceState, rootKey)
             // input-time counterpart of the save check in saveAndExit(); null for
             // editors without a server field (chain, custom config)
             findPreference<EditTextPreference>(Key.SERVER_ADDRESS)
                 ?.bindValidatedPreference(R.string.server_address_error, ::isServerAddress)
+            // 各协议编辑器共用的端口校验；hysteria 用 serverPorts，链式与自定义配置没有端口，均为 null
+            findPreference<EditTextPreference>(Key.SERVER_PORT)?.bindPortPreference()
         }
 
         override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
             super.onViewCreated(view, savedInstanceState)
-
-            listView.padForSystemBars(bottom = activity?.preferenceListReachesBottom ?: true)
-
-            activity?.apply {
-                viewCreated(view, savedInstanceState)
-                // Only clear dirty on first creation; resetting it after a
-                // recreation (rotation) would silently drop unsaved edits.
-                if (savedInstanceState == null) {
-                    EditorCache.dirty = false
-                }
-                EditorCache.profileCacheStore.registerChangeListener(this)
-                // Re-attach the custom JSON callbacks: after a recreation the
-                // result of ConfigEditActivity arrives at this new instance
-                // while the callbacks set by the menu handler died with the
-                // old one.
-                proxyEntity?.requireBean()?.let { bean ->
-                    callbackCustom = { bean.customConfigJson = it }
-                    callbackCustomOutbound = { bean.customOutboundJson = it }
-                }
+            // 重新挂上自定义 JSON 回调：重建后 ConfigEditActivity 的结果会送到这个新实例，
+            // 而菜单处理里设的回调随旧实例一起没了
+            profileActivity?.proxyEntity?.requireBean()?.let { bean ->
+                callbackCustom = { bean.customConfigJson = it }
+                callbackCustomOutbound = { bean.customOutboundJson = it }
             }
         }
 
@@ -356,32 +278,9 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         }
 
         @SuppressLint("CheckResult")
-        fun onMenuItemSelected(item: MenuItem) = when (item.itemId) {
-            R.id.action_delete -> {
-                if (EditorCache.editingId == 0L) {
-                    requireActivity().finish()
-                } else {
-                    DeleteConfirmationDialogFragment().apply {
-                        arg(
-                            ProfileIdArg(
-                                EditorCache.editingId, EditorCache.editingGroup
-                            )
-                        )
-                        key()
-                    }.show(parentFragmentManager, null)
-                }
-                true
-            }
-
-            R.id.action_apply -> {
-                runOnDefaultDispatcher {
-                    activity?.saveAndExit()
-                }
-                true
-            }
-
+        override fun onMenuItemSelected(item: MenuItem) = when (item.itemId) {
             R.id.action_custom_outbound_json -> {
-                activity?.proxyEntity?.apply {
+                profileActivity?.proxyEntity?.apply {
                     val bean = requireBean()
                     // seeding the editor is not an edit: keep dirty as it was
                     val dirty = EditorCache.dirty
@@ -400,7 +299,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             }
 
             R.id.action_custom_config_json -> {
-                activity?.proxyEntity?.apply {
+                profileActivity?.proxyEntity?.apply {
                     val bean = requireBean()
                     val dirty = EditorCache.dirty
                     EditorCache.serverCustom = bean.customConfigJson
@@ -494,14 +393,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                 true
             }
 
-            else -> false
-        }
-
-        override fun onDisplayPreferenceDialog(preference: Preference) {
-            activity?.apply {
-                if (displayPreferenceDialog(preference)) return
-            }
-            super.onDisplayPreferenceDialog(preference)
+            else -> super.onMenuItemSelected(item)
         }
 
     }
