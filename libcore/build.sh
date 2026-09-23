@@ -11,16 +11,7 @@ rm -rf $BUILD/android \
   $BUILD/javac-output \
   $BUILD/src
 
-# go install honours GOBIN over GOPATH/bin, and init.sh installs gomobile-matsuri
-# wherever that resolves to; look in the same place.
-GOBIN_DIR=$(go env GOBIN)
-if [ -z "$GOBIN_DIR" ]; then
-  if [ -z "$GOPATH" ]; then
-    GOPATH=$(go env GOPATH)
-  fi
-  GOBIN_DIR="$GOPATH/bin"
-fi
-
+source ../buildScript/init/env_gobin.sh
 export PATH="$GOBIN_DIR:$PATH"
 mkdir -p "$BUILD"
 

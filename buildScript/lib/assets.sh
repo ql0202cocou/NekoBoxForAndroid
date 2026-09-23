@@ -2,6 +2,8 @@
 
 set -eo pipefail
 
+source buildScript/init/verify_sha256.sh
+
 # Pinned upstream releases and sha256 of the downloaded (uncompressed) db
 # files, frozen 2026-09-15; bump all four constants together. Upstream
 # publishes a "<file>.sha256sum" next to each db, but it sits in the same
@@ -26,9 +28,7 @@ cd "$TMP"
 download_verified() {
   local repo="$1" version="$2" file="$3" expect="$4"
   curl -fLSs -o "$file" "https://github.com/$repo/releases/download/$version/$file"
-  # shasum, not sha256sum: the dev machines are macOS (same as plugins.sh)
-  local actual=$(shasum -a 256 "$file" | awk '{print $1}')
-  [ "$actual" = "$expect" ] || { echo "sha256 mismatch for $file: $actual != $expect"; exit 1; }
+  verify_sha256 "$file" "$expect" || exit 1
 }
 
 ####

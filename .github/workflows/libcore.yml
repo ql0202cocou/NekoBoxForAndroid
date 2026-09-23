@@ -26,7 +26,7 @@ jobs:
           # NOTE: only the minor line is in the key, and go-version below floats within
           # it, so a Go 1.26.x patch release does NOT invalidate the cache — clear the
           # Actions cache by hand when a patch matters (e.g. a crypto/tls fix).
-          key: libcore-go1.26-ndk25.0.8775105-${{ hashFiles('.github/workflows/libcore.yml', 'run', 'buildScript/lib/core.sh', 'buildScript/lib/core/**', 'buildScript/init/env.sh', 'buildScript/init/env_ndk.sh', 'libcore/**', '!libcore/.build/**', '!libcore/libcore.aar') }}
+          key: libcore-go1.26-ndk25.0.8775105-${{ hashFiles('.github/workflows/libcore.yml', 'run', 'buildScript/lib/core.sh', 'buildScript/lib/core/**', 'buildScript/init/env.sh', 'buildScript/init/env_ndk.sh', 'buildScript/init/env_gobin.sh', 'libcore/**', '!libcore/.build/**', '!libcore/libcore.aar') }}
       - name: Install Golang
         if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0

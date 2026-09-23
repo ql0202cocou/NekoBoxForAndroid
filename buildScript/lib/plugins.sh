@@ -6,6 +6,8 @@
 
 set -eo pipefail
 
+source buildScript/init/verify_sha256.sh
+
 XRAY_VERSION="v26.3.27"
 MIHOMO_VERSION="v1.19.31"
 
@@ -32,8 +34,7 @@ check_pinned() {
   local var="$2_SHA256_${3//-/_}"
   local expect="${!var}"
   [ -n "$expect" ] || { echo "no pinned sha256 for $2 $3"; return 1; }
-  local actual=$(shasum -a 256 "$1" | awk '{print $1}')
-  [ "$actual" = "$expect" ] || { echo "pinned sha256 mismatch for $1: $actual != $expect"; return 1; }
+  verify_sha256 "$1" "$expect" "pinned "
 }
 
 # skip when the installed cores already match the pinned versions
@@ -61,8 +62,7 @@ check_sha256() {
   # $1: file, $2: dgst content with "SHA2-256= <hash>"
   local expect=$(echo "$2" | grep 'SHA2-256=' | awk '{print $2}')
   [ -n "$expect" ] || { echo "no SHA2-256 in dgst"; exit 1; }
-  local actual=$(shasum -a 256 "$1" | awk '{print $1}')
-  [ "$actual" = "$expect" ] || { echo "sha256 mismatch for $1: $actual != $expect"; exit 1; }
+  verify_sha256 "$1" "$expect" || exit 1
 }
 
 check_elf() {

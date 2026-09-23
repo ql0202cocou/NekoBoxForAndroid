@@ -18,7 +18,6 @@ import org.gradle.kotlin.dsl.register
 import java.io.File
 import java.util.Base64
 import java.util.Properties
-import kotlin.system.exitProcess
 
 private val Project.android get() = extensions.getByName<ApplicationExtension>("android")
 
@@ -27,6 +26,11 @@ private val Project.android get() = extensions.getByName<ApplicationExtension>("
 // daemon was restarted — a bumped version silently produced APKs labelled with the previous one.
 fun Project.requireMetadata(): Properties = Properties().apply {
     rootProject.file("nb4a.properties").inputStream().use { load(it) }
+}
+
+// nb4a.properties 里的必填项，缺失时报错；同样每次调用都重新读取
+fun Project.metadata(key: String): String = requireNotNull(requireMetadata().getProperty(key)) {
+    "$key is missing in nb4a.properties"
 }
 
 fun Project.requireLocalProperties(): Properties = Properties().apply {
@@ -144,15 +148,9 @@ fun Project.setupAppCommon() {
 }
 
 fun Project.setupApp() {
-    val pkgName = requireNotNull(requireMetadata().getProperty("PACKAGE_NAME")) {
-        "PACKAGE_NAME is missing in nb4a.properties"
-    }
-    val verName = requireNotNull(requireMetadata().getProperty("VERSION_NAME")) {
-        "VERSION_NAME is missing in nb4a.properties"
-    }
-    val verCode = requireNotNull(requireMetadata().getProperty("VERSION_CODE")) {
-        "VERSION_CODE is missing in nb4a.properties"
-    }.toInt() * 5
+    val pkgName = metadata("PACKAGE_NAME")
+    val verName = metadata("VERSION_NAME")
+    val verCode = metadata("VERSION_CODE").toInt() * 5
     android.apply {
         defaultConfig {
             applicationId = pkgName
@@ -186,13 +184,7 @@ fun Project.setupApp() {
             create("oss")
             create("fdroid")
             create("preview") {
-                buildConfigField(
-                    "String",
-                    "PRE_VERSION_NAME",
-                    "\"${requireNotNull(requireMetadata().getProperty("PRE_VERSION_NAME")) {
-                        "PRE_VERSION_NAME is missing in nb4a.properties"
-                    }}\""
-                )
+                buildConfigField("String", "PRE_VERSION_NAME", "\"${metadata("PRE_VERSION_NAME")}\"")
             }
         }
 
@@ -229,9 +221,7 @@ fun Project.setupApp() {
     // SingleArtifact.APK transform instead, so build/outputs/apk keeps the same names.
     extensions.getByName<ApplicationAndroidComponentsExtension>("androidComponents").onVariants { variant ->
         val rename = tasks.register<RenameApksTask>("rename${variant.name.replaceFirstChar { it.uppercase() }}Apks") {
-            val preVersionName = requireNotNull(requireMetadata().getProperty("PRE_VERSION_NAME")) {
-                "PRE_VERSION_NAME is missing in nb4a.properties"
-            }
+            val preVersionName = metadata("PRE_VERSION_NAME")
             projectName.set(project.name)
             newBaseName.set(
                 if (variant.flavorName == "preview") "NekoBox-$preVersionName"
