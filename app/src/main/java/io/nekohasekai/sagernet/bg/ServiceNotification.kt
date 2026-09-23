@@ -65,7 +65,13 @@ class ServiceNotification(
     @Volatile
     var listenPostSpeed = true
 
+    // 只在 TrafficLooper 的循环里读写。空闲时每次的速度数据完全相同，
+    // 跳过重建通知和 notify() 这次跨进程调用
+    private var lastSpeed: SpeedDisplayData? = null
+
     suspend fun postNotificationSpeedUpdate(stats: SpeedDisplayData) {
+        if (stats == lastSpeed) return
+        lastSpeed = stats
         useBuilder {
             if (showDirectSpeed) {
                 val speedDetail = service.getString(

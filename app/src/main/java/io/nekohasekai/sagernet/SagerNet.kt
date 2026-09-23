@@ -100,15 +100,17 @@ class SagerNet : Application(),
             // APK, and the user's own files must win over that
             migrateLegacyAssets()
             Seq.setContext(this)
+            val logEnable = DataStore.logLevel > 0
             Libcore.initCore(
                 process,
                 cacheDir.absolutePath + "/",
                 filesDir.absolutePath + "/",
                 assetsDir.absolutePath + "/",
                 DataStore.logBufSize,
-                DataStore.logLevel > 0,
+                logEnable,
                 nativeInterface, nativeInterface, LocalResolverImpl
             )
+            Logs.enabled = logEnable
 
             // fix multi process issue in Android 9+
             JavaUtil.handleWebviewDir(this)

@@ -123,9 +123,9 @@ class ConfigurationFragment @JvmOverloads constructor(
         override fun onPageScrolled(
             position: Int, positionOffset: Float, positionOffsetPixels: Int
         ) {
-            if (adapter.groupList.size > position) {
-                DataStore.selectedGroup = adapter.groupList[position].id
-            }
+            // 滑动时每帧都会回调；只在分组变化时写，免得每帧一次主线程写库和监听回调
+            val id = adapter.groupList.getOrNull(position)?.id ?: return
+            if (DataStore.selectedGroup != id) DataStore.selectedGroup = id
         }
     }
 
