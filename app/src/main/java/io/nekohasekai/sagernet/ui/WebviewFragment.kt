@@ -26,8 +26,8 @@ import io.nekohasekai.sagernet.bg.ServiceRegistry
 class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenuItemClickListener {
 
     private var mWebView: WebView? = null
+    private var webviewContainer: ViewGroup? = null
 
-    @SuppressLint("SetJavaScriptEnabled")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
@@ -43,10 +43,17 @@ class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenu
         // pads a second time (the AppBar already clears the status bar). IME insets still
         // reach the WebView.
         binding.webviewContainer.padForSystemBars(consume = true)
+        webviewContainer = binding.webviewContainer
 
         // webview
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
-        val webView = binding.webview
+        setupWebView(binding.webview)
+        loadPanel(binding.webview)
+    }
+
+    // close 菜单销毁 WebView 后 action_set_url 还能重建，所以初始化统一收在这里
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun setupWebView(webView: WebView) {
         mWebView = webView
         webView.settings.domStorageEnabled = true
         webView.settings.javaScriptEnabled = true
@@ -73,7 +80,26 @@ class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenu
                 view: WebView?, request: WebResourceRequest?
             ) = leavesPanel(request?.url?.toString())
         }
-        loadPanel(webView)
+    }
+
+    // close 之后按原布局参数重建一个 WebView
+    private fun recreateWebView(): WebView? {
+        val container = webviewContainer ?: return null
+        val webView = WebView(container.context)
+        container.addView(
+            webView,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
+        setupWebView(webView)
+        return webView
+    }
+
+    private fun destroyWebView() {
+        // detach before destroy: destroying a still-attached WebView can crash
+        (mWebView?.parent as? ViewGroup)?.removeView(mWebView)
+        mWebView?.destroy()
+        mWebView = null
     }
 
     // Host:port of the page currently loaded. This WebView runs JavaScript right next
@@ -113,10 +139,8 @@ class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenu
     }
 
     override fun onDestroyView() {
-        // detach before destroy: destroying a still-attached WebView can crash
-        (mWebView?.parent as? ViewGroup)?.removeView(mWebView)
-        mWebView?.destroy()
-        mWebView = null
+        destroyWebView()
+        webviewContainer = null
         super.onDestroyView()
     }
 
@@ -132,18 +156,15 @@ class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenu
                     .setView(view)
                     .setPositiveButton(android.R.string.ok) { _, _ ->
                         DataStore.yacdURL = view.text.toString()
-                        mWebView?.let { loadPanel(it) }
+                        // close 之后 WebView 已销毁，重建一个再加载
+                        loadPanel(mWebView ?: recreateWebView() ?: return@setPositiveButton)
                     }
                     .setNegativeButton(android.R.string.cancel, null)
                     .show()
             }
             R.id.close -> {
                 mWebView?.onPause()
-                mWebView?.removeAllViews()
-                // detach before destroy: destroying a still-attached WebView can crash
-                (mWebView?.parent as? ViewGroup)?.removeView(mWebView)
-                mWebView?.destroy()
-                mWebView = null
+                destroyWebView()
             }
         }
         return true

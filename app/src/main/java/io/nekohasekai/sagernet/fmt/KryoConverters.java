@@ -53,7 +53,10 @@ public class KryoConverters {
     // Strict: damaged bytes throw, so a share link, backup record or parcel is
     // rejected instead of turning into a half-filled bean.
     public static <T extends Serializable> T deserialize(T bean, byte[] bytes) {
-        if (bytes == null) return bean;
+        if (bytes == null) {
+            bean.initializeDefaultValues();
+            return bean;
+        }
         // bounded: rejects lengths a crafted link could use to OOM the process
         ByteBufferInput buffer = KryosKt.byteBuffer(bytes);
         bean.deserializeFromBuffer(buffer);

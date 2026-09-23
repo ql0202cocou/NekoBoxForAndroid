@@ -130,6 +130,8 @@ class StatsBar @JvmOverloads constructor(
             try {
                 val elapsed = activity.urlTest()
                 onMainDispatcher {
+                    // Activity 已销毁时不再触视图（与 GroupInterfaceAdapter 同一检查）
+                    if (activity.isFinishing || activity.isDestroyed) return@onMainDispatcher
                     isEnabled = true
                     setStatus(
                         app.getString(
@@ -145,8 +147,10 @@ class StatsBar @JvmOverloads constructor(
             } catch (e: Exception) {
                 Logs.w(e.toString())
                 onMainDispatcher {
+                    if (activity.isFinishing || activity.isDestroyed) return@onMainDispatcher
                     isEnabled = true
-                    setStatus(app.getText(R.string.connection_test_testing))
+                    // 失败要落回失败文案：重置成「测试中」会让状态栏永久停在错误状态
+                    setStatus(app.getString(R.string.connection_test_error, e.readableMessage))
 
                     activity.snackbar(
                         app.getString(

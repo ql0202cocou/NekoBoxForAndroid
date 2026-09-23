@@ -95,7 +95,7 @@ fun parseV2Ray(link: String): StandardV2RayBean {
         var protocol = url.username
         bean.type = protocol
         bean.alterId = url.password.substringAfterLast('-').toIntOrNull()
-            ?: error("invalid link $link")
+            ?: error("invalid v2ray alterId")
         bean.uuid = url.password.substringBeforeLast('-')
 
         if (protocol.endsWith("+tls")) {
@@ -144,7 +144,7 @@ fun parseV2Ray(link: String): StandardV2RayBean {
     // 节点；抛异常让 parseProxies 按解析失败跳过。地址与端口由
     // parseProxies 的 requireValidEndpoint 统一验，这里只管 uuid
     if (bean.uuid.isNullOrBlank() || !bean.uuid.matches(uuidRegex)) {
-        error("invalid link $link")
+        error("invalid v2ray uuid")
     }
 
     return bean
@@ -508,8 +508,10 @@ fun StandardV2RayBean.toUriVMessVLESSTrojan(isTrojan: Boolean): String {
     val builder = linkBuilder()
         .username(if (this is TrojanBean) password else uuid)
         .host(serverAddress)
-        .port(serverPort)
-        .addQueryParameter("type", type)
+    if (serverPort in 1..65535) {
+        builder.port(serverPort)
+    }
+    builder.addQueryParameter("type", type)
 
     if (isVLESS) {
         builder.addQueryParameter("encryption", "none")

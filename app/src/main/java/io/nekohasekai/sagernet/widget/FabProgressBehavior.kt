@@ -20,7 +20,10 @@ class FabProgressBehavior(context: Context, attrs: AttributeSet?) :
         parent: CoordinatorLayout, child: CircularProgressIndicator,
         layoutDirection: Int,
     ): Boolean {
-        val size = parent.getDependencies(child).single().measuredHeight + child.trackThickness
+        // anchor 缺失或依赖多于一个时 getDependencies 不保证恰好一个元素，
+        // single() 会在 layout 期抛异常
+        val size = (parent.getDependencies(child).firstOrNull()
+            ?: return false).measuredHeight + child.trackThickness
         return if (child.indicatorSize != size) {
             child.indicatorSize = size
             true

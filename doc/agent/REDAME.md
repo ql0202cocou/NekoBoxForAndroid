@@ -10,6 +10,7 @@
 | [review-followups-5bbd7be.md](review-followups-5bbd7be.md) | `5bbd7be` 审查留下的 5 项问题：端点校验、默认值归一化、失效选择清理和文件锁重入 | 已全部处理（2026-09-20），处理结果与验证依据见记录 |
 | [simplify-repo-2026-09-23.md](simplify-repo-2026-09-23.md) | 全仓 /simplify 复审：已修复范围摘要，及当时未改的 13 项行为改动与 5 项维护者决定项的后续处理 | 首轮修复已随 1.7.5-b1 发布；18 项后续处理在分支 `fix/simplify-followups`（未提交），均未上机验证 |
 | [backend-audit-4.md](backend-audit-4.md) | 第四次后端完整审计（libcore + bg）：2 项中严重度（Stopping 启动意图丢失、uniquifyNames O(n²)）、24 项低严重度与观察项 | 已全部修复（2026-09-20），修复记录与验证依据见记录；sing-box 补丁集升为 1.14.1-neko-2 |
+| [frontend-audit-1.md](frontend-audit-1.md) | 首次前端完整审计（app 模块 213 源文件 + 资源/清单，基线 `85ede82`）：1 项高危（静态快捷方式缺 targetPackage 必然失效）、10 项中危、约 47 项低危与 30 项观察项 | 58 项高/中/低已全部修复（2026-09-23，例外与理由见记录「处理结果」）；编译/单测/全量 lint 三道验证全绿；观察项未动 |
 
 ## 记录规则
 

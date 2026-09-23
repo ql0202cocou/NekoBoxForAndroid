@@ -8,6 +8,7 @@ import io.nekohasekai.sagernet.fmt.putBean
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.IOException
@@ -49,12 +50,32 @@ object ProfileManager {
     private val listeners = CopyOnWriteArrayList<Listener>()
     private val ruleListeners = CopyOnWriteArrayList<RuleListener>()
 
+    // 与 GroupManager.iterator 同一策略：单个 listener 失败只记日志——异常
+    // 传回 UI 调用方会造成崩溃（此时节点/规则变更已落库），也不该中断其余
+    // listener 的通知
     suspend fun iterator(what: suspend Listener.() -> Unit) {
-        for (listener in listeners) what(listener)
+        for (listener in listeners) {
+            try {
+                what(listener)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Logs.w(e)
+            }
+        }
     }
 
+    // 同 iterator：单个 listener 失败不中断其余通知
     suspend fun ruleIterator(what: suspend RuleListener.() -> Unit) {
-        for (listener in ruleListeners) what(listener)
+        for (listener in ruleListeners) {
+            try {
+                what(listener)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Logs.w(e)
+            }
+        }
     }
 
     fun addListener(listener: Listener) {

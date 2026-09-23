@@ -36,7 +36,11 @@ class QuickEnableShortcut : Activity(), SagerConnection.Callback {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        connection.connect(this, this)
+        // bind 被拒时 onServiceConnected 永不到达，无界面 Activity 要自己收尾
+        if (!connection.connect(this, this)) {
+            finish()
+            return
+        }
         if (Build.VERSION.SDK_INT >= 25) {
             getSystemService<ShortcutManager>()!!.reportShortcutUsed("enable")
         }

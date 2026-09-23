@@ -42,7 +42,8 @@ public class ConfigBean extends InternalBean {
         if (JavaUtil.isNotBlank(name)) {
             return name;
         } else {
-            return "Custom " + Math.abs(hashCode());
+            // 用配置内容哈希而非身份哈希，进程重启后显示名保持稳定
+            return "Custom " + Math.abs((config == null ? "" : config).hashCode());
         }
     }
 

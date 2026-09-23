@@ -151,16 +151,15 @@ object LocalResolverImpl : LocalDNSTransport {
                 // 老版本系统，继续用阻塞的 InetAddress
                 try {
                     val u = SagerNet.underlyingNetwork
-                    val answer = try {
-                        u?.getAllByName(domain)
-                    } catch (e: UnknownHostException) {
-                        null
-                    } ?: InetAddress.getAllByName(domain)
-                    if (answer != null) {
-                        ctx.success(answer.mapNotNull { it.hostAddress }.joinToString("\n"))
-                    } else {
+                    // 没有物理网络时直接报错，不回退到系统默认解析：VPN 激活期间
+                    // 默认网络可能是 tun 自身，而本接口是 Go 核的 LocalDNSTransport，
+                    // 重入隧道会形成依赖循环；物理网络解析失败同理不回退
+                    if (u == null) {
                         ctx.errnoCode(ERRNO_UNKNOWN)
+                        return@runOnIoDispatcher
                     }
+                    val answer = u.getAllByName(domain)
+                    ctx.success(answer.mapNotNull { it.hostAddress }.joinToString("\n"))
                 } catch (e: UnknownHostException) {
                     ctx.errorCode(RCODE_NXDOMAIN)
                 } catch (e: Exception) {

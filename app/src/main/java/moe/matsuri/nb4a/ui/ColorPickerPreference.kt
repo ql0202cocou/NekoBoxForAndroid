@@ -92,9 +92,11 @@ class ColorPickerPreference
                 val themeId = i
                 val view = getNekoImageViewAtColor(color, 64, 0).apply {
                     setOnClickListener {
-                        persistInt(themeId)
+                        // 遵循 Preference 契约：监听器接受才持久化
+                        if (callChangeListener(themeId)) {
+                            persistInt(themeId)
+                        }
                         dialog.dismiss()
-                        callChangeListener(themeId)
                     }
                 }
                 addView(view)

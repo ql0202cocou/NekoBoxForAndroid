@@ -82,7 +82,8 @@ fun Context.listenForPackageChanges(onetime: Boolean = true, callback: () -> Uni
         })
     }
 
-fun Preference.remove() = parent!!.removePreference(this)
+// 未挂进树的 preference 没有 parent，直接视为无事可做
+fun Preference.remove() = parent?.removePreference(this) ?: false
 
 /**
  * A slightly more performant variant of parseNumericAddress.
@@ -238,7 +239,7 @@ suspend fun Fragment.writeToDocument(uri: Uri, content: String) {
 // 选取文档的显示名。GetContent("*/*") 允许任意文档提供方，坏的提供方可能返回
 // 空游标、缺 DISPLAY_NAME 列或查询直接抛错，这时退回 Uri 最后一段路径；
 // DISPLAY_NAME 也可能带路径分隔符，只保留最后一个 '/' 之后的部分。
-// Uri 没有路径段时抛 NoSuchElementException
+// Uri 连路径段都没有时兜底为空串
 fun ContentResolver.displayName(uri: Uri): String {
     val name = try {
         query(uri, null, null, null, null)?.use { cursor ->
@@ -250,21 +251,39 @@ fun ContentResolver.displayName(uri: Uri): String {
         Logs.w(e)
         null
     }
-    return (name?.takeIf { it.isNotBlank() } ?: uri.pathSegments.last()
-        .substringAfterLast('/')
-        .substringAfter(':'))
+    return (name?.takeIf { it.isNotBlank() } ?: uri.pathSegments.lastOrNull()
+        ?.substringAfterLast('/')
+        ?.substringAfter(':')
+        .orEmpty())
         .substringAfterLast('/')
 }
 
-// 经 FileProvider（.cache）把缓存目录里的文件交给系统分享面板
+// 经 FileProvider（.cache）把文件交给系统分享面板。provider 只暴露
+// cacheDir/share/（cache_paths.xml），不在其中的文件先挪进去；分享负载即用
+// 即弃，挪完顺手清掉上一次分享的残留（备份 JSON 含全部节点凭证）
 fun Context.shareFile(file: File, mimeType: String) {
+    val shareDir = File(cacheDir, "share").apply { mkdirs() }
+    val shared = if (file.parentFile == shareDir) {
+        file
+    } else {
+        val target = File(shareDir, file.name)
+        when {
+            file.renameTo(target) -> target
+            runCatching { file.copyTo(target, overwrite = true); file.delete() }.isSuccess -> target
+            else -> {
+                Logs.w("shareFile: cannot move ${file.name} into share dir")
+                return
+            }
+        }
+    }
+    shareDir.listFiles()?.forEach { if (it != shared) it.delete() }
     startActivity(
         Intent.createChooser(
             Intent(Intent.ACTION_SEND).setType(mimeType)
                 .setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 .putExtra(
                     Intent.EXTRA_STREAM, FileProvider.getUriForFile(
-                        this, BuildConfig.APPLICATION_ID + ".cache", file
+                        this, BuildConfig.APPLICATION_ID + ".cache", shared
                     )
                 ), getString(androidx.appcompat.R.string.abc_shareactionprovider_share_with)
         )

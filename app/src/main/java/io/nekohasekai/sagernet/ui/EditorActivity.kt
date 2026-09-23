@@ -134,8 +134,10 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
         preference: () -> OutboundPreference?,
     ) = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         if (it.resultCode == RESULT_OK) runOnDefaultDispatcher {
+            // RESULT_OK 也可能不带 data（picker 被重建等）
+            val data = it.data ?: return@runOnDefaultDispatcher
             val profile = ProfileManager.getProfile(
-                it.data!!.getLongExtra(ProfileSelectActivity.EXTRA_PROFILE_ID, 0)
+                data.getLongExtra(ProfileSelectActivity.EXTRA_PROFILE_ID, 0)
             ) ?: return@runOnDefaultDispatcher
             onSelected(profile.id)
             onMainDispatcher {

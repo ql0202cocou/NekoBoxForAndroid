@@ -60,7 +60,12 @@ class QuickToggleShortcut : Activity(), SagerConnection.Callback {
                 return
             }
             profileId = intent.getLongExtra("profile", -1L)
-            connection.connect(this, this)
+            // bind 被拒时 onServiceConnected 永不到达（connect 内部已回滚），
+            // 这个无界面 Activity 必须自己收尾，否则永远残留
+            if (!connection.connect(this, this)) {
+                finish()
+                return
+            }
             if (profileId >= 0 && profileId != DataStore.selectedProxy &&
                 ShortcutManagerCompat.getShortcuts(this, ShortcutManagerCompat.FLAG_MATCH_PINNED)
                     .none { it.id == "shortcut-profile-$profileId" }

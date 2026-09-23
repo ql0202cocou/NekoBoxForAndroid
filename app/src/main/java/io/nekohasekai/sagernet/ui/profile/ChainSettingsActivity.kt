@@ -79,6 +79,9 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // 编辑会话被接管时基类已 finish() 并提前返回，toolbar 未安装，直接退出
+        if (!ownsEditorSession) return
+
         supportActionBar!!.setTitle(R.string.chain_settings)
         replacing = savedInstanceState?.getInt("replacing") ?: 0
         configurationList = findViewById(R.id.configuration_list)
@@ -236,10 +239,12 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
 
     }
 
-    fun testProfileAllowed(profile: ProxyEntity): Boolean {
+    // members 须为 proxyList 的主线程快照：本函数跑在 Default 调度器上，
+    // 直接迭代 proxyList 会与主线程的拖拽/删除并发
+    fun testProfileAllowed(profile: ProxyEntity, members: List<ProxyEntity>): Boolean {
         if (profile.id == EditorCache.editingId) return false
 
-        for (entity in proxyList) {
+        for (entity in members) {
             if (testProfileContains(entity, profile)) return false
         }
 
@@ -299,7 +304,9 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
                     ) ?: return@launch
                 ) ?: return@launch
 
-                if (!testProfileAllowed(profile)) {
+                // proxyList 只由主线程改写（拖拽/删除/重载），快照必须在主线程取
+                val members = onMainDispatcher { proxyList.toList() }
+                if (!testProfileAllowed(profile, members)) {
                     onMainDispatcher {
                         MaterialAlertDialogBuilder(this@ChainSettingsActivity).setTitle(R.string.circular_reference)
                             .setMessage(R.string.circular_reference_sum)
@@ -370,7 +377,10 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
             }
 
             editButton.setOnClickListener {
-                replacing = bindingAdapterPosition
+                // 布局刷新间隙点击会拿到 NO_POSITION，此时启动会让「替换」静默变「追加」
+                val position = bindingAdapterPosition
+                if (position == RecyclerView.NO_POSITION) return@setOnClickListener
+                replacing = position
                 selectProfileForAdd.launch(Intent(
                     this@ChainSettingsActivity, ProfileSelectActivity::class.java
                 ).apply {

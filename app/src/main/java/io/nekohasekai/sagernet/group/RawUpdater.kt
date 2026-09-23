@@ -212,7 +212,7 @@ object RawUpdater : GroupUpdater() {
                         toUpdate.add(entity)
                         updated[oldName] = name
 
-                        Logs.d("Updated profile: $name")
+                        Logs.d("Updated profile #$userOrder")
                     }
 
                     reordered -> {
@@ -220,11 +220,11 @@ object RawUpdater : GroupUpdater() {
                         changed++
                         toReorder.add(entity)
 
-                        Logs.d("Reordered profile: $name")
+                        Logs.d("Reordered profile #$userOrder")
                     }
 
                     else -> {
-                        Logs.d("Ignored profile: $name")
+                        Logs.d("Ignored profile #$userOrder")
                     }
                 }
             } else {
@@ -235,7 +235,7 @@ object RawUpdater : GroupUpdater() {
                     putBean(bean)
                 })
                 added.add(name)
-                Logs.d("Inserted profile: $name")
+                Logs.d("Inserted profile #$userOrder")
             }
             userOrder++
         }
@@ -320,10 +320,13 @@ object RawUpdater : GroupUpdater() {
     }
 
     // onClashYaml：clash YAML 根节点载入成功时回调（无论节点解析成败），
-    // doUpdate 借它读 dns 段，免得把整份订阅再解析一遍
+    // doUpdate 借它读 dns 段，免得把整份订阅再解析一遍。
+    // base64Depth 是内部递归深度：base64 整段编码的订阅解开后重跑一次本函数，
+    // 只此一层，防无限递归
     suspend fun parseRaw(
         text: String,
         fileName: String = "",
+        base64Depth: Int = 0,
         onClashYaml: (Map<*, *>) -> Unit = {},
     ): List<AbstractBean>? {
 
@@ -364,7 +367,13 @@ object RawUpdater : GroupUpdater() {
         }
 
         try {
-            return parseProxies(text.decodeBase64UrlSafe()).takeIf { it.isNotEmpty() }
+            val decoded = text.decodeBase64UrlSafe()
+            // 整段 base64 编码的订阅（Clash YAML 常被整体编码）：解码文本重跑
+            // 一次原始解析（含 Clash 判定），限一层
+            if (base64Depth == 0) {
+                parseRaw(decoded, fileName, base64Depth = 1, onClashYaml)?.let { return it }
+            }
+            return parseProxies(decoded).takeIf { it.isNotEmpty() }
                 ?: error("Not found")
         } catch (e: Exception) {
             Logs.w("Subscription parsing failed: ${e.javaClass.simpleName}")

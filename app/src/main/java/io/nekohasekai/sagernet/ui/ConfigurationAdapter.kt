@@ -34,16 +34,10 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
     var configurationIdList: MutableList<Long> = mutableListOf()
     val configurationList = HashMap<Long, ProxyEntity>()
 
-    private fun getItem(profileId: Long): ProxyEntity? {
-        var profile = configurationList[profileId]
-        if (profile == null) {
-            profile = ProfileManager.getProfile(profileId)
-            if (profile != null) {
-                configurationList[profileId] = profile
-            }
-        }
-        return profile
-    }
+    // 内存缓存即全部：configurationIdList 与 configurationList 始终在主线程
+    // 同一个 post 里成对更新，可见行的 id 必有缓存。取不到说明是陈旧回调，
+    // 返回 null 而不是在主线程同步读库兜底
+    private fun getItem(profileId: Long): ProxyEntity? = configurationList[profileId]
 
     private fun getItemAt(index: Int) = getItem(configurationIdList[index])
 
@@ -63,10 +57,10 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
     }
 
     override fun onBindViewHolder(holder: ConfigurationHolder, position: Int) {
-        try {
-            getItemAt(position)?.let { holder.bind(it) }
-        } catch (ignored: NullPointerException) { // when group deleted
-        }
+        // group 删除等竞态下 RecyclerView 会按旧 itemCount 回调越界 position；
+        // 显式判空，而不是吞 NPE 把 bind 内部的真实 bug 一起盖掉
+        val id = configurationIdList.getOrNull(position) ?: return
+        getItem(id)?.let { holder.bind(it) }
     }
 
     override fun getItemCount(): Int {
@@ -87,7 +81,10 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
 
     fun filter(name: String) {
         if (name.isEmpty()) {
-            reloadProfiles()
+            // 清空搜索时的整组重读带读库，放到后台线程
+            runOnDefaultDispatcher {
+                reloadProfiles()
+            }
             return
         }
         configurationIdList.clear()

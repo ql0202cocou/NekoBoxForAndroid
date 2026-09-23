@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- debug 构建的 applicationId 带 .debug 后缀，快捷方式必须指向对应包名；
+     本文件整体覆盖 main 同名资源，除 targetPackage 外保持一致 -->
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
     <shortcut
         android:icon="@drawable/ic_qu_shadowsocks_launcher"
@@ -8,7 +10,7 @@
         <intent
             android:action="android.intent.action.MAIN"
             android:targetClass="io.nekohasekai.sagernet.QuickToggleShortcut"
-            android:targetPackage="moe.nb4a" />
+            android:targetPackage="moe.nb4a.debug" />
     </shortcut>
     <shortcut
         android:icon="@drawable/ic_qu_shadowsocks_launcher"
@@ -18,7 +20,7 @@
         <intent
             android:action="android.intent.action.MAIN"
             android:targetClass="io.nekohasekai.sagernet.ui.QuickEnableShortcut"
-            android:targetPackage="moe.nb4a" />
+            android:targetPackage="moe.nb4a.debug" />
     </shortcut>
     <shortcut
         android:icon="@drawable/ic_qu_shadowsocks_launcher"
@@ -28,7 +30,7 @@
         <intent
             android:action="android.intent.action.MAIN"
             android:targetClass="io.nekohasekai.sagernet.ui.QuickDisableShortcut"
-            android:targetPackage="moe.nb4a" />
+            android:targetPackage="moe.nb4a.debug" />
     </shortcut>
     <shortcut
         android:icon="@drawable/ic_qu_camera_launcher"
@@ -38,6 +40,6 @@
         <intent
             android:action="android.intent.action.MAIN"
             android:targetClass="io.nekohasekai.sagernet.ui.ScannerActivity"
-            android:targetPackage="moe.nb4a" />
+            android:targetPackage="moe.nb4a.debug" />
     </shortcut>
 </shortcuts>

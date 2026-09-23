@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.util.DisplayMetrics
 import android.view.Gravity
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -48,58 +49,64 @@ class QRCodeDialog() : DialogFragment() {
      */
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
-    ) = try {
-        // get display size
-        var pixelMin = 0
-
-        try {
-            val displayMetrics: DisplayMetrics = requireContext().resources.displayMetrics
-            val height: Int = displayMetrics.heightPixels
-            val width: Int = displayMetrics.widthPixels
-            pixelMin = if (height > width) width else height
-            pixelMin = (pixelMin * 0.8).roundToInt()
-        } catch (e: Exception) {
+    ): View? {
+        // arguments 只在恢复状态损坏时缺失；没 URL 画不出码，直接关掉
+        val url = arguments?.getString(KEY_URL)
+        if (url == null) {
+            Logs.w("QRCodeDialog: no url in arguments")
+            dismiss()
+            return null
         }
+        val displayName = arguments?.getString(KEY_NAME).orEmpty()
 
-        val size = if (pixelMin > 0) pixelMin else resources.getDimensionPixelSize(R.dimen.qrcode_size)
+        return try {
+            // get display size
+            var pixelMin = 0
 
-        // draw QR Code
-        val url = arguments?.getString(KEY_URL)!!
-        val displayName = arguments?.getString(KEY_NAME)!!
+            try {
+                val displayMetrics: DisplayMetrics = requireContext().resources.displayMetrics
+                val height: Int = displayMetrics.heightPixels
+                val width: Int = displayMetrics.widthPixels
+                pixelMin = if (height > width) width else height
+                pixelMin = (pixelMin * 0.8).roundToInt()
+            } catch (e: Exception) {
+            }
 
-        val hints = mutableMapOf<EncodeHintType, Any>()
-        if (!iso88591.canEncode(url)) hints[EncodeHintType.CHARACTER_SET] = StandardCharsets.UTF_8.name()
-        val qrBits = MultiFormatWriter().encode(url, BarcodeFormat.QR_CODE, size, size, hints)
-        LinearLayout(context).apply {
-            // Layout
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
+            val size = if (pixelMin > 0) pixelMin else resources.getDimensionPixelSize(R.dimen.qrcode_size)
 
-            // QR Code Image View
-            addView(ImageView(context).apply {
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-                setImageBitmap(createBitmap(size, size, Bitmap.Config.RGB_565).apply {
-                    for (x in 0 until size) for (y in 0 until size) {
-                        this[x, y] = if (qrBits.get(x, y)) Color.BLACK else Color.WHITE
-                    }
-                })
-            })
-
-            // Text View
-            addView(TextView(context).apply {
+            val hints = mutableMapOf<EncodeHintType, Any>()
+            if (!iso88591.canEncode(url)) hints[EncodeHintType.CHARACTER_SET] = StandardCharsets.UTF_8.name()
+            val qrBits = MultiFormatWriter().encode(url, BarcodeFormat.QR_CODE, size, size, hints)
+            LinearLayout(context).apply {
+                // Layout
+                orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-                text = displayName
-            })
+
+                // QR Code Image View
+                addView(ImageView(context).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                    )
+                    setImageBitmap(createBitmap(size, size, Bitmap.Config.RGB_565).apply {
+                        for (x in 0 until size) for (y in 0 until size) {
+                            this[x, y] = if (qrBits.get(x, y)) Color.BLACK else Color.WHITE
+                        }
+                    })
+                })
+
+                // Text View
+                addView(TextView(context).apply {
+                    gravity = Gravity.CENTER
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                    )
+                    text = displayName
+                })
+            }
+        } catch (e: WriterException) {
+            Logs.w(e)
+            (activity as? MainActivity)?.snackbar(e.readableMessage)?.show()
+            dismiss()
+            null
         }
-    } catch (e: WriterException) {
-        Logs.w(e)
-        (activity as MainActivity).snackbar(e.readableMessage).show()
-        dismiss()
-        null
-    }
-}
+    }}

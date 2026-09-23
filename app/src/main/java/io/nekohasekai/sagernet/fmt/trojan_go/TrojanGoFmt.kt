@@ -11,7 +11,7 @@ import org.json.JSONObject
 
 fun parseTrojanGo(server: String): TrojanGoBean {
     val link = server.withHttpScheme().toHttpUrlOrNull() ?: error(
-        "invalid trojan-link link $server"
+        "invalid trojan-go link"
     )
     return TrojanGoBean().apply {
         serverAddress = link.host
@@ -52,7 +52,10 @@ fun parseTrojanGo(server: String): TrojanGoBean {
 }
 
 fun TrojanGoBean.toUri(): String {
-    val builder = linkBuilder().username(password).host(serverAddress).port(serverPort)
+    val builder = linkBuilder().username(password).host(serverAddress)
+    if (serverPort in 1..65535) {
+        builder.port(serverPort)
+    }
     if (sni.isNotBlank()) {
         builder.addQueryParameter("sni", sni)
     }

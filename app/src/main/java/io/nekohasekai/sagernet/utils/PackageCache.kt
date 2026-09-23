@@ -92,8 +92,13 @@ object PackageCache {
     operator fun get(uid: Int) = uidMap[uid]
     operator fun get(packageName: String) = packageMap[packageName]
 
+    // 非阻塞就绪状态：主线程调用方（AppListPreference.getSummary 等）先用它
+    // 判断，未就绪时返占位并后台等待，不能在主线程 awaitLoadSync
+    val isLoaded
+        get() = ::packageMap.isInitialized && ::uidMap.isInitialized
+
     fun awaitLoadSync() {
-        if (::packageMap.isInitialized && ::uidMap.isInitialized) {
+        if (isLoaded) {
             return
         }
         if (!registerd.get()) {

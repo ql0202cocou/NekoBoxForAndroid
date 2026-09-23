@@ -81,12 +81,17 @@ class BaseService {
                     // already set while proxy.init() has not finished
                     val p = proxy
                     if (p != null && p.isInitialized()) {
-                        if (SagerNet.power.isDeviceIdleMode) {
-                            p.box.sleep()
-                        } else {
-                            p.box.wake()
-                            if (DataStore.wakeResetConnections) {
-                                Libcore.resetAllConnections()
+                        // sleep/wake 与 resetAllConnections 都是取 Go 侧锁的阻塞
+                        // JNI，同 CLEAR_TRAFFIC_STATISTICS 分支一样移下 :bg 主线程；
+                        // 排队期间 box 可能已关闭，Go 侧 lockIfOpen 会拦成 no-op
+                        runOnDefaultDispatcher {
+                            if (SagerNet.power.isDeviceIdleMode) {
+                                p.box.sleep()
+                            } else {
+                                p.box.wake()
+                                if (DataStore.wakeResetConnections) {
+                                    Libcore.resetAllConnections()
+                                }
                             }
                         }
                     }

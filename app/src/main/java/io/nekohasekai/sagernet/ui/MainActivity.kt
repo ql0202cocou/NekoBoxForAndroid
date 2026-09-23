@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import androidx.core.net.toUri
 import android.os.Build
 import android.os.Bundle
 import android.os.RemoteException
@@ -143,6 +144,8 @@ class MainActivity : ThemedActivity(),
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
 
+        // 只认 VIEW 深链：exported 状态下其它 action 带 data 也会走到这里
+        if (intent.action != Intent.ACTION_VIEW) return
         val uri = intent.data ?: return
 
         runOnDefaultDispatcher {
@@ -166,6 +169,14 @@ class MainActivity : ThemedActivity(),
 
         val url = uri.getQueryParameter("url")
         if (!url.isNullOrBlank()) {
+            // 订阅地址只接受 http(s)：file/content 等 scheme 更新器拉不了，拒绝导入
+            val scheme = url.toUri().scheme?.lowercase()
+            if (scheme != "http" && scheme != "https") {
+                onMainDispatcher {
+                    alert("Invalid subscription URL").show()
+                }
+                return
+            }
             group = ProxyGroup(type = GroupType.SUBSCRIPTION)
             val subscription = SubscriptionBean()
             group.subscription = subscription

@@ -101,6 +101,19 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         }
     }
 
+    override fun onDestroyView() {
+        super.onDestroyView()
+        // 分享落在 cache 的备份明文含全部凭证，离开页面就清掉；
+        // 接收方还没读完会让这次分享失败，代价可接受
+        runOnDefaultDispatcher {
+            app.cacheDir.listFiles { f -> f.name.startsWith("nekobox_backup_") }
+                ?.forEach { it.delete() }
+            // shareFile 会把文件挪进 share/ 子目录（见 cache_paths.xml），两边都要清
+            File(app.cacheDir, "share").listFiles { f -> f.name.startsWith("nekobox_backup_") }
+                ?.forEach { it.delete() }
+        }
+    }
+
     fun Parcelable.toBase64Str(): String {
         val parcel = Parcel.obtain()
         writeToParcel(parcel, 0)

@@ -54,7 +54,7 @@ class PreferenceBinding(
     fun writeToCache() {
         if (disable) return
         val f = try {
-            bean!!.javaClass.getField(fieldName) ?: return
+            bean!!.javaClass.getField(fieldName)
         } catch (e: Exception) {
             Logs.d("binding no field: ${e.readableMessage}")
             return
@@ -83,5 +83,8 @@ class PreferenceBinding(
 
     // A restored editor may replace its preference fragment after cache init.
     // Resolve against the current fragment rather than retaining its old view.
-    val preference get() = pf!!.findPreference<Preference>(cacheName)!!
+    val preference
+        get() = checkNotNull(pf) { "preference fragment not set: $cacheName" }
+            .findPreference<Preference>(cacheName)
+            ?: error("preference not found: $cacheName")
 }

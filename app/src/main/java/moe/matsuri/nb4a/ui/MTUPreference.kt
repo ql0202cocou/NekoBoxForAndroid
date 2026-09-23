@@ -5,6 +5,7 @@ import android.util.AttributeSet
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
+import android.widget.Toast
 import androidx.preference.ListPreference
 import androidx.preference.PreferenceViewHolder
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -34,8 +35,11 @@ class MTUPreference
             MaterialAlertDialogBuilder(context).setTitle("MTU")
                 .setView(view)
                 .setPositiveButton(android.R.string.ok) { _, _ ->
-                    val mtu = view.text.toString().toIntOrNull() ?: return@setPositiveButton
-                    if (mtu < 1000 || mtu > 10000) return@setPositiveButton
+                    val mtu = view.text.toString().toIntOrNull()
+                    if (mtu == null || mtu < 1000 || mtu > 10000) {
+                        Toast.makeText(context, "Invalid MTU (1000-10000)", Toast.LENGTH_SHORT).show()
+                        return@setPositiveButton
+                    }
                     // go through the change listener so SettingsPreferenceFragment's
                     // reloadListener fires; only persist when it accepts the value
                     if (callChangeListener(mtu.toString())) value = mtu.toString()

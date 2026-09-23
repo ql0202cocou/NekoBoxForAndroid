@@ -43,7 +43,6 @@ import io.nekohasekai.sagernet.ktx.lookupServerAddress
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
-import io.nekohasekai.sagernet.ktx.runOnLifecycleDispatcher
 import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
 import io.nekohasekai.sagernet.ktx.scrollTo
 import io.nekohasekai.sagernet.ktx.snackbar
@@ -52,6 +51,7 @@ import io.nekohasekai.sagernet.ktx.writeToDocument
 import io.nekohasekai.sagernet.plugin.PluginManager
 import io.nekohasekai.sagernet.ui.profile.settingActivityOf
 import io.nekohasekai.sagernet.widget.padForSystemBars
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
@@ -192,8 +192,9 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             if (fragment != null) {
                 val selectedProxy = selectedItem?.id ?: DataStore.selectedProxy
+                // ViewPager 预载间隙里 fragment 的 adapter 可能还没建出来
                 val selectedProfileIndex =
-                    fragment.adapter!!.configurationIdList.indexOf(selectedProxy)
+                    fragment.adapter?.configurationIdList?.indexOf(selectedProxy) ?: -1
                 if (selectedProfileIndex != -1) {
                     val layoutManager = fragment.layoutManager
                     val first = layoutManager.findFirstVisibleItemPosition()
@@ -384,12 +385,15 @@ class ConfigurationFragment @JvmOverloads constructor(
             }
 
             R.id.action_update_subscription -> {
-                val group = GroupManager.currentGroup()
-                if (group.type != GroupType.SUBSCRIPTION) {
-                    snackbar(R.string.group_not_subscription).show()
-                    Logs.e("onMenuItemClick: Group(${group.displayName()}) is not subscription")
-                } else {
-                    runOnLifecycleDispatcher {
+                // currentGroup 有读库兜底，不能留在主线程
+                runOnDefaultDispatcher {
+                    val group = GroupManager.currentGroup()
+                    if (group.type != GroupType.SUBSCRIPTION) {
+                        Logs.e("onMenuItemClick: Group(${group.displayName()}) is not subscription")
+                        onMainDispatcher {
+                            if (isAdded) snackbar(R.string.group_not_subscription).show()
+                        }
+                    } else {
                         GroupUpdater.startUpdate(group, true)
                     }
                 }
@@ -561,35 +565,68 @@ class ConfigurationFragment @JvmOverloads constructor(
         }
     }
 
-    // 两种测试共用的框架：按并发数起 worker 逐个测当前组里 filter 通过的节点，
-    // 结束或取消时把状态写回数据库。testOne 填好 profile 的测试结果，返回 false
-    // 表示已被取消、不要上报这一条
-    @OptIn(DelicateCoroutinesApi::class)
+    // 两种测试共用的入口：currentGroup 有读库兜底，先后台取好分组再回主线程
+    // 建对话框；读库失败时复位 runningTest，否则此后所有测试都被静默拒绝
     private fun runGroupTest(
         filter: (ProxyEntity) -> Boolean,
         testOne: suspend CoroutineScope.(ProxyGroup, ProxyEntity) -> Boolean,
     ) {
         if (!runningTest.compareAndSet(false, true)) return
+        runOnDefaultDispatcher {
+            val group = try {
+                GroupManager.currentGroup()
+            } catch (e: Exception) {
+                Logs.w(e)
+                runningTest.set(false)
+                return@runOnDefaultDispatcher
+            }
+            onMainDispatcher {
+                // 等读库的间隙里 fragment 可能已销毁
+                if (!isAdded) {
+                    runningTest.set(false)
+                    return@onMainDispatcher
+                }
+                startGroupTest(group, filter, testOne)
+            }
+        }
+    }
+
+    // 按并发数起 worker 逐个测组里 filter 通过的节点，结束或取消时把状态写回
+    // 数据库。testOne 填好 profile 的测试结果，返回 false 表示已被取消、不要
+    // 上报这一条
+    @OptIn(DelicateCoroutinesApi::class)
+    private fun startGroupTest(
+        group: ProxyGroup,
+        filter: (ProxyEntity) -> Boolean,
+        testOne: suspend CoroutineScope.(ProxyGroup, ProxyEntity) -> Boolean,
+    ) {
         val test = TestDialog(this)
         val testJobs = mutableListOf<Job>()
-        val group = GroupManager.currentGroup()
 
         val mainJob = runOnDefaultDispatcher {
-            val profilesList = ProfileRepository.getProfilesByGroup(group.id).filter(filter)
-            test.proxyN = profilesList.size
-            val profiles = ConcurrentLinkedQueue(profilesList)
-            repeat(DataStore.connectionTestConcurrent) {
-                testJobs.add(launch(Dispatchers.IO) {
-                    while (isActive) {
-                        val profile = profiles.poll() ?: break
-                        profile.status = 0
-                        if (!testOne(group, profile)) break
-                        test.update(profile)
-                    }
-                })
-            }
+            // 这里抛异常会直达 appScope 的默认 handler 崩溃，且 test.cancel()
+            // 不再执行、runningTest 永久卡 true；走与取消相同的复位路径
+            try {
+                val profilesList = ProfileRepository.getProfilesByGroup(group.id).filter(filter)
+                test.proxyN = profilesList.size
+                val profiles = ConcurrentLinkedQueue(profilesList)
+                repeat(DataStore.connectionTestConcurrent) {
+                    testJobs.add(launch(Dispatchers.IO) {
+                        while (isActive) {
+                            val profile = profiles.poll() ?: break
+                            profile.status = 0
+                            if (!testOne(group, profile)) break
+                            test.update(profile)
+                        }
+                    })
+                }
 
-            testJobs.joinAll()
+                testJobs.joinAll()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Logs.w(e)
+            }
 
             runOnMainDispatcher {
                 test.cancel()

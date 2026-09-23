@@ -123,11 +123,14 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
 
             R.id.action_update_all -> {
                 requireContext().confirm(R.string.update_all_subscription) {
-                    GroupRepository.getAllGroups()
-                        .filter { it.type == GroupType.SUBSCRIPTION }
-                        .forEach {
-                            GroupUpdater.startUpdate(it, true)
-                        }
+                    // getAllGroups 是阻塞读库，不能留在主线程
+                    runOnDefaultDispatcher {
+                        GroupRepository.getAllGroups()
+                            .filter { it.type == GroupType.SUBSCRIPTION }
+                            .forEach {
+                                GroupUpdater.startUpdate(it, true)
+                            }
+                    }
                 }
             }
         }
@@ -264,11 +267,13 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         }
 
         override suspend fun groupRemoved(groupId: Long) {
+            // 该回调跑在调用方的后台线程，读库在这里做，主线程只动视图
+            val groupCount = GroupRepository.getAllGroups().size
             onMainDispatcher {
                 val index = groupList.indexOfFirst { it.id == groupId }
                 if (index == -1) return@onMainDispatcher
                 undoManager.flush()
-                if (GroupRepository.getAllGroups().size <= 2) {
+                if (groupCount <= 2) {
                     runOnDefaultDispatcher {
                         reload()
                     }
@@ -382,8 +387,6 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
 
         fun bind(group: ProxyGroup) {
             proxyGroup = group
-
-            itemView.setOnClickListener { }
 
             editButton.isGone = proxyGroup.ungrouped
             updateButton.isInvisible = proxyGroup.type != GroupType.SUBSCRIPTION

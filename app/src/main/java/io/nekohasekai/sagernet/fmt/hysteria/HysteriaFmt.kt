@@ -15,7 +15,7 @@ import java.io.File
 // hysteria://host:port?auth=123456&peer=sni.domain&insecure=1|0&upmbps=100&downmbps=100&alpn=hysteria&obfs=xplus&obfsParam=123456#remarks
 fun parseHysteria1(url: String): HysteriaBean {
     val link = url.withHttpScheme().toHttpUrlOrNull() ?: error(
-        "invalid hysteria link $url"
+        "invalid hysteria link"
     )
     return HysteriaBean().apply {
         protocolVersion = 1
@@ -60,7 +60,7 @@ fun parseHysteria1(url: String): HysteriaBean {
 // hysteria2://[auth@]hostname[:port]/?[key=value]&[key=value]...
 fun parseHysteria2(url: String): HysteriaBean {
     val link = url.withHttpScheme().toHttpUrlOrNull()
-        ?: error("invalid hysteria link $url")
+        ?: error("invalid hysteria2 link")
     return HysteriaBean().apply {
         protocolVersion = 2
         serverAddress = link.host
@@ -121,7 +121,8 @@ fun HysteriaBean.toUri(): String {
         }
     }
     //
-    val ports = parseHysteriaPorts(serverPorts)
+    // 损坏的 serverPorts 不该让「分享」崩溃：与 getFirstPort 一样回落默认端口
+    val ports = runCatching { parseHysteriaPorts(serverPorts) }.getOrElse { listOf(443..443) }
     val builder = linkBuilder()
         .host(serverAddress)
         .port(ports.first().first)

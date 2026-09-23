@@ -172,10 +172,17 @@ object Util {
     }
 
     fun decodeFilename(headerValue: String): String {
-        val regex = Regex("filename\\*=[^']*''(.+)")
+        // 只取到下一个参数分隔符为止；贪婪匹配会把后续参数一并吞掉
+        val regex = Regex("filename\\*=[^']*''([^;]+)")
         val match = regex.find(headerValue)
         val encoded = match?.groupValues?.get(1) ?: ""
-        return URLDecoder.decode(encoded, StandardCharsets.UTF_8.name())
+        // 畸形 % 序列会让 decode 抛 IllegalArgumentException，
+        // 拿不到文件名不能拖垮整个订阅更新
+        return try {
+            URLDecoder.decode(encoded, StandardCharsets.UTF_8.name())
+        } catch (e: IllegalArgumentException) {
+            ""
+        }
     }
 
     // JSON "key": "value" pairs whose value is a credential

@@ -88,6 +88,10 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
     val proxyEntity by lazy { SagerDatabase.proxyDao.getById(EditorCache.editingId) }
 
+    // action_move 的可见性要查库得出；onCreate 末尾异步预取后由
+    // invalidateOptionsMenu 应用，默认值与菜单 XML 一致（隐藏）
+    private var canMoveProfile = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         beginEditorSession(savedInstanceState)
         // Before super.onCreate(): a restored MyPreferenceFragmentCompat runs
@@ -153,6 +157,20 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             editorReady.complete(Unit)
         }
 
+        // action_move 可见性条件要查库，等初始化写好 editingGroup 后异步预取
+        // 再刷新菜单；会话丢失时 editorReady 被取消，这里随之结束
+        lifecycleScope.launch(Dispatchers.Default) {
+            awaitEditorReady()
+            // proxyEntity 是 lazy，首次求值要查库；先在后台算好，
+            // 菜单回调（创建快捷方式/移动分组）再读就是缓存命中
+            if (EditorCache.editingId != 0L) proxyEntity
+            canMoveProfile = EditorCache.editingId != 0L // 非新建
+                    && SagerDatabase.groupDao.getById(EditorCache.editingGroup)?.type == GroupType.BASIC // 不在订阅组
+                    && SagerDatabase.groupDao.allGroups()
+                .filter { it.type == GroupType.BASIC }.size > 1 // 还有其他普通分组
+            onMainDispatcher { invalidateOptionsMenu() }
+        }
+
     }
 
     protected open fun validateEditor(): String? = null
@@ -215,13 +233,8 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         super.onCreateOptionsMenu(menu)
-        menu.findItem(R.id.action_move)?.apply {
-            if (EditorCache.editingId != 0L // not new profile
-                && SagerDatabase.groupDao.getById(EditorCache.editingGroup)?.type == GroupType.BASIC // not in subscription group
-                && SagerDatabase.groupDao.allGroups()
-                    .filter { it.type == GroupType.BASIC }.size > 1 // have other basic group
-            ) isVisible = true
-        }
+        // action_move 可见性取 onCreate 预取的结果，勿在主线程查库
+        menu.findItem(R.id.action_move)?.isVisible = canMoveProfile
         menu.findItem(R.id.action_create_shortcut)?.apply {
             if (Build.VERSION.SDK_INT >= 26 && EditorCache.editingId != 0L) {
                 isVisible = true // not new profile
@@ -318,61 +331,77 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
             R.id.action_create_shortcut -> {
                 val activity = requireActivity() as ProfileSettingsActivity<*>
-                val ent = activity.proxyEntity!!
-                val shortcut = ShortcutInfoCompat.Builder(activity, "shortcut-profile-${ent.id}")
-                    .setShortLabel(ent.displayName())
-                    .setLongLabel(ent.displayName())
-                    .setIcon(
-                        IconCompat.createWithResource(
-                            activity, R.drawable.ic_qu_shadowsocks_launcher
-                        )
-                    ).setIntent(Intent(
-                        context, QuickToggleShortcut::class.java
-                    ).apply {
-                        action = Intent.ACTION_MAIN
-                        putExtra("profile", ent.id)
-                    }).build()
-                ShortcutManagerCompat.requestPinShortcut(activity, shortcut, null)
+                val ent = activity.proxyEntity
+                if (ent == null) {
+                    // 编辑期间节点可能被订阅更新删掉；与 saveAndExit 的判空同理
+                    Toast.makeText(activity, R.string.deleted_profile, Toast.LENGTH_LONG).show()
+                } else {
+                    val shortcut = ShortcutInfoCompat.Builder(activity, "shortcut-profile-${ent.id}")
+                        .setShortLabel(ent.displayName())
+                        .setLongLabel(ent.displayName())
+                        .setIcon(
+                            IconCompat.createWithResource(
+                                activity, R.drawable.ic_qu_shadowsocks_launcher
+                            )
+                        ).setIntent(Intent(
+                            context, QuickToggleShortcut::class.java
+                        ).apply {
+                            action = Intent.ACTION_MAIN
+                            putExtra("profile", ent.id)
+                        }).build()
+                    ShortcutManagerCompat.requestPinShortcut(activity, shortcut, null)
+                }
+                // requestPinShortcut 在不支持的 launcher 上返回 false，菜单事件仍算已处理
+                true
             }
 
             R.id.action_move -> {
                 val activity = requireActivity() as ProfileSettingsActivity<*>
 
                 fun showMoveDialog() {
-                    val view = LinearLayout(context).apply {
-                        val ent = activity.proxyEntity!!
-                        orientation = LinearLayout.VERTICAL
-
-                        SagerDatabase.groupDao.allGroups()
+                    // 编辑期间节点可能被订阅更新删掉；与 saveAndExit 的判空同理
+                    val ent = activity.proxyEntity
+                    if (ent == null) {
+                        Toast.makeText(activity, R.string.deleted_profile, Toast.LENGTH_LONG).show()
+                        return
+                    }
+                    lifecycleScope.launch(Dispatchers.Default) {
+                        val groups = SagerDatabase.groupDao.allGroups()
                             .filter { it.type == GroupType.BASIC && it.id != ent.groupId }
-                            .forEach { group ->
-                                LayoutGroupItemBinding.inflate(layoutInflater, this, true).apply {
-                                    edit.isVisible = false
-                                    options.isVisible = false
-                                    groupName.text = group.displayName()
-                                    groupUpdate.text = getString(R.string.move)
-                                    groupUpdate.setOnClickListener {
-                                        runOnDefaultDispatcher {
-                                            val oldGroupId = ent.groupId
-                                            val newGroupId = group.id
-                                            val moved = ProfileManager.moveProfile(ent.id, newGroupId)
-                                                ?: return@runOnDefaultDispatcher
-                                            activity.proxyEntity?.groupId = moved.groupId
-                                            GroupManager.postUpdate(oldGroupId) // reload
-                                            GroupManager.postUpdate(newGroupId)
-                                            EditorCache.editingGroup = newGroupId // post switch animation
-                                            runOnMainDispatcher {
-                                                activity.finish()
+                        onMainDispatcher {
+                            val view = LinearLayout(context).apply {
+                                orientation = LinearLayout.VERTICAL
+
+                                groups.forEach { group ->
+                                    LayoutGroupItemBinding.inflate(layoutInflater, this, true).apply {
+                                        edit.isVisible = false
+                                        options.isVisible = false
+                                        groupName.text = group.displayName()
+                                        groupUpdate.text = getString(R.string.move)
+                                        groupUpdate.setOnClickListener {
+                                            runOnDefaultDispatcher {
+                                                val oldGroupId = ent.groupId
+                                                val newGroupId = group.id
+                                                val moved = ProfileManager.moveProfile(ent.id, newGroupId)
+                                                    ?: return@runOnDefaultDispatcher
+                                                activity.proxyEntity?.groupId = moved.groupId
+                                                GroupManager.postUpdate(oldGroupId) // reload
+                                                GroupManager.postUpdate(newGroupId)
+                                                EditorCache.editingGroup = newGroupId // post switch animation
+                                                runOnMainDispatcher {
+                                                    activity.finish()
+                                                }
                                             }
                                         }
                                     }
                                 }
                             }
+                            val scrollView = ScrollView(context).apply {
+                                addView(view)
+                            }
+                            MaterialAlertDialogBuilder(activity).setView(scrollView).show()
+                        }
                     }
-                    val scrollView = ScrollView(context).apply {
-                        addView(view)
-                    }
-                    MaterialAlertDialogBuilder(activity).setView(scrollView).show()
                 }
 
                 if (EditorCache.dirty) {

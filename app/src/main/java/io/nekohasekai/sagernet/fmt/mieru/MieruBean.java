@@ -58,7 +58,7 @@ public class MieruBean extends AbstractBean {
         protocol = input.readString();
         username = input.readString();
         password = input.readString();
-        if (version >= 1 || protocol.equals("UDP")) {
+        if (version >= 1 || "UDP".equals(protocol)) {
             mtu = input.readInt();
         }
     }

@@ -78,6 +78,8 @@ class ConfigurationHolder(
                         lastSelected = DataStore.selectedProxy
                         DataStore.selectedProxy = proxyEntity.id
                         onMainDispatcher {
+                            // 与 bind 末尾同一防护：协程返回时 holder 可能已复用
+                            if (entity.id != proxyEntity.id) return@onMainDispatcher
                             selectedView.visibility = View.VISIBLE
                         }
                     }
@@ -85,8 +87,13 @@ class ConfigurationHolder(
                     if (update) {
                         ProfileManager.postUpdate(lastSelected)
                         if (ServiceRegistry.state.canStop && groupFragment.reloadAccess.tryLock()) {
-                            SagerNet.reloadService()
-                            groupFragment.reloadAccess.unlock()
+                            // reloadService 抛异常时也要还锁，否则锁永远挂着，
+                            // 之后点选节点都不再触发 reload
+                            try {
+                                SagerNet.reloadService()
+                            } finally {
+                                groupFragment.reloadAccess.unlock()
+                            }
                         }
                     } else if (SagerNet.isTv) {
                         if (ServiceRegistry.state.started) {
@@ -140,6 +147,8 @@ class ConfigurationHolder(
             val started =
                 selected && ServiceRegistry.state.started && DataStore.currentProfile == proxyEntity.id
             onMainDispatcher {
+                // 回到主线程时 holder 可能已复用到其他节点（同 GroupHolder.bind 的 id 防护）
+                if (entity.id != proxyEntity.id) return@onMainDispatcher
                 editButton.isEnabled = !started
                 removeButton.isEnabled = !started
                 selectedView.visibility = if (selected) View.VISIBLE else View.INVISIBLE
@@ -166,6 +175,8 @@ class ConfigurationHolder(
 
             if (!selectOrChain) {
                 onMainDispatcher {
+                    // 同上：holder 复用后不再回填旧节点的分享按钮
+                    if (entity.id != proxyEntity.id) return@onMainDispatcher
                     shareLayer.setBackgroundColor(Color.TRANSPARENT)
                     shareButton.setImageResource(R.drawable.ic_social_share)
                     shareButton.setColorFilter(Color.GRAY)

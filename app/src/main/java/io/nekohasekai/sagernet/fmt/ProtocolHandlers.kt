@@ -113,25 +113,26 @@ fun ProxyEntity.putByteArray(byteArray: ByteArray) {
     }
 }
 
-// type -> 协议显示名
+// type -> 协议显示名。bean 字段为 null（损坏数据）时退化为通用名而不是抛 NPE：
+// requireBean() 的错误消息靠它定位类型
 fun ProxyEntity.displayType(): String = when (type) {
-    TYPE_SOCKS -> socksBean!!.protocolName()
-    TYPE_HTTP -> if (httpBean!!.isTLS()) "HTTPS" else "HTTP"
+    TYPE_SOCKS -> socksBean?.protocolName() ?: "SOCKS"
+    TYPE_HTTP -> if (httpBean?.isTLS() == true) "HTTPS" else "HTTP"
     TYPE_SS -> "Shadowsocks"
-    TYPE_VMESS -> if (vmessBean!!.isVLESS) "VLESS" else "VMess"
+    TYPE_VMESS -> if (vmessBean?.isVLESS == true) "VLESS" else "VMess"
     TYPE_TROJAN -> "Trojan"
     TYPE_TROJAN_GO -> "Trojan-Go"
     TYPE_MIERU -> "Mieru"
     TYPE_NAIVE -> "Naïve"
-    TYPE_HYSTERIA -> "Hysteria" + hysteriaBean!!.protocolVersion
+    TYPE_HYSTERIA -> hysteriaBean?.let { "Hysteria" + it.protocolVersion } ?: "Hysteria"
     TYPE_SSH -> "SSH"
     TYPE_WG -> "WireGuard"
     TYPE_TUIC -> "TUIC"
     TYPE_SHADOWTLS -> "ShadowTLS"
     TYPE_ANYTLS -> "AnyTLS"
     TYPE_CHAIN -> ProxyEntity.chainName
-    TYPE_NEKO -> nekoBean!!.displayType()
-    TYPE_CONFIG -> configBean!!.displayType()
+    TYPE_NEKO -> nekoBean?.displayType() ?: "Neko"
+    TYPE_CONFIG -> configBean?.displayType() ?: "Custom"
     else -> "Undefined type $type"
 }
 

@@ -69,7 +69,7 @@ class SagerConnection(
     private val serviceCallback = object : ISagerNetServiceCallback.Stub() {
 
         override fun stateChanged(state: Int, profileName: String?, msg: String?) {
-            if (state < 0) return // skip private
+            // 越界 ordinal 由 fromOrdinal 回落 Stopped，无需在此拦截
             val s = BaseService.State.fromOrdinal(state)
             ServiceRegistry.state = s
             runOnMainDispatcher {
@@ -160,8 +160,10 @@ class SagerConnection(
         callbackRegistered = false
     }
 
-    fun connect(context: Context, callback: Callback?) {
-        if (connectionActive) return
+    // 返回 false 表示 bindService 被拒：onServiceConnected 永不到达，
+    // 无界面的调用方（QuickToggleShortcut）要据此自行收尾
+    fun connect(context: Context, callback: Callback?): Boolean {
+        if (connectionActive) return true
         connectionActive = true
         check(this.callback == null)
         this.callback = callback
@@ -174,7 +176,9 @@ class SagerConnection(
             // a failed restart connect must not leave this stuck, or every
             // later binderDied would be swallowed
             restartingApp = false
+            return false
         }
+        return true
     }
 
     fun disconnect(context: Context) {

@@ -486,4 +486,8 @@
     <string name="reality_ech_conflict_error">REALITY cannot be combined with ECH: sing-box rejects the profile and Xray ignores ECH.</string>
     <string name="restore_pending">A backup restore has not finished yet. Start the service again after it completes.</string>
     <string name="restore_replay_failed">The interrupted backup restore could not be completed. Check the log and import the backup again.</string>
+    <string name="more_options">More options</string>
+    <string name="redo">Redo</string>
+    <string name="insert_tab">Insert tab</string>
+    <string name="format">Format</string>
 </resources>

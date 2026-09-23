@@ -12,7 +12,7 @@ fun parseNaive(link: String): NaiveBean {
     // 写法）导入即成死节点，入口直接拒绝
     if (proto != "https" && proto != "quic") error("unsupported naive proto: $proto")
     val url = link.withHttpScheme().toHttpUrlOrNull()
-        ?: error("Invalid naive link: $link")
+        ?: error("Invalid naive link")
     return NaiveBean().also {
         it.proto = proto
     }.apply {

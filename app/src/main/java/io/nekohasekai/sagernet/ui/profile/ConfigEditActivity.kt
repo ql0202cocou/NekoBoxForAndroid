@@ -22,6 +22,7 @@ import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.databinding.LayoutEditConfigBinding
+import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.toStringPretty
@@ -37,6 +38,10 @@ class ConfigEditActivity : ThemedActivity() {
     var dirty = false
     var key = Key.SERVER_CONFIG
     var useConfigStore = false
+
+    // 进入时父编辑器的脏标记；未保存退出时恢复，避免父编辑器误报未保存
+    var parentDirty = false
+    var saved = false
 
     class UnsavedChangesDialogFragment : AlertDialogFragment<Empty, Empty>() {
         override fun AlertDialog.Builder.prepare(listener: DialogInterface.OnClickListener) {
@@ -67,6 +72,9 @@ class ConfigEditActivity : ThemedActivity() {
         // rotation.
         if (savedInstanceState != null) {
             dirty = savedInstanceState.getBoolean("dirty")
+            parentDirty = savedInstanceState.getBoolean("parentDirty")
+        } else {
+            parentDirty = EditorCache.dirty
         }
 
         binding = LayoutEditConfigBinding.inflate(layoutInflater)
@@ -101,18 +109,23 @@ class ConfigEditActivity : ThemedActivity() {
             try {
                 binding.editor.insert(binding.editor.tab())
             } catch (e: Exception) {
+                Logs.e(e)
             }
         }
         binding.actionUndo.setOnClickListener {
             try {
-                binding.editor.undo()
-            } catch (_: Exception) {
+                // 空栈时 UndoStack.pop() 直接越界（库未判空），属常规情况，先判 canUndo
+                if (binding.editor.canUndo()) binding.editor.undo()
+            } catch (e: Exception) {
+                Logs.e(e)
             }
         }
         binding.actionRedo.setOnClickListener {
             try {
-                binding.editor.redo()
-            } catch (_: Exception) {
+                // 同上，先判 canRedo
+                if (binding.editor.canRedo()) binding.editor.redo()
+            } catch (e: Exception) {
+                Logs.e(e)
             }
         }
         binding.actionFormat.setOnClickListener {
@@ -126,6 +139,7 @@ class ConfigEditActivity : ThemedActivity() {
             try {
                 binding.editor.insert(char)
             } catch (e: Exception) {
+                Logs.e(e)
             }
         }
         extendedKeyboard.setHasFixedSize(true)
@@ -157,6 +171,13 @@ class ConfigEditActivity : ThemedActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putBoolean("dirty", dirty)
+        outState.putBoolean("parentDirty", parentDirty)
+    }
+
+    override fun onDestroy() {
+        // 放弃编辑（未保存退出）时把父编辑器的脏标记恢复为进入前的值
+        if (isFinishing && !saved) EditorCache.dirty = parentDirty
+        super.onDestroy()
     }
 
     fun formatText(): String? {
@@ -180,6 +201,7 @@ class ConfigEditActivity : ThemedActivity() {
             } else {
                 EditorCache.profileCacheStore.putString(key, it)
             }
+            saved = true
             finish()
         }
     }
