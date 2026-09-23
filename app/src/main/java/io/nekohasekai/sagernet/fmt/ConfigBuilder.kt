@@ -153,13 +153,9 @@ private class ConfigBuild(
     val trafficMap = HashMap<String, List<ProxyEntity>>()
     val tagMap = HashMap<Long, String>()
     val globalOutbounds = HashMap<Long, String>()
-    val selectorNames = ArrayList<String>()
+    val selectorNames = HashSet<String>()
     // a profile named like a built-in outbound tag would collide with it
     val reservedSelectorTags = setOf(TAG_PROXY, TAG_DIRECT, TAG_BYPASS, TAG_BLOCK)
-    // profile ids whose outbounds are already built, including chain members
-    // pulled in by resolveChain(): rebuilding them duplicates their tags and
-    // sing-box rejects the whole config
-    val builtProfiles = HashSet<Long>()
     val group = SagerDatabase.groupDao.getById(proxy.groupId)
 
     fun ProxyEntity.resolveChainInternal(visiting: MutableSet<Long> = mutableSetOf()): MutableList<ProxyEntity> {
@@ -209,7 +205,8 @@ private class ConfigBuild(
     }
 
     fun ProxyEntity.resolveChain(): MutableList<ProxyEntity> {
-        val thisGroup = SagerDatabase.groupDao.getById(groupId)
+        // 选择器分组的成员同属一组，直接复用构建开头读到的那一行
+        val thisGroup = if (groupId == proxy.groupId) group else SagerDatabase.groupDao.getById(groupId)
         val frontProxy = thisGroup?.frontProxy?.let { SagerDatabase.proxyDao.getById(it) }
         val landingProxy = thisGroup?.landingProxy?.let { SagerDatabase.proxyDao.getById(it) }
         if (thisGroup != null) {
@@ -272,38 +269,28 @@ private class ConfigBuild(
     val groupSequentialTag = "dns-node-${proxy.groupId}"
     val isVPN = DataStore.serviceMode == Key.MODE_VPN
     val bind = if (!forTest && DataStore.allowAccess) "0.0.0.0" else LOCALHOST
-    val remoteDns = DataStore.remoteDns.split("\n")
+    // 每行一个 DNS 服务器，跳过空行和 # 注释
+    fun dnsLines(text: String) = text.split("\n")
         .mapNotNull { dns -> dns.trim().takeIf { it.isNotBlank() && !it.startsWith("#") } }
-    val directDNS = DataStore.directDns.split("\n")
-        .mapNotNull { dns -> dns.trim().takeIf { it.isNotBlank() && !it.startsWith("#") } }
+    val remoteDns = dnsLines(DataStore.remoteDns)
+    val directDNS = dnsLines(DataStore.directDns)
     val enableDnsRouting = DataStore.enableDnsRouting
     val useFakeDns = DataStore.enableFakeDns && !forTest
     val needSniff = DataStore.trafficSniffing > 0
     val externalIndexMap = ArrayList<IndexEntity>()
     val ipv6Mode = if (forTest) IPv6Mode.ENABLE else DataStore.ipv6Mode
 
-    fun genDomainStrategy(noAsIs: Boolean): String {
-        return when {
-            !noAsIs -> ""
-            ipv6Mode == IPv6Mode.DISABLE -> "ipv4_only"
-            ipv6Mode == IPv6Mode.PREFER -> "prefer_ipv6"
-            ipv6Mode == IPv6Mode.ONLY -> "ipv6_only"
-            else -> "prefer_ipv4"
-        }
+    // IPv6 模式对应的 sing-box domain strategy；模式值越界时为 null
+    val ipv6Strategy = when (ipv6Mode) {
+        IPv6Mode.DISABLE -> "ipv4_only"
+        IPv6Mode.ENABLE -> "prefer_ipv4"
+        IPv6Mode.PREFER -> "prefer_ipv6"
+        IPv6Mode.ONLY -> "ipv6_only"
+        else -> null
     }
 
-    fun autoDnsDomainStrategy(s: String): String? {
-        if (s.isNotEmpty()) {
-            return s
-        }
-        return when (ipv6Mode) {
-            IPv6Mode.DISABLE -> "ipv4_only"
-            IPv6Mode.ENABLE -> "prefer_ipv4"
-            IPv6Mode.PREFER -> "prefer_ipv6"
-            IPv6Mode.ONLY -> "ipv6_only"
-            else -> null
-        }
-    }
+    // DNS 服务器没单独设置 strategy 时按 IPv6 模式取
+    fun autoDnsDomainStrategy(s: String): String? = s.ifEmpty { null } ?: ipv6Strategy
 
     // sing-box 1.14 has no server-level strategy (legacy DNS format removed):
     // the final server's strategy becomes the DNS default (below), the rest
@@ -448,8 +435,6 @@ private class ConfigBuild(
         if (profileList.isEmpty()) {
             error("chain profile ${entity.id} (${entity.requireBean().displayName()}) has no valid member")
         }
-        builtProfiles.add(entity.id)
-        profileList.forEach { builtProfiles.add(it.id) }
         // dedup by id and keep insertion order: a HashSet<ProxyEntity>
         // collapses two fully identical entities (the collapsed node's
         // traffic never lands in the DB) and iterates in arbitrary order
@@ -689,27 +674,14 @@ private class ConfigBuild(
         if (selectorGroup != null) {
             val list = SagerDatabase.proxyDao.getByGroup(selectorGroup.id)
             list.forEach {
-                // already built inside another member's chain: rebuilding
-                // would duplicate its outbound/inbound tags (same guard as
-                // the extraProxies loop below)
-                if (builtProfiles.contains(it.id)) {
-                    // ...but it still needs a tagMap entry: profileTagMap drives
-                    // selector switching, and without one, selecting this member
-                    // while connected resolves to a blank tag and does nothing.
-                    // Only the first hop of another member's chain has a global
-                    // outbound of its own (globalOutbounds is filled at
-                    // profileList.lastIndex, which resolveChain reverses to the
-                    // hop dialed first).
-                    val globalTag = globalOutbounds[it.id]
-                    if (globalTag != null) {
-                        tagMap[it.id] = globalTag
-                        return@forEach
-                    }
-                    // A middle hop only has a chain-scoped tag. Build a
-                    // standalone global outbound so the group member remains
-                    // selectable and can be targeted by route rules.
-                }
-                tagMap[it.id] = buildChain(it.id, it)
+                // 已作为别的成员的链里最先拨号的一跳建过（globalOutbounds 在
+                // profileList.lastIndex 处填入，resolveChain 把它反转成最先拨号的
+                // 一跳）：复用它的全局 tag，重建会让 outbound/inbound tag 重复、
+                // sing-box 拒绝整份配置。但仍要记进 tagMap：profileTagMap 驱动
+                // 选择器切换，缺了它连接中选这个成员会解析成空 tag、什么都不做。
+                // 中间跳只有链内 tag，照常单独建一个全局 outbound，让它仍可选、
+                // 可被路由规则引用
+                tagMap[it.id] = globalOutbounds[it.id] ?: buildChain(it.id, it)
             }
             outbounds.add(0, Outbound_SelectorOptions().apply {
                 type = "selector"
@@ -724,18 +696,10 @@ private class ConfigBuild(
         }
         // build outbounds from route item
         extraProxies.forEach { (key, p) ->
-            // already built as a selector member or inside another chain:
-            // rebuilding would duplicate its outbound/inbound tags
-            if (builtProfiles.contains(key)) {
-                val globalTag = globalOutbounds[key]
-                if (globalTag != null) {
-                    tagMap[key] = globalTag
-                    return@forEach
-                }
-                // Middle chain hops have no reusable global tag. Give route
-                // rules a standalone outbound instead of dropping the rule.
-            }
-            tagMap[key] = buildChain(key, p)
+            // 已作为选择器成员或在别的链里建过全局 outbound 的直接复用，
+            // 重建会让 tag 重复；中间跳没有可复用的全局 tag，单独建一个，
+            // 不能丢掉这条路由规则
+            tagMap[key] = globalOutbounds[key] ?: buildChain(key, p)
         }
 
         for (freedom in arrayOf(TAG_DIRECT, TAG_BYPASS)) outbounds.add(Outbound().apply {
@@ -792,27 +756,18 @@ private class ConfigBuild(
             // A malformed range already fails box start ("bad port range");
             // a malformed single port must not be dropped silently, which
             // would widen the rule to every port.
+            // 含 ":" 的是端口范围，其余必须是单个端口；返回 (单个端口, 范围)
+            fun parsePorts(text: String, what: String): Pair<List<Int>, List<String>> {
+                val (ranges, singles) = text.listByLineOrComma().partition { it.contains(":") }
+                return singles.map {
+                    it.toIntOrNull() ?: error("invalid $what port \"$it\" in rule ${rule.displayName()}")
+                } to ranges
+            }
             if (rule.port.isNotBlank()) {
-                port = mutableListOf<Int>()
-                port_range = mutableListOf<String>()
-                rule.port.listByLineOrComma().map {
-                    if (it.contains(":")) {
-                        port_range.add(it)
-                    } else {
-                        port.add(it.toIntOrNull() ?: error("invalid dst port \"$it\" in rule ${rule.displayName()}"))
-                    }
-                }
+                parsePorts(rule.port, "dst").let { (p, r) -> port = p; port_range = r }
             }
             if (rule.sourcePort.isNotBlank()) {
-                source_port = mutableListOf<Int>()
-                source_port_range = mutableListOf<String>()
-                rule.sourcePort.listByLineOrComma().map {
-                    if (it.contains(":")) {
-                        source_port_range.add(it)
-                    } else {
-                        source_port.add(it.toIntOrNull() ?: error("invalid src port \"$it\" in rule ${rule.displayName()}"))
-                    }
-                }
+                parsePorts(rule.sourcePort, "src").let { (p, r) -> source_port = p; source_port_range = r }
             }
             if (rule.network.isNotBlank()) {
                 network = listOf(rule.network)
@@ -926,32 +881,30 @@ private class ConfigBuild(
             detour = TAG_DIRECT
         })
 
-        directDNS.firstOrNull().let {
-            dns.servers.add(makeDnsServer(
-                it ?: throw Exception("No direct DNS, check your settings!"), "dns-direct"
-            ).apply {
-                // sing-box 1.14: a typed DNS server with no detour dials directly
-                // with its own dialer, which is the intent here — an explicit
-                // detour to the empty direct outbound fails the whole box start
-                // ("detour to an empty direct outbound makes no sense")
-                domain_resolver = "dns-local"
-            })
-        }
+        dns.servers.add(makeDnsServer(
+            directDNS.firstOrNull() ?: throw Exception("No direct DNS, check your settings!"),
+            "dns-direct"
+        ).apply {
+            // sing-box 1.14: a typed DNS server with no detour dials directly
+            // with its own dialer, which is the intent here — an explicit
+            // detour to the empty direct outbound fails the whole box start
+            // ("detour to an empty direct outbound makes no sense")
+            domain_resolver = "dns-local"
+        })
 
-        remoteDns.firstOrNull().let {
-            // Always use direct DNS for urlTest
-            if (!forTest) dns.servers.add(makeDnsServer(
-                it ?: throw Exception("No remote DNS, check your settings!"), "dns-remote"
-            ).apply {
-                // remote DNS must leave through the tunnel like pre-1.14's
-                // default-outbound behavior: 1.14 would dial it directly
-                // (see dns-direct) — detour to the proxy outbound instead,
-                // which is never an empty direct outbound, so the start-time
-                // check above does not apply
-                detour = TAG_PROXY
-                domain_resolver = "dns-direct"
-            })
-        }
+        // Always use direct DNS for urlTest
+        if (!forTest) dns.servers.add(makeDnsServer(
+            remoteDns.firstOrNull() ?: throw Exception("No remote DNS, check your settings!"),
+            "dns-remote"
+        ).apply {
+            // remote DNS must leave through the tunnel like pre-1.14's
+            // default-outbound behavior: 1.14 would dial it directly
+            // (see dns-direct) — detour to the proxy outbound instead,
+            // which is never an empty direct outbound, so the start-time
+            // check above does not apply
+            detour = TAG_PROXY
+            domain_resolver = "dns-direct"
+        })
 
         dns.final_ = if (forTest) "dns-direct" else "dns-remote"
         // the final server's strategy becomes the DNS default (see directStrategy)
@@ -980,12 +933,11 @@ private class ConfigBuild(
             })
             // legacy inbound fields were removed in sing-box 1.13:
             // sniff / domain_strategy migrate to rule actions at the top
-            genDomainStrategy(DataStore.resolveDestination).takeIf { it.isNotEmpty() }?.let {
-                route.rules.add(0, Rule_DefaultOptions().apply {
-                    action = "resolve"
-                    _hack_config_map["strategy"] = it
-                })
-            }
+            if (DataStore.resolveDestination) route.rules.add(0, Rule_DefaultOptions().apply {
+                action = "resolve"
+                // 越界的 IPv6 模式按默认的 prefer_ipv4
+                _hack_config_map["strategy"] = ipv6Strategy ?: "prefer_ipv4"
+            })
             if (needSniff) route.rules.add(0, Rule_DefaultOptions().apply {
                 action = "sniff"
             })
