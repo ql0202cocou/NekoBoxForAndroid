@@ -8,6 +8,7 @@
 | 文件 | 内容 | 状态 |
 | --- | --- | --- |
 | [review-followups-5bbd7be.md](review-followups-5bbd7be.md) | `5bbd7be` 审查留下的 5 项问题：端点校验、默认值归一化、失效选择清理和文件锁重入 | 已全部处理（2026-09-20），处理结果与验证依据见记录 |
+| [simplify-repo-2026-09-23.md](simplify-repo-2026-09-23.md) | 全仓 /simplify 复审：已修复范围摘要，13 项会改变行为而未改的发现，5 项待维护者决定 | 修复在分支 `refactor/simplify-repo` 工作区（未提交）；未改项待定 |
 | [backend-audit-4.md](backend-audit-4.md) | 第四次后端完整审计（libcore + bg）：2 项中严重度（Stopping 启动意图丢失、uniquifyNames O(n²)）、24 项低严重度与观察项 | 已全部修复（2026-09-20），修复记录与验证依据见记录；sing-box 补丁集升为 1.14.1-neko-2 |
 
 ## 记录规则
