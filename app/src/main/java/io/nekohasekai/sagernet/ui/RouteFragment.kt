@@ -9,12 +9,10 @@ import androidx.appcompat.widget.Toolbar
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.RuleEntity
-import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.databinding.LayoutRouteItemBinding
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.widget.padForSystemBars
@@ -91,20 +89,16 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
                 startActivity(Intent(context, RouteSettingsActivity::class.java))
             }
             R.id.action_reset_route -> {
-                MaterialAlertDialogBuilder(activity).setTitle(R.string.confirm)
-                    .setMessage(R.string.clear_profiles_message)
-                    .setPositiveButton(R.string.yes) { _, _ ->
-                        runOnDefaultDispatcher {
-                            // 走 ProfileManager 让 RuleListener 收到 onCleared；
-                            // 本 adapter 的 onCleared 只清空列表，重建默认规则
-                            // 并刷新仍由下面的手动 reload 完成（两者均幂等）
-                            ProfileManager.clearRules()
-                            DataStore.rulesFirstCreate = false
-                            ruleAdapter.reload()
-                        }
+                activity.confirm(R.string.clear_profiles_message) {
+                    runOnDefaultDispatcher {
+                        // 走 ProfileManager 让 RuleListener 收到 onCleared；
+                        // 本 adapter 的 onCleared 只清空列表，重建默认规则
+                        // 并刷新仍由下面的手动 reload 完成（两者均幂等）
+                        ProfileManager.clearRules()
+                        DataStore.rulesFirstCreate = false
+                        ruleAdapter.reload()
                     }
-                    .setNegativeButton(R.string.no, null)
-                    .show()
+                }
             }
             R.id.action_manage_assets -> {
                 startActivity(Intent(requireContext(), AssetsActivity::class.java))
@@ -152,20 +146,10 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
 
         private val updated = HashSet<RuleEntity>()
         fun move(from: Int, to: Int) {
-            val first = ruleList[from]
-            var previousOrder = first.userOrder
-            val (step, range) = if (from < to) Pair(1, from until to) else Pair(-1, from downTo to + 1)
-            for (i in range) {
-                val next = ruleList[i + step]
-                val order = next.userOrder
-                next.userOrder = previousOrder
-                previousOrder = order
-                ruleList[i] = next
-                updated.add(next)
+            moveUserOrder(from, to, RuleEntity::userOrder, ruleList::get) { i, rule ->
+                ruleList[i] = rule
+                updated.add(rule)
             }
-            first.userOrder = previousOrder
-            ruleList[to] = first
-            updated.add(first)
             notifyItemMoved(from, to)
         }
 
@@ -176,11 +160,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
             this.updated.clear()
             viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
                 if (updated.isNotEmpty()) {
-                    SagerDatabase.instance.runInTransaction {
-                        updated.forEach {
-                            SagerDatabase.rulesDao.updateOrder(it.id, it.userOrder)
-                        }
-                    }
+                    ProfileManager.updateRuleOrders(updated)
                     onMainDispatcher { needReload() }
                 }
             }
@@ -271,7 +251,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
                     val ruleId = ruleEntity.id
                     ruleEntity.enabled = isChecked
                     runOnDefaultDispatcher {
-                        SagerDatabase.rulesDao.updateEnabled(ruleId, isChecked)
+                        ProfileManager.updateRuleEnabled(ruleId, isChecked)
                         onMainDispatcher {
                             if (isAdded) needReload()
                         }

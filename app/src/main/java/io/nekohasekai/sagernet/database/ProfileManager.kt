@@ -133,6 +133,17 @@ object ProfileManager {
         }
     }
 
+    // 拖拽排好的 userOrder 落库：只写这一列，整批一个事务（同
+    // GroupManager.updateUserOrders），逐行独立提交会产生 N 次 commit
+    fun updateUserOrders(profiles: Collection<ProxyEntity>) {
+        if (profiles.isEmpty()) return
+        SagerDatabase.instance.runInTransaction {
+            for (profile in profiles) {
+                SagerDatabase.proxyDao.updateOrder(profile.id, profile.userOrder)
+            }
+        }
+    }
+
     // 选中节点指向的行已不存在时清掉选择；在删除行之后调用，调用处不必各自
     // 匹配删除列表。不清的话下次 reload 时 getProfile(selectedProxy) 返回
     // null，VPN 静默停止
@@ -220,6 +231,20 @@ object ProfileManager {
     suspend fun updateRule(rule: RuleEntity) {
         SagerDatabase.rulesDao.updateRule(rule)
         ruleIterator { onUpdated(rule) }
+    }
+
+    // 规则版的 updateUserOrders；与下面的开关写入一样不通知 RuleListener
+    fun updateRuleOrders(rules: Collection<RuleEntity>) {
+        if (rules.isEmpty()) return
+        SagerDatabase.instance.runInTransaction {
+            for (rule in rules) {
+                SagerDatabase.rulesDao.updateOrder(rule.id, rule.userOrder)
+            }
+        }
+    }
+
+    fun updateRuleEnabled(ruleId: Long, enabled: Boolean) {
+        SagerDatabase.rulesDao.updateEnabled(ruleId, enabled)
     }
 
     suspend fun deleteRule(ruleId: Long) {

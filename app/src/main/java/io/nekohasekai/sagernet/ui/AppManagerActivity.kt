@@ -23,7 +23,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.simplecityapps.recyclerview_fastscroll.views.FastScrollRecyclerView
 import io.nekohasekai.sagernet.BuildConfig
@@ -34,7 +33,9 @@ import io.nekohasekai.sagernet.databinding.LayoutAppsBinding
 import io.nekohasekai.sagernet.databinding.LayoutAppsItemBinding
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
+import io.nekohasekai.sagernet.ktx.confirm
 import io.nekohasekai.sagernet.ktx.crossFadeFrom
+import io.nekohasekai.sagernet.ktx.exportToClipboard
 import io.nekohasekai.sagernet.utils.PackageCache
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import kotlinx.coroutines.Dispatchers
@@ -291,20 +292,17 @@ class AppManagerActivity : ThemedActivity() {
             }
 
             R.id.action_export_clipboard -> {
-                val success =
-                    SagerNet.trySetPrimaryClip("${DataStore.bypass}\n${DataStore.individual}")
                 Snackbar.make(
                     binding.list,
-                    if (success) R.string.action_export_msg else R.string.action_export_err,
+                    exportToClipboard("${DataStore.bypass}\n${DataStore.individual}"),
                     Snackbar.LENGTH_LONG
                 ).show()
                 return true
             }
 
             R.id.action_import_clipboard -> {
-                val proxiedAppString =
-                    SagerNet.clipboard.primaryClip?.getItemAt(0)?.text?.toString()
-                if (!proxiedAppString.isNullOrEmpty()) {
+                val proxiedAppString = SagerNet.getClipboardText()
+                if (proxiedAppString.isNotEmpty()) {
                     val i = proxiedAppString.indexOf('\n')
                     try {
                         val (enabled, apps) = if (i < 0) {
@@ -330,44 +328,40 @@ class AppManagerActivity : ThemedActivity() {
     }
 
     private fun selectProxyApp() {
-        MaterialAlertDialogBuilder(this).setTitle(R.string.confirm)
-            .setMessage(R.string.auto_select_proxy_apps_message)
-            .setPositiveButton(R.string.yes) { _, _ ->
-                // loadApps() may still be running; with an empty list the
-                // filter below would wipe DataStore.individual
-                if (apps.isEmpty()) return@setPositiveButton
-                try {
-                    val needProxyAppsList = getAutoProxyApps("")
-                    val bypass = DataStore.bypass
-                    proxiedUids.clear()
-                    for (app in cachedApps) {
-                        val needProxy =
-                            needProxyAppsList.contains(app.key) || (app.value.applicationInfo?.uid
-                                ?: 0) == 1000
-                        if (needProxy) {
-                            if (!bypass) {
-                                app.value.applicationInfo?.apply {
-                                    proxiedUids[uid] = true
-                                }
+        confirm(R.string.auto_select_proxy_apps_message) {
+            // loadApps() may still be running; with an empty list the
+            // filter below would wipe DataStore.individual
+            if (apps.isEmpty()) return@confirm
+            try {
+                val needProxyAppsList = getAutoProxyApps("")
+                val bypass = DataStore.bypass
+                proxiedUids.clear()
+                for (app in cachedApps) {
+                    val needProxy =
+                        needProxyAppsList.contains(app.key) || (app.value.applicationInfo?.uid
+                            ?: 0) == 1000
+                    if (needProxy) {
+                        if (!bypass) {
+                            app.value.applicationInfo?.apply {
+                                proxiedUids[uid] = true
                             }
-                        } else {
-                            if (bypass) {
-                                app.value.applicationInfo?.apply {
-                                    proxiedUids[uid] = true
-                                }
+                        }
+                    } else {
+                        if (bypass) {
+                            app.value.applicationInfo?.apply {
+                                proxiedUids[uid] = true
                             }
                         }
                     }
-                    DataStore.individual =
-                        apps.filter { isProxiedApp(it) }.joinToString("\n") { it.packageName }
-                    apps = apps.sortedWith(compareBy({ !isProxiedApp(it) }, { it.name.toString() }))
-                    appsAdapter.filter.filter(binding.search.text?.toString() ?: "")
-                } catch (e: Exception) {
-                    Logs.e(e)
                 }
+                DataStore.individual =
+                    apps.filter { isProxiedApp(it) }.joinToString("\n") { it.packageName }
+                apps = apps.sortedWith(compareBy({ !isProxiedApp(it) }, { it.name.toString() }))
+                appsAdapter.filter.filter(binding.search.text?.toString() ?: "")
+            } catch (e: Exception) {
+                Logs.e(e)
             }
-            .setNegativeButton(R.string.no, null)
-            .show()
+        }
     }
 
     private fun getAutoProxyApps(content: String): List<String> {

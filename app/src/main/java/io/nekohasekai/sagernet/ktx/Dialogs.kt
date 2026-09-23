@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.ktx
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import androidx.annotation.StringRes
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -16,6 +17,17 @@ fun Context.alert(text: String): AlertDialog {
 }
 
 fun Fragment.alert(text: String) = requireContext().alert(text)
+
+// 标准的「确认 / 是 / 否」对话框，只有点「是」才执行 onYes
+fun Context.confirm(message: CharSequence, onYes: () -> Unit): AlertDialog =
+    MaterialAlertDialogBuilder(this).setTitle(R.string.confirm)
+        .setMessage(message)
+        .setPositiveButton(R.string.yes) { _, _ -> onYes() }
+        .setNegativeButton(R.string.no, null)
+        .show()
+
+// 与 AlertDialog.Builder.setMessage(Int) 一样按 getText 取，保留字符串里的样式
+fun Context.confirm(@StringRes message: Int, onYes: () -> Unit) = confirm(getText(message), onYes)
 
 fun AlertDialog.tryToShow() {
     // Dialog wraps the context it was given in a ContextThemeWrapper: unwrap to

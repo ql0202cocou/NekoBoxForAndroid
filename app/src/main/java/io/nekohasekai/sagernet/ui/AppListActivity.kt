@@ -31,6 +31,7 @@ import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.databinding.LayoutAppListBinding
 import io.nekohasekai.sagernet.databinding.LayoutAppsItemBinding
 import io.nekohasekai.sagernet.ktx.crossFadeFrom
+import io.nekohasekai.sagernet.ktx.exportToClipboard
 import io.nekohasekai.sagernet.utils.PackageCache
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import kotlinx.coroutines.Dispatchers
@@ -293,19 +294,17 @@ class AppListActivity : ThemedActivity() {
             }
 
             R.id.action_export_clipboard -> {
-                val success = SagerNet.trySetPrimaryClip("false\n${EditorCache.routePackages}")
                 Snackbar.make(
                     binding.list,
-                    if (success) R.string.action_export_msg else R.string.action_export_err,
+                    exportToClipboard("false\n${EditorCache.routePackages}"),
                     Snackbar.LENGTH_LONG
                 ).show()
                 return true
             }
 
             R.id.action_import_clipboard -> {
-                val proxiedAppString =
-                    SagerNet.clipboard.primaryClip?.getItemAt(0)?.text?.toString()
-                if (!proxiedAppString.isNullOrEmpty()) {
+                val proxiedAppString = SagerNet.getClipboardText()
+                if (proxiedAppString.isNotEmpty()) {
                     val i = proxiedAppString.indexOf('\n')
                     try {
                         val apps = if (i < 0) "" else proxiedAppString.substring(i + 1)

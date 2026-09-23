@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.ui
 
+import android.content.Context
 import android.text.SpannableStringBuilder
 import android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
 import android.text.style.ForegroundColorSpan
@@ -80,9 +81,7 @@ class TestDialog(private val fragment: ConfigurationFragment) {
                 }
 
                 3 -> {
-                    val err = profile.error ?: ""
-                    val msg = Protocols.genFriendlyMsg(err)
-                    profileStatusText = if (msg != err) msg else fragment.getString(R.string.unavailable)
+                    profileStatusText = context.unavailableText(profile.error)
                     profileStatusColor = context.getColour(R.color.material_red_500)
                 }
             }
@@ -109,4 +108,11 @@ class TestDialog(private val fragment: ConfigurationFragment) {
         }
     }
 
+}
+
+// 测试失败（status 3）的状态文字：能归类的错误给友好提示，其余一律「不可用」
+fun Context.unavailableText(error: String?): String {
+    val err = error ?: ""
+    val msg = Protocols.genFriendlyMsg(err)
+    return if (msg != err) msg else getString(R.string.unavailable)
 }

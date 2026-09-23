@@ -9,10 +9,12 @@ import io.nekohasekai.sagernet.aidl.TrafficData
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.ProfileManager
+import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.ktx.Logs
+import io.nekohasekai.sagernet.ktx.moveUserOrder
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.scrollTo
@@ -101,25 +103,12 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
     // dragging is disabled while filtering, so the visible list and the search
     // source share indices here and both can be permuted in one pass
     fun move(from: Int, to: Int) {
-        val first = getItemAt(from) ?: return
-        var previousOrder = first.userOrder
-        val (step, range) = if (from < to) Pair(1, from until to) else Pair(
-            -1, from downTo to + 1
-        )
-        for (i in range) {
-            val next = getItemAt(i + step) ?: continue
-            val order = next.userOrder
-            next.userOrder = previousOrder
-            previousOrder = order
-            configurationIdList[i] = next.id
-            allProfileIds[i] = next.id
-            updated.add(next)
+        val moved = moveUserOrder(from, to, ProxyEntity::userOrder, ::getItemAt) { i, profile ->
+            configurationIdList[i] = profile.id
+            allProfileIds[i] = profile.id
+            updated.add(profile)
         }
-        first.userOrder = previousOrder
-        configurationIdList[to] = first.id
-        allProfileIds[to] = first.id
-        updated.add(first)
-        notifyItemMoved(from, to)
+        if (moved) notifyItemMoved(from, to)
     }
 
     fun commitMove() {
@@ -128,13 +117,7 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
         val updated = HashSet(updated)
         this.updated.clear()
         runOnDefaultDispatcher {
-            if (updated.isNotEmpty()) {
-                // 整次拖拽的落库包在一个事务里，逐行独立提交会产生 N 次 commit
-                // （同 RouteFragment.commitMove 的写法）
-                SagerDatabase.instance.runInTransaction {
-                    updated.forEach { SagerDatabase.proxyDao.updateOrder(it.id, it.userOrder) }
-                }
-            }
+            ProfileRepository.updateUserOrders(updated)
         }
     }
 

@@ -7,11 +7,13 @@ import android.animation.AnimatorListenerAdapter
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
+import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
+import android.provider.OpenableColumns
 import android.system.Os
 import android.system.OsConstants
 import android.util.TypedValue
@@ -19,7 +21,9 @@ import android.view.View
 import androidx.activity.result.ActivityResultLauncher
 import androidx.annotation.AttrRes
 import androidx.annotation.ColorRes
+import androidx.annotation.StringRes
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.fragment.app.DialogFragment
@@ -39,11 +43,13 @@ import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.ui.ThemedActivity
 import kotlinx.coroutines.delay
 import moe.matsuri.nb4a.utils.NGUtil
+import java.io.File
 import java.io.FileNotFoundException
 import java.net.InetAddress
 import java.net.URLEncoder
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.Continuation
+import kotlin.reflect.KMutableProperty1
 import kotlin.reflect.KProperty
 import io.nekohasekai.sagernet.bg.ServiceRegistry
 
@@ -130,6 +136,33 @@ fun RecyclerView.scrollTo(index: Int, force: Boolean = false) {
     }, 300L)
 }
 
+// 拖拽排序：把 from 处的项挪到 to，途经的项依次顺移一格并接过邻项的 userOrder，
+// 被拖的项拿到 to 处原来的 userOrder。itemAt 取某位置的项（取不到的跳过），
+// putAt 把项放进新位置；from 处取不到项时什么都不改，返回 false
+inline fun <T : Any> moveUserOrder(
+    from: Int,
+    to: Int,
+    userOrder: KMutableProperty1<T, Long>,
+    itemAt: (Int) -> T?,
+    putAt: (Int, T) -> Unit,
+): Boolean {
+    val first = itemAt(from) ?: return false
+    var previousOrder = userOrder.get(first)
+    val (step, range) = if (from < to) Pair(1, from until to) else Pair(
+        -1, from downTo to + 1
+    )
+    for (i in range) {
+        val next = itemAt(i + step) ?: continue
+        val order = userOrder.get(next)
+        userOrder.set(next, previousOrder)
+        previousOrder = order
+        putAt(i, next)
+    }
+    userOrder.set(first, previousOrder)
+    putAt(to, first)
+    return true
+}
+
 val app get() = SagerNet.application
 
 val shortAnimTime by lazy {
@@ -153,6 +186,11 @@ fun View.crossFadeFrom(other: View) {
 
 fun Fragment.snackbar(textId: Int) = (requireActivity() as MainActivity).snackbar(textId)
 fun Fragment.snackbar(text: CharSequence) = (requireActivity() as MainActivity).snackbar(text)
+
+// 复制到剪贴板，返回给 snackbar 用的导出结果提示
+@StringRes
+fun exportToClipboard(text: String) =
+    if (SagerNet.trySetPrimaryClip(text)) R.string.action_export_msg else R.string.action_export_err
 
 fun ThemedActivity.startFilesForResult(
     launcher: ActivityResultLauncher<String>, input: String
@@ -195,6 +233,42 @@ suspend fun Fragment.writeToDocument(uri: Uri, content: String) {
         e.readableMessage
     }
     onMainDispatcher { if (isAdded) snackbar(message).show() }
+}
+
+// 选取文档的显示名。GetContent("*/*") 允许任意文档提供方，坏的提供方可能返回
+// 空游标、缺 DISPLAY_NAME 列或查询直接抛错，这时退回 Uri 最后一段路径；
+// DISPLAY_NAME 也可能带路径分隔符，只保留最后一个 '/' 之后的部分。
+// Uri 没有路径段时抛 NoSuchElementException
+fun ContentResolver.displayName(uri: Uri): String {
+    val name = try {
+        query(uri, null, null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME).let(cursor::getString)
+            } else null
+        }
+    } catch (e: Exception) {
+        Logs.w(e)
+        null
+    }
+    return (name?.takeIf { it.isNotBlank() } ?: uri.pathSegments.last()
+        .substringAfterLast('/')
+        .substringAfter(':'))
+        .substringAfterLast('/')
+}
+
+// 经 FileProvider（.cache）把缓存目录里的文件交给系统分享面板
+fun Context.shareFile(file: File, mimeType: String) {
+    startActivity(
+        Intent.createChooser(
+            Intent(Intent.ACTION_SEND).setType(mimeType)
+                .setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                .putExtra(
+                    Intent.EXTRA_STREAM, FileProvider.getUriForFile(
+                        this, BuildConfig.APPLICATION_ID + ".cache", file
+                    )
+                ), getString(androidx.appcompat.R.string.abc_shareactionprovider_share_with)
+        )
+    )
 }
 
 fun Fragment.needReload() {

@@ -2,7 +2,6 @@ package io.nekohasekai.sagernet.ui
 
 import android.os.Bundle
 import android.os.Process
-import android.provider.OpenableColumns
 import android.text.format.DateFormat
 import android.util.Base64
 import android.view.Menu
@@ -120,25 +119,8 @@ class AssetsActivity : ThemedActivity() {
 
     val importFile = registerForActivityResult(ActivityResultContracts.GetContent()) { file ->
         if (file != null) {
-            // DISPLAY_NAME comes from an external document provider and may
-            // contain path separators; keep only the last segment like the
-            // fallback does, so File(assetsDir, fileName) cannot escape.
-            // GetContent("*/*") allows arbitrary document providers; a broken
-            // one may return an empty cursor or lack the DISPLAY_NAME column.
-            val displayName = try {
-                contentResolver.query(file, null, null, null, null)?.use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME).let(cursor::getString)
-                    } else null
-                }
-            } catch (e: Exception) {
-                Logs.w(e)
-                null
-            }
-            val fileName = (displayName?.takeIf { it.isNotBlank() } ?: file.pathSegments.last()
-                .substringAfterLast('/')
-                .substringAfter(':'))
-                .substringAfterLast('/')
+            // displayName 只留最后一段路径，File(assetsDir, fileName) 逃不出目录
+            val fileName = contentResolver.displayName(file)
 
             val isCertificate = CA_EXTENSIONS.any { fileName.lowercase().endsWith(it) }
             if (fileName.isBlank() || fileName == ".." ||

@@ -1,23 +1,18 @@
 package io.nekohasekai.sagernet.ui
 
-import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Parcel
 import android.os.Parcelable
-import android.provider.OpenableColumns
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
-import androidx.core.content.FileProvider
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
-import io.nekohasekai.sagernet.bg.Executable
 import io.nekohasekai.sagernet.bg.SubscriptionUpdater
 import io.nekohasekai.sagernet.database.*
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
@@ -27,7 +22,6 @@ import io.nekohasekai.sagernet.databinding.LayoutProgressBinding
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import moe.matsuri.nb4a.utils.Util
 import org.json.JSONArray
@@ -58,14 +52,10 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         binding.root.padForSystemBars()
 
         binding.resetSettings.setOnClickListener {
-            MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.confirm)
-                .setMessage(R.string.reset_settings_message)
-                .setNegativeButton(R.string.no, null)
-                .setPositiveButton(R.string.yes) { _, _ ->
-                    DataStore.configurationStore.reset()
-                    triggerFullRestart(requireContext())
-                }
-                .show()
+            requireContext().confirm(R.string.reset_settings_message) {
+                DataStore.configurationStore.reset()
+                triggerFullRestart(requireContext())
+            }
         }
 
         binding.actionExport.setOnClickListener {
@@ -100,17 +90,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                 )
                 cacheFile.writeText(backup)
                 onMainDispatcher {
-                    startActivity(
-                        Intent.createChooser(
-                            Intent(Intent.ACTION_SEND).setType("application/json")
-                                .setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                .putExtra(
-                                    Intent.EXTRA_STREAM, FileProvider.getUriForFile(
-                                        app, BuildConfig.APPLICATION_ID + ".cache", cacheFile
-                                    )
-                                ), app.getString(androidx.appcompat.R.string.abc_shareactionprovider_share_with)
-                        )
-                    )
+                    requireContext().shareFile(cacheFile, "application/json")
                 }
 
             }
@@ -176,14 +156,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
 
     suspend fun startImport(file: Uri) {
         val fileName = try {
-            app.contentResolver.query(file, null, null, null, null)
-                ?.use { cursor ->
-                    cursor.moveToFirst()
-                    cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME).let(cursor::getString)
-                }
-                ?.takeIf { it.isNotBlank() } ?: file.pathSegments.last()
-                .substringAfterLast('/')
-                .substringAfter(':')
+            app.contentResolver.displayName(file)
         } catch (e: Exception) {
             Logs.w(e)
             return

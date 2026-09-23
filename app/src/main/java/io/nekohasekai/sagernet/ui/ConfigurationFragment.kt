@@ -4,12 +4,9 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
 import android.os.SystemClock
-import android.provider.OpenableColumns
 import android.view.KeyEvent
-import android.view.LayoutInflater
 import android.view.MenuItem
 import android.view.View
-import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.PopupMenu
 import androidx.appcompat.widget.SearchView
@@ -17,7 +14,6 @@ import androidx.appcompat.widget.Toolbar
 import androidx.core.net.toUri
 import androidx.preference.PreferenceDataStore
 import androidx.viewpager2.widget.ViewPager2
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
 import io.nekohasekai.sagernet.GroupType
@@ -39,6 +35,8 @@ import io.nekohasekai.sagernet.ktx.readBytesLimited
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.SubscriptionFoundException
 import io.nekohasekai.sagernet.ktx.app
+import io.nekohasekai.sagernet.ktx.confirm
+import io.nekohasekai.sagernet.ktx.displayName
 import io.nekohasekai.sagernet.ktx.isIpAddress
 import io.nekohasekai.sagernet.ktx.lookupViaNameserver
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
@@ -267,18 +265,12 @@ class ConfigurationFragment @JvmOverloads constructor(
             // context and report only while still attached
             if (file != null) runOnDefaultDispatcher {
                 try {
-                    val fileName =
-                        app.contentResolver.query(file, null, null, null, null)
-                            ?.use { cursor ->
-                                cursor.moveToFirst()
-                                cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME)
-                                    .let(cursor::getString)
-                            }
+                    val fileName = app.contentResolver.displayName(file)
                     val proxies = mutableListOf<AbstractBean>()
                     // SAF providers may grant the uri but fail to open it
                     val inputStream = app.contentResolver.openInputStream(file)
                         ?: throw FileNotFoundException(file.toString())
-                    if (fileName != null && fileName.endsWith(".zip")) {
+                    if (fileName.endsWith(".zip")) {
                         // try parse wireguard zip
                         // use(): a throwing parseRaw used to leak the fd
                         ZipInputStream(inputStream).use { zip ->
@@ -300,7 +292,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                         val fileText = inputStream.use {
                             it.readBytesLimited().toString(Charsets.UTF_8)
                         }
-                        RawUpdater.parseRaw(fileText, fileName ?: "")
+                        RawUpdater.parseRaw(fileText, fileName)
                             ?.let { pl -> proxies.addAll(pl) }
                     }
                     if (proxies.isEmpty()) onMainDispatcher {
@@ -441,15 +433,11 @@ class ConfigurationFragment @JvmOverloads constructor(
                     }
                     if (toClear.isNotEmpty()) {
                         onMainDispatcher {
-                            MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.confirm)
-                                .setMessage(R.string.delete_confirm_prompt)
-                                .setPositiveButton(R.string.yes) { _, _ ->
-                                    runOnDefaultDispatcher {
-                                        ProfileRepository.deleteProfiles(toClear)
-                                    }
+                            requireContext().confirm(R.string.delete_confirm_prompt) {
+                                runOnDefaultDispatcher {
+                                    ProfileRepository.deleteProfiles(toClear)
                                 }
-                                .setNegativeButton(R.string.no, null)
-                                .show()
+                            }
                         }
                     }
                 }
@@ -468,26 +456,17 @@ class ConfigurationFragment @JvmOverloads constructor(
                     }
                     if (toClear.isNotEmpty()) {
                         onMainDispatcher {
-                            MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.confirm)
-                                .setMessage(
-                                    getString(R.string.delete_confirm_prompt) + "\n" +
-                                            toClear.mapIndexedNotNull { index, proxyEntity ->
-                                                if (index < 20) {
-                                                    proxyEntity.displayName()
-                                                } else if (index == 20) {
-                                                    "......"
-                                                } else {
-                                                    null
-                                                }
-                                            }.joinToString("\n")
-                                )
-                                .setPositiveButton(R.string.yes) { _, _ ->
-                                    runOnDefaultDispatcher {
-                                        ProfileRepository.deleteProfiles(toClear)
-                                    }
+                            // 最多列出 20 个，再多的用省略号代替
+                            val names = toClear.take(21).mapIndexed { index, proxyEntity ->
+                                if (index < 20) proxyEntity.displayName() else "......"
+                            }
+                            requireContext().confirm(
+                                getString(R.string.delete_confirm_prompt) + "\n" + names.joinToString("\n")
+                            ) {
+                                runOnDefaultDispatcher {
+                                    ProfileRepository.deleteProfiles(toClear)
                                 }
-                                .setNegativeButton(R.string.no, null)
-                                .show()
+                            }
                         }
                     }
                 }

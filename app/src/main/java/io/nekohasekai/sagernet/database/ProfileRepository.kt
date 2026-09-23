@@ -21,6 +21,9 @@ object ProfileRepository {
     suspend fun createProfile(groupId: Long, bean: AbstractBean, core: Int = 0): ProxyEntity =
         ProfileManager.createProfile(groupId, bean, core)
 
+    fun updateUserOrders(profiles: Collection<ProxyEntity>) =
+        ProfileManager.updateUserOrders(profiles)
+
     suspend fun deleteProfiles(profiles: List<ProxyEntity>) =
         ProfileManager.deleteProfiles(profiles)
 

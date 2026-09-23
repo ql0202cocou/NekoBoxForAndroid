@@ -123,17 +123,13 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             }
 
             R.id.action_update_all -> {
-                MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.confirm)
-                    .setMessage(R.string.update_all_subscription)
-                    .setPositiveButton(R.string.yes) { _, _ ->
-                        GroupRepository.getAllGroups()
-                            .filter { it.type == GroupType.SUBSCRIPTION }
-                            .forEach {
-                                GroupUpdater.startUpdate(it, true)
-                            }
-                    }
-                    .setNegativeButton(R.string.no, null)
-                    .show()
+                requireContext().confirm(R.string.update_all_subscription) {
+                    GroupRepository.getAllGroups()
+                        .filter { it.type == GroupType.SUBSCRIPTION }
+                        .forEach {
+                            GroupUpdater.startUpdate(it, true)
+                        }
+                }
             }
         }
         return true
@@ -217,22 +213,10 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         private val updated = HashSet<ProxyGroup>()
 
         fun move(from: Int, to: Int) {
-            val first = groupList[from]
-            var previousOrder = first.userOrder
-            val (step, range) = if (from < to) Pair(1, from until to) else Pair(
-                -1, from downTo to + 1
-            )
-            for (i in range) {
-                val next = groupList[i + step]
-                val order = next.userOrder
-                next.userOrder = previousOrder
-                previousOrder = order
-                groupList[i] = next
-                updated.add(next)
+            moveUserOrder(from, to, ProxyGroup::userOrder, groupList::get) { i, group ->
+                groupList[i] = group
+                updated.add(group)
             }
-            first.userOrder = previousOrder
-            groupList[to] = first
-            updated.add(first)
             notifyItemMoved(from, to)
         }
 
@@ -352,13 +336,6 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         val subscriptionUpdateProgress = binding.subscriptionUpdateProgress
 
         override fun onMenuItemClick(item: MenuItem): Boolean {
-
-            fun export(link: String) {
-                val success = SagerNet.trySetPrimaryClip(link)
-                activity.snackbar(if (success) R.string.action_export_msg else R.string.action_export_err)
-                    .show()
-            }
-
             when (item.itemId) {
                 R.id.action_universal_qr -> {
                     QRCodeDialog(
@@ -367,7 +344,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                 }
 
                 R.id.action_universal_clipboard -> {
-                    export(proxyGroup.toUniversalLink())
+                    activity.snackbar(exportToClipboard(proxyGroup.toUniversalLink())).show()
                 }
 
                 R.id.action_export_clipboard -> {

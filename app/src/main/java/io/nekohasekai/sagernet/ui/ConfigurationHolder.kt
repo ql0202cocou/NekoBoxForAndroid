@@ -21,6 +21,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.toUniversalLink
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.alert
+import io.nekohasekai.sagernet.ktx.exportToClipboard
 import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.ktx.getColour
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
@@ -34,7 +35,6 @@ import io.nekohasekai.sagernet.ui.ConfigurationFragment.SelectCallback
 import io.nekohasekai.sagernet.ui.profile.settingIntent
 import io.nekohasekai.sagernet.widget.QRCodeDialog
 import kotlinx.coroutines.sync.withLock
-import moe.matsuri.nb4a.Protocols
 import moe.matsuri.nb4a.Protocols.getProtocolColor
 import io.nekohasekai.sagernet.bg.ServiceRegistry
 
@@ -154,8 +154,7 @@ class ConfigurationHolder(
 
         if (proxyEntity.status == 3) {
             val err = proxyEntity.error ?: "<?>"
-            val msg = Protocols.genFriendlyMsg(err)
-            profileStatus.text = if (msg != err) msg else groupFragment.getString(R.string.unavailable)
+            profileStatus.text = groupFragment.requireContext().unavailableText(err)
             profileStatus.setOnClickListener {
                 groupFragment.alert(err).tryToShow()
             }
@@ -206,18 +205,11 @@ class ConfigurationHolder(
                 val popup = PopupMenu(groupFragment.requireContext(), anchor)
                 popup.menuInflater.inflate(R.menu.profile_share_menu, popup.menu)
 
-                when {
-                    !proxyEntity.haveStandardLink() -> {
-                        popup.menu.findItem(R.id.action_group_qr).subMenu?.removeItem(R.id.action_standard_qr)
-                        popup.menu.findItem(R.id.action_group_clipboard).subMenu?.removeItem(
-                            R.id.action_standard_clipboard
-                        )
-                    }
-
-                    !proxyEntity.haveLink() -> {
-                        popup.menu.removeItem(R.id.action_group_qr)
-                        popup.menu.removeItem(R.id.action_group_clipboard)
-                    }
+                if (!proxyEntity.haveStandardLink()) {
+                    popup.menu.findItem(R.id.action_group_qr).subMenu?.removeItem(R.id.action_standard_qr)
+                    popup.menu.findItem(R.id.action_group_clipboard).subMenu?.removeItem(
+                        R.id.action_standard_clipboard
+                    )
                 }
 
                 if (proxyEntity.nekoBean != null) {
@@ -228,7 +220,7 @@ class ConfigurationHolder(
                 popup.show()
             }
 
-            if (!(groupFragment.select || proxyEntity.type == ProxyEntity.TYPE_CHAIN)) {
+            if (!selectOrChain) {
                 onMainDispatcher {
                     shareLayer.setBackgroundColor(Color.TRANSPARENT)
                     shareButton.setImageResource(R.drawable.ic_social_share)
@@ -250,9 +242,7 @@ class ConfigurationHolder(
     }
 
     fun export(link: String) {
-        val success = SagerNet.trySetPrimaryClip(link)
-        (groupFragment.activity as MainActivity).snackbar(if (success) R.string.action_export_msg else R.string.action_export_err)
-            .show()
+        (groupFragment.activity as MainActivity).snackbar(exportToClipboard(link)).show()
     }
 
     override fun onMenuItemClick(item: MenuItem): Boolean {

@@ -1,12 +1,10 @@
 package moe.matsuri.nb4a.utils
 
 import android.content.Context
-import android.content.Intent
-import androidx.core.content.FileProvider
-import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
+import io.nekohasekai.sagernet.ktx.shareFile
 import io.nekohasekai.sagernet.ktx.use
 import io.nekohasekai.sagernet.utils.CrashHandler
 import java.io.File
@@ -58,19 +56,7 @@ object SendLog {
         return logFile
     }
 
-    fun shareLog(context: Context, logFile: File) {
-        context.startActivity(
-            Intent.createChooser(
-                Intent(Intent.ACTION_SEND).setType("text/x-log")
-                    .setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    .putExtra(
-                        Intent.EXTRA_STREAM, FileProvider.getUriForFile(
-                            context, BuildConfig.APPLICATION_ID + ".cache", logFile
-                        )
-                    ), context.getString(androidx.appcompat.R.string.abc_shareactionprovider_share_with)
-            )
-        )
-    }
+    fun shareLog(context: Context, logFile: File) = context.shareFile(logFile, "text/x-log")
 
     // Get log bytes from neko.log
     fun getNekoLog(max: Long): ByteArray {
