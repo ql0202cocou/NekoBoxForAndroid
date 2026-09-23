@@ -51,19 +51,7 @@ import io.nekohasekai.sagernet.ktx.snackbar
 import io.nekohasekai.sagernet.ktx.startFilesForResult
 import io.nekohasekai.sagernet.ktx.writeToDocument
 import io.nekohasekai.sagernet.plugin.PluginManager
-import io.nekohasekai.sagernet.ui.profile.ChainSettingsActivity
-import io.nekohasekai.sagernet.ui.profile.HttpSettingsActivity
-import io.nekohasekai.sagernet.ui.profile.HysteriaSettingsActivity
-import io.nekohasekai.sagernet.ui.profile.MieruSettingsActivity
-import io.nekohasekai.sagernet.ui.profile.NaiveSettingsActivity
-import io.nekohasekai.sagernet.ui.profile.SSHSettingsActivity
-import io.nekohasekai.sagernet.ui.profile.ShadowsocksSettingsActivity
-import io.nekohasekai.sagernet.ui.profile.SocksSettingsActivity
-import io.nekohasekai.sagernet.ui.profile.TrojanGoSettingsActivity
-import io.nekohasekai.sagernet.ui.profile.TrojanSettingsActivity
-import io.nekohasekai.sagernet.ui.profile.TuicSettingsActivity
-import io.nekohasekai.sagernet.ui.profile.VMessSettingsActivity
-import io.nekohasekai.sagernet.ui.profile.WireGuardSettingsActivity
+import io.nekohasekai.sagernet.ui.profile.settingActivityOf
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -73,9 +61,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import moe.matsuri.nb4a.Protocols
-import moe.matsuri.nb4a.proxy.anytls.AnyTLSSettingsActivity
-import moe.matsuri.nb4a.proxy.config.ConfigSettingActivity
-import moe.matsuri.nb4a.proxy.shadowtls.ShadowTLSSettingsActivity
 import moe.matsuri.nb4a.ui.ConnectionTestNotification
 import java.io.FileNotFoundException
 import java.net.InetSocketAddress
@@ -349,7 +334,34 @@ class ConfigurationFragment @JvmOverloads constructor(
 
     }
 
+    // 「新建节点」菜单项对应的节点类型；VLESS 与 VMess 共用编辑器，靠 "vless" extra 区分
+    private val newProfileTypes = mapOf(
+        R.id.action_new_socks to ProxyEntity.TYPE_SOCKS,
+        R.id.action_new_http to ProxyEntity.TYPE_HTTP,
+        R.id.action_new_ss to ProxyEntity.TYPE_SS,
+        R.id.action_new_vmess to ProxyEntity.TYPE_VMESS,
+        R.id.action_new_vless to ProxyEntity.TYPE_VMESS,
+        R.id.action_new_trojan to ProxyEntity.TYPE_TROJAN,
+        R.id.action_new_trojan_go to ProxyEntity.TYPE_TROJAN_GO,
+        R.id.action_new_mieru to ProxyEntity.TYPE_MIERU,
+        R.id.action_new_naive to ProxyEntity.TYPE_NAIVE,
+        R.id.action_new_hysteria to ProxyEntity.TYPE_HYSTERIA,
+        R.id.action_new_tuic to ProxyEntity.TYPE_TUIC,
+        R.id.action_new_ssh to ProxyEntity.TYPE_SSH,
+        R.id.action_new_wg to ProxyEntity.TYPE_WG,
+        R.id.action_new_shadowtls to ProxyEntity.TYPE_SHADOWTLS,
+        R.id.action_new_anytls to ProxyEntity.TYPE_ANYTLS,
+        R.id.action_new_config to ProxyEntity.TYPE_CONFIG,
+        R.id.action_new_chain to ProxyEntity.TYPE_CHAIN,
+    )
+
     override fun onMenuItemClick(item: MenuItem): Boolean {
+        newProfileTypes[item.itemId]?.let { type ->
+            startActivity(Intent(requireActivity(), settingActivityOf(type)).apply {
+                if (item.itemId == R.id.action_new_vless) putExtra("vless", true)
+            })
+            return true
+        }
         when (item.itemId) {
             R.id.action_scan_qr_code -> {
                 startActivity(Intent(context, ScannerActivity::class.java))
@@ -379,76 +391,6 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             R.id.action_import_file -> {
                 startFilesForResult(importFile, "*/*")
-            }
-
-            R.id.action_new_socks -> {
-                startActivity(Intent(requireActivity(), SocksSettingsActivity::class.java))
-            }
-
-            R.id.action_new_http -> {
-                startActivity(Intent(requireActivity(), HttpSettingsActivity::class.java))
-            }
-
-            R.id.action_new_ss -> {
-                startActivity(Intent(requireActivity(), ShadowsocksSettingsActivity::class.java))
-            }
-
-            R.id.action_new_vmess -> {
-                startActivity(Intent(requireActivity(), VMessSettingsActivity::class.java))
-            }
-
-            R.id.action_new_vless -> {
-                startActivity(Intent(requireActivity(), VMessSettingsActivity::class.java).apply {
-                    putExtra("vless", true)
-                })
-            }
-
-            R.id.action_new_trojan -> {
-                startActivity(Intent(requireActivity(), TrojanSettingsActivity::class.java))
-            }
-
-            R.id.action_new_trojan_go -> {
-                startActivity(Intent(requireActivity(), TrojanGoSettingsActivity::class.java))
-            }
-
-            R.id.action_new_mieru -> {
-                startActivity(Intent(requireActivity(), MieruSettingsActivity::class.java))
-            }
-
-            R.id.action_new_naive -> {
-                startActivity(Intent(requireActivity(), NaiveSettingsActivity::class.java))
-            }
-
-            R.id.action_new_hysteria -> {
-                startActivity(Intent(requireActivity(), HysteriaSettingsActivity::class.java))
-            }
-
-            R.id.action_new_tuic -> {
-                startActivity(Intent(requireActivity(), TuicSettingsActivity::class.java))
-            }
-
-            R.id.action_new_ssh -> {
-                startActivity(Intent(requireActivity(), SSHSettingsActivity::class.java))
-            }
-
-            R.id.action_new_wg -> {
-                startActivity(Intent(requireActivity(), WireGuardSettingsActivity::class.java))
-            }
-
-            R.id.action_new_shadowtls -> {
-                startActivity(Intent(requireActivity(), ShadowTLSSettingsActivity::class.java))
-            }
-
-            R.id.action_new_anytls -> {
-                startActivity(Intent(requireActivity(), AnyTLSSettingsActivity::class.java))
-            }
-
-            R.id.action_new_config -> {
-                startActivity(Intent(requireActivity(), ConfigSettingActivity::class.java))
-            }
-
-            R.id.action_new_chain -> {
-                startActivity(Intent(requireActivity(), ChainSettingsActivity::class.java))
             }
 
             R.id.action_update_subscription -> {
