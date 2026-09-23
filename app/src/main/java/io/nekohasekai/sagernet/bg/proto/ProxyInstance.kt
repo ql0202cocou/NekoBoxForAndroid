@@ -12,12 +12,6 @@ import moe.matsuri.nb4a.utils.Util
 class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = null) :
     BoxInstance(profile) {
 
-    var notTmp = true
-
-    // 写于 buildConfig（主线程），读于 canReloadSelector（binder/Default 线程）
-    @Volatile
-    var lastSelectorGroupId = -1L
-
     // written on the serial dispatcher (NativeInterface selector callback),
     // read on binder threads (Binder.getProfileName)
     @Volatile
@@ -30,16 +24,9 @@ class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = 
 
     override fun buildConfig() {
         super.buildConfig()
-        lastSelectorGroupId = super.config.selectorGroupId
         // configs contain credentials; redact them before writing to the exportable log
-        if (notTmp) Logs.d(Util.redactSecrets(config.config))
-        if (notTmp && BuildConfig.DEBUG) Logs.d(JavaUtil.gson.toJson(config.trafficMap))
-    }
-
-    // only use this in temporary instance
-    fun buildConfigTmp() {
-        notTmp = false
-        buildConfig()
+        Logs.d(Util.redactSecrets(config.config))
+        if (BuildConfig.DEBUG) Logs.d(JavaUtil.gson.toJson(config.trafficMap))
     }
 
     override suspend fun init() {

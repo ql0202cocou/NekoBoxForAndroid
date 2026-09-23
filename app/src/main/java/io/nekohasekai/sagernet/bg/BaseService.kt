@@ -16,7 +16,9 @@ import io.nekohasekai.sagernet.aidl.ISagerNetServiceCallback
 import io.nekohasekai.sagernet.bg.proto.ProxyInstance
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
+import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.RestoreJournal
+import io.nekohasekai.sagernet.fmt.selectorGroupIdOf
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.plugin.PluginManager
 import io.nekohasekai.sagernet.utils.DefaultNetworkListener
@@ -109,14 +111,15 @@ class BaseService {
                     }
                 }
 
-                // Action.CLOSE (notification button / tile / UI): log it, or an
-                // exported log shows a clean teardown with no identifiable cause
-                // 警告：兜底分支收到即停服务。IntentFilter 新增 action 时必须在
-                // 上面的 when 里加对应分支，否则该广播一落到这里就误停服务
-                else -> {
+                // 通知栏按钮 / 快捷开关 / 界面发出的关闭：记一条日志，否则导出的
+                // 日志里只看到一次干净的停止，查不出原因
+                Action.CLOSE -> {
                     Logs.i("Broadcast ${intent.action}: stopping service")
                     service.stopRunner()
                 }
+
+                // IntentFilter 新增 action 却忘了在上面加分支时落到这里，只记日志
+                else -> Logs.w("Unhandled broadcast ${intent.action}")
             }
         }
         var closeReceiverRegistered = false
@@ -249,16 +252,15 @@ class BaseService {
                 stopRunner(false, service.getString(R.string.profile_empty))
                 return
             }
-            // canReloadSelector() builds a whole config, DB reads included, and
-            // reload() runs on :bg's main thread from onReceive — an ANR risk on a
-            // large group. data.proxy can be nulled by a concurrent stop now that
-            // this is off-thread, so read it defensively.
+            // 下面有数据库读取和阻塞的 JNI 调用，而 reload() 在 :bg 主线程的
+            // onReceive 里被调用，所以放到后台执行。放到后台后 data.proxy 可能被
+            // 并发的停止置空，要防御性地读
             runOnDefaultDispatcher {
                 try {
-                    if (canReloadSelector()) {
-                        val ent = ProfileManager.getProfile(DataStore.selectedProxy)
-                        val tag = data.proxy?.config?.profileTagMap?.get(ent?.id) ?: ""
-                        if (tag.isNotBlank() && ent != null) {
+                    val ent = ProfileManager.getProfile(DataStore.selectedProxy)
+                    if (ent != null && canReloadSelector(ent)) {
+                        val tag = data.proxy?.config?.profileTagMap?.get(ent.id) ?: ""
+                        if (tag.isNotBlank()) {
                             // select from GUI
                             data.proxy?.box?.selectOutbound(tag)
                             // or select from webui
@@ -268,7 +270,7 @@ class BaseService {
                         // no outbound of its own (e.g. only a middle hop of another
                         // member's chain): fall through to a full restart, which
                         // rebuilds the config around it, instead of doing nothing
-                        Logs.w("No outbound tag for profile ${ent?.id}, restarting")
+                        Logs.w("No outbound tag for profile ${ent.id}, restarting")
                     }
                 } catch (e: Throwable) {
                     // bad profile data (e.g. a chain loop) or a JNI error must not
@@ -288,15 +290,10 @@ class BaseService {
             }
         }
 
-        fun canReloadSelector(): Boolean {
-            if ((data.proxy?.config?.selectorGroupId ?: -1L) < 0) return false
-            val ent = ProfileManager.getProfile(DataStore.selectedProxy) ?: return false
-            val tmpBox = ProxyInstance(ent)
-            tmpBox.buildConfigTmp()
-            if (tmpBox.lastSelectorGroupId == data.proxy?.lastSelectorGroupId) {
-                return true
-            }
-            return false
+        // 运行中的是选择器分组，且新选中的节点属于同一个选择器分组时可原地切换
+        fun canReloadSelector(ent: ProxyEntity): Boolean {
+            val running = data.proxy?.config?.selectorGroupId ?: -1L
+            return running >= 0 && selectorGroupIdOf(ent) == running
         }
 
         suspend fun startProcesses() {

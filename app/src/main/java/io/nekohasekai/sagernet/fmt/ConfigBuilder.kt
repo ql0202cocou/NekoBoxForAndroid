@@ -133,6 +133,14 @@ fun buildConfig(
     return ConfigBuild(proxy, forTest, forExport).build()
 }
 
+// 普通构建（非测试、非导出）得到的 ConfigBuildResult.selectorGroupId：只取决于
+// 节点所在分组，与 buildConfig 开头的 TYPE_CONFIG 分支、ConfigBuild.selectorGroup
+// 保持一致。canReloadSelector 用它判断能否原地切换，不必为此构建整份配置
+fun selectorGroupIdOf(proxy: ProxyEntity): Long {
+    if (proxy.type == TYPE_CONFIG && (proxy.requireBean() as ConfigBean).type == 0) return -1L
+    return SagerDatabase.groupDao.getById(proxy.groupId)?.takeIf { it.isSelector }?.id ?: -1L
+}
+
 // One config build. The state below is shared by the sections build() runs
 // in order; each section was a stretch of the former single buildConfig
 // function and keeps its body, only the captured locals became properties.
@@ -228,7 +236,7 @@ private class ConfigBuild(
             rule.outbound.takeIf { it > 0 && it != proxy.id }
         }.toHashSet().toList()).associateBy { it.id }
     // the group whose members become selector outbounds; null builds a plain
-    // chain (tests and exports always do)
+    // chain (tests and exports always do). 改这里的条件要同步 selectorGroupIdOf
     val selectorGroup = group?.takeIf { !forTest && it.isSelector && !forExport }
     val buildSelector = selectorGroup != null
     val userDNSRuleList = mutableListOf<DNSRule_DefaultOptions>()
