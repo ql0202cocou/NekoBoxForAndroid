@@ -24,11 +24,12 @@ import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
-import io.nekohasekai.sagernet.bg.proto.UrlTest
+import io.nekohasekai.sagernet.bg.proto.TestInstance
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.GroupRepository
 import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.ProxyEntity
+import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.group.GroupUpdater
@@ -64,6 +65,7 @@ import io.nekohasekai.sagernet.ui.profile.TuicSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.VMessSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.WireGuardSettingsActivity
 import io.nekohasekai.sagernet.widget.padForSystemBars
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -86,9 +88,8 @@ import java.util.zip.ZipInputStream
 import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.EditorCache
 
-// pingTest/urlTest set it on the main thread and clear it on a background
-// dispatcher; the CAS keeps two quick taps from starting two tests. Process
-// wide, not a fragment field: a recreated fragment must not start a second one.
+// runGroupTest 在主线程置位、在后台 dispatcher 清除；CAS 防止连点两下起两个
+// 测试。放在进程级而不是 fragment 字段：重建后的 fragment 不能再起第二个
 private val runningTest = AtomicBoolean(false)
 
 class ConfigurationFragment @JvmOverloads constructor(
@@ -551,7 +552,7 @@ class ConfigurationFragment @JvmOverloads constructor(
             }
 
             R.id.action_connection_tcp_ping -> {
-                pingTest(false)
+                pingTest()
             }
 
             R.id.action_connection_url_test -> {
@@ -561,164 +562,101 @@ class ConfigurationFragment @JvmOverloads constructor(
         return true
     }
 
-    @OptIn(DelicateCoroutinesApi::class)
-    @Suppress("EXPERIMENTAL_API_USAGE")
-    fun pingTest(icmpPing: Boolean) {
-        if (!runningTest.compareAndSet(false, true)) return
-        val test = TestDialog(this)
-        val dialog = test.builder.show()
-        val testJobs = mutableListOf<Job>()
-        val group = GroupManager.currentGroup()
-
-        val mainJob = runOnDefaultDispatcher {
-            val profilesList = ProfileRepository.getProfilesByGroup(group.id).filter {
-                if (icmpPing) {
-                    if (it.requireBean().canICMPing()) {
-                        return@filter true
+    fun pingTest() {
+        // 同组节点常共用一个域名，而下面的解析不带缓存、失败还要等满超时，
+        // 所以按本轮测试缓存结果（失败时缓存域名本身，后面照常报解析失败）
+        val resolvedAddresses = ConcurrentHashMap<String, String>()
+        runGroupTest({ it.requireBean().canTCPing() }) { group, profile ->
+            val domain = profile.requireBean().serverAddress
+            val address = if (domain.isIpAddress()) domain else {
+                resolvedAddresses.getOrPut(domain) {
+                    // 组里配了节点解析 DNS（如 DoH）时优先使用，伪造域名也能解析
+                    val results = lookupViaNameserver(
+                        group.proxyServerNameserver, domain
+                    ) ?: try {
+                        SagerNet.underlyingNetwork?.getAllByName(domain)?.toList()
+                            ?: emptyList()
+                    } catch (ignored: UnknownHostException) {
+                        emptyList()
                     }
-                } else {
-                    if (it.requireBean().canTCPing()) {
-                        return@filter true
+                    results.firstOrNull()?.hostAddress ?: domain
+                }
+            }
+            if (!isActive) return@runGroupTest false
+            // 在后台线程运行，fragment 可能已分离，getString() 会抛异常，所以用 app
+            if (!address.isIpAddress()) {
+                profile.status = 2
+                profile.error = app.getString(R.string.connection_test_domain_not_found)
+                return@runGroupTest true
+            }
+            try {
+                val socket =
+                    SagerNet.underlyingNetwork?.socketFactory?.createSocket() ?: Socket()
+                try {
+                    socket.soTimeout = 3000
+                    socket.bind(InetSocketAddress(0))
+                    val start = SystemClock.elapsedRealtime()
+                    socket.connect(
+                        InetSocketAddress(address, profile.requireBean().serverPort), 3000
+                    )
+                    if (!isActive) return@runGroupTest false
+                    profile.status = 1
+                    profile.ping = (SystemClock.elapsedRealtime() - start).toInt()
+                } finally {
+                    // OkHttp 5 的 okhttp3.internal.closeQuietly 不是公开 API
+                    runCatching { socket.close() }
+                }
+            } catch (e: Exception) {
+                if (!isActive) return@runGroupTest false
+                val message = e.readableMessage
+                profile.status = 2
+                when {
+                    !message.contains("failed:") -> profile.error =
+                        app.getString(R.string.connection_test_timeout)
+
+                    message.contains("ECONNREFUSED") -> profile.error =
+                        app.getString(R.string.connection_test_refused)
+
+                    message.contains("ENETUNREACH") -> profile.error =
+                        app.getString(R.string.connection_test_unreachable)
+
+                    else -> {
+                        profile.status = 3
+                        profile.error = message
                     }
                 }
-                return@filter false
             }
-            test.proxyN = profilesList.size
-            val profiles = ConcurrentLinkedQueue(profilesList)
-            // 同组节点常共用一个域名，而下面的解析不带缓存、失败还要等满超时，
-            // 所以按本轮测试缓存结果（失败时缓存域名本身，后面照常报解析失败）
-            val resolvedAddresses = ConcurrentHashMap<String, String>()
-            repeat(DataStore.connectionTestConcurrent) {
-                testJobs.add(launch(Dispatchers.IO) {
-                    while (isActive) {
-                        val profile = profiles.poll() ?: break
-
-                        profile.status = 0
-                        val domain = profile.requireBean().serverAddress
-                        val address = if (domain.isIpAddress()) domain else {
-                            resolvedAddresses.getOrPut(domain) {
-                                // 组里配了节点解析 DNS（如 DoH）时优先使用，伪造域名也能解析
-                                val results = lookupViaNameserver(
-                                    group.proxyServerNameserver, domain
-                                ) ?: try {
-                                    SagerNet.underlyingNetwork?.getAllByName(domain)?.toList()
-                                        ?: emptyList()
-                                } catch (ignored: UnknownHostException) {
-                                    emptyList()
-                                }
-                                results.firstOrNull()?.hostAddress ?: domain
-                            }
-                        }
-                        if (!isActive) break
-                        if (!address.isIpAddress()) {
-                            profile.status = 2
-                            profile.error = app.getString(R.string.connection_test_domain_not_found)
-                            test.update(profile)
-                            continue
-                        }
-                        try {
-                            if (icmpPing) {
-                                // removed
-                            } else {
-                                val socket =
-                                    SagerNet.underlyingNetwork?.socketFactory?.createSocket()
-                                        ?: Socket()
-                                try {
-                                    socket.soTimeout = 3000
-                                    socket.bind(InetSocketAddress(0))
-                                    val start = SystemClock.elapsedRealtime()
-                                    socket.connect(
-                                        InetSocketAddress(
-                                            address, profile.requireBean().serverPort
-                                        ), 3000
-                                    )
-                                    if (!isActive) break
-                                    profile.status = 1
-                                    profile.ping = (SystemClock.elapsedRealtime() - start).toInt()
-                                    test.update(profile)
-                                } finally {
-                                    // okhttp3.internal.closeQuietly is not public API in OkHttp 5
-                                    runCatching { socket.close() }
-                                }
-                            }
-                        } catch (e: Exception) {
-                            if (!isActive) break
-                            val message = e.readableMessage
-
-                            if (icmpPing) {
-                                profile.status = 2
-                                // this runs on a background thread where the fragment
-                                // may already be detached; getString() would throw
-                                profile.error = app.getString(R.string.connection_test_unreachable)
-                            } else {
-                                profile.status = 2
-                                when {
-                                    !message.contains("failed:") -> profile.error =
-                                        app.getString(R.string.connection_test_timeout)
-
-                                    else -> when {
-                                        message.contains("ECONNREFUSED") -> {
-                                            profile.error =
-                                                app.getString(R.string.connection_test_refused)
-                                        }
-
-                                        message.contains("ENETUNREACH") -> {
-                                            profile.error =
-                                                app.getString(R.string.connection_test_unreachable)
-                                        }
-
-                                        else -> {
-                                            profile.status = 3
-                                            profile.error = message
-                                        }
-                                    }
-                                }
-                            }
-                            test.update(profile)
-                        }
-                    }
-                })
-            }
-
-            testJobs.joinAll()
-
-            runOnMainDispatcher {
-                test.cancel()
-            }
-        }
-        test.cancel = {
-            test.dialogStatus.set(2)
-            // the activity may already be destroyed when the appScope test
-            // job finishes; dismiss() then throws "not attached to window manager"
-            runCatching { dialog.dismiss() }
-            runOnDefaultDispatcher {
-                mainJob.cancel()
-                testJobs.forEach { it.cancel() }
-                // status-only write: the snapshot was read at test start, a
-                // full-row update would roll back tx/rx persisted by :bg since
-                test.results.forEach {
-                    try {
-                        ProfileRepository.updateStatus(it)
-                    } catch (e: Exception) {
-                        Logs.w(e)
-                    }
-                }
-                GroupRepository.postReload(GroupManager.currentGroupId())
-                runningTest.set(false)
-            }
-        }
-        test.minimize = {
-            test.dialogStatus.set(1)
-            test.notification = ConnectionTestNotification(
-                dialog.context,
-                "[${group.displayName()}] ${getString(R.string.connection_test)}"
-            )
-            dialog.hide()
+            true
         }
     }
 
-    @OptIn(DelicateCoroutinesApi::class)
     fun urlTest() {
+        runGroupTest({ true }) { _, profile ->
+            try {
+                // 注意：这里不在 bg 进程
+                val result =
+                    TestInstance(profile, DataStore.connectionTestURL, 5000).doTest()
+                profile.status = 1
+                profile.ping = result
+            } catch (e: PluginManager.PluginNotFoundException) {
+                profile.status = 2
+                profile.error = e.readableMessage
+            } catch (e: Exception) {
+                profile.status = 3
+                profile.error = e.readableMessage
+            }
+            true
+        }
+    }
+
+    // 两种测试共用的框架：按并发数起 worker 逐个测当前组里 filter 通过的节点，
+    // 结束或取消时把状态写回数据库。testOne 填好 profile 的测试结果，返回 false
+    // 表示已被取消、不要上报这一条
+    @OptIn(DelicateCoroutinesApi::class)
+    private fun runGroupTest(
+        filter: (ProxyEntity) -> Boolean,
+        testOne: suspend CoroutineScope.(ProxyGroup, ProxyEntity) -> Boolean,
+    ) {
         if (!runningTest.compareAndSet(false, true)) return
         val test = TestDialog(this)
         val dialog = test.builder.show()
@@ -726,28 +664,15 @@ class ConfigurationFragment @JvmOverloads constructor(
         val group = GroupManager.currentGroup()
 
         val mainJob = runOnDefaultDispatcher {
-            val profilesList = ProfileRepository.getProfilesByGroup(group.id)
+            val profilesList = ProfileRepository.getProfilesByGroup(group.id).filter(filter)
             test.proxyN = profilesList.size
             val profiles = ConcurrentLinkedQueue(profilesList)
             repeat(DataStore.connectionTestConcurrent) {
                 testJobs.add(launch(Dispatchers.IO) {
-                    val urlTest = UrlTest() // note: this is NOT in bg process
                     while (isActive) {
                         val profile = profiles.poll() ?: break
                         profile.status = 0
-
-                        try {
-                            val result = urlTest.doTest(profile)
-                            profile.status = 1
-                            profile.ping = result
-                        } catch (e: PluginManager.PluginNotFoundException) {
-                            profile.status = 2
-                            profile.error = e.readableMessage
-                        } catch (e: Exception) {
-                            profile.status = 3
-                            profile.error = e.readableMessage
-                        }
-
+                        if (!testOne(group, profile)) break
                         test.update(profile)
                     }
                 })
@@ -761,14 +686,14 @@ class ConfigurationFragment @JvmOverloads constructor(
         }
         test.cancel = {
             test.dialogStatus.set(2)
-            // the activity may already be destroyed when the appScope test
-            // job finishes; dismiss() then throws "not attached to window manager"
+            // appScope 上的测试任务结束时 activity 可能已销毁，
+            // 这时 dismiss() 会抛 "not attached to window manager"
             runCatching { dialog.dismiss() }
             runOnDefaultDispatcher {
                 mainJob.cancel()
                 testJobs.forEach { it.cancel() }
-                // status-only write: the snapshot was read at test start, a
-                // full-row update would roll back tx/rx persisted by :bg since
+                // 只写状态：快照是测试开始时读的，整行更新会把 :bg 之后
+                // 写入的 tx/rx 回滚
                 test.results.forEach {
                     try {
                         ProfileRepository.updateStatus(it)
