@@ -2,14 +2,17 @@
 
 package io.nekohasekai.sagernet.ktx
 
+import android.net.Network
 import android.os.SystemClock
 import io.nekohasekai.sagernet.BuildConfig
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.async
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import libcore.Libcore
 import moe.matsuri.nb4a.utils.NGUtil
 import okhttp3.HttpUrl
@@ -151,6 +154,33 @@ suspend fun lookupViaNameserver(nameserver: String?, domain: String): List<InetA
         null
     }
 }
+
+// 系统解析：network 非空时走它（绕过 VPN），否则用进程默认解析器。两条
+// getAllByName 都是没有超时的阻塞 JNI 调用，协程取消也打不断，会一直攥住
+// 调用方的线程。把它挂到 appScope 上跑、这里只等 10 秒（与 lookupViaNameserver
+// 的原生十秒预算一致）：超时按解析失败处理并取消 lookup——还没开跑的不再执行，
+// 已在跑的在解析器返回后自行结束，结果直接丢弃。
+// Job.cancel() 成员与同名 CoroutineScope 扩展（通配 import）同时可见：编译期
+// 恒解析到成员，lint 的跨环境歧义警告在此不适用（同 BaseService.destroyRunner）
+@Suppress("MemberExtensionConflict")
+suspend fun lookupSystem(domain: String, network: Network?): List<InetAddress> {
+    val resolve: (String) -> Array<InetAddress> = network?.let { it::getAllByName }
+        ?: InetAddress::getAllByName
+    val lookup = appScope.async(Dispatchers.IO) {
+        runCatching { resolve(domain).filterNotNull() }.getOrDefault(emptyList())
+    }
+    return withTimeoutOrNull(10_000L) { lookup.await() } ?: run {
+        lookup.cancel()
+        Logs.w("DNS lookup for $domain timed out")
+        emptyList()
+    }
+}
+
+// 节点域名解析（订阅解析与 ping 测试共用）：分组配了节点解析 DNS 时优先使用，
+// 没配或失败时回退系统解析
+suspend fun lookupServerAddress(
+    domain: String, groupNameserver: String?, network: Network?,
+): List<InetAddress> = lookupViaNameserver(groupNameserver, domain) ?: lookupSystem(domain, network)
 
 // Ports handed out but not yet bound by their consumer (external cores bind only
 // after process spawn). Keep them out of rotation so concurrent callers — e.g.

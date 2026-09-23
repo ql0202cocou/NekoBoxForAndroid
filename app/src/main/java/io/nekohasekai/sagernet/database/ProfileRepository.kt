@@ -18,8 +18,8 @@ object ProfileRepository {
 
     fun countProfilesByGroup(groupId: Long): Long = SagerDatabase.proxyDao.countByGroup(groupId)
 
-    suspend fun createProfile(groupId: Long, bean: AbstractBean, core: Int = 0): ProxyEntity =
-        ProfileManager.createProfile(groupId, bean, core)
+    suspend fun createProfiles(groupId: Long, beans: List<AbstractBean>): List<ProxyEntity> =
+        ProfileManager.createProfiles(groupId, beans)
 
     fun updateUserOrders(profiles: Collection<ProxyEntity>) =
         ProfileManager.updateUserOrders(profiles)
@@ -27,7 +27,7 @@ object ProfileRepository {
     suspend fun deleteProfiles(profiles: List<ProxyEntity>) =
         ProfileManager.deleteProfiles(profiles)
 
-    suspend fun updateStatus(profile: ProxyEntity) = ProfileManager.updateStatus(profile)
+    suspend fun updateStatus(profiles: List<ProxyEntity>) = ProfileManager.updateStatus(profiles)
 
     suspend fun postUpdate(profile: ProxyEntity, noTraffic: Boolean = false) =
         ProfileManager.postUpdate(profile, noTraffic)

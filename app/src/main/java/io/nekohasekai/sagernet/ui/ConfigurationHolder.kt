@@ -18,6 +18,7 @@ import io.nekohasekai.sagernet.aidl.TrafficData
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.ProxyEntity
+import io.nekohasekai.sagernet.fmt.displayType
 import io.nekohasekai.sagernet.fmt.toUniversalLink
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.alert
@@ -59,7 +60,7 @@ class ConfigurationHolder(
     val removeButton: ImageView = view.findViewById(R.id.remove)
 
     fun bind(proxyEntity: ProxyEntity, trafficData: TrafficData? = null) {
-        val pf = groupFragment.parentFragment as? ConfigurationFragment ?: return
+        if (groupFragment.parentFragment !is ConfigurationFragment) return
 
         entity = proxyEntity
 
@@ -103,64 +104,7 @@ class ConfigurationHolder(
         profileType.text = proxyEntity.displayType()
         profileType.setTextColor(groupFragment.requireContext().getProtocolColor(proxyEntity.type))
 
-        var rx = proxyEntity.rx
-        var tx = proxyEntity.tx
-        if (trafficData != null) {
-            // use new data
-            tx = trafficData.tx
-            rx = trafficData.rx
-        }
-
-        val showTraffic = rx + tx != 0L
-        trafficText.isVisible = showTraffic
-        if (showTraffic) {
-            trafficText.text = view.context.getString(
-                R.string.traffic,
-                Formatter.formatFileSize(view.context, tx),
-                Formatter.formatFileSize(view.context, rx)
-            )
-        }
-
-        var address = proxyEntity.displayAddress()
-        if (showTraffic && address.length >= 30) {
-            address = address.substring(0, 27) + "..."
-        }
-
-        if (proxyEntity.requireBean().name.isBlank() || !pf.alwaysShowAddress) {
-            address = ""
-        }
-
-        profileAddress.text = address
-        (trafficText.parent as View).isGone =
-            (!showTraffic || proxyEntity.status <= 0) && address.isBlank()
-
-        if (proxyEntity.status <= 0) {
-            if (showTraffic) {
-                profileStatus.text = trafficText.text
-                profileStatus.setTextColor(groupFragment.requireContext().getColorAttr(android.R.attr.textColorSecondary))
-                trafficText.text = ""
-            } else {
-                profileStatus.text = ""
-            }
-        } else if (proxyEntity.status == 1) {
-            profileStatus.text = groupFragment.getString(R.string.available, proxyEntity.ping)
-            profileStatus.setTextColor(groupFragment.requireContext().getColour(R.color.material_green_500))
-        } else {
-            profileStatus.setTextColor(groupFragment.requireContext().getColour(R.color.material_red_500))
-            if (proxyEntity.status == 2) {
-                profileStatus.text = proxyEntity.error
-            }
-        }
-
-        if (proxyEntity.status == 3) {
-            val err = proxyEntity.error ?: "<?>"
-            profileStatus.text = groupFragment.requireContext().unavailableText(err)
-            profileStatus.setOnClickListener {
-                groupFragment.alert(err).tryToShow()
-            }
-        } else {
-            profileStatus.setOnClickListener(null)
-        }
+        bindTraffic(trafficData ?: ProfileManager.liveTraffic[proxyEntity.id])
 
         editButton.setOnClickListener {
             it.context.startActivity(
@@ -234,6 +178,72 @@ class ConfigurationHolder(
             }
         }
 
+    }
+
+    // 流量、地址与状态这一段：TrafficLooper 前台时每秒推一次流量，只重画这里，
+    // 不重跑 bind 的监听器设置和选中状态查询
+    fun bindTraffic(trafficData: TrafficData? = null) {
+        val pf = groupFragment.parentFragment as? ConfigurationFragment ?: return
+        val proxyEntity = entity
+
+        var rx = proxyEntity.rx
+        var tx = proxyEntity.tx
+        if (trafficData != null) {
+            // use new data
+            tx = trafficData.tx
+            rx = trafficData.rx
+        }
+
+        val showTraffic = rx + tx != 0L
+        trafficText.isVisible = showTraffic
+        if (showTraffic) {
+            trafficText.text = view.context.getString(
+                R.string.traffic,
+                Formatter.formatFileSize(view.context, tx),
+                Formatter.formatFileSize(view.context, rx)
+            )
+        }
+
+        var address = proxyEntity.displayAddress()
+        if (showTraffic && address.length >= 30) {
+            address = address.substring(0, 27) + "..."
+        }
+
+        if (proxyEntity.requireBean().name.isBlank() || !pf.alwaysShowAddress) {
+            address = ""
+        }
+
+        profileAddress.text = address
+        (trafficText.parent as View).isGone =
+            (!showTraffic || proxyEntity.status <= 0) && address.isBlank()
+
+        if (proxyEntity.status <= 0) {
+            if (showTraffic) {
+                profileStatus.text = trafficText.text
+                profileStatus.setTextColor(groupFragment.requireContext().getColorAttr(android.R.attr.textColorSecondary))
+                trafficText.text = ""
+            } else {
+                profileStatus.text = ""
+            }
+        } else if (proxyEntity.status == 1) {
+            profileStatus.text = groupFragment.getString(R.string.available, proxyEntity.ping)
+            profileStatus.setTextColor(groupFragment.requireContext().getColour(R.color.material_green_500))
+        } else {
+            profileStatus.setTextColor(groupFragment.requireContext().getColour(R.color.material_red_500))
+            if (proxyEntity.status == 2) {
+                profileStatus.text = proxyEntity.error
+            }
+        }
+
+        if (proxyEntity.status == 3) {
+            val err = proxyEntity.error ?: "<?>"
+            profileStatus.text = groupFragment.requireContext().unavailableText(err)
+            profileStatus.setOnClickListener {
+                groupFragment.alert(err).tryToShow()
+            }
+        } else {
+            profileStatus.setOnClickListener(null)
+        }
     }
 
     var currentName = ""

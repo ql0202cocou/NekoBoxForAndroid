@@ -6,10 +6,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
-	"slices"
 	"strings"
 	"sync/atomic"
-	_ "unsafe"
 
 	"log"
 
@@ -19,9 +17,6 @@ import (
 	"github.com/sagernet/sing-box/nekoutils"
 	"github.com/sagernet/sing-box/option"
 )
-
-//go:linkname resourcePaths github.com/sagernet/sing-box/constant.resourcePaths
-var resourcePaths []string
 
 // assetsReady 在 InitCore 的后台初始化完成（加载自定义 CA，:bg 进程解压
 // APK 资产）后关闭；NewSingBoxInstance 会等待它，否则首次安装时
@@ -109,10 +104,6 @@ func InitCore(process, cachePath, internalAssets, externalAssets string,
 	protectPath := filepath.Join(tmp, "protect_path")
 	protectSocketPath.Store(&protectPath)
 
-	// sing-box fs
-	if !slices.Contains(resourcePaths, externalAssets) {
-		resourcePaths = append(resourcePaths, externalAssets)
-	}
 	externalAssetsPath.Store(externalAssets)
 	internalAssetsPath.Store(internalAssets)
 

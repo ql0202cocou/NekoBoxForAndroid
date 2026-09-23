@@ -42,6 +42,15 @@ class AssetsActivity : ThemedActivity() {
     // same file libcore locks around its extraction (assets_lock.go)
     private val assetsLock get() = File(app.filesDir, "assets.lock")
 
+    // 导入与在线更新共用的发布步骤：在 libcore 解压同一文件时持有的锁下
+    // 把临时文件 rename 就位并写版本文件
+    private fun publishAsset(tmpFile: File, target: File, version: String) {
+        lockFile(assetsLock) {
+            if (!tmpFile.renameTo(target)) throw IOException("cannot replace ${target.name}")
+            File(target.parentFile, target.nameWithoutExtension + ".version.txt").writeText(version)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -159,12 +168,7 @@ class AssetsActivity : ThemedActivity() {
                         contentResolver.openInputStream(file)?.use(tmpFile.outputStream())
                             ?: error("cannot open $fileName")
                     }
-                    // publish under the lock libcore holds while extracting the same file
-                    lockFile(assetsLock) {
-                        if (!tmpFile.renameTo(outFile)) error("cannot replace " + outFile.name)
-                        File(outFile.parentFile, outFile.nameWithoutExtension + ".version.txt")
-                            .writeText("Custom")
-                    }
+                    publishAsset(tmpFile, outFile, "Custom")
 
                     adapter.reloadAssets()
                     if (isCertificate) onMainDispatcher { needRestart() }
@@ -298,7 +302,7 @@ class AssetsActivity : ThemedActivity() {
                 binding.rulesUpdate.isInvisible = true
                 lifecycleScope.launch(Dispatchers.Default) {
                     runCatching {
-                        updateAsset(targetFile, versionFile, localVersion)
+                        updateAsset(targetFile, localVersion)
                     }.onFailure {
                         onMainDispatcher {
                             if (!isFinishing && !isDestroyed) {
@@ -343,7 +347,7 @@ class AssetsActivity : ThemedActivity() {
         ),
     )
 
-    suspend fun updateAsset(file: File, versionFile: File, localVersion: String) {
+    suspend fun updateAsset(file: File, localVersion: String) {
         val fileName = file.name
 
         // a settings backup from another build can carry an out-of-range index
@@ -397,14 +401,8 @@ class AssetsActivity : ThemedActivity() {
 
             try {
                 response.writeTo(cacheFile.canonicalPath)
-                // only the publish runs under the lock: holding it through the download
-                // would stall a :bg start waiting to extract the same file
-                lockFile(assetsLock) {
-                    if (!cacheFile.renameTo(file)) {
-                        throw IOException("cannot replace ${file.absolutePath}")
-                    }
-                    versionFile.writeText(tagName)
-                }
+                // 只有发布在锁内：下载期间持锁会卡住等着解压同一文件的 :bg 启动
+                publishAsset(cacheFile, file, tagName)
             } finally {
                 response.close()
                 // no-op after a successful rename; drops a truncated download otherwise

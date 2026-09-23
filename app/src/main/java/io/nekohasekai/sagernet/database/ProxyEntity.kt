@@ -20,7 +20,6 @@ import io.nekohasekai.sagernet.fmt.tuic.TuicBean
 import io.nekohasekai.sagernet.fmt.v2ray.*
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import io.nekohasekai.sagernet.ktx.app
-import moe.matsuri.nb4a.SingBoxOptions.MultiplexOptions
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.proxy.config.ConfigBean
 import moe.matsuri.nb4a.proxy.neko.*
@@ -204,23 +203,11 @@ data class ProxyEntity(
     }
 
 
-    // Share links and backup records: strict, so damaged bytes throw instead of
-    // importing as a half-filled bean (the Room column converters stay lenient)
-    fun putByteArray(byteArray: ByteArray) {
-        putBeanBytes(byteArray)
-    }
-
-    fun displayType(): String = protocolDisplayType()
-
     fun displayName() = requireBean().displayName()
     fun displayAddress() = requireBean().displayAddress()
 
     fun requireBean(): AbstractBean {
         return beanForType() ?: error("Null ${displayType()} profile")
-    }
-
-    fun haveLink(): Boolean {
-        return typeHasLink()
     }
 
     fun haveStandardLink(): Boolean = hasStandardLink(requireBean())
@@ -257,18 +244,6 @@ data class ProxyEntity(
     fun resolvedCore(): Int {
         if (core != CORE_AUTO) return core
         return coreForType()
-    }
-
-    fun needExternal(): Boolean {
-        return needsExternalCore()
-    }
-
-    fun singMux(): MultiplexOptions? {
-        return singMuxForType()
-    }
-
-    fun putBean(bean: AbstractBean): ProxyEntity {
-        return assignBean(bean)
     }
 
     @androidx.room.Dao

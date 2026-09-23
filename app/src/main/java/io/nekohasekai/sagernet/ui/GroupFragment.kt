@@ -2,7 +2,6 @@ package io.nekohasekai.sagernet.ui
 
 import android.content.Intent
 import android.os.Bundle
-import android.text.format.Formatter
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
@@ -20,6 +19,7 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.*
 import io.nekohasekai.sagernet.databinding.LayoutGroupItemBinding
+import io.nekohasekai.sagernet.fmt.haveLink
 import io.nekohasekai.sagernet.fmt.toUniversalLink
 import io.nekohasekai.sagernet.group.GroupUpdater
 import io.nekohasekai.sagernet.ktx.*
@@ -29,7 +29,6 @@ import io.nekohasekai.sagernet.widget.UndoSnackbarManager
 import kotlinx.coroutines.delay
 import moe.matsuri.nb4a.utils.Util
 import moe.matsuri.nb4a.utils.toBytesString
-import java.lang.NumberFormatException
 import java.util.*
 
 private const val KEY_SELECTED_GROUP = "selectedGroupId"
@@ -308,6 +307,8 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             }
         }
 
+        override suspend fun groupProgress(groupId: Long) = groupUpdated(groupId)
+
     }
 
     override fun onDestroy() {
@@ -440,79 +441,30 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                 editButton.isGone = proxyGroup.ungrouped
             }
 
+            // 流量与到期时间取 RawUpdater 从 Subscription-Userinfo 解析好的字段
             val subscription = proxyGroup.subscription
-            if (subscription != null && subscription.bytesUsed > 0L) { // SIP008 & Open Online Config
-                groupTraffic.isVisible = true
-                var text = if (subscription.bytesRemaining > 0L) {
-                    app.getString(
-                        R.string.subscription_traffic, Formatter.formatFileSize(
-                            app, subscription.bytesUsed
-                        ), Formatter.formatFileSize(
-                            app, subscription.bytesRemaining
-                        )
+            val lines = mutableListOf<String>()
+            if (subscription != null) {
+                val used = subscription.bytesUsed
+                val remain = subscription.bytesRemaining
+                if (remain > 0L) {
+                    lines += getString(
+                        R.string.subscription_traffic, used.toBytesString(), remain.toBytesString()
                     )
-                } else {
-                    app.getString(
-                        R.string.subscription_used, Formatter.formatFileSize(
-                            app, subscription.bytesUsed
-                        )
-                    )
+                } else if (used > 0L) {
+                    lines += getString(R.string.subscription_used, used.toBytesString())
                 }
                 if (subscription.expiryDate > 0) {
-                    text += "\n"
-                    text += getString(
+                    lines += getString(
                         R.string.subscription_expire,
                         Util.timeStamp2Text(subscription.expiryDate * 1000)
                     )
                 }
-                groupTraffic.text = text
+            }
+            if (lines.isNotEmpty()) {
+                groupTraffic.isVisible = true
+                groupTraffic.text = lines.joinToString("\n")
                 groupStatus.setPadding(0)
-            } else if (subscription != null && !subscription.subscriptionUserinfo.isNullOrBlank()) { // Raw
-                var text = ""
-
-                fun get(regex: String): String? {
-                    return regex.toRegex().findAll(subscription.subscriptionUserinfo).mapNotNull {
-                        if (it.groupValues.size > 1) it.groupValues[1] else null
-                    }.firstOrNull()
-                }
-
-                try {
-                    var used: Long = 0
-                    get("upload=([0-9]+)")?.apply {
-                        used += toLong()
-                    }
-                    get("download=([0-9]+)")?.apply {
-                        used += toLong()
-                    }
-                    val total = get("total=([0-9]+)")?.toLong() ?: 0
-                    val remain = total - used
-                    if (used > 0 || total > 0) {
-                        text += if (remain > 0) {
-                            getString(
-                                R.string.subscription_traffic,
-                                used.toBytesString(),
-                                remain.toBytesString()
-                            )
-                        } else {
-                            getString(R.string.subscription_used, used.toBytesString())
-                        }
-                    }
-                    get("expire=([0-9]+)")?.apply {
-                        text += "\n"
-                        text += getString(
-                            R.string.subscription_expire,
-                            Util.timeStamp2Text(this.toLong() * 1000)
-                        )
-                    }
-                } catch (_: NumberFormatException) {
-                    // ignore
-                }
-
-                if (text.isNotEmpty()) {
-                    groupTraffic.isVisible = true
-                    groupTraffic.text = text
-                    groupStatus.setPadding(0)
-                }
             } else {
                 groupTraffic.isVisible = false
                 groupStatus.setPadding(0, 0, 0, dp2px(4))

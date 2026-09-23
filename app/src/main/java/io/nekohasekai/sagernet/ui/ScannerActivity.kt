@@ -146,9 +146,7 @@ class ScannerActivity : ThemedActivity(),
         if (DataStore.selectedGroup != currentGroupId) {
             DataStore.selectedGroup = currentGroupId
         }
-        for (profile in results) {
-            ProfileManager.createProfile(currentGroupId, profile)
-        }
+        ProfileManager.createProfiles(currentGroupId, results)
         return results.size
     }
 

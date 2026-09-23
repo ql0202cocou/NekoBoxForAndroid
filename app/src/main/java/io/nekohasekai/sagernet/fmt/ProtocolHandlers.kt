@@ -86,9 +86,10 @@ import java.io.File
 // were moved verbatim from their call sites; a missing branch is intentional
 // unless proven otherwise — do not "complete" a table on sight.
 
-// type -> bean field, deserialized from kryo bytes (was ProxyEntity.putByteArray).
-// Unknown types are deliberately ignored: no else branch.
-fun ProxyEntity.putBeanBytes(byteArray: ByteArray) {
+// type -> bean 字段，从 kryo 字节反序列化。分享链接与备份记录走这里，
+// 严格解析：字节损坏直接抛异常，不导入半截 bean（Room 列转换器仍是宽松的）。
+// 未知类型刻意忽略，没有 else 分支
+fun ProxyEntity.putByteArray(byteArray: ByteArray) {
     fun <T : Serializable> load(bean: T): T? =
         if (byteArray.isEmpty()) null else KryoConverters.deserialize(bean, byteArray)
     when (type) {
@@ -112,8 +113,8 @@ fun ProxyEntity.putBeanBytes(byteArray: ByteArray) {
     }
 }
 
-// type -> human readable protocol name (was ProxyEntity.displayType)
-fun ProxyEntity.protocolDisplayType(): String = when (type) {
+// type -> 协议显示名
+fun ProxyEntity.displayType(): String = when (type) {
     TYPE_SOCKS -> socksBean!!.protocolName()
     TYPE_HTTP -> if (httpBean!!.isTLS()) "HTTPS" else "HTTP"
     TYPE_SS -> "Shadowsocks"
@@ -157,8 +158,8 @@ fun ProxyEntity.beanForType(): AbstractBean? = when (type) {
     else -> error("Undefined type $type")
 }
 
-// type -> whether the protocol has a share link at all (was ProxyEntity.haveLink)
-fun ProxyEntity.typeHasLink(): Boolean {
+// type -> 该协议是否有分享链接
+fun ProxyEntity.haveLink(): Boolean {
     return when (type) {
         TYPE_CHAIN -> false
         else -> true
@@ -181,9 +182,8 @@ fun ProxyEntity.coreForType(): Int {
     }
 }
 
-// type -> whether the profile runs on an external core process
-// (was ProxyEntity.needExternal)
-fun ProxyEntity.needsExternalCore(): Boolean {
+// type -> 该节点是否跑在外部核心进程上
+fun ProxyEntity.needExternal(): Boolean {
     return when (type) {
         TYPE_TROJAN_GO -> true
         TYPE_MIERU -> true
@@ -196,9 +196,8 @@ fun ProxyEntity.needsExternalCore(): Boolean {
     }
 }
 
-// type -> sing-box multiplex options, null for protocols without mux support
-// (was ProxyEntity.singMux)
-fun ProxyEntity.singMuxForType(): MultiplexOptions? {
+// type -> sing-box 多路复用选项，不支持 mux 的协议为 null
+fun ProxyEntity.singMux(): MultiplexOptions? {
     return when (type) {
         // vmess/vless/trojan share the StandardV2RayBean mux fields. Vision flow
         // doesn't support mux: vendored sing-box silently clears the flow when
@@ -217,9 +216,8 @@ fun ProxyEntity.singMuxForType(): MultiplexOptions? {
     }
 }
 
-// bean class -> type constant + bean field assignment (was ProxyEntity.putBean);
-// clears every bean field before setting the matching one
-fun ProxyEntity.assignBean(bean: AbstractBean): ProxyEntity {
+// bean 类 -> type 常量并写入对应 bean 字段；先清空所有 bean 字段再设置
+fun ProxyEntity.putBean(bean: AbstractBean): ProxyEntity {
     socksBean = null
     httpBean = null
     ssBean = null
@@ -362,13 +360,6 @@ fun buildSingBoxOutbound(bean: AbstractBean): SingBoxOption = when (bean) {
         buildSingBoxOutboundAnyTLSBean(bean)
 
     else -> throw IllegalStateException("can't reach")
-}
-
-// bean class -> external plugin id, "" when the protocol has no plugin
-// (was the pluginId when in ConfigBuilder.buildChain)
-fun externalPluginId(bean: AbstractBean): String = when (bean) {
-    is HysteriaBean -> if (bean.protocolVersion == 1) "hysteria-plugin" else "hysteria2-plugin"
-    else -> ""
 }
 
 // HysteriaBean keeps the real port in serverPorts; serverPort is a stale default

@@ -362,6 +362,8 @@ class MainActivity : ThemedActivity(),
         animate: Boolean = false,
     ) {
         ServiceRegistry.state = state
+        // 停止时终值已随 postFinalTraffic 落库，缓存的实时流量不再需要
+        if (state == BaseService.State.Stopped) ProfileManager.liveTraffic.clear()
 
         binding.fab.changeState(state, ServiceRegistry.state, animate)
         binding.stats.changeState(state)

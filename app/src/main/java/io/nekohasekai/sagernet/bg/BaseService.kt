@@ -296,8 +296,11 @@ class BaseService {
             return running >= 0 && selectorGroupIdOf(ent) == running
         }
 
+        // box.start() 在 IO 上跑，见 onStartCommand；子类覆盖时在主线程做完
+        // 自己的登记再调 super
         suspend fun startProcesses() {
-            data.proxy!!.launch()
+            val proxy = data.proxy!!
+            onIoDispatcher { proxy.launch() }
         }
 
         // 与 SagerNet.startService 同一层防御：Android 12+ 在后台抛
@@ -562,7 +565,12 @@ class BaseService {
 
                     onIoDispatcher { Executable.killAll() }    // clean up old processes (/proc IO off the main thread)
                     preInit()
-                    proxy.init()
+                    // 建配置、newSingBoxInstance（首启还要等资产解压）和 box.start()
+                    // （startProcesses）都是长时间阻塞调用，放到 IO 上免得卡住 :bg
+                    // 主线程（ANR）。stopRunner 先 cancelAndJoin 本协程，会等它们跑完
+                    // 再 close；destroyRunner 不等，init 期间的 close 由
+                    // ProxyInstance.init 补收，Go 侧 Start / Close 互斥
+                    onIoDispatcher { proxy.init() }
                     DataStore.currentProfile = profile.id
 
                     proxy.processes = GuardedProcessPool {

@@ -78,7 +78,7 @@ func TestExchangeHTTPSStatus(t *testing.T) {
 			}
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(status); w.Write(body) }))
 			defer server.Close()
-			_, err = exchangeHTTPS(context.Background(), server.URL, query)
+			_, err = exchangeHTTPS(context.Background(), false, server.URL, query)
 			if status == 200 && err != nil {
 				t.Fatal(err)
 			}

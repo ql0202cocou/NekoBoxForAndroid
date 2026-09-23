@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +15,8 @@ import (
 	"time"
 
 	mDNS "github.com/miekg/dns"
+	"github.com/sagernet/quic-go"
+	"github.com/sagernet/quic-go/http3"
 )
 
 // LookupTask runs LookupHosts off the calling thread so Kotlin can cancel the
@@ -134,8 +137,10 @@ func lookupHostType(ctx context.Context, server string, domain string, queryType
 			TLSConfig: &tls.Config{ServerName: host},
 		}
 		response, err = exchangeCancellable(ctx, client, query, address)
-	case "https":
-		response, err = exchangeHTTPS(ctx, server, query)
+	case "quic":
+		response, err = exchangeQUIC(ctx, withDefaultPort(address, "853"), query)
+	case "https", "h3":
+		response, err = exchangeHTTPS(ctx, scheme == "h3", server, query)
 	default:
 		err = fmt.Errorf("unsupported DNS server: %s", server)
 	}
@@ -207,10 +212,19 @@ func noProxyTransport() *http.Transport {
 	return transport
 }
 
-func exchangeHTTPS(ctx context.Context, server string, query *mDNS.Msg) (*mDNS.Msg, error) {
+// h3 为 true 时走 DNS over HTTP/3：地址写作 h3://host/path，按 https 发请求，
+// 每次查询用一个临时的 http3.Transport，查完关闭以释放 UDP socket
+func exchangeHTTPS(ctx context.Context, h3 bool, server string, query *mDNS.Msg) (*mDNS.Msg, error) {
 	body, err := query.Pack()
 	if err != nil {
 		return nil, err
+	}
+	client := dohClient
+	if h3 {
+		server = "https://" + strings.TrimPrefix(server, "h3://")
+		transport := &http3.Transport{}
+		defer transport.Close()
+		client = &http.Client{Timeout: dohClient.Timeout, Transport: transport}
 	}
 	req, err := http.NewRequestWithContext(ctx, "POST", server, bytes.NewReader(body))
 	if err != nil {
@@ -218,7 +232,7 @@ func exchangeHTTPS(ctx context.Context, server string, query *mDNS.Msg) (*mDNS.M
 	}
 	req.Header.Set("Content-Type", "application/dns-message")
 	req.Header.Set("Accept", "application/dns-message")
-	resp, err := dohClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -232,4 +246,58 @@ func exchangeHTTPS(ctx context.Context, server string, query *mDNS.Msg) (*mDNS.M
 	}
 	response := new(mDNS.Msg)
 	return response, response.Unpack(data)
+}
+
+// exchangeQUIC 按 RFC 9250（DNS over QUIC）发一次查询：每个查询独占一条双向流，
+// 报文前加 2 字节长度，Message ID 必须为 0。ctx 结束时直接关连接，让阻塞中的
+// 读写立刻返回（同 exchangeCancellable）
+func exchangeQUIC(ctx context.Context, address string, query *mDNS.Msg) (*mDNS.Msg, error) {
+	host, _, _ := net.SplitHostPort(address)
+	conn, err := quic.DialAddr(ctx, address, &tls.Config{ServerName: host, NextProtos: []string{"doq"}}, nil)
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+		return nil, err
+	}
+	defer conn.CloseWithError(0, "")
+	stop := context.AfterFunc(ctx, func() { conn.CloseWithError(0, "") })
+	defer stop()
+
+	response, err := func() (*mDNS.Msg, error) {
+		stream, err := conn.OpenStreamSync(ctx)
+		if err != nil {
+			return nil, err
+		}
+		query = query.Copy()
+		query.Id = 0
+		body, err := query.Pack()
+		if err != nil {
+			return nil, err
+		}
+		packet := binary.BigEndian.AppendUint16(make([]byte, 0, 2+len(body)), uint16(len(body)))
+		if _, err = stream.Write(append(packet, body...)); err != nil {
+			return nil, err
+		}
+		// 只关发送方向，告诉服务端查询已发完
+		if err = stream.Close(); err != nil {
+			return nil, err
+		}
+		var length uint16
+		if err = binary.Read(stream, binary.BigEndian, &length); err != nil {
+			return nil, err
+		}
+		data := make([]byte, length)
+		if _, err = io.ReadFull(stream, data); err != nil {
+			return nil, err
+		}
+		response := new(mDNS.Msg)
+		return response, response.Unpack(data)
+	}()
+	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+	}
+	return response, err
 }

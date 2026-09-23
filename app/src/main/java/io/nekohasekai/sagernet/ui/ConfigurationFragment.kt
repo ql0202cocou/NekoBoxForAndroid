@@ -28,6 +28,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.fmt.AbstractBean
+import io.nekohasekai.sagernet.fmt.displayType
 import io.nekohasekai.sagernet.group.GroupUpdater
 import io.nekohasekai.sagernet.group.RawUpdater
 import io.nekohasekai.sagernet.ktx.MAX_IMPORT_BYTES
@@ -38,7 +39,7 @@ import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.confirm
 import io.nekohasekai.sagernet.ktx.displayName
 import io.nekohasekai.sagernet.ktx.isIpAddress
-import io.nekohasekai.sagernet.ktx.lookupViaNameserver
+import io.nekohasekai.sagernet.ktx.lookupServerAddress
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
@@ -63,7 +64,6 @@ import moe.matsuri.nb4a.ui.ConnectionTestNotification
 import java.io.FileNotFoundException
 import java.net.InetSocketAddress
 import java.net.Socket
-import java.net.UnknownHostException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean
@@ -311,9 +311,7 @@ class ConfigurationFragment @JvmOverloads constructor(
 
     suspend fun import(proxies: List<AbstractBean>) {
         val targetId = GroupManager.selectedGroupForImport()
-        for (proxy in proxies) {
-            ProfileRepository.createProfile(targetId, proxy)
-        }
+        ProfileRepository.createProfiles(targetId, proxies)
         onMainDispatcher {
             // Same tab switch the PROFILE_GROUP cache listener performs; the
             // view (and its adapter) may be gone for an appScope caller
@@ -492,15 +490,8 @@ class ConfigurationFragment @JvmOverloads constructor(
             val address = if (domain.isIpAddress()) domain else {
                 resolvedAddresses.getOrPut(domain) {
                     // 组里配了节点解析 DNS（如 DoH）时优先使用，伪造域名也能解析
-                    val results = lookupViaNameserver(
-                        group.proxyServerNameserver, domain
-                    ) ?: try {
-                        SagerNet.underlyingNetwork?.getAllByName(domain)?.toList()
-                            ?: emptyList()
-                    } catch (ignored: UnknownHostException) {
-                        emptyList()
-                    }
-                    results.firstOrNull()?.hostAddress ?: domain
+                    lookupServerAddress(domain, group.proxyServerNameserver, SagerNet.underlyingNetwork)
+                        .firstOrNull()?.hostAddress ?: domain
                 }
             }
             if (!isActive) return@runGroupTest false
@@ -580,7 +571,6 @@ class ConfigurationFragment @JvmOverloads constructor(
     ) {
         if (!runningTest.compareAndSet(false, true)) return
         val test = TestDialog(this)
-        val dialog = test.builder.show()
         val testJobs = mutableListOf<Job>()
         val group = GroupManager.currentGroup()
 
@@ -607,20 +597,16 @@ class ConfigurationFragment @JvmOverloads constructor(
         }
         test.cancel = {
             test.dialogStatus.set(2)
-            // appScope 上的测试任务结束时 activity 可能已销毁，
-            // 这时 dismiss() 会抛 "not attached to window manager"
-            runCatching { dialog.dismiss() }
+            test.dismiss()
             runOnDefaultDispatcher {
                 mainJob.cancel()
                 testJobs.forEach { it.cancel() }
                 // 只写状态：快照是测试开始时读的，整行更新会把 :bg 之后
-                // 写入的 tx/rx 回滚
-                test.results.forEach {
-                    try {
-                        ProfileRepository.updateStatus(it)
-                    } catch (e: Exception) {
-                        Logs.w(e)
-                    }
+                // 写入的 tx/rx 回滚。整批一个事务，随后整组重读一次刷新列表
+                try {
+                    ProfileRepository.updateStatus(test.results.toList())
+                } catch (e: Exception) {
+                    Logs.w(e)
                 }
                 GroupRepository.postReload(GroupManager.currentGroupId())
                 runningTest.set(false)
@@ -628,11 +614,12 @@ class ConfigurationFragment @JvmOverloads constructor(
         }
         test.minimize = {
             test.dialogStatus.set(1)
+            // 通知用 application context：测试任务可能比当前 Activity 活得久
             test.notification = ConnectionTestNotification(
-                dialog.context,
-                "[${group.displayName()}] ${getString(R.string.connection_test)}"
+                app,
+                "[${group.displayName()}] ${app.getString(R.string.connection_test)}"
             )
-            dialog.hide()
+            test.hide()
         }
     }
 

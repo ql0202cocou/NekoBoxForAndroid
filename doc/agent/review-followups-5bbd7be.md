@@ -2,7 +2,7 @@
 
 状态：**5 项全部已于 2026-09-20 处理完毕**。
 验证依据：`app:compileOssDebugKotlin`、`app:testOssDebugUnitTest`、
-`app:lintOssRelease`（checkAllWarnings = warningsAsErrors）均通过（未提交，改动在工作区）。
+`app:lintOssRelease`（checkAllWarnings = warningsAsErrors）均通过；已随 `25b7aa3` 合入 main，1.7.5-a5 发布。
 
 ## 处理结果
 

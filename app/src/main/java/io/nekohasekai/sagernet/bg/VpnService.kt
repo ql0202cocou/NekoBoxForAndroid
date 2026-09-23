@@ -187,8 +187,10 @@ class VpnService : BaseVpnService(),
         var bypass = DataStore.bypass
         // read once: proxy is cleared on the main thread during shutdown
         val proxy = data.proxy ?: error("proxy not started")
-        val needBypassRootUid = proxy.config.trafficMap.values.any {
-            it[0].hysteriaBean?.protocol == HysteriaBean.PROTOCOL_FAKETCP
+        // faketcp 插件以 root（su -c）运行，链里任一位置出现都要放行 root uid；
+        // 有前置 / 落地代理时它不在 it[0]
+        val needBypassRootUid = proxy.config.trafficMap.values.any { chain ->
+            chain.any { it.hysteriaBean?.protocol == HysteriaBean.PROTOCOL_FAKETCP }
         }
 
         if (proxyApps || needBypassRootUid) {

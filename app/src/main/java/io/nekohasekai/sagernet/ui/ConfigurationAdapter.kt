@@ -13,6 +13,7 @@ import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.database.SagerDatabase
+import io.nekohasekai.sagernet.fmt.displayType
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.moveUserOrder
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
@@ -183,25 +184,10 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
             if (groupFragment.isUndoManagerInitialized) {
                 groupFragment.undoManager.flush()
             }
-            // read before the put below: noTraffic means this update
-            // carries no live counters, so the previously displayed ones
-            // have to be re-posted — reading after the put would just
-            // hand back the incoming profile's stale DB values
-            val oldProfile = configurationList[profile.id]
+            // 库里的 tx/rx 可能落后于实时流量，重绑时 bind 会优先取
+            // ProfileManager.liveTraffic，noTraffic 不必再单独补发
             configurationList[profile.id] = profile
             notifyItemChanged(index)
-            //
-            if (noTraffic && oldProfile != null) {
-                runOnDefaultDispatcher {
-                    onUpdated(
-                        TrafficData(
-                            id = profile.id,
-                            rx = oldProfile.rx,
-                            tx = oldProfile.tx
-                        )
-                    )
-                }
-            }
         }
     }
 
@@ -214,7 +200,7 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
                 if (index != -1) {
                     val holder = groupFragment.layoutManager.findViewByPosition(index)
                         ?.let { groupFragment.configurationListView.getChildViewHolder(it) } as ConfigurationHolder?
-                    holder?.bind(holder.entity, data)
+                    holder?.bindTraffic(data)
                 }
             } catch (e: Exception) {
                 Logs.w(e)
@@ -254,8 +240,8 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
     fun reloadProfiles() {
         var newProfiles = SagerDatabase.proxyDao.getByGroup(groupFragment.proxyGroup.id)
         if (groupFragment.select && groupFragment.noChain) {
-            // a chain cannot be a group's front/landing proxy:
-            // resolveChain() adds it raw and buildChain has no ChainBean branch
+            // 分组的前置 / 落地代理暂不开放选链。ConfigBuild.resolveChain
+            // 已能把链展开成成员，是否放开待定
             newProfiles = newProfiles.filter { it.type != ProxyEntity.TYPE_CHAIN }
         }
         when (groupFragment.proxyGroup.order) {
@@ -280,6 +266,10 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
         }
 
         groupFragment.configurationListView.post {
+            // 整组重读会把撤销窗口里待删的行重新放回列表，先把它提交掉
+            if (groupFragment.isUndoManagerInitialized) {
+                groupFragment.undoManager.flush()
+            }
             // mutate the lists on the main thread: this runs on a
             // background dispatcher while the main thread reads them
             configurationList.clear()

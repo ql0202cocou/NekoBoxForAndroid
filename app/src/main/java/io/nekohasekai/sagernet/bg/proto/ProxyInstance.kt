@@ -31,6 +31,12 @@ class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = 
 
     override suspend fun init() {
         super.init()
+        // init 跑在 IO 上，destroyRunner 的 close() 可能与它并发：box 还没赋值时
+        // close() 跳过了它，这里补收，launch() 也会因 isClosed() 直接返回
+        if (isClosed()) {
+            closeAfterLateInit()
+            return
+        }
         pluginConfigs.forEach { (_, plugin) ->
             val (_, content) = plugin
             Logs.d(Util.redactSecrets(content))
@@ -42,6 +48,10 @@ class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = 
         // main instance (and start the protect server) on its way out
         if (isClosed()) return
         box.setAsMain()
+        // 流量统计服务在 box.start() 之前装上，见 TrafficLooper.statsTags
+        if (service != null && TrafficLooper.enabled()) {
+            box.setV2rayStats(TrafficLooper.statsTags(config))
+        }
         super.launch() // start box
         runOnDefaultDispatcher {
             // The service may have stopped before this block runs; creating a

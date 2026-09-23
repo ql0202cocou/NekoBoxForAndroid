@@ -9,6 +9,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_CONFIG
 import io.nekohasekai.sagernet.database.RuleEntity
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.fmt.ConfigBuildResult.IndexEntity
+import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.fmt.internal.ChainBean
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.isIpAddress
@@ -217,12 +218,15 @@ private class ConfigBuild(
                 Logs.w("group $groupId landing proxy ${thisGroup.landingProxy} no longer exists, ignored")
             }
         }
+        // 列表是倒序的（末尾是第一跳）。前置 / 落地代理本身是链时展开成成员，
+        // 否则原样加进来的 ChainBean 会在 buildHopOutbound 报 "can't reach"；
+        // 选择器虽不让选链，导入的备份或旧数据里仍可能有
         val list = resolveChainInternal()
         if (frontProxy != null) {
-            list.add(frontProxy)
+            list.addAll(frontProxy.resolveChainInternal())
         }
         if (landingProxy != null) {
-            list.add(0, landingProxy)
+            list.addAll(0, landingProxy.resolveChainInternal())
         }
         return list
     }
@@ -633,7 +637,8 @@ private class ConfigBuild(
             // With ss protect, don't use mapping
             var needExternal = true
             if (index == chain.profileList.lastIndex) {
-                val pluginId = externalPluginId(bean)
+                // 只有 hysteria 走 Matsuri exe 免映射；其余协议沿用空 id（不查插件）
+                val pluginId = if (bean is HysteriaBean) externalCore(bean)!!.pluginId else ""
                 if (Plugins.isUsingMatsuriExe(pluginId)) {
                     needExternal = false
                 } else if (Plugins.getPluginExternal(pluginId) != null) {

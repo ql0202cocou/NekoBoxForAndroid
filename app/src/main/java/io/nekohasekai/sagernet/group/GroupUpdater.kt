@@ -51,16 +51,18 @@ abstract class GroupUpdater {
         val progress = Progress(profiles.size)
         if (groupId != null) {
             GroupUpdater.progress[groupId] = progress
-            GroupManager.postReload(groupId)
+            GroupManager.postProgress(groupId)
         }
         val ipv6First = ipv6Mode >= IPv6Mode.PREFER
 
+        // 同一订阅里的节点常共用域名：每个域名只解析一次，结果套用到所有同域名节点
+        val byDomain = profiles.filter {
+            supportsAddressRewrite(it) && !it.serverAddress.isIpAddress()
+        }.groupBy { it.serverAddress }
+
         try {
             coroutineScope {
-                for (profile in profiles) {
-                    if (!supportsAddressRewrite(profile)) continue
-                    if (profile.serverAddress.isIpAddress()) continue
-
+                for ((domain, sameDomain) in byDomain) {
                     launch(lookupPool) {
                         try {
                             val results = if (
@@ -70,54 +72,27 @@ abstract class GroupUpdater {
                                 DataStore.serviceMode == Key.MODE_VPN
                             ) {
                                 // FakeDNS
-                                lookupBlocking(
-                                    profile.serverAddress,
-                                    SagerNet.underlyingNetwork!!::getAllByName
-                                )
+                                lookupSystem(domain, SagerNet.underlyingNetwork)
                             } else {
-                                // 分组指定了节点解析 DNS 时优先使用，失败回退系统 DNS
                                 // System DNS is enough (when VPN connected, it uses v2ray-core)
-                                lookupViaNameserver(groupNameserver, profile.serverAddress)
-                                    ?: lookupBlocking(profile.serverAddress, InetAddress::getAllByName)
+                                lookupServerAddress(domain, groupNameserver, null)
                             }
                             if (results.isEmpty()) error("empty response")
-                            rewriteAddress(profile, results, ipv6First)
+                            for (profile in sameDomain) rewriteAddress(profile, results, ipv6First)
                         } catch (e: CancellationException) {
                             throw e
                         } catch (e: Exception) {
-                            Logs.d("Lookup ${profile.serverAddress} failed: ${e.readableMessage}", e)
+                            Logs.d("Lookup $domain failed: ${e.readableMessage}", e)
                         }
                         if (groupId != null) {
-                            progress.progressAtomic.incrementAndGet()
-                            GroupManager.postReload(groupId)
+                            progress.progressAtomic.addAndGet(sameDomain.size)
+                            GroupManager.postProgress(groupId)
                         }
                     }
                 }
             }
         } finally {
             lookupPool.close()
-        }
-    }
-
-    // 系统解析器与 FakeDNS 下的 underlyingNetwork 两条 getAllByName 都是没有
-    // 超时的阻塞 JNI 调用，协程取消也打不断，会一直攥住 lookupPool 线程
-    //（coroutineScope 挂住期间更新持有跨进程文件锁）。把它挂到 appScope 上跑、
-    // 这里只等 10 秒（与 lookupViaNameserver 的原生十秒预算一致）：超时按解析
-    // 失败处理并取消 lookup——还没开跑的不再执行，已在跑的在解析器返回后
-    // 自行结束，结果直接丢弃。
-    // Job.cancel() 成员与同名 CoroutineScope 扩展（通配 import）同时可见：编译期
-    // 恒解析到成员，lint 的跨环境歧义警告在此不适用（同 BaseService.destroyRunner）
-    @Suppress("MemberExtensionConflict")
-    private suspend fun lookupBlocking(
-        domain: String, resolve: (String) -> Array<InetAddress>
-    ): List<InetAddress> {
-        val lookup = appScope.async(Dispatchers.IO) {
-            runCatching { resolve(domain).filterNotNull() }.getOrDefault(emptyList())
-        }
-        return withTimeoutOrNull(10_000L) { lookup.await() } ?: run {
-            lookup.cancel()
-            Logs.w("DNS lookup for $domain timed out")
-            emptyList()
         }
     }
 

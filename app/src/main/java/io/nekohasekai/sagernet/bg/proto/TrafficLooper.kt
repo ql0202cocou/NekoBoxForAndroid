@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.bg.proto
 
+import android.os.IBinder
 import io.nekohasekai.sagernet.aidl.SpeedDisplayData
 import io.nekohasekai.sagernet.aidl.TrafficData
 import io.nekohasekai.sagernet.bg.BaseService
@@ -7,6 +8,7 @@ import io.nekohasekai.sagernet.bg.SagerConnection
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.ProxyEntity
+import io.nekohasekai.sagernet.fmt.ConfigBuildResult
 import io.nekohasekai.sagernet.fmt.TAG_BYPASS
 import io.nekohasekai.sagernet.fmt.TAG_PROXY
 import io.nekohasekai.sagernet.ktx.Logs
@@ -35,6 +37,10 @@ class TrafficLooper(val data: BaseService.Data) {
     // NativeInterface.selector_OnProxySelected) reads/writes them on another thread
     private val idMap = ConcurrentHashMap<Long, TrafficUpdater.TrafficLooperData>() // id to 1 data
     private val tagMap = ConcurrentHashMap<String, TrafficUpdater.TrafficLooperData>() // tag to 1 data
+
+    // 只在 loop 协程里读写：上一轮推给前台的各节点流量，以及已收过全量的前台回调
+    private val postedTraffic = HashMap<Long, Pair<Long, Long>>()
+    private val postedTo = HashSet<IBinder>()
 
     suspend fun stop() {
         if (stopLoop()) postFinalTraffic()
@@ -101,11 +107,19 @@ class TrafficLooper(val data: BaseService.Data) {
         if (stopped.get()) job?.cancel()
     }
 
-    private companion object {
+    companion object {
         // selectorNowId 的哨兵初值：表示 selector 尚未发生过任何选择。
         // 只要求不是 idMap 的有效键——不能是保留键 -1（bypass 项），
         // 也不可能是真实 profile id（Room 自增 id 从 1 开始）
-        const val SELECTOR_ID_NONE = -2L
+        private const val SELECTOR_ID_NONE = -2L
+
+        // loop() 会不会跑：速度显示关闭且不统计节点流量时直接返回
+        fun enabled() = DataStore.speedInterval != 0 || DataStore.profileTrafficStatistics
+
+        // 要统计的 outbound tag。ProxyInstance 在 box.start() 之前用它装上统计服务：
+        // 启动后再 AppendTracker 会与路由并发（sing-box 补丁 "router: lock trackers"）
+        fun statsTags(config: ConfigBuildResult): String =
+            (setOf(TAG_PROXY, TAG_BYPASS) + config.trafficMap.keys).joinToString("\n")
     }
 
     @Volatile
@@ -200,9 +214,7 @@ class TrafficLooper(val data: BaseService.Data) {
                     idMap.clear()
                     idMap[-1] = itemBypass
                     //
-                    val tags = hashSetOf(TAG_PROXY, TAG_BYPASS)
                     proxy.config.trafficMap.forEach { (tag, ents) ->
-                        tags.add(tag)
                         for (ent in ents) {
                             val item = TrafficUpdater.TrafficLooperData(
                                 tag = tag,
@@ -224,7 +236,6 @@ class TrafficLooper(val data: BaseService.Data) {
                     trafficUpdater = TrafficUpdater(
                         box = proxy.box, items = idMap.values.toList()
                     )
-                    proxy.box.setV2rayStats(tags.joinToString("\n"))
                 }
             }
 
@@ -264,18 +275,26 @@ class TrafficLooper(val data: BaseService.Data) {
             if (data.state == BaseService.State.Connected
                 && data.binder.callbackIdMap.containsValue(SagerConnection.CONNECTION_ID_MAIN_ACTIVITY_FOREGROUND)
             ) {
+                // 每个节点的流量只推变化项：前台时逐个 binder 调用、每秒 N 次太多。
+                // 新出现的前台回调先收一次全量
+                val all = if (profileTrafficStatistics) {
+                    idMap.map { (id, item) -> TrafficData(id = id, rx = item.rx, tx = item.tx) }
+                } else emptyList()
+                val changed = all.filter { postedTraffic.put(it.id, it.rx to it.tx) != (it.rx to it.tx) }
+                val seen = HashSet<IBinder>()
                 data.binder.broadcast { b ->
-                    if (data.binder.callbackIdMap[b.asBinder()] == SagerConnection.CONNECTION_ID_MAIN_ACTIVITY_FOREGROUND) {
+                    val binder = b.asBinder()
+                    if (data.binder.callbackIdMap[binder] == SagerConnection.CONNECTION_ID_MAIN_ACTIVITY_FOREGROUND) {
                         b.cbSpeedUpdate(speed)
-                        if (profileTrafficStatistics) {
-                            idMap.forEach { (id, item) ->
-                                b.cbTrafficUpdate(
-                                    TrafficData(id = id, rx = item.rx, tx = item.tx) // display
-                                )
-                            }
-                        }
+                        for (t in if (binder in postedTo) changed else all) b.cbTrafficUpdate(t)
+                        seen.add(binder)
                     }
                 }
+                postedTo.retainAll(seen)
+                postedTo.addAll(seen)
+            } else {
+                // 没有前台回调：下一个前台回调视为新出现，收全量
+                postedTo.clear()
             }
 
             // ServiceNotification

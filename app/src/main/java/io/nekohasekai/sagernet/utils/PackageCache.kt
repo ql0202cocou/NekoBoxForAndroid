@@ -69,7 +69,11 @@ object PackageCache {
             Plugins.isExe(it)
         }.associateBy { it.packageName }
 
-        val installed = app.packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
+        // 不再单独 getInstalledApplications(GET_META_DATA)：上面的查询同样带
+        // GET_META_DATA，applicationInfo 内容一致；MATCH_UNINSTALLED_PACKAGES 多出的
+        // 已卸载（保留数据）包没有 FLAG_INSTALLED，筛掉后与原查询等价，省一次全量 IPC
+        val installed = rawPackageInfo.mapNotNull { it.applicationInfo }
+            .filter { it.flags and ApplicationInfo.FLAG_INSTALLED != 0 }
         installedApps = installed.associateBy { it.packageName }
         // swap the whole map like the fields above: packageNameByUid reads
         // this from a gomobile callback thread with no synchronization, so

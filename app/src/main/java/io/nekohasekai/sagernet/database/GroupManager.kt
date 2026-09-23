@@ -15,6 +15,10 @@ object GroupManager {
 
         suspend fun groupRemoved(groupId: Long)
         suspend fun groupUpdated(groupId: Long)
+
+        // 订阅更新进度变化（GroupUpdater.progress），只有分组卡片关心；
+        // 节点还没落库，不必整组重读
+        suspend fun groupProgress(groupId: Long) = Unit
     }
 
     interface Interface {
@@ -103,6 +107,10 @@ object GroupManager {
 
     suspend fun postReload(groupId: Long) {
         iterator { groupUpdated(groupId) }
+    }
+
+    suspend fun postProgress(groupId: Long) {
+        iterator { groupProgress(groupId) }
     }
 
     suspend fun createGroup(group: ProxyGroup): ProxyGroup {

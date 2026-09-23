@@ -14,6 +14,7 @@ import androidx.activity.result.component2
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
+import io.nekohasekai.sagernet.fmt.displayType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import androidx.preference.PreferenceFragmentCompat

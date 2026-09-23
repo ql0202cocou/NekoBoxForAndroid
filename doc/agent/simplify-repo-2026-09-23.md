@@ -3,8 +3,9 @@
 来源：分支 `refactor/simplify-repo`（基于 `8620bd2`），对自有代码（app、libcore 顶层、
 buildSrc、buildScript，不含 vendored 目录与 `SingBoxOptions.java`）做复用 / 简化 /
 效率 / 修复深度四个角度的复审。
-状态：可保持行为的发现已在工作区修复（未提交）；下列各项**未改**，原因分两类：
-会改变行为，或需要维护者拍板。
+状态：可保持行为的发现已合入 main（`4643484`…`5a78c4b`），随 1.7.5-b1 发布。
+当时未改的 18 项已在分支 `fix/simplify-followups` 处理（2026-09-23，未提交），
+处理结果见文末「后续处理」；维护者决定项按其选择实施。
 
 ## 已修复的范围（摘要）
 
@@ -76,3 +77,56 @@ buildSrc、buildScript，不含 vendored 目录与 `SingBoxOptions.java`）做�
    不同（`IllegalStateException` / `IOException`），合并会改一处的用户可见报错。
 5. **`ExternalCore` 能力字段**：`externalPluginId` 是第二张插件 id 表，对 Hysteria 2
    与 `ExternalCore.pluginId` 不一致，需先确认哪一方是有意为之。
+
+## 后续处理（2026-09-23，`fix/simplify-followups`）
+
+验证：`./run lib core`、`go test -ldflags=-checklinkname=0 ./...`（带 geo 库）、
+Android 目标 `go vet .`、`./run lib check_versions`、`app:assembleOssRelease`、
+`app:lintOssRelease`、`app:testOssDebugUnitTest`。维护者选择不上机，下列行为
+改动**均未上机验证**；DoQ / DoH3 另用公共 DNS 做过一次实查。
+
+会改变行为的 13 项：
+
+1. `onStartCommand` 里 `proxy.init()` 用 `onIoDispatcher` 跑；`BaseService.startProcesses`
+   只把 `proxy.launch()`（含 `box.start()`）放到 IO，`VpnService` 的注册表登记留在主线程。
+   destroyRunner 与 init 并发时由 `ProxyInstance.init` 调 `closeAfterLateInit` 补收。
+2. `TrafficLooper` 每个前台回调先收一次全量，之后只推变化项；主进程
+   `ProfileManager.liveTraffic` 缓存实时值，`ConfigurationHolder.bind` 优先取它，
+   流量刷新只走 `bindTraffic`。删掉了 adapter 里 noTraffic 的补发；清空统计时
+   （`SagerNet.clearTrafficStatistics`）与服务停止时清缓存。
+3. `forceResolve` 按域名去重解析；进度只经新增的 `GroupManager.postProgress` /
+   `Listener.groupProgress`（默认空实现，仅分组卡片刷新），不再整组重读。
+4. 测试结束用 `ProfileManager.updateStatus(List)` 一个事务写回；`reloadProfiles`
+   在替换列表前先 `undoManager.flush()`，与原先逐行 `onUpdated` 的撤销语义一致。
+   单行 `updateStatus` 已无调用方，删除。
+5. 新增 `ProfileManager.createProfiles`：整批一个事务、nextOrder 只查一次，
+   写完逐个 `onAdd`；文件导入与扫码导入改用它，`createProfile` 委托给它。
+6. `TestDialog` 对 Fragment、对话框和进度控件只持弱引用；最小化通知改用
+   application context。
+7. `PackageCache.reload` 由 `getInstalledPackages` 的 `applicationInfo` 按
+   `FLAG_INSTALLED` 筛出 installedApps，去掉第二次全量查询（等价性未上机确认）。
+8. 新增 `lookupSystem` / `lookupServerAddress`（`ktx/Nets.kt`），订阅解析与 ping
+   测试共用，ping 测试因此带上 10 秒上限；无底层网络时回退进程默认解析器。
+9. `libcore/lookup.go` 支持 `quic://`（RFC 9250 DoQ，默认 853）与 `h3://`（DoH3）。
+10. faketcp 的 root 放行改为检查整条链的每个成员。
+11. `ConfigBuild.resolveChain` 把前置 / 落地代理里的链展开成成员，不再报
+    "can't reach"；选择器仍不让选链（是否放开待定）。两份链遍历
+    （`testProfileContains` 判包含、`resolveChainInternal` 展平）用途不同，未合并。
+12. 分组卡片只用 `bytesUsed` / `bytesRemaining` / `expiryDate` 渲染，单位统一为
+    `toBytesString`（1024 进制 GiB）。1.7.2 之前更新、之后没再更新过的订阅，
+    下次更新前不显示流量。
+13. 统计服务由 `ProxyInstance.launch` 在 `box.start()` 之前装上
+    （`TrafficLooper.statsTags` / `enabled`），loop 里不再调 `setV2rayStats`。
+    sing-box 补丁 "router: lock trackers" 仍保留，`NEKO.md` 已注明下次 rebase 可删。
+
+维护者决定的 5 项：
+
+1. 合并为 `AppSelectActivity` 基类，反选以 AppManager 版（按快照翻转）为准；
+   两页都保存「显示系统应用」开关状态。
+2. 删除 `resourcePaths` linkname 与 `nb4a_test.go`，AGENTS.md 同步。
+3. `ProxyEntity` 的转发方法删除，`ProtocolHandlers` 里的扩展函数改为同名
+   （`displayType` / `haveLink` / `needExternal` / `singMux` / `putBean` / `putByteArray`）。
+4. `AssetsActivity.publishAsset` 统一导入与更新的发布步骤，失败抛
+   `IOException("cannot replace <文件名>")`。
+5. 删除 `externalPluginId`，映射判断改读 `externalCore(bean).pluginId`（仅 Hysteria）；
+   `PluginManager` 里走不到的 `hysteria2-plugin` 映射一并删除。

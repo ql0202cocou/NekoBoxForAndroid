@@ -4,6 +4,7 @@ import android.database.sqlite.SQLiteCantOpenDatabaseException
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.aidl.TrafficData
 import io.nekohasekai.sagernet.fmt.AbstractBean
+import io.nekohasekai.sagernet.fmt.putBean
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
@@ -12,6 +13,8 @@ import kotlinx.coroutines.sync.withLock
 import java.io.IOException
 import android.database.SQLException
 import java.util.*
+import java.util.concurrent.Callable
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
 // A database that cannot be opened is an I/O failure for the caller; any
@@ -70,18 +73,29 @@ object ProfileManager {
         ruleListeners.remove(listener)
     }
 
-    suspend fun createProfile(groupId: Long, bean: AbstractBean, core: Int = 0): ProxyEntity {
-        bean.applyDefaultValues()
+    suspend fun createProfile(groupId: Long, bean: AbstractBean, core: Int = 0): ProxyEntity =
+        createProfiles(groupId, listOf(bean), core).single()
 
-        val profile = ProxyEntity(groupId = groupId).apply {
-            id = 0
-            this.core = core
-            putBean(bean)
-            userOrder = SagerDatabase.proxyDao.nextOrder(groupId) ?: 1
-        }
-        profile.id = SagerDatabase.proxyDao.addProxy(profile)
-        iterator { onAdd(profile) }
-        return profile
+    // 批量导入：整批一个事务、只查一次 nextOrder，userOrder 依次递增；
+    // 写完后逐个发 onAdd，与单个创建的通知相同
+    suspend fun createProfiles(
+        groupId: Long, beans: List<AbstractBean>, core: Int = 0,
+    ): List<ProxyEntity> {
+        val profiles = SagerDatabase.instance.runInTransaction(Callable {
+            var order = SagerDatabase.proxyDao.nextOrder(groupId) ?: 1
+            beans.map { bean ->
+                bean.applyDefaultValues()
+                ProxyEntity(groupId = groupId).apply {
+                    id = 0
+                    this.core = core
+                    putBean(bean)
+                    userOrder = order++
+                    id = SagerDatabase.proxyDao.addProxy(this)
+                }
+            }
+        })
+        for (profile in profiles) iterator { onAdd(profile) }
+        return profiles
     }
 
     suspend fun updateProfile(profile: ProxyEntity) {
@@ -115,13 +129,8 @@ object ProfileManager {
         }
     }
 
-    suspend fun updateStatus(profile: ProxyEntity) {
-        SagerDatabase.proxyDao.updateStatus(profile.id, profile.status, profile.ping, profile.error)
-        iterator { onUpdated(profile, false) }
-    }
-
-    // Batch counterpart, one transaction like updateTraffic(List). It posts no
-    // update: sweeps over a whole group refresh the list once themselves.
+    // 只写测试状态列，整批一个事务（同 updateTraffic(List)）。不发逐行更新：
+    // 调用方扫完整组后自己整组刷新一次
     suspend fun updateStatus(profiles: List<ProxyEntity>) {
         if (profiles.isEmpty()) return
         SagerDatabase.instance.runInTransaction {
@@ -215,7 +224,12 @@ object ProfileManager {
         iterator { onUpdated(profile, noTraffic) }
     }
 
+    // 主进程收到的最近一次实时流量。TrafficLooper 只推变化项，列表整组重读或
+    // 新建页面时，没变化的行要从这里取值，否则会退回库里的旧值
+    val liveTraffic = ConcurrentHashMap<Long, TrafficData>()
+
     suspend fun postUpdate(data: TrafficData) {
+        liveTraffic[data.id] = data
         iterator { onUpdated(data) }
     }
 
