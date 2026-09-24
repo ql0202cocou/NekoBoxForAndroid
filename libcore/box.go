@@ -243,7 +243,11 @@ func (b *BoxInstance) SetV2rayStats(outbounds string) {
 		Enabled:   true,
 		Outbounds: strings.Split(outbounds, "\n"),
 	})
-	b.Box.Router().AppendTracker(b.v2api.StatsService())
+	// StatsService 在服务未启用时返回 nil；AppendTracker 不拒绝 nil，
+	// 装进去后第一条路由的连接就会 panic
+	if tracker := b.v2api.StatsService(); tracker != nil {
+		b.Box.Router().AppendTracker(tracker)
+	}
 }
 
 func (b *BoxInstance) QueryStats(tag, direct string) int64 {

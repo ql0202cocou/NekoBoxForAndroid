@@ -127,11 +127,12 @@ func (v *packet) errorCode() error {
 		}
 		// 2 bytes reserved, 1 byte class (hundreds), 1 byte number, then
 		// the reason phrase.
-		if len(a.value) < 4 {
+		if a.length < 4 {
 			break
 		}
 		code := int(a.value[2]&0x07)*100 + int(a.value[3])
-		reason := string(a.value[4:])
+		// value 按 4 字节对齐补过 0，原因短语只取到 length 为止
+		reason := string(a.value[4:a.length])
 		if name, ok := errorCodeStr[code]; ok {
 			return fmt.Errorf("Server error: %d %s: %s", code, name, reason)
 		}

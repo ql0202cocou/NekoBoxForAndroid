@@ -72,11 +72,15 @@ func lookupHosts(ctx context.Context, servers string, domain string) (string, er
 		if err == nil {
 			return addresses, nil
 		}
-		// The budget is gone: do not touch the next server. Checked on the
-		// error as well as on ctx.Err(), because the socket deadline can fire a
-		// moment before the context's own timer marks it done.
-		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			return "", err
+		// 总预算用完才停，按 ctx 本身判断而不是看错误：单台服务器 5 秒的拨号 /
+		// 握手超时同样匹配 DeadlineExceeded（net 的 timeoutError、tls.Dialer 返回
+		// 自己的 ctx.Err），据此放弃会漏掉后面的服务器。截止时间也要看：socket 的
+		// deadline 可能比 ctx 自己的计时器早一点触发
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return "", ctxErr
+		}
+		if deadline, ok := ctx.Deadline(); ok && !time.Now().Before(deadline) {
+			return "", context.DeadlineExceeded
 		}
 	}
 	if err := ctx.Err(); err != nil {
@@ -263,16 +267,13 @@ func exchangeQUIC(ctx context.Context, address string, query *mDNS.Msg) (*mDNS.M
 		return nil, err
 	}
 	// 单台服务器最多 5 秒（同 udp/tcp/tls 的 Client.Timeout），握手后不回应的服务器
-	// 不能吃光整个预算。它到期要报成普通错误：lookupHosts 见到 DeadlineExceeded
-	// 会当作总预算耗尽，不再试下一台
+	// 不能吃光整个预算；是否换下一台由 lookupHosts 按总 ctx 判断
 	serverCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
+	// 总 ctx 结束时报它的错误（取消或预算耗尽），而不是连接被关后的读写错误
 	fail := func(err error) (*mDNS.Msg, error) {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return nil, ctxErr
-		}
-		if serverCtx.Err() != nil {
-			return nil, errors.New("DNS over QUIC timed out")
 		}
 		return nil, err
 	}

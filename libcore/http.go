@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"time"
 
@@ -133,6 +134,13 @@ func (c *httpClient) TrySocks5(port int32) {
 			// 否则对端不应答时握手会无限挂起，泄漏 goroutine 和 fd
 			socksConn.SetDeadline(time.Now().Add(httpDialTimeout))
 			_, err = socks.ClientHandshake5(socksConn, socks5.CommandConnect, metadata.ParseSocksaddr(addr), "", "")
+			// 握手超时说明本地代理在跑、只是没及时应答：sing-box 要等出站拨号完成
+			// 才回 CONNECT 应答，拨号慢就会撞上 deadline。这时回退直连会让请求绕过
+			// 代理，直接报错；连接被拒、被重置等说明代理本身坏了，照旧回退
+			if errors.Is(err, os.ErrDeadlineExceeded) {
+				socksConn.Close()
+				return nil, err
+			}
 		}
 		if err != nil {
 			if socksConn != nil {
