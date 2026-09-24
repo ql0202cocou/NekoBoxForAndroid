@@ -112,7 +112,7 @@ fi
 # clients/ 是上游的 git submodule 占位，vendored 树不携带；NEKO.md 是补丁集
 # 之外的管理文档——二者都不参与生成与对比。
 BOX_BASE_TAG=v1.14.1
-BOX_PATCH=libcore/patches/sing-box-v1.14.1-neko-2.diff
+BOX_PATCH=libcore/patches/sing-box-v1.14.1-neko-3.diff
 if [ ! -f "$BOX_PATCH" ]; then
   fail "$BOX_PATCH missing; regenerate it as documented in libcore/sing-box/NEKO.md"
 else

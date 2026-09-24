@@ -1,6 +1,6 @@
 diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/box.go b/box.go
---- a/box.go	2026-09-20 17:08:05
-+++ b/box.go	2026-09-20 17:08:05
+--- a/box.go	2026-09-24 20:29:14
++++ b/box.go	2026-09-24 20:29:14
 @@ -155,7 +155,7 @@
  	var needCacheFile bool
  	var needClashAPI bool
@@ -12,7 +12,7 @@ diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/box.go b/box.go
  	if experimentalOptions.ClashAPI != nil {
 diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/boxapi/go_http.go b/boxapi/go_http.go
 --- a/boxapi/go_http.go	1970-01-01 07:30:00
-+++ b/boxapi/go_http.go	2026-09-20 17:08:06
++++ b/boxapi/go_http.go	2026-09-24 20:29:14
 @@ -0,0 +1,30 @@
 +package boxapi
 +
@@ -46,7 +46,7 @@ diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/boxapi/go_http.go
 +}
 diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/boxapi/go_net.go b/boxapi/go_net.go
 --- a/boxapi/go_net.go	1970-01-01 07:30:00
-+++ b/boxapi/go_net.go	2026-09-20 17:08:06
++++ b/boxapi/go_net.go	2026-09-24 20:29:14
 @@ -0,0 +1,23 @@
 +package boxapi
 +
@@ -73,7 +73,7 @@ diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/boxapi/go_net.go 
 +}
 diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/boxapi/v2ray_server.go b/boxapi/v2ray_server.go
 --- a/boxapi/v2ray_server.go	1970-01-01 07:30:00
-+++ b/boxapi/v2ray_server.go	2026-09-20 17:08:06
++++ b/boxapi/v2ray_server.go	2026-09-24 20:29:14
 @@ -0,0 +1,41 @@
 +package boxapi
 +
@@ -118,7 +118,7 @@ diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/boxapi/v2ray_serv
 +}
 diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/boxapi/v2ray_stats_service.go b/boxapi/v2ray_stats_service.go
 --- a/boxapi/v2ray_stats_service.go	1970-01-01 07:30:00
-+++ b/boxapi/v2ray_stats_service.go	2026-09-20 17:08:06
++++ b/boxapi/v2ray_stats_service.go	2026-09-24 20:29:14
 @@ -0,0 +1,205 @@
 +package boxapi
 +
@@ -326,8 +326,8 @@ diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/boxapi/v2ray_stat
 +	return counter
 +}
 diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/common/dialer/default.go b/common/dialer/default.go
---- a/common/dialer/default.go	2026-09-20 17:08:05
-+++ b/common/dialer/default.go	2026-09-20 17:08:05
+--- a/common/dialer/default.go	2026-09-24 20:29:14
++++ b/common/dialer/default.go	2026-09-24 20:29:14
 @@ -25,6 +25,8 @@
  	"github.com/database64128/tfo-go/v2"
  )
@@ -381,16 +381,16 @@ diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/common/dialer/def
  		strategy = d.networkStrategy
  	}
 diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/constant/version.go b/constant/version.go
---- a/constant/version.go	2026-09-20 17:08:05
-+++ b/constant/version.go	2026-09-20 17:08:06
+--- a/constant/version.go	2026-09-24 20:29:14
++++ b/constant/version.go	2026-09-24 20:29:14
 @@ -1,3 +1,3 @@
  package constant
  
 -var Version = "unknown"
-+var Version = "1.14.1-neko-2"
++var Version = "1.14.1-neko-3"
 diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/dns/router.go b/dns/router.go
---- a/dns/router.go	2026-09-20 17:08:05
-+++ b/dns/router.go	2026-09-20 17:08:06
+--- a/dns/router.go	2026-09-24 20:29:14
++++ b/dns/router.go	2026-09-24 20:29:14
 @@ -497,6 +497,8 @@
  	transport adapter.DNSTransport
  	options   adapter.DNSQueryOptions
@@ -438,10 +438,57 @@ diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/dns/router.go b/d
  		cancelDNSFutures(state)
  		pending := suspension.pending
  		r.client.ExchangeAsync(adapter.OverrideContext(ctx), pending.transport, message, r.finalizeExchangeOptions(pending.options), nil, func(response *mDNS.Msg, err error) {
+@@ -1184,6 +1197,13 @@
+ 		if responseCheck != nil && rejected {
+ 			continue
+ 		}
++		// neko: legacy 模式同样按 fallback 回退——规则动作带 strategy 就进 legacy，
++		// app 的 DNS 规则都带。判定与规则遍历一致：出错或 rcode 非 success、ctx 未取消
++		if isDNSFallbackRule(rule) && ctx.Err() == nil &&
++			(err != nil || (response != nil && response.Rcode != mDNS.RcodeSuccess)) {
++			r.logger.DebugContext(ctx, "fallback to next DNS rule after failure")
++			continue
++		}
+ 		return response, transport, err
+ 	}
+ }
+@@ -1334,10 +1354,15 @@
+ 				dnsOptions.Strategy = r.defaultDomainStrategy
+ 			}
+ 			responseAddrs, err = r.client.Lookup(dnsCtx, transport, domain, dnsOptions, responseCheck)
+-			if responseCheck == nil || err == nil {
++			// neko: 同 exchangeLegacy 的 fallback；非 success 的 rcode 在 Lookup 里已是 RcodeError
++			fallback := err != nil && ctx.Err() == nil && isDNSFallbackRule(rule)
++			if !fallback && (responseCheck == nil || err == nil) {
+ 				break
+ 			}
+ 			printResult()
++			if fallback {
++				r.logger.DebugContext(ctx, "fallback to next DNS rule after failure")
++			}
+ 		}
+ 	}
+ response:
+@@ -1359,6 +1384,15 @@
+ 		}
+ 	}
+ 	return false
++}
++
++// neko: 命中的是带 fallback 的 route 规则
++func isDNSFallbackRule(rule adapter.DNSRule) bool {
++	if rule == nil {
++		return false
++	}
++	action, isRoute := rule.Action().(*R.RuleActionDNSRoute)
++	return isRoute && action.Fallback
+ }
+ 
+ func addressLimitResponseCheck(rule adapter.DNSRule, metadata *adapter.InboundContext) func(response *mDNS.Msg) bool {
 diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/dns/router_fallback_test.go b/dns/router_fallback_test.go
 --- a/dns/router_fallback_test.go	1970-01-01 07:30:00
-+++ b/dns/router_fallback_test.go	2026-09-20 17:08:06
-@@ -0,0 +1,190 @@
++++ b/dns/router_fallback_test.go	2026-09-24 20:29:14
+@@ -0,0 +1,304 @@
 +package dns
 +
 +// Regression tests for the neko DNS rule action `fallback` patch (see
@@ -457,7 +504,9 @@ diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/dns/router_fallba
 +
 +	"github.com/sagernet/sing-box/adapter"
 +	C "github.com/sagernet/sing-box/constant"
++	"github.com/sagernet/sing-box/log"
 +	"github.com/sagernet/sing-box/option"
++	R "github.com/sagernet/sing-box/route/rule"
 +
 +	mDNS "github.com/miekg/dns"
 +	"github.com/stretchr/testify/require"
@@ -632,9 +681,121 @@ diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/dns/router_fallba
 +	require.Equal(t, int32(1), broken.queryCount.Load())
 +	require.Equal(t, int32(1), final.queryCount.Load())
 +}
++
++// app 生成的 DNS 规则都带 strategy，任一规则动作带 strategy 整个路由器就进 legacy
++// 模式，Exchange / Lookup 走 exchangeLegacy 与 legacy 循环而不是规则遍历。下面的
++// 用例按这个形态建规则，并先断言确实进了 legacy 模式
++func legacyFallbackRouteRule(server string, fallback bool) option.DNSRule {
++	rule := fallbackRouteRule(server, fallback)
++	rule.DefaultOptions.RouteOptions.Strategy = option.DomainStrategy(C.DomainStrategyIPv4Only)
++	return rule
++}
++
++func legacyFallbackRouter(t *testing.T, rawRules []option.DNSRule, transports ...*fakeDNSTransport) *Router {
++	legacy, _, err := resolveLegacyDNSMode(nil, rawRules, nil)
++	require.NoError(t, err)
++	require.True(t, legacy)
++	router := raceTestRouter(t, transports...)
++	router.legacyDNSMode = true
++	for _, rawRule := range rawRules {
++		rule, err := R.NewDNSRule(context.Background(), log.NewNOPFactory().Logger(), rawRule, true, true)
++		require.NoError(t, err)
++		router.rules = append(router.rules, rule)
++	}
++	return router
++}
++
++func legacyFallbackMessage() *mDNS.Msg {
++	return &mDNS.Msg{
++		MsgHdr: mDNS.MsgHdr{
++			Id:               1,
++			RecursionDesired: true,
++		},
++		Question: []mDNS.Question{{
++			Name:   "fallback.example.org.",
++			Qtype:  mDNS.TypeA,
++			Qclass: mDNS.ClassINET,
++		}},
++	}
++}
++
++// legacy 模式的 Exchange：带 fallback 的规则回 NXDOMAIN 时继续匹配下一条规则
++func TestDNSFallbackLegacyExchange(t *testing.T) {
++	t.Parallel()
++	broken := &fakeDNSTransport{tag: "broken", rcode: mDNS.RcodeNameError}
++	final := &fakeDNSTransport{tag: "final", rcode: mDNS.RcodeSuccess, address: netip.MustParseAddr("192.0.2.1")}
++	router := legacyFallbackRouter(t, []option.DNSRule{
++		legacyFallbackRouteRule("broken", true),
++		legacyFallbackRouteRule("final", false),
++	}, broken, final)
++	response, err := router.Exchange(context.Background(), legacyFallbackMessage(), adapter.DNSQueryOptions{})
++	require.NoError(t, err)
++	require.Equal(t, netip.MustParseAddr("192.0.2.1"), responseAddress(t, response))
++	require.Equal(t, int32(1), broken.queryCount.Load())
++	require.Equal(t, int32(1), final.queryCount.Load())
++}
++
++// legacy 模式的 ExchangeAsync 同样回退（它在 goroutine 里调 exchangeLegacy）
++func TestDNSFallbackLegacyExchangeAsync(t *testing.T) {
++	t.Parallel()
++	broken := &fakeDNSTransport{tag: "broken", exchangeErr: errors.New("server unreachable")}
++	final := &fakeDNSTransport{tag: "final", rcode: mDNS.RcodeSuccess, address: netip.MustParseAddr("192.0.2.1")}
++	router := legacyFallbackRouter(t, []option.DNSRule{
++		legacyFallbackRouteRule("broken", true),
++	}, broken, final)
++	type result struct {
++		response *mDNS.Msg
++		err      error
++	}
++	done := make(chan result, 1)
++	router.ExchangeAsync(context.Background(), legacyFallbackMessage(), adapter.DNSQueryOptions{}, func(response *mDNS.Msg, err error) {
++		done <- result{response, err}
++	})
++	r := <-done
++	require.NoError(t, r.err)
++	require.Equal(t, netip.MustParseAddr("192.0.2.1"), responseAddress(t, r.response))
++	require.Equal(t, int32(1), broken.queryCount.Load())
++	require.Equal(t, int32(1), final.queryCount.Load())
++}
++
++// legacy 模式的 Lookup：传输出错时继续匹配下一条规则（它的 ipv4_only 让
++// final 只收到一个 A 查询）
++func TestDNSFallbackLegacyLookup(t *testing.T) {
++	t.Parallel()
++	broken := &fakeDNSTransport{tag: "broken", exchangeErr: errors.New("server unreachable")}
++	final := &fakeDNSTransport{tag: "final", rcode: mDNS.RcodeSuccess, address: netip.MustParseAddr("192.0.2.1")}
++	router := legacyFallbackRouter(t, []option.DNSRule{
++		legacyFallbackRouteRule("broken", true),
++		legacyFallbackRouteRule("final", false),
++	}, broken, final)
++	addresses, err := router.Lookup(context.Background(), "fallback.example.org", adapter.DNSQueryOptions{})
++	require.NoError(t, err)
++	require.Equal(t, []netip.Addr{netip.MustParseAddr("192.0.2.1")}, addresses)
++	require.Equal(t, int32(1), broken.queryCount.Load())
++	require.Equal(t, int32(1), final.queryCount.Load())
++}
++
++// legacy 模式下不带 fallback 的规则失败即终止：Exchange 原样返回 NXDOMAIN，
++// Lookup 返回错误，下一台服务器都不被查询
++func TestDNSRouteFailureWithoutFallbackLegacy(t *testing.T) {
++	t.Parallel()
++	broken := &fakeDNSTransport{tag: "broken", rcode: mDNS.RcodeNameError}
++	final := &fakeDNSTransport{tag: "final", rcode: mDNS.RcodeSuccess, address: netip.MustParseAddr("192.0.2.1")}
++	router := legacyFallbackRouter(t, []option.DNSRule{
++		legacyFallbackRouteRule("broken", false),
++		legacyFallbackRouteRule("final", false),
++	}, broken, final)
++	response, err := router.Exchange(context.Background(), legacyFallbackMessage(), adapter.DNSQueryOptions{})
++	require.NoError(t, err)
++	require.Equal(t, mDNS.RcodeNameError, response.Rcode)
++	_, err = router.Lookup(context.Background(), "fallback.example.org", adapter.DNSQueryOptions{})
++	require.Error(t, err)
++	require.Equal(t, int32(2), broken.queryCount.Load())
++	require.Equal(t, int32(0), final.queryCount.Load())
++}
 diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/go.mod b/go.mod
---- a/go.mod	2026-09-20 17:08:05
-+++ b/go.mod	2026-09-20 17:08:05
+--- a/go.mod	2026-09-24 20:29:14
++++ b/go.mod	2026-09-24 20:29:14
 @@ -1,6 +1,6 @@
  module github.com/sagernet/sing-box
  
@@ -674,8 +835,8 @@ diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/go.mod b/go.mod
  	golang.zx2c4.com/wireguard/windows v0.5.3 // indirect
  	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
 diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/go.sum b/go.sum
---- a/go.sum	2026-09-20 17:08:05
-+++ b/go.sum	2026-09-20 17:08:05
+--- a/go.sum	2026-09-24 20:29:14
++++ b/go.sum	2026-09-24 20:29:14
 @@ -205,8 +205,8 @@
  github.com/metacubex/utls v1.8.7/go.mod h1:kncGGVhFaoGn5M3pFe3SXhZCzsbCJayNOH4UEqTKTko=
  github.com/mholt/acmez/v3 v3.1.6 h1:eGVQNObP0pBN4sxqrXeg7MYqTOWyoiYpQqITVWlrevk=
@@ -720,14 +881,14 @@ diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/go.sum b/go.sum
  golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/nekoutils/callback.go b/nekoutils/callback.go
 --- a/nekoutils/callback.go	1970-01-01 07:30:00
-+++ b/nekoutils/callback.go	2026-09-20 17:08:06
++++ b/nekoutils/callback.go	2026-09-24 20:29:14
 @@ -0,0 +1,3 @@
 +package nekoutils
 +
 +var Selector_OnProxySelected func(selectorTag string, tag string)
 diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/nekoutils/srs.go b/nekoutils/srs.go
 --- a/nekoutils/srs.go	1970-01-01 07:30:00
-+++ b/nekoutils/srs.go	2026-09-20 17:08:06
++++ b/nekoutils/srs.go	2026-09-24 20:29:14
 @@ -0,0 +1,7 @@
 +package nekoutils
 +
@@ -737,8 +898,8 @@ diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/nekoutils/srs.go 
 +
 +var GetGeoSiteHeadlessRules func(name string) ([]option.HeadlessRule, error)
 diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/option/rule_action.go b/option/rule_action.go
---- a/option/rule_action.go	2026-09-20 17:08:05
-+++ b/option/rule_action.go	2026-09-20 17:08:05
+--- a/option/rule_action.go	2026-09-24 20:29:14
++++ b/option/rule_action.go	2026-09-24 20:29:14
 @@ -213,6 +213,8 @@
  type DNSRouteActionOptions struct {
  	Server      string `json:"server,omitempty" reference:"dns_server"`
@@ -749,8 +910,8 @@ diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/option/rule_actio
  }
  
 diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/protocol/group/selector.go b/protocol/group/selector.go
---- a/protocol/group/selector.go	2026-09-20 17:08:05
-+++ b/protocol/group/selector.go	2026-09-20 17:08:05
+--- a/protocol/group/selector.go	2026-09-24 20:29:14
++++ b/protocol/group/selector.go	2026-09-24 20:29:14
 @@ -10,6 +10,7 @@
  	"github.com/sagernet/sing-box/common/urltest"
  	C "github.com/sagernet/sing-box/constant"
@@ -770,8 +931,8 @@ diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/protocol/group/se
  		s.history.NotifyUpdated()
  	}
 diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/protocol/vless/outbound.go b/protocol/vless/outbound.go
---- a/protocol/vless/outbound.go	2026-09-20 17:08:05
-+++ b/protocol/vless/outbound.go	2026-09-20 17:08:05
+--- a/protocol/vless/outbound.go	2026-09-24 20:29:14
++++ b/protocol/vless/outbound.go	2026-09-24 20:29:14
 @@ -88,11 +88,15 @@
  			return nil, E.New("unknown packet encoding: ", *options.PacketEncoding)
  		}
@@ -790,8 +951,8 @@ diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/protocol/vless/ou
  		return nil, err
  	}
 diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/route/route.go b/route/route.go
---- a/route/route.go	2026-09-20 17:08:05
-+++ b/route/route.go	2026-09-20 17:08:05
+--- a/route/route.go	2026-09-24 20:29:14
++++ b/route/route.go	2026-09-24 20:29:14
 @@ -167,9 +167,15 @@
  		metadata.RouteRule = selectedRule.String()
  	}
@@ -839,8 +1000,8 @@ diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/route/route.go b/
  		flowTrackers = append(flowTrackers, newFlowLogger(ctx, r.logger, metadataCopy, outbound))
  		for _, tracker := range r.trackers {
 diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/route/router.go b/route/router.go
---- a/route/router.go	2026-09-20 17:08:05
-+++ b/route/router.go	2026-09-20 17:08:05
+--- a/route/router.go	2026-09-24 20:29:14
++++ b/route/router.go	2026-09-24 20:29:14
 @@ -4,6 +4,7 @@
  	"context"
  	"os"
@@ -868,7 +1029,7 @@ diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/route/router.go b
  
 diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/route/router_tracker_test.go b/route/router_tracker_test.go
 --- a/route/router_tracker_test.go	1970-01-01 07:30:00
-+++ b/route/router_tracker_test.go	2026-09-20 17:08:05
++++ b/route/router_tracker_test.go	2026-09-24 20:29:14
 @@ -0,0 +1,262 @@
 +package route
 +
@@ -1133,8 +1294,8 @@ diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/route/router_trac
 +	require.Equal(t, int32(totalTrackers), counters.flows.Load())
 +}
 diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/route/rule/rule_action.go b/route/rule/rule_action.go
---- a/route/rule/rule_action.go	2026-09-20 17:08:05
-+++ b/route/rule/rule_action.go	2026-09-20 17:08:05
+--- a/route/rule/rule_action.go	2026-09-24 20:29:14
++++ b/route/rule/rule_action.go	2026-09-24 20:29:14
 @@ -132,6 +132,8 @@
  		return &RuleActionDNSRoute{
  			Server:      action.RouteOptions.Server,
@@ -1154,8 +1315,8 @@ diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/route/rule/rule_a
  }
  
 diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a/route/rule/rule_set_local.go b/route/rule/rule_set_local.go
---- a/route/rule/rule_set_local.go	2026-09-20 17:08:05
-+++ b/route/rule/rule_set_local.go	2026-09-20 17:08:05
+--- a/route/rule/rule_set_local.go	2026-09-24 20:29:14
++++ b/route/rule/rule_set_local.go	2026-09-24 20:29:14
 @@ -11,6 +11,7 @@
  	"github.com/sagernet/sing-box/adapter"
  	"github.com/sagernet/sing-box/common/srs"

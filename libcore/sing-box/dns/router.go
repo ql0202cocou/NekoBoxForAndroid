@@ -1197,6 +1197,13 @@ func (r *Router) exchangeLegacy(ctx context.Context, exchangeCtx *dnsExchangeCon
 		if responseCheck != nil && rejected {
 			continue
 		}
+		// neko: legacy 模式同样按 fallback 回退——规则动作带 strategy 就进 legacy，
+		// app 的 DNS 规则都带。判定与规则遍历一致：出错或 rcode 非 success、ctx 未取消
+		if isDNSFallbackRule(rule) && ctx.Err() == nil &&
+			(err != nil || (response != nil && response.Rcode != mDNS.RcodeSuccess)) {
+			r.logger.DebugContext(ctx, "fallback to next DNS rule after failure")
+			continue
+		}
 		return response, transport, err
 	}
 }
@@ -1347,10 +1354,15 @@ func (r *Router) Lookup(ctx context.Context, domain string, options adapter.DNSQ
 				dnsOptions.Strategy = r.defaultDomainStrategy
 			}
 			responseAddrs, err = r.client.Lookup(dnsCtx, transport, domain, dnsOptions, responseCheck)
-			if responseCheck == nil || err == nil {
+			// neko: 同 exchangeLegacy 的 fallback；非 success 的 rcode 在 Lookup 里已是 RcodeError
+			fallback := err != nil && ctx.Err() == nil && isDNSFallbackRule(rule)
+			if !fallback && (responseCheck == nil || err == nil) {
 				break
 			}
 			printResult()
+			if fallback {
+				r.logger.DebugContext(ctx, "fallback to next DNS rule after failure")
+			}
 		}
 	}
 response:
@@ -1372,6 +1384,15 @@ func isAddressQuery(message *mDNS.Msg) bool {
 		}
 	}
 	return false
+}
+
+// neko: 命中的是带 fallback 的 route 规则
+func isDNSFallbackRule(rule adapter.DNSRule) bool {
+	if rule == nil {
+		return false
+	}
+	action, isRoute := rule.Action().(*R.RuleActionDNSRoute)
+	return isRoute && action.Fallback
 }
 
 func addressLimitResponseCheck(rule adapter.DNSRule, metadata *adapter.InboundContext) func(response *mDNS.Msg) bool {

@@ -2,7 +2,7 @@
 
 This directory is a vendored copy of upstream
 [SagerNet/sing-box](https://github.com/SagerNet/sing-box) **v1.14.1** plus the
-NekoBox patch set (`1.14.1-neko-2`). The patches originate from
+NekoBox patch set (`1.14.1-neko-3`). The patches originate from
 `MatsuriDayo/sing-box` (`aed32ee3066cdbc7d471e3e0415c5134088962df`,
 `1.12.19-neko-1`); upstream NekoBox is unmaintained, so this fork maintains and
 rebases the patches itself. When rebasing onto a newer upstream sing-box
@@ -28,7 +28,7 @@ Additional patches maintained by this fork (not from MatsuriDayo):
 
 | Patch | Notes |
 |---|---|
-| dns: rule action `fallback` | `option/rule_action.go` (`DNSRouteActionOptions.Fallback`, JSON `fallback`), `route/rule/rule_action.go` (`RuleActionDNSRoute.Fallback`), `dns/router.go`: when a DNS query routed by a rule with `fallback: true` fails, matching continues at the next DNS rule instead of returning the error. Any non-success rcode counts as a failure, so a split-horizon server is never the final word. Used by the Android app to implement ordered multi-server fallback for per-group proxy-server nameservers. Since the `domain_resolver` migration (2026-09-10), outbound resolution no longer walks DNS rules — it binds to libcore's `neko-sequential` transport instead — so this patch only serves user-hijacked queries that match a `dns-group-N` rule. **1.14 rebase**: the DNS router was rewritten around a rule-walk state machine shared by `Exchange` and `Lookup`; the patch now marks the walk's pending exchange (`dnsPendingExchange.fallback`) and, on failure (skipping context cancellation), advances `state.ruleIndex` and re-enters the walk in `resumeExchangeWithRules`. `exchangeWithRulesAsync`'s direct-`ExchangeAsync` fast path is bypassed for fallback rules. Armed/speculative race paths (unused by the app) do not fall back. Regression tests: `dns/router_fallback_test.go` (fork-added, part of the patch artifact). |
+| dns: rule action `fallback` | `option/rule_action.go` (`DNSRouteActionOptions.Fallback`, JSON `fallback`), `route/rule/rule_action.go` (`RuleActionDNSRoute.Fallback`), `dns/router.go`: when a DNS query routed by a rule with `fallback: true` fails, matching continues at the next DNS rule instead of returning the error. Any non-success rcode counts as a failure, so a split-horizon server is never the final word. Used by the Android app to implement ordered multi-server fallback for per-group proxy-server nameservers. Since the `domain_resolver` migration (2026-09-10), outbound resolution no longer walks DNS rules — it binds to libcore's `neko-sequential` transport instead — so this patch only serves user-hijacked queries that match a `dns-group-N` rule. **1.14 rebase**: the DNS router was rewritten around a rule-walk state machine shared by `Exchange` and `Lookup`; the patch now marks the walk's pending exchange (`dnsPendingExchange.fallback`) and, on failure (skipping context cancellation), advances `state.ruleIndex` and re-enters the walk in `resumeExchangeWithRules`. `exchangeWithRulesAsync`'s direct-`ExchangeAsync` fast path is bypassed for fallback rules. Armed/speculative race paths (unused by the app) do not fall back. **Legacy mode (neko-3)**: any DNS rule action carrying `strategy` puts the whole router in legacy DNS mode (`resolveLegacyDNSMode`), and every `dns-group-N` rule the app emits carries one, so the app always runs `exchangeLegacy` (also behind `ExchangeAsync`) and the legacy `Lookup` loop, never the rule walk. neko-1/neko-2 patched only the walk, so fallback was dead in the app; neko-3 adds the same check to both legacy paths (`isDNSFallbackRule`, failure = error or non-success rcode, skipped once ctx is done; in `Lookup` a non-success rcode already surfaces as `RcodeError`) and `continue`s, letting `matchDNS` resume at the next rule and finally the default server. Regression tests: `dns/router_fallback_test.go` (fork-added, part of the patch artifact); the `*Legacy*` cases build app-shaped rules (with `strategy`), assert legacy mode first, and fail with the neko-3 checks removed. |
 | router: lock `trackers` | `route/router.go`, `route/route.go`: upstream appends to `Router.trackers` without synchronization, and the Android app calls `AppendTracker` (via `SetV2rayStats`) while the box is already routing, so the append raced the per-connection reads in `RouteConnection`/`RoutePacketConnection` (slice growth tearing). Added a `sync.RWMutex` (`trackersAccess`): `AppendTracker` takes the write lock, the read paths take the read lock. 1.14: a third read site (L3 `NewTracker` closure building `tun.FlowTracker`s) is covered too. 1.14.1: upstream moved the forward log line inside the `NewTracker` closure (`metadataCopy`); the RLock now wraps the tracker reads after it. Drop if upstream adds its own locking. The app now installs the stats service before `box.start()` (`ProxyInstance.launch`), so no append races routing any more; the lock can be dropped at the next rebase. Regression/concurrency tests: `route/router_tracker_test.go` (fork-added, part of the patch artifact). |
 | router: tracker read locks unlock via `defer` (neko-2) | `route/route.go`: the two `trackersAccess.RLock()` sites in `routeConnection`/`routePacketConnection` unlocked with a plain `RUnlock()`; a tracker panic would skip it and block `AppendTracker`'s write lock forever. Both now unlock via `defer` inside an immediately-invoked closure, keeping the critical section unchanged (the third site, `PreMatch`'s `NewTracker` closure, already used `defer`). |
 | dialer: interface-selection entry points honor `DoNotSelectInterface` (neko-2) | `common/dialer/default.go`: `DialParallelInterface`/`ListenSerialInterfacePacket` are public and accept an explicit `strategy`; `DialContext`/`ListenPacket` check `DoNotSelectInterface` first, but these two did not, so a future upstream caller passing a non-nil strategy would silently get interface selection — which conflicts with Android VPN protect semantics (libcore sets `DoNotSelectInterface = true` in `init`). Both now fall back to the plain dial/listen path when `DoNotSelectInterface` is set. |
@@ -37,7 +37,7 @@ Additional patches maintained by this fork (not from MatsuriDayo):
 ## Replayable patch artifact
 
 The whole patch set is materialized as a single replayable diff,
-`libcore/patches/sing-box-v1.14.1-neko-2.diff`: a clean clone of upstream tag
+`libcore/patches/sing-box-v1.14.1-neko-3.diff`: a clean clone of upstream tag
 v1.14.1 plus this file applied with `patch -p1` reproduces this directory
 exactly. Excluded from the artifact (and from the verification comparison):
 `.git`, the `clients/` git submodule placeholders (not carried here), and this
@@ -55,7 +55,7 @@ TMP=$(mktemp -d)
 git clone --depth 1 --branch v1.14.1 https://github.com/SagerNet/sing-box "$TMP/a"
 cp -R libcore/sing-box "$TMP/b"
 (cd "$TMP" && diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a b) \
-  > libcore/patches/sing-box-v1.14.1-neko-2.diff
+  > libcore/patches/sing-box-v1.14.1-neko-3.diff
 ```
 
 The `a`/`b` directory names are load-bearing: they keep the diff header paths
