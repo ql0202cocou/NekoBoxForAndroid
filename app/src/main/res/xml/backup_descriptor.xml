@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content xmlns:tools="http://schemas.android.com/tools"
                      tools:ignore="FullBackupContent">
-    <!-- sager_net.db holds proxy credentials; full backup is cloud backup on
-         Android 6-11, so it stays excluded here as well. -->
+    <!-- sager_net.db 存着节点凭证，保持排除。Android 11 及以下这份规则同时管云备份
+         和换机迁移，所以这些系统换机时节点与规则也不会迁过去（12+ 的换机见
+         backup_rules.xml 的 device-transfer）。只迁了 configuration.db 时由
+         InstallMarker 复位 rulesFirstCreate，默认规则照常生成 -->
     <!-- No device storage yet in Android 6.0 -->
     <include domain="database" path="configuration.db"/>
     <include domain="device_database" path="configuration.db"/>

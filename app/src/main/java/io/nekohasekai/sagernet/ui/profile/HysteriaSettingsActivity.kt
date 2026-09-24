@@ -109,11 +109,10 @@ class HysteriaSettingsActivity : ProfileSettingsActivity<HysteriaBean>() {
             findPreference<EditTextPreference>(Key.SERVER_UPLOAD_SPEED)!!.bindIntegerPreference(minSpeed)
             findPreference<EditTextPreference>(Key.SERVER_DOWNLOAD_SPEED)!!.bindIntegerPreference(minSpeed)
             if (v == 2) {
-                // hy2 has no protocol option; reset a stale faketcp/wechat
-                // value so serialize() cannot write back an illegal
-                // hy2+faketcp bean (canUseSingBox() = false would then route
-                // to the hysteria1 plugin, which fails with "error version: 2").
-                // Setting the preference persists to DataStore as well.
+                // hy2 没有 protocol 选项：复位残留的 faketcp / wechat 值，否则
+                // serialize() 会写回非法的 hy2+faketcp bean（canUseSingBox() 为
+                // false，转去 hysteria1 插件，报 "error version: 2"）。设置
+                // preference 同时写进 EditorCache
                 protocol.value = "${HysteriaBean.PROTOCOL_UDP}"
                 authPayload.isVisible = true
                 //

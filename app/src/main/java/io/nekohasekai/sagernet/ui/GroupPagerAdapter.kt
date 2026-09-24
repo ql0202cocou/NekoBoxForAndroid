@@ -24,11 +24,6 @@ class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentS
     var groupFragments: HashMap<Long, ProfileListFragment> = HashMap()
 
     fun reload(now: Boolean = false) {
-
-        if (!fragment.select) {
-            fragment.groupPager.unregisterOnPageChangeCallback(fragment.updateSelectedCallback)
-        }
-
         runOnDefaultDispatcher {
             var newGroupList = ArrayList(SagerDatabase.groupDao.allGroups())
             if (newGroupList.isEmpty()) {
@@ -58,6 +53,12 @@ class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentS
             val runFunc = if (now) fragment.activity?.let { it::runOnUiThread } else fragment.groupPager::post
             if (runFunc != null) {
                 runFunc {
+                    // 回调只在主线程增删：reload 也会从后台的监听器（onAdd / onRemoved）
+                    // 调用，主线程这时可能正在分发回调。数据集变化和 setCurrentItem
+                    // 期间摘掉它，免得把 selectedGroup 写成过渡中的页
+                    if (!fragment.select) {
+                        fragment.groupPager.unregisterOnPageChangeCallback(fragment.updateSelectedCallback)
+                    }
                     groupList = newGroupList
                     notifyDataSetChanged()
                     if (set) fragment.groupPager.setCurrentItem(selectedGroupIndex, false)

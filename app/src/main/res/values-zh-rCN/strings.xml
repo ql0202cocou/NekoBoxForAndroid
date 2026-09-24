@@ -410,6 +410,10 @@
     <string name="share_invalid_endpoint">节点「%s」的地址或端口无效，无法分享</string>
     <string name="share_links_skipped">已跳过 %d 个无法分享的节点</string>
     <string name="invalid_subscription_url">订阅地址无效：只能导入 http(s) 链接</string>
+    <string name="more_options">更多选项</string>
+    <string name="redo">重做</string>
+    <string name="insert_tab">插入制表符</string>
+    <string name="format">格式化</string>
     <string name="hysteria_ports_error">端口必须为 1 到 65535，可用逗号分隔；范围如 1000:2000，起点不能大于终点。</string>
     <string name="wireguard_reserved_error">Reserved 必须为空，或包含三个 0 到 255 之间的整数。</string>
     <string name="wireguard_key_error">请输入解码后为 32 字节的标准 Base64 密钥。预共享密钥可以留空。</string>

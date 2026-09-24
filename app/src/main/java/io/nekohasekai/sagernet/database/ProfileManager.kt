@@ -101,7 +101,8 @@ object ProfileManager {
     suspend fun createProfiles(
         groupId: Long, beans: List<AbstractBean>, core: Int = 0,
     ): List<ProxyEntity> {
-        // Kryo 序列化放在事务外：大批量导入时不拉长排他锁
+        // 默认值与实体构造不必占着事务。Kryo 序列化仍在事务内：它发生在
+        // addProxy 插入时的 Room TypeConverter 里，putBean 只是赋值
         val profiles = beans.map { bean ->
             bean.applyDefaultValues()
             ProxyEntity(groupId = groupId).apply {
@@ -121,10 +122,12 @@ object ProfileManager {
         return profiles
     }
 
-    suspend fun updateProfile(profile: ProxyEntity) {
-        if (SagerDatabase.proxyDao.updateEditableFields(ProxyEditableFields(profile)) == 0) return
-        val current = SagerDatabase.proxyDao.getById(profile.id) ?: return
+    // 返回 false：这一行已不在库里（例如编辑期间被订阅更新删掉），什么都没写
+    suspend fun updateProfile(profile: ProxyEntity): Boolean {
+        if (SagerDatabase.proxyDao.updateEditableFields(ProxyEditableFields(profile)) == 0) return false
+        val current = SagerDatabase.proxyDao.getById(profile.id) ?: return true
         iterator { onUpdated(current) }
+        return true
     }
 
     suspend fun moveProfile(profileId: Long, groupId: Long): ProxyEntity? {

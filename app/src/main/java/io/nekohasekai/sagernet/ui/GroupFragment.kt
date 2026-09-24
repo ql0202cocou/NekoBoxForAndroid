@@ -494,8 +494,9 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             runOnDefaultDispatcher {
                 val size = ProfileRepository.countProfilesByGroup(group.id)
                 onMainDispatcher {
-                    // the holder may have been recycled while counting
-                    if (proxyGroup.id != group.id) return@onMainDispatcher
+                    // 计数期间 holder 可能已被复用；离开分组页时 fragment 也可能已销毁，
+                    // 下面的 getString 走 requireContext，会在 appScope 上抛异常崩溃
+                    if (proxyGroup.id != group.id || !isAdded) return@onMainDispatcher
                     @Suppress("DEPRECATION") when (group.type) {
                         GroupType.BASIC -> {
                             if (size == 0L) {

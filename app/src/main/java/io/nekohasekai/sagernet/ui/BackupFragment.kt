@@ -243,8 +243,10 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                                 }
                             }
                             // 恢复绕过 GroupManager 事件，重启也不会重排持久化的
-                            // WorkManager 任务：导入后按新的分组集合重排一次订阅调度
-                            SubscriptionUpdater.reconfigureUpdater()
+                            // WorkManager 任务：导入后按新的分组集合重排一次订阅调度。
+                            // 两个库都已提交，排期失败只记日志，不能拦住下面的重启
+                            runCatching { SubscriptionUpdater.reconfigureUpdater() }
+                                .onFailure { Logs.w(it) }
                             triggerFullRestart(app)
                         }.onFailure {
                             Logs.w(it)

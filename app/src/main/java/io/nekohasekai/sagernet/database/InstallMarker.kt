@@ -21,6 +21,12 @@ object InstallMarker {
         val marker = marker
         if (marker.exists()) return
         DataStore.resetClashApiSecret()
+        // 云备份只含 configuration.db（sager_net.db 有节点凭证，不上云）：恢复后
+        // rulesFirstCreate 仍是 true，规则表却是空的，默认规则就再也不会建。
+        // 两库一起迁移（换机）时规则表非空，保持原样
+        if (DataStore.rulesFirstCreate && SagerDatabase.rulesDao.allRules().isEmpty()) {
+            DataStore.rulesFirstCreate = false
+        }
         val tmp = File(app.noBackupFilesDir, "install.id.tmp")
         tmp.writeText(UUID.randomUUID().toString())
         if (!tmp.renameTo(marker)) Logs.w("cannot write install marker")

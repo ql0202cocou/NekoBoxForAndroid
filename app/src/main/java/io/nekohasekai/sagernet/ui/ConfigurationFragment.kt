@@ -199,12 +199,13 @@ class ConfigurationFragment @JvmOverloads constructor(
 
         toolbar.setOnClickListener {
             val fragment = getCurrentGroupFragment()
+            // ViewPager 预载间隙里 fragment 的视图可能还没建出来：adapter 在
+            // configurationListView 之后赋值，它为空时下面的 scrollTo 同样会崩
+            val listAdapter = fragment?.adapter
 
-            if (fragment != null) {
+            if (fragment != null && listAdapter != null) {
                 val selectedProxy = selectedItem?.id ?: DataStore.selectedProxy
-                // ViewPager 预载间隙里 fragment 的 adapter 可能还没建出来
-                val selectedProfileIndex =
-                    fragment.adapter?.configurationIdList?.indexOf(selectedProxy) ?: -1
+                val selectedProfileIndex = listAdapter.configurationIdList.indexOf(selectedProxy)
                 if (selectedProfileIndex != -1) {
                     val layoutManager = fragment.layoutManager
                     val first = layoutManager.findFirstVisibleItemPosition()

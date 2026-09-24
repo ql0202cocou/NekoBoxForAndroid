@@ -338,8 +338,7 @@ class GroupSettingsActivity(
         // before the async re-init, which then re-applies it
         pendingSubscriptionLink = link
         EditorCache.subscriptionLink = link
-        // null before the fragment is committed on a process-death restore; it
-        // reads the DataStore value when created
+        // 进程死亡恢复时 fragment 提交前为 null；它创建时会读 EditorCache 里的值
         subscriptionLinkPreference?.text = link
     }
 

@@ -315,13 +315,15 @@ class BaseService {
         // 与 SagerNet.startService 同一层防御：Android 12+ 在后台抛
         // ForegroundServiceStartNotAllowedException（IllegalStateException
         // 子类，单个 catch 即可覆盖，无需按 API 引用该类），8-11 抛普通
-        // IllegalStateException。丢掉这次启动好过让进程崩溃
-        fun startRunner() {
+        // IllegalStateException。丢掉这次启动好过让进程崩溃；返回是否发出了启动
+        fun startRunner(): Boolean {
             val intent = Intent(service, service.javaClass)
-            try {
+            return try {
                 ContextCompat.startForegroundService(service, intent)
+                true
             } catch (e: IllegalStateException) {
                 Logs.w(e)
+                false
             }
         }
 
@@ -399,10 +401,12 @@ class BaseService {
 
                 // change the state
                 data.changeState(State.Stopped, msg)
-                // 重放停止期间记下的启动意图，否则停掉服务（没有谁绑定着它）
+                // 重放停止期间记下的启动意图，否则停掉服务（没有谁绑定着它）。
+                // 重放被系统拒绝时同样 stopSelf，否则服务停在已启动、非前台的
+                // Stopped 状态
                 val start = data.pendingStart
                 data.pendingStart = false
-                if (start) startRunner() else service.stopSelf()
+                if (!start || !startRunner()) service.stopSelf()
             }
         }
 
@@ -447,13 +451,13 @@ class BaseService {
             // ACTION_SHUTDOWN: the process is killed without stopRunner, so
             // the looper never persists its counters; block until they are
             // written. proxy/looper are null when not fully started.
-            runBlocking {
-                // 该广播在主线程上处理，DB 极端慢时无限阻塞会拖出广播 ANR；
-                // 超时即放弃——丢最后一笔统计好过关机时 ANR
-                withTimeoutOrNull(3000) {
-                    data.proxy?.looper?.persistStats()
-                }
-            }
+            val looper = data.proxy?.looper ?: return
+            // 该广播在主线程上处理，DB 极端慢时无限阻塞会拖出广播 ANR；超时即放弃
+            // ——丢最后一笔统计好过关机时 ANR。写库放到 appScope 上、只对等待加
+            // 超时：persistStats 里的事务是阻塞调用，超时取消不了它，直接包在
+            // withTimeoutOrNull 里仍要等它跑完才返回
+            val write = appScope.async(Dispatchers.IO) { looper.persistStats() }
+            runBlocking { withTimeoutOrNull(3000) { write.await() } }
         }
 
         suspend fun preInit() {

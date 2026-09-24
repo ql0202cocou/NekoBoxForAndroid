@@ -91,22 +91,25 @@ abstract class BoxInstance(
         // box and plugins now would leak them, so bail out instead.
         if (isClosed()) return
 
-        for ((chain) in config.externalIndex) {
-            for ((port, profile) in chain) {
-                val core = externalCore(profile.requireBean()) ?: continue
-                val config = pluginConfigs[port]?.second ?: ""
-                val launch = core.launch(initPlugin(core.pluginId).path, config, ::writeCacheFile)
-                processes.start(launch.commands, launch.env.toMutableMap())
+        try {
+            for ((chain) in config.externalIndex) {
+                for ((port, profile) in chain) {
+                    val core = externalCore(profile.requireBean()) ?: continue
+                    val config = pluginConfigs[port]?.second ?: ""
+                    val launch = core.launch(initPlugin(core.pluginId).path, config, ::writeCacheFile)
+                    processes.start(launch.commands, launch.env.toMutableMap())
+                }
             }
+
+            box.start()
+        } finally {
+            // 上面的 isClosed() 守卫与 writeCacheFile/processes.start 不是原子的：
+            // TestInstance 的取消落在 launch() 中途时 close() 已清过 cacheFiles，
+            // 之后加进来的插件配置文件无人再删（进程与 box 由 close() 兜底，
+            // 仅 cacheDir/tmpcfg 残留），这里补清一次。放在 finally：那时 box 已被
+            // 关闭，box.start() 会抛错，写在它后面就执行不到
+            if (isClosed()) deleteCacheFiles()
         }
-
-        box.start()
-
-        // 上面的 isClosed() 守卫与 writeCacheFile/processes.start 不是原子的：
-        // TestInstance 的取消落在 launch() 中途时 close() 已清过 cacheFiles，
-        // 之后加进来的插件配置文件无人再删（进程与 box 由 close() 兜底，
-        // 仅 cacheDir/tmpcfg 残留），这里补清一次
-        if (isClosed()) deleteCacheFiles()
     }
 
     private val closed = AtomicBoolean(false)

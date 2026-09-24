@@ -158,7 +158,8 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         }
 
         // action_move 可见性条件要查库，等初始化写好 editingGroup 后异步预取
-        // 再刷新菜单；会话丢失时 editorReady 被取消，这里随之结束
+        // 再刷新菜单；节点已不存在或初始化失败时 editorReady 被取消，这里随之结束
+        // （会话被接管时 onCreate 早已返回，走不到这里）
         lifecycleScope.launch(Dispatchers.Default) {
             awaitEditorReady()
             // proxyEntity 是 lazy，首次求值要查库；先在后台算好，
@@ -222,10 +223,15 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             if (proxyEntity!!.id == DataStore.selectedProxy) {
                 SagerNet.stopService()
             }
-            ProfileManager.updateProfile(proxyEntity!!.apply {
+            val saved = ProfileManager.updateProfile(proxyEntity!!.apply {
                 core = profileCore
                 (requireBean() as T).serialize()
             })
+            // proxyEntity 是打开编辑器时读的缓存：节点在编辑期间被删掉时更新 0 行，
+            // 不提示的话修改就悄悄丢了
+            if (!saved) onMainDispatcher {
+                Toast.makeText(this@ProfileSettingsActivity, R.string.deleted_profile, Toast.LENGTH_LONG).show()
+            }
         }
         finish()
 
@@ -331,25 +337,30 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
             R.id.action_create_shortcut -> {
                 val activity = requireActivity() as ProfileSettingsActivity<*>
-                val ent = activity.proxyEntity
-                if (ent == null) {
-                    // 编辑期间节点可能被订阅更新删掉；与 saveAndExit 的判空同理
-                    Toast.makeText(activity, R.string.deleted_profile, Toast.LENGTH_LONG).show()
-                } else {
-                    val shortcut = ShortcutInfoCompat.Builder(activity, "shortcut-profile-${ent.id}")
-                        .setShortLabel(ent.displayName())
-                        .setLongLabel(ent.displayName())
-                        .setIcon(
-                            IconCompat.createWithResource(
-                                activity, R.drawable.ic_qu_shadowsocks_launcher
-                            )
-                        ).setIntent(Intent(
-                            context, QuickToggleShortcut::class.java
-                        ).apply {
-                            action = Intent.ACTION_MAIN
-                            putExtra("profile", ent.id)
-                        }).build()
-                    ShortcutManagerCompat.requestPinShortcut(activity, shortcut, null)
+                // proxyEntity 是打开编辑器时读的缓存，编辑期间节点可能已被订阅更新删掉：
+                // 在后台重查一次，免得固定一个指向已删节点的快捷方式
+                lifecycleScope.launch(Dispatchers.Default) {
+                    val ent = activity.proxyEntity?.let { SagerDatabase.proxyDao.getById(it.id) }
+                    onMainDispatcher {
+                        if (ent == null) {
+                            Toast.makeText(activity, R.string.deleted_profile, Toast.LENGTH_LONG).show()
+                            return@onMainDispatcher
+                        }
+                        val shortcut = ShortcutInfoCompat.Builder(activity, "shortcut-profile-${ent.id}")
+                            .setShortLabel(ent.displayName())
+                            .setLongLabel(ent.displayName())
+                            .setIcon(
+                                IconCompat.createWithResource(
+                                    activity, R.drawable.ic_qu_shadowsocks_launcher
+                                )
+                            ).setIntent(Intent(
+                                activity, QuickToggleShortcut::class.java
+                            ).apply {
+                                action = Intent.ACTION_MAIN
+                                putExtra("profile", ent.id)
+                            }).build()
+                        ShortcutManagerCompat.requestPinShortcut(activity, shortcut, null)
+                    }
                 }
                 // requestPinShortcut 在不支持的 launcher 上返回 false，菜单事件仍算已处理
                 true

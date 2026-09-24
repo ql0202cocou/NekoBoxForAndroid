@@ -93,8 +93,10 @@ class GuardedProcessPoolTest {
         assertFalse(process.destroyed)
     }
 
+    // close() 不清空 guards，第二次调用会对未启动的 guard 再 destroy 一次（Process.destroy
+    // 本身幂等，无害）；这里只验证重复调用不出错、已启动的 guard 仍不被收割
     @Test
-    fun `close 重复调用是幂等空操作`() = runBlocking {
+    fun `close 重复调用不出错且不收割已启动的 guard`() = runBlocking {
         val pool = GuardedProcessPool { }
         val notStarted = FakeProcess()
         val started = FakeProcess()

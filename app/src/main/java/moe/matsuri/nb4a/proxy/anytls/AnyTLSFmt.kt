@@ -58,9 +58,8 @@ fun AnyTLSBean.toUri(): String {
 
 fun parseAnytls(url: String): AnyTLSBean {
     // https://github.com/anytls/anytls-go/blob/main/docs/uri_scheme.md
-    val link = url.withHttpScheme().toHttpUrlOrNull() ?: error(
-        "invalid anytls link $url"
-    )
+    // 报错不带原链接：userinfo 里是密码
+    val link = url.withHttpScheme().toHttpUrlOrNull() ?: error("invalid anytls link")
     return AnyTLSBean().apply {
         serverAddress = link.host
         serverPort = link.port

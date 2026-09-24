@@ -134,11 +134,15 @@ fun buildConfig(
     return ConfigBuild(proxy, forTest, forExport).build()
 }
 
+// 完整配置型自定义节点（ConfigBean.type == 0）：整份配置原样运行，只能单独使用
+private fun ProxyEntity.isFullConfig() =
+    type == TYPE_CONFIG && (requireBean() as ConfigBean).type == 0
+
 // 普通构建（非测试、非导出）得到的 ConfigBuildResult.selectorGroupId：只取决于
 // 节点所在分组，与 buildConfig 开头的 TYPE_CONFIG 分支、ConfigBuild.selectorGroup
 // 保持一致。canReloadSelector 用它判断能否原地切换，不必为此构建整份配置
 fun selectorGroupIdOf(proxy: ProxyEntity): Long {
-    if (proxy.type == TYPE_CONFIG && (proxy.requireBean() as ConfigBean).type == 0) return -1L
+    if (proxy.isFullConfig()) return -1L
     return SagerDatabase.groupDao.getById(proxy.groupId)?.takeIf { it.isSelector }?.id ?: -1L
 }
 
@@ -411,7 +415,6 @@ private class ConfigBuild(
         }
     }
 
-    // returns outbound tag
     // The state one hop of buildChain hands to the next.
     //
     // 隐含不变量：linkHop 在 index > 0 分支解引用 chain.pastEntity!! /
@@ -439,6 +442,13 @@ private class ConfigBuild(
         if (profileList.isEmpty()) {
             error("chain profile ${entity.id} (${entity.requireBean().displayName()}) has no valid member")
         }
+        // 同一个外部核心节点在链里出现两次（链编辑器允许重复加入，或分组前置同时
+        // 是组内某条链的首跳）：映射入站 tag 重名、两份插件配置共用一个 bean 的
+        // 映射端口，sing-box 只会报 duplicate inbound tag。这里给出明确错误
+        profileList.filter { it.needExternal() }.groupBy { it.id }.values
+            .firstOrNull { it.size > 1 }?.let {
+                error("profile ${it[0].id} (${it[0].requireBean().displayName()}) runs on an external core and appears twice in chain ${entity.id}")
+            }
         // dedup by id and keep insertion order: a HashSet<ProxyEntity>
         // collapses two fully identical entities (the collapsed node's
         // traffic never lands in the DB) and iterates in arbitrary order
@@ -575,6 +585,11 @@ private class ConfigBuild(
             }
         } else {
             // internal outbound
+            // 完整配置型自定义节点作为链成员、前置 / 落地或路由目标时，给出明确
+            // 错误，而不是让 sing-box 以 "unknown outbound type" 拒绝整份配置
+            if (proxyEntity.isFullConfig()) {
+                error("full-config profile ${proxyEntity.id} (${bean.displayName()}) can only run on its own")
+            }
 
             currentOutbound = buildSingBoxOutbound(bean)
 
@@ -687,6 +702,9 @@ private class ConfigBuild(
         if (selectorGroup != null) {
             val list = SagerDatabase.proxyDao.getByGroup(selectorGroup.id)
             list.forEach {
+                // 完整配置型成员不是出站，塞进来会让整份配置被拒；选中它时
+                // selectorGroupIdOf 为 -1，走重启、由 buildConfig 开头单独运行
+                if (it.isFullConfig()) return@forEach
                 // 每个成员都要记进 tagMap：profileTagMap 驱动选择器切换，缺了它
                 // 连接中选这个成员会解析成空 tag、什么都不做。中间跳只有链内 tag，
                 // 照常单独建一个全局 outbound，让它仍可选、可被路由规则引用
@@ -1000,12 +1018,10 @@ private class ConfigBuild(
     }
 
     private fun MyOptions.applyGroupNameserver() {
-        // per-group nameserver: this group's node server domains resolve via
-        // it, multiple servers are tried in order. User-hijacked queries keep
-        // using the DNS rules below (neko rule fallback); outbound resolution
-        // binds to the neko-sequential transport instead (see buildChain).
-        // Kept for forTest too: node domains must resolve or the test cannot
-        // dial. Unparseable addresses were already skipped in groupDnsServers.
+        // 分组的节点解析 DNS：本组节点的服务器域名用它解析，多台按顺序尝试。
+        // 用户被劫持的查询走下面的 DNS 规则（neko 规则 fallback）；出站解析则绑定
+        // neko-sequential 传输（见 buildHopOutbound）。forTest 同样保留：节点域名
+        // 解析不了测试就拨不出去。解析不了的地址在 groupDnsServers 里已跳过
         if (groupDnsServers.isNotEmpty() && groupNsDomains.isNotEmpty()) {
             dns.servers.addAll(groupDnsServers)
             if (!forExport) dns.servers.add(DNSServerOptions().apply {

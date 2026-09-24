@@ -245,16 +245,18 @@ public abstract class StandardV2RayBean extends AbstractBean {
         } else if (version == 0) {
             // fb55430（1.3.0）开始序列化 ECH 字段但 version 仍写 0，b34c012 才把
             // version 改成 1，因此 version == 0 同时存在「无 ECH 块」「有 ECH 块」
-            // 两种布局。Kryo 的 int 是小端 4 字节、boolean 是单字节 0/1、字符串
-            // varint 长度首字节必带 0x80 标志位。从当前位置预读 1 字节加 1 个 int
+            // 两种布局。Kryo 的 int 是小端 4 字节、boolean 是单字节 0/1；字符串首字节
+            // 恒非 0（null 写 0x80、空串 0x81，2–32 个 ASCII 字符直接写字符本身、末字节
+            // 或上 0x80，其余先写带 0x80 标志位的 varint 长度）。从当前位置预读 1 字节加 1 个 int
             // 交叉校验（packetEncoding 仅取 0/1/2，小端高 3 字节恒为 0）：
             //   有 ECH 块且 enableECH=false：[0][packetEncoding]
             //     → 预读 int 即 packetEncoding（0/1/2）
             //   有 ECH 块且 enableECH=true ：[1][pq][drs][echConfig 长度…]
-            //     → 预读 int 低 24 位含 echConfig 长度字节的 0x80，恒非 0
+            //     → 预读 int 低 24 位含 echConfig 的首字节，恒非 0
             //   无 ECH 块：[packetEncoding][extraVersion=1 / Trojan 的 password]
-            //     → 预读 int 低 24 位恒为 0（VMess 其后是 extraVersion 小端首字节
-            //       0x01，Trojan 其后是 password 的 varint 长度字节）
+            //     → 预读 int 低 24 位恒为 0（高字节是子类的下一个字段：VMess 为
+            //       extraVersion 小端首字节 0x01，Trojan / Http 为 password / username
+            //       的首字节，ShadowTLS 为 version 小端首字节）
             int position = input.getByteBuffer().position(); // 当前位置
 
             int head = input.readByte() & 0xFF;
