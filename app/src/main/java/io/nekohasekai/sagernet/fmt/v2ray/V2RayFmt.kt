@@ -142,8 +142,10 @@ fun parseV2Ray(link: String): StandardV2RayBean {
     // std 兜底也要过最小校验：vmess:// 后接非法 base64 时 parseV2RayN 与
     // Kitsunebi 都已失败，残片仍可能被 toHttpUrl 解析成「能导入但必挂」的
     // 节点；抛异常让 parseProxies 按解析失败跳过。地址与端口由
-    // parseProxies 的 requireValidEndpoint 统一验，这里只管 uuid
-    if (bean.uuid.isNullOrBlank() || !bean.uuid.matches(uuidRegex)) {
+    // parseProxies 的 requireValidEndpoint 统一验，这里只管 uuid。
+    // vless:// 不会走到那种残片，只要求非空：Xray 与 sing-box 都接受任意字符串 id
+    // （按 UUIDv5 映射），Clash / JSON 订阅导入的这类节点导出后要能导回来
+    if (bean.uuid.isNullOrBlank() || !bean.isVLESS && !bean.uuid.matches(uuidRegex)) {
         error("invalid v2ray uuid")
     }
 

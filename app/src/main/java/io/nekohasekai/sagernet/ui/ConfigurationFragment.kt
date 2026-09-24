@@ -115,7 +115,16 @@ class ConfigurationFragment @JvmOverloads constructor(
     }
 
     override fun onQueryTextChange(query: String): Boolean {
-        getCurrentGroupFragment()?.adapter?.filter(query)
+        if (query.isEmpty()) {
+            // 清空作用到每个分组页：滑到别的页时搜索框失焦收起才发出这次清空，
+            // selectedGroup 此时已是新页，只清当前页的话原页留着搜索词，之后每次
+            // 整组重读都按它过滤
+            for (page in childFragmentManager.fragments) {
+                (page as? ProfileListFragment)?.adapter?.filter("")
+            }
+        } else {
+            getCurrentGroupFragment()?.adapter?.filter(query)
+        }
         return false
     }
 

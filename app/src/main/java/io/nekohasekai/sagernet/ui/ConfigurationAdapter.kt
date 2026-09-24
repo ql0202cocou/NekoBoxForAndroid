@@ -94,6 +94,8 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
     }
 
     fun filter(name: String) {
+        // 本来就没在搜索：清空会广播到所有分组页，不必每页都整组重读
+        if (name.isEmpty() && query.isEmpty()) return
         query = name.lowercase()
         if (name.isEmpty()) {
             // 清空搜索时的整组重读带读库，放到后台线程
@@ -101,6 +103,11 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
                 reloadProfiles()
             }
             return
+        }
+        // 与 onAdd / reloadProfiles 一样先提交撤销窗口：undo 按删除时的可见位置
+        // 插回，过滤后列表变短就会越界崩溃
+        if (groupFragment.isUndoManagerInitialized) {
+            groupFragment.undoManager.flush()
         }
         configurationIdList.clear()
         configurationIdList.addAll(visibleIds())

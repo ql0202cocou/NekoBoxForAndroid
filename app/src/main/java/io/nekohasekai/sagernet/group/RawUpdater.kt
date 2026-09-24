@@ -5,6 +5,7 @@ import androidx.core.net.toUri
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.*
 import io.nekohasekai.sagernet.fmt.AbstractBean
+import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.putBean
 import io.nekohasekai.sagernet.ktx.*
 import libcore.Libcore
@@ -76,6 +77,13 @@ object RawUpdater : GroupUpdater() {
             } finally {
                 response.close()
             }
+        }
+
+        // 非 YAML 订阅走到分享链接兜底时，纯文本里只到域名的 URL（如到期提示页里的
+        // "renew at https://example.com"）会被当成无认证的 HTTP 代理，整组节点随即
+        // 被这个假节点替换。解析结果只有这种节点时按没找到处理，保住原有节点
+        if (clashRoot == null && proxies.all { it is HttpBean && it.username.isNullOrBlank() }) {
+            error(app.getString(R.string.no_proxies_found_in_subscription))
         }
 
         // SIP008 / Open Online Config traffic fields shown by GroupFragment,

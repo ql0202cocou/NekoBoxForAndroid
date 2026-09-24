@@ -673,20 +673,24 @@ private class ConfigBuild(
         }
     }
 
+    // 已作为别的链里最先拨号的一跳建过全局 outbound（globalOutbounds 在
+    // profileList.lastIndex 处填入）的节点：只在它单独成链（所在分组没有前置 /
+    // 落地）时直接复用那个 g-<id>，重建会让 outbound/inbound tag 重复、sing-box
+    // 拒绝整份配置。有前置 / 落地时裸的 g-<id> 不经过它们，要 buildChain：
+    // linkHop 会复用已建的 g-<id>，并在外面接上前置 / 落地
+    private fun MyOptions.reuseOrBuildChain(id: Long, entity: ProxyEntity): String =
+        globalOutbounds[id]?.takeIf { entity.resolveChain().size == 1 } ?: buildChain(id, entity)
+
     private fun MyOptions.buildOutbounds() {
         // build outbounds
         val selectorGroup = selectorGroup
         if (selectorGroup != null) {
             val list = SagerDatabase.proxyDao.getByGroup(selectorGroup.id)
             list.forEach {
-                // 已作为别的成员的链里最先拨号的一跳建过（globalOutbounds 在
-                // profileList.lastIndex 处填入，resolveChain 把它反转成最先拨号的
-                // 一跳）：复用它的全局 tag，重建会让 outbound/inbound tag 重复、
-                // sing-box 拒绝整份配置。但仍要记进 tagMap：profileTagMap 驱动
-                // 选择器切换，缺了它连接中选这个成员会解析成空 tag、什么都不做。
-                // 中间跳只有链内 tag，照常单独建一个全局 outbound，让它仍可选、
-                // 可被路由规则引用
-                tagMap[it.id] = globalOutbounds[it.id] ?: buildChain(it.id, it)
+                // 每个成员都要记进 tagMap：profileTagMap 驱动选择器切换，缺了它
+                // 连接中选这个成员会解析成空 tag、什么都不做。中间跳只有链内 tag，
+                // 照常单独建一个全局 outbound，让它仍可选、可被路由规则引用
+                tagMap[it.id] = reuseOrBuildChain(it.id, it)
             }
             outbounds.add(0, Outbound_SelectorOptions().apply {
                 type = "selector"
@@ -701,14 +705,11 @@ private class ConfigBuild(
         }
         // build outbounds from route item
         extraProxies.forEach { (key, p) ->
-            // 已作为选择器成员建过的先查 tagMap：成员带前置 / 落地代理时它的
-            // 全局 tag 不在 globalOutbounds（那里只登记链里最先拨号的一跳），
-            // 只查后者会重建成员——前置是多跳链时中间跳重名，sing-box 拒绝整份
-            // 配置；否则 tagMap 被改成不在选择器里的 tag，连接中选它不生效，
-            // 有落地代理时规则还会绕过落地。在别的链里建过全局 outbound 的复用
-            // globalOutbounds；中间跳没有可复用的全局 tag，单独建一个，不能丢掉
+            // 已作为选择器成员建过的先查 tagMap：重建会让前置多跳链的中间跳
+            // 重名，sing-box 拒绝整份配置；tagMap 也会被改成不在选择器里的 tag，
+            // 连接中选它不生效。中间跳没有可复用的全局 tag，单独建一个，不能丢掉
             // 这条路由规则
-            tagMap[key] = tagMap[key] ?: globalOutbounds[key] ?: buildChain(key, p)
+            tagMap[key] = tagMap[key] ?: reuseOrBuildChain(key, p)
         }
 
         for (freedom in arrayOf(TAG_DIRECT, TAG_BYPASS)) outbounds.add(Outbound().apply {
