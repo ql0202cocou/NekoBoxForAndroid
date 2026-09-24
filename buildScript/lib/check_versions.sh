@@ -109,17 +109,24 @@ fi
 
 # 校验 vendored sing-box 与可重放补丁一致：克隆上游 tag、应用补丁后 diff 对比。
 # vendored 树每次改动都必须重新生成补丁（命令见 libcore/sing-box/NEKO.md）。
-# clients/ 是上游的 git submodule 占位，vendored 树不携带；NEKO.md 是补丁集
-# 之外的管理文档——二者都不参与生成与对比。
+# 顶层 clients/ 是上游的 git submodule 占位，vendored 树不携带，克隆后直接删掉；
+# 不用 --exclude=clients，它按名字匹配，会把 docs/clients/ 一起排除出对比。
+# NEKO.md 是补丁集之外的管理文档，不参与生成与对比。tag 可以被移动，克隆后
+# 核对它仍指向记录的 commit
 BOX_BASE_TAG=v1.14.1
+BOX_BASE_SHA=1ac1a339cb1223e9c70eae14c44411c75033c02d
 BOX_PATCH=libcore/patches/sing-box-v1.14.1-neko-3.diff
 if [ ! -f "$BOX_PATCH" ]; then
   fail "$BOX_PATCH missing; regenerate it as documented in libcore/sing-box/NEKO.md"
 else
   git clone -q -c advice.detachedHead=false --depth 1 --branch "$BOX_BASE_TAG" https://github.com/SagerNet/sing-box "$TMP/box-base"
-  if ! patch -d "$TMP/box-base" -p1 -s -t < "$BOX_PATCH"; then
+  BOX_CLONED_SHA=$(git -C "$TMP/box-base" rev-parse HEAD)
+  rm -rf "$TMP/box-base/clients"
+  if [ "$BOX_CLONED_SHA" != "$BOX_BASE_SHA" ]; then
+    fail "sing-box $BOX_BASE_TAG resolves to $BOX_CLONED_SHA, expected $BOX_BASE_SHA"
+  elif ! patch -d "$TMP/box-base" -p1 -s -t < "$BOX_PATCH"; then
     fail "$BOX_PATCH does not apply cleanly on sing-box $BOX_BASE_TAG"
-  elif ! diff -r -q --exclude=.git --exclude=clients --exclude=NEKO.md "$TMP/box-base" libcore/sing-box > "$TMP/box.diff"; then
+  elif ! diff -r -q --exclude=.git --exclude=NEKO.md "$TMP/box-base" libcore/sing-box > "$TMP/box.diff"; then
     fail "sing-box $BOX_BASE_TAG + $BOX_PATCH diverges from libcore/sing-box (regenerate the patch):
 $(cat "$TMP/box.diff")"
   fi

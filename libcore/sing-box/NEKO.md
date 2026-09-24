@@ -32,7 +32,7 @@ Additional patches maintained by this fork (not from MatsuriDayo):
 | router: lock `trackers` | `route/router.go`, `route/route.go`: upstream appends to `Router.trackers` without synchronization, and the Android app calls `AppendTracker` (via `SetV2rayStats`) while the box is already routing, so the append raced the per-connection reads in `RouteConnection`/`RoutePacketConnection` (slice growth tearing). Added a `sync.RWMutex` (`trackersAccess`): `AppendTracker` takes the write lock, the read paths take the read lock. 1.14: a third read site (L3 `NewTracker` closure building `tun.FlowTracker`s) is covered too. 1.14.1: upstream moved the forward log line inside the `NewTracker` closure (`metadataCopy`); the RLock now wraps the tracker reads after it. Drop if upstream adds its own locking. The app now installs the stats service before `box.start()` (`ProxyInstance.launch`), so no append races routing any more; the lock can be dropped at the next rebase. Regression/concurrency tests: `route/router_tracker_test.go` (fork-added, part of the patch artifact). |
 | router: tracker read locks unlock via `defer` (neko-2) | `route/route.go`: the two `trackersAccess.RLock()` sites in `routeConnection`/`routePacketConnection` unlocked with a plain `RUnlock()`; a tracker panic would skip it and block `AppendTracker`'s write lock forever. Both now unlock via `defer` inside an immediately-invoked closure, keeping the critical section unchanged (the third site, `PreMatch`'s `NewTracker` closure, already used `defer`). |
 | dialer: interface-selection entry points honor `DoNotSelectInterface` (neko-2) | `common/dialer/default.go`: `DialParallelInterface`/`ListenSerialInterfacePacket` are public and accept an explicit `strategy`; `DialContext`/`ListenPacket` check `DoNotSelectInterface` first, but these two did not, so a future upstream caller passing a non-nil strategy would silently get interface selection — which conflicts with Android VPN protect semantics (libcore sets `DoNotSelectInterface = true` in `init`). Both now fall back to the plain dial/listen path when `DoNotSelectInterface` is set. |
-| boxapi: `StatsService()` returns a nil interface when disabled (neko-2) | `boxapi/v2ray_server.go`: `NewSbStatsService` returns nil when `!Enabled`; boxing that into `adapter.ConnectionTracker` produced a non-nil interface wrapping a nil `*SbStatsService`, which would panic on the first routed connection after `AppendTracker`. `StatsService()` now returns a nil interface when the service is nil. |
+| boxapi: `StatsService()` returns a nil interface when disabled (neko-2) | `boxapi/v2ray_server.go`: `NewSbStatsService` returns nil when `!Enabled`; boxing that into `adapter.ConnectionTracker` produced a non-nil interface wrapping a nil `*SbStatsService`, which would panic on the first routed connection after `AppendTracker`. `StatsService()` now returns a nil interface when the service is nil, and libcore's `SetV2rayStats` skips a nil tracker (`AppendTracker` itself does not reject nil). |
 
 ## Replayable patch artifact
 
@@ -40,8 +40,11 @@ The whole patch set is materialized as a single replayable diff,
 `libcore/patches/sing-box-v1.14.1-neko-3.diff`: a clean clone of upstream tag
 v1.14.1 plus this file applied with `patch -p1` reproduces this directory
 exactly. Excluded from the artifact (and from the verification comparison):
-`.git`, the `clients/` git submodule placeholders (not carried here), and this
-`NEKO.md` (a management document, not part of the patches). Everything else is
+`.git`, the top-level `clients/` git submodule placeholders (not carried here;
+deleted from the upstream clone before diffing — `--exclude=clients` would also
+drop `docs/clients/`, which is compared like everything else), and this
+`NEKO.md` (a management document, not part of the patches). `check_versions`
+also pins the tag to upstream commit `1ac1a339cb1223e9c70eae14c44411c75033c02d`. Everything else is
 in the diff — modified upstream files, new files (`boxapi/`, `nekoutils/`, the
 fork's `*_test.go` additions) and the `go.mod`/`go.sum` divergence documented
 below. `./run lib check_versions` replays the artifact against a fresh clone
@@ -53,13 +56,15 @@ root):
 ```bash
 TMP=$(mktemp -d)
 git clone --depth 1 --branch v1.14.1 https://github.com/SagerNet/sing-box "$TMP/a"
+rm -rf "$TMP/a/clients"
 cp -R libcore/sing-box "$TMP/b"
-(cd "$TMP" && diff -ruN --exclude=.git --exclude=clients --exclude=NEKO.md a b) \
+(cd "$TMP" && command diff -ruN --exclude=.git --exclude=NEKO.md a b) \
   > libcore/patches/sing-box-v1.14.1-neko-3.diff
 ```
 
 The `a`/`b` directory names are load-bearing: they keep the diff header paths
-deterministic (`patch -p1` strips them). `diff` exiting 1 just means
+deterministic (`patch -p1` strips them). `command diff` bypasses shell aliases
+such as `diff --color`, which would leak into the file headers. `diff` exiting 1 just means
 "differences found", which is the expected outcome here.
 
 How to upgrade the base: clone upstream SagerNet/sing-box, merge or rebase the
@@ -84,6 +89,8 @@ the same version in both files, so dependency bumps land here too. As of
   which is what pushes the go directive up; upstream sing-box ≥ 1.14 requires
   Go 1.25+ and its own CI builds with Go 1.26.8, so 1.26 stays within the
   upstream-supported range
+- `golang.org/x/tools v0.47.0 // indirect` dropped (upstream lists it; `go mod
+  tidy` removes it as unused)
 
 Apply such bumps with `go mod tidy` in this directory (it also drops stale
 indirect entries), and re-run `./run lib check_versions` afterwards.

@@ -44,6 +44,23 @@ jobs:
             echo "::error::inputs.tag ($TAG) does not match VERSION_NAME ($VERSION) in nb4a.properties"
             exit 1
           fi
+      - name: Check y/empty inputs
+        # skip_publish / prerelease 只认 y 或留空：publish 的判断在表达式里做且不区分
+        # 大小写，填 yes、true、1 都会真的发布并用 ghr -delete 重建 release；Y 在下面
+        # 的 shell 判断里又不算预览版。输入同样只经 env 传入
+        env:
+          SKIP_PUBLISH: ${{ inputs.skip_publish }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          for pair in "skip_publish=$SKIP_PUBLISH" "prerelease=$PRERELEASE"; do
+            case "${pair#*=}" in
+              ""|y) ;;
+              *)
+                echo "::error::${pair%%=*} must be y or empty, got '${pair#*=}'"
+                exit 1
+                ;;
+            esac
+          done
       - name: Check prerelease matches the tag
         # 预览版 tag（-aN / -bN）必须带 prerelease=y，正式版不能带：漏填或写成 Y
         # 时预览版会作为正式版发布并顶掉 Latest。在构建前就拦下；输入同样只经 env 传入
