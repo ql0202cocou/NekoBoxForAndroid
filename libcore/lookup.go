@@ -230,6 +230,12 @@ func exchangeHTTPS(ctx context.Context, h3 bool, server string, query *mDNS.Msg)
 	if err != nil {
 		return nil, err
 	}
+	// 与 sing-box 一致：地址没写路径时发到 /dns-query。Kotlin 的 makeDnsServer
+	// 此时不设 path、由 sing-box 补默认值，这里不补就会发到 /，VPN 内能解析的
+	// 地址在订阅解析和 ping 里却静默回退
+	if req.URL.Path == "" {
+		req.URL.Path = "/dns-query"
+	}
 	req.Header.Set("Content-Type", "application/dns-message")
 	req.Header.Set("Accept", "application/dns-message")
 	resp, err := client.Do(req)
@@ -252,20 +258,44 @@ func exchangeHTTPS(ctx context.Context, h3 bool, server string, query *mDNS.Msg)
 // 报文前加 2 字节长度，Message ID 必须为 0。ctx 结束时直接关连接，让阻塞中的
 // 读写立刻返回（同 exchangeCancellable）
 func exchangeQUIC(ctx context.Context, address string, query *mDNS.Msg) (*mDNS.Msg, error) {
-	host, _, _ := net.SplitHostPort(address)
-	conn, err := quic.DialAddr(ctx, address, &tls.Config{ServerName: host, NextProtos: []string{"doq"}}, nil)
+	host, port, err := net.SplitHostPort(address)
 	if err != nil {
+		return nil, err
+	}
+	// 单台服务器最多 5 秒（同 udp/tcp/tls 的 Client.Timeout），握手后不回应的服务器
+	// 不能吃光整个预算。它到期要报成普通错误：lookupHosts 见到 DeadlineExceeded
+	// 会当作总预算耗尽，不再试下一台
+	serverCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	fail := func(err error) (*mDNS.Msg, error) {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return nil, ctxErr
 		}
+		if serverCtx.Err() != nil {
+			return nil, errors.New("DNS over QUIC timed out")
+		}
 		return nil, err
 	}
+	// quic.DialAddr 用不带 ctx 的 net.ResolveUDPAddr 解析主机名，取消和预算都管
+	// 不住；先按 ctx 解析成 IP 再拨号，ServerName 仍用主机名
+	ips, err := net.DefaultResolver.LookupNetIP(serverCtx, "ip", host)
+	if err != nil {
+		return fail(err)
+	}
+	if len(ips) == 0 {
+		return nil, errors.New("no address for DNS over QUIC server")
+	}
+	remote := net.JoinHostPort(ips[0].Unmap().String(), port)
+	conn, err := quic.DialAddr(serverCtx, remote, &tls.Config{ServerName: host, NextProtos: []string{"doq"}}, nil)
+	if err != nil {
+		return fail(err)
+	}
 	defer conn.CloseWithError(0, "")
-	stop := context.AfterFunc(ctx, func() { conn.CloseWithError(0, "") })
+	stop := context.AfterFunc(serverCtx, func() { conn.CloseWithError(0, "") })
 	defer stop()
 
 	response, err := func() (*mDNS.Msg, error) {
-		stream, err := conn.OpenStreamSync(ctx)
+		stream, err := conn.OpenStreamSync(serverCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -295,9 +325,7 @@ func exchangeQUIC(ctx context.Context, address string, query *mDNS.Msg) (*mDNS.M
 		return response, response.Unpack(data)
 	}()
 	if err != nil {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return nil, ctxErr
-		}
+		return fail(err)
 	}
-	return response, err
+	return response, nil
 }
