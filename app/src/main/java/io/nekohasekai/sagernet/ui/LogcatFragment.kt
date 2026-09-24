@@ -62,17 +62,19 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
         return color
     }
 
-    private fun reloadSession() {
-        val span = SpannableString(
-            String(SendLog.getNekoLog(50 * 1024))
-        )
-        var offset = 0
-        for (line in span.lines()) {
-            val color = getColorForLine(line)
-            span.setSpan(
-                color, offset, offset + line.length, SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-            offset += line.length + 1
+    // 读日志文件（最多 50KB）和着色放到 IO 上，只把显示留在主线程
+    private fun reloadSession() = viewLifecycleOwner.lifecycleScope.launch {
+        val span = withContext(Dispatchers.IO) {
+            SpannableString(String(SendLog.getNekoLog(50 * 1024))).also { span ->
+                var offset = 0
+                for (line in span.lines()) {
+                    val color = getColorForLine(line)
+                    span.setSpan(
+                        color, offset, offset + line.length, SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
+                    offset += line.length + 1
+                }
+            }
         }
         binding.textview.text = span
         binding.textview.clearFocus()

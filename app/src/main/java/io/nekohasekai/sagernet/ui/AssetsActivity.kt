@@ -205,21 +205,39 @@ class AssetsActivity : ThemedActivity() {
             reloadAssets()
         }
 
-        fun reloadAssets() {
+        // 各文件的本地版本，reloadAssets 在后台读好，bind 直接取，免得主线程读文件
+        var versions = emptyMap<String, String>()
+
+        // 调用方都在主线程：列目录和读版本文件放到后台
+        fun reloadAssets() = runOnDefaultDispatcher {
             val assetsDir = app.assetsDir
             val files = assetsDir.listFiles()?.filter {
                 it.isFile && (it.name.endsWith(".db") || it.name == SagerNet.CA_FILE_NAME) &&
                         it.name !in assetNames
-            }
+            }.orEmpty()
+            val list = listOf(File(assetsDir, "geoip.db"), File(assetsDir, "geosite.db")) + files
+            val newVersions = list.associate { it.absolutePath to localVersion(it) }
 
             layout.refreshLayout.post {
-                // mutate the list on the main thread: this runs on a
-                // background dispatcher while the main thread reads it
+                // 只在主线程改列表：主线程同时在读它
                 assets.clear()
-                assets.add(File(assetsDir, "geoip.db"))
-                assets.add(File(assetsDir, "geosite.db"))
-                if (files != null) assets.addAll(files)
+                assets.addAll(list)
+                versions = newVersions
                 notifyDataSetChanged()
+            }
+        }
+
+        private fun localVersion(file: File): String {
+            if (!file.isFile) return "<unknown>"
+            val versionFile = File(file.parentFile, "${file.nameWithoutExtension}.version.txt")
+            if (!versionFile.isFile) {
+                return "Unknown-" + DateFormat.getDateFormat(app).format(Date(file.lastModified()))
+            }
+            return try {
+                versionFile.readText().trim()
+            } catch (e: Exception) {
+                Logs.w(e)
+                "<unknown>"
             }
         }
 
@@ -271,22 +289,7 @@ class AssetsActivity : ThemedActivity() {
             this.file = file
 
             binding.assetName.text = file.name
-            val versionFile = File(file.parentFile, "${file.nameWithoutExtension}.version.txt")
-
-            val localVersion = if (file.isFile) {
-                if (versionFile.isFile) {
-                    try {
-                        versionFile.readText().trim()
-                    } catch (e: Throwable) {
-                        snackbar(e.readableMessage).show()
-                        "<unknown>"
-                    }
-                } else {
-                    "Unknown-" + DateFormat.getDateFormat(app).format(Date(file.lastModified()))
-                }
-            } else {
-                "<unknown>"
-            }
+            val localVersion = adapter.versions[file.absolutePath] ?: "<unknown>"
 
             binding.assetStatus.text = getString(R.string.route_asset_status, localVersion)
 

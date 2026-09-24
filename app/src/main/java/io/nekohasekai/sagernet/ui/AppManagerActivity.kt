@@ -3,12 +3,16 @@ package io.nekohasekai.sagernet.ui
 import android.os.Bundle
 import android.text.TextUtils
 import androidx.core.util.set
+import androidx.lifecycle.lifecycleScope
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.databinding.LayoutAppsBinding
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.confirm
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import moe.matsuri.nb4a.utils.NGUtil
 
 // 设置里的分应用代理，勾选结果写回 DataStore.individual
@@ -57,31 +61,34 @@ class AppManagerActivity : AppSelectActivity() {
             // loadApps() 可能还没跑完：列表为空时下面的筛选会把
             // DataStore.individual 清空
             if (!appsLoaded) return@confirm
-            try {
-                val needProxyAppsList = getAutoProxyApps("")
-                val bypass = DataStore.bypass
-                proxiedUids.clear()
-                for (app in cachedApps) {
-                    val needProxy =
-                        needProxyAppsList.contains(app.key) || (app.value.applicationInfo?.uid
-                            ?: 0) == 1000
-                    if (needProxy) {
-                        if (!bypass) {
-                            app.value.applicationInfo?.apply {
-                                proxiedUids[uid] = true
+            // 内置包名清单在 APK assets 里，放到 IO 上读；proxiedUids 只在主线程改
+            lifecycleScope.launch {
+                val needProxyAppsList = withContext(Dispatchers.IO) { getAutoProxyApps("") }
+                try {
+                    val bypass = DataStore.bypass
+                    proxiedUids.clear()
+                    for (app in cachedApps) {
+                        val needProxy =
+                            needProxyAppsList.contains(app.key) || (app.value.applicationInfo?.uid
+                                ?: 0) == 1000
+                        if (needProxy) {
+                            if (!bypass) {
+                                app.value.applicationInfo?.apply {
+                                    proxiedUids[uid] = true
+                                }
                             }
-                        }
-                    } else {
-                        if (bypass) {
-                            app.value.applicationInfo?.apply {
-                                proxiedUids[uid] = true
+                        } else {
+                            if (bypass) {
+                                app.value.applicationInfo?.apply {
+                                    proxiedUids[uid] = true
+                                }
                             }
                         }
                     }
+                    applySelection()
+                } catch (e: Exception) {
+                    Logs.e(e)
                 }
-                applySelection()
-            } catch (e: Exception) {
-                Logs.e(e)
             }
         }
     }
