@@ -9,7 +9,7 @@ import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import moe.matsuri.nb4a.utils.JavaUtil
 import moe.matsuri.nb4a.utils.Util
 
-class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = null) :
+class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Interface) :
     BoxInstance(profile) {
 
     // written on the serial dispatcher (NativeInterface selector callback),
@@ -49,7 +49,7 @@ class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = 
         if (isClosed()) return
         box.setAsMain()
         // 流量统计服务在 box.start() 之前装上，见 TrafficLooper.statsTags
-        if (service != null && TrafficLooper.enabled()) {
+        if (TrafficLooper.enabled()) {
             box.setV2rayStats(TrafficLooper.statsTags(config))
         }
         super.launch() // start box
@@ -57,8 +57,7 @@ class ProxyInstance(profile: ProxyEntity, var service: BaseService.Interface? = 
             // The service may have stopped before this block runs; creating a
             // looper now would spin on an already closed box.
             if (isClosed()) return@runOnDefaultDispatcher
-            val trafficLooper = service?.let { TrafficLooper(it.data) }
-                ?: return@runOnDefaultDispatcher
+            val trafficLooper = TrafficLooper(service.data)
             looper = trafficLooper
             trafficLooper.start()
             if (isClosed()) {

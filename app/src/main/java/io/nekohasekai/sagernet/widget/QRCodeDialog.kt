@@ -60,7 +60,7 @@ class QRCodeDialog() : DialogFragment() {
         val displayName = arguments?.getString(KEY_NAME).orEmpty()
 
         return try {
-            // get display size
+            // 取屏幕尺寸
             var pixelMin = 0
 
             try {
@@ -78,11 +78,11 @@ class QRCodeDialog() : DialogFragment() {
             if (!iso88591.canEncode(url)) hints[EncodeHintType.CHARACTER_SET] = StandardCharsets.UTF_8.name()
             val qrBits = MultiFormatWriter().encode(url, BarcodeFormat.QR_CODE, size, size, hints)
             LinearLayout(context).apply {
-                // Layout
+                // 布局
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
 
-                // QR Code Image View
+                // 二维码图片
                 addView(ImageView(context).apply {
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
@@ -94,7 +94,7 @@ class QRCodeDialog() : DialogFragment() {
                     })
                 })
 
-                // Text View
+                // 名称文字
                 addView(TextView(context).apply {
                     gravity = Gravity.CENTER
                     layoutParams = ViewGroup.LayoutParams(
@@ -109,4 +109,5 @@ class QRCodeDialog() : DialogFragment() {
             dismiss()
             null
         }
-    }}
+    }
+}

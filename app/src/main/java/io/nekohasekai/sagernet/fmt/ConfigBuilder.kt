@@ -701,10 +701,14 @@ private class ConfigBuild(
         }
         // build outbounds from route item
         extraProxies.forEach { (key, p) ->
-            // 已作为选择器成员或在别的链里建过全局 outbound 的直接复用，
-            // 重建会让 tag 重复；中间跳没有可复用的全局 tag，单独建一个，
-            // 不能丢掉这条路由规则
-            tagMap[key] = globalOutbounds[key] ?: buildChain(key, p)
+            // 已作为选择器成员建过的先查 tagMap：成员带前置 / 落地代理时它的
+            // 全局 tag 不在 globalOutbounds（那里只登记链里最先拨号的一跳），
+            // 只查后者会重建成员——前置是多跳链时中间跳重名，sing-box 拒绝整份
+            // 配置；否则 tagMap 被改成不在选择器里的 tag，连接中选它不生效，
+            // 有落地代理时规则还会绕过落地。在别的链里建过全局 outbound 的复用
+            // globalOutbounds；中间跳没有可复用的全局 tag，单独建一个，不能丢掉
+            // 这条路由规则
+            tagMap[key] = tagMap[key] ?: globalOutbounds[key] ?: buildChain(key, p)
         }
 
         for (freedom in arrayOf(TAG_DIRECT, TAG_BYPASS)) outbounds.add(Outbound().apply {
@@ -890,10 +894,9 @@ private class ConfigBuild(
             directDNS.firstOrNull() ?: throw Exception("No direct DNS, check your settings!"),
             "dns-direct"
         ).apply {
-            // sing-box 1.14: a typed DNS server with no detour dials directly
-            // with its own dialer, which is the intent here — an explicit
-            // detour to the empty direct outbound fails the whole box start
-            // ("detour to an empty direct outbound makes no sense")
+            // sing-box 1.14：不设 detour 的 typed DNS 服务器用自己的 dialer
+            // 直连，正是这里要的；显式 detour 到空的 direct 出站反而会让整个
+            // box 启动失败（"detour to an empty direct outbound makes no sense"）
             domain_resolver = "dns-local"
         })
 
@@ -902,11 +905,9 @@ private class ConfigBuild(
             remoteDns.firstOrNull() ?: throw Exception("No remote DNS, check your settings!"),
             "dns-remote"
         ).apply {
-            // remote DNS must leave through the tunnel like pre-1.14's
-            // default-outbound behavior: 1.14 would dial it directly
-            // (see dns-direct) — detour to the proxy outbound instead,
-            // which is never an empty direct outbound, so the start-time
-            // check above does not apply
+            // 远程 DNS 必须经隧道出去，同 1.14 之前走默认出站的行为：1.14 会让它
+            // 直连（见 dns-direct），所以 detour 到代理出站。代理出站不会是空的
+            // direct 出站，上面那条启动时检查不受影响
             detour = TAG_PROXY
             domain_resolver = "dns-direct"
         })

@@ -169,14 +169,6 @@ class MainActivity : ThemedActivity(),
 
         val url = uri.getQueryParameter("url")
         if (!url.isNullOrBlank()) {
-            // 订阅地址只接受 http(s)：file/content 等 scheme 更新器拉不了，拒绝导入
-            val scheme = url.toUri().scheme?.lowercase()
-            if (scheme != "http" && scheme != "https") {
-                onMainDispatcher {
-                    alert("Invalid subscription URL").show()
-                }
-                return
-            }
             group = ProxyGroup(type = GroupType.SUBSCRIPTION)
             val subscription = SubscriptionBean()
             group.subscription = subscription
@@ -200,7 +192,21 @@ class MainActivity : ThemedActivity(),
             }
         }
 
-        val name = group.name.takeIf { !it.isNullOrBlank() } ?: group.subscription?.link
+        // 两种形态（?url= 明文与编码的分组）汇合后统一校验：深链由外部网页 / 应用
+        // 发起，订阅地址只接受 http(s)。RawUpdater 支持 content://（给用户自己选的
+        // 本地文件用），外部链接指定它就能让更新器以本应用身份读任意 provider
+        val link = group.subscription?.link
+        if (!link.isNullOrBlank()) {
+            val scheme = link.toUri().scheme?.lowercase()
+            if (scheme != "http" && scheme != "https") {
+                onMainDispatcher {
+                    alert(getString(R.string.invalid_subscription_url)).show()
+                }
+                return
+            }
+        }
+
+        val name = group.name.takeIf { !it.isNullOrBlank() } ?: link
         ?: group.subscription?.token
         if (name.isNullOrBlank()) return
 
@@ -212,7 +218,6 @@ class MainActivity : ThemedActivity(),
             displayFragmentWithId(R.id.nav_group)
 
             val message = getString(R.string.subscription_import_message, name)
-            val link = group.subscription?.link
 
             MaterialAlertDialogBuilder(this@MainActivity).setTitle(R.string.subscription_import)
                 .setMessage(if (!link.isNullOrBlank()) "$message\n\n$link" else message)
@@ -431,8 +436,8 @@ class MainActivity : ThemedActivity(),
         DataStore.selectedProxy = id
         DataStore.currentProfile = id
         runOnDefaultDispatcher {
-            ProfileManager.postUpdate(old, true)
-            ProfileManager.postUpdate(id, true)
+            ProfileManager.postUpdate(old)
+            ProfileManager.postUpdate(id)
         }
     }
 

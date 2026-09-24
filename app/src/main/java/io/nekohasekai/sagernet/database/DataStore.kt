@@ -88,8 +88,8 @@ object DataStore {
 
     // 多用户 mixedPort 偏移：uid 高位即 user id，平台约定每个用户占 100000
     // 个 uid 段（UserHandle.getUserId 的内部实现，但该静态方法在 SDK 里
-    // @hide 不可直接调，故用字面量除法）。替代 API 31 起废弃、且依赖
-    // 「hashCode==mHandle」未契约化实现的 getCallingUserHandle().hashCode()
+    // @hide 不可直接调，故用字面量除法）。替代依赖「hashCode==mHandle」
+    // 这一未契约化实现的 getCallingUserHandle().hashCode()
     private val userIndex by lazy { Binder.getCallingUid() / 100000 }
     var mixedPort: Int
         get() = getLocalPort(Key.MIXED_PORT, 2080)

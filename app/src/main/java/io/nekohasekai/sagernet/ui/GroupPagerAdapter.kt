@@ -142,7 +142,7 @@ class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentS
 
     override suspend fun onUpdated(data: TrafficData) = Unit
 
-    override suspend fun onUpdated(profile: ProxyEntity, noTraffic: Boolean) = Unit
+    override suspend fun onUpdated(profile: ProxyEntity) = Unit
 
     override suspend fun onRemoved(groupId: Long, profileId: Long) {
         val group = onMainDispatcher { groupList.find { it.id == groupId } } ?: return

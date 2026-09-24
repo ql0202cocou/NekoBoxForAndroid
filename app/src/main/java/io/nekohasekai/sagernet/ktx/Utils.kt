@@ -18,6 +18,7 @@ import android.system.Os
 import android.system.OsConstants
 import android.util.TypedValue
 import android.view.View
+import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.annotation.AttrRes
 import androidx.annotation.ColorRes
@@ -261,8 +262,11 @@ fun ContentResolver.displayName(uri: Uri): String {
 // 经 FileProvider（.cache）把文件交给系统分享面板。provider 只暴露
 // cacheDir/share/（cache_paths.xml），不在其中的文件先挪进去；分享负载即用
 // 即弃，挪完顺手清掉上一次分享的残留（备份 JSON 含全部节点凭证）
+// FileProvider 只暴露这个目录（见 cache_paths.xml）
+val Context.shareDir get() = File(cacheDir, "share")
+
 fun Context.shareFile(file: File, mimeType: String) {
-    val shareDir = File(cacheDir, "share").apply { mkdirs() }
+    val shareDir = shareDir.apply { mkdirs() }
     val shared = if (file.parentFile == shareDir) {
         file
     } else {
@@ -272,6 +276,7 @@ fun Context.shareFile(file: File, mimeType: String) {
             runCatching { file.copyTo(target, overwrite = true); file.delete() }.isSuccess -> target
             else -> {
                 Logs.w("shareFile: cannot move ${file.name} into share dir")
+                Toast.makeText(this, R.string.action_export_err, Toast.LENGTH_SHORT).show()
                 return
             }
         }

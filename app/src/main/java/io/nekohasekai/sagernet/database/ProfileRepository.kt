@@ -29,8 +29,7 @@ object ProfileRepository {
 
     suspend fun updateStatus(profiles: List<ProxyEntity>) = ProfileManager.updateStatus(profiles)
 
-    suspend fun postUpdate(profile: ProxyEntity, noTraffic: Boolean = false) =
-        ProfileManager.postUpdate(profile, noTraffic)
+    suspend fun postUpdate(profile: ProxyEntity) = ProfileManager.postUpdate(profile)
 
     suspend fun clearTraffic(profiles: List<ProxyEntity>) {
         for (profile in profiles) {

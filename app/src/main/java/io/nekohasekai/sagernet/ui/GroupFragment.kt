@@ -16,7 +16,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.*
 import io.nekohasekai.sagernet.databinding.LayoutGroupItemBinding
 import io.nekohasekai.sagernet.fmt.haveLink
@@ -358,8 +357,8 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                         val links = stdLinksOfGroup(proxyGroup.id)
                             ?: return@runOnDefaultDispatcher
                         onMainDispatcher {
-                            SagerNet.trySetPrimaryClip(links)
-                            snackbar(getString(androidx.browser.R.string.copy_toast_msg)).show()
+                            // 大分组的链接可能超过 binder 事务上限，按实际结果提示
+                            activity.snackbar(exportToClipboard(links)).show()
                         }
                     }
                 }

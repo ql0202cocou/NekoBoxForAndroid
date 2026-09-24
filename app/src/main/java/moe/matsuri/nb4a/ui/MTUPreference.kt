@@ -37,7 +37,11 @@ class MTUPreference
                 .setPositiveButton(android.R.string.ok) { _, _ ->
                     val mtu = view.text.toString().toIntOrNull()
                     if (mtu == null || mtu < 1000 || mtu > 10000) {
-                        Toast.makeText(context, "Invalid MTU (1000-10000)", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.integer_range_error, 1000, 10000),
+                            Toast.LENGTH_SHORT
+                        ).show()
                         return@setPositiveButton
                     }
                     // go through the change listener so SettingsPreferenceFragment's

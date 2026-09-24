@@ -80,12 +80,12 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
             val setting = binding.backupSettings.isChecked
             viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
                 val backup = doBackup(profile, rule, setting)
-                app.cacheDir.mkdirs()
-                // each share leaves a file holding every credential behind: keep only this one
+                // 直接写进分享目录，shareFile 在主线程上就不必再挪文件；目录里的旧备份
+                // 由 shareFile 清掉，这里只清旧版本留在 cacheDir 根目录的
                 app.cacheDir.listFiles { f -> f.name.startsWith("nekobox_backup_") }
                     ?.forEach { it.delete() }
                 val cacheFile = File(
-                    app.cacheDir,
+                    app.shareDir.apply { mkdirs() },
                     "nekobox_backup_${SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())}.json"
                 )
                 cacheFile.writeText(backup)
@@ -108,8 +108,8 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         runOnDefaultDispatcher {
             app.cacheDir.listFiles { f -> f.name.startsWith("nekobox_backup_") }
                 ?.forEach { it.delete() }
-            // shareFile 会把文件挪进 share/ 子目录（见 cache_paths.xml），两边都要清
-            File(app.cacheDir, "share").listFiles { f -> f.name.startsWith("nekobox_backup_") }
+            // 备份写在 share/ 子目录（见 cache_paths.xml），根目录可能还有旧版本留下的
+            app.shareDir.listFiles { f -> f.name.startsWith("nekobox_backup_") }
                 ?.forEach { it.delete() }
         }
     }

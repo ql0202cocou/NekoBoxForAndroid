@@ -71,8 +71,9 @@ import java.util.zip.ZipInputStream
 import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.EditorCache
 
-// runGroupTest 在主线程置位、在后台 dispatcher 清除；CAS 防止连点两下起两个
-// 测试。放在进程级而不是 fragment 字段：重建后的 fragment 不能再起第二个
+// runGroupTest 在主线程置位；测试结束、读库失败或 fragment 已销毁时清除（主线程
+// 与后台都有）。CAS 防止连点两下起两个测试。放在进程级而不是 fragment 字段：
+// 重建后的 fragment 不能再起第二个
 private val runningTest = AtomicBoolean(false)
 
 class ConfigurationFragment @JvmOverloads constructor(
@@ -435,6 +436,8 @@ class ConfigurationFragment @JvmOverloads constructor(
                     }
                     if (toClear.isNotEmpty()) {
                         onMainDispatcher {
+                            // 读库期间 fragment 可能已销毁，requireContext 会在 appScope 上抛异常崩溃
+                            if (!isAdded) return@onMainDispatcher
                             requireContext().confirm(R.string.delete_confirm_prompt) {
                                 runOnDefaultDispatcher {
                                     ProfileRepository.deleteProfiles(toClear)
@@ -458,6 +461,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                     }
                     if (toClear.isNotEmpty()) {
                         onMainDispatcher {
+                            if (!isAdded) return@onMainDispatcher
                             // 最多列出 20 个，再多的用省略号代替
                             val names = toClear.take(21).mapIndexed { index, proxyEntity ->
                                 if (index < 20) proxyEntity.displayName() else "......"
@@ -547,11 +551,13 @@ class ConfigurationFragment @JvmOverloads constructor(
     }
 
     fun urlTest() {
+        // 整轮测试用同一个地址：中途改设置不影响剩下的节点，也不必每个节点读一次库。
+        // lazy 让第一次读发生在测试的后台线程上
+        val testURL by lazy { DataStore.connectionTestURL }
         runGroupTest({ true }) { _, profile ->
             try {
                 // 注意：这里不在 bg 进程
-                val result =
-                    TestInstance(profile, DataStore.connectionTestURL, 5000).doTest()
+                val result = TestInstance(profile, testURL, 5000).doTest()
                 profile.status = 1
                 profile.ping = result
             } catch (e: PluginManager.PluginNotFoundException) {
@@ -639,13 +645,15 @@ class ConfigurationFragment @JvmOverloads constructor(
                 mainJob.cancel()
                 testJobs.forEach { it.cancel() }
                 // 只写状态：快照是测试开始时读的，整行更新会把 :bg 之后
-                // 写入的 tx/rx 回滚。整批一个事务，随后整组重读一次刷新列表
+                // 写入的 tx/rx 回滚。整批一个事务，随后整组重读一次刷新列表。
+                // 重读被测的分组而不是当前分组：最小化后用户可能已翻到别的组，
+                // 批量写不像逐行写那样发 onUpdated，读错组被测组就停在旧结果
                 try {
                     ProfileRepository.updateStatus(test.results.toList())
                 } catch (e: Exception) {
                     Logs.w(e)
                 }
-                GroupRepository.postReload(GroupManager.currentGroupId())
+                GroupRepository.postReload(group.id)
                 runningTest.set(false)
             }
         }

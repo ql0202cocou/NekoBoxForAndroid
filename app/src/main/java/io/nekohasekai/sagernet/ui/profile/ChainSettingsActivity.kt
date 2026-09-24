@@ -113,16 +113,19 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
                 viewHolder: RecyclerView.ViewHolder,
                 target: RecyclerView.ViewHolder,
             ): Boolean {
-                return if (target !is ProfileHolder) false else {
-                    configurationAdapter.move(
-                        viewHolder.bindingAdapterPosition, target.bindingAdapterPosition
-                    )
-                    true
-                }
+                val from = viewHolder.bindingAdapterPosition
+                val to = target.bindingAdapterPosition
+                // 适配器有待处理的更新时位置可能是 NO_POSITION（-1），拿它算下标会越界
+                if (target !is ProfileHolder || from == RecyclerView.NO_POSITION ||
+                    to == RecyclerView.NO_POSITION
+                ) return false
+                configurationAdapter.move(from, to)
+                return true
             }
 
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
-                configurationAdapter.remove(viewHolder.bindingAdapterPosition)
+                val position = viewHolder.bindingAdapterPosition
+                if (position != RecyclerView.NO_POSITION) configurationAdapter.remove(position)
             }
 
         }).attachToRecyclerView(configurationList)

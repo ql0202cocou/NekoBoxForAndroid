@@ -266,16 +266,17 @@ class BaseService {
                     if (ent != null && canReloadSelector(ent)) {
                         val tag = data.proxy?.config?.profileTagMap?.get(ent.id) ?: ""
                         if (tag.isNotBlank()) {
-                            // select from GUI
-                            data.proxy?.box?.selectOutbound(tag)
-                            // or select from webui
-                            // => selector_OnProxySelected
-                            return@runOnDefaultDispatcher
+                            // 界面选择走这里；webui 上的选择走 selector_OnProxySelected。
+                            // 返回 false 是选择器里没有这个 tag，同样回落重启，不能静默
+                            // 丢掉；null 是服务已被并发停止，照旧直接返回
+                            if (data.proxy?.box?.selectOutbound(tag) != false) return@runOnDefaultDispatcher
+                            Logs.w("Selector rejected profile ${ent.id}, restarting")
+                        } else {
+                            // no outbound of its own (e.g. only a middle hop of another
+                            // member's chain): fall through to a full restart, which
+                            // rebuilds the config around it, instead of doing nothing
+                            Logs.w("No outbound tag for profile ${ent.id}, restarting")
                         }
-                        // no outbound of its own (e.g. only a middle hop of another
-                        // member's chain): fall through to a full restart, which
-                        // rebuilds the config around it, instead of doing nothing
-                        Logs.w("No outbound tag for profile ${ent.id}, restarting")
                     }
                 } catch (e: Throwable) {
                     // bad profile data (e.g. a chain loop) or a JNI error must not
@@ -295,8 +296,11 @@ class BaseService {
             }
         }
 
-        // 运行中的是选择器分组，且新选中的节点属于同一个选择器分组时可原地切换
+        // 运行中的是选择器分组，且新选中的节点属于同一个选择器分组时可原地切换。
+        // 只在 Connected 时成立：Connecting 期间 box.start() 还没跑完，Selector 的
+        // 出站表要到 Start 里才填，此时选择必然失败，还会与 Start 并发读写那张 map
         fun canReloadSelector(ent: ProxyEntity): Boolean {
+            if (data.state != State.Connected) return false
             val running = data.proxy?.config?.selectorGroupId ?: -1L
             return running >= 0 && selectorGroupIdOf(ent) == running
         }

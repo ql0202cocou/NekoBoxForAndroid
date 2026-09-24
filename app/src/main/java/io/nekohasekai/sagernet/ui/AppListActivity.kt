@@ -19,13 +19,11 @@ class AppListActivity : AppSelectActivity() {
     override val defaultShowSystemApps = false
     override val clipboardHeader = "false"
 
-    // The route editor's state lives in the in-memory profileCacheStore
-    // and dies with the process. On a process-death restore the route
-    // editor re-initializes asynchronously, so routePackages may still
-    // be blank here; starting from it would corrupt the app list on the
-    // next edit. Bail out and let the user re-enter from the editor.
-    // (read as String: routeOutbound is persisted via stringToInt, so the
-    // row is TYPE_STRING and getInt() would never see it)
+    // 路由编辑器的状态在内存里的 profileCacheStore，随进程一起消失。进程死亡
+    // 恢复时路由编辑器是异步重新初始化的，这里 routePackages 可能还是空的；
+    // 从空值开始，下次编辑就会把应用列表写坏。直接退出，让用户从编辑器重新进入。
+    // （按 String 读：routeOutbound 经 stringToInt 存储，行类型是 TYPE_STRING，
+    // getInt() 永远读不到）
     override fun onViewsCreated(savedInstanceState: Bundle?) = savedInstanceState == null ||
         EditorCache.profileCacheStore.getString(Key.ROUTE_OUTBOUND) != null
 }

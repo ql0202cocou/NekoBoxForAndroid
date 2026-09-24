@@ -30,7 +30,7 @@ fun settingActivityOf(type: Int): Class<out Activity> = when (type) {
 }
 
 // Moved from ProxyEntity so the database package no longer depends on ui.
-fun ProxyEntity.settingIntent(ctx: Context, isSubscription: Boolean): Intent =
+fun ProxyEntity.settingIntent(ctx: Context): Intent =
     Intent(ctx, settingActivityOf(type)).apply {
         putExtra(ProfileSettingsActivity.EXTRA_PROFILE_ID, id)
     }

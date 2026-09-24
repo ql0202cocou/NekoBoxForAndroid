@@ -446,6 +446,6 @@ fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean): SingBoxOptions.SingBox
             tls = buildSingBoxOutboundTLS(bean)?.apply { alpn = listOf("h3") }
         }
 
-        else -> error("error_version $bean.protocolVersion")
+        else -> error("error_version ${bean.protocolVersion}")
     }
 }

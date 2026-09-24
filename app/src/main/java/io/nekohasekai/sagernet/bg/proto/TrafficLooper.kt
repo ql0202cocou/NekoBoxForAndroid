@@ -187,6 +187,7 @@ class TrafficLooper(val data: BaseService.Data) {
     }
 
     private suspend fun loop() {
+        if (!enabled()) return
         val delayMs = DataStore.speedInterval.toLong()
         val showDirectSpeed = DataStore.showDirectSpeed
         val profileTrafficStatistics = DataStore.profileTrafficStatistics
@@ -194,7 +195,6 @@ class TrafficLooper(val data: BaseService.Data) {
         // low-frequency counting loop so per-profile traffic statistics still
         // accumulate and can persist on stop
         val countingOnly = delayMs == 0L
-        if (countingOnly && !profileTrafficStatistics) return
         val loopDelay = if (countingOnly) 1000L else delayMs
 
         var trafficUpdater: TrafficUpdater? = null
@@ -290,7 +290,8 @@ class TrafficLooper(val data: BaseService.Data) {
                         seen.add(binder)
                     }
                 }
-                postedTo.retainAll(seen)
+                // 本轮收到推送的前台回调就是下一轮的 postedTo
+                postedTo.clear()
                 postedTo.addAll(seen)
             } else {
                 // 没有前台回调：下一个前台回调视为新出现，收全量

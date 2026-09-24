@@ -55,8 +55,8 @@ abstract class AppSelectActivity : ThemedActivity() {
 
     protected val cachedApps
         get(): MutableMap<String, PackageInfo> {
-            // register() runs asynchronously at app start; a cold restore
-            // straight into this activity can get here before it finished
+            // register() 在应用启动时异步执行；冷恢复直接进这个页面时它可能
+            // 还没跑完
             PackageCache.awaitLoadSync()
             return PackageCache.installedPackages.toMutableMap().apply {
                 remove(BuildConfig.APPLICATION_ID)
@@ -99,7 +99,7 @@ abstract class AppSelectActivity : ThemedActivity() {
         private val pm: PackageManager, private val appInfo: ApplicationInfo,
         val packageName: String,
     ) {
-        val name: CharSequence = appInfo.loadLabel(pm)    // cached for sorting
+        val name: CharSequence = appInfo.loadLabel(pm)    // 排序时反复用到，缓存下来
         val icon: Drawable get() = appInfo.loadIcon(pm)
         val uid get() = appInfo.uid
         val sys get() = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
@@ -196,8 +196,8 @@ abstract class AppSelectActivity : ThemedActivity() {
 
     private lateinit var views: Views
 
-    // proxiedUids is a SparseBooleanArray read by the adapter on the main
-    // thread; it is not thread-safe, so mutate it on the main thread only.
+    // proxiedUids 是 adapter 在主线程读的 SparseBooleanArray，本身不是线程安全的，
+    // 只在主线程修改
     protected val proxiedUids = SparseBooleanArray()
     private var loader: Job? = null
     private var apps = emptyList<ProxiedApp>()
@@ -232,6 +232,10 @@ abstract class AppSelectActivity : ThemedActivity() {
         loader?.cancel()
         loader = lifecycleScope.launch {
             loading.crossFadeFrom(views.list)
+            // 冷恢复直接进这个页面时 PackageCache 可能还没加载完：先在 IO 上等它，
+            // 再回主线程载入勾选状态（proxiedUids 只在主线程改），免得卡主线程
+            withContext(Dispatchers.IO) { PackageCache.awaitLoadSync() }
+            initProxiedUids()
             withContext(Dispatchers.IO) { appsAdapter.reload() }
             appsAdapter.filter.filter(views.search.text?.toString() ?: "")
             if (apps.isEmpty()) {
@@ -268,7 +272,6 @@ abstract class AppSelectActivity : ThemedActivity() {
             setHomeAsUpIndicator(R.drawable.ic_navigation_close)
         }
 
-        initProxiedUids()
         views.list.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
         views.list.itemAnimator = DefaultItemAnimator()
         views.list.adapter = appsAdapter
@@ -279,8 +282,7 @@ abstract class AppSelectActivity : ThemedActivity() {
             appsAdapter.filter.filter(it?.toString() ?: "")
         }
 
-        // the switch restores its own checked state on a config change; keep
-        // the backing field in sync with it
+        // 配置变更时开关会自己恢复勾选状态，字段要跟它保持一致
         sysApps = savedInstanceState?.getBoolean(SYS_APPS) ?: defaultShowSystemApps
         views.showSystemApps.isChecked = sysApps
         views.showSystemApps.setOnCheckedChangeListener { _, isChecked ->
@@ -304,6 +306,9 @@ abstract class AppSelectActivity : ThemedActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.action_invert_selections -> {
+                // 列表没加载完时 apps 为空，什么都翻不了，applySelection 却会按
+                // 空列表把已保存的选择写成空
+                if (!appsLoaded) return true
                 // 按反选前的快照判断：共用 uid 的多个应用只翻转一次
                 val proxiedUidsOld = proxiedUids.clone()
                 for (app in apps) {

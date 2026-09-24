@@ -79,7 +79,22 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
     // that holds (getDragDirs), which keeps move() in a single index space.
     val isFiltered get() = configurationIdList.size != allProfileIds.size
 
+    // 当前搜索词（小写），只在主线程读写。reloadProfiles 回到主线程时按它重新
+    // 过滤：清空搜索的整组重读在后台读库，期间用户可能又输入了字符
+    private var query = ""
+
+    private fun visibleIds(): List<Long> {
+        if (query.isEmpty()) return allProfileIds.toList()
+        return allProfileIds.filter { id ->
+            val profile = configurationList[id] ?: return@filter false
+            profile.displayName().lowercase().contains(query) ||
+                    profile.displayType().lowercase().contains(query) ||
+                    profile.displayAddress().lowercase().contains(query)
+        }
+    }
+
     fun filter(name: String) {
+        query = name.lowercase()
         if (name.isEmpty()) {
             // 清空搜索时的整组重读带读库，放到后台线程
             runOnDefaultDispatcher {
@@ -88,13 +103,7 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
             return
         }
         configurationIdList.clear()
-        val lower = name.lowercase()
-        configurationIdList.addAll(allProfileIds.filter { id ->
-            val profile = configurationList[id] ?: return@filter false
-            profile.displayName().lowercase().contains(lower) ||
-                    profile.displayType().lowercase().contains(lower) ||
-                    profile.displayAddress().lowercase().contains(lower)
-        })
+        configurationIdList.addAll(visibleIds())
         notifyDataSetChanged()
     }
 
@@ -171,7 +180,7 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
         }
     }
 
-    override suspend fun onUpdated(profile: ProxyEntity, noTraffic: Boolean) {
+    override suspend fun onUpdated(profile: ProxyEntity) {
         if (profile.groupId != groupFragment.proxyGroup.id) return
         groupFragment.configurationListView.post {
             // compute the index here: this callback runs on a background
@@ -182,7 +191,7 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
                 groupFragment.undoManager.flush()
             }
             // 库里的 tx/rx 可能落后于实时流量，重绑时 bind 会优先取
-            // ProfileManager.liveTraffic，noTraffic 不必再单独补发
+            // ProfileManager.liveTraffic
             configurationList[profile.id] = profile
             notifyItemChanged(index)
         }
@@ -255,12 +264,9 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
 
         val newProfileIds = newProfiles.map { it.id }
 
-        var selectedProfileIndex = -1
-
-        if (groupFragment.selected) {
-            val selectedProxy = groupFragment.selectedItem?.id ?: DataStore.selectedProxy
-            selectedProfileIndex = newProfileIds.indexOf(selectedProxy)
-        }
+        val selectedProxy = if (groupFragment.selected) {
+            groupFragment.selectedItem?.id ?: DataStore.selectedProxy
+        } else null
 
         groupFragment.configurationListView.post {
             // 整组重读会把撤销窗口里待删的行重新放回列表，先把它提交掉
@@ -271,12 +277,14 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
             // background dispatcher while the main thread reads them
             configurationList.clear()
             configurationList.putAll(newProfiles.associateBy { it.id })
-            configurationIdList.clear()
-            configurationIdList.addAll(newProfileIds)
             allProfileIds.clear()
             allProfileIds.addAll(newProfileIds)
+            configurationIdList.clear()
+            configurationIdList.addAll(visibleIds())
             notifyDataSetChanged()
 
+            // 在过滤后的可见列表里找选中行，列表位置才对得上
+            val selectedProfileIndex = selectedProxy?.let { configurationIdList.indexOf(it) } ?: -1
             if (selectedProfileIndex != -1) {
                 groupFragment.configurationListView.scrollTo(selectedProfileIndex, true)
             } else if (newProfiles.isNotEmpty()) {

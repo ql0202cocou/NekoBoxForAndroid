@@ -11,7 +11,6 @@ import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
-import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.TrafficData
@@ -114,11 +113,7 @@ class ConfigurationHolder(
         bindTraffic(trafficData ?: ProfileManager.liveTraffic[proxyEntity.id])
 
         editButton.setOnClickListener {
-            it.context.startActivity(
-                proxyEntity.settingIntent(
-                    it.context, groupFragment.proxyGroup.type == GroupType.SUBSCRIPTION
-                )
-            )
+            it.context.startActivity(proxyEntity.settingIntent(it.context))
         }
 
         removeButton.setOnClickListener {

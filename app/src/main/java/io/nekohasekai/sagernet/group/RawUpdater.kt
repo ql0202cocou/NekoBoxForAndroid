@@ -26,7 +26,6 @@ object RawUpdater : GroupUpdater() {
 
         val link = subscription.link
         var proxies: List<AbstractBean>
-        val subscriptionText: String
         var clashRoot: Map<*, *>? = null
         var remoteGroupName: String? = null
         if (link.startsWith("content://")) {
@@ -34,7 +33,6 @@ object RawUpdater : GroupUpdater() {
                 ?.use { it.readBytesLimited().toString(Charsets.UTF_8) }
                 ?: error(app.getString(R.string.no_proxies_found_in_subscription))
 
-            subscriptionText = contentText
             proxies = parseRaw(contentText) { clashRoot = it }
                 ?: error(app.getString(R.string.no_proxies_found_in_subscription))
 
@@ -58,7 +56,6 @@ object RawUpdater : GroupUpdater() {
             }.execute()
             try {
                 val responseText = Util.getStringBox(response.contentString)
-                subscriptionText = responseText
                 proxies = parseRaw(responseText) { clashRoot = it }
                     ?: error(app.getString(R.string.no_proxies_found))
 
@@ -96,11 +93,11 @@ object RawUpdater : GroupUpdater() {
         }
 
         // 订阅下发的节点解析 DNS，自动写入分组设置（在 forceResolve 之前生效）。
-        // clash/YAML 订阅撤下该键时同步清空残留值；base64/分享链接订阅本就
-        // 没有此键（非 YAML 拿不到 clashRoot，parseProxyServerNameserver 返回 null），不能误清
+        // clash/YAML 订阅撤下该键时同步清空残留值；分享链接等非 YAML 订阅本就
+        // 没有此键，不能误清。按是否真的载入了 YAML 根节点判断，而不是看原文：
+        // 整段 base64 编码的 YAML 原文里没有 "proxies:"，按原文判断永远清不掉
         val subscriptionNameserver = parseProxyServerNameserver(clashRoot)
-        val clearSubscriptionNameserver = subscriptionNameserver == null &&
-                subscriptionText.contains("proxies:")
+        val clearSubscriptionNameserver = subscriptionNameserver == null && clashRoot != null
         if (subscriptionNameserver != null) {
             proxyGroup.proxyServerNameserver = subscriptionNameserver
         } else if (clearSubscriptionNameserver) {

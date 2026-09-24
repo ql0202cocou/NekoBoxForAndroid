@@ -126,7 +126,7 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
 
     /**
      * 注册一个 ProfileSelectActivity 结果回调，选中后把 [preference] 切到「3」（指定配置）。
-     * onSelected 要先写 pending 再写 DataStore：重新初始化若在回调之后运行会补回 pending，
+     * onSelected 要先写 pending 再写 EditorCache：重新初始化若在回调之后运行会补回 pending，
      * 在之前运行则被这些写入覆盖。
      */
     protected fun profilePicker(
@@ -141,7 +141,7 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
             ) ?: return@runOnDefaultDispatcher
             onSelected(profile.id)
             onMainDispatcher {
-                // 进程死亡恢复时 fragment 可能还没提交；它创建时会读 DataStore 里的值
+                // 进程死亡恢复时 fragment 可能还没提交；它创建时会读 EditorCache 里的值
                 preference()?.value = "3"
             }
         }

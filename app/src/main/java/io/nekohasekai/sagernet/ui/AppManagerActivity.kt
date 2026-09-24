@@ -54,8 +54,8 @@ class AppManagerActivity : AppSelectActivity() {
 
     private fun selectProxyApp() {
         confirm(R.string.auto_select_proxy_apps_message) {
-            // loadApps() may still be running; with an empty list the
-            // filter below would wipe DataStore.individual
+            // loadApps() 可能还没跑完：列表为空时下面的筛选会把
+            // DataStore.individual 清空
             if (!appsLoaded) return@confirm
             try {
                 val needProxyAppsList = getAutoProxyApps("")

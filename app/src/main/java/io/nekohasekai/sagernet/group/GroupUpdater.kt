@@ -33,9 +33,8 @@ abstract class GroupUpdater {
     data class Progress(
         var max: Int
     ) {
-        // incremented from the concurrent DNS lookup threads; keep the
-        // AtomicInteger reachable so incrementAndGet() can be used — ++ on
-        // the delegated Int is a non-atomic get+set and loses increments
+        // 并发的 DNS 解析线程都在累加：保留 AtomicInteger 以便用 addAndGet()，
+        // 对委托出来的 Int 做 += 是非原子的读改写，会丢计数
         val progressAtomic = AtomicInteger()
         var progress by progressAtomic
     }
@@ -74,7 +73,8 @@ abstract class GroupUpdater {
                                 // FakeDNS
                                 lookupSystem(domain, SagerNet.underlyingNetwork)
                             } else {
-                                // System DNS is enough (when VPN connected, it uses v2ray-core)
+                                // 分组配了节点解析 DNS 时优先用它，没配或失败时回退系统 DNS
+                                //（VPN 连着时系统 DNS 由内核解析）
                                 lookupServerAddress(domain, groupNameserver, null)
                             }
                             if (results.isEmpty()) error("empty response")

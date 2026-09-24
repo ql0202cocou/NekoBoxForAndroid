@@ -96,7 +96,7 @@ class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenu
     }
 
     private fun destroyWebView() {
-        // detach before destroy: destroying a still-attached WebView can crash
+        // 先从父布局摘下再 destroy：销毁仍挂在视图树上的 WebView 可能崩溃
         (mWebView?.parent as? ViewGroup)?.removeView(mWebView)
         mWebView?.destroy()
         mWebView = null

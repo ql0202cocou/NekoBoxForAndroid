@@ -71,7 +71,8 @@ object PackageCache {
 
         // 不再单独 getInstalledApplications(GET_META_DATA)：上面的查询同样带
         // GET_META_DATA，applicationInfo 内容一致；MATCH_UNINSTALLED_PACKAGES 多出的
-        // 已卸载（保留数据）包没有 FLAG_INSTALLED，筛掉后与原查询等价，省一次全量 IPC
+        // 已卸载（保留数据）包没有 FLAG_INSTALLED，筛掉后与原查询基本一致，省一次
+        // 全量 IPC。被设备管理设为 hidden 的已安装包理论上仍会多出来（未上机确认）
         val installed = rawPackageInfo.mapNotNull { it.applicationInfo }
             .filter { it.flags and ApplicationInfo.FLAG_INSTALLED != 0 }
         installedApps = installed.associateBy { it.packageName }

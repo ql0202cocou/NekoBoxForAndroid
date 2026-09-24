@@ -14,7 +14,6 @@ import kotlinx.coroutines.sync.withLock
 import java.io.IOException
 import android.database.SQLException
 import java.util.*
-import java.util.concurrent.Callable
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -34,7 +33,7 @@ object ProfileManager {
     interface Listener {
         suspend fun onAdd(profile: ProxyEntity)
         suspend fun onUpdated(data: TrafficData)
-        suspend fun onUpdated(profile: ProxyEntity, noTraffic: Boolean)
+        suspend fun onUpdated(profile: ProxyEntity)
         suspend fun onRemoved(groupId: Long, profileId: Long)
     }
 
@@ -102,19 +101,22 @@ object ProfileManager {
     suspend fun createProfiles(
         groupId: Long, beans: List<AbstractBean>, core: Int = 0,
     ): List<ProxyEntity> {
-        val profiles = SagerDatabase.instance.runInTransaction(Callable {
-            var order = SagerDatabase.proxyDao.nextOrder(groupId) ?: 1
-            beans.map { bean ->
-                bean.applyDefaultValues()
-                ProxyEntity(groupId = groupId).apply {
-                    id = 0
-                    this.core = core
-                    putBean(bean)
-                    userOrder = order++
-                    id = SagerDatabase.proxyDao.addProxy(this)
-                }
+        // Kryo 序列化放在事务外：大批量导入时不拉长排他锁
+        val profiles = beans.map { bean ->
+            bean.applyDefaultValues()
+            ProxyEntity(groupId = groupId).apply {
+                id = 0
+                this.core = core
+                putBean(bean)
             }
-        })
+        }
+        SagerDatabase.instance.runInTransaction {
+            var order = SagerDatabase.proxyDao.nextOrder(groupId) ?: 1
+            for (profile in profiles) {
+                profile.userOrder = order++
+                profile.id = SagerDatabase.proxyDao.addProxy(profile)
+            }
+        }
         for (profile in profiles) iterator { onAdd(profile) }
         return profiles
     }
@@ -122,13 +124,13 @@ object ProfileManager {
     suspend fun updateProfile(profile: ProxyEntity) {
         if (SagerDatabase.proxyDao.updateEditableFields(ProxyEditableFields(profile)) == 0) return
         val current = SagerDatabase.proxyDao.getById(profile.id) ?: return
-        iterator { onUpdated(current, false) }
+        iterator { onUpdated(current) }
     }
 
     suspend fun moveProfile(profileId: Long, groupId: Long): ProxyEntity? {
         if (SagerDatabase.proxyDao.updateGroup(profileId, groupId) == 0) return null
         val current = SagerDatabase.proxyDao.getById(profileId) ?: return null
-        iterator { onUpdated(current, false) }
+        iterator { onUpdated(current) }
         return current
     }
 
@@ -237,12 +239,12 @@ object ProfileManager {
 
     // postUpdate: post to listeners, don't change the DB
 
-    suspend fun postUpdate(profileId: Long, noTraffic: Boolean = false) {
-        postUpdate(getProfile(profileId) ?: return, noTraffic)
+    suspend fun postUpdate(profileId: Long) {
+        postUpdate(getProfile(profileId) ?: return)
     }
 
-    suspend fun postUpdate(profile: ProxyEntity, noTraffic: Boolean = false) {
-        iterator { onUpdated(profile, noTraffic) }
+    suspend fun postUpdate(profile: ProxyEntity) {
+        iterator { onUpdated(profile) }
     }
 
     // 主进程收到的最近一次实时流量。TrafficLooper 只推变化项，列表整组重读或

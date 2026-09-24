@@ -42,7 +42,8 @@ public class ConfigBean extends InternalBean {
         if (JavaUtil.isNotBlank(name)) {
             return name;
         } else {
-            // 用配置内容哈希而非身份哈希，进程重启后显示名保持稳定
+            // 只按 config 取哈希：hashCode() 每次都要整份 Kryo 序列化，且改自定义
+            // JSON 等无关字段也会改名
             return "Custom " + Math.abs((config == null ? "" : config).hashCode());
         }
     }
