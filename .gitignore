@@ -23,6 +23,8 @@ jniLibs/
 # local agent guidance, not for the public repo
 /AGENTS.md
 /CLAUDE.md
+# 审计记录写有未修复问题的位置和触发方式，不能进公开仓库
+/doc/agent/
 /.claude/worktrees/
 
 # submodules
