@@ -154,15 +154,17 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             ProfileRepository.getProfilesByGroup(groupId)
         } catch (e: Exception) {
             Logs.w(e)
-            onMainDispatcher { snackbar(e.readableMessage).show() }
+            // 读库期间 fragment 可能已销毁，snackbar 里的 requireActivity 会在 appScope 上抛异常
+            onMainDispatcher { if (isAdded) snackbar(e.readableMessage).show() }
             return null
         }
         var skipped = 0
+        // NekoBean 没有分享链接（返回空串）：丢掉，免得导出空行、整组只有它时复制出空白
         val links = profiles.filter { it.haveLink() }.mapNotNull { profile ->
             runCatching { profile.toStdLink() }.onFailure {
                 Logs.w(it)
                 skipped++
-            }.getOrNull()
+            }.getOrNull()?.takeIf { it.isNotBlank() }
         }.joinToString("\n")
         val note = if (skipped > 0) app.getString(R.string.share_links_skipped, skipped) else null
         return links to note

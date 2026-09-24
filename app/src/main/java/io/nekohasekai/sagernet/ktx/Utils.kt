@@ -260,18 +260,17 @@ fun ContentResolver.displayName(uri: Uri): String {
         .substringAfterLast('/')
 }
 
-// 经 FileProvider（.cache）把文件交给系统分享面板。provider 只暴露
-// cacheDir/share/（cache_paths.xml），不在其中的文件先挪进去；分享负载即用
-// 即弃，挪完顺手清掉上一次分享的残留（备份 JSON 含全部节点凭证）
-// FileProvider 只暴露这个目录（见 cache_paths.xml）
+// FileProvider（.cache）只暴露这个目录（见 cache_paths.xml）
 val Context.shareDir get() = File(cacheDir, "share")
 
+// 经 FileProvider 把文件交给系统分享面板。不在 shareDir 里的文件先挪进去；分享负载即用
+// 即弃，挪完顺手清掉上一次分享的残留（备份 JSON 含全部节点凭证）
 fun Context.shareFile(file: File, mimeType: String) {
-    val shareDir = shareDir.apply { mkdirs() }
-    val shared = if (file.parentFile == shareDir) {
+    val dir = shareDir.apply { mkdirs() }
+    val shared = if (file.parentFile == dir) {
         file
     } else {
-        val target = File(shareDir, file.name)
+        val target = File(dir, file.name)
         when {
             file.renameTo(target) -> target
             runCatching { file.copyTo(target, overwrite = true); file.delete() }.isSuccess -> target
@@ -282,7 +281,7 @@ fun Context.shareFile(file: File, mimeType: String) {
             }
         }
     }
-    shareDir.listFiles()?.forEach { if (it != shared) it.delete() }
+    dir.listFiles()?.forEach { if (it != shared) it.delete() }
     startActivity(
         Intent.createChooser(
             Intent(Intent.ACTION_SEND).setType(mimeType)

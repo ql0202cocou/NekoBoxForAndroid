@@ -285,7 +285,16 @@ func exchangeQUIC(ctx context.Context, address string, query *mDNS.Msg) (*mDNS.M
 	if len(ips) == 0 {
 		return nil, errors.New("no address for DNS over QUIC server")
 	}
-	remote := net.JoinHostPort(ips[0].Unmap().String(), port)
+	// 与原先的 net.ResolveUDPAddr 一致，有 IPv4 先用 IPv4：这里只拨一个地址、没有
+	// Happy Eyeballs，有 v6 路由但 v6 不通的网络上 IPv6 在前会白等到超时
+	ip := ips[0]
+	for _, a := range ips {
+		if a.Unmap().Is4() {
+			ip = a
+			break
+		}
+	}
+	remote := net.JoinHostPort(ip.Unmap().String(), port)
 	conn, err := quic.DialAddr(serverCtx, remote, &tls.Config{ServerName: host, NextProtos: []string{"doq"}}, nil)
 	if err != nil {
 		return fail(err)
