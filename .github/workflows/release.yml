@@ -44,6 +44,22 @@ jobs:
             echo "::error::inputs.tag ($TAG) does not match VERSION_NAME ($VERSION) in nb4a.properties"
             exit 1
           fi
+      - name: Check prerelease matches the tag
+        # 预览版 tag（-aN / -bN）必须带 prerelease=y，正式版不能带：漏填或写成 Y
+        # 时预览版会作为正式版发布并顶掉 Latest。在构建前就拦下；输入同样只经 env 传入
+        env:
+          TAG: ${{ inputs.tag }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          if [[ "$TAG" =~ -[ab][0-9]+$ ]]; then
+            if [ "$PRERELEASE" != "y" ]; then
+              echo "::error::preview tag $TAG must be published with prerelease=y"
+              exit 1
+            fi
+          elif [ "$PRERELEASE" = "y" ]; then
+            echo "::error::stable tag $TAG must not be published as a pre-release"
+            exit 1
+          fi
   libcore:
     needs: validate
     uses: ./.github/workflows/libcore.yml

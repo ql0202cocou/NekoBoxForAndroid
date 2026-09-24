@@ -6,8 +6,8 @@
 # "No such file or directory"
 GOBIN_DIR=$(go env GOBIN)
 if [ -z "$GOBIN_DIR" ]; then
-  if [ -z "$GOPATH" ]; then
-    GOPATH=$(go env GOPATH)
-  fi
-  GOBIN_DIR="$GOPATH/bin"
+  # GOPATH 可以是冒号分隔的多个目录，go install 只装进第一个的 bin；
+  # go env GOPATH 已经考虑了环境变量里的 GOPATH
+  GOPATH_DIR=$(go env GOPATH)
+  GOBIN_DIR="${GOPATH_DIR%%:*}/bin"
 fi

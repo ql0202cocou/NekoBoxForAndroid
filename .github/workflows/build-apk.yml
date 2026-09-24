@@ -46,9 +46,6 @@ jobs:
           fi
       - name: Gradle Build
         env:
-          # assets.sh resolves the latest geoip/geosite release via the GitHub API;
-          # unauthenticated calls from shared runner IPs hit the 60/h rate limit.
-          GITHUB_TOKEN: ${{ github.token }}
           # secrets reach the shell through env, never interpolated into the script
           # body (same rule as the tag in release.yml); Helpers.kt reads LOCAL_PROPERTIES
           GRADLE_TASK: ${{ inputs.gradle-task }}
