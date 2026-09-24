@@ -508,10 +508,8 @@ fun StandardV2RayBean.toUriVMessVLESSTrojan(isTrojan: Boolean): String {
     val builder = linkBuilder()
         .username(if (this is TrojanBean) password else uuid)
         .host(serverAddress)
-    if (serverPort in 1..65535) {
-        builder.port(serverPort)
-    }
-    builder.addQueryParameter("type", type)
+        .port(serverPort)
+        .addQueryParameter("type", type)
 
     if (isVLESS) {
         builder.addQueryParameter("encryption", "none")

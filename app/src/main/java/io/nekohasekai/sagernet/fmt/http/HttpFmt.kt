@@ -46,10 +46,7 @@ fun parseHttp(link: String): HttpBean {
 
 fun HttpBean.toUri(): String {
     val builder = HttpUrl.Builder().scheme(if (isTLS()) "https" else "http").host(serverAddress)
-
-    if (serverPort in 1..65535) {
-        builder.port(serverPort)
-    }
+        .port(serverPort)
 
     if (username.isNotBlank()) {
         builder.username(username)

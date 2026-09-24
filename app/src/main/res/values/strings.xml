@@ -399,6 +399,8 @@
         then custom outbounds will be lost.</string>
     <string name="backup_not_file">Not an backup file: excepted .json, but %s</string>
     <string name="invalid_backup_file">Invalid backup file</string>
+    <string name="share_invalid_endpoint">Cannot share \"%s\": invalid server address or port</string>
+    <string name="share_links_skipped">Skipped nodes that cannot be shared: %d</string>
     <string name="invalid_subscription_url">Invalid subscription URL: only http(s) links can be imported</string>
     <string name="backup_import">Import</string>
     <string name="backup_import_summary">Importing will overwrite the existing data.</string>

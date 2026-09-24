@@ -146,15 +146,26 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         outState.putLong(KEY_SELECTED_GROUP, selectedGroupId)
     }
 
-    // 库里可能还留着入口校验加固前导入的坏节点：一个节点的 toStdLink 抛异常
-    // 不该让整组导出崩溃主进程。返回 null 表示失败已经提示过
-    private suspend fun stdLinksOfGroup(groupId: Long): String? = runCatching {
-        ProfileRepository.getProfilesByGroup(groupId)
-            .filter { it.haveLink() }.joinToString("\n") { it.toStdLink() }
-    }.getOrElse {
-        Logs.w(it)
-        onMainDispatcher { snackbar(it.readableMessage).show() }
-        null
+    // 逐个节点生成链接。库里可能还留着入口加固前导入、或从备份恢复的坏节点：
+    // 生成失败的跳过，不让一个坏节点拖垮整组导出。返回链接与给导出结果追加的
+    // 跳过提示（没跳过为 null）；整体返回 null 表示读库失败、已经提示过
+    private suspend fun stdLinksOfGroup(groupId: Long): Pair<String, String?>? {
+        val profiles = try {
+            ProfileRepository.getProfilesByGroup(groupId)
+        } catch (e: Exception) {
+            Logs.w(e)
+            onMainDispatcher { snackbar(e.readableMessage).show() }
+            return null
+        }
+        var skipped = 0
+        val links = profiles.filter { it.haveLink() }.mapNotNull { profile ->
+            runCatching { profile.toStdLink() }.onFailure {
+                Logs.w(it)
+                skipped++
+            }.getOrNull()
+        }.joinToString("\n")
+        val note = if (skipped > 0) app.getString(R.string.share_links_skipped, skipped) else null
+        return links to note
     }
 
     private val exportProfiles =
@@ -162,10 +173,10 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             if (data != null) {
                 val groupId = selectedGroupId
                 runOnDefaultDispatcher {
-                    val links = stdLinksOfGroup(groupId) ?: return@runOnDefaultDispatcher
-                    // writeToDocument refuses a blank export instead of truncating
-                    // the picked file: a group with no shareable node writes nothing
-                    writeToDocument(data, links)
+                    val (links, note) = stdLinksOfGroup(groupId) ?: return@runOnDefaultDispatcher
+                    // writeToDocument 拒绝空内容而不是把选中的文件截成 0 字节：
+                    // 组里没有可分享的节点时什么都不写
+                    writeToDocument(data, links, note)
                 }
             }
         }
@@ -354,11 +365,15 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
 
                 R.id.action_export_clipboard -> {
                     runOnDefaultDispatcher {
-                        val links = stdLinksOfGroup(proxyGroup.id)
+                        val (links, note) = stdLinksOfGroup(proxyGroup.id)
                             ?: return@runOnDefaultDispatcher
                         onMainDispatcher {
-                            // 大分组的链接可能超过 binder 事务上限，按实际结果提示
-                            activity.snackbar(exportToClipboard(links)).show()
+                            // 大分组的链接可能超过 binder 事务上限，按实际结果提示；
+                            // 一条链接都没有时不复制空串，与导出到文件一致
+                            val result = if (links.isEmpty()) R.string.action_export_err
+                            else exportToClipboard(links)
+                            activity.snackbar(listOfNotNull(activity.getString(result), note).joinToString("\n"))
+                                .show()
                         }
                     }
                 }

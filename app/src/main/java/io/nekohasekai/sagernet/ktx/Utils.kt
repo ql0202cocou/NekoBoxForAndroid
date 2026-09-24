@@ -219,7 +219,8 @@ fun Fragment.startFilesForResult(
 // Write an export to the document the user picked. Blank content means the state it
 // was built from died with the process: refuse instead of truncating the picked file
 // to 0 bytes and reporting success.
-suspend fun Fragment.writeToDocument(uri: Uri, content: String) {
+// note 追加在结果提示的下一行（如分组导出跳过了几个节点）
+suspend fun Fragment.writeToDocument(uri: Uri, content: String, note: String? = null) {
     // Callers dispatch this on appScope and the fragment can be detached by
     // now. The SAF grant belongs to the package, so write through the app
     // context regardless, and only report if there is still a UI to report to.
@@ -234,7 +235,7 @@ suspend fun Fragment.writeToDocument(uri: Uri, content: String) {
         Logs.w(e)
         e.readableMessage
     }
-    onMainDispatcher { if (isAdded) snackbar(message).show() }
+    onMainDispatcher { if (isAdded) snackbar(listOfNotNull(message, note).joinToString("\n")).show() }
 }
 
 // 选取文档的显示名。GetContent("*/*") 允许任意文档提供方，坏的提供方可能返回

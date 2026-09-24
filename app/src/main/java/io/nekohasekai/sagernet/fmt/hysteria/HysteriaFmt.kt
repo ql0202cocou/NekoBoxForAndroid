@@ -121,8 +121,7 @@ fun HysteriaBean.toUri(): String {
         }
     }
     //
-    // 损坏的 serverPorts 不该让「分享」崩溃：与 getFirstPort 一样回落默认端口
-    val ports = runCatching { parseHysteriaPorts(serverPorts) }.getOrElse { listOf(443..443) }
+    val ports = parseHysteriaPorts(serverPorts)
     val builder = linkBuilder()
         .host(serverAddress)
         .port(ports.first().first)

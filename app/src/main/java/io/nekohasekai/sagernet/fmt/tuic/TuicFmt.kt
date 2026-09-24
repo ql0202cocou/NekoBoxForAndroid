@@ -72,10 +72,7 @@ fun parseTuic(url: String): TuicBean {
 }
 
 fun TuicBean.toUri(): String {
-    val builder = linkBuilder().username(uuid).password(token).host(serverAddress)
-    if (serverPort in 1..65535) {
-        builder.port(serverPort)
-    }
+    val builder = linkBuilder().username(uuid).password(token).host(serverAddress).port(serverPort)
 
     builder.addQueryParameter("congestion_control", congestionController)
     builder.addQueryParameter("udp_relay_mode", udpRelayMode)

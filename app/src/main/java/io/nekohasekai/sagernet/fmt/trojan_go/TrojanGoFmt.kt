@@ -52,10 +52,7 @@ fun parseTrojanGo(server: String): TrojanGoBean {
 }
 
 fun TrojanGoBean.toUri(): String {
-    val builder = linkBuilder().username(password).host(serverAddress)
-    if (serverPort in 1..65535) {
-        builder.port(serverPort)
-    }
+    val builder = linkBuilder().username(password).host(serverAddress).port(serverPort)
     if (sni.isNotBlank()) {
         builder.addQueryParameter("sni", sni)
     }

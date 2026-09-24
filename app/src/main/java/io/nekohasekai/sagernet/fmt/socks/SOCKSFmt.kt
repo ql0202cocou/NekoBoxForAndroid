@@ -47,10 +47,7 @@ fun parseSOCKS(link: String): SOCKSBean {
 
 fun SOCKSBean.toUri(): String {
 
-    val builder = HttpUrl.Builder().scheme("http").host(serverAddress)
-    if (serverPort in 1..65535) {
-        builder.port(serverPort)
-    }
+    val builder = HttpUrl.Builder().scheme("http").host(serverAddress).port(serverPort)
     if (!username.isNullOrBlank()) builder.username(username)
     if (!password.isNullOrBlank()) builder.password(password)
     if (sUoT) builder.addQueryParameter("uot", "1")

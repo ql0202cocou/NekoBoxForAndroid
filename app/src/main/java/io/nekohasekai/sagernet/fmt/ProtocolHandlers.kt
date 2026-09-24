@@ -414,19 +414,31 @@ fun hasStandardLink(bean: AbstractBean): Boolean = when (bean) {
 
 // bean class -> standard share link, the universal link for the rest
 // (was ProxyEntity.toStdLink)
-fun standardLink(bean: AbstractBean): String = when (bean) {
-    is SOCKSBean -> bean.toUri()
-    is HttpBean -> bean.toUri()
-    is ShadowsocksBean -> bean.toUri()
-    is VMessBean -> bean.toUriVMessVLESSTrojan(false)
-    is TrojanBean -> bean.toUriVMessVLESSTrojan(true)
-    is TrojanGoBean -> bean.toUri()
-    is NaiveBean -> bean.toUri()
-    is HysteriaBean -> bean.toUri()
-    is TuicBean -> bean.toUri()
-    is AnyTLSBean -> bean.toUri()
-    is NekoBean -> ""
-    else -> bean.toUniversalLink()
+fun standardLink(bean: AbstractBean): String {
+    if (bean is NekoBean) return ""
+    // 与导入同一条规则（parseProxies 的 filterValidEndpoint）：端点无效的坏数据
+    // （入口加固前导入、从备份恢复）直接报错，不能导出一条看似正常、端口却不对、
+    // 导回来也会被拒的链接。报错带节点名，分享入口直接拿它提示用户
+    try {
+        bean.requireValidEndpoint()
+    } catch (e: Exception) {
+        throw IllegalArgumentException(
+            app.getString(R.string.share_invalid_endpoint, bean.displayName()), e
+        )
+    }
+    return when (bean) {
+        is SOCKSBean -> bean.toUri()
+        is HttpBean -> bean.toUri()
+        is ShadowsocksBean -> bean.toUri()
+        is VMessBean -> bean.toUriVMessVLESSTrojan(false)
+        is TrojanBean -> bean.toUriVMessVLESSTrojan(true)
+        is TrojanGoBean -> bean.toUri()
+        is NaiveBean -> bean.toUri()
+        is HysteriaBean -> bean.toUri()
+        is TuicBean -> bean.toUri()
+        is AnyTLSBean -> bean.toUri()
+        else -> bean.toUniversalLink()
+    }
 }
 
 // bean class -> sing-box udp_over_tcp for the outbound (was a reflective
