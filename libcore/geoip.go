@@ -26,8 +26,8 @@ func openGeoIP(path string) (reader *maxminddb.Reader, closer io.Closer, err err
 func geoipRulesFrom(reader *maxminddb.Reader, countryCode string) (rules []option.HeadlessRule, err error) {
 	defer device.DeferPanicToError("geoipRulesFrom", func(err_ error) { err = err_ })
 
+	// countryCode 已由 geoipCache.normalize 转成小写
 	networks := reader.Networks(maxminddb.SkipAliasedNetworks)
-	countryCode = strings.ToLower(countryCode)
 	var cidrs []string
 	var nextCountryCode string
 	for networks.Next() {

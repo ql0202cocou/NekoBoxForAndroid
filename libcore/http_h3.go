@@ -1,11 +1,9 @@
 package libcore
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"libcore/device"
 	"libcore/ech"
 	"net"
@@ -80,40 +78,11 @@ func (r *httpRequest) doH3Direct() (HTTPResponse, error) {
 	var successCount atomic.Uint32
 	var mu sync.Mutex
 
-	// Clone below is a shallow copy, so the racing requests would share one
-	// body reader, and a failed socks5 attempt on the fallback path may
-	// already have consumed it. Buffer the body once and hand each request
-	// its own reader.
-	var bodyBytes []byte
-	if r.request.Body != nil {
-		var err error
-		// Bound the buffered body like getContent bounds responses: the race
-		// holds the entire body in memory and hands every racer a reader over
-		// it, so an unbounded body could exhaust memory.
-		bodyBytes, err = readAllLimited(r.request.Body, "request body")
-		r.request.Body.Close()
-		if err != nil {
-			return nil, err
-		}
-		r.request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-	}
-	// Every racing request gets its own reader over the buffered body.
-	cloneRequest := func(ctx context.Context) *http.Request {
-		request := r.request.Clone(ctx)
-		if bodyBytes != nil {
-			newBody := func() io.ReadCloser {
-				return io.NopCloser(bytes.NewReader(bodyBytes))
-			}
-			request.Body = newBody()
-			request.GetBody = func() (io.ReadCloser, error) { return newBody(), nil }
-		}
-		return request
-	}
-
+	// NewRequest 只造无 body 的 GET，Clone 的浅拷贝不会让竞速请求共用 body
 	funcs := []racer{
 		// Http(s) With Ech
 		{name: "http(s)", fn: func(ctx context.Context) (response *http.Response, err error) {
-			request := cloneRequest(ctx)
+			request := r.request.Clone(ctx)
 			echClient := &http.Client{
 				Transport: r.echTransport(),
 			}
@@ -121,7 +90,7 @@ func (r *httpRequest) doH3Direct() (HTTPResponse, error) {
 		}},
 		// H3 HTTPS
 		{name: "h3", fn: func(ctx context.Context) (response *http.Response, err error) {
-			request := cloneRequest(ctx)
+			request := r.request.Clone(ctx)
 			h3Transport := &http3.Transport{
 				TLSClientConfig: r.tls.Clone(),
 				QUICConfig: &quic.Config{

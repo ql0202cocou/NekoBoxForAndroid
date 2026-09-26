@@ -44,7 +44,7 @@ func TestGeoIPCountryRules(t *testing.T) {
 	sort.Strings(countries)
 	for _, country := range countries {
 		cidrs := want[country]
-		rules, err := geoipRulesFrom(reader, strings.ToUpper(country))
+		rules, err := geoipRulesFrom(reader, country)
 		if err != nil {
 			t.Fatal(err)
 		}

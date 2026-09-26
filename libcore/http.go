@@ -98,8 +98,8 @@ func NewHttpClient() HTTPClient {
 	return client
 }
 
-// newHTTPDialer 是 NewHttpClient 与 echTransport 共用的拨号器，两处的拨号
-// 超时由此保持一致
+// newHTTPDialer 是 NewHttpClient、TrySocks5 与 echTransport 共用的拨号器，
+// 各处的拨号超时由此保持一致
 func newHTTPDialer() *net.Dialer {
 	return &net.Dialer{Timeout: httpDialTimeout, KeepAlive: 30 * time.Second}
 }
@@ -126,7 +126,7 @@ func (c *httpClient) RestrictedTLS() {
 func (c *httpClient) TrySocks5(port int32) {
 	defer device.DeferPanicToError("http TrySocks5", nil)
 
-	dialer := &net.Dialer{Timeout: httpDialTimeout}
+	dialer := newHTTPDialer()
 	c.h1h2Transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
 		socksConn, err := dialer.DialContext(ctx, "tcp", "127.0.0.1:"+strconv.Itoa(int(port)))
 		if err == nil {

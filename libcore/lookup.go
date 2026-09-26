@@ -179,18 +179,8 @@ func exchangeCancellable(ctx context.Context, client *mDNS.Client, query *mDNS.M
 	defer conn.Close()
 	stop := context.AfterFunc(ctx, func() { conn.Close() })
 	defer stop()
+	// 出错时是否算预算耗尽由 lookupHosts 按总 ctx 判断，这里原样返回
 	response, _, err := client.ExchangeWithConnContext(ctx, query, conn)
-	if err != nil {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return nil, ctxErr
-		}
-		// miekg/dns derives the socket deadline from ctx.Deadline(); the read can
-		// time out before the context's timer has run, so report the budget as
-		// exhausted rather than as a generic i/o timeout that would be retried.
-		if deadline, ok := ctx.Deadline(); ok && !time.Now().Before(deadline) {
-			return nil, context.DeadlineExceeded
-		}
-	}
 	return response, err
 }
 
@@ -270,18 +260,11 @@ func exchangeQUIC(ctx context.Context, address string, query *mDNS.Msg) (*mDNS.M
 	// 不能吃光整个预算；是否换下一台由 lookupHosts 按总 ctx 判断
 	serverCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	// 总 ctx 结束时报它的错误（取消或预算耗尽），而不是连接被关后的读写错误
-	fail := func(err error) (*mDNS.Msg, error) {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return nil, ctxErr
-		}
-		return nil, err
-	}
 	// quic.DialAddr 用不带 ctx 的 net.ResolveUDPAddr 解析主机名，取消和预算都管
 	// 不住；先按 ctx 解析成 IP 再拨号，ServerName 仍用主机名
 	ips, err := net.DefaultResolver.LookupNetIP(serverCtx, "ip", host)
 	if err != nil {
-		return fail(err)
+		return nil, err
 	}
 	if len(ips) == 0 {
 		return nil, errors.New("no address for DNS over QUIC server")
@@ -298,7 +281,7 @@ func exchangeQUIC(ctx context.Context, address string, query *mDNS.Msg) (*mDNS.M
 	remote := net.JoinHostPort(ip.Unmap().String(), port)
 	conn, err := quic.DialAddr(serverCtx, remote, &tls.Config{ServerName: host, NextProtos: []string{"doq"}}, nil)
 	if err != nil {
-		return fail(err)
+		return nil, err
 	}
 	defer conn.CloseWithError(0, "")
 	stop := context.AfterFunc(serverCtx, func() { conn.CloseWithError(0, "") })
@@ -335,7 +318,7 @@ func exchangeQUIC(ctx context.Context, address string, query *mDNS.Msg) (*mDNS.M
 		return response, response.Unpack(data)
 	}()
 	if err != nil {
-		return fail(err)
+		return nil, err
 	}
 	return response, nil
 }

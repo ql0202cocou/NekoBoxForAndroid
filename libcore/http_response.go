@@ -14,11 +14,11 @@ import (
 const maxContentSize = 32 * 1024 * 1024
 
 // readAllLimited 读完 r，超过 maxContentSize 时丢弃内容并报错；多读 1 字节
-// 用来区分“恰好等于上限”与“超出上限”。what 是错误信息里的主语
-func readAllLimited(r io.Reader, what string) ([]byte, error) {
+// 用来区分“恰好等于上限”与“超出上限”
+func readAllLimited(r io.Reader) ([]byte, error) {
 	b, err := io.ReadAll(io.LimitReader(r, maxContentSize+1))
 	if err == nil && len(b) > maxContentSize {
-		return nil, fmt.Errorf("%s too large, limit is %d bytes", what, maxContentSize)
+		return nil, fmt.Errorf("content too large, limit is %d bytes", maxContentSize)
 	}
 	return b, err
 }
@@ -88,7 +88,7 @@ func (h *httpResponse) getContent() (content []byte, err error) {
 
 	h.getContentOnce.Do(func() {
 		defer h.Close()
-		h.content, h.contentError = readAllLimited(h.Body, "content")
+		h.content, h.contentError = readAllLimited(h.Body)
 	})
 	return h.content, h.contentError
 }
@@ -96,19 +96,11 @@ func (h *httpResponse) getContent() (content []byte, err error) {
 func (h *httpResponse) GetContentString() (ret *StringBox, err error) {
 	defer device.DeferPanicToError("http GetContentString", func(err_ error) { err = err_ })
 
-	content, err := h.getContentString()
+	content, err := h.getContent()
 	if err != nil {
 		return nil, err
 	}
-	return wrapString(content), nil
-}
-
-func (h *httpResponse) getContentString() (string, error) {
-	content, err := h.getContent()
-	if err != nil {
-		return "", err
-	}
-	return string(content), nil
+	return wrapString(string(content)), nil
 }
 
 func (h *httpResponse) WriteTo(path string) (err error) {

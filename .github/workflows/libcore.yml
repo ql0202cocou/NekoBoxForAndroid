@@ -78,13 +78,11 @@ jobs:
           xz -dc app/src/main/assets/sing-box/geoip.db.xz > "$RUNNER_TEMP/geoip.db"
           xz -dc app/src/main/assets/sing-box/geosite.db.xz > "$RUNNER_TEMP/geosite.db"
       - name: Go Test
-        # -checklinkname=0 is required: libcore/certs.go linknames
-        # crypto/x509.systemRootsMu, which Go 1.23+ rejects at link time
-        # (same flag as libcore/build.sh)
+        # 命令与 -checklinkname 的原因见 buildScript/lib/test.sh
         env:
           NEKO_TEST_GEOIP_DB: ${{ runner.temp }}/geoip.db
           NEKO_TEST_GEOSITE_DB: ${{ runner.temp }}/geosite.db
-        run: cd libcore && go test -ldflags=-checklinkname=0 ./...
+        run: ./run lib test
       - name: Go Test (sing-box, race)
         # vendored sing-box 是嵌套 module，上面的 ./... 覆盖不到它；
         # 这里用 -race 跑补丁所在的包（含两个自建补丁的回归测试：

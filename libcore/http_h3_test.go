@@ -2,7 +2,6 @@ package libcore
 
 import (
 	"errors"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -143,32 +142,5 @@ func TestDoH3DirectRacerNames(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "http(s)") || !strings.Contains(err.Error(), "h3") {
 		t.Fatalf("expected both racer names in error, got: %v", err)
-	}
-}
-
-// zeroReader is an endless zero-filled reader, for a large request body
-// without a large allocation.
-type zeroReader struct{}
-
-func (zeroReader) Read(p []byte) (int, error) { return len(p), nil }
-
-// The race buffers the whole request body in memory, so a body beyond
-// maxContentSize must be rejected up front instead of being read in full.
-func TestDoH3DirectBodyTooLarge(t *testing.T) {
-	client := NewHttpClient()
-	defer client.Close()
-	client.TryH3Direct()
-	request := client.NewRequest()
-	if err := request.SetURL("http://127.0.0.1:1/"); err != nil {
-		t.Fatal(err)
-	}
-	body := &trackedBody{Reader: io.LimitReader(zeroReader{}, maxContentSize+1)}
-	request.(*httpRequest).request.Body = body
-	_, err := request.Execute()
-	if err == nil || !strings.Contains(err.Error(), "too large") {
-		t.Fatalf("expected body size error, got: %v", err)
-	}
-	if body.closed == 0 {
-		t.Fatal("original body not closed")
 	}
 }
