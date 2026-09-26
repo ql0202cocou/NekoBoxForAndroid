@@ -53,6 +53,7 @@ import io.nekohasekai.sagernet.plugin.PluginManager
 import io.nekohasekai.sagernet.ui.profile.settingActivityOf
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
@@ -486,15 +487,22 @@ class ConfigurationFragment @JvmOverloads constructor(
 
     fun pingTest() {
         // 同组节点常共用一个域名，而下面的解析不带缓存、失败还要等满超时，
-        // 所以按本轮测试缓存结果（失败时缓存域名本身，后面照常报解析失败）
-        val resolvedAddresses = ConcurrentHashMap<String, String>()
+        // 所以按本轮测试缓存结果（失败时缓存域名本身，后面照常报解析失败）。
+        // 缓存的是进行中的解析：并发 worker 碰上同一域名时等第一个的结果，不各解析一遍
+        val resolvedAddresses = ConcurrentHashMap<String, CompletableDeferred<String>>()
         runGroupTest({ it.requireBean().canTCPing() }) { group, profile ->
             val domain = profile.requireBean().serverAddress
             val address = if (domain.isIpAddress()) domain else {
-                resolvedAddresses.getOrPut(domain) {
+                val mine = CompletableDeferred<String>()
+                val existing = resolvedAddresses.putIfAbsent(domain, mine)
+                if (existing != null) existing.await() else try {
                     // 组里配了节点解析 DNS（如 DoH）时优先使用，伪造域名也能解析
-                    lookupServerAddress(domain, group.proxyServerNameserver, SagerNet.underlyingNetwork)
-                        .firstOrNull()?.hostAddress ?: domain
+                    (lookupServerAddress(domain, group.proxyServerNameserver, SagerNet.underlyingNetwork)
+                        .firstOrNull()?.hostAddress ?: domain).also { mine.complete(it) }
+                } catch (e: CancellationException) {
+                    // 只有整轮测试取消时才会到这里，等待者一并取消
+                    mine.cancel(e)
+                    throw e
                 }
             }
             if (!isActive) return@runGroupTest false

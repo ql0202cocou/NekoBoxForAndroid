@@ -165,11 +165,8 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
 
     override fun commit(actions: List<Pair<Int, ProxyEntity>>) {
         val profiles = actions.map { it.second }
-        runOnDefaultDispatcher {
-            for (entity in profiles) {
-                ProfileManager.deleteProfile(entity.groupId, entity.id)
-            }
-        }
+        // 同一分组的批量删除：一个事务，整组 rearrange 只做一次
+        runOnDefaultDispatcher { ProfileRepository.deleteProfiles(profiles) }
     }
 
     override suspend fun onAdd(profile: ProxyEntity) {

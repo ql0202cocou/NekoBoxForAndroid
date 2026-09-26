@@ -15,6 +15,7 @@ import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.ktx.dp2px
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
+import java.util.concurrent.atomic.AtomicBoolean
 
 class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentStateAdapter(fragment),
     ProfileManager.Listener,
@@ -22,6 +23,10 @@ class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentS
 
     var selectedGroupIndex = 0
     var groupList: ArrayList<ProxyGroup> = ArrayList()
+
+    // 批量删除提交后才逐条发 onRemoved，ungrouped 被删空时每条都会看到 0：
+    // 已排上一次 reload 就不再查数、不再重复 reload，reload 换完列表后复位
+    private val emptyUngroupedReloadPending = AtomicBoolean(false)
 
     fun reload(now: Boolean = false) {
         runOnDefaultDispatcher {
@@ -51,8 +56,11 @@ class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentS
             }
 
             val runFunc = if (now) fragment.activity?.let { it::runOnUiThread } else fragment.groupPager::post
-            if (runFunc != null) {
+            if (runFunc == null) {
+                emptyUngroupedReloadPending.set(false)
+            } else {
                 runFunc {
+                    emptyUngroupedReloadPending.set(false)
                     // 回调只在主线程增删：reload 也会从后台的监听器（onAdd / onRemoved）
                     // 调用，主线程这时可能正在分发回调。数据集变化和 setCurrentItem
                     // 期间摘掉它，免得把 selectedGroup 写成过渡中的页
@@ -145,8 +153,11 @@ class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentS
     override suspend fun onUpdated(profile: ProxyEntity) = Unit
 
     override suspend fun onRemoved(groupId: Long, profileId: Long) {
+        if (emptyUngroupedReloadPending.get()) return
         val group = onMainDispatcher { groupList.find { it.id == groupId } } ?: return
-        if (group.ungrouped && ProfileRepository.countProfilesByGroup(groupId) == 0L) {
+        if (group.ungrouped && ProfileRepository.countProfilesByGroup(groupId) == 0L &&
+            emptyUngroupedReloadPending.compareAndSet(false, true)
+        ) {
             reload()
         }
     }
