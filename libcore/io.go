@@ -8,28 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/ulikunitz/xz"
 )
-
-func unxz(archive string, path string) (err error) {
-	defer device.DeferPanicToError("unxz", func(err_ error) { err = err_ })
-
-	i, err := os.Open(archive)
-	if err != nil {
-		return err
-	}
-	defer i.Close()
-	r, err := xz.NewReader(i)
-	if err != nil {
-		return err
-	}
-	o, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	return copyAndClose(o, r)
-}
 
 func unzip(archive string, path string) (err error) {
 	defer device.DeferPanicToError("unzip", func(err_ error) { err = err_ })

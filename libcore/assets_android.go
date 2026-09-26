@@ -82,8 +82,8 @@ func extractAssetNameLocked(spec assetSpec, useOfficialAssets bool) error {
 		return nil
 	}
 
-	if f, err := asset.Open(spec.apkPrefix + spec.name + ".xz"); err == nil {
-		if err := extractXz(f, dstName); err != nil {
+	if f, err := asset.Open(spec.apkPrefix + spec.name); err == nil {
+		if err := extractFile(f, dstName); err != nil {
 			return err
 		}
 	} else if spec.name == yacdDstFolder {
@@ -113,22 +113,17 @@ func readAPKAssetVersion(name string) (string, error) {
 	return string(b), nil
 }
 
-// extractXz decompresses f to a temp file and renames it into place
-// atomically, so a concurrent box start never reads a truncated asset.
-func extractXz(f asset.File, dstName string) error {
-	tmpXzName := tempName(dstName, "xz")
+// extractFile 把 APK 里的资产先拷到临时文件再原子改名到位，并发启动的 box
+// 不会读到写了一半的文件
+func extractFile(f asset.File, dstName string) error {
 	tmpName := tempName(dstName, "tmp")
-	defer os.Remove(tmpXzName)
 	defer os.Remove(tmpName)
-	err := extractAsset(f, tmpXzName)
-	if err == nil {
-		err = unxz(tmpXzName, tmpName)
-	}
+	err := extractAsset(f, tmpName)
 	if err == nil {
 		err = os.Rename(tmpName, dstName)
 	}
 	if err != nil {
-		return fmt.Errorf("extract xz: %v", err)
+		return fmt.Errorf("extract %s: %v", filepath.Base(dstName), err)
 	}
 	return nil
 }

@@ -209,7 +209,7 @@ fun Project.setupApp() {
     tasks.named("preBuild").configure {
         doFirst {
             val missing = listOf(
-                "geoip.db.xz", "geoip.version.txt", "geosite.db.xz", "geosite.version.txt"
+                "geoip.db", "geoip.version.txt", "geosite.db", "geosite.version.txt"
             ).filterNot { file("src/main/assets/sing-box/$it").isFile }
             check(missing.isEmpty()) {
                 "missing sing-box assets ${missing.joinToString()}: run ./run lib assets first"

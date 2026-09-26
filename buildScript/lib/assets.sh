@@ -23,7 +23,7 @@ trap 'rm -rf "$TMP"' EXIT
 cd "$TMP"
 
 # The db is verified against the pinned sha256 above; without that check a
-# truncated or tampered download is xz-compressed straight into the APK and only
+# truncated or tampered download is packed straight into the APK and only
 # surfaces at runtime as a sing-box asset-load failure.
 download_verified() {
   local repo="$1" version="$2" file="$3" expect="$4"
@@ -35,13 +35,11 @@ download_verified() {
 echo VERSION_GEOIP=$GEOIP_VERSION
 echo -n $GEOIP_VERSION > geoip.version.txt
 download_verified "SagerNet/sing-geoip" "$GEOIP_VERSION" geoip.db "$GEOIP_SHA256"
-xz -9 geoip.db
 
 ####
 echo VERSION_GEOSITE=$GEOSITE_VERSION
 echo -n $GEOSITE_VERSION > geosite.version.txt
 download_verified "SagerNet/sing-geosite" "$GEOSITE_VERSION" geosite.db "$GEOSITE_SHA256"
-xz -9 geosite.db
 
 ####
 cd "$OLDPWD"

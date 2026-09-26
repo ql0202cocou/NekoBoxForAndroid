@@ -10,7 +10,6 @@ require (
 	github.com/sagernet/sing v0.9.4
 	github.com/sagernet/sing-box v1.0.0 // replaced
 	github.com/sagernet/sing-tun v0.9.3
-	github.com/ulikunitz/xz v0.5.16
 	golang.org/x/mobile v0.0.0-20231108233038-35478a0c49da
 	golang.org/x/sys v0.48.0
 )

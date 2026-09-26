@@ -71,17 +71,14 @@ jobs:
           go-version: '1.26'
           cache-dependency-path: libcore/go.sum
       - name: Download Geo Assets
-        # geo 缓存测试要用真实数据库，下载脚本按固定的 sha256 校验。解压到 assets
-        # 目录之外：assets 里的文件都会被打进 APK，libcore 只读 .xz
-        run: |
-          ./run lib assets
-          xz -dc app/src/main/assets/sing-box/geoip.db.xz > "$RUNNER_TEMP/geoip.db"
-          xz -dc app/src/main/assets/sing-box/geosite.db.xz > "$RUNNER_TEMP/geosite.db"
+        # geo 缓存测试要用真实数据库，下载脚本按固定的 sha256 校验；测试只读，
+        # 直接用 assets 里的文件
+        run: ./run lib assets
       - name: Go Test
         # 命令与 -checklinkname 的原因见 buildScript/lib/test.sh
         env:
-          NEKO_TEST_GEOIP_DB: ${{ runner.temp }}/geoip.db
-          NEKO_TEST_GEOSITE_DB: ${{ runner.temp }}/geosite.db
+          NEKO_TEST_GEOIP_DB: ${{ github.workspace }}/app/src/main/assets/sing-box/geoip.db
+          NEKO_TEST_GEOSITE_DB: ${{ github.workspace }}/app/src/main/assets/sing-box/geosite.db
         run: ./run lib test
       - name: Go Test (sing-box, race)
         # vendored sing-box 是嵌套 module，上面的 ./... 覆盖不到它；
