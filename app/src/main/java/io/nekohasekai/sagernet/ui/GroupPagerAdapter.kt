@@ -10,7 +10,8 @@ import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
-import io.nekohasekai.sagernet.database.SagerDatabase
+import io.nekohasekai.sagernet.database.GroupRepository
+import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.ktx.dp2px
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
@@ -21,19 +22,18 @@ class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentS
 
     var selectedGroupIndex = 0
     var groupList: ArrayList<ProxyGroup> = ArrayList()
-    var groupFragments: HashMap<Long, ProfileListFragment> = HashMap()
 
     fun reload(now: Boolean = false) {
         runOnDefaultDispatcher {
-            var newGroupList = ArrayList(SagerDatabase.groupDao.allGroups())
+            var newGroupList = ArrayList(GroupRepository.getAllGroups())
             if (newGroupList.isEmpty()) {
                 // 走 GroupManager 的锁内双检创建：直接写 DAO 时，并发 reload 或与
                 // :bg 的 currentGroup() 竞争会落出两个 ungrouped 分组
                 GroupManager.currentGroup()
-                newGroupList = ArrayList(SagerDatabase.groupDao.allGroups())
+                newGroupList = ArrayList(GroupRepository.getAllGroups())
             }
             newGroupList.find { it.ungrouped }?.let {
-                if (SagerDatabase.proxyDao.countByGroup(it.id) == 0L) {
+                if (ProfileRepository.countProfilesByGroup(it.id) == 0L) {
                     newGroupList.remove(it)
                 }
             }
@@ -84,7 +84,6 @@ class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentS
     override fun createFragment(position: Int): Fragment {
         return ProfileListFragment().apply {
             proxyGroup = groupList[position]
-            groupFragments[proxyGroup.id] = this
             if (position == selectedGroupIndex) {
                 selected = true
             }
@@ -147,7 +146,7 @@ class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentS
 
     override suspend fun onRemoved(groupId: Long, profileId: Long) {
         val group = onMainDispatcher { groupList.find { it.id == groupId } } ?: return
-        if (group.ungrouped && SagerDatabase.proxyDao.countByGroup(groupId) == 0L) {
+        if (group.ungrouped && ProfileRepository.countProfilesByGroup(groupId) == 0L) {
             reload()
         }
     }

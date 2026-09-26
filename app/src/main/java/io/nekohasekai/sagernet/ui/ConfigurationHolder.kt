@@ -58,7 +58,7 @@ class ConfigurationHolder(
     val shareButton: ImageView = view.findViewById(R.id.shareIcon)
     val removeButton: ImageView = view.findViewById(R.id.remove)
 
-    fun bind(proxyEntity: ProxyEntity, trafficData: TrafficData? = null) {
+    fun bind(proxyEntity: ProxyEntity) {
         if (groupFragment.parentFragment !is ConfigurationFragment) return
 
         entity = proxyEntity
@@ -110,7 +110,7 @@ class ConfigurationHolder(
         profileType.text = proxyEntity.displayType()
         profileType.setTextColor(groupFragment.requireContext().getProtocolColor(proxyEntity.type))
 
-        bindTraffic(trafficData ?: ProfileManager.liveTraffic[proxyEntity.id])
+        bindTraffic(ProfileManager.liveTraffic[proxyEntity.id])
 
         editButton.setOnClickListener {
             it.context.startActivity(proxyEntity.settingIntent(it.context))
@@ -188,7 +188,7 @@ class ConfigurationHolder(
 
     // 流量、地址与状态这一段：TrafficLooper 前台时每秒推一次流量，只重画这里，
     // 不重跑 bind 的监听器设置和选中状态查询
-    fun bindTraffic(trafficData: TrafficData? = null) {
+    fun bindTraffic(trafficData: TrafficData?) {
         val pf = groupFragment.parentFragment as? ConfigurationFragment ?: return
         val proxyEntity = entity
 

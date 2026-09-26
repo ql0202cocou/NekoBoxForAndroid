@@ -437,13 +437,8 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             R.id.action_connection_test_delete_unavailable -> {
                 runOnDefaultDispatcher {
-                    val profiles = ProfileRepository.getProfilesByGroup(GroupManager.currentGroupId())
-                    val toClear = mutableListOf<ProxyEntity>()
-                    if (profiles.isNotEmpty()) for (profile in profiles) {
-                        if (profile.status != 0 && profile.status != 1) {
-                            toClear.add(profile)
-                        }
-                    }
+                    val toClear = ProfileRepository.getProfilesByGroup(GroupManager.currentGroupId())
+                        .filter { it.status != 0 && it.status != 1 }
                     if (toClear.isNotEmpty()) {
                         onMainDispatcher {
                             // 读库期间 fragment 可能已销毁，requireContext 会在 appScope 上抛异常崩溃

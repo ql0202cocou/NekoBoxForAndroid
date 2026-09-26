@@ -40,7 +40,7 @@ abstract class GroupUpdater {
     }
 
     protected suspend fun forceResolve(
-        profiles: List<AbstractBean>, groupId: Long?, groupNameserver: String? = null
+        profiles: List<AbstractBean>, groupId: Long, groupNameserver: String
     ) {
         val ipv6Mode = DataStore.ipv6Mode
         val lookupThreadIndex = AtomicInteger()
@@ -48,10 +48,8 @@ abstract class GroupUpdater {
             Thread(runnable, "DNS Lookup-${lookupThreadIndex.incrementAndGet()}")
         }.asCoroutineDispatcher()
         val progress = Progress(profiles.size)
-        if (groupId != null) {
-            GroupUpdater.progress[groupId] = progress
-            GroupManager.postProgress(groupId)
-        }
+        GroupUpdater.progress[groupId] = progress
+        GroupManager.postProgress(groupId)
         val ipv6First = ipv6Mode >= IPv6Mode.PREFER
 
         // 同一订阅里的节点常共用域名：每个域名只解析一次，结果套用到所有同域名节点
@@ -84,10 +82,8 @@ abstract class GroupUpdater {
                         } catch (e: Exception) {
                             Logs.d("Lookup $domain failed: ${e.readableMessage}", e)
                         }
-                        if (groupId != null) {
-                            progress.progressAtomic.addAndGet(sameDomain.size)
-                            GroupManager.postProgress(groupId)
-                        }
+                        progress.progressAtomic.addAndGet(sameDomain.size)
+                        GroupManager.postProgress(groupId)
                     }
                 }
             }

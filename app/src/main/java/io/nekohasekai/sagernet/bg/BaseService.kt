@@ -385,19 +385,14 @@ class BaseService {
                 // we use a coroutineScope here to allow clean-up in parallel
                 coroutineScope {
                     killProcesses()
-                    val data = data
-                    if (data.closeReceiverRegistered) {
-                        service.unregisterReceiver(data.receiver)
-                        data.closeReceiverRegistered = false
-                    }
+                    unregisterCloseReceiver()
                     data.proxy = null
                 }
                 // 前台状态一直保持到这里才解除：Stopping 期间到达的
                 // startForegroundService 记入 pendingStart 待重放，若通知提前销毁，
                 // 那次启动就没有 startForeground() 与之配对——平台会因此在下面的
                 // stopSelf() 处杀死 :bg
-                data.notification?.destroy()
-                data.notification = null
+                destroyNotification()
 
                 // change the state
                 data.changeState(State.Stopped, msg)
@@ -428,12 +423,8 @@ class BaseService {
             // 框架 destroy 可能落在 connectingJob 的挂起点之间：不取消的话它
             // 恢复后会在已关闭的实例上 init 出无人回收的 box
             data.connectingJob?.cancel()
-            if (data.closeReceiverRegistered) {
-                service.unregisterReceiver(data.receiver)
-                data.closeReceiverRegistered = false
-            }
-            data.notification?.destroy()
-            data.notification = null
+            unregisterCloseReceiver()
+            destroyNotification()
             // 流量循环也是 killProcesses 负责的运行期资源，这里同样兜底。
             // looper 要先于 box 关闭停下（其 queryStats 需要存活 box），且必须
             // 先捕获引用：close() 会把 looper 字段置 null。onDestroy 不能阻塞，
@@ -494,6 +485,21 @@ class BaseService {
             }
         }
 
+        // stopRunner 与 destroyRunner 共用的释放步骤，均幂等
+        private fun unregisterCloseReceiver() {
+            val data = data
+            if (data.closeReceiverRegistered) {
+                service.unregisterReceiver(data.receiver)
+                data.closeReceiverRegistered = false
+            }
+        }
+
+        private fun destroyNotification() {
+            data.notification?.destroy()
+            data.notification = null
+        }
+
+        // 与 release() 分开放：同一方法里同时 acquire / release，lint 的 Wakelock 检查会误报
         @SuppressLint("WakelockTimeout")
         fun acquireWakeLock() {
             data.wakeLock = SagerNet.power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, wakeLockTag)
@@ -506,12 +512,9 @@ class BaseService {
                 data.wakeLock = null
             }
 
-            if (DataStore.acquireWakeLock) {
-                acquireWakeLock()
-                data.notification?.postNotificationWakeLockStatus(true)
-            } else {
-                data.notification?.postNotificationWakeLockStatus(false)
-            }
+            val keepAwake = DataStore.acquireWakeLock
+            if (keepAwake) acquireWakeLock()
+            data.notification?.postNotificationWakeLockStatus(keepAwake)
         }
 
         fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

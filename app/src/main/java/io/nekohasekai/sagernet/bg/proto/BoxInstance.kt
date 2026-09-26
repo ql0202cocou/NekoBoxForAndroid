@@ -26,7 +26,7 @@ abstract class BoxInstance(
     lateinit var box: BoxInstance
 
     val pluginPath = hashMapOf<String, PluginManager.InitResult>()
-    val pluginConfigs = hashMapOf<Int, Pair<Int, String>>()
+    val pluginConfigs = hashMapOf<Int, String>()
     open lateinit var processes: GuardedProcessPool
 
     // Written by init/launch on one thread while close() may purge it from
@@ -78,7 +78,7 @@ abstract class BoxInstance(
             for ((port, profile) in chain) {
                 val core = externalCore(profile.requireBean()) ?: continue
                 initPlugin(core.pluginId)
-                pluginConfigs[port] = profile.type to core.config(
+                pluginConfigs[port] = core.config(
                     port, { prefix, ext -> newCacheFile(prefix, ext, app.cacheDir) }, mihomoTestController()
                 )
             }
@@ -95,9 +95,9 @@ abstract class BoxInstance(
             for ((chain) in config.externalIndex) {
                 for ((port, profile) in chain) {
                     val core = externalCore(profile.requireBean()) ?: continue
-                    val config = pluginConfigs[port]?.second ?: ""
+                    val config = pluginConfigs[port] ?: ""
                     val launch = core.launch(initPlugin(core.pluginId).path, config, ::writeCacheFile)
-                    processes.start(launch.commands, launch.env.toMutableMap())
+                    processes.start(launch.commands, launch.env)
                 }
             }
 

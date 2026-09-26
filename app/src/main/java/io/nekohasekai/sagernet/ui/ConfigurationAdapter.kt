@@ -251,7 +251,7 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
     }
 
     fun reloadProfiles() {
-        var newProfiles = SagerDatabase.proxyDao.getByGroup(groupFragment.proxyGroup.id)
+        var newProfiles = ProfileRepository.getProfilesByGroup(groupFragment.proxyGroup.id)
         if (groupFragment.select && groupFragment.noChain) {
             // 分组的前置 / 落地代理暂不开放选链。ConfigBuild.resolveChain
             // 已能把链展开成成员，是否放开待定

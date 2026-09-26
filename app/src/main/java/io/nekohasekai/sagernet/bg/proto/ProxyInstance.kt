@@ -24,8 +24,9 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
 
     override fun buildConfig() {
         super.buildConfig()
-        // configs contain credentials; redact them before writing to the exportable log
-        Logs.d(Util.redactSecrets(config.config))
+        // configs contain credentials; redact them before writing to the exportable log.
+        // 脱敏要对整份配置跑多遍正则，日志关闭时直接跳过
+        if (Logs.enabled) Logs.d(Util.redactSecrets(config.config))
         if (BuildConfig.DEBUG) Logs.d(JavaUtil.gson.toJson(config.trafficMap))
     }
 
@@ -37,10 +38,7 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
             closeAfterLateInit()
             return
         }
-        pluginConfigs.forEach { (_, plugin) ->
-            val (_, content) = plugin
-            Logs.d(Util.redactSecrets(content))
-        }
+        if (Logs.enabled) pluginConfigs.values.forEach { Logs.d(Util.redactSecrets(it)) }
     }
 
     override fun launch() {

@@ -117,18 +117,15 @@ fun buildConfig(
     proxy: ProxyEntity, forTest: Boolean = false, forExport: Boolean = false
 ): ConfigBuildResult {
 
-    if (proxy.type == TYPE_CONFIG) {
-        val bean = proxy.requireBean() as ConfigBean
-        if (bean.type == 0) {
-            return ConfigBuildResult(
-                bean.config,
-                listOf(),
-                proxy.id, //
-                mapOf(TAG_PROXY to listOf(proxy)), //
-                mapOf(proxy.id to TAG_PROXY), //
-                -1L
-            )
-        }
+    if (proxy.isFullConfig()) {
+        return ConfigBuildResult(
+            (proxy.requireBean() as ConfigBean).config,
+            listOf(),
+            proxy.id, //
+            mapOf(TAG_PROXY to listOf(proxy)), //
+            mapOf(proxy.id to TAG_PROXY), //
+            -1L
+        )
     }
 
     return ConfigBuild(proxy, forTest, forExport).build()
@@ -139,7 +136,7 @@ private fun ProxyEntity.isFullConfig() =
     type == TYPE_CONFIG && (requireBean() as ConfigBean).type == 0
 
 // 普通构建（非测试、非导出）得到的 ConfigBuildResult.selectorGroupId：只取决于
-// 节点所在分组，与 buildConfig 开头的 TYPE_CONFIG 分支、ConfigBuild.selectorGroup
+// 节点所在分组，与 buildConfig 开头的 isFullConfig 分支、ConfigBuild.selectorGroup
 // 保持一致。canReloadSelector 用它判断能否原地切换，不必为此构建整份配置
 fun selectorGroupIdOf(proxy: ProxyEntity): Long {
     if (proxy.isFullConfig()) return -1L
@@ -410,7 +407,7 @@ private class ConfigBuild(
             // without a resolver, which preserves group nameserver fallback.
             if (!forExport) default_domain_resolver = DomainResolveOptions().apply {
                 server = "dns-direct"
-                if (!forTest) strategy = SingBoxOptionsUtil.domainStrategy("server")
+                if (!forTest) strategy = defaultServerDomainStrategy
             }
         }
     }
@@ -534,7 +531,8 @@ private class ConfigBuild(
         // resolve it BEFORE the chain rule below, or the previous hop detours
         // to a g-<id> that is never emitted and sing-box refuses to start
         // with "dependency[g-N] not found"
-        if (needGlobal) globalOutbounds[proxyEntity.id]?.let { tagOut = it }
+        val existing = if (needGlobal) globalOutbounds[proxyEntity.id] else null
+        if (existing != null) tagOut = existing
 
         // chain rules
         if (index > 0) {
@@ -560,14 +558,9 @@ private class ConfigBuild(
             chain.chainTagOut = tagOut
         }
 
-        // now tagOut is determined
-        if (needGlobal) {
-            globalOutbounds[proxyEntity.id]?.let {
-                if (index == 0) chain.chainTagOut = it // single, duplicate chain
-                return null
-            }
-            globalOutbounds[proxyEntity.id] = tagOut
-        }
+        // now tagOut is determined; a hop built earlier is not emitted again
+        if (existing != null) return null
+        if (needGlobal) globalOutbounds[proxyEntity.id] = tagOut
         return tagOut
     }
 
@@ -652,12 +645,16 @@ private class ConfigBuild(
             // With ss protect, don't use mapping
             var needExternal = true
             if (index == chain.profileList.lastIndex) {
-                // 只有 hysteria 走 Matsuri exe 免映射；其余协议沿用空 id（不查插件）
-                val pluginId = if (bean is HysteriaBean) externalCore(bean)!!.pluginId else ""
-                if (Plugins.isUsingMatsuriExe(pluginId)) {
-                    needExternal = false
-                } else if (Plugins.getPluginExternal(pluginId) != null) {
-                    throw Exception("You are using an unsupported $pluginId, please download the correct plugin.")
+                // 只有 hysteria 走 Matsuri exe 免映射（没装外部插件时用内置的也算）；
+                // 其余协议不查插件。插件只查一次，每次查询都是一轮 IPC
+                if (bean is HysteriaBean) {
+                    val pluginId = externalCore(bean)!!.pluginId
+                    val external = Plugins.getPluginExternal(pluginId)
+                    if (external == null || external.authority.startsWith(Plugins.AUTHORITIES_PREFIX_NEKO_EXE)) {
+                        needExternal = false
+                    } else {
+                        throw Exception("You are using an unsupported $pluginId, please download the correct plugin.")
+                    }
                 }
             }
             if (needExternal) {
@@ -766,10 +763,7 @@ private class ConfigBuild(
         val ruleSets = mutableListOf<RuleSet>()
 
         val ruleObj = Rule_DefaultOptions().apply {
-            if (uidList.isNotEmpty()) {
-                PackageCache.awaitLoadSync()
-                user_id = uidList
-            }
+            if (uidList.isNotEmpty()) user_id = uidList
             var domainList: List<String>? = null
             if (rule.domains.isNotBlank()) {
                 domainList = rule.domains.listByLineOrComma()

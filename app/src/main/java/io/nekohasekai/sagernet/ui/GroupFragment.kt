@@ -32,6 +32,9 @@ import java.util.*
 
 private const val KEY_SELECTED_GROUP = "selectedGroupId"
 
+// 只刷新订阅更新进度条的局部 bind 标记
+private const val PAYLOAD_PROGRESS = "progress"
+
 class GroupFragment : ToolbarFragment(R.layout.layout_group),
     Toolbar.OnMenuItemClickListener {
 
@@ -159,12 +162,11 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             return null
         }
         var skipped = 0
-        // NekoBean 没有分享链接（返回空串）：丢掉，免得导出空行、整组只有它时复制出空白
         val links = profiles.filter { it.haveLink() }.mapNotNull { profile ->
             runCatching { profile.toStdLink() }.onFailure {
                 Logs.w(it)
                 skipped++
-            }.getOrNull()?.takeIf { it.isNotBlank() }
+            }.getOrNull()
         }.joinToString("\n")
         val note = if (skipped > 0) app.getString(R.string.share_links_skipped, skipped) else null
         return links to note
@@ -214,6 +216,14 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
 
         override fun onBindViewHolder(holder: GroupHolder, position: Int) {
             holder.bind(groupList[position])
+        }
+
+        override fun onBindViewHolder(holder: GroupHolder, position: Int, payloads: List<Any>) {
+            if (payloads.isNotEmpty() && payloads.all { it == PAYLOAD_PROGRESS }) {
+                holder.bindProgress()
+            } else {
+                onBindViewHolder(holder, position)
+            }
         }
 
         override fun getItemCount(): Int {
@@ -313,18 +323,21 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             }
         }
 
-        override suspend fun groupUpdated(groupId: Long) {
+        override suspend fun groupUpdated(groupId: Long) = notifyGroupChanged(groupId, null)
+
+        // 解析进度每前进一步都会到这里：只刷新进度条，不整卡重绑、不再查节点数
+        override suspend fun groupProgress(groupId: Long) = notifyGroupChanged(groupId, PAYLOAD_PROGRESS)
+
+        private suspend fun notifyGroupChanged(groupId: Long, payload: Any?) {
             onMainDispatcher {
                 val index = groupList.indexOfFirst { it.id == groupId }
                 if (index == -1) {
                     runOnDefaultDispatcher { reload() }
                     return@onMainDispatcher
                 }
-                notifyItemChanged(index)
+                notifyItemChanged(index, payload)
             }
         }
-
-        override suspend fun groupProgress(groupId: Long) = groupUpdated(groupId)
 
     }
 
@@ -401,6 +414,37 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         }
 
 
+        fun bindProgress() {
+            if (proxyGroup.id in GroupUpdater.updating) {
+                (groupName.parent as LinearLayout).apply {
+                    setPadding(paddingLeft, dp2px(11), paddingRight, paddingBottom)
+                }
+
+                subscriptionUpdateProgress.isVisible = true
+
+                if (!GroupUpdater.progress.containsKey(proxyGroup.id)) {
+                    subscriptionUpdateProgress.isIndeterminate = true
+                } else {
+                    subscriptionUpdateProgress.isIndeterminate = false
+                    GroupUpdater.progress[proxyGroup.id]?.let {
+                        subscriptionUpdateProgress.max = it.max
+                        subscriptionUpdateProgress.progress = it.progress
+                    }
+                }
+
+                updateButton.isInvisible = true
+                editButton.isGone = true
+            } else {
+                (groupName.parent as LinearLayout).apply {
+                    setPadding(paddingLeft, dp2px(15), paddingRight, paddingBottom)
+                }
+
+                subscriptionUpdateProgress.isVisible = false
+                updateButton.isInvisible = proxyGroup.type != GroupType.SUBSCRIPTION
+                editButton.isGone = proxyGroup.ungrouped
+            }
+        }
+
         fun bind(group: ProxyGroup) {
             proxyGroup = group
 
@@ -431,34 +475,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                 popup.show()
             }
 
-            if (proxyGroup.id in GroupUpdater.updating) {
-                (groupName.parent as LinearLayout).apply {
-                    setPadding(paddingLeft, dp2px(11), paddingRight, paddingBottom)
-                }
-
-                subscriptionUpdateProgress.isVisible = true
-
-                if (!GroupUpdater.progress.containsKey(proxyGroup.id)) {
-                    subscriptionUpdateProgress.isIndeterminate = true
-                } else {
-                    subscriptionUpdateProgress.isIndeterminate = false
-                    GroupUpdater.progress[proxyGroup.id]?.let {
-                        subscriptionUpdateProgress.max = it.max
-                        subscriptionUpdateProgress.progress = it.progress
-                    }
-                }
-
-                updateButton.isInvisible = true
-                editButton.isGone = true
-            } else {
-                (groupName.parent as LinearLayout).apply {
-                    setPadding(paddingLeft, dp2px(15), paddingRight, paddingBottom)
-                }
-
-                subscriptionUpdateProgress.isVisible = false
-                updateButton.isInvisible = proxyGroup.type != GroupType.SUBSCRIPTION
-                editButton.isGone = proxyGroup.ungrouped
-            }
+            bindProgress()
 
             // 流量与到期时间取 RawUpdater 从 Subscription-Userinfo 解析好的字段
             val subscription = proxyGroup.subscription

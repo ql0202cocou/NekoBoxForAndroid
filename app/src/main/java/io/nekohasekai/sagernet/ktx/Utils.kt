@@ -18,7 +18,6 @@ import android.system.Os
 import android.system.OsConstants
 import android.util.TypedValue
 import android.view.View
-import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.annotation.AttrRes
 import androidx.annotation.ColorRes
@@ -263,32 +262,24 @@ fun ContentResolver.displayName(uri: Uri): String {
 // FileProvider（.cache）只暴露这个目录（见 cache_paths.xml）
 val Context.shareDir get() = File(cacheDir, "share")
 
-// 经 FileProvider 把文件交给系统分享面板。不在 shareDir 里的文件先挪进去；分享负载即用
-// 即弃，挪完顺手清掉上一次分享的残留（备份 JSON 含全部节点凭证）
-fun Context.shareFile(file: File, mimeType: String) {
-    val dir = shareDir.apply { mkdirs() }
-    val shared = if (file.parentFile == dir) {
-        file
-    } else {
-        val target = File(dir, file.name)
-        when {
-            file.renameTo(target) -> target
-            runCatching { file.copyTo(target, overwrite = true); file.delete() }.isSuccess -> target
-            else -> {
-                Logs.w("shareFile: cannot move ${file.name} into share dir")
-                Toast.makeText(this, R.string.action_export_err, Toast.LENGTH_SHORT).show()
-                return
-            }
-        }
+// 分享出去 / 旧版本留在 cacheDir 根目录的备份明文含全部节点凭证，用完即清
+fun Context.deleteSharedBackups() {
+    for (dir in arrayOf(cacheDir, shareDir)) {
+        dir.listFiles { f -> f.name.startsWith("nekobox_backup_") }?.forEach { it.delete() }
     }
-    dir.listFiles()?.forEach { if (it != shared) it.delete() }
+}
+
+// 经 FileProvider 把 shareDir 里的文件交给系统分享面板。分享负载即用即弃，
+// 顺手清掉上一次分享的残留（备份 JSON 含全部节点凭证）
+fun Context.shareFile(file: File, mimeType: String) {
+    shareDir.listFiles()?.forEach { if (it != file) it.delete() }
     startActivity(
         Intent.createChooser(
             Intent(Intent.ACTION_SEND).setType(mimeType)
                 .setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 .putExtra(
                     Intent.EXTRA_STREAM, FileProvider.getUriForFile(
-                        this, BuildConfig.APPLICATION_ID + ".cache", shared
+                        this, BuildConfig.APPLICATION_ID + ".cache", file
                     )
                 ), getString(androidx.appcompat.R.string.abc_shareactionprovider_share_with)
         )

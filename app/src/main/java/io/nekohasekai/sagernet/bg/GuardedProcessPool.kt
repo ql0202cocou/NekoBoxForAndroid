@@ -73,7 +73,7 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
             }
         }
 
-        suspend fun looper(onRestartCallback: (suspend () -> Unit)?) {
+        suspend fun looper() {
             looperStarted = true
             var running = true
             val exitChannel = Channel<Int>(1) // buffered: cleanup may give up receiving, and a blocked send would leak the daemon thread
@@ -113,16 +113,14 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
                     Logs.i("restart process: ${Commandline.toString(cmd)} (last exit code: $exitCode)")
                     start()
                     running = true
-                    spawnLoggers() // before the suspending callback below
-                    onRestartCallback?.invoke()
+                    spawnLoggers()
                 }
             } catch (e: CancellationException) {
                 throw e // 池关闭/服务停止的正常拆毁路径
             } catch (e: Exception) {
-                // IOException 是进程退得太快 / 重启失败；其余意外异常（如
-                // onRestartCallback 里的 bug）同样按守护失败处理：逃逸出协程会
-                // 崩溃 :bg（池没有 CoroutineExceptionHandler），吞掉则 start()
-                // 已失败的 guard 会永远挂在 exitChannel.receive() 上不再守护
+                // IOException 是进程退得太快 / 重启失败；其余意外异常同样按守护失败
+                // 处理：逃逸出协程会崩溃 :bg（池没有 CoroutineExceptionHandler），
+                // 吞掉则 start() 已失败的 guard 会永远挂在 exitChannel.receive() 上不再守护
                 Logs.w("error occurred. stop guard: ${Commandline.toString(cmd)}")
                 if (coroutineContext.isActive) {
                     appScope.launch(Dispatchers.Main) {
@@ -154,8 +152,7 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
 
     fun start(
         cmd: List<String>,
-        env: MutableMap<String, String> = mutableMapOf(),
-        onRestartCallback: (suspend () -> Unit)? = null
+        env: Map<String, String> = emptyMap(),
     ) {
         Logs.i("start process: ${Commandline.toString(cmd)}")
         Guard(cmd, env).apply {
@@ -167,7 +164,7 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
                 destroy()
                 return
             }
-            launch { looper(onRestartCallback) }
+            launch { looper() }
         }
         processCount.incrementAndGet()
     }

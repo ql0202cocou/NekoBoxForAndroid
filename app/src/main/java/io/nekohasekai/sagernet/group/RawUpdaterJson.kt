@@ -61,7 +61,6 @@ fun parseJSON(json: Any, depth: Int = 0): List<AbstractBean> {
                             }
                         }.map {
                             ConfigBean().apply {
-                                applyDefaultValues()
                                 type = 1
                                 config = it.toStringPretty()
                                 name = it.getStr("tag")
@@ -71,7 +70,7 @@ fun parseJSON(json: Any, depth: Int = 0): List<AbstractBean> {
             }
 
             json.has("server") && json.has("server_port") -> {
-                proxies.add(ConfigBean().applyDefaultValues().apply {
+                proxies.add(ConfigBean().apply {
                     type = 1
                     config = json.toStringPretty()
                 })

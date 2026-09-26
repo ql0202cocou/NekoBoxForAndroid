@@ -36,15 +36,6 @@ object Plugins {
         return AUTHORITIES_PREFIX_NEKO_EXE
     }
 
-    fun isUsingMatsuriExe(pluginId: String): Boolean {
-        getPlugin(pluginId)?.apply {
-            if (authority.startsWith(AUTHORITIES_PREFIX_NEKO_EXE)) {
-                return true
-            }
-        }
-        return false;
-    }
-
     fun displayExeProvider(pkgName: String): String {
         return if (pkgName.startsWith(AUTHORITIES_PREFIX_SEKAI_EXE)) {
             "SagerNet"

@@ -30,6 +30,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -51,11 +52,17 @@ object SubscriptionUpdater : GroupManager.Listener {
             group.subscription?.takeIf { it.autoUpdate }?.let { group to it }
         }
 
-    // listener 路径上的排期失败（DB 读取、RemoteWorkManager binder 往返）由
-    // GroupManager.iterator 记日志吞掉：WorkManager 的任务是持久的，这次排不上
-    // 等下次分组事件再排即可
+    // 排期失败（DB 读取、RemoteWorkManager binder 往返）只记日志：WorkManager 的
+    // 任务是持久的，这次排不上等下次分组事件再排即可。调用方多在 appScope 上，
+    // 抛出去会让进程崩溃
     suspend fun reconfigureUpdater() = schedulingMutex.withLock {
-        reconfigureLocked()
+        try {
+            reconfigureLocked()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Logs.w(e)
+        }
     }
 
     override suspend fun groupAdd(group: ProxyGroup) {

@@ -75,30 +75,17 @@ class ProfileListFragment : Fragment() {
     lateinit var layoutManager: LinearLayoutManager
     lateinit var configurationListView: RecyclerView
 
-    val select by lazy {
+    private val parentConfiguration by lazy {
         try {
-            (parentFragment as ConfigurationFragment).select
-        } catch (e: Exception) {
-            Logs.e(e)
-            false
-        }
-    }
-    val noChain by lazy {
-        try {
-            (parentFragment as ConfigurationFragment).noChain
-        } catch (e: Exception) {
-            Logs.e(e)
-            false
-        }
-    }
-    val selectedItem by lazy {
-        try {
-            (parentFragment as ConfigurationFragment).selectedItem
+            parentFragment as ConfigurationFragment
         } catch (e: Exception) {
             Logs.e(e)
             null
         }
     }
+    val select by lazy { parentConfiguration?.select ?: false }
+    val noChain by lazy { parentConfiguration?.noChain ?: false }
+    val selectedItem by lazy { parentConfiguration?.selectedItem }
 
     override fun onResume() {
         super.onResume()

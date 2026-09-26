@@ -32,5 +32,3 @@ fun requireValidReality(publicKey: String, shortId: String) {
         "Invalid REALITY short ID: expected up to 16 hex characters of even length"
     }
 }
-
-fun StandardV2RayBean.requireValidReality() = requireValidReality(realityPubKey, realityShortId)

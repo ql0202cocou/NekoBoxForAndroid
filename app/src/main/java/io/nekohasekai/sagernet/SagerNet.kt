@@ -31,7 +31,7 @@ import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.isOss
 import io.nekohasekai.sagernet.ktx.isPreview
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
-import io.nekohasekai.sagernet.ktx.shareDir
+import io.nekohasekai.sagernet.ktx.deleteSharedBackups
 import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.utils.*
 import kotlinx.coroutines.DEBUG_PROPERTY_NAME
@@ -121,11 +121,9 @@ class SagerNet : Application(),
             GroupManager.addListener(SubscriptionUpdater)
 
             // 恢复重放直接写库、绕过 GroupManager 事件：分组集合可能已变
-            // （新增或删光了自动更新订阅），在此补一次调度重排。这里不经
-            // GroupManager.iterator 的异常兜底，排期失败同样只记日志，否则在
-            // appScope 上抛出会让进程崩溃
+            // （新增或删光了自动更新订阅），在此补一次调度重排
             if (restoreReplayed) runOnDefaultDispatcher {
-                runCatching { SubscriptionUpdater.reconfigureUpdater() }.onFailure { Logs.w(it) }
+                SubscriptionUpdater.reconfigureUpdater()
             }
 
             // 渠道创建一次即被系统持久化，但全新安装/云恢复后 :bg 可能先于主
@@ -153,9 +151,7 @@ class SagerNet : Application(),
 
                 // 分享出去的备份 JSON 含全部节点凭证，平时由 BackupFragment.onDestroyView
                 // 和下一次分享清掉；进程在后台被杀时两者都不会发生，冷启动时补清
-                for (dir in arrayOf(cacheDir, shareDir)) {
-                    dir.listFiles { f -> f.name.startsWith("nekobox_backup_") }?.forEach { it.delete() }
-                }
+                deleteSharedBackups()
             }
         }
 

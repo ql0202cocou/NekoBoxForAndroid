@@ -66,10 +66,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                 val backup = doBackup(profile, rule, setting)
                 onMainDispatcher {
                     content = backup
-                    startFilesForResult(
-                        exportSettings,
-                        "nekobox_backup_${SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())}.json"
-                    )
+                    startFilesForResult(exportSettings, backupFileName())
                 }
             }
         }
@@ -80,14 +77,9 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
             val setting = binding.backupSettings.isChecked
             viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
                 val backup = doBackup(profile, rule, setting)
-                // 直接写进分享目录，shareFile 在主线程上就不必再挪文件；目录里的旧备份
-                // 由 shareFile 清掉，这里只清旧版本留在 cacheDir 根目录的
-                app.cacheDir.listFiles { f -> f.name.startsWith("nekobox_backup_") }
-                    ?.forEach { it.delete() }
-                val cacheFile = File(
-                    app.shareDir.apply { mkdirs() },
-                    "nekobox_backup_${SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())}.json"
-                )
+                // 直接写进分享目录（shareFile 只分享其中的文件），先清掉上次的残留
+                app.deleteSharedBackups()
+                val cacheFile = File(app.shareDir.apply { mkdirs() }, backupFileName())
                 cacheFile.writeText(backup)
                 onMainDispatcher {
                     requireContext().shareFile(cacheFile, "application/json")
@@ -101,17 +93,14 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         }
     }
 
+    private fun backupFileName() =
+        "nekobox_backup_${SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())}.json"
+
     override fun onDestroyView() {
         super.onDestroyView()
         // 分享落在 cache 的备份明文含全部凭证，离开页面就清掉；
         // 接收方还没读完会让这次分享失败，代价可接受
-        runOnDefaultDispatcher {
-            app.cacheDir.listFiles { f -> f.name.startsWith("nekobox_backup_") }
-                ?.forEach { it.delete() }
-            // 备份写在 share/ 子目录（见 cache_paths.xml），根目录可能还有旧版本留下的
-            app.shareDir.listFiles { f -> f.name.startsWith("nekobox_backup_") }
-                ?.forEach { it.delete() }
-        }
+        runOnDefaultDispatcher { app.deleteSharedBackups() }
     }
 
     fun Parcelable.toBase64Str(): String {
@@ -243,10 +232,9 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                                 }
                             }
                             // 恢复绕过 GroupManager 事件，重启也不会重排持久化的
-                            // WorkManager 任务：导入后按新的分组集合重排一次订阅调度。
-                            // 两个库都已提交，排期失败只记日志，不能拦住下面的重启
-                            runCatching { SubscriptionUpdater.reconfigureUpdater() }
-                                .onFailure { Logs.w(it) }
+                            // WorkManager 任务：导入后按新的分组集合重排一次订阅调度，
+                            // 排期失败只记日志，不会拦住下面的重启
+                            SubscriptionUpdater.reconfigureUpdater()
                             triggerFullRestart(app)
                         }.onFailure {
                             Logs.w(it)

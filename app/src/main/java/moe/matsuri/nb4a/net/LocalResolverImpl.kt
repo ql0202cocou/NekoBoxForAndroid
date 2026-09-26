@@ -48,25 +48,15 @@ object LocalResolverImpl : LocalDNSTransport {
         val signal = CancellationSignal()
         ctx.onCancel(signal::cancel)
 
-        // These run on the executor thread, outside the JNI call that gomobile turns
-        // into a Go error — an escaping exception here has nobody to catch it. Same
-        // guards as lookup() below.
+        // 回调跑在 executor 线程上，逃出的异常没人接；ExchangeContext 的各方法在
+        // Go 侧（settleWith）已吞掉 panic、不会抛出，这里无需再包 try
         val callback = object : DnsResolver.Callback<ByteArray> {
             override fun onAnswer(answer: ByteArray, rcode: Int) {
-                try {
-                    ctx.rawSuccess(answer)
-                } catch (e: Exception) {
-                    Logs.w(e)
-                    ctx.errnoCode(ERRNO_UNKNOWN)
-                }
+                ctx.rawSuccess(answer)
             }
 
             override fun onError(error: DnsResolver.DnsException) {
-                try {
-                    ctx.fail(error)
-                } catch (e: Exception) {
-                    Logs.w(e)
-                }
+                ctx.fail(error)
             }
         }
 
@@ -99,25 +89,15 @@ object LocalResolverImpl : LocalDNSTransport {
 
             val callback = object : DnsResolver.Callback<Collection<InetAddress>> {
                 override fun onAnswer(answer: Collection<InetAddress>, rcode: Int) {
-                    try {
-                        if (rcode == 0) {
-                            ctx.success(answer.mapNotNull { it.hostAddress }.joinToString("\n"))
-                        } else {
-                            ctx.errorCode(rcode)
-                        }
-                    } catch (e: Exception) {
-                        Logs.w(e)
-                        ctx.errnoCode(ERRNO_UNKNOWN)
+                    if (rcode == 0) {
+                        ctx.success(answer.mapNotNull { it.hostAddress }.joinToString("\n"))
+                    } else {
+                        ctx.errorCode(rcode)
                     }
                 }
 
                 override fun onError(error: DnsResolver.DnsException) {
-                    try {
-                        ctx.fail(error)
-                    } catch (e: Exception) {
-                        Logs.w(e)
-                        ctx.errnoCode(ERRNO_UNKNOWN)
-                    }
+                    ctx.fail(error)
                 }
             }
 
