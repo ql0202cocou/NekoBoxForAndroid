@@ -157,8 +157,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             ProfileRepository.getProfilesByGroup(groupId)
         } catch (e: Exception) {
             Logs.w(e)
-            // 读库期间 fragment 可能已销毁，snackbar 里的 requireActivity 会在 appScope 上抛异常
-            onMainDispatcher { if (isAdded) snackbar(e.readableMessage).show() }
+            showSnackbar(e.readableMessage)
             return null
         }
         var skipped = 0

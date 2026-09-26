@@ -45,6 +45,7 @@ import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
 import io.nekohasekai.sagernet.ktx.scrollTo
+import io.nekohasekai.sagernet.ktx.showSnackbar
 import io.nekohasekai.sagernet.ktx.snackbar
 import io.nekohasekai.sagernet.ktx.startFilesForResult
 import io.nekohasekai.sagernet.ktx.writeToDocument
@@ -307,16 +308,13 @@ class ConfigurationFragment @JvmOverloads constructor(
                         RawUpdater.parseRaw(fileText, fileName)
                             ?.let { pl -> proxies.addAll(pl) }
                     }
-                    if (proxies.isEmpty()) onMainDispatcher {
-                        if (isAdded) snackbar(R.string.no_proxies_found_in_file).show()
-                    } else import(proxies)
+                    if (proxies.isEmpty()) showSnackbar(R.string.no_proxies_found_in_file)
+                    else import(proxies)
                 } catch (e: SubscriptionFoundException) {
                     (activity as? MainActivity)?.importSubscription(e.link.toUri())
                 } catch (e: Exception) {
                     Logs.w(e)
-                    onMainDispatcher {
-                        if (isAdded) snackbar(e.readableMessage).show()
-                    }
+                    showSnackbar(e.readableMessage)
                 }
             }
         }
@@ -328,11 +326,9 @@ class ConfigurationFragment @JvmOverloads constructor(
             // Same tab switch the PROFILE_GROUP cache listener performs; the
             // view (and its adapter) may be gone for an appScope caller
             if (::adapter.isInitialized) selectGroupTab(targetId)
-            // appScope caller: the fragment may be gone by now
-            if (isAdded) snackbar(
-                app.resources.getQuantityString(R.plurals.added, proxies.size, proxies.size)
-            ).show()
         }
+        // appScope caller: the fragment may be gone by now
+        showSnackbar(app.resources.getQuantityString(R.plurals.added, proxies.size, proxies.size))
 
     }
 
@@ -376,17 +372,13 @@ class ConfigurationFragment @JvmOverloads constructor(
                 } else runOnDefaultDispatcher {
                     try {
                         val proxies = RawUpdater.parseRaw(text)
-                        if (proxies.isNullOrEmpty()) onMainDispatcher {
-                            if (isAdded) snackbar(R.string.no_proxies_found_in_clipboard).show()
-                        } else import(proxies)
+                        if (proxies.isNullOrEmpty()) showSnackbar(R.string.no_proxies_found_in_clipboard)
+                        else import(proxies)
                     } catch (e: SubscriptionFoundException) {
                         (activity as? MainActivity)?.importSubscription(e.link.toUri())
                     } catch (e: Exception) {
                         Logs.w(e)
-
-                        onMainDispatcher {
-                            if (isAdded) snackbar(e.readableMessage).show()
-                        }
+                        showSnackbar(e.readableMessage)
                     }
                 }
             }
@@ -401,9 +393,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                     val group = GroupManager.currentGroup()
                     if (group.type != GroupType.SUBSCRIPTION) {
                         Logs.e("onMenuItemClick: Group(${group.displayName()}) is not subscription")
-                        onMainDispatcher {
-                            if (isAdded) snackbar(R.string.group_not_subscription).show()
-                        }
+                        showSnackbar(R.string.group_not_subscription)
                     } else {
                         GroupUpdater.startUpdate(group, true)
                     }

@@ -224,12 +224,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                             )
                             if (skipped > 0) {
                                 Logs.w("Backup import skipped $skipped invalid record(s)")
-                                onMainDispatcher {
-                                    if (!isAdded) return@onMainDispatcher
-                                    snackbar(
-                                        getString(R.string.backup_import_skipped, skipped)
-                                    ).show()
-                                }
+                                showSnackbar(app.getString(R.string.backup_import_skipped, skipped))
                             }
                             // 恢复绕过 GroupManager 事件，重启也不会重排持久化的
                             // WorkManager 任务：导入后按新的分组集合重排一次订阅调度，

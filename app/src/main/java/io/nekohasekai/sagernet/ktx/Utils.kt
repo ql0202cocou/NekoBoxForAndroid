@@ -188,6 +188,14 @@ fun View.crossFadeFrom(other: View) {
 fun Fragment.snackbar(textId: Int) = (requireActivity() as MainActivity).snackbar(textId)
 fun Fragment.snackbar(text: CharSequence) = (requireActivity() as MainActivity).snackbar(text)
 
+// 后台任务里弹提示用这两个：切回主线程，fragment 已离开 activity 时直接丢弃，
+// 不像 snackbar 的 requireActivity 那样在 appScope 上抛异常
+suspend fun Fragment.showSnackbar(@StringRes textId: Int) =
+    onMainDispatcher { (activity as? MainActivity)?.snackbar(textId)?.show() }
+
+suspend fun Fragment.showSnackbar(text: CharSequence) =
+    onMainDispatcher { (activity as? MainActivity)?.snackbar(text)?.show() }
+
 // 复制到剪贴板，返回给 snackbar 用的导出结果提示
 @StringRes
 fun exportToClipboard(text: String) =
@@ -234,7 +242,7 @@ suspend fun Fragment.writeToDocument(uri: Uri, content: String, note: String? = 
         Logs.w(e)
         e.readableMessage
     }
-    onMainDispatcher { if (isAdded) snackbar(listOfNotNull(message, note).joinToString("\n")).show() }
+    showSnackbar(listOfNotNull(message, note).joinToString("\n"))
 }
 
 // 选取文档的显示名。GetContent("*/*") 允许任意文档提供方，坏的提供方可能返回
