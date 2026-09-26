@@ -499,9 +499,9 @@ class ConfigurationFragment @JvmOverloads constructor(
                     // 组里配了节点解析 DNS（如 DoH）时优先使用，伪造域名也能解析
                     (lookupServerAddress(domain, group.proxyServerNameserver, SagerNet.underlyingNetwork)
                         .firstOrNull()?.hostAddress ?: domain).also { mine.complete(it) }
-                } catch (e: CancellationException) {
-                    // 只有整轮测试取消时才会到这里，等待者一并取消
-                    mine.cancel(e)
+                } catch (e: Throwable) {
+                    // 取消或意外异常都要让等待者拿到同一结果，否则它们会一直挂着
+                    mine.completeExceptionally(e)
                     throw e
                 }
             }
