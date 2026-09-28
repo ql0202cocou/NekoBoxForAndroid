@@ -33,6 +33,19 @@ fun Project.metadata(key: String): String = requireNotNull(requireMetadata().get
     "$key is missing in nb4a.properties"
 }
 
+// preview 包的版本名 pre-<VERSION_NAME>-<git 短哈希>，由构建时生成、不再手填；
+// 取不到 git（如无 .git 的源码包）时退化为 pre-<VERSION_NAME>
+fun Project.preVersionName(): String {
+    val hash = runCatching {
+        providers.exec {
+            commandLine("git", "rev-parse", "--short", "HEAD")
+            isIgnoreExitValue = true
+        }.standardOutput.asText.get().trim()
+    }.getOrDefault("")
+    val verName = metadata("VERSION_NAME")
+    return if (hash.isEmpty()) "pre-$verName" else "pre-$verName-$hash"
+}
+
 fun Project.requireLocalProperties(): Properties = Properties().apply {
     val base64 = System.getenv("LOCAL_PROPERTIES")
     if (!base64.isNullOrBlank()) {
@@ -184,7 +197,7 @@ fun Project.setupApp() {
             create("oss")
             create("fdroid")
             create("preview") {
-                buildConfigField("String", "PRE_VERSION_NAME", "\"${metadata("PRE_VERSION_NAME")}\"")
+                buildConfigField("String", "PRE_VERSION_NAME", "\"${preVersionName()}\"")
             }
         }
 
@@ -221,7 +234,7 @@ fun Project.setupApp() {
     // SingleArtifact.APK transform instead, so build/outputs/apk keeps the same names.
     extensions.getByName<ApplicationAndroidComponentsExtension>("androidComponents").onVariants { variant ->
         val rename = tasks.register<RenameApksTask>("rename${variant.name.replaceFirstChar { it.uppercase() }}Apks") {
-            val preVersionName = metadata("PRE_VERSION_NAME")
+            val preVersionName = preVersionName()
             projectName.set(project.name)
             newBaseName.set(
                 if (variant.flavorName == "preview") "NekoBox-$preVersionName"
