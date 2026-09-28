@@ -40,8 +40,9 @@ class ExtendedKeyboard @JvmOverloads constructor(
     }
 
     fun submitList(keys: List<String>) {
-        // 未先 setKeyListener 时访问 lateinit 会抛 UninitializedPropertyAccessException
-        if (::keyAdapter.isInitialized) keyAdapter.submitList(keys)
+        // 须先 setKeyListener：顺序错了让 lateinit 直接抛异常，开发时就能发现，
+        // 不静默吞掉（否则只表现为快捷键栏空白）
+        keyAdapter.submitList(keys)
     }
 
     private class KeyAdapter(
