@@ -11,9 +11,8 @@ on:
       prerelease:
         description: "Publish as a pre-release, never marked Latest (set y)"
         required: false
-# One run per tag at a time: two concurrent runs would both `ghr -delete` and
-# recreate the release/tag, the later one overwriting the earlier one's APKs.
-# Not cancelled: a build must not be aborted halfway through a publish.
+# 同一 tag 同时只跑一次：并发的两次运行会先后删除并重建同一个 release，后一次覆盖
+# 前一次的 APK。不取消进行中的运行：发布到一半不能被中断
 concurrency:
   group: release-${{ inputs.tag }}
   cancel-in-progress: false
@@ -32,10 +31,9 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
       - name: Check VERSION_NAME matches the tag
-        # The tag must equal VERSION_NAME at the tagged commit, or ghr would publish a
-        # release whose name doesn't match the APK version. Alpha tags (e.g. 1.7.2-a1)
-        # follow the same rule — their nb4a.properties carries the alpha VERSION_NAME.
-        # The tag goes through env, never interpolated into the script body.
+        # tag 必须等于该提交上的 VERSION_NAME，否则发布出的 release 名与 APK 版本不符。
+        # 预览 tag（如 1.7.2-a1）同理，其 nb4a.properties 里就是预览版的 VERSION_NAME。
+        # tag 只经 env 传入，不插值进脚本正文
         env:
           TAG: ${{ inputs.tag }}
         run: |
@@ -46,7 +44,7 @@ jobs:
           fi
       - name: Check y/empty inputs
         # skip_publish / prerelease 只认 y 或留空：publish 的判断在表达式里做且不区分
-        # 大小写，填 yes、true、1 都会真的发布并用 ghr -delete 重建 release；Y 在下面
+        # 大小写，填 yes、true、1 都会真的发布并删除重建 release；Y 在下面
         # 的 shell 判断里又不算预览版。输入同样只经 env 传入
         env:
           SKIP_PUBLISH: ${{ inputs.skip_publish }}
@@ -111,28 +109,34 @@ jobs:
         env:
           TAG: ${{ inputs.tag }}
           PRERELEASE: ${{ inputs.prerelease }}
-          GITHUB_TOKEN: ${{ github.token }}
+          # gh 是 runner 预装的官方 CLI，不再下载第三方发布工具
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          wget -O ghr.tar.gz https://github.com/tcnksm/ghr/releases/download/v0.13.0/ghr_v0.13.0_linux_amd64.tar.gz
-          echo "c428627270ae26e206cb526cb8c7bdfba475dd278f6691ddaf863355adadfa13  ghr.tar.gz" | sha256sum -c -
-          tar -xvf ghr.tar.gz
-          mv ghr*linux_amd64/ghr .
           mkdir apks
-          # publish policy: universal APK only; the ABI splits are built and
-          # verified in the build job but never shipped as release assets
+          # 发布策略：只发 universal APK；各 ABI 分包在 build job 里构建并校验，但不作为附件发布
           find artifacts -name "*-universal.apk" -exec cp {} apks \;
           if [ -z "$(ls -A apks)" ]; then
-            echo "::error::no universal APK to publish; aborting before ghr -delete removes the existing release and tag"
+            echo "::error::no universal APK to publish; aborting before the existing release is deleted"
             exit 1
           fi
-          # -delete drops the existing release AND its git tag, then recreates the
-          # tag at the target commitish; without -c that is the default branch head,
-          # so re-running a release for an older tag would silently move it off the
-          # commit these APKs were built from. HEAD here is the checked-out tag.
-          # 预览版在创建时就带 -prerelease：事后再改的话，发布后到改完之间它是
+          # 是否标为 Latest 在删除旧 release 之前算好：删了再查，重跑当前正式版时
+          # 查到的是上一版。只有不低于当前 Latest 的正式版才标 Latest，重跑旧 tag
+          # 不会顶掉它；还没有任何 release 时查询失败，按首发处理。
+          # 预览版在创建时就带 --prerelease：事后再改的话，发布后到改完之间它是
           # 正式 release，会短暂顶掉 Latest
-          PRERELEASE_FLAG=()
+          FLAGS=(--latest=false)
           if [ "$PRERELEASE" = "y" ]; then
-            PRERELEASE_FLAG=(-prerelease)
+            FLAGS+=(--prerelease)
+          else
+            CURRENT=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
+            if [ -z "$CURRENT" ] || [ "$(printf '%s\n%s\n' "$CURRENT" "$TAG" | sort -V | tail -n 1)" = "$TAG" ]; then
+              FLAGS=(--latest=true)
+            fi
           fi
-          ./ghr -delete -c "$(git rev-parse HEAD)" "${PRERELEASE_FLAG[@]}" -n "$TAG" "$TAG" apks
+          # 只删 release、保留 tag：validate job 已按这个 tag 检出，它必然存在，
+          # --verify-tag 让重建直接复用它，tag 始终指向构建这些 APK 的提交
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release delete "$TAG" --yes
+          fi
+          gh release create "$TAG" --verify-tag --title "$TAG" --notes "" "${FLAGS[@]}" apks/*
