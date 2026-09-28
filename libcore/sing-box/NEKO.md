@@ -19,7 +19,17 @@ Functional neko commits (on top of the 1.12.x upstream base):
 | `721602a8` | dialer: add DoNotSelectInterface | dialer option to skip VPN interface selection |
 | ~~`0bc13363`~~ | ~~temp fix gvisor close~~ | **removed 2026-08-28**: upstream sing-tun's `GVisor.Close()` already contains the same fix (`Attach(nil)` + `CleanupEndpoints().Abort()`), and the patch's `unsafe.Pointer` field punning no longer matches sing-tun's `GVisor` layout (extra fields), so the punned `stack` was always nil — dead code that would read a garbage pointer on the next layout change |
 | `d294d39b` | outbound/vless: disable flow when mux is enable | still unaddressed upstream as of 1.14.2 |
-| `44169a9b` | fix needCacheFile | `box.go` creates the cache service only when `experimental.cache_file` is present and enabled; a Clash API configuration alone does not enable it. 1.14.1: upstream itself removed the `|| options.PlatformLogWriter != nil` clause from `needClashAPI` (clash mode separation); the patch now only removes it from `needCacheFile` |
+| `44169a9b` | fix needCacheFile | `box.go` creates the cache service only when `experimental.cache_file` is present and enabled; a Clash API configuration alone does not enable it. 1.14.1: upstream itself removed the `|| options.PlatformLogWriter != nil` clause from `needClashAPI` (clash mode separation); the patch now only removes it from `needCacheFile`. 1.14.2-neko-1: the same clause also moved into the condition that creates `trafficcontrol.Manager` + `clashmode.Manager`; libcore always passes `PlatformLogWriter`, so both were always created — one more tracker per connection plus retained closed-connection metadata, though the app only reads them with the Clash API on. The patch drops the clause there too (back to the 1.14.0 condition `needClashAPI \|\| needAPIService`); without a clash mode manager, `clash_mode` rule items simply never match, and the app never emits them |
+
+Accepted upstream behavior (no patch):
+
+- Doze and WireGuard: since 1.14.1 the WireGuard endpoint only reacts to
+  `NetworkPause`/`NetworkWake`, while libcore's `Sleep()` sends `DevicePause`,
+  so a WireGuard tunnel no longer goes down in doze. Kept as upstream: sending
+  `NetworkPause` from `Sleep()` would also affect every other listener of that
+  signal, and the battery cost is unmeasured (reasoned small: Go timers do not
+  wake a deep-sleeping device, keepalives only go out in maintenance windows).
+  Revisit with measurements if battery complaints show up.
 
 The `1.12.x-neko-1` commits only bump `constant/version.go` and carry no code
 changes.

@@ -1,6 +1,6 @@
 diff -ruN --exclude=.git --exclude=NEKO.md a/box.go b/box.go
 --- a/box.go	2026-09-28 23:33:49
-+++ b/box.go	2026-09-28 23:47:24
++++ b/box.go	2026-09-28 23:59:47
 @@ -155,7 +155,7 @@
  	var needCacheFile bool
  	var needClashAPI bool
@@ -10,9 +10,20 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/box.go b/box.go
  		needCacheFile = true
  	}
  	if experimentalOptions.ClashAPI != nil {
+@@ -244,7 +244,9 @@
+ 	if err != nil {
+ 		return nil, E.Cause(err, "initialize router")
+ 	}
+-	if needClashAPI || needAPIService || options.PlatformLogWriter != nil {
++	// neko: libcore 总传 PlatformLogWriter，按上游条件会常驻 trafficManager（每条连接
++	// 多一层 tracker）；app 只在开 Clash API 时用它，去掉该条件回到 1.14.0 的行为
++	if needClashAPI || needAPIService {
+ 		trafficManager := trafficcontrol.NewManager(outboundManager)
+ 		service.MustRegisterPtr(ctx, trafficManager)
+ 		router.AppendTracker(trafficManager)
 diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/go_http.go b/boxapi/go_http.go
 --- a/boxapi/go_http.go	1970-01-01 07:30:00
-+++ b/boxapi/go_http.go	2026-09-28 23:47:24
++++ b/boxapi/go_http.go	2026-09-28 23:59:47
 @@ -0,0 +1,30 @@
 +package boxapi
 +
@@ -46,7 +57,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/go_http.go b/boxapi/go_http.
 +}
 diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/go_net.go b/boxapi/go_net.go
 --- a/boxapi/go_net.go	1970-01-01 07:30:00
-+++ b/boxapi/go_net.go	2026-09-28 23:47:24
++++ b/boxapi/go_net.go	2026-09-28 23:59:47
 @@ -0,0 +1,23 @@
 +package boxapi
 +
@@ -73,7 +84,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/go_net.go b/boxapi/go_net.go
 +}
 diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/v2ray_server.go b/boxapi/v2ray_server.go
 --- a/boxapi/v2ray_server.go	1970-01-01 07:30:00
-+++ b/boxapi/v2ray_server.go	2026-09-28 23:47:24
++++ b/boxapi/v2ray_server.go	2026-09-28 23:59:47
 @@ -0,0 +1,41 @@
 +package boxapi
 +
@@ -118,7 +129,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/v2ray_server.go b/boxapi/v2r
 +}
 diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/v2ray_stats_service.go b/boxapi/v2ray_stats_service.go
 --- a/boxapi/v2ray_stats_service.go	1970-01-01 07:30:00
-+++ b/boxapi/v2ray_stats_service.go	2026-09-28 23:47:24
++++ b/boxapi/v2ray_stats_service.go	2026-09-28 23:59:47
 @@ -0,0 +1,205 @@
 +package boxapi
 +
@@ -327,7 +338,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/v2ray_stats_service.go b/box
 +}
 diff -ruN --exclude=.git --exclude=NEKO.md a/common/dialer/default.go b/common/dialer/default.go
 --- a/common/dialer/default.go	2026-09-28 23:33:50
-+++ b/common/dialer/default.go	2026-09-28 23:47:24
++++ b/common/dialer/default.go	2026-09-28 23:59:47
 @@ -25,6 +25,8 @@
  	"github.com/database64128/tfo-go/v2"
  )
@@ -382,7 +393,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/common/dialer/default.go b/common/d
  	}
 diff -ruN --exclude=.git --exclude=NEKO.md a/constant/version.go b/constant/version.go
 --- a/constant/version.go	2026-09-28 23:33:50
-+++ b/constant/version.go	2026-09-28 23:47:24
++++ b/constant/version.go	2026-09-28 23:59:47
 @@ -1,3 +1,3 @@
  package constant
  
@@ -390,7 +401,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/constant/version.go b/constant/vers
 +var Version = "1.14.2-neko-1"
 diff -ruN --exclude=.git --exclude=NEKO.md a/dns/router.go b/dns/router.go
 --- a/dns/router.go	2026-09-28 23:33:50
-+++ b/dns/router.go	2026-09-28 23:47:24
++++ b/dns/router.go	2026-09-28 23:59:47
 @@ -497,6 +497,8 @@
  	transport adapter.DNSTransport
  	options   adapter.DNSQueryOptions
@@ -487,7 +498,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/dns/router.go b/dns/router.go
  func addressLimitResponseCheck(rule adapter.DNSRule, metadata *adapter.InboundContext) func(response *mDNS.Msg) bool {
 diff -ruN --exclude=.git --exclude=NEKO.md a/dns/router_fallback_test.go b/dns/router_fallback_test.go
 --- a/dns/router_fallback_test.go	1970-01-01 07:30:00
-+++ b/dns/router_fallback_test.go	2026-09-28 23:47:24
++++ b/dns/router_fallback_test.go	2026-09-28 23:59:47
 @@ -0,0 +1,304 @@
 +package dns
 +
@@ -795,7 +806,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/dns/router_fallback_test.go b/dns/r
 +}
 diff -ruN --exclude=.git --exclude=NEKO.md a/go.mod b/go.mod
 --- a/go.mod	2026-09-28 23:33:49
-+++ b/go.mod	2026-09-28 23:47:24
++++ b/go.mod	2026-09-28 23:59:47
 @@ -1,6 +1,6 @@
  module github.com/sagernet/sing-box
  
@@ -836,7 +847,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/go.mod b/go.mod
  	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
 diff -ruN --exclude=.git --exclude=NEKO.md a/go.sum b/go.sum
 --- a/go.sum	2026-09-28 23:33:49
-+++ b/go.sum	2026-09-28 23:47:24
++++ b/go.sum	2026-09-28 23:59:47
 @@ -205,8 +205,8 @@
  github.com/metacubex/utls v1.8.7/go.mod h1:kncGGVhFaoGn5M3pFe3SXhZCzsbCJayNOH4UEqTKTko=
  github.com/mholt/acmez/v3 v3.1.6 h1:eGVQNObP0pBN4sxqrXeg7MYqTOWyoiYpQqITVWlrevk=
@@ -881,14 +892,14 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/go.sum b/go.sum
  golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 diff -ruN --exclude=.git --exclude=NEKO.md a/nekoutils/callback.go b/nekoutils/callback.go
 --- a/nekoutils/callback.go	1970-01-01 07:30:00
-+++ b/nekoutils/callback.go	2026-09-28 23:47:24
++++ b/nekoutils/callback.go	2026-09-28 23:59:47
 @@ -0,0 +1,3 @@
 +package nekoutils
 +
 +var Selector_OnProxySelected func(selectorTag string, tag string)
 diff -ruN --exclude=.git --exclude=NEKO.md a/nekoutils/srs.go b/nekoutils/srs.go
 --- a/nekoutils/srs.go	1970-01-01 07:30:00
-+++ b/nekoutils/srs.go	2026-09-28 23:47:24
++++ b/nekoutils/srs.go	2026-09-28 23:59:47
 @@ -0,0 +1,7 @@
 +package nekoutils
 +
@@ -899,7 +910,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/nekoutils/srs.go b/nekoutils/srs.go
 +var GetGeoSiteHeadlessRules func(name string) ([]option.HeadlessRule, error)
 diff -ruN --exclude=.git --exclude=NEKO.md a/option/rule_action.go b/option/rule_action.go
 --- a/option/rule_action.go	2026-09-28 23:33:49
-+++ b/option/rule_action.go	2026-09-28 23:47:24
++++ b/option/rule_action.go	2026-09-28 23:59:47
 @@ -213,6 +213,8 @@
  type DNSRouteActionOptions struct {
  	Server      string `json:"server,omitempty" reference:"dns_server"`
@@ -911,7 +922,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/option/rule_action.go b/option/rule
  
 diff -ruN --exclude=.git --exclude=NEKO.md a/protocol/group/selector.go b/protocol/group/selector.go
 --- a/protocol/group/selector.go	2026-09-28 23:33:49
-+++ b/protocol/group/selector.go	2026-09-28 23:47:24
++++ b/protocol/group/selector.go	2026-09-28 23:59:47
 @@ -10,6 +10,7 @@
  	"github.com/sagernet/sing-box/common/urltest"
  	C "github.com/sagernet/sing-box/constant"
@@ -932,7 +943,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/protocol/group/selector.go b/protoc
  	}
 diff -ruN --exclude=.git --exclude=NEKO.md a/protocol/vless/outbound.go b/protocol/vless/outbound.go
 --- a/protocol/vless/outbound.go	2026-09-28 23:33:49
-+++ b/protocol/vless/outbound.go	2026-09-28 23:47:24
++++ b/protocol/vless/outbound.go	2026-09-28 23:59:47
 @@ -88,11 +88,15 @@
  			return nil, E.New("unknown packet encoding: ", *options.PacketEncoding)
  		}
@@ -952,7 +963,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/protocol/vless/outbound.go b/protoc
  	}
 diff -ruN --exclude=.git --exclude=NEKO.md a/route/rule/rule_action.go b/route/rule/rule_action.go
 --- a/route/rule/rule_action.go	2026-09-28 23:33:49
-+++ b/route/rule/rule_action.go	2026-09-28 23:47:24
++++ b/route/rule/rule_action.go	2026-09-28 23:59:47
 @@ -132,6 +132,8 @@
  		return &RuleActionDNSRoute{
  			Server:      action.RouteOptions.Server,
@@ -973,7 +984,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/route/rule/rule_action.go b/route/r
  
 diff -ruN --exclude=.git --exclude=NEKO.md a/route/rule/rule_set_local.go b/route/rule/rule_set_local.go
 --- a/route/rule/rule_set_local.go	2026-09-28 23:33:49
-+++ b/route/rule/rule_set_local.go	2026-09-28 23:47:24
++++ b/route/rule/rule_set_local.go	2026-09-28 23:59:47
 @@ -11,6 +11,7 @@
  	"github.com/sagernet/sing-box/adapter"
  	"github.com/sagernet/sing-box/common/srs"

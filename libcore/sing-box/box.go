@@ -244,7 +244,9 @@ func New(options Options) (*Box, error) {
 	if err != nil {
 		return nil, E.Cause(err, "initialize router")
 	}
-	if needClashAPI || needAPIService || options.PlatformLogWriter != nil {
+	// neko: libcore 总传 PlatformLogWriter，按上游条件会常驻 trafficManager（每条连接
+	// 多一层 tracker）；app 只在开 Clash API 时用它，去掉该条件回到 1.14.0 的行为
+	if needClashAPI || needAPIService {
 		trafficManager := trafficcontrol.NewManager(outboundManager)
 		service.MustRegisterPtr(ctx, trafficManager)
 		router.AppendTracker(trafficManager)
