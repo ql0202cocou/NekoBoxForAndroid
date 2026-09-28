@@ -136,7 +136,10 @@ func (c *httpClient) TrySocks5(port int32) {
 			_, err = socks.ClientHandshake5(socksConn, socks5.CommandConnect, metadata.ParseSocksaddr(addr), "", "")
 			// 握手超时说明本地代理在跑、只是没及时应答：sing-box 要等出站拨号完成
 			// 才回 CONNECT 应答，拨号慢就会撞上 deadline。这时回退直连会让请求绕过
-			// 代理，直接报错；连接被拒、被重置等说明代理本身坏了，照旧回退
+			// 代理，直接报错；连接被拒、被重置等说明代理本身坏了，照旧回退。
+			// 代理回 CONNECT 失败应答（出站连不上目标，多为节点失效）也回退：
+			// 订阅更新正是换掉失效节点的途径，不回退就无法自救。
+			// 原则：代理明确表示不行才回退，只是慢则报错
 			if errors.Is(err, os.ErrDeadlineExceeded) {
 				socksConn.Close()
 				return nil, err
