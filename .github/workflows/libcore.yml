@@ -82,6 +82,7 @@ jobs:
         run: ./run lib test
       - name: Go Test (sing-box, race)
         # vendored sing-box 是嵌套 module，上面的 ./... 覆盖不到它；
-        # 这里用 -race 跑补丁所在的包（含自建补丁 dns fallback 动作的回归测试）。
+        # 这里用 -race 跑补丁所在的包（含自建补丁的回归测试：dns fallback 动作、
+        # dialer 的 DoNotSelectInterface）。
         # -race 需要 CGO，ubuntu runner 默认 CGO_ENABLED=1
-        run: cd libcore/sing-box && go test -race ./dns/... ./route/...
+        run: cd libcore/sing-box && go test -race ./dns/... ./route/... ./common/dialer/...
