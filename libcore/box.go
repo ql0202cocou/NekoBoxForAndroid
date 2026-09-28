@@ -224,9 +224,8 @@ func (b *BoxInstance) SetAsMain() {
 	goServeProtect(true)
 }
 
-// SetV2rayStats 装上流量统计服务。app 在 Start 之前调用（ProxyInstance.launch）：
-// 启动后再 AppendTracker 会与路由并发读 trackers，只能靠 sing-box 补丁
-// "router: lock trackers" 兜住
+// SetV2rayStats 装上流量统计服务，只能在 Start 之前调用（ProxyInstance.launch）：
+// 上游 Router.trackers 没有锁，启动后再 AppendTracker 会与路由并发读 trackers
 func (b *BoxInstance) SetV2rayStats(outbounds string) {
 	defer device.DeferPanicToError("box.SetV2rayStats", nil)
 
@@ -235,6 +234,10 @@ func (b *BoxInstance) SetV2rayStats(outbounds string) {
 	}
 	defer b.access.Unlock()
 
+	if b.state != boxNew {
+		log.Println("SetV2rayStats after Start ignored")
+		return
+	}
 	if b.v2api != nil {
 		log.Println("duplicate call of SetV2rayStats")
 		return

@@ -117,7 +117,7 @@ class TrafficLooper(val data: BaseService.Data) {
         fun enabled() = DataStore.speedInterval != 0 || DataStore.profileTrafficStatistics
 
         // 要统计的 outbound tag。ProxyInstance 在 box.start() 之前用它装上统计服务：
-        // 启动后再 AppendTracker 会与路由并发（sing-box 补丁 "router: lock trackers"）
+        // 上游 trackers 无锁，libcore 的 SetV2rayStats 在启动后直接忽略
         fun statsTags(config: ConfigBuildResult): String =
             (setOf(TAG_PROXY, TAG_BYPASS) + config.trafficMap.keys).joinToString("\n")
     }

@@ -167,15 +167,9 @@ func (r *Router) routeConnection(ctx context.Context, conn net.Conn, metadata ad
 		metadata.RouteRule = selectedRule.String()
 	}
 	metadata.RouteOutbound = selectedOutbound.Tag()
-	// RUnlock 走 defer：tracker 包装连接时 panic 会跳过显式解锁，
-	// AppendTracker 的写锁将被永久阻塞；用闭包保持锁范围不变
-	func() {
-		r.trackersAccess.RLock()
-		defer r.trackersAccess.RUnlock()
-		for _, tracker := range r.trackers {
-			conn = tracker.RoutedConnection(ctx, conn, metadata, selectedRule, selectedOutbound)
-		}
-	}()
+	for _, tracker := range r.trackers {
+		conn = tracker.RoutedConnection(ctx, conn, metadata, selectedRule, selectedOutbound)
+	}
 	if outboundHandler, isHandler := selectedOutbound.(adapter.ConnectionHandler); isHandler {
 		outboundHandler.NewConnection(ctx, conn, metadata, onClose)
 	} else {
@@ -305,14 +299,9 @@ func (r *Router) routePacketConnection(ctx context.Context, conn N.PacketConn, m
 		metadata.RouteRule = selectedRule.String()
 	}
 	metadata.RouteOutbound = selectedOutbound.Tag()
-	// 同 routeConnection：RUnlock 走 defer，防止 tracker panic 跳过解锁
-	func() {
-		r.trackersAccess.RLock()
-		defer r.trackersAccess.RUnlock()
-		for _, tracker := range r.trackers {
-			conn = tracker.RoutedPacketConnection(ctx, conn, metadata, selectedRule, selectedOutbound)
-		}
-	}()
+	for _, tracker := range r.trackers {
+		conn = tracker.RoutedPacketConnection(ctx, conn, metadata, selectedRule, selectedOutbound)
+	}
 	if metadata.FakeIP {
 		conn = newFakeIPNATPacketConn(bufio.NewNetPacketConn(conn), metadata.OriginDestination, metadata.Destination)
 	}
@@ -537,8 +526,6 @@ func (r *Router) preMatchFlow(ctx context.Context, metadata *adapter.InboundCont
 	metadataCopy := *metadata
 	result.NewTracker = func() tun.FlowTracker {
 		r.logger.InfoContext(ctx, "pre-match: forward ", metadataCopy.Network, " connection from ", metadataCopy.Source.AddrString(), " to ", metadataCopy.Destination.AddrString(), " via outbound/", outbound.Type(), "[", outbound.Tag(), "]")
-		r.trackersAccess.RLock()
-		defer r.trackersAccess.RUnlock()
 		flowTrackers := make([]tun.FlowTracker, 0, len(r.trackers)+1)
 		flowTrackers = append(flowTrackers, newFlowLogger(ctx, r.logger, metadataCopy, outbound))
 		for _, tracker := range r.trackers {

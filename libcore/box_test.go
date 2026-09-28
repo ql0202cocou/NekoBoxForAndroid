@@ -92,10 +92,10 @@ func TestBoxInstanceSetAsMainClearsOnClose(t *testing.T) {
 	}
 }
 
-// SetV2rayStats installs the tracker under b.access and QueryStats reads it
-// under the same lock; the race detector validates that pairing.
+// SetV2rayStats 在 b.access 下安装 tracker，QueryStats 在同一把锁下读取；
+// 由 race detector 校验。安装只允许在 Start 之前，所以用未启动的实例
 func TestBoxInstanceSetV2rayStatsRace(t *testing.T) {
-	instance := newStartedTestBox(t)
+	instance := newTestBox(t)
 
 	var wg sync.WaitGroup
 	for i := 0; i < 8; i++ {
@@ -116,9 +116,25 @@ func TestBoxInstanceSetV2rayStatsRace(t *testing.T) {
 	}
 	wg.Wait()
 
+	if instance.v2api == nil {
+		t.Fatal("SetV2rayStats before Start did not install a tracker")
+	}
 	// the winner installed exactly one tracker serving both directions
 	if got := instance.QueryStats("direct", "uplink"); got != 0 {
 		t.Fatalf("QueryStats = %d, want 0 (no traffic)", got)
+	}
+	if err := instance.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Start 之后的 SetV2rayStats 必须忽略：上游 Router.trackers 无锁，
+// 此时 AppendTracker 会与路由并发读 trackers
+func TestBoxInstanceSetV2rayStatsAfterStart(t *testing.T) {
+	instance := newStartedTestBox(t)
+	instance.SetV2rayStats("direct")
+	if instance.v2api != nil {
+		t.Fatal("SetV2rayStats installed a tracker on a started instance")
 	}
 	if err := instance.Close(); err != nil {
 		t.Fatal(err)

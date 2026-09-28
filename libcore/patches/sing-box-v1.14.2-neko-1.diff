@@ -1,6 +1,6 @@
 diff -ruN --exclude=.git --exclude=NEKO.md a/box.go b/box.go
 --- a/box.go	2026-09-28 23:33:49
-+++ b/box.go	2026-09-28 23:55:52
++++ b/box.go	2026-09-28 23:47:24
 @@ -155,7 +155,7 @@
  	var needCacheFile bool
  	var needClashAPI bool
@@ -12,7 +12,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/box.go b/box.go
  	if experimentalOptions.ClashAPI != nil {
 diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/go_http.go b/boxapi/go_http.go
 --- a/boxapi/go_http.go	1970-01-01 07:30:00
-+++ b/boxapi/go_http.go	2026-09-28 23:55:52
++++ b/boxapi/go_http.go	2026-09-28 23:47:24
 @@ -0,0 +1,30 @@
 +package boxapi
 +
@@ -46,7 +46,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/go_http.go b/boxapi/go_http.
 +}
 diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/go_net.go b/boxapi/go_net.go
 --- a/boxapi/go_net.go	1970-01-01 07:30:00
-+++ b/boxapi/go_net.go	2026-09-28 23:55:52
++++ b/boxapi/go_net.go	2026-09-28 23:47:24
 @@ -0,0 +1,23 @@
 +package boxapi
 +
@@ -73,7 +73,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/go_net.go b/boxapi/go_net.go
 +}
 diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/v2ray_server.go b/boxapi/v2ray_server.go
 --- a/boxapi/v2ray_server.go	1970-01-01 07:30:00
-+++ b/boxapi/v2ray_server.go	2026-09-28 23:55:52
++++ b/boxapi/v2ray_server.go	2026-09-28 23:47:24
 @@ -0,0 +1,41 @@
 +package boxapi
 +
@@ -118,7 +118,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/v2ray_server.go b/boxapi/v2r
 +}
 diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/v2ray_stats_service.go b/boxapi/v2ray_stats_service.go
 --- a/boxapi/v2ray_stats_service.go	1970-01-01 07:30:00
-+++ b/boxapi/v2ray_stats_service.go	2026-09-28 23:55:52
++++ b/boxapi/v2ray_stats_service.go	2026-09-28 23:47:24
 @@ -0,0 +1,205 @@
 +package boxapi
 +
@@ -327,7 +327,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/v2ray_stats_service.go b/box
 +}
 diff -ruN --exclude=.git --exclude=NEKO.md a/common/dialer/default.go b/common/dialer/default.go
 --- a/common/dialer/default.go	2026-09-28 23:33:50
-+++ b/common/dialer/default.go	2026-09-28 23:55:52
++++ b/common/dialer/default.go	2026-09-28 23:47:24
 @@ -25,6 +25,8 @@
  	"github.com/database64128/tfo-go/v2"
  )
@@ -382,7 +382,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/common/dialer/default.go b/common/d
  	}
 diff -ruN --exclude=.git --exclude=NEKO.md a/constant/version.go b/constant/version.go
 --- a/constant/version.go	2026-09-28 23:33:50
-+++ b/constant/version.go	2026-09-28 23:55:52
++++ b/constant/version.go	2026-09-28 23:47:24
 @@ -1,3 +1,3 @@
  package constant
  
@@ -390,7 +390,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/constant/version.go b/constant/vers
 +var Version = "1.14.2-neko-1"
 diff -ruN --exclude=.git --exclude=NEKO.md a/dns/router.go b/dns/router.go
 --- a/dns/router.go	2026-09-28 23:33:50
-+++ b/dns/router.go	2026-09-28 23:55:52
++++ b/dns/router.go	2026-09-28 23:47:24
 @@ -497,6 +497,8 @@
  	transport adapter.DNSTransport
  	options   adapter.DNSQueryOptions
@@ -487,7 +487,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/dns/router.go b/dns/router.go
  func addressLimitResponseCheck(rule adapter.DNSRule, metadata *adapter.InboundContext) func(response *mDNS.Msg) bool {
 diff -ruN --exclude=.git --exclude=NEKO.md a/dns/router_fallback_test.go b/dns/router_fallback_test.go
 --- a/dns/router_fallback_test.go	1970-01-01 07:30:00
-+++ b/dns/router_fallback_test.go	2026-09-28 23:55:52
++++ b/dns/router_fallback_test.go	2026-09-28 23:47:24
 @@ -0,0 +1,304 @@
 +package dns
 +
@@ -795,7 +795,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/dns/router_fallback_test.go b/dns/r
 +}
 diff -ruN --exclude=.git --exclude=NEKO.md a/go.mod b/go.mod
 --- a/go.mod	2026-09-28 23:33:49
-+++ b/go.mod	2026-09-28 23:55:52
++++ b/go.mod	2026-09-28 23:47:24
 @@ -1,6 +1,6 @@
  module github.com/sagernet/sing-box
  
@@ -836,7 +836,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/go.mod b/go.mod
  	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
 diff -ruN --exclude=.git --exclude=NEKO.md a/go.sum b/go.sum
 --- a/go.sum	2026-09-28 23:33:49
-+++ b/go.sum	2026-09-28 23:55:52
++++ b/go.sum	2026-09-28 23:47:24
 @@ -205,8 +205,8 @@
  github.com/metacubex/utls v1.8.7/go.mod h1:kncGGVhFaoGn5M3pFe3SXhZCzsbCJayNOH4UEqTKTko=
  github.com/mholt/acmez/v3 v3.1.6 h1:eGVQNObP0pBN4sxqrXeg7MYqTOWyoiYpQqITVWlrevk=
@@ -881,14 +881,14 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/go.sum b/go.sum
  golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 diff -ruN --exclude=.git --exclude=NEKO.md a/nekoutils/callback.go b/nekoutils/callback.go
 --- a/nekoutils/callback.go	1970-01-01 07:30:00
-+++ b/nekoutils/callback.go	2026-09-28 23:55:52
++++ b/nekoutils/callback.go	2026-09-28 23:47:24
 @@ -0,0 +1,3 @@
 +package nekoutils
 +
 +var Selector_OnProxySelected func(selectorTag string, tag string)
 diff -ruN --exclude=.git --exclude=NEKO.md a/nekoutils/srs.go b/nekoutils/srs.go
 --- a/nekoutils/srs.go	1970-01-01 07:30:00
-+++ b/nekoutils/srs.go	2026-09-28 23:55:52
++++ b/nekoutils/srs.go	2026-09-28 23:47:24
 @@ -0,0 +1,7 @@
 +package nekoutils
 +
@@ -899,7 +899,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/nekoutils/srs.go b/nekoutils/srs.go
 +var GetGeoSiteHeadlessRules func(name string) ([]option.HeadlessRule, error)
 diff -ruN --exclude=.git --exclude=NEKO.md a/option/rule_action.go b/option/rule_action.go
 --- a/option/rule_action.go	2026-09-28 23:33:49
-+++ b/option/rule_action.go	2026-09-28 23:55:52
++++ b/option/rule_action.go	2026-09-28 23:47:24
 @@ -213,6 +213,8 @@
  type DNSRouteActionOptions struct {
  	Server      string `json:"server,omitempty" reference:"dns_server"`
@@ -911,7 +911,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/option/rule_action.go b/option/rule
  
 diff -ruN --exclude=.git --exclude=NEKO.md a/protocol/group/selector.go b/protocol/group/selector.go
 --- a/protocol/group/selector.go	2026-09-28 23:33:49
-+++ b/protocol/group/selector.go	2026-09-28 23:55:52
++++ b/protocol/group/selector.go	2026-09-28 23:47:24
 @@ -10,6 +10,7 @@
  	"github.com/sagernet/sing-box/common/urltest"
  	C "github.com/sagernet/sing-box/constant"
@@ -932,7 +932,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/protocol/group/selector.go b/protoc
  	}
 diff -ruN --exclude=.git --exclude=NEKO.md a/protocol/vless/outbound.go b/protocol/vless/outbound.go
 --- a/protocol/vless/outbound.go	2026-09-28 23:33:49
-+++ b/protocol/vless/outbound.go	2026-09-28 23:55:52
++++ b/protocol/vless/outbound.go	2026-09-28 23:47:24
 @@ -88,11 +88,15 @@
  			return nil, E.New("unknown packet encoding: ", *options.PacketEncoding)
  		}
@@ -950,352 +950,9 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/protocol/vless/outbound.go b/protoc
  	if err != nil {
  		return nil, err
  	}
-diff -ruN --exclude=.git --exclude=NEKO.md a/route/route.go b/route/route.go
---- a/route/route.go	2026-09-28 23:33:49
-+++ b/route/route.go	2026-09-28 23:55:52
-@@ -167,9 +167,15 @@
- 		metadata.RouteRule = selectedRule.String()
- 	}
- 	metadata.RouteOutbound = selectedOutbound.Tag()
--	for _, tracker := range r.trackers {
--		conn = tracker.RoutedConnection(ctx, conn, metadata, selectedRule, selectedOutbound)
--	}
-+	// RUnlock 走 defer：tracker 包装连接时 panic 会跳过显式解锁，
-+	// AppendTracker 的写锁将被永久阻塞；用闭包保持锁范围不变
-+	func() {
-+		r.trackersAccess.RLock()
-+		defer r.trackersAccess.RUnlock()
-+		for _, tracker := range r.trackers {
-+			conn = tracker.RoutedConnection(ctx, conn, metadata, selectedRule, selectedOutbound)
-+		}
-+	}()
- 	if outboundHandler, isHandler := selectedOutbound.(adapter.ConnectionHandler); isHandler {
- 		outboundHandler.NewConnection(ctx, conn, metadata, onClose)
- 	} else {
-@@ -299,9 +305,14 @@
- 		metadata.RouteRule = selectedRule.String()
- 	}
- 	metadata.RouteOutbound = selectedOutbound.Tag()
--	for _, tracker := range r.trackers {
--		conn = tracker.RoutedPacketConnection(ctx, conn, metadata, selectedRule, selectedOutbound)
--	}
-+	// 同 routeConnection：RUnlock 走 defer，防止 tracker panic 跳过解锁
-+	func() {
-+		r.trackersAccess.RLock()
-+		defer r.trackersAccess.RUnlock()
-+		for _, tracker := range r.trackers {
-+			conn = tracker.RoutedPacketConnection(ctx, conn, metadata, selectedRule, selectedOutbound)
-+		}
-+	}()
- 	if metadata.FakeIP {
- 		conn = newFakeIPNATPacketConn(bufio.NewNetPacketConn(conn), metadata.OriginDestination, metadata.Destination)
- 	}
-@@ -526,6 +537,8 @@
- 	metadataCopy := *metadata
- 	result.NewTracker = func() tun.FlowTracker {
- 		r.logger.InfoContext(ctx, "pre-match: forward ", metadataCopy.Network, " connection from ", metadataCopy.Source.AddrString(), " to ", metadataCopy.Destination.AddrString(), " via outbound/", outbound.Type(), "[", outbound.Tag(), "]")
-+		r.trackersAccess.RLock()
-+		defer r.trackersAccess.RUnlock()
- 		flowTrackers := make([]tun.FlowTracker, 0, len(r.trackers)+1)
- 		flowTrackers = append(flowTrackers, newFlowLogger(ctx, r.logger, metadataCopy, outbound))
- 		for _, tracker := range r.trackers {
-diff -ruN --exclude=.git --exclude=NEKO.md a/route/router.go b/route/router.go
---- a/route/router.go	2026-09-28 23:33:49
-+++ b/route/router.go	2026-09-28 23:55:52
-@@ -4,6 +4,7 @@
- 	"context"
- 	"os"
- 	"runtime"
-+	"sync"
- 	"time"
- 
- 	"github.com/sagernet/sing-box/adapter"
-@@ -45,6 +46,7 @@
- 	processCache      *freelru.Cache[processCacheKey, processCacheEntry]
- 	neighborResolver  adapter.NeighborResolver
- 	pauseManager      pause.Manager
-+	trackersAccess    sync.RWMutex
- 	trackers          []adapter.ConnectionTracker
- 	platformInterface adapter.PlatformInterface
- 	started           bool
-@@ -270,6 +272,8 @@
- }
- 
- func (r *Router) AppendTracker(tracker adapter.ConnectionTracker) {
-+	r.trackersAccess.Lock()
-+	defer r.trackersAccess.Unlock()
- 	r.trackers = append(r.trackers, tracker)
- }
- 
-diff -ruN --exclude=.git --exclude=NEKO.md a/route/router_tracker_test.go b/route/router_tracker_test.go
---- a/route/router_tracker_test.go	1970-01-01 07:30:00
-+++ b/route/router_tracker_test.go	2026-09-28 23:55:52
-@@ -0,0 +1,262 @@
-+package route
-+
-+// Regression tests for the neko `trackersAccess` lock patch (see NEKO.md):
-+// upstream appends to Router.trackers without synchronization while the
-+// Android app calls AppendTracker (via SetV2rayStats) on an already routing
-+// box, so the append raced the per-connection tracker reads. These tests run
-+// AppendTracker concurrently with all three read paths (RouteConnectionEx,
-+// RoutePacketConnectionEx, PreMatch's NewTracker closure) and are meant to be
-+// executed with -race.
-+
-+import (
-+	"context"
-+	"errors"
-+	"net"
-+	"net/netip"
-+	"sync"
-+	"sync/atomic"
-+	"testing"
-+
-+	"github.com/sagernet/sing-box/adapter"
-+	"github.com/sagernet/sing-box/log"
-+	"github.com/sagernet/sing-tun"
-+	"github.com/sagernet/sing/common/bufio"
-+	M "github.com/sagernet/sing/common/metadata"
-+	N "github.com/sagernet/sing/common/network"
-+
-+	"github.com/stretchr/testify/require"
-+)
-+
-+type trackerTestOutbound struct{}
-+
-+func (o *trackerTestOutbound) Type() string           { return "direct" }
-+func (o *trackerTestOutbound) Tag() string            { return "out" }
-+func (o *trackerTestOutbound) Network() []string      { return []string{N.NetworkTCP, N.NetworkUDP} }
-+func (o *trackerTestOutbound) Dependencies() []string { return nil }
-+
-+func (o *trackerTestOutbound) DialContext(ctx context.Context, network string, destination M.Socksaddr) (net.Conn, error) {
-+	return nil, errors.New("not implemented")
-+}
-+
-+func (o *trackerTestOutbound) ListenPacket(ctx context.Context, destination M.Socksaddr) (net.PacketConn, error) {
-+	return nil, errors.New("not implemented")
-+}
-+
-+func (o *trackerTestOutbound) PortAddresses() (v4 netip.Addr, v6 netip.Addr) {
-+	return netip.Addr{}, netip.Addr{}
-+}
-+
-+func (o *trackerTestOutbound) PortMTU() uint32                          { return 0 }
-+func (o *trackerTestOutbound) AttachReturn(returnPath tun.Return) error { return nil }
-+func (o *trackerTestOutbound) DetachReturn(returnPath tun.Return) error { return nil }
-+func (o *trackerTestOutbound) WritePackets(packets [][]byte) error      { return nil }
-+
-+func (o *trackerTestOutbound) PreMatchFlow(network string, destination netip.Addr) adapter.PreMatchAction {
-+	return adapter.PreMatchFlow
-+}
-+
-+type trackerTestOutboundManager struct {
-+	defaultOutbound adapter.Outbound
-+}
-+
-+func (m *trackerTestOutboundManager) Start(stage adapter.StartStage) error { return nil }
-+func (m *trackerTestOutboundManager) Close() error                         { return nil }
-+func (m *trackerTestOutboundManager) Outbounds() []adapter.Outbound {
-+	return []adapter.Outbound{m.defaultOutbound}
-+}
-+func (m *trackerTestOutboundManager) Outbound(tag string) (adapter.Outbound, bool) {
-+	return m.defaultOutbound, tag == m.defaultOutbound.Tag()
-+}
-+func (m *trackerTestOutboundManager) Default() adapter.Outbound { return m.defaultOutbound }
-+func (m *trackerTestOutboundManager) Remove(tag string) error   { return nil }
-+func (m *trackerTestOutboundManager) Create(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, outboundType string, options any) error {
-+	return nil
-+}
-+
-+type trackerTestConnectionManager struct{}
-+
-+func (m *trackerTestConnectionManager) Start(stage adapter.StartStage) error { return nil }
-+func (m *trackerTestConnectionManager) Close() error                         { return nil }
-+func (m *trackerTestConnectionManager) Count() int                           { return 0 }
-+func (m *trackerTestConnectionManager) CloseAll()                            {}
-+func (m *trackerTestConnectionManager) TrackConn(conn net.Conn) net.Conn     { return conn }
-+func (m *trackerTestConnectionManager) TrackPacketConn(conn net.PacketConn) net.PacketConn {
-+	return conn
-+}
-+func (m *trackerTestConnectionManager) NewConnection(ctx context.Context, this N.Dialer, conn net.Conn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
-+	conn.Close()
-+	onClose(nil)
-+}
-+func (m *trackerTestConnectionManager) NewPacketConnection(ctx context.Context, this N.Dialer, conn N.PacketConn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
-+	conn.Close()
-+	onClose(nil)
-+}
-+
-+type trackerTestDNSTransportManager struct{}
-+
-+func (m *trackerTestDNSTransportManager) Start(stage adapter.StartStage) error { return nil }
-+func (m *trackerTestDNSTransportManager) Close() error                         { return nil }
-+func (m *trackerTestDNSTransportManager) Transports() []adapter.DNSTransport   { return nil }
-+func (m *trackerTestDNSTransportManager) Transport(tag string) (adapter.DNSTransport, bool) {
-+	return nil, false
-+}
-+func (m *trackerTestDNSTransportManager) Default() adapter.DNSTransport   { return nil }
-+func (m *trackerTestDNSTransportManager) FakeIP() adapter.FakeIPTransport { return nil }
-+func (m *trackerTestDNSTransportManager) Remove(tag string) error         { return nil }
-+func (m *trackerTestDNSTransportManager) Create(ctx context.Context, logger log.ContextLogger, tag string, outboundType string, options any) error {
-+	return nil
-+}
-+
-+type trackerTestCounters struct {
-+	connections       atomic.Int32
-+	packetConnections atomic.Int32
-+	flows             atomic.Int32
-+}
-+
-+type countingConnectionTracker struct {
-+	counters *trackerTestCounters
-+}
-+
-+func (t *countingConnectionTracker) RoutedConnection(ctx context.Context, conn net.Conn, metadata adapter.InboundContext, matchedRule adapter.Rule, matchOutbound adapter.Outbound) net.Conn {
-+	t.counters.connections.Add(1)
-+	return conn
-+}
-+
-+func (t *countingConnectionTracker) RoutedPacketConnection(ctx context.Context, conn N.PacketConn, metadata adapter.InboundContext, matchedRule adapter.Rule, matchOutbound adapter.Outbound) N.PacketConn {
-+	t.counters.packetConnections.Add(1)
-+	return conn
-+}
-+
-+func (t *countingConnectionTracker) RoutedFlow(ctx context.Context, metadata adapter.InboundContext, matchedRule adapter.Rule, matchOutbound adapter.Outbound) tun.FlowTracker {
-+	t.counters.flows.Add(1)
-+	return nil
-+}
-+
-+func newTrackerTestRouter() *Router {
-+	return &Router{
-+		ctx:          context.Background(),
-+		logger:       log.NewNOPFactory().NewLogger("test"),
-+		outbound:     &trackerTestOutboundManager{defaultOutbound: &trackerTestOutbound{}},
-+		connection:   &trackerTestConnectionManager{},
-+		dnsTransport: &trackerTestDNSTransportManager{},
-+	}
-+}
-+
-+func routeTrackerTestTCP(router *Router) {
-+	client, server := net.Pipe()
-+	defer server.Close()
-+	router.RouteConnectionEx(context.Background(), client, adapter.InboundContext{
-+		Domain:      "example.com",
-+		Source:      M.ParseSocksaddrHostPort("10.0.0.1", 12345),
-+		Destination: M.ParseSocksaddrHostPort("example.com", 443),
-+	}, func(it error) {})
-+}
-+
-+func routeTrackerTestUDP(router *Router) {
-+	udpConn, err := net.ListenPacket("udp", "127.0.0.1:0")
-+	if err != nil {
-+		return
-+	}
-+	router.RoutePacketConnectionEx(context.Background(), bufio.NewPacketConn(udpConn), adapter.InboundContext{
-+		Domain:      "example.com",
-+		Source:      M.ParseSocksaddrHostPort("10.0.0.1", 12345),
-+		Destination: M.ParseSocksaddrHostPort("example.com", 443),
-+	}, func(it error) {})
-+}
-+
-+func preMatchTrackerTestFlow(router *Router) {
-+	destination := M.SocksaddrFrom(netip.MustParseAddr("198.51.100.1"), 443)
-+	result := router.PreMatch(adapter.InboundContext{
-+		Network:     N.NetworkUDP,
-+		Domain:      "example.com",
-+		Source:      M.ParseSocksaddrHostPort("10.0.0.1", 12345),
-+		Destination: destination,
-+	}, nil)
-+	if result.Action != adapter.PreMatchFlow || result.NewTracker == nil {
-+		return
-+	}
-+	result.NewTracker()
-+}
-+
-+// Every appended tracker is invoked once per routed connection on each of the
-+// three read paths.
-+func TestRouterTrackersInvoked(t *testing.T) {
-+	t.Parallel()
-+	router := newTrackerTestRouter()
-+	counters := &trackerTestCounters{}
-+	for range 3 {
-+		router.AppendTracker(&countingConnectionTracker{counters: counters})
-+	}
-+	routeTrackerTestTCP(router)
-+	require.Equal(t, int32(3), counters.connections.Load())
-+	routeTrackerTestUDP(router)
-+	require.Equal(t, int32(3), counters.packetConnections.Load())
-+	preMatchTrackerTestFlow(router)
-+	require.Equal(t, int32(3), counters.flows.Load())
-+}
-+
-+// AppendTracker concurrent with the routing read paths must not race; run
-+// with -race. After the dust settles every tracker must still be invoked on
-+// each path.
-+func TestRouterTrackersConcurrentAppend(t *testing.T) {
-+	t.Parallel()
-+	router := newTrackerTestRouter()
-+	counters := &trackerTestCounters{}
-+	const (
-+		writers          = 4
-+		appendsPerWriter = 25
-+		readers          = 4
-+		maxReadRounds    = 1000
-+	)
-+	stopReaders := make(chan struct{})
-+	var writerWG, readerWG sync.WaitGroup
-+	for range writers {
-+		writerWG.Add(1)
-+		go func() {
-+			defer writerWG.Done()
-+			for range appendsPerWriter {
-+				router.AppendTracker(&countingConnectionTracker{counters: counters})
-+			}
-+		}()
-+	}
-+	for reader := range readers {
-+		readerWG.Add(1)
-+		go func() {
-+			defer readerWG.Done()
-+			for round := 0; round < maxReadRounds; round++ {
-+				select {
-+				case <-stopReaders:
-+					return
-+				default:
-+				}
-+				switch reader % 3 {
-+				case 0:
-+					routeTrackerTestTCP(router)
-+				case 1:
-+					routeTrackerTestUDP(router)
-+				default:
-+					preMatchTrackerTestFlow(router)
-+				}
-+			}
-+		}()
-+	}
-+	writerWG.Wait()
-+	close(stopReaders)
-+	readerWG.Wait()
-+
-+	const totalTrackers = writers * appendsPerWriter
-+	router.trackersAccess.RLock()
-+	trackerCount := len(router.trackers)
-+	router.trackersAccess.RUnlock()
-+	require.Equal(t, totalTrackers, trackerCount)
-+
-+	counters.connections.Store(0)
-+	counters.packetConnections.Store(0)
-+	counters.flows.Store(0)
-+	routeTrackerTestTCP(router)
-+	require.Equal(t, int32(totalTrackers), counters.connections.Load())
-+	routeTrackerTestUDP(router)
-+	require.Equal(t, int32(totalTrackers), counters.packetConnections.Load())
-+	preMatchTrackerTestFlow(router)
-+	require.Equal(t, int32(totalTrackers), counters.flows.Load())
-+}
 diff -ruN --exclude=.git --exclude=NEKO.md a/route/rule/rule_action.go b/route/rule/rule_action.go
 --- a/route/rule/rule_action.go	2026-09-28 23:33:49
-+++ b/route/rule/rule_action.go	2026-09-28 23:55:52
++++ b/route/rule/rule_action.go	2026-09-28 23:47:24
 @@ -132,6 +132,8 @@
  		return &RuleActionDNSRoute{
  			Server:      action.RouteOptions.Server,
@@ -1316,7 +973,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/route/rule/rule_action.go b/route/r
  
 diff -ruN --exclude=.git --exclude=NEKO.md a/route/rule/rule_set_local.go b/route/rule/rule_set_local.go
 --- a/route/rule/rule_set_local.go	2026-09-28 23:33:49
-+++ b/route/rule/rule_set_local.go	2026-09-28 23:55:52
++++ b/route/rule/rule_set_local.go	2026-09-28 23:47:24
 @@ -11,6 +11,7 @@
  	"github.com/sagernet/sing-box/adapter"
  	"github.com/sagernet/sing-box/common/srs"
