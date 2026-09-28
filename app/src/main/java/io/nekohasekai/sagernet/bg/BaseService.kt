@@ -329,7 +329,8 @@ class BaseService {
 
         // 子类私有的运行期资源（VpnService 的 tun fd）。运行期资源有两条释放
         // 路径——正常停止走 killProcesses，框架直接 destroy 走 destroyRunner
-        // ——两条都在最前面调这个钩子，子类因此只需覆盖这一处
+        // ——两条都在最前面调这个钩子（destroyRunner 在 close 之后再调一次），
+        // 子类因此只需覆盖这一处；实现须幂等
         fun releaseSubclassResources() {}
 
         // wakeLock 与网络监听：两条释放路径里时序无差别的部分，共用一份。
@@ -434,6 +435,10 @@ class BaseService {
             if (looper != null) runOnDefaultDispatcher { looper.stopLoop() }
             data.proxy?.close() // CAS 保证幂等，且从不抛出（见 BoxInstance.close）
             data.proxy = null
+            // 开头那次释放可能早于 box.start() 里的 startVpn：state 仍是 Connecting，
+            // startVpn 的守卫拦不住，新建的 tun fd 无人关闭（Go 侧只关自己 dup 的副本）。
+            // Go 的 Close 与 Start 持同一把锁，close 返回时 startVpn 必已结束，这里再收一次
+            releaseSubclassResources()
             releaseWakeLockAndNetworkListener()
             data.binder.close()
         }
