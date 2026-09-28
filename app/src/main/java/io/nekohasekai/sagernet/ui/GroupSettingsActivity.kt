@@ -79,7 +79,10 @@ class GroupSettingsActivity(
 
         frontProxy = if (EditorCache.frontProxyTmp == 3) EditorCache.frontProxy else -1
         landingProxy = if (EditorCache.landingProxyTmp == 3) EditorCache.landingProxy else -1
-        proxyServerNameserver = EditorCache.proxyServerNameserver.trim()
+        // 用户改了 nameserver 就不再算订阅写入的，订阅撤下该键时不会被清空
+        val nameserver = EditorCache.proxyServerNameserver.trim()
+        val nameserverEdited = nameserver != proxyServerNameserver
+        proxyServerNameserver = nameserver
 
         val isSubscription = type == GroupType.SUBSCRIPTION
         if (isSubscription) {
@@ -91,6 +94,7 @@ class GroupSettingsActivity(
                 customUserAgent = EditorCache.subscriptionUserAgent
                 autoUpdate = EditorCache.subscriptionAutoUpdate
                 autoUpdateDelay = EditorCache.subscriptionAutoUpdateDelay
+                if (nameserverEdited) nameserverFromSubscription = false
             }
         }
     }

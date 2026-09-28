@@ -103,12 +103,13 @@ object RawUpdater : GroupUpdater() {
         // 订阅下发的节点解析 DNS，自动写入分组设置（在 forceResolve 之前生效）。
         // clash/YAML 订阅撤下该键时同步清空残留值；分享链接等非 YAML 订阅本就
         // 没有此键，不能误清。按是否真的载入了 YAML 根节点判断，而不是看原文：
-        // 整段 base64 编码的 YAML 原文里没有 "proxies:"，按原文判断永远清不掉
+        // 整段 base64 编码的 YAML 原文里没有 "proxies:"，按原文判断永远清不掉。
+        // 只清订阅自己写入的值（nameserverFromSubscription），用户手填的保留
         val subscriptionNameserver = parseProxyServerNameserver(clashRoot)
         val clearSubscriptionNameserver = subscriptionNameserver == null && clashRoot != null
         if (subscriptionNameserver != null) {
             proxyGroup.proxyServerNameserver = subscriptionNameserver
-        } else if (clearSubscriptionNameserver) {
+        } else if (clearSubscriptionNameserver && subscription.nameserverFromSubscription == true) {
             proxyGroup.proxyServerNameserver = ""
         }
 
@@ -298,10 +299,14 @@ object RawUpdater : GroupUpdater() {
             // subscriptionUserinfo 及流量字段），分组已被删除时（上面的检查之后）跳过写回
             SagerDatabase.groupDao.getById(proxyGroup.id)?.also { current ->
                 if (remoteGroupName != null) current.name = remoteGroupName
+                // 来源标记以新鲜行为准：更新期间用户可能手动改过 nameserver
+                val currentSubscription = current.subscription
                 if (subscriptionNameserver != null) {
                     current.proxyServerNameserver = subscriptionNameserver
-                } else if (clearSubscriptionNameserver) {
+                    currentSubscription?.nameserverFromSubscription = true
+                } else if (clearSubscriptionNameserver && currentSubscription?.nameserverFromSubscription == true) {
                     current.proxyServerNameserver = ""
+                    currentSubscription.nameserverFromSubscription = false
                 }
                 // 传入的 subscription 是更新开始时的旧快照，整体回写会覆盖用户
                 // 期间改的 link/deduplication 等；以新鲜行的 bean 为基础合并

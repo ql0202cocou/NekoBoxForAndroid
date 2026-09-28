@@ -39,12 +39,16 @@ public class SubscriptionBean extends Serializable {
 
     public String subscriptionUserinfo;
 
+    // version 5：分组的 proxyServerNameserver 是否由订阅写入；只有它为 true 时，
+    // 订阅撤下该键才会清空分组设置，用户手填的值不受影响
+    public Boolean nameserverFromSubscription;
+
     public SubscriptionBean() {
     }
 
     @Override
     public void serializeToBuffer(ByteBufferOutput output) {
-        output.writeInt(4);
+        output.writeInt(5);
 
         output.writeInt(type);
 
@@ -66,6 +70,8 @@ public class SubscriptionBean extends Serializable {
         output.writeLong(expiryDate);
         // version 4: appended so a downgrade ignores it as trailing bytes
         output.writeLong(lastUpdated);
+        // version 5：同样追加在末尾；分享导入的 bean 不走默认值，可能为 null
+        output.writeBoolean(Boolean.TRUE.equals(nameserverFromSubscription));
     }
 
     public void serializeForShare(ByteBufferOutput output) {
@@ -105,6 +111,9 @@ public class SubscriptionBean extends Serializable {
         if (version >= 4) {
             lastUpdated = input.readLong();
         }
+        if (version >= 5) {
+            nameserverFromSubscription = input.readBoolean();
+        }
     }
 
     public void deserializeFromShare(ByteBufferInput input) {
@@ -130,6 +139,7 @@ public class SubscriptionBean extends Serializable {
         if (autoUpdate == null) autoUpdate = false;
         if (autoUpdateDelay == null) autoUpdateDelay = 1440;
         if (lastUpdated == null) lastUpdated = 0L;
+        if (nameserverFromSubscription == null) nameserverFromSubscription = false;
 
         if (bytesUsed == null) bytesUsed = 0L;
         if (bytesRemaining == null) bytesRemaining = 0L;
