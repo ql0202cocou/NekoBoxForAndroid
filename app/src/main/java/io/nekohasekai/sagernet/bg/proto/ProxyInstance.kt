@@ -73,8 +73,8 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
         // one. Blocking here instead would park :bg's main thread on a stats sweep that
         // cancellation cannot interrupt once it is inside its JNI calls.
         // 顺序契约：调用方必须先停 looper 再 close()——killProcesses 先挂起等
-        // stopLoop()，destroyRunner 先 post stopLoop()。新调用方不得绕过这一
-        // 顺序直接调 close()
+        // stopLoop()，destroyRunner 在后台协程里同样先等 stopLoop()。新调用方
+        // 不得绕过这一顺序直接调 close()
         looper = null
         super.close()
     }

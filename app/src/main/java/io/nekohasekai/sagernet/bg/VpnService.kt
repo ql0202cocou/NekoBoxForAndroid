@@ -39,8 +39,8 @@ class VpnService : BaseVpnService(),
 
     }
 
-    // written by gomobile Go threads in startVpn, read/closed by the main
-    // thread in killProcesses
+    // startVpn 在 gomobile 的 Go 线程上写入；killProcesses 在主线程、
+    // destroyRunner 在主线程与后台协程上读取并关闭
     @Volatile
     var conn: ParcelFileDescriptor? = null
 

@@ -329,8 +329,8 @@ class BaseService {
 
         // 子类私有的运行期资源（VpnService 的 tun fd）。运行期资源有两条释放
         // 路径——正常停止走 killProcesses，框架直接 destroy 走 destroyRunner
-        // ——两条都在最前面调这个钩子（destroyRunner 在 close 之后再调一次），
-        // 子类因此只需覆盖这一处；实现须幂等
+        // ——两条都在最前面调这个钩子（destroyRunner 在后台 close 之后再调一次），
+        // 子类因此只需覆盖这一处；实现须幂等、可在非主线程调用
         fun releaseSubclassResources() {}
 
         // wakeLock 与网络监听：两条释放路径里时序无差别的部分，共用一份。
@@ -426,19 +426,22 @@ class BaseService {
             data.connectingJob?.cancel()
             unregisterCloseReceiver()
             destroyNotification()
-            // 流量循环也是 killProcesses 负责的运行期资源，这里同样兜底。
-            // looper 要先于 box 关闭停下（其 queryStats 需要存活 box），且必须
-            // 先捕获引用：close() 会把 looper 字段置 null。onDestroy 不能阻塞，
-            // 所以只 detach 不等；stopLoop / Stop 消息都是幂等的，正常路径
-            // 重复执行无害
-            val looper = data.proxy?.looper
-            if (looper != null) runOnDefaultDispatcher { looper.stopLoop() }
-            data.proxy?.close() // CAS 保证幂等，且从不抛出（见 BoxInstance.close）
+            // 流量循环与 box 也是 killProcesses 负责的运行期资源，这里同样兜底。
+            // onDestroy 不能阻塞：Go 侧 Close 与 Start 持同一把锁，Connecting 中
+            // 被销毁时 close 要等 box.start() 跑完，放主线程会 ANR，所以整段
+            // detach 到后台。顺序同 killProcesses：looper 先停（其 queryStats 需要
+            // 存活 box），且须先捕获引用——close() 会把 looper 字段置 null。
+            // stopLoop / close 都幂等，正常路径重复执行无害
+            val proxy = data.proxy
             data.proxy = null
-            // 开头那次释放可能早于 box.start() 里的 startVpn：state 仍是 Connecting，
-            // startVpn 的守卫拦不住，新建的 tun fd 无人关闭（Go 侧只关自己 dup 的副本）。
-            // Go 的 Close 与 Start 持同一把锁，close 返回时 startVpn 必已结束，这里再收一次
-            releaseSubclassResources()
+            if (proxy != null) runOnDefaultDispatcher {
+                proxy.looper?.stopLoop()
+                proxy.close() // CAS 保证幂等，且从不抛出（见 BoxInstance.close）
+                // 开头那次释放可能早于 box.start() 里的 startVpn：state 仍是 Connecting，
+                // startVpn 的守卫拦不住，新建的 tun fd 无人关闭（Go 侧只关自己 dup 的
+                // 副本）。close 返回时 startVpn 必已结束，这里再收一次
+                releaseSubclassResources()
+            }
             releaseWakeLockAndNetworkListener()
             data.binder.close()
         }
