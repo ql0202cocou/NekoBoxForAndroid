@@ -1,8 +1,8 @@
 # Neko patches on sing-box
 
 This directory is a vendored copy of upstream
-[SagerNet/sing-box](https://github.com/SagerNet/sing-box) **v1.14.1** plus the
-NekoBox patch set (`1.14.1-neko-3`). The patches originate from
+[SagerNet/sing-box](https://github.com/SagerNet/sing-box) **v1.14.2** plus the
+NekoBox patch set (`1.14.2-neko-1`). The patches originate from
 `MatsuriDayo/sing-box` (`aed32ee3066cdbc7d471e3e0415c5134088962df`,
 `1.12.19-neko-1`); upstream NekoBox is unmaintained, so this fork maintains and
 rebases the patches itself. When rebasing onto a newer upstream sing-box
@@ -18,7 +18,7 @@ Functional neko commits (on top of the 1.12.x upstream base):
 | `7cf44f37` | nekoutils: add selector callback | `nekoutils/callback.go`, group selector callback |
 | `721602a8` | dialer: add DoNotSelectInterface | dialer option to skip VPN interface selection |
 | ~~`0bc13363`~~ | ~~temp fix gvisor close~~ | **removed 2026-08-28**: upstream sing-tun's `GVisor.Close()` already contains the same fix (`Attach(nil)` + `CleanupEndpoints().Abort()`), and the patch's `unsafe.Pointer` field punning no longer matches sing-tun's `GVisor` layout (extra fields), so the punned `stack` was always nil — dead code that would read a garbage pointer on the next layout change |
-| `d294d39b` | outbound/vless: disable flow when mux is enable | still unaddressed upstream as of 1.14.1 |
+| `d294d39b` | outbound/vless: disable flow when mux is enable | still unaddressed upstream as of 1.14.2 |
 | `44169a9b` | fix needCacheFile | `box.go` creates the cache service only when `experimental.cache_file` is present and enabled; a Clash API configuration alone does not enable it. 1.14.1: upstream itself removed the `|| options.PlatformLogWriter != nil` clause from `needClashAPI` (clash mode separation); the patch now only removes it from `needCacheFile` |
 
 The `1.12.x-neko-1` commits only bump `constant/version.go` and carry no code
@@ -37,14 +37,14 @@ Additional patches maintained by this fork (not from MatsuriDayo):
 ## Replayable patch artifact
 
 The whole patch set is materialized as a single replayable diff,
-`libcore/patches/sing-box-v1.14.1-neko-3.diff`: a clean clone of upstream tag
-v1.14.1 plus this file applied with `patch -p1` reproduces this directory
+`libcore/patches/sing-box-v1.14.2-neko-1.diff`: a clean clone of upstream tag
+v1.14.2 plus this file applied with `patch -p1` reproduces this directory
 exactly. Excluded from the artifact (and from the verification comparison):
 `.git`, the top-level `clients/` git submodule placeholders (not carried here;
 deleted from the upstream clone before diffing — `--exclude=clients` would also
 drop `docs/clients/`, which is compared like everything else), and this
 `NEKO.md` (a management document, not part of the patches). `check_versions`
-also pins the tag to upstream commit `1ac1a339cb1223e9c70eae14c44411c75033c02d`. Everything else is
+also pins the tag to upstream commit `af6e64c3b69e6132ebaee0e1a3d24e93903f6709`. Everything else is
 in the diff — modified upstream files, new files (`boxapi/`, `nekoutils/`, the
 fork's `*_test.go` additions) and the `go.mod`/`go.sum` divergence documented
 below. `./run lib check_versions` replays the artifact against a fresh clone
@@ -55,11 +55,11 @@ root):
 
 ```bash
 TMP=$(mktemp -d)
-git clone --depth 1 --branch v1.14.1 https://github.com/SagerNet/sing-box "$TMP/a"
+git clone --depth 1 --branch v1.14.2 https://github.com/SagerNet/sing-box "$TMP/a"
 rm -rf "$TMP/a/clients"
 cp -R libcore/sing-box "$TMP/b"
 (cd "$TMP" && command diff -ruN --exclude=.git --exclude=NEKO.md a b) \
-  > libcore/patches/sing-box-v1.14.1-neko-3.diff
+  > libcore/patches/sing-box-v1.14.2-neko-1.diff
 ```
 
 The `a`/`b` directory names are load-bearing: they keep the diff header paths
@@ -74,13 +74,16 @@ the new tag and patch-set version), and update this file. The 1.13.18 → 1.14.0
 rebase extracted the patch set with `diff -ru` against the upstream tag and
 re-applied it by hand — see git history. The 1.14.0 → 1.14.1 rebase used the
 same `diff -ruN` extraction plus `patch`; only `box.go` (needCacheFile) and
-`route/route.go` (NewTracker closure) needed manual conflict resolution.
+`route/route.go` (NewTracker closure) needed manual conflict resolution. The
+1.14.1 → 1.14.2 rebase applied `1.14.1-neko-3` with `patch -p1` without any
+reject, offset or fuzz (the only overlapping upstream file, `box.go`, changed
+outside the patched hunk); the set is otherwise unchanged as `1.14.2-neko-1`.
 
 ## go.mod divergence from upstream
 
 `check_versions` requires every module shared with `libcore/go.mod` to sit at
 the same version in both files, so dependency bumps land here too. As of
-2026-09-18 this go.mod diverges from the upstream v1.14.1 one:
+2026-09-28 this go.mod diverges from the upstream v1.14.2 one:
 
 - `go` directive `1.26.0` (upstream `1.25.5`) — forced by `x/sys` below
 - `github.com/miekg/dns v1.1.73` (upstream v1.1.72)

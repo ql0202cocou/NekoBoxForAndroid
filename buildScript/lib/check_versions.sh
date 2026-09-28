@@ -113,9 +113,9 @@ fi
 # 不用 --exclude=clients，它按名字匹配，会把 docs/clients/ 一起排除出对比。
 # NEKO.md 是补丁集之外的管理文档，不参与生成与对比。tag 可以被移动，克隆后
 # 核对它仍指向记录的 commit
-BOX_BASE_TAG=v1.14.1
-BOX_BASE_SHA=1ac1a339cb1223e9c70eae14c44411c75033c02d
-BOX_PATCH=libcore/patches/sing-box-v1.14.1-neko-3.diff
+BOX_BASE_TAG=v1.14.2
+BOX_BASE_SHA=af6e64c3b69e6132ebaee0e1a3d24e93903f6709
+BOX_PATCH=libcore/patches/sing-box-v1.14.2-neko-1.diff
 if [ ! -f "$BOX_PATCH" ]; then
   fail "$BOX_PATCH missing; regenerate it as documented in libcore/sing-box/NEKO.md"
 else
