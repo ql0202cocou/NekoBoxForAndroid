@@ -204,14 +204,17 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
     override suspend fun onUpdated(data: TrafficData) {
         onMainDispatcher {
             try {
-                // touch the list on the main thread: this callback runs
-                // on a background dispatcher while it mutates the list
-                val index = configurationIdList.indexOf(data.id)
-                if (index != -1) {
-                    val holder = groupFragment.layoutManager.findViewByPosition(index)
-                        ?.let { groupFragment.configurationListView.getChildViewHolder(it) } as ConfigurationHolder?
-                    holder?.bindTraffic(data)
-                }
+                // 缓存的实体跟着实时流量走：停止时 liveTraffic 被清空，之后重绑的行
+                // 回落到实体上的值，不能是列表加载时的旧值。在主线程改：后台回调期间
+                // 主线程也在改这张表
+                configurationList[data.id]?.apply {
+                    rx = data.rx
+                    tx = data.tx
+                } ?: return@onMainDispatcher
+                // 按 stable id 找 holder：按位置找在增删 / 拖动尚未重新布局时会拿到
+                // 别的行，而流量只推变化项，画错的行不会被下一次推送纠正
+                (groupFragment.configurationListView.findViewHolderForItemId(data.id)
+                        as ConfigurationHolder?)?.bindTraffic(data)
             } catch (e: Exception) {
                 Logs.w(e)
             }
