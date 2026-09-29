@@ -108,6 +108,10 @@ func lookupHost(ctx context.Context, server string, domain string) (string, erro
 	return strings.Join(addresses, "\n"), nil
 }
 
+// 单台服务器的超时：不通或不回应的服务器不能吃光 StartLookupHosts 的整个预算，
+// 是否换下一台由 lookupHosts 按总 ctx 判断
+const perServerTimeout = 5 * time.Second
+
 func lookupHostType(ctx context.Context, server string, domain string, queryType uint16) ([]string, error) {
 	scheme := "udp"
 	address := server
@@ -124,7 +128,7 @@ func lookupHostType(ctx context.Context, server string, domain string, queryType
 	switch scheme {
 	case "udp", "tcp":
 		address = withDefaultPort(address, "53")
-		client := &mDNS.Client{Net: scheme, Timeout: 5 * time.Second}
+		client := &mDNS.Client{Net: scheme, Timeout: perServerTimeout}
 		response, err = exchangeCancellable(ctx, client, query, address)
 		// A truncated UDP answer is incomplete even when it contains some A/AAAA
 		// records. Retry the same question over TCP within the original deadline.
@@ -137,7 +141,7 @@ func lookupHostType(ctx context.Context, server string, domain string, queryType
 		host, _, _ := net.SplitHostPort(address)
 		client := &mDNS.Client{
 			Net:       "tcp-tls",
-			Timeout:   5 * time.Second,
+			Timeout:   perServerTimeout,
 			TLSConfig: &tls.Config{ServerName: host},
 		}
 		response, err = exchangeCancellable(ctx, client, query, address)
@@ -193,12 +197,10 @@ func withDefaultPort(address, port string) string {
 	return net.JoinHostPort(strings.Trim(address, "[]"), port)
 }
 
-// dohClient is private so DoH does not ride http.DefaultClient. A nil
-// Transport would still be http.DefaultTransport, which picks up proxy
-// settings from the environment, so it gets the same configuration minus the
-// proxy. The timeout is a backstop; callers already bound every exchange with
-// a context.
-var dohClient = &http.Client{Timeout: 10 * time.Second, Transport: noProxyTransport()}
+// dohClient 独立于 http.DefaultClient：Transport 为 nil 时仍会用 http.DefaultTransport，
+// 它读取环境变量里的代理设置，所以复制一份相同配置并去掉代理。不设 client 超时：
+// exchangeHTTPS 已用 ctx 限定每次交换
+var dohClient = &http.Client{Transport: noProxyTransport()}
 
 func noProxyTransport() *http.Transport {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
@@ -213,16 +215,15 @@ func exchangeHTTPS(ctx context.Context, h3 bool, server string, query *mDNS.Msg)
 	if err != nil {
 		return nil, err
 	}
-	// 单台服务器最多 5 秒（同 udp/tcp/tls/quic），不通的服务器不能吃光整个预算；
-	// 读响应体也在这个 ctx 内，是否换下一台由 lookupHosts 按总 ctx 判断
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	// 读响应体也在这个 ctx 内
+	ctx, cancel := context.WithTimeout(ctx, perServerTimeout)
 	defer cancel()
 	client := dohClient
 	if h3 {
 		server = "https://" + strings.TrimPrefix(server, "h3://")
 		transport := &http3.Transport{}
 		defer transport.Close()
-		client = &http.Client{Timeout: dohClient.Timeout, Transport: transport}
+		client = &http.Client{Transport: transport}
 	}
 	req, err := http.NewRequestWithContext(ctx, "POST", server, bytes.NewReader(body))
 	if err != nil {
@@ -260,9 +261,8 @@ func exchangeQUIC(ctx context.Context, address string, query *mDNS.Msg) (*mDNS.M
 	if err != nil {
 		return nil, err
 	}
-	// 单台服务器最多 5 秒（同 udp/tcp/tls 的 Client.Timeout），握手后不回应的服务器
-	// 不能吃光整个预算；是否换下一台由 lookupHosts 按总 ctx 判断
-	serverCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	// 握手后不回应的服务器也受单台超时约束
+	serverCtx, cancel := context.WithTimeout(ctx, perServerTimeout)
 	defer cancel()
 	// quic.DialAddr 用不带 ctx 的 net.ResolveUDPAddr 解析主机名，取消和预算都管
 	// 不住；先按 ctx 解析成 IP 再拨号，ServerName 仍用主机名

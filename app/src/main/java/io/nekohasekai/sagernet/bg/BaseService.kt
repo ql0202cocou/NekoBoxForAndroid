@@ -436,7 +436,7 @@ class BaseService {
             // stopLoop / close 都幂等，正常路径重复执行无害
             val proxy = data.proxy
             data.proxy = null
-            if (proxy != null) runOnDefaultDispatcher {
+            if (proxy != null) runOnIoDispatcher {
                 proxy.looper?.stopLoop()
                 proxy.close() // CAS 保证幂等，且从不抛出（见 BoxInstance.close）
                 // 开头那次释放可能早于 box.start() 里的 startVpn：state 仍是 Connecting，

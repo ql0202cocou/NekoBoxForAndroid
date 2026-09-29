@@ -164,6 +164,7 @@ fun Project.setupApp() {
     val pkgName = metadata("PACKAGE_NAME")
     val verName = metadata("VERSION_NAME")
     val verCode = metadata("VERSION_CODE").toInt() * 5
+    val preVerName = preVersionName()
     android.apply {
         defaultConfig {
             applicationId = pkgName
@@ -197,7 +198,7 @@ fun Project.setupApp() {
             create("oss")
             create("fdroid")
             create("preview") {
-                buildConfigField("String", "PRE_VERSION_NAME", "\"${preVersionName()}\"")
+                buildConfigField("String", "PRE_VERSION_NAME", "\"$preVerName\"")
             }
         }
 
@@ -234,10 +235,9 @@ fun Project.setupApp() {
     // SingleArtifact.APK transform instead, so build/outputs/apk keeps the same names.
     extensions.getByName<ApplicationAndroidComponentsExtension>("androidComponents").onVariants { variant ->
         val rename = tasks.register<RenameApksTask>("rename${variant.name.replaceFirstChar { it.uppercase() }}Apks") {
-            val preVersionName = preVersionName()
             projectName.set(project.name)
             newBaseName.set(
-                if (variant.flavorName == "preview") "NekoBox-$preVersionName"
+                if (variant.flavorName == "preview") "NekoBox-$preVerName"
                 else "NekoBox-$verName"
             )
         }

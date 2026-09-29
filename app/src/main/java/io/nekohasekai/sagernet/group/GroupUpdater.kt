@@ -62,8 +62,6 @@ abstract class GroupUpdater {
                 for ((domain, sameDomain) in byDomain) {
                     launch(lookupPool) {
                         try {
-                            // 只读一次：判断与传参之间它可能被网络回调置 null
-                            val network = SagerNet.underlyingNetwork
                             val results = if (
                                 DataStore.enableFakeDns &&
                                 ServiceRegistry.state.started &&
@@ -72,8 +70,7 @@ abstract class GroupUpdater {
                                 // FakeDNS：app 自身流量也走 VPN，默认网络上的系统解析会拿到
                                 // fakeip 段的假 IP 并被写进库。没有底层网络（如切换网络途中）
                                 // 就判这个域名解析失败，不回退默认解析器
-                                if (network == null) error("no underlying network")
-                                lookupSystem(domain, network)
+                                lookupSystem(domain, SagerNet.underlyingNetwork ?: error("no underlying network"))
                             } else {
                                 // 分组配了节点解析 DNS 时优先用它，没配或失败时回退系统 DNS
                                 //（VPN 连着时系统 DNS 由内核解析）

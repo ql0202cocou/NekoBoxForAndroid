@@ -1,7 +1,8 @@
 package io.nekohasekai.sagernet.database
 
-import com.esotericsoftware.kryo.io.ByteBufferInput
 import com.esotericsoftware.kryo.io.ByteBufferOutput
+import io.nekohasekai.sagernet.fmt.KryoConverters
+import io.nekohasekai.sagernet.ktx.byteBuffer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -12,14 +13,11 @@ class SubscriptionBeanTest {
 
     private fun defaultBean() = SubscriptionBean().apply { initializeDefaultValues() }
 
-    private fun serialize(bean: SubscriptionBean): ByteArray {
-        val output = ByteBufferOutput(1024, -1)
-        bean.serializeToBuffer(output)
-        return output.toBytes()
-    }
+    private fun serialize(bean: SubscriptionBean) = KryoConverters.serialize(bean)
 
+    // 不用 KryoConverters.deserialize：它会补默认值，v4 用例要先断言读出的是 null
     private fun deserialize(bytes: ByteArray) = SubscriptionBean().apply {
-        deserializeFromBuffer(ByteBufferInput(bytes))
+        deserializeFromBuffer(bytes.byteBuffer())
     }
 
     @Test

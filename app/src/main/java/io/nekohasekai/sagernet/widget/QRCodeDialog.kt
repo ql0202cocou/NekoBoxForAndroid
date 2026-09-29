@@ -11,6 +11,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.graphics.drawable.toDrawable
 import androidx.fragment.app.DialogFragment
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
@@ -74,7 +75,8 @@ class QRCodeDialog() : DialogFragment() {
 
             val hints = mutableMapOf<EncodeHintType, Any>()
             if (!iso88591.canEncode(url)) hints[EncodeHintType.CHARACTER_SET] = StandardCharsets.UTF_8.name()
-            val qrBits = MultiFormatWriter().encode(url, BarcodeFormat.QR_CODE, size, size, hints)
+            // 宽高传 0 得到每个模块 1 像素（含留白）的最小矩阵，放大交给 ImageView
+            val qrBits = MultiFormatWriter().encode(url, BarcodeFormat.QR_CODE, 0, 0, hints)
             LinearLayout(context).apply {
                 // 布局
                 orientation = LinearLayout.VERTICAL
@@ -82,15 +84,15 @@ class QRCodeDialog() : DialogFragment() {
 
                 // 二维码图片
                 addView(ImageView(context).apply {
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
-                    )
-                    // 先在数组里填好再一次性生成：逐像素 setPixel 每次都跨 JNI，
-                    // 几十万像素在主线程上要几十到几百毫秒
-                    val pixels = IntArray(size * size) { i ->
-                        if (qrBits.get(i % size, i / size)) Color.BLACK else Color.WHITE
+                    layoutParams = ViewGroup.LayoutParams(size, size)
+                    // 按屏幕尺寸编码要在主线程上填几十万像素；这里只填模块数的平方，
+                    // 由 ImageView 缩放到 size，关掉滤波让模块边缘保持锐利
+                    val dim = qrBits.width
+                    val pixels = IntArray(dim * dim) { i ->
+                        if (qrBits.get(i % dim, i / dim)) Color.BLACK else Color.WHITE
                     }
-                    setImageBitmap(Bitmap.createBitmap(pixels, size, size, Bitmap.Config.RGB_565))
+                    val bitmap = Bitmap.createBitmap(pixels, dim, dim, Bitmap.Config.RGB_565)
+                    setImageDrawable(bitmap.toDrawable(resources).apply { isFilterBitmap = false })
                 })
 
                 // 名称文字

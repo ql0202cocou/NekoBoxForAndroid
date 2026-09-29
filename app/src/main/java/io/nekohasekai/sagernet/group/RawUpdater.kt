@@ -310,7 +310,7 @@ object RawUpdater : GroupUpdater() {
                 }
                 // 传入的 subscription 是更新开始时的旧快照，整体回写会覆盖用户
                 // 期间改的 link/deduplication 等；以新鲜行的 bean 为基础合并
-                current.subscription?.apply {
+                currentSubscription?.apply {
                     lastUpdated = subscription.lastUpdated
                     subscriptionUserinfo = subscription.subscriptionUserinfo
                     bytesUsed = subscription.bytesUsed

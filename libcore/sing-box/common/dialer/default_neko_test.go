@@ -2,6 +2,7 @@ package dialer
 
 import (
 	"context"
+	"io"
 	"net"
 	"testing"
 
@@ -37,6 +38,14 @@ func noSelection(t *testing.T, entry string, fn func() error) {
 	}
 }
 
+// 调用成功时关掉返回的连接，只把错误交给 noSelection
+func closeOK(c io.Closer, err error) error {
+	if err == nil {
+		c.Close()
+	}
+	return err
+}
+
 func TestDoNotSelectInterfaceDial(t *testing.T) {
 	withDoNotSelectInterface(t)
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -58,19 +67,11 @@ func TestDoNotSelectInterfaceDial(t *testing.T) {
 	d := newStrategyDialer()
 
 	noSelection(t, "DialContext", func() error {
-		conn, err := d.DialContext(context.Background(), "tcp", address)
-		if err == nil {
-			conn.Close()
-		}
-		return err
+		return closeOK(d.DialContext(context.Background(), "tcp", address))
 	})
 	// 调用方显式传入 strategy 也必须忽略
 	noSelection(t, "DialParallelInterface", func() error {
-		conn, err := d.DialParallelInterface(context.Background(), "tcp", address, &strategy, nil, nil, 0)
-		if err == nil {
-			conn.Close()
-		}
-		return err
+		return closeOK(d.DialParallelInterface(context.Background(), "tcp", address, &strategy, nil, nil, 0))
 	})
 }
 
@@ -81,17 +82,9 @@ func TestDoNotSelectInterfaceListenPacket(t *testing.T) {
 	d := newStrategyDialer()
 
 	noSelection(t, "ListenPacket", func() error {
-		conn, err := d.ListenPacket(context.Background(), destination)
-		if err == nil {
-			conn.Close()
-		}
-		return err
+		return closeOK(d.ListenPacket(context.Background(), destination))
 	})
 	noSelection(t, "ListenSerialInterfacePacket", func() error {
-		conn, err := d.ListenSerialInterfacePacket(context.Background(), destination, &strategy, nil, nil, 0)
-		if err == nil {
-			conn.Close()
-		}
-		return err
+		return closeOK(d.ListenSerialInterfacePacket(context.Background(), destination, &strategy, nil, nil, 0))
 	})
 }

@@ -255,6 +255,7 @@ class SagerNet : Application(),
         val user by lazy { application.getSystemService<UserManager>()!! }
         val uiMode by lazy { application.getSystemService<UiModeManager>()!! }
         val power by lazy { application.getSystemService<PowerManager>()!! }
+        val activity by lazy { application.getSystemService<ActivityManager>()!! }
 
         fun getClipboardText(): String {
             return clipboard.primaryClip?.takeIf { it.itemCount > 0 }
@@ -317,7 +318,7 @@ class SagerNet : Application(),
 
         // 作用于本应用的全部任务；标记记在系统的任务记录里，进程重启后仍在
         fun setExcludeFromRecents(exclude: Boolean = DataStore.hideFromRecents) {
-            application.getSystemService<ActivityManager>()?.appTasks?.forEach {
+            activity.appTasks.forEach {
                 try {
                     it.setExcludeFromRecents(exclude)
                 } catch (e: RuntimeException) {

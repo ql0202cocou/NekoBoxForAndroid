@@ -224,7 +224,7 @@ private class ConfigBuild(
         // 链的成员被删光时链行仍在，分组引用不会被 resetDanglingGroupProxies 清掉；
         // 静默丢掉会让流量绕过用户设的前置 / 落地，直接报错
         fun expand(hop: ProxyEntity, role: String) = hop.resolveChainInternal().ifEmpty {
-            error("group $groupId $role proxy ${hop.id} (${hop.requireBean().displayName()}) has no valid member")
+            error("group $groupId $role proxy ${hop.id} (${hop.displayName()}) has no valid member")
         }
         val list = resolveChainInternal()
         if (frontProxy != null) {
