@@ -213,6 +213,10 @@ func exchangeHTTPS(ctx context.Context, h3 bool, server string, query *mDNS.Msg)
 	if err != nil {
 		return nil, err
 	}
+	// 单台服务器最多 5 秒（同 udp/tcp/tls/quic），不通的服务器不能吃光整个预算；
+	// 读响应体也在这个 ctx 内，是否换下一台由 lookupHosts 按总 ctx 判断
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	client := dohClient
 	if h3 {
 		server = "https://" + strings.TrimPrefix(server, "h3://")
