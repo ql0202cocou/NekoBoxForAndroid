@@ -193,8 +193,8 @@ class MainActivity : ThemedActivity(),
         }
 
         // 两种形态（?url= 明文与编码的分组）汇合后统一校验：深链由外部网页 / 应用
-        // 发起，订阅地址只接受 http(s)。RawUpdater 支持 content://（给用户自己选的
-        // 本地文件用），外部链接指定它就能让更新器以本应用身份读任意 provider
+        // 发起，订阅地址只接受 http(s)。content:// 等本地来源只供用户在应用内自己
+        // 选择的文件使用，不能由外部链接指定
         val link = group.subscription?.link
         if (!link.isNullOrBlank()) {
             val scheme = link.toUri().scheme?.lowercase()
