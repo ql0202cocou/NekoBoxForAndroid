@@ -11,8 +11,6 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.core.graphics.createBitmap
-import androidx.core.graphics.set
 import androidx.fragment.app.DialogFragment
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
@@ -87,11 +85,12 @@ class QRCodeDialog() : DialogFragment() {
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
                     )
-                    setImageBitmap(createBitmap(size, size, Bitmap.Config.RGB_565).apply {
-                        for (x in 0 until size) for (y in 0 until size) {
-                            this[x, y] = if (qrBits.get(x, y)) Color.BLACK else Color.WHITE
-                        }
-                    })
+                    // 先在数组里填好再一次性生成：逐像素 setPixel 每次都跨 JNI，
+                    // 几十万像素在主线程上要几十到几百毫秒
+                    val pixels = IntArray(size * size) { i ->
+                        if (qrBits.get(i % size, i / size)) Color.BLACK else Color.WHITE
+                    }
+                    setImageBitmap(Bitmap.createBitmap(pixels, size, size, Bitmap.Config.RGB_565))
                 })
 
                 // 名称文字
