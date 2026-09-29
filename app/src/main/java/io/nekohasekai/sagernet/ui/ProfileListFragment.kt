@@ -84,7 +84,6 @@ class ProfileListFragment : Fragment() {
         }
     }
     val select by lazy { parentConfiguration?.select ?: false }
-    val noChain by lazy { parentConfiguration?.noChain ?: false }
     val selectedItem by lazy { parentConfiguration?.selectedItem }
 
     override fun onResume() {

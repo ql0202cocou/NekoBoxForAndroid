@@ -220,14 +220,18 @@ private class ConfigBuild(
             }
         }
         // 列表是倒序的（末尾是第一跳）。前置 / 落地代理本身是链时展开成成员，
-        // 否则原样加进来的 ChainBean 会在 buildHopOutbound 报 "can't reach"；
-        // 选择器虽不让选链，导入的备份或旧数据里仍可能有
+        // 否则原样加进来的 ChainBean 会在 buildHopOutbound 报 "can't reach"。
+        // 链的成员被删光时链行仍在，分组引用不会被 resetDanglingGroupProxies 清掉；
+        // 静默丢掉会让流量绕过用户设的前置 / 落地，直接报错
+        fun expand(hop: ProxyEntity, role: String) = hop.resolveChainInternal().ifEmpty {
+            error("group $groupId $role proxy ${hop.id} (${hop.requireBean().displayName()}) has no valid member")
+        }
         val list = resolveChainInternal()
         if (frontProxy != null) {
-            list.addAll(frontProxy.resolveChainInternal())
+            list.addAll(expand(frontProxy, "front"))
         }
         if (landingProxy != null) {
-            list.addAll(0, landingProxy.resolveChainInternal())
+            list.addAll(0, expand(landingProxy, "landing"))
         }
         return list
     }

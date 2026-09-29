@@ -79,8 +79,7 @@ import io.nekohasekai.sagernet.database.EditorCache
 private val runningTest = AtomicBoolean(false)
 
 class ConfigurationFragment @JvmOverloads constructor(
-    val select: Boolean = false, val selectedItem: ProxyEntity? = null, val titleRes: Int = 0,
-    val noChain: Boolean = false
+    val select: Boolean = false, val selectedItem: ProxyEntity? = null, val titleRes: Int = 0
 ) : ToolbarFragment(R.layout.layout_group_list),
     PopupMenu.OnMenuItemClickListener,
     Toolbar.OnMenuItemClickListener,
