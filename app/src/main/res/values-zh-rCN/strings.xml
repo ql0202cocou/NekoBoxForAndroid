@@ -380,6 +380,7 @@
     <string name="protocol_version">协议版本</string>
     <string name="share_subscription">分享订阅</string>
     <string name="show_group_in_notification">在通知中显示组名</string>
+    <string name="hide_from_recents">在最近任务中隐藏</string>
     <string name="reset_connections">重置连接</string>
     <string name="remove_duplicate">删除重复的服务器</string>
     <string name="tls_camouflage_settings">TLS 伪装设置</string>

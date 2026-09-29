@@ -13,6 +13,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.graphics.ColorUtils
 import androidx.fragment.app.DialogFragment
 import com.google.android.material.snackbar.Snackbar
+import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.ktx.showAllowingStateLoss
 import io.nekohasekai.sagernet.utils.Theme
@@ -48,6 +49,8 @@ abstract class ThemedActivity : AppCompatActivity {
             enableEdgeToEdge(statusBarStyle = statusBarStyle)
         }
         super.onCreate(savedInstanceState)
+        // 任务可能由任一界面起头（如快捷方式直达扫码页），每次建界面都按设置同步一次
+        SagerNet.setExcludeFromRecents()
 
         uiMode = resources.configuration.uiMode
     }

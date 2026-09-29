@@ -315,6 +315,18 @@ class SagerNet : Application(),
             null
         }
 
+        // 作用于本应用的全部任务；标记记在系统的任务记录里，进程重启后仍在
+        fun setExcludeFromRecents(exclude: Boolean = DataStore.hideFromRecents) {
+            application.getSystemService<ActivityManager>()?.appTasks?.forEach {
+                try {
+                    it.setExcludeFromRecents(exclude)
+                } catch (e: RuntimeException) {
+                    // 任务在取列表后已被移除
+                    Logs.w(e)
+                }
+            }
+        }
+
         fun reloadService() =
             application.sendBroadcast(Intent(Action.RELOAD).setPackage(application.packageName))
 

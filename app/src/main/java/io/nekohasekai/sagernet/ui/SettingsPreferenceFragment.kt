@@ -64,6 +64,11 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             Theme.applyNightTheme()
             true
         }
+        findPreference<SwitchPreference>(Key.HIDE_FROM_RECENTS)!!.setOnPreferenceChangeListener { _, newValue ->
+            // 回调早于写入，直接用新值
+            SagerNet.setExcludeFromRecents(newValue as Boolean)
+            true
+        }
         val mixedPort = findPreference<EditTextPreference>(Key.MIXED_PORT)!!
         val serviceMode = findPreference<Preference>(Key.SERVICE_MODE)!!
         val allowAccess = findPreference<Preference>(Key.ALLOW_ACCESS)!!

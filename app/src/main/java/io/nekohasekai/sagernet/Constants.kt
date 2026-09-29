@@ -58,6 +58,7 @@ object Key {
 
     const val ACQUIRE_WAKE_LOCK = "acquireWakeLock"
     const val SHOW_BOTTOM_BAR = "showBottomBar"
+    const val HIDE_FROM_RECENTS = "hideFromRecents"
 
     const val ALLOW_INSECURE_ON_REQUEST = "allowInsecureOnRequest"
 

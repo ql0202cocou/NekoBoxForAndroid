@@ -50,6 +50,7 @@ object DataStore {
         clashApiSecret = ""
     }
     var showBottomBar by configurationStore.boolean(Key.SHOW_BOTTOM_BAR)
+    var hideFromRecents by configurationStore.boolean(Key.HIDE_FROM_RECENTS)
 
     var allowInsecureOnRequest by configurationStore.boolean(Key.ALLOW_INSECURE_ON_REQUEST)
     var networkChangeResetConnections by configurationStore.boolean(Key.NETWORK_CHANGE_RESET_CONNECTIONS) { true }
