@@ -358,7 +358,9 @@ class BaseService {
             val looper = data.proxy?.looper
             val postFinalTraffic = looper?.stopLoop() == true
             data.proxy?.let {
-                it.close() // 从不抛出，见 BoxInstance.close
+                // Go 侧 Box.Close 逐个关闭组件、没有总时限，放主线程会卡住 :bg
+                // （停止与每次重启都走这里），同 destroyRunner 放到后台
+                onIoDispatcher { it.close() } // 从不抛出，见 BoxInstance.close
                 it.awaitProcessesClosed()
             }
             if (postFinalTraffic) {

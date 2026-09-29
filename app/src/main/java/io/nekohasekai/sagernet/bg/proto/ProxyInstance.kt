@@ -17,8 +17,8 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
     @Volatile
     var displayProfileName = ServiceNotification.genTitle(profile)
 
-    // for TrafficLooper (written on the Default dispatcher in launch(),
-    // read on the main thread in BaseService.persistStats and close())
+    // TrafficLooper：launch() 在 Default 上写入；BaseService.persistStats 在主线程、
+    // close() 在 IO / Default（killProcesses / destroyRunner）上读取
     @Volatile
     var looper: TrafficLooper? = null
 
@@ -68,10 +68,9 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
     }
 
     override fun close() {
-        // The looper is cancelled by BaseService.killProcesses before this runs: its
-        // in-flight queryStats needs a live box, and close() cannot suspend to wait for
-        // one. Blocking here instead would park :bg's main thread on a stats sweep that
-        // cancellation cannot interrupt once it is inside its JNI calls.
+        // looper 由调用方在此之前停掉：进行中的 queryStats 需要存活的 box，而
+        // close() 不能挂起等它；在这里阻塞等待会让调用线程卡在进入 JNI 后无法
+        // 取消的统计上。
         // 顺序契约：调用方必须先停 looper 再 close()——killProcesses 先挂起等
         // stopLoop()，destroyRunner 在后台协程里同样先等 stopLoop()。新调用方
         // 不得绕过这一顺序直接调 close()
