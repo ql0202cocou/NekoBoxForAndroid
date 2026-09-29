@@ -1,4 +1,4 @@
-# QuinMo for Android
+# NekoBox for Android
 
 [![API](https://img.shields.io/badge/API-24%2B-brightgreen.svg?style=flat)](https://android-arsenal.com/api?level=24)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-orange.svg)](https://www.gnu.org/licenses/gpl-3.0)
@@ -6,6 +6,12 @@
 sing-box / universal proxy toolchain for Android.
 
 一款使用 sing-box 的 Android 通用代理软件，内置 mihomo 和 Xray 插件.
+
+## 下载与系统要求 / Download & Requirements
+
+* Android 7.0（API 24）及以上，支持 arm64-v8a 与 x86_64 / Android 7.0 (API 24)+, arm64-v8a and x86_64
+* 安装包见 [Releases](https://github.com/ql0202cocou/NekoBoxForAndroid/releases)，只发布 universal APK / Get the universal APK from [Releases](https://github.com/ql0202cocou/NekoBoxForAndroid/releases)
+* 带 `-aN` / `-bN` 后缀的是预览版，标记为 Pre-release / Tags ending in `-aN` / `-bN` are previews, published as pre-releases
 
 ## 支持的代理协议 / Supported Proxy Protocols
 
@@ -25,6 +31,18 @@ sing-box / universal proxy toolchain for Android.
 * NaïveProxy (naive-plugin)
 * Mieru (mieru-plugin)
 
+## 内置核心 / Bundled Cores
+
+| 核心 / Core | 版本 / Version | 用途 / Used for |
+| --- | --- | --- |
+| [sing-box](https://github.com/SagerNet/sing-box) | v1.14.2（附带本仓库补丁 / with local patches） | 默认核心，未列在下面的协议都由它运行 / Default core for everything not listed below |
+| [Xray-core](https://github.com/XTLS/Xray-core) | v26.3.27 | VLESS 默认使用；Xray 不支持的传输或 `allowInsecure` 回落到 sing-box / VLESS by default; falls back to sing-box for transports or `allowInsecure` Xray lacks |
+| [mihomo](https://github.com/MetaCubeX/mihomo) | v1.19.31 | AnyTLS 默认使用 / AnyTLS by default |
+
+VMess / VLESS 与 AnyTLS 节点可在编辑页手动指定核心。Trojan-Go、NaïveProxy、Mieru 以及 faketcp / wechat-video 模式的 Hysteria 1 需要另外安装对应插件。
+
+The core can be chosen per profile for VMess / VLESS and AnyTLS. Trojan-Go, NaïveProxy, Mieru and Hysteria 1 in faketcp / wechat-video mode need their plugin installed separately.
+
 ## 支持的订阅格式 / Supported Subscription Format
 
 * 一些广泛使用的格式 (如 Shadowsocks, ClashMeta 和 v2rayN)
@@ -36,6 +54,24 @@ sing-box / universal proxy toolchain for Android.
 * sing-box outbound
 
 Only resolving outbound, i.e. nodes, is supported. Information such as diversion rules are ignored.
+
+## 构建 / Build
+
+需要 / Requirements:
+
+* JDK 17+
+* Android SDK（platform 37、build-tools 36.0.0），通过 `local.properties` 的 `sdk.dir` 或 `ANDROID_HOME` 指定 / set via `sdk.dir` in `local.properties` or `ANDROID_HOME`
+* NDK 25.0.8775105
+* Go 1.26.x；系统 Go 更新时在命令前加 `GOTOOLCHAIN=go1.26.0` / with a newer system Go, prefix commands with `GOTOOLCHAIN=go1.26.0`
+
+```bash
+./run lib core      # 构建 libcore.aar / build libcore.aar
+./run lib assets    # 下载 geo 数据库 / download geo databases
+./run lib plugins   # 下载 Xray / mihomo 核心 / download Xray / mihomo cores
+./gradlew app:assembleOssRelease
+```
+
+未配置签名时生成未签名的 APK。/ Without signing configured, the APK is left unsigned.
 
 ## Credits
 
