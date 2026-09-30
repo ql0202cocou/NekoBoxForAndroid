@@ -6,6 +6,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.net.ConnectivityManager
 import android.net.Network
@@ -316,10 +318,26 @@ class SagerNet : Application(),
             null
         }
 
-        // 作用于本应用的全部任务；标记记在系统的任务记录里，进程重启后仍在
-        fun setExcludeFromRecents(exclude: Boolean = DataStore.hideFromRecents) {
+        // manifest 声明了 excludeFromRecents 的界面（alias 随目标）。系统按同一份
+        // ActivityInfo.flags 给它们起头的任务打隐藏标志；安装期内不变，进程内只查一次
+        private val manifestExcludedActivities by lazy {
+            application.packageManager.getPackageInfo(
+                application.packageName,
+                PackageManager.GET_ACTIVITIES or PackageManager.MATCH_DISABLED_COMPONENTS
+            ).activities.orEmpty()
+                .filter { it.flags and ActivityInfo.FLAG_EXCLUDE_FROM_RECENTS != 0 }
+                .mapTo(HashSet()) { it.name }
+        }
+
+        // 作用于本应用的全部任务；标记记在系统的任务记录里，进程重启后仍在。
+        // 写 false 时跳过上面那些界面起头的任务：manifest 声明与这里写的是 base intent
+        // 上的同一个标志，写 false 会把它们放回最近任务
+        fun setExcludeFromRecents(exclude: Boolean) {
             activity.appTasks.forEach {
                 try {
+                    if (!exclude &&
+                        it.taskInfo?.baseIntent?.component?.className in manifestExcludedActivities
+                    ) return@forEach
                     it.setExcludeFromRecents(exclude)
                 } catch (e: RuntimeException) {
                     // 任务在取列表后已被移除

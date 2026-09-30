@@ -14,6 +14,7 @@ import androidx.core.graphics.ColorUtils
 import androidx.fragment.app.DialogFragment
 import com.google.android.material.snackbar.Snackbar
 import io.nekohasekai.sagernet.SagerNet
+import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.ktx.showAllowingStateLoss
 import io.nekohasekai.sagernet.utils.Theme
@@ -49,8 +50,11 @@ abstract class ThemedActivity : AppCompatActivity {
             enableEdgeToEdge(statusBarStyle = statusBarStyle)
         }
         super.onCreate(savedInstanceState)
-        // 任务可能由任一界面起头（如快捷方式直达扫码页），每次建界面都按设置同步一次
-        SagerNet.setExcludeFromRecents()
+        // 任务可能由任一界面起头（如快捷方式直达扫码页），开着设置时每次建界面都补一次。
+        // 这里不写 false：关闭只由设置页的开关回调处理；恢复备份、重置设置经
+        // ProcessPhoenix 以 NEW_TASK | CLEAR_TASK 重启，系统会换掉任务的 base intent，
+        // 残留的隐藏标志随之消失
+        if (DataStore.hideFromRecents) SagerNet.setExcludeFromRecents(true)
 
         uiMode = resources.configuration.uiMode
     }
