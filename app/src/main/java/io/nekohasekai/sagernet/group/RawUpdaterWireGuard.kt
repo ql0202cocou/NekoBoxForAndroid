@@ -1,7 +1,7 @@
 package io.nekohasekai.sagernet.group
 
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
-import io.nekohasekai.sagernet.fmt.wireguard.isWireGuardLocalAddressList
+import io.nekohasekai.sagernet.fmt.wireguard.sanitizeImportedAllowedIps
 import io.nekohasekai.sagernet.ktx.*
 
 fun parseWireGuard(conf: String): List<WireGuardBean> {
@@ -53,15 +53,6 @@ fun parseWireGuard(conf: String): List<WireGuardBean> {
     }
     if (beans.isEmpty()) error("Empty available peer list")
     return beans
-}
-
-// 导入的 AllowedIPs 没经过编辑器校验，而构建配置时非法值会直接报错：在导入时就清空，
-// 回到放行全部（与该字段生效前的行为一致），免得节点导入成功、连接时才失败。
-// 日志不带原值
-internal fun sanitizeImportedAllowedIps(raw: String): String {
-    if (isWireGuardLocalAddressList(raw)) return raw
-    Logs.w("WireGuard AllowedIPs is not a CIDR list, cleared on import")
-    return ""
 }
 
 // Minimal INI reader covering the WireGuard config syntax ini4j was used for:

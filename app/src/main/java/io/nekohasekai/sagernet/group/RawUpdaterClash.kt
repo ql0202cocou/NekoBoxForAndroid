@@ -17,6 +17,7 @@ import io.nekohasekai.sagernet.fmt.v2ray.isTLS
 import io.nekohasekai.sagernet.fmt.v2ray.muxProtocolType
 import io.nekohasekai.sagernet.fmt.v2ray.setTLS
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
+import io.nekohasekai.sagernet.fmt.wireguard.sanitizeImportedAllowedIps
 import io.nekohasekai.sagernet.ktx.*
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint

@@ -145,7 +145,8 @@ class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenu
     private var waitingForCore = false
 
     fun onCoreConnected() {
-        if (!waitingForCore) return
+        // Clash API 关着时连上了面板也不可用：保持等待，不重走 loadPanel，免得每次重连都弹提示
+        if (!waitingForCore || !DataStore.enableClashAPI) return
         loadPanel(mWebView ?: return)
     }
 

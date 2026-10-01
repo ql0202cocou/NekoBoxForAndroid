@@ -750,23 +750,12 @@ private class ConfigBuild(
         if (rule.packages.isNotEmpty()) {
             PackageCache.awaitLoadSync()
         }
-        if (!isVPN && rule.packages.isNotEmpty()) {
-            // once per rule, not per package; buildConfig runs on a Looper-less
-            // background thread in the :bg process, so post the Toast to main
-            runOnMainDispatcher {
-                Toast.makeText(
-                    SagerNet.application,
-                    SagerNet.application.getString(R.string.route_need_vpn, rule.displayName()),
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-        }
         val uidList = rule.packages.map {
             PackageCache[it]?.takeIf { uid -> uid >= 1000 }
         }.toHashSet().filterNotNull()
         // 填了应用却一个 uid 都解析不到（已卸载 / 无效包名）时整条跳过：下面只在
         // uidList 非空时写 user_id，带 domain / ip 等其他条件的规则（及其 DNS 规则）
-        // 会扩大到所有应用
+        // 会扩大到所有应用。先于下面「需要 VPN」的提示判断，一条规则最多一条 Toast
         if (rule.packages.isNotEmpty() && uidList.isEmpty()) {
             Logs.w("rule ${rule.displayName()}: none of its apps are installed, skipped")
             runOnMainDispatcher {
@@ -777,6 +766,17 @@ private class ConfigBuild(
                 ).show()
             }
             return
+        }
+        if (!isVPN && rule.packages.isNotEmpty()) {
+            // once per rule, not per package; buildConfig runs on a Looper-less
+            // background thread in the :bg process, so post the Toast to main
+            runOnMainDispatcher {
+                Toast.makeText(
+                    SagerNet.application,
+                    SagerNet.application.getString(R.string.route_need_vpn, rule.displayName()),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
         }
         val ruleSets = mutableListOf<RuleSet>()
 
