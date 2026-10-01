@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"libcore/device"
 	"net"
 	"net/http"
@@ -19,6 +20,9 @@ import (
 
 var errFailConnectSocks5 = errors.New("fail connect socks5")
 
+// StrictSocks5 下本地代理失败时返回的错误：提示用户为什么不回退直连、怎么自救
+var errSocks5Strict = errors.New("local proxy failed and direct fallback is disabled while the proxy-only service is running; stop the service to update directly")
+
 const (
 	// httpDialTimeout bounds connection establishment.
 	httpDialTimeout = 10 * time.Second
@@ -33,7 +37,7 @@ const (
 )
 
 // HTTPClient configuration methods (RestrictedTLS, ModernTLS, TrySocks5,
-// TryH3Direct, KeepAlive) mutate the shared client
+// StrictSocks5, TryH3Direct, KeepAlive) mutate the shared client
 // without synchronization, while NewRequest snapshots the TLS config with
 // Clone and gomobile may invoke exported methods from any thread: call them
 // single-threaded, before the first NewRequest.
@@ -41,6 +45,7 @@ type HTTPClient interface {
 	RestrictedTLS()
 	ModernTLS()
 	TrySocks5(port int32)
+	StrictSocks5()
 	TryH3Direct()
 	KeepAlive()
 	NewRequest() HTTPRequest
@@ -76,6 +81,7 @@ type httpClient struct {
 	h1h2Transport http.Transport
 	h1h2Client    http.Client
 	trySocks5     bool
+	strictSocks5  bool
 	tryH3Direct   bool
 }
 
@@ -149,6 +155,9 @@ func (c *httpClient) TrySocks5(port int32) {
 			if socksConn != nil {
 				socksConn.Close()
 			}
+			if c.strictSocks5 {
+				return nil, fmt.Errorf("%w: %v", errSocks5Strict, err)
+			}
 			if c.tryH3Direct {
 				return nil, errFailConnectSocks5
 			}
@@ -163,6 +172,17 @@ func (c *httpClient) TrySocks5(port int32) {
 		return socksConn, nil
 	}
 	c.trySocks5 = true
+}
+
+// StrictSocks5 关掉 TrySocks5 的直连回退：本地代理拨不通、握手失败或回 CONNECT 失败
+// 时直接报错，也不走 TryH3Direct 的直连竞速。仅代理（无 VPN）模式下服务在跑时由
+// Kotlin 侧开启——那时直连是真直连物理网络，会把请求地址暴露给运营商；VPN 模式下
+// 直连会被 tun 捕获，服务没跑时直连本就是预期行为，都不必开。
+// Must be called before the first NewRequest; see HTTPClient.
+func (c *httpClient) StrictSocks5() {
+	defer device.DeferPanicToError("http StrictSocks5", nil)
+
+	c.strictSocks5 = true
 }
 
 // TryH3Direct races an ECH-capable TLS request against HTTP/3.

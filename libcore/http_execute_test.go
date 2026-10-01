@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -306,4 +308,41 @@ func TestExecuteOwnTLSTransportLifetime(t *testing.T) {
 			t.Fatal("shared transport must not be torn down per request")
 		}
 	})
+}
+
+// StrictSocks5（仅代理模式下服务在跑）：本地代理失败时必须报错，既不直连也不走
+// TryH3Direct 的直连竞速，否则请求会绕过代理暴露给物理网络
+func TestExecuteStrictSocks5NoFallback(t *testing.T) {
+	var hits atomic.Int32
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		w.Write([]byte("direct"))
+	}))
+	defer backend.Close()
+
+	for _, h3 := range []bool{false, true} {
+		port := int32(refusedAddr(t).Port)
+		client := NewHttpClient()
+		client.TrySocks5(port)
+		client.StrictSocks5()
+		if h3 {
+			client.TryH3Direct()
+		}
+		request := client.NewRequest()
+		if err := request.SetURL(backend.URL); err != nil {
+			t.Fatal(err)
+		}
+		response, err := request.Execute()
+		if err == nil {
+			response.Close()
+			t.Fatalf("tryH3Direct=%v: request succeeded, want an error", h3)
+		}
+		if !errors.Is(err, errSocks5Strict) && !strings.Contains(err.Error(), errSocks5Strict.Error()) {
+			t.Fatalf("tryH3Direct=%v: err = %v, want %v", h3, err, errSocks5Strict)
+		}
+		client.Close()
+	}
+	if got := hits.Load(); got != 0 {
+		t.Fatalf("backend hit %d times, want 0 (no direct fallback)", got)
+	}
 }

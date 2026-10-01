@@ -5,6 +5,9 @@ package io.nekohasekai.sagernet.ktx
 import android.net.Network
 import android.os.SystemClock
 import io.nekohasekai.sagernet.BuildConfig
+import io.nekohasekai.sagernet.Key
+import io.nekohasekai.sagernet.bg.ServiceRegistry
+import io.nekohasekai.sagernet.database.DataStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
@@ -13,6 +16,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import libcore.HTTPClient
 import libcore.Libcore
 import moe.matsuri.nb4a.utils.NGUtil
 import okhttp3.HttpUrl
@@ -22,6 +26,14 @@ import java.net.Socket
 import java.util.concurrent.ConcurrentHashMap
 
 fun linkBuilder() = HttpUrl.Builder().scheme("https")
+
+// 经本地 mixed 端口拉取。仅代理（无 VPN）模式下服务在跑时，代理失败直接报错、不回退
+// 直连：那时直连是真直连物理网络，请求地址会暴露给运营商（见 libcore StrictSocks5）。
+// VPN 模式下直连会被 tun 捕获，服务没跑时直连本就是预期行为，都照旧回退
+fun HTTPClient.useLocalProxy() {
+    trySocks5(DataStore.mixedPort)
+    if (ServiceRegistry.state.started && DataStore.serviceMode != Key.MODE_VPN) strictSocks5()
+}
 
 // Profile links share the authority/query shape of an HTTP URL, so okhttp can parse
 // them once the scheme is swapped. Rebuilding the prefix — rather than replace() —
