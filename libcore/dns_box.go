@@ -142,6 +142,9 @@ func awaitPlatform(ctx context.Context, call func(*ExchangeContext) error) (*Exc
 		doneChan: make(chan struct{}),
 	}
 	if err := call(response); err != nil {
+		// 同步失败后不会再有回调：就地 settle，OnCancel 已起的 goroutine 随之退出，
+		// 不必挂到 ctx 结束
+		response.settleWith("awaitPlatform", func() { response.error = err })
 		return nil, err
 	}
 	select {

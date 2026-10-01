@@ -219,11 +219,27 @@ func TestAwaitPlatformContextCancel(t *testing.T) {
 	}
 }
 
+// call 同步失败（平台侧在 OnCancel 之后抛出）时不会再有回调：交换必须就地
+// settle，否则 OnCancel 起的 goroutine 要挂到 ctx 结束
 func TestAwaitPlatformCallError(t *testing.T) {
 	callErr := errors.New("call failed")
-	_, err := awaitPlatform(context.Background(), func(c *ExchangeContext) error { return callErr })
+	var exchange *ExchangeContext
+	recorder := new(invokeRecorder)
+	_, err := awaitPlatform(context.Background(), func(c *ExchangeContext) error {
+		exchange = c
+		c.OnCancel(recorder)
+		return callErr
+	})
 	if !errors.Is(err, callErr) {
 		t.Fatalf("err = %v, want %v", err, callErr)
+	}
+	select {
+	case <-exchange.doneChan:
+	default:
+		t.Fatal("exchange not settled after call error")
+	}
+	if got := recorder.count.Load(); got != 0 {
+		t.Fatalf("OnCancel callback invoked %d times, want 0", got)
 	}
 }
 
