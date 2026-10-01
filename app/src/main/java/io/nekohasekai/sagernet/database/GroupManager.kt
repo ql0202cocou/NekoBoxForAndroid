@@ -58,9 +58,13 @@ object GroupManager {
     }
 
     suspend fun clearGroup(groupId: Long) {
-        SagerDatabase.proxyDao.deleteAll(groupId)
+        // 删除与悬挂前置 / 落地引用的修正一个事务：中途进程死亡不留悬挂引用
+        SagerDatabase.instance.runInTransaction {
+            SagerDatabase.proxyDao.deleteAll(groupId)
+            resetDanglingGroupProxies()
+        }
+        // DataStore 写的是 PublicDatabase，放在 SagerDatabase 事务外
         ProfileManager.clearSelectedProxyIfGone()
-        resetDanglingGroupProxies()
         iterator { groupUpdated(groupId) }
     }
 

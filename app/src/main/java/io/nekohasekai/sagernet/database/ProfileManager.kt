@@ -194,15 +194,22 @@ object ProfileManager {
         for (profile in removed) iterator { onRemoved(profile.groupId, profile.id) }
     }
 
+    // 同 deleteProfiles：删除与 fixups 一个事务，监听器通知在提交后
     suspend fun deleteProfile(groupId: Long, profileId: Long) {
-        if (!deleteProfileRow(profileId)) return
-        clearSelectedProxyIfGone()
-        // the profile may be referenced as a group's frontProxy/landingProxy
-        GroupManager.resetDanglingGroupProxies()
-        iterator { onRemoved(groupId, profileId) }
-        if (SagerDatabase.proxyDao.countByGroup(groupId) > 1) {
-            GroupManager.rearrange(groupId)
+        var deleted = false
+        SagerDatabase.instance.runInTransaction {
+            deleted = deleteProfileRow(profileId)
+            if (!deleted) return@runInTransaction
+            // the profile may be referenced as a group's frontProxy/landingProxy
+            GroupManager.resetDanglingGroupProxies()
+            if (SagerDatabase.proxyDao.countByGroup(groupId) > 1) {
+                GroupManager.rearrange(groupId)
+            }
         }
+        if (!deleted) return
+        // DataStore 写的是 PublicDatabase，放在 SagerDatabase 事务外
+        clearSelectedProxyIfGone()
+        iterator { onRemoved(groupId, profileId) }
     }
 
     fun getProfile(profileId: Long): ProxyEntity? {

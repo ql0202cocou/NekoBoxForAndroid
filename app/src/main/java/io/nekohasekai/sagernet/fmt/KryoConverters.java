@@ -2,7 +2,6 @@ package io.nekohasekai.sagernet.fmt;
 
 import androidx.room.TypeConverter;
 
-import com.esotericsoftware.kryo.KryoException;
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
 
@@ -66,10 +65,12 @@ public class KryoConverters {
 
     // Room column path: a damaged row settles for a half-filled bean so the
     // rest of the query still loads and the row stays visible and deletable.
+    // 不只接 KryoException：损坏数据里 readString() 读出的 null 会在各 bean 的
+    // String switch 上抛 NPE，同样只该废掉这一行
     private static <T extends Serializable> T deserializeLenient(T bean, byte[] bytes) {
         try {
             return deserialize(bean, bytes);
-        } catch (KryoException e) {
+        } catch (RuntimeException e) {
             Logs.INSTANCE.w(e);
             bean.initializeDefaultValues();
             return bean;

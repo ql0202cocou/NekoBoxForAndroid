@@ -28,12 +28,14 @@ class RestoreJournal(private val dir: File, private val lockFile: File) {
 
     private val pending get() = File(dir, "pending.json")
 
-    // Kept for diagnosis after MAX_ATTEMPTS failed replays; never read again.
-    val failed get() = File(dir, "pending.failed.json")
+    // 旧版本放弃重放后把日志改名留在这里「供诊断」：含全部节点凭证的明文备份，
+    // 没有任何代码再读它，非 root 也取不出来。现在放弃即删，残留的在下次 stage 时清掉
+    private val legacyFailed get() = File(dir, "pending.failed.json")
 
     fun isPending(): Boolean = pending.exists()
 
     fun stage(backup: JSONObject, profile: Boolean, rule: Boolean, setting: Boolean) {
+        legacyFailed.delete()
         write(JSONObject().apply {
             put("attempts", 0)
             put("profiles", profile)
@@ -104,7 +106,7 @@ class RestoreJournal(private val dir: File, private val lockFile: File) {
     }
 
     private fun giveUp() {
-        failed.delete()
-        if (!pending.renameTo(failed)) pending.delete()
+        pending.delete()
+        legacyFailed.delete()
     }
 }
