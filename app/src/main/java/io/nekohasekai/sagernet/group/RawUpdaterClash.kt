@@ -602,8 +602,7 @@ private fun parseClashWireGuard(proxy: Map<String, Any?>): WireGuardBean {
             "persistent-keepalive" -> bean.peerKeepalive =
                 opt.value.toString().toIntOrNull() ?: 0
 
-            // stored for export round-trips only; the builder
-            // keeps the default route allowed_ips
+            // 构建时生效（留空才用默认路由），见 buildSingBoxEndpointWireGuardBean
             "allowed-ips" -> bean.peerAllowedIps =
                 (opt.value as? List<*>)?.mapNotNull { it?.toString() }
                     ?.joinToString(",") ?: opt.value.toString()
