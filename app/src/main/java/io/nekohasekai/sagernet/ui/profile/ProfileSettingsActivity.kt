@@ -43,6 +43,8 @@ import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
 import io.nekohasekai.sagernet.databinding.LayoutGroupItemBinding
 import io.nekohasekai.sagernet.fmt.AbstractBean
+import io.nekohasekai.sagernet.fmt.certificatePinUnsupported
+import io.nekohasekai.sagernet.fmt.putBean
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.ui.EditorActivity
 import kotlinx.parcelize.Parcelize
@@ -210,6 +212,20 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         // entity-level field, not part of the bean; seeded in onCreate
         val profileCore = EditorCache.profileCacheStore.getString(Key.PROFILE_CORE)
             ?.toIntOrNull() ?: ProxyEntity.CORE_AUTO
+        // 证书指纹配上不支持它的核心注定连不上（构建时拒绝），保存前就拦下。用编辑器
+        // 当前内容拼一个临时实体，按与构建相同的规则判断
+        val probe = ProxyEntity().apply {
+            core = profileCore
+            putBean(createEntity().apply { serialize() }.applyDefaultValues())
+        }
+        if (probe.certificatePinUnsupported()) {
+            onMainDispatcher {
+                Toast.makeText(
+                    this@ProfileSettingsActivity, R.string.certificate_pin_unsupported_error, Toast.LENGTH_LONG
+                ).show()
+            }
+            return
+        }
         if (editingId == 0L) {
             val editingGroup = EditorCache.editingGroup
             ProfileManager.createProfile(
