@@ -164,6 +164,13 @@ class MainActivity : ThemedActivity(),
         return connection.service!!.urlTest()
     }
 
+    // 导入链跑在 appScope（深链、配置页的剪贴板 / 文件导入都会进来），解析期间
+    // 旋转或退出后 Activity 已销毁：再弹窗会 BadTokenException，提交 Fragment 会抛
+    // "Activity has been destroyed"。这时放弃界面部分，已写库的导入不受影响
+    private suspend fun onLiveActivity(block: () -> Unit) = onMainDispatcher {
+        if (!isFinishing && !isDestroyed) block()
+    }
+
     suspend fun importSubscription(uri: Uri) {
         val group: ProxyGroup
 
@@ -185,7 +192,7 @@ class MainActivity : ThemedActivity(),
                     export = false
                 }
             } catch (e: Exception) {
-                onMainDispatcher {
+                onLiveActivity {
                     alert(e.readableMessage).show()
                 }
                 return
@@ -199,7 +206,7 @@ class MainActivity : ThemedActivity(),
         if (!link.isNullOrBlank()) {
             val scheme = link.toUri().scheme?.lowercase()
             if (scheme != "http" && scheme != "https") {
-                onMainDispatcher {
+                onLiveActivity {
                     alert(getString(R.string.invalid_subscription_url)).show()
                 }
                 return
@@ -213,7 +220,7 @@ class MainActivity : ThemedActivity(),
         group.name = group.name.takeIf { !it.isNullOrBlank() }
             ?: ("Subscription #" + System.currentTimeMillis())
 
-        onMainDispatcher {
+        onLiveActivity {
 
             displayFragmentWithId(R.id.nav_group)
 
@@ -242,13 +249,13 @@ class MainActivity : ThemedActivity(),
         val profile = try {
             parseProxies(uri.toString()).getOrNull(0) ?: error(getString(R.string.no_proxies_found))
         } catch (e: Exception) {
-            onMainDispatcher {
+            onLiveActivity {
                 alert(e.readableMessage).show()
             }
             return
         }
 
-        onMainDispatcher {
+        onLiveActivity {
             MaterialAlertDialogBuilder(this@MainActivity).setTitle(R.string.profile_import)
                 .setMessage(getString(R.string.profile_import_message, profile.displayName()))
                 .setPositiveButton(R.string.yes) { _, _ ->
@@ -267,7 +274,7 @@ class MainActivity : ThemedActivity(),
 
         ProfileManager.createProfile(targetId, profile)
 
-        onMainDispatcher {
+        onLiveActivity {
             displayFragmentWithId(R.id.nav_configuration)
 
             snackbar(resources.getQuantityString(R.plurals.added, 1, 1)).show()

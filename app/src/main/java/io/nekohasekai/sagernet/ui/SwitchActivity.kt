@@ -15,10 +15,12 @@ class SwitchActivity : ThemedActivity(R.layout.layout_empty),
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // 同 ProfileSelectActivity：进程恢复时 Fragment 已按 arguments 重建
+        if (savedInstanceState != null) return
         supportFragmentManager.beginTransaction()
             .replace(
                 R.id.fragment_holder,
-                ConfigurationFragment(true, null, R.string.action_switch)
+                ConfigurationFragment.newSelectInstance(null, R.string.action_switch)
             )
             .commitAllowingStateLoss()
     }

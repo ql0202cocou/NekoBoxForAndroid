@@ -17,12 +17,14 @@ class ProfileSelectActivity : ThemedActivity(R.layout.layout_empty),
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // 进程恢复时系统已按 arguments 重建了 Fragment，再 replace 会丢掉分组页状态
+        if (savedInstanceState != null) return
         val selected = IntentCompat.getParcelableExtra(intent, EXTRA_SELECTED, ProxyEntity::class.java)
 
         supportFragmentManager.beginTransaction()
             .replace(
                 R.id.fragment_holder,
-                ConfigurationFragment(true, selected, R.string.select_profile)
+                ConfigurationFragment.newSelectInstance(selected, R.string.select_profile)
             )
             .commitAllowingStateLoss()
     }

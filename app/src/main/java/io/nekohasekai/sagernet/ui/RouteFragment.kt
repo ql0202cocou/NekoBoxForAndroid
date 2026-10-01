@@ -62,7 +62,11 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
                 recyclerView: RecyclerView,
                 viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder,
             ): Boolean {
-                ruleAdapter.move(viewHolder.bindingAdapterPosition, target.bindingAdapterPosition)
+                val from = viewHolder.bindingAdapterPosition
+                val to = target.bindingAdapterPosition
+                // 同 ChainSettingsActivity：适配器有待处理的更新时位置可能是 NO_POSITION（-1）
+                if (from == RecyclerView.NO_POSITION || to == RecyclerView.NO_POSITION) return false
+                ruleAdapter.move(from, to)
                 return true
             }
 
@@ -146,11 +150,11 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
 
         private val updated = HashSet<RuleEntity>()
         fun move(from: Int, to: Int) {
-            moveUserOrder(from, to, RuleEntity::userOrder, ruleList::get) { i, rule ->
+            val moved = moveUserOrder(from, to, RuleEntity::userOrder, ruleList::get) { i, rule ->
                 ruleList[i] = rule
                 updated.add(rule)
             }
-            notifyItemMoved(from, to)
+            if (moved) notifyItemMoved(from, to)
         }
 
         fun commitMove() {

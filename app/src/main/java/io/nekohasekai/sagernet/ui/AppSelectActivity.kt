@@ -325,6 +325,7 @@ abstract class AppSelectActivity : ThemedActivity() {
             R.id.action_clear_selections -> {
                 proxiedUids.clear()
                 applySelection()
+                return true
             }
 
             R.id.action_export_clipboard -> {
@@ -358,6 +359,7 @@ abstract class AppSelectActivity : ThemedActivity() {
                     }
                 }
                 Snackbar.make(views.list, R.string.action_import_err, Snackbar.LENGTH_LONG).show()
+                return true
             }
         }
         return super.onOptionsItemSelected(item)

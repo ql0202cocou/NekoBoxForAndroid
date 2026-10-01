@@ -86,12 +86,14 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
     private fun visibleIds(): List<Long> {
         if (query.isEmpty()) return allProfileIds.toList()
         return allProfileIds.filter { id ->
-            val profile = configurationList[id] ?: return@filter false
-            profile.displayName().lowercase().contains(query) ||
-                    profile.displayType().lowercase().contains(query) ||
-                    profile.displayAddress().lowercase().contains(query)
+            matchesQuery(configurationList[id] ?: return@filter false)
         }
     }
+
+    private fun matchesQuery(profile: ProxyEntity) = query.isEmpty() ||
+            profile.displayName().lowercase().contains(query) ||
+            profile.displayType().lowercase().contains(query) ||
+            profile.displayAddress().lowercase().contains(query)
 
     fun filter(name: String) {
         // 本来就没在搜索：清空会广播到所有分组页，不必每页都整组重读
@@ -176,10 +178,12 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
             if (groupFragment.isUndoManagerInitialized) {
                 groupFragment.undoManager.flush()
             }
-            val pos = itemCount
             configurationList[profile.id] = profile
-            configurationIdList.add(profile.id)
             allProfileIds.add(profile.id)
+            // 搜索中只把命中的新节点放进可见列表，与 visibleIds() 的过滤一致
+            if (!matchesQuery(profile)) return@post
+            val pos = itemCount
+            configurationIdList.add(profile.id)
             notifyItemInserted(pos)
         }
     }

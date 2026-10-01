@@ -102,7 +102,11 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                 recyclerView: RecyclerView,
                 viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder,
             ): Boolean {
-                groupAdapter.move(viewHolder.bindingAdapterPosition, target.bindingAdapterPosition)
+                val from = viewHolder.bindingAdapterPosition
+                val to = target.bindingAdapterPosition
+                // 同 ChainSettingsActivity：适配器有待处理的更新时位置可能是 NO_POSITION（-1）
+                if (from == RecyclerView.NO_POSITION || to == RecyclerView.NO_POSITION) return false
+                groupAdapter.move(from, to)
                 return true
             }
 
@@ -236,11 +240,11 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         private val updated = HashSet<ProxyGroup>()
 
         fun move(from: Int, to: Int) {
-            moveUserOrder(from, to, ProxyGroup::userOrder, groupList::get) { i, group ->
+            val moved = moveUserOrder(from, to, ProxyGroup::userOrder, groupList::get) { i, group ->
                 groupList[i] = group
                 updated.add(group)
             }
-            notifyItemMoved(from, to)
+            if (moved) notifyItemMoved(from, to)
         }
 
         fun commitMove() {

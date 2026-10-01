@@ -10,8 +10,11 @@ import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.PopupMenu
 import androidx.appcompat.widget.SearchView
+import androidx.annotation.StringRes
 import androidx.appcompat.widget.Toolbar
 import androidx.core.net.toUri
+import androidx.core.os.BundleCompat
+import androidx.core.os.bundleOf
 import androidx.preference.PreferenceDataStore
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.tabs.TabLayout
@@ -78,13 +81,35 @@ import io.nekohasekai.sagernet.database.EditorCache
 // 重建后的 fragment 不能再起第二个
 private val runningTest = AtomicBoolean(false)
 
-class ConfigurationFragment @JvmOverloads constructor(
-    val select: Boolean = false, val selectedItem: ProxyEntity? = null, val titleRes: Int = 0
-) : ToolbarFragment(R.layout.layout_group_list),
+class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
     PopupMenu.OnMenuItemClickListener,
     Toolbar.OnMenuItemClickListener,
     SearchView.OnQueryTextListener,
     OnPreferenceDataStoreChangeListener {
+
+    companion object {
+        private const val ARG_SELECT = "select"
+        private const val ARG_SELECTED_ITEM = "selectedItem"
+        private const val ARG_TITLE_RES = "titleRes"
+
+        // 选择模式（ProfileSelectActivity / SwitchActivity）。参数必须走 arguments：
+        // 进程被杀后系统只用无参构造恢复 Fragment 并带回 arguments，构造参数会丢，
+        // 恢复出来的就成了无标题的普通节点页
+        fun newSelectInstance(selectedItem: ProxyEntity?, @StringRes titleRes: Int) =
+            ConfigurationFragment().apply {
+                arguments = bundleOf(
+                    ARG_SELECT to true,
+                    ARG_SELECTED_ITEM to selectedItem,
+                    ARG_TITLE_RES to titleRes,
+                )
+            }
+    }
+
+    val select get() = arguments?.getBoolean(ARG_SELECT) ?: false
+    val selectedItem: ProxyEntity? by lazy {
+        arguments?.let { BundleCompat.getParcelable(it, ARG_SELECTED_ITEM, ProxyEntity::class.java) }
+    }
+    private val titleRes get() = arguments?.getInt(ARG_TITLE_RES) ?: 0
 
     interface SelectCallback {
         fun returnProfile(profileId: Long)
