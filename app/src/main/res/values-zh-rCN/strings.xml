@@ -258,6 +258,7 @@
     <string name="update_settings">更新设置</string>
     <string name="auto_update">自动更新</string>
     <string name="auto_update_delay">自动更新间隔 (分)</string>
+    <string name="auto_update_delay_error">自动更新间隔须为不小于 15 的整数（分钟）。</string>
     <string name="update_when_connected_only">仅在连接时更新</string>
     <string name="update_when_connected_only_sum">防止 IP 地址泄漏</string>
     <string name="subscription_user_agent">用户代理</string>
@@ -417,6 +418,7 @@
     <string name="format">格式化</string>
     <string name="hysteria_ports_error">端口必须为 1 到 65535，可用逗号分隔；范围如 1000:2000，起点不能大于终点。</string>
     <string name="wireguard_reserved_error">Reserved 必须为空，或包含三个 0 到 255 之间的整数。</string>
+    <string name="mixed_port_range_error">端口须在 1025 到 65535 之间。</string>
     <string name="wireguard_key_error">请输入解码后为 32 字节的标准 Base64 密钥。预共享密钥可以留空。</string>
     <string name="wireguard_address_error">请使用 IPv4/前缀长度（0–32）或 IPv6/前缀长度（0–128），多个地址用逗号或换行分隔。</string>
     <string name="reality_public_key_error">请输入 REALITY 公钥：43 个 URL 安全 Base64 字符（32 字节）。</string>

@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
+import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.preference.*
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -155,7 +156,18 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             true
         }
 
-        mixedPort.onPreferenceChangeListener = reloadListener
+        // 范围同 DataStore.mixedPort 的 parsePort：越界值会被静默换成 2080 + 用户偏移，
+        // 界面却显示原值，所以在保存前拦下
+        mixedPort.setOnPreferenceChangeListener { _, newValue ->
+            val port = (newValue as? String)?.toIntOrNull()
+            if (port == null || port !in 1025..65535) {
+                Toast.makeText(requireContext(), R.string.mixed_port_range_error, Toast.LENGTH_LONG).show()
+                false
+            } else {
+                needReload()
+                true
+            }
+        }
         appendHttpProxy.onPreferenceChangeListener = reloadListener
         showDirectSpeed.onPreferenceChangeListener = reloadListener
         trafficSniffing.onPreferenceChangeListener = reloadListener

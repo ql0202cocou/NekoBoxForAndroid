@@ -18,6 +18,7 @@ import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.*
+import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
@@ -180,12 +181,12 @@ class GroupSettingsActivity(
         }
 
         subscriptionAutoUpdateDelay.isEnabled = subscriptionAutoUpdate.isChecked
+        subscriptionAutoUpdateDelay.setOnBindEditTextListener(EditTextPreferenceModifiers.Number)
         subscriptionAutoUpdateDelay.setOnPreferenceChangeListener { _, newValue ->
             val delay = (newValue as String).toIntOrNull()
-            if (delay == null) {
-                false
-            } else {
-                delay >= 15
+            // 拒绝时给出原因：之前静默不保存，看起来像没点到确定
+            (delay != null && delay >= 15).also { ok ->
+                if (!ok) Toast.makeText(this@GroupSettingsActivity, R.string.auto_update_delay_error, Toast.LENGTH_LONG).show()
             }
         }
         subscriptionAutoUpdate.setOnPreferenceChangeListener { _, newValue ->

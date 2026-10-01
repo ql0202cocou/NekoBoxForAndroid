@@ -301,6 +301,7 @@
     <string name="update_settings">Update Settings</string>
     <string name="auto_update">Auto Update</string>
     <string name="auto_update_delay">Auto Update Delay (In minutes)</string>
+    <string name="auto_update_delay_error">Auto update delay must be a whole number of at least 15 minutes.</string>
     <string name="update_when_connected_only">Update only when connected</string>
     <string name="update_when_connected_only_sum">Prevent IP address leakage</string>
     <string name="subscription_user_agent">UserAgent</string>
@@ -478,6 +479,7 @@
     <string name="integer_range_error">Enter an integer between %1$d and %2$d.</string>
     <string name="hysteria_ports_error">Use ports from 1 to 65535, separated by commas. Ranges such as 1000:2000 must be in ascending order.</string>
     <string name="wireguard_reserved_error">Reserved must be empty or contain exactly three integers from 0 to 255.</string>
+    <string name="mixed_port_range_error">Port must be between 1025 and 65535.</string>
     <string name="wireguard_key_error">Enter a standard Base64 key that decodes to 32 bytes. The pre-shared key may be empty.</string>
     <string name="wireguard_address_error">Use IPv4/prefix (0–32) or IPv6/prefix (0–128), separated by commas or new lines.</string>
     <string name="reality_public_key_error">Enter a REALITY public key: 43 URL-safe Base64 characters (32 bytes).</string>
