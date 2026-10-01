@@ -278,6 +278,9 @@ func (b *BoxInstance) QueryStats(tag, direct string) int64 {
 	return b.v2api.QueryStats(fmt.Sprintf("outbound>>>%s>>>traffic>>>%s", tag, direct))
 }
 
+// SelectOutbound 必须保持无锁，不能改用 lockIfOpen：selector 切换时同步回调
+// nekoutils.Selector_OnProxySelected → Kotlin NativeInterface → Libcore.resetAllConnections，
+// 后者在同一线程上 lockIfOpen 取 b.access，这里持锁会自死锁
 func (b *BoxInstance) SelectOutbound(tag string) bool {
 	defer device.DeferPanicToError("box.SelectOutbound", nil)
 
