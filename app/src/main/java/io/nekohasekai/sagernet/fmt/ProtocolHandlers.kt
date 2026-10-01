@@ -172,11 +172,14 @@ fun ProxyEntity.haveLink(): Boolean {
 fun ProxyEntity.coreForType(): Int {
     return when (type) {
         // xray dropped the h2/quic transports and, after 2026-06-01,
-        // allowInsecure; those profiles only run on sing-box
-        TYPE_VMESS ->
-            if (vmessBean!!.isVLESS && !vmessBean!!.xrayLacksTransport() &&
-                !vmessBean!!.xrayLacksAllowInsecure()
-            ) CORE_XRAY else CORE_SING_BOX
+        // allowInsecure; those profiles only run on sing-box.
+        // 设了证书指纹的 VMess 也优先 Xray：sing-box 不支持这个固定，会拒绝构建
+        // （见 buildSingBoxOutboundTLS）
+        TYPE_VMESS -> vmessBean!!.let { bean ->
+            val preferXray = bean.isVLESS || bean.certificateFingerprint.isNotBlank()
+            if (preferXray && !bean.xrayLacksTransport() && !bean.xrayLacksAllowInsecure()) CORE_XRAY
+            else CORE_SING_BOX
+        }
 
         TYPE_ANYTLS -> CORE_MIHOMO
         else -> CORE_SING_BOX
