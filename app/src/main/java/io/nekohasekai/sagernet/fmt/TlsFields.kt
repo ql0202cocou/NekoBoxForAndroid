@@ -2,7 +2,6 @@ package io.nekohasekai.sagernet.fmt
 
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.fmt.v2ray.requireValidReality
-import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.blankAsNull
 import moe.matsuri.nb4a.SingBoxOptions.OutboundECHOptions
 import moe.matsuri.nb4a.SingBoxOptions.OutboundRealityOptions
@@ -37,11 +36,14 @@ fun effectiveAllowInsecure(allowInsecure: Boolean?): Boolean =
 // bean -> sing-box outbound tls block, null when the bean does not use TLS
 fun buildSingBoxOutboundTLS(bean: AbstractBean): OutboundTLSOptions? {
     val tls = tlsFields(bean) ?: return null
-    // sing-box has no compatible option: its certificate_public_key_sha256 is
-    // an SPKI hash, not interchangeable with a certificate SHA-256, so the pin
-    // is stored without effect on this core (Xray and mihomo honor it instead)
+    // sing-box 没有对应选项：它的 certificate_public_key_sha256 是 SPKI 哈希，与证书
+    // SHA-256 不通用（Xray / mihomo 才支持这个固定）。用户要求固定证书却静默放行，
+    // 比没有这个功能更危险，所以拒绝构建，由用户清空指纹或换用支持的核心
     if (!tls.certificateFingerprint.isNullOrBlank()) {
-        Logs.w("certificate fingerprint pinning is not supported by sing-box, ignored")
+        error(
+            "${bean.displayName()}: certificate fingerprint pinning is not supported by the " +
+                    "sing-box core; clear it or use a core that supports it"
+        )
     }
     return OutboundTLSOptions().apply {
         enabled = true
