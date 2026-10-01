@@ -74,8 +74,17 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
         // 顺序契约：调用方必须先停 looper 再 close()——killProcesses 先挂起等
         // stopLoop()，destroyRunner 在后台协程里同样先等 stopLoop()。新调用方
         // 不得绕过这一顺序直接调 close()
-        looper = null
+        // 竞态兜底：launch() 的启动块可能整段落在调用方读 looper 之后、这里置 closed
+        // 之前——调用方读到 null 没停，块内的 isClosed() 复查也还是 false。所以先置
+        // closed 再读 looper（与启动块「写 looper → 读 closed」相反），两边必有一方看到
+        // 对方。正常路径读到的是调用方已停的 looper，stopLoop 的 CAS 直接返回。
+        // 只停循环不做最终推送：重启后 data.proxy 可能已是新实例，flushStats 会把
+        // 泄漏循环的计数写到新实例的节点上。box 此时已关，queryStats 经 lockIfOpen
+        // 返回 0，不需要存活的 box
         super.close()
+        val trafficLooper = looper ?: return
+        looper = null
+        runOnDefaultDispatcher { trafficLooper.stopLoop() }
     }
 
 }
