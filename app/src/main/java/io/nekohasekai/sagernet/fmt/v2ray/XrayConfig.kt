@@ -85,7 +85,14 @@ fun buildXrayConfig(bean: VMessBean, port: Int): String {
 
     return JSONObject().apply {
         put("log", JSONObject().apply {
-            put("loglevel", if (DataStore.logLevel > 0) "debug" else "warning")
+            // 与 ConfigBuilder 的 sing-box 档位一致；Xray 没有 trace，最高到 debug
+            put(
+                "loglevel", when (DataStore.logLevel) {
+                    2 -> "info"
+                    3, 4 -> "debug"
+                    else -> "warning"
+                }
+            )
         })
         put("inbounds", JSONArray().apply {
             put(JSONObject().apply {

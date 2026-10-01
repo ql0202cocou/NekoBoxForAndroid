@@ -2,7 +2,10 @@ package moe.matsuri.nb4a.utils
 
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.zip.DataFormatException
 
@@ -48,6 +51,48 @@ class UtilTest {
             "https://example.com/?password=***&key=***",
             Util.redactSecrets("https://example.com/?password=hunter2&key=hunter2")
         )
+    }
+
+    @Test
+    fun `redactSecrets 打码字符串数组形式的密码`() {
+        assertEquals(
+            """{"password": ["***"], "remote_port": 443}""",
+            Util.redactSecrets("""{"password": ["a", "b\"c"], "remote_port": 443}""")
+        )
+    }
+
+    @Test
+    fun `redactSecrets 打码 hysteria1 的 obfs，hysteria2 的 obfs 对象只打码 password`() {
+        assertEquals(
+            """{"obfs": "***"}""",
+            Util.redactSecrets("""{"obfs": "hunter2"}""")
+        )
+        assertEquals(
+            """{"obfs": {"type": "salamander", "password": "***"}}""",
+            Util.redactSecrets("""{"obfs": {"type": "salamander", "password": "hunter2"}}""")
+        )
+    }
+
+    @Test
+    fun `redactDnsServerPaths 只遮蔽 dns servers 的 path`() {
+        val config = """{"dns":{"servers":[{"type":"https","server":"dns.nextdns.io","path":"/abc123"},""" +
+            """{"type":"udp","server":"1.1.1.1"}]},""" +
+            """"outbounds":[{"type":"vmess","transport":{"type":"ws","path":"/ws"}}]}"""
+        val redacted = Util.redactDnsServerPaths(config)
+        assertFalse(redacted.contains("abc123"))
+        assertTrue(redacted.contains("\"/***\""))
+        assertTrue(redacted.contains("\"/ws\""))
+        assertTrue(redacted.contains("dns.nextdns.io"))
+    }
+
+    @Test
+    fun `redactDnsServerPaths 无可遮蔽内容时原样返回`() {
+        val noPath = """{"dns":{"servers":[{"type":"udp","server":"1.1.1.1"}]}}"""
+        assertSame(noPath, Util.redactDnsServerPaths(noPath))
+        val notJson = "not a config"
+        assertSame(notJson, Util.redactDnsServerPaths(notJson))
+        val array = """[{"dns":{}}]"""
+        assertSame(array, Util.redactDnsServerPaths(array))
     }
 
     @Test

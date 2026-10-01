@@ -67,7 +67,12 @@ fun buildMihomoConfig(
     listener["udp"] = true
 
     val config = LinkedHashMap<String, Any?>()
-    config["log-level"] = if (DataStore.logLevel > 0) "debug" else "warning"
+    // 与 ConfigBuilder 的 sing-box 档位一致；mihomo 没有 trace，最高到 debug
+    config["log-level"] = when (DataStore.logLevel) {
+        2 -> "info"
+        3, 4 -> "debug"
+        else -> "warning"
+    }
     config["mode"] = "rule"
     if (controllerPort != null) {
         config["external-controller"] = "$LOCALHOST:$controllerPort"

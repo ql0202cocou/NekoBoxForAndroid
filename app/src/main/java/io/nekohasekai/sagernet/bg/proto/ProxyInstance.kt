@@ -26,7 +26,7 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
         super.buildConfig()
         // configs contain credentials; redact them before writing to the exportable log.
         // 脱敏要对整份配置跑多遍正则，日志关闭时直接跳过
-        if (Logs.enabled) Logs.d(Util.redactSecrets(config.config))
+        if (Logs.enabled) Logs.d(Util.redactSecrets(Util.redactDnsServerPaths(config.config)))
         if (BuildConfig.DEBUG) Logs.d(JavaUtil.gson.toJson(config.trafficMap))
     }
 

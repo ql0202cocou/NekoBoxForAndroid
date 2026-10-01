@@ -97,7 +97,14 @@ fun TrojanGoBean.buildTrojanGoConfig(port: Int): String {
         put("password", JSONArray().apply {
             put(password)
         })
-        put("log_level", if (DataStore.logLevel > 0) 0 else 2)
+        // 与 ConfigBuilder 的 sing-box 档位一致；trojan-go 用数字，0 最详细、2 为 warn
+        put(
+            "log_level", when (DataStore.logLevel) {
+                2 -> 1
+                3, 4 -> 0
+                else -> 2
+            }
+        )
         put("tcp", JSONObject().apply {
             put("prefer_ipv4", DataStore.ipv6Mode <= IPv6Mode.ENABLE)
         })

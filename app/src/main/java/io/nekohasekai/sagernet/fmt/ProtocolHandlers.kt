@@ -583,7 +583,13 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
                 "--config",
                 configFile.absolutePath,
                 "--log-level",
-                if (DataStore.logLevel > 0) "trace" else "warn",
+                // 与 ConfigBuilder 的 sing-box 档位一致；关闭日志时保留 warn
+                when (DataStore.logLevel) {
+                    2 -> "info"
+                    3 -> "debug"
+                    4 -> "trace"
+                    else -> "warn"
+                },
                 "client"
             )
             if (bean.protocol == HysteriaBean.PROTOCOL_FAKETCP) {
