@@ -16,6 +16,7 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.databinding.LayoutLogcatBinding
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.widget.padForSystemBars
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -119,6 +120,9 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
                         withContext(Dispatchers.Main.immediate) {
                             SendLog.shareLog(context, logFile)
                         }
+                    } catch (e: CancellationException) {
+                        // 离开页面导致的取消照常传播，不当作失败记日志
+                        throw e
                     } catch (e: Exception) {
                         Logs.w(e)
                         withContext(Dispatchers.Main.immediate) {

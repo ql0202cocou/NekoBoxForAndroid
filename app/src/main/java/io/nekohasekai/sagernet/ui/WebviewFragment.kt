@@ -116,9 +116,9 @@ class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenu
             // （deleteAllData 才保证包含 Web Storage；本应用只有面板用 WebView）
             WebStorage.getInstance().deleteAllData()
             webView.loadUrl("about:blank")
-            // 服务在跑而面板仍不可用，只能是 Clash API 没开
+            // 已连接而面板仍不可用，只能是 Clash API 没开
             snackbar(
-                if (ServiceRegistry.state.started) R.string.clash_api_disabled else R.string.not_connected
+                if (ServiceRegistry.state.connected) R.string.clash_api_disabled else R.string.not_connected
             ).show()
             waitingForCore = true
             return
@@ -127,7 +127,9 @@ class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenu
         webView.loadUrl(url)
     }
 
-    private fun clashApiServing() = DataStore.enableClashAPI && ServiceRegistry.state.started
+    // 要求 Connected，不能用 started：Connecting 阶段 started 已为 true，核心却还没占住
+    // 9090，此时带 secret 加载就可能发给先占了端口的应用
+    private fun clashApiServing() = DataStore.enableClashAPI && ServiceRegistry.state.connected
 
     // 核心开始停止时由 MainActivity.changeState 调用（Stopping 即触发，早于端口释放）：
     // 开着的 yacd 会继续带着 secret 请求本机 9090，端口一放出谁占了谁就收到。换成空白页，
