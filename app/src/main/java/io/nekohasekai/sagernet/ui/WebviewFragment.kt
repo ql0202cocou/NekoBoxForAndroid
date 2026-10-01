@@ -16,6 +16,7 @@ import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.databinding.LayoutWebviewBinding
 import io.nekohasekai.sagernet.fmt.CLASH_API_LISTEN
 import io.nekohasekai.sagernet.ktx.launchCustomTab
+import io.nekohasekai.sagernet.ktx.snackbar
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import moe.matsuri.nb4a.utils.WebViewUtil
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -109,8 +110,19 @@ class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenu
     private fun loadPanel(webView: WebView) {
         val url = panelUrl()
         panelOrigin = url.toHttpUrlOrNull()?.let { "${it.host}:${it.port}" }
+        if (panelOrigin == CLASH_API_LISTEN && !clashApiServing()) {
+            // 核心没在跑时这个回环端口谁都能占：yacd 把 secret 存在该源的 localStorage，
+            // 加载过去就等于让占端口的页面在同源读走它。不加载，并清掉 WebView 存储
+            // （deleteAllData 才保证包含 Web Storage；本应用只有面板用 WebView）
+            WebStorage.getInstance().deleteAllData()
+            webView.loadUrl("about:blank")
+            snackbar(R.string.not_connected).show()
+            return
+        }
         webView.loadUrl(url)
     }
+
+    private fun clashApiServing() = DataStore.enableClashAPI && ServiceRegistry.state.started
 
     // true = don't follow it here. A link or redirect off the panel goes to the browser;
     // anything that is not http(s) at all is dropped.
@@ -131,7 +143,7 @@ class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenu
         val parsed = url.toHttpUrlOrNull() ?: return url
         if (parsed.queryParameter("secret") != null) return url
         if ("${parsed.host}:${parsed.port}" != CLASH_API_LISTEN) return url
-        if (!DataStore.enableClashAPI || !ServiceRegistry.state.started) return url
+        if (!clashApiServing()) return url
         return parsed.newBuilder().apply {
             if (parsed.encodedPath == "/ui") encodedPath("/ui/")
             addQueryParameter("secret", DataStore.requireClashApiSecret())
