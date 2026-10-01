@@ -445,6 +445,10 @@ class BaseService {
                 releaseSubclassResources()
             }
             releaseWakeLockAndNetworkListener()
+            // 框架直接 destroy 时没走 stopRunner，状态停在 Connected：:bg 内
+            // SubscriptionUpdater / GroupUpdater 读 ServiceRegistry.state 会拿到陈旧值，
+            // 已连接的前台也收不到停止。正常路径已是 Stopped，changeState 直接返回
+            data.changeState(State.Stopped)
             data.binder.close()
         }
 

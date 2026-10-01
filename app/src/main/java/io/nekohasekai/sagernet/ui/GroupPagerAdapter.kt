@@ -43,15 +43,15 @@ class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentS
                 }
             }
 
-            var selectedGroup = fragment.selectedItem?.groupId ?: GroupManager.currentGroupId()
-            var set = false
-            if (selectedGroup > 0L) {
-                selectedGroupIndex = newGroupList.indexOfFirst { it.id == selectedGroup }
-                set = true
-            } else if (groupList.size == 1) {
-                selectedGroup = groupList[0].id
-                if (DataStore.selectedGroup != selectedGroup) {
-                    DataStore.selectedGroup = selectedGroup
+            // 这里在后台：groupList / selectedGroupIndex 归主线程（增删回调与 createFragment
+            // 都在主线程），只读写本地的新列表，两个字段到下面的主线程块里一起换
+            val selectedGroup = fragment.selectedItem?.groupId ?: GroupManager.currentGroupId()
+            val set = selectedGroup > 0L
+            val newSelectedIndex = if (set) newGroupList.indexOfFirst { it.id == selectedGroup } else -1
+            if (!set && newGroupList.size == 1) {
+                val onlyGroup = newGroupList[0].id
+                if (DataStore.selectedGroup != onlyGroup) {
+                    DataStore.selectedGroup = onlyGroup
                 }
             }
 
@@ -67,6 +67,7 @@ class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentS
                     if (!fragment.select) {
                         fragment.groupPager.unregisterOnPageChangeCallback(fragment.updateSelectedCallback)
                     }
+                    if (set) selectedGroupIndex = newSelectedIndex
                     groupList = newGroupList
                     notifyDataSetChanged()
                     if (set) fragment.groupPager.setCurrentItem(selectedGroupIndex, false)

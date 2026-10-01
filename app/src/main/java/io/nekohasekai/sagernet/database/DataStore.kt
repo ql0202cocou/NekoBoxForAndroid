@@ -72,7 +72,8 @@ object DataStore {
     var bypassLanInCore by configurationStore.boolean(Key.BYPASS_LAN_IN_CORE)
 
     var allowAccess by configurationStore.boolean(Key.ALLOW_ACCESS)
-    var speedInterval by configurationStore.stringToInt(Key.SPEED_INTERVAL)
+    // 与 global_preferences.xml 的 defaultValue 一致：没打开过设置页时也按 1000 显示速度
+    var speedInterval by configurationStore.stringToInt(Key.SPEED_INTERVAL) { 1000 }
     var showGroupInNotification by configurationStore.boolean("showGroupInNotification")
 
     var globalCustomConfig by configurationStore.string(Key.GLOBAL_CUSTOM_CONFIG) { "" }
