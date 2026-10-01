@@ -436,19 +436,31 @@ class BaseService {
             // stopLoop / close 都幂等，正常路径重复执行无害
             val proxy = data.proxy
             data.proxy = null
-            if (proxy != null) runOnIoDispatcher {
-                proxy.looper?.stopLoop()
-                proxy.close() // CAS 保证幂等，且从不抛出（见 BoxInstance.close）
-                // 开头那次释放可能早于 box.start() 里的 startVpn：state 仍是 Connecting，
-                // startVpn 的守卫拦不住，新建的 tun fd 无人关闭（Go 侧只关自己 dup 的
-                // 副本）。close 返回时 startVpn 必已结束，这里再收一次
-                releaseSubclassResources()
-            }
-            releaseWakeLockAndNetworkListener()
             // 框架直接 destroy 时没走 stopRunner，状态停在 Connected：:bg 内
             // SubscriptionUpdater / GroupUpdater 读 ServiceRegistry.state 会拿到陈旧值，
-            // 已连接的前台也收不到停止。正常路径已是 Stopped，changeState 直接返回
-            data.changeState(State.Stopped)
+            // 已连接的前台也收不到停止。box 还要在后台关一阵，先报 Stopping（端口仍被
+            // 占着，不能让人以为可以立刻重启），关完再置 Stopped。正常路径已是 Stopped，
+            // 两步都直接跳过
+            val alreadyStopped = data.state == State.Stopped
+            if (proxy != null) {
+                if (!alreadyStopped) data.changeState(State.Stopping)
+                runOnIoDispatcher {
+                    proxy.looper?.stopLoop()
+                    proxy.close() // CAS 保证幂等，且从不抛出（见 BoxInstance.close）
+                    // 开头那次释放可能早于 box.start() 里的 startVpn：state 仍是 Connecting，
+                    // startVpn 的守卫拦不住，新建的 tun fd 无人关闭（Go 侧只关自己 dup 的
+                    // 副本）。close 返回时 startVpn 必已结束，这里再收一次
+                    releaseSubclassResources()
+                    // binder 已关，只更新进程内状态；关闭期间新服务若已起来
+                    //（onStartCommand 先置 baseService），不覆盖它的状态
+                    if (!alreadyStopped && ServiceRegistry.baseService == null &&
+                        ServiceRegistry.state == State.Stopping
+                    ) ServiceRegistry.state = State.Stopped
+                }
+            } else {
+                data.changeState(State.Stopped)
+            }
+            releaseWakeLockAndNetworkListener()
             data.binder.close()
         }
 
