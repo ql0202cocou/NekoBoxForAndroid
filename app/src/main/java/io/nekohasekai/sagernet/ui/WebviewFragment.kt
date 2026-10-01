@@ -117,12 +117,32 @@ class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenu
             WebStorage.getInstance().deleteAllData()
             webView.loadUrl("about:blank")
             snackbar(R.string.not_connected).show()
+            waitingForCore = true
             return
         }
+        waitingForCore = false
         webView.loadUrl(url)
     }
 
     private fun clashApiServing() = DataStore.enableClashAPI && ServiceRegistry.state.started
+
+    // 核心开始停止时由 MainActivity.changeState 调用（Stopping 即触发，早于端口释放）：
+    // 开着的 yacd 会继续带着 secret 请求本机 9090，端口一放出谁占了谁就收到。换成空白页，
+    // 重新连上后由 onCoreConnected 经 loadPanel 再加载
+    fun onCoreStopped() {
+        if (panelOrigin != CLASH_API_LISTEN) return
+        waitingForCore = true
+        mWebView?.loadUrl("about:blank")
+    }
+
+    // 面板因核心没在跑而留空（打开时就没跑，或中途停止）：连上后自动加载。
+    // 用户用 close 菜单关掉的不算，mWebView 为 null 时也不自动重建
+    private var waitingForCore = false
+
+    fun onCoreConnected() {
+        if (!waitingForCore) return
+        loadPanel(mWebView ?: return)
+    }
 
     // true = don't follow it here. A link or redirect off the panel goes to the browser;
     // anything that is not http(s) at all is dropped.
