@@ -242,12 +242,12 @@ object Util {
     fun redactUrlPath(text: String): String =
         URL_PATH.replace(text) { it.groupValues[1] + "/***" }
 
-    // sing-box 配置里 DoH / DoH3 服务器的 path 同样带 per-user id（见 redactUrlPath），
-    // 整份配置写日志前遮蔽。只动 dns.servers：ws 等传输层的 path 留着排障用。
-    // 没有可遮蔽的 path、或不是 JSON 对象时原样返回（不重排格式）
     // 整份 sing-box 配置写日志前的脱敏
     fun redactConfig(config: String) = redactSecrets(redactDnsServerPaths(config))
 
+    // sing-box 配置里 DoH / DoH3 服务器的 path 同样带 per-user id（见 redactUrlPath），
+    // 整份配置写日志前遮蔽。只动 dns.servers：ws 等传输层的 path 留着排障用。
+    // 没有可遮蔽的 path、或不是 JSON 对象时原样返回（不重排格式）
     fun redactDnsServerPaths(config: String): String {
         val root = runCatching {
             JavaUtil.gson.fromJson(config, JsonElement::class.java)

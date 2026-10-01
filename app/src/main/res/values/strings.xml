@@ -354,6 +354,7 @@
 
     <string name="route_need_vpn">Routing rule %s relies on the VPN to be in effect, so it is
         ignored.</string>
+    <string name="route_need_vpn_rules">These routing rules rely on the VPN to be in effect and were ignored: %s</string>
 
     <string name="profile_traffic_statistics">Profile Traffic Statistics</string>
     <string name="profile_traffic_statistics_summary">When disabled, the used traffic will not be

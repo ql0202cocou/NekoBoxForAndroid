@@ -307,6 +307,7 @@
     <string name="group_order_by_delay">以延时</string>
     <string name="route_for">%s 路由</string>
     <string name="route_need_vpn">路由规则 %s 依赖 VPN 以生效，所以其已被忽略。</string>
+    <string name="route_need_vpn_rules">以下路由规则依赖 VPN 以生效，已被忽略：%s</string>
     <string name="ssh_private_key_passphrase">私钥密码句</string>
     <string name="ssh_private_key">私钥</string>
     <string name="ssh_public_key">公钥</string>

@@ -178,7 +178,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
     protected open fun validateEditor(): String? = null
 
-    // entity-level field, not part of the bean; seeded in onCreate
+    // 实体级字段，不在 bean 里；onCreate 时写入
     private fun editorCore() = EditorCache.profileCacheStore.getString(Key.PROFILE_CORE)
         ?.toIntOrNull() ?: ProxyEntity.CORE_AUTO
 
@@ -200,18 +200,6 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                 ).show()
                 return@onMainDispatcher false
             }
-            // 证书指纹配上不支持它的核心注定连不上（构建时拒绝）：用编辑器当前内容拼一个
-            // 临时实体，按与构建相同的规则判断
-            val probe = ProxyEntity().apply {
-                core = editorCore()
-                putBean(createEntity().apply { serialize() }.applyDefaultValues())
-            }
-            if (probe.certificatePinUnsupported()) {
-                Toast.makeText(
-                    this@ProfileSettingsActivity, R.string.certificate_pin_unsupported_error, Toast.LENGTH_LONG
-                ).show()
-                return@onMainDispatcher false
-            }
             val invalid = screen.findInvalidIntegerPreference()
             if (invalid != null) {
                 Toast.makeText(
@@ -224,8 +212,22 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         }
         if (!canSave) return
 
-        val editingId = EditorCache.editingId
         val profileCore = editorCore()
+        // 证书指纹配上不支持它的核心注定连不上（构建时拒绝）：用编辑器当前内容拼一个临时
+        // 实体，按与构建相同的规则判断。放在整数校验之后、主线程之外（serialize 逐字段读库）
+        val probe = ProxyEntity().apply {
+            core = profileCore
+            putBean(createEntity().apply { serialize() }.applyDefaultValues())
+        }
+        if (probe.certificatePinUnsupported()) {
+            onMainDispatcher {
+                Toast.makeText(
+                    this@ProfileSettingsActivity, R.string.certificate_pin_unsupported_error, Toast.LENGTH_LONG
+                ).show()
+            }
+            return
+        }
+        val editingId = EditorCache.editingId
         if (editingId == 0L) {
             val editingGroup = EditorCache.editingGroup
             ProfileManager.createProfile(

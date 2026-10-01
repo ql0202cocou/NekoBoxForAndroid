@@ -238,9 +238,11 @@ private class ConfigBuild(
 
     val extraRules = if (forTest) listOf() else SagerDatabase.rulesDao.enabledRules()
 
-    // 整份配置构建完只各弹一条 Toast：逐条弹的话，规则一多提示会排上十几秒
+    // 整份配置构建完每类只弹一条 Toast：逐条弹的话，规则一多提示会排上十几秒
     private val rulesSkipped = mutableListOf<String>()
     private val rulesNeedVpn = mutableListOf<String>()
+    private val rulesNoOutbound = mutableListOf<String>()
+    private val membersSkipped = mutableListOf<String>()
     val extraProxies =
         if (forTest) mapOf() else SagerDatabase.proxyDao.getEntities(extraRules.mapNotNull { rule ->
             rule.outbound.takeIf { it > 0 && it != proxy.id }
@@ -705,6 +707,17 @@ private class ConfigBuild(
     // 落地）时直接复用那个 g-<id>，重建会让 outbound/inbound tag 重复、sing-box
     // 拒绝整份配置。有前置 / 落地时裸的 g-<id> 不经过它们，要 buildChain：
     // linkHop 会复用已建的 g-<id>，并在外面接上前置 / 落地
+    // 选择器成员 / 路由规则目标中证书指纹不受支持的节点：跳过并告警，而不是让
+    // buildHopOutbound 抛错拖垮整份配置（buildChain 抛错时已写入一半的出站与端口，
+    // 只能事先判断）。用户选中的节点照常报错——那是用户明确要用的
+    private fun skipUnpinnable(entity: ProxyEntity): Boolean {
+        if (entity.id == proxy.id) return false
+        val bad = entity.resolveChain().firstOrNull { it.certificatePinUnsupported() } ?: return false
+        Logs.w("profile ${entity.id} skipped: ${bad.requireBean().displayName()} cannot pin certificates on its core")
+        membersSkipped += entity.requireBean().displayName()
+        return true
+    }
+
     private fun MyOptions.reuseOrBuildChain(id: Long, entity: ProxyEntity): String =
         globalOutbounds[id]?.takeIf { entity.resolveChain().size == 1 } ?: buildChain(id, entity)
 
@@ -717,6 +730,7 @@ private class ConfigBuild(
                 // 完整配置型成员不是出站，塞进来会让整份配置被拒；选中它时
                 // selectorGroupIdOf 为 -1，走重启、由 buildConfig 开头单独运行
                 if (it.isFullConfig()) return@forEach
+                if (skipUnpinnable(it)) return@forEach
                 // 每个成员都要记进 tagMap：profileTagMap 驱动选择器切换，缺了它
                 // 连接中选这个成员会解析成空 tag、什么都不做。中间跳只有链内 tag，
                 // 照常单独建一个全局 outbound，让它仍可选、可被路由规则引用
@@ -739,6 +753,8 @@ private class ConfigBuild(
             // 重名，sing-box 拒绝整份配置；tagMap 也会被改成不在选择器里的 tag，
             // 连接中选它不生效。中间跳没有可复用的全局 tag，单独建一个，不能丢掉
             // 这条路由规则
+            // 证书指纹不受支持的目标跳过：规则随之落入「出站不存在」告警
+            if (tagMap[key] == null && skipUnpinnable(p)) return@forEach
             tagMap[key] = tagMap[key] ?: reuseOrBuildChain(key, p)
         }
 
@@ -750,21 +766,28 @@ private class ConfigBuild(
 
     private fun MyOptions.applyUserRules() {
         for (rule in extraRules) applyUserRule(rule)
-        // buildConfig runs on a Looper-less background thread in the :bg process,
-        // so post the Toasts to main
-        if (rulesSkipped.isNotEmpty()) runOnMainDispatcher {
-            Toast.makeText(
-                SagerNet.application,
-                "Warning: none of the apps are installed, rules skipped: " + rulesSkipped.joinToString(", "),
-                Toast.LENGTH_LONG
-            ).show()
+        // buildConfig 在 :bg 进程无 Looper 的后台线程上跑，Toast 要投到主线程
+        val app = SagerNet.application
+        fun toast(text: String, duration: Int) = runOnMainDispatcher {
+            Toast.makeText(app, text, duration).show()
         }
-        if (rulesNeedVpn.isNotEmpty()) runOnMainDispatcher {
-            Toast.makeText(
-                SagerNet.application,
-                SagerNet.application.getString(R.string.route_need_vpn, rulesNeedVpn.joinToString(", ")),
-                Toast.LENGTH_SHORT
-            ).show()
+        if (membersSkipped.isNotEmpty()) toast(
+            "Warning: these profiles cannot pin certificates on their core and were skipped: " +
+                    membersSkipped.joinToString(", "), Toast.LENGTH_LONG
+        )
+        if (rulesSkipped.isNotEmpty()) toast(
+            "Warning: none of the apps are installed, rules skipped: " + rulesSkipped.joinToString(", "),
+            Toast.LENGTH_LONG
+        )
+        if (rulesNoOutbound.isNotEmpty()) toast(
+            "Warning: these rules specify a non-existent outbound: " + rulesNoOutbound.joinToString(", "),
+            Toast.LENGTH_LONG
+        )
+        // 单条沿用各语言已有的单数文案；多条用不分单复数的新文案
+        if (rulesNeedVpn.size == 1) {
+            toast(app.getString(R.string.route_need_vpn, rulesNeedVpn[0]), Toast.LENGTH_SHORT)
+        } else if (rulesNeedVpn.size > 1) {
+            toast(app.getString(R.string.route_need_vpn_rules, rulesNeedVpn.joinToString(", ")), Toast.LENGTH_SHORT)
         }
 
         // 对 rule_set tag 去重
@@ -788,7 +811,7 @@ private class ConfigBuild(
             rulesSkipped += rule.displayName()
             return
         }
-        // once per rule, not per package
+        // 每条规则记一次，不按包名逐个记
         if (!isVPN && rule.packages.isNotEmpty()) rulesNeedVpn += rule.displayName()
         val ruleSets = mutableListOf<RuleSet>()
 
@@ -878,13 +901,7 @@ private class ConfigBuild(
 
         if (!ruleObj.checkEmpty()) {
             if (ruleObj.outbound.isNullOrBlank()) {
-                runOnMainDispatcher {
-                    Toast.makeText(
-                        SagerNet.application,
-                        "Warning: " + rule.displayName() + ": A non-existent outbound was specified.",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
+                rulesNoOutbound += rule.displayName()
             } else {
                 // block 改用新的写法
                 if (ruleObj.outbound == TAG_BLOCK) {
