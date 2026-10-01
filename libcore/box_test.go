@@ -68,6 +68,20 @@ func TestBoxInstanceLifecycle(t *testing.T) {
 	}
 }
 
+// interfaceMonitorStub 的 DefaultInterface 恒为 nil，sing-box 在 PostStart 会因此
+// NetworkPause；Start 返回后网络必须处于未暂停状态，否则 WireGuard 永久 Down、
+// 其定时器全部卡在 WaitActive
+func TestBoxInstanceStartLeavesNetworkAwake(t *testing.T) {
+	instance := newStartedTestBox(t)
+	defer instance.Close()
+	if instance.pauseManager == nil {
+		t.Fatal("pause manager not installed")
+	}
+	if instance.pauseManager.IsNetworkPaused() {
+		t.Fatal("network still paused after Start")
+	}
+}
+
 func TestBoxInstanceCloseBeforeStart(t *testing.T) {
 	instance := newTestBox(t)
 	if err := instance.Close(); err != nil {

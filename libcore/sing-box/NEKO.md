@@ -30,6 +30,18 @@ Accepted upstream behavior (no patch):
   signal, and the battery cost is unmeasured (reasoned small: Go timers do not
   wake a deep-sleeping device, keepalives only go out in maintenance windows).
   Revisit with measurements if battery complaints show up.
+- Network pause and the interface monitor stub: since 1.14.2
+  `route/network.go` PostStart calls `dispatchInterfaceUpdateLocked`, which
+  sends `NetworkPause` (and logs "missing default interface") when the
+  default interface is nil, and only sends `NetworkWake` once one appears.
+  libcore's `interfaceMonitorStub` always reports nil and drops callbacks
+  (the default network is tracked on the Kotlin side), so the pause would
+  latch: the WireGuard endpoint goes `Down()` and every wireguard-go timer
+  blocks in `WaitActive`. Kept upstream unpatched; libcore's
+  `BoxInstance.Start()` sends `NetworkWake` right after `Box.Start()`
+  returns (regression test `TestBoxInstanceStartLeavesNetworkAwake`). The
+  one error line per start remains. Anything new in sing-box that calls
+  `NetworkPause` must be checked against this.
 
 The `1.12.x-neko-1` commits only bump `constant/version.go` and carry no code
 changes.
