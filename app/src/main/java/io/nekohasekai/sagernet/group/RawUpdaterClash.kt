@@ -603,9 +603,10 @@ private fun parseClashWireGuard(proxy: Map<String, Any?>): WireGuardBean {
                 opt.value.toString().toIntOrNull() ?: 0
 
             // 构建时生效（留空才用默认路由），见 buildSingBoxEndpointWireGuardBean
-            "allowed-ips" -> bean.peerAllowedIps =
+            "allowed-ips" -> bean.peerAllowedIps = sanitizeImportedAllowedIps(
                 (opt.value as? List<*>)?.mapNotNull { it?.toString() }
                     ?.joinToString(",") ?: opt.value.toString()
+            )
 
             "remote-dns-resolve", "amnezia-wg-option" -> Logs.w(
                 "clash wireguard ${opt.key.replace("_", "-")} is unsupported, dropped"
