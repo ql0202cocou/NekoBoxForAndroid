@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content xmlns:tools="http://schemas.android.com/tools"
+                     tools:ignore="FullBackupContent">
+    <!-- Android 9–11：这份规则同时管云备份和换机迁移，用 requireFlags 只在换机时带上
+         configuration.db，不进云备份（理由见 backup_rules.xml）。sager_net.db 存着节点
+         凭证，保持排除，所以这些系统换机时节点与规则不会迁过去（12+ 见 backup_rules.xml
+         的 device-transfer）。只迁了 configuration.db 时由 InstallMarker 复位
+         rulesFirstCreate，默认规则照常生成 -->
+    <include
+        domain="database"
+        path="configuration.db"
+        requireFlags="deviceToDeviceTransfer" />
+</full-backup-content>

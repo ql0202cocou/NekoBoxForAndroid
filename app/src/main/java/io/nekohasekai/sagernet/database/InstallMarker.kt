@@ -21,9 +21,10 @@ object InstallMarker {
         val marker = marker
         if (marker.exists()) return
         DataStore.resetClashApiSecret()
-        // 云备份只含 configuration.db（sager_net.db 有节点凭证，不上云）：恢复后
+        // Android 9–11 换机只迁 configuration.db（sager_net.db 有节点凭证，见
+        // xml-v28/backup_descriptor.xml；云备份已不含任何数据）：恢复后
         // rulesFirstCreate 仍是 true，规则表却是空的，默认规则就再也不会建。
-        // 两库一起迁移（换机）时规则表非空，保持原样
+        // 两库一起迁移（12+ 换机）时规则表非空，保持原样
         if (DataStore.rulesFirstCreate && SagerDatabase.rulesDao.allRules().isEmpty()) {
             DataStore.rulesFirstCreate = false
         }

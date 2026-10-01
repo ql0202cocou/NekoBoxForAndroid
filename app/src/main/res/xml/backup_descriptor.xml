@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content xmlns:tools="http://schemas.android.com/tools"
                      tools:ignore="FullBackupContent">
-    <!-- sager_net.db 存着节点凭证，保持排除。Android 11 及以下这份规则同时管云备份
-         和换机迁移，所以这些系统换机时节点与规则也不会迁过去（12+ 的换机见
-         backup_rules.xml 的 device-transfer）。只迁了 configuration.db 时由
-         InstallMarker 复位 rulesFirstCreate，默认规则照常生成 -->
-    <!-- No device storage yet in Android 6.0 -->
-    <include domain="database" path="configuration.db"/>
-    <include domain="device_database" path="configuration.db"/>
+    <!-- Android 7–8.1：requireFlags 要 API 28 才认，无法区分云备份与换机迁移，只能
+         全部不备份（不上传的理由见 backup_rules.xml）。只写 exclude 时其余内容默认照备，
+         所以显式排除所有域。9–11 见 xml-v28/backup_descriptor.xml -->
+    <exclude
+        domain="root"
+        path="." />
+    <exclude
+        domain="device_root"
+        path="." />
+    <exclude
+        domain="external"
+        path="." />
 </full-backup-content>

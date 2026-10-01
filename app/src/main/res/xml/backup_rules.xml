@@ -1,11 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules xmlns:tools="http://schemas.android.com/tools"
     tools:ignore="FullBackupContent">
+    <!-- 云备份不上传任何数据：sager_net.db 存着节点凭证，configuration.db 里的自定义
+         DoH 地址带个人 ID、自定义配置也可能含凭证。缺省某个模式等于全部备份，所以必须
+         显式排除所有域（普通存储、设备加密存储、外部存储） -->
     <cloud-backup>
-        <!-- sager_net.db holds proxy credentials; keep them off cloud backups. -->
-        <include
-            domain="database"
-            path="configuration.db" />
+        <exclude
+            domain="root"
+            path="." />
+        <exclude
+            domain="device_root"
+            path="." />
+        <exclude
+            domain="external"
+            path="." />
     </cloud-backup>
     <device-transfer>
         <include
