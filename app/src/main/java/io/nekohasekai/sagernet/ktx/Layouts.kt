@@ -18,12 +18,17 @@ class FixedLinearLayoutManager(val recyclerView: RecyclerView) :
 
     private var listenerDisabled = false
 
+    // 构造时读一次：DataStore 读取是一次无缓存的主线程 Room 查询，放在
+    // scrollVerticallyBy 里就是每个滚动步一次。各列表随页面切换重建，设置改动在
+    // 下一个页面生效；只有设置页自身的列表要离开再进入后才跟上
+    private val showBottomBar = DataStore.showBottomBar
+
     override fun scrollVerticallyBy(
         dx: Int, recycler: RecyclerView.Recycler,
         state: RecyclerView.State
     ): Int {
         // Matsuri style
-        if (!DataStore.showBottomBar) return super.scrollVerticallyBy(dx, recycler, state)
+        if (!showBottomBar) return super.scrollVerticallyBy(dx, recycler, state)
 
         // SagerNet Style
         val scrollRange = super.scrollVerticallyBy(dx, recycler, state)
