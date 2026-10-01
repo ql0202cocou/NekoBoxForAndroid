@@ -764,6 +764,20 @@ private class ConfigBuild(
         val uidList = rule.packages.map {
             PackageCache[it]?.takeIf { uid -> uid >= 1000 }
         }.toHashSet().filterNotNull()
+        // 填了应用却一个 uid 都解析不到（已卸载 / 无效包名）时整条跳过：下面只在
+        // uidList 非空时写 user_id，带 domain / ip 等其他条件的规则（及其 DNS 规则）
+        // 会扩大到所有应用
+        if (rule.packages.isNotEmpty() && uidList.isEmpty()) {
+            Logs.w("rule ${rule.displayName()}: none of its apps are installed, skipped")
+            runOnMainDispatcher {
+                Toast.makeText(
+                    SagerNet.application,
+                    "Warning: " + rule.displayName() + ": none of its apps are installed, rule skipped.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            return
+        }
         val ruleSets = mutableListOf<RuleSet>()
 
         val ruleObj = Rule_DefaultOptions().apply {
