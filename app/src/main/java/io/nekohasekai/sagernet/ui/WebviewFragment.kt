@@ -20,6 +20,7 @@ import io.nekohasekai.sagernet.ktx.snackbar
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import moe.matsuri.nb4a.utils.WebViewUtil
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.bg.ServiceRegistry
 
 // Fragment必须有一个无参public的构造函数，否则在数据恢复的时候，会报crash
@@ -107,6 +108,10 @@ class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenu
     // to the loopback Clash API, so it hosts that one origin and nothing else.
     private var panelOrigin: String? = null
 
+    // 面板因核心没在跑而留空（打开时就没跑，或中途停止）：连上后自动加载。
+    // 用户用 close 菜单关掉的不算，mWebView 为 null 时也不自动重建
+    private var waitingForCore = false
+
     private fun loadPanel(webView: WebView) {
         val url = panelUrl()
         panelOrigin = url.toHttpUrlOrNull()?.let { "${it.host}:${it.port}" }
@@ -129,25 +134,20 @@ class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenu
 
     // 要求 Connected，不能用 started：Connecting 阶段 started 已为 true，核心却还没占住
     // 9090，此时带 secret 加载就可能发给先占了端口的应用
-    private fun clashApiServing() = DataStore.enableClashAPI && ServiceRegistry.state.connected
+    private fun clashApiServing() = ServiceRegistry.state.connected && DataStore.enableClashAPI
 
-    // 核心开始停止时由 MainActivity.changeState 调用（Stopping 即触发，早于端口释放）：
-    // 开着的 yacd 会继续带着 secret 请求本机 9090，端口一放出谁占了谁就收到。换成空白页，
-    // 重新连上后由 onCoreConnected 经 loadPanel 再加载
-    fun onCoreStopped() {
-        if (panelOrigin != CLASH_API_LISTEN) return
-        waitingForCore = true
-        mWebView?.loadUrl("about:blank")
-    }
-
-    // 面板因核心没在跑而留空（打开时就没跑，或中途停止）：连上后自动加载。
-    // 用户用 close 菜单关掉的不算，mWebView 为 null 时也不自动重建
-    private var waitingForCore = false
-
-    fun onCoreConnected() {
-        // Clash API 关着时连上了面板也不可用：保持等待，不重走 loadPanel，免得每次重连都弹提示
-        if (!waitingForCore || !DataStore.enableClashAPI) return
-        loadPanel(mWebView ?: return)
+    // 由 MainActivity.changeState 在每次服务状态变化时调用
+    fun onCoreStateChanged(state: BaseService.State) {
+        if (!state.started) {
+            // Stopping 即触发，早于端口释放：开着的 yacd 会继续带着 secret 请求本机 9090，
+            // 端口一放出谁占了谁就收到。换成空白页，重新连上后再加载
+            if (panelOrigin != CLASH_API_LISTEN) return
+            waitingForCore = true
+            mWebView?.loadUrl("about:blank")
+        } else if (state.connected && waitingForCore && DataStore.enableClashAPI) {
+            // Clash API 关着时连上了面板也不可用：保持等待，免得每次重连都弹提示
+            loadPanel(mWebView ?: return)
+        }
     }
 
     // true = don't follow it here. A link or redirect off the panel goes to the browser;

@@ -36,15 +36,9 @@ fun effectiveAllowInsecure(allowInsecure: Boolean?): Boolean =
 // bean -> sing-box outbound tls block, null when the bean does not use TLS
 fun buildSingBoxOutboundTLS(bean: AbstractBean): OutboundTLSOptions? {
     val tls = tlsFields(bean) ?: return null
-    // sing-box 没有对应选项：它的 certificate_public_key_sha256 是 SPKI 哈希，与证书
-    // SHA-256 不通用（Xray / mihomo 才支持这个固定）。用户要求固定证书却静默放行，
-    // 比没有这个功能更危险，所以拒绝构建，由用户清空指纹或换用支持的核心
-    if (!tls.certificateFingerprint.isNullOrBlank()) {
-        error(
-            "${bean.displayName()}: certificate fingerprint pinning is not supported by the " +
-                    "sing-box core; clear it or use a core that supports it"
-        )
-    }
+    // 设了证书指纹的节点到不了这里：sing-box 的 certificate_public_key_sha256 是 SPKI
+    // 哈希，与证书 SHA-256 不通用，ConfigBuild.buildHopOutbound 已按
+    // certificatePinUnsupported 拒绝
     return OutboundTLSOptions().apply {
         enabled = true
         insecure = effectiveAllowInsecure(tls.allowInsecure)

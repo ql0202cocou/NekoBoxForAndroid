@@ -26,7 +26,7 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
         super.buildConfig()
         // configs contain credentials; redact them before writing to the exportable log.
         // 脱敏要对整份配置跑多遍正则，日志关闭时直接跳过
-        if (Logs.enabled) Logs.d(Util.redactSecrets(Util.redactDnsServerPaths(config.config)))
+        if (Logs.enabled) Logs.d(Util.redactConfig(config.config))
         if (BuildConfig.DEBUG) Logs.d(JavaUtil.gson.toJson(config.trafficMap))
     }
 
@@ -68,19 +68,12 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
     }
 
     override fun close() {
-        // looper 由调用方在此之前停掉：进行中的 queryStats 需要存活的 box，而
-        // close() 不能挂起等它；在这里阻塞等待会让调用线程卡在进入 JNI 后无法
-        // 取消的统计上。
-        // 顺序契约：调用方必须先停 looper 再 close()——killProcesses 先挂起等
-        // stopLoop()，destroyRunner 在后台协程里同样先等 stopLoop()。新调用方
-        // 不得绕过这一顺序直接调 close()
-        // 竞态兜底：launch() 的启动块可能整段落在调用方读 looper 之后、这里置 closed
-        // 之前——调用方读到 null 没停，块内的 isClosed() 复查也还是 false。所以先置
-        // closed 再读 looper（与启动块「写 looper → 读 closed」相反），两边必有一方看到
-        // 对方。正常路径读到的是调用方已停的 looper，stopLoop 的 CAS 直接返回。
-        // 只停循环不做最终推送：重启后 data.proxy 可能已是新实例，flushStats 会把
-        // 泄漏循环的计数写到新实例的节点上。box 此时已关，queryStats 经 lockIfOpen
-        // 返回 0，不需要存活的 box
+        // 顺序契约：调用方（killProcesses / destroyRunner）先挂起等 stopLoop() 再 close()——
+        // 进行中的 queryStats 需要存活的 box，close() 不能阻塞等它。
+        // 兜底 launch() 启动块整段落在调用方读 looper 与这里之间的竞态：先置 closed 再读
+        // looper（与启动块「写 looper → 读 closed」相反），两边必有一方看到对方。只停循环
+        // 不做最终推送：重启后 data.proxy 可能已是新实例，flushStats 会把计数写到新实例的
+        // 节点上。box 已关时 queryStats 经 lockIfOpen 返回 0
         super.close()
         val trafficLooper = looper ?: return
         looper = null

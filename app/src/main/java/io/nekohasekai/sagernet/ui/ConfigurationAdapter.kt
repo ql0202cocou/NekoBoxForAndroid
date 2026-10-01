@@ -91,9 +91,9 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
     }
 
     private fun matchesQuery(profile: ProxyEntity) = query.isEmpty() ||
-            profile.displayName().lowercase().contains(query) ||
-            profile.displayType().lowercase().contains(query) ||
-            profile.displayAddress().lowercase().contains(query)
+            profile.displayName().contains(query, ignoreCase = true) ||
+            profile.displayType().contains(query, ignoreCase = true) ||
+            profile.displayAddress().contains(query, ignoreCase = true)
 
     fun filter(name: String) {
         // 本来就没在搜索：清空会广播到所有分组页，不必每页都整组重读
@@ -118,13 +118,14 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
 
     // dragging is disabled while filtering, so the visible list and the search
     // source share indices here and both can be permuted in one pass
-    fun move(from: Int, to: Int) {
+    fun move(from: Int, to: Int): Boolean {
         val moved = moveUserOrder(from, to, ProxyEntity::userOrder, ::getItemAt) { i, profile ->
             configurationIdList[i] = profile.id
             allProfileIds[i] = profile.id
             updated.add(profile)
         }
         if (moved) notifyItemMoved(from, to)
+        return moved
     }
 
     fun commitMove() {

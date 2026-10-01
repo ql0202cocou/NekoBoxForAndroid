@@ -102,12 +102,8 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                 recyclerView: RecyclerView,
                 viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder,
             ): Boolean {
-                val from = viewHolder.bindingAdapterPosition
-                val to = target.bindingAdapterPosition
-                // 同 ChainSettingsActivity：适配器有待处理的更新时位置可能是 NO_POSITION（-1）
-                if (from == RecyclerView.NO_POSITION || to == RecyclerView.NO_POSITION) return false
-                groupAdapter.move(from, to)
-                return true
+                // NO_POSITION 由 moveUserOrder 挡掉，返回 false
+                return groupAdapter.move(viewHolder.bindingAdapterPosition, target.bindingAdapterPosition)
             }
 
             override fun clearView(
@@ -239,12 +235,13 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
 
         private val updated = HashSet<ProxyGroup>()
 
-        fun move(from: Int, to: Int) {
+        fun move(from: Int, to: Int): Boolean {
             val moved = moveUserOrder(from, to, ProxyGroup::userOrder, groupList::get) { i, group ->
                 groupList[i] = group
                 updated.add(group)
             }
             if (moved) notifyItemMoved(from, to)
+            return moved
         }
 
         fun commitMove() {

@@ -23,6 +23,7 @@ import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
+import io.nekohasekai.sagernet.ui.profile.bindValidatedPreference
 import io.nekohasekai.sagernet.widget.OutboundPreference
 import kotlinx.parcelize.Parcelize
 import moe.matsuri.nb4a.ui.SimpleMenuPreference
@@ -182,12 +183,9 @@ class GroupSettingsActivity(
 
         subscriptionAutoUpdateDelay.isEnabled = subscriptionAutoUpdate.isChecked
         subscriptionAutoUpdateDelay.setOnBindEditTextListener(EditTextPreferenceModifiers.Number)
-        subscriptionAutoUpdateDelay.setOnPreferenceChangeListener { _, newValue ->
-            val delay = (newValue as String).toIntOrNull()
-            // 拒绝时给出原因：之前静默不保存，看起来像没点到确定
-            (delay != null && delay >= 15).also { ok ->
-                if (!ok) Toast.makeText(this@GroupSettingsActivity, R.string.auto_update_delay_error, Toast.LENGTH_LONG).show()
-            }
+        // 拒绝时给出原因：之前静默不保存，看起来像没点到确定
+        subscriptionAutoUpdateDelay.bindValidatedPreference(R.string.auto_update_delay_error) {
+            (it.toIntOrNull() ?: 0) >= 15
         }
         subscriptionAutoUpdate.setOnPreferenceChangeListener { _, newValue ->
             subscriptionAutoUpdateDelay.isEnabled = (newValue as Boolean)

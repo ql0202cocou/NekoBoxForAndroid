@@ -186,18 +186,26 @@ object Util {
         }
     }
 
-    // JSON "key": "value" pairs whose value is a credential
-    // (trailing ["] is a literal quote; a raw string cannot end with ")
-    // 值也可以是字符串数组（trojan-go 的 "password": [...]），整个数组遮蔽，第 2 组非空即数组；
+    // 值是凭据的键：JSON 里用下划线，YAML（如 mihomo 配置）里同名换连字符。
     // obfs 是 hysteria1 的混淆密码（hysteria2 的 obfs 是对象，其中 password 已覆盖）
+    private val SENSITIVE_KEYS = listOf(
+        "password", "uuid", "id", "private_key", "pre_shared_key", "auth", "auth_str",
+        "token", "secret", "key", "authorization", "cookie", "obfs",
+    )
+
+    // 一个 JSON 字符串字面量（结尾的 ["] 就是引号：raw string 不能以 " 结尾）
+    private const val JSON_STRING = """"(?:\\.|[^"\\])*["]"""
+
+    // JSON "key": "value"；值也可以是字符串数组（trojan-go 的 "password": [...]），
+    // 整个数组遮蔽，第 2 组非空即数组
     private val SENSITIVE_JSON_VALUE = Regex(
-        """("(?:password|uuid|id|private_key|pre_shared_key|auth|auth_str|token|secret|key|authorization|cookie|obfs)"\s*:\s*)(?:"(?:\\.|[^"\\])*["]|(\[\s*"(?:\\.|[^"\\])*["](?:\s*,\s*"(?:\\.|[^"\\])*["])*\s*\]))""",
+        """("(?:${SENSITIVE_KEYS.joinToString("|")})"\s*:\s*)(?:$JSON_STRING|(\[\s*$JSON_STRING(?:\s*,\s*$JSON_STRING)*\s*\]))""",
         RegexOption.IGNORE_CASE
     )
 
-    // YAML "key: value" lines whose value is a credential (e.g. mihomo configs)
+    // YAML "key: value" 行
     private val SENSITIVE_YAML_VALUE = Regex(
-        """^(\s*(?:password|uuid|id|private-key|pre-shared-key|auth|auth-str|token|secret|key|authorization|cookie|obfs)\s*:\s*).+$""",
+        """^(\s*(?:${SENSITIVE_KEYS.joinToString("|") { it.replace('_', '-') }})\s*:\s*).+$""",
         setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE)
     )
 
@@ -237,6 +245,9 @@ object Util {
     // sing-box 配置里 DoH / DoH3 服务器的 path 同样带 per-user id（见 redactUrlPath），
     // 整份配置写日志前遮蔽。只动 dns.servers：ws 等传输层的 path 留着排障用。
     // 没有可遮蔽的 path、或不是 JSON 对象时原样返回（不重排格式）
+    // 整份 sing-box 配置写日志前的脱敏
+    fun redactConfig(config: String) = redactSecrets(redactDnsServerPaths(config))
+
     fun redactDnsServerPaths(config: String): String {
         val root = runCatching {
             JavaUtil.gson.fromJson(config, JsonElement::class.java)

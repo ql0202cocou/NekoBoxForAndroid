@@ -205,12 +205,10 @@ class ProfileListFragment : Fragment() {
                     recyclerView: RecyclerView,
                     viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder,
                 ): Boolean {
-                    val from = viewHolder.bindingAdapterPosition
-                    val to = target.bindingAdapterPosition
-                    // 同 ChainSettingsActivity：适配器有待处理的更新时位置可能是 NO_POSITION（-1）
-                    if (from == RecyclerView.NO_POSITION || to == RecyclerView.NO_POSITION) return false
-                    adapter?.move(from, to)
-                    return true
+                    // NO_POSITION 由 moveUserOrder 挡掉，返回 false
+                    return adapter?.move(
+                        viewHolder.bindingAdapterPosition, target.bindingAdapterPosition
+                    ) == true
                 }
 
                 override fun clearView(

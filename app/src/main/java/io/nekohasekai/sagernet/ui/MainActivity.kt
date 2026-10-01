@@ -391,9 +391,8 @@ class MainActivity : ThemedActivity(),
         binding.fab.changeState(state, ServiceRegistry.state, animate)
         binding.stats.changeState(state)
         if (msg != null) snackbar(getString(R.string.vpn_error, msg)).show()
-        (supportFragmentManager.findFragmentById(R.id.fragment_holder) as? WebviewFragment)?.let {
-            if (!state.started) it.onCoreStopped() else if (state.connected) it.onCoreConnected()
-        }
+        (supportFragmentManager.findFragmentById(R.id.fragment_holder) as? WebviewFragment)
+            ?.onCoreStateChanged(state)
     }
 
     // callers show() the returned Snackbar

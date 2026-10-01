@@ -11,6 +11,7 @@ import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.IOException
+import java.util.concurrent.Callable
 import android.database.SQLException
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -196,16 +197,15 @@ object ProfileManager {
 
     // 同 deleteProfiles：删除与 fixups 一个事务，监听器通知在提交后
     suspend fun deleteProfile(groupId: Long, profileId: Long) {
-        var deleted = false
-        SagerDatabase.instance.runInTransaction {
-            deleted = deleteProfileRow(profileId)
-            if (!deleted) return@runInTransaction
-            // the profile may be referenced as a group's frontProxy/landingProxy
+        val deleted = SagerDatabase.instance.runInTransaction(Callable {
+            if (!deleteProfileRow(profileId)) return@Callable false
+            // 节点可能被某个分组当作前置 / 落地代理引用
             GroupManager.resetDanglingGroupProxies()
             if (SagerDatabase.proxyDao.countByGroup(groupId) > 1) {
                 GroupManager.rearrange(groupId)
             }
-        }
+            true
+        })
         if (!deleted) return
         // DataStore 写的是 PublicDatabase，放在 SagerDatabase 事务外
         clearSelectedProxyIfGone()

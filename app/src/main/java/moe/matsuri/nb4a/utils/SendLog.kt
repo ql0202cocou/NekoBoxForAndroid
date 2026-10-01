@@ -14,11 +14,6 @@ import java.io.FileOutputStream
 import java.io.IOException
 
 object SendLog {
-    // Create full log and send
-    fun sendLog(context: Context, title: String) {
-        shareLog(context, prepareLog(title))
-    }
-
     fun prepareLog(title: String): File {
         // 必须建在 shareDir：FileProvider 只暴露该目录，目录外的文件 shareFile 会抛
         // IllegalArgumentException；shareFile 同时清掉上一次分享的残留。旧版本建在

@@ -15,6 +15,7 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
+import io.nekohasekai.sagernet.database.preference.isIntegerInRange
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.utils.Theme
 import io.nekohasekai.sagernet.widget.padForSystemBars
@@ -159,9 +160,10 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         // 范围同 DataStore.mixedPort 的 parsePort：越界值会被静默换成 2080 + 用户偏移，
         // 界面却显示原值，所以在保存前拦下
         mixedPort.setOnPreferenceChangeListener { _, newValue ->
-            val port = (newValue as? String)?.toIntOrNull()
-            if (port == null || port !in 1025..65535) {
-                Toast.makeText(requireContext(), R.string.mixed_port_range_error, Toast.LENGTH_LONG).show()
+            if (!isIntegerInRange(newValue, 1025, 65535)) {
+                Toast.makeText(
+                    requireContext(), getString(R.string.integer_range_error, 1025, 65535), Toast.LENGTH_LONG
+                ).show()
                 false
             } else {
                 needReload()

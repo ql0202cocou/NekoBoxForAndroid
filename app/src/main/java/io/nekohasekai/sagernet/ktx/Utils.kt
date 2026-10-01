@@ -147,6 +147,8 @@ inline fun <T : Any> moveUserOrder(
     itemAt: (Int) -> T?,
     putAt: (Int, T) -> Unit,
 ): Boolean {
+    // 拖拽时适配器有待处理的更新，位置可能是 RecyclerView.NO_POSITION（-1）
+    if (from < 0 || to < 0) return false
     val first = itemAt(from) ?: return false
     var previousOrder = userOrder.get(first)
     val (step, range) = if (from < to) Pair(1, from until to) else Pair(

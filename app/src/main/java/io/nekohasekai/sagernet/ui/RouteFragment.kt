@@ -62,12 +62,8 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
                 recyclerView: RecyclerView,
                 viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder,
             ): Boolean {
-                val from = viewHolder.bindingAdapterPosition
-                val to = target.bindingAdapterPosition
-                // 同 ChainSettingsActivity：适配器有待处理的更新时位置可能是 NO_POSITION（-1）
-                if (from == RecyclerView.NO_POSITION || to == RecyclerView.NO_POSITION) return false
-                ruleAdapter.move(from, to)
-                return true
+                // NO_POSITION 由 moveUserOrder 挡掉，返回 false
+                return ruleAdapter.move(viewHolder.bindingAdapterPosition, target.bindingAdapterPosition)
             }
 
             override fun clearView(
@@ -149,12 +145,13 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
         }
 
         private val updated = HashSet<RuleEntity>()
-        fun move(from: Int, to: Int) {
+        fun move(from: Int, to: Int): Boolean {
             val moved = moveUserOrder(from, to, RuleEntity::userOrder, ruleList::get) { i, rule ->
                 ruleList[i] = rule
                 updated.add(rule)
             }
             if (moved) notifyItemMoved(from, to)
+            return moved
         }
 
         fun commitMove() {

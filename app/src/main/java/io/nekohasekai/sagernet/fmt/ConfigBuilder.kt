@@ -237,6 +237,10 @@ private class ConfigBuild(
     }
 
     val extraRules = if (forTest) listOf() else SagerDatabase.rulesDao.enabledRules()
+
+    // 整份配置构建完只各弹一条 Toast：逐条弹的话，规则一多提示会排上十几秒
+    private val rulesSkipped = mutableListOf<String>()
+    private val rulesNeedVpn = mutableListOf<String>()
     val extraProxies =
         if (forTest) mapOf() else SagerDatabase.proxyDao.getEntities(extraRules.mapNotNull { rule ->
             rule.outbound.takeIf { it > 0 && it != proxy.id }
@@ -571,6 +575,13 @@ private class ConfigBuild(
     private fun MyOptions.buildHopOutbound(
         chain: ChainState, proxyEntity: ProxyEntity, bean: AbstractBean, tagOut: String,
     ): SingBoxOption {
+        // 用户要求固定证书却静默放行，比没有这个功能更危险：内部与外部核心都在这里拒绝
+        if (proxyEntity.certificatePinUnsupported()) {
+            error(
+                "${bean.displayName()}: this core cannot pin certificates; clear the fingerprint " +
+                        "or use a core that supports it"
+            )
+        }
         val currentOutbound: SingBoxOption
         if (proxyEntity.needExternal()) { // externel outbound
             val localPort = mkPort()
@@ -739,6 +750,22 @@ private class ConfigBuild(
 
     private fun MyOptions.applyUserRules() {
         for (rule in extraRules) applyUserRule(rule)
+        // buildConfig runs on a Looper-less background thread in the :bg process,
+        // so post the Toasts to main
+        if (rulesSkipped.isNotEmpty()) runOnMainDispatcher {
+            Toast.makeText(
+                SagerNet.application,
+                "Warning: none of the apps are installed, rules skipped: " + rulesSkipped.joinToString(", "),
+                Toast.LENGTH_LONG
+            ).show()
+        }
+        if (rulesNeedVpn.isNotEmpty()) runOnMainDispatcher {
+            Toast.makeText(
+                SagerNet.application,
+                SagerNet.application.getString(R.string.route_need_vpn, rulesNeedVpn.joinToString(", ")),
+                Toast.LENGTH_SHORT
+            ).show()
+        }
 
         // 对 rule_set tag 去重
         if (route.rule_set != null) {
@@ -758,26 +785,11 @@ private class ConfigBuild(
         // 会扩大到所有应用。先于下面「需要 VPN」的提示判断，一条规则最多一条 Toast
         if (rule.packages.isNotEmpty() && uidList.isEmpty()) {
             Logs.w("rule ${rule.displayName()}: none of its apps are installed, skipped")
-            runOnMainDispatcher {
-                Toast.makeText(
-                    SagerNet.application,
-                    "Warning: " + rule.displayName() + ": none of its apps are installed, rule skipped.",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
+            rulesSkipped += rule.displayName()
             return
         }
-        if (!isVPN && rule.packages.isNotEmpty()) {
-            // once per rule, not per package; buildConfig runs on a Looper-less
-            // background thread in the :bg process, so post the Toast to main
-            runOnMainDispatcher {
-                Toast.makeText(
-                    SagerNet.application,
-                    SagerNet.application.getString(R.string.route_need_vpn, rule.displayName()),
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-        }
+        // once per rule, not per package
+        if (!isVPN && rule.packages.isNotEmpty()) rulesNeedVpn += rule.displayName()
         val ruleSets = mutableListOf<RuleSet>()
 
         val ruleObj = Rule_DefaultOptions().apply {

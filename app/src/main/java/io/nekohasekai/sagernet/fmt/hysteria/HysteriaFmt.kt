@@ -309,11 +309,8 @@ fun isHysteria1PluginWindow(value: Int): Boolean = value == 0 || value >= 65536
 fun isHysteria1PluginHopInterval(value: Int): Boolean = value == 0 || value >= 8
 
 fun HysteriaBean.buildHysteria1Config(port: Int, cacheFile: (() -> File)?): String {
-    // hysteria v1 插件没有证书固定选项：与 sing-box 一样拒绝，不能静默放行（见
-    // ProxyEntity.certificatePinUnsupported）
-    if (certificateFingerprint.isNotBlank()) {
-        error("${displayName()}: certificate fingerprint pinning is not supported by the hysteria plugin; clear it")
-    }
+    // hysteria v1 插件没有证书固定选项：设了指纹的节点已在 ConfigBuild.buildHopOutbound
+    // 被拒绝（见 ProxyEntity.certificatePinUnsupported）
     if (protocolVersion != 1) {
         throw Exception("error version: $protocolVersion")
     }

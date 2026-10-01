@@ -30,8 +30,8 @@ fun buildSingBoxEndpointWireGuardBean(bean: WireGuardBean): SingBoxOptions.Endpo
             pre_shared_key = bean.peerPreSharedKey
             // 填了 AllowedIPs 就照用：目标不在范围内的包会被 WireGuard 丢弃，与官方客户端一致。
             // 留空时放行全部——sing-box 不接受空的 allowed_ips（"missing allowed ips for
-            // peer"），旧的单 peer 出站隐含的就是默认路由。订阅 / 导入的值没经过编辑器
-            // 校验，这里同样把关，免得 sing-box 启动时才报不知所云的错
+            // peer"），旧的单 peer 出站隐含的就是默认路由。导入时已清洗，但旧版本存下的
+            // 值与备份恢复的行没经过校验，这里同样把关，免得 sing-box 启动时才报不知所云的错
             val allowedIps = bean.peerAllowedIps.listByLineOrComma()
             if (!isWireGuardLocalAddressList(bean.peerAllowedIps)) {
                 error("${bean.displayName()}: WireGuard allowed IPs must be CIDR prefixes (e.g. 0.0.0.0/0)")

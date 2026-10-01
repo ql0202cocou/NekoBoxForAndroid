@@ -46,11 +46,10 @@ class TrafficLooper(val data: BaseService.Data) {
         if (stopLoop()) postFinalTraffic()
     }
 
-    // Cancel the loop, and only that: an in-flight queryStats needs a live box, so this
-    // is the one part the teardown has to await before closing it. Both
-    // ProxyInstance.launch's post-close recheck and BaseService.killProcesses can get
-    // here; true goes to the caller that actually stopped it, which then owns the final
-    // post below.
+    // 只停循环：进行中的 queryStats 需要存活的 box，这是关停时唯一要在关 box 前等完的
+    // 部分。killProcesses / destroyRunner、ProxyInstance.launch 的关闭后复查和
+    // ProxyInstance.close 的兜底都会走到这里；返回 true 的那个调用方真正停了循环，
+    // 由它负责下面的最终推送
     suspend fun stopLoop(): Boolean {
         if (!stopped.compareAndSet(false, true)) return false
         job?.cancelAndJoin()

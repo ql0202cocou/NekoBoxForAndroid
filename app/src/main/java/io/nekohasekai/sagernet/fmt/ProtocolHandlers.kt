@@ -187,8 +187,8 @@ fun ProxyEntity.coreForType(): Int {
 }
 
 // 证书指纹固定只有 Xray（VMess / VLESS）与 mihomo（AnyTLS）支持；sing-box 与 hysteria v1
-// 插件都没有对应选项。设了指纹却落到这些核心时构建会拒绝（buildSingBoxOutboundTLS /
-// buildHysteria1Config），编辑器保存时也按这里提前拦下，两处判断不能分叉
+// 插件都没有对应选项。唯一判断点：运行 / 测试 / 导出都经 ConfigBuild.buildHopOutbound
+// 按它拒绝，编辑器保存时也按它提前拦下
 fun ProxyEntity.certificatePinUnsupported(): Boolean {
     val pin = tlsFields(requireBean())?.certificateFingerprint
     if (pin.isNullOrBlank()) return false

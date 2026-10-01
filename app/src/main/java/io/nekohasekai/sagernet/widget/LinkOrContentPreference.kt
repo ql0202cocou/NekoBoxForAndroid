@@ -12,6 +12,7 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.readableMessage
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 class LinkOrContentPreference
 @JvmOverloads
@@ -32,10 +33,10 @@ constructor(
             val linkLayout = it.rootView.findViewById<TextInputLayout>(R.id.input_layout)
             fun validate() {
                 val link = it.text.toString()
+                // 能保存的值里只剩 http 需要警告；HttpUrl 的 scheme 恒为小写
                 val error = blockingError(link)
-                    ?: if (link.isNotBlank() && link.toUri().scheme != "content" &&
-                        "http".equals(link.toHttpUrl().scheme, true)
-                    ) app.getString(R.string.cleartext_http_warning) else null
+                    ?: if (link.toHttpUrlOrNull()?.scheme == "http") app.getString(R.string.cleartext_http_warning)
+                    else null
                 linkLayout.error = error
                 linkLayout.isErrorEnabled = error != null
             }
