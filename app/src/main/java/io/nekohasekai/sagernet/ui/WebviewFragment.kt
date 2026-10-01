@@ -116,7 +116,10 @@ class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenu
             // （deleteAllData 才保证包含 Web Storage；本应用只有面板用 WebView）
             WebStorage.getInstance().deleteAllData()
             webView.loadUrl("about:blank")
-            snackbar(R.string.not_connected).show()
+            // 服务在跑而面板仍不可用，只能是 Clash API 没开
+            snackbar(
+                if (ServiceRegistry.state.started) R.string.clash_api_disabled else R.string.not_connected
+            ).show()
             waitingForCore = true
             return
         }
