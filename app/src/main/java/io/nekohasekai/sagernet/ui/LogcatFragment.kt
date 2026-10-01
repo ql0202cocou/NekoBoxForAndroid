@@ -113,9 +113,17 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
             R.id.action_send_logcat -> {
                 val context = requireContext()
                 viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
-                    val logFile = SendLog.prepareLog("NB4A")
-                    withContext(Dispatchers.Main.immediate) {
-                        SendLog.shareLog(context, logFile)
+                    // 同上：失败只提示，协程里漏出的异常会让整个应用崩溃
+                    try {
+                        val logFile = SendLog.prepareLog("NB4A")
+                        withContext(Dispatchers.Main.immediate) {
+                            SendLog.shareLog(context, logFile)
+                        }
+                    } catch (e: Exception) {
+                        Logs.w(e)
+                        withContext(Dispatchers.Main.immediate) {
+                            snackbar(e.readableMessage).show()
+                        }
                     }
                 }
             }

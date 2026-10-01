@@ -4,6 +4,7 @@ import android.content.Context
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
+import io.nekohasekai.sagernet.ktx.shareDir
 import io.nekohasekai.sagernet.ktx.shareFile
 import io.nekohasekai.sagernet.ktx.use
 import io.nekohasekai.sagernet.utils.CrashHandler
@@ -19,10 +20,14 @@ object SendLog {
     }
 
     fun prepareLog(title: String): File {
+        // 必须建在 shareDir：FileProvider 只暴露该目录，目录外的文件 shareFile 会抛
+        // IllegalArgumentException；shareFile 同时清掉上一次分享的残留。旧版本建在
+        // cacheDir/log/ 且从不清理，顺手删掉
+        File(app.cacheDir, "log").deleteRecursively()
         val logFile = File.createTempFile(
             "$title ",
             ".log",
-            File(app.cacheDir, "log").also { it.mkdirs() })
+            app.shareDir.also { it.mkdirs() })
 
         var report = CrashHandler.buildReportHeader()
 
