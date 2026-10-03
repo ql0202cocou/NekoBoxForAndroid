@@ -29,6 +29,7 @@ import moe.matsuri.nb4a.utils.JavaUtil.gson
 import moe.matsuri.nb4a.utils.Util
 import moe.matsuri.nb4a.utils.listByLineOrComma
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import java.io.File
 
 const val TAG_MIXED = "mixed-in"
 
@@ -46,6 +47,9 @@ const val CLASH_API_LISTEN = "$LOCALHOST:9090"
 // Shape of the tags buildConfig generates itself (g-<entryId>, c-<chainId>-…);
 // a user-chosen profile name matching it would collide with one.
 private val GENERATED_TAG_SHAPE = Regex("g-\\d+|c-\\d+.*")
+
+// 预检生成外部核心配置用的占位端口，生成的配置随即丢弃
+private const val PRECHECK_PORT = 1080
 
 // sing-box 1.14 removed the legacy DNS server address format; map it to typed
 // servers the same way sing-box 1.13's internal upgrade did.
@@ -459,8 +463,8 @@ private class ConfigBuild(
         var pastEntity: ProxyEntity? = null
     }
 
-    private fun MyOptions.buildChain(chainId: Long, entity: ProxyEntity): String {
-        val profileList = entity.resolveChain()
+    // buildChain 与 precheck 共用的整链检查
+    private fun requireBuildableChain(entity: ProxyEntity, profileList: List<ProxyEntity>) {
         // A chain whose members all dangle resolves to nothing: the config would
         // lack the outbound rules reference and sing-box would fail with a cryptic
         // "outbound not found". Fail loudly here instead, like the loop guard.
@@ -474,6 +478,11 @@ private class ConfigBuild(
             .firstOrNull { it.size > 1 }?.let {
                 error("profile ${it[0].id} (${it[0].requireBean().displayName()}) runs on an external core and appears twice in chain ${entity.id}")
             }
+    }
+
+    private fun MyOptions.buildChain(chainId: Long, entity: ProxyEntity): String {
+        val profileList = entity.resolveChain()
+        requireBuildableChain(entity, profileList)
         // dedup by id and keep insertion order: a HashSet<ProxyEntity>
         // collapses two fully identical entities (the collapsed node's
         // traffic never lands in the DB) and iterates in arbitrary order
@@ -598,10 +607,7 @@ private class ConfigBuild(
     private fun MyOptions.buildHopOutbound(
         chain: ChainState, proxyEntity: ProxyEntity, bean: AbstractBean, tagOut: String,
     ): SingBoxOption {
-        // 用户要求固定证书却静默放行，比没有这个功能更危险：内部与外部核心都在这里拒绝
-        if (proxyEntity.certificatePinUnsupported()) {
-            error("this core cannot pin certificates; clear the fingerprint or use a core that supports it")
-        }
+        requireBuildableHop(proxyEntity, bean)
         val currentOutbound: SingBoxOption
         if (proxyEntity.needExternal()) { // externel outbound
             val localPort = mkPort()
@@ -613,13 +619,7 @@ private class ConfigBuild(
             }
         } else {
             // internal outbound
-            // 完整配置型自定义节点作为链成员、前置 / 落地或路由目标时，给出明确
-            // 错误，而不是让 sing-box 以 "unknown outbound type" 拒绝整份配置
-            if (proxyEntity.isFullConfig()) {
-                error("a full-config profile can only run on its own")
-            }
-
-            currentOutbound = buildSingBoxOutbound(bean)
+            currentOutbound = buildInternalOutbound(bean)
 
             // internal mux
             if (!chain.muxApplied) {
@@ -678,20 +678,7 @@ private class ConfigBuild(
         bean.finalPort = bean.serverPort
         if (bean.canMapping() && proxyEntity.needExternal()) {
             // With ss protect, don't use mapping
-            var needExternal = true
-            if (index == chain.profileList.lastIndex) {
-                // 只有 hysteria 走 Matsuri exe 免映射（没装外部插件时用内置的也算）；
-                // 其余协议不查插件。插件只查一次，每次查询都是一轮 IPC
-                if (bean is HysteriaBean) {
-                    val pluginId = externalCore(bean)!!.pluginId
-                    val external = Plugins.getPluginExternal(pluginId)
-                    if (external == null || external.authority.startsWith(Plugins.AUTHORITIES_PREFIX_NEKO_EXE)) {
-                        needExternal = false
-                    } else {
-                        throw Exception("You are using an unsupported $pluginId, please download the correct plugin.")
-                    }
-                }
-            }
+            val needExternal = !(index == chain.profileList.lastIndex && hysteriaSkipsMapping(bean))
             if (needExternal) {
                 val mappingPort = mkPort()
                 bean.finalAddress = LOCALHOST
@@ -720,22 +707,110 @@ private class ConfigBuild(
         }
     }
 
+    // 链上最先拨号的一跳：只有 hysteria 走 Matsuri exe 免映射（没装外部插件时用内置的
+    // 也算）；其余协议不查插件，每次查询都是一轮 IPC。mapExternalHop 与 precheck 共用
+    private fun hysteriaSkipsMapping(bean: AbstractBean): Boolean {
+        if (bean !is HysteriaBean) return false
+        val pluginId = externalCore(bean)!!.pluginId
+        val external = Plugins.getPluginExternal(pluginId)
+        if (external == null || external.authority.startsWith(Plugins.AUTHORITIES_PREFIX_NEKO_EXE)) return true
+        throw Exception("You are using an unsupported $pluginId, please download the correct plugin.")
+    }
+
+    // buildHopOutbound 与 precheck 共用的单跳检查
+    private fun requireBuildableHop(proxyEntity: ProxyEntity, bean: AbstractBean) {
+        // 用户要求固定证书却静默放行，比没有这个功能更危险：内部与外部核心都在这里拒绝
+        if (proxyEntity.certificatePinUnsupported()) {
+            error("this core cannot pin certificates; clear the fingerprint or use a core that supports it")
+        }
+        // 完整配置型自定义节点作为链成员、前置 / 落地或路由目标时，给出明确
+        // 错误，而不是让 sing-box 以 "unknown outbound type" 拒绝整份配置
+        if (!proxyEntity.needExternal() && proxyEntity.isFullConfig()) {
+            error("a full-config profile can only run on its own")
+        }
+        // 自定义出站 JSON 要到 build() 末尾序列化时才解析，在这里先解析一次，
+        // 出错时才能带上节点名、预检才能跳过这个成员
+        if (!bean.customOutboundJson.isNullOrBlank()) Util.mergeJSON(HashMap<String, Any?>(), bean.customOutboundJson)
+    }
+
+    // 内部核心出站。ConfigBean（type 1）的 JSON 同理提前解析
+    private fun buildInternalOutbound(bean: AbstractBean): SingBoxOption =
+        buildSingBoxOutbound(bean).also { if (it is CustomSingBoxOption) it.getBasicMap() }
+
+    // 同一次构建里每个插件只查一次，查不到的结果也记下
+    private val pluginErrors = HashMap<String, Exception?>()
+
+    private fun requirePlugin(pluginId: String) {
+        if (pluginId !in pluginErrors) pluginErrors[pluginId] = try {
+            PluginManager.init(pluginId)
+            null
+        } catch (_: PluginManager.PluginNotFoundException) {
+            IllegalStateException("plugin $pluginId is not installed")
+        } catch (e: Exception) {
+            e
+        }
+        pluginErrors[pluginId]?.let { throw it }
+    }
+
+    // 选择器成员 / 路由规则目标构建前的只读预检：把 buildChain 会走的检查空跑一遍，
+    // 结果全部丢弃。buildChain 抛错时已写入一半的出站、入站与端口，只能事先判断。
+    // 不能写 MyOptions 与本类的构建状态、不能调 mkPort，也不能调 mapExternalHop
+    // （它改写 bean.finalAddress）
+    private fun precheck(entity: ProxyEntity) {
+        val profileList = entity.resolveChain()
+        requireBuildableChain(entity, profileList)
+        profileList.forEachIndexed { index, hop ->
+            val bean = hop.requireBean()
+            withProfileName(bean) {
+                requireBuildableHop(hop, bean)
+                if (!hop.needExternal()) {
+                    buildInternalOutbound(bean)
+                    return@withProfileName
+                }
+                if (bean.canMapping() && index == profileList.lastIndex) hysteriaSkipsMapping(bean)
+                // NekoBean 没有 ExternalCore，与 BoxInstance.init 一样跳过
+                val core = externalCore(bean) ?: return@withProfileName
+                // 生成的配置丢弃，端口只是占位；hysteria 1 会写 CA 临时文件，用完删掉
+                val tempFiles = ArrayList<File>()
+                try {
+                    core.config(PRECHECK_PORT, { prefix, ext ->
+                        File.createTempFile(prefix + "_", ".$ext", SagerNet.application.cacheDir)
+                            .also { tempFiles.add(it) }
+                    }, null)
+                } finally {
+                    tempFiles.forEach { runCatching { it.delete() } }
+                }
+                // 导出不需要装插件
+                if (!forExport) requirePlugin(core.pluginId)
+            }
+        }
+    }
+
+    // 选择器成员 / 路由规则目标预检失败时跳过并告警，而不是拖垮整份配置。
+    // 用户选中的节点不预检、照常报错——那是用户明确要用的
+    private fun skipBroken(entity: ProxyEntity): Boolean {
+        if (entity.id == proxy.id) return false
+        try {
+            precheck(entity)
+            return false
+        } catch (e: Exception) {
+            Logs.w("profile ${entity.id} skipped", e)
+            val name = entity.requireBean().displayName()
+            // 出错的就是这个成员本身时，消息已以它的名字开头；链成员里出错的另有其名
+            membersSkipped += if (e is ProfileBuildException && e.profileName == name) {
+                e.readableMessage
+            } else {
+                "$name (${e.readableMessage})"
+            }
+            return true
+        }
+    }
+
     // 已作为别的链里最先拨号的一跳建过全局 outbound（globalOutbounds 在
     // profileList.lastIndex 处填入）的节点：只在它单独成链（所在分组没有前置 /
     // 落地）时直接复用那个 g-<id>，重建会让 outbound/inbound tag 重复、sing-box
     // 拒绝整份配置。有前置 / 落地时裸的 g-<id> 不经过它们，要 buildChain：
     // linkHop 会复用已建的 g-<id>，并在外面接上前置 / 落地
-    // 选择器成员 / 路由规则目标中证书指纹不受支持的节点：跳过并告警，而不是让
-    // buildHopOutbound 抛错拖垮整份配置（buildChain 抛错时已写入一半的出站与端口，
-    // 只能事先判断）。用户选中的节点照常报错——那是用户明确要用的
-    private fun skipUnpinnable(entity: ProxyEntity): Boolean {
-        if (entity.id == proxy.id) return false
-        val bad = entity.resolveChain().firstOrNull { it.certificatePinUnsupported() } ?: return false
-        Logs.w("profile ${entity.id} skipped: ${bad.requireBean().displayName()} cannot pin certificates on its core")
-        membersSkipped += entity.requireBean().displayName()
-        return true
-    }
-
     private fun MyOptions.reuseOrBuildChain(id: Long, entity: ProxyEntity): String =
         globalOutbounds[id]?.takeIf { entity.resolveChain().size == 1 } ?: buildChain(id, entity)
 
@@ -748,7 +823,7 @@ private class ConfigBuild(
                 // 完整配置型成员不是出站，塞进来会让整份配置被拒；选中它时
                 // selectorGroupIdOf 为 -1，走重启、由 buildConfig 开头单独运行
                 if (it.isFullConfig()) return@forEach
-                if (skipUnpinnable(it)) return@forEach
+                if (skipBroken(it)) return@forEach
                 // 每个成员都要记进 tagMap：profileTagMap 驱动选择器切换，缺了它
                 // 连接中选这个成员会解析成空 tag、什么都不做。中间跳只有链内 tag，
                 // 照常单独建一个全局 outbound，让它仍可选、可被路由规则引用
@@ -771,8 +846,8 @@ private class ConfigBuild(
             // 重名，sing-box 拒绝整份配置；tagMap 也会被改成不在选择器里的 tag，
             // 连接中选它不生效。中间跳没有可复用的全局 tag，单独建一个，不能丢掉
             // 这条路由规则
-            // 证书指纹不受支持的目标跳过：规则随之落入「出站不存在」告警
-            if (tagMap[key] == null && skipUnpinnable(p)) return@forEach
+            // 预检失败的目标跳过：规则随之落入「出站不存在」告警
+            if (tagMap[key] == null && skipBroken(p)) return@forEach
             tagMap[key] = tagMap[key] ?: reuseOrBuildChain(key, p)
         }
 
@@ -789,9 +864,10 @@ private class ConfigBuild(
         fun toast(text: String, duration: Int) = runOnMainDispatcher {
             Toast.makeText(app, text, duration).show()
         }
+        // 每条原因都可能含逗号，一行一条
         if (membersSkipped.isNotEmpty()) toast(
-            "Warning: these profiles cannot pin certificates on their core and were skipped: " +
-                    membersSkipped.joinToString(", "), Toast.LENGTH_LONG
+            "Warning: these profiles failed to build and were skipped:\n" +
+                    membersSkipped.joinToString("\n"), Toast.LENGTH_LONG
         )
         if (rulesSkipped.isNotEmpty()) toast(
             "Warning: none of the apps are installed, rules skipped: " + rulesSkipped.joinToString(", "),
