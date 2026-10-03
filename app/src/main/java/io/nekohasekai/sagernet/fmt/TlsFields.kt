@@ -40,7 +40,7 @@ fun buildSingBoxOutboundTLS(bean: AbstractBean): OutboundTLSOptions? {
     // 判断与报错在 ConfigBuild.buildHopOutbound（certificatePinUnsupported）；这里只兜底，
     // 防将来绕过它的调用方把固定静默丢掉
     check(tls.certificateFingerprint.isNullOrBlank()) {
-        "${bean.displayName()}: certificate pin reached the sing-box TLS builder"
+        "certificate pin reached the sing-box TLS builder"
     }
     return OutboundTLSOptions().apply {
         enabled = true

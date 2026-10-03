@@ -34,7 +34,7 @@ fun buildSingBoxEndpointWireGuardBean(bean: WireGuardBean): SingBoxOptions.Endpo
             // 值与备份恢复的行没经过校验，这里同样把关，免得 sing-box 启动时才报不知所云的错
             val allowedIps = bean.peerAllowedIps.listByLineOrComma()
             if (!isWireGuardLocalAddressList(bean.peerAllowedIps)) {
-                error("${bean.displayName()}: WireGuard allowed IPs must be CIDR prefixes (e.g. 0.0.0.0/0)")
+                error("WireGuard allowed IPs must be CIDR prefixes (e.g. 0.0.0.0/0)")
             }
             allowed_ips = allowedIps.ifEmpty { listOf("0.0.0.0/0", "::/0") }
             if (bean.peerKeepalive > 0) {

@@ -17,7 +17,9 @@ import io.nekohasekai.sagernet.ktx.parseNumericAddress
 import io.nekohasekai.sagernet.ktx.splitHostPort
 import io.nekohasekai.sagernet.ktx.usableNameservers
 import io.nekohasekai.sagernet.ktx.mkPort
+import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
+import io.nekohasekai.sagernet.plugin.PluginManager
 import io.nekohasekai.sagernet.utils.PackageCache
 import moe.matsuri.nb4a.*
 import moe.matsuri.nb4a.SingBoxOptions.*
@@ -111,6 +113,22 @@ class ConfigBuildResult(
     val selectorGroupId: Long,
 ) {
     data class IndexEntity(var chain: LinkedHashMap<Int, ProxyEntity>)
+}
+
+// 某个节点的数据让构建失败：消息前加上节点名，否则分组里节点一多，用户看不出该改哪个
+class ProfileBuildException(val profileName: String, cause: Throwable) :
+    IllegalArgumentException("$profileName: ${cause.readableMessage}", cause)
+
+// 把 block 抛出的异常包成 ProfileBuildException。已带节点名的不重复包；
+// 缺插件保持原样，BaseService / 测试按类型识别它来引导安装插件
+inline fun <T> withProfileName(bean: AbstractBean, block: () -> T): T = try {
+    block()
+} catch (e: ProfileBuildException) {
+    throw e
+} catch (e: PluginManager.PluginNotFoundException) {
+    throw e
+} catch (e: Exception) {
+    throw ProfileBuildException(bean.displayName(), e)
 }
 
 fun buildConfig(
@@ -484,8 +502,11 @@ private class ConfigBuild(
         }
 
         val tagOut = linkHop(chain, index, proxyEntity) ?: return
-        val currentOutbound = buildHopOutbound(chain, proxyEntity, bean, tagOut)
-        mapExternalHop(chain, index, proxyEntity, bean)
+        val currentOutbound = withProfileName(bean) {
+            buildHopOutbound(chain, proxyEntity, bean, tagOut).also {
+                mapExternalHop(chain, index, proxyEntity, bean)
+            }
+        }
 
         // wireguard is an endpoint since sing-box 1.13; its tag still resolves as an outbound
         if (currentOutbound is SingBoxOptions.Endpoint) {
@@ -579,10 +600,7 @@ private class ConfigBuild(
     ): SingBoxOption {
         // 用户要求固定证书却静默放行，比没有这个功能更危险：内部与外部核心都在这里拒绝
         if (proxyEntity.certificatePinUnsupported()) {
-            error(
-                "${bean.displayName()}: this core cannot pin certificates; clear the fingerprint " +
-                        "or use a core that supports it"
-            )
+            error("this core cannot pin certificates; clear the fingerprint or use a core that supports it")
         }
         val currentOutbound: SingBoxOption
         if (proxyEntity.needExternal()) { // externel outbound
@@ -598,7 +616,7 @@ private class ConfigBuild(
             // 完整配置型自定义节点作为链成员、前置 / 落地或路由目标时，给出明确
             // 错误，而不是让 sing-box 以 "unknown outbound type" 拒绝整份配置
             if (proxyEntity.isFullConfig()) {
-                error("full-config profile ${proxyEntity.id} (${bean.displayName()}) can only run on its own")
+                error("a full-config profile can only run on its own")
             }
 
             currentOutbound = buildSingBoxOutbound(bean)

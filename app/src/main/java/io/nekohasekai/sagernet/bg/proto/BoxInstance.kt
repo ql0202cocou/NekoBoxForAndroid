@@ -6,6 +6,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.ConfigBuildResult
 import io.nekohasekai.sagernet.fmt.buildConfig
 import io.nekohasekai.sagernet.fmt.externalCore
+import io.nekohasekai.sagernet.fmt.withProfileName
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.plugin.PluginManager
 import kotlinx.coroutines.Dispatchers
@@ -78,9 +79,9 @@ abstract class BoxInstance(
             for ((port, profile) in chain) {
                 val core = externalCore(profile.requireBean()) ?: continue
                 initPlugin(core.pluginId)
-                pluginConfigs[port] = core.config(
-                    port, { prefix, ext -> newCacheFile(prefix, ext, app.cacheDir) }, mihomoTestController()
-                )
+                pluginConfigs[port] = withProfileName(profile.requireBean()) {
+                    core.config(port, { prefix, ext -> newCacheFile(prefix, ext, app.cacheDir) }, mihomoTestController())
+                }
             }
         }
         loadConfig()

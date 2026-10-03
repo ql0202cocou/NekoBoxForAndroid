@@ -228,11 +228,14 @@ data class ProxyEntity(
         try {
             for ((chain) in config.externalIndex) {
                 for ((port, profile) in chain) {
-                    val core = externalCore(profile.requireBean()) ?: continue
+                    val bean = profile.requireBean()
+                    val core = externalCore(bean) ?: continue
                     text.append("\n\n")
-                    text.append(core.config(port, { prefix, ext ->
-                        File.createTempFile(prefix + "_", ".$ext", app.cacheDir).also { tempFiles.add(it) }
-                    }, null))
+                    text.append(withProfileName(bean) {
+                        core.config(port, { prefix, ext ->
+                            File.createTempFile(prefix + "_", ".$ext", app.cacheDir).also { tempFiles.add(it) }
+                        }, null)
+                    })
                 }
             }
         } finally {

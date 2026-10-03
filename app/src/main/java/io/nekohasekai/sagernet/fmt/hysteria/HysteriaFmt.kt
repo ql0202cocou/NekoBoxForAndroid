@@ -311,7 +311,7 @@ fun isHysteria1PluginHopInterval(value: Int): Boolean = value == 0 || value >= 8
 fun HysteriaBean.buildHysteria1Config(port: Int, cacheFile: (() -> File)?): String {
     // hysteria v1 插件没有证书固定选项：判断与报错在 ConfigBuild.buildHopOutbound，
     // 这里只兜底（同 buildSingBoxOutboundTLS）
-    check(certificateFingerprint.isBlank()) { "${displayName()}: certificate pin reached the hysteria plugin builder" }
+    check(certificateFingerprint.isBlank()) { "certificate pin reached the hysteria plugin builder" }
     if (protocolVersion != 1) {
         throw Exception("error version: $protocolVersion")
     }
