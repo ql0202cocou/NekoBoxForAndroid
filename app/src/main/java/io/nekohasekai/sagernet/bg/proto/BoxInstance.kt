@@ -6,6 +6,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.ConfigBuildResult
 import io.nekohasekai.sagernet.fmt.buildConfig
 import io.nekohasekai.sagernet.fmt.externalCore
+import io.nekohasekai.sagernet.fmt.withBoxErrorProfileName
 import io.nekohasekai.sagernet.fmt.withProfileName
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.plugin.PluginManager
@@ -84,7 +85,12 @@ abstract class BoxInstance(
                 }
             }
         }
-        loadConfig()
+        // ProxyInstance / TestInstance 的 loadConfig 都在这里收口
+        try {
+            loadConfig()
+        } catch (e: Exception) {
+            throw config.withBoxErrorProfileName(e)
+        }
     }
 
     override fun launch() {
@@ -102,7 +108,11 @@ abstract class BoxInstance(
                 }
             }
 
-            box.start()
+            try {
+                box.start()
+            } catch (e: Exception) {
+                throw config.withBoxErrorProfileName(e)
+            }
         } finally {
             // 上面的 isClosed() 守卫与 writeCacheFile/processes.start 不是原子的：
             // TestInstance 的取消落在 launch() 中途时 close() 已清过 cacheFiles，

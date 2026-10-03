@@ -115,8 +115,32 @@ class ConfigBuildResult(
     var trafficMap: Map<String, List<ProxyEntity>>,
     var profileTagMap: Map<Long, String>,
     val selectorGroupId: Long,
+    // "outbound[2]" / "endpoint[0]" -> 节点名，按最终配置里的位置记录；见 withBoxErrorProfileName
+    val boxIndexNames: Map<String, String> = emptyMap(),
+    // 节点出站 / 端点的 tag -> 节点名
+    val boxTagNames: Map<String, String> = emptyMap(),
 ) {
     data class IndexEntity(var chain: LinkedHashMap<Int, ProxyEntity>)
+}
+
+private val BOX_INDEX_ERROR = Regex("initialize ((?:outbound|endpoint)\\[\\d+])")
+private val BOX_TAG_ERROR = Regex("(?:outbound|endpoint)/[^\\[\\s]+\\[")
+
+// sing-box 报错里的出站 / 端点在界面上认不出来，换成节点名：创建阶段只报
+// "initialize outbound[序号]"，启动阶段报 "start outbound/vless[g-23]" 这类内部 tag。
+// 对不上的（direct / selector、自定义配置里的出站）以及 tag 本身就是节点名的原样返回
+fun ConfigBuildResult.withBoxErrorProfileName(e: Exception): Exception {
+    val message = e.message ?: return e
+    val name = BOX_INDEX_ERROR.find(message)?.let { boxIndexNames[it.groupValues[1]] }
+        ?: BOX_TAG_ERROR.find(message)?.let { match ->
+            // 节点名可能含 "]"（如 "[IPLC] 香港"），不能用正则截取 tag，逐个比对已知 tag；
+            // 取最长的，免得 "a" 抢走 "a]b"
+            val rest = message.substring(match.range.last + 1)
+            boxTagNames.entries.filter { rest.startsWith(it.key + "]") }.maxByOrNull { it.key.length }
+                ?.takeIf { it.key != it.value }?.value
+        }
+        ?: return e
+    return ProfileBuildException(name, e)
 }
 
 // 某个节点的数据让构建失败：消息前加上节点名，否则分组里节点一多，用户看不出该改哪个
@@ -315,6 +339,8 @@ private class ConfigBuild(
     val useFakeDns = DataStore.enableFakeDns && !forTest
     val needSniff = DataStore.trafficSniffing > 0
     val externalIndexMap = ArrayList<IndexEntity>()
+    // 每个节点出站 / 端点的 tag -> 节点名，build() 末尾按最终配置换算成 boxIndexNames
+    val hopNames = HashMap<String, String>()
     val ipv6Mode = if (forTest) IPv6Mode.ENABLE else DataStore.ipv6Mode
 
     // IPv6 模式对应的 sing-box domain strategy；模式值越界时为 null
@@ -362,8 +388,22 @@ private class ConfigBuild(
             proxy.id,
             trafficMap,
             tagMap,
-            selectorGroup?.id ?: -1L
+            selectorGroup?.id ?: -1L,
+            boxIndexNames(configMap),
+            hopNames,
         )
+    }
+
+    // 必须在自定义配置合并之后取位置：合并可能增删出站，sing-box 报的是最终配置里的序号
+    private fun boxIndexNames(configMap: Map<String, Any?>): Map<String, String> {
+        val names = HashMap<String, String>()
+        for (kind in arrayOf("outbound", "endpoint")) {
+            (configMap["${kind}s"] as? List<*>)?.forEachIndexed { index, item ->
+                val tag = (item as? Map<*, *>)?.get("tag") as? String ?: return@forEachIndexed
+                hopNames[tag]?.let { names["$kind[$index]"] = it }
+            }
+        }
+        return names
     }
 
     private fun MyOptions.applyLogAndClashApi() {
@@ -517,6 +557,7 @@ private class ConfigBuild(
             }
         }
 
+        hopNames[tagOut] = bean.displayName()
         // wireguard is an endpoint since sing-box 1.13; its tag still resolves as an outbound
         if (currentOutbound is SingBoxOptions.Endpoint) {
             endpoints.add(currentOutbound)
