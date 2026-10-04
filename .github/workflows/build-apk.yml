@@ -15,10 +15,11 @@ on:
         required: false
         type: number
         default: 1
+# runs-on 固定为 ubuntu-24.04，原因见 libcore.yml
 jobs:
   build:
     name: Build APK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -100,7 +101,7 @@ jobs:
     # 调用方的 build job 要等本 workflow 所有 job 通过，release 的 publish 因此也被它把关。
     # lint 不需要签名，这里不解密 keystore
     name: App Check (unit test + lint)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

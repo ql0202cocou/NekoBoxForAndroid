@@ -5,10 +5,12 @@ on:
         description: "Git ref to check out (empty = caller's ref)"
         required: false
         type: string
+# runner 镜像固定为 ubuntu-24.04，不用 ubuntu-latest：后者指向哪个系统版本由 GitHub 决定，
+# 换版本后构建失败分不清是代码还是环境的问题。升级镜像时所有 workflow 的 runs-on 一起改
 jobs:
   libcore:
     name: Native Build (LibCore)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -37,9 +39,8 @@ jobs:
           cache-dependency-path: libcore/go.sum
       - name: Install NDK 25.0.8775105
         if: steps.cache.outputs.cache-hit != 'true'
-        # ubuntu-latest images ship only the latest NDK (27.x); without this step
-        # buildScript/init/env_ndk.sh silently falls back to it and the core is
-        # built with the wrong NDK
+        # runner 镜像不带 NDK 25，预装的是更新的版本（27 及以上）；没有这一步，
+        # buildScript/init/env_ndk.sh 会悄悄退回用预装的 NDK，核心就被错误的 NDK 构建
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;25.0.8775105" > /dev/null
       - name: Native Build
         if: steps.cache.outputs.cache-hit != 'true'
@@ -54,7 +55,7 @@ jobs:
           retention-days: 1
   test:
     name: Go Test (LibCore)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

@@ -21,10 +21,11 @@ concurrency:
 permissions:
   contents: read
   actions: read
+# runs-on 固定为 ubuntu-24.04，原因见 libcore.yml
 jobs:
   validate:
     name: Validate tag
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -90,7 +91,7 @@ jobs:
   publish:
     name: Publish Release
     if: github.event.inputs.skip_publish != 'y'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
       actions: read
