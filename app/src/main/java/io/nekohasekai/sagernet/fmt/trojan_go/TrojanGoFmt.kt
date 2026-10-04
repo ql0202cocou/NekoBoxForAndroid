@@ -5,6 +5,7 @@ import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.ktx.*
 import moe.matsuri.nb4a.Protocols
+import moe.matsuri.nb4a.utils.JavaUtil
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.json.JSONArray
 import org.json.JSONObject
@@ -88,58 +89,52 @@ fun TrojanGoBean.toUri(): String {
 }
 
 fun TrojanGoBean.buildTrojanGoConfig(port: Int, settings: ExternalCoreSettings): String {
-    return JSONObject().apply {
-        put("run_type", "client")
-        put("local_addr", LOCALHOST)
-        put("local_port", port)
-        put("remote_addr", finalAddress)
-        put("remote_port", finalPort)
-        put("password", JSONArray().apply {
-            put(password)
-        })
-        // 与 ConfigBuilder 的 sing-box 档位一致；trojan-go 用数字，0 最详细、2 为 warn
-        put(
-            "log_level", when (settings.logLevel) {
-                2 -> 1
-                3, 4 -> 0
-                else -> 2
-            }
+    val config = LinkedHashMap<String, Any>()
+    config["run_type"] = "client"
+    config["local_addr"] = LOCALHOST
+    config["local_port"] = port
+    config["remote_addr"] = finalAddress
+    config["remote_port"] = finalPort
+    config["password"] = arrayListOf(password)
+    // 与 ConfigBuilder 的 sing-box 档位一致；trojan-go 用数字，0 最详细、2 为 warn
+    config["log_level"] = when (settings.logLevel) {
+        2 -> 1
+        3, 4 -> 0
+        else -> 2
+    }
+    config["tcp"] = linkedMapOf<String, Any>("prefer_ipv4" to (settings.ipv6Mode <= IPv6Mode.ENABLE))
+
+    when (type) {
+        "original" -> {
+        }
+        "ws" -> config["websocket"] = linkedMapOf<String, Any>(
+            "enabled" to true,
+            "host" to host,
+            "path" to path,
         )
-        put("tcp", JSONObject().apply {
-            put("prefer_ipv4", settings.ipv6Mode <= IPv6Mode.ENABLE)
-        })
+    }
 
-        when (type) {
-            "original" -> {
-            }
-            "ws" -> put("websocket", JSONObject().apply {
-                put("enabled", true)
-                put("host", host)
-                put("path", path)
-            })
+    // SNI 回退值只留在局部变量里；写回 bean 会让用户没设过的 sni
+    // 出现在之后导出的分享链接里
+    val sslSni = sni.ifBlank {
+        if (finalAddress == LOCALHOST && !serverAddress.isIpAddress()) serverAddress else ""
+    }
+
+    val ssl = LinkedHashMap<String, Any>()
+    if (sslSni.isNotBlank()) ssl["sni"] = sslSni
+    if (allowInsecure) ssl["verify"] = false
+    config["ssl"] = ssl
+
+    when {
+        encryption == "none" -> {
         }
-
-        // keep the SNI fallback local; writing it back to the bean would add a
-        // sni the user never set to later share links
-        val sslSni = sni.ifBlank {
-            if (finalAddress == LOCALHOST && !serverAddress.isIpAddress()) serverAddress else ""
-        }
-
-        put("ssl", JSONObject().apply {
-            if (sslSni.isNotBlank()) put("sni", sslSni)
-            if (allowInsecure) put("verify", false)
-        })
-
-        when {
-            encryption == "none" -> {
-            }
-            encryption.startsWith("ss;") -> put("shadowsocks", JSONObject().apply {
-                put("enabled", true)
-                put("method", encryption.substringAfter(";").substringBefore(":"))
-                put("password", encryption.substringAfter(":", ""))
-            })
-        }
-    }.toStringPretty()
+        encryption.startsWith("ss;") -> config["shadowsocks"] = linkedMapOf<String, Any>(
+            "enabled" to true,
+            "method" to encryption.substringAfter(";").substringBefore(":"),
+            "password" to encryption.substringAfter(":", ""),
+        )
+    }
+    return JavaUtil.gson.toJson(config)
 }
 
 fun JSONObject.parseTrojanGo(): TrojanGoBean {
