@@ -298,6 +298,10 @@ class GroupSettingsActivity(
                 // 链接或类型变了就按新订阅对待：不重置 lastUpdated 的话，
                 // 新链接的首次自动更新会按旧链接的时间点被推迟
                 entity.subscription?.lastUpdated = 0L
+                // 流量与到期信息属于旧订阅，GroupFragment 按这三项显示，一并清零
+                entity.subscription?.bytesUsed = 0L
+                entity.subscription?.bytesRemaining = 0L
+                entity.subscription?.expiryDate = 0L
             }
             GroupManager.updateGroup(
                 entity.apply { serialize() }, preserveSubscriptionRuntime = keepUserInfo

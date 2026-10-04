@@ -15,6 +15,20 @@ import moe.matsuri.nb4a.utils.Util
 import org.json.JSONTokener
 import org.yaml.snakeyaml.error.YAMLException
 
+private fun AbstractBean.isUnauthHttp() = this is HttpBean && username.isNullOrBlank()
+
+// 分享链接兜底解析出的全是无认证 HTTP 节点，且分组里已有其它类型的节点时拒绝，
+// 保住原有节点；新分组或本来就只有无认证 HTTP 节点的分组放行。Clash 订阅不受此约束
+internal fun shouldRejectUnauthHttpOnly(
+    proxies: List<AbstractBean>,
+    existing: List<AbstractBean>,
+    isClash: Boolean,
+): Boolean {
+    if (isClash) return false
+    if (!proxies.all { it.isUnauthHttp() }) return false
+    return existing.any { !it.isUnauthHttp() }
+}
+
 @Suppress("EXPERIMENTAL_API_USAGE")
 object RawUpdater : GroupUpdater() {
 
@@ -82,8 +96,10 @@ object RawUpdater : GroupUpdater() {
 
         // 非 YAML 订阅走到分享链接兜底时，纯文本里只到域名的 URL（如到期提示页里的
         // "renew at https://example.com"）会被当成无认证的 HTTP 代理，整组节点随即
-        // 被这个假节点替换。解析结果只有这种节点时按没找到处理，保住原有节点
-        if (clashRoot == null && proxies.all { it is HttpBean && it.username.isNullOrBlank() }) {
+        // 被这个假节点替换。分组里已有其它类型的节点时，只有这种解析结果按没找到
+        // 处理，保住原有节点；新分组或本来就只有无认证 HTTP 节点的分组放行
+        val exists = SagerDatabase.proxyDao.getByGroup(proxyGroup.id)
+        if (shouldRejectUnauthHttpOnly(proxies, exists.map { it.requireBean() }, clashRoot != null)) {
             error(app.getString(R.string.no_proxies_found_in_subscription))
         }
 
@@ -136,7 +152,6 @@ object RawUpdater : GroupUpdater() {
         }
         uniquifyNames(proxies)
 
-        val exists = SagerDatabase.proxyDao.getByGroup(proxyGroup.id)
         val duplicate = ArrayList<String>()
         if (subscription.deduplication) {
             Logs.d("Before deduplication: ${proxies.size}")
