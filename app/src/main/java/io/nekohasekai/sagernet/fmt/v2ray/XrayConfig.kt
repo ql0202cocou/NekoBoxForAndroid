@@ -3,12 +3,10 @@ package io.nekohasekai.sagernet.fmt.v2ray
 import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.fmt.effectiveAllowInsecure
-import io.nekohasekai.sagernet.ktx.toStringPretty
 import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
+import moe.matsuri.nb4a.utils.JavaUtil.gson
 import moe.matsuri.nb4a.utils.echAsBase64
 import moe.matsuri.nb4a.utils.listByLineOrComma
-import org.json.JSONArray
-import org.json.JSONObject
 
 // Xray-core dropped the standalone h2 ("http" over TLS) and quic transports; the
 // shipped binary registers neither, so it answers such a config with "unknown
@@ -38,7 +36,7 @@ fun buildXrayConfig(bean: VMessBean, port: Int, settings: ExternalCoreSettings):
     if (bean.xrayLacksAllowInsecure(settings.globalAllowInsecure)) {
         error("xray-core no longer supports allowInsecure, use a certificate fingerprint or the sing-box core for this profile")
     }
-    val user = JSONObject().apply {
+    val user = LinkedHashMap<String, Any?>().apply {
         put("id", bean.uuid)
         if (bean.isVLESS) {
             put("encryption", "none")
@@ -51,14 +49,14 @@ fun buildXrayConfig(bean: VMessBean, port: Int, settings: ExternalCoreSettings):
         }
     }
 
-    val outbound = JSONObject().apply {
+    val outbound = LinkedHashMap<String, Any?>().apply {
         put("protocol", if (bean.isVLESS) "vless" else "vmess")
-        put("settings", JSONObject().apply {
-            put("vnext", JSONArray().apply {
-                put(JSONObject().apply {
+        put("settings", LinkedHashMap<String, Any?>().apply {
+            put("vnext", ArrayList<Any?>().apply {
+                add(LinkedHashMap<String, Any?>().apply {
                     put("address", bean.finalAddress)
                     put("port", bean.finalPort)
-                    put("users", JSONArray().apply { put(user) })
+                    put("users", ArrayList<Any?>().apply { add(user) })
                 })
             })
         })
@@ -66,7 +64,7 @@ fun buildXrayConfig(bean: VMessBean, port: Int, settings: ExternalCoreSettings):
         // xudp rides on xray mux; packetaddr is not supported by xray.
         // vision flow doesn't support mux; without mux VLESS carries UDP natively.
         if (!bean.isVisionFlow && (bean.enableMux || bean.packetEncoding == 2)) {
-            put("mux", JSONObject().apply {
+            put("mux", LinkedHashMap<String, Any?>().apply {
                 put("enabled", true)
                 // -1 leaves TCP un-muxed, so packetEncoding=xudp alone only moves UDP
                 // onto xudp (sing-box packet_encoding semantics); mux.cool for TCP
@@ -87,8 +85,9 @@ fun buildXrayConfig(bean: VMessBean, port: Int, settings: ExternalCoreSettings):
         }
     }
 
-    return JSONObject().apply {
-        put("log", JSONObject().apply {
+    // 用共用的 gson 直接序列化集合；它不输出值为 null 的键，与 org.json put(键, null) 删键的结果一致
+    return gson.toJson(LinkedHashMap<String, Any?>().apply {
+        put("log", LinkedHashMap<String, Any?>().apply {
             // 与 ConfigBuilder 的 sing-box 档位一致；Xray 没有 trace，最高到 debug
             put(
                 "loglevel", when (settings.logLevel) {
@@ -98,29 +97,29 @@ fun buildXrayConfig(bean: VMessBean, port: Int, settings: ExternalCoreSettings):
                 }
             )
         })
-        put("inbounds", JSONArray().apply {
-            put(JSONObject().apply {
+        put("inbounds", ArrayList<Any?>().apply {
+            add(LinkedHashMap<String, Any?>().apply {
                 put("listen", LOCALHOST)
                 put("port", port)
                 put("protocol", "socks")
-                put("settings", JSONObject().apply { put("udp", true) })
+                put("settings", LinkedHashMap<String, Any?>().apply { put("udp", true) })
             })
         })
-        put("outbounds", JSONArray().apply { put(outbound) })
-    }.toStringPretty()
+        put("outbounds", ArrayList<Any?>().apply { add(outbound) })
+    })
 }
 
-private fun buildXrayStreamSettings(bean: VMessBean, globalAllowInsecure: Boolean): JSONObject {
+private fun buildXrayStreamSettings(bean: VMessBean, globalAllowInsecure: Boolean): Map<String, Any?> {
     // 经 mapping 外核只能拨到本地地址，TLS SNI 需要显式兜底；
     // 与 sing-box 对齐：sni 为空时兜底为 serverAddress（IP 也一样）
     val sni = bean.sni.takeIf { it.isNotBlank() }
         ?: bean.serverAddress.takeIf { it.isNotBlank() }
-    return JSONObject().apply {
+    return LinkedHashMap<String, Any?>().apply {
         // transport；存量节点的未知传输方式明确报错，不退成 TCP
         when (requireV2RayTransport(bean.type)) {
             "ws" -> {
                 put("network", "ws")
-                put("wsSettings", JSONObject().apply {
+                put("wsSettings", LinkedHashMap<String, Any?>().apply {
                     // Xray only reads early data from "?ed=N" in the path; the
                     // maxEarlyData/earlyDataHeaderName keys are silently ignored.
                     val earlyData = bean.resolveWsEarlyData()
@@ -130,7 +129,7 @@ private fun buildXrayStreamSettings(bean: VMessBean, globalAllowInsecure: Boolea
                     }
                     put("path", path)
                     if (bean.host.isNotBlank()) {
-                        put("headers", JSONObject().apply { put("Host", bean.host) })
+                        put("headers", LinkedHashMap<String, Any?>().apply { put("Host", bean.host) })
                     }
                 })
             }
@@ -139,16 +138,16 @@ private fun buildXrayStreamSettings(bean: VMessBean, globalAllowInsecure: Boolea
             // tcp fake-http header form reaches here
             "http" -> {
                 put("network", "tcp")
-                put("tcpSettings", JSONObject().apply {
-                    put("header", JSONObject().apply {
+                put("tcpSettings", LinkedHashMap<String, Any?>().apply {
+                    put("header", LinkedHashMap<String, Any?>().apply {
                         put("type", "http")
-                        put("request", JSONObject().apply {
-                            put("path", JSONArray().apply {
-                                put(bean.path.takeIf { it.isNotBlank() } ?: "/")
+                        put("request", LinkedHashMap<String, Any?>().apply {
+                            put("path", ArrayList<Any?>().apply {
+                                add(bean.path.takeIf { it.isNotBlank() } ?: "/")
                             })
                             if (bean.host.isNotBlank()) {
-                                put("headers", JSONObject().apply {
-                                    put("Host", JSONArray(bean.host.listByLineOrComma()))
+                                put("headers", LinkedHashMap<String, Any?>().apply {
+                                    put("Host", bean.host.listByLineOrComma())
                                 })
                             }
                         })
@@ -158,7 +157,7 @@ private fun buildXrayStreamSettings(bean: VMessBean, globalAllowInsecure: Boolea
 
             "grpc" -> {
                 put("network", "grpc")
-                put("grpcSettings", JSONObject().apply {
+                put("grpcSettings", LinkedHashMap<String, Any?>().apply {
                     put("serviceName", bean.path)
                 })
             }
@@ -167,7 +166,7 @@ private fun buildXrayStreamSettings(bean: VMessBean, globalAllowInsecure: Boolea
                 put("network", "httpupgrade")
                 // xray's json tag is all-lowercase; httpUpgradeSettings is
                 // silently ignored, dropping path and Host
-                put("httpupgradeSettings", JSONObject().apply {
+                put("httpupgradeSettings", LinkedHashMap<String, Any?>().apply {
                     if (bean.host.isNotBlank()) put("host", bean.host)
                     put("path", bean.path.takeIf { it.isNotBlank() } ?: "/")
                 })
@@ -189,7 +188,7 @@ private fun buildXrayStreamSettings(bean: VMessBean, globalAllowInsecure: Boolea
                 "Invalid REALITY mldsa65Verify: expected 2603 URL-safe Base64 characters (1952 bytes)"
             }
             put("security", "reality")
-            put("realitySettings", JSONObject().apply {
+            put("realitySettings", LinkedHashMap<String, Any?>().apply {
                 if (sni != null) put("serverName", sni)
                 put("publicKey", bean.realityPubKey)
                 if (bean.realityShortId.isNotBlank()) put("shortId", bean.realityShortId)
@@ -201,10 +200,10 @@ private fun buildXrayStreamSettings(bean: VMessBean, globalAllowInsecure: Boolea
             })
         } else if (bean.security == "tls") {
             put("security", "tls")
-            put("tlsSettings", JSONObject().apply {
+            put("tlsSettings", LinkedHashMap<String, Any?>().apply {
                 if (sni != null) put("serverName", sni)
                 if (bean.alpn.isNotBlank()) {
-                    put("alpn", JSONArray(bean.alpn.listByLineOrComma()))
+                    put("alpn", bean.alpn.listByLineOrComma())
                 }
                 // Pinning wins over allowInsecure, the same policy as
                 // buildMihomoConfig: Xray hex-decodes pinnedPeerCertSha256 like
@@ -223,10 +222,10 @@ private fun buildXrayStreamSettings(bean: VMessBean, globalAllowInsecure: Boolea
                 }
                 fp?.let { put("fingerprint", it) }
                 if (bean.certificates.isNotBlank()) {
-                    put("certificates", JSONArray().apply {
-                        put(JSONObject().apply {
+                    put("certificates", ArrayList<Any?>().apply {
+                        add(LinkedHashMap<String, Any?>().apply {
                             put("usage", "verify")
-                            put("certificate", JSONArray(bean.certificates.lines()))
+                            put("certificate", bean.certificates.lines())
                         })
                     })
                 }
