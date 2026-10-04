@@ -1,0 +1,26 @@
+{
+  "activeProfile": "default",
+  "socks5Port": 34037,
+  "loggingLevel": "WARN",
+  "profiles": [
+    {
+      "profileName": "default",
+      "user": {
+        "name": "golden-user",
+        "password": "golden-pass-mieru"
+      },
+      "servers": [
+        {
+          "ipAddress": "127.0.0.1",
+          "portBindings": [
+            {
+              "port": 34727,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "mtu": 1400
+    }
+  ]
+}

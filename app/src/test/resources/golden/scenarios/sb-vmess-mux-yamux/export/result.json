@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-vmess-yamux.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

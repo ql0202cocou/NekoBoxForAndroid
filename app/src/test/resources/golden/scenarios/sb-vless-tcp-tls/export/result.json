@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-sb-vless-tls.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

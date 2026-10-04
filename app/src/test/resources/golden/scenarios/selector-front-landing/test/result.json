@@ -1,0 +1,31 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        11,
+        1,
+        10
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-selfl-landing",
+      "outbound[1]": "golden-selfl-vmess",
+      "outbound[2]": "golden-selfl-front"
+    },
+    "boxTagNames": {
+      "c-0-1": "golden-selfl-vmess",
+      "g-10": "golden-selfl-front",
+      "proxy": "golden-selfl-landing"
+    }
+  },
+  "external": [],
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-hy1-faketcp"
+    },
+    "boxTagNames": {
+      "proxy": "golden-hy1-faketcp"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.hysteria-plugin.json",
+      "chainIndex": 0,
+      "profileId": 1,
+      "pluginId": "hysteria-plugin",
+      "port": 45253,
+      "finalAddress": "hy1.example.com",
+      "finalPort": 1080,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      45253
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

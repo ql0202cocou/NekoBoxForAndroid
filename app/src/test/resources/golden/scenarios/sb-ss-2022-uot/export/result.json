@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-ss-2022.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

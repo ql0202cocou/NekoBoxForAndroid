@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-hy1-udp.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

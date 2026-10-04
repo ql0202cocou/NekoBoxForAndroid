@@ -1,0 +1,48 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": 1,
+    "profileTagMap": {
+      "1": "golden-selmp-trojan-go",
+      "2": "golden-selmp-vmess"
+    },
+    "trafficMap": {
+      "golden-selmp-trojan-go": [
+        1
+      ],
+      "golden-selmp-vmess": [
+        2
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[1]": "golden-selmp-trojan-go",
+      "outbound[2]": "golden-selmp-vmess"
+    },
+    "boxTagNames": {
+      "golden-selmp-trojan-go": "golden-selmp-trojan-go",
+      "golden-selmp-vmess": "golden-selmp-vmess"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.trojan-go-plugin.json",
+      "chainIndex": 0,
+      "profileId": 1,
+      "pluginId": "trojan-go-plugin",
+      "port": 36899,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 42643,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      36899,
+      42643
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

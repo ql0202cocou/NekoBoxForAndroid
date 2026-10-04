@@ -1,0 +1,2298 @@
+{
+  "formatVersion": 1,
+  "functions": {
+    "isIpAddress": "ktx/Nets.kt；ConfigBuilder 判断节点 / DNS 地址是否为域名，Trojan-Go / hysteria / naive 生成器的 SNI 回退",
+    "isIpAddressV6": "ktx/Nets.kt；wrapIPV6Host 内部",
+    "parseNumericAddress": "ktx/Utils.kt（Os.inet_pton）；makeDnsServer 校验 DNS 地址、isLocalNameserverAddress",
+    "unwrapIPV6Host": "ktx/Nets.kt；AbstractBean.initializeDefaultValues 去掉地址的方括号",
+    "wrapIPV6Host": "ktx/Nets.kt；hysteria / naive 生成器与 displayAddress 拼 host:port",
+    "splitHostPort": "ktx/Nets.kt；makeDnsServer 拆 DNS 地址的 host 与端口",
+    "isLocalNameserverAddress": "ktx/Nets.kt；usableNameservers 过滤分组 DNS 里的回环地址",
+    "usableNameservers": "ktx/Nets.kt；分组「节点解析 DNS」逐行过滤",
+    "isServerAddress": "ktx/Nets.kt；编辑器保存前的服务器地址校验",
+    "isWireGuardLocalAddressList": "fmt/wireguard/WireGuardAddress.kt（InetAddress.getByName）；WireGuard allowed IPs 校验"
+  },
+  "entries": [
+    {
+      "input": "192.0.2.1",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": false,
+        "parseNumericAddress": {
+          "class": "Inet4Address",
+          "hostAddress": "192.0.2.1",
+          "bytes": "c0000201",
+          "scopeId": null
+        },
+        "unwrapIPV6Host": "192.0.2.1",
+        "wrapIPV6Host": "192.0.2.1",
+        "splitHostPort": [
+          "192.0.2.1",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "192.0.2.1"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "198.51.100.254",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": false,
+        "parseNumericAddress": {
+          "class": "Inet4Address",
+          "hostAddress": "198.51.100.254",
+          "bytes": "c63364fe",
+          "scopeId": null
+        },
+        "unwrapIPV6Host": "198.51.100.254",
+        "wrapIPV6Host": "198.51.100.254",
+        "splitHostPort": [
+          "198.51.100.254",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "198.51.100.254"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "203.0.113.0",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": false,
+        "parseNumericAddress": {
+          "class": "Inet4Address",
+          "hostAddress": "203.0.113.0",
+          "bytes": "cb007100",
+          "scopeId": null
+        },
+        "unwrapIPV6Host": "203.0.113.0",
+        "wrapIPV6Host": "203.0.113.0",
+        "splitHostPort": [
+          "203.0.113.0",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "203.0.113.0"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "0.0.0.0",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": false,
+        "parseNumericAddress": {
+          "class": "Inet4Address",
+          "hostAddress": "0.0.0.0",
+          "bytes": "00000000",
+          "scopeId": null
+        },
+        "unwrapIPV6Host": "0.0.0.0",
+        "wrapIPV6Host": "0.0.0.0",
+        "splitHostPort": [
+          "0.0.0.0",
+          null
+        ],
+        "isLocalNameserverAddress": true,
+        "usableNameservers": [],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "255.255.255.255",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": false,
+        "parseNumericAddress": {
+          "class": "Inet4Address",
+          "hostAddress": "255.255.255.255",
+          "bytes": "ffffffff",
+          "scopeId": null
+        },
+        "unwrapIPV6Host": "255.255.255.255",
+        "wrapIPV6Host": "255.255.255.255",
+        "splitHostPort": [
+          "255.255.255.255",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "255.255.255.255"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "127.0.0.1",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": false,
+        "parseNumericAddress": {
+          "class": "Inet4Address",
+          "hostAddress": "127.0.0.1",
+          "bytes": "7f000001",
+          "scopeId": null
+        },
+        "unwrapIPV6Host": "127.0.0.1",
+        "wrapIPV6Host": "127.0.0.1",
+        "splitHostPort": [
+          "127.0.0.1",
+          null
+        ],
+        "isLocalNameserverAddress": true,
+        "usableNameservers": [],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "256.0.0.1",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "256.0.0.1",
+        "wrapIPV6Host": "256.0.0.1",
+        "splitHostPort": [
+          "256.0.0.1",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "256.0.0.1"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "192.0.2.256",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "192.0.2.256",
+        "wrapIPV6Host": "192.0.2.256",
+        "splitHostPort": [
+          "192.0.2.256",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "192.0.2.256"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "1.2.3",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "1.2.3",
+        "wrapIPV6Host": "1.2.3",
+        "splitHostPort": [
+          "1.2.3",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "1.2.3"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "1.2.3.4.5",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "1.2.3.4.5",
+        "wrapIPV6Host": "1.2.3.4.5",
+        "splitHostPort": [
+          "1.2.3.4.5",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "1.2.3.4.5"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "1..2.3",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "1..2.3",
+        "wrapIPV6Host": "1..2.3",
+        "splitHostPort": [
+          "1..2.3",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "1..2.3"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "1.2.3.",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "1.2.3.",
+        "wrapIPV6Host": "1.2.3.",
+        "splitHostPort": [
+          "1.2.3.",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "1.2.3."
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": ".1.2.3",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": ".1.2.3",
+        "wrapIPV6Host": ".1.2.3",
+        "splitHostPort": [
+          ".1.2.3",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          ".1.2.3"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "010.0.0.1",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": false,
+        "parseNumericAddress": {
+          "class": "Inet4Address",
+          "hostAddress": "10.0.0.1",
+          "bytes": "0a000001",
+          "scopeId": null
+        },
+        "unwrapIPV6Host": "010.0.0.1",
+        "wrapIPV6Host": "010.0.0.1",
+        "splitHostPort": [
+          "010.0.0.1",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "010.0.0.1"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "192.168.01.1",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": false,
+        "parseNumericAddress": {
+          "class": "Inet4Address",
+          "hostAddress": "192.168.1.1",
+          "bytes": "c0a80101",
+          "scopeId": null
+        },
+        "unwrapIPV6Host": "192.168.01.1",
+        "wrapIPV6Host": "192.168.01.1",
+        "splitHostPort": [
+          "192.168.01.1",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "192.168.01.1"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "192.0.2.001",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": false,
+        "parseNumericAddress": {
+          "class": "Inet4Address",
+          "hostAddress": "192.0.2.1",
+          "bytes": "c0000201",
+          "scopeId": null
+        },
+        "unwrapIPV6Host": "192.0.2.001",
+        "wrapIPV6Host": "192.0.2.001",
+        "splitHostPort": [
+          "192.0.2.001",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "192.0.2.001"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "00.0.0.0",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": false,
+        "parseNumericAddress": {
+          "class": "Inet4Address",
+          "hostAddress": "0.0.0.0",
+          "bytes": "00000000",
+          "scopeId": null
+        },
+        "unwrapIPV6Host": "00.0.0.0",
+        "wrapIPV6Host": "00.0.0.0",
+        "splitHostPort": [
+          "00.0.0.0",
+          null
+        ],
+        "isLocalNameserverAddress": true,
+        "usableNameservers": [],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "0x7f.0.0.1",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "0x7f.0.0.1",
+        "wrapIPV6Host": "0x7f.0.0.1",
+        "splitHostPort": [
+          "0x7f.0.0.1",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "0x7f.0.0.1"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "0177.0.0.1",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": {
+          "class": "Inet4Address",
+          "hostAddress": "177.0.0.1",
+          "bytes": "b1000001",
+          "scopeId": null
+        },
+        "unwrapIPV6Host": "0177.0.0.1",
+        "wrapIPV6Host": "0177.0.0.1",
+        "splitHostPort": [
+          "0177.0.0.1",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "0177.0.0.1"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "3232235777",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "3232235777",
+        "wrapIPV6Host": "3232235777",
+        "splitHostPort": [
+          "3232235777",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "3232235777"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "1.2.3.-4",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "1.2.3.-4",
+        "wrapIPV6Host": "1.2.3.-4",
+        "splitHostPort": [
+          "1.2.3.-4",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "1.2.3.-4"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "+1.2.3.4",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "+1.2.3.4",
+        "wrapIPV6Host": "+1.2.3.4",
+        "splitHostPort": [
+          "+1.2.3.4",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "+1.2.3.4"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "1.2.3.4%eth0",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "1.2.3.4%eth0",
+        "wrapIPV6Host": "1.2.3.4%eth0",
+        "splitHostPort": [
+          "1.2.3.4%eth0",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "1.2.3.4%eth0"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "١٩٢.٠.٢.١",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "١٩٢.٠.٢.١",
+        "wrapIPV6Host": "١٩٢.٠.٢.١",
+        "splitHostPort": [
+          "١٩٢.٠.٢.١",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "١٩٢.٠.٢.١"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "2001:db8::1",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": true,
+        "parseNumericAddress": {
+          "class": "Inet6Address",
+          "hostAddress": "2001:db8::1",
+          "bytes": "20010db8000000000000000000000001",
+          "scopeId": 0
+        },
+        "unwrapIPV6Host": "2001:db8::1",
+        "wrapIPV6Host": "[2001:db8::1]",
+        "splitHostPort": [
+          "2001:db8::1",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "2001:db8::1"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "2001:DB8::A",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": true,
+        "parseNumericAddress": {
+          "class": "Inet6Address",
+          "hostAddress": "2001:db8::a",
+          "bytes": "20010db800000000000000000000000a",
+          "scopeId": 0
+        },
+        "unwrapIPV6Host": "2001:DB8::A",
+        "wrapIPV6Host": "[2001:DB8::A]",
+        "splitHostPort": [
+          "2001:DB8::A",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "2001:DB8::A"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "::",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": true,
+        "parseNumericAddress": {
+          "class": "Inet6Address",
+          "hostAddress": "::",
+          "bytes": "00000000000000000000000000000000",
+          "scopeId": 0
+        },
+        "unwrapIPV6Host": "::",
+        "wrapIPV6Host": "[::]",
+        "splitHostPort": [
+          "::",
+          null
+        ],
+        "isLocalNameserverAddress": true,
+        "usableNameservers": [],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "::1",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": true,
+        "parseNumericAddress": {
+          "class": "Inet6Address",
+          "hostAddress": "::1",
+          "bytes": "00000000000000000000000000000001",
+          "scopeId": 0
+        },
+        "unwrapIPV6Host": "::1",
+        "wrapIPV6Host": "[::1]",
+        "splitHostPort": [
+          "::1",
+          null
+        ],
+        "isLocalNameserverAddress": true,
+        "usableNameservers": [],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "2001:db8:0:0:0:0:0:1",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": true,
+        "parseNumericAddress": {
+          "class": "Inet6Address",
+          "hostAddress": "2001:db8::1",
+          "bytes": "20010db8000000000000000000000001",
+          "scopeId": 0
+        },
+        "unwrapIPV6Host": "2001:db8:0:0:0:0:0:1",
+        "wrapIPV6Host": "[2001:db8:0:0:0:0:0:1]",
+        "splitHostPort": [
+          "2001:db8:0:0:0:0:0:1",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "2001:db8:0:0:0:0:0:1"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "2001:0db8:0000:0000:0000:0000:0000:0001",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": true,
+        "parseNumericAddress": {
+          "class": "Inet6Address",
+          "hostAddress": "2001:db8::1",
+          "bytes": "20010db8000000000000000000000001",
+          "scopeId": 0
+        },
+        "unwrapIPV6Host": "2001:0db8:0000:0000:0000:0000:0000:0001",
+        "wrapIPV6Host": "[2001:0db8:0000:0000:0000:0000:0000:0001]",
+        "splitHostPort": [
+          "2001:0db8:0000:0000:0000:0000:0000:0001",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "2001:0db8:0000:0000:0000:0000:0000:0001"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "2001:db8:1:2:3:4:5:6",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": true,
+        "parseNumericAddress": {
+          "class": "Inet6Address",
+          "hostAddress": "2001:db8:1:2:3:4:5:6",
+          "bytes": "20010db8000100020003000400050006",
+          "scopeId": 0
+        },
+        "unwrapIPV6Host": "2001:db8:1:2:3:4:5:6",
+        "wrapIPV6Host": "[2001:db8:1:2:3:4:5:6]",
+        "splitHostPort": [
+          "2001:db8:1:2:3:4:5:6",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "2001:db8:1:2:3:4:5:6"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "2001:db8:1:2:3:4:5:6:7",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "2001:db8:1:2:3:4:5:6:7",
+        "wrapIPV6Host": "2001:db8:1:2:3:4:5:6:7",
+        "splitHostPort": [
+          "2001:db8:1:2:3:4:5:6:7",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "2001:db8:1:2:3:4:5:6:7"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "2001:db8::1::2",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "2001:db8::1::2",
+        "wrapIPV6Host": "2001:db8::1::2",
+        "splitHostPort": [
+          "2001:db8::1::2",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "2001:db8::1::2"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "2001:db8:::1",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": true,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "2001:db8:::1",
+        "wrapIPV6Host": "[2001:db8:::1]",
+        "splitHostPort": [
+          "2001:db8:::1",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "2001:db8:::1"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "2001:db8::g",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "2001:db8::g",
+        "wrapIPV6Host": "2001:db8::g",
+        "splitHostPort": [
+          "2001:db8::g",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "2001:db8::g"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "02001:db8::1",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "02001:db8::1",
+        "wrapIPV6Host": "02001:db8::1",
+        "splitHostPort": [
+          "02001:db8::1",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "02001:db8::1"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "2001:db8:1:2:3:4:5",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "2001:db8:1:2:3:4:5",
+        "wrapIPV6Host": "2001:db8:1:2:3:4:5",
+        "splitHostPort": [
+          "2001:db8:1:2:3:4:5",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "2001:db8:1:2:3:4:5"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "fe80::1%wlan0",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "fe80::1%wlan0",
+        "wrapIPV6Host": "fe80::1%wlan0",
+        "splitHostPort": [
+          "fe80::1%wlan0",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "fe80::1%wlan0"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "fe80::1%1",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "fe80::1%1",
+        "wrapIPV6Host": "fe80::1%1",
+        "splitHostPort": [
+          "fe80::1%1",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "fe80::1%1"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "fe80::1%",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "fe80::1%",
+        "wrapIPV6Host": "fe80::1%",
+        "splitHostPort": [
+          "fe80::1%",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "fe80::1%"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "::ffff:192.0.2.1",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": {
+          "class": "Inet4Address",
+          "hostAddress": "192.0.2.1",
+          "bytes": "c0000201",
+          "scopeId": null
+        },
+        "unwrapIPV6Host": "::ffff:192.0.2.1",
+        "wrapIPV6Host": "::ffff:192.0.2.1",
+        "splitHostPort": [
+          "::ffff:192.0.2.1",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "::ffff:192.0.2.1"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "::ffff:c000:201",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": true,
+        "parseNumericAddress": {
+          "class": "Inet4Address",
+          "hostAddress": "192.0.2.1",
+          "bytes": "c0000201",
+          "scopeId": null
+        },
+        "unwrapIPV6Host": "::ffff:c000:201",
+        "wrapIPV6Host": "[::ffff:c000:201]",
+        "splitHostPort": [
+          "::ffff:c000:201",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "::ffff:c000:201"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "::192.0.2.1",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": {
+          "class": "Inet6Address",
+          "hostAddress": "::192.0.2.1",
+          "bytes": "000000000000000000000000c0000201",
+          "scopeId": 0
+        },
+        "unwrapIPV6Host": "::192.0.2.1",
+        "wrapIPV6Host": "::192.0.2.1",
+        "splitHostPort": [
+          "::192.0.2.1",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "::192.0.2.1"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "64:ff9b::192.0.2.1",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": {
+          "class": "Inet6Address",
+          "hostAddress": "64:ff9b::c000:201",
+          "bytes": "0064ff9b0000000000000000c0000201",
+          "scopeId": 0
+        },
+        "unwrapIPV6Host": "64:ff9b::192.0.2.1",
+        "wrapIPV6Host": "64:ff9b::192.0.2.1",
+        "splitHostPort": [
+          "64:ff9b::192.0.2.1",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "64:ff9b::192.0.2.1"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "2001:db8::192.0.2.1",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": {
+          "class": "Inet6Address",
+          "hostAddress": "2001:db8::c000:201",
+          "bytes": "20010db80000000000000000c0000201",
+          "scopeId": 0
+        },
+        "unwrapIPV6Host": "2001:db8::192.0.2.1",
+        "wrapIPV6Host": "2001:db8::192.0.2.1",
+        "splitHostPort": [
+          "2001:db8::192.0.2.1",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "2001:db8::192.0.2.1"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "::ffff:256.1.1.1",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "::ffff:256.1.1.1",
+        "wrapIPV6Host": "::ffff:256.1.1.1",
+        "splitHostPort": [
+          "::ffff:256.1.1.1",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "::ffff:256.1.1.1"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "1::2::3",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "1::2::3",
+        "wrapIPV6Host": "1::2::3",
+        "splitHostPort": [
+          "1::2::3",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "1::2::3"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": ":",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": ":",
+        "wrapIPV6Host": ":",
+        "splitHostPort": [
+          "",
+          ""
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          ":"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "%",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "%",
+        "wrapIPV6Host": "%",
+        "splitHostPort": [
+          "%",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "%"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "[2001:db8::1]",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": true,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "2001:db8::1",
+        "wrapIPV6Host": "[2001:db8::1]",
+        "splitHostPort": [
+          "2001:db8::1",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "[2001:db8::1]"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "[2001:db8::1]:443",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": true,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "[2001:db8::1]:443",
+        "wrapIPV6Host": "[[2001:db8::1]:443]",
+        "splitHostPort": [
+          "2001:db8::1",
+          "443"
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "[2001:db8::1]:443"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "[fe80::1%wlan0]",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "fe80::1%wlan0",
+        "wrapIPV6Host": "[fe80::1%wlan0]",
+        "splitHostPort": [
+          "fe80::1%wlan0",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "[fe80::1%wlan0]"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "[fe80::1%wlan0]:53",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "[fe80::1%wlan0]:53",
+        "wrapIPV6Host": "[fe80::1%wlan0]:53",
+        "splitHostPort": [
+          "fe80::1%wlan0",
+          "53"
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "[fe80::1%wlan0]:53"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "[::1]:53",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": true,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "[::1]:53",
+        "wrapIPV6Host": "[[::1]:53]",
+        "splitHostPort": [
+          "::1",
+          "53"
+        ],
+        "isLocalNameserverAddress": true,
+        "usableNameservers": [],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "[2001:db8::1",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "[2001:db8::1",
+        "wrapIPV6Host": "[2001:db8::1",
+        "splitHostPort": null,
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "[2001:db8::1"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "2001:db8::1]",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "2001:db8::1]",
+        "wrapIPV6Host": "2001:db8::1]",
+        "splitHostPort": [
+          "2001:db8::1]",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "2001:db8::1]"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "[]",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "",
+        "wrapIPV6Host": "[]",
+        "splitHostPort": null,
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "[]"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "[]:53",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "[]:53",
+        "wrapIPV6Host": "[]:53",
+        "splitHostPort": null,
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "[]:53"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "[[2001:db8::1]]",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "2001:db8::1",
+        "wrapIPV6Host": "[2001:db8::1]",
+        "splitHostPort": null,
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "[[2001:db8::1]]"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "[192.0.2.1]",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "192.0.2.1",
+        "wrapIPV6Host": "[192.0.2.1]",
+        "splitHostPort": [
+          "192.0.2.1",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "[192.0.2.1]"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "[2001:db8::1]x",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": true,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "[2001:db8::1]x",
+        "wrapIPV6Host": "[[2001:db8::1]x]",
+        "splitHostPort": null,
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "[2001:db8::1]x"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "[2001:db8::1]:",
+      "results": {
+        "isIpAddress": true,
+        "isIpAddressV6": true,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "[2001:db8::1]:",
+        "wrapIPV6Host": "[[2001:db8::1]:]",
+        "splitHostPort": [
+          "2001:db8::1",
+          ""
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "[2001:db8::1]:"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "[example.com]:53",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "[example.com]:53",
+        "wrapIPV6Host": "[example.com]:53",
+        "splitHostPort": [
+          "example.com",
+          "53"
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "[example.com]:53"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "192.0.2.1:53",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "192.0.2.1:53",
+        "wrapIPV6Host": "192.0.2.1:53",
+        "splitHostPort": [
+          "192.0.2.1",
+          "53"
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "192.0.2.1:53"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "example.com:443",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "example.com:443",
+        "wrapIPV6Host": "example.com:443",
+        "splitHostPort": [
+          "example.com",
+          "443"
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "example.com:443"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "example.com:",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "example.com:",
+        "wrapIPV6Host": "example.com:",
+        "splitHostPort": [
+          "example.com",
+          ""
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "example.com:"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": ":53",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": ":53",
+        "wrapIPV6Host": ":53",
+        "splitHostPort": [
+          "",
+          "53"
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          ":53"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "127.0.0.1:53",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "127.0.0.1:53",
+        "wrapIPV6Host": "127.0.0.1:53",
+        "splitHostPort": [
+          "127.0.0.1",
+          "53"
+        ],
+        "isLocalNameserverAddress": true,
+        "usableNameservers": [],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "0.0.0.0:53",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "0.0.0.0:53",
+        "wrapIPV6Host": "0.0.0.0:53",
+        "splitHostPort": [
+          "0.0.0.0",
+          "53"
+        ],
+        "isLocalNameserverAddress": true,
+        "usableNameservers": [],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "udp://127.0.0.1:53",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "udp://127.0.0.1:53",
+        "wrapIPV6Host": "udp://127.0.0.1:53",
+        "splitHostPort": [
+          "udp://127.0.0.1:53",
+          null
+        ],
+        "isLocalNameserverAddress": true,
+        "usableNameservers": [],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "tls://[::1]",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "tls://[::1]",
+        "wrapIPV6Host": "tls://[::1]",
+        "splitHostPort": [
+          "tls://[::1]",
+          null
+        ],
+        "isLocalNameserverAddress": true,
+        "usableNameservers": [],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "https://dns.example.net/dns-query",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "https://dns.example.net/dns-query",
+        "wrapIPV6Host": "https://dns.example.net/dns-query",
+        "splitHostPort": [
+          "https",
+          "//dns.example.net/dns-query"
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "https://dns.example.net/dns-query"
+        ],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "https://[::1]/dns-query",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "https://[::1]/dns-query",
+        "wrapIPV6Host": "https://[::1]/dns-query",
+        "splitHostPort": [
+          "https://[::1]/dns-query",
+          null
+        ],
+        "isLocalNameserverAddress": true,
+        "usableNameservers": [],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "localhost",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "localhost",
+        "wrapIPV6Host": "localhost",
+        "splitHostPort": [
+          "localhost",
+          null
+        ],
+        "isLocalNameserverAddress": true,
+        "usableNameservers": [],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "LOCALHOST",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "LOCALHOST",
+        "wrapIPV6Host": "LOCALHOST",
+        "splitHostPort": [
+          "LOCALHOST",
+          null
+        ],
+        "isLocalNameserverAddress": true,
+        "usableNameservers": [],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "localhost:53",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "localhost:53",
+        "wrapIPV6Host": "localhost:53",
+        "splitHostPort": [
+          "localhost",
+          "53"
+        ],
+        "isLocalNameserverAddress": true,
+        "usableNameservers": [],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "system",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "system",
+        "wrapIPV6Host": "system",
+        "splitHostPort": [
+          "system",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "local",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "local",
+        "wrapIPV6Host": "local",
+        "splitHostPort": [
+          "local",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "dhcp://auto",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "dhcp://auto",
+        "wrapIPV6Host": "dhcp://auto",
+        "splitHostPort": [
+          "dhcp",
+          "//auto"
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "dhcp://auto"
+        ],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "192.0.2.0/24",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "192.0.2.0/24",
+        "wrapIPV6Host": "192.0.2.0/24",
+        "splitHostPort": [
+          "192.0.2.0/24",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "192.0.2.0/24"
+        ],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": true
+      }
+    },
+    {
+      "input": "2001:db8::/32",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "2001:db8::/32",
+        "wrapIPV6Host": "2001:db8::/32",
+        "splitHostPort": [
+          "2001:db8::/32",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "2001:db8::/32"
+        ],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": true
+      }
+    },
+    {
+      "input": "0.0.0.0/0",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "0.0.0.0/0",
+        "wrapIPV6Host": "0.0.0.0/0",
+        "splitHostPort": [
+          "0.0.0.0/0",
+          null
+        ],
+        "isLocalNameserverAddress": true,
+        "usableNameservers": [],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": true
+      }
+    },
+    {
+      "input": "::/0",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "::/0",
+        "wrapIPV6Host": "::/0",
+        "splitHostPort": [
+          "::/0",
+          null
+        ],
+        "isLocalNameserverAddress": true,
+        "usableNameservers": [],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": true
+      }
+    },
+    {
+      "input": "192.0.2.1/33",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "192.0.2.1/33",
+        "wrapIPV6Host": "192.0.2.1/33",
+        "splitHostPort": [
+          "192.0.2.1/33",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "192.0.2.1/33"
+        ],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "192.0.2.1/032",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "192.0.2.1/032",
+        "wrapIPV6Host": "192.0.2.1/032",
+        "splitHostPort": [
+          "192.0.2.1/032",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "192.0.2.1/032"
+        ],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "fe80::/64",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "fe80::/64",
+        "wrapIPV6Host": "fe80::/64",
+        "splitHostPort": [
+          "fe80::/64",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "fe80::/64"
+        ],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": true
+      }
+    },
+    {
+      "input": "fe80::1%wlan0/64",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "fe80::1%wlan0/64",
+        "wrapIPV6Host": "fe80::1%wlan0/64",
+        "splitHostPort": [
+          "fe80::1%wlan0/64",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "fe80::1%wlan0/64"
+        ],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "::ffff:192.0.2.1/128",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "::ffff:192.0.2.1/128",
+        "wrapIPV6Host": "::ffff:192.0.2.1/128",
+        "splitHostPort": [
+          "::ffff:192.0.2.1/128",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "::ffff:192.0.2.1/128"
+        ],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": true
+      }
+    },
+    {
+      "input": "192.0.2.0/24\n2001:db8::/32",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "192.0.2.0/24\n2001:db8::/32",
+        "wrapIPV6Host": "192.0.2.0/24\n2001:db8::/32",
+        "splitHostPort": [
+          "192.0.2.0/24\n2001:db8::/32",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "192.0.2.0/24",
+          "2001:db8::/32"
+        ],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": true
+      }
+    },
+    {
+      "input": "192.0.2.0/24,example.com/24",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "192.0.2.0/24,example.com/24",
+        "wrapIPV6Host": "192.0.2.0/24,example.com/24",
+        "splitHostPort": [
+          "192.0.2.0/24,example.com/24",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "192.0.2.0/24,example.com/24"
+        ],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "010.0.0.0/8",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "010.0.0.0/8",
+        "wrapIPV6Host": "010.0.0.0/8",
+        "splitHostPort": [
+          "010.0.0.0/8",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "010.0.0.0/8"
+        ],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "example.com",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "example.com",
+        "wrapIPV6Host": "example.com",
+        "splitHostPort": [
+          "example.com",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "example.com"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "EXAMPLE.com",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "EXAMPLE.com",
+        "wrapIPV6Host": "EXAMPLE.com",
+        "splitHostPort": [
+          "EXAMPLE.com",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "EXAMPLE.com"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "sub.example.org.",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "sub.example.org.",
+        "wrapIPV6Host": "sub.example.org.",
+        "splitHostPort": [
+          "sub.example.org.",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "sub.example.org."
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "xn--fiqs8s.example",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "xn--fiqs8s.example",
+        "wrapIPV6Host": "xn--fiqs8s.example",
+        "splitHostPort": [
+          "xn--fiqs8s.example",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "xn--fiqs8s.example"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "a.b.c.d",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "a.b.c.d",
+        "wrapIPV6Host": "a.b.c.d",
+        "splitHostPort": [
+          "a.b.c.d",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "a.b.c.d"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "exa mple.com",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "exa mple.com",
+        "wrapIPV6Host": "exa mple.com",
+        "splitHostPort": [
+          "exa mple.com",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "exa mple.com"
+        ],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "example.com/path",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "example.com/path",
+        "wrapIPV6Host": "example.com/path",
+        "splitHostPort": [
+          "example.com/path",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "example.com/path"
+        ],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "1",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "1",
+        "wrapIPV6Host": "1",
+        "splitHostPort": [
+          "1",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "1"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "1234567890",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "1234567890",
+        "wrapIPV6Host": "1234567890",
+        "splitHostPort": [
+          "1234567890",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "1234567890"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "-1",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "-1",
+        "wrapIPV6Host": "-1",
+        "splitHostPort": [
+          "-1",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "-1"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "a",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "a",
+        "wrapIPV6Host": "a",
+        "splitHostPort": [
+          "a",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "a"
+        ],
+        "isServerAddress": true,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "",
+        "wrapIPV6Host": "",
+        "splitHostPort": [
+          "",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": true
+      }
+    },
+    {
+      "input": " ",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": " ",
+        "wrapIPV6Host": " ",
+        "splitHostPort": [
+          " ",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": true
+      }
+    },
+    {
+      "input": "\t",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "\t",
+        "wrapIPV6Host": "\t",
+        "splitHostPort": [
+          "\t",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": true
+      }
+    },
+    {
+      "input": " 192.0.2.1",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": " 192.0.2.1",
+        "wrapIPV6Host": " 192.0.2.1",
+        "splitHostPort": [
+          " 192.0.2.1",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "192.0.2.1"
+        ],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "192.0.2.1 ",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "192.0.2.1 ",
+        "wrapIPV6Host": "192.0.2.1 ",
+        "splitHostPort": [
+          "192.0.2.1 ",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "192.0.2.1"
+        ],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "192.0.2.1\n",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "192.0.2.1\n",
+        "wrapIPV6Host": "192.0.2.1\n",
+        "splitHostPort": [
+          "192.0.2.1\n",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "192.0.2.1"
+        ],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": " 2001:db8::1 ",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": " 2001:db8::1 ",
+        "wrapIPV6Host": " 2001:db8::1 ",
+        "splitHostPort": [
+          " 2001:db8::1 ",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "2001:db8::1"
+        ],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "https://dns.example.net/dns-query#h3\nsystem\n127.0.0.1\n[::1]:53\nlocal\n192.0.2.53\n192.0.2.53",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "https://dns.example.net/dns-query#h3\nsystem\n127.0.0.1\n[::1]:53\nlocal\n192.0.2.53\n192.0.2.53",
+        "wrapIPV6Host": "https://dns.example.net/dns-query#h3\nsystem\n127.0.0.1\n[::1]:53\nlocal\n192.0.2.53\n192.0.2.53",
+        "splitHostPort": [
+          "https://dns.example.net/dns-query#h3\nsystem\n127.0.0.1\n[::1]:53\nlocal\n192.0.2.53\n192.0.2.53",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "https://dns.example.net/dns-query",
+          "192.0.2.53"
+        ],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": false
+      }
+    },
+    {
+      "input": "# comment\n\ntls://dns.example.org\n  udp://192.0.2.53:5353  \nlocalhost",
+      "results": {
+        "isIpAddress": false,
+        "isIpAddressV6": false,
+        "parseNumericAddress": null,
+        "unwrapIPV6Host": "# comment\n\ntls://dns.example.org\n  udp://192.0.2.53:5353  \nlocalhost",
+        "wrapIPV6Host": "# comment\n\ntls://dns.example.org\n  udp://192.0.2.53:5353  \nlocalhost",
+        "splitHostPort": [
+          "# comment\n\ntls://dns.example.org\n  udp://192.0.2.53:5353  \nlocalhost",
+          null
+        ],
+        "isLocalNameserverAddress": false,
+        "usableNameservers": [
+          "tls://dns.example.org",
+          "udp://192.0.2.53:5353"
+        ],
+        "isServerAddress": false,
+        "isWireGuardLocalAddressList": false
+      }
+    }
+  ]
+}

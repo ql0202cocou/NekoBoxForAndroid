@@ -1,0 +1,73 @@
+{
+  "dns": {
+    "final": "dns-direct",
+    "rules": [],
+    "servers": [
+      {
+        "detour": "direct",
+        "tag": "dns-local",
+        "type": "local"
+      },
+      {
+        "domain_resolver": "dns-local",
+        "path": "/dns-query",
+        "server": "192.0.2.53",
+        "tag": "dns-direct",
+        "type": "https"
+      }
+    ],
+    "strategy": "prefer_ipv4"
+  },
+  "endpoints": [
+    {
+      "address": [
+        "10.66.0.2/32",
+        "fd00:66::2/128"
+      ],
+      "mtu": 1408,
+      "peers": [
+        {
+          "address": "wg.example.com",
+          "allowed_ips": [
+            "0.0.0.0/0",
+            "::/0"
+          ],
+          "persistent_keepalive_interval": 25,
+          "port": 21820,
+          "pre_shared_key": "Z29sZGVuLXdpcmVndWFyZC1wcmVzaGFyZWQtay0wMDE=",
+          "public_key": "Z29sZGVuLXdpcmVndWFyZC1wZWVyLXB1YmtleS0wMDE=",
+          "reserved": [
+            1,
+            2,
+            3
+          ]
+        }
+      ],
+      "private_key": "Z29sZGVuLXdpcmVndWFyZC1wcml2YXRlLWtleS0wMDE=",
+      "tag": "proxy",
+      "type": "wireguard"
+    }
+  ],
+  "inbounds": [],
+  "log": {
+    "level": "panic"
+  },
+  "outbounds": [
+    {
+      "tag": "direct",
+      "type": "direct"
+    },
+    {
+      "tag": "bypass",
+      "type": "direct"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "default_domain_resolver": {
+      "server": "dns-direct"
+    },
+    "rule_set": [],
+    "rules": []
+  }
+}

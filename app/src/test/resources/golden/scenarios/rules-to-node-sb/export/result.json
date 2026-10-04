@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-rt-main.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

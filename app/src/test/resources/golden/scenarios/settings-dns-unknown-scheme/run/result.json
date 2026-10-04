@@ -1,0 +1,13 @@
+{
+  "status": "error",
+  "error": {
+    "class": "java.lang.Exception",
+    "message": "unsupported DNS server address: golden://dns.example.net",
+    "causes": []
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

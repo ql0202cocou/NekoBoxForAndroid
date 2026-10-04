@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-trojan-bad-sid: Invalid REALITY short ID: expected up to 16 hex characters of even length",
+    "causes": [
+      {
+        "class": "java.lang.IllegalArgumentException",
+        "message": "Invalid REALITY short ID: expected up to 16 hex characters of even length"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

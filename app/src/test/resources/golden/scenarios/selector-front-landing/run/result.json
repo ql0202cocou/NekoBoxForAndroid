@@ -1,0 +1,58 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": 1,
+    "profileTagMap": {
+      "1": "golden-selfl-vmess",
+      "2": "golden-selfl-xray"
+    },
+    "trafficMap": {
+      "golden-selfl-vmess": [
+        11,
+        1,
+        10
+      ],
+      "golden-selfl-xray": [
+        11,
+        2,
+        10
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[1]": "golden-selfl-landing",
+      "outbound[2]": "golden-selfl-vmess",
+      "outbound[3]": "golden-selfl-front",
+      "outbound[4]": "golden-selfl-landing",
+      "outbound[5]": "golden-selfl-xray"
+    },
+    "boxTagNames": {
+      "c-1-1": "golden-selfl-vmess",
+      "c-2-2": "golden-selfl-xray",
+      "g-10": "golden-selfl-front",
+      "golden-selfl-vmess": "golden-selfl-landing",
+      "golden-selfl-xray": "golden-selfl-landing"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.xray-plugin.json",
+      "chainIndex": 1,
+      "profileId": 2,
+      "pluginId": "xray-plugin",
+      "port": 42031,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 46507,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      42031,
+      46507
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-hy1-bad-hop: hysteria 1 hop interval must be 0 or at least 8 seconds",
+    "causes": [
+      {
+        "class": "java.lang.IllegalArgumentException",
+        "message": "hysteria 1 hop interval must be 0 or at least 8 seconds"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

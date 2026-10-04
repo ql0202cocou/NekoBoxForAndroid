@@ -1,0 +1,47 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        3,
+        2,
+        10,
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-fmc-b",
+      "outbound[1]": "golden-fmc-a",
+      "outbound[2]": "golden-fmc-front"
+    },
+    "boxTagNames": {
+      "c-0-2": "golden-fmc-a",
+      "g-10": "golden-fmc-front",
+      "proxy": "golden-fmc-b"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.xray-plugin.json",
+      "chainIndex": 0,
+      "profileId": 3,
+      "pluginId": "xray-plugin",
+      "port": 33171,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 40273,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      33171,
+      40273
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

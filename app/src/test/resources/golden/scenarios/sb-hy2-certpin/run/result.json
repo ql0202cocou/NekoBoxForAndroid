@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-hy2-pin: this core cannot pin certificates; clear the fingerprint or use a core that supports it",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "this core cannot pin certificates; clear the fingerprint or use a core that supports it"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

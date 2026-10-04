@@ -1,0 +1,112 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        7,
+        6,
+        5,
+        4,
+        3,
+        2,
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-ext-anytls",
+      "outbound[1]": "golden-ext-xray",
+      "outbound[2]": "golden-ext-hy1",
+      "outbound[3]": "golden-ext-mieru",
+      "outbound[4]": "golden-ext-naive",
+      "outbound[5]": "golden-ext-trojan-go"
+    },
+    "boxTagNames": {
+      "c-0-3": "golden-ext-naive",
+      "c-0-4": "golden-ext-mieru",
+      "c-0-5": "golden-ext-hy1",
+      "c-0-6": "golden-ext-xray",
+      "g-2": "golden-ext-trojan-go",
+      "proxy": "golden-ext-anytls"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.mihomo-plugin.yaml",
+      "chainIndex": 0,
+      "profileId": 7,
+      "pluginId": "mihomo-plugin",
+      "port": 35299,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 36941,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-1.hysteria-plugin.json",
+      "chainIndex": 0,
+      "profileId": 5,
+      "pluginId": "hysteria-plugin",
+      "port": 37665,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 40953,
+      "controller": null,
+      "tempFiles": [
+        "/data/user/0/moe.nb4a.debug/cache/hysteria_1436780928049747916.ca"
+      ]
+    },
+    {
+      "file": "ext-2.mieru-plugin.json",
+      "chainIndex": 0,
+      "profileId": 4,
+      "pluginId": "mieru-plugin",
+      "port": 33579,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 36769,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-3.naive-plugin.json",
+      "chainIndex": 0,
+      "profileId": 3,
+      "pluginId": "naive-plugin",
+      "port": 34195,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 43933,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-4.trojan-go-plugin.json",
+      "chainIndex": 0,
+      "profileId": 2,
+      "pluginId": "trojan-go-plugin",
+      "port": 33349,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 33907,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      35299,
+      37665,
+      33579,
+      34195,
+      33349,
+      36941,
+      40953,
+      36769,
+      43933,
+      33907
+    ],
+    "paths": [
+      "/data/user/0/moe.nb4a.debug/cache/hysteria_1436780928049747916.ca"
+    ],
+    "secrets": []
+  }
+}

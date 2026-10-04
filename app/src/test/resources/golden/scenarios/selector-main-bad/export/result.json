@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-sel-main-tuic-v4: TUIC v4 is no longer supported",
+    "causes": [
+      {
+        "class": "java.lang.Exception",
+        "message": "TUIC v4 is no longer supported"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

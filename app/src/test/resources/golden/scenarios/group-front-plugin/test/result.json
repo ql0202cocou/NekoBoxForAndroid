@@ -1,0 +1,43 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        1,
+        10
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-fp-main",
+      "outbound[1]": "golden-fp-front"
+    },
+    "boxTagNames": {
+      "g-10": "golden-fp-front",
+      "proxy": "golden-fp-main"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.trojan-go-plugin.json",
+      "chainIndex": 0,
+      "profileId": 10,
+      "pluginId": "trojan-go-plugin",
+      "port": 45271,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 42293,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      45271,
+      42293
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

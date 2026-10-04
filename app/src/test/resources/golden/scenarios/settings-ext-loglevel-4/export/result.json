@@ -1,0 +1,24 @@
+{
+  "status": "ok",
+  "exportName": "profiles.txt",
+  "dynamic": {
+    "ports": [
+      45041,
+      38029,
+      43023,
+      37421,
+      42747,
+      44591,
+      44953,
+      39041,
+      43231,
+      44435,
+      35819,
+      36651
+    ],
+    "paths": [
+      "/data/user/0/moe.nb4a.debug/cache/hysteria_5091308144456108340.ca"
+    ],
+    "secrets": []
+  }
+}

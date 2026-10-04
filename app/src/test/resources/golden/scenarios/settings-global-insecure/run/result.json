@@ -1,0 +1,32 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {
+      "2": "g-2"
+    },
+    "trafficMap": {
+      "g-2": [
+        2
+      ],
+      "proxy": [
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-set-main",
+      "outbound[1]": "golden-set-xray"
+    },
+    "boxTagNames": {
+      "g-2": "golden-set-xray",
+      "proxy": "golden-set-main"
+    }
+  },
+  "external": [],
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

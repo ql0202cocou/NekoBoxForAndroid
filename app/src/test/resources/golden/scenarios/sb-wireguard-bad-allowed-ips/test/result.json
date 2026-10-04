@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-wg-bad-ips: WireGuard allowed IPs must be CIDR prefixes (e.g. 0.0.0.0/0)",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "WireGuard allowed IPs must be CIDR prefixes (e.g. 0.0.0.0/0)"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

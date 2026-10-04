@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-wg-bad-reserved: WireGuard reserved must contain exactly three bytes (0..255)",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "WireGuard reserved must contain exactly three bytes (0..255)"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

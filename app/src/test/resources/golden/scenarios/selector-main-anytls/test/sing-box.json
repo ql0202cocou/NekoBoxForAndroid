@@ -1,0 +1,66 @@
+{
+  "dns": {
+    "final": "dns-direct",
+    "rules": [],
+    "servers": [
+      {
+        "detour": "direct",
+        "tag": "dns-local",
+        "type": "local"
+      },
+      {
+        "domain_resolver": "dns-local",
+        "path": "/dns-query",
+        "server": "192.0.2.53",
+        "tag": "dns-direct",
+        "type": "https"
+      }
+    ],
+    "strategy": "prefer_ipv4"
+  },
+  "endpoints": [],
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 34443,
+      "override_address": "anytls.example.com",
+      "override_port": 8443,
+      "tag": "c-0-mapping-3",
+      "type": "direct"
+    }
+  ],
+  "log": {
+    "level": "panic"
+  },
+  "outbounds": [
+    {
+      "server": "127.0.0.1",
+      "server_port": 46143,
+      "tag": "proxy",
+      "type": "socks"
+    },
+    {
+      "tag": "direct",
+      "type": "direct"
+    },
+    {
+      "tag": "bypass",
+      "type": "direct"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "default_domain_resolver": {
+      "server": "dns-direct"
+    },
+    "rule_set": [],
+    "rules": [
+      {
+        "inbound": [
+          "c-0-mapping-3"
+        ],
+        "outbound": "direct"
+      }
+    ]
+  }
+}

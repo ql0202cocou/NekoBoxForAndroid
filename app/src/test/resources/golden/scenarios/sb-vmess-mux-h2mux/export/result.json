@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-vmess-h2mux.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

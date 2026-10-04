@@ -1,0 +1,29 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        2,
+        3,
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-custom-outbound-member",
+      "outbound[1]": "golden-chain-entry"
+    },
+    "boxTagNames": {
+      "g-3": "golden-chain-entry",
+      "proxy": "golden-custom-outbound-member"
+    }
+  },
+  "external": [],
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

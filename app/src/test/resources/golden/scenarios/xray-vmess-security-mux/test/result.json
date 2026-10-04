@@ -1,0 +1,40 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-xray-vmess-mux"
+    },
+    "boxTagNames": {
+      "proxy": "golden-xray-vmess-mux"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.xray-plugin.json",
+      "chainIndex": 0,
+      "profileId": 1,
+      "pluginId": "xray-plugin",
+      "port": 38561,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 34757,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      38561,
+      34757
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

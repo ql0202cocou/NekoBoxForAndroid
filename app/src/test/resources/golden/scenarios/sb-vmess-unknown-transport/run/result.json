@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-vmess-xhttp: unsupported transport \"xhttp\"",
+    "causes": [
+      {
+        "class": "io.nekohasekai.sagernet.fmt.v2ray.UnsupportedTransportException",
+        "message": "unsupported transport \"xhttp\""
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

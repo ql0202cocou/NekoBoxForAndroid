@@ -1,0 +1,79 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 2,
+    "selectorGroupId": 1,
+    "profileTagMap": {
+      "1": "golden-sel-vmess",
+      "2": "golden-sel-xray",
+      "3": "golden-sel-anytls",
+      "4": "golden-sel-trojan",
+      "5": "golden-sel-hy2"
+    },
+    "trafficMap": {
+      "golden-sel-anytls": [
+        3
+      ],
+      "golden-sel-hy2": [
+        5
+      ],
+      "golden-sel-trojan": [
+        4
+      ],
+      "golden-sel-vmess": [
+        1
+      ],
+      "golden-sel-xray": [
+        2
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[1]": "golden-sel-vmess",
+      "outbound[2]": "golden-sel-xray",
+      "outbound[3]": "golden-sel-anytls",
+      "outbound[4]": "golden-sel-trojan",
+      "outbound[5]": "golden-sel-hy2"
+    },
+    "boxTagNames": {
+      "golden-sel-anytls": "golden-sel-anytls",
+      "golden-sel-hy2": "golden-sel-hy2",
+      "golden-sel-trojan": "golden-sel-trojan",
+      "golden-sel-vmess": "golden-sel-vmess",
+      "golden-sel-xray": "golden-sel-xray"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.xray-plugin.json",
+      "chainIndex": 1,
+      "profileId": 2,
+      "pluginId": "xray-plugin",
+      "port": 42627,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 38615,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-1.mihomo-plugin.yaml",
+      "chainIndex": 2,
+      "profileId": 3,
+      "pluginId": "mihomo-plugin",
+      "port": 42725,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 44551,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      42627,
+      42725,
+      38615,
+      44551
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        2,
+        4,
+        3,
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-chain-ss",
+      "outbound[1]": "golden-chain-anytls",
+      "outbound[2]": "golden-chain-xray"
+    },
+    "boxTagNames": {
+      "c-0-4": "golden-chain-anytls",
+      "g-3": "golden-chain-xray",
+      "proxy": "golden-chain-ss"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.mihomo-plugin.yaml",
+      "chainIndex": 0,
+      "profileId": 4,
+      "pluginId": "mihomo-plugin",
+      "port": 40791,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 45589,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-1.xray-plugin.json",
+      "chainIndex": 0,
+      "profileId": 3,
+      "pluginId": "xray-plugin",
+      "port": 34157,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 42909,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      40791,
+      34157,
+      45589,
+      42909
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

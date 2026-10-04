@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-full-config-member: a full-config profile can only run on its own",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "a full-config profile can only run on its own"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

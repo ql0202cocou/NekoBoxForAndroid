@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-selfl-vmess.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

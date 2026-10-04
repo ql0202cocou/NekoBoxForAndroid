@@ -1,0 +1,31 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        1,
+        14,
+        13
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-fc-main",
+      "outbound[1]": "golden-fc-b",
+      "outbound[2]": "golden-fc-a"
+    },
+    "boxTagNames": {
+      "c-0-14": "golden-fc-b",
+      "g-13": "golden-fc-a",
+      "proxy": "golden-fc-main"
+    }
+  },
+  "external": [],
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

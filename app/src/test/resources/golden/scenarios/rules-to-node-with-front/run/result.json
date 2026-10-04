@@ -1,0 +1,35 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {
+      "2": "c-2-2"
+    },
+    "trafficMap": {
+      "c-2-2": [
+        2,
+        10
+      ],
+      "proxy": [
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-rtfront-main",
+      "outbound[1]": "golden-rtfront-target",
+      "outbound[2]": "golden-rtfront-front"
+    },
+    "boxTagNames": {
+      "c-2-2": "golden-rtfront-target",
+      "g-10": "golden-rtfront-front",
+      "proxy": "golden-rtfront-main"
+    }
+  },
+  "external": [],
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

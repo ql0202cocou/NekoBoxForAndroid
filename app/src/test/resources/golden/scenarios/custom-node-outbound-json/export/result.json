@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-vmess-custom-outbound.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

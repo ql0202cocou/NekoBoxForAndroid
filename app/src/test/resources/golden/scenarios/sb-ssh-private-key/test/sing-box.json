@@ -1,0 +1,56 @@
+{
+  "dns": {
+    "final": "dns-direct",
+    "rules": [],
+    "servers": [
+      {
+        "detour": "direct",
+        "tag": "dns-local",
+        "type": "local"
+      },
+      {
+        "domain_resolver": "dns-local",
+        "path": "/dns-query",
+        "server": "192.0.2.53",
+        "tag": "dns-direct",
+        "type": "https"
+      }
+    ],
+    "strategy": "prefer_ipv4"
+  },
+  "endpoints": [],
+  "inbounds": [],
+  "log": {
+    "level": "panic"
+  },
+  "outbounds": [
+    {
+      "host_key": [
+        "ssh-ed25519 Z29sZGVuLXNzaC1ob3N0LWtleS1maXh0dXJlLTAwMDE="
+      ],
+      "private_key": "-----BEGIN OPENSSH PRIVATE KEY-----\nZ29sZGVuLXNzaC1wcml2YXRlLWtleS1maXh0dXJlLW5vdC1hLXJlYWwta2V5\n-----END OPENSSH PRIVATE KEY-----",
+      "private_key_passphrase": "golden-passphrase",
+      "server": "203.0.113.25",
+      "server_port": 22,
+      "user": "golden",
+      "tag": "proxy",
+      "type": "ssh"
+    },
+    {
+      "tag": "direct",
+      "type": "direct"
+    },
+    {
+      "tag": "bypass",
+      "type": "direct"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "default_domain_resolver": {
+      "server": "dns-direct"
+    },
+    "rule_set": [],
+    "rules": []
+  }
+}

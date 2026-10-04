@@ -1,0 +1,28 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        1,
+        10
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-front-main",
+      "outbound[1]": "golden-front"
+    },
+    "boxTagNames": {
+      "g-10": "golden-front",
+      "proxy": "golden-front-main"
+    }
+  },
+  "external": [],
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

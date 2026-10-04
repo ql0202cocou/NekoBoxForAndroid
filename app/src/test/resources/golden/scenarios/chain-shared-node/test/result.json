@@ -1,0 +1,44 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        2,
+        3,
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-shared-exit-a",
+      "outbound[1]": "golden-shared-xray"
+    },
+    "boxTagNames": {
+      "g-3": "golden-shared-xray",
+      "proxy": "golden-shared-exit-a"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.xray-plugin.json",
+      "chainIndex": 0,
+      "profileId": 3,
+      "pluginId": "xray-plugin",
+      "port": 43629,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 37489,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      43629,
+      37489
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

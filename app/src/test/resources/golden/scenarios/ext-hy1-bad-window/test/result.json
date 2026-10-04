@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-hy1-bad-window: hysteria 1 receive windows must be 0 or at least 65536",
+    "causes": [
+      {
+        "class": "java.lang.IllegalArgumentException",
+        "message": "hysteria 1 receive windows must be 0 or at least 65536"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

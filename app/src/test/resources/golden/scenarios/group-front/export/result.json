@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-front-main.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

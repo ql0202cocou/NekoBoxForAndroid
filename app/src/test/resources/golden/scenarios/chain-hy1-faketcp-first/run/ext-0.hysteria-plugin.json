@@ -1,0 +1,16 @@
+{
+  "server": "hy1.example.com:8443",
+  "protocol": "faketcp",
+  "up_mbps": 10,
+  "down_mbps": 50,
+  "socks5": {
+    "listen": "127.0.0.1:43895"
+  },
+  "retry": 5,
+  "fast_open": true,
+  "lazy_start": true,
+  "obfs": "",
+  "auth_str": "golden-pass-hy1",
+  "alpn": "hysteria",
+  "hop_interval": 10
+}

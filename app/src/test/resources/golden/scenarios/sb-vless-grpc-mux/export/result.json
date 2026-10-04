@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-sb-vless-grpc.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

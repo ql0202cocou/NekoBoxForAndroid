@@ -1,0 +1,410 @@
+{
+  "formatVersion": 1,
+  "id": "rules-types-fakedns-off",
+  "description": "各类规则，关闭 FakeDNS",
+  "mainProfileId": 1,
+  "settings": [
+    {
+      "key": "allowAccess",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "bypassLanInCore",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "clashApiSecret",
+      "type": "string",
+      "value": "c1a5ba9e5ec4e7ab0de0f0ab1ec7a5e0"
+    },
+    {
+      "key": "directDns",
+      "type": "string",
+      "value": "https://192.0.2.53/dns-query"
+    },
+    {
+      "key": "domain_strategy_for_direct",
+      "type": "string",
+      "value": "auto"
+    },
+    {
+      "key": "domain_strategy_for_remote",
+      "type": "string",
+      "value": "auto"
+    },
+    {
+      "key": "domain_strategy_for_server",
+      "type": "string",
+      "value": "auto"
+    },
+    {
+      "key": "enableClashAPI",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "enableDnsRouting",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "key": "enableFakeDns",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "globalAllowInsecure",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "globalCustomConfig",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "ipv6Mode",
+      "type": "string",
+      "value": "0"
+    },
+    {
+      "key": "legacyAssetsMigrated",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "key": "logLevel",
+      "type": "string",
+      "value": "0"
+    },
+    {
+      "key": "mixedPort",
+      "type": "string",
+      "value": "2080"
+    },
+    {
+      "key": "mtu",
+      "type": "string",
+      "value": "9000"
+    },
+    {
+      "key": "remoteDns",
+      "type": "string",
+      "value": "https://dns.example.net/dns-query"
+    },
+    {
+      "key": "resolveDestination",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "serviceMode",
+      "type": "string",
+      "value": "vpn"
+    },
+    {
+      "key": "trafficSniffing",
+      "type": "string",
+      "value": "1"
+    },
+    {
+      "key": "tunImplementation",
+      "type": "string",
+      "value": "0"
+    }
+  ],
+  "effectiveSettings": {
+    "serviceMode": "vpn",
+    "allowAccess": false,
+    "bypassLanInCore": false,
+    "remoteDns": "https://dns.example.net/dns-query",
+    "directDns": "https://192.0.2.53/dns-query",
+    "enableDnsRouting": true,
+    "enableFakeDns": false,
+    "trafficSniffing": 1,
+    "resolveDestination": false,
+    "ipv6Mode": 0,
+    "logLevel": 0,
+    "mixedPort": 2080,
+    "mtu": 9000,
+    "tunImplementation": 0,
+    "globalCustomConfig": "",
+    "enableClashAPI": false,
+    "clashApiSecret": "c1a5ba9e5ec4e7ab0de0f0ab1ec7a5e0",
+    "globalAllowInsecure": false,
+    "domainStrategy": {
+      "dns-remote": "",
+      "dns-direct": "",
+      "server": "prefer_ipv4"
+    }
+  },
+  "groups": [
+    {
+      "id": 1,
+      "userOrder": 1,
+      "ungrouped": false,
+      "name": "golden-group-1",
+      "type": 0,
+      "order": 0,
+      "isSelector": false,
+      "frontProxy": -1,
+      "landingProxy": -1,
+      "proxyServerNameserver": ""
+    }
+  ],
+  "profiles": [
+    {
+      "id": 1,
+      "groupId": 1,
+      "type": 4,
+      "userOrder": 1,
+      "tx": 0,
+      "rx": 0,
+      "status": 0,
+      "ping": 0,
+      "uuid": "",
+      "error": null,
+      "core": 0,
+      "beanColumn": "vmessBean",
+      "beanClass": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
+      "beanKryoBase64": "BgAAAHZtZXNzLmV4YW1wbGUuY2/tuwEAAKU1YTBjMWUyZi0zYjRkLTRlNmYtOGE5Yi0wYzFkMmUzZjRhNWJhdXTvAAAAAHfzY2RuLmV4YW1wbGUub3LnL2dvbGRlbi138wAAAACBdGzzY2RuLmV4YW1wbGUub3LngYEAgYGBAIEAAAAAAAAAAAAAAQAAAIGBAQAAAGdvbGRlbi1ydWxlcy1tYWnugYE="
+    }
+  ],
+  "rules": [
+    {
+      "id": 1,
+      "name": "golden-block-ads",
+      "config": "",
+      "userOrder": 1,
+      "enabled": true,
+      "domains": "geosite:category-ads-all",
+      "ip": "",
+      "port": "",
+      "sourcePort": "",
+      "network": "",
+      "source": "",
+      "protocol": "",
+      "outbound": -2,
+      "packages": []
+    },
+    {
+      "id": 2,
+      "name": "golden-direct-domains",
+      "config": "",
+      "userOrder": 2,
+      "enabled": true,
+      "domains": "full:direct.example.com\ndomain:example.net\nregexp:^golden\\d+\\.example\\.org$\nkeyword:golden-kw\ngeosite:cn\nPlain.Example.ORG",
+      "ip": "",
+      "port": "",
+      "sourcePort": "",
+      "network": "",
+      "source": "",
+      "protocol": "",
+      "outbound": -1,
+      "packages": []
+    },
+    {
+      "id": 3,
+      "name": "golden-direct-ip",
+      "config": "",
+      "userOrder": 3,
+      "enabled": true,
+      "domains": "",
+      "ip": "192.0.2.0/24\n2001:db8::/32\ngeoip:private\ngeoip:cn",
+      "port": "",
+      "sourcePort": "",
+      "network": "",
+      "source": "",
+      "protocol": "",
+      "outbound": -1,
+      "packages": []
+    },
+    {
+      "id": 4,
+      "name": "golden-proxy-ports",
+      "config": "",
+      "userOrder": 4,
+      "enabled": true,
+      "domains": "",
+      "ip": "",
+      "port": "443,8443,1000:2000",
+      "sourcePort": "",
+      "network": "tcp",
+      "source": "",
+      "protocol": "",
+      "outbound": 0,
+      "packages": []
+    },
+    {
+      "id": 5,
+      "name": "golden-block-quic",
+      "config": "",
+      "userOrder": 5,
+      "enabled": true,
+      "domains": "",
+      "ip": "",
+      "port": "443",
+      "sourcePort": "",
+      "network": "udp",
+      "source": "",
+      "protocol": "",
+      "outbound": -2,
+      "packages": []
+    },
+    {
+      "id": 6,
+      "name": "golden-source",
+      "config": "",
+      "userOrder": 6,
+      "enabled": true,
+      "domains": "",
+      "ip": "",
+      "port": "",
+      "sourcePort": "12000,13000:14000",
+      "network": "",
+      "source": "10.0.0.0/8,fd00::/8",
+      "protocol": "",
+      "outbound": 0,
+      "packages": []
+    },
+    {
+      "id": 7,
+      "name": "golden-protocols",
+      "config": "",
+      "userOrder": 7,
+      "enabled": true,
+      "domains": "",
+      "ip": "",
+      "port": "",
+      "sourcePort": "",
+      "network": "",
+      "source": "",
+      "protocol": "bittorrent\nstun",
+      "outbound": -1,
+      "packages": []
+    },
+    {
+      "id": 8,
+      "name": "golden-domain-and-ip",
+      "config": "",
+      "userOrder": 8,
+      "enabled": true,
+      "domains": "geosite:google",
+      "ip": "geoip:us",
+      "port": "",
+      "sourcePort": "",
+      "network": "",
+      "source": "",
+      "protocol": "",
+      "outbound": 0,
+      "packages": []
+    },
+    {
+      "id": 9,
+      "name": "golden-disabled",
+      "config": "",
+      "userOrder": 9,
+      "enabled": false,
+      "domains": "disabled.example.com",
+      "ip": "",
+      "port": "",
+      "sourcePort": "",
+      "network": "",
+      "source": "",
+      "protocol": "",
+      "outbound": -1,
+      "packages": []
+    },
+    {
+      "id": 10,
+      "name": "golden-custom-rule",
+      "config": "{\"invert\":true}",
+      "userOrder": 10,
+      "enabled": true,
+      "domains": "domain:invert.example.com",
+      "ip": "",
+      "port": "",
+      "sourcePort": "",
+      "network": "",
+      "source": "",
+      "protocol": "",
+      "outbound": 0,
+      "packages": []
+    },
+    {
+      "id": 11,
+      "name": "golden-config-only",
+      "config": "{\"ip_version\":6}",
+      "userOrder": 11,
+      "enabled": true,
+      "domains": "",
+      "ip": "",
+      "port": "",
+      "sourcePort": "",
+      "network": "",
+      "source": "",
+      "protocol": "",
+      "outbound": 0,
+      "packages": []
+    },
+    {
+      "id": 12,
+      "name": "golden-duplicate-rule-set",
+      "config": "",
+      "userOrder": 12,
+      "enabled": true,
+      "domains": "geosite:cn",
+      "ip": "",
+      "port": "",
+      "sourcePort": "",
+      "network": "",
+      "source": "",
+      "protocol": "",
+      "outbound": -1,
+      "packages": []
+    },
+    {
+      "id": 13,
+      "name": "golden-empty",
+      "config": "",
+      "userOrder": 13,
+      "enabled": true,
+      "domains": "",
+      "ip": "",
+      "port": "",
+      "sourcePort": "",
+      "network": "",
+      "source": "",
+      "protocol": "",
+      "outbound": 0,
+      "packages": []
+    },
+    {
+      "id": 14,
+      "name": "golden-proxy-domains",
+      "config": "",
+      "userOrder": 14,
+      "enabled": true,
+      "domains": "domain:proxy.example.org",
+      "ip": "",
+      "port": "",
+      "sourcePort": "",
+      "network": "",
+      "source": "",
+      "protocol": "",
+      "outbound": 0,
+      "packages": []
+    }
+  ],
+  "packageUids": {},
+  "plugins": {
+    "xray-plugin": "builtin",
+    "mihomo-plugin": "builtin",
+    "trojan-go-plugin": "missing",
+    "naive-plugin": "missing",
+    "mieru-plugin": "missing",
+    "hysteria-plugin": "missing"
+  }
+}

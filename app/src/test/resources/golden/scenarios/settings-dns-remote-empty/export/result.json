@@ -1,0 +1,13 @@
+{
+  "status": "error",
+  "error": {
+    "class": "java.lang.Exception",
+    "message": "No remote DNS, check your settings!",
+    "causes": []
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

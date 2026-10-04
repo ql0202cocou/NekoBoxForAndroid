@@ -1,0 +1,31 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        2,
+        3,
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-dup-ss",
+      "outbound[1]": "golden-dup-trojan",
+      "outbound[2]": "golden-dup-ss"
+    },
+    "boxTagNames": {
+      "c-0-3": "golden-dup-trojan",
+      "g-2": "golden-dup-ss",
+      "proxy": "golden-dup-ss"
+    }
+  },
+  "external": [],
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

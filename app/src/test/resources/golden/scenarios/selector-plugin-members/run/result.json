@@ -1,0 +1,27 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": 1,
+    "profileTagMap": {
+      "1": "golden-selp-vmess"
+    },
+    "trafficMap": {
+      "golden-selp-vmess": [
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[1]": "golden-selp-vmess"
+    },
+    "boxTagNames": {
+      "golden-selp-vmess": "golden-selp-vmess"
+    }
+  },
+  "external": [],
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

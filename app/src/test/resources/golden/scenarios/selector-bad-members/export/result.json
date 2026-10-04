@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-sel-good.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

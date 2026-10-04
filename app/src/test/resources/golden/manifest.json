@@ -1,0 +1,68 @@
+{
+  "formatVersion": 1,
+  "commit": "059c3f5fcee6e064583036d02d16db339ac1768b",
+  "dirty": {
+    "count": 0,
+    "top": [],
+    "codeCount": 0,
+    "codeTop": []
+  },
+  "app": {
+    "applicationId": "moe.nb4a.debug",
+    "versionName": "1.7.8-a1",
+    "versionCode": 525,
+    "flavor": "oss",
+    "buildType": "debug"
+  },
+  "cores": {
+    "sing-box": {
+      "version": "1.14.2-neko-1",
+      "versionBox": [
+        "sing-box: 1.14.2-neko-1",
+        "go1.26.0@android/arm64",
+        "with_conntrack,with_gvisor,with_quic,with_wireguard,with_utls,with_clash_api"
+      ]
+    },
+    "xray": {
+      "version": "v26.3.27",
+      "pinnedSha256": "19101a8191d6d606da975f719c8cdb80b8710b87ab17edc00ef74b9e39588714",
+      "installedSha256": "8cbe2319771d8771a0375f5f53808023d13f29b57d7bc04b25e4a9ed557df9a5"
+    },
+    "mihomo": {
+      "version": "v1.19.31",
+      "pinnedSha256": "dbd8af275219a097d66362d543b32f65ba0d4de9d96a49bf5e9abdcdad3af6f1",
+      "installedSha256": "161dbceb36c3b96bcd87804def9641cfa02891b0e12218b752c6f1b8930a4fdc"
+    }
+  },
+  "plugins": {
+    "xray-plugin": "builtin",
+    "mihomo-plugin": "builtin",
+    "trojan-go-plugin": "missing",
+    "naive-plugin": "missing",
+    "mieru-plugin": "missing",
+    "hysteria-plugin": "missing"
+  },
+  "system": {
+    "sdkInt": 37,
+    "sdkIntFull": 3700002,
+    "release": "17",
+    "fingerprint": "google/sdk_gphone16k_arm64/emu64a16k:17/CP41.260828.004.A7/16296984:userdebug/dev-keys",
+    "abi": "arm64-v8a",
+    "supportedAbis": [
+      "arm64-v8a"
+    ],
+    "nativeLibraryDir": "arm64",
+    "pageSize": 16384,
+    "locale": "en-US"
+  },
+  "scenarios": 279,
+  "counts": {
+    "runOk": 235,
+    "runError": 44,
+    "testOk": 241,
+    "testError": 38,
+    "exportOk": 235,
+    "exportError": 44
+  },
+  "collectedAt": "2026-10-04T16:05:43Z"
+}

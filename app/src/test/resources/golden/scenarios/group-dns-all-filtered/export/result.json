@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-gdnsf-main.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

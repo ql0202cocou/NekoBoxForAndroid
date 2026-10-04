@@ -1,0 +1,33 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": 1,
+    "profileTagMap": {
+      "1": "golden-self-vmess",
+      "3": "golden-self-outbound"
+    },
+    "trafficMap": {
+      "golden-self-outbound": [
+        3
+      ],
+      "golden-self-vmess": [
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[1]": "golden-self-vmess",
+      "outbound[2]": "golden-self-outbound"
+    },
+    "boxTagNames": {
+      "golden-self-outbound": "golden-self-outbound",
+      "golden-self-vmess": "golden-self-vmess"
+    }
+  },
+  "external": [],
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "dns": {
+    "final": "dns-direct",
+    "rules": [],
+    "servers": [
+      {
+        "detour": "direct",
+        "tag": "dns-local",
+        "type": "local"
+      },
+      {
+        "domain_resolver": "dns-local",
+        "path": "/dns-query",
+        "server": "192.0.2.53",
+        "tag": "dns-direct",
+        "type": "https"
+      }
+    ],
+    "strategy": "prefer_ipv4"
+  },
+  "endpoints": [],
+  "inbounds": [],
+  "log": {
+    "level": "panic"
+  },
+  "outbounds": [
+    {
+      "down_mbps": 0,
+      "hop_interval": "10s",
+      "obfs": {
+        "password": "golden-obfs",
+        "type": "salamander"
+      },
+      "password": "golden-pass-hy2",
+      "server": "hy2.example.com",
+      "server_port": 8443,
+      "tls": {
+        "alpn": [
+          "h3"
+        ],
+        "enabled": true,
+        "insecure": true,
+        "server_name": "hy2.example.com"
+      },
+      "up_mbps": 0,
+      "tag": "proxy",
+      "type": "hysteria2"
+    },
+    {
+      "tag": "direct",
+      "type": "direct"
+    },
+    {
+      "tag": "bypass",
+      "type": "direct"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "default_domain_resolver": {
+      "server": "dns-direct"
+    },
+    "rule_set": [],
+    "rules": []
+  }
+}

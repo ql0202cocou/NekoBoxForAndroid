@@ -1,0 +1,33 @@
+{
+  "log": {
+    "level": "warn"
+  },
+  "inbounds": [
+    {
+      "type": "mixed",
+      "tag": "mixed-in",
+      "listen": "127.0.0.1",
+      "listen_port": 2080
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "vless",
+      "tag": "proxy",
+      "server": "full-config.example.com",
+      "server_port": 443,
+      "uuid": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
+      "tls": {
+        "enabled": true,
+        "server_name": "full-config.example.com"
+      }
+    },
+    {
+      "type": "direct",
+      "tag": "direct"
+    }
+  ],
+  "route": {
+    "final": "proxy"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {
+      "2": "g-2"
+    },
+    "trafficMap": {
+      "g-2": [
+        2
+      ],
+      "proxy": [
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-rtm-main",
+      "outbound[1]": "golden-rtm-anytls"
+    },
+    "boxTagNames": {
+      "g-2": "golden-rtm-anytls",
+      "proxy": "golden-rtm-main"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.mihomo-plugin.yaml",
+      "chainIndex": 1,
+      "profileId": 2,
+      "pluginId": "mihomo-plugin",
+      "port": 44819,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 37747,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      44819,
+      37747
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

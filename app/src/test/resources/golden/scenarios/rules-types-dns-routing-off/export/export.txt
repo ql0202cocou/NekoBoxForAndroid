@@ -1,0 +1,288 @@
+{
+  "dns": {
+    "final": "dns-remote",
+    "rules": [
+      {
+        "domain": [
+          "vmess.example.com",
+          "dns.example.net"
+        ],
+        "server": "dns-direct",
+        "strategy": "ipv4_only"
+      },
+      {
+        "outbound": [
+          "any"
+        ],
+        "server": "dns-direct",
+        "strategy": "ipv4_only"
+      },
+      {
+        "disable_cache": true,
+        "inbound": [
+          "tun-in"
+        ],
+        "server": "dns-fake",
+        "strategy": "ipv4_only"
+      }
+    ],
+    "servers": [
+      {
+        "detour": "direct",
+        "tag": "dns-local",
+        "type": "local"
+      },
+      {
+        "domain_resolver": "dns-local",
+        "path": "/dns-query",
+        "server": "192.0.2.53",
+        "tag": "dns-direct",
+        "type": "https"
+      },
+      {
+        "detour": "proxy",
+        "domain_resolver": "dns-direct",
+        "path": "/dns-query",
+        "server": "dns.example.net",
+        "tag": "dns-remote",
+        "type": "https"
+      },
+      {
+        "inet4_range": "198.18.0.0/15",
+        "inet6_range": "fc00::/18",
+        "tag": "dns-fake",
+        "type": "fakeip"
+      }
+    ],
+    "strategy": "ipv4_only"
+  },
+  "endpoints": [],
+  "inbounds": [
+    {
+      "address": [
+        "172.19.0.1/28"
+      ],
+      "endpoint_independent_nat": true,
+      "mtu": 9000,
+      "stack": "gvisor",
+      "tag": "tun-in",
+      "type": "tun"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 2080,
+      "tag": "mixed-in",
+      "type": "mixed"
+    }
+  ],
+  "log": {
+    "level": "panic"
+  },
+  "outbounds": [
+    {
+      "alter_id": 0,
+      "packet_encoding": "",
+      "security": "auto",
+      "server": "vmess.example.com",
+      "server_port": 443,
+      "tls": {
+        "enabled": true,
+        "insecure": false,
+        "server_name": "cdn.example.org"
+      },
+      "transport": {
+        "headers": {
+          "Host": "cdn.example.org"
+        },
+        "path": "/golden-ws",
+        "type": "ws"
+      },
+      "uuid": "5a0c1e2f-3b4d-4e6f-8a9b-0c1d2e3f4a5b",
+      "tag": "proxy",
+      "type": "vmess"
+    },
+    {
+      "tag": "direct",
+      "type": "direct"
+    },
+    {
+      "tag": "bypass",
+      "type": "direct"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "rule_set": [
+      {
+        "format": "binary",
+        "path": "geosite:category-ads-all",
+        "tag": "geosite:category-ads-all",
+        "type": "local"
+      },
+      {
+        "format": "binary",
+        "path": "geosite:cn",
+        "tag": "geosite:cn",
+        "type": "local"
+      },
+      {
+        "format": "binary",
+        "path": "geoip:cn",
+        "tag": "geoip:cn",
+        "type": "local"
+      },
+      {
+        "format": "binary",
+        "path": "geosite:google",
+        "tag": "geosite:google",
+        "type": "local"
+      },
+      {
+        "format": "binary",
+        "path": "geoip:us",
+        "tag": "geoip:us",
+        "type": "local"
+      }
+    ],
+    "rules": [
+      {
+        "action": "sniff"
+      },
+      {
+        "action": "hijack-dns",
+        "port": [
+          53
+        ]
+      },
+      {
+        "action": "hijack-dns",
+        "protocol": [
+          "dns"
+        ]
+      },
+      {
+        "action": "reject",
+        "rule_set": [
+          "geosite:category-ads-all"
+        ]
+      },
+      {
+        "domain": [
+          "direct.example.com"
+        ],
+        "domain_keyword": [
+          "golden-kw"
+        ],
+        "domain_regex": [
+          "^golden\\d+\\.example\\.org$"
+        ],
+        "domain_suffix": [
+          "example.net",
+          "plain.example.org"
+        ],
+        "outbound": "bypass",
+        "rule_set": [
+          "geosite:cn"
+        ]
+      },
+      {
+        "ip_cidr": [
+          "192.0.2.0/24",
+          "2001:db8::/32"
+        ],
+        "ip_is_private": true,
+        "outbound": "bypass",
+        "rule_set": [
+          "geoip:cn"
+        ]
+      },
+      {
+        "network": [
+          "tcp"
+        ],
+        "outbound": "proxy",
+        "port": [
+          443,
+          8443
+        ],
+        "port_range": [
+          "1000:2000"
+        ]
+      },
+      {
+        "action": "reject",
+        "network": [
+          "udp"
+        ],
+        "port": [
+          443
+        ],
+        "port_range": []
+      },
+      {
+        "outbound": "proxy",
+        "source_ip_cidr": [
+          "10.0.0.0/8",
+          "fd00::/8"
+        ],
+        "source_port": [
+          12000
+        ],
+        "source_port_range": [
+          "13000:14000"
+        ]
+      },
+      {
+        "outbound": "bypass",
+        "protocol": [
+          "bittorrent",
+          "stun"
+        ]
+      },
+      {
+        "outbound": "proxy",
+        "rule_set": [
+          "geosite:google",
+          "geoip:us"
+        ]
+      },
+      {
+        "domain_suffix": [
+          "invert.example.com"
+        ],
+        "invert": true,
+        "outbound": "proxy"
+      },
+      {
+        "ip_version": 6,
+        "outbound": "proxy"
+      },
+      {
+        "outbound": "bypass",
+        "rule_set": [
+          "geosite:cn"
+        ]
+      },
+      {
+        "domain_suffix": [
+          "proxy.example.org"
+        ],
+        "outbound": "proxy"
+      },
+      {
+        "action": "reject",
+        "ip_cidr": [
+          "224.0.0.0/3",
+          "ff00::/8"
+        ]
+      },
+      {
+        "action": "reject",
+        "source_ip_cidr": [
+          "224.0.0.0/3",
+          "ff00::/8"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,185 @@
+{
+  "formatVersion": 1,
+  "id": "sb-trojan-mldsa65",
+  "description": "Trojan mldsa65Verify：没有 Xray 路径，应报错",
+  "mainProfileId": 1,
+  "settings": [
+    {
+      "key": "allowAccess",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "bypassLanInCore",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "clashApiSecret",
+      "type": "string",
+      "value": "c1a5ba9e5ec4e7ab0de0f0ab1ec7a5e0"
+    },
+    {
+      "key": "directDns",
+      "type": "string",
+      "value": "https://192.0.2.53/dns-query"
+    },
+    {
+      "key": "domain_strategy_for_direct",
+      "type": "string",
+      "value": "auto"
+    },
+    {
+      "key": "domain_strategy_for_remote",
+      "type": "string",
+      "value": "auto"
+    },
+    {
+      "key": "domain_strategy_for_server",
+      "type": "string",
+      "value": "auto"
+    },
+    {
+      "key": "enableClashAPI",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "enableDnsRouting",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "key": "enableFakeDns",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "key": "globalAllowInsecure",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "globalCustomConfig",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "ipv6Mode",
+      "type": "string",
+      "value": "0"
+    },
+    {
+      "key": "legacyAssetsMigrated",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "key": "logLevel",
+      "type": "string",
+      "value": "0"
+    },
+    {
+      "key": "mixedPort",
+      "type": "string",
+      "value": "2080"
+    },
+    {
+      "key": "mtu",
+      "type": "string",
+      "value": "9000"
+    },
+    {
+      "key": "remoteDns",
+      "type": "string",
+      "value": "https://dns.example.net/dns-query"
+    },
+    {
+      "key": "resolveDestination",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "serviceMode",
+      "type": "string",
+      "value": "vpn"
+    },
+    {
+      "key": "trafficSniffing",
+      "type": "string",
+      "value": "1"
+    },
+    {
+      "key": "tunImplementation",
+      "type": "string",
+      "value": "0"
+    }
+  ],
+  "effectiveSettings": {
+    "serviceMode": "vpn",
+    "allowAccess": false,
+    "bypassLanInCore": false,
+    "remoteDns": "https://dns.example.net/dns-query",
+    "directDns": "https://192.0.2.53/dns-query",
+    "enableDnsRouting": true,
+    "enableFakeDns": true,
+    "trafficSniffing": 1,
+    "resolveDestination": false,
+    "ipv6Mode": 0,
+    "logLevel": 0,
+    "mixedPort": 2080,
+    "mtu": 9000,
+    "tunImplementation": 0,
+    "globalCustomConfig": "",
+    "enableClashAPI": false,
+    "clashApiSecret": "c1a5ba9e5ec4e7ab0de0f0ab1ec7a5e0",
+    "globalAllowInsecure": false,
+    "domainStrategy": {
+      "dns-remote": "",
+      "dns-direct": "",
+      "server": "prefer_ipv4"
+    }
+  },
+  "groups": [
+    {
+      "id": 1,
+      "userOrder": 1,
+      "ungrouped": false,
+      "name": "golden-group-1",
+      "type": 0,
+      "order": 0,
+      "isSelector": false,
+      "frontProxy": -1,
+      "landingProxy": -1,
+      "proxyServerNameserver": ""
+    }
+  ],
+  "profiles": [
+    {
+      "id": 1,
+      "groupId": 1,
+      "type": 6,
+      "userOrder": 1,
+      "tx": 0,
+      "rx": 0,
+      "status": 0,
+      "ping": 0,
+      "uuid": "",
+      "error": null,
+      "core": 0,
+      "beanColumn": "trojanBean",
+      "beanClass": "io.nekohasekai.sagernet.fmt.trojan.TrojanBean",
+      "beanKryoBase64": "AgAAAAYAAAB0cm9qYW4uZXhhbXBsZS5jb+27AQAAgYB0Y/B0bPN3d3cuZXhhbXBsZS5jb+2BgQCBrFoyOXNaR1Z1TFhKbFlXeHBkSGt0Y0hWaWJHbGpMV3RsZVMwd01EQXdNREUwYTFiMmMzZDRlNWY2YTfiAIEAAAAAAAAAAAAAAQAAAOwoQXdvUkdCOG1MVFE3UWtsUVYxNWxiSE42Z1lpUGxwMmtxN0s1d01mTzFkemo2dkg0X3dZTkZCc2lLVEEzUGtWTVUxcGhhRzkyZllTTGtwbWdwNjYxdk1QSzBkamY1dTMwLXdJSkVCY2VKU3d6T2tGSVQxWmRaR3R5ZVlDSGpwV2NvNnF4dUxfR3pkVGI0dW53OV80RkRCTWFJU2d2TmoxRVMxSlpZR2R1ZFh5RGlwR1luNmF0dEx2Q3lkRFgzdVhzOF9vQkNBOFdIU1FyTWpsQVIwNVZYR05xY1hoX2hvMlVtNktwc0xlLXhjelQydUhvN19iOUJBc1NHU0FuTGpVOFEwcFJXRjltYlhSN2dvbVFsNTZsckxPNndjalAxdDNrNl9MNUFBY09GUndqS2pFNFAwWk5WRnRpYVhCM2ZvV01rNXFocUstMnZjVEwwdG5nNS03MV9BTUtFUmdmSmkwME8wSkpVRmRlWld4emVvR0lqNWFkcEt1eXVjREh6dFhjNC1yeC1QOEdEUlFiSWlrd056NUZURk5hWVdodmRuMkVpNUtab0tldXRiekR5dEhZMy1idDlQc0NDUkFYSGlVc016cEJTRTlXWFdScmNubUFoNDZWbktPcXNiaV94czNVMi1McDhQZi1CUXdUR2lFb0x6WTlSRXRTV1dCbmJuVjhnNHFSbUotbXJiUzd3c25RMTk3bDdQUDZBUWdQRmgwa0t6STVRRWRPVlZ4amFuRjRmNGFObEp1aXFiQzN2c1hNMDlyaDZPXzJfUVFMRWhrZ0p5NDFQRU5LVVZoZlptMTBlNEtKa0plZXBheXp1c0hJejliZDVPdnktUUFIRGhVY0l5b3hPRDlHVFZSYlltbHdkMzZGakpPYW9haXZ0cjNFeTlMWjRPZnU5ZndEQ2hFWUh5WXRORHRDU1ZCWFhtVnNjM3FCaUktV25hU3Jzcm5BeDg3VjNPUHE4ZmpfQmcwVUd5SXBNRGMtUlV4VFdtRm9iM1o5aEl1U21hQ25yclc4dzhyUjJOX203ZlQ3QWdrUUZ4NGxMRE02UVVoUFZsMWthM0o1Z0llT2xaeWpxckc0djhiTjFOdmk2ZkQzX2dVTUV4b2hLQzgyUFVSTFVsbGdaMjUxZklPS2taaWZwcTIwdThMSjBOZmU1ZXp6LWdFSUR4WWRKQ3N5T1VCSFRsVmNZMnB4ZUgtR2paU2JvcW13dDc3RnpOUGE0ZWp2OXYwRUN4SVpJQ2N1TlR4RFNsRllYMlp0ZEh1Q2laQ1hucVdzczdyQnlNX1czZVRyOHZrQUJ3NFZIQ01xTVRnX1JrMVVXMkpwY0hkLWhZeVRtcUdvcjdhOXhNdlMyZURuN3ZYOEF3b1JHQjhtTFRRN1FrbFFWMTVsYkhONmdZaVBscDJrcTdLNXdNZk8xZHpqNnZINF93WU5GQnNpS1RBM1BrVk1VMXBoYUc5MmZZU0xrcG1ncDY2MXZNUEswZGpmNXUzMC13SUpFQmNlSlN3ek9rRklUMVpkWkd0eWVZQ0hqcFdjbzZxeHVMX0d6ZFRiNHVudzlfNEZEQk1hSVNndk5qMUVTMUpaWUdkdWRYeURpcEdZbjZhdHRMdkN5ZERYM3VYczhfb0JDQThXSFNRck1qbEFSMDVWWEdOcWNYaF9obzJVbTZLcHNMZS14Y3pUMnVIbzdfYjlCQXNTR1NBbkxqVThRMHBSV0Y5bWJYUjdnb21RbDU2bHJMTzZ3Y2pQMXQzazZfTDVBQWNPRlJ3aktqRTRQMFpOVkZ0aWFYQjNmb1dNazVxaHFLLTJ2Y1RMMHRuZzUtNzFfQU1LRVJnZkppMDBPMEpKVUZkZVpXeHplb0dJajVhZHBLdXl1Y0RIenRYYzQtcngtUDhHRFJRYklpa3dOejVGVEZOYVlXaHZkbjJFaTVLWm9LZXV0YnpEeXRIWTMtYnQ5UHNDQ1JBWEhpVXNNenBCU0U5V1hXUnJjbm1BaDQ2Vm5LT3FzYmlfeHMzVTItTHA4UGYtQlF3VEdpRW9Melk5UkV0U1dXQm5iblY4ZzRxUm1KLW1yYlM3d3NuUTE5N2w3UFA2QVFnUEZoMGtLekk1UUVkT1ZWeGphbkY0ZjRhTmxKdWlxYkMzdnNYTTA5cmg2T18yX1FRTEVoa2dKeTQxUEVOS1VWaGZabTEwZTRLSmtKZWVwYXl6dXNISXo5YmQ1T3Z5LVFBSERoVWNJeW94T0Q5R1RWUmJZbWx3ZDM2RmpKT2FvYWl2dHIzRXk5TFo0T2Z1OWZ3RENoRVlIeVl0TkR0Q1NWQlhYbVZzYzNxQmlJLVduYVNyc3JuQXg4N1YzT1BxOGZqX0JnMFVHeUlwTURjLVJVeFRXbUZvYjNaOWhJdVNtYUNucnJXOHc4clIyTl9tN2ZUN0Fna1FGeDRsTERNNlFVaFBWbDFrYTNKNWdJZU9sWnlqcXJHNHY4Yk4xTnZpNmZEM19nVU1FeG9oS0M4MlBVUkxVbGxnWjI1MWZJT0trWmlmcHEyMHU4TEowTmZlNWV6ei1nRUlEeFlkSkNzeU9VQkhUbFZjWTJweGVILUdqWlNib3Ftd3Q3N0Z6TlBhNGVqdjl2MEVDeElaSUNjdU5UeERTbEZZWDJadGRIdUNpWkNYbnFXc3M3ckJ5TV9XM2VUcjh2a0FCdzRWSENNcU1UZ19SazFVVzJKcGNIZC1oWXlUbXFHb3I3YTl4TXZTMmVEbjd2WDhBd29SR0I4bUxUUTdRa2xRVjE1bGJITjZnWWlQbHAya3E3SzV3TWZPMWR6ajZ2SDRfd1lORkJzaUtUQTNQa1ZNVTFwaGFHOTJmWVNMa3BtZ3A2NjF2TVBLMGRqZjV1MzAtd0lKRUJjZUpTd3pPa0ZJVDFaZFpHdHllWUNIanBXY282cXh1TF9HemRUYjR1bnc5XzRGREJNYUlTZ3ZOajFFUzFKWllHZHVkWHlEaXBHWW42YXR0THZDeWREWDN1WHM4X29CQ0E4V0hTUXJNamxBUjA1VlhHTnFjWGhfaG8yVW02S3BzTGUteGN6VDJ1SG83X2I5QkFzU0dTQW5MalU4UTBwUldGOW1iWFI3Z29tUWw1NmxyTE82d2NqUDF0M2s2X0w1QUFjT0ZSd2pLakU0UDBaTlZGdGlhWEIzZm9XTWs1cWhxSy0ydmNUTDB0bmc1LTcxX0FNS0VSZ2ZKaTAwTzBKSlVGZGVaV3h6ZW9HSWo1YWRwS3V5dWNESHp0WGM0LXJ4LVA4R0RSUWJJaWt3Tno1RlRGTmFZV2h2ZG4yRWk1S1pvS2V1dGJ6RHl0SFkzLWJ0OVBzQ0NSQVhIaVVzTXpwQlNFOVdYV1JyY25tQWg0NlZuS09xc2JpX3hzM1UyLUxwOFBmLUJRd1RHaUVvTHpZOVJFdFNXV0JuYm5WOGc0cVJtSi1tcmJTN3dzblExOTdsN1BQNkFRZ1BGaDBrS3pJNVFFZE9WVneBZ29sZGVuLXBhc3MtdHJvamHuAQAAAGdvbGRlbi10cm9qYW4tbWxkc+GBgQ=="
+    }
+  ],
+  "rules": [],
+  "packageUids": {},
+  "plugins": {
+    "xray-plugin": "builtin",
+    "mihomo-plugin": "builtin",
+    "trojan-go-plugin": "missing",
+    "naive-plugin": "missing",
+    "mieru-plugin": "missing",
+    "hysteria-plugin": "missing"
+  }
+}

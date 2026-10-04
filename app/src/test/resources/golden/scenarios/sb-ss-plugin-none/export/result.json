@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-ss-plugin-none.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

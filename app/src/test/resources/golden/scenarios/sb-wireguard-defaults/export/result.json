@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-wg-defaults.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-anytls-bad-ca: Invalid AnyTLS certificate for mihomo fingerprint pinning",
+    "causes": [
+      {
+        "class": "java.lang.IllegalArgumentException",
+        "message": "Invalid AnyTLS certificate for mihomo fingerprint pinning"
+      },
+      {
+        "class": "java.security.cert.CertificateException",
+        "message": "com.android.org.conscrypt.OpenSSLX509CertificateFactory$ParsingException: com.android.org.conscrypt.OpenSSLX509CertificateFactory$ParsingException: java.lang.RuntimeException: error:09000064:PEM routines:OPENSSL_internal:BAD_BASE64_DECODE"
+      },
+      {
+        "class": "com.android.org.conscrypt.OpenSSLX509CertificateFactory$ParsingException",
+        "message": "com.android.org.conscrypt.OpenSSLX509CertificateFactory$ParsingException: java.lang.RuntimeException: error:09000064:PEM routines:OPENSSL_internal:BAD_BASE64_DECODE"
+      },
+      {
+        "class": "com.android.org.conscrypt.OpenSSLX509CertificateFactory$ParsingException",
+        "message": "java.lang.RuntimeException: error:09000064:PEM routines:OPENSSL_internal:BAD_BASE64_DECODE"
+      },
+      {
+        "class": "java.lang.RuntimeException",
+        "message": "error:09000064:PEM routines:OPENSSL_internal:BAD_BASE64_DECODE"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

@@ -1,0 +1,185 @@
+{
+  "formatVersion": 1,
+  "id": "ext-naive-https",
+  "description": "Naive https：SNI、额外请求头、insecure-concurrency、证书",
+  "mainProfileId": 1,
+  "settings": [
+    {
+      "key": "allowAccess",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "bypassLanInCore",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "clashApiSecret",
+      "type": "string",
+      "value": "c1a5ba9e5ec4e7ab0de0f0ab1ec7a5e0"
+    },
+    {
+      "key": "directDns",
+      "type": "string",
+      "value": "https://192.0.2.53/dns-query"
+    },
+    {
+      "key": "domain_strategy_for_direct",
+      "type": "string",
+      "value": "auto"
+    },
+    {
+      "key": "domain_strategy_for_remote",
+      "type": "string",
+      "value": "auto"
+    },
+    {
+      "key": "domain_strategy_for_server",
+      "type": "string",
+      "value": "auto"
+    },
+    {
+      "key": "enableClashAPI",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "enableDnsRouting",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "key": "enableFakeDns",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "key": "globalAllowInsecure",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "globalCustomConfig",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "ipv6Mode",
+      "type": "string",
+      "value": "0"
+    },
+    {
+      "key": "legacyAssetsMigrated",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "key": "logLevel",
+      "type": "string",
+      "value": "0"
+    },
+    {
+      "key": "mixedPort",
+      "type": "string",
+      "value": "2080"
+    },
+    {
+      "key": "mtu",
+      "type": "string",
+      "value": "9000"
+    },
+    {
+      "key": "remoteDns",
+      "type": "string",
+      "value": "https://dns.example.net/dns-query"
+    },
+    {
+      "key": "resolveDestination",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "serviceMode",
+      "type": "string",
+      "value": "vpn"
+    },
+    {
+      "key": "trafficSniffing",
+      "type": "string",
+      "value": "1"
+    },
+    {
+      "key": "tunImplementation",
+      "type": "string",
+      "value": "0"
+    }
+  ],
+  "effectiveSettings": {
+    "serviceMode": "vpn",
+    "allowAccess": false,
+    "bypassLanInCore": false,
+    "remoteDns": "https://dns.example.net/dns-query",
+    "directDns": "https://192.0.2.53/dns-query",
+    "enableDnsRouting": true,
+    "enableFakeDns": true,
+    "trafficSniffing": 1,
+    "resolveDestination": false,
+    "ipv6Mode": 0,
+    "logLevel": 0,
+    "mixedPort": 2080,
+    "mtu": 9000,
+    "tunImplementation": 0,
+    "globalCustomConfig": "",
+    "enableClashAPI": false,
+    "clashApiSecret": "c1a5ba9e5ec4e7ab0de0f0ab1ec7a5e0",
+    "globalAllowInsecure": false,
+    "domainStrategy": {
+      "dns-remote": "",
+      "dns-direct": "",
+      "server": "prefer_ipv4"
+    }
+  },
+  "groups": [
+    {
+      "id": 1,
+      "userOrder": 1,
+      "ungrouped": false,
+      "name": "golden-group-1",
+      "type": 0,
+      "order": 0,
+      "isSelector": false,
+      "frontProxy": -1,
+      "landingProxy": -1,
+      "proxyServerNameserver": ""
+    }
+  ],
+  "profiles": [
+    {
+      "id": 1,
+      "groupId": 1,
+      "type": 9,
+      "userOrder": 1,
+      "tx": 0,
+      "rx": 0,
+      "status": 0,
+      "ping": 0,
+      "uuid": "",
+      "error": null,
+      "core": 0,
+      "beanColumn": "naiveBean",
+      "beanClass": "io.nekohasekai.sagernet.fmt.naive.NaiveBean",
+      "beanKryoBase64": "AwAAAG5haXZlLmV4YW1wbGUuY2/tuwEAAGh0dHDzZ29sZGVuLXVzZfJnb2xkZW4tcGFzcy1uYWl25VgtR29sZGVuOiBhClgtRml4dHVyZTog4uoILS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJiRENDQVJJQ0NRQ21ZNG9DNkJCWUFUQUtCZ2dxaGtqT1BRUURBakErTVJzd0dRWURWUVFEREJKbmIyeGsKWlc0dVpYaGhiWEJzWlM1amIyMHhIekFkQmdOVkJBb01GazVsYTI5Q2IzZ2dSMjlzWkdWdUlFWnBlSFIxY21VdwpIaGNOTWpZeE1EQTBNVE16TWpVMFdoY05Nell4TURBeE1UTXpNalUwV2pBK01Sc3dHUVlEVlFRRERCSm5iMnhrClpXNHVaWGhoYlhCc1pTNWpiMjB4SHpBZEJnTlZCQW9NRms1bGEyOUNiM2dnUjI5c1pHVnVJRVpwZUhSMWNtVXcKV1RBVEJnY3Foa2pPUFFJQkJnZ3Foa2pPUFFNQkJ3TkNBQVNlWXFieWFZNnlWOEVHWUVYUXRMMlBYNVNvcm5XbwowWlRrby9LVUgzYnBmR3hTYzd3SzZRb0FsTVYzU1FoT1ZxRlh0S0ZwVDR1ODAySjdQZTVCRWJSN01Bb0dDQ3FHClNNNDlCQU1DQTBnQU1FVUNJRFNaS3l1V0VJYW0wL1hUMjJqNWh1ZjNoY2xjS1phZmZ5Tk0xbjVOQVA1VUFpRUEKdGFHVHAzaStNc1YvRG05Wm9YMDhRa1FUT1ZaUm5rSUpzN3hTT005OGFnWT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLW5haXZlLXNuaS5leGFtcGxlLmNv7QIAAAAAAQAAAGdvbGRlbi1uYWl25YGB"
+    }
+  ],
+  "rules": [],
+  "packageUids": {},
+  "plugins": {
+    "xray-plugin": "builtin",
+    "mihomo-plugin": "builtin",
+    "trojan-go-plugin": "missing",
+    "naive-plugin": "missing",
+    "mieru-plugin": "missing",
+    "hysteria-plugin": "missing"
+  }
+}

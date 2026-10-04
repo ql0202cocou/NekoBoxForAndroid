@@ -1,0 +1,59 @@
+{
+  "dns": {
+    "final": "dns-direct",
+    "rules": [],
+    "servers": [
+      {
+        "detour": "direct",
+        "tag": "dns-local",
+        "type": "local"
+      },
+      {
+        "domain_resolver": "dns-local",
+        "path": "/dns-query",
+        "server": "192.0.2.53",
+        "tag": "dns-direct",
+        "type": "https"
+      }
+    ],
+    "strategy": "prefer_ipv4"
+  },
+  "endpoints": [],
+  "inbounds": [],
+  "log": {
+    "level": "panic"
+  },
+  "outbounds": [
+    {
+      "congestion_control": "cubic",
+      "password": "golden-pass-tuic",
+      "server": "203.0.113.40",
+      "server_port": 8443,
+      "tls": {
+        "disable_sni": true,
+        "enabled": true,
+        "insecure": true
+      },
+      "uuid": "7c2e3a4b-5d6f-4a8b-ac1d-2e3f4a5b6c7d",
+      "zero_rtt_handshake": false,
+      "tag": "proxy",
+      "type": "tuic"
+    },
+    {
+      "tag": "direct",
+      "type": "direct"
+    },
+    {
+      "tag": "bypass",
+      "type": "direct"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "default_domain_resolver": {
+      "server": "dns-direct"
+    },
+    "rule_set": [],
+    "rules": []
+  }
+}

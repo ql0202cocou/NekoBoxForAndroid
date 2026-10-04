@@ -1,0 +1,22 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-custom-broken: java.io.EOFException: End of input at line 1 column 15 path $.",
+    "causes": [
+      {
+        "class": "com.google.gson.JsonSyntaxException",
+        "message": "java.io.EOFException: End of input at line 1 column 15 path $."
+      },
+      {
+        "class": "java.io.EOFException",
+        "message": "End of input at line 1 column 15 path $."
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

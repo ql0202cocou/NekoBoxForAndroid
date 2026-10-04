@@ -1,0 +1,20 @@
+{
+  "server": "hy1.example.com:20000-20010",
+  "protocol": "wechat-video",
+  "up_mbps": 10,
+  "down_mbps": 50,
+  "socks5": {
+    "listen": "127.0.0.1:37735"
+  },
+  "retry": 5,
+  "fast_open": true,
+  "lazy_start": true,
+  "obfs": "golden-obfs",
+  "auth_str": "golden-pass-hy1",
+  "alpn": "h3",
+  "ca": "/data/user/0/moe.nb4a.debug/cache/hysteria_5464092297934450805.ca",
+  "insecure": true,
+  "recv_window_conn": 131072,
+  "recv_window": 262144,
+  "hop_interval": 20
+}

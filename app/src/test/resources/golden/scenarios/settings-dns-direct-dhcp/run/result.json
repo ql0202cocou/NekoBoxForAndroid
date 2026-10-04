@@ -1,0 +1,13 @@
+{
+  "status": "error",
+  "error": {
+    "class": "java.lang.Exception",
+    "message": "unsupported DNS server address: dhcp://auto",
+    "causes": []
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

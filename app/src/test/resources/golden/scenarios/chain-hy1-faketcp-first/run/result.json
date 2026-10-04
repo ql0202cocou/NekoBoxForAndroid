@@ -1,0 +1,43 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        2,
+        3,
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-ft-first-exit",
+      "outbound[1]": "golden-ft-first"
+    },
+    "boxTagNames": {
+      "g-3": "golden-ft-first",
+      "proxy": "golden-ft-first-exit"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.hysteria-plugin.json",
+      "chainIndex": 0,
+      "profileId": 3,
+      "pluginId": "hysteria-plugin",
+      "port": 43895,
+      "finalAddress": "hy1.example.com",
+      "finalPort": 1080,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      43895
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

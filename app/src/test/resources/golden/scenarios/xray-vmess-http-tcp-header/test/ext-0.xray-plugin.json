@@ -1,0 +1,53 @@
+{
+  "log": {
+    "loglevel": "warning"
+  },
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "port": 40195,
+      "protocol": "socks",
+      "settings": {
+        "udp": true
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "vmess",
+      "settings": {
+        "vnext": [
+          {
+            "address": "127.0.0.1",
+            "port": 46863,
+            "users": [
+              {
+                "id": "5a0c1e2f-3b4d-4e6f-8a9b-0c1d2e3f4a5b",
+                "alterId": 0,
+                "security": "auto"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "tcpSettings": {
+          "header": {
+            "type": "http",
+            "request": {
+              "path": [
+                "/golden-http"
+              ],
+              "headers": {
+                "Host": [
+                  "a.example.org"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

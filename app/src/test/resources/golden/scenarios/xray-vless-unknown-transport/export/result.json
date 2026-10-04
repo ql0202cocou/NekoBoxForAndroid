@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-xray-splithttp: unsupported transport \"splithttp\"",
+    "causes": [
+      {
+        "class": "io.nekohasekai.sagernet.fmt.v2ray.UnsupportedTransportException",
+        "message": "unsupported transport \"splithttp\""
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

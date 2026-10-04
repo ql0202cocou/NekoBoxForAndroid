@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-socks5.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

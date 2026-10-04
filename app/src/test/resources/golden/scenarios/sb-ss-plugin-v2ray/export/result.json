@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-ss-v2ray-plugin.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

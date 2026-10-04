@@ -1,0 +1,73 @@
+{
+  "dns": {
+    "final": "dns-direct",
+    "rules": [],
+    "servers": [
+      {
+        "detour": "direct",
+        "tag": "dns-local",
+        "type": "local"
+      },
+      {
+        "domain_resolver": "dns-local",
+        "path": "/dns-query",
+        "server": "192.0.2.53",
+        "tag": "dns-direct",
+        "type": "https"
+      }
+    ],
+    "strategy": "prefer_ipv4"
+  },
+  "endpoints": [],
+  "inbounds": [],
+  "log": {
+    "level": "panic"
+  },
+  "outbounds": [
+    {
+      "password": "golden-pass-anytls",
+      "server": "anytls.example.com",
+      "server_port": 8443,
+      "tls": {
+        "alpn": [
+          "h2",
+          "http/1.1"
+        ],
+        "ech": {
+          "config": [
+            "-----BEGIN ECH CONFIGS-----",
+            "Z29sZGVuLWVjaC1jb25maWctbGlzdC1maXh0dXJlLWJ5dGVzLWZvci10ZXN0cy1v",
+            "bmx5",
+            "-----END ECH CONFIGS-----"
+          ],
+          "enabled": true
+        },
+        "enabled": true,
+        "insecure": false,
+        "server_name": "anytls.example.com",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        }
+      },
+      "tag": "proxy",
+      "type": "anytls"
+    },
+    {
+      "tag": "direct",
+      "type": "direct"
+    },
+    {
+      "tag": "bypass",
+      "type": "direct"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "default_domain_resolver": {
+      "server": "dns-direct"
+    },
+    "rule_set": [],
+    "rules": []
+  }
+}

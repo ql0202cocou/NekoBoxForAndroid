@@ -1,0 +1,22 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-custom-array: java.lang.IllegalStateException: Expected BEGIN_ARRAY but was NUMBER at line 1 column 3 path $[0]\nSee https://github.com/google/gson/blob/main/Troubleshooting.md#unexpected-json-structure",
+    "causes": [
+      {
+        "class": "com.google.gson.JsonSyntaxException",
+        "message": "java.lang.IllegalStateException: Expected BEGIN_ARRAY but was NUMBER at line 1 column 3 path $[0]\nSee https://github.com/google/gson/blob/main/Troubleshooting.md#unexpected-json-structure"
+      },
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "Expected BEGIN_ARRAY but was NUMBER at line 1 column 3 path $[0]\nSee https://github.com/google/gson/blob/main/Troubleshooting.md#unexpected-json-structure"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

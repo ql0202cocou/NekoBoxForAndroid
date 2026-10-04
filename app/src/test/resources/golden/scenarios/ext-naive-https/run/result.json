@@ -1,0 +1,40 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-naive"
+    },
+    "boxTagNames": {
+      "proxy": "golden-naive"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.naive-plugin.json",
+      "chainIndex": 0,
+      "profileId": 1,
+      "pluginId": "naive-plugin",
+      "port": 34325,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 34615,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      34325,
+      34615
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

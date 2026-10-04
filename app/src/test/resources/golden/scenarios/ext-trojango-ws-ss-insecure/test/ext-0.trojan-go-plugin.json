@@ -1,0 +1,28 @@
+{
+  "run_type": "client",
+  "local_addr": "127.0.0.1",
+  "local_port": 35613,
+  "remote_addr": "127.0.0.1",
+  "remote_port": 39273,
+  "password": [
+    "golden-pass-trojan-go"
+  ],
+  "log_level": 2,
+  "tcp": {
+    "prefer_ipv4": true
+  },
+  "websocket": {
+    "enabled": true,
+    "host": "cdn.example.org",
+    "path": "/golden-tg"
+  },
+  "ssl": {
+    "sni": "trojan-go.example.com",
+    "verify": false
+  },
+  "shadowsocks": {
+    "enabled": true,
+    "method": "aes-128-gcm",
+    "password": "golden-pass-tg-ss"
+  }
+}

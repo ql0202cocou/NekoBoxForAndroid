@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-trojan-bad-key: Invalid REALITY public key: expected 43 URL-safe Base64 characters (32 bytes)",
+    "causes": [
+      {
+        "class": "java.lang.IllegalArgumentException",
+        "message": "Invalid REALITY public key: expected 43 URL-safe Base64 characters (32 bytes)"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

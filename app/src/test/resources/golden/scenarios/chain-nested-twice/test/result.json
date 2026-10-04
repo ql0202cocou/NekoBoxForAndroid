@@ -1,0 +1,36 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        3,
+        2,
+        4,
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-twice-trojan",
+      "outbound[1]": "golden-twice-ss",
+      "outbound[2]": "golden-twice-vmess",
+      "outbound[3]": "golden-twice-trojan",
+      "outbound[4]": "golden-twice-ss"
+    },
+    "boxTagNames": {
+      "c-0-2": "golden-twice-ss",
+      "c-0-3-3": "golden-twice-trojan",
+      "c-0-4": "golden-twice-vmess",
+      "g-2": "golden-twice-ss",
+      "proxy": "golden-twice-trojan"
+    }
+  },
+  "external": [],
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

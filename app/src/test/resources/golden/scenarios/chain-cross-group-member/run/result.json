@@ -1,0 +1,29 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        3,
+        2,
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-cross-same-group",
+      "outbound[1]": "golden-cross-other-group"
+    },
+    "boxTagNames": {
+      "g-2": "golden-cross-other-group",
+      "proxy": "golden-cross-same-group"
+    }
+  },
+  "external": [],
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

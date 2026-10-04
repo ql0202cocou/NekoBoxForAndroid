@@ -1,0 +1,12 @@
+{
+  "status": "ok",
+  "exportName": "profiles.txt",
+  "dynamic": {
+    "ports": [
+      32899,
+      33255
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

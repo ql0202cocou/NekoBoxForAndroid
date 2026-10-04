@@ -1,0 +1,56 @@
+{
+  "dns": {
+    "final": "dns-direct",
+    "rules": [],
+    "servers": [
+      {
+        "detour": "direct",
+        "tag": "dns-local",
+        "type": "local"
+      },
+      {
+        "domain_resolver": "dns-local",
+        "path": "/dns-query",
+        "server": "192.0.2.53",
+        "tag": "dns-direct",
+        "type": "https"
+      }
+    ],
+    "strategy": "prefer_ipv4"
+  },
+  "endpoints": [],
+  "inbounds": [],
+  "log": {
+    "level": "panic"
+  },
+  "outbounds": [
+    {
+      "password": "golden-pass-anytls",
+      "server": "anytls.example.com",
+      "server_port": 8443,
+      "tls": {
+        "certificate": "-----BEGIN CERTIFICATE-----\nMIIBbDCCARICCQCmY4oC6BBYATAKBggqhkjOPQQDAjA+MRswGQYDVQQDDBJnb2xk\nZW4uZXhhbXBsZS5jb20xHzAdBgNVBAoMFk5la29Cb3ggR29sZGVuIEZpeHR1cmUw\nHhcNMjYxMDA0MTMzMjU0WhcNMzYxMDAxMTMzMjU0WjA+MRswGQYDVQQDDBJnb2xk\nZW4uZXhhbXBsZS5jb20xHzAdBgNVBAoMFk5la29Cb3ggR29sZGVuIEZpeHR1cmUw\nWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAASeYqbyaY6yV8EGYEXQtL2PX5SornWo\n0ZTko/KUH3bpfGxSc7wK6QoAlMV3SQhOVqFXtKFpT4u802J7Pe5BEbR7MAoGCCqG\nSM49BAMCA0gAMEUCIDSZKyuWEIam0/XT22j5huf3hclcKZaffyNM1n5NAP5UAiEA\ntaGTp3i+MsV/Dm9ZoX08QkQTOVZRnkIJs7xSOM98agY=\n-----END CERTIFICATE-----",
+        "enabled": true,
+        "insecure": true
+      },
+      "tag": "proxy",
+      "type": "anytls"
+    },
+    {
+      "tag": "direct",
+      "type": "direct"
+    },
+    {
+      "tag": "bypass",
+      "type": "direct"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "default_domain_resolver": {
+      "server": "dns-direct"
+    },
+    "rule_set": [],
+    "rules": []
+  }
+}

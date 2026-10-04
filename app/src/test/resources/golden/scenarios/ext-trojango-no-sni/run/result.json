@@ -1,0 +1,40 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-trojan-go-nosni"
+    },
+    "boxTagNames": {
+      "proxy": "golden-trojan-go-nosni"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.trojan-go-plugin.json",
+      "chainIndex": 0,
+      "profileId": 1,
+      "pluginId": "trojan-go-plugin",
+      "port": 42785,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 40667,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      42785,
+      40667
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

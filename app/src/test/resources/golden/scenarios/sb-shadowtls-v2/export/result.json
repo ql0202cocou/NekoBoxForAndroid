@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-shadowtls-v2.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

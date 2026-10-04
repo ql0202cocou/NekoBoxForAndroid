@@ -1,0 +1,376 @@
+{
+  "dns": {
+    "final": "dns-remote",
+    "rules": [
+      {
+        "domain": [
+          "mieru.example.com",
+          "vless.example.com",
+          "naive.example.com",
+          "hy1.example.com",
+          "trojan-go.example.com",
+          "anytls.example.com",
+          "dns.example.net"
+        ],
+        "server": "dns-direct",
+        "strategy": "ipv4_only"
+      },
+      {
+        "outbound": [
+          "any"
+        ],
+        "server": "dns-direct",
+        "strategy": "ipv4_only"
+      },
+      {
+        "disable_cache": true,
+        "inbound": [
+          "tun-in"
+        ],
+        "server": "dns-fake",
+        "strategy": "ipv4_only"
+      }
+    ],
+    "servers": [
+      {
+        "detour": "direct",
+        "tag": "dns-local",
+        "type": "local"
+      },
+      {
+        "domain_resolver": "dns-local",
+        "path": "/dns-query",
+        "server": "192.0.2.53",
+        "tag": "dns-direct",
+        "type": "https"
+      },
+      {
+        "detour": "proxy",
+        "domain_resolver": "dns-direct",
+        "path": "/dns-query",
+        "server": "dns.example.net",
+        "tag": "dns-remote",
+        "type": "https"
+      },
+      {
+        "inet4_range": "198.18.0.0/15",
+        "inet6_range": "fc00::/18",
+        "tag": "dns-fake",
+        "type": "fakeip"
+      }
+    ],
+    "strategy": "ipv4_only"
+  },
+  "endpoints": [],
+  "inbounds": [
+    {
+      "address": [
+        "172.19.0.1/28"
+      ],
+      "endpoint_independent_nat": true,
+      "mtu": 9000,
+      "stack": "gvisor",
+      "tag": "tun-in",
+      "type": "tun"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 2080,
+      "tag": "mixed-in",
+      "type": "mixed"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 39867,
+      "override_address": "anytls.example.com",
+      "override_port": 8443,
+      "tag": "c-0-mapping-7",
+      "type": "direct"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 37897,
+      "override_address": "vless.example.com",
+      "override_port": 443,
+      "tag": "c-0-mapping-6",
+      "type": "direct"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 44241,
+      "override_address": "hy1.example.com",
+      "override_port": 8443,
+      "tag": "c-0-mapping-5",
+      "type": "direct"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 44831,
+      "override_address": "mieru.example.com",
+      "override_port": 2999,
+      "tag": "c-0-mapping-4",
+      "type": "direct"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 40073,
+      "override_address": "naive.example.com",
+      "override_port": 443,
+      "tag": "c-0-mapping-3",
+      "type": "direct"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 32865,
+      "override_address": "trojan-go.example.com",
+      "override_port": 443,
+      "tag": "c-0-mapping-2",
+      "type": "direct"
+    }
+  ],
+  "log": {
+    "level": "panic"
+  },
+  "outbounds": [
+    {
+      "server": "127.0.0.1",
+      "server_port": 36059,
+      "tag": "proxy",
+      "type": "socks"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 44077,
+      "tag": "c-0-6",
+      "type": "socks"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 34685,
+      "tag": "c-0-5",
+      "type": "socks"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 39417,
+      "tag": "c-0-4",
+      "type": "socks"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 34397,
+      "tag": "c-0-3",
+      "type": "socks"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 38133,
+      "tag": "g-2",
+      "type": "socks"
+    },
+    {
+      "tag": "direct",
+      "type": "direct"
+    },
+    {
+      "tag": "bypass",
+      "type": "direct"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "rule_set": [],
+    "rules": [
+      {
+        "action": "sniff"
+      },
+      {
+        "action": "hijack-dns",
+        "port": [
+          53
+        ]
+      },
+      {
+        "action": "hijack-dns",
+        "protocol": [
+          "dns"
+        ]
+      },
+      {
+        "inbound": [
+          "c-0-mapping-7"
+        ],
+        "outbound": "c-0-6"
+      },
+      {
+        "inbound": [
+          "c-0-mapping-6"
+        ],
+        "outbound": "c-0-5"
+      },
+      {
+        "inbound": [
+          "c-0-mapping-5"
+        ],
+        "outbound": "c-0-4"
+      },
+      {
+        "inbound": [
+          "c-0-mapping-4"
+        ],
+        "outbound": "c-0-3"
+      },
+      {
+        "inbound": [
+          "c-0-mapping-3"
+        ],
+        "outbound": "g-2"
+      },
+      {
+        "inbound": [
+          "c-0-mapping-2"
+        ],
+        "outbound": "direct"
+      },
+      {
+        "action": "reject",
+        "ip_cidr": [
+          "224.0.0.0/3",
+          "ff00::/8"
+        ]
+      },
+      {
+        "action": "reject",
+        "source_ip_cidr": [
+          "224.0.0.0/3",
+          "ff00::/8"
+        ]
+      }
+    ]
+  }
+}
+
+log-level: warning
+mode: rule
+listeners:
+- {name: socks-in, type: socks, listen: 127.0.0.1, port: 36059, udp: true}
+proxies:
+- {name: anytls-out, type: anytls, server: 127.0.0.1, port: 39867, password: golden-pass-anytls,
+  udp: true, sni: anytls.example.com}
+rules: ['MATCH,anytls-out']
+
+
+{
+  "log": {
+    "loglevel": "warning"
+  },
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "port": 44077,
+      "protocol": "socks",
+      "settings": {
+        "udp": true
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "127.0.0.1",
+            "port": 37897,
+            "users": [
+              {
+                "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "www.example.com",
+          "publicKey": "Z29sZGVuLXJlYWxpdHktcHVibGljLWtleS0wMDAwMDE",
+          "shortId": "0a1b2c3d4e5f6a7b",
+          "fingerprint": "chrome"
+        }
+      }
+    }
+  ]
+}
+
+{
+  "server": "127.0.0.1:44241",
+  "protocol": "wechat-video",
+  "up_mbps": 10,
+  "down_mbps": 50,
+  "socks5": {
+    "listen": "127.0.0.1:34685"
+  },
+  "retry": 5,
+  "fast_open": true,
+  "lazy_start": true,
+  "obfs": "",
+  "auth_str": "golden-pass-hy1",
+  "server_name": "hy1.example.com",
+  "alpn": "hysteria",
+  "ca": "/data/user/0/moe.nb4a.debug/cache/hysteria_6496762348959516795.ca",
+  "hop_interval": 10
+}
+
+{
+  "activeProfile": "default",
+  "socks5Port": 39417,
+  "loggingLevel": "FATAL",
+  "profiles": [
+    {
+      "profileName": "default",
+      "user": {
+        "name": "golden-user",
+        "password": "golden-pass-mieru"
+      },
+      "servers": [
+        {
+          "ipAddress": "127.0.0.1",
+          "portBindings": [
+            {
+              "port": 44831,
+              "protocol": "TCP"
+            }
+          ]
+        }
+      ],
+      "mtu": 1400
+    }
+  ]
+}
+
+{
+  "host-resolver-rules": "MAP naive-sni.example.com 127.0.0.1",
+  "listen": "socks://127.0.0.1:34397",
+  "proxy": "https://golden-user:golden-pass-naive@naive-sni.example.com:40073/"
+}
+
+{
+  "run_type": "client",
+  "local_addr": "127.0.0.1",
+  "local_port": 38133,
+  "remote_addr": "127.0.0.1",
+  "remote_port": 32865,
+  "password": [
+    "golden-pass-trojan-go"
+  ],
+  "log_level": 2,
+  "tcp": {
+    "prefer_ipv4": true
+  },
+  "ssl": {
+    "sni": "trojan-go.example.com"
+  }
+}

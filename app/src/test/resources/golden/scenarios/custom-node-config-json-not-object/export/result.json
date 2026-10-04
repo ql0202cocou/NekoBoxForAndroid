@@ -1,0 +1,13 @@
+{
+  "status": "error",
+  "error": {
+    "class": "java.lang.IllegalArgumentException",
+    "message": "custom JSON must be an object",
+    "causes": []
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

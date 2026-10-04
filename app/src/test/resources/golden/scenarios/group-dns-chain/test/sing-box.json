@@ -1,0 +1,148 @@
+{
+  "dns": {
+    "final": "dns-direct",
+    "rules": [
+      {
+        "domain": [
+          "vless.example.com",
+          "vmess.example.com"
+        ],
+        "fallback": true,
+        "server": "dns-group-0",
+        "strategy": "prefer_ipv4"
+      },
+      {
+        "domain": [
+          "vless.example.com",
+          "vmess.example.com"
+        ],
+        "fallback": true,
+        "server": "dns-group-1",
+        "strategy": "prefer_ipv4"
+      },
+      {
+        "domain": [
+          "vless.example.com",
+          "vmess.example.com"
+        ],
+        "fallback": true,
+        "server": "dns-group-2",
+        "strategy": "prefer_ipv4"
+      }
+    ],
+    "servers": [
+      {
+        "detour": "direct",
+        "tag": "dns-local",
+        "type": "local"
+      },
+      {
+        "domain_resolver": "dns-local",
+        "path": "/dns-query",
+        "server": "192.0.2.53",
+        "tag": "dns-direct",
+        "type": "https"
+      },
+      {
+        "domain_resolver": "dns-local",
+        "path": "/dns-query",
+        "server": "dns.example.org",
+        "tag": "dns-group-0",
+        "type": "https"
+      },
+      {
+        "domain_resolver": "dns-local",
+        "server": "192.0.2.1",
+        "tag": "dns-group-1",
+        "type": "udp"
+      },
+      {
+        "domain_resolver": "dns-local",
+        "server": "dns.example.com",
+        "tag": "dns-group-2",
+        "type": "tls"
+      },
+      {
+        "servers": [
+          "dns-group-0",
+          "dns-group-1",
+          "dns-group-2",
+          "dns-direct"
+        ],
+        "tag": "dns-node-1",
+        "type": "neko-sequential"
+      }
+    ],
+    "strategy": "prefer_ipv4"
+  },
+  "endpoints": [],
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 43351,
+      "override_address": "vless.example.com",
+      "override_port": 443,
+      "tag": "c-0-mapping-4",
+      "type": "direct"
+    }
+  ],
+  "log": {
+    "level": "panic"
+  },
+  "outbounds": [
+    {
+      "server": "127.0.0.1",
+      "server_port": 36055,
+      "tag": "proxy",
+      "type": "socks",
+      "domain_resolver": {
+        "server": "dns-node-1"
+      }
+    },
+    {
+      "detour": "g-2",
+      "method": "aes-256-gcm",
+      "password": "golden-pass-ss",
+      "server": "ss.example.com",
+      "server_port": 8388,
+      "tag": "c-0-3",
+      "type": "shadowsocks"
+    },
+    {
+      "alter_id": 0,
+      "packet_encoding": "",
+      "security": "auto",
+      "server": "vmess.example.com",
+      "server_port": 443,
+      "uuid": "5a0c1e2f-3b4d-4e6f-8a9b-0c1d2e3f4a5b",
+      "tag": "g-2",
+      "type": "vmess",
+      "domain_resolver": {
+        "server": "dns-node-1"
+      }
+    },
+    {
+      "tag": "direct",
+      "type": "direct"
+    },
+    {
+      "tag": "bypass",
+      "type": "direct"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "default_domain_resolver": {
+      "server": "dns-direct"
+    },
+    "rule_set": [],
+    "rules": [
+      {
+        "inbound": [
+          "c-0-mapping-4"
+        ],
+        "outbound": "c-0-3"
+      }
+    ]
+  }
+}

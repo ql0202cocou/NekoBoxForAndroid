@@ -1,0 +1,13 @@
+{
+  "status": "error",
+  "error": {
+    "class": "java.lang.IllegalStateException",
+    "message": "group 1 landing proxy 12 (golden-empty-landing) has no valid member",
+    "causes": []
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

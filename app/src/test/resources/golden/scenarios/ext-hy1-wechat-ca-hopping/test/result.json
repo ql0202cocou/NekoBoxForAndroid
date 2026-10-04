@@ -1,0 +1,43 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-hy1-wechat"
+    },
+    "boxTagNames": {
+      "proxy": "golden-hy1-wechat"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.hysteria-plugin.json",
+      "chainIndex": 0,
+      "profileId": 1,
+      "pluginId": "hysteria-plugin",
+      "port": 37735,
+      "finalAddress": "hy1.example.com",
+      "finalPort": 1080,
+      "controller": null,
+      "tempFiles": [
+        "/data/user/0/moe.nb4a.debug/cache/hysteria_5464092297934450805.ca"
+      ]
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      37735
+    ],
+    "paths": [
+      "/data/user/0/moe.nb4a.debug/cache/hysteria_5464092297934450805.ca"
+    ],
+    "secrets": []
+  }
+}

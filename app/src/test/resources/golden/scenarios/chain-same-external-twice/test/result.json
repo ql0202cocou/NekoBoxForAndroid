@@ -1,0 +1,13 @@
+{
+  "status": "error",
+  "error": {
+    "class": "java.lang.IllegalStateException",
+    "message": "profile 3 (golden-dup-xray) runs on an external core and appears twice in chain 1",
+    "causes": []
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

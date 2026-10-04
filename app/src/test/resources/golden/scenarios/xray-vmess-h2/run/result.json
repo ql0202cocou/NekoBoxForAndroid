@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-xray-vmess-h2: xray-core no longer supports the http transport, use the sing-box core for this profile",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "xray-core no longer supports the http transport, use the sing-box core for this profile"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

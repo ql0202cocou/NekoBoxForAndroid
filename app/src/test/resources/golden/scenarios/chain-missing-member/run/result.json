@@ -1,0 +1,29 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        3,
+        2,
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-missing-vmess",
+      "outbound[1]": "golden-missing-ss"
+    },
+    "boxTagNames": {
+      "g-2": "golden-missing-ss",
+      "proxy": "golden-missing-vmess"
+    }
+  },
+  "external": [],
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

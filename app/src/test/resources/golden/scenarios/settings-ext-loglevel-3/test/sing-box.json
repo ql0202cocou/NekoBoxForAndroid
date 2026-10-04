@@ -1,0 +1,166 @@
+{
+  "dns": {
+    "final": "dns-direct",
+    "rules": [],
+    "servers": [
+      {
+        "detour": "direct",
+        "tag": "dns-local",
+        "type": "local"
+      },
+      {
+        "domain_resolver": "dns-local",
+        "path": "/dns-query",
+        "server": "192.0.2.53",
+        "tag": "dns-direct",
+        "type": "https"
+      }
+    ],
+    "strategy": "prefer_ipv4"
+  },
+  "endpoints": [],
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 36605,
+      "override_address": "anytls.example.com",
+      "override_port": 8443,
+      "tag": "c-0-mapping-7",
+      "type": "direct"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 35645,
+      "override_address": "vless.example.com",
+      "override_port": 443,
+      "tag": "c-0-mapping-6",
+      "type": "direct"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 45053,
+      "override_address": "hy1.example.com",
+      "override_port": 8443,
+      "tag": "c-0-mapping-5",
+      "type": "direct"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 39143,
+      "override_address": "mieru.example.com",
+      "override_port": 2999,
+      "tag": "c-0-mapping-4",
+      "type": "direct"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 43573,
+      "override_address": "naive.example.com",
+      "override_port": 443,
+      "tag": "c-0-mapping-3",
+      "type": "direct"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 45551,
+      "override_address": "trojan-go.example.com",
+      "override_port": 443,
+      "tag": "c-0-mapping-2",
+      "type": "direct"
+    }
+  ],
+  "log": {
+    "level": "debug"
+  },
+  "outbounds": [
+    {
+      "server": "127.0.0.1",
+      "server_port": 33551,
+      "tag": "proxy",
+      "type": "socks"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 41041,
+      "tag": "c-0-6",
+      "type": "socks"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 46825,
+      "tag": "c-0-5",
+      "type": "socks"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 41867,
+      "tag": "c-0-4",
+      "type": "socks"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 32901,
+      "tag": "c-0-3",
+      "type": "socks"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 42767,
+      "tag": "g-2",
+      "type": "socks"
+    },
+    {
+      "tag": "direct",
+      "type": "direct"
+    },
+    {
+      "tag": "bypass",
+      "type": "direct"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "default_domain_resolver": {
+      "server": "dns-direct"
+    },
+    "rule_set": [],
+    "rules": [
+      {
+        "inbound": [
+          "c-0-mapping-7"
+        ],
+        "outbound": "c-0-6"
+      },
+      {
+        "inbound": [
+          "c-0-mapping-6"
+        ],
+        "outbound": "c-0-5"
+      },
+      {
+        "inbound": [
+          "c-0-mapping-5"
+        ],
+        "outbound": "c-0-4"
+      },
+      {
+        "inbound": [
+          "c-0-mapping-4"
+        ],
+        "outbound": "c-0-3"
+      },
+      {
+        "inbound": [
+          "c-0-mapping-3"
+        ],
+        "outbound": "g-2"
+      },
+      {
+        "inbound": [
+          "c-0-mapping-2"
+        ],
+        "outbound": "direct"
+      }
+    ]
+  }
+}

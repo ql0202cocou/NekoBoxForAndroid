@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-tuic-ip.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-xray-vmess-insecure: xray-core no longer supports allowInsecure, use a certificate fingerprint or the sing-box core for this profile",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "xray-core no longer supports allowInsecure, use a certificate fingerprint or the sing-box core for this profile"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

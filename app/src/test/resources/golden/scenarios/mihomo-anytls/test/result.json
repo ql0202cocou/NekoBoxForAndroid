@@ -1,0 +1,46 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-anytls"
+    },
+    "boxTagNames": {
+      "proxy": "golden-anytls"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.mihomo-plugin.yaml",
+      "chainIndex": 0,
+      "profileId": 1,
+      "pluginId": "mihomo-plugin",
+      "port": 36223,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 40527,
+      "controller": {
+        "port": 41643,
+        "secret": "9dc83446beae4a90a48edb67b6322ed9"
+      },
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      36223,
+      40527,
+      41643
+    ],
+    "paths": [],
+    "secrets": [
+      "9dc83446beae4a90a48edb67b6322ed9"
+    ]
+  }
+}

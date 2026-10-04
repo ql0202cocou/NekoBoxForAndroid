@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-fc-main.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

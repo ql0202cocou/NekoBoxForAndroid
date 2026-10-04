@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-vless-quic.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

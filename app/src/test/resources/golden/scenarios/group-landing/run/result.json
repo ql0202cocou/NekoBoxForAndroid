@@ -1,0 +1,28 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        11,
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-landing",
+      "outbound[1]": "golden-landing-main"
+    },
+    "boxTagNames": {
+      "g-1": "golden-landing-main",
+      "proxy": "golden-landing"
+    }
+  },
+  "external": [],
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

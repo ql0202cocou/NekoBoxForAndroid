@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-trojan-mux.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

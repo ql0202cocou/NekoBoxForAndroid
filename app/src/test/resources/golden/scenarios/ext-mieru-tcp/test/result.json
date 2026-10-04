@@ -1,0 +1,40 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-mieru"
+    },
+    "boxTagNames": {
+      "proxy": "golden-mieru"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.mieru-plugin.json",
+      "chainIndex": 0,
+      "profileId": 1,
+      "pluginId": "mieru-plugin",
+      "port": 42107,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 34689,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      42107,
+      34689
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

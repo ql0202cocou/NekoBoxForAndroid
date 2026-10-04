@@ -1,0 +1,29 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        3,
+        2,
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-chain-trojan",
+      "outbound[1]": "golden-chain-vmess"
+    },
+    "boxTagNames": {
+      "g-2": "golden-chain-vmess",
+      "proxy": "golden-chain-trojan"
+    }
+  },
+  "external": [],
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

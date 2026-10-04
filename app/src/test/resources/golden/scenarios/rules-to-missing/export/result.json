@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-rtmiss-main.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-sb-vless-mldsa: REALITY mldsa65Verify only works on the Xray core; switch this profile to the Xray core or clear mldsa65Verify",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "REALITY mldsa65Verify only works on the Xray core; switch this profile to the Xray core or clear mldsa65Verify"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

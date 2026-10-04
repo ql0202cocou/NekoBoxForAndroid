@@ -1,0 +1,15 @@
+{
+  "run_type": "client",
+  "local_addr": "127.0.0.1",
+  "local_port": 42535,
+  "remote_addr": "127.0.0.1",
+  "remote_port": 38781,
+  "password": [
+    "golden-pass-trojan-go"
+  ],
+  "log_level": 2,
+  "tcp": {
+    "prefer_ipv4": true
+  },
+  "ssl": {}
+}

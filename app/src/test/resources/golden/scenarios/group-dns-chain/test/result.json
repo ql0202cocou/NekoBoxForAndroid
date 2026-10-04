@@ -1,0 +1,47 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        4,
+        3,
+        2,
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-gdnsc-xray",
+      "outbound[1]": "golden-gdnsc-b",
+      "outbound[2]": "golden-gdnsc-a"
+    },
+    "boxTagNames": {
+      "c-0-3": "golden-gdnsc-b",
+      "g-2": "golden-gdnsc-a",
+      "proxy": "golden-gdnsc-xray"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.xray-plugin.json",
+      "chainIndex": 0,
+      "profileId": 4,
+      "pluginId": "xray-plugin",
+      "port": 36055,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 43351,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      36055,
+      43351
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

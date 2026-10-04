@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-ssh-key.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

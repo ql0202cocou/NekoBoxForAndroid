@@ -1,0 +1,67 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": 1,
+    "profileTagMap": {
+      "1": "golden-gdnss-vmess",
+      "2": "golden-gdnss-xray",
+      "3": "golden-gdnss-anytls"
+    },
+    "trafficMap": {
+      "golden-gdnss-anytls": [
+        3
+      ],
+      "golden-gdnss-vmess": [
+        1
+      ],
+      "golden-gdnss-xray": [
+        2
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[1]": "golden-gdnss-vmess",
+      "outbound[2]": "golden-gdnss-xray",
+      "outbound[3]": "golden-gdnss-anytls"
+    },
+    "boxTagNames": {
+      "golden-gdnss-anytls": "golden-gdnss-anytls",
+      "golden-gdnss-vmess": "golden-gdnss-vmess",
+      "golden-gdnss-xray": "golden-gdnss-xray"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.xray-plugin.json",
+      "chainIndex": 1,
+      "profileId": 2,
+      "pluginId": "xray-plugin",
+      "port": 38491,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 36181,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-1.mihomo-plugin.yaml",
+      "chainIndex": 2,
+      "profileId": 3,
+      "pluginId": "mihomo-plugin",
+      "port": 38557,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 46179,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      38491,
+      38557,
+      36181,
+      46179
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

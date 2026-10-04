@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-hy2-hop.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

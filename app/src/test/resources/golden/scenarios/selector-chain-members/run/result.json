@@ -1,0 +1,64 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": 1,
+    "profileTagMap": {
+      "1": "golden-selc-vmess",
+      "2": "golden-selc-xray",
+      "3": "golden-selc-chain",
+      "4": "golden-selc-vmess",
+      "5": "golden-selc-ss"
+    },
+    "trafficMap": {
+      "golden-selc-chain": [
+        1,
+        2,
+        3
+      ],
+      "golden-selc-ss": [
+        5
+      ],
+      "golden-selc-vmess": [
+        1,
+        4
+      ],
+      "golden-selc-xray": [
+        2
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[1]": "golden-selc-vmess",
+      "outbound[2]": "golden-selc-xray",
+      "outbound[3]": "golden-selc-vmess",
+      "outbound[4]": "golden-selc-ss"
+    },
+    "boxTagNames": {
+      "golden-selc-chain": "golden-selc-vmess",
+      "golden-selc-ss": "golden-selc-ss",
+      "golden-selc-vmess": "golden-selc-vmess",
+      "golden-selc-xray": "golden-selc-xray"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.xray-plugin.json",
+      "chainIndex": 1,
+      "profileId": 2,
+      "pluginId": "xray-plugin",
+      "port": 44583,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 34945,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      44583,
+      34945
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-tuic.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

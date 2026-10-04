@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-sb-anytls-ca.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

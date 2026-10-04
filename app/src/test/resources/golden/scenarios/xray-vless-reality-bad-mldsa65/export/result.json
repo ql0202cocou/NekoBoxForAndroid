@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-xray-bad-mldsa: Invalid REALITY mldsa65Verify: expected 2603 URL-safe Base64 characters (1952 bytes)",
+    "causes": [
+      {
+        "class": "java.lang.IllegalArgumentException",
+        "message": "Invalid REALITY mldsa65Verify: expected 2603 URL-safe Base64 characters (1952 bytes)"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}
