@@ -65,9 +65,12 @@ fun StandardV2RayBean.setTLS(boolean: Boolean) {
 fun parseV2Ray(link: String): StandardV2RayBean {
     // Try parse stupid formats first
 
+    // 传输方式不认识时格式已经认准，直接报错；继续试下一种格式只会换成无关的报错
     if (!link.contains("?")) {
         try {
             return parseV2RayN(link)
+        } catch (e: UnsupportedTransportException) {
+            throw e
         } catch (e: Exception) {
             Logs.i("try v2rayN: " + e.readableMessage)
         }
@@ -75,6 +78,8 @@ fun parseV2Ray(link: String): StandardV2RayBean {
 
     try {
         return tryResolveVmess4Kitsunebi(link)
+    } catch (e: UnsupportedTransportException) {
+        throw e
     } catch (e: Exception) {
         Logs.i("try Kitsunebi: " + e.readableMessage)
     }
@@ -93,7 +98,6 @@ fun parseV2Ray(link: String): StandardV2RayBean {
         bean.name = url.fragment
 
         var protocol = url.username
-        bean.type = protocol
         bean.alterId = url.password.substringAfterLast('-').toIntOrNull()
             ?: error("invalid v2ray alterId")
         bean.uuid = url.password.substringBeforeLast('-')
@@ -108,8 +112,10 @@ fun parseV2Ray(link: String): StandardV2RayBean {
                 }
             }
         }
+        // 去掉 +tls 后才是传输方式
+        bean.type = requireV2RayTransport(protocol)
 
-        when (protocol) {
+        when (bean.type) {
             "http" -> {
                 url.queryParameter("path")?.let {
                     bean.path = it
@@ -170,8 +176,8 @@ fun StandardV2RayBean.parseDuckSoft(url: HttpUrl) {
         path = "/" + url.pathSegments.joinToString("/")
     }
 
-    type = url.queryParameter("type") ?: "tcp"
-    if (type == "h2" || url.queryParameter("headerType") == "http") type = "http"
+    type = requireV2RayTransport(url.queryParameter("type"))
+    if (url.queryParameter("headerType") == "http") type = "http"
 
     security = url.queryParameter("security")
     if (security.isNullOrBlank()) {
@@ -305,7 +311,7 @@ private fun tryResolveVmess4Kitsunebi(server: String): VMessBean {
         url.queryParameter("allowInsecure")
             ?.apply { if (this == "1" || this == "true") allowInsecure = true }
         url.queryParameter("obfs")?.apply {
-            type = this.replace("websocket", "ws").replace("none", "tcp")
+            type = requireV2RayTransport(this)
             if (type == "ws") {
                 url.queryParameter("obfsParam")?.apply {
                     if (this.startsWith("{")) {
@@ -345,21 +351,12 @@ fun parseV2RayN(link: String): VMessBean {
     bean.encryption = vmessQRCode.scy
     bean.uuid = vmessQRCode.id
     bean.alterId = vmessQRCode.aid.toIntOrNull()
-    bean.type = vmessQRCode.net
+    // v2rayN 把 h2 写作 "h2"，归一化后是 "http"
+    bean.type = requireV2RayTransport(vmessQRCode.net)
     bean.host = vmessQRCode.host
     bean.path = vmessQRCode.path
-    val headerType = vmessQRCode.type
-
-    when (bean.type) {
-        "tcp" -> {
-            if (headerType == "http") {
-                bean.type = "http"
-            }
-        }
-
-        // v2rayN spells the h2 transport "h2"; the bean keeps "http"
-        "h2" -> bean.type = "http"
-    }
+    // tcp 带伪 HTTP 头
+    if (bean.type == "tcp" && vmessQRCode.type == "http") bean.type = "http"
     when (vmessQRCode.tls) {
         "tls", "reality" -> {
             bean.security = "tls"
@@ -413,7 +410,7 @@ private fun parseCsvVMess(csv: String): VMessBean {
         when {
             it == "over-tls=true" -> bean.security = "tls"
             it.startsWith("tls-host=") -> bean.host = it.substringAfter("=")
-            it.startsWith("obfs=") -> bean.type = it.substringAfter("=")
+            it.startsWith("obfs=") -> bean.type = requireV2RayTransport(it.substringAfter("="))
             it.startsWith("obfs-path=") || it.contains("Host:") -> {
                 // each marker guarded on its own: substringAfter() without a match
                 // returns the whole field, which used to land in host/path
@@ -625,7 +622,8 @@ fun StandardV2RayBean.effectiveUtlsFingerprint(): String? {
 }
 
 fun buildSingBoxOutboundStreamSettings(bean: StandardV2RayBean): V2RayTransportOptions? {
-    when (bean.type) {
+    // 存量节点可能带着导入时没拦住的未知传输方式，明确报错，不退成 TCP
+    when (requireV2RayTransport(bean.type)) {
         "tcp" -> {
             return null
         }
@@ -678,9 +676,9 @@ fun buildSingBoxOutboundStreamSettings(bean: StandardV2RayBean): V2RayTransportO
                 path = bean.path
             }
         }
-    }
 
-    return null
+        else -> error("can't reach")
+    }
 }
 
 // StandardV2RayBean.muxType <-> multiplex protocol name (sing-box and mihomo

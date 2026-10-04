@@ -14,6 +14,7 @@ import io.nekohasekai.sagernet.fmt.socks.parseSOCKS
 import io.nekohasekai.sagernet.fmt.trojan.parseTrojan
 import io.nekohasekai.sagernet.fmt.tuic.parseTuic
 import io.nekohasekai.sagernet.fmt.trojan_go.parseTrojanGo
+import io.nekohasekai.sagernet.fmt.v2ray.UnsupportedTransportException
 import io.nekohasekai.sagernet.fmt.v2ray.parseV2Ray
 import moe.matsuri.nb4a.proxy.anytls.parseAnytls
 import moe.matsuri.nb4a.utils.JavaUtil.gson
@@ -94,6 +95,8 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
 
     val entities = ArrayList<AbstractBean>()
     val entitiesByLine = ArrayList<AbstractBean>()
+    // 第一条因传输方式不支持被拒的链接，一个节点都没解析出来时报给调用方
+    var unsupportedTransport: UnsupportedTransportException? = null
 
     val linkParsers: List<Triple<String, String, (String) -> AbstractBean>> = listOf(
         Triple("sn://", "universal", ::parseUniversal),
@@ -142,6 +145,9 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
                     entities.add(parse(this))
                 }.onFailure {
                     Logs.w("Proxy link rejected: ${it.javaClass.simpleName}")
+                    if (it is UnsupportedTransportException && unsupportedTransport == null) {
+                        unsupportedTransport = it
+                    }
                 }
                 return
             }
@@ -166,6 +172,8 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
         if (sameSplit) validEntities else entitiesByLine.filterValidEndpoint()
     val result =
         if (validEntities.size > validEntitiesByLine.size) validEntities else validEntitiesByLine
+    // 有节点时坏链接照旧跳过；一个都没有时报出传输方式不支持，不变成笼统的「没找到节点」
+    if (result.isEmpty()) unsupportedTransport?.let { throw it }
     result.forEach { it.initializeDefaultValues() }
     return result
 }

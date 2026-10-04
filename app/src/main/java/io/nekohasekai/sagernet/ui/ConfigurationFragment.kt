@@ -32,7 +32,9 @@ import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.displayType
+import io.nekohasekai.sagernet.fmt.v2ray.UnsupportedTransportException
 import io.nekohasekai.sagernet.group.GroupUpdater
+import io.nekohasekai.sagernet.group.ImportBatch
 import io.nekohasekai.sagernet.group.RawUpdater
 import io.nekohasekai.sagernet.ktx.MAX_IMPORT_BYTES
 import io.nekohasekai.sagernet.ktx.readBytesLimited
@@ -311,6 +313,8 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
                     if (fileName.endsWith(".zip")) {
                         // try parse wireguard zip
                         // use(): a throwing parseRaw used to leak the fd
+                        // 单个条目因传输方式不支持被拒时记下继续，见 ImportBatch
+                        val batch = ImportBatch<AbstractBean>()
                         ZipInputStream(inputStream).use { zip ->
                             var remaining = MAX_IMPORT_BYTES
                             var entries = 0
@@ -321,11 +325,16 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
                                 remaining -= bytes.size
                                 if (entry.isDirectory) continue
                                 val fileText = bytes.toString(Charsets.UTF_8)
-                                RawUpdater.parseRaw(fileText, entry.name)
-                                    ?.let { pl -> proxies.addAll(pl) }
+                                try {
+                                    batch.add(RawUpdater.parseRaw(fileText, entry.name))
+                                } catch (e: UnsupportedTransportException) {
+                                    Logs.w("ZIP entry rejected: ${e.readableMessage}")
+                                    batch.reject(e)
+                                }
                                 zip.closeEntry()
                             }
                         }
+                        proxies.addAll(batch.result())
                     } else {
                         val fileText = inputStream.use {
                             it.readBytesLimited().toString(Charsets.UTF_8)

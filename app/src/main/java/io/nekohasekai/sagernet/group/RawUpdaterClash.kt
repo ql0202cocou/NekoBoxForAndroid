@@ -13,6 +13,7 @@ import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.fmt.tuic.TuicBean
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
+import io.nekohasekai.sagernet.fmt.v2ray.clashNetworkTransport
 import io.nekohasekai.sagernet.fmt.v2ray.isTLS
 import io.nekohasekai.sagernet.fmt.v2ray.muxProtocolType
 import io.nekohasekai.sagernet.fmt.v2ray.setTLS
@@ -231,12 +232,9 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>): StandardV2RayBean {
                 }
             }
 
-            "network" -> {
-                when (opt.value) {
-                    "h2", "http" -> bean.type = "http"
-                    "ws", "grpc" -> bean.type = opt.value as String
-                }
-            }
+            // 不认识的 network 抛异常，按已知类型的坏节点记日志并跳过；
+            // 忽略它的话 type 停在默认的 tcp，之后再也看不出来
+            "network" -> bean.type = clashNetworkTransport(opt.value?.toString())
 
             "ws-opts", "h2-opts", "http-opts", "grpc-opts" ->
                 bean.applyClashTransportOpts(opt.key, opt.value)

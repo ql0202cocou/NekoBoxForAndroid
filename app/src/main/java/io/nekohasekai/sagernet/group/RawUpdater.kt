@@ -7,6 +7,7 @@ import io.nekohasekai.sagernet.database.*
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.putBean
+import io.nekohasekai.sagernet.fmt.v2ray.UnsupportedTransportException
 import io.nekohasekai.sagernet.ktx.*
 import libcore.Libcore
 import moe.matsuri.nb4a.Protocols
@@ -392,6 +393,9 @@ object RawUpdater : GroupUpdater() {
         try {
             return parseProxies(text).takeIf { it.isNotEmpty() } ?: error("Not found")
         } catch (e: SubscriptionFoundException) {
+            throw e
+        } catch (e: UnsupportedTransportException) {
+            // 分享链接全因传输方式不支持被拒：把原因报给用户，而不是笼统的「没找到节点」
             throw e
         } catch (ignored: Exception) {
         }

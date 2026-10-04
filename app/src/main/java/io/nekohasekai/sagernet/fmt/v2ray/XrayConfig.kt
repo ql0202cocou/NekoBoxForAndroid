@@ -112,8 +112,8 @@ private fun buildXrayStreamSettings(bean: VMessBean): JSONObject {
     val sni = bean.sni.takeIf { it.isNotBlank() }
         ?: bean.serverAddress.takeIf { it.isNotBlank() }
     return JSONObject().apply {
-        // transport
-        when (bean.type) {
+        // transport；存量节点的未知传输方式明确报错，不退成 TCP
+        when (requireV2RayTransport(bean.type)) {
             "ws" -> {
                 put("network", "ws")
                 put("wsSettings", JSONObject().apply {
@@ -169,7 +169,10 @@ private fun buildXrayStreamSettings(bean: VMessBean): JSONObject {
                 })
             }
 
-            else -> put("network", "tcp")
+            "tcp" -> put("network", "tcp")
+
+            // quic 已被 xrayLacksTransport() 拦下
+            else -> error("can't reach")
         }
 
         // security
