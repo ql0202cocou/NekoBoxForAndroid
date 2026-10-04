@@ -122,6 +122,13 @@ address/corpus.json                                        地址解析语料与
 `GoldenInputTest` 遍历本目录的 `input.json`，用生产代码（`ProxyEntity.putByteArray`）把每个 bean 反序列化，
 核对类型，并核对重新序列化得到同样的字节。
 
+外核配置的 JVM 黄金测试也从这里取输入：`GoldenBaseline` 列出某个 pluginId 在 run / test 下的全部外核配置
+（bean 每个用例新建一份，并按 `result.json` 的 `external` 写回 `finalAddress` / `finalPort`；设置取
+`effectiveSettings` 的 `logLevel`、`ipv6Mode`、`globalAllowInsecure`），
+`GoldenExternalCoreCheck.assertMatchesBaseline(pluginId)` 经 `externalCore(bean).config(…)` 重新生成，与配置原文
+做结构比较。端口直接用记录的值；`tempFiles` 与本次 `cacheFile` 分到的路径按动态路径比较。每个核心一个测试类
+（如 `GoldenMihomoTest`）。
+
 ## result.json
 
 ```
