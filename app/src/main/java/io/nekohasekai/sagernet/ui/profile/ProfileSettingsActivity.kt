@@ -44,6 +44,7 @@ import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
 import io.nekohasekai.sagernet.databinding.LayoutGroupItemBinding
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.certificatePinUnsupported
+import io.nekohasekai.sagernet.fmt.mldsa65VerifyUnsupported
 import io.nekohasekai.sagernet.fmt.putBean
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.ui.EditorActivity
@@ -213,7 +214,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         if (!canSave) return
 
         val profileCore = editorCore()
-        // 证书指纹配上不支持它的核心注定连不上（构建时拒绝）：用编辑器当前内容拼一个临时
+        // 证书指纹、mldsa65Verify 配上不支持它的核心注定连不上（构建时拒绝）：用编辑器当前内容拼一个临时
         // 实体，按与构建相同的规则判断。放在整数校验之后、主线程之外（serialize 逐字段读库）
         val probe = ProxyEntity().apply {
             core = profileCore
@@ -223,6 +224,14 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             onMainDispatcher {
                 Toast.makeText(
                     this@ProfileSettingsActivity, R.string.certificate_pin_unsupported_error, Toast.LENGTH_LONG
+                ).show()
+            }
+            return
+        }
+        if (probe.mldsa65VerifyUnsupported() != null) {
+            onMainDispatcher {
+                Toast.makeText(
+                    this@ProfileSettingsActivity, R.string.mldsa65_verify_unsupported_error, Toast.LENGTH_LONG
                 ).show()
             }
             return

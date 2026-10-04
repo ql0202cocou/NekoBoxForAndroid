@@ -782,6 +782,8 @@ private class ConfigBuild(
         if (proxyEntity.certificatePinUnsupported()) {
             error("this core cannot pin certificates; clear the fingerprint or use a core that supports it")
         }
+        // mldsa65Verify 同理：sing-box 上会被悄悄丢掉
+        proxyEntity.mldsa65VerifyUnsupported()?.let { error(it) }
         // 完整配置型自定义节点作为链成员、前置 / 落地或路由目标时，给出明确
         // 错误，而不是让 sing-box 以 "unknown outbound type" 拒绝整份配置
         if (!proxyEntity.needExternal() && proxyEntity.isFullConfig()) {

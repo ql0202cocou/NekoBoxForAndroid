@@ -186,9 +186,10 @@ fun ProxyEntity.coreForType(): Int {
     }
 }
 
-// 证书指纹固定只有 Xray（VMess / VLESS）与 mihomo（AnyTLS）支持；sing-box 与 hysteria v1
-// 插件都没有对应选项。唯一判断点：运行 / 测试 / 导出都经 ConfigBuild.buildHopOutbound
-// 按它拒绝，编辑器保存时也按它提前拦下
+// 应用保存的是整张证书的 SHA-256 指纹，只有 Xray（VMess / VLESS）与 mihomo（AnyTLS）能按它固定。
+// sing-box 有公钥固定（certificate_public_key_sha256，SPKI 哈希），但与整证书指纹不是一回事、
+// 不能通用；hysteria v1 插件没有对应选项。唯一判断点：运行 / 测试 / 导出 / 预检都经
+// ConfigBuild.requireBuildableHop 按它拒绝，编辑器保存时也按它提前拦下
 fun ProxyEntity.certificatePinUnsupported(): Boolean {
     val pin = tlsFields(requireBean())?.certificateFingerprint
     if (pin.isNullOrBlank()) return false
@@ -198,6 +199,28 @@ fun ProxyEntity.certificatePinUnsupported(): Boolean {
         else -> true
     }
 }
+
+// REALITY 真正生效且配了 mldsa65Verify。编辑器里关掉 TLS 后隐藏的 REALITY 字段仍留在 bean 里，
+// 与 buildXrayConfig 一样以 security 开关为准，残留字段不算
+fun StandardV2RayBean.realityMldsa65VerifyActive(): Boolean =
+    security == "tls" && !realityPubKey.isNullOrBlank() && !realityMldsa65Verify.isNullOrBlank()
+
+// mldsa65Verify（REALITY 后量子校验）只有 Xray 支持，sing-box 会把它悄悄丢掉。最终核心不是 Xray
+// 时返回拒绝原因，null 表示放行。core 只在字段生效时才取（resolvedCore 间接读设置）。
+// 判断点同 certificatePinUnsupported：ConfigBuild.requireBuildableHop 与编辑器保存
+fun mldsa65VerifyUnsupported(type: Int, bean: AbstractBean, core: () -> Int): String? {
+    if (bean !is StandardV2RayBean || !bean.realityMldsa65VerifyActive()) return null
+    return when (type) {
+        TYPE_VMESS -> if (core() == CORE_XRAY) null
+        else "REALITY mldsa65Verify only works on the Xray core; switch this profile to the Xray core or clear mldsa65Verify"
+
+        // Trojan 目前没有 Xray 路径，只能清空
+        else -> "REALITY mldsa65Verify only works on the Xray core, which this protocol cannot use; clear mldsa65Verify"
+    }
+}
+
+fun ProxyEntity.mldsa65VerifyUnsupported(): String? =
+    mldsa65VerifyUnsupported(type, requireBean()) { resolvedCore() }
 
 // type -> 该节点是否跑在外部核心进程上
 fun ProxyEntity.needExternal(): Boolean {

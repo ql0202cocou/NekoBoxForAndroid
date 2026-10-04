@@ -420,6 +420,7 @@
     <string name="hysteria_ports_error">端口必须为 1 到 65535，可用逗号分隔；范围如 1000:2000，起点不能大于终点。</string>
     <string name="wireguard_reserved_error">Reserved 必须为空，或包含三个 0 到 255 之间的整数。</string>
     <string name="certificate_pin_unsupported_error">当前核心不支持证书固定。请清空证书指纹，或换用支持的核心（VMess / VLESS 用 Xray，AnyTLS 用 mihomo）。</string>
+    <string name="mldsa65_verify_unsupported_error">只有 Xray 核心支持 REALITY 的 mldsa65Verify。请清空该字段，或换用 Xray 核心（Trojan 节点不能使用 Xray 核心）。</string>
     <string name="clash_api_disabled">Clash API 未启用</string>
     <string name="wireguard_key_error">请输入解码后为 32 字节的标准 Base64 密钥。预共享密钥可以留空。</string>
     <string name="wireguard_address_error">请使用 IPv4/前缀长度（0–32）或 IPv6/前缀长度（0–128），多个地址用逗号或换行分隔。</string>
