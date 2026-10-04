@@ -28,8 +28,9 @@ object SingBoxOptionsUtil {
 }
 
 // 按前缀把域名规则分拣到各字段：geosite: 进 rule_set，full: / domain: / regexp: /
-// keyword: 各归其位，无前缀按 domain_suffix；除 rule_set 外都转小写
-private class DomainRuleLists(list: List<String>) {
+// keyword: 各归其位，无前缀按 domain_suffix；除 rule_set 和 regexp: 外都转小写
+// （正则里大小写有含义，如 \D 与 \d，必须保留原文）
+internal class DomainRuleLists(list: List<String>) {
     val ruleSet = mutableListOf<String>()
     val domain = mutableListOf<String>()
     val domainSuffix = mutableListOf<String>()
@@ -45,7 +46,7 @@ private class DomainRuleLists(list: List<String>) {
             } else if (it.startsWith("domain:")) {
                 domainSuffix.plusAssign(it.removePrefix("domain:").lowercase())
             } else if (it.startsWith("regexp:")) {
-                domainRegex.plusAssign(it.removePrefix("regexp:").lowercase())
+                domainRegex.plusAssign(it.removePrefix("regexp:"))
             } else if (it.startsWith("keyword:")) {
                 domainKeyword.plusAssign(it.removePrefix("keyword:").lowercase())
             } else {
