@@ -5,6 +5,7 @@ import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.fmt.buildSingBoxOutboundTLS
 import io.nekohasekai.sagernet.ktx.*
 import moe.matsuri.nb4a.SingBoxOptions
+import moe.matsuri.nb4a.utils.JavaUtil.gson
 import moe.matsuri.nb4a.utils.listByLineOrComma
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -322,7 +323,7 @@ fun HysteriaBean.buildHysteria1Config(port: Int, cacheFile: (() -> File)?): Stri
         "hysteria 1 hop interval must be 0 or at least 8 seconds"
     }
     val ports = parseHysteriaPorts(serverPorts).joinHysteriaPorts()
-    return JSONObject().apply {
+    val config = LinkedHashMap<String, Any>().apply {
         // When the node got a mapping inbound (chain member), finalAddress is
         // rewritten to LOCALHOST and the plugin must dial the mapping port —
         // displayAddress() would bypass the whole chain. Otherwise keep
@@ -344,13 +345,7 @@ fun HysteriaBean.buildHysteria1Config(port: Int, cacheFile: (() -> File)?): Stri
         }
         put("up_mbps", uploadMbps)
         put("down_mbps", downloadMbps)
-        put(
-            "socks5", JSONObject(
-                mapOf(
-                    "listen" to "$LOCALHOST:$port",
-                )
-            )
-        )
+        put("socks5", mapOf("listen" to "$LOCALHOST:$port"))
         put("retry", 5)
         put("fast_open", true)
         put("lazy_start", true)
@@ -382,7 +377,8 @@ fun HysteriaBean.buildHysteria1Config(port: Int, cacheFile: (() -> File)?): Stri
         if (disableMtuDiscovery) put("disable_mtu_discovery", true)
 
         put("hop_interval", hopInterval)
-    }.toStringPretty()
+    }
+    return gson.toJson(config)
 }
 
 fun isMultiPort(hyAddr: String): Boolean {
