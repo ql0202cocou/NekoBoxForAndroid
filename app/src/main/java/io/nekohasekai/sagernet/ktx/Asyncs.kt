@@ -1,7 +1,5 @@
 package io.nekohasekai.sagernet.ktx
 
-import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.*
 import java.util.concurrent.Executors
 
@@ -18,9 +16,6 @@ private val serialDispatcher = Executors.newSingleThreadExecutor().asCoroutineDi
 
 fun runOnSerialDispatcher(block: suspend CoroutineScope.() -> Unit) =
     appScope.launch(serialDispatcher, block = block)
-
-fun Fragment.runOnLifecycleDispatcher(block: suspend CoroutineScope.() -> Unit) =
-    lifecycleScope.launch(Dispatchers.Default, block = block)
 
 fun runOnIoDispatcher(block: suspend CoroutineScope.() -> Unit) =
     appScope.launch(Dispatchers.IO, block = block)
