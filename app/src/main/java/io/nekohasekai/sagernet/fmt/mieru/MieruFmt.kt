@@ -19,45 +19,44 @@
 package io.nekohasekai.sagernet.fmt.mieru
 
 import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
-import io.nekohasekai.sagernet.ktx.toStringPretty
-import org.json.JSONArray
-import org.json.JSONObject
+import moe.matsuri.nb4a.utils.JavaUtil.gson
 
 fun MieruBean.buildMieruConfig(port: Int, settings: ExternalCoreSettings): String {
-    val serverInfo = JSONArray().apply {
-        put(JSONObject().apply {
-            put("ipAddress", finalAddress)
-            put("portBindings", JSONArray().apply {
-                put(JSONObject().apply {
-                    put("port", finalPort)
-                    put("protocol", protocol)
-                })
-            })
-        })
-    }
-    return JSONObject().apply {
-        put("activeProfile", "default")
-        put("socks5Port", port)
-        // same scale as ConfigBuilder's sing-box mapping; mieru spells them in caps
-        put(
-            "loggingLevel", when (settings.logLevel) {
+    // 值为 null 的键由 Gson 省略，与 org.json 的 put(键, null) 删除键一致
+    val serverInfo = arrayListOf(
+        linkedMapOf<String, Any?>(
+            "ipAddress" to finalAddress,
+            "portBindings" to arrayListOf(
+                linkedMapOf<String, Any?>(
+                    "port" to finalPort,
+                    "protocol" to protocol,
+                )
+            ),
+        )
+    )
+    return gson.toJson(
+        linkedMapOf<String, Any?>(
+            "activeProfile" to "default",
+            "socks5Port" to port,
+            // 档位与 ConfigBuilder 的 sing-box 映射一致；mieru 的写法是大写
+            "loggingLevel" to when (settings.logLevel) {
                 0 -> "FATAL"
                 1 -> "WARN"
                 3 -> "DEBUG"
                 4 -> "TRACE"
                 else -> "INFO"
-            }
+            },
+            "profiles" to arrayListOf(
+                linkedMapOf<String, Any?>(
+                    "profileName" to "default",
+                    "user" to linkedMapOf<String, Any?>(
+                        "name" to username,
+                        "password" to password,
+                    ),
+                    "servers" to serverInfo,
+                    "mtu" to mtu,
+                )
+            ),
         )
-        put("profiles", JSONArray().apply {
-            put(JSONObject().apply {
-                put("profileName", "default")
-                put("user", JSONObject().apply {
-                    put("name", username)
-                    put("password", password)
-                })
-                put("servers", serverInfo)
-                put("mtu", mtu)
-            })
-        })
-    }.toStringPretty()
+    )
 }
