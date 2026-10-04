@@ -124,9 +124,8 @@ fun Project.setupAppCommon() {
     val alias = lp.getProperty("ALIAS_NAME") ?: System.getenv("ALIAS_NAME")
     val pwd = lp.getProperty("ALIAS_PASS") ?: System.getenv("ALIAS_PASS")
 
-    // Fail at configuration time when the signing credentials are only partially
-    // provided, instead of erroring at the signing step. None set at all stays
-    // unsigned on purpose (F-Droid builds need that).
+    // 签名凭据只提供了一部分时，在配置阶段就报错，不等到签名那一步；
+    // 一个都没提供则有意保持不签名，本地构建不需要签名。
     val missingSigning = listOfNotNull(
         "KEYSTORE_PASS".takeIf { keystorePwd == null },
         "ALIAS_NAME".takeIf { alias == null },
@@ -196,18 +195,8 @@ fun Project.setupApp() {
         flavorDimensions += "vendor"
         productFlavors {
             create("oss")
-            create("fdroid")
             create("preview") {
                 buildConfigField("String", "PRE_VERSION_NAME", "\"$preVerName\"")
-            }
-        }
-
-        for (abi in listOf("Arm64", "X64")) {
-            tasks.register("assemble" + abi + "FdroidRelease") {
-                // Historical task name kept for existing callers: it builds the full
-                // fdroid release (all ABI splits), not just the ABI in the name.
-                description = "Builds the full fdroid release (all ABIs); the ABI in the task name is historical."
-                dependsOn("assembleFdroidRelease")
             }
         }
 

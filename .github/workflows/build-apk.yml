@@ -37,7 +37,7 @@ jobs:
           path: app/executableSo
           key: plugins-${{ hashFiles('buildScript/lib/plugins.sh') }}
       - name: Install SDK 37
-        # Lives here rather than in buildScript/ so it stays off the F-Droid prebuild path.
+        # 这一步只属于 CI，本地构建用自己装好的 SDK，所以不放进 buildScript/。
         run: |
           # API 37 platforms carry a minor version in the package/dir name (android-37.0); build-tools stay 36.0.0 (AGP 9.1 minimum, also the apksigner used below)
           if [ ! -d "$ANDROID_HOME/platforms/android-37.0" ] || [ ! -d "$ANDROID_HOME/build-tools/36.0.0" ]; then
