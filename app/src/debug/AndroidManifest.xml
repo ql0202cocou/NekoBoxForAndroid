@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 只编进 debug 包：旧配置输出的采集入口（plan.md R1a 第 1 步），JVM 黄金测试建成后删除。
+     exported 只为让 adb shell 的 content call 能调到；GoldenCollectProvider 内只放行
+     shell / root 两个 uid，其它应用调用一律拒绝 -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <provider
+            android:name="io.nekohasekai.sagernet.golden.collect.GoldenCollectProvider"
+            android:authorities="${applicationId}.golden"
+            android:exported="true"
+            tools:ignore="ExportedContentProvider" />
+    </application>
+
+</manifest>
