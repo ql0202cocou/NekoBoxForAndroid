@@ -1,6 +1,6 @@
 package io.nekohasekai.sagernet.fmt.v2ray
 
-import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.fmt.effectiveAllowInsecure
 import io.nekohasekai.sagernet.ktx.toStringPretty
@@ -25,13 +25,17 @@ fun VMessBean.xrayLacksTransport(): Boolean =
 fun VMessBean.xrayLacksAllowInsecure(): Boolean =
     isTLS() && certificateFingerprint.isBlank() && effectiveAllowInsecure(allowInsecure)
 
+// 同上，全局开关由调用方传入；buildXrayConfig 用这个，选核（coreForType）仍用上面读 DataStore 的版本
+fun VMessBean.xrayLacksAllowInsecure(globalAllowInsecure: Boolean): Boolean =
+    isTLS() && certificateFingerprint.isBlank() && effectiveAllowInsecure(allowInsecure, globalAllowInsecure)
+
 // Builds an Xray-core client config for a VMess/VLESS profile:
 // a local socks inbound chained from sing-box, and the profile as outbound.
-fun buildXrayConfig(bean: VMessBean, port: Int): String {
+fun buildXrayConfig(bean: VMessBean, port: Int, settings: ExternalCoreSettings): String {
     if (bean.xrayLacksTransport()) {
         error("xray-core no longer supports the ${bean.type} transport, use the sing-box core for this profile")
     }
-    if (bean.xrayLacksAllowInsecure()) {
+    if (bean.xrayLacksAllowInsecure(settings.globalAllowInsecure)) {
         error("xray-core no longer supports allowInsecure, use a certificate fingerprint or the sing-box core for this profile")
     }
     val user = JSONObject().apply {
@@ -58,7 +62,7 @@ fun buildXrayConfig(bean: VMessBean, port: Int): String {
                 })
             })
         })
-        put("streamSettings", buildXrayStreamSettings(bean))
+        put("streamSettings", buildXrayStreamSettings(bean, settings.globalAllowInsecure))
         // xudp rides on xray mux; packetaddr is not supported by xray.
         // vision flow doesn't support mux; without mux VLESS carries UDP natively.
         if (!bean.isVisionFlow && (bean.enableMux || bean.packetEncoding == 2)) {
@@ -87,7 +91,7 @@ fun buildXrayConfig(bean: VMessBean, port: Int): String {
         put("log", JSONObject().apply {
             // 与 ConfigBuilder 的 sing-box 档位一致；Xray 没有 trace，最高到 debug
             put(
-                "loglevel", when (DataStore.logLevel) {
+                "loglevel", when (settings.logLevel) {
                     2 -> "info"
                     3, 4 -> "debug"
                     else -> "warning"
@@ -106,7 +110,7 @@ fun buildXrayConfig(bean: VMessBean, port: Int): String {
     }.toStringPretty()
 }
 
-private fun buildXrayStreamSettings(bean: VMessBean): JSONObject {
+private fun buildXrayStreamSettings(bean: VMessBean, globalAllowInsecure: Boolean): JSONObject {
     // 经 mapping 外核只能拨到本地地址，TLS SNI 需要显式兜底；
     // 与 sing-box 对齐：sni 为空时兜底为 serverAddress（IP 也一样）
     val sni = bean.sni.takeIf { it.isNotBlank() }
@@ -214,7 +218,7 @@ private fun buildXrayStreamSettings(bean: VMessBean): JSONObject {
                         "Invalid certificate fingerprint: expected a SHA-256 digest of 64 hex characters (colons allowed)"
                     }
                     put("pinnedPeerCertSha256", certPin)
-                } else if (effectiveAllowInsecure(bean.allowInsecure)) {
+                } else if (effectiveAllowInsecure(bean.allowInsecure, globalAllowInsecure)) {
                     put("allowInsecure", true)
                 }
                 fp?.let { put("fingerprint", it) }

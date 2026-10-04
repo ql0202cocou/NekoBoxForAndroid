@@ -1,7 +1,7 @@
 package io.nekohasekai.sagernet.fmt.trojan_go
 
 import io.nekohasekai.sagernet.IPv6Mode
-import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.ktx.*
 import moe.matsuri.nb4a.Protocols
@@ -87,7 +87,7 @@ fun TrojanGoBean.toUri(): String {
     return builder.toLink("trojan-go")
 }
 
-fun TrojanGoBean.buildTrojanGoConfig(port: Int): String {
+fun TrojanGoBean.buildTrojanGoConfig(port: Int, settings: ExternalCoreSettings): String {
     return JSONObject().apply {
         put("run_type", "client")
         put("local_addr", LOCALHOST)
@@ -99,14 +99,14 @@ fun TrojanGoBean.buildTrojanGoConfig(port: Int): String {
         })
         // 与 ConfigBuilder 的 sing-box 档位一致；trojan-go 用数字，0 最详细、2 为 warn
         put(
-            "log_level", when (DataStore.logLevel) {
+            "log_level", when (settings.logLevel) {
                 2 -> 1
                 3, 4 -> 0
                 else -> 2
             }
         )
         put("tcp", JSONObject().apply {
-            put("prefer_ipv4", DataStore.ipv6Mode <= IPv6Mode.ENABLE)
+            put("prefer_ipv4", settings.ipv6Mode <= IPv6Mode.ENABLE)
         })
 
         when (type) {

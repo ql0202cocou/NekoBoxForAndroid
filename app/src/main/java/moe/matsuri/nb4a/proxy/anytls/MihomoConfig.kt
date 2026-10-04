@@ -1,6 +1,6 @@
 package moe.matsuri.nb4a.proxy.anytls
 
-import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.fmt.effectiveAllowInsecure
 import moe.matsuri.nb4a.utils.JavaUtil
@@ -17,7 +17,11 @@ const val MIHOMO_PROXY_NAME = "anytls-out"
 // controllerPort/controllerSecret enable the Clash API (external-controller),
 // used by URL test so mihomo measures the delay through the proxy itself.
 fun buildMihomoConfig(
-    bean: AnyTLSBean, port: Int, controllerPort: Int? = null, controllerSecret: String = ""
+    bean: AnyTLSBean,
+    port: Int,
+    settings: ExternalCoreSettings,
+    controllerPort: Int? = null,
+    controllerSecret: String = "",
 ): String {
     val proxy = LinkedHashMap<String, Any?>()
     proxy["name"] = MIHOMO_PROXY_NAME
@@ -44,7 +48,7 @@ fun buildMihomoConfig(
     val certPin = explicitPin ?: bean.certificates.takeIf { it.isNotBlank() }?.let(::certificateSha256)
     if (certPin != null) {
         proxy["fingerprint"] = certPin
-    } else if (effectiveAllowInsecure(bean.allowInsecure)) {
+    } else if (effectiveAllowInsecure(bean.allowInsecure, settings.globalAllowInsecure)) {
         proxy["skip-cert-verify"] = true
     }
     if (bean.utlsFingerprint.isNotBlank()) proxy["client-fingerprint"] = bean.utlsFingerprint
@@ -68,7 +72,7 @@ fun buildMihomoConfig(
 
     val config = LinkedHashMap<String, Any?>()
     // 与 ConfigBuilder 的 sing-box 档位一致；mihomo 没有 trace，最高到 debug
-    config["log-level"] = when (DataStore.logLevel) {
+    config["log-level"] = when (settings.logLevel) {
         2 -> "info"
         3, 4 -> "debug"
         else -> "warning"

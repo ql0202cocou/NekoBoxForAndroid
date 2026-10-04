@@ -18,12 +18,12 @@
 
 package io.nekohasekai.sagernet.fmt.mieru
 
-import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
 import io.nekohasekai.sagernet.ktx.toStringPretty
 import org.json.JSONArray
 import org.json.JSONObject
 
-fun MieruBean.buildMieruConfig(port: Int): String {
+fun MieruBean.buildMieruConfig(port: Int, settings: ExternalCoreSettings): String {
     val serverInfo = JSONArray().apply {
         put(JSONObject().apply {
             put("ipAddress", finalAddress)
@@ -40,7 +40,7 @@ fun MieruBean.buildMieruConfig(port: Int): String {
         put("socks5Port", port)
         // same scale as ConfigBuilder's sing-box mapping; mieru spells them in caps
         put(
-            "loggingLevel", when (DataStore.logLevel) {
+            "loggingLevel", when (settings.logLevel) {
                 0 -> "FATAL"
                 1 -> "WARN"
                 3 -> "DEBUG"

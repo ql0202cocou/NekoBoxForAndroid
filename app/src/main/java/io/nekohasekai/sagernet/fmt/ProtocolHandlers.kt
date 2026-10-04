@@ -556,28 +556,57 @@ fun tlsFields(bean: AbstractBean): TlsFields? = when (bean) {
     else -> null
 }
 
-// External core process for a profile served by a plugin binary: which plugin,
-// its config for a local socks port, and how to start it. BoxInstance.init /
-// launch and ProxyEntity.exportConfig each carried a copy of this switch.
-// Profiles without an entry (NekoBean) are skipped by the callers, as before.
+// 外核配置生成器与 launch 的生产设置：取 DataStore 当前值
+fun ExternalCoreSettings.Companion.fromDataStore() = ExternalCoreSettings(
+    logLevel = DataStore.logLevel,
+    ipv6Mode = DataStore.ipv6Mode,
+    globalAllowInsecure = DataStore.globalAllowInsecure,
+)
+
+// 由插件二进制承载的节点的外核进程：用哪个插件、给本机 socks 端口生成的配置、怎样启动。
+// 原先 BoxInstance.init / launch 与 ProxyEntity.exportConfig 各有一份这个分支。
+// 没有条目的节点（NekoBean）由调用方跳过，与以前一致。
+// 设置经 settings 传入；调用方不传时取 DataStore（生产实现），测试可传固定值
 class ExternalCore(
     val pluginId: String,
-    // cacheFile(prefix, ext) hands out a temp file the config may reference
-    // (the hysteria CA); mihomoController is the Clash API port/secret of a
-    // self-test, null otherwise
-    val config: (port: Int, cacheFile: (String, String) -> File, mihomoController: Pair<Int, String>?) -> String,
-    // writeCacheFile(prefix, ext, content) persists the config and any extra
-    // file the process reads
-    val launch: (pluginPath: String, config: String, writeCacheFile: (String, String, String) -> File) -> ExternalCoreLaunch,
-)
+    private val buildConfig: (
+        settings: ExternalCoreSettings,
+        port: Int,
+        cacheFile: (String, String) -> File,
+        mihomoController: Pair<Int, String>?,
+    ) -> String,
+    private val buildLaunch: (
+        settings: ExternalCoreSettings,
+        pluginPath: String,
+        config: String,
+        writeCacheFile: (String, String, String) -> File,
+    ) -> ExternalCoreLaunch,
+) {
+    // cacheFile(prefix, ext) 分配配置可能引用的临时文件（hysteria 的 CA）；
+    // mihomoController 是自测时的 Clash API 端口与 secret，其余情况为 null
+    fun config(
+        port: Int,
+        cacheFile: (String, String) -> File,
+        mihomoController: Pair<Int, String>?,
+        settings: ExternalCoreSettings = ExternalCoreSettings.fromDataStore(),
+    ): String = buildConfig(settings, port, cacheFile, mihomoController)
+
+    // writeCacheFile(prefix, ext, content) 落盘配置及进程要读的其它文件
+    fun launch(
+        pluginPath: String,
+        config: String,
+        writeCacheFile: (String, String, String) -> File,
+        settings: ExternalCoreSettings = ExternalCoreSettings.fromDataStore(),
+    ): ExternalCoreLaunch = buildLaunch(settings, pluginPath, config, writeCacheFile)
+}
 
 class ExternalCoreLaunch(val commands: List<String>, val env: Map<String, String> = emptyMap())
 
 fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
     is TrojanGoBean -> ExternalCore(
         "trojan-go-plugin",
-        config = { port, _, _ -> bean.buildTrojanGoConfig(port) },
-        launch = { pluginPath, config, writeCacheFile ->
+        buildConfig = { settings, port, _, _ -> bean.buildTrojanGoConfig(port, settings) },
+        buildLaunch = { _, pluginPath, config, writeCacheFile ->
             val configFile = writeCacheFile("trojan_go", "json", config)
             ExternalCoreLaunch(listOf(pluginPath, "-config", configFile.absolutePath))
         },
@@ -585,8 +614,8 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
 
     is MieruBean -> ExternalCore(
         "mieru-plugin",
-        config = { port, _, _ -> bean.buildMieruConfig(port) },
-        launch = { pluginPath, config, writeCacheFile ->
+        buildConfig = { settings, port, _, _ -> bean.buildMieruConfig(port, settings) },
+        buildLaunch = { _, pluginPath, config, writeCacheFile ->
             val configFile = writeCacheFile("mieru", "json", config)
             ExternalCoreLaunch(
                 listOf(pluginPath, "run"),
@@ -600,8 +629,8 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
 
     is NaiveBean -> ExternalCore(
         "naive-plugin",
-        config = { port, _, _ -> bean.buildNaiveConfig(port) },
-        launch = { pluginPath, config, writeCacheFile ->
+        buildConfig = { settings, port, _, _ -> bean.buildNaiveConfig(port, settings) },
+        buildLaunch = { _, pluginPath, config, writeCacheFile ->
             val configFile = writeCacheFile("naive", "json", config)
             val env = mutableMapOf<String, String>()
             if (bean.certificates.isNotBlank()) {
@@ -613,8 +642,9 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
 
     is HysteriaBean -> ExternalCore(
         "hysteria-plugin",
-        config = { port, cacheFile, _ -> bean.buildHysteria1Config(port) { cacheFile("hysteria", "ca") } },
-        launch = { pluginPath, config, writeCacheFile ->
+        // hysteria 1 的配置不读设置，只有启动参数读 logLevel
+        buildConfig = { _, port, cacheFile, _ -> bean.buildHysteria1Config(port) { cacheFile("hysteria", "ca") } },
+        buildLaunch = { settings, pluginPath, config, writeCacheFile ->
             val configFile = writeCacheFile("hysteria", "json", config)
             val commands = mutableListOf(
                 pluginPath,
@@ -623,7 +653,7 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
                 configFile.absolutePath,
                 "--log-level",
                 // 与 ConfigBuilder 的 sing-box 档位一致；关闭日志时保留 warn
-                when (DataStore.logLevel) {
+                when (settings.logLevel) {
                     2 -> "info"
                     3 -> "debug"
                     4 -> "trace"
@@ -640,8 +670,8 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
 
     is VMessBean -> ExternalCore(
         "xray-plugin",
-        config = { port, _, _ -> buildXrayConfig(bean, port) },
-        launch = { pluginPath, config, writeCacheFile ->
+        buildConfig = { settings, port, _, _ -> buildXrayConfig(bean, port, settings) },
+        buildLaunch = { _, pluginPath, config, writeCacheFile ->
             val configFile = writeCacheFile("xray", "json", config)
             ExternalCoreLaunch(listOf(pluginPath, "run", "-c", configFile.absolutePath))
         },
@@ -649,10 +679,10 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
 
     is AnyTLSBean -> ExternalCore(
         "mihomo-plugin",
-        config = { port, _, controller ->
-            buildMihomoConfig(bean, port, controller?.first, controller?.second ?: "")
+        buildConfig = { settings, port, _, controller ->
+            buildMihomoConfig(bean, port, settings, controller?.first, controller?.second ?: "")
         },
-        launch = { pluginPath, config, writeCacheFile ->
+        buildLaunch = { _, pluginPath, config, writeCacheFile ->
             val configFile = writeCacheFile("mihomo", "yaml", config)
             ExternalCoreLaunch(
                 listOf(pluginPath, "-d", app.noBackupFilesDir.absolutePath, "-f", configFile.absolutePath)

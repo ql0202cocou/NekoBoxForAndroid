@@ -1,6 +1,6 @@
 package io.nekohasekai.sagernet.fmt.naive
 
-import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.ktx.*
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -71,7 +71,7 @@ fun NaiveBean.toUri(proxyHost: String? = null): String {
     return builder.toLink(if (proxyHost != null) proto else "naive+$proto", false)
 }
 
-fun NaiveBean.buildNaiveConfig(port: Int): String {
+fun NaiveBean.buildNaiveConfig(port: Int, settings: ExternalCoreSettings): String {
     return JSONObject().apply {
         // 地址改写只进局部变量（与 buildTrojanGoConfig 的 SNI 回退一致）：
         // serverAddress 非 transient，写回 bean 会把 IPv6 方括号持久化，
@@ -99,7 +99,7 @@ fun NaiveBean.buildNaiveConfig(port: Int): String {
         if (extraHeaders.isNotBlank()) {
             put("extra-headers", extraHeaders.split("\n").joinToString("\r\n"))
         }
-        if (DataStore.logLevel > 0) {
+        if (settings.logLevel > 0) {
             put("log", "")
         }
         if (insecureConcurrency > 0) {

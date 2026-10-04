@@ -28,8 +28,12 @@ class TlsFields(
     val realityShortId: String? = null,
 )
 
-// The global "allow insecure" switch applies on top of the per-profile flag on
-// every core (sing-box, Xray, mihomo).
+// 全局「允许不安全」叠加在节点自己的开关之上，各核心（sing-box、Xray、mihomo）一致。
+// 外核生成器经 ExternalCoreSettings 传入全局值
+fun effectiveAllowInsecure(allowInsecure: Boolean?, globalAllowInsecure: Boolean): Boolean =
+    allowInsecure == true || globalAllowInsecure
+
+// sing-box 出站与选核（xrayLacksAllowInsecure()）仍直接读 DataStore，R1b 改为注入
 fun effectiveAllowInsecure(allowInsecure: Boolean?): Boolean =
     allowInsecure == true || DataStore.globalAllowInsecure
 
