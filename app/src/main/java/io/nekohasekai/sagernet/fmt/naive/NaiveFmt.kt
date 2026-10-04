@@ -3,8 +3,8 @@ package io.nekohasekai.sagernet.fmt.naive
 import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.ktx.*
+import moe.matsuri.nb4a.utils.JavaUtil.gson
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import org.json.JSONObject
 
 fun parseNaive(link: String): NaiveBean {
     val proto = link.substringAfter("+").substringBefore(":")
@@ -72,7 +72,7 @@ fun NaiveBean.toUri(proxyHost: String? = null): String {
 }
 
 fun NaiveBean.buildNaiveConfig(port: Int, settings: ExternalCoreSettings): String {
-    return JSONObject().apply {
+    return LinkedHashMap<String, Any>().apply {
         // 地址改写只进局部变量（与 buildTrojanGoConfig 的 SNI 回退一致）：
         // serverAddress 非 transient，写回 bean 会把 IPv6 方括号持久化，
         // finalAddress 被 SNI 顶替后也会混进之后的分享链接
@@ -81,7 +81,7 @@ fun NaiveBean.buildNaiveConfig(port: Int, settings: ExternalCoreSettings): Strin
 
         // process sni
         if (sni.isNotBlank()) {
-            put("host-resolver-rules", "MAP $sni $address")
+            this["host-resolver-rules"] = "MAP $sni $address"
             address = sni
         } else {
             if (wrappedServer.isIpAddress()) {
@@ -89,21 +89,21 @@ fun NaiveBean.buildNaiveConfig(port: Int, settings: ExternalCoreSettings): Strin
                 // and host-resolver-rules cannot resolve the SNI problem
                 // so do nothing
             } else {
-                put("host-resolver-rules", "MAP $wrappedServer $address")
+                this["host-resolver-rules"] = "MAP $wrappedServer $address"
                 address = wrappedServer
             }
         }
 
-        put("listen", "socks://$LOCALHOST:$port")
-        put("proxy", toUri(address))
+        this["listen"] = "socks://$LOCALHOST:$port"
+        this["proxy"] = toUri(address)
         if (extraHeaders.isNotBlank()) {
-            put("extra-headers", extraHeaders.split("\n").joinToString("\r\n"))
+            this["extra-headers"] = extraHeaders.split("\n").joinToString("\r\n")
         }
         if (settings.logLevel > 0) {
-            put("log", "")
+            this["log"] = ""
         }
         if (insecureConcurrency > 0) {
-            put("insecure-concurrency", insecureConcurrency)
+            this["insecure-concurrency"] = insecureConcurrency
         }
-    }.toStringPretty()
+    }.let { gson.toJson(it) }
 }
