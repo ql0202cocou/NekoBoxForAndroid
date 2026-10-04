@@ -187,9 +187,9 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
         }
 
         fun move(from: Int, to: Int) {
-            val toMove = proxyList[to - 1]
-            proxyList[to - 1] = proxyList[from - 1]
-            proxyList[from - 1] = toMove
+            // 先取出再插入：ItemTouchHelper 一次可能跨多行，交换会让列表顺序与界面不一致；
+            // 适配器位置比 proxyList 下标大 1（第 0 行是别的条目）
+            proxyList.add(to - 1, proxyList.removeAt(from - 1))
             notifyItemMoved(from, to)
             updateProxiesCache()
             EditorCache.dirty = true
@@ -267,10 +267,8 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
     ): Boolean {
         if (profile.type != ProxyEntity.TYPE_CHAIN || anotherProfile.type != ProxyEntity.TYPE_CHAIN) return false
         if (profile.id == anotherProfile.id) return true
-        // Guard against chain loops in already-corrupted data (A contains B,
-        // B contains A): stop descending on re-entry instead of overflowing
-        // the stack. Mirrors the visiting set in
-        // ConfigBuilder.resolveChainInternal.
+        // 防已损坏数据里的链循环（A 含 B、B 含 A）：再次进入时停止下钻，免得栈溢出。
+        // 与 ConfigBuilder.kt 里 expandChainInOrder 的 visiting 集合同理
         if (!visiting.add(profile.id)) return false
         try {
             val proxies = profile.chainBean!!.proxies

@@ -177,6 +177,43 @@ fun buildConfig(
     return ConfigBuild(proxy, forTest, forExport).build()
 }
 
+// 按用户填写的顺序展开链（含任意层嵌套），结果首项是第一跳；不是链的节点展开成它自己。
+// membersOf 对非链节点返回 null；lookup 按 id 批量取成员，取不到的交给 onMissing 后跳过，
+// 其余成员照常展开。只检查递归栈：链在自己的展开过程中再次出现才算循环引用，交给 onLoop
+// 抛错（已损坏的数据，避免栈溢出）；同一节点或子链出现在不同位置照常重复展开
+internal fun <T> expandChainInOrder(
+    root: T,
+    idOf: (T) -> Long,
+    membersOf: (T) -> List<Long>?,
+    lookup: (List<Long>) -> Map<Long, T>,
+    onMissing: (chain: T, missingId: Long) -> Unit,
+    onLoop: (chain: T) -> Nothing,
+): MutableList<T> {
+    val result = ArrayList<T>()
+    val visiting = HashSet<Long>()
+    fun expand(item: T) {
+        val members = membersOf(item)
+        if (members == null) {
+            result.add(item)
+            return
+        }
+        val id = idOf(item)
+        if (!visiting.add(id)) onLoop(item)
+        val found = lookup(members)
+        for (memberId in members) {
+            val member = found[memberId]
+            if (member == null) {
+                onMissing(item, memberId)
+                continue
+            }
+            expand(member)
+        }
+        visiting.remove(id)
+    }
+    expand(root)
+    return result
+}
+
 // 完整配置型自定义节点（ConfigBean.type == 0）：整份配置原样运行，只能单独使用
 private fun ProxyEntity.isFullConfig() =
     type == TYPE_CONFIG && (requireBean() as ConfigBean).type == 0
@@ -206,36 +243,17 @@ private class ConfigBuild(
     val reservedSelectorTags = setOf(TAG_PROXY, TAG_DIRECT, TAG_BYPASS, TAG_BLOCK)
     val group = SagerDatabase.groupDao.getById(proxy.groupId)
 
-    fun ProxyEntity.resolveChainInternal(visiting: MutableSet<Long> = mutableSetOf()): MutableList<ProxyEntity> {
-        val bean = requireBean()
-        if (bean is ChainBean) {
-            // Guard against chain loops in already-corrupted data: track the
-            // recursion stack and fail loudly instead of overflowing it.
-            if (!visiting.add(id)) {
-                error("chain loop detected: profile $id (${bean.name})")
-            }
-            try {
-                val beans = SagerDatabase.proxyDao.getEntities(bean.proxies)
-                val beansMap = beans.associateBy { it.id }
-                val beanList = ArrayList<ProxyEntity>()
-                for (proxyId in bean.proxies) {
-                    val item = beansMap[proxyId]
-                    if (item == null) {
-                        // A partially missing chain keeps building with the
-                        // remaining members (legacy semantics), but the
-                        // dangling id should not vanish silently
-                        Logs.w("chain profile $id references missing profile $proxyId, skipped")
-                        continue
-                    }
-                    beanList.addAll(item.resolveChainInternal(visiting))
-                }
-                return beanList.asReversed()
-            } finally {
-                visiting.remove(id)
-            }
-        }
-        return mutableListOf(this)
-    }
+    // 返回的列表是倒序的（末尾是第一跳）：完整展开后只在这里反转一次
+    fun ProxyEntity.resolveChainInternal(): MutableList<ProxyEntity> = expandChainInOrder(
+        this,
+        idOf = { it.id },
+        membersOf = { (it.requireBean() as? ChainBean)?.proxies },
+        lookup = { ids -> SagerDatabase.proxyDao.getEntities(ids).associateBy { it.id } },
+        onMissing = { chain, missingId ->
+            Logs.w("chain profile ${chain.id} references missing profile $missingId, skipped")
+        },
+        onLoop = { chain -> error("chain loop detected: profile ${chain.id} (${chain.requireBean().name})") },
+    ).asReversed()
 
     fun selectorName(name_: String): String {
         // a profile named like an auto-generated tag (g-<entryId>,
