@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.bg.proto
 import io.nekohasekai.sagernet.bg.AbstractInstance
 import io.nekohasekai.sagernet.bg.GuardedProcessPool
 import io.nekohasekai.sagernet.database.ProxyEntity
+import io.nekohasekai.sagernet.fmt.ConfigBuildDiagnostic
 import io.nekohasekai.sagernet.fmt.ConfigBuildResult
 import io.nekohasekai.sagernet.fmt.buildConfig
 import io.nekohasekai.sagernet.fmt.externalCore
@@ -66,8 +67,12 @@ abstract class BoxInstance(
     // TestInstance overrides this to enable mihomo's Clash API for delay self-test.
     protected open fun mihomoTestController(): Pair<Int, String>? = null
 
+    // 构建诊断的收集器：构建抛异常时这里仍有已收集的部分。只有运行路径
+    // （ProxyInstance）把它显示给用户
+    protected val buildDiagnostics = ArrayList<ConfigBuildDiagnostic>()
+
     protected open fun buildConfig() {
-        config = buildConfig(profile)
+        config = buildConfig(profile, diagnostics = buildDiagnostics)
     }
 
     protected open suspend fun loadConfig() {

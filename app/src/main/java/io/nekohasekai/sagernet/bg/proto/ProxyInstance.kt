@@ -1,11 +1,15 @@
 package io.nekohasekai.sagernet.bg.proto
 
+import android.widget.Toast
 import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.bg.ServiceNotification
 import io.nekohasekai.sagernet.database.ProxyEntity
+import io.nekohasekai.sagernet.fmt.configBuildNotices
 import io.nekohasekai.sagernet.ktx.Logs
+import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
+import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
 import moe.matsuri.nb4a.utils.JavaUtil
 import moe.matsuri.nb4a.utils.Util
 
@@ -23,11 +27,25 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
     var looper: TrafficLooper? = null
 
     override fun buildConfig() {
-        super.buildConfig()
+        // 构建失败时也先提示已收集的诊断，再照常抛出
+        try {
+            super.buildConfig()
+        } finally {
+            showBuildNotices()
+        }
         // configs contain credentials; redact them before writing to the exportable log.
         // 脱敏要对整份配置跑多遍正则，日志关闭时直接跳过
         if (Logs.enabled) Logs.d(Util.redactConfig(config.config))
         if (BuildConfig.DEBUG) Logs.d(JavaUtil.gson.toJson(config.trafficMap))
+    }
+
+    // init 在 :bg 进程的 IO 线程上跑，Toast 要投到主线程
+    private fun showBuildNotices() {
+        for (notice in configBuildNotices(buildDiagnostics) { id, arg -> app.getString(id, arg) }) {
+            runOnMainDispatcher {
+                Toast.makeText(app, notice.text, if (notice.long) Toast.LENGTH_LONG else Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     override suspend fun init() {

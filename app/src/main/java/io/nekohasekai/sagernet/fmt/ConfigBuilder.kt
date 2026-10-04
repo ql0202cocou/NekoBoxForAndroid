@@ -1,6 +1,5 @@
 package io.nekohasekai.sagernet.fmt
 
-import android.widget.Toast
 import io.nekohasekai.sagernet.*
 import io.nekohasekai.sagernet.bg.VpnService
 import io.nekohasekai.sagernet.database.DataStore
@@ -18,7 +17,6 @@ import io.nekohasekai.sagernet.ktx.splitHostPort
 import io.nekohasekai.sagernet.ktx.usableNameservers
 import io.nekohasekai.sagernet.ktx.mkPort
 import io.nekohasekai.sagernet.ktx.readableMessage
-import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
 import io.nekohasekai.sagernet.plugin.PluginManager
 import io.nekohasekai.sagernet.utils.PackageCache
 import moe.matsuri.nb4a.*
@@ -119,6 +117,8 @@ class ConfigBuildResult(
     val boxIndexNames: Map<String, String> = emptyMap(),
     // 节点出站 / 端点的 tag -> 节点名
     val boxTagNames: Map<String, String> = emptyMap(),
+    // 构建中收集到的诊断，提示由调用方生成；见 configBuildNotices
+    val diagnostics: List<ConfigBuildDiagnostic> = emptyList(),
 ) {
     data class IndexEntity(var chain: LinkedHashMap<Int, ProxyEntity>)
 }
@@ -159,8 +159,11 @@ inline fun <T> withProfileName(bean: AbstractBean, block: () -> T): T = try {
     throw ProfileBuildException(bean.displayName(), e)
 }
 
+// diagnostics 是诊断收集器：构建抛异常时调用方仍能从中拿到已收集的部分，
+// 成功时 ConfigBuildResult.diagnostics 是同样的内容
 fun buildConfig(
-    proxy: ProxyEntity, forTest: Boolean = false, forExport: Boolean = false
+    proxy: ProxyEntity, forTest: Boolean = false, forExport: Boolean = false,
+    diagnostics: MutableList<ConfigBuildDiagnostic> = ArrayList(),
 ): ConfigBuildResult {
 
     if (proxy.isFullConfig()) {
@@ -174,7 +177,7 @@ fun buildConfig(
         )
     }
 
-    return ConfigBuild(proxy, forTest, forExport).build()
+    return ConfigBuild(proxy, forTest, forExport, diagnostics).build()
 }
 
 // 按用户填写的顺序展开链（含任意层嵌套），结果首项是第一跳；不是链的节点展开成它自己。
@@ -233,6 +236,7 @@ fun selectorGroupIdOf(proxy: ProxyEntity): Long {
 // their bodies read the same as inside the original MyOptions().apply.
 private class ConfigBuild(
     val proxy: ProxyEntity, val forTest: Boolean, val forExport: Boolean,
+    val diagnostics: MutableList<ConfigBuildDiagnostic>,
 ) {
 
     val trafficMap = HashMap<String, List<ProxyEntity>>()
@@ -302,11 +306,6 @@ private class ConfigBuild(
 
     val extraRules = if (forTest) listOf() else SagerDatabase.rulesDao.enabledRules()
 
-    // 整份配置构建完每类只弹一条 Toast：逐条弹的话，规则一多提示会排上十几秒
-    private val rulesSkipped = mutableListOf<String>()
-    private val rulesNeedVpn = mutableListOf<String>()
-    private val rulesNoOutbound = mutableListOf<String>()
-    private val membersSkipped = mutableListOf<String>()
     val extraProxies =
         if (forTest) mapOf() else SagerDatabase.proxyDao.getEntities(extraRules.mapNotNull { rule ->
             rule.outbound.takeIf { it > 0 && it != proxy.id }
@@ -409,6 +408,7 @@ private class ConfigBuild(
             selectorGroup?.id ?: -1L,
             boxIndexNames(configMap),
             hopNames,
+            diagnostics.toList(),
         )
     }
 
@@ -858,11 +858,9 @@ private class ConfigBuild(
             Logs.w("profile ${entity.id} skipped", e)
             val name = entity.requireBean().displayName()
             // 出错的就是这个成员本身时，消息已以它的名字开头；链成员里出错的另有其名
-            membersSkipped += if (e is ProfileBuildException && e.profileName == name) {
-                e.readableMessage
-            } else {
-                "$name (${e.readableMessage})"
-            }
+            diagnostics += ConfigBuildDiagnostic.ProfileSkipped(
+                entity.id, name, e.readableMessage, e is ProfileBuildException && e.profileName == name
+            )
             return true
         }
     }
@@ -920,30 +918,6 @@ private class ConfigBuild(
 
     private fun MyOptions.applyUserRules() {
         for (rule in extraRules) applyUserRule(rule)
-        // buildConfig 在 :bg 进程无 Looper 的后台线程上跑，Toast 要投到主线程
-        val app = SagerNet.application
-        fun toast(text: String, duration: Int) = runOnMainDispatcher {
-            Toast.makeText(app, text, duration).show()
-        }
-        // 每条原因都可能含逗号，一行一条
-        if (membersSkipped.isNotEmpty()) toast(
-            "Warning: these profiles failed to build and were skipped:\n" +
-                    membersSkipped.joinToString("\n"), Toast.LENGTH_LONG
-        )
-        if (rulesSkipped.isNotEmpty()) toast(
-            "Warning: none of the apps are installed, rules skipped: " + rulesSkipped.joinToString(", "),
-            Toast.LENGTH_LONG
-        )
-        if (rulesNoOutbound.isNotEmpty()) toast(
-            "Warning: these rules specify a non-existent outbound: " + rulesNoOutbound.joinToString(", "),
-            Toast.LENGTH_LONG
-        )
-        // 单条沿用各语言已有的单数文案；多条用不分单复数的新文案
-        if (rulesNeedVpn.size == 1) {
-            toast(app.getString(R.string.route_need_vpn, rulesNeedVpn[0]), Toast.LENGTH_SHORT)
-        } else if (rulesNeedVpn.size > 1) {
-            toast(app.getString(R.string.route_need_vpn_rules, rulesNeedVpn.joinToString(", ")), Toast.LENGTH_SHORT)
-        }
 
         // 对 rule_set tag 去重
         if (route.rule_set != null) {
@@ -960,14 +934,16 @@ private class ConfigBuild(
         }.toHashSet().filterNotNull()
         // 填了应用却一个 uid 都解析不到（已卸载 / 无效包名）时整条跳过：下面只在
         // uidList 非空时写 user_id，带 domain / ip 等其他条件的规则（及其 DNS 规则）
-        // 会扩大到所有应用。先于下面「需要 VPN」的提示判断，一条规则最多一条 Toast
+        // 会扩大到所有应用。先于下面「需要 VPN」的诊断判断，一条规则最多一条诊断
         if (rule.packages.isNotEmpty() && uidList.isEmpty()) {
             Logs.w("rule ${rule.displayName()}: none of its apps are installed, skipped")
-            rulesSkipped += rule.displayName()
+            diagnostics += ConfigBuildDiagnostic.RuleAppsNotInstalled(rule.id, rule.displayName())
             return
         }
         // 每条规则记一次，不按包名逐个记
-        if (!isVPN && rule.packages.isNotEmpty()) rulesNeedVpn += rule.displayName()
+        if (!isVPN && rule.packages.isNotEmpty()) {
+            diagnostics += ConfigBuildDiagnostic.RuleNeedsVpn(rule.id, rule.displayName())
+        }
         val ruleSets = mutableListOf<RuleSet>()
 
         val ruleObj = Rule_DefaultOptions().apply {
@@ -1056,7 +1032,7 @@ private class ConfigBuild(
 
         if (!ruleObj.checkEmpty()) {
             if (ruleObj.outbound.isNullOrBlank()) {
-                rulesNoOutbound += rule.displayName()
+                diagnostics += ConfigBuildDiagnostic.RuleOutboundMissing(rule.id, rule.displayName(), rule.outbound)
             } else {
                 // block 改用新的写法
                 if (ruleObj.outbound == TAG_BLOCK) {
