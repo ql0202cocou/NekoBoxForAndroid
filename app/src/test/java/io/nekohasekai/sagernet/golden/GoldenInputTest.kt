@@ -7,13 +7,13 @@ import io.nekohasekai.sagernet.fmt.KryoConverters
 import io.nekohasekai.sagernet.fmt.putByteArray
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
-import org.junit.Assume.assumeTrue
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import java.util.Base64
 
 // 模拟器采集的基线（app/src/test/resources/golden/）里，input.json 存的 bean Kryo 字节
-// 必须能在 JVM 上用生产代码重建：R1b 的黄金测试要拿它当输入。还没采集时跳过
+// 必须能在 JVM 上用生产代码重建：R1b 的黄金测试要拿它当输入。基线已经入库，找不到时失败，不跳过
 class GoldenInputTest {
 
     private fun inputFiles(): List<File> {
@@ -27,7 +27,7 @@ class GoldenInputTest {
     @Test
     fun `input json 里的 bean 都能用生产代码从 Kryo 字节重建`() {
         val inputs = inputFiles()
-        assumeTrue("还没有采集基线", inputs.isNotEmpty())
+        assertTrue("找不到黄金测试基线", inputs.isNotEmpty())
         var profiles = 0
         for (file in inputs) {
             val scenario = file.parentFile!!.name
@@ -47,6 +47,6 @@ class GoldenInputTest {
                 profiles++
             }
         }
-        assumeTrue("基线里没有节点", profiles > 0)
+        assertTrue("基线里没有节点", profiles > 0)
     }
 }

@@ -1,0 +1,331 @@
+{
+  "formatVersion": 1,
+  "scenarios": {
+    "chain-all-missing": {
+      "note": "主节点是链 1，成员 98、99 都不存在：resolveChainInternal 的 onMissing 按成员顺序各告一次警，随后 requireBuildableChain 因链为空报错。三种模式都只建这一条链，没有诊断",
+      "run": {
+        "diagnostics": [],
+        "warnings": [
+          "chain profile 1 references missing profile 98, skipped",
+          "chain profile 1 references missing profile 99, skipped"
+        ]
+      },
+      "test": {
+        "diagnostics": [],
+        "warnings": [
+          "chain profile 1 references missing profile 98, skipped",
+          "chain profile 1 references missing profile 99, skipped"
+        ]
+      },
+      "export": {
+        "diagnostics": [],
+        "warnings": [
+          "chain profile 1 references missing profile 98, skipped",
+          "chain profile 1 references missing profile 99, skipped"
+        ]
+      }
+    },
+    "chain-missing-member": {
+      "note": "主节点是链 1（成员 2、99、3），99 不存在：onMissing 告警一次，其余成员照常构建",
+      "run": {
+        "diagnostics": [],
+        "warnings": ["chain profile 1 references missing profile 99, skipped"]
+      },
+      "test": {
+        "diagnostics": [],
+        "warnings": ["chain profile 1 references missing profile 99, skipped"]
+      },
+      "export": {
+        "diagnostics": [],
+        "warnings": ["chain profile 1 references missing profile 99, skipped"]
+      }
+    },
+    "group-dns-unparseable": {
+      "note": "分组 DNS 三行都过 usableNameservers（都不是本机地址）；ConfigBuild 构造时 makeDnsServer 逐个解析：第 0 行 dhcp:// 落到 else 抛 Exception，第 2 行端口 99999 越界抛 IllegalArgumentException，各告警一次（只记异常类的简单名）。与模式无关",
+      "run": {
+        "diagnostics": [],
+        "warnings": [
+          "Skip unsupported group nameserver at index 0: Exception",
+          "Skip unsupported group nameserver at index 2: IllegalArgumentException"
+        ]
+      },
+      "test": {
+        "diagnostics": [],
+        "warnings": [
+          "Skip unsupported group nameserver at index 0: Exception",
+          "Skip unsupported group nameserver at index 2: IllegalArgumentException"
+        ]
+      },
+      "export": {
+        "diagnostics": [],
+        "warnings": [
+          "Skip unsupported group nameserver at index 0: Exception",
+          "Skip unsupported group nameserver at index 2: IllegalArgumentException"
+        ]
+      }
+    },
+    "group-front-missing": {
+      "note": "分组 1 的前置是不存在的 99：主节点的 resolveChain 查不到前置，frontProxy > 0 时告警一次，照常构建",
+      "run": {
+        "diagnostics": [],
+        "warnings": ["group 1 front proxy 99 no longer exists, ignored"]
+      },
+      "test": {
+        "diagnostics": [],
+        "warnings": ["group 1 front proxy 99 no longer exists, ignored"]
+      },
+      "export": {
+        "diagnostics": [],
+        "warnings": ["group 1 front proxy 99 no longer exists, ignored"]
+      }
+    },
+    "multi-selector-plugin-chain-members": {
+      "note": "只有运行模式按选择器构建。成员 8 是链（4 Xray、3 Naive、5 mihomo）：预检从出口一跳起逐跳检查，mihomo 一跳通过，Naive 一跳 requirePlugin 得「插件未安装」，经 withProfileName 包上 Naive 节点名；skipBroken 跳过成员 8，出错的不是成员本身，reasonNamesProfile 为 false。其余成员（6 Xray、7 mihomo、9 链 Xray + mihomo）都是内置核心，主节点 1 不预检",
+      "run": {
+        "diagnostics": [
+          {
+            "type": "ProfileSkipped",
+            "profileId": 8,
+            "profileName": "golden-multi-sp-chain-b",
+            "reason": "golden-multi-sp-naive: plugin naive-plugin is not installed",
+            "reasonNamesProfile": false
+          }
+        ],
+        "warnings": [
+          "profile 8 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-multi-sp-naive: plugin naive-plugin is not installed"
+        ]
+      }
+    },
+    "rules-apps-not-installed": {
+      "note": "规则 1 只填了一个未安装的包名（UID 为 null）：applyUserRule 得到空的 uidList，告警并记 RuleAppsNotInstalled，整条跳过。测速不带规则",
+      "run": {
+        "diagnostics": [{"type": "RuleAppsNotInstalled", "ruleId": 1, "ruleName": "golden-rule-1"}],
+        "warnings": ["rule golden-rule-1: none of its apps are installed, skipped"]
+      },
+      "export": {
+        "diagnostics": [{"type": "RuleAppsNotInstalled", "ruleId": 1, "ruleName": "golden-rule-1"}],
+        "warnings": ["rule golden-rule-1: none of its apps are installed, skipped"]
+      }
+    },
+    "rules-apps-proxy-mode": {
+      "note": "仅代理模式（serviceMode=proxy），规则 1 的应用 android、com.android.phone 都有 UID：uidList 非空，!isVPN 时记一条 RuleNeedsVpn，不告警。测速不带规则",
+      "run": {
+        "diagnostics": [{"type": "RuleNeedsVpn", "ruleId": 1, "ruleName": "golden-rule-1"}],
+        "warnings": []
+      },
+      "export": {
+        "diagnostics": [{"type": "RuleNeedsVpn", "ruleId": 1, "ruleName": "golden-rule-1"}],
+        "warnings": []
+      }
+    },
+    "rules-to-broken-node": {
+      "note": "规则 1 指向 TUIC v4 节点 2：buildOutbounds 里规则目标先 skipBroken，预检的 buildInternalOutbound 抛「TUIC v4 is no longer supported」并包上节点名，记 ProfileSkipped（出错的就是它本身）并告警；applyUserRules 时 tagMap 没有 2，规则出站为空，记 RuleOutboundMissing。导出同样预检（失败点与插件无关）。测速不带规则",
+      "run": {
+        "diagnostics": [
+          {
+            "type": "ProfileSkipped",
+            "profileId": 2,
+            "profileName": "golden-rtb-tuic-v4",
+            "reason": "golden-rtb-tuic-v4: TUIC v4 is no longer supported",
+            "reasonNamesProfile": true
+          },
+          {"type": "RuleOutboundMissing", "ruleId": 1, "ruleName": "golden-rule-1", "outboundId": 2}
+        ],
+        "warnings": [
+          "profile 2 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-rtb-tuic-v4: TUIC v4 is no longer supported"
+        ]
+      },
+      "export": {
+        "diagnostics": [
+          {
+            "type": "ProfileSkipped",
+            "profileId": 2,
+            "profileName": "golden-rtb-tuic-v4",
+            "reason": "golden-rtb-tuic-v4: TUIC v4 is no longer supported",
+            "reasonNamesProfile": true
+          },
+          {"type": "RuleOutboundMissing", "ruleId": 1, "ruleName": "golden-rule-1", "outboundId": 2}
+        ],
+        "warnings": [
+          "profile 2 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-rtb-tuic-v4: TUIC v4 is no longer supported"
+        ]
+      }
+    },
+    "rules-to-full-config": {
+      "note": "规则 1 指向完整配置型节点 2：预检的 requireBuildableHop 报「a full-config profile can only run on its own」并包上节点名，记 ProfileSkipped 并告警，规则随之记 RuleOutboundMissing。规则目标不像选择器成员那样先排除完整配置节点。测速不带规则",
+      "run": {
+        "diagnostics": [
+          {
+            "type": "ProfileSkipped",
+            "profileId": 2,
+            "profileName": "golden-rtf-full",
+            "reason": "golden-rtf-full: a full-config profile can only run on its own",
+            "reasonNamesProfile": true
+          },
+          {"type": "RuleOutboundMissing", "ruleId": 1, "ruleName": "golden-rule-1", "outboundId": 2}
+        ],
+        "warnings": [
+          "profile 2 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-rtf-full: a full-config profile can only run on its own"
+        ]
+      },
+      "export": {
+        "diagnostics": [
+          {
+            "type": "ProfileSkipped",
+            "profileId": 2,
+            "profileName": "golden-rtf-full",
+            "reason": "golden-rtf-full: a full-config profile can only run on its own",
+            "reasonNamesProfile": true
+          },
+          {"type": "RuleOutboundMissing", "ruleId": 1, "ruleName": "golden-rule-1", "outboundId": 2}
+        ],
+        "warnings": [
+          "profile 2 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-rtf-full: a full-config profile can only run on its own"
+        ]
+      }
+    },
+    "rules-to-missing": {
+      "note": "规则 1 指向不存在的 99：快照里 99 是已知缺失，规则目标为空，不预检也不告警；applyUserRule 的出站为空，记 RuleOutboundMissing。测速不带规则",
+      "run": {
+        "diagnostics": [{"type": "RuleOutboundMissing", "ruleId": 1, "ruleName": "golden-rule-1", "outboundId": 99}],
+        "warnings": []
+      },
+      "export": {
+        "diagnostics": [{"type": "RuleOutboundMissing", "ruleId": 1, "ruleName": "golden-rule-1", "outboundId": 99}],
+        "warnings": []
+      }
+    },
+    "rules-to-plugin-node": {
+      "note": "规则 1 指向 Trojan-Go 节点 2：运行模式的预检走到 requirePlugin，模拟器条件下插件未安装，包上节点名后记 ProfileSkipped 并告警，规则记 RuleOutboundMissing。导出不查插件（precheck 里 !forExport），规则照常生效，没有诊断。测速不带规则",
+      "run": {
+        "diagnostics": [
+          {
+            "type": "ProfileSkipped",
+            "profileId": 2,
+            "profileName": "golden-rtp-trojan-go",
+            "reason": "golden-rtp-trojan-go: plugin trojan-go-plugin is not installed",
+            "reasonNamesProfile": true
+          },
+          {"type": "RuleOutboundMissing", "ruleId": 1, "ruleName": "golden-rule-1", "outboundId": 2}
+        ],
+        "warnings": [
+          "profile 2 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-rtp-trojan-go: plugin trojan-go-plugin is not installed"
+        ]
+      }
+    },
+    "selector-bad-members": {
+      "note": "只有运行模式按选择器构建，成员按 userOrder 逐个预检，主节点 1 不预检。2 TUIC v4（buildInternalOutbound）；3 Trojan 带证书指纹（certificatePinUnsupported，非 VMess / AnyTLS 一律不支持）；4 WireGuard reserved 只有两字节；5 强制 sing-box 的 VLESS REALITY 带 mldsa65Verify（mldsa65VerifyUnsupported）；6 type 1 自定义出站 JSON 解析失败（gson 的 EOFException 文本）；7 VMess 的 xhttp 传输（走 sing-box，不支持）；8 AnyTLS 证书解析失败（预检试组装 mihomo 配置时报，顶层消息不含平台相关的 cause）。都经 withProfileName 包上成员自己的名字，reasonNamesProfile 为 true",
+      "run": {
+        "diagnostics": [
+          {
+            "type": "ProfileSkipped",
+            "profileId": 2,
+            "profileName": "golden-sel-tuic-v4",
+            "reason": "golden-sel-tuic-v4: TUIC v4 is no longer supported",
+            "reasonNamesProfile": true
+          },
+          {
+            "type": "ProfileSkipped",
+            "profileId": 3,
+            "profileName": "golden-sel-trojan-pin",
+            "reason": "golden-sel-trojan-pin: this core cannot pin certificates; clear the fingerprint or use a core that supports it",
+            "reasonNamesProfile": true
+          },
+          {
+            "type": "ProfileSkipped",
+            "profileId": 4,
+            "profileName": "golden-sel-wg-bad",
+            "reason": "golden-sel-wg-bad: WireGuard reserved must contain exactly three bytes (0..255)",
+            "reasonNamesProfile": true
+          },
+          {
+            "type": "ProfileSkipped",
+            "profileId": 5,
+            "profileName": "golden-sel-mldsa",
+            "reason": "golden-sel-mldsa: REALITY mldsa65Verify only works on the Xray core; switch this profile to the Xray core or clear mldsa65Verify",
+            "reasonNamesProfile": true
+          },
+          {
+            "type": "ProfileSkipped",
+            "profileId": 6,
+            "profileName": "golden-sel-custom-broken",
+            "reason": "golden-sel-custom-broken: java.io.EOFException: End of input at line 1 column 15 path $.",
+            "reasonNamesProfile": true
+          },
+          {
+            "type": "ProfileSkipped",
+            "profileId": 7,
+            "profileName": "golden-sel-xhttp",
+            "reason": "golden-sel-xhttp: unsupported transport \"xhttp\"",
+            "reasonNamesProfile": true
+          },
+          {
+            "type": "ProfileSkipped",
+            "profileId": 8,
+            "profileName": "golden-sel-anytls-bad-ca",
+            "reason": "golden-sel-anytls-bad-ca: Invalid AnyTLS certificate for mihomo fingerprint pinning",
+            "reasonNamesProfile": true
+          }
+        ],
+        "warnings": [
+          "profile 2 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-tuic-v4: TUIC v4 is no longer supported",
+          "profile 3 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-trojan-pin: this core cannot pin certificates; clear the fingerprint or use a core that supports it",
+          "profile 4 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-wg-bad: WireGuard reserved must contain exactly three bytes (0..255)",
+          "profile 5 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-mldsa: REALITY mldsa65Verify only works on the Xray core; switch this profile to the Xray core or clear mldsa65Verify",
+          "profile 6 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-custom-broken: java.io.EOFException: End of input at line 1 column 15 path $.",
+          "profile 7 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-xhttp: unsupported transport \"xhttp\"",
+          "profile 8 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-anytls-bad-ca: Invalid AnyTLS certificate for mihomo fingerprint pinning"
+        ]
+      }
+    },
+    "selector-plugin-members": {
+      "note": "只有运行模式按选择器构建。成员 2 Trojan-Go、3 Naive、4 Mieru、5 Hysteria 1 wechat-video、6 Hysteria 1 faketcp 都走插件核心，预检最后的 requirePlugin 在模拟器条件下都得「插件未安装」并包上成员名；5 在此之前先查外部插件 app（查不到，免映射）；6 不能映射，不查。hysteria-plugin 的结果在本次构建里记住，5、6 报同一个原因",
+      "run": {
+        "diagnostics": [
+          {
+            "type": "ProfileSkipped",
+            "profileId": 2,
+            "profileName": "golden-selp-trojan-go",
+            "reason": "golden-selp-trojan-go: plugin trojan-go-plugin is not installed",
+            "reasonNamesProfile": true
+          },
+          {
+            "type": "ProfileSkipped",
+            "profileId": 3,
+            "profileName": "golden-selp-naive",
+            "reason": "golden-selp-naive: plugin naive-plugin is not installed",
+            "reasonNamesProfile": true
+          },
+          {
+            "type": "ProfileSkipped",
+            "profileId": 4,
+            "profileName": "golden-selp-mieru",
+            "reason": "golden-selp-mieru: plugin mieru-plugin is not installed",
+            "reasonNamesProfile": true
+          },
+          {
+            "type": "ProfileSkipped",
+            "profileId": 5,
+            "profileName": "golden-selp-hy1-wechat",
+            "reason": "golden-selp-hy1-wechat: plugin hysteria-plugin is not installed",
+            "reasonNamesProfile": true
+          },
+          {
+            "type": "ProfileSkipped",
+            "profileId": 6,
+            "profileName": "golden-selp-hy1-faketcp",
+            "reason": "golden-selp-hy1-faketcp: plugin hysteria-plugin is not installed",
+            "reasonNamesProfile": true
+          }
+        ],
+        "warnings": [
+          "profile 2 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-selp-trojan-go: plugin trojan-go-plugin is not installed",
+          "profile 3 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-selp-naive: plugin naive-plugin is not installed",
+          "profile 4 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-selp-mieru: plugin mieru-plugin is not installed",
+          "profile 5 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-selp-hy1-wechat: plugin hysteria-plugin is not installed",
+          "profile 6 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-selp-hy1-faketcp: plugin hysteria-plugin is not installed"
+        ]
+      }
+    }
+  }
+}

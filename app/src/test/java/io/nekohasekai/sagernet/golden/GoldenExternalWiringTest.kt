@@ -47,7 +47,7 @@ class GoldenExternalWiringTest {
 
     @Test
     fun `sing-box 的本机 socks 出站与外核入站、外核出站与映射入站两端一致`() {
-        val baseline = GoldenBaseline.assumeAvailable()
+        val baseline = GoldenBaseline.load()
         for (id in baseline.scenarioIds) {
             val dir = baseline.root.resolve("scenarios/$id")
             for (mode in GoldenBoxMode.entries) {

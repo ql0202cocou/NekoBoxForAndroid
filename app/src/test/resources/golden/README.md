@@ -16,7 +16,9 @@ Xray 的各入站要求同一组凭据（`auth` / `accounts`，并关掉访问�
 的结果，并再采集一次做完整比较。四种插件核心的入站认证没有核实过，配置与 v2 逐字节相同，sing-box 一侧接它们的
 socks 出站也不带凭据。
 
-采集入口只编进 debug 包（`app/src/debug/`），R1b 的 JVM 黄金测试建成后删除；这份基线不随之删除。
+采集入口只编进 debug 包（`app/src/debug/`）。采集入口与实测入口保留到 K1 阶段完成之后（维护者 2026-10-05 决定）：
+R1b 的 JVM 黄金测试（见「JVM 黄金测试」一节）不覆盖 Android 一侧的外壳（DataStore 的默认值、Room 读取事务、
+PackageCache、插件探测）与内置核心对合并配置的校验，这两样只有模拟器重新采集能对照。这份基线不随入口删除。
 
 ## 重新采集
 
@@ -84,6 +86,56 @@ APK 只按 `app/build/outputs/apk/oss/debug/output-metadata.json`（Gradle 每�
 里 `external[].hops[]` 的 `localAuth`，以及 `dynamic.secrets` 里这些凭据的值（取自跳实例的记录与 sing-box 配置里本机
 socks 出站的凭据）。`input.json` 与 `address/corpus.json` 顶层的 `formatVersion` 不比较。它用来证明加认证的改动只多出
 了认证：两侧可以一侧带认证（v3）、一侧不带（v2）。
+
+## JVM 黄金测试
+
+```bash
+./gradlew app:testOssDebugUnitTest --tests '*GoldenJvm*' --tests '*GoldenAddressCorpusTest'
+```
+
+配置构建只消费注入的输入（`fmt/ConfigInput.kt`）之后，整条构建能在普通 JVM 上跑。`GoldenJvmBuildTest` 对本目录
+每个场景的每种模式（293 × 3）：用 `input.json` 的 `groups` / `profiles` / `rules` 建内存数据源（查询语义同 DAO），
+设置取 `effectiveSettings`（Clash API secret 只在运行模式且开了 Clash API 时取，同生产外壳），包名 UID 取
+`packageUids`，插件状态按 `plugins` 回答（`missing` 即「plugin X is not installed」）；再走
+「采集引用闭包（`ConfigSnapshot.collect`）→ 纯构建入口 `buildConfig(input)` → `ExternalRunPlan.from` →
+`assemble`（运行 / 测速）或 `exportConfigText`（导出）」，按采集入口的格式写成一棵产物树（`GoldenJvmModes.kt`），
+用 `GoldenCompareTree` 与本目录做全量比较。失败信息就是比较报告：场景、模式、文件、JSON 路径与两侧的值。
+
+与模拟器采集的差别：
+
+- 不经过 Android 外壳（`captureConfigInput`：DataStore、Room 读取事务、PackageCache）：输入由 `GoldenJvmModes.kt`
+  按 `input.json` 拼出，与外壳共用的只有两处模式判断（要解析的包名 `packagesToResolve`、是否取 Clash API secret
+  `needsClashApiSecret`）。
+- 组装时不做插件安装确认（`BoxInstance` 传给 `assemble` 的 `beforeHop`），也没有内置 Xray / mihomo 的启动前校验
+  （只进 `manifest.json`）。
+- 平台换成假实现（`FakeConfigPlatform`）。端口从 50001 起递增、本机 socks 凭据用固定种子、测速控制 secret 是固定值：
+  都是 `dynamic` 里按出现次序替换的值；测速是否开 mihomo 的控制器用生产的 `mihomoMeasuresDelay` 判断。
+- 数字地址解析（生产走 `Os.inet_pton`）先查 `address/corpus.json`，语料之外的输入走 `StrictNumericAddress`
+  （按 bionic `inet_pton` 的规则：IPv4 四段十进制、前导零按十进制，IPv6 每组至多 4 位十六进制、不接受 zone）。
+  `GoldenAddressCorpusTest` 要求它在全部语料上与设备结果一致。基线构建会查到的语料之外的输入只列在
+  `GoldenAddressCorpus.KNOWN_OUTSIDE`（连同回退实现应给的结果）：`GoldenAddressCorpusTest` 按它核对回退实现，
+  `GoldenJvmBuildTest` 跑完全部场景后核对查到的正好是这些。多出新输入时测试失败，要么把它补进语料（重新采集），
+  要么核对回退实现在它上的结果后加进名单。
+
+只有一处按名单放宽（`GoldenJvmBuildTest` 的 `RELAXATIONS`，写明原因）：`mihomo-anytls-bad-certificate` 的三种模式里，
+错误证书的 cause 链随平台的 X.509 实现而变（Android 的 Conscrypt 共 5 个 cause，JDK 共 3 个，`CertificateException`
+的消息也不同）。顶层异常的类与消息、第一个 cause、第二个 cause 的类照常比较，只放宽 cause 的个数、第二个 cause 的
+消息与第三个起的 cause；这三个文件的其余部分与其它产物都照常比较。名单上的放宽没有用到时测试同样失败，平台差异消失
+后要删掉。不许为放宽改生产代码或整场景跳过。
+
+诊断与警告基线里没有，另按 `app/src/test/resources/golden-jvm/expected-diagnostics.json` 断言（放在本目录之外：
+`./run golden collect --golden` 会整体替换本目录）：只列有诊断（`ConfigBuildDiagnostic`，类型与字段）或警告
+（`ConfigPlatform.warn` 的文本，带异常时接「: 异常类全名: 消息」）的场景与模式，每个场景的 `note` 写明依据；其余
+场景与模式都断言为空。新增或改动场景后，期望要按代码逻辑逐条写，不能拿测试的实际输出回填。
+
+另有几组针对性的 JVM 测试，同样取本目录的输入：`GoldenJvmIsolationTest`（采集之后清空数据源、改调用方对象，
+构建产物不变；构建不改写调用方对象的 bean）、`GoldenJvmPluginStateTest`（基线采集条件之外的插件状态：插件都已安装
+时选择器成员全部保留；外部插件 app 的 authority 是 Matsuri exe 前缀时 Hysteria 1 免映射、不是时报插件不受支持）。
+
+两者各管一段：JVM 黄金测试覆盖纯构建、运行计划、组装与导出文本的全部产物和诊断，跑一遍约 3 秒，改配置生成时先跑它；
+模拟器采集（`./run golden collect` + `./run golden compare`）还覆盖 Android 一侧的外壳（DataStore、Room 读取事务与
+排序、PackageCache、插件探测与组装前的插件安装确认、`Os.inet_pton`、Conscrypt）与内置核心对每份合并配置的校验
+（`externalChecks`），动到外壳、平台实现或外核配置时仍要重新采集比较。
 
 ## 目录结构（格式 v3）
 

@@ -28,7 +28,7 @@ class GoldenExternalCoreCheckTest {
 
     @Test
     fun `六个外核的用例都能读出且覆盖基线里全部外核配置`() {
-        val baseline = GoldenBaseline.assumeAvailable()
+        val baseline = GoldenBaseline.load()
         val beans = Collections.newSetFromMap(IdentityHashMap<Any, Boolean>())
         var total = 0
         var hops = 0
@@ -55,7 +55,7 @@ class GoldenExternalCoreCheckTest {
 
     @Test
     fun `mihomo 用例带上了运行期字段、测速控制端口与设置`() {
-        val cases = GoldenBaseline.assumeAvailable().externalCases("mihomo-plugin")
+        val cases = GoldenBaseline.load().externalCases("mihomo-plugin")
         assertTrue(cases.all { it.format == GoldenFormat.YAML })
         val hops = cases.flatMap { it.group.hops }
         assertTrue(hops.all { it.bean is AnyTLSBean })
@@ -68,7 +68,7 @@ class GoldenExternalCoreCheckTest {
 
     @Test
     fun `输出被改动时失败，消息带场景 id、模式与差异，并只列前几个`() {
-        val cases = GoldenBaseline.assumeAvailable().externalCases("mihomo-plugin")
+        val cases = GoldenBaseline.load().externalCases("mihomo-plugin")
         val message = failureOf("mihomo-plugin") { case, cacheFile ->
             GoldenExternalCoreCheck.PRODUCTION.generate(case, cacheFile).replace("mode: rule", "mode: global")
         }
@@ -86,7 +86,7 @@ class GoldenExternalCoreCheckTest {
 
     @Test
     fun `只有一个用例不同时只报这一个`() {
-        val cases = GoldenBaseline.assumeAvailable().externalCases("mihomo-plugin")
+        val cases = GoldenBaseline.load().externalCases("mihomo-plugin")
         val target = cases.last()
         val message = failureOf("mihomo-plugin") { case, cacheFile ->
             val text = GoldenExternalCoreCheck.PRODUCTION.generate(case, cacheFile)
@@ -101,14 +101,12 @@ class GoldenExternalCoreCheckTest {
 
     @Test
     fun `生成抛异常时失败并带上异常`() {
-        GoldenBaseline.assumeAvailable()
         val message = failureOf("mihomo-plugin") { _, _ -> throw IllegalStateException("故意失败") }
         assertContains(message, "生成时抛出 java.lang.IllegalStateException：故意失败")
     }
 
     @Test
     fun `没有用例时失败而不是通过`() {
-        GoldenBaseline.assumeAvailable()
         val message = failureOf("no-such-plugin") { _, _ -> error("不应被调用") }
         assertContains(message, "no-such-plugin：基线里读到 0 个用例")
     }
@@ -117,7 +115,7 @@ class GoldenExternalCoreCheckTest {
     // 生成器在 JVM 上还跑不了，这里直接拿基线原文代替生成结果
     @Test
     fun `临时文件路径按动态值比较`() {
-        val cases = GoldenBaseline.assumeAvailable().externalCases("hysteria-plugin")
+        val cases = GoldenBaseline.load().externalCases("hysteria-plugin")
         val withCa = cases.filter { it.tempFiles.isNotEmpty() }
         assertTrue("基线里应有带 CA 文件的 hysteria 用例", withCa.isNotEmpty())
 

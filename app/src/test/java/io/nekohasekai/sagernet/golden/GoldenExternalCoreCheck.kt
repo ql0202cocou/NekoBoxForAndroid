@@ -27,9 +27,9 @@ object GoldenExternalCoreCheck {
     private const val MAX_CASES = 5
     private const val MAX_DIFFS = 10
 
-    /** 没有基线时跳过；有差异、生成抛异常或基线里没有这个 pluginId 的用例时失败。 */
+    /** 找不到基线、有差异、生成抛异常或基线里没有这个 pluginId 的用例时失败。 */
     fun assertMatchesBaseline(pluginId: String, generator: GoldenExternalGenerator = PRODUCTION) {
-        val cases = GoldenBaseline.assumeAvailable().externalCases(pluginId)
+        val cases = GoldenBaseline.load().externalCases(pluginId)
         report(pluginId, cases, generator)?.let(::fail)
     }
 
