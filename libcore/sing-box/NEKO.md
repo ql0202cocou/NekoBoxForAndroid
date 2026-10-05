@@ -42,6 +42,27 @@ Accepted upstream behavior (no patch):
   returns (regression test `TestBoxInstanceStartLeavesNetworkAwake`). The
   one error line per start remains. Anything new in sing-box that calls
   `NetworkPause` must be checked against this.
+- REALITY client: fixed self-reported version, and no X25519MLKEM768.
+  `common/tls/reality_client.go` `ClientHandshake` (v1.14.2) filters
+  `X25519MLKEM768` out of the uTLS ClientHello's supported groups and key
+  shares, then rebuilds the handshake state; and it writes a constant client
+  version into the REALITY session id (`SessionId[0..2] = 1, 8, 1`, i.e.
+  1.8.1), whatever sing-box's own version is. Effects: a server that only
+  accepts clients at or above some version treats the hello as a stranger and
+  forwards it to the camouflage site, so the client fails with
+  `reality verification failed` (Xray's REALITY server defaults `minClientVer`
+  to 26.3.27 since Xray v26.7.11, commit af7eb680, so sing-box can never
+  connect to such a server unless the operator lowers it); and the hybrid
+  post-quantum key exchange is never offered. Kept upstream unpatched: the
+  version bytes are part of the REALITY handshake, and reporting a newer one
+  would claim to be a client this code is not. The app handles it on the
+  Kotlin side (a REALITY node Xray can fully express runs on Xray; the
+  sing-box error gets an explanatory hint). On every sing-box upgrade re-read
+  `common/tls/reality_client.go` (the version bytes, the curve / key share
+  filter, the `reality verification failed` text), compare it with the newest
+  Xray server's default `minClientVer`, and revisit this entry and the app's
+  hint; the canary test `libcore/reality_client_canary_test.go` fails when
+  those pieces change.
 
 The `1.12.x-neko-1` commits only bump `constant/version.go` and carry no code
 changes.
