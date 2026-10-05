@@ -108,29 +108,32 @@ fun String.splitHostPort(): Pair<String, String?>? {
     return this to null
 }
 
-// True for loopback/unspecified DNS addresses (127.0.0.1, [::1]:53, udp://0.0.0.0 …):
-// they only make sense inside the core that owns them (e.g. a mihomo config pointing
-// at its own dns.listen) and are dead ends on any real device.
-fun String.isLocalNameserverAddress(): Boolean {
+// 回环 / 未指定地址的 DNS 服务器（127.0.0.1、[::1]:53、udp://0.0.0.0 …）返回 true：它们只在拥有它的核心里
+// 有意义（例如 mihomo 配置指向自己的 dns.listen），在真实设备上是死路。
+// parse 把数字地址字面量解析成地址、不是数字地址时返回 null，默认用生产实现；配置构建传入注入的实现
+fun String.isLocalNameserverAddress(
+    parse: (String) -> InetAddress? = { it.parseNumericAddress() },
+): Boolean {
     var host = substringAfter("://").substringBefore("/").trim()
     host = when {
         host.startsWith("[") -> host.substringAfter("[").substringBefore("]")
         host.count { it == ':' } == 1 -> host.substringBefore(":")
         else -> host
     }
-    val ip = host.substringBefore("%").parseNumericAddress()
+    val ip = parse(host.substringBefore("%"))
         ?: return host.equals("localhost", ignoreCase = true)
     return ip.isLoopbackAddress || ip.isAnyLocalAddress
 }
 
-// One address per line. Strips mihomo-style "#h3" suffixes, the clash "system"/"local"
-// sentinels and loopback/unspecified entries, so every reader of a group's
-// proxyServerNameserver — the config builder, the resolver, the subscription mirror —
-// agrees on what counts as a usable address.
-fun String?.usableNameservers(): List<String> = this?.lineSequence()
+// 每行一个地址。去掉 mihomo 式的 "#h3" 后缀、clash 的 "system" / "local" 占位以及回环 / 未指定地址，
+// 让分组 proxyServerNameserver 的每个读者（配置构建、解析器、订阅镜像）对「可用地址」的判断一致。
+// parse 同 isLocalNameserverAddress
+fun String?.usableNameservers(
+    parse: (String) -> InetAddress? = { it.parseNumericAddress() },
+): List<String> = this?.lineSequence()
     ?.map { it.trim().substringBefore("#").trim() }
     ?.filter {
-        it.isNotBlank() && it != "system" && it != "local" && !it.isLocalNameserverAddress()
+        it.isNotBlank() && it != "system" && it != "local" && !it.isLocalNameserverAddress(parse)
     }
     ?.distinct()?.toList() ?: emptyList()
 

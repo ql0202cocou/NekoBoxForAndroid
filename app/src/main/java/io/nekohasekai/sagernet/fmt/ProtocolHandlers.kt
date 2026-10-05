@@ -169,9 +169,9 @@ fun ProxyEntity.haveLink(): Boolean {
     }
 }
 
-// type -> core used when ProxyEntity.core is CORE_AUTO (was the when in
-// ProxyEntity.resolvedCore)
-fun ProxyEntity.coreForType(): Int {
+// type -> ProxyEntity.core 为 CORE_AUTO 时用的核心（原为 ProxyEntity.resolvedCore 里的 when）。
+// globalAllowInsecure 是全局「允许不安全」：它让 Xray 拒绝的 allowInsecure 生效，节点因此改走 sing-box
+fun ProxyEntity.coreForType(globalAllowInsecure: Boolean): Int {
     return when (type) {
         // xray dropped the h2/quic transports and, after 2026-06-01,
         // allowInsecure; those profiles only run on sing-box.
@@ -179,7 +179,7 @@ fun ProxyEntity.coreForType(): Int {
         // （见 buildSingBoxOutboundTLS）
         TYPE_VMESS -> vmessBean!!.let { bean ->
             val preferXray = bean.isVLESS || bean.certificateFingerprint.isNotBlank()
-            if (preferXray && !bean.xrayLacksTransport() && !bean.xrayLacksAllowInsecure()) CORE_XRAY
+            if (preferXray && !bean.xrayLacksTransport() && !bean.xrayLacksAllowInsecure(globalAllowInsecure)) CORE_XRAY
             else CORE_SING_BOX
         }
 
@@ -191,16 +191,19 @@ fun ProxyEntity.coreForType(): Int {
 // 应用保存的是整张证书的 SHA-256 指纹，只有 Xray（VMess / VLESS）与 mihomo（AnyTLS）能按它固定。
 // sing-box 有公钥固定（certificate_public_key_sha256，SPKI 哈希），但与整证书指纹不是一回事、
 // 不能通用；hysteria v1 插件没有对应选项。唯一判断点：运行 / 测试 / 导出 / 预检都经
-// ConfigBuild.requireBuildableHop 按它拒绝，编辑器保存时也按它提前拦下
-fun ProxyEntity.certificatePinUnsupported(): Boolean {
+// ConfigBuild.requireBuildableHop 按它拒绝，编辑器保存时也按它提前拦下。构建传入设置快照里的全局「允许不安全」
+fun ProxyEntity.certificatePinUnsupported(globalAllowInsecure: Boolean): Boolean {
     val pin = tlsFields(requireBean())?.certificateFingerprint
     if (pin.isNullOrBlank()) return false
     return when (type) {
-        TYPE_VMESS -> resolvedCore() != CORE_XRAY
-        TYPE_ANYTLS -> resolvedCore() != CORE_MIHOMO
+        TYPE_VMESS -> resolvedCore(globalAllowInsecure) != CORE_XRAY
+        TYPE_ANYTLS -> resolvedCore(globalAllowInsecure) != CORE_MIHOMO
         else -> true
     }
 }
+
+// 构建之外的调用方（编辑器保存时）用：全局「允许不安全」取 DataStore 当前值
+fun ProxyEntity.certificatePinUnsupported(): Boolean = certificatePinUnsupported(DataStore.globalAllowInsecure)
 
 // REALITY 真正生效且配了 mldsa65Verify。编辑器里关掉 TLS 后隐藏的 REALITY 字段仍留在 bean 里，
 // 与 buildXrayConfig 一样以 security 开关为准，残留字段不算
@@ -221,22 +224,28 @@ fun mldsa65VerifyUnsupported(type: Int, bean: AbstractBean, core: () -> Int): St
     }
 }
 
-fun ProxyEntity.mldsa65VerifyUnsupported(): String? =
-    mldsa65VerifyUnsupported(type, requireBean()) { resolvedCore() }
+fun ProxyEntity.mldsa65VerifyUnsupported(globalAllowInsecure: Boolean): String? =
+    mldsa65VerifyUnsupported(type, requireBean()) { resolvedCore(globalAllowInsecure) }
 
-// type -> 该节点是否跑在外部核心进程上
-fun ProxyEntity.needExternal(): Boolean {
+// 构建之外的调用方（编辑器保存时）用：全局「允许不安全」取 DataStore 当前值
+fun ProxyEntity.mldsa65VerifyUnsupported(): String? = mldsa65VerifyUnsupported(DataStore.globalAllowInsecure)
+
+// type -> 该节点是否跑在外部核心进程上；globalAllowInsecure 影响选核（见 coreForType）
+fun ProxyEntity.needExternal(globalAllowInsecure: Boolean): Boolean {
     return when (type) {
         TYPE_TROJAN_GO -> true
         TYPE_MIERU -> true
         TYPE_NAIVE -> true
-        TYPE_VMESS -> resolvedCore() == CORE_XRAY
+        TYPE_VMESS -> resolvedCore(globalAllowInsecure) == CORE_XRAY
         TYPE_HYSTERIA -> !hysteriaBean!!.canUseSingBox()
-        TYPE_ANYTLS -> resolvedCore() == CORE_MIHOMO
+        TYPE_ANYTLS -> resolvedCore(globalAllowInsecure) == CORE_MIHOMO
         TYPE_NEKO -> true
         else -> false
     }
 }
+
+// 构建之外的调用方用：全局「允许不安全」取 DataStore 当前值
+fun ProxyEntity.needExternal(): Boolean = needExternal(DataStore.globalAllowInsecure)
 
 // type -> sing-box 多路复用选项，不支持 mux 的协议为 null
 fun ProxyEntity.singMux(): MultiplexOptions? {
@@ -369,22 +378,22 @@ fun ProxyEntity.putBean(bean: AbstractBean): ProxyEntity {
     return this
 }
 
-// bean class -> sing-box outbound/endpoint for internally-served protocols
-// (was the when in ConfigBuilder.buildChain)
-fun buildSingBoxOutbound(bean: AbstractBean): SingBoxOption = when (bean) {
+// bean 类 -> 内部核心承载的协议的 sing-box 出站 / 端点（原为 ConfigBuilder.buildChain 里的 when）。
+// globalAllowInsecure 是全局「允许不安全」，带 TLS 的出站用它
+fun buildSingBoxOutbound(bean: AbstractBean, globalAllowInsecure: Boolean): SingBoxOption = when (bean) {
     is ConfigBean -> CustomSingBoxOption(bean.config)
 
     is ShadowTLSBean -> // before StandardV2RayBean
-        buildSingBoxOutboundShadowTLSBean(bean)
+        buildSingBoxOutboundShadowTLSBean(bean, globalAllowInsecure)
 
     is StandardV2RayBean -> // http/trojan/vmess/vless
-        buildSingBoxOutboundStandardV2RayBean(bean)
+        buildSingBoxOutboundStandardV2RayBean(bean, globalAllowInsecure)
 
     is HysteriaBean ->
-        buildSingBoxOutboundHysteriaBean(bean)
+        buildSingBoxOutboundHysteriaBean(bean, globalAllowInsecure)
 
     is TuicBean ->
-        buildSingBoxOutboundTuicBean(bean)
+        buildSingBoxOutboundTuicBean(bean, globalAllowInsecure)
 
     is SOCKSBean ->
         buildSingBoxOutboundSocksBean(bean)
@@ -399,7 +408,7 @@ fun buildSingBoxOutbound(bean: AbstractBean): SingBoxOption = when (bean) {
         buildSingBoxOutboundSSHBean(bean)
 
     is AnyTLSBean ->
-        buildSingBoxOutboundAnyTLSBean(bean)
+        buildSingBoxOutboundAnyTLSBean(bean, globalAllowInsecure)
 
     else -> throw IllegalStateException("can't reach")
 }

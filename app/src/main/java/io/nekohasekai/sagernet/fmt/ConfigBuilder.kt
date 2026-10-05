@@ -255,6 +255,8 @@ private class ConfigBuild(
     val selectorNames = HashSet<String>()
     // a profile named like a built-in outbound tag would collide with it
     val reservedSelectorTags = setOf(TAG_PROXY, TAG_DIRECT, TAG_BYPASS, TAG_BLOCK)
+    // 全局「允许不安全」：影响 sing-box 出站的 TLS 与选核（needExternal 等）
+    val globalAllowInsecure get() = DataStore.globalAllowInsecure
     val group = SagerDatabase.groupDao.getById(proxy.groupId)
 
     // 返回的列表是倒序的（末尾是第一跳）：完整展开后只在这里反转一次
@@ -545,7 +547,7 @@ private class ConfigBuild(
         // 同一个外部核心节点在链里出现两次（链编辑器允许重复加入，或分组前置同时
         // 是组内某条链的首跳）：映射入站 tag 重名、两份插件配置共用一个 bean 的
         // 映射端口，sing-box 只会报 duplicate inbound tag。这里给出明确错误
-        profileList.filter { it.needExternal() }.groupBy { it.id }.values
+        profileList.filter { it.needExternal(globalAllowInsecure) }.groupBy { it.id }.values
             .firstOrNull { it.size > 1 }?.let {
                 error("profile ${it[0].id} (${it[0].requireBean().displayName()}) runs on an external core and appears twice in chain ${entity.id}")
             }
@@ -653,7 +655,7 @@ private class ConfigBuild(
             // mapping inbound, which also requires canMapping() (NekoBean /
             // hy1 faketcp can't); those chain via detour like internal nodes
             val pastEntity = chain.pastEntity!!
-            if (pastEntity.needExternal() && pastEntity.requireBean().canMapping()) {
+            if (pastEntity.needExternal(globalAllowInsecure) && pastEntity.requireBean().canMapping()) {
                 route.rules.add(Rule_DefaultOptions().apply {
                     inbound = listOf(chain.pastInboundTag)
                     outbound = tagOut
@@ -681,7 +683,7 @@ private class ConfigBuild(
     ): SingBoxOption {
         requireBuildableHop(proxyEntity, bean)
         val currentOutbound: SingBoxOption
-        if (proxyEntity.needExternal()) { // externel outbound
+        if (proxyEntity.needExternal(globalAllowInsecure)) { // externel outbound
             val localPort = mkPort()
             chain.externalChainMap[localPort] = proxyEntity
             currentOutbound = Outbound_SocksOptions().apply {
@@ -754,7 +756,7 @@ private class ConfigBuild(
         // For external proxy software, their traffic must goes to v2ray-core to use protected fd.
         bean.finalAddress = bean.serverAddress
         bean.finalPort = bean.serverPort
-        if (bean.canMapping() && proxyEntity.needExternal()) {
+        if (bean.canMapping() && proxyEntity.needExternal(globalAllowInsecure)) {
             // With ss protect, don't use mapping
             val needExternal = !(index == chain.profileList.lastIndex && hysteriaSkipsMapping(bean))
             if (needExternal) {
@@ -798,14 +800,14 @@ private class ConfigBuild(
     // buildHopOutbound 与 precheck 共用的单跳检查
     private fun requireBuildableHop(proxyEntity: ProxyEntity, bean: AbstractBean) {
         // 用户要求固定证书却静默放行，比没有这个功能更危险：内部与外部核心都在这里拒绝
-        if (proxyEntity.certificatePinUnsupported()) {
+        if (proxyEntity.certificatePinUnsupported(globalAllowInsecure)) {
             error("this core cannot pin certificates; clear the fingerprint or use a core that supports it")
         }
         // mldsa65Verify 同理：sing-box 上会被悄悄丢掉
-        proxyEntity.mldsa65VerifyUnsupported()?.let { error(it) }
+        proxyEntity.mldsa65VerifyUnsupported(globalAllowInsecure)?.let { error(it) }
         // 完整配置型自定义节点作为链成员、前置 / 落地或路由目标时，给出明确
         // 错误，而不是让 sing-box 以 "unknown outbound type" 拒绝整份配置
-        if (!proxyEntity.needExternal() && proxyEntity.isFullConfig()) {
+        if (!proxyEntity.needExternal(globalAllowInsecure) && proxyEntity.isFullConfig()) {
             error("a full-config profile can only run on its own")
         }
         // 自定义出站 JSON 要到 build() 末尾序列化时才解析，在这里先解析一次，
@@ -815,7 +817,7 @@ private class ConfigBuild(
 
     // 内部核心出站。ConfigBean（type 1）的 JSON 同理提前解析
     private fun buildInternalOutbound(bean: AbstractBean): SingBoxOption =
-        buildSingBoxOutbound(bean).also { if (it is CustomSingBoxOption) it.getBasicMap() }
+        buildSingBoxOutbound(bean, globalAllowInsecure).also { if (it is CustomSingBoxOption) it.getBasicMap() }
 
     // 同一次构建里每个插件只查一次，查不到的结果也记下
     private val pluginErrors = HashMap<String, Exception?>()
@@ -843,7 +845,7 @@ private class ConfigBuild(
             val bean = hop.requireBean()
             withProfileName(bean) {
                 requireBuildableHop(hop, bean)
-                if (!hop.needExternal()) {
+                if (!hop.needExternal(globalAllowInsecure)) {
                     buildInternalOutbound(bean)
                     return@withProfileName
                 }

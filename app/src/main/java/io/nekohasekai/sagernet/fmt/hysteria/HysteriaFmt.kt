@@ -398,7 +398,7 @@ fun HysteriaBean.canUseSingBox(): Boolean {
     return true
 }
 
-fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean): SingBoxOptions.SingBoxOption {
+fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean, globalAllowInsecure: Boolean): SingBoxOptions.SingBoxOption {
     val ports = parseHysteriaPorts(bean.serverPorts)
     val singlePort = ports.singlePortOrNull()
     return when (bean.protocolVersion) {
@@ -422,7 +422,7 @@ fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean): SingBoxOptions.SingBox
             if (bean.connectionReceiveWindow > 0) {
                 recv_window = bean.connectionReceiveWindow.toLong()
             }
-            tls = buildSingBoxOutboundTLS(bean)
+            tls = buildSingBoxOutboundTLS(bean, globalAllowInsecure)
         }
 
         2 -> SingBoxOptions.Outbound_Hysteria2Options().apply {
@@ -441,7 +441,7 @@ fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean): SingBoxOptions.SingBox
             }
             password = bean.authPayload
             // hysteria2 mandates h3 whatever the profile's alpn says
-            tls = buildSingBoxOutboundTLS(bean)?.apply { alpn = listOf("h3") }
+            tls = buildSingBoxOutboundTLS(bean, globalAllowInsecure)?.apply { alpn = listOf("h3") }
         }
 
         else -> error("error_version ${bean.protocolVersion}")

@@ -1,6 +1,5 @@
 package io.nekohasekai.sagernet.fmt
 
-import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.fmt.v2ray.requireValidReality
 import io.nekohasekai.sagernet.ktx.blankAsNull
 import moe.matsuri.nb4a.SingBoxOptions.OutboundECHOptions
@@ -29,16 +28,12 @@ class TlsFields(
 )
 
 // 全局「允许不安全」叠加在节点自己的开关之上，各核心（sing-box、Xray、mihomo）一致。
-// 外核生成器经 ExternalCoreSettings 传入全局值
+// 全局值都由调用方传入：外核生成器经 ExternalCoreSettings，sing-box 出站与选核经构建的设置快照
 fun effectiveAllowInsecure(allowInsecure: Boolean?, globalAllowInsecure: Boolean): Boolean =
     allowInsecure == true || globalAllowInsecure
 
-// sing-box 出站与选核（xrayLacksAllowInsecure()）仍直接读 DataStore，R1b 改为注入
-fun effectiveAllowInsecure(allowInsecure: Boolean?): Boolean =
-    allowInsecure == true || DataStore.globalAllowInsecure
-
-// bean -> sing-box outbound tls block, null when the bean does not use TLS
-fun buildSingBoxOutboundTLS(bean: AbstractBean): OutboundTLSOptions? {
+// bean -> sing-box 出站的 tls 块，不用 TLS 的 bean 返回 null；globalAllowInsecure 是全局「允许不安全」
+fun buildSingBoxOutboundTLS(bean: AbstractBean, globalAllowInsecure: Boolean): OutboundTLSOptions? {
     val tls = tlsFields(bean) ?: return null
     // sing-box 的 certificate_public_key_sha256 是 SPKI 哈希，与证书 SHA-256 不通用。
     // 判断与报错在 ConfigBuild.buildHopOutbound（certificatePinUnsupported）；这里只兜底，
@@ -48,7 +43,7 @@ fun buildSingBoxOutboundTLS(bean: AbstractBean): OutboundTLSOptions? {
     }
     return OutboundTLSOptions().apply {
         enabled = true
-        insecure = effectiveAllowInsecure(tls.allowInsecure)
+        insecure = effectiveAllowInsecure(tls.allowInsecure, globalAllowInsecure)
         tls.sni.blankAsNull()?.let { server_name = it }
         tls.alpn.blankAsNull()?.let { alpn = it.listByLineOrComma() }
         tls.certificate.blankAsNull()?.let { certificate = it }

@@ -89,7 +89,7 @@ fun TuicBean.toUri(): String {
     return builder.toLink("tuic")
 }
 
-fun buildSingBoxOutboundTuicBean(bean: TuicBean): SingBoxOptions.Outbound_TUICOptions {
+fun buildSingBoxOutboundTuicBean(bean: TuicBean, globalAllowInsecure: Boolean): SingBoxOptions.Outbound_TUICOptions {
     if (bean.protocolVersion == 4) throw Exception("TUIC v4 is no longer supported")
     return SingBoxOptions.Outbound_TUICOptions().apply {
         type = "tuic"
@@ -105,6 +105,6 @@ fun buildSingBoxOutboundTuicBean(bean: TuicBean): SingBoxOptions.Outbound_TUICOp
         if (bean.heartbeatInterval > 0) {
             heartbeat = "${bean.heartbeatInterval}s"
         }
-        tls = buildSingBoxOutboundTLS(bean)?.apply { disable_sni = bean.disableSNI }
+        tls = buildSingBoxOutboundTLS(bean, globalAllowInsecure)?.apply { disable_sni = bean.disableSNI }
     }
 }

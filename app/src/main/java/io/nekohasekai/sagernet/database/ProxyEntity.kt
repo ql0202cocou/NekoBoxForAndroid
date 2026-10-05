@@ -240,9 +240,10 @@ data class ProxyEntity(
         return text.toString() to name
     }
 
-    fun resolvedCore(): Int {
+    // 实际使用的核心：自动时按协议选（coreForType），globalAllowInsecure 是全局「允许不安全」
+    fun resolvedCore(globalAllowInsecure: Boolean): Int {
         if (core != CORE_AUTO) return core
-        return coreForType()
+        return coreForType(globalAllowInsecure)
     }
 
     @androidx.room.Dao

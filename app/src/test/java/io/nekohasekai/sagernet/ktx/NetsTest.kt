@@ -5,11 +5,52 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.net.InetAddress
 
-// 只覆盖不依赖 Android 框架的纯函数；mkPort、lookupViaNameserver、
-// isLocalNameserverAddress 等依赖 SystemClock / android.system.Os / native 核心，
-// 在本地 JVM 单测里不可用，不在此测试
+// 只覆盖不依赖 Android 框架的纯函数；mkPort、lookupViaNameserver 等依赖 SystemClock / native 核心，
+// 在本地 JVM 单测里不可用，不在此测试。isLocalNameserverAddress / usableNameservers 的默认解析走
+// android.system.Os，这里只测注入解析函数的版本
 class NetsTest {
+
+    // 只认这几个字面量的假解析，其余都当作不是数字地址；不查 DNS
+    private val parsed = ArrayList<String>()
+    private val fakeParse: (String) -> InetAddress? = { text ->
+        parsed += text
+        when (text) {
+            "127.0.0.1" -> InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1))
+            "0.0.0.0" -> InetAddress.getByAddress(ByteArray(4))
+            "::1" -> InetAddress.getByAddress(ByteArray(16).also { it[15] = 1 })
+            "192.0.2.53" -> InetAddress.getByAddress(byteArrayOf(192.toByte(), 0, 2, 53))
+            else -> null
+        }
+    }
+
+    @Test
+    fun `isLocalNameserverAddress 用注入的解析函数判断回环与未指定地址`() {
+        assertTrue("udp://127.0.0.1".isLocalNameserverAddress(fakeParse))
+        assertTrue("[::1]:53".isLocalNameserverAddress(fakeParse))
+        assertTrue("tls://0.0.0.0/".isLocalNameserverAddress(fakeParse))
+        assertTrue("localhost:53".isLocalNameserverAddress(fakeParse))
+        assertFalse("192.0.2.53".isLocalNameserverAddress(fakeParse))
+        assertFalse("https://dns.example.com/dns-query".isLocalNameserverAddress(fakeParse))
+        // 端口、方括号、scheme、路径都去掉之后才交给解析函数
+        assertEquals(listOf("127.0.0.1", "::1", "0.0.0.0", "localhost", "192.0.2.53", "dns.example.com"), parsed)
+    }
+
+    @Test
+    fun `usableNameservers 按注入的解析函数过滤本机地址`() {
+        val text = listOf(
+            "https://dns.example.com/dns-query#h3",
+            "system",
+            "local",
+            "udp://127.0.0.1",
+            "[::1]:53",
+            "192.0.2.53",
+            "https://dns.example.com/dns-query",
+            "",
+        ).joinToString("\n")
+        assertEquals(listOf("https://dns.example.com/dns-query", "192.0.2.53"), text.usableNameservers(fakeParse))
+    }
 
     @Test
     fun `withHttpScheme 替换链接 scheme`() {

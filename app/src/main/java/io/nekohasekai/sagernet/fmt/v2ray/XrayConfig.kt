@@ -18,15 +18,10 @@ import moe.matsuri.nb4a.utils.listByLineOrComma
 fun VMessBean.xrayLacksTransport(): Boolean =
     type == "quic" || (type == "http" && isTLS())
 
-// Xray-core rejects allowInsecure at build time since 2026-06-01 (removed
-// feature, pinned v26.3.27 infra/conf/transport_internet.go); sing-box still
-// implements "insecure", so these profiles run there — the same fallback as
-// xrayLacksTransport. A certificate pin is unaffected: pinnedPeerCertSha256
-// is the offered replacement and wins over allowInsecure anyway.
-fun VMessBean.xrayLacksAllowInsecure(): Boolean =
-    isTLS() && certificateFingerprint.isBlank() && effectiveAllowInsecure(allowInsecure)
-
-// 同上，全局开关由调用方传入；buildXrayConfig 用这个，选核（coreForType）仍用上面读 DataStore 的版本
+// Xray-core 自 2026-06-01 起在生成配置时拒绝 allowInsecure（已移除的功能，见固定版本 v26.3.27 的
+// infra/conf/transport_internet.go）；sing-box 仍支持 "insecure"，所以这类节点改走 sing-box，与
+// xrayLacksTransport 同样的回退。证书固定不受影响：pinnedPeerCertSha256 是官方给的替代，本来就优先于
+// allowInsecure。全局开关由调用方传入：选核（coreForType）与 buildXrayConfig 共用
 fun VMessBean.xrayLacksAllowInsecure(globalAllowInsecure: Boolean): Boolean =
     isTLS() && certificateFingerprint.isBlank() && effectiveAllowInsecure(allowInsecure, globalAllowInsecure)
 

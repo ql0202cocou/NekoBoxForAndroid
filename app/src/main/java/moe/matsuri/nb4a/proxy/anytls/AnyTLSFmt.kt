@@ -8,7 +8,7 @@ import io.nekohasekai.sagernet.ktx.withHttpScheme
 import moe.matsuri.nb4a.SingBoxOptions
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
-fun buildSingBoxOutboundAnyTLSBean(bean: AnyTLSBean): SingBoxOptions.Outbound_AnyTLSOptions {
+fun buildSingBoxOutboundAnyTLSBean(bean: AnyTLSBean, globalAllowInsecure: Boolean): SingBoxOptions.Outbound_AnyTLSOptions {
     require(bean.certificateFingerprint.isNullOrBlank()) {
         "AnyTLS certificate fingerprint requires the mihomo core; sing-box only supports public-key pinning"
     }
@@ -18,7 +18,7 @@ fun buildSingBoxOutboundAnyTLSBean(bean: AnyTLSBean): SingBoxOptions.Outbound_An
         server_port = bean.serverPort
         password = bean.password
 
-        tls = buildSingBoxOutboundTLS(bean)
+        tls = buildSingBoxOutboundTLS(bean, globalAllowInsecure)
     }
 }
 

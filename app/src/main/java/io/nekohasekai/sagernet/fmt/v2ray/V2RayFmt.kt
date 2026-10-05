@@ -711,7 +711,7 @@ fun packetEncodingType(name: String?): Int? = when (name) {
     else -> null
 }
 
-fun buildSingBoxOutboundStandardV2RayBean(bean: StandardV2RayBean): Outbound {
+fun buildSingBoxOutboundStandardV2RayBean(bean: StandardV2RayBean, globalAllowInsecure: Boolean): Outbound {
     when (bean) {
         is HttpBean -> {
             return Outbound_HTTPOptions().apply {
@@ -720,7 +720,7 @@ fun buildSingBoxOutboundStandardV2RayBean(bean: StandardV2RayBean): Outbound {
                 server_port = bean.serverPort
                 username = bean.username
                 password = bean.password
-                tls = buildSingBoxOutboundTLS(bean)
+                tls = buildSingBoxOutboundTLS(bean, globalAllowInsecure)
             }
         }
 
@@ -735,7 +735,7 @@ fun buildSingBoxOutboundStandardV2RayBean(bean: StandardV2RayBean): Outbound {
                 }
                 packet_encoding =
                     if (bean.packetEncoding == 0) "" else packetEncodingName(bean.packetEncoding)
-                tls = buildSingBoxOutboundTLS(bean)
+                tls = buildSingBoxOutboundTLS(bean, globalAllowInsecure)
                 transport = buildSingBoxOutboundStreamSettings(bean)
             }
             return Outbound_VMessOptions().apply {
@@ -747,7 +747,7 @@ fun buildSingBoxOutboundStandardV2RayBean(bean: StandardV2RayBean): Outbound {
                 security = bean.encryption.takeIf { it.isNotBlank() } ?: "auto"
                 packet_encoding =
                     if (bean.packetEncoding == 0) "" else packetEncodingName(bean.packetEncoding)
-                tls = buildSingBoxOutboundTLS(bean)
+                tls = buildSingBoxOutboundTLS(bean, globalAllowInsecure)
                 transport = buildSingBoxOutboundStreamSettings(bean)
             }
         }
@@ -758,7 +758,7 @@ fun buildSingBoxOutboundStandardV2RayBean(bean: StandardV2RayBean): Outbound {
                 server = bean.serverAddress
                 server_port = bean.serverPort
                 password = bean.password
-                tls = buildSingBoxOutboundTLS(bean)
+                tls = buildSingBoxOutboundTLS(bean, globalAllowInsecure)
                 transport = buildSingBoxOutboundStreamSettings(bean)
             }
         }

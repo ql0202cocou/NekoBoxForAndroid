@@ -5,26 +5,33 @@ import moe.matsuri.nb4a.SingBoxOptions.RuleSet
 
 object SingBoxOptionsUtil {
 
-    fun domainStrategy(tag: String): String {
-        fun auto2(key: String, newS: String): String {
-            return (DataStore.configurationStore.getString(key) ?: "").replace("auto", newS)
+    // 取 DataStore 当前存的值，取值逻辑见 domainStrategyOf
+    fun domainStrategy(tag: String): String =
+        domainStrategyOf(tag) { key -> DataStore.configurationStore.getString(key) }
+
+}
+
+// 某个 DNS 服务器 tag 的 domain strategy：dns-remote、dns-direct 各读自己的键，其余（server、dns-group-N）
+// 都读 server 的键；存的 auto 换成该 tag 的默认（前两个为空，即跟随 IPv6 模式；server 为 prefer_ipv4）。
+// read 按键取存的原始值，没存过为 null
+fun domainStrategyOf(tag: String, read: (key: String) -> String?): String {
+    fun auto2(key: String, newS: String): String {
+        return (read(key) ?: "").replace("auto", newS)
+    }
+    return when (tag) {
+        "dns-remote" -> {
+            auto2("domain_strategy_for_remote", "")
         }
-        return when (tag) {
-            "dns-remote" -> {
-                auto2("domain_strategy_for_remote", "")
-            }
 
-            "dns-direct" -> {
-                auto2("domain_strategy_for_direct", "")
-            }
+        "dns-direct" -> {
+            auto2("domain_strategy_for_direct", "")
+        }
 
-            // server
-            else -> {
-                auto2("domain_strategy_for_server", "prefer_ipv4")
-            }
+        // server 及其余
+        else -> {
+            auto2("domain_strategy_for_server", "prefer_ipv4")
         }
     }
-
 }
 
 // 按前缀把域名规则分拣到各字段：geosite: 进 rule_set，full: / domain: / regexp: /
