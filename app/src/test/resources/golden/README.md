@@ -254,6 +254,14 @@ address/corpus.json                                        地址解析语料与
 socks 出站与入站都没有；同一份 sing-box 配置里本机凭据只有一组；运行 / 测速另核对跳实例记录的 `localAuth` 就是入站要求
 的。导出模式没有 `external` 记录，外核配置从 `export.txt` 的各段里取，并核对 Xray、mihomo 各最多一段。
 
+`GoldenExternalInvariantsTest` 在同一批合并配置上核对外核的「哑管道」不变量（plan.md K1）：Xray 与 mihomo 只承担节点拨号
+与本机端口绑定，不启用 tun、sniffing、DNS 或用户分流规则。检查在测试源集的 `ExternalCoreInvariants`：Xray 与 mihomo
+各一张键集白名单加取值约束（各级键的必填 / 可选 / 点名禁用，出站按协议、代理按类型），两张表互不套用，以后加协议只改
+表。范围是全部场景 run / test 的 `ext-*` 配置与 `export.txt` 里的 Xray / mihomo 段；测速控制器（`external-controller`
+与 `secret`）按 `result.json` 的记录单独断言：测速且开了控制器的才有，端口与 secret 对得上，运行与导出不许有。命中表里
+显式列出的例外要一个不多一个不少（目前只有 mihomo 只开 ECH、没有内联配置时自己查 DNS 这一项）。这是独立于基线的一层：
+重新采集基线时新增的键会被一起接受，却过不了这里。生成器侧的同一套检查与反例在 `ExternalCoreInvariantsTest`。
+
 ## result.json
 
 ```
