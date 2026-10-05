@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "group-dns-all-filtered",
   "description": "分组 DNS 只有被过滤的地址",
   "mainProfileId": 1,

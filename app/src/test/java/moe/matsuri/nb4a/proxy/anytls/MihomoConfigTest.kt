@@ -2,15 +2,18 @@ package moe.matsuri.nb4a.proxy.anytls
 
 import io.nekohasekai.sagernet.IPv6Mode
 import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
+import io.nekohasekai.sagernet.fmt.ExternalHop
+import io.nekohasekai.sagernet.fmt.ExternalRunPlan
 import io.nekohasekai.sagernet.fmt.LOCALHOST
-import io.nekohasekai.sagernet.fmt.externalCore
+import io.nekohasekai.sagernet.fmt.assemble
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.yaml.snakeyaml.Yaml
 
-// 固定设置与端口跑 mihomo 生成器，把 YAML 解析回来断言关键结构，不比整段文本
+// 固定设置与端口跑 mihomo 生成器（一组只有一个跳实例），把 YAML 解析回来断言关键结构，不比整段文本。
+// 多个跳实例的合并配置见 ExternalRunPlanTest
 class MihomoConfigTest {
 
     private val settings = ExternalCoreSettings(logLevel = 1, ipv6Mode = IPv6Mode.DISABLE, globalAllowInsecure = false)
@@ -31,29 +34,46 @@ class MihomoConfigTest {
 
     private fun Map<String, Any?>.proxy() = list("proxies").single()
 
+    // 映射目标取 bean 的 finalAddress / finalPort，与 ExternalRunPlan.from 一样
+    private fun hop(bean: AnyTLSBean) = ExternalHop(0, 0, 1L, bean, 20001, bean.finalAddress, bean.finalPort)
+
+    private fun config(
+        bean: AnyTLSBean,
+        settings: ExternalCoreSettings = this.settings,
+        controllerPort: Int? = null,
+        controllerSecret: String = "",
+    ) = buildMihomoConfig(
+        listOf(hop(bean)),
+        listOf(buildMihomoProxy(bean, bean.finalAddress, bean.finalPort, settings)),
+        settings,
+        controllerPort,
+        controllerSecret,
+    )
+
     private fun build(
         bean: AnyTLSBean = bean(),
         settings: ExternalCoreSettings = this.settings,
         controllerPort: Int? = null,
         controllerSecret: String = "",
-    ) = parse(buildMihomoConfig(bean, 20001, settings, controllerPort, controllerSecret))
+    ) = parse(config(bean, settings, controllerPort, controllerSecret))
 
     @Test
-    fun `基本结构：本机 socks 入口、单个 anytls 出站、全部走该出站`() {
+    fun `基本结构：本机 socks 入口绑定唯一的 anytls 代理，其余流量拒绝`() {
         val config = build()
         assertEquals("rule", config["mode"])
         assertFalse(config.containsKey("external-controller"))
         assertFalse(config.containsKey("secret"))
 
         val listener = config.list("listeners").single()
-        assertEquals("socks-in", listener["name"])
+        assertEquals("in-0", listener["name"])
         assertEquals("socks", listener["type"])
         assertEquals(LOCALHOST, listener["listen"])
         assertEquals(20001, listener["port"])
         assertEquals(true, listener["udp"])
+        assertEquals("out-0", listener["proxy"])
 
         val proxy = config.proxy()
-        assertEquals(MIHOMO_PROXY_NAME, proxy["name"])
+        assertEquals("out-0", proxy["name"])
         assertEquals("anytls", proxy["type"])
         assertEquals("server.example.test", proxy["server"])
         assertEquals(8443, proxy["port"])
@@ -63,7 +83,7 @@ class MihomoConfigTest {
         assertFalse(proxy.containsKey("fingerprint"))
         assertFalse(proxy.containsKey("ech-opts"))
 
-        assertEquals(listOf("MATCH,$MIHOMO_PROXY_NAME"), config["rules"])
+        assertEquals(listOf("MATCH,REJECT"), config["rules"])
     }
 
     @Test
@@ -134,10 +154,10 @@ class MihomoConfigTest {
     @Test
     fun `非法指纹与证书直接报错`() {
         assertThrows(IllegalArgumentException::class.java) {
-            buildMihomoConfig(bean { certificateFingerprint = "abc" }, 20001, settings)
+            config(bean { certificateFingerprint = "abc" })
         }
         assertThrows(IllegalArgumentException::class.java) {
-            buildMihomoConfig(bean { certificates = "not a certificate" }, 20001, settings)
+            config(bean { certificates = "not a certificate" })
         }
     }
 
@@ -158,17 +178,15 @@ class MihomoConfigTest {
     }
 
     @Test
-    fun `ExternalCore 显式传入的设置与 Clash API 参数传到生成器`() {
-        val core = externalCore(bean())!!
-        assertEquals("mihomo-plugin", core.pluginId)
-        val config = parse(
-            core.config(
-                20001,
-                { _, _ -> error("mihomo 不应申请临时文件") },
-                29090 to "fake-secret",
-                settings.copy(logLevel = 2, globalAllowInsecure = true),
-            )
+    fun `组装入口显式传入的设置与 Clash API 参数传到生成器`() {
+        val hop = hop(bean())
+        assertEquals("mihomo-plugin", hop.pluginId)
+        val processes = ExternalRunPlan(listOf(hop)).assemble(
+            { _, _ -> error("mihomo 不应申请临时文件") },
+            29090 to "fake-secret",
+            settings.copy(logLevel = 2, globalAllowInsecure = true),
         )
+        val config = parse(processes.single().config)
         assertEquals("info", config["log-level"])
         assertEquals("$LOCALHOST:29090", config["external-controller"])
         assertEquals("fake-secret", config["secret"])

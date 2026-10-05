@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-vmess-tcp-tls",
   "description": "VMess tcp + TLS",
   "mainProfileId": 1,

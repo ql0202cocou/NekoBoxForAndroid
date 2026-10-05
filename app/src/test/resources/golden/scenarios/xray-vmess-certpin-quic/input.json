@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "xray-vmess-certpin-quic",
   "description": "证书指纹 + quic：落到 sing-box 后无法固定，应报错",
   "mainProfileId": 1,

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "xray-vmess-insecure",
   "description": "VMess 手动指定 Xray 却开 allowInsecure：应报错",
   "mainProfileId": 1,

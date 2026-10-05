@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "multi-chain-xray-x3",
   "description": "一条链：三个 Xray 节点",
   "mainProfileId": 1,

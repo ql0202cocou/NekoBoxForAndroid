@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-vless-grpc-mux",
   "description": "VLESS gRPC + TLS + mux，手动指定 sing-box",
   "mainProfileId": 1,

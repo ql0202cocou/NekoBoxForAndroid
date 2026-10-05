@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-trojan-certpin",
   "description": "Trojan 证书固定：sing-box 不支持，应报错",
   "mainProfileId": 1,

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-hy2-hopping",
   "description": "Hysteria 2 端口跳跃与带宽",
   "mainProfileId": 1,

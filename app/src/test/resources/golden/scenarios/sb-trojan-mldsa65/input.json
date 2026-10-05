@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-trojan-mldsa65",
   "description": "Trojan mldsa65Verify：没有 Xray 路径，应报错",
   "mainProfileId": 1,

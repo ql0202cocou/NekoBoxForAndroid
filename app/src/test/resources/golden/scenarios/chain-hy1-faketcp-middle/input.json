@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "chain-hy1-faketcp-middle",
   "description": "faketcp 在链中间（不能映射，改走 detour）",
   "mainProfileId": 1,

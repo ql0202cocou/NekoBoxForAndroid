@@ -427,7 +427,7 @@ class GoldenCollector(private val args: CollectArgs) {
     }
 
     companion object {
-        const val FORMAT_VERSION = 1
+        const val FORMAT_VERSION = 2
         const val OUTPUT_DIR = "golden-out"
         const val OWNED_MARKER = "golden-collect.owned"
         val MODES = listOf("run", "test", "export")

@@ -19,20 +19,27 @@
   "external": [
     {
       "file": "ext-0.mieru-plugin.json",
-      "chainIndex": 0,
-      "profileId": 1,
       "pluginId": "mieru-plugin",
-      "port": 36121,
-      "finalAddress": "127.0.0.1",
-      "finalPort": 40005,
       "controller": null,
-      "tempFiles": []
+      "tempFiles": [],
+      "hops": [
+        {
+          "index": 0,
+          "chainIndex": 0,
+          "profileId": 1,
+          "port": 44315,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 41693,
+          "inboundTag": null,
+          "outboundTag": null
+        }
+      ]
     }
   ],
   "dynamic": {
     "ports": [
-      36121,
-      40005
+      44315,
+      41693
     ],
     "paths": [],
     "secrets": []

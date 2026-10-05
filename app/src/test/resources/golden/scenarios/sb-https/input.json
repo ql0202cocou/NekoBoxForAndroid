@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-https",
   "description": "HTTPS 代理（SNI、ALPN）",
   "mainProfileId": 1,

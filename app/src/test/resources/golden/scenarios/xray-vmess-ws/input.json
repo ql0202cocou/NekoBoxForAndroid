@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "xray-vmess-ws",
   "description": "VMess 手动指定 Xray，ws",
   "mainProfileId": 1,

@@ -5,7 +5,10 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.AbstractBean
+import io.nekohasekai.sagernet.fmt.ExternalCoreGroup
 import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
+import io.nekohasekai.sagernet.fmt.ExternalHop
+import io.nekohasekai.sagernet.fmt.ExternalRunPlan
 import io.nekohasekai.sagernet.fmt.putByteArray
 import org.junit.Assume.assumeTrue
 import java.io.File
@@ -24,21 +27,18 @@ enum class GoldenBoxMode(val dir: String) {
 }
 
 /**
- * 基线里的一份外核配置：调用 `externalCore(bean).config(port, cacheFile, controller, settings)` 所需的全部输入，
- * 加上基线里的配置原文。
+ * 基线里的一份外核配置（一组跳实例）：重新生成它所需的全部输入，加上基线里的配置原文。
+ * plan 是这个场景这个模式的完整外核运行计划（按 result.json 的 external 重建），用例要的是其中第 groupIndex 组。
  */
 class GoldenExternalCase(
     val scenarioId: String,
     val mode: GoldenBoxMode,
-    /** 配置原文的文件名 ext-<n>.<pluginId>.<json|yaml>，也是比较报告里的文档名。 */
+    /** 配置原文的文件名 ext-<n>.<pluginId>.<json|yaml>（n 即组序号），也是比较报告里的文档名。 */
     val file: String,
-    val chainIndex: Int,
-    val profileId: Long,
+    val groupIndex: Int,
     val pluginId: String,
-    /** 由 input.json 的 Kryo 字节新建的实例，已按 result.json 写好 finalAddress / finalPort；用例之间不共享。 */
-    val bean: AbstractBean,
-    /** 外核的本机 socks 端口。 */
-    val port: Int,
+    /** 跳实例的 bean 由 input.json 的 Kryo 字节新建，已写好 finalAddress / finalPort；用例之间不共享。 */
+    val plan: ExternalRunPlan,
     /** 测速时 mihomo 的 Clash API 端口与 secret，其余情况为 null。 */
     val controller: Pair<Int, String>?,
     /** 采集时经 cacheFile 领到、且出现在配置原文里的临时文件路径（hysteria 1 的 CA），比较时按动态路径处理。 */
@@ -47,8 +47,31 @@ class GoldenExternalCase(
     val expected: String,
     val format: GoldenFormat,
 ) {
+    val group: ExternalCoreGroup get() = plan.groups[groupIndex]
+
     override fun toString() = "$scenarioId / $mode / $file"
 }
+
+/** result.json 的 external 里一组的原样记录。 */
+class GoldenExternalGroup(
+    val file: String,
+    val pluginId: String,
+    val controller: Pair<Int, String>?,
+    val tempFiles: List<String>,
+    val hops: List<GoldenExternalHop>,
+)
+
+/** 一组里一个跳实例的记录；插件核心的配置不带标识，两个 tag 为 null。 */
+class GoldenExternalHop(
+    val index: Int,
+    val chainIndex: Int,
+    val profileId: Long,
+    val port: Int,
+    val finalAddress: String,
+    val finalPort: Int,
+    val inboundTag: String?,
+    val outboundTag: String?,
+)
 
 /** 一个场景的 input.json。 */
 class GoldenScenarioInput(val id: String, val dir: File, private val json: JsonObject) {
@@ -95,8 +118,8 @@ class GoldenBaseline private constructor(val root: File) {
     }
 
     /**
-     * 某个外核在基线里的全部配置（run 与 test 两种模式），按场景 id、模式、生成顺序排列。
-     * 只有 status 为 ok 的模式有外核配置。每个用例的 bean 都是新建的。
+     * 某个外核在基线里的全部配置（run 与 test 两种模式），按场景 id、模式、组的顺序排列。
+     * 只有 status 为 ok 的模式有外核配置。每个用例都按 result.json 重建一份完整的计划，bean 都是新建的。
      */
     fun externalCases(pluginId: String): List<GoldenExternalCase> {
         val cases = ArrayList<GoldenExternalCase>()
@@ -107,62 +130,110 @@ class GoldenBaseline private constructor(val root: File) {
                 val modeDir = File(input.dir, mode.dir)
                 val result = readObject(File(modeDir, "result.json"), where)
                 if (result.string("status", where) != "ok") continue
-                val external = result.array("external", where).map { it.asJsonObject }
-                checkExternalFiles(modeDir, external, where)
-                for (entry in external) {
-                    if (entry.string("pluginId", where) != pluginId) continue
-                    cases += externalCase(input, mode, entry, where)
+                val groups = externalGroups(result, where)
+                checkExternalFiles(modeDir, groups, where)
+                groups.forEachIndexed { groupIndex, group ->
+                    if (group.pluginId != pluginId) return@forEachIndexed
+                    cases += externalCase(input, mode, modeDir, groups, groupIndex, where)
                 }
             }
         }
         return cases
     }
 
+    /** 一个模式的 result.json 里 external 的原样记录（一组一项）。 */
+    fun externalGroups(scenarioId: String, mode: GoldenBoxMode): List<GoldenExternalGroup> {
+        val where = "$scenarioId/$mode/result.json"
+        val result = readObject(root.resolve("scenarios/$scenarioId/${mode.dir}/result.json"), where)
+        if (result.string("status", where) != "ok") return emptyList()
+        return externalGroups(result, where)
+    }
+
+    private fun externalGroups(result: JsonObject, where: String): List<GoldenExternalGroup> =
+        result.array("external", where).mapIndexed { n, element ->
+            val entry = element.asJsonObject
+            val file = entry.string("file", where)
+            val at = "$where external $file"
+            GoldenExternalGroup(
+                file = file,
+                pluginId = entry.string("pluginId", at),
+                controller = entry["controller"]?.takeUnless { it.isJsonNull }?.asJsonObject?.let {
+                    it.int("port", "$at controller") to it.string("secret", "$at controller")
+                },
+                tempFiles = entry.array("tempFiles", at).map { it.asString },
+                hops = entry.array("hops", at).map { it.asJsonObject }.map { hop ->
+                    GoldenExternalHop(
+                        index = hop.int("index", at),
+                        chainIndex = hop.int("chainIndex", at),
+                        profileId = hop.long("profileId", at),
+                        port = hop.int("port", at),
+                        finalAddress = hop.string("finalAddress", at),
+                        finalPort = hop.int("finalPort", at),
+                        inboundTag = hop.optString("inboundTag", at),
+                        outboundTag = hop.optString("outboundTag", at),
+                    )
+                }.also { check(it.isNotEmpty()) { "$at：第 $n 组没有跳实例" } },
+            )
+        }
+
+    // 按 result.json 重建这个模式的完整计划：跳实例按 index 排好，bean 从 input.json 新建并写回映射目标
+    // （插件核心的生成器从 bean 读 finalAddress / finalPort）。计划自己分出的组必须与记录的一致
+    private fun rebuildPlan(input: GoldenScenarioInput, groups: List<GoldenExternalGroup>, where: String): ExternalRunPlan {
+        val hops = groups.flatMap { it.hops }.sortedBy { it.index }
+        check(hops.map { it.index } == hops.indices.toList()) { "$where：跳实例序号 ${hops.map { it.index }} 不连续" }
+        val plan = ExternalRunPlan(hops.map { hop ->
+            val bean = input.newBean(hop.profileId).apply {
+                finalAddress = hop.finalAddress
+                finalPort = hop.finalPort
+            }
+            ExternalHop(hop.index, hop.chainIndex, hop.profileId, bean, hop.port, hop.finalAddress, hop.finalPort)
+        })
+        val planned = plan.groups.map { group -> group.pluginId to group.hops.map { it.index } }
+        val recorded = groups.map { group -> group.pluginId to group.hops.map { it.index } }
+        check(planned == recorded) { "$where：计划分出的组 $planned 与记录的 $recorded 不一致" }
+        // 记录的标识就是计划给的（插件核心记为 null）
+        for (hop in hops) {
+            val planHop = plan.hops[hop.index]
+            val tags = if (planHop.core.merged) planHop.inboundTag to planHop.outboundTag else null to null
+            check(hop.inboundTag to hop.outboundTag == tags) { "$where：跳实例 ${hop.index} 记录的标识与计划不一致" }
+        }
+        return plan
+    }
+
     private fun externalCase(
         input: GoldenScenarioInput,
         mode: GoldenBoxMode,
-        entry: JsonObject,
+        modeDir: File,
+        groups: List<GoldenExternalGroup>,
+        groupIndex: Int,
         resultWhere: String,
     ): GoldenExternalCase {
-        val file = entry.string("file", resultWhere)
-        val where = "$resultWhere external $file"
-        val profileId = entry.long("profileId", where)
-        // finalAddress / finalPort 是构建期间由 mapExternalHop 写进 bean 的运行期字段，不在 Kryo 字节里
-        val bean = input.newBean(profileId).apply {
-            finalAddress = entry.string("finalAddress", where)
-            finalPort = entry.int("finalPort", where)
-        }
-        val controller = entry["controller"]?.takeUnless { it.isJsonNull }?.asJsonObject?.let {
-            it.int("port", "$where controller") to it.string("secret", "$where controller")
-        }
-        val format = when (file.substringAfterLast('.')) {
+        val group = groups[groupIndex]
+        val format = when (group.file.substringAfterLast('.')) {
             "json" -> GoldenFormat.JSON
             "yaml" -> GoldenFormat.YAML
-            else -> error("$where：不认识的文件扩展名")
+            else -> error("$resultWhere external ${group.file}：不认识的文件扩展名")
         }
         return GoldenExternalCase(
             scenarioId = input.id,
             mode = mode,
-            file = file,
-            chainIndex = entry.int("chainIndex", where),
-            profileId = profileId,
-            pluginId = entry.string("pluginId", where),
-            bean = bean,
-            port = entry.int("port", where),
-            controller = controller,
-            tempFiles = entry.array("tempFiles", where).map { it.asString },
+            file = group.file,
+            groupIndex = groupIndex,
+            pluginId = group.pluginId,
+            plan = rebuildPlan(input, groups, resultWhere),
+            controller = group.controller,
+            tempFiles = group.tempFiles,
             settings = input.externalCoreSettings,
-            expected = File(input.dir, "${mode.dir}/$file").readText(),
+            expected = File(modeDir, group.file).readText(),
             format = format,
         )
     }
 
     // external 列出的文件与目录里的 ext-* 文件必须一一对应，且按 ext-0、ext-1……的顺序
-    private fun checkExternalFiles(modeDir: File, external: List<JsonObject>, where: String) {
-        val listed = external.map { it.string("file", where) }
-        listed.forEachIndexed { n, file ->
-            val pluginId = external[n].string("pluginId", where)
-            check(file.startsWith("ext-$n.$pluginId.")) { "$where：第 $n 项的文件名是 $file" }
+    private fun checkExternalFiles(modeDir: File, groups: List<GoldenExternalGroup>, where: String) {
+        val listed = groups.map { it.file }
+        groups.forEachIndexed { n, group ->
+            check(group.file.startsWith("ext-$n.${group.pluginId}.")) { "$where：第 $n 组的文件名是 ${group.file}" }
         }
         val present = modeDir.listFiles().orEmpty().map { it.name }.filter { it.startsWith("ext-") }.sorted()
         check(present == listed.sorted()) { "$where：external 列的文件 $listed 与目录里的 $present 不一致" }
@@ -218,6 +289,11 @@ private fun JsonObject.array(key: String, where: String) =
 private fun JsonObject.string(key: String, where: String): String =
     field(key, where).takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }?.asString
         ?: error("$where：$key 不是字符串")
+
+private fun JsonObject.optString(key: String, where: String): String? =
+    get(key)?.takeUnless { it.isJsonNull }?.let { value ->
+        value.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }?.asString ?: error("$where：$key 不是字符串")
+    }
 
 private fun JsonObject.bool(key: String, where: String): Boolean =
     field(key, where).takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isBoolean }?.asBoolean

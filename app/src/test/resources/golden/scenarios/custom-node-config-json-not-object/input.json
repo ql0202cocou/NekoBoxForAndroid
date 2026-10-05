@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "custom-node-config-json-not-object",
   "description": "节点自带的自定义配置不是对象：应报错",
   "mainProfileId": 1,

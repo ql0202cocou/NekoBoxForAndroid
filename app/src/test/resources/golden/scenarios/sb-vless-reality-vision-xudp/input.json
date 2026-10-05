@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-vless-reality-vision-xudp",
   "description": "VLESS REALITY + vision + xudp，手动指定 sing-box",
   "mainProfileId": 1,

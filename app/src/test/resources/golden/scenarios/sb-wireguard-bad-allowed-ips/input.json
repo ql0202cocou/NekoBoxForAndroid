@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-wireguard-bad-allowed-ips",
   "description": "WireGuard allowed IPs 不是 CIDR：应报错",
   "mainProfileId": 1,

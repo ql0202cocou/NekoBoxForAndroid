@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "settings-dns-direct-dhcp",
   "description": "直连 DNS dhcp://：不支持，应报错",
   "mainProfileId": 1,

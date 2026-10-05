@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "mihomo-anytls-certpin",
   "description": "AnyTLS 证书指纹（带冒号、大写）",
   "mainProfileId": 1,

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "group-landing-mihomo",
   "description": "主节点走 Xray，落地是 mihomo 节点",
   "mainProfileId": 1,

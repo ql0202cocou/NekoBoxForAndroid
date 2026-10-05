@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "chain-2-xray-xray",
   "description": "两跳都走 Xray",
   "mainProfileId": 1,

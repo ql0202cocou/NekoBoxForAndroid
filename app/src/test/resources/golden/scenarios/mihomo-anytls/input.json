@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "mihomo-anytls",
   "description": "AnyTLS：SNI 留空，兜底为服务器域名",
   "mainProfileId": 1,

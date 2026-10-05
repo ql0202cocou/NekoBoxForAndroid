@@ -1,11 +1,48 @@
 {
-  "formatVersion": 1,
-  "commit": "b83499f02c18c6c53a5e0a36467736a1b0fd753f",
+  "formatVersion": 2,
+  "commit": "a06c0d72f80032826b46b5383d3771e7137c2668",
   "dirty": {
-    "count": 0,
-    "top": [],
-    "codeCount": 0,
-    "codeTop": []
+    "count": 26,
+    "top": [
+      "app/src/debug/java/io/nekohasekai/sagernet/golden/collect/GoldenCollector.kt",
+      "app/src/debug/java/io/nekohasekai/sagernet/golden/collect/GoldenModes.kt",
+      "app/src/debug/java/io/nekohasekai/sagernet/golden/measure/GoldenMeasure.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/bg/proto/BoxInstance.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/bg/proto/ProxyInstance.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/bg/proto/TestInstance.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/database/ProxyEntity.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/ConfigBuilder.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/ExternalRunPlan.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/ProtocolHandlers.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/v2ray/XrayConfig.kt",
+      "app/src/main/java/moe/matsuri/nb4a/proxy/anytls/MihomoConfig.kt",
+      "app/src/test/java/io/nekohasekai/sagernet/fmt/ExternalRunPlanTest.kt",
+      "app/src/test/java/io/nekohasekai/sagernet/fmt/v2ray/XrayConfigTest.kt",
+      "app/src/test/java/io/nekohasekai/sagernet/golden/GoldenBaseline.kt",
+      "app/src/test/java/io/nekohasekai/sagernet/golden/GoldenCompare.kt",
+      "app/src/test/java/io/nekohasekai/sagernet/golden/GoldenCompareBaselineTest.kt",
+      "app/src/test/java/io/nekohasekai/sagernet/golden/GoldenCompareTree.kt",
+      "app/src/test/java/io/nekohasekai/sagernet/golden/GoldenCompareTreeTest.kt",
+      "app/src/test/java/io/nekohasekai/sagernet/golden/GoldenExternalCoreCheck.kt",
+      "app/src/test/java/io/nekohasekai/sagernet/golden/GoldenExternalCoreCheckTest.kt",
+      "app/src/test/java/io/nekohasekai/sagernet/golden/GoldenExternalWiringTest.kt",
+      "app/src/test/java/moe/matsuri/nb4a/proxy/anytls/MihomoConfigTest.kt",
+      "app/src/test/resources/golden/README.md",
+      "buildScript/golden/compare.sh",
+      "buildScript/golden/measure.sh"
+    ],
+    "codeCount": 9,
+    "codeTop": [
+      "app/src/main/java/io/nekohasekai/sagernet/bg/proto/BoxInstance.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/bg/proto/ProxyInstance.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/bg/proto/TestInstance.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/database/ProxyEntity.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/ConfigBuilder.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/ExternalRunPlan.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/ProtocolHandlers.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/v2ray/XrayConfig.kt",
+      "app/src/main/java/moe/matsuri/nb4a/proxy/anytls/MihomoConfig.kt"
+    ]
   },
   "app": {
     "applicationId": "moe.nb4a.debug",
@@ -64,5 +101,5 @@
     "exportOk": 249,
     "exportError": 44
   },
-  "collectedAt": "2026-10-05T00:56:42Z"
+  "collectedAt": "2026-10-05T00:58:47Z"
 }

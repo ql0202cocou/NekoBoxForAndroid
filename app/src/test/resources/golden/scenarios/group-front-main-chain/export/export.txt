@@ -78,7 +78,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 38353,
+      "listen_port": 37993,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-3",
@@ -91,7 +91,7 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 37659,
+      "server_port": 32825,
       "tag": "proxy",
       "type": "socks"
     },
@@ -172,8 +172,9 @@
   },
   "inbounds": [
     {
+      "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 37659,
+      "port": 32825,
       "protocol": "socks",
       "settings": {
         "udp": true
@@ -182,12 +183,17 @@
   ],
   "outbounds": [
     {
+      "tag": "block",
+      "protocol": "blackhole"
+    },
+    {
+      "tag": "out-0",
       "protocol": "vless",
       "settings": {
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 38353,
+            "port": 37993,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
@@ -208,5 +214,17 @@
         }
       }
     }
-  ]
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": [
+          "in-0"
+        ],
+        "outboundTag": "out-0"
+      }
+    ]
+  }
 }

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "xray-vmess-certpin",
   "description": "VMess 设证书指纹，自动选 Xray",
   "mainProfileId": 1,

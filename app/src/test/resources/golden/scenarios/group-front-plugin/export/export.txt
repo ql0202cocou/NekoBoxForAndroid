@@ -77,7 +77,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 43203,
+      "listen_port": 44143,
       "override_address": "trojan-go.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-10",
@@ -108,7 +108,7 @@
     },
     {
       "server": "127.0.0.1",
-      "server_port": 34067,
+      "server_port": 32975,
       "tag": "g-10",
       "type": "socks"
     },
@@ -167,9 +167,9 @@
 {
   "run_type": "client",
   "local_addr": "127.0.0.1",
-  "local_port": 34067,
+  "local_port": 32975,
   "remote_addr": "127.0.0.1",
-  "remote_port": 43203,
+  "remote_port": 44143,
   "password": [
     "golden-pass-trojan-go"
   ],

@@ -127,7 +127,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 33503,
+      "listen_port": 35711,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-4-mapping-4",
@@ -181,7 +181,7 @@
     },
     {
       "server": "127.0.0.1",
-      "server_port": 41989,
+      "server_port": 37089,
       "tag": "g-4",
       "type": "socks",
       "domain_resolver": {

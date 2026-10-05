@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-ssh-password",
   "description": "SSH 密码认证",
   "mainProfileId": 1,

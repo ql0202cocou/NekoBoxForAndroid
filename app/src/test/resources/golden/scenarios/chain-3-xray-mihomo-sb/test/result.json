@@ -26,33 +26,47 @@
   "external": [
     {
       "file": "ext-0.mihomo-plugin.yaml",
-      "chainIndex": 0,
-      "profileId": 4,
       "pluginId": "mihomo-plugin",
-      "port": 43479,
-      "finalAddress": "127.0.0.1",
-      "finalPort": 44683,
       "controller": null,
-      "tempFiles": []
+      "tempFiles": [],
+      "hops": [
+        {
+          "index": 0,
+          "chainIndex": 0,
+          "profileId": 4,
+          "port": 32965,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 44383,
+          "inboundTag": "in-0",
+          "outboundTag": "out-0"
+        }
+      ]
     },
     {
       "file": "ext-1.xray-plugin.json",
-      "chainIndex": 0,
-      "profileId": 3,
       "pluginId": "xray-plugin",
-      "port": 41349,
-      "finalAddress": "127.0.0.1",
-      "finalPort": 46297,
       "controller": null,
-      "tempFiles": []
+      "tempFiles": [],
+      "hops": [
+        {
+          "index": 1,
+          "chainIndex": 0,
+          "profileId": 3,
+          "port": 33347,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 34837,
+          "inboundTag": "in-1",
+          "outboundTag": "out-1"
+        }
+      ]
     }
   ],
   "dynamic": {
     "ports": [
-      43479,
-      41349,
-      44683,
-      46297
+      32965,
+      33347,
+      44383,
+      34837
     ],
     "paths": [],
     "secrets": []

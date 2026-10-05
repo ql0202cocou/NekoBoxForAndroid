@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "xray-vless-grpc-tls",
   "description": "VLESS gRPC + TLS + uTLS",
   "mainProfileId": 1,

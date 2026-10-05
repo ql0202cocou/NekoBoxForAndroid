@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "ext-naive-https",
   "description": "Naive https：SNI、额外请求头、insecure-concurrency、证书",
   "mainProfileId": 1,

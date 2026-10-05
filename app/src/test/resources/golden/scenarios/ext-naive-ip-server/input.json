@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "ext-naive-ip-server",
   "description": "Naive IPv4 服务器、无 SNI",
   "mainProfileId": 1,

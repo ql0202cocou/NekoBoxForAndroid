@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-ss-plugin-obfs",
   "description": "Shadowsocks + obfs-local 插件参数",
   "mainProfileId": 1,

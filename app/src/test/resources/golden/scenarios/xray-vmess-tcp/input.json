@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "xray-vmess-tcp",
   "description": "VMess 手动指定 Xray，tcp",
   "mainProfileId": 1,

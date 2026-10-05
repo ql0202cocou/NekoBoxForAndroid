@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "mihomo-anytls-ip-server",
   "description": "AnyTLS IPv4 服务器",
   "mainProfileId": 1,

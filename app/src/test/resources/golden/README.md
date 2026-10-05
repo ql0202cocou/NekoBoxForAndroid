@@ -1,8 +1,13 @@
-# 旧配置输出基线（golden）
+# 配置输出基线（golden）
 
-这里存的是重构配置生成代码之前、在 Android 模拟器上采集的旧输出（plan.md R1a 第 1 步）。之后的每次改动
-（设置注入、外核生成器改写序列化、K0 合并外核进程等）都重跑采集，用比较工具与这份基线对照；R1b 的 JVM
-黄金测试也以这里的 `input.json` 为输入。产物里的地址、凭据、密钥全部是虚构的（见「夹具」一节）。
+这里存的是在 Android 模拟器上采集的配置输出基线（plan.md R1a 第 1 步）。之后的每次改动（设置注入、外核生成器
+改写序列化等）都重跑采集，用比较工具与这份基线对照；R1b 的 JVM 黄金测试也以这里的 `input.json` 为输入。产物里的
+地址、凭据、密钥全部是虚构的（见「夹具」一节）。
+
+K0（每种核心一个进程）有意改变了外核一侧：Xray、mihomo 的配置按「组」合并，产物格式升到 v2。当时的做法是先用
+`./run golden compare --sing-box-only` 证明 sing-box 一侧与 R1a 的 v1 基线逐场景一致，再整体换成新采集的结果；
+插件核心（Trojan-Go、Naive、Mieru、Hysteria 1）的配置原文与 v1 相同，Xray / mihomo 合并配置里每个跳实例的出站 /
+代理与 v1 对应的单节点配置相同，只多了标识。
 
 采集入口只编进 debug 包（`app/src/debug/`），R1b 的 JVM 黄金测试建成后删除；这份基线不随之删除。
 
@@ -50,17 +55,35 @@ APK 只按 `app/build/outputs/apk/oss/debug/output-metadata.json`（Gradle 每�
 - 环境检查：装了 Trojan-Go / Naive / Mieru / Hysteria 的外部插件 app 时拒绝（结果会变，见下文）；
   设备上的 `libxray.so` / `libmihomo.so` 必须就是脚本刚装的 APK 里那份。
 
-## 目录结构（格式 v1）
+## 比较
+
+```bash
+./run golden compare <新采集目录> [基线目录]                  # 全部产物，基线默认本目录
+./run golden compare --sing-box-only <新采集目录> [基线目录]  # 只比 sing-box 一侧
+```
+
+比较逻辑在测试源集的 `GoldenCompareTree`（由 `GoldenCompareBaselineTest` 调用），规则见 `GoldenCompare.kt` 开头。
+`--sing-box-only` 只比 `input.json`（不含 `formatVersion`）、`sing-box.json`、`export.txt` 的第 0 段、`result.json`
+里除 `external` 之外的部分（含 `dynamic` 的个数）；外核配置（`ext-*`、`export.txt` 第 1 段起、`external`）与带格式
+版本号的 `address/corpus.json` 不比较，外核一侧的动态值不出现也不给警告。它用来证明只改外核一侧的改动（含产物格式
+升级）没有动到 sing-box 一侧：两侧可以是不同格式版本的产物。
+
+## 目录结构（格式 v2）
 
 ```
 manifest.json                                              采集元数据，不参与比较
 scenarios/<场景 id>/input.json                              输入：设置、分组、节点、规则
 scenarios/<场景 id>/<mode>/result.json                      mode 为 run、test、export
 scenarios/<场景 id>/<mode>/sing-box.json                    run / test 成功时：sing-box 配置原文
-scenarios/<场景 id>/<mode>/ext-<n>.<pluginId>.<json|yaml>   run / test 成功时：第 n 个外核配置原文（n 从 0 起，按生成顺序）
+scenarios/<场景 id>/<mode>/ext-<n>.<pluginId>.<json|yaml>   run / test 成功时：第 n 组外核的配置原文（n 从 0 起，按组的顺序）
 scenarios/<场景 id>/export/export.txt                       export 成功时：exportConfig() 返回的整段原文
 address/corpus.json                                        地址解析语料与旧实现的结果
 ```
+
+「组」来自外核运行计划（`fmt/ExternalRunPlan.kt`）：一次构建里每个走外核的跳实例（某条链上的一个外核节点；同一个
+节点在不同链里是不同的跳实例）按 `externalIndex` 的遍历顺序编号，Xray 的全部跳实例一组、mihomo 的全部跳实例一组，
+插件核心每个跳实例一组；组的顺序按各组第一个跳实例。一组一份配置、一个进程。v1 是一个跳实例一份配置（`ext-<n>`
+的 n 是跳实例序号），`result.json` 的 `external` 逐跳实例记录；其余布局与 v2 相同。
 
 场景 id 只用小写字母、数字和连字符。配置原文按 UTF-8 原样写入，一个字节都不改；其余 JSON 由采集入口
 用 Gson 输出（缩进两格，末尾一个换行）。外核配置只有 mihomo 是 YAML。
@@ -69,12 +92,12 @@ address/corpus.json                                        地址解析语料与
 
 | mode | 走的路径 | 说明 |
 | --- | --- | --- |
-| `run` | 真实的 `BoxInstance.init()` | `buildConfig(profile)`，再对 `externalIndex` 逐项 `initPlugin` 并调 `core.config(port, cacheFile, null)`。只把 `loadConfig` 换成空操作（不建 libcore box），不调 `launch` |
+| `run` | 真实的 `BoxInstance.init()` | `buildConfig(profile)`，再由构建结果建外核运行计划，经运行 / 测速 / 导出共用的组装入口 `ExternalRunPlan.assemble` 逐个跳实例 `initPlugin`、生成每组的配置。只把 `loadConfig` 换成空操作（不建 libcore box），不调 `launch` |
 | `test` | 同上，`buildConfig` 与 `mihomoTestController` 经反射调用一个真实 `TestInstance` 的实现 | 即 `buildConfig(profile, true)`；单节点 AnyTLS 走 mihomo 且分组没有前置 / 落地时，mihomo 配置带 Clash API 端口与随机 secret |
-| `export` | 直接调 `ProxyEntity.exportConfig()` | |
+| `export` | 直接调 `ProxyEntity.exportConfig()` | sing-box 配置后接每组一段外核配置（同一个组装入口），段间一个空行 |
 
 与真实运行的差别只有两处：不建 libcore box；Trojan-Go / Naive / Mieru / Hysteria 插件在模拟器上都没装，
-`initPlugin` 会对它们抛「插件未安装」，run / test 预先往 `pluginPath` 填占位结果绕过（`core.config` 本身
+`initPlugin` 会对它们抛「插件未安装」，run / test 预先往 `pluginPath` 填占位结果绕过（生成配置本身
 用不到插件路径）。每种模式都从数据库重新取实体，互不影响。
 
 ## 依赖模拟器条件的结果
@@ -95,7 +118,7 @@ address/corpus.json                                        地址解析语料与
 
 | 字段 | 内容 |
 | --- | --- |
-| `formatVersion` | 1 |
+| `formatVersion` | 2（K0 起；v1 见「目录结构」一节末尾） |
 | `commit` | 采集所基于的提交 |
 | `dirty` | 工作区的改动：`count` 是有改动的路径总数（含未跟踪文件，0 即干净），`top` 是排序后的前 50 条；`codeCount` / `codeTop` 是其中不在 `app/src/debug/`、`app/src/test/`、`buildScript/golden/`、`doc/` 之下的路径，`codeCount` 非 0 说明有可能影响配置输出的代码改动。（旧格式的 manifest 没有 `dirty`，只有全部路径的数组 `dirtyPaths`） |
 | `app` | applicationId、versionName、versionCode、flavor、buildType |
@@ -123,12 +146,19 @@ address/corpus.json                                        地址解析语料与
 `GoldenInputTest` 遍历本目录的 `input.json`，用生产代码（`ProxyEntity.putByteArray`）把每个 bean 反序列化，
 核对类型，并核对重新序列化得到同样的字节。
 
-外核配置的 JVM 黄金测试也从这里取输入：`GoldenBaseline` 列出某个 pluginId 在 run / test 下的全部外核配置
-（bean 每个用例新建一份，并按 `result.json` 的 `external` 写回 `finalAddress` / `finalPort`；设置取
-`effectiveSettings` 的 `logLevel`、`ipv6Mode`、`globalAllowInsecure`），
-`GoldenExternalCoreCheck.assertMatchesBaseline(pluginId)` 经 `externalCore(bean).config(…)` 重新生成，与配置原文
-做结构比较。端口直接用记录的值；`tempFiles` 与本次 `cacheFile` 分到的路径按动态路径比较。每个核心一个测试类
-（如 `GoldenMihomoTest`）。
+外核配置的 JVM 黄金测试也从这里取输入：`GoldenBaseline` 列出某个 pluginId 在 run / test 下的全部外核配置（一组一个
+用例），每个用例按 `result.json` 的 `external` 重建这个模式的完整运行计划（bean 每个用例新建一份，并写回
+`finalAddress` / `finalPort`；核对计划分出的组与标识和记录的一致；设置取 `effectiveSettings` 的 `logLevel`、
+`ipv6Mode`、`globalAllowInsecure`），`GoldenExternalCoreCheck.assertMatchesBaseline(pluginId)` 经组装入口
+`assemble` 重新生成，取这一组的配置与原文做结构比较。端口直接用记录的值；`tempFiles` 与本次 `cacheFile` 分到的路径
+按动态路径比较。每个核心一个测试类（如 `GoldenMihomoTest`）。
+
+`GoldenExternalWiringTest` 直接在基线上核对两端接得上：每个场景每种模式里，sing-box 配置中每个指向本机的 socks
+出站端口都恰好是某份外核配置里一个入站的端口（反过来每个外核入站也恰好被一个 socks 出站用到）；该入站绑定的出站拨向
+的地址端口等于跳实例的映射目标（hysteria 1 免映射时按 `serverPorts` 拨号，只核对地址）；映射目标是本机时，sing-box
+配置里有监听这个端口的映射入站。Xray 另核对第一个出站是 blackhole、每个入站恰有一条规则且指向存在的出站，mihomo
+另核对 `rules` 是 `MATCH,REJECT`、每个 listener 的 `proxy` 指向存在的代理。导出模式没有 `external` 记录，外核配置
+从 `export.txt` 的各段里取，并核对 Xray、mihomo 各最多一段。
 
 ## result.json
 
@@ -139,20 +169,25 @@ address/corpus.json                                        地址解析语料与
   "exportName": "…",                                                          仅 export 且 ok
   "build": { "mainEntId", "selectorGroupId", "profileTagMap": { "节点 id": tag },
              "trafficMap": { tag: [节点 id] }, "boxIndexNames": {}, "boxTagNames": {} },   仅 run / test 且 ok
-  "external": [ { "file", "chainIndex", "profileId", "pluginId", "port", "finalAddress", "finalPort",
-                  "controller": { "port", "secret" } | null, "tempFiles": [] } ],          仅 run / test 且 ok，按生成顺序
+  "external": [ { "file", "pluginId", "controller": { "port", "secret" } | null, "tempFiles": [],
+                  "hops": [ { "index", "chainIndex", "profileId", "port", "finalAddress", "finalPort",
+                              "inboundTag", "outboundTag" } ] } ],                       仅 run / test 且 ok，一组一项，按组的顺序
   "dynamic": { "ports": [], "paths": [], "secrets": [] }
 }
 ```
 
 - `error`：构建路径抛出的异常就是这个场景的旧行为，记异常类全名、`message`（不取本地化消息）与 cause 链。
 - `build` 里的映射按键排序输出；`trafficMap` 的值保持原列表顺序。
-- `external[].controller` 是传给 `core.config` 的测速控制端口与 secret；`tempFiles` 是 `core.config` 期间经
+- `external[]` 一组一项：`file` 是这组的配置原文，`hops` 是组里的跳实例（`index` 是计划内序号，`chainIndex` 是
+  所在链在 `externalIndex` 里的序号，`port` 是本机 socks 端口，`finalAddress` / `finalPort` 是映射目标）。
+  `inboundTag` / `outboundTag` 是跳实例在 Xray 配置里的入站 / 出站 tag、在 mihomo 配置里的 listener / 代理名
+  （`in-<index>` / `out-<index>`）；插件核心的配置沿用单节点格式，不带标识，记为 null。
+- `external[].controller` 是写进这份 mihomo 配置的测速控制端口与 secret（其余组为 null）；`tempFiles` 是组装期间经
   `cacheFile` 领到、且出现在这份外核配置里的文件（hysteria 1 的 CA），采集结束即删除。
 - `dynamic` 列出本模式这一次构建里每次运行都可能不同的全部取值，比较工具只按它替换：
   - `ports`：`mkPort()` 分到的端口。先按 sing-box 配置的结构找——指向 127.0.0.1 的 socks 出站的
     `server_port`（按 outbounds 顺序），再是 tag 含 `-mapping-` 的映射入站的 `listen_port`（按 inbounds
-    顺序）；run / test 再补上 `externalIndex` 里的本机端口与测速控制端口。两次采集同一位置一一对应。
+    顺序）；run / test 再补上运行计划里各跳实例的本机端口与测速控制端口。两次采集同一位置一一对应。
   - `paths`：临时文件的绝对路径（run / test 来自 `tempFiles`，export 按 cacheDir 前缀从原文里找）。
   - `secrets`：测速时随机生成的 mihomo Clash API secret。
   - 夹具与设置固定下来的值（mixed 端口、预先写好的 Clash API secret、节点的服务器端口等）不算动态值。
@@ -256,9 +291,9 @@ raw/             原始数据：device.txt、host.txt、prepare/start/finish(.tx
 | `args` | 本次参数 |
 | `app` | 包名、APK、versionCode、提交与工作区改动数、Xray / mihomo 版本（取自 `plugins.sh`） |
 | `device` | 系统版本、API 级别、build 类型、fingerprint、型号、ABI、`memTotalKb`、`cpus`；`maxPhantomProcesses` / `monitorPhantomProcs` 的原值与生效值；`processCountBeforeStart`（发出启动前 `ps -A` 的进程数）；`vpnAppopBefore`；`topActivityAtStart`（发出启动时前台的界面） |
-| `fixture` | `measurePrepare` 的返回：各类成员数、选中节点、按生产代码构建出的外核分布 `externalIndex` |
+| `fixture` | `measurePrepare` 的返回：各类成员数、选中节点、按生产代码构建出的外核跳实例分布 `externalIndex` 与按运行计划应起的进程数 `externalProcesses`（都按插件 id 计） |
 | `start` | `connectedMs`：从发出启动到服务报 `Connected` 的毫秒数（主进程收到状态回调的时刻）；`transitions`：取样期间收到的全部状态变化（含消息）；没连上时 `failure` 给出状态与原因；请求本身失败时 `error` |
-| `processes.xray` / `.mihomo` | `expected`（节点数）、`max` 与 `maxAtMs`、`final`（最后一个样本）、`secondHalfMin` / `secondHalfMax`（后半段的范围）、`distinctPids`（取样期间出现过的不同 pid）、`pidsBeyondExpected`、`pidsNewAfterConnected`（连接后才出现的 pid，即重启出来的）、`pidsGoneBeforeEnd`。取样间隔内生灭的进程看不到，这些数只是下限 |
+| `processes.xray` / `.mihomo` | `expected`（按运行计划应有的进程数，取自 `fixture.externalProcesses`；K0 起 Xray、mihomo 各 1 个）、`nodes`（节点数）、`max` 与 `maxAtMs`、`final`（最后一个样本）、`secondHalfMin` / `secondHalfMax`（后半段的范围）、`distinctPids`（取样期间出现过的不同 pid）、`pidsBeyondExpected`、`pidsNewAfterConnected`（连接后才出现的 pid，即重启出来的）、`pidsGoneBeforeEnd`。取样间隔内生灭的进程看不到，这些数只是下限 |
 | `processes.bgPids` / `mainPids` | 取样期间出现过的 `:bg` / 主进程 pid（多于一个说明进程重启过） |
 | `phantom` | 取样期间 logcat 里 ActivityManager 的 `Killing PhantomProcessRecord … : <原因>`：`killCount`、其中本应用外核的 `killCountOurCores`、按进程名与原因的计数、首末次时刻、`bursts`（2 秒内的算一批，带设备 epoch 秒与被杀 pid）与 `burstIntervalsMs`；`amKillEvents`（events 缓冲区的 `am_kill`）；`knownAtEnd` / `knownAtEndOurCores`（取样结束时系统登记的 phantom process 数）；`sampleLines`（含 phantom 字样的原文，前 12 条） |
 | `appLogs` | `neko.log` 里 `GuardedProcessPool` 的日志：`counts`（`startProcess`、`killed`、`unexpectedExit`、`exitsTooFast`、`restartProcess`、`stopGuard`，各分 Xray / mihomo）、`samples`（每类前 5 条原文）、`events`（时刻按 Go 日志前缀算，只精确到秒） |

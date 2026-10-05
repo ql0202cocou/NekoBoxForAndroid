@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "selector-name-collision",
   "description": "选择器：成员名与内置 tag / 生成 tag 撞名、重名",
   "mainProfileId": 1,

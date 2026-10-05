@@ -378,6 +378,7 @@ object GoldenCompare {
     /**
      * 比较两组文档（一个场景的一个模式）。每侧按列表次序遍历编号，所以列表须按约定次序给出：
      * sing-box 配置、各外核配置、最后是 result.json。文档按名字配对，只在一侧出现的算差异。
+     * reportUnused 为 false 时不对没出现过的动态值给警告（只比一部分文档时，其余动态值本来就不会出现）。
      */
     fun compareDocumentSets(
         expected: List<GoldenDocument>,
@@ -385,12 +386,13 @@ object GoldenCompare {
         actual: List<GoldenDocument>,
         actualDynamic: GoldenDynamic,
         prefix: String = "",
+        reportUnused: Boolean = true,
     ): GoldenCompareResult {
         val diffs = ArrayList<GoldenDiff>()
         val warnings = ArrayList<String>()
         val label = prefix.ifEmpty { "文档" }
-        val e = substituteAll(expected, expectedDynamic, "预期", prefix, diffs, warnings, label)
-        val a = substituteAll(actual, actualDynamic, "实际", prefix, diffs, warnings, label)
+        val e = substituteAll(expected, expectedDynamic, "预期", prefix, diffs, warnings.takeIf { reportUnused }, label)
+        val a = substituteAll(actual, actualDynamic, "实际", prefix, diffs, warnings.takeIf { reportUnused }, label)
         val names = (expected.map { it.name } + actual.map { it.name }).distinct()
         for (name in names) {
             val file = prefix + name
@@ -416,7 +418,7 @@ object GoldenCompare {
         side: String,
         prefix: String,
         diffs: MutableList<GoldenDiff>,
-        warnings: MutableList<String>,
+        warnings: MutableList<String>?,
         label: String,
     ): Map<String, GoldenValue> {
         val placeholders = GoldenPlaceholders(dynamic)
@@ -432,7 +434,7 @@ object GoldenCompare {
                 diffs.add(GoldenDiff(prefix + doc.name, "", "${side}一侧解析失败：${e.message}"))
             }
         }
-        placeholders.unused().forEach { warnings.add("$label [$side]：$it 没有在任何文档里出现") }
+        warnings?.let { list -> placeholders.unused().forEach { list.add("$label [$side]：$it 没有在任何文档里出现") } }
         return out
     }
 

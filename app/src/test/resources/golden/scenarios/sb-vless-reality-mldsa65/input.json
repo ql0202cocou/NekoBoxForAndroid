@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-vless-reality-mldsa65",
   "description": "VLESS mldsa65Verify 手动指定 sing-box：应报错",
   "mainProfileId": 1,

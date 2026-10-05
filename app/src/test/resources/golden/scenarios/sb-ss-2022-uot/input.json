@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-ss-2022-uot",
   "description": "Shadowsocks 2022 + UDP over TCP",
   "mainProfileId": 1,

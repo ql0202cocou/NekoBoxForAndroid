@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-socks4",
   "description": "SOCKS4，IPv4 服务器，无认证",
   "mainProfileId": 1,

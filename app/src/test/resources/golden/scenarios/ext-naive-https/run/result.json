@@ -19,20 +19,27 @@
   "external": [
     {
       "file": "ext-0.naive-plugin.json",
-      "chainIndex": 0,
-      "profileId": 1,
       "pluginId": "naive-plugin",
-      "port": 44297,
-      "finalAddress": "127.0.0.1",
-      "finalPort": 34147,
       "controller": null,
-      "tempFiles": []
+      "tempFiles": [],
+      "hops": [
+        {
+          "index": 0,
+          "chainIndex": 0,
+          "profileId": 1,
+          "port": 43719,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 33649,
+          "inboundTag": null,
+          "outboundTag": null
+        }
+      ]
     }
   ],
   "dynamic": {
     "ports": [
-      44297,
-      34147
+      43719,
+      33649
     ],
     "paths": [],
     "secrets": []

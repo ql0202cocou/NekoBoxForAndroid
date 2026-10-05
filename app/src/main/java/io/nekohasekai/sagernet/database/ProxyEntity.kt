@@ -221,22 +221,17 @@ data class ProxyEntity(
             name = "profiles.txt"
         }
         val text = StringBuilder(config.config)
-        // an external core config may reference a temp file (the hysteria CA);
-        // the exported JSON keeps the path, but the file itself must not
-        // linger in cacheDir — core.config() 中途抛异常时也要清掉已创建的
+        // 外核配置可能引用临时文件（hysteria 的 CA）：导出的配置保留路径，文件本身不能留在 cacheDir，
+        // 组装中途抛异常时也要清掉已创建的
         val tempFiles = ArrayList<File>()
         try {
-            for ((chain) in config.externalIndex) {
-                for ((port, profile) in chain) {
-                    val bean = profile.requireBean()
-                    val core = externalCore(bean) ?: continue
-                    text.append("\n\n")
-                    text.append(withProfileName(bean) {
-                        core.config(port, { prefix, ext ->
-                            File.createTempFile(prefix + "_", ".$ext", app.cacheDir).also { tempFiles.add(it) }
-                        }, null)
-                    })
-                }
+            // 与运行、测速同一个组装入口：每组（Xray、mihomo 各一组，插件核心每个跳实例一组）一段
+            val processes = ExternalRunPlan.from(config).assemble({ prefix, ext ->
+                File.createTempFile(prefix + "_", ".$ext", app.cacheDir).also { tempFiles.add(it) }
+            }, null)
+            for (process in processes) {
+                text.append("\n\n")
+                text.append(process.config)
             }
         } finally {
             tempFiles.forEach { runCatching { it.delete() } }

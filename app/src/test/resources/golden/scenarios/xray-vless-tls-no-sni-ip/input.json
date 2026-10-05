@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "xray-vless-tls-no-sni-ip",
   "description": "VLESS TLS 不填 SNI、IP 服务器：SNI 兜底为服务器地址",
   "mainProfileId": 1,

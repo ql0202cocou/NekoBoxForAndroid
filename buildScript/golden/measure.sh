@@ -422,7 +422,12 @@ for s in samples:
     s.pop("_status", None)
 
 
-def core_stats(core, expected):
+# 按运行计划应起的外核进程数（measurePrepare 的 externalProcesses，键是插件 id）；没有时按节点数
+planned = (prepare["result"].get("externalProcesses") or {}) if prepare and prepare["status"] == "ok" else {}
+
+
+def core_stats(core, nodes):
+    expected = planned.get(core + "-plugin", nodes)
     counts = [(s["tMs"], len(s[core])) for s in samples]
     if not counts:
         return None
@@ -438,13 +443,14 @@ def core_stats(core, expected):
     base = next((s["tMs"] for s in samples if connected and s["tMs"] >= connected["tMs"]), None)
     return {
         "expected": expected,
+        "nodes": nodes,
         "max": peak,
         "maxAtMs": next(t for t, c in counts if c == peak),
         "final": counts[-1][1],
         "secondHalfMin": min((len(s[core]) for s in late), default=None),
         "secondHalfMax": max((len(s[core]) for s in late), default=None),
         "distinctPids": len(first_seen),
-        # 多于节点数即有进程被杀后由应用重启（取样间隔内生灭的进程看不到，只是下限）
+        # 多于应有的进程数即有进程被杀后由应用重启（取样间隔内生灭的进程看不到，只是下限）
         "pidsBeyondExpected": max(0, len(first_seen) - expected),
         "pidsNewAfterConnected": None if base is None else sum(1 for t in first_seen.values() if t > base),
         "pidsGoneBeforeEnd": sum(1 for t in last_seen.values() if t < samples[-1]["tMs"]),
@@ -710,9 +716,9 @@ else:
 for core in ("xray", "mihomo"):
     st = result["processes"][core]
     if st:
-        print("%s：最多 %d 个（%s），结束时 %d 个，后半段 %s–%s 个，出现过 %d 个不同 pid（节点 %d 个）"
+        print("%s：最多 %d 个（%s），结束时 %d 个，后半段 %s–%s 个，出现过 %d 个不同 pid（节点 %d 个，应有进程 %d 个）"
               % (core, st["max"], fmt_ms(st["maxAtMs"]), st["final"], st["secondHalfMin"], st["secondHalfMax"],
-                 st["distinctPids"], st["expected"]))
+                 st["distinctPids"], st["nodes"], st["expected"]))
 pb = phantom_block
 print("系统清理：phantom 进程被杀 %d 次（本应用外核 %d 次），%d 批，首次 %s，末次 %s，批间隔 %s"
       % (pb["killCount"], pb["killCountOurCores"], len(pb["bursts"]), fmt_ms(pb["firstKillMs"]),

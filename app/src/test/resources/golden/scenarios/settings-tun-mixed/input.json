@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "settings-tun-mixed",
   "description": "tun 实现 mixed",
   "mainProfileId": 1,

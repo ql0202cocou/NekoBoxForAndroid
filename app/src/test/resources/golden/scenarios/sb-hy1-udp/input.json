@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-hy1-udp",
   "description": "Hysteria 1（UDP，sing-box）：obfs、接收窗口、关闭 MTU 探测",
   "mainProfileId": 1,

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-trojan-ws-tls",
   "description": "Trojan ws + TLS",
   "mainProfileId": 1,

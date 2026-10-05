@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-vless-tcp-tls",
   "description": "VLESS 手动指定 sing-box，tcp + TLS",
   "mainProfileId": 1,

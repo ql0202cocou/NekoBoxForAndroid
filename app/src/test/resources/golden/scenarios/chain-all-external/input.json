@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "chain-all-external",
   "description": "全外核链：Trojan-Go、Naive、Mieru、Hysteria 1、Xray、mihomo",
   "mainProfileId": 1,

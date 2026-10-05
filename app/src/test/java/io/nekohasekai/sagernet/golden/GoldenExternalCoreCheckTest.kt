@@ -31,17 +31,20 @@ class GoldenExternalCoreCheckTest {
         val baseline = GoldenBaseline.assumeAvailable()
         val beans = Collections.newSetFromMap(IdentityHashMap<Any, Boolean>())
         var total = 0
+        var hops = 0
         for (pluginId in pluginIds) {
             val cases = baseline.externalCases(pluginId)
             for (mode in GoldenBoxMode.entries) {
                 assertTrue("$pluginId $mode 没有用例", cases.any { it.mode == mode })
             }
             cases.forEach { assertEquals(it.toString(), pluginId, it.pluginId) }
-            cases.forEach { beans += it.bean }
+            cases.forEach { assertEquals(it.toString(), pluginId, it.group.pluginId) }
+            cases.forEach { case -> case.plan.hops.forEach { beans += it.bean } }
             total += cases.size
+            hops += cases.sumOf { it.plan.hops.size }
         }
-        // 每个用例一份 bean，互不共享
-        assertEquals(total, beans.size)
+        // 每个用例重建自己的计划，bean 互不共享
+        assertEquals(hops, beans.size)
         val files = baseline.scenarioIds.sumOf { id ->
             GoldenBoxMode.entries.sumOf { mode ->
                 baseline.root.resolve("scenarios/$id/${mode.dir}").listFiles().orEmpty().count { it.name.startsWith("ext-") }
@@ -53,8 +56,11 @@ class GoldenExternalCoreCheckTest {
     @Test
     fun `mihomo 用例带上了运行期字段、测速控制端口与设置`() {
         val cases = GoldenBaseline.assumeAvailable().externalCases("mihomo-plugin")
-        assertTrue(cases.all { it.bean is AnyTLSBean && it.format == GoldenFormat.YAML })
-        assertTrue(cases.all { it.bean.finalAddress.isNotEmpty() && it.bean.finalPort > 0 })
+        assertTrue(cases.all { it.format == GoldenFormat.YAML })
+        val hops = cases.flatMap { it.group.hops }
+        assertTrue(hops.all { it.bean is AnyTLSBean })
+        assertTrue(hops.all { it.finalAddress.isNotEmpty() && it.finalPort > 0 })
+        assertTrue(hops.all { it.bean.finalAddress == it.finalAddress && it.bean.finalPort == it.finalPort })
         assertTrue(cases.filter { it.mode == GoldenBoxMode.RUN }.all { it.controller == null })
         assertTrue(cases.any { it.mode == GoldenBoxMode.TEST && it.controller != null })
         assertTrue("应当覆盖不同的日志级别", cases.map { it.settings.logLevel }.distinct().size > 1)

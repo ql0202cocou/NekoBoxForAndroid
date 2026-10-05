@@ -1,16 +1,16 @@
 log-level: warning
 mode: rule
-external-controller: 127.0.0.1:34411
-secret: 5ea005bcf02d4af89516db4310843479
+external-controller: 127.0.0.1:40555
+secret: 7c46afe8e5914e26be297b5bc69b661e
 listeners:
-- {name: socks-in, type: socks, listen: 127.0.0.1, port: 37853, udp: true}
+- {name: in-0, type: socks, listen: 127.0.0.1, port: 33629, udp: true, proxy: out-0}
 proxies:
-- name: anytls-out
+- name: out-0
   type: anytls
   server: 127.0.0.1
-  port: 40759
+  port: 43559
   password: golden-pass-anytls
   udp: true
   sni: anytls.example.com
   ech-opts: {enable: true}
-rules: ['MATCH,anytls-out']
+rules: ['MATCH,REJECT']

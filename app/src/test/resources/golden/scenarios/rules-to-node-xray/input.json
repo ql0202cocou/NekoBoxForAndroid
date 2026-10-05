@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "rules-to-node-xray",
   "description": "规则目标是 Xray 节点",
   "mainProfileId": 1,

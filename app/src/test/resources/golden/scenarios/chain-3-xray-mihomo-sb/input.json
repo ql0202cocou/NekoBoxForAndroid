@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "chain-3-xray-mihomo-sb",
   "description": "三跳混合链，顺序 xray-mihomo-sb",
   "mainProfileId": 1,

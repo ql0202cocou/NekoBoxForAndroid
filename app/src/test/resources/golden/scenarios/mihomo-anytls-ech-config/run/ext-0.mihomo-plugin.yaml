@@ -1,14 +1,14 @@
 log-level: warning
 mode: rule
 listeners:
-- {name: socks-in, type: socks, listen: 127.0.0.1, port: 41847, udp: true}
+- {name: in-0, type: socks, listen: 127.0.0.1, port: 37683, udp: true, proxy: out-0}
 proxies:
-- name: anytls-out
+- name: out-0
   type: anytls
   server: 127.0.0.1
-  port: 37403
+  port: 35371
   password: golden-pass-anytls
   udp: true
   sni: anytls.example.com
   ech-opts: {enable: true, config: Z29sZGVuLWVjaC1jb25maWctbGlzdC1maXh0dXJlLWJ5dGVzLWZvci10ZXN0cy1vbmx5}
-rules: ['MATCH,anytls-out']
+rules: ['MATCH,REJECT']

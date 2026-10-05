@@ -72,7 +72,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 44165,
+      "listen_port": 45579,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-2-mapping-2",
@@ -80,7 +80,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 38081,
+      "listen_port": 45949,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-11-mapping-11",
@@ -119,7 +119,7 @@
     },
     {
       "server": "127.0.0.1",
-      "server_port": 34587,
+      "server_port": 33045,
       "tag": "golden-selr-xray",
       "type": "socks"
     },
@@ -133,7 +133,7 @@
     },
     {
       "server": "127.0.0.1",
-      "server_port": 35641,
+      "server_port": 42981,
       "tag": "golden-selr-outside-mihomo",
       "type": "socks"
     },

@@ -19,8 +19,8 @@ import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.preference.KeyValuePair
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
 import io.nekohasekai.sagernet.fmt.AbstractBean
+import io.nekohasekai.sagernet.fmt.ExternalRunPlan
 import io.nekohasekai.sagernet.fmt.buildConfig
-import io.nekohasekai.sagernet.fmt.externalCore
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean.FLOW_VISION
 import io.nekohasekai.sagernet.golden.collect.CollectRefusedException
 import io.nekohasekai.sagernet.golden.collect.GoldenCollector
@@ -156,18 +156,16 @@ object GoldenMeasure {
         PackageCache.awaitLoadSync()
         val selected = SagerDatabase.proxyDao.getById(fixture.mainProfileId)
             ?: error("selected profile ${fixture.mainProfileId} is not in the table")
-        val built = buildConfig(selected)
+        val plan = ExternalRunPlan.from(buildConfig(selected))
         val external = linkedMapOf<String, Int>()
-        for ((chain) in built.externalIndex) {
-            for ((_, profile) in chain) {
-                val id = externalCore(profile.requireBean())?.pluginId ?: "none"
-                external[id] = (external[id] ?: 0) + 1
-            }
-        }
+        for (hop in plan.hops) external[hop.pluginId] = (external[hop.pluginId] ?: 0) + 1
         val expected = linkedMapOf("xray-plugin" to xray, "mihomo-plugin" to mihomo).filterValues { it > 0 }
         if (external != expected) throw CollectRefusedException(
             "the fixture maps to external cores $external, expected $expected"
         )
+        // 按运行计划应起的外核进程数（每组一个）
+        val processes = linkedMapOf<String, Int>()
+        for (group in plan.groups) processes[group.pluginId] = (processes[group.pluginId] ?: 0) + 1
 
         return linkedMapOf(
             "formatVersion" to FORMAT_VERSION,
@@ -175,6 +173,7 @@ object GoldenMeasure {
             "mainProfileId" to fixture.mainProfileId,
             "members" to linkedMapOf("xray" to xray, "mihomo" to mihomo, "singbox" to singbox),
             "externalIndex" to external,
+            "externalProcesses" to processes,
             "serviceMode" to mode,
             "logLevel" to logLevel,
             "savedSettings" to savedSettings.size,

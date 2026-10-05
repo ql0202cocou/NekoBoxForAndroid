@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "settings-ext-loglevel-1",
   "description": "全外核链，日志级别 1",
   "mainProfileId": 1,

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "settings-dns-remote-empty",
   "description": "远程 DNS 为空：运行 / 导出报错，测速不用远程 DNS",
   "mainProfileId": 1,

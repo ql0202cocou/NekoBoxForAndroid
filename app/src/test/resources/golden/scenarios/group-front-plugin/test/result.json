@@ -22,20 +22,27 @@
   "external": [
     {
       "file": "ext-0.trojan-go-plugin.json",
-      "chainIndex": 0,
-      "profileId": 10,
       "pluginId": "trojan-go-plugin",
-      "port": 45515,
-      "finalAddress": "127.0.0.1",
-      "finalPort": 34099,
       "controller": null,
-      "tempFiles": []
+      "tempFiles": [],
+      "hops": [
+        {
+          "index": 0,
+          "chainIndex": 0,
+          "profileId": 10,
+          "port": 43963,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 33105,
+          "inboundTag": null,
+          "outboundTag": null
+        }
+      ]
     }
   ],
   "dynamic": {
     "ports": [
-      45515,
-      34099
+      43963,
+      33105
     ],
     "paths": [],
     "secrets": []

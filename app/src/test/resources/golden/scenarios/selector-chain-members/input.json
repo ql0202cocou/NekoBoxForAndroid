@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "selector-chain-members",
   "description": "选择器：链成员的首跳 / 出口同时是组内成员",
   "mainProfileId": 1,

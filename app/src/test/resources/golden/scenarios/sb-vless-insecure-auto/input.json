@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-vless-insecure-auto",
   "description": "VLESS allowInsecure：Xray 不支持，自动落到 sing-box",
   "mainProfileId": 1,

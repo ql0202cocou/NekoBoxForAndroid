@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "xray-vless-xudp",
   "description": "VLESS packet encoding xudp",
   "mainProfileId": 1,

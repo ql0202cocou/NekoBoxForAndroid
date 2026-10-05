@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "chain-empty",
   "description": "空链：应报错",
   "mainProfileId": 1,

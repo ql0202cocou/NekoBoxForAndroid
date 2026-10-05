@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-socks5-uot-ipv6",
   "description": "SOCKS5 + UDP over TCP，IPv6 服务器",
   "mainProfileId": 1,

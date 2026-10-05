@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "settings-dns-tcp-local",
   "description": "远程 DNS tcp://、直连 DNS local",
   "mainProfileId": 1,

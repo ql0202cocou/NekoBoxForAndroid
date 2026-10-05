@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "xray-vless-ech-auto",
   "description": "VLESS TLS + ECH 不带配置：Xray 不输出 ECH",
   "mainProfileId": 1,

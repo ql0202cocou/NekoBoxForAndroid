@@ -6,10 +6,23 @@ import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
 
-// 比较两棵采集产物目录树（格式 v1）：
+// 比较两棵采集产物目录树（格式 v2，v1 的布局相同）：
 // <根>/manifest.json（只打印）、scenarios/<id>/input.json、scenarios/<id>/<mode>/{result.json, sing-box.json,
 // ext-<n>.<pluginId>.<json|yaml>, export.txt}、address/corpus.json。
 // 每个场景的每个模式单独编号占位符；格式之外的文件按字节比较并给出警告。
+
+/** 比较范围。 */
+enum class GoldenCompareScope(val label: String) {
+    /** 全部产物。 */
+    ALL("全部"),
+
+    /**
+     * 只比 sing-box 一侧：input.json（不含 formatVersion）、sing-box.json、export.txt 第 0 段、result.json（不含 external）。
+     * 外核配置（ext-*、export.txt 第 1 段起、result.json 的 external）与带格式版本号的 address/corpus.json 不比较，
+     * 用来证明外核一侧的改动（含产物格式升级）没有动到 sing-box 一侧。
+     */
+    SING_BOX("只比 sing-box 一侧"),
+}
 
 class GoldenTreeReport(
     val expectedRoot: File,
@@ -17,6 +30,7 @@ class GoldenTreeReport(
     val manifest: List<String>,
     val diffs: List<GoldenDiff>,
     val warnings: List<String>,
+    val scope: GoldenCompareScope = GoldenCompareScope.ALL,
 ) {
     val same get() = diffs.isEmpty()
 
@@ -26,6 +40,7 @@ class GoldenTreeReport(
         sb.appendLine("配置结构比较")
         sb.appendLine("预期（基线）：${expectedRoot.path}")
         sb.appendLine("实际（新采集）：${actualRoot.path}")
+        sb.appendLine("比较范围：${scope.label}")
         sb.appendLine("manifest：")
         manifest.forEach { sb.appendLine("  $it") }
         if (warnings.isNotEmpty()) {
@@ -54,10 +69,11 @@ object GoldenCompareTree {
     private const val SIDE_A = "实际"
     private val extName = Regex("ext-(0|[1-9][0-9]*)\\.[^/]+\\.(json|yaml)")
 
-    fun compare(expectedRoot: File, actualRoot: File): GoldenTreeReport =
-        Run(expectedRoot, actualRoot).run()
+    fun compare(expectedRoot: File, actualRoot: File, scope: GoldenCompareScope = GoldenCompareScope.ALL): GoldenTreeReport =
+        Run(expectedRoot, actualRoot, scope).run()
 
-    private class Run(val e: File, val a: File) {
+    private class Run(val e: File, val a: File, val scope: GoldenCompareScope) {
+        val singBoxOnly = scope == GoldenCompareScope.SING_BOX
         val diffs = ArrayList<GoldenDiff>()
         val warnings = ArrayList<String>()
         val handled = HashSet<String>()
@@ -69,7 +85,7 @@ object GoldenCompareTree {
             if (!e.isDirectory || !a.isDirectory) {
                 if (!e.isDirectory) diffs.add(GoldenDiff(e.path, "", "预期目录不存在"))
                 if (!a.isDirectory) diffs.add(GoldenDiff(a.path, "", "实际目录不存在"))
-                return GoldenTreeReport(e, a, manifest, diffs, warnings)
+                return GoldenTreeReport(e, a, manifest, diffs, warnings, scope)
             }
             eFiles = listFiles(e)
             aFiles = listFiles(a)
@@ -81,7 +97,7 @@ object GoldenCompareTree {
             if (ids.isEmpty()) diffs.add(GoldenDiff("scenarios/", "", "两侧都没有任何场景"))
             for (id in ids) compareScenario("scenarios/$id")
 
-            compareFile("address/corpus.json")
+            if (singBoxOnly) handled.add("address/corpus.json") else compareFile("address/corpus.json")
 
             for (rel in (eFiles + aFiles - handled).sorted()) {
                 val inE = rel in eFiles
@@ -97,12 +113,13 @@ object GoldenCompareTree {
                     }
                 }
             }
-            return GoldenTreeReport(e, a, manifest, diffs, warnings)
+            return GoldenTreeReport(e, a, manifest, diffs, warnings, scope)
         }
 
         fun compareScenario(rel: String) {
             if (!onBothSides(rel)) return
-            compareFile("$rel/input.json")
+            // 只比 sing-box 一侧时两侧可能是不同格式版本的产物
+            compareFile("$rel/input.json", if (singBoxOnly) setOf("formatVersion") else emptySet())
             for (mode in (subdirs(e, rel) + subdirs(a, rel)).toSortedSet()) {
                 val modeRel = "$rel/$mode"
                 if (onBothSides(modeRel)) compareMode(modeRel)
@@ -119,8 +136,8 @@ object GoldenCompareTree {
             return false
         }
 
-        // 不做动态值替换的严格比较（input.json、address/corpus.json）
-        fun compareFile(rel: String) {
+        // 不做动态值替换的严格比较（input.json、address/corpus.json）；ignoredKeys 是不比较的顶层键
+        fun compareFile(rel: String, ignoredKeys: Set<String> = emptySet()) {
             handled.add(rel)
             val inE = rel in eFiles
             val inA = rel in aFiles
@@ -130,8 +147,8 @@ object GoldenCompareTree {
                 !inE -> diffs.add(GoldenDiff(rel, "", "只在实际一侧存在"))
                 else -> {
                     val r = GoldenCompare.compareDocumentSets(
-                        listOf(document(e, rel, rel, GoldenFormat.JSON)), GoldenDynamic.NONE,
-                        listOf(document(a, rel, rel, GoldenFormat.JSON)), GoldenDynamic.NONE,
+                        listOf(withoutKeys(document(e, rel, rel, GoldenFormat.JSON), ignoredKeys)), GoldenDynamic.NONE,
+                        listOf(withoutKeys(document(a, rel, rel, GoldenFormat.JSON), ignoredKeys)), GoldenDynamic.NONE,
                     )
                     diffs.addAll(r.diffs)
                     warnings.addAll(r.warnings)
@@ -145,12 +162,14 @@ object GoldenCompareTree {
             if (eDocs.none { it.name == "result.json" } && aDocs.none { it.name == "result.json" }) {
                 diffs.add(GoldenDiff("$rel/result.json", "", "两侧都缺少 result.json"))
             }
-            val r = GoldenCompare.compareDocumentSets(eDocs, eDyn, aDocs, aDyn, "$rel/")
+            // 只比 sing-box 一侧时外核一侧的动态值（测速控制端口、CA 路径、secret）本来就不出现，不给警告
+            val r = GoldenCompare.compareDocumentSets(eDocs, eDyn, aDocs, aDyn, "$rel/", reportUnused = !singBoxOnly)
             diffs.addAll(r.diffs)
             warnings.addAll(r.warnings)
         }
 
-        // 按约定的遍历次序给出本模式的文档：sing-box.json、ext-0、ext-1……、export.txt 各段，最后 result.json
+        // 按约定的遍历次序给出本模式的文档：sing-box.json、ext-0、ext-1……、export.txt 各段，最后 result.json。
+        // 只比 sing-box 一侧时外核配置只记为已处理，export.txt 只取第 0 段
         fun modeDocuments(root: File, rel: String, side: String): Pair<List<GoldenDocument>, GoldenDynamic> {
             val names = File(root, rel).listFiles()?.filter { it.isFile }?.map { it.name }.orEmpty()
             val docs = ArrayList<GoldenDocument>()
@@ -160,10 +179,17 @@ object GoldenCompareTree {
             names.mapNotNull { name -> extName.matchEntire(name)?.let { Triple(it.groupValues[1].toInt(), name, it.groupValues[2]) } }
                 .sortedWith(compareBy({ it.first }, { it.second }))
                 .forEach { (_, name, ext) ->
+                    if (singBoxOnly) {
+                        handled.add("$rel/$name")
+                        return@forEach
+                    }
                     val format = if (ext == "json") GoldenFormat.JSON else GoldenFormat.YAML
                     docs.add(document(root, "$rel/$name", name, format))
                 }
-            if ("export.txt" in names) docs.addAll(exportSegments(root, "$rel/export.txt"))
+            if ("export.txt" in names) {
+                val segments = exportSegments(root, "$rel/export.txt")
+                docs.addAll(if (singBoxOnly) segments.take(1) else segments)
+            }
             var dynamic = GoldenDynamic.NONE
             if ("result.json" in names) {
                 val (doc, dyn) = resultDocument(root, "$rel/result.json", side)
@@ -235,9 +261,24 @@ object GoldenCompareTree {
                     "secrets" to GoldenValue.Integer(BigInteger.valueOf(dynamic.secrets.size.toLong())),
                 )
             )
-            val replaced = GoldenValue.Obj(LinkedHashMap(value.fields).apply { put("dynamic", counts) })
+            val replaced = GoldenValue.Obj(LinkedHashMap(value.fields).apply {
+                put("dynamic", counts)
+                if (singBoxOnly) remove("external")
+            })
             return GoldenDocument.ofValue("result.json", replaced) to dynamic
         }
+    }
+
+    // 去掉顶层对象里不比较的键；解析失败或不是对象时原样返回，由比较报告解析错误
+    private fun withoutKeys(doc: GoldenDocument, keys: Set<String>): GoldenDocument {
+        if (keys.isEmpty()) return doc
+        val value = try {
+            doc.parsed()
+        } catch (ex: GoldenParseException) {
+            return doc
+        }
+        if (value !is GoldenValue.Obj) return doc
+        return GoldenDocument.ofValue(doc.name, GoldenValue.Obj(value.fields - keys))
     }
 
     private fun document(root: File, rel: String, name: String, format: GoldenFormat): GoldenDocument = try {

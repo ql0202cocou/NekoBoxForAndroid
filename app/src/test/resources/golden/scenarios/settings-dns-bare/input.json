@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "settings-dns-bare",
   "description": "裸地址：域名与 [IPv6]:端口",
   "mainProfileId": 1,

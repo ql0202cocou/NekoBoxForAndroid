@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "custom-full-config-in-chain",
   "description": "全配置型节点作链成员：应报错",
   "mainProfileId": 1,

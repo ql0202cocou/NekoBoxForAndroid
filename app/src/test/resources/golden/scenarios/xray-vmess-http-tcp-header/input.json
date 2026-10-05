@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "xray-vmess-http-tcp-header",
   "description": "VMess 手动指定 Xray，tcp 伪 HTTP 头",
   "mainProfileId": 1,

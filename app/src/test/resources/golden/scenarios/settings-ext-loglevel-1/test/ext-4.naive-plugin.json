@@ -1,6 +1,6 @@
 {
   "host-resolver-rules": "MAP naive-sni.example.com 127.0.0.1",
-  "listen": "socks://127.0.0.1:40061",
-  "proxy": "https://golden-user:golden-pass-naive@naive-sni.example.com:42321/",
+  "listen": "socks://127.0.0.1:40955",
+  "proxy": "https://golden-user:golden-pass-naive@naive-sni.example.com:37129/",
   "log": ""
 }

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "settings-ipv6-out-of-range",
   "description": "IPv6 模式值越界",
   "mainProfileId": 1,

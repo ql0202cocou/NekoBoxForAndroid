@@ -78,7 +78,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 41331,
+      "listen_port": 41285,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-0-mapping-4",
@@ -86,7 +86,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 41939,
+      "listen_port": 35235,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-3",
@@ -99,13 +99,13 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 40311,
+      "server_port": 39245,
       "tag": "proxy",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 35435,
+      "server_port": 46341,
       "tag": "c-0-3",
       "type": "socks"
     },
@@ -178,11 +178,11 @@
 log-level: warning
 mode: rule
 listeners:
-- {name: socks-in, type: socks, listen: 127.0.0.1, port: 40311, udp: true}
+- {name: in-0, type: socks, listen: 127.0.0.1, port: 39245, udp: true, proxy: out-0}
 proxies:
-- {name: anytls-out, type: anytls, server: 127.0.0.1, port: 41331, password: golden-pass-anytls,
+- {name: out-0, type: anytls, server: 127.0.0.1, port: 41285, password: golden-pass-anytls,
   udp: true, sni: anytls.example.com}
-rules: ['MATCH,anytls-out']
+rules: ['MATCH,REJECT']
 
 
 {
@@ -191,8 +191,9 @@ rules: ['MATCH,anytls-out']
   },
   "inbounds": [
     {
+      "tag": "in-1",
       "listen": "127.0.0.1",
-      "port": 35435,
+      "port": 46341,
       "protocol": "socks",
       "settings": {
         "udp": true
@@ -201,12 +202,17 @@ rules: ['MATCH,anytls-out']
   ],
   "outbounds": [
     {
+      "tag": "block",
+      "protocol": "blackhole"
+    },
+    {
+      "tag": "out-1",
       "protocol": "vless",
       "settings": {
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 41939,
+            "port": 35235,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
@@ -227,5 +233,17 @@ rules: ['MATCH,anytls-out']
         }
       }
     }
-  ]
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": [
+          "in-1"
+        ],
+        "outboundTag": "out-1"
+      }
+    ]
+  }
 }

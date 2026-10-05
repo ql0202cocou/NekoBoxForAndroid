@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-vmess-tls-certificates",
   "description": "VMess TLS 自定义 CA",
   "mainProfileId": 1,

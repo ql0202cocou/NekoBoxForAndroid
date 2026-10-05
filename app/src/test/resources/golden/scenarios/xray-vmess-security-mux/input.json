@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "xray-vmess-security-mux",
   "description": "VMess 手动指定 Xray，加密方式 + mux",
   "mainProfileId": 1,

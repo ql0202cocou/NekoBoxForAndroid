@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "settings-resolve-destination-ipv6-prefer",
   "description": "解析目标地址（IPv6 优先）",
   "mainProfileId": 1,

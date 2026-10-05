@@ -1,8 +1,8 @@
 log-level: warning
 mode: rule
 listeners:
-- {name: socks-in, type: socks, listen: 127.0.0.1, port: 35569, udp: true}
+- {name: in-0, type: socks, listen: 127.0.0.1, port: 34941, udp: true, proxy: out-0}
 proxies:
-- {name: anytls-out, type: anytls, server: 127.0.0.1, port: 33289, password: golden-pass-anytls,
+- {name: out-0, type: anytls, server: 127.0.0.1, port: 37695, password: golden-pass-anytls,
   udp: true, sni: golden.example.com, fingerprint: 97f5a77c25b237060f2da6aab57e85164fa3b92f0ce0f97fdef0ac10986dc2d8}
-rules: ['MATCH,anytls-out']
+rules: ['MATCH,REJECT']

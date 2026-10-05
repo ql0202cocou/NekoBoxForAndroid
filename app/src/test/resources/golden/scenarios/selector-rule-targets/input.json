@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "selector-rule-targets",
   "description": "选择器：路由规则指向组内成员与组外节点",
   "mainProfileId": 1,

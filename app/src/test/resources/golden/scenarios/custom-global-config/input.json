@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "custom-global-config",
   "description": "全局自定义配置：只在运行模式合并",
   "mainProfileId": 1,

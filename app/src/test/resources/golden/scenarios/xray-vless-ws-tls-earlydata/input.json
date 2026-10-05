@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "xray-vless-ws-tls-earlydata",
   "description": "VLESS ws（?ed=2048）+ TLS",
   "mainProfileId": 1,

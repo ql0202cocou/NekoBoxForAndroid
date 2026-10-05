@@ -130,7 +130,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 41103,
+      "listen_port": 43787,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-2-mapping-2",
@@ -138,7 +138,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 33903,
+      "listen_port": 39305,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-3-mapping-3",
@@ -182,7 +182,7 @@
     },
     {
       "server": "127.0.0.1",
-      "server_port": 34169,
+      "server_port": 35099,
       "tag": "golden-gdnss-xray",
       "type": "socks",
       "domain_resolver": {
@@ -192,7 +192,7 @@
     },
     {
       "server": "127.0.0.1",
-      "server_port": 40349,
+      "server_port": 40473,
       "tag": "golden-gdnss-anytls",
       "type": "socks",
       "domain_resolver": {

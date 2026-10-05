@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "xray-vless-certificates",
   "description": "VLESS TLS 自定义证书",
   "mainProfileId": 1,

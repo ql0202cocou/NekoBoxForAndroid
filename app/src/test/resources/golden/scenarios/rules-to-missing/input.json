@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "rules-to-missing",
   "description": "规则目标节点不存在",
   "mainProfileId": 1,

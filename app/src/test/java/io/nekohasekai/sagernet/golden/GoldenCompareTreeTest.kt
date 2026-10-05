@@ -55,11 +55,13 @@ class GoldenCompareTreeTest {
 
     private fun external(d: Dyn, controller: Boolean) = """
         [
-          {"file": "ext-0.xray-plugin.json", "chainIndex": 0, "profileId": 3, "pluginId": "xray-plugin", "port": ${d.socks},
-           "finalAddress": "127.0.0.1", "finalPort": ${d.mapping}, "controller": null, "tempFiles": ["${d.ca}"]},
-          {"file": "ext-1.mihomo-plugin.yaml", "chainIndex": 1, "profileId": 4, "pluginId": "mihomo-plugin", "port": ${d.socks2},
-           "finalAddress": null, "finalPort": null,
-           "controller": ${if (controller) """{"port": ${d.controller}, "secret": "${d.secret}"}""" else "null"}, "tempFiles": []}
+          {"file": "ext-0.xray-plugin.json", "pluginId": "xray-plugin", "controller": null, "tempFiles": ["${d.ca}"],
+           "hops": [{"index": 0, "chainIndex": 0, "profileId": 3, "port": ${d.socks}, "finalAddress": "127.0.0.1",
+                     "finalPort": ${d.mapping}, "inboundTag": "in-0", "outboundTag": "out-0"}]},
+          {"file": "ext-1.mihomo-plugin.yaml", "pluginId": "mihomo-plugin",
+           "controller": ${if (controller) """{"port": ${d.controller}, "secret": "${d.secret}"}""" else "null"}, "tempFiles": [],
+           "hops": [{"index": 1, "chainIndex": 1, "profileId": 4, "port": ${d.socks2}, "finalAddress": "example.org",
+                     "finalPort": 8443, "inboundTag": "in-1", "outboundTag": "out-1"}]}
         ]
     """.trimIndent()
 
@@ -78,7 +80,7 @@ class GoldenCompareTreeTest {
     }
 
     private fun manifest(commit: String, dirty: String = """"dirty": {"count": 0, "top": [], "codeCount": 0, "codeTop": []}""") = """
-        {"formatVersion": 1, "commit": "$commit", $dirty,
+        {"formatVersion": 2, "commit": "$commit", $dirty,
          "app": {"versionName": "1.8.0-a1", "versionCode": 525},
          "cores": {"sing-box": {"version": "1.14.2-neko-1"}, "xray": {"version": "v26.3.27"}, "mihomo": {"version": "v1.19.31"}},
          "system": {"sdkInt": 37, "release": "17"}, "collectedAt": "2026-10-04T14:11:54Z"}
@@ -340,11 +342,11 @@ class GoldenCompareTreeTest {
     fun `build、external、exportName 差异能发现`() {
         val run = "scenarios/mixed-chain/run/result.json"
         assertDiffer(compare(sample(first), sample(second).apply { put(run, get(run)!!.replace("\"mainEntId\": 1", "\"mainEntId\": 2")) }), "$.build.mainEntId")
-        assertDiffer(compare(sample(first), sample(second).apply { put(run, get(run)!!.replace("\"chainIndex\": 1", "\"chainIndex\": 0")) }), "$.external[1].chainIndex")
+        assertDiffer(compare(sample(first), sample(second).apply { put(run, get(run)!!.replace("\"chainIndex\": 1", "\"chainIndex\": 0")) }), "$.external[1].hops[0].chainIndex")
         // 映射端口写回 finalPort 的对应关系
         assertDiffer(
             compare(sample(first), sample(second).apply { put(run, get(run)!!.replace("\"finalPort\": ${second.mapping}", "\"finalPort\": ${second.socks}")) }),
-            "$.external[0].finalPort：预期 PORT#1，实际 PORT#2",
+            "$.external[0].hops[0].finalPort：预期 PORT#1，实际 PORT#2",
         )
         val export = "scenarios/mixed-chain/export/result.json"
         assertDiffer(compare(sample(first), sample(second).apply { put(export, get(export)!!.replace("profiles.txt", "a.json")) }), "$.exportName")
@@ -396,6 +398,81 @@ class GoldenCompareTreeTest {
         File(aRoot, "scenarios/broken/input.json").writeBytes(byteArrayOf('{'.code.toByte(), 0xC3.toByte(), '}'.code.toByte()))
         val r = GoldenCompareTree.compare(eRoot, aRoot)
         assertDiffer(r, "scenarios/broken/input.json：实际一侧解析失败：不是有效的 UTF-8")
+    }
+
+    // ---- 只比 sing-box 一侧
+
+    private fun compareSingBox(e: Map<String, String>, a: Map<String, String>) =
+        GoldenCompareTree.compare(write(e), write(a), GoldenCompareScope.SING_BOX)
+
+    // 外核一侧换成另一种格式：合并后的配置、external 换了结构、export 少一段，产物格式版本号也变了
+    private fun reformatted(d: Dyn, commit: String = "abc1234"): MutableMap<String, String> = sample(d, commit).apply {
+        val merged = xray(d).replace("\"outbounds\"", "\"routing\": {\"rules\": []}, \"outbounds\"")
+        for (mode in listOf("run", "test")) {
+            remove("scenarios/mixed-chain/$mode/ext-1.mihomo-plugin.yaml")
+            put("scenarios/mixed-chain/$mode/ext-0.xray-plugin.json", merged)
+            put("scenarios/mixed-chain/$mode/result.json", get("scenarios/mixed-chain/$mode/result.json")!!
+                .replace("\"external\": [", "\"external\": [{\"file\": \"ext-0.xray-plugin.json\", \"groups\": 1}, "))
+        }
+        put("scenarios/mixed-chain/export/export.txt", singBox(d) + "\n\n" + merged)
+        for (input in keys.filter { it.endsWith("/input.json") }) put(input, get(input)!!.replaceFirst("{", "{\"formatVersion\": 2, "))
+        put("address/corpus.json", """{"formatVersion": 2, "entries": []}""")
+    }
+
+    @Test
+    fun `只比 sing-box 一侧时外核一侧与格式版本的变化都不算差异`() {
+        val r = compareSingBox(sample(first), reformatted(second, commit = "def5678"))
+        assertSame(r)
+        // 外核一侧的动态值（测速控制端口、CA 路径、secret）本来就不比较，不给「没出现」的警告
+        assertTrue(r.render(), r.warnings.isEmpty())
+        assertTrue(r.render(), "比较范围：只比 sing-box 一侧\n" in r.render())
+        // 同样的两棵树做完整比较就不一致
+        assertDiffer(
+            GoldenCompareTree.compare(write(sample(first)), write(reformatted(second))),
+            "ext-1.mihomo-plugin.yaml：只在预期一侧存在", "export.txt#2：只在预期一侧存在", "address/corpus.json",
+        )
+    }
+
+    @Test
+    fun `只比 sing-box 一侧时 sing-box 配置、export 第 0 段、result 与 input 的变化仍能发现`() {
+        val base = reformatted(second)
+        assertDiffer(
+            compareSingBox(sample(first), base.apply {
+                put("scenarios/mixed-chain/run/sing-box.json", singBox(second).replace("\"version\": \"5\"", "\"version\": \"4\""))
+            }),
+            "scenarios/mixed-chain/run/sing-box.json", "$.outbounds[0].version：预期 \"5\"，实际 \"4\"",
+        )
+        assertDiffer(
+            compareSingBox(sample(first), reformatted(second).apply {
+                put("scenarios/mixed-chain/export/export.txt", singBox(second).replace("2080", "2081") + "\n\n" + xray(second))
+            }),
+            "export.txt#0", "listen_port：预期 2080，实际 2081",
+        )
+        val run = "scenarios/mixed-chain/run/result.json"
+        assertDiffer(
+            compareSingBox(sample(first), reformatted(second).apply { put(run, get(run)!!.replace("\"g-4\": [4]", "\"g-4\": [5]")) }),
+            "$.build.trafficMap.g-4[0]：预期 4，实际 5",
+        )
+        assertDiffer(
+            compareSingBox(sample(first), reformatted(second).apply { put(run, errorResult("x")) }),
+            "$.status：预期 \"ok\"，实际 \"error\"",
+        )
+        assertDiffer(
+            compareSingBox(sample(first), reformatted(second).apply {
+                put("scenarios/broken/input.json", get("scenarios/broken/input.json")!!.replace("\"bad\"", "\"bad2\""))
+            }),
+            "$.profiles[0].uuid：预期 \"bad\"，实际 \"bad2\"",
+        )
+        // 动态值的个数照常比较
+        assertDiffer(
+            compareSingBox(sample(first), reformatted(second).apply { put(run, get(run)!!.replace("\"secrets\": []", "\"secrets\": [\"x\"]")) }),
+            "$.dynamic.secrets：预期 0，实际 1",
+        )
+    }
+
+    @Test
+    fun `完整比较的报告写明比较范围`() {
+        assertTrue(compare(sample(first), sample(second)).render().contains("比较范围：全部\n"))
     }
 
     // ---- 报告

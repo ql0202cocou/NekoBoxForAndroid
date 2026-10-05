@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "multi-rules-front-groups",
   "description": "规则目标所在的分组有走 Xray 的前置：前置在每个目标的链里各出现一次",
   "mainProfileId": 1,

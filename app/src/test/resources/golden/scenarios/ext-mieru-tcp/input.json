@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "ext-mieru-tcp",
   "description": "Mieru TCP",
   "mainProfileId": 1,

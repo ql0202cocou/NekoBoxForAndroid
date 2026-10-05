@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "rules-two-to-same-node",
   "description": "两条规则指向同一节点",
   "mainProfileId": 1,

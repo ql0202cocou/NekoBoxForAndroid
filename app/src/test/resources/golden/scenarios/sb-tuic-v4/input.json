@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-tuic-v4",
   "description": "TUIC v4：已不支持，应报错",
   "mainProfileId": 1,

@@ -78,7 +78,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 33317,
+      "listen_port": 34359,
       "override_address": "xray-3.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-4",
@@ -86,7 +86,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 37681,
+      "listen_port": 41147,
       "override_address": "xray-ws-2.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-3",
@@ -94,7 +94,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 39375,
+      "listen_port": 38351,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-2",
@@ -107,19 +107,19 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 36439,
+      "server_port": 38337,
       "tag": "proxy",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 45157,
+      "server_port": 45725,
       "tag": "c-0-3",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 37097,
+      "server_port": 41491,
       "tag": "g-2",
       "type": "socks"
     },
@@ -193,8 +193,27 @@
   },
   "inbounds": [
     {
+      "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 36439,
+      "port": 38337,
+      "protocol": "socks",
+      "settings": {
+        "udp": true
+      }
+    },
+    {
+      "tag": "in-1",
+      "listen": "127.0.0.1",
+      "port": 45725,
+      "protocol": "socks",
+      "settings": {
+        "udp": true
+      }
+    },
+    {
+      "tag": "in-2",
+      "listen": "127.0.0.1",
+      "port": 41491,
       "protocol": "socks",
       "settings": {
         "udp": true
@@ -203,12 +222,17 @@
   ],
   "outbounds": [
     {
+      "tag": "block",
+      "protocol": "blackhole"
+    },
+    {
+      "tag": "out-0",
       "protocol": "vless",
       "settings": {
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 33317,
+            "port": 34359,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
@@ -228,32 +252,15 @@
           "fingerprint": "chrome"
         }
       }
-    }
-  ]
-}
-
-{
-  "log": {
-    "loglevel": "warning"
-  },
-  "inbounds": [
+    },
     {
-      "listen": "127.0.0.1",
-      "port": 45157,
-      "protocol": "socks",
-      "settings": {
-        "udp": true
-      }
-    }
-  ],
-  "outbounds": [
-    {
+      "tag": "out-1",
       "protocol": "vmess",
       "settings": {
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 37681,
+            "port": 41147,
             "users": [
               {
                 "id": "5a0c1e2f-3b4d-4e6f-8a9b-0c1d2e3f4a5b",
@@ -277,32 +284,15 @@
           "serverName": "ws-2.example.org"
         }
       }
-    }
-  ]
-}
-
-{
-  "log": {
-    "loglevel": "warning"
-  },
-  "inbounds": [
+    },
     {
-      "listen": "127.0.0.1",
-      "port": 37097,
-      "protocol": "socks",
-      "settings": {
-        "udp": true
-      }
-    }
-  ],
-  "outbounds": [
-    {
+      "tag": "out-2",
       "protocol": "vless",
       "settings": {
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 39375,
+            "port": 38351,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
@@ -323,5 +313,31 @@
         }
       }
     }
-  ]
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": [
+          "in-0"
+        ],
+        "outboundTag": "out-0"
+      },
+      {
+        "type": "field",
+        "inboundTag": [
+          "in-1"
+        ],
+        "outboundTag": "out-1"
+      },
+      {
+        "type": "field",
+        "inboundTag": [
+          "in-2"
+        ],
+        "outboundTag": "out-2"
+      }
+    ]
+  }
 }

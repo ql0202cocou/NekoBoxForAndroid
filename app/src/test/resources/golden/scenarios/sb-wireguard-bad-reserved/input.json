@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-wireguard-bad-reserved",
   "description": "WireGuard reserved 不是三个字节：应报错",
   "mainProfileId": 1,

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "group-dns-domain-strategy",
   "description": "分组 DNS + 显式 domain strategy",
   "mainProfileId": 1,

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-tuic-certpin",
   "description": "TUIC 证书固定：应报错",
   "mainProfileId": 1,

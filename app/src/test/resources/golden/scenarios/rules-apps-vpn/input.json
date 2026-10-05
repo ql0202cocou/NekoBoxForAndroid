@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "rules-apps-vpn",
   "description": "按应用分流（VPN 模式，UID 去重）",
   "mainProfileId": 1,

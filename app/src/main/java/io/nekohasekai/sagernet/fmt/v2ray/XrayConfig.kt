@@ -1,8 +1,10 @@
 package io.nekohasekai.sagernet.fmt.v2ray
 
 import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
+import io.nekohasekai.sagernet.fmt.ExternalHop
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.fmt.effectiveAllowInsecure
+import io.nekohasekai.sagernet.fmt.requireDistinctHops
 import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 import moe.matsuri.nb4a.utils.JavaUtil.gson
 import moe.matsuri.nb4a.utils.echAsBase64
@@ -27,9 +29,70 @@ fun VMessBean.xrayLacksAllowInsecure(): Boolean =
 fun VMessBean.xrayLacksAllowInsecure(globalAllowInsecure: Boolean): Boolean =
     isTLS() && certificateFingerprint.isBlank() && effectiveAllowInsecure(allowInsecure, globalAllowInsecure)
 
-// Builds an Xray-core client config for a VMess/VLESS profile:
-// a local socks inbound chained from sing-box, and the profile as outbound.
-fun buildXrayConfig(bean: VMessBean, port: Int, settings: ExternalCoreSettings): String {
+// 没有路由规则命中的流量走 outbounds 的第一项，所以第一项固定是 blackhole：漏了规则的入站只会丢流量，
+// 不会串到某个节点
+const val XRAY_BLOCK_TAG = "block"
+
+// 一组跳实例的 Xray 配置（plan.md K0 做法 2）：每个跳实例一个本机 socks 入站，routing 按入站 tag 把它的
+// TCP 与 UDP 都指到它自己的出站。outbounds 与 hops 一一对应，是 buildXrayOutbound 的结果。
+// 规则指向不存在的出站、端口重复时 Xray 都不报错，tag 重复则整份配置启动失败：都在这里先保证
+fun buildXrayConfig(hops: List<ExternalHop>, outbounds: List<Map<String, Any?>>, settings: ExternalCoreSettings): String {
+    require(hops.size == outbounds.size) { "${hops.size} hops but ${outbounds.size} outbounds" }
+    requireDistinctHops(hops, setOf(XRAY_BLOCK_TAG))
+    // 用共用的 gson 直接序列化集合；它不输出值为 null 的键，与 org.json put(键, null) 删键的结果一致
+    return gson.toJson(LinkedHashMap<String, Any?>().apply {
+        put("log", LinkedHashMap<String, Any?>().apply {
+            // 与 ConfigBuilder 的 sing-box 档位一致；Xray 没有 trace，最高到 debug
+            put(
+                "loglevel", when (settings.logLevel) {
+                    2 -> "info"
+                    3, 4 -> "debug"
+                    else -> "warning"
+                }
+            )
+        })
+        put("inbounds", hops.map { hop ->
+            LinkedHashMap<String, Any?>().apply {
+                put("tag", hop.inboundTag)
+                put("listen", LOCALHOST)
+                put("port", hop.localPort)
+                put("protocol", "socks")
+                put("settings", LinkedHashMap<String, Any?>().apply { put("udp", true) })
+            }
+        })
+        put("outbounds", ArrayList<Any?>().apply {
+            add(LinkedHashMap<String, Any?>().apply {
+                put("tag", XRAY_BLOCK_TAG)
+                put("protocol", "blackhole")
+            })
+            hops.forEachIndexed { i, hop ->
+                add(LinkedHashMap<String, Any?>().apply {
+                    put("tag", hop.outboundTag)
+                    putAll(outbounds[i])
+                })
+            }
+        })
+        put("routing", LinkedHashMap<String, Any?>().apply {
+            put("domainStrategy", "AsIs")
+            put("rules", hops.map { hop ->
+                LinkedHashMap<String, Any?>().apply {
+                    put("type", "field")
+                    put("inboundTag", listOf(hop.inboundTag))
+                    put("outboundTag", hop.outboundTag)
+                }
+            })
+        })
+    })
+}
+
+// Xray 配置里一个跳实例的出站（tag 由 buildXrayConfig 写入）：拨向 finalAddress:finalPort，
+// 其余与 K0 之前的单节点配置相同，节点本身的校验也在这里报错
+fun buildXrayOutbound(
+    bean: VMessBean,
+    finalAddress: String,
+    finalPort: Int,
+    settings: ExternalCoreSettings,
+): LinkedHashMap<String, Any?> {
     if (bean.xrayLacksTransport()) {
         error("xray-core no longer supports the ${bean.type} transport, use the sing-box core for this profile")
     }
@@ -49,13 +112,13 @@ fun buildXrayConfig(bean: VMessBean, port: Int, settings: ExternalCoreSettings):
         }
     }
 
-    val outbound = LinkedHashMap<String, Any?>().apply {
+    return LinkedHashMap<String, Any?>().apply {
         put("protocol", if (bean.isVLESS) "vless" else "vmess")
         put("settings", LinkedHashMap<String, Any?>().apply {
             put("vnext", ArrayList<Any?>().apply {
                 add(LinkedHashMap<String, Any?>().apply {
-                    put("address", bean.finalAddress)
-                    put("port", bean.finalPort)
+                    put("address", finalAddress)
+                    put("port", finalPort)
                     put("users", ArrayList<Any?>().apply { add(user) })
                 })
             })
@@ -84,29 +147,6 @@ fun buildXrayConfig(bean: VMessBean, port: Int, settings: ExternalCoreSettings):
             })
         }
     }
-
-    // 用共用的 gson 直接序列化集合；它不输出值为 null 的键，与 org.json put(键, null) 删键的结果一致
-    return gson.toJson(LinkedHashMap<String, Any?>().apply {
-        put("log", LinkedHashMap<String, Any?>().apply {
-            // 与 ConfigBuilder 的 sing-box 档位一致；Xray 没有 trace，最高到 debug
-            put(
-                "loglevel", when (settings.logLevel) {
-                    2 -> "info"
-                    3, 4 -> "debug"
-                    else -> "warning"
-                }
-            )
-        })
-        put("inbounds", ArrayList<Any?>().apply {
-            add(LinkedHashMap<String, Any?>().apply {
-                put("listen", LOCALHOST)
-                put("port", port)
-                put("protocol", "socks")
-                put("settings", LinkedHashMap<String, Any?>().apply { put("udp", true) })
-            })
-        })
-        put("outbounds", ArrayList<Any?>().apply { add(outbound) })
-    })
 }
 
 private fun buildXrayStreamSettings(bean: VMessBean, globalAllowInsecure: Boolean): Map<String, Any?> {

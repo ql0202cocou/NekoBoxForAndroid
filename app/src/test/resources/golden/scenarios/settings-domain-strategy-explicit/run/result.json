@@ -26,20 +26,27 @@
   "external": [
     {
       "file": "ext-0.xray-plugin.json",
-      "chainIndex": 1,
-      "profileId": 2,
       "pluginId": "xray-plugin",
-      "port": 46155,
-      "finalAddress": "127.0.0.1",
-      "finalPort": 34223,
       "controller": null,
-      "tempFiles": []
+      "tempFiles": [],
+      "hops": [
+        {
+          "index": 0,
+          "chainIndex": 1,
+          "profileId": 2,
+          "port": 38443,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 40379,
+          "inboundTag": "in-0",
+          "outboundTag": "out-0"
+        }
+      ]
     }
   ],
   "dynamic": {
     "ports": [
-      46155,
-      34223
+      38443,
+      40379
     ],
     "paths": [],
     "secrets": []

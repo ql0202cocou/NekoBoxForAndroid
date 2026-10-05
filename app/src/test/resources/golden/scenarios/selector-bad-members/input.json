@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "selector-bad-members",
   "description": "选择器：预检失败的成员被跳过",
   "mainProfileId": 1,

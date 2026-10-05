@@ -22,7 +22,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 35533,
+      "listen_port": 45525,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-0-mapping-4",
@@ -30,7 +30,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 35667,
+      "listen_port": 41093,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-3",
@@ -43,13 +43,13 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 38361,
+      "server_port": 44655,
       "tag": "proxy",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 36463,
+      "server_port": 44181,
       "tag": "c-0-3",
       "type": "socks"
     },

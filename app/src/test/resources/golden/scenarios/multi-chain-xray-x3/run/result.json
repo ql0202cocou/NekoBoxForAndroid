@@ -26,46 +26,51 @@
   "external": [
     {
       "file": "ext-0.xray-plugin.json",
-      "chainIndex": 0,
-      "profileId": 4,
       "pluginId": "xray-plugin",
-      "port": 34819,
-      "finalAddress": "127.0.0.1",
-      "finalPort": 36233,
       "controller": null,
-      "tempFiles": []
-    },
-    {
-      "file": "ext-1.xray-plugin.json",
-      "chainIndex": 0,
-      "profileId": 3,
-      "pluginId": "xray-plugin",
-      "port": 37433,
-      "finalAddress": "127.0.0.1",
-      "finalPort": 39453,
-      "controller": null,
-      "tempFiles": []
-    },
-    {
-      "file": "ext-2.xray-plugin.json",
-      "chainIndex": 0,
-      "profileId": 2,
-      "pluginId": "xray-plugin",
-      "port": 35069,
-      "finalAddress": "127.0.0.1",
-      "finalPort": 44995,
-      "controller": null,
-      "tempFiles": []
+      "tempFiles": [],
+      "hops": [
+        {
+          "index": 0,
+          "chainIndex": 0,
+          "profileId": 4,
+          "port": 39587,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 38749,
+          "inboundTag": "in-0",
+          "outboundTag": "out-0"
+        },
+        {
+          "index": 1,
+          "chainIndex": 0,
+          "profileId": 3,
+          "port": 37737,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 33563,
+          "inboundTag": "in-1",
+          "outboundTag": "out-1"
+        },
+        {
+          "index": 2,
+          "chainIndex": 0,
+          "profileId": 2,
+          "port": 33479,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 43079,
+          "inboundTag": "in-2",
+          "outboundTag": "out-2"
+        }
+      ]
     }
   ],
   "dynamic": {
     "ports": [
-      34819,
-      37433,
-      35069,
-      36233,
-      39453,
-      44995
+      39587,
+      37737,
+      33479,
+      38749,
+      33563,
+      43079
     ],
     "paths": [],
     "secrets": []

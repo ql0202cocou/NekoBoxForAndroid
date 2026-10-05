@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "settings-tun-system",
   "description": "tun 实现 system",
   "mainProfileId": 1,

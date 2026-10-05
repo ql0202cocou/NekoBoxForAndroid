@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "functions": {
     "isIpAddress": "ktx/Nets.kt；ConfigBuilder 判断节点 / DNS 地址是否为域名，Trojan-Go / hysteria / naive 生成器的 SNI 回退",
     "isIpAddressV6": "ktx/Nets.kt；wrapIPV6Host 内部",

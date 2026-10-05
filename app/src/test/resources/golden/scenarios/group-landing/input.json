@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "group-landing",
   "description": "分组落地代理",
   "mainProfileId": 1,

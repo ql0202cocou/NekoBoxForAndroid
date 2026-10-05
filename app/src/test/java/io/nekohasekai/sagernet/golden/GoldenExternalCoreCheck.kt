@@ -1,6 +1,6 @@
 package io.nekohasekai.sagernet.golden
 
-import io.nekohasekai.sagernet.fmt.externalCore
+import io.nekohasekai.sagernet.fmt.assemble
 import org.junit.Assert.fail
 import java.io.File
 import java.nio.file.Files
@@ -11,16 +11,16 @@ fun interface GoldenExternalGenerator {
 }
 
 /**
- * 外核配置的 JVM 黄金测试入口：对某个 pluginId 在基线里的每份配置重新生成，与基线原文做结构比较。
+ * 外核配置的 JVM 黄金测试入口：对某个 pluginId 在基线里的每份配置（一组跳实例一份）重新生成，与基线原文做结构比较。
  * 每个核心的测试类只需一行：`GoldenExternalCoreCheck.assertMatchesBaseline("<pluginId>")`。
  */
 object GoldenExternalCoreCheck {
 
-    /** 生产路径：经统一入口 externalCore(bean).config，设置显式传入，不读 DataStore。 */
+    /** 生产路径：整个计划经共用的组装入口 assemble 生成，取这一组的配置；设置显式传入，不读 DataStore。 */
     val PRODUCTION = GoldenExternalGenerator { case, cacheFile ->
-        val core = externalCore(case.bean) ?: error("${case.bean.javaClass.name} 没有外核")
-        check(core.pluginId == case.pluginId) { "externalCore 给出的是 ${core.pluginId}" }
-        core.config(case.port, cacheFile, case.controller, case.settings)
+        val process = case.plan.assemble(cacheFile, case.controller, case.settings)[case.groupIndex]
+        check(process.group.pluginId == case.pluginId) { "组装入口给出的是 ${process.group.pluginId}" }
+        process.config
     }
 
     // 失败消息最多列出的用例数，与每个用例最多列出的差异数

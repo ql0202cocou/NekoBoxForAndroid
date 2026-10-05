@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-vmess-http",
   "description": "VMess http 传输不带 TLS（tcp 伪 HTTP 头），多个 Host",
   "mainProfileId": 1,

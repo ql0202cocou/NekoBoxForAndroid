@@ -19,19 +19,26 @@
   "external": [
     {
       "file": "ext-0.hysteria-plugin.json",
-      "chainIndex": 0,
-      "profileId": 1,
       "pluginId": "hysteria-plugin",
-      "port": 33393,
-      "finalAddress": "hy1.example.com",
-      "finalPort": 1080,
       "controller": null,
-      "tempFiles": []
+      "tempFiles": [],
+      "hops": [
+        {
+          "index": 0,
+          "chainIndex": 0,
+          "profileId": 1,
+          "port": 40811,
+          "finalAddress": "hy1.example.com",
+          "finalPort": 1080,
+          "inboundTag": null,
+          "outboundTag": null
+        }
+      ]
     }
   ],
   "dynamic": {
     "ports": [
-      33393
+      40811
     ],
     "paths": [],
     "secrets": []

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-vmess-bracketed-ipv6",
   "description": "VMess 地址带方括号（初始化时去掉）",
   "mainProfileId": 1,

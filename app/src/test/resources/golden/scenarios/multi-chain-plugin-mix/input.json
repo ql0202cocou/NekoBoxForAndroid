@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "multi-chain-plugin-mix",
   "description": "一条链里 Xray、mihomo 与 Trojan-Go、Naive、Mieru 节点交错",
   "mainProfileId": 1,

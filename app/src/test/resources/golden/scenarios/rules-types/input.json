@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "rules-types",
   "description": "各类规则（含 DNS 规则）",
   "mainProfileId": 1,

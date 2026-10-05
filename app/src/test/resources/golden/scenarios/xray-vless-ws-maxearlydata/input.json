@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "xray-vless-ws-maxearlydata",
   "description": "VLESS ws 显式 early data，路径已有查询参数",
   "mainProfileId": 1,

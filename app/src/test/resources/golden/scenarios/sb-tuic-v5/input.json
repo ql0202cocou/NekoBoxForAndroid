@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-tuic-v5",
   "description": "TUIC v5：ALPN、quic 中继、0-RTT、心跳、自定义 CA",
   "mainProfileId": 1,

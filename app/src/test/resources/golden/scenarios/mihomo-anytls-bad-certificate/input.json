@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "mihomo-anytls-bad-certificate",
   "description": "AnyTLS 证书解析失败：应报错",
   "mainProfileId": 1,

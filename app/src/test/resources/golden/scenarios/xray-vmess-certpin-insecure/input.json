@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "xray-vmess-certpin-insecure",
   "description": "证书指纹优先于 allowInsecure",
   "mainProfileId": 1,

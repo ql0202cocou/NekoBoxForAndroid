@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "settings-dns-unknown-scheme",
   "description": "DNS 未知 scheme：应报错",
   "mainProfileId": 1,

@@ -79,7 +79,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 42381,
+      "listen_port": 43303,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-4",
@@ -92,7 +92,7 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 44203,
+      "server_port": 45145,
       "tag": "proxy",
       "type": "socks",
       "domain_resolver": {

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "multi-selector-main-xray",
   "description": "选择器：多个 Xray 与 mihomo 成员，选中 Xray 成员",
   "mainProfileId": 2,

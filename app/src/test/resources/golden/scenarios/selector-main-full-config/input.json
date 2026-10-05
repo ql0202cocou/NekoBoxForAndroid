@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "selector-main-full-config",
   "description": "选择器：选中全配置型成员时整份配置单独运行",
   "mainProfileId": 1,

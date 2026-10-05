@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "multi-chains-shared-swapped",
   "description": "两条链共用 Xray 与 mihomo 节点但顺序相反，主链另带一个独占的 Xray",
   "mainProfileId": 1,

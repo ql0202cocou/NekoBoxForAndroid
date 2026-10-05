@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "settings-dns-h3-quic",
   "description": "远程 DNS h3://、直连 DNS quic:// IPv6",
   "mainProfileId": 1,

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-trojan-quic",
   "description": "Trojan quic",
   "mainProfileId": 1,

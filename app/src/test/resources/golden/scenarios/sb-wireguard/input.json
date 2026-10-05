@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-wireguard",
   "description": "WireGuard：双栈本地地址、reserved、keepalive、allowed IPs、PSK",
   "mainProfileId": 1,

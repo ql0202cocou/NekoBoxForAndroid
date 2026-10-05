@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "rules-custom-config-not-object",
   "description": "规则自定义 JSON 不是对象：应报错",
   "mainProfileId": 1,

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "group-dns",
   "description": "分组 DNS：本组域名节点、IP 节点与别组节点",
   "mainProfileId": 1,

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "rules-types-proxy-mode",
   "description": "各类规则，仅代理模式",
   "mainProfileId": 1,

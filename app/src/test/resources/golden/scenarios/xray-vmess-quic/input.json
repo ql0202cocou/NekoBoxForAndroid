@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "xray-vmess-quic",
   "description": "VMess 手动指定 Xray 却用 quic：应报错",
   "mainProfileId": 1,

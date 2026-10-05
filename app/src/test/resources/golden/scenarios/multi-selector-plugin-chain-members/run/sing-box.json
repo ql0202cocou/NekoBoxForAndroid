@@ -73,7 +73,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 45687,
+      "listen_port": 32943,
       "override_address": "xray-2.example.com",
       "override_port": 443,
       "tag": "c-6-mapping-6",
@@ -81,7 +81,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 39811,
+      "listen_port": 35749,
       "override_address": "mihomo-2.example.com",
       "override_port": 8445,
       "tag": "c-7-mapping-7",
@@ -89,7 +89,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 41187,
+      "listen_port": 36625,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-1-mapping-4",
@@ -97,7 +97,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 34115,
+      "listen_port": 37055,
       "override_address": "trojan-go.example.com",
       "override_port": 443,
       "tag": "c-1-mapping-2",
@@ -105,7 +105,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 42489,
+      "listen_port": 42995,
       "override_address": "mihomo-1.example.com",
       "override_port": 8444,
       "tag": "c-9-mapping-5",
@@ -113,7 +113,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 41665,
+      "listen_port": 39243,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-9-mapping-4",
@@ -137,37 +137,37 @@
     },
     {
       "server": "127.0.0.1",
-      "server_port": 34913,
+      "server_port": 34515,
       "tag": "golden-multi-sp-xray-2",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 38315,
+      "server_port": 36419,
       "tag": "golden-multi-sp-mihomo-2",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 41763,
+      "server_port": 40497,
       "tag": "golden-multi-sp-chain-a",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 40119,
+      "server_port": 40643,
       "tag": "g-2",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 44965,
+      "server_port": 45385,
       "tag": "golden-multi-sp-chain-c",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 37535,
+      "server_port": 44647,
       "tag": "g-4",
       "type": "socks"
     },

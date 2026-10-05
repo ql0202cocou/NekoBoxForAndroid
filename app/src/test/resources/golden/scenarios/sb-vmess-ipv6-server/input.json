@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-vmess-ipv6-server",
   "description": "VMess IPv6 服务器",
   "mainProfileId": 1,

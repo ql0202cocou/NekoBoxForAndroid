@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "group-dns-selector",
   "description": "分组 DNS + 选择器分组",
   "mainProfileId": 1,

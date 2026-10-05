@@ -23,33 +23,47 @@
   "external": [
     {
       "file": "ext-0.xray-plugin.json",
-      "chainIndex": 0,
-      "profileId": 4,
       "pluginId": "xray-plugin",
-      "port": 41515,
-      "finalAddress": "127.0.0.1",
-      "finalPort": 35859,
       "controller": null,
-      "tempFiles": []
+      "tempFiles": [],
+      "hops": [
+        {
+          "index": 0,
+          "chainIndex": 0,
+          "profileId": 4,
+          "port": 38901,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 44897,
+          "inboundTag": "in-0",
+          "outboundTag": "out-0"
+        }
+      ]
     },
     {
       "file": "ext-1.trojan-go-plugin.json",
-      "chainIndex": 0,
-      "profileId": 2,
       "pluginId": "trojan-go-plugin",
-      "port": 40937,
-      "finalAddress": "127.0.0.1",
-      "finalPort": 45433,
       "controller": null,
-      "tempFiles": []
+      "tempFiles": [],
+      "hops": [
+        {
+          "index": 1,
+          "chainIndex": 0,
+          "profileId": 2,
+          "port": 38121,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 39339,
+          "inboundTag": null,
+          "outboundTag": null
+        }
+      ]
     }
   ],
   "dynamic": {
     "ports": [
-      41515,
-      40937,
-      35859,
-      45433
+      38901,
+      38121,
+      44897,
+      39339
     ],
     "paths": [],
     "secrets": []

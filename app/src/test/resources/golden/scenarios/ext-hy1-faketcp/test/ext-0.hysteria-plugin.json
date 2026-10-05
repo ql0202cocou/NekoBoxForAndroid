@@ -4,7 +4,7 @@
   "up_mbps": 10,
   "down_mbps": 50,
   "socks5": {
-    "listen": "127.0.0.1:42431"
+    "listen": "127.0.0.1:39231"
   },
   "retry": 5,
   "fast_open": true,

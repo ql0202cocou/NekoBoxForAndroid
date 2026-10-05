@@ -831,10 +831,12 @@ private class ConfigBuild(
                 if (bean.canMapping() && index == profileList.lastIndex) hysteriaSkipsMapping(bean)
                 // NekoBean 没有 ExternalCore，与 BoxInstance.init 一样跳过
                 val core = externalCore(bean) ?: return@withProfileName
-                // 生成的配置丢弃，端口只是占位；hysteria 1 会写 CA 临时文件，用完删掉
+                // 经运行时同一个组装入口，给只有这一个跳实例的计划试生成一次。生成的配置丢弃，端口只是占位，
+                // 映射目标取 bean 现有的值（预检不能调 mapExternalHop）；hysteria 1 会写 CA 临时文件，用完删掉
                 val tempFiles = ArrayList<File>()
                 try {
-                    core.config(PRECHECK_PORT, { prefix, ext ->
+                    val probe = ExternalHop(0, 0, hop.id, bean, PRECHECK_PORT, bean.finalAddress.orEmpty(), bean.finalPort, core)
+                    ExternalRunPlan(listOf(probe)).assemble({ prefix, ext ->
                         File.createTempFile(prefix + "_", ".$ext", SagerNet.application.cacheDir)
                             .also { tempFiles.add(it) }
                     }, null)

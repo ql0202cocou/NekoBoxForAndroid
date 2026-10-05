@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-vmess-tls-ech-auto",
   "description": "VMess TLS + ECH（不带配置）",
   "mainProfileId": 1,

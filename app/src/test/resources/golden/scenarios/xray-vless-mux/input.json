@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "xray-vless-mux",
   "description": "VLESS mux（并发 0 → 8）",
   "mainProfileId": 1,

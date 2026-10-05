@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "group-dns-ip-nodes",
   "description": "分组 DNS，但本组节点全是 IP：不输出分组 DNS",
   "mainProfileId": 1,

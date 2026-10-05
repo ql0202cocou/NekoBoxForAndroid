@@ -79,7 +79,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 44099,
+      "listen_port": 40391,
       "override_address": "mihomo-2.example.com",
       "override_port": 8445,
       "tag": "c-0-mapping-4",
@@ -87,7 +87,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 40895,
+      "listen_port": 44755,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-3",
@@ -95,7 +95,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 35137,
+      "listen_port": 39909,
       "override_address": "mihomo-1.example.com",
       "override_port": 8444,
       "tag": "c-0-mapping-2",
@@ -117,19 +117,19 @@
     },
     {
       "server": "127.0.0.1",
-      "server_port": 33497,
+      "server_port": 39807,
       "tag": "c-0-4",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 41481,
+      "server_port": 41717,
       "tag": "c-0-3",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 33735,
+      "server_port": 40563,
       "tag": "g-2",
       "type": "socks"
     },
@@ -200,11 +200,14 @@
 log-level: warning
 mode: rule
 listeners:
-- {name: socks-in, type: socks, listen: 127.0.0.1, port: 33497, udp: true}
+- {name: in-0, type: socks, listen: 127.0.0.1, port: 39807, udp: true, proxy: out-0}
+- {name: in-2, type: socks, listen: 127.0.0.1, port: 40563, udp: true, proxy: out-2}
 proxies:
-- {name: anytls-out, type: anytls, server: 127.0.0.1, port: 44099, password: golden-pass-anytls,
+- {name: out-0, type: anytls, server: 127.0.0.1, port: 40391, password: golden-pass-anytls,
   udp: true, sni: mihomo-2.example.org}
-rules: ['MATCH,anytls-out']
+- {name: out-2, type: anytls, server: 127.0.0.1, port: 39909, password: golden-pass-anytls,
+  udp: true, sni: mihomo-1.example.org}
+rules: ['MATCH,REJECT']
 
 
 {
@@ -213,8 +216,9 @@ rules: ['MATCH,anytls-out']
   },
   "inbounds": [
     {
+      "tag": "in-1",
       "listen": "127.0.0.1",
-      "port": 41481,
+      "port": 41717,
       "protocol": "socks",
       "settings": {
         "udp": true
@@ -223,12 +227,17 @@ rules: ['MATCH,anytls-out']
   ],
   "outbounds": [
     {
+      "tag": "block",
+      "protocol": "blackhole"
+    },
+    {
+      "tag": "out-1",
       "protocol": "vless",
       "settings": {
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 40895,
+            "port": 44755,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
@@ -249,14 +258,17 @@ rules: ['MATCH,anytls-out']
         }
       }
     }
-  ]
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": [
+          "in-1"
+        ],
+        "outboundTag": "out-1"
+      }
+    ]
+  }
 }
-
-log-level: warning
-mode: rule
-listeners:
-- {name: socks-in, type: socks, listen: 127.0.0.1, port: 33735, udp: true}
-proxies:
-- {name: anytls-out, type: anytls, server: 127.0.0.1, port: 35137, password: golden-pass-anytls,
-  udp: true, sni: mihomo-1.example.org}
-rules: ['MATCH,anytls-out']

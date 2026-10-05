@@ -93,7 +93,7 @@
     },
     {
       "server": "127.0.0.1",
-      "server_port": 32931,
+      "server_port": 36005,
       "tag": "g-3",
       "type": "socks"
     },
@@ -149,7 +149,7 @@
   "up_mbps": 10,
   "down_mbps": 50,
   "socks5": {
-    "listen": "127.0.0.1:32931"
+    "listen": "127.0.0.1:36005"
   },
   "retry": 5,
   "fast_open": true,

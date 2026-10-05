@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "rules-apps-proxy-mode",
   "description": "按应用分流的规则在仅代理模式下",
   "mainProfileId": 1,

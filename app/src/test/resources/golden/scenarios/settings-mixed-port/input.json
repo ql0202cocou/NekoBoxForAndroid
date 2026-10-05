@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "settings-mixed-port",
   "description": "mixed 端口 7890",
   "mainProfileId": 1,

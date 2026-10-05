@@ -4,12 +4,13 @@ import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
+import moe.matsuri.nb4a.utils.JavaUtil.gson
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
-// 黄金基线没有走到的 buildXrayConfig 分支；预期值按改写前（org.json）的代码逻辑推出
+// 黄金基线没有走到的 buildXrayOutbound 分支；预期值按改写前（org.json）的代码逻辑推出
 class XrayConfigTest {
 
     private val settings = ExternalCoreSettings(logLevel = 0, ipv6Mode = 0, globalAllowInsecure = false)
@@ -20,21 +21,17 @@ class XrayConfigTest {
         uuid = "00000000-0000-0000-0000-000000000001"
         alterId = if (vless) -1 else 0
         initializeDefaultValues()
-        // 映射后外核拨的是本地地址，与 serverAddress 不同
-        finalAddress = "127.0.0.1"
-        finalPort = 20000
         block()
     }
 
+    // 一个跳实例的出站；映射后外核拨的是本地地址，与 serverAddress 不同
     private fun build(bean: VMessBean, settings: ExternalCoreSettings = this.settings): JsonObject =
-        JsonParser.parseString(buildXrayConfig(bean, 10808, settings)).asJsonObject
+        JsonParser.parseString(gson.toJson(buildXrayOutbound(bean, "127.0.0.1", 20000, settings))).asJsonObject
 
-    private fun JsonObject.outbound() = getAsJsonArray("outbounds")[0].asJsonObject
-
-    private fun JsonObject.user() = outbound().getAsJsonObject("settings").getAsJsonArray("vnext")[0]
+    private fun JsonObject.user() = getAsJsonObject("settings").getAsJsonArray("vnext")[0]
         .asJsonObject.getAsJsonArray("users")[0].asJsonObject
 
-    private fun JsonObject.stream() = outbound().getAsJsonObject("streamSettings")
+    private fun JsonObject.stream() = getAsJsonObject("streamSettings")
 
     // 按文本比较，键的顺序也要一致
     private fun assertJson(expected: String, actual: JsonElement) =
@@ -139,9 +136,10 @@ class XrayConfigTest {
     @Test
     fun `全局允许不安全且没有证书固定时报错`() {
         val e = assertThrows(IllegalStateException::class.java) {
-            buildXrayConfig(
+            buildXrayOutbound(
                 bean(vless = true) { security = "tls" },
-                10808,
+                "127.0.0.1",
+                20000,
                 settings.copy(globalAllowInsecure = true),
             )
         }

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "xray-vmess-certpin-invalid",
   "description": "证书指纹格式不对：应报错",
   "mainProfileId": 1,

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-vless-vision-mux",
   "description": "VLESS vision 开 mux：sing-box 上不输出 multiplex",
   "mainProfileId": 1,

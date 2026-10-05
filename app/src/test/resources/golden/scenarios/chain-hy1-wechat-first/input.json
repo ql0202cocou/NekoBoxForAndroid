@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "chain-hy1-wechat-first",
   "description": "Hysteria 1 插件节点是最先拨号的一跳：免映射",
   "mainProfileId": 1,

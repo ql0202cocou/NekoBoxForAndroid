@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "settings-loglevel-4",
   "description": "日志级别 trace",
   "mainProfileId": 1,

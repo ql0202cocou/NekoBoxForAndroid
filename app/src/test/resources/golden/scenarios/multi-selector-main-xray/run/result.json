@@ -57,72 +57,83 @@
   "external": [
     {
       "file": "ext-0.xray-plugin.json",
-      "chainIndex": 0,
-      "profileId": 1,
       "pluginId": "xray-plugin",
-      "port": 35027,
-      "finalAddress": "127.0.0.1",
-      "finalPort": 40445,
       "controller": null,
-      "tempFiles": []
+      "tempFiles": [],
+      "hops": [
+        {
+          "index": 0,
+          "chainIndex": 0,
+          "profileId": 1,
+          "port": 37637,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 34875,
+          "inboundTag": "in-0",
+          "outboundTag": "out-0"
+        },
+        {
+          "index": 1,
+          "chainIndex": 1,
+          "profileId": 2,
+          "port": 39471,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 34495,
+          "inboundTag": "in-1",
+          "outboundTag": "out-1"
+        },
+        {
+          "index": 2,
+          "chainIndex": 2,
+          "profileId": 3,
+          "port": 32801,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 46465,
+          "inboundTag": "in-2",
+          "outboundTag": "out-2"
+        }
+      ]
     },
     {
-      "file": "ext-1.xray-plugin.json",
-      "chainIndex": 1,
-      "profileId": 2,
-      "pluginId": "xray-plugin",
-      "port": 34421,
-      "finalAddress": "127.0.0.1",
-      "finalPort": 36185,
-      "controller": null,
-      "tempFiles": []
-    },
-    {
-      "file": "ext-2.xray-plugin.json",
-      "chainIndex": 2,
-      "profileId": 3,
-      "pluginId": "xray-plugin",
-      "port": 36545,
-      "finalAddress": "127.0.0.1",
-      "finalPort": 36319,
-      "controller": null,
-      "tempFiles": []
-    },
-    {
-      "file": "ext-3.mihomo-plugin.yaml",
-      "chainIndex": 3,
-      "profileId": 4,
+      "file": "ext-1.mihomo-plugin.yaml",
       "pluginId": "mihomo-plugin",
-      "port": 44987,
-      "finalAddress": "127.0.0.1",
-      "finalPort": 35429,
       "controller": null,
-      "tempFiles": []
-    },
-    {
-      "file": "ext-4.mihomo-plugin.yaml",
-      "chainIndex": 4,
-      "profileId": 5,
-      "pluginId": "mihomo-plugin",
-      "port": 34015,
-      "finalAddress": "127.0.0.1",
-      "finalPort": 34951,
-      "controller": null,
-      "tempFiles": []
+      "tempFiles": [],
+      "hops": [
+        {
+          "index": 3,
+          "chainIndex": 3,
+          "profileId": 4,
+          "port": 34257,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 36515,
+          "inboundTag": "in-3",
+          "outboundTag": "out-3"
+        },
+        {
+          "index": 4,
+          "chainIndex": 4,
+          "profileId": 5,
+          "port": 36655,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 42265,
+          "inboundTag": "in-4",
+          "outboundTag": "out-4"
+        }
+      ]
     }
   ],
   "dynamic": {
     "ports": [
-      35027,
-      34421,
-      36545,
-      44987,
-      34015,
-      40445,
-      36185,
-      36319,
-      35429,
-      34951
+      37637,
+      39471,
+      32801,
+      34257,
+      36655,
+      34875,
+      34495,
+      46465,
+      36515,
+      42265
     ],
     "paths": [],
     "secrets": []

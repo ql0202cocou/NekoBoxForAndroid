@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "xray-vless-reality-bad-mldsa65",
   "description": "mldsa65Verify 长度不对：应报错",
   "mainProfileId": 1,

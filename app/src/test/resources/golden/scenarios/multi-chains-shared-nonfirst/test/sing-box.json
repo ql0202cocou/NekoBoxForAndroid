@@ -22,7 +22,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 44803,
+      "listen_port": 37007,
       "override_address": "mihomo-1.example.com",
       "override_port": 8444,
       "tag": "c-0-mapping-5",
@@ -30,7 +30,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 41131,
+      "listen_port": 34147,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-4",
@@ -43,13 +43,13 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 43337,
+      "server_port": 35585,
       "tag": "proxy",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 40557,
+      "server_port": 33815,
       "tag": "c-0-4",
       "type": "socks"
     },

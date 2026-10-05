@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "settings-defaults",
   "description": "除 DNS、mixed 端口与 Clash secret 外都不写，按代码默认值",
   "mainProfileId": 1,

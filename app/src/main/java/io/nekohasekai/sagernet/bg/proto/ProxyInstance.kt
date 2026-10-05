@@ -56,7 +56,7 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
             closeAfterLateInit()
             return
         }
-        if (Logs.enabled) pluginConfigs.values.forEach { Logs.d(Util.redactSecrets(it)) }
+        if (Logs.enabled) externalProcesses.forEach { Logs.d(Util.redactSecrets(it.config)) }
     }
 
     override fun launch() {

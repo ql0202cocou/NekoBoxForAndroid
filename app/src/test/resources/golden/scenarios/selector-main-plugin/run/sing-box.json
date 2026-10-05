@@ -70,7 +70,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 46159,
+      "listen_port": 34531,
       "override_address": "trojan-go.example.com",
       "override_port": 443,
       "tag": "c-1-mapping-1",
@@ -92,7 +92,7 @@
     },
     {
       "server": "127.0.0.1",
-      "server_port": 38979,
+      "server_port": 36969,
       "tag": "golden-selmp-trojan-go",
       "type": "socks"
     },

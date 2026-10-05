@@ -5,10 +5,11 @@ import io.nekohasekai.sagernet.bg.GuardedProcessPool
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.ConfigBuildDiagnostic
 import io.nekohasekai.sagernet.fmt.ConfigBuildResult
+import io.nekohasekai.sagernet.fmt.ExternalCoreProcess
+import io.nekohasekai.sagernet.fmt.ExternalRunPlan
+import io.nekohasekai.sagernet.fmt.assemble
 import io.nekohasekai.sagernet.fmt.buildConfig
-import io.nekohasekai.sagernet.fmt.externalCore
 import io.nekohasekai.sagernet.fmt.withBoxErrorProfileName
-import io.nekohasekai.sagernet.fmt.withProfileName
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.plugin.PluginManager
 import kotlinx.coroutines.Dispatchers
@@ -29,7 +30,13 @@ abstract class BoxInstance(
     lateinit var box: BoxInstance
 
     val pluginPath = hashMapOf<String, PluginManager.InitResult>()
-    val pluginConfigs = hashMapOf<Int, String>()
+
+    // 外核运行计划与按它组装出的外核进程（每组一个：Xray、mihomo 各一个，插件核心每个跳实例一个）。
+    // init 生成，launch 逐个启动
+    lateinit var externalPlan: ExternalRunPlan
+        private set
+    var externalProcesses: List<ExternalCoreProcess> = emptyList()
+        private set
     open lateinit var processes: GuardedProcessPool
 
     // Written by init/launch on one thread while close() may purge it from
@@ -81,15 +88,14 @@ abstract class BoxInstance(
 
     open suspend fun init() {
         buildConfig()
-        for ((chain) in config.externalIndex) {
-            for ((port, profile) in chain) {
-                val core = externalCore(profile.requireBean()) ?: continue
-                initPlugin(core.pluginId)
-                pluginConfigs[port] = withProfileName(profile.requireBean()) {
-                    core.config(port, { prefix, ext -> newCacheFile(prefix, ext, app.cacheDir) }, mihomoTestController())
-                }
-            }
-        }
+        val plan = ExternalRunPlan.from(config)
+        externalPlan = plan
+        externalProcesses = plan.assemble(
+            { prefix, ext -> newCacheFile(prefix, ext, app.cacheDir) },
+            // 与逐节点生成时一样，计划里有外核才取测速控制端口
+            if (plan.hops.isEmpty()) null else mihomoTestController(),
+            beforeHop = { initPlugin(it.pluginId) },
+        )
         // ProxyInstance / TestInstance 的 loadConfig 都在这里收口
         try {
             loadConfig()
@@ -104,13 +110,9 @@ abstract class BoxInstance(
         if (isClosed()) return
 
         try {
-            for ((chain) in config.externalIndex) {
-                for ((port, profile) in chain) {
-                    val core = externalCore(profile.requireBean()) ?: continue
-                    val config = pluginConfigs[port] ?: ""
-                    val launch = core.launch(initPlugin(core.pluginId).path, config, ::writeCacheFile)
-                    processes.start(launch.commands, launch.env)
-                }
+            for (process in externalProcesses) {
+                val launch = process.launch(initPlugin(process.group.pluginId).path, ::writeCacheFile)
+                processes.start(launch.commands, launch.env)
             }
 
             try {

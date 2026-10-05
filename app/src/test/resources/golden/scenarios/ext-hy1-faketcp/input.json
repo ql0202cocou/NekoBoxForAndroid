@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "ext-hy1-faketcp",
   "description": "Hysteria 1 faketcp（不能映射）+ base64 认证",
   "mainProfileId": 1,

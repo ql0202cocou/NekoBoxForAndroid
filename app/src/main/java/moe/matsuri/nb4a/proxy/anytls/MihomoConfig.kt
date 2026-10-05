@@ -1,8 +1,10 @@
 package moe.matsuri.nb4a.proxy.anytls
 
 import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
+import io.nekohasekai.sagernet.fmt.ExternalHop
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.fmt.effectiveAllowInsecure
+import io.nekohasekai.sagernet.fmt.requireDistinctHops
 import moe.matsuri.nb4a.utils.JavaUtil
 import moe.matsuri.nb4a.utils.echAsBase64
 import moe.matsuri.nb4a.utils.listByLineOrComma
@@ -10,24 +12,67 @@ import org.yaml.snakeyaml.Yaml
 import java.security.MessageDigest
 import java.security.cert.CertificateFactory
 
-const val MIHOMO_PROXY_NAME = "anytls-out"
+// mihomo 的内置代理名，listener 与代理都不能用
+private val MIHOMO_RESERVED_NAMES = setOf("DIRECT", "REJECT", "REJECT-DROP", "PASS", "PASS-RULE", "COMPATIBLE", "GLOBAL")
 
-// Builds a mihomo client config for an AnyTLS profile:
-// a local socks listener chained from sing-box, and the profile as proxy.
-// controllerPort/controllerSecret enable the Clash API (external-controller),
-// used by URL test so mihomo measures the delay through the proxy itself.
+// 一组跳实例的 mihomo 配置（plan.md K0 做法 2）：每个跳实例一个本机 socks listener，用 proxy 字段固定走它自己的
+// 代理，不经过 rules。rules 只留 MATCH,REJECT 兜底：不写 rules 时没绑定代理的 listener 会走直连。
+// proxies 与 hops 一一对应，是 buildMihomoProxy 的结果。端口重复时 mihomo 只记一行错误、不退出，由这里先保证。
+// controllerPort / controllerSecret 打开 Clash API（external-controller），测速时由 mihomo 自己经代理测延迟
 fun buildMihomoConfig(
-    bean: AnyTLSBean,
-    port: Int,
+    hops: List<ExternalHop>,
+    proxies: List<Map<String, Any?>>,
     settings: ExternalCoreSettings,
     controllerPort: Int? = null,
     controllerSecret: String = "",
 ): String {
+    require(hops.size == proxies.size) { "${hops.size} hops but ${proxies.size} proxies" }
+    requireDistinctHops(hops, MIHOMO_RESERVED_NAMES)
+    val config = LinkedHashMap<String, Any?>()
+    // 与 ConfigBuilder 的 sing-box 档位一致；mihomo 没有 trace，最高到 debug
+    config["log-level"] = when (settings.logLevel) {
+        2 -> "info"
+        3, 4 -> "debug"
+        else -> "warning"
+    }
+    config["mode"] = "rule"
+    if (controllerPort != null) {
+        config["external-controller"] = "$LOCALHOST:$controllerPort"
+        config["secret"] = controllerSecret
+    }
+    config["listeners"] = hops.map { hop ->
+        val listener = LinkedHashMap<String, Any?>()
+        listener["name"] = hop.inboundTag
+        listener["type"] = "socks"
+        listener["listen"] = LOCALHOST
+        listener["port"] = hop.localPort
+        listener["udp"] = true
+        listener["proxy"] = hop.outboundTag
+        listener
+    }
+    config["proxies"] = hops.mapIndexed { i, hop ->
+        LinkedHashMap<String, Any?>().apply {
+            put("name", hop.outboundTag)
+            putAll(proxies[i])
+        }
+    }
+    config["rules"] = listOf("MATCH,REJECT")
+
+    return Yaml().dump(config)
+}
+
+// mihomo 配置里一个跳实例的代理（name 由 buildMihomoConfig 写入）：拨向 finalAddress:finalPort，
+// 其余与 K0 之前的单节点配置相同，节点本身的校验也在这里报错
+fun buildMihomoProxy(
+    bean: AnyTLSBean,
+    finalAddress: String,
+    finalPort: Int,
+    settings: ExternalCoreSettings,
+): LinkedHashMap<String, Any?> {
     val proxy = LinkedHashMap<String, Any?>()
-    proxy["name"] = MIHOMO_PROXY_NAME
     proxy["type"] = "anytls"
-    proxy["server"] = bean.finalAddress
-    proxy["port"] = bean.finalPort
+    proxy["server"] = finalAddress
+    proxy["port"] = finalPort
     proxy["password"] = bean.password
     proxy["udp"] = true
     // 经 mapping 外核只能拨到本地地址，TLS SNI 需要显式兜底；
@@ -62,31 +107,7 @@ fun buildMihomoConfig(
     } else if (bean.enableECH) {
         proxy["ech-opts"] = linkedMapOf<String, Any?>("enable" to true)
     }
-
-    val listener = LinkedHashMap<String, Any?>()
-    listener["name"] = "socks-in"
-    listener["type"] = "socks"
-    listener["listen"] = LOCALHOST
-    listener["port"] = port
-    listener["udp"] = true
-
-    val config = LinkedHashMap<String, Any?>()
-    // 与 ConfigBuilder 的 sing-box 档位一致；mihomo 没有 trace，最高到 debug
-    config["log-level"] = when (settings.logLevel) {
-        2 -> "info"
-        3, 4 -> "debug"
-        else -> "warning"
-    }
-    config["mode"] = "rule"
-    if (controllerPort != null) {
-        config["external-controller"] = "$LOCALHOST:$controllerPort"
-        config["secret"] = controllerSecret
-    }
-    config["listeners"] = listOf(listener)
-    config["proxies"] = listOf(proxy)
-    config["rules"] = listOf("MATCH,$MIHOMO_PROXY_NAME")
-
-    return Yaml().dump(config)
+    return proxy
 }
 
 // mihomo `fingerprint` (component/ca/fingerprint.go): colons stripped, whitespace

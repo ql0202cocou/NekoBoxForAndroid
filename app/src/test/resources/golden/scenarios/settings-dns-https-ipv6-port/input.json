@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "settings-dns-https-ipv6-port",
   "description": "https:// 带 IPv6 与端口",
   "mainProfileId": 1,

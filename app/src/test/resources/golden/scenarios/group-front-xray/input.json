@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "group-front-xray",
   "description": "前置是 Xray 节点",
   "mainProfileId": 1,

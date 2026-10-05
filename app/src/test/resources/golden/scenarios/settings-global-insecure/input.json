@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "settings-global-insecure",
   "description": "全局 allowInsecure（VLESS 由 Xray 落到 sing-box）",
   "mainProfileId": 1,

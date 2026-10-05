@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "custom-outbound-json",
   "description": "自定义出站 JSON 节点",
   "mainProfileId": 1,

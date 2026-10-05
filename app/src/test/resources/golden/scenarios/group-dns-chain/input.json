@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "group-dns-chain",
   "description": "分组 DNS：主节点是链，成员跨分组",
   "mainProfileId": 1,

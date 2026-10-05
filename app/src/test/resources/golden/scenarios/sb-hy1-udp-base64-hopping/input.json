@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "sb-hy1-udp-base64-hopping",
   "description": "Hysteria 1（UDP）：base64 认证、端口跳跃",
   "mainProfileId": 1,

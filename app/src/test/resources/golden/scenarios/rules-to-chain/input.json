@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "rules-to-chain",
   "description": "规则目标是另一条链",
   "mainProfileId": 1,

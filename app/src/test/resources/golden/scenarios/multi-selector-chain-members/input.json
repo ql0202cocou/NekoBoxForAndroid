@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "multi-selector-chain-members",
   "description": "选择器成员本身是链，链里有多个 Xray 与 mihomo 节点（节点在别的分组）",
   "mainProfileId": 1,

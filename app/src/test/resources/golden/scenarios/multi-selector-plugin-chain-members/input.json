@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "multi-selector-plugin-chain-members",
   "description": "选择器成员是链：外核节点与要装插件 app 的节点混合（模拟器上无插件）",
   "mainProfileId": 1,

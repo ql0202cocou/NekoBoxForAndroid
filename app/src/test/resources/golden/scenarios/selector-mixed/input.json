@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "selector-mixed",
   "description": "选择器：内核与外核成员混合，选中内核成员",
   "mainProfileId": 1,

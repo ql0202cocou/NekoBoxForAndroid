@@ -78,7 +78,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 44295,
+      "listen_port": 46531,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-3",
@@ -86,7 +86,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 46681,
+      "listen_port": 33255,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-0-mapping-4",
@@ -99,7 +99,7 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 35997,
+      "server_port": 42829,
       "tag": "proxy",
       "type": "socks"
     },
@@ -114,7 +114,7 @@
     },
     {
       "server": "127.0.0.1",
-      "server_port": 34417,
+      "server_port": 37645,
       "tag": "g-4",
       "type": "socks"
     },
@@ -182,8 +182,9 @@
   },
   "inbounds": [
     {
+      "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 35997,
+      "port": 42829,
       "protocol": "socks",
       "settings": {
         "udp": true
@@ -192,12 +193,17 @@
   ],
   "outbounds": [
     {
+      "tag": "block",
+      "protocol": "blackhole"
+    },
+    {
+      "tag": "out-0",
       "protocol": "vless",
       "settings": {
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 44295,
+            "port": 46531,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
@@ -218,14 +224,26 @@
         }
       }
     }
-  ]
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": [
+          "in-0"
+        ],
+        "outboundTag": "out-0"
+      }
+    ]
+  }
 }
 
 log-level: warning
 mode: rule
 listeners:
-- {name: socks-in, type: socks, listen: 127.0.0.1, port: 34417, udp: true}
+- {name: in-1, type: socks, listen: 127.0.0.1, port: 37645, udp: true, proxy: out-1}
 proxies:
-- {name: anytls-out, type: anytls, server: 127.0.0.1, port: 46681, password: golden-pass-anytls,
+- {name: out-1, type: anytls, server: 127.0.0.1, port: 33255, password: golden-pass-anytls,
   udp: true, sni: anytls.example.com}
-rules: ['MATCH,anytls-out']
+rules: ['MATCH,REJECT']

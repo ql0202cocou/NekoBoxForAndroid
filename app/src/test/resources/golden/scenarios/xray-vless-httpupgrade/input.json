@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "xray-vless-httpupgrade",
   "description": "VLESS httpupgrade（路径留空）",
   "mainProfileId": 1,

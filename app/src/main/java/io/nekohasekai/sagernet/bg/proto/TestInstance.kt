@@ -17,7 +17,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import libcore.Libcore
 import moe.matsuri.nb4a.net.LocalResolverImpl
-import moe.matsuri.nb4a.proxy.anytls.MIHOMO_PROXY_NAME
 import moe.matsuri.nb4a.utils.Util
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -126,6 +125,9 @@ class TestInstance(profile: ProxyEntity, val link: String, private val timeout: 
     // mihomo -> sing-box mapping inbound -> real server.
     private suspend fun mihomoDelay(controller: Pair<Int, String>): Int {
         val (port, secret) = controller
+        // 代理名取运行计划里这个节点的出站标识；有 Clash API 时计划里只有这一个跳实例
+        val proxyName = externalPlan.hops.singleOrNull { it.profileId == profile.id }?.outboundTag
+            ?: throw IOException("profile ${profile.id} is not in the external core plan")
         val client = sharedHttpClient.newBuilder()
             .connectTimeout(2, TimeUnit.SECONDS)
             .readTimeout(mihomoTimeout + 3000L, TimeUnit.MILLISECONDS)
@@ -150,7 +152,7 @@ class TestInstance(profile: ProxyEntity, val link: String, private val timeout: 
         }
         if (!ready) throw IOException("mihomo controller not ready")
 
-        val url = "$base/proxies/$MIHOMO_PROXY_NAME/delay" +
+        val url = "$base/proxies/$proxyName/delay" +
             "?url=${URLEncoder.encode(link, "UTF-8")}&timeout=$mihomoTimeout"
         client.newCall(newRequest(url)).execute().use { resp ->
             val body = resp.body.string()

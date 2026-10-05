@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "xray-vless-vision-mux",
   "description": "VLESS vision 开 mux：Xray 上不输出 mux",
   "mainProfileId": 1,

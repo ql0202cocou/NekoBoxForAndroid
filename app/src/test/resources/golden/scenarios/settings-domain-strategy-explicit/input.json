@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "settings-domain-strategy-explicit",
   "description": "三个 domain strategy 显式取值",
   "mainProfileId": 1,
