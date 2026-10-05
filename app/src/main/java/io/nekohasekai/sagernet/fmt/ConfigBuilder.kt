@@ -248,12 +248,12 @@ internal fun <T> expandChainInOrder(
 private fun ProxyEntity.isFullConfig() =
     type == TYPE_CONFIG && (requireBean() as ConfigBean).type == 0
 
-// 普通构建（非测试、非导出）得到的 ConfigBuildResult.selectorGroupId：只取决于
-// 节点所在分组，与 buildConfig 开头的 isFullConfig 分支、ConfigBuild.selectorGroup
-// 保持一致。canReloadSelector 用它判断能否原地切换，不必为此构建整份配置
+// 普通构建（运行模式）得到的 ConfigBuildResult.selectorGroupId：只取决于节点所在分组。完整配置节点同 buildConfig
+// 开头的分支为 -1，其余与 ConfigBuild 同一个判断（selectorGroupOf），分组读一次数据库。
+// canReloadSelector 用它判断能否原地切换，不必为此构建整份配置
 fun selectorGroupIdOf(proxy: ProxyEntity): Long {
     if (proxy.isFullConfig()) return -1L
-    return SagerDatabase.groupDao.getById(proxy.groupId)?.takeIf { it.isSelector }?.id ?: -1L
+    return selectorGroupOf(SagerDatabase.groupDao.getById(proxy.groupId), ConfigBuildMode.RUN)?.id ?: -1L
 }
 
 // 一次配置构建。下面的状态由 build() 依次运行的各段共用；每段原是以前单个 buildConfig 函数里的一截，
@@ -349,9 +349,8 @@ private class ConfigBuild(
     // 按快照记下的数据源顺序建规则目标的出站
     val extraProxies =
         if (forTest) mapOf() else data.ruleTargets(ruleTargetIds(extraRules, proxy.id)).associateBy { it.id }
-    // the group whose members become selector outbounds; null builds a plain
-    // chain (tests and exports always do). 改这里的条件要同步 selectorGroupIdOf
-    val selectorGroup = group?.takeIf { !forTest && it.isSelector && !forExport }
+    // 成员建成 selector 出站的分组；为 null 时建单条链（测速与导出总是这样）。判断见 selectorGroupOf
+    val selectorGroup = selectorGroupOf(group, input.mode)
     val buildSelector = selectorGroup != null
     val userDNSRuleList = mutableListOf<DNSRule_DefaultOptions>()
     val domainListDNSDirectForce = mutableListOf<String>()

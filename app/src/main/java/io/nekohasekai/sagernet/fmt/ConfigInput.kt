@@ -49,6 +49,14 @@ fun needsClashApiSecret(mode: ConfigBuildMode, enableClashAPI: Boolean): Boolean
     mode == ConfigBuildMode.RUN && enableClashAPI
 
 /**
+ * 按选择器构建的分组：主节点所在分组 group 是选择器、且是运行模式时，它的成员建成 selector 出站；测速与导出
+ * 总是建单条链，取不到分组时也是。构建（ConfigBuild.selectorGroup）、快照采集（选择器成员进引用闭包）与
+ * selectorGroupIdOf（BaseService.canReloadSelector 判断能否原地切换）共用这一个判断。
+ */
+fun selectorGroupOf(group: ProxyGroup?, mode: ConfigBuildMode): ProxyGroup? =
+    group?.takeIf { mode == ConfigBuildMode.RUN && it.isSelector }
+
+/**
  * 构建查了采集范围之外的输入（快照里没有的 id、没解析的包名）。这是采集算法的缺漏，不是某个节点的数据问题：
  * 构建不能把它当成节点错误吞掉或包上节点名（skipBroken、withProfileName 都原样抛出），整次构建失败。
  */
@@ -288,11 +296,12 @@ class ConfigSnapshot private constructor(
                 it.copy(packages = Collections.unmodifiableSet(LinkedHashSet(it.packages)))
             }
             val roots = ArrayList<ProxyEntity>()
-            // 同 ConfigBuild.selectorGroup：只有运行模式按选择器构建
-            if (mode == ConfigBuildMode.RUN && mainGroup != null && mainGroup.isSelector) {
-                val members = source.profilesByGroup(mainGroup.id)
+            // 与构建同一个判断：只有运行模式按选择器构建
+            val selectorGroup = selectorGroupOf(mainGroup, mode)
+            if (selectorGroup != null) {
+                val members = source.profilesByGroup(selectorGroup.id)
                 members.forEach(::record)
-                groupMembers[mainGroup.id] = members.map { it.id }
+                groupMembers[selectorGroup.id] = members.map { it.id }
                 roots += members
             }
             var ruleTargetQuery: Set<Long>? = null
