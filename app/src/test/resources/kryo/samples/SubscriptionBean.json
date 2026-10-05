@@ -1,0 +1,528 @@
+{
+  "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+  "samples": [
+    {
+      "id": "SubscriptionBean/9d78e4f2/sub",
+      "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "SubscriptionBean": 1
+      },
+      "assigned": {
+        "type": 1,
+        "link": "https://sub.example.com/fake/subscription?token=fake",
+        "token": "unused-token",
+        "forceResolve": true,
+        "deduplication": true,
+        "updateWhenConnectedOnly": true,
+        "customUserAgent": "FakeAgent/1.0",
+        "autoUpdate": true,
+        "autoUpdateDelay": 720,
+        "lastUpdated": 1700000000,
+        "bytesUsed": 1234567890123,
+        "bytesRemaining": 987654321098,
+        "username": "unused-username",
+        "expiryDate": 1800000000,
+        "protocols": [],
+        "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000"
+      },
+      "expected": {
+        "type": 1,
+        "link": "https://sub.example.com/fake/subscription?token=fake",
+        "token": "",
+        "forceResolve": true,
+        "deduplication": true,
+        "updateWhenConnectedOnly": true,
+        "customUserAgent": "FakeAgent/1.0",
+        "autoUpdate": true,
+        "autoUpdateDelay": 720,
+        "lastUpdated": 1700000000,
+        "bytesUsed": 0,
+        "bytesRemaining": 0,
+        "username": "",
+        "expiryDate": 0,
+        "protocols": [],
+        "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000",
+        "nameserverFromSubscription": false
+      },
+      "base64": "AQAAAAEAAAC1aHR0cHM6Ly9zdWIuZXhhbXBsZS5jb20vZmFrZS9zdWJzY3JpcHRpb24/dG9rZW49ZmFrZQEBAUZha2VBZ2VudC8xLrAB0AIAAADxU2WxdXBsb2FkPTE7IGRvd25sb2FkPTI7IHRvdGFsPTM7IGV4cGlyZT0xODAwMDAwMDAw",
+      "current": false
+    },
+    {
+      "id": "SubscriptionBean/9d78e4f2/default",
+      "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "SubscriptionBean": 1
+      },
+      "assigned": {
+        "type": 0,
+        "link": "",
+        "token": "",
+        "forceResolve": false,
+        "deduplication": false,
+        "updateWhenConnectedOnly": false,
+        "customUserAgent": "",
+        "autoUpdate": false,
+        "autoUpdateDelay": 1440,
+        "lastUpdated": 0,
+        "bytesUsed": 0,
+        "bytesRemaining": 0,
+        "username": "",
+        "expiryDate": 0,
+        "protocols": [],
+        "subscriptionUserinfo": null
+      },
+      "expected": {
+        "type": 0,
+        "link": "",
+        "token": "",
+        "forceResolve": false,
+        "deduplication": false,
+        "updateWhenConnectedOnly": false,
+        "customUserAgent": "",
+        "autoUpdate": false,
+        "autoUpdateDelay": 1440,
+        "lastUpdated": 0,
+        "bytesUsed": 0,
+        "bytesRemaining": 0,
+        "username": "",
+        "expiryDate": 0,
+        "protocols": [],
+        "subscriptionUserinfo": null,
+        "nameserverFromSubscription": false
+      },
+      "base64": "AQAAAAAAAACBAAAAgQCgBQAAAAAAAIA=",
+      "current": false
+    },
+    {
+      "id": "SubscriptionBean/629cdae1/sub",
+      "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+      "form": "storage",
+      "source": {
+        "commit": "629cdae1b44c4f751db30aeb7a359a966d4ab9df",
+        "tag": "1.7.2-b2",
+        "versionName": "1.7.2-b1"
+      },
+      "versions": {
+        "SubscriptionBean": 1
+      },
+      "assigned": {
+        "type": 1,
+        "link": "https://sub.example.com/fake/subscription?token=fake",
+        "token": "unused-token",
+        "forceResolve": true,
+        "deduplication": true,
+        "updateWhenConnectedOnly": true,
+        "customUserAgent": "FakeAgent/1.0",
+        "autoUpdate": true,
+        "autoUpdateDelay": 720,
+        "lastUpdated": 1700000000,
+        "bytesUsed": 1234567890123,
+        "bytesRemaining": 987654321098,
+        "username": "unused-username",
+        "expiryDate": 1800000000,
+        "protocols": [],
+        "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000"
+      },
+      "expected": {
+        "type": 1,
+        "link": "https://sub.example.com/fake/subscription?token=fake",
+        "token": "",
+        "forceResolve": true,
+        "deduplication": true,
+        "updateWhenConnectedOnly": true,
+        "customUserAgent": "FakeAgent/1.0",
+        "autoUpdate": true,
+        "autoUpdateDelay": 720,
+        "lastUpdated": 1700000000,
+        "bytesUsed": 0,
+        "bytesRemaining": 0,
+        "username": "",
+        "expiryDate": 0,
+        "protocols": [],
+        "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000",
+        "nameserverFromSubscription": false
+      },
+      "base64": "AQAAAAEAAAC1aHR0cHM6Ly9zdWIuZXhhbXBsZS5jb20vZmFrZS9zdWJzY3JpcHRpb24/dG9rZW49ZmFrZQEBAUZha2VBZ2VudC8xLrAB0AIAAADxU2WxdXBsb2FkPTE7IGRvd25sb2FkPTI7IHRvdGFsPTM7IGV4cGlyZT0xODAwMDAwMDAw",
+      "current": false
+    },
+    {
+      "id": "SubscriptionBean/629cdae1/default",
+      "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+      "form": "storage",
+      "source": {
+        "commit": "629cdae1b44c4f751db30aeb7a359a966d4ab9df",
+        "tag": "1.7.2-b2",
+        "versionName": "1.7.2-b1"
+      },
+      "versions": {
+        "SubscriptionBean": 1
+      },
+      "assigned": {
+        "type": 0,
+        "link": "",
+        "token": "",
+        "forceResolve": false,
+        "deduplication": false,
+        "updateWhenConnectedOnly": false,
+        "customUserAgent": "",
+        "autoUpdate": false,
+        "autoUpdateDelay": 1440,
+        "lastUpdated": 0,
+        "bytesUsed": 0,
+        "bytesRemaining": 0,
+        "username": "",
+        "expiryDate": 0,
+        "protocols": [],
+        "subscriptionUserinfo": null
+      },
+      "expected": {
+        "type": 0,
+        "link": "",
+        "token": "",
+        "forceResolve": false,
+        "deduplication": false,
+        "updateWhenConnectedOnly": false,
+        "customUserAgent": "",
+        "autoUpdate": false,
+        "autoUpdateDelay": 1440,
+        "lastUpdated": 0,
+        "bytesUsed": 0,
+        "bytesRemaining": 0,
+        "username": "",
+        "expiryDate": 0,
+        "protocols": [],
+        "subscriptionUserinfo": null,
+        "nameserverFromSubscription": false
+      },
+      "base64": "AQAAAAAAAACBAAAAgQCgBQAAAAAAAIA=",
+      "current": false
+    },
+    {
+      "id": "SubscriptionBean/9220b316/sub",
+      "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+      "form": "storage",
+      "source": {
+        "commit": "9220b31678c1a41d1f5729d3d5037c37424e99f5",
+        "tag": "1.7.3",
+        "versionName": "1.7.3"
+      },
+      "versions": {
+        "SubscriptionBean": 2
+      },
+      "assigned": {
+        "type": 1,
+        "link": "https://sub.example.com/fake/subscription?token=fake",
+        "token": "unused-token",
+        "forceResolve": true,
+        "deduplication": true,
+        "updateWhenConnectedOnly": true,
+        "customUserAgent": "FakeAgent/1.0",
+        "autoUpdate": true,
+        "autoUpdateDelay": 720,
+        "lastUpdated": 1700000000,
+        "bytesUsed": 1234567890123,
+        "bytesRemaining": 987654321098,
+        "username": "unused-username",
+        "expiryDate": 1800000000,
+        "protocols": [],
+        "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000"
+      },
+      "expected": {
+        "type": 1,
+        "link": "https://sub.example.com/fake/subscription?token=fake",
+        "token": "",
+        "forceResolve": true,
+        "deduplication": true,
+        "updateWhenConnectedOnly": true,
+        "customUserAgent": "FakeAgent/1.0",
+        "autoUpdate": true,
+        "autoUpdateDelay": 720,
+        "lastUpdated": 1700000000,
+        "bytesUsed": 1234567890123,
+        "bytesRemaining": 987654321098,
+        "username": "",
+        "expiryDate": 1800000000,
+        "protocols": [],
+        "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000",
+        "nameserverFromSubscription": false
+      },
+      "base64": "AgAAAAEAAAC1aHR0cHM6Ly9zdWIuZXhhbXBsZS5jb20vZmFrZS9zdWJzY3JpcHRpb24/dG9rZW49ZmFrZQEBAUZha2VBZ2VudC8xLrAB0AIAAADxU2WxdXBsb2FkPTE7IGRvd25sb2FkPTI7IHRvdGFsPTM7IGV4cGlyZT0xODAwMDAwMDAwywT7cR8BAADK88j05QAAAADSSWs=",
+      "current": false
+    },
+    {
+      "id": "SubscriptionBean/9220b316/default",
+      "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+      "form": "storage",
+      "source": {
+        "commit": "9220b31678c1a41d1f5729d3d5037c37424e99f5",
+        "tag": "1.7.3",
+        "versionName": "1.7.3"
+      },
+      "versions": {
+        "SubscriptionBean": 2
+      },
+      "assigned": {
+        "type": 0,
+        "link": "",
+        "token": "",
+        "forceResolve": false,
+        "deduplication": false,
+        "updateWhenConnectedOnly": false,
+        "customUserAgent": "",
+        "autoUpdate": false,
+        "autoUpdateDelay": 1440,
+        "lastUpdated": 0,
+        "bytesUsed": 0,
+        "bytesRemaining": 0,
+        "username": "",
+        "expiryDate": 0,
+        "protocols": [],
+        "subscriptionUserinfo": null
+      },
+      "expected": {
+        "type": 0,
+        "link": "",
+        "token": "",
+        "forceResolve": false,
+        "deduplication": false,
+        "updateWhenConnectedOnly": false,
+        "customUserAgent": "",
+        "autoUpdate": false,
+        "autoUpdateDelay": 1440,
+        "lastUpdated": 0,
+        "bytesUsed": 0,
+        "bytesRemaining": 0,
+        "username": "",
+        "expiryDate": 0,
+        "protocols": [],
+        "subscriptionUserinfo": null,
+        "nameserverFromSubscription": false
+      },
+      "base64": "AgAAAAAAAACBAAAAgQCgBQAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+      "current": false
+    },
+    {
+      "id": "SubscriptionBean/3bd39b94/sub-long",
+      "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+      "form": "storage",
+      "source": {
+        "commit": "3bd39b94c870219103860c5273dcb686560ad064",
+        "tag": "1.7.6-a1",
+        "versionName": "1.7.5"
+      },
+      "versions": {
+        "SubscriptionBean": 4
+      },
+      "assigned": {
+        "type": 1,
+        "link": "https://sub.example.com/fake/subscription?token=fake",
+        "token": "unused-token",
+        "forceResolve": true,
+        "deduplication": true,
+        "updateWhenConnectedOnly": true,
+        "customUserAgent": "FakeAgent/1.0",
+        "autoUpdate": true,
+        "autoUpdateDelay": 720,
+        "lastUpdated": 5000000000,
+        "bytesUsed": 1234567890123,
+        "bytesRemaining": 987654321098,
+        "username": "unused-username",
+        "expiryDate": 8204889600,
+        "protocols": [],
+        "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000"
+      },
+      "expected": {
+        "type": 1,
+        "link": "https://sub.example.com/fake/subscription?token=fake",
+        "token": "",
+        "forceResolve": true,
+        "deduplication": true,
+        "updateWhenConnectedOnly": true,
+        "customUserAgent": "FakeAgent/1.0",
+        "autoUpdate": true,
+        "autoUpdateDelay": 720,
+        "lastUpdated": 5000000000,
+        "bytesUsed": 1234567890123,
+        "bytesRemaining": 987654321098,
+        "username": "",
+        "expiryDate": 8204889600,
+        "protocols": [],
+        "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000",
+        "nameserverFromSubscription": false
+      },
+      "base64": "BAAAAAEAAAC1aHR0cHM6Ly9zdWIuZXhhbXBsZS5jb20vZmFrZS9zdWJzY3JpcHRpb24/dG9rZW49ZmFrZQEBAUZha2VBZ2VudC8xLrAB0AIAAP///3+xdXBsb2FkPTE7IGRvd25sb2FkPTI7IHRvdGFsPTM7IGV4cGlyZT0xODAwMDAwMDAwywT7cR8BAADK88j05QAAAACuDOkBAAAAAPIFKgEAAAA=",
+      "current": false
+    },
+    {
+      "id": "SubscriptionBean/dd8f56d3/sub",
+      "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "SubscriptionBean": 5
+      },
+      "assigned": {
+        "type": 1,
+        "link": "https://sub.example.com/fake/subscription?token=fake",
+        "token": "unused-token",
+        "forceResolve": true,
+        "deduplication": true,
+        "updateWhenConnectedOnly": true,
+        "customUserAgent": "FakeAgent/1.0",
+        "autoUpdate": true,
+        "autoUpdateDelay": 720,
+        "lastUpdated": 1700000000,
+        "bytesUsed": 1234567890123,
+        "bytesRemaining": 987654321098,
+        "username": "unused-username",
+        "expiryDate": 1800000000,
+        "protocols": [],
+        "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000",
+        "nameserverFromSubscription": true
+      },
+      "expected": {
+        "type": 1,
+        "link": "https://sub.example.com/fake/subscription?token=fake",
+        "token": "",
+        "forceResolve": true,
+        "deduplication": true,
+        "updateWhenConnectedOnly": true,
+        "customUserAgent": "FakeAgent/1.0",
+        "autoUpdate": true,
+        "autoUpdateDelay": 720,
+        "lastUpdated": 1700000000,
+        "bytesUsed": 1234567890123,
+        "bytesRemaining": 987654321098,
+        "username": "",
+        "expiryDate": 1800000000,
+        "protocols": [],
+        "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000",
+        "nameserverFromSubscription": true
+      },
+      "base64": "BQAAAAEAAAC1aHR0cHM6Ly9zdWIuZXhhbXBsZS5jb20vZmFrZS9zdWJzY3JpcHRpb24/dG9rZW49ZmFrZQEBAUZha2VBZ2VudC8xLrAB0AIAAADxU2WxdXBsb2FkPTE7IGRvd25sb2FkPTI7IHRvdGFsPTM7IGV4cGlyZT0xODAwMDAwMDAwywT7cR8BAADK88j05QAAAADSSWsAAAAAAPFTZQAAAAAB",
+      "current": true
+    },
+    {
+      "id": "SubscriptionBean/dd8f56d3/default",
+      "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "SubscriptionBean": 5
+      },
+      "assigned": {
+        "type": 0,
+        "link": "",
+        "token": "",
+        "forceResolve": false,
+        "deduplication": false,
+        "updateWhenConnectedOnly": false,
+        "customUserAgent": "",
+        "autoUpdate": false,
+        "autoUpdateDelay": 1440,
+        "lastUpdated": 0,
+        "bytesUsed": 0,
+        "bytesRemaining": 0,
+        "username": "",
+        "expiryDate": 0,
+        "protocols": [],
+        "subscriptionUserinfo": null,
+        "nameserverFromSubscription": false
+      },
+      "expected": {
+        "type": 0,
+        "link": "",
+        "token": "",
+        "forceResolve": false,
+        "deduplication": false,
+        "updateWhenConnectedOnly": false,
+        "customUserAgent": "",
+        "autoUpdate": false,
+        "autoUpdateDelay": 1440,
+        "lastUpdated": 0,
+        "bytesUsed": 0,
+        "bytesRemaining": 0,
+        "username": "",
+        "expiryDate": 0,
+        "protocols": [],
+        "subscriptionUserinfo": null,
+        "nameserverFromSubscription": false
+      },
+      "base64": "BQAAAAAAAACBAAAAgQCgBQAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "current": true
+    },
+    {
+      "id": "SubscriptionBean/dd8f56d3/sub-long",
+      "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "SubscriptionBean": 5
+      },
+      "assigned": {
+        "type": 1,
+        "link": "https://sub.example.com/fake/subscription?token=fake",
+        "token": "unused-token",
+        "forceResolve": true,
+        "deduplication": true,
+        "updateWhenConnectedOnly": true,
+        "customUserAgent": "FakeAgent/1.0",
+        "autoUpdate": true,
+        "autoUpdateDelay": 720,
+        "lastUpdated": 5000000000,
+        "bytesUsed": 1234567890123,
+        "bytesRemaining": 987654321098,
+        "username": "unused-username",
+        "expiryDate": 8204889600,
+        "protocols": [],
+        "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000",
+        "nameserverFromSubscription": true
+      },
+      "expected": {
+        "type": 1,
+        "link": "https://sub.example.com/fake/subscription?token=fake",
+        "token": "",
+        "forceResolve": true,
+        "deduplication": true,
+        "updateWhenConnectedOnly": true,
+        "customUserAgent": "FakeAgent/1.0",
+        "autoUpdate": true,
+        "autoUpdateDelay": 720,
+        "lastUpdated": 5000000000,
+        "bytesUsed": 1234567890123,
+        "bytesRemaining": 987654321098,
+        "username": "",
+        "expiryDate": 8204889600,
+        "protocols": [],
+        "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000",
+        "nameserverFromSubscription": true
+      },
+      "base64": "BQAAAAEAAAC1aHR0cHM6Ly9zdWIuZXhhbXBsZS5jb20vZmFrZS9zdWJzY3JpcHRpb24/dG9rZW49ZmFrZQEBAUZha2VBZ2VudC8xLrAB0AIAAP///3+xdXBsb2FkPTE7IGRvd25sb2FkPTI7IHRvdGFsPTM7IGV4cGlyZT0xODAwMDAwMDAwywT7cR8BAADK88j05QAAAACuDOkBAAAAAPIFKgEAAAAB",
+      "current": true
+    }
+  ]
+}

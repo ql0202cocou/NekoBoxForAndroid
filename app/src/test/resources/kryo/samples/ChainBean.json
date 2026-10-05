@@ -1,0 +1,149 @@
+{
+  "class": "io.nekohasekai.sagernet.fmt.internal.ChainBean",
+  "samples": [
+    {
+      "id": "ChainBean/9d78e4f2/chain",
+      "class": "io.nekohasekai.sagernet.fmt.internal.ChainBean",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "ChainBean": 1,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "proxies": [
+          11,
+          22,
+          33
+        ],
+        "serverAddress": "chain-unused.example.com",
+        "serverPort": 1,
+        "name": "样本 chain",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-chain\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"chain\"}"
+      },
+      "expected": {
+        "proxies": [
+          11,
+          22,
+          33
+        ],
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "样本 chain",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-chain\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"chain\"}"
+      },
+      "base64": "AQAAAAMAAAALAAAAAAAAABYAAAAAAAAAIQAAAAAAAAABAAAAieagt+acrCBjaGFpbnsidGFnIjoiY3VzdG9tLW91dGJvdW5kLWNoYWluIv2oeyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJjaGFpbiJ9",
+      "current": false
+    },
+    {
+      "id": "ChainBean/9d78e4f2/default",
+      "class": "io.nekohasekai.sagernet.fmt.internal.ChainBean",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "ChainBean": 1,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "proxies": [],
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "proxies": [],
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AQAAAAAAAAABAAAAgYGB",
+      "current": false
+    },
+    {
+      "id": "ChainBean/dd8f56d3/chain",
+      "class": "io.nekohasekai.sagernet.fmt.internal.ChainBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "ChainBean": 1,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "proxies": [
+          11,
+          22,
+          33
+        ],
+        "serverAddress": "chain-unused.example.com",
+        "serverPort": 1,
+        "name": "样本 chain",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-chain\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"chain\"}"
+      },
+      "expected": {
+        "proxies": [
+          11,
+          22,
+          33
+        ],
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "样本 chain",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-chain\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"chain\"}"
+      },
+      "base64": "AQAAAAMAAAALAAAAAAAAABYAAAAAAAAAIQAAAAAAAAABAAAAieagt+acrCBjaGFpbnsidGFnIjoiY3VzdG9tLW91dGJvdW5kLWNoYWluIv2oeyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJjaGFpbiJ9",
+      "current": true
+    },
+    {
+      "id": "ChainBean/dd8f56d3/default",
+      "class": "io.nekohasekai.sagernet.fmt.internal.ChainBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "ChainBean": 1,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "proxies": [],
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "proxies": [],
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AQAAAAAAAAABAAAAgYGB",
+      "current": true
+    }
+  ]
+}

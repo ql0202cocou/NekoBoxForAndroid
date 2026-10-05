@@ -1,0 +1,778 @@
+{
+  "class": "io.nekohasekai.sagernet.database.ProxyEntity",
+  "samples": [
+    {
+      "id": "ProxyEntity/9d78e4f2/entity-VMessBean",
+      "class": "io.nekohasekai.sagernet.database.ProxyEntity",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "ProxyEntity": 0,
+        "StandardV2RayBean": 0,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "id": 100,
+        "groupId": 7,
+        "type": 4,
+        "userOrder": 30,
+        "tx": 123456789012,
+        "rx": 98765,
+        "status": 1,
+        "ping": 87,
+        "uuid": "entity-uuid-0",
+        "error": "错误 0",
+        "core": 2,
+        "dirty": true,
+        "bean": {
+          "class": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
+          "fields": {
+            "alterId": 0,
+            "uuid": "00000000-0000-4000-8000-000000000023",
+            "encryption": "auto",
+            "type": "ws",
+            "host": "cdn-entity-vmess.example.net",
+            "path": "/path-entity-vmess",
+            "security": "tls",
+            "sni": "sni-entity-vmess.example.org",
+            "alpn": "h2,http/1.1",
+            "utlsFingerprint": "chrome",
+            "allowInsecure": true,
+            "realityPubKey": "RkFLRS1SRUFMSVRZLVBVQkxJQy1LRVktMDAwMDAwMA",
+            "realityShortId": "0123abcd",
+            "wsMaxEarlyData": 2048,
+            "earlyDataHeaderName": "Sec-WebSocket-Protocol",
+            "certificates": "-----BEGIN CERTIFICATE-----\nRkFLRS1DRVJULQ==\n-----END CERTIFICATE-----",
+            "packetEncoding": 2,
+            "serverAddress": "entity-vmess.example.com",
+            "serverPort": 11443,
+            "name": "样本 entity-vmess",
+            "customOutboundJson": "{\"tag\":\"custom-outbound-entity-vmess\"}",
+            "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"entity-vmess\"}"
+          }
+        }
+      },
+      "expected": {
+        "id": 100,
+        "groupId": 7,
+        "type": 4,
+        "userOrder": 30,
+        "tx": 123456789012,
+        "rx": 98765,
+        "status": 1,
+        "ping": 87,
+        "uuid": "entity-uuid-0",
+        "error": "错误 0",
+        "core": 0,
+        "dirty": true,
+        "bean": {
+          "class": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
+          "fields": {
+            "alterId": 0,
+            "uuid": "00000000-0000-4000-8000-000000000023",
+            "encryption": "auto",
+            "type": "ws",
+            "host": "cdn-entity-vmess.example.net",
+            "path": "/path-entity-vmess",
+            "security": "tls",
+            "sni": "sni-entity-vmess.example.org",
+            "alpn": "h2,http/1.1",
+            "utlsFingerprint": "chrome",
+            "allowInsecure": true,
+            "realityPubKey": "RkFLRS1SRUFMSVRZLVBVQkxJQy1LRVktMDAwMDAwMA",
+            "realityShortId": "0123abcd",
+            "realityMldsa65Verify": "",
+            "certificateFingerprint": "",
+            "wsMaxEarlyData": 2048,
+            "earlyDataHeaderName": "Sec-WebSocket-Protocol",
+            "certificates": "-----BEGIN CERTIFICATE-----\nRkFLRS1DRVJULQ==\n-----END CERTIFICATE-----",
+            "enableECH": false,
+            "echConfig": "",
+            "enableMux": false,
+            "muxPadding": false,
+            "muxType": 0,
+            "muxConcurrency": 1,
+            "packetEncoding": 2,
+            "serverAddress": "entity-vmess.example.com",
+            "serverPort": 11443,
+            "name": "样本 entity-vmess",
+            "customOutboundJson": "{\"tag\":\"custom-outbound-entity-vmess\"}",
+            "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"entity-vmess\"}"
+          }
+        }
+      },
+      "base64": "AAAAAGQAAAAAAAAABwAAAAAAAAAEAAAAHgAAAAAAAAAUGpm+HAAAAM2BAQAAAAAAAQAAAFcAAABlbnRpdHktdXVpZC2whemUmeivryAwtQMAAAAAZW50aXR5LXZtZXNzLmV4YW1wbGUuY2/tsywAAKUwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMjNhdXTvAAAAAHfzY2RuLWVudGl0eS12bWVzcy5leGFtcGxlLm5l9C9wYXRoLWVudGl0eS12bWVz8wAIAABTZWMtV2ViU29ja2V0LVByb3RvY2/sdGzzc25pLWVudGl0eS12bWVzcy5leGFtcGxlLm9y52gyLGh0dHAvMS6xxwEtLS0tLUJFR0lOIENFUlRJRklDQVRFLS0tLS0KUmtGTFJTMURSVkpVTFE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tAWNocm9t5atSa0ZMUlMxU1JVRk1TVlJaTFZCVlFreEpReTFMUlZrdE1EQXdNREF3TUEwMTIzYWJj5AIAAAABAAAAkOagt+acrCBlbnRpdHktdm1lc3OneyJ0YWciOiJjdXN0b20tb3V0Ym91bmQtZW50aXR5LXZtZXNzIn2veyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJlbnRpdHktdm1lc3MifQE=",
+      "current": false
+    },
+    {
+      "id": "ProxyEntity/9d78e4f2/entity-ShadowsocksBean",
+      "class": "io.nekohasekai.sagernet.database.ProxyEntity",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "ProxyEntity": 0,
+        "ShadowsocksBean": 2,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "id": 101,
+        "groupId": 7,
+        "type": 2,
+        "userOrder": 31,
+        "tx": 123456789013,
+        "rx": 98766,
+        "status": 1,
+        "ping": 88,
+        "uuid": "entity-uuid-1",
+        "error": "错误 1",
+        "core": 2,
+        "dirty": true,
+        "bean": {
+          "class": "io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean",
+          "fields": {
+            "method": "aes-128-gcm",
+            "password": "entity-ss-fake-password",
+            "plugin": "",
+            "sUoT": false,
+            "serverAddress": "192.0.2.44",
+            "serverPort": 8389,
+            "name": "样本 entity-ss",
+            "customOutboundJson": "{\"tag\":\"custom-outbound-entity-ss\"}",
+            "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"entity-ss\"}"
+          }
+        }
+      },
+      "expected": {
+        "id": 101,
+        "groupId": 7,
+        "type": 2,
+        "userOrder": 31,
+        "tx": 123456789013,
+        "rx": 98766,
+        "status": 1,
+        "ping": 88,
+        "uuid": "entity-uuid-1",
+        "error": "错误 1",
+        "core": 0,
+        "dirty": true,
+        "bean": {
+          "class": "io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean",
+          "fields": {
+            "method": "aes-128-gcm",
+            "password": "entity-ss-fake-password",
+            "plugin": "",
+            "sUoT": false,
+            "serverAddress": "192.0.2.44",
+            "serverPort": 8389,
+            "name": "样本 entity-ss",
+            "customOutboundJson": "{\"tag\":\"custom-outbound-entity-ss\"}",
+            "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"entity-ss\"}"
+          }
+        }
+      },
+      "base64": "AAAAAGUAAAAAAAAABwAAAAAAAAACAAAAHwAAAAAAAAAVGpm+HAAAAM6BAQAAAAAAAQAAAFgAAABlbnRpdHktdXVpZC2xhemUmeivryAxmwECAAAAMTkyLjAuMi40tMUgAABhZXMtMTI4LWdj7WVudGl0eS1zcy1mYWtlLXBhc3N3b3LkgQABAAAAjeagt+acrCBlbnRpdHktc3OkeyJ0YWciOiJjdXN0b20tb3V0Ym91bmQtZW50aXR5LXNzIn2seyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJlbnRpdHktc3MifQE=",
+      "current": false
+    },
+    {
+      "id": "ProxyEntity/9d78e4f2/entity-ChainBean",
+      "class": "io.nekohasekai.sagernet.database.ProxyEntity",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "ProxyEntity": 0,
+        "ChainBean": 1,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "id": 102,
+        "groupId": 7,
+        "type": 8,
+        "userOrder": 32,
+        "tx": 123456789014,
+        "rx": 98767,
+        "status": 1,
+        "ping": 89,
+        "uuid": "entity-uuid-2",
+        "error": "错误 2",
+        "core": 2,
+        "dirty": true,
+        "bean": {
+          "class": "io.nekohasekai.sagernet.fmt.internal.ChainBean",
+          "fields": {
+            "proxies": [
+              101,
+              102
+            ],
+            "serverAddress": "chain-unused.example.com",
+            "serverPort": 1,
+            "name": "样本 entity-chain",
+            "customOutboundJson": "{\"tag\":\"custom-outbound-entity-chain\"}",
+            "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"entity-chain\"}"
+          }
+        }
+      },
+      "expected": {
+        "id": 102,
+        "groupId": 7,
+        "type": 8,
+        "userOrder": 32,
+        "tx": 123456789014,
+        "rx": 98767,
+        "status": 1,
+        "ping": 89,
+        "uuid": "entity-uuid-2",
+        "error": "错误 2",
+        "core": 0,
+        "dirty": true,
+        "bean": {
+          "class": "io.nekohasekai.sagernet.fmt.internal.ChainBean",
+          "fields": {
+            "proxies": [
+              101,
+              102
+            ],
+            "serverAddress": "127.0.0.1",
+            "serverPort": 1080,
+            "name": "样本 entity-chain",
+            "customOutboundJson": "{\"tag\":\"custom-outbound-entity-chain\"}",
+            "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"entity-chain\"}"
+          }
+        }
+      },
+      "base64": "AAAAAGYAAAAAAAAABwAAAAAAAAAIAAAAIAAAAAAAAAAWGpm+HAAAAM+BAQAAAAAAAQAAAFkAAABlbnRpdHktdXVpZC2yhemUmeivryAyhgEBAAAAAgAAAGUAAAAAAAAAZgAAAAAAAAABAAAAkOagt+acrCBlbnRpdHktY2hhaW6neyJ0YWciOiJjdXN0b20tb3V0Ym91bmQtZW50aXR5LWNoYWluIn2veyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJlbnRpdHktY2hhaW4ifQE=",
+      "current": false
+    },
+    {
+      "id": "ProxyEntity/bbbdf577/entity-VMessBean",
+      "class": "io.nekohasekai.sagernet.database.ProxyEntity",
+      "form": "storage",
+      "source": {
+        "commit": "bbbdf577c5f9ebe6564ea2c4f3b87898da95ac1c",
+        "tag": "1.6.0",
+        "versionName": "1.5.0"
+      },
+      "versions": {
+        "ProxyEntity": 0,
+        "StandardV2RayBean": 4,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "id": 100,
+        "groupId": 7,
+        "type": 4,
+        "userOrder": 30,
+        "tx": 123456789012,
+        "rx": 98765,
+        "status": 1,
+        "ping": 87,
+        "uuid": "entity-uuid-0",
+        "error": "错误 0",
+        "core": 2,
+        "dirty": true,
+        "bean": {
+          "class": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
+          "fields": {
+            "alterId": 0,
+            "uuid": "00000000-0000-4000-8000-000000000023",
+            "encryption": "auto",
+            "type": "ws",
+            "host": "cdn-entity-vmess.example.net",
+            "path": "/path-entity-vmess",
+            "security": "tls",
+            "sni": "sni-entity-vmess.example.org",
+            "alpn": "h2,http/1.1",
+            "utlsFingerprint": "chrome",
+            "allowInsecure": true,
+            "realityPubKey": "RkFLRS1SRUFMSVRZLVBVQkxJQy1LRVktMDAwMDAwMA",
+            "realityShortId": "0123abcd",
+            "wsMaxEarlyData": 2048,
+            "earlyDataHeaderName": "Sec-WebSocket-Protocol",
+            "certificates": "-----BEGIN CERTIFICATE-----\nRkFLRS1DRVJULQ==\n-----END CERTIFICATE-----",
+            "enableECH": false,
+            "echConfig": "RkFLRS1FQ0gtQ09ORklH",
+            "enableMux": true,
+            "muxPadding": true,
+            "muxType": 1,
+            "muxConcurrency": 8,
+            "packetEncoding": 2,
+            "serverAddress": "entity-vmess.example.com",
+            "serverPort": 11443,
+            "name": "样本 entity-vmess",
+            "customOutboundJson": "{\"tag\":\"custom-outbound-entity-vmess\"}",
+            "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"entity-vmess\"}"
+          }
+        }
+      },
+      "expected": {
+        "id": 100,
+        "groupId": 7,
+        "type": 4,
+        "userOrder": 30,
+        "tx": 123456789012,
+        "rx": 98765,
+        "status": 1,
+        "ping": 87,
+        "uuid": "entity-uuid-0",
+        "error": "错误 0",
+        "core": 0,
+        "dirty": true,
+        "bean": {
+          "class": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
+          "fields": {
+            "alterId": 0,
+            "uuid": "00000000-0000-4000-8000-000000000023",
+            "encryption": "auto",
+            "type": "ws",
+            "host": "cdn-entity-vmess.example.net",
+            "path": "/path-entity-vmess",
+            "security": "tls",
+            "sni": "sni-entity-vmess.example.org",
+            "alpn": "h2,http/1.1",
+            "utlsFingerprint": "chrome",
+            "allowInsecure": true,
+            "realityPubKey": "RkFLRS1SRUFMSVRZLVBVQkxJQy1LRVktMDAwMDAwMA",
+            "realityShortId": "0123abcd",
+            "realityMldsa65Verify": "",
+            "certificateFingerprint": "",
+            "wsMaxEarlyData": 2048,
+            "earlyDataHeaderName": "Sec-WebSocket-Protocol",
+            "certificates": "-----BEGIN CERTIFICATE-----\nRkFLRS1DRVJULQ==\n-----END CERTIFICATE-----",
+            "enableECH": false,
+            "echConfig": "RkFLRS1FQ0gtQ09ORklH",
+            "enableMux": true,
+            "muxPadding": true,
+            "muxType": 1,
+            "muxConcurrency": 8,
+            "packetEncoding": 2,
+            "serverAddress": "entity-vmess.example.com",
+            "serverPort": 11443,
+            "name": "样本 entity-vmess",
+            "customOutboundJson": "{\"tag\":\"custom-outbound-entity-vmess\"}",
+            "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"entity-vmess\"}"
+          }
+        }
+      },
+      "base64": "AAAAAGQAAAAAAAAABwAAAAAAAAAEAAAAHgAAAAAAAAAUGpm+HAAAAM2BAQAAAAAAAQAAAFcAAABlbnRpdHktdXVpZC2whemUmeivryAw1AMEAAAAZW50aXR5LXZtZXNzLmV4YW1wbGUuY2/tsywAAKUwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMjNhdXTvAAAAAHfzY2RuLWVudGl0eS12bWVzcy5leGFtcGxlLm5l9C9wYXRoLWVudGl0eS12bWVz8wAIAABTZWMtV2ViU29ja2V0LVByb3RvY2/sdGzzc25pLWVudGl0eS12bWVzcy5leGFtcGxlLm9y52gyLGh0dHAvMS6xxwEtLS0tLUJFR0lOIENFUlRJRklDQVRFLS0tLS0KUmtGTFJTMURSVkpVTFE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tAWNocm9t5atSa0ZMUlMxU1JVRk1TVlJaTFZCVlFreEpReTFMUlZrdE1EQXdNREF3TUEwMTIzYWJj5ABSa0ZMUlMxRlEwZ3RRMDlPUmtsyAIAAAABAQEAAAAIAAAAAQAAAJDmoLfmnKwgZW50aXR5LXZtZXNzp3sidGFnIjoiY3VzdG9tLW91dGJvdW5kLWVudGl0eS12bWVzcyJ9r3sibG9nIjp7ImxldmVsIjoid2FybiJ9LCJub3RlIjoiZW50aXR5LXZtZXNzIn0B",
+      "current": false
+    },
+    {
+      "id": "ProxyEntity/bbbdf577/entity-ShadowsocksBean",
+      "class": "io.nekohasekai.sagernet.database.ProxyEntity",
+      "form": "storage",
+      "source": {
+        "commit": "bbbdf577c5f9ebe6564ea2c4f3b87898da95ac1c",
+        "tag": "1.6.0",
+        "versionName": "1.5.0"
+      },
+      "versions": {
+        "ProxyEntity": 0,
+        "ShadowsocksBean": 2,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "id": 101,
+        "groupId": 7,
+        "type": 2,
+        "userOrder": 31,
+        "tx": 123456789013,
+        "rx": 98766,
+        "status": 1,
+        "ping": 88,
+        "uuid": "entity-uuid-1",
+        "error": "错误 1",
+        "core": 2,
+        "dirty": true,
+        "bean": {
+          "class": "io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean",
+          "fields": {
+            "method": "aes-128-gcm",
+            "password": "entity-ss-fake-password",
+            "plugin": "",
+            "sUoT": false,
+            "serverAddress": "192.0.2.44",
+            "serverPort": 8389,
+            "name": "样本 entity-ss",
+            "customOutboundJson": "{\"tag\":\"custom-outbound-entity-ss\"}",
+            "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"entity-ss\"}"
+          }
+        }
+      },
+      "expected": {
+        "id": 101,
+        "groupId": 7,
+        "type": 2,
+        "userOrder": 31,
+        "tx": 123456789013,
+        "rx": 98766,
+        "status": 1,
+        "ping": 88,
+        "uuid": "entity-uuid-1",
+        "error": "错误 1",
+        "core": 0,
+        "dirty": true,
+        "bean": {
+          "class": "io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean",
+          "fields": {
+            "method": "aes-128-gcm",
+            "password": "entity-ss-fake-password",
+            "plugin": "",
+            "sUoT": false,
+            "serverAddress": "192.0.2.44",
+            "serverPort": 8389,
+            "name": "样本 entity-ss",
+            "customOutboundJson": "{\"tag\":\"custom-outbound-entity-ss\"}",
+            "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"entity-ss\"}"
+          }
+        }
+      },
+      "base64": "AAAAAGUAAAAAAAAABwAAAAAAAAACAAAAHwAAAAAAAAAVGpm+HAAAAM6BAQAAAAAAAQAAAFgAAABlbnRpdHktdXVpZC2xhemUmeivryAxmwECAAAAMTkyLjAuMi40tMUgAABhZXMtMTI4LWdj7WVudGl0eS1zcy1mYWtlLXBhc3N3b3LkgQABAAAAjeagt+acrCBlbnRpdHktc3OkeyJ0YWciOiJjdXN0b20tb3V0Ym91bmQtZW50aXR5LXNzIn2seyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJlbnRpdHktc3MifQE=",
+      "current": false
+    },
+    {
+      "id": "ProxyEntity/bbbdf577/entity-ChainBean",
+      "class": "io.nekohasekai.sagernet.database.ProxyEntity",
+      "form": "storage",
+      "source": {
+        "commit": "bbbdf577c5f9ebe6564ea2c4f3b87898da95ac1c",
+        "tag": "1.6.0",
+        "versionName": "1.5.0"
+      },
+      "versions": {
+        "ProxyEntity": 0,
+        "ChainBean": 1,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "id": 102,
+        "groupId": 7,
+        "type": 8,
+        "userOrder": 32,
+        "tx": 123456789014,
+        "rx": 98767,
+        "status": 1,
+        "ping": 89,
+        "uuid": "entity-uuid-2",
+        "error": "错误 2",
+        "core": 2,
+        "dirty": true,
+        "bean": {
+          "class": "io.nekohasekai.sagernet.fmt.internal.ChainBean",
+          "fields": {
+            "proxies": [
+              101,
+              102
+            ],
+            "serverAddress": "chain-unused.example.com",
+            "serverPort": 1,
+            "name": "样本 entity-chain",
+            "customOutboundJson": "{\"tag\":\"custom-outbound-entity-chain\"}",
+            "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"entity-chain\"}"
+          }
+        }
+      },
+      "expected": {
+        "id": 102,
+        "groupId": 7,
+        "type": 8,
+        "userOrder": 32,
+        "tx": 123456789014,
+        "rx": 98767,
+        "status": 1,
+        "ping": 89,
+        "uuid": "entity-uuid-2",
+        "error": "错误 2",
+        "core": 0,
+        "dirty": true,
+        "bean": {
+          "class": "io.nekohasekai.sagernet.fmt.internal.ChainBean",
+          "fields": {
+            "proxies": [
+              101,
+              102
+            ],
+            "serverAddress": "127.0.0.1",
+            "serverPort": 1080,
+            "name": "样本 entity-chain",
+            "customOutboundJson": "{\"tag\":\"custom-outbound-entity-chain\"}",
+            "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"entity-chain\"}"
+          }
+        }
+      },
+      "base64": "AAAAAGYAAAAAAAAABwAAAAAAAAAIAAAAIAAAAAAAAAAWGpm+HAAAAM+BAQAAAAAAAQAAAFkAAABlbnRpdHktdXVpZC2yhemUmeivryAyhgEBAAAAAgAAAGUAAAAAAAAAZgAAAAAAAAABAAAAkOagt+acrCBlbnRpdHktY2hhaW6neyJ0YWciOiJjdXN0b20tb3V0Ym91bmQtZW50aXR5LWNoYWluIn2veyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJlbnRpdHktY2hhaW4ifQE=",
+      "current": false
+    },
+    {
+      "id": "ProxyEntity/dd8f56d3/entity-VMessBean",
+      "class": "io.nekohasekai.sagernet.database.ProxyEntity",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "ProxyEntity": 1,
+        "StandardV2RayBean": 6,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "id": 100,
+        "groupId": 7,
+        "type": 4,
+        "userOrder": 30,
+        "tx": 123456789012,
+        "rx": 98765,
+        "status": 1,
+        "ping": 87,
+        "uuid": "entity-uuid-0",
+        "error": "错误 0",
+        "core": 2,
+        "dirty": true,
+        "bean": {
+          "class": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
+          "fields": {
+            "alterId": 0,
+            "uuid": "00000000-0000-4000-8000-000000000023",
+            "encryption": "auto",
+            "type": "ws",
+            "host": "cdn-entity-vmess.example.net",
+            "path": "/path-entity-vmess",
+            "security": "tls",
+            "sni": "sni-entity-vmess.example.org",
+            "alpn": "h2,http/1.1",
+            "utlsFingerprint": "chrome",
+            "allowInsecure": true,
+            "realityPubKey": "RkFLRS1SRUFMSVRZLVBVQkxJQy1LRVktMDAwMDAwMA",
+            "realityShortId": "0123abcd",
+            "realityMldsa65Verify": "RkFLRS1NTERTQS02NS1WRVJJRlk=",
+            "certificateFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "wsMaxEarlyData": 2048,
+            "earlyDataHeaderName": "Sec-WebSocket-Protocol",
+            "certificates": "-----BEGIN CERTIFICATE-----\nRkFLRS1DRVJULQ==\n-----END CERTIFICATE-----",
+            "enableECH": false,
+            "echConfig": "RkFLRS1FQ0gtQ09ORklH",
+            "enableMux": true,
+            "muxPadding": true,
+            "muxType": 1,
+            "muxConcurrency": 8,
+            "packetEncoding": 2,
+            "serverAddress": "entity-vmess.example.com",
+            "serverPort": 11443,
+            "name": "样本 entity-vmess",
+            "customOutboundJson": "{\"tag\":\"custom-outbound-entity-vmess\"}",
+            "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"entity-vmess\"}"
+          }
+        }
+      },
+      "expected": {
+        "id": 100,
+        "groupId": 7,
+        "type": 4,
+        "userOrder": 30,
+        "tx": 123456789012,
+        "rx": 98765,
+        "status": 1,
+        "ping": 87,
+        "uuid": "entity-uuid-0",
+        "error": "错误 0",
+        "core": 2,
+        "dirty": true,
+        "bean": {
+          "class": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
+          "fields": {
+            "alterId": 0,
+            "uuid": "00000000-0000-4000-8000-000000000023",
+            "encryption": "auto",
+            "type": "ws",
+            "host": "cdn-entity-vmess.example.net",
+            "path": "/path-entity-vmess",
+            "security": "tls",
+            "sni": "sni-entity-vmess.example.org",
+            "alpn": "h2,http/1.1",
+            "utlsFingerprint": "chrome",
+            "allowInsecure": true,
+            "realityPubKey": "RkFLRS1SRUFMSVRZLVBVQkxJQy1LRVktMDAwMDAwMA",
+            "realityShortId": "0123abcd",
+            "realityMldsa65Verify": "RkFLRS1NTERTQS02NS1WRVJJRlk=",
+            "certificateFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "wsMaxEarlyData": 2048,
+            "earlyDataHeaderName": "Sec-WebSocket-Protocol",
+            "certificates": "-----BEGIN CERTIFICATE-----\nRkFLRS1DRVJULQ==\n-----END CERTIFICATE-----",
+            "enableECH": false,
+            "echConfig": "RkFLRS1FQ0gtQ09ORklH",
+            "enableMux": true,
+            "muxPadding": true,
+            "muxType": 1,
+            "muxConcurrency": 8,
+            "packetEncoding": 2,
+            "serverAddress": "entity-vmess.example.com",
+            "serverPort": 11443,
+            "name": "样本 entity-vmess",
+            "customOutboundJson": "{\"tag\":\"custom-outbound-entity-vmess\"}",
+            "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"entity-vmess\"}"
+          }
+        }
+      },
+      "base64": "AQAAAGQAAAAAAAAABwAAAAAAAAAEAAAAHgAAAAAAAAAUGpm+HAAAAM2BAQAAAAAAAQAAAFcAAABlbnRpdHktdXVpZC2whemUmeivryAwsgQGAAAAZW50aXR5LXZtZXNzLmV4YW1wbGUuY2/tsywAAKUwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMjNhdXTvAAAAAHfzY2RuLWVudGl0eS12bWVzcy5leGFtcGxlLm5l9C9wYXRoLWVudGl0eS12bWVz8wAIAABTZWMtV2ViU29ja2V0LVByb3RvY2/sdGzzc25pLWVudGl0eS12bWVzcy5leGFtcGxlLm9y52gyLGh0dHAvMS6xxwEtLS0tLUJFR0lOIENFUlRJRklDQVRFLS0tLS0KUmtGTFJTMURSVkpVTFE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tAWNocm9t5atSa0ZMUlMxU1JVRk1TVlJaTFZCVlFreEpReTFMUlZrdE1EQXdNREF3TUEwMTIzYWJj5ABSa0ZMUlMxRlEwZ3RRMDlPUmtsyAIAAAABAQEAAAAIAAAAUmtGTFJTMU5URVJUUVMwMk5TMVdSVkpKUmxrvcEBYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQEAAACQ5qC35pysIGVudGl0eS12bWVzc6d7InRhZyI6ImN1c3RvbS1vdXRib3VuZC1lbnRpdHktdm1lc3Mifa97ImxvZyI6eyJsZXZlbCI6Indhcm4ifSwibm90ZSI6ImVudGl0eS12bWVzcyJ9AQIAAAA=",
+      "current": true
+    },
+    {
+      "id": "ProxyEntity/dd8f56d3/entity-ShadowsocksBean",
+      "class": "io.nekohasekai.sagernet.database.ProxyEntity",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "ProxyEntity": 1,
+        "ShadowsocksBean": 2,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "id": 101,
+        "groupId": 7,
+        "type": 2,
+        "userOrder": 31,
+        "tx": 123456789013,
+        "rx": 98766,
+        "status": 1,
+        "ping": 88,
+        "uuid": "entity-uuid-1",
+        "error": "错误 1",
+        "core": 2,
+        "dirty": true,
+        "bean": {
+          "class": "io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean",
+          "fields": {
+            "method": "aes-128-gcm",
+            "password": "entity-ss-fake-password",
+            "plugin": "",
+            "sUoT": false,
+            "serverAddress": "192.0.2.44",
+            "serverPort": 8389,
+            "name": "样本 entity-ss",
+            "customOutboundJson": "{\"tag\":\"custom-outbound-entity-ss\"}",
+            "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"entity-ss\"}"
+          }
+        }
+      },
+      "expected": {
+        "id": 101,
+        "groupId": 7,
+        "type": 2,
+        "userOrder": 31,
+        "tx": 123456789013,
+        "rx": 98766,
+        "status": 1,
+        "ping": 88,
+        "uuid": "entity-uuid-1",
+        "error": "错误 1",
+        "core": 2,
+        "dirty": true,
+        "bean": {
+          "class": "io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean",
+          "fields": {
+            "method": "aes-128-gcm",
+            "password": "entity-ss-fake-password",
+            "plugin": "",
+            "sUoT": false,
+            "serverAddress": "192.0.2.44",
+            "serverPort": 8389,
+            "name": "样本 entity-ss",
+            "customOutboundJson": "{\"tag\":\"custom-outbound-entity-ss\"}",
+            "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"entity-ss\"}"
+          }
+        }
+      },
+      "base64": "AQAAAGUAAAAAAAAABwAAAAAAAAACAAAAHwAAAAAAAAAVGpm+HAAAAM6BAQAAAAAAAQAAAFgAAABlbnRpdHktdXVpZC2xhemUmeivryAxmwECAAAAMTkyLjAuMi40tMUgAABhZXMtMTI4LWdj7WVudGl0eS1zcy1mYWtlLXBhc3N3b3LkgQABAAAAjeagt+acrCBlbnRpdHktc3OkeyJ0YWciOiJjdXN0b20tb3V0Ym91bmQtZW50aXR5LXNzIn2seyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJlbnRpdHktc3MifQECAAAA",
+      "current": true
+    },
+    {
+      "id": "ProxyEntity/dd8f56d3/entity-ChainBean",
+      "class": "io.nekohasekai.sagernet.database.ProxyEntity",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "ProxyEntity": 1,
+        "ChainBean": 1,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "id": 102,
+        "groupId": 7,
+        "type": 8,
+        "userOrder": 32,
+        "tx": 123456789014,
+        "rx": 98767,
+        "status": 1,
+        "ping": 89,
+        "uuid": "entity-uuid-2",
+        "error": "错误 2",
+        "core": 2,
+        "dirty": true,
+        "bean": {
+          "class": "io.nekohasekai.sagernet.fmt.internal.ChainBean",
+          "fields": {
+            "proxies": [
+              101,
+              102
+            ],
+            "serverAddress": "chain-unused.example.com",
+            "serverPort": 1,
+            "name": "样本 entity-chain",
+            "customOutboundJson": "{\"tag\":\"custom-outbound-entity-chain\"}",
+            "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"entity-chain\"}"
+          }
+        }
+      },
+      "expected": {
+        "id": 102,
+        "groupId": 7,
+        "type": 8,
+        "userOrder": 32,
+        "tx": 123456789014,
+        "rx": 98767,
+        "status": 1,
+        "ping": 89,
+        "uuid": "entity-uuid-2",
+        "error": "错误 2",
+        "core": 2,
+        "dirty": true,
+        "bean": {
+          "class": "io.nekohasekai.sagernet.fmt.internal.ChainBean",
+          "fields": {
+            "proxies": [
+              101,
+              102
+            ],
+            "serverAddress": "127.0.0.1",
+            "serverPort": 1080,
+            "name": "样本 entity-chain",
+            "customOutboundJson": "{\"tag\":\"custom-outbound-entity-chain\"}",
+            "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"entity-chain\"}"
+          }
+        }
+      },
+      "base64": "AQAAAGYAAAAAAAAABwAAAAAAAAAIAAAAIAAAAAAAAAAWGpm+HAAAAM+BAQAAAAAAAQAAAFkAAABlbnRpdHktdXVpZC2yhemUmeivryAyhgEBAAAAAgAAAGUAAAAAAAAAZgAAAAAAAAABAAAAkOagt+acrCBlbnRpdHktY2hhaW6neyJ0YWciOiJjdXN0b20tb3V0Ym91bmQtZW50aXR5LWNoYWluIn2veyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJlbnRpdHktY2hhaW4ifQECAAAA",
+      "current": true
+    }
+  ]
+}

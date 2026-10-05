@@ -1,0 +1,155 @@
+{
+  "class": "io.nekohasekai.sagernet.fmt.socks.SOCKSBean",
+  "samples": [
+    {
+      "id": "SOCKSBean/9d78e4f2/socks4a",
+      "class": "io.nekohasekai.sagernet.fmt.socks.SOCKSBean",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "SOCKSBean": 1,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "protocol": 1,
+        "username": "socks-user",
+        "password": "socks-fake-password",
+        "serverAddress": "socks.example.com",
+        "serverPort": 1081,
+        "name": "样本 socks",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-socks\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"socks\"}"
+      },
+      "expected": {
+        "protocol": 1,
+        "sUoT": false,
+        "username": "socks-user",
+        "password": "socks-fake-password",
+        "serverAddress": "socks.example.com",
+        "serverPort": 1081,
+        "name": "样本 socks",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-socks\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"socks\"}"
+      },
+      "base64": "AQAAAHNvY2tzLmV4YW1wbGUuY2/tOQQAAAEAAABzb2Nrcy11c2Xyc29ja3MtZmFrZS1wYXNzd29y5AEAAACJ5qC35pysIHNvY2tzeyJ0YWciOiJjdXN0b20tb3V0Ym91bmQtc29ja3Mi/ah7ImxvZyI6eyJsZXZlbCI6Indhcm4ifSwibm90ZSI6InNvY2tzIn0=",
+      "current": false
+    },
+    {
+      "id": "SOCKSBean/9d78e4f2/default",
+      "class": "io.nekohasekai.sagernet.fmt.socks.SOCKSBean",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "SOCKSBean": 1,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "protocol": 2,
+        "username": "",
+        "password": "",
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "protocol": 2,
+        "sUoT": false,
+        "username": "",
+        "password": "",
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AQAAADEyNy4wLjAusTgEAAACAAAAgYEBAAAAgYGB",
+      "current": false
+    },
+    {
+      "id": "SOCKSBean/dd8f56d3/socks4a",
+      "class": "io.nekohasekai.sagernet.fmt.socks.SOCKSBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "SOCKSBean": 2,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "protocol": 1,
+        "sUoT": true,
+        "username": "socks-user",
+        "password": "socks-fake-password",
+        "serverAddress": "socks.example.com",
+        "serverPort": 1081,
+        "name": "样本 socks",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-socks\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"socks\"}"
+      },
+      "expected": {
+        "protocol": 1,
+        "sUoT": true,
+        "username": "socks-user",
+        "password": "socks-fake-password",
+        "serverAddress": "socks.example.com",
+        "serverPort": 1081,
+        "name": "样本 socks",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-socks\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"socks\"}"
+      },
+      "base64": "AgAAAHNvY2tzLmV4YW1wbGUuY2/tOQQAAAEAAABzb2Nrcy11c2Xyc29ja3MtZmFrZS1wYXNzd29y5AEBAAAAieagt+acrCBzb2Nrc3sidGFnIjoiY3VzdG9tLW91dGJvdW5kLXNvY2tzIv2oeyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJzb2NrcyJ9",
+      "current": true
+    },
+    {
+      "id": "SOCKSBean/dd8f56d3/default",
+      "class": "io.nekohasekai.sagernet.fmt.socks.SOCKSBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "SOCKSBean": 2,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "protocol": 2,
+        "sUoT": false,
+        "username": "",
+        "password": "",
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "protocol": 2,
+        "sUoT": false,
+        "username": "",
+        "password": "",
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AgAAADEyNy4wLjAusTgEAAACAAAAgYEAAQAAAIGBgQ==",
+      "current": true
+    }
+  ]
+}

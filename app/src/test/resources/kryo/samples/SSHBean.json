@@ -1,0 +1,341 @@
+{
+  "class": "io.nekohasekai.sagernet.fmt.ssh.SSHBean",
+  "samples": [
+    {
+      "id": "SSHBean/9d78e4f2/auth-none",
+      "class": "io.nekohasekai.sagernet.fmt.ssh.SSHBean",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "SSHBean": 0,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "username": "ssh-user-0",
+        "authType": 0,
+        "password": "unused-password",
+        "privateKey": "unused-key",
+        "privateKeyPassphrase": "unused-pass",
+        "publicKey": "ssh-ed25519 RkFLRS1IT1NULUtFWS0w",
+        "serverAddress": "ssh0.example.com",
+        "serverPort": 2200,
+        "name": "样本 ssh-none",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-ssh-none\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"ssh-none\"}"
+      },
+      "expected": {
+        "username": "ssh-user-0",
+        "authType": 0,
+        "password": "",
+        "privateKey": "",
+        "privateKeyPassphrase": "",
+        "publicKey": "ssh-ed25519 RkFLRS1IT1NULUtFWS0w",
+        "serverAddress": "ssh0.example.com",
+        "serverPort": 2200,
+        "name": "样本 ssh-none",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-ssh-none\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"ssh-none\"}"
+      },
+      "base64": "AAAAAHNzaDAuZXhhbXBsZS5jb+2YCAAAc3NoLXVzZXItsAAAAABzc2gtZWQyNTUxOSBSa0ZMUlMxSVQxTlVMVXRGV1Mw9wEAAACM5qC35pysIHNzaC1ub25lo3sidGFnIjoiY3VzdG9tLW91dGJvdW5kLXNzaC1ub25lIn2reyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJzc2gtbm9uZSJ9",
+      "current": false
+    },
+    {
+      "id": "SSHBean/9d78e4f2/auth-password",
+      "class": "io.nekohasekai.sagernet.fmt.ssh.SSHBean",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "SSHBean": 0,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "username": "ssh-user-1",
+        "authType": 1,
+        "password": "ssh-fake-password",
+        "privateKey": "unused-key",
+        "privateKeyPassphrase": "unused-pass",
+        "publicKey": "ssh-ed25519 RkFLRS1IT1NULUtFWS0x",
+        "serverAddress": "ssh1.example.com",
+        "serverPort": 2201,
+        "name": "样本 ssh-pw",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-ssh-pw\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"ssh-pw\"}"
+      },
+      "expected": {
+        "username": "ssh-user-1",
+        "authType": 1,
+        "password": "ssh-fake-password",
+        "privateKey": "",
+        "privateKeyPassphrase": "",
+        "publicKey": "ssh-ed25519 RkFLRS1IT1NULUtFWS0x",
+        "serverAddress": "ssh1.example.com",
+        "serverPort": 2201,
+        "name": "样本 ssh-pw",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-ssh-pw\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"ssh-pw\"}"
+      },
+      "base64": "AAAAAHNzaDEuZXhhbXBsZS5jb+2ZCAAAc3NoLXVzZXItsQEAAABzc2gtZmFrZS1wYXNzd29y5HNzaC1lZDI1NTE5IFJrRkxSUzFJVDFOVUxVdEZXUzD4AQAAAIrmoLfmnKwgc3NoLXB3eyJ0YWciOiJjdXN0b20tb3V0Ym91bmQtc3NoLXB3Iv2peyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJzc2gtcHcifQ==",
+      "current": false
+    },
+    {
+      "id": "SSHBean/9d78e4f2/auth-key",
+      "class": "io.nekohasekai.sagernet.fmt.ssh.SSHBean",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "SSHBean": 0,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "username": "ssh-user-2",
+        "authType": 2,
+        "password": "unused-password",
+        "privateKey": "-----BEGIN OPENSSH PRIVATE KEY-----\nRkFLRS1LRVk=\n-----END OPENSSH PRIVATE KEY-----",
+        "privateKeyPassphrase": "ssh-fake-passphrase",
+        "publicKey": "",
+        "serverAddress": "198.51.100.22",
+        "serverPort": 2202,
+        "name": "样本 ssh-key",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-ssh-key\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"ssh-key\"}"
+      },
+      "expected": {
+        "username": "ssh-user-2",
+        "authType": 2,
+        "password": "",
+        "privateKey": "-----BEGIN OPENSSH PRIVATE KEY-----\nRkFLRS1LRVk=\n-----END OPENSSH PRIVATE KEY-----",
+        "privateKeyPassphrase": "ssh-fake-passphrase",
+        "publicKey": "",
+        "serverAddress": "198.51.100.22",
+        "serverPort": 2202,
+        "name": "样本 ssh-key",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-ssh-key\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"ssh-key\"}"
+      },
+      "base64": "AAAAADE5OC41MS4xMDAuMrKaCAAAc3NoLXVzZXItsgIAAADTAS0tLS0tQkVHSU4gT1BFTlNTSCBQUklWQVRFIEtFWS0tLS0tClJrRkxSUzFMUlZrPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS1zc2gtZmFrZS1wYXNzcGhyYXPlgQEAAACL5qC35pysIHNzaC1rZXmieyJ0YWciOiJjdXN0b20tb3V0Ym91bmQtc3NoLWtleSJ9qnsibG9nIjp7ImxldmVsIjoid2FybiJ9LCJub3RlIjoic3NoLWtleSJ9",
+      "current": false
+    },
+    {
+      "id": "SSHBean/9d78e4f2/default",
+      "class": "io.nekohasekai.sagernet.fmt.ssh.SSHBean",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "SSHBean": 0,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "username": "root",
+        "authType": 1,
+        "password": "",
+        "privateKey": "",
+        "privateKeyPassphrase": "",
+        "publicKey": "",
+        "serverAddress": "127.0.0.1",
+        "serverPort": 22,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "username": "root",
+        "authType": 1,
+        "password": "",
+        "privateKey": "",
+        "privateKeyPassphrase": "",
+        "publicKey": "",
+        "serverAddress": "127.0.0.1",
+        "serverPort": 22,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AAAAADEyNy4wLjAusRYAAAByb2/0AQAAAIGBAQAAAIGBgQ==",
+      "current": false
+    },
+    {
+      "id": "SSHBean/dd8f56d3/auth-none",
+      "class": "io.nekohasekai.sagernet.fmt.ssh.SSHBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "SSHBean": 0,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "username": "ssh-user-0",
+        "authType": 0,
+        "password": "unused-password",
+        "privateKey": "unused-key",
+        "privateKeyPassphrase": "unused-pass",
+        "publicKey": "ssh-ed25519 RkFLRS1IT1NULUtFWS0w",
+        "serverAddress": "ssh0.example.com",
+        "serverPort": 2200,
+        "name": "样本 ssh-none",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-ssh-none\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"ssh-none\"}"
+      },
+      "expected": {
+        "username": "ssh-user-0",
+        "authType": 0,
+        "password": "",
+        "privateKey": "",
+        "privateKeyPassphrase": "",
+        "publicKey": "ssh-ed25519 RkFLRS1IT1NULUtFWS0w",
+        "serverAddress": "ssh0.example.com",
+        "serverPort": 2200,
+        "name": "样本 ssh-none",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-ssh-none\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"ssh-none\"}"
+      },
+      "base64": "AAAAAHNzaDAuZXhhbXBsZS5jb+2YCAAAc3NoLXVzZXItsAAAAABzc2gtZWQyNTUxOSBSa0ZMUlMxSVQxTlVMVXRGV1Mw9wEAAACM5qC35pysIHNzaC1ub25lo3sidGFnIjoiY3VzdG9tLW91dGJvdW5kLXNzaC1ub25lIn2reyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJzc2gtbm9uZSJ9",
+      "current": true
+    },
+    {
+      "id": "SSHBean/dd8f56d3/auth-password",
+      "class": "io.nekohasekai.sagernet.fmt.ssh.SSHBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "SSHBean": 0,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "username": "ssh-user-1",
+        "authType": 1,
+        "password": "ssh-fake-password",
+        "privateKey": "unused-key",
+        "privateKeyPassphrase": "unused-pass",
+        "publicKey": "ssh-ed25519 RkFLRS1IT1NULUtFWS0x",
+        "serverAddress": "ssh1.example.com",
+        "serverPort": 2201,
+        "name": "样本 ssh-pw",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-ssh-pw\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"ssh-pw\"}"
+      },
+      "expected": {
+        "username": "ssh-user-1",
+        "authType": 1,
+        "password": "ssh-fake-password",
+        "privateKey": "",
+        "privateKeyPassphrase": "",
+        "publicKey": "ssh-ed25519 RkFLRS1IT1NULUtFWS0x",
+        "serverAddress": "ssh1.example.com",
+        "serverPort": 2201,
+        "name": "样本 ssh-pw",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-ssh-pw\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"ssh-pw\"}"
+      },
+      "base64": "AAAAAHNzaDEuZXhhbXBsZS5jb+2ZCAAAc3NoLXVzZXItsQEAAABzc2gtZmFrZS1wYXNzd29y5HNzaC1lZDI1NTE5IFJrRkxSUzFJVDFOVUxVdEZXUzD4AQAAAIrmoLfmnKwgc3NoLXB3eyJ0YWciOiJjdXN0b20tb3V0Ym91bmQtc3NoLXB3Iv2peyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJzc2gtcHcifQ==",
+      "current": true
+    },
+    {
+      "id": "SSHBean/dd8f56d3/auth-key",
+      "class": "io.nekohasekai.sagernet.fmt.ssh.SSHBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "SSHBean": 0,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "username": "ssh-user-2",
+        "authType": 2,
+        "password": "unused-password",
+        "privateKey": "-----BEGIN OPENSSH PRIVATE KEY-----\nRkFLRS1LRVk=\n-----END OPENSSH PRIVATE KEY-----",
+        "privateKeyPassphrase": "ssh-fake-passphrase",
+        "publicKey": "",
+        "serverAddress": "198.51.100.22",
+        "serverPort": 2202,
+        "name": "样本 ssh-key",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-ssh-key\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"ssh-key\"}"
+      },
+      "expected": {
+        "username": "ssh-user-2",
+        "authType": 2,
+        "password": "",
+        "privateKey": "-----BEGIN OPENSSH PRIVATE KEY-----\nRkFLRS1LRVk=\n-----END OPENSSH PRIVATE KEY-----",
+        "privateKeyPassphrase": "ssh-fake-passphrase",
+        "publicKey": "",
+        "serverAddress": "198.51.100.22",
+        "serverPort": 2202,
+        "name": "样本 ssh-key",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-ssh-key\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"ssh-key\"}"
+      },
+      "base64": "AAAAADE5OC41MS4xMDAuMrKaCAAAc3NoLXVzZXItsgIAAADTAS0tLS0tQkVHSU4gT1BFTlNTSCBQUklWQVRFIEtFWS0tLS0tClJrRkxSUzFMUlZrPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS1zc2gtZmFrZS1wYXNzcGhyYXPlgQEAAACL5qC35pysIHNzaC1rZXmieyJ0YWciOiJjdXN0b20tb3V0Ym91bmQtc3NoLWtleSJ9qnsibG9nIjp7ImxldmVsIjoid2FybiJ9LCJub3RlIjoic3NoLWtleSJ9",
+      "current": true
+    },
+    {
+      "id": "SSHBean/dd8f56d3/default",
+      "class": "io.nekohasekai.sagernet.fmt.ssh.SSHBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "SSHBean": 0,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "username": "root",
+        "authType": 1,
+        "password": "",
+        "privateKey": "",
+        "privateKeyPassphrase": "",
+        "publicKey": "",
+        "serverAddress": "127.0.0.1",
+        "serverPort": 22,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "username": "root",
+        "authType": 1,
+        "password": "",
+        "privateKey": "",
+        "privateKeyPassphrase": "",
+        "publicKey": "",
+        "serverAddress": "127.0.0.1",
+        "serverPort": 22,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AAAAADEyNy4wLjAusRYAAAByb2/0AQAAAIGBAQAAAIGBgQ==",
+      "current": true
+    }
+  ]
+}

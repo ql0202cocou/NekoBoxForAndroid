@@ -1,0 +1,1373 @@
+{
+  "class": "io.nekohasekai.sagernet.database.ProxyGroup",
+  "samples": [
+    {
+      "id": "ProxyGroup/9d78e4f2/group-subscription",
+      "class": "io.nekohasekai.sagernet.database.ProxyGroup",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "ProxyGroup": 0,
+        "SubscriptionBean": 1
+      },
+      "assigned": {
+        "id": 5,
+        "userOrder": 4,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 2,
+        "isSelector": true,
+        "frontProxy": 41,
+        "landingProxy": 42,
+        "proxyServerNameserver": "https://dns.example.net/dns-query",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "unused-token",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": true,
+            "autoUpdateDelay": 720,
+            "lastUpdated": 1700000000,
+            "bytesUsed": 1234567890123,
+            "bytesRemaining": 987654321098,
+            "username": "unused-username",
+            "expiryDate": 1800000000,
+            "protocols": [],
+            "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000"
+          }
+        }
+      },
+      "expected": {
+        "id": 5,
+        "userOrder": 4,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 2,
+        "isSelector": false,
+        "frontProxy": -1,
+        "landingProxy": -1,
+        "proxyServerNameserver": "",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": true,
+            "autoUpdateDelay": 720,
+            "lastUpdated": 1700000000,
+            "bytesUsed": 0,
+            "bytesRemaining": 0,
+            "username": "",
+            "expiryDate": 0,
+            "protocols": [],
+            "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000",
+            "nameserverFromSubscription": false
+          }
+        }
+      },
+      "base64": "AAAAAAUAAAAAAAAABAAAAAAAAAAAheiuoumYheWIhue7hAEAAAABAAAAAQAAALVodHRwczovL3N1Yi5leGFtcGxlLmNvbS9mYWtlL3N1YnNjcmlwdGlvbj90b2tlbj1mYWtlAQEBRmFrZUFnZW50LzEusAHQAgAAAPFTZbF1cGxvYWQ9MTsgZG93bmxvYWQ9MjsgdG90YWw9MzsgZXhwaXJlPTE4MDAwMDAwMDACAAAA",
+      "current": false
+    },
+    {
+      "id": "ProxyGroup/9d78e4f2/group-basic",
+      "class": "io.nekohasekai.sagernet.database.ProxyGroup",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "ProxyGroup": 0
+      },
+      "assigned": {
+        "id": 6,
+        "userOrder": 1,
+        "ungrouped": true,
+        "name": "基本分组",
+        "type": 0,
+        "order": 1,
+        "isSelector": false,
+        "frontProxy": -1,
+        "landingProxy": 43,
+        "proxyServerNameserver": "",
+        "subscription": null
+      },
+      "expected": {
+        "id": 6,
+        "userOrder": 1,
+        "ungrouped": true,
+        "name": "基本分组",
+        "type": 0,
+        "order": 1,
+        "isSelector": false,
+        "frontProxy": -1,
+        "landingProxy": -1,
+        "proxyServerNameserver": "",
+        "subscription": null
+      },
+      "base64": "AAAAAAYAAAAAAAAAAQAAAAAAAAABheWfuuacrOWIhue7hAAAAAABAAAA",
+      "current": false
+    },
+    {
+      "id": "ProxyGroup/9d78e4f2/group-export",
+      "class": "io.nekohasekai.sagernet.database.ProxyGroup",
+      "form": "share",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "ProxyGroup.export": 0,
+        "SubscriptionBean.share": 0
+      },
+      "assigned": {
+        "id": 5,
+        "userOrder": 4,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 2,
+        "isSelector": true,
+        "frontProxy": 41,
+        "landingProxy": 42,
+        "proxyServerNameserver": "https://dns.example.net/dns-query",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "unused-token",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": true,
+            "autoUpdateDelay": 720,
+            "lastUpdated": 1700000000,
+            "bytesUsed": 1234567890123,
+            "bytesRemaining": 987654321098,
+            "username": "unused-username",
+            "expiryDate": 1800000000,
+            "protocols": [],
+            "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000"
+          }
+        }
+      },
+      "expected": {
+        "id": 0,
+        "userOrder": 0,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 0,
+        "isSelector": false,
+        "frontProxy": -1,
+        "landingProxy": -1,
+        "proxyServerNameserver": "",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": false,
+            "autoUpdateDelay": 1440,
+            "lastUpdated": 0,
+            "bytesUsed": 0,
+            "bytesRemaining": 0,
+            "username": "",
+            "expiryDate": 0,
+            "protocols": [],
+            "subscriptionUserinfo": null,
+            "nameserverFromSubscription": false
+          }
+        }
+      },
+      "base64": "AAAAAIXorqLpmIXliIbnu4QBAAAAAAAAAAEAAAC1aHR0cHM6Ly9zdWIuZXhhbXBsZS5jb20vZmFrZS9zdWJzY3JpcHRpb24/dG9rZW49ZmFrZQEBAUZha2VBZ2VudC8xLrA=",
+      "current": false
+    },
+    {
+      "id": "ProxyGroup/3fac5afe/group-subscription",
+      "class": "io.nekohasekai.sagernet.database.ProxyGroup",
+      "form": "storage",
+      "source": {
+        "commit": "3fac5afe557cb9033bd34e5533f28557e04dbc72",
+        "tag": "1.6.1",
+        "versionName": "1.6.0"
+      },
+      "versions": {
+        "ProxyGroup": 0,
+        "SubscriptionBean": 1
+      },
+      "assigned": {
+        "id": 5,
+        "userOrder": 4,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 2,
+        "isSelector": true,
+        "frontProxy": 41,
+        "landingProxy": 42,
+        "proxyServerNameserver": "https://dns.example.net/dns-query",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "unused-token",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": true,
+            "autoUpdateDelay": 720,
+            "lastUpdated": 1700000000,
+            "bytesUsed": 1234567890123,
+            "bytesRemaining": 987654321098,
+            "username": "unused-username",
+            "expiryDate": 1800000000,
+            "protocols": [],
+            "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000"
+          }
+        }
+      },
+      "expected": {
+        "id": 5,
+        "userOrder": 4,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 2,
+        "isSelector": false,
+        "frontProxy": -1,
+        "landingProxy": -1,
+        "proxyServerNameserver": "",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": true,
+            "autoUpdateDelay": 720,
+            "lastUpdated": 1700000000,
+            "bytesUsed": 0,
+            "bytesRemaining": 0,
+            "username": "",
+            "expiryDate": 0,
+            "protocols": [],
+            "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000",
+            "nameserverFromSubscription": false
+          }
+        }
+      },
+      "base64": "AAAAAAUAAAAAAAAABAAAAAAAAAAAheiuoumYheWIhue7hAEAAAABAAAAAQAAALVodHRwczovL3N1Yi5leGFtcGxlLmNvbS9mYWtlL3N1YnNjcmlwdGlvbj90b2tlbj1mYWtlAQEBRmFrZUFnZW50LzEusAHQAgAAAPFTZbF1cGxvYWQ9MTsgZG93bmxvYWQ9MjsgdG90YWw9MzsgZXhwaXJlPTE4MDAwMDAwMDACAAAA",
+      "current": false
+    },
+    {
+      "id": "ProxyGroup/3fac5afe/group-basic",
+      "class": "io.nekohasekai.sagernet.database.ProxyGroup",
+      "form": "storage",
+      "source": {
+        "commit": "3fac5afe557cb9033bd34e5533f28557e04dbc72",
+        "tag": "1.6.1",
+        "versionName": "1.6.0"
+      },
+      "versions": {
+        "ProxyGroup": 0
+      },
+      "assigned": {
+        "id": 6,
+        "userOrder": 1,
+        "ungrouped": true,
+        "name": "基本分组",
+        "type": 0,
+        "order": 1,
+        "isSelector": false,
+        "frontProxy": -1,
+        "landingProxy": 43,
+        "proxyServerNameserver": "",
+        "subscription": null
+      },
+      "expected": {
+        "id": 6,
+        "userOrder": 1,
+        "ungrouped": true,
+        "name": "基本分组",
+        "type": 0,
+        "order": 1,
+        "isSelector": false,
+        "frontProxy": -1,
+        "landingProxy": -1,
+        "proxyServerNameserver": "",
+        "subscription": null
+      },
+      "base64": "AAAAAAYAAAAAAAAAAQAAAAAAAAABheWfuuacrOWIhue7hAAAAAABAAAA",
+      "current": false
+    },
+    {
+      "id": "ProxyGroup/3fac5afe/group-export",
+      "class": "io.nekohasekai.sagernet.database.ProxyGroup",
+      "form": "share",
+      "source": {
+        "commit": "3fac5afe557cb9033bd34e5533f28557e04dbc72",
+        "tag": "1.6.1",
+        "versionName": "1.6.0"
+      },
+      "versions": {
+        "ProxyGroup.export": 0,
+        "SubscriptionBean.share": 0
+      },
+      "assigned": {
+        "id": 5,
+        "userOrder": 4,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 2,
+        "isSelector": true,
+        "frontProxy": 41,
+        "landingProxy": 42,
+        "proxyServerNameserver": "https://dns.example.net/dns-query",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "unused-token",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": true,
+            "autoUpdateDelay": 720,
+            "lastUpdated": 1700000000,
+            "bytesUsed": 1234567890123,
+            "bytesRemaining": 987654321098,
+            "username": "unused-username",
+            "expiryDate": 1800000000,
+            "protocols": [],
+            "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000"
+          }
+        }
+      },
+      "expected": {
+        "id": 0,
+        "userOrder": 0,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 0,
+        "isSelector": false,
+        "frontProxy": -1,
+        "landingProxy": -1,
+        "proxyServerNameserver": "",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": false,
+            "autoUpdateDelay": 1440,
+            "lastUpdated": 0,
+            "bytesUsed": 0,
+            "bytesRemaining": 0,
+            "username": "",
+            "expiryDate": 0,
+            "protocols": [],
+            "subscriptionUserinfo": null,
+            "nameserverFromSubscription": false
+          }
+        }
+      },
+      "base64": "AAAAAIXorqLpmIXliIbnu4QBAAAAAAAAAAEAAAC1aHR0cHM6Ly9zdWIuZXhhbXBsZS5jb20vZmFrZS9zdWJzY3JpcHRpb24/dG9rZW49ZmFrZQEBAUZha2VBZ2VudC8xLrA=",
+      "current": false
+    },
+    {
+      "id": "ProxyGroup/19cb130f/group-subscription",
+      "class": "io.nekohasekai.sagernet.database.ProxyGroup",
+      "form": "storage",
+      "source": {
+        "commit": "19cb130f1241589c080cf613ca48023fce250ad7",
+        "tag": "1.7.2-a1",
+        "versionName": "1.7.1"
+      },
+      "versions": {
+        "ProxyGroup": 1,
+        "SubscriptionBean": 1
+      },
+      "assigned": {
+        "id": 5,
+        "userOrder": 4,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 2,
+        "isSelector": true,
+        "frontProxy": 41,
+        "landingProxy": 42,
+        "proxyServerNameserver": "https://dns.example.net/dns-query",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "unused-token",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": true,
+            "autoUpdateDelay": 720,
+            "lastUpdated": 1700000000,
+            "bytesUsed": 1234567890123,
+            "bytesRemaining": 987654321098,
+            "username": "unused-username",
+            "expiryDate": 1800000000,
+            "protocols": [],
+            "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000"
+          }
+        }
+      },
+      "expected": {
+        "id": 5,
+        "userOrder": 4,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 2,
+        "isSelector": false,
+        "frontProxy": -1,
+        "landingProxy": -1,
+        "proxyServerNameserver": "https://dns.example.net/dns-query",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": true,
+            "autoUpdateDelay": 720,
+            "lastUpdated": 1700000000,
+            "bytesUsed": 0,
+            "bytesRemaining": 0,
+            "username": "",
+            "expiryDate": 0,
+            "protocols": [],
+            "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000",
+            "nameserverFromSubscription": false
+          }
+        }
+      },
+      "base64": "AQAAAAUAAAAAAAAABAAAAAAAAAAAheiuoumYheWIhue7hAEAAAABAAAAAQAAALVodHRwczovL3N1Yi5leGFtcGxlLmNvbS9mYWtlL3N1YnNjcmlwdGlvbj90b2tlbj1mYWtlAQEBRmFrZUFnZW50LzEusAHQAgAAAPFTZbF1cGxvYWQ9MTsgZG93bmxvYWQ9MjsgdG90YWw9MzsgZXhwaXJlPTE4MDAwMDAwMDACAAAAomh0dHBzOi8vZG5zLmV4YW1wbGUubmV0L2Rucy1xdWVyeQ==",
+      "current": false
+    },
+    {
+      "id": "ProxyGroup/19cb130f/group-basic",
+      "class": "io.nekohasekai.sagernet.database.ProxyGroup",
+      "form": "storage",
+      "source": {
+        "commit": "19cb130f1241589c080cf613ca48023fce250ad7",
+        "tag": "1.7.2-a1",
+        "versionName": "1.7.1"
+      },
+      "versions": {
+        "ProxyGroup": 1
+      },
+      "assigned": {
+        "id": 6,
+        "userOrder": 1,
+        "ungrouped": true,
+        "name": "基本分组",
+        "type": 0,
+        "order": 1,
+        "isSelector": false,
+        "frontProxy": -1,
+        "landingProxy": 43,
+        "proxyServerNameserver": "",
+        "subscription": null
+      },
+      "expected": {
+        "id": 6,
+        "userOrder": 1,
+        "ungrouped": true,
+        "name": "基本分组",
+        "type": 0,
+        "order": 1,
+        "isSelector": false,
+        "frontProxy": -1,
+        "landingProxy": -1,
+        "proxyServerNameserver": "",
+        "subscription": null
+      },
+      "base64": "AQAAAAYAAAAAAAAAAQAAAAAAAAABheWfuuacrOWIhue7hAAAAAABAAAAgQ==",
+      "current": false
+    },
+    {
+      "id": "ProxyGroup/19cb130f/group-export",
+      "class": "io.nekohasekai.sagernet.database.ProxyGroup",
+      "form": "share",
+      "source": {
+        "commit": "19cb130f1241589c080cf613ca48023fce250ad7",
+        "tag": "1.7.2-a1",
+        "versionName": "1.7.1"
+      },
+      "versions": {
+        "ProxyGroup.export": 0,
+        "SubscriptionBean.share": 0
+      },
+      "assigned": {
+        "id": 5,
+        "userOrder": 4,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 2,
+        "isSelector": true,
+        "frontProxy": 41,
+        "landingProxy": 42,
+        "proxyServerNameserver": "https://dns.example.net/dns-query",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "unused-token",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": true,
+            "autoUpdateDelay": 720,
+            "lastUpdated": 1700000000,
+            "bytesUsed": 1234567890123,
+            "bytesRemaining": 987654321098,
+            "username": "unused-username",
+            "expiryDate": 1800000000,
+            "protocols": [],
+            "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000"
+          }
+        }
+      },
+      "expected": {
+        "id": 0,
+        "userOrder": 0,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 0,
+        "isSelector": false,
+        "frontProxy": -1,
+        "landingProxy": -1,
+        "proxyServerNameserver": "",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": false,
+            "autoUpdateDelay": 1440,
+            "lastUpdated": 0,
+            "bytesUsed": 0,
+            "bytesRemaining": 0,
+            "username": "",
+            "expiryDate": 0,
+            "protocols": [],
+            "subscriptionUserinfo": null,
+            "nameserverFromSubscription": false
+          }
+        }
+      },
+      "base64": "AAAAAIXorqLpmIXliIbnu4QBAAAAAAAAAAEAAAC1aHR0cHM6Ly9zdWIuZXhhbXBsZS5jb20vZmFrZS9zdWJzY3JpcHRpb24/dG9rZW49ZmFrZQEBAUZha2VBZ2VudC8xLrA=",
+      "current": false
+    },
+    {
+      "id": "ProxyGroup/629cdae1/group-subscription",
+      "class": "io.nekohasekai.sagernet.database.ProxyGroup",
+      "form": "storage",
+      "source": {
+        "commit": "629cdae1b44c4f751db30aeb7a359a966d4ab9df",
+        "tag": "1.7.2-b2",
+        "versionName": "1.7.2-b1"
+      },
+      "versions": {
+        "ProxyGroup": 2,
+        "SubscriptionBean": 1
+      },
+      "assigned": {
+        "id": 5,
+        "userOrder": 4,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 2,
+        "isSelector": true,
+        "frontProxy": 41,
+        "landingProxy": 42,
+        "proxyServerNameserver": "https://dns.example.net/dns-query",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "unused-token",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": true,
+            "autoUpdateDelay": 720,
+            "lastUpdated": 1700000000,
+            "bytesUsed": 1234567890123,
+            "bytesRemaining": 987654321098,
+            "username": "unused-username",
+            "expiryDate": 1800000000,
+            "protocols": [],
+            "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000"
+          }
+        }
+      },
+      "expected": {
+        "id": 5,
+        "userOrder": 4,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 2,
+        "isSelector": true,
+        "frontProxy": 41,
+        "landingProxy": 42,
+        "proxyServerNameserver": "https://dns.example.net/dns-query",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": true,
+            "autoUpdateDelay": 720,
+            "lastUpdated": 1700000000,
+            "bytesUsed": 0,
+            "bytesRemaining": 0,
+            "username": "",
+            "expiryDate": 0,
+            "protocols": [],
+            "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000",
+            "nameserverFromSubscription": false
+          }
+        }
+      },
+      "base64": "AgAAAAUAAAAAAAAABAAAAAAAAAAAheiuoumYheWIhue7hAEAAAABAAAAAQAAALVodHRwczovL3N1Yi5leGFtcGxlLmNvbS9mYWtlL3N1YnNjcmlwdGlvbj90b2tlbj1mYWtlAQEBRmFrZUFnZW50LzEusAHQAgAAAPFTZbF1cGxvYWQ9MTsgZG93bmxvYWQ9MjsgdG90YWw9MzsgZXhwaXJlPTE4MDAwMDAwMDACAAAAomh0dHBzOi8vZG5zLmV4YW1wbGUubmV0L2Rucy1xdWVyeQEpAAAAAAAAACoAAAAAAAAA",
+      "current": false
+    },
+    {
+      "id": "ProxyGroup/629cdae1/group-basic",
+      "class": "io.nekohasekai.sagernet.database.ProxyGroup",
+      "form": "storage",
+      "source": {
+        "commit": "629cdae1b44c4f751db30aeb7a359a966d4ab9df",
+        "tag": "1.7.2-b2",
+        "versionName": "1.7.2-b1"
+      },
+      "versions": {
+        "ProxyGroup": 2
+      },
+      "assigned": {
+        "id": 6,
+        "userOrder": 1,
+        "ungrouped": true,
+        "name": "基本分组",
+        "type": 0,
+        "order": 1,
+        "isSelector": false,
+        "frontProxy": -1,
+        "landingProxy": 43,
+        "proxyServerNameserver": "",
+        "subscription": null
+      },
+      "expected": {
+        "id": 6,
+        "userOrder": 1,
+        "ungrouped": true,
+        "name": "基本分组",
+        "type": 0,
+        "order": 1,
+        "isSelector": false,
+        "frontProxy": -1,
+        "landingProxy": 43,
+        "proxyServerNameserver": "",
+        "subscription": null
+      },
+      "base64": "AgAAAAYAAAAAAAAAAQAAAAAAAAABheWfuuacrOWIhue7hAAAAAABAAAAgQD//////////ysAAAAAAAAA",
+      "current": false
+    },
+    {
+      "id": "ProxyGroup/629cdae1/group-export",
+      "class": "io.nekohasekai.sagernet.database.ProxyGroup",
+      "form": "share",
+      "source": {
+        "commit": "629cdae1b44c4f751db30aeb7a359a966d4ab9df",
+        "tag": "1.7.2-b2",
+        "versionName": "1.7.2-b1"
+      },
+      "versions": {
+        "ProxyGroup.export": 0,
+        "SubscriptionBean.share": 0
+      },
+      "assigned": {
+        "id": 5,
+        "userOrder": 4,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 2,
+        "isSelector": true,
+        "frontProxy": 41,
+        "landingProxy": 42,
+        "proxyServerNameserver": "https://dns.example.net/dns-query",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "unused-token",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": true,
+            "autoUpdateDelay": 720,
+            "lastUpdated": 1700000000,
+            "bytesUsed": 1234567890123,
+            "bytesRemaining": 987654321098,
+            "username": "unused-username",
+            "expiryDate": 1800000000,
+            "protocols": [],
+            "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000"
+          }
+        }
+      },
+      "expected": {
+        "id": 0,
+        "userOrder": 0,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 0,
+        "isSelector": false,
+        "frontProxy": -1,
+        "landingProxy": -1,
+        "proxyServerNameserver": "",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": false,
+            "autoUpdateDelay": 1440,
+            "lastUpdated": 0,
+            "bytesUsed": 0,
+            "bytesRemaining": 0,
+            "username": "",
+            "expiryDate": 0,
+            "protocols": [],
+            "subscriptionUserinfo": null,
+            "nameserverFromSubscription": false
+          }
+        }
+      },
+      "base64": "AAAAAIXorqLpmIXliIbnu4QBAAAAAAAAAAEAAAC1aHR0cHM6Ly9zdWIuZXhhbXBsZS5jb20vZmFrZS9zdWJzY3JpcHRpb24/dG9rZW49ZmFrZQEBAUZha2VBZ2VudC8xLrA=",
+      "current": false
+    },
+    {
+      "id": "ProxyGroup/9220b316/group-subscription",
+      "class": "io.nekohasekai.sagernet.database.ProxyGroup",
+      "form": "storage",
+      "source": {
+        "commit": "9220b31678c1a41d1f5729d3d5037c37424e99f5",
+        "tag": "1.7.3",
+        "versionName": "1.7.3"
+      },
+      "versions": {
+        "ProxyGroup": 2,
+        "SubscriptionBean": 2
+      },
+      "assigned": {
+        "id": 5,
+        "userOrder": 4,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 2,
+        "isSelector": true,
+        "frontProxy": 41,
+        "landingProxy": 42,
+        "proxyServerNameserver": "https://dns.example.net/dns-query",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "unused-token",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": true,
+            "autoUpdateDelay": 720,
+            "lastUpdated": 1700000000,
+            "bytesUsed": 1234567890123,
+            "bytesRemaining": 987654321098,
+            "username": "unused-username",
+            "expiryDate": 1800000000,
+            "protocols": [],
+            "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000"
+          }
+        }
+      },
+      "expected": {
+        "id": 5,
+        "userOrder": 4,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 2,
+        "isSelector": true,
+        "frontProxy": 41,
+        "landingProxy": 42,
+        "proxyServerNameserver": "https://dns.example.net/dns-query",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": true,
+            "autoUpdateDelay": 720,
+            "lastUpdated": 1700000000,
+            "bytesUsed": 1234567890123,
+            "bytesRemaining": 987654321098,
+            "username": "",
+            "expiryDate": 1800000000,
+            "protocols": [],
+            "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000",
+            "nameserverFromSubscription": false
+          }
+        }
+      },
+      "base64": "AgAAAAUAAAAAAAAABAAAAAAAAAAAheiuoumYheWIhue7hAEAAAACAAAAAQAAALVodHRwczovL3N1Yi5leGFtcGxlLmNvbS9mYWtlL3N1YnNjcmlwdGlvbj90b2tlbj1mYWtlAQEBRmFrZUFnZW50LzEusAHQAgAAAPFTZbF1cGxvYWQ9MTsgZG93bmxvYWQ9MjsgdG90YWw9MzsgZXhwaXJlPTE4MDAwMDAwMDDLBPtxHwEAAMrzyPTlAAAAANJJawIAAACiaHR0cHM6Ly9kbnMuZXhhbXBsZS5uZXQvZG5zLXF1ZXJ5ASkAAAAAAAAAKgAAAAAAAAA=",
+      "current": false
+    },
+    {
+      "id": "ProxyGroup/9220b316/group-basic",
+      "class": "io.nekohasekai.sagernet.database.ProxyGroup",
+      "form": "storage",
+      "source": {
+        "commit": "9220b31678c1a41d1f5729d3d5037c37424e99f5",
+        "tag": "1.7.3",
+        "versionName": "1.7.3"
+      },
+      "versions": {
+        "ProxyGroup": 2
+      },
+      "assigned": {
+        "id": 6,
+        "userOrder": 1,
+        "ungrouped": true,
+        "name": "基本分组",
+        "type": 0,
+        "order": 1,
+        "isSelector": false,
+        "frontProxy": -1,
+        "landingProxy": 43,
+        "proxyServerNameserver": "",
+        "subscription": null
+      },
+      "expected": {
+        "id": 6,
+        "userOrder": 1,
+        "ungrouped": true,
+        "name": "基本分组",
+        "type": 0,
+        "order": 1,
+        "isSelector": false,
+        "frontProxy": -1,
+        "landingProxy": 43,
+        "proxyServerNameserver": "",
+        "subscription": null
+      },
+      "base64": "AgAAAAYAAAAAAAAAAQAAAAAAAAABheWfuuacrOWIhue7hAAAAAABAAAAgQD//////////ysAAAAAAAAA",
+      "current": false
+    },
+    {
+      "id": "ProxyGroup/329572d1/group-export",
+      "class": "io.nekohasekai.sagernet.database.ProxyGroup",
+      "form": "share",
+      "source": {
+        "commit": "329572d18da470101d2b0a7394e0e657b6d7eaf4",
+        "tag": "1.7.4-a2",
+        "versionName": "1.7.4-a1"
+      },
+      "versions": {
+        "ProxyGroup.export": 1,
+        "SubscriptionBean.share": 0
+      },
+      "assigned": {
+        "id": 5,
+        "userOrder": 4,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 2,
+        "isSelector": true,
+        "frontProxy": 41,
+        "landingProxy": 42,
+        "proxyServerNameserver": "https://dns.example.net/dns-query",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "unused-token",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": true,
+            "autoUpdateDelay": 720,
+            "lastUpdated": 1700000000,
+            "bytesUsed": 1234567890123,
+            "bytesRemaining": 987654321098,
+            "username": "unused-username",
+            "expiryDate": 1800000000,
+            "protocols": [],
+            "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000"
+          }
+        }
+      },
+      "expected": {
+        "id": 0,
+        "userOrder": 0,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 0,
+        "isSelector": false,
+        "frontProxy": -1,
+        "landingProxy": -1,
+        "proxyServerNameserver": "https://dns.example.net/dns-query",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": false,
+            "autoUpdateDelay": 1440,
+            "lastUpdated": 0,
+            "bytesUsed": 0,
+            "bytesRemaining": 0,
+            "username": "",
+            "expiryDate": 0,
+            "protocols": [],
+            "subscriptionUserinfo": null,
+            "nameserverFromSubscription": false
+          }
+        }
+      },
+      "base64": "AQAAAIXorqLpmIXliIbnu4QBAAAAAAAAAAEAAAC1aHR0cHM6Ly9zdWIuZXhhbXBsZS5jb20vZmFrZS9zdWJzY3JpcHRpb24/dG9rZW49ZmFrZQEBAUZha2VBZ2VudC8xLrCiaHR0cHM6Ly9kbnMuZXhhbXBsZS5uZXQvZG5zLXF1ZXJ5",
+      "current": false
+    },
+    {
+      "id": "ProxyGroup/3bd39b94/group-subscription",
+      "class": "io.nekohasekai.sagernet.database.ProxyGroup",
+      "form": "storage",
+      "source": {
+        "commit": "3bd39b94c870219103860c5273dcb686560ad064",
+        "tag": "1.7.6-a1",
+        "versionName": "1.7.5"
+      },
+      "versions": {
+        "ProxyGroup": 2,
+        "SubscriptionBean": 4
+      },
+      "assigned": {
+        "id": 5,
+        "userOrder": 4,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 2,
+        "isSelector": true,
+        "frontProxy": 41,
+        "landingProxy": 42,
+        "proxyServerNameserver": "https://dns.example.net/dns-query",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "unused-token",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": true,
+            "autoUpdateDelay": 720,
+            "lastUpdated": 5000000000,
+            "bytesUsed": 1234567890123,
+            "bytesRemaining": 987654321098,
+            "username": "unused-username",
+            "expiryDate": 8204889600,
+            "protocols": [],
+            "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000"
+          }
+        }
+      },
+      "expected": {
+        "id": 5,
+        "userOrder": 4,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 2,
+        "isSelector": true,
+        "frontProxy": 41,
+        "landingProxy": 42,
+        "proxyServerNameserver": "https://dns.example.net/dns-query",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": true,
+            "autoUpdateDelay": 720,
+            "lastUpdated": 5000000000,
+            "bytesUsed": 1234567890123,
+            "bytesRemaining": 987654321098,
+            "username": "",
+            "expiryDate": 8204889600,
+            "protocols": [],
+            "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000",
+            "nameserverFromSubscription": false
+          }
+        }
+      },
+      "base64": "AgAAAAUAAAAAAAAABAAAAAAAAAAAheiuoumYheWIhue7hAEAAAAEAAAAAQAAALVodHRwczovL3N1Yi5leGFtcGxlLmNvbS9mYWtlL3N1YnNjcmlwdGlvbj90b2tlbj1mYWtlAQEBRmFrZUFnZW50LzEusAHQAgAA////f7F1cGxvYWQ9MTsgZG93bmxvYWQ9MjsgdG90YWw9MzsgZXhwaXJlPTE4MDAwMDAwMDDLBPtxHwEAAMrzyPTlAAAAAK4M6QEAAAAA8gUqAQAAAAIAAACiaHR0cHM6Ly9kbnMuZXhhbXBsZS5uZXQvZG5zLXF1ZXJ5ASkAAAAAAAAAKgAAAAAAAAA=",
+      "current": false
+    },
+    {
+      "id": "ProxyGroup/3bd39b94/group-basic",
+      "class": "io.nekohasekai.sagernet.database.ProxyGroup",
+      "form": "storage",
+      "source": {
+        "commit": "3bd39b94c870219103860c5273dcb686560ad064",
+        "tag": "1.7.6-a1",
+        "versionName": "1.7.5"
+      },
+      "versions": {
+        "ProxyGroup": 2
+      },
+      "assigned": {
+        "id": 6,
+        "userOrder": 1,
+        "ungrouped": true,
+        "name": "基本分组",
+        "type": 0,
+        "order": 1,
+        "isSelector": false,
+        "frontProxy": -1,
+        "landingProxy": 43,
+        "proxyServerNameserver": "",
+        "subscription": null
+      },
+      "expected": {
+        "id": 6,
+        "userOrder": 1,
+        "ungrouped": true,
+        "name": "基本分组",
+        "type": 0,
+        "order": 1,
+        "isSelector": false,
+        "frontProxy": -1,
+        "landingProxy": 43,
+        "proxyServerNameserver": "",
+        "subscription": null
+      },
+      "base64": "AgAAAAYAAAAAAAAAAQAAAAAAAAABheWfuuacrOWIhue7hAAAAAABAAAAgQD//////////ysAAAAAAAAA",
+      "current": false
+    },
+    {
+      "id": "ProxyGroup/dd8f56d3/group-subscription",
+      "class": "io.nekohasekai.sagernet.database.ProxyGroup",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "ProxyGroup": 2,
+        "SubscriptionBean": 5
+      },
+      "assigned": {
+        "id": 5,
+        "userOrder": 4,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 2,
+        "isSelector": true,
+        "frontProxy": 41,
+        "landingProxy": 42,
+        "proxyServerNameserver": "https://dns.example.net/dns-query",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "unused-token",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": true,
+            "autoUpdateDelay": 720,
+            "lastUpdated": 1700000000,
+            "bytesUsed": 1234567890123,
+            "bytesRemaining": 987654321098,
+            "username": "unused-username",
+            "expiryDate": 1800000000,
+            "protocols": [],
+            "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000",
+            "nameserverFromSubscription": true
+          }
+        }
+      },
+      "expected": {
+        "id": 5,
+        "userOrder": 4,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 2,
+        "isSelector": true,
+        "frontProxy": 41,
+        "landingProxy": 42,
+        "proxyServerNameserver": "https://dns.example.net/dns-query",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": true,
+            "autoUpdateDelay": 720,
+            "lastUpdated": 1700000000,
+            "bytesUsed": 1234567890123,
+            "bytesRemaining": 987654321098,
+            "username": "",
+            "expiryDate": 1800000000,
+            "protocols": [],
+            "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000",
+            "nameserverFromSubscription": true
+          }
+        }
+      },
+      "base64": "AgAAAAUAAAAAAAAABAAAAAAAAAAAheiuoumYheWIhue7hAEAAAAFAAAAAQAAALVodHRwczovL3N1Yi5leGFtcGxlLmNvbS9mYWtlL3N1YnNjcmlwdGlvbj90b2tlbj1mYWtlAQEBRmFrZUFnZW50LzEusAHQAgAAAPFTZbF1cGxvYWQ9MTsgZG93bmxvYWQ9MjsgdG90YWw9MzsgZXhwaXJlPTE4MDAwMDAwMDDLBPtxHwEAAMrzyPTlAAAAANJJawAAAAAA8VNlAAAAAAECAAAAomh0dHBzOi8vZG5zLmV4YW1wbGUubmV0L2Rucy1xdWVyeQEpAAAAAAAAACoAAAAAAAAA",
+      "current": true
+    },
+    {
+      "id": "ProxyGroup/dd8f56d3/group-basic",
+      "class": "io.nekohasekai.sagernet.database.ProxyGroup",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "ProxyGroup": 2
+      },
+      "assigned": {
+        "id": 6,
+        "userOrder": 1,
+        "ungrouped": true,
+        "name": "基本分组",
+        "type": 0,
+        "order": 1,
+        "isSelector": false,
+        "frontProxy": -1,
+        "landingProxy": 43,
+        "proxyServerNameserver": "",
+        "subscription": null
+      },
+      "expected": {
+        "id": 6,
+        "userOrder": 1,
+        "ungrouped": true,
+        "name": "基本分组",
+        "type": 0,
+        "order": 1,
+        "isSelector": false,
+        "frontProxy": -1,
+        "landingProxy": 43,
+        "proxyServerNameserver": "",
+        "subscription": null
+      },
+      "base64": "AgAAAAYAAAAAAAAAAQAAAAAAAAABheWfuuacrOWIhue7hAAAAAABAAAAgQD//////////ysAAAAAAAAA",
+      "current": true
+    },
+    {
+      "id": "ProxyGroup/dd8f56d3/group-export",
+      "class": "io.nekohasekai.sagernet.database.ProxyGroup",
+      "form": "share",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "ProxyGroup.export": 2,
+        "SubscriptionBean.share": 0
+      },
+      "assigned": {
+        "id": 5,
+        "userOrder": 4,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 2,
+        "isSelector": true,
+        "frontProxy": 41,
+        "landingProxy": 42,
+        "proxyServerNameserver": "https://dns.example.net/dns-query",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "unused-token",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": true,
+            "autoUpdateDelay": 720,
+            "lastUpdated": 1700000000,
+            "bytesUsed": 1234567890123,
+            "bytesRemaining": 987654321098,
+            "username": "unused-username",
+            "expiryDate": 1800000000,
+            "protocols": [],
+            "subscriptionUserinfo": "upload=1; download=2; total=3; expire=1800000000",
+            "nameserverFromSubscription": true
+          }
+        }
+      },
+      "expected": {
+        "id": 0,
+        "userOrder": 0,
+        "ungrouped": false,
+        "name": "订阅分组",
+        "type": 1,
+        "order": 0,
+        "isSelector": true,
+        "frontProxy": -1,
+        "landingProxy": -1,
+        "proxyServerNameserver": "https://dns.example.net/dns-query",
+        "subscription": {
+          "class": "io.nekohasekai.sagernet.database.SubscriptionBean",
+          "fields": {
+            "type": 1,
+            "link": "https://sub.example.com/fake/subscription?token=fake",
+            "token": "",
+            "forceResolve": true,
+            "deduplication": true,
+            "updateWhenConnectedOnly": true,
+            "customUserAgent": "FakeAgent/1.0",
+            "autoUpdate": false,
+            "autoUpdateDelay": 1440,
+            "lastUpdated": 0,
+            "bytesUsed": 0,
+            "bytesRemaining": 0,
+            "username": "",
+            "expiryDate": 0,
+            "protocols": [],
+            "subscriptionUserinfo": null,
+            "nameserverFromSubscription": false
+          }
+        }
+      },
+      "base64": "AgAAAIXorqLpmIXliIbnu4QBAAAAAAAAAAEAAAC1aHR0cHM6Ly9zdWIuZXhhbXBsZS5jb20vZmFrZS9zdWJzY3JpcHRpb24/dG9rZW49ZmFrZQEBAUZha2VBZ2VudC8xLrCiaHR0cHM6Ly9kbnMuZXhhbXBsZS5uZXQvZG5zLXF1ZXJ5AQ==",
+      "current": true
+    }
+  ]
+}

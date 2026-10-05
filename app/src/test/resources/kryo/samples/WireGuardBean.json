@@ -1,0 +1,273 @@
+{
+  "class": "io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean",
+  "samples": [
+    {
+      "id": "WireGuardBean/9d78e4f2/wg",
+      "class": "io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "WireGuardBean": 2,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "localAddress": "10.0.0.2/32\nfd00::2/128",
+        "privateKey": "RkFLRS1XRy1QUklWQVRFLUtFWS0wMDAwMDAwMDAwMDA=",
+        "peerPublicKey": "RkFLRS1XRy1QVUJMSUMtS0VZLTAwMDAwMDAwMDAwMDA=",
+        "peerPreSharedKey": "RkFLRS1XRy1QU0stMDAwMDAwMDAwMDAwMDAwMDAwMDA=",
+        "mtu": 1380,
+        "reserved": "1,2,3",
+        "serverAddress": "wg.example.com",
+        "serverPort": 51820,
+        "name": "样本 wg",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-wg\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"wg\"}"
+      },
+      "expected": {
+        "localAddress": "10.0.0.2/32\nfd00::2/128",
+        "privateKey": "RkFLRS1XRy1QUklWQVRFLUtFWS0wMDAwMDAwMDAwMDA=",
+        "peerPublicKey": "RkFLRS1XRy1QVUJMSUMtS0VZLTAwMDAwMDAwMDAwMDA=",
+        "peerPreSharedKey": "RkFLRS1XRy1QU0stMDAwMDAwMDAwMDAwMDAwMDAwMDA=",
+        "mtu": 1380,
+        "reserved": "1,2,3",
+        "peerKeepalive": 0,
+        "peerAllowedIps": "",
+        "serverAddress": "wg.example.com",
+        "serverPort": 51820,
+        "name": "样本 wg",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-wg\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"wg\"}"
+      },
+      "base64": "AgAAAHdnLmV4YW1wbGUuY2/tbMoAADEwLjAuMC4yLzMyCmZkMDA6OjIvMTK4rVJrRkxSUzFYUnkxUVVrbFdRVlJGTFV0RldTMHdNREF3TURBd01EQXdNREE9rVJrRkxSUzFYUnkxUVZVSk1TVU10UzBWWkxUQXdNREF3TURBd01EQXdNREE9rVJrRkxSUzFYUnkxUVUwc3RNREF3TURBd01EQXdNREF3TURBd01EQXdNREE9ZAUAADEsMiyzAQAAAIbmoLfmnKwgd2d7InRhZyI6ImN1c3RvbS1vdXRib3VuZC13ZyL9pXsibG9nIjp7ImxldmVsIjoid2FybiJ9LCJub3RlIjoid2cifQ==",
+      "current": false
+    },
+    {
+      "id": "WireGuardBean/9d78e4f2/default",
+      "class": "io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "WireGuardBean": 2,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "localAddress": "",
+        "privateKey": "",
+        "peerPublicKey": "",
+        "peerPreSharedKey": "",
+        "mtu": 1420,
+        "reserved": "",
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "localAddress": "",
+        "privateKey": "",
+        "peerPublicKey": "",
+        "peerPreSharedKey": "",
+        "mtu": 1420,
+        "reserved": "",
+        "peerKeepalive": 0,
+        "peerAllowedIps": "",
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AgAAADEyNy4wLjAusTgEAACBgYGBjAUAAIEBAAAAgYGB",
+      "current": false
+    },
+    {
+      "id": "WireGuardBean/329572d1/wg",
+      "class": "io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean",
+      "form": "storage",
+      "source": {
+        "commit": "329572d18da470101d2b0a7394e0e657b6d7eaf4",
+        "tag": "1.7.4-a2",
+        "versionName": "1.7.4-a1"
+      },
+      "versions": {
+        "WireGuardBean": 2,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "localAddress": "10.0.0.2/32\nfd00::2/128",
+        "privateKey": "RkFLRS1XRy1QUklWQVRFLUtFWS0wMDAwMDAwMDAwMDA=",
+        "peerPublicKey": "RkFLRS1XRy1QVUJMSUMtS0VZLTAwMDAwMDAwMDAwMDA=",
+        "peerPreSharedKey": "RkFLRS1XRy1QU0stMDAwMDAwMDAwMDAwMDAwMDAwMDA=",
+        "mtu": 1380,
+        "reserved": "1,2,3",
+        "serverAddress": "wg.example.com",
+        "serverPort": 51820,
+        "name": "样本 wg",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-wg\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"wg\"}"
+      },
+      "expected": {
+        "localAddress": "10.0.0.2/32\nfd00::2/128",
+        "privateKey": "RkFLRS1XRy1QUklWQVRFLUtFWS0wMDAwMDAwMDAwMDA=",
+        "peerPublicKey": "RkFLRS1XRy1QVUJMSUMtS0VZLTAwMDAwMDAwMDAwMDA=",
+        "peerPreSharedKey": "RkFLRS1XRy1QU0stMDAwMDAwMDAwMDAwMDAwMDAwMDA=",
+        "mtu": 1380,
+        "reserved": "1,2,3",
+        "peerKeepalive": 0,
+        "peerAllowedIps": "",
+        "serverAddress": "wg.example.com",
+        "serverPort": 51820,
+        "name": "样本 wg",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-wg\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"wg\"}"
+      },
+      "base64": "AgAAAHdnLmV4YW1wbGUuY2/tbMoAADEwLjAuMC4yLzMyCmZkMDA6OjIvMTK4rVJrRkxSUzFYUnkxUVVrbFdRVlJGTFV0RldTMHdNREF3TURBd01EQXdNREE9rVJrRkxSUzFYUnkxUVZVSk1TVU10UzBWWkxUQXdNREF3TURBd01EQXdNREE9rVJrRkxSUzFYUnkxUVUwc3RNREF3TURBd01EQXdNREF3TURBd01EQXdNREE9ZAUAADEsMiyzAQAAAIbmoLfmnKwgd2d7InRhZyI6ImN1c3RvbS1vdXRib3VuZC13ZyL9pXsibG9nIjp7ImxldmVsIjoid2FybiJ9LCJub3RlIjoid2cifQ==",
+      "current": false
+    },
+    {
+      "id": "WireGuardBean/329572d1/default",
+      "class": "io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean",
+      "form": "storage",
+      "source": {
+        "commit": "329572d18da470101d2b0a7394e0e657b6d7eaf4",
+        "tag": "1.7.4-a2",
+        "versionName": "1.7.4-a1"
+      },
+      "versions": {
+        "WireGuardBean": 2,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "localAddress": "",
+        "privateKey": "",
+        "peerPublicKey": "",
+        "peerPreSharedKey": "",
+        "mtu": 1420,
+        "reserved": "",
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "localAddress": "",
+        "privateKey": "",
+        "peerPublicKey": "",
+        "peerPreSharedKey": "",
+        "mtu": 1420,
+        "reserved": "",
+        "peerKeepalive": 0,
+        "peerAllowedIps": "",
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AgAAADEyNy4wLjAusTgEAACBgYGBjAUAAIEBAAAAgYGB",
+      "current": false
+    },
+    {
+      "id": "WireGuardBean/dd8f56d3/wg",
+      "class": "io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "WireGuardBean": 3,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "localAddress": "10.0.0.2/32\nfd00::2/128",
+        "privateKey": "RkFLRS1XRy1QUklWQVRFLUtFWS0wMDAwMDAwMDAwMDA=",
+        "peerPublicKey": "RkFLRS1XRy1QVUJMSUMtS0VZLTAwMDAwMDAwMDAwMDA=",
+        "peerPreSharedKey": "RkFLRS1XRy1QU0stMDAwMDAwMDAwMDAwMDAwMDAwMDA=",
+        "mtu": 1380,
+        "reserved": "1,2,3",
+        "peerKeepalive": 25,
+        "peerAllowedIps": "0.0.0.0/0, ::/0",
+        "serverAddress": "wg.example.com",
+        "serverPort": 51820,
+        "name": "样本 wg",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-wg\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"wg\"}"
+      },
+      "expected": {
+        "localAddress": "10.0.0.2/32\nfd00::2/128",
+        "privateKey": "RkFLRS1XRy1QUklWQVRFLUtFWS0wMDAwMDAwMDAwMDA=",
+        "peerPublicKey": "RkFLRS1XRy1QVUJMSUMtS0VZLTAwMDAwMDAwMDAwMDA=",
+        "peerPreSharedKey": "RkFLRS1XRy1QU0stMDAwMDAwMDAwMDAwMDAwMDAwMDA=",
+        "mtu": 1380,
+        "reserved": "1,2,3",
+        "peerKeepalive": 25,
+        "peerAllowedIps": "0.0.0.0/0, ::/0",
+        "serverAddress": "wg.example.com",
+        "serverPort": 51820,
+        "name": "样本 wg",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-wg\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"wg\"}"
+      },
+      "base64": "AwAAAHdnLmV4YW1wbGUuY2/tbMoAADEwLjAuMC4yLzMyCmZkMDA6OjIvMTK4rVJrRkxSUzFYUnkxUVVrbFdRVlJGTFV0RldTMHdNREF3TURBd01EQXdNREE9rVJrRkxSUzFYUnkxUVZVSk1TVU10UzBWWkxUQXdNREF3TURBd01EQXdNREE9rVJrRkxSUzFYUnkxUVUwc3RNREF3TURBd01EQXdNREF3TURBd01EQXdNREE9ZAUAADEsMiyzGQAAADAuMC4wLjAvMCwgOjovsAEAAACG5qC35pysIHdneyJ0YWciOiJjdXN0b20tb3V0Ym91bmQtd2ci/aV7ImxvZyI6eyJsZXZlbCI6Indhcm4ifSwibm90ZSI6IndnIn0=",
+      "current": true
+    },
+    {
+      "id": "WireGuardBean/dd8f56d3/default",
+      "class": "io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "WireGuardBean": 3,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "localAddress": "",
+        "privateKey": "",
+        "peerPublicKey": "",
+        "peerPreSharedKey": "",
+        "mtu": 1420,
+        "reserved": "",
+        "peerKeepalive": 0,
+        "peerAllowedIps": "",
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "localAddress": "",
+        "privateKey": "",
+        "peerPublicKey": "",
+        "peerPreSharedKey": "",
+        "mtu": 1420,
+        "reserved": "",
+        "peerKeepalive": 0,
+        "peerAllowedIps": "",
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AwAAADEyNy4wLjAusTgEAACBgYGBjAUAAIEAAAAAgQEAAACBgYE=",
+      "current": true
+    }
+  ]
+}

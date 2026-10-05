@@ -1,0 +1,287 @@
+{
+  "class": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
+  "samples": [
+    {
+      "id": "AnyTLSBean/5d74526b/anytls",
+      "class": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
+      "form": "storage",
+      "source": {
+        "commit": "5d74526b60974814cb97de0da1b88a080ee6566a",
+        "tag": "1.6.7",
+        "versionName": "1.6.6"
+      },
+      "versions": {
+        "AnyTLSBean": 0,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "password": "anytls-fake-password",
+        "sni": "sni-anytls.example.org",
+        "alpn": "h2",
+        "certificates": "-----BEGIN CERTIFICATE-----\nQU5ZVExTLUZBS0U=\n-----END CERTIFICATE-----",
+        "utlsFingerprint": "firefox",
+        "allowInsecure": true,
+        "echConfig": "QU5ZVExTLUVDSA==",
+        "serverAddress": "anytls.example.com",
+        "serverPort": 9443,
+        "name": "样本 anytls",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-anytls\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"anytls\"}"
+      },
+      "expected": {
+        "password": "anytls-fake-password",
+        "sni": "sni-anytls.example.org",
+        "alpn": "h2",
+        "certificates": "-----BEGIN CERTIFICATE-----\nQU5ZVExTLUZBS0U=\n-----END CERTIFICATE-----",
+        "certificateFingerprint": "",
+        "utlsFingerprint": "firefox",
+        "allowInsecure": true,
+        "echConfig": "QU5ZVExTLUVDSA==",
+        "enableECH": false,
+        "serverAddress": "anytls.example.com",
+        "serverPort": 9443,
+        "name": "样本 anytls",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-anytls\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"anytls\"}"
+      },
+      "base64": "AAAAAGFueXRscy5leGFtcGxlLmNv7eMkAABhbnl0bHMtZmFrZS1wYXNzd29y5HNuaS1hbnl0bHMuZXhhbXBsZS5vcudosscBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClFVNVpWRXhUTFVaQlMwVT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLWZpcmVmb/gBUVU1WlZFeFRMVVZEU0E9vQEAAACK5qC35pysIGFueXRsc3sidGFnIjoiY3VzdG9tLW91dGJvdW5kLWFueXRscyL9qXsibG9nIjp7ImxldmVsIjoid2FybiJ9LCJub3RlIjoiYW55dGxzIn0=",
+      "current": false
+    },
+    {
+      "id": "AnyTLSBean/5d74526b/default",
+      "class": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
+      "form": "storage",
+      "source": {
+        "commit": "5d74526b60974814cb97de0da1b88a080ee6566a",
+        "tag": "1.6.7",
+        "versionName": "1.6.6"
+      },
+      "versions": {
+        "AnyTLSBean": 0,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "password": "",
+        "sni": "",
+        "alpn": "",
+        "certificates": "",
+        "utlsFingerprint": "",
+        "allowInsecure": false,
+        "echConfig": "",
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "password": "",
+        "sni": "",
+        "alpn": "",
+        "certificates": "",
+        "certificateFingerprint": "",
+        "utlsFingerprint": "",
+        "allowInsecure": false,
+        "echConfig": "",
+        "enableECH": false,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AAAAADEyNy4wLjAusTgEAACBgYGBgQCBAQAAAIGBgQ==",
+      "current": false
+    },
+    {
+      "id": "AnyTLSBean/329572d1/anytls",
+      "class": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
+      "form": "storage",
+      "source": {
+        "commit": "329572d18da470101d2b0a7394e0e657b6d7eaf4",
+        "tag": "1.7.4-a2",
+        "versionName": "1.7.4-a1"
+      },
+      "versions": {
+        "AnyTLSBean": 1,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "password": "anytls-fake-password",
+        "sni": "sni-anytls.example.org",
+        "alpn": "h2",
+        "certificates": "-----BEGIN CERTIFICATE-----\nQU5ZVExTLUZBS0U=\n-----END CERTIFICATE-----",
+        "certificateFingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "utlsFingerprint": "firefox",
+        "allowInsecure": true,
+        "echConfig": "QU5ZVExTLUVDSA==",
+        "serverAddress": "anytls.example.com",
+        "serverPort": 9443,
+        "name": "样本 anytls",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-anytls\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"anytls\"}"
+      },
+      "expected": {
+        "password": "anytls-fake-password",
+        "sni": "sni-anytls.example.org",
+        "alpn": "h2",
+        "certificates": "-----BEGIN CERTIFICATE-----\nQU5ZVExTLUZBS0U=\n-----END CERTIFICATE-----",
+        "certificateFingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "utlsFingerprint": "firefox",
+        "allowInsecure": true,
+        "echConfig": "QU5ZVExTLUVDSA==",
+        "enableECH": false,
+        "serverAddress": "anytls.example.com",
+        "serverPort": 9443,
+        "name": "样本 anytls",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-anytls\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"anytls\"}"
+      },
+      "base64": "AQAAAGFueXRscy5leGFtcGxlLmNv7eMkAABhbnl0bHMtZmFrZS1wYXNzd29y5HNuaS1hbnl0bHMuZXhhbXBsZS5vcudosscBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClFVNVpWRXhUTFVaQlMwVT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLWZpcmVmb/gBUVU1WlZFeFRMVVZEU0E9vcEBZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAEAAACK5qC35pysIGFueXRsc3sidGFnIjoiY3VzdG9tLW91dGJvdW5kLWFueXRscyL9qXsibG9nIjp7ImxldmVsIjoid2FybiJ9LCJub3RlIjoiYW55dGxzIn0=",
+      "current": false
+    },
+    {
+      "id": "AnyTLSBean/329572d1/default",
+      "class": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
+      "form": "storage",
+      "source": {
+        "commit": "329572d18da470101d2b0a7394e0e657b6d7eaf4",
+        "tag": "1.7.4-a2",
+        "versionName": "1.7.4-a1"
+      },
+      "versions": {
+        "AnyTLSBean": 1,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "password": "",
+        "sni": "",
+        "alpn": "",
+        "certificates": "",
+        "certificateFingerprint": "",
+        "utlsFingerprint": "",
+        "allowInsecure": false,
+        "echConfig": "",
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "password": "",
+        "sni": "",
+        "alpn": "",
+        "certificates": "",
+        "certificateFingerprint": "",
+        "utlsFingerprint": "",
+        "allowInsecure": false,
+        "echConfig": "",
+        "enableECH": false,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AQAAADEyNy4wLjAusTgEAACBgYGBgQCBgQEAAACBgYE=",
+      "current": false
+    },
+    {
+      "id": "AnyTLSBean/dd8f56d3/anytls",
+      "class": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "AnyTLSBean": 2,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "password": "anytls-fake-password",
+        "sni": "sni-anytls.example.org",
+        "alpn": "h2",
+        "certificates": "-----BEGIN CERTIFICATE-----\nQU5ZVExTLUZBS0U=\n-----END CERTIFICATE-----",
+        "certificateFingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "utlsFingerprint": "firefox",
+        "allowInsecure": true,
+        "echConfig": "QU5ZVExTLUVDSA==",
+        "enableECH": true,
+        "serverAddress": "anytls.example.com",
+        "serverPort": 9443,
+        "name": "样本 anytls",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-anytls\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"anytls\"}"
+      },
+      "expected": {
+        "password": "anytls-fake-password",
+        "sni": "sni-anytls.example.org",
+        "alpn": "h2",
+        "certificates": "-----BEGIN CERTIFICATE-----\nQU5ZVExTLUZBS0U=\n-----END CERTIFICATE-----",
+        "certificateFingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "utlsFingerprint": "firefox",
+        "allowInsecure": true,
+        "echConfig": "QU5ZVExTLUVDSA==",
+        "enableECH": true,
+        "serverAddress": "anytls.example.com",
+        "serverPort": 9443,
+        "name": "样本 anytls",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-anytls\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"anytls\"}"
+      },
+      "base64": "AgAAAGFueXRscy5leGFtcGxlLmNv7eMkAABhbnl0bHMtZmFrZS1wYXNzd29y5HNuaS1hbnl0bHMuZXhhbXBsZS5vcudosscBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClFVNVpWRXhUTFVaQlMwVT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLWZpcmVmb/gBUVU1WlZFeFRMVVZEU0E9vcEBZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAEBAAAAiuagt+acrCBhbnl0bHN7InRhZyI6ImN1c3RvbS1vdXRib3VuZC1hbnl0bHMi/al7ImxvZyI6eyJsZXZlbCI6Indhcm4ifSwibm90ZSI6ImFueXRscyJ9",
+      "current": true
+    },
+    {
+      "id": "AnyTLSBean/dd8f56d3/default",
+      "class": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "AnyTLSBean": 2,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "password": "",
+        "sni": "",
+        "alpn": "",
+        "certificates": "",
+        "certificateFingerprint": "",
+        "utlsFingerprint": "",
+        "allowInsecure": false,
+        "echConfig": "",
+        "enableECH": false,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "password": "",
+        "sni": "",
+        "alpn": "",
+        "certificates": "",
+        "certificateFingerprint": "",
+        "utlsFingerprint": "",
+        "allowInsecure": false,
+        "echConfig": "",
+        "enableECH": false,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AgAAADEyNy4wLjAusTgEAACBgYGBgQCBgQABAAAAgYGB",
+      "current": true
+    }
+  ]
+}

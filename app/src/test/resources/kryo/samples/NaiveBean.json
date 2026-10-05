@@ -1,0 +1,187 @@
+{
+  "class": "io.nekohasekai.sagernet.fmt.naive.NaiveBean",
+  "samples": [
+    {
+      "id": "NaiveBean/9d78e4f2/naive",
+      "class": "io.nekohasekai.sagernet.fmt.naive.NaiveBean",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "NaiveBean": 2,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "proto": "quic",
+        "username": "naive-user",
+        "password": "naive-fake-password",
+        "extraHeaders": "X-Fake: 1",
+        "sni": "sni-naive.example.org",
+        "certificates": "-----BEGIN CERTIFICATE-----\nTkFJVkUtRkFLRQ==\n-----END CERTIFICATE-----",
+        "insecureConcurrency": 3,
+        "serverAddress": "naive.example.com",
+        "serverPort": 8443,
+        "name": "样本 naive",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-naive\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"naive\"}"
+      },
+      "expected": {
+        "proto": "quic",
+        "username": "naive-user",
+        "password": "naive-fake-password",
+        "extraHeaders": "X-Fake: 1",
+        "sni": "sni-naive.example.org",
+        "certificates": "-----BEGIN CERTIFICATE-----\nTkFJVkUtRkFLRQ==\n-----END CERTIFICATE-----",
+        "insecureConcurrency": 3,
+        "sUoT": false,
+        "serverAddress": "naive.example.com",
+        "serverPort": 8443,
+        "name": "样本 naive",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-naive\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"naive\"}"
+      },
+      "base64": "AgAAAG5haXZlLmV4YW1wbGUuY2/t+yAAAHF1aeNuYWl2ZS11c2XybmFpdmUtZmFrZS1wYXNzd29y5FgtRmFrZTogsccBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClRrRkpWa1V0UmtGTFJRPT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLXNuaS1uYWl2ZS5leGFtcGxlLm9y5wMAAAABAAAAieagt+acrCBuYWl2ZXsidGFnIjoiY3VzdG9tLW91dGJvdW5kLW5haXZlIv2oeyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJuYWl2ZSJ9",
+      "current": false
+    },
+    {
+      "id": "NaiveBean/9d78e4f2/default",
+      "class": "io.nekohasekai.sagernet.fmt.naive.NaiveBean",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "NaiveBean": 2,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "proto": "https",
+        "username": "",
+        "password": "",
+        "extraHeaders": "",
+        "sni": "",
+        "certificates": "",
+        "insecureConcurrency": 0,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 443,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "proto": "https",
+        "username": "",
+        "password": "",
+        "extraHeaders": "",
+        "sni": "",
+        "certificates": "",
+        "insecureConcurrency": 0,
+        "sUoT": false,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 443,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AgAAADEyNy4wLjAusbsBAABodHRw84GBgYGBAAAAAAEAAACBgYE=",
+      "current": false
+    },
+    {
+      "id": "NaiveBean/dd8f56d3/naive",
+      "class": "io.nekohasekai.sagernet.fmt.naive.NaiveBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "NaiveBean": 3,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "proto": "quic",
+        "username": "naive-user",
+        "password": "naive-fake-password",
+        "extraHeaders": "X-Fake: 1",
+        "sni": "sni-naive.example.org",
+        "certificates": "-----BEGIN CERTIFICATE-----\nTkFJVkUtRkFLRQ==\n-----END CERTIFICATE-----",
+        "insecureConcurrency": 3,
+        "sUoT": true,
+        "serverAddress": "naive.example.com",
+        "serverPort": 8443,
+        "name": "样本 naive",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-naive\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"naive\"}"
+      },
+      "expected": {
+        "proto": "quic",
+        "username": "naive-user",
+        "password": "naive-fake-password",
+        "extraHeaders": "X-Fake: 1",
+        "sni": "sni-naive.example.org",
+        "certificates": "-----BEGIN CERTIFICATE-----\nTkFJVkUtRkFLRQ==\n-----END CERTIFICATE-----",
+        "insecureConcurrency": 3,
+        "sUoT": true,
+        "serverAddress": "naive.example.com",
+        "serverPort": 8443,
+        "name": "样本 naive",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-naive\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"naive\"}"
+      },
+      "base64": "AwAAAG5haXZlLmV4YW1wbGUuY2/t+yAAAHF1aeNuYWl2ZS11c2XybmFpdmUtZmFrZS1wYXNzd29y5FgtRmFrZTogsccBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClRrRkpWa1V0UmtGTFJRPT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLXNuaS1uYWl2ZS5leGFtcGxlLm9y5wMAAAABAQAAAInmoLfmnKwgbmFpdmV7InRhZyI6ImN1c3RvbS1vdXRib3VuZC1uYWl2ZSL9qHsibG9nIjp7ImxldmVsIjoid2FybiJ9LCJub3RlIjoibmFpdmUifQ==",
+      "current": true
+    },
+    {
+      "id": "NaiveBean/dd8f56d3/default",
+      "class": "io.nekohasekai.sagernet.fmt.naive.NaiveBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "NaiveBean": 3,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "proto": "https",
+        "username": "",
+        "password": "",
+        "extraHeaders": "",
+        "sni": "",
+        "certificates": "",
+        "insecureConcurrency": 0,
+        "sUoT": false,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 443,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "proto": "https",
+        "username": "",
+        "password": "",
+        "extraHeaders": "",
+        "sni": "",
+        "certificates": "",
+        "insecureConcurrency": 0,
+        "sUoT": false,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 443,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AwAAADEyNy4wLjAusbsBAABodHRw84GBgYGBAAAAAAABAAAAgYGB",
+      "current": true
+    }
+  ]
+}

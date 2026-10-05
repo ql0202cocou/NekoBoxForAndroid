@@ -1,0 +1,233 @@
+{
+  "class": "io.nekohasekai.sagernet.fmt.mieru.MieruBean",
+  "samples": [
+    {
+      "id": "MieruBean/19cb130f/tcp",
+      "class": "io.nekohasekai.sagernet.fmt.mieru.MieruBean",
+      "form": "storage",
+      "source": {
+        "commit": "19cb130f1241589c080cf613ca48023fce250ad7",
+        "tag": "1.7.2-a1",
+        "versionName": "1.7.1"
+      },
+      "versions": {
+        "MieruBean": 0,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "protocol": "TCP",
+        "username": "mieru-user",
+        "password": "mieru-fake-password",
+        "mtu": 1350,
+        "serverAddress": "mieru.example.com",
+        "serverPort": 27017,
+        "name": "样本 mieru",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-mieru\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"mieru\"}"
+      },
+      "expected": {
+        "protocol": "TCP",
+        "username": "mieru-user",
+        "password": "mieru-fake-password",
+        "mtu": 1400,
+        "serverAddress": "mieru.example.com",
+        "serverPort": 27017,
+        "name": "样本 mieru",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-mieru\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"mieru\"}"
+      },
+      "base64": "AAAAAG1pZXJ1LmV4YW1wbGUuY2/tiWkAAFRD0G1pZXJ1LXVzZfJtaWVydS1mYWtlLXBhc3N3b3LkAQAAAInmoLfmnKwgbWllcnV7InRhZyI6ImN1c3RvbS1vdXRib3VuZC1taWVydSL9qHsibG9nIjp7ImxldmVsIjoid2FybiJ9LCJub3RlIjoibWllcnUifQ==",
+      "current": false
+    },
+    {
+      "id": "MieruBean/19cb130f/udp",
+      "class": "io.nekohasekai.sagernet.fmt.mieru.MieruBean",
+      "form": "storage",
+      "source": {
+        "commit": "19cb130f1241589c080cf613ca48023fce250ad7",
+        "tag": "1.7.2-a1",
+        "versionName": "1.7.1"
+      },
+      "versions": {
+        "MieruBean": 0,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "protocol": "UDP",
+        "username": "mieru-user-2",
+        "password": "mieru-fake-password-2",
+        "mtu": 1280,
+        "serverAddress": "mieru-udp.example.com",
+        "serverPort": 27018,
+        "name": "样本 mieru-udp",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-mieru-udp\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"mieru-udp\"}"
+      },
+      "expected": {
+        "protocol": "UDP",
+        "username": "mieru-user-2",
+        "password": "mieru-fake-password-2",
+        "mtu": 1280,
+        "serverAddress": "mieru-udp.example.com",
+        "serverPort": 27018,
+        "name": "样本 mieru-udp",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-mieru-udp\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"mieru-udp\"}"
+      },
+      "base64": "AAAAAG1pZXJ1LXVkcC5leGFtcGxlLmNv7YppAABVRNBtaWVydS11c2VyLbJtaWVydS1mYWtlLXBhc3N3b3JkLbIABQAAAQAAAI3moLfmnKwgbWllcnUtdWRwpHsidGFnIjoiY3VzdG9tLW91dGJvdW5kLW1pZXJ1LXVkcCJ9rHsibG9nIjp7ImxldmVsIjoid2FybiJ9LCJub3RlIjoibWllcnUtdWRwIn0=",
+      "current": false
+    },
+    {
+      "id": "MieruBean/19cb130f/default",
+      "class": "io.nekohasekai.sagernet.fmt.mieru.MieruBean",
+      "form": "storage",
+      "source": {
+        "commit": "19cb130f1241589c080cf613ca48023fce250ad7",
+        "tag": "1.7.2-a1",
+        "versionName": "1.7.1"
+      },
+      "versions": {
+        "MieruBean": 0,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "protocol": "TCP",
+        "username": "",
+        "password": "",
+        "mtu": 1400,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "protocol": "TCP",
+        "username": "",
+        "password": "",
+        "mtu": 1400,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AAAAADEyNy4wLjAusTgEAABUQ9CBgQEAAACBgYE=",
+      "current": false
+    },
+    {
+      "id": "MieruBean/dd8f56d3/tcp",
+      "class": "io.nekohasekai.sagernet.fmt.mieru.MieruBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "MieruBean": 1,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "protocol": "TCP",
+        "username": "mieru-user",
+        "password": "mieru-fake-password",
+        "mtu": 1350,
+        "serverAddress": "mieru.example.com",
+        "serverPort": 27017,
+        "name": "样本 mieru",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-mieru\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"mieru\"}"
+      },
+      "expected": {
+        "protocol": "TCP",
+        "username": "mieru-user",
+        "password": "mieru-fake-password",
+        "mtu": 1350,
+        "serverAddress": "mieru.example.com",
+        "serverPort": 27017,
+        "name": "样本 mieru",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-mieru\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"mieru\"}"
+      },
+      "base64": "AQAAAG1pZXJ1LmV4YW1wbGUuY2/tiWkAAFRD0G1pZXJ1LXVzZfJtaWVydS1mYWtlLXBhc3N3b3LkRgUAAAEAAACJ5qC35pysIG1pZXJ1eyJ0YWciOiJjdXN0b20tb3V0Ym91bmQtbWllcnUi/ah7ImxvZyI6eyJsZXZlbCI6Indhcm4ifSwibm90ZSI6Im1pZXJ1In0=",
+      "current": true
+    },
+    {
+      "id": "MieruBean/dd8f56d3/udp",
+      "class": "io.nekohasekai.sagernet.fmt.mieru.MieruBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "MieruBean": 1,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "protocol": "UDP",
+        "username": "mieru-user-2",
+        "password": "mieru-fake-password-2",
+        "mtu": 1280,
+        "serverAddress": "mieru-udp.example.com",
+        "serverPort": 27018,
+        "name": "样本 mieru-udp",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-mieru-udp\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"mieru-udp\"}"
+      },
+      "expected": {
+        "protocol": "UDP",
+        "username": "mieru-user-2",
+        "password": "mieru-fake-password-2",
+        "mtu": 1280,
+        "serverAddress": "mieru-udp.example.com",
+        "serverPort": 27018,
+        "name": "样本 mieru-udp",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-mieru-udp\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"mieru-udp\"}"
+      },
+      "base64": "AQAAAG1pZXJ1LXVkcC5leGFtcGxlLmNv7YppAABVRNBtaWVydS11c2VyLbJtaWVydS1mYWtlLXBhc3N3b3JkLbIABQAAAQAAAI3moLfmnKwgbWllcnUtdWRwpHsidGFnIjoiY3VzdG9tLW91dGJvdW5kLW1pZXJ1LXVkcCJ9rHsibG9nIjp7ImxldmVsIjoid2FybiJ9LCJub3RlIjoibWllcnUtdWRwIn0=",
+      "current": true
+    },
+    {
+      "id": "MieruBean/dd8f56d3/default",
+      "class": "io.nekohasekai.sagernet.fmt.mieru.MieruBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "MieruBean": 1,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "protocol": "TCP",
+        "username": "",
+        "password": "",
+        "mtu": 1400,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "protocol": "TCP",
+        "username": "",
+        "password": "",
+        "mtu": 1400,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AQAAADEyNy4wLjAusTgEAABUQ9CBgXgFAAABAAAAgYGB",
+      "current": true
+    }
+  ]
+}

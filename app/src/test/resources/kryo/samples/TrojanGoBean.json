@@ -1,0 +1,281 @@
+{
+  "class": "io.nekohasekai.sagernet.fmt.trojan_go.TrojanGoBean",
+  "samples": [
+    {
+      "id": "TrojanGoBean/9d78e4f2/ws",
+      "class": "io.nekohasekai.sagernet.fmt.trojan_go.TrojanGoBean",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "TrojanGoBean": 1,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "password": "trojan-go-fake-password",
+        "sni": "sni-trojan-go.example.org",
+        "type": "ws",
+        "host": "cdn-trojan-go.example.net",
+        "path": "/trojan-go",
+        "encryption": "ss;aes-128-gcm:fake-ss-password",
+        "plugin": "fake-plugin-option",
+        "allowInsecure": true,
+        "serverAddress": "trojan-go.example.com",
+        "serverPort": 31443,
+        "name": "样本 trojan-go",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-trojan-go\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"trojan-go\"}"
+      },
+      "expected": {
+        "password": "trojan-go-fake-password",
+        "sni": "sni-trojan-go.example.org",
+        "type": "ws",
+        "host": "cdn-trojan-go.example.net",
+        "path": "/trojan-go",
+        "encryption": "ss;aes-128-gcm:fake-ss-password",
+        "plugin": "fake-plugin-option",
+        "allowInsecure": true,
+        "serverAddress": "trojan-go.example.com",
+        "serverPort": 31443,
+        "name": "样本 trojan-go",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-trojan-go\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"trojan-go\"}"
+      },
+      "base64": "AQAAAHRyb2phbi1nby5leGFtcGxlLmNv7dN6AAB0cm9qYW4tZ28tZmFrZS1wYXNzd29y5HNuaS10cm9qYW4tZ28uZXhhbXBsZS5vcud382Nkbi10cm9qYW4tZ28uZXhhbXBsZS5uZfQvdHJvamFuLWfvc3M7YWVzLTEyOC1nY206ZmFrZS1zcy1wYXNzd29y5GZha2UtcGx1Z2luLW9wdGlv7gEBAAAAjeagt+acrCB0cm9qYW4tZ2+keyJ0YWciOiJjdXN0b20tb3V0Ym91bmQtdHJvamFuLWdvIn2seyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJ0cm9qYW4tZ28ifQ==",
+      "current": false
+    },
+    {
+      "id": "TrojanGoBean/9d78e4f2/original",
+      "class": "io.nekohasekai.sagernet.fmt.trojan_go.TrojanGoBean",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "TrojanGoBean": 1,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "password": "trojan-go-fake-password-2",
+        "sni": "sni2.example.org",
+        "type": "original",
+        "host": "unused-host.example.net",
+        "path": "/unused",
+        "encryption": "none",
+        "plugin": "",
+        "allowInsecure": false,
+        "serverAddress": "198.51.100.31",
+        "serverPort": 31444,
+        "name": "样本 trojan-go-orig",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-trojan-go-orig\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"trojan-go-orig\"}"
+      },
+      "expected": {
+        "password": "trojan-go-fake-password-2",
+        "sni": "sni2.example.org",
+        "type": "original",
+        "host": "",
+        "path": "",
+        "encryption": "none",
+        "plugin": "",
+        "allowInsecure": false,
+        "serverAddress": "198.51.100.31",
+        "serverPort": 31444,
+        "name": "样本 trojan-go-orig",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-trojan-go-orig\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"trojan-go-orig\"}"
+      },
+      "base64": "AQAAADE5OC41MS4xMDAuM7HUegAAdHJvamFuLWdvLWZha2UtcGFzc3dvcmQtsnNuaTIuZXhhbXBsZS5vcudvcmlnaW5h7G5vbuWBAAEAAACS5qC35pysIHRyb2phbi1nby1vcmlnqXsidGFnIjoiY3VzdG9tLW91dGJvdW5kLXRyb2phbi1nby1vcmlnIn2xeyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJ0cm9qYW4tZ28tb3JpZyJ9",
+      "current": false
+    },
+    {
+      "id": "TrojanGoBean/9d78e4f2/default",
+      "class": "io.nekohasekai.sagernet.fmt.trojan_go.TrojanGoBean",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "TrojanGoBean": 1,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "password": "",
+        "sni": "",
+        "type": "original",
+        "host": "",
+        "path": "",
+        "encryption": "none",
+        "plugin": "",
+        "allowInsecure": false,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "password": "",
+        "sni": "",
+        "type": "original",
+        "host": "",
+        "path": "",
+        "encryption": "none",
+        "plugin": "",
+        "allowInsecure": false,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AQAAADEyNy4wLjAusTgEAACBgW9yaWdpbmHsbm9u5YEAAQAAAIGBgQ==",
+      "current": false
+    },
+    {
+      "id": "TrojanGoBean/dd8f56d3/ws",
+      "class": "io.nekohasekai.sagernet.fmt.trojan_go.TrojanGoBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "TrojanGoBean": 1,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "password": "trojan-go-fake-password",
+        "sni": "sni-trojan-go.example.org",
+        "type": "ws",
+        "host": "cdn-trojan-go.example.net",
+        "path": "/trojan-go",
+        "encryption": "ss;aes-128-gcm:fake-ss-password",
+        "plugin": "fake-plugin-option",
+        "allowInsecure": true,
+        "serverAddress": "trojan-go.example.com",
+        "serverPort": 31443,
+        "name": "样本 trojan-go",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-trojan-go\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"trojan-go\"}"
+      },
+      "expected": {
+        "password": "trojan-go-fake-password",
+        "sni": "sni-trojan-go.example.org",
+        "type": "ws",
+        "host": "cdn-trojan-go.example.net",
+        "path": "/trojan-go",
+        "encryption": "ss;aes-128-gcm:fake-ss-password",
+        "plugin": "fake-plugin-option",
+        "allowInsecure": true,
+        "serverAddress": "trojan-go.example.com",
+        "serverPort": 31443,
+        "name": "样本 trojan-go",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-trojan-go\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"trojan-go\"}"
+      },
+      "base64": "AQAAAHRyb2phbi1nby5leGFtcGxlLmNv7dN6AAB0cm9qYW4tZ28tZmFrZS1wYXNzd29y5HNuaS10cm9qYW4tZ28uZXhhbXBsZS5vcud382Nkbi10cm9qYW4tZ28uZXhhbXBsZS5uZfQvdHJvamFuLWfvc3M7YWVzLTEyOC1nY206ZmFrZS1zcy1wYXNzd29y5GZha2UtcGx1Z2luLW9wdGlv7gEBAAAAjeagt+acrCB0cm9qYW4tZ2+keyJ0YWciOiJjdXN0b20tb3V0Ym91bmQtdHJvamFuLWdvIn2seyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJ0cm9qYW4tZ28ifQ==",
+      "current": true
+    },
+    {
+      "id": "TrojanGoBean/dd8f56d3/original",
+      "class": "io.nekohasekai.sagernet.fmt.trojan_go.TrojanGoBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "TrojanGoBean": 1,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "password": "trojan-go-fake-password-2",
+        "sni": "sni2.example.org",
+        "type": "original",
+        "host": "unused-host.example.net",
+        "path": "/unused",
+        "encryption": "none",
+        "plugin": "",
+        "allowInsecure": false,
+        "serverAddress": "198.51.100.31",
+        "serverPort": 31444,
+        "name": "样本 trojan-go-orig",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-trojan-go-orig\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"trojan-go-orig\"}"
+      },
+      "expected": {
+        "password": "trojan-go-fake-password-2",
+        "sni": "sni2.example.org",
+        "type": "original",
+        "host": "",
+        "path": "",
+        "encryption": "none",
+        "plugin": "",
+        "allowInsecure": false,
+        "serverAddress": "198.51.100.31",
+        "serverPort": 31444,
+        "name": "样本 trojan-go-orig",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-trojan-go-orig\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"trojan-go-orig\"}"
+      },
+      "base64": "AQAAADE5OC41MS4xMDAuM7HUegAAdHJvamFuLWdvLWZha2UtcGFzc3dvcmQtsnNuaTIuZXhhbXBsZS5vcudvcmlnaW5h7G5vbuWBAAEAAACS5qC35pysIHRyb2phbi1nby1vcmlnqXsidGFnIjoiY3VzdG9tLW91dGJvdW5kLXRyb2phbi1nby1vcmlnIn2xeyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJ0cm9qYW4tZ28tb3JpZyJ9",
+      "current": true
+    },
+    {
+      "id": "TrojanGoBean/dd8f56d3/default",
+      "class": "io.nekohasekai.sagernet.fmt.trojan_go.TrojanGoBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "TrojanGoBean": 1,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "password": "",
+        "sni": "",
+        "type": "original",
+        "host": "",
+        "path": "",
+        "encryption": "none",
+        "plugin": "",
+        "allowInsecure": false,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "password": "",
+        "sni": "",
+        "type": "original",
+        "host": "",
+        "path": "",
+        "encryption": "none",
+        "plugin": "",
+        "allowInsecure": false,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AQAAADEyNy4wLjAusTgEAACBgW9yaWdpbmHsbm9u5YEAAQAAAIGBgQ==",
+      "current": true
+    }
+  ]
+}

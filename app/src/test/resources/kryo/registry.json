@@ -1,0 +1,424 @@
+{
+  "layers": {
+    "AbstractBean": {
+      "current": 1,
+      "sampled": [
+        1
+      ],
+      "unsampled": {
+        "0": "早于本仓库历史：首个提交 7d9798c 已写出更高的版本号，本仓库里没有写这个版本的实现（这一层的 extraVersion 在 deserializeFromBuffer 里读出后不参与分支）"
+      }
+    },
+    "StandardV2RayBean": {
+      "current": 6,
+      "sampled": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "unsampled": {}
+    },
+    "TrojanBean": {
+      "current": 2,
+      "sampled": [
+        2
+      ],
+      "unsampled": {
+        "0": "早于本仓库历史：首个提交 7d9798c 已写出更高的版本号，本仓库里没有写这个版本的实现",
+        "1": "早于本仓库历史：首个提交 7d9798c 已写出更高的版本号，本仓库里没有写这个版本的实现"
+      }
+    },
+    "HttpBean": {
+      "current": 0,
+      "sampled": [
+        0
+      ],
+      "unsampled": {}
+    },
+    "ShadowTLSBean": {
+      "current": 0,
+      "sampled": [
+        0
+      ],
+      "unsampled": {}
+    },
+    "ShadowsocksBean": {
+      "current": 2,
+      "sampled": [
+        2
+      ],
+      "unsampled": {
+        "0": "早于本仓库历史：首个提交 7d9798c 已写出更高的版本号，本仓库里没有写这个版本的实现",
+        "1": "早于本仓库历史：首个提交 7d9798c 已写出更高的版本号，本仓库里没有写这个版本的实现"
+      }
+    },
+    "SOCKSBean": {
+      "current": 2,
+      "sampled": [
+        1,
+        2
+      ],
+      "unsampled": {
+        "0": "早于本仓库历史：首个提交 7d9798c 已写出更高的版本号，本仓库里没有写这个版本的实现"
+      }
+    },
+    "HysteriaBean": {
+      "current": 8,
+      "sampled": [
+        5,
+        6,
+        7,
+        8
+      ],
+      "unsampled": {
+        "0": "早于本仓库历史：首个提交 7d9798c 已写出更高的版本号，本仓库里没有写这个版本的实现",
+        "1": "早于本仓库历史：首个提交 7d9798c 已写出更高的版本号，本仓库里没有写这个版本的实现",
+        "2": "早于本仓库历史：首个提交 7d9798c 已写出更高的版本号，本仓库里没有写这个版本的实现",
+        "3": "早于本仓库历史：首个提交 7d9798c 已写出更高的版本号，本仓库里没有写这个版本的实现",
+        "4": "早于本仓库历史：首个提交 7d9798c 已写出更高的版本号，本仓库里没有写这个版本的实现"
+      }
+    },
+    "MieruBean": {
+      "current": 1,
+      "sampled": [
+        0,
+        1
+      ],
+      "unsampled": {}
+    },
+    "NaiveBean": {
+      "current": 3,
+      "sampled": [
+        2,
+        3
+      ],
+      "unsampled": {
+        "0": "早于本仓库历史：首个提交 7d9798c 已写出更高的版本号，本仓库里没有写这个版本的实现",
+        "1": "早于本仓库历史：首个提交 7d9798c 已写出更高的版本号，本仓库里没有写这个版本的实现"
+      }
+    },
+    "SSHBean": {
+      "current": 0,
+      "sampled": [
+        0
+      ],
+      "unsampled": {}
+    },
+    "TrojanGoBean": {
+      "current": 1,
+      "sampled": [
+        1
+      ],
+      "unsampled": {
+        "0": "早于本仓库历史：首个提交 7d9798c 已写出更高的版本号，本仓库里没有写这个版本的实现"
+      }
+    },
+    "TuicBean": {
+      "current": 4,
+      "sampled": [
+        1,
+        2,
+        4
+      ],
+      "unsampled": {
+        "0": "早于本仓库历史：首个提交 7d9798c 已写出更高的版本号，本仓库里没有写这个版本的实现",
+        "3": "历史上从未写出：d72b889 把写出的版本号从 2 直接改为 4（heartbeatInterval 与 certificateFingerprint 同时加入）"
+      }
+    },
+    "WireGuardBean": {
+      "current": 3,
+      "sampled": [
+        2,
+        3
+      ],
+      "unsampled": {
+        "0": "早于本仓库历史：首个提交 7d9798c 已写出更高的版本号，本仓库里没有写这个版本的实现",
+        "1": "早于本仓库历史：首个提交 7d9798c 已写出更高的版本号，本仓库里没有写这个版本的实现"
+      }
+    },
+    "AnyTLSBean": {
+      "current": 2,
+      "sampled": [
+        0,
+        1,
+        2
+      ],
+      "unsampled": {}
+    },
+    "ChainBean": {
+      "current": 1,
+      "sampled": [
+        1
+      ],
+      "unsampled": {
+        "0": "早于本仓库历史：首个提交 7d9798c 已写出更高的版本号，本仓库里没有写这个版本的实现"
+      }
+    },
+    "ConfigBean": {
+      "current": 0,
+      "sampled": [
+        0
+      ],
+      "unsampled": {}
+    },
+    "SubscriptionBean": {
+      "current": 5,
+      "sampled": [
+        1,
+        2,
+        4,
+        5
+      ],
+      "unsampled": {
+        "0": "早于本仓库历史：首个提交 7d9798c 已写出更高的版本号，本仓库里没有写这个版本的实现",
+        "3": "历史上从未写出：57f4507 把写出的版本号从 2 直接改为 4"
+      }
+    },
+    "SubscriptionBean.share": {
+      "current": 0,
+      "sampled": [
+        0
+      ],
+      "unsampled": {}
+    },
+    "ProxyEntity": {
+      "current": 1,
+      "sampled": [
+        0,
+        1
+      ],
+      "unsampled": {}
+    },
+    "ProxyGroup": {
+      "current": 2,
+      "sampled": [
+        0,
+        1,
+        2
+      ],
+      "unsampled": {}
+    },
+    "ProxyGroup.export": {
+      "current": 2,
+      "sampled": [
+        0,
+        1,
+        2
+      ],
+      "unsampled": {}
+    }
+  },
+  "classes": {
+    "io.nekohasekai.sagernet.fmt.socks.SOCKSBean": [
+      "SOCKSBean",
+      "AbstractBean"
+    ],
+    "io.nekohasekai.sagernet.fmt.http.HttpBean": [
+      "HttpBean",
+      "StandardV2RayBean",
+      "AbstractBean"
+    ],
+    "io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean": [
+      "ShadowsocksBean",
+      "AbstractBean"
+    ],
+    "io.nekohasekai.sagernet.fmt.v2ray.VMessBean": [
+      "StandardV2RayBean",
+      "AbstractBean"
+    ],
+    "io.nekohasekai.sagernet.fmt.trojan.TrojanBean": [
+      "TrojanBean",
+      "StandardV2RayBean",
+      "AbstractBean"
+    ],
+    "io.nekohasekai.sagernet.fmt.trojan_go.TrojanGoBean": [
+      "TrojanGoBean",
+      "AbstractBean"
+    ],
+    "io.nekohasekai.sagernet.fmt.mieru.MieruBean": [
+      "MieruBean",
+      "AbstractBean"
+    ],
+    "io.nekohasekai.sagernet.fmt.naive.NaiveBean": [
+      "NaiveBean",
+      "AbstractBean"
+    ],
+    "io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean": [
+      "HysteriaBean",
+      "AbstractBean"
+    ],
+    "io.nekohasekai.sagernet.fmt.ssh.SSHBean": [
+      "SSHBean",
+      "AbstractBean"
+    ],
+    "io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean": [
+      "WireGuardBean",
+      "AbstractBean"
+    ],
+    "io.nekohasekai.sagernet.fmt.tuic.TuicBean": [
+      "TuicBean",
+      "AbstractBean"
+    ],
+    "moe.matsuri.nb4a.proxy.shadowtls.ShadowTLSBean": [
+      "ShadowTLSBean",
+      "StandardV2RayBean",
+      "AbstractBean"
+    ],
+    "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean": [
+      "AnyTLSBean",
+      "AbstractBean"
+    ],
+    "io.nekohasekai.sagernet.fmt.internal.ChainBean": [
+      "ChainBean",
+      "AbstractBean"
+    ],
+    "moe.matsuri.nb4a.proxy.config.ConfigBean": [
+      "ConfigBean",
+      "AbstractBean"
+    ],
+    "io.nekohasekai.sagernet.database.SubscriptionBean": [
+      "SubscriptionBean"
+    ],
+    "io.nekohasekai.sagernet.database.ProxyEntity": [
+      "ProxyEntity"
+    ],
+    "io.nekohasekai.sagernet.database.ProxyGroup": [
+      "ProxyGroup"
+    ]
+  },
+  "skippedClasses": {
+    "moe.matsuri.nb4a.proxy.neko.NekoBean": "字段初始化里有 new JSONObject()，mockable android.jar 的 org.json 在 JVM 上抛异常，构造不出来；当前版本 0，自首个提交以来布局未变"
+  },
+  "sources": {
+    "9d78e4f2870f3dff06f99425bd93cdf64e637e6e": {
+      "tag": "1.6.0",
+      "versionName": "1.0.5",
+      "date": "2023-05-26",
+      "note": "1f59432^：SOCKS v1、Naive v2 的最后一版；同时是本仓库最早的一批全类样本"
+    },
+    "34a3012772d77bbb266abb710b2c9a809c485168": {
+      "tag": "1.6.0",
+      "versionName": "1.1.2",
+      "date": "2023-06-04",
+      "note": "4b1800d^：Tuic v1 最后一版"
+    },
+    "814025e9e14ce571e054d5eb77add9a96def91d8": {
+      "tag": "1.6.0",
+      "versionName": "1.1.8",
+      "date": "2023-08-08",
+      "note": "d1da522^：Hysteria v5 最后一版"
+    },
+    "eab03deb2c8493f8b7dcd439e9ec9e580b3a06ea": {
+      "tag": "1.6.0",
+      "versionName": "1.2.3",
+      "date": "2023-09-03",
+      "note": "3f7d39a^：Hysteria v6 最后一版"
+    },
+    "a82e5b4f2cb2ff4dc06295cd938f50cd6a0dbb2a": {
+      "tag": "1.6.0",
+      "versionName": "1.2.9",
+      "date": "2023-10-31",
+      "note": "e805fe7^：StandardV2Ray v0 布局 A（无 ECH，grpc 只写 path）"
+    },
+    "8e97667557f4b30fa4cd6fb0eab3c72d8088380e": {
+      "tag": "1.6.0",
+      "versionName": "1.3.0",
+      "date": "2024-02-04",
+      "note": "fb55430^：StandardV2Ray v0 布局 B（无 ECH，grpc 落入 httpupgrade 分支）"
+    },
+    "680b362bcbcc40230dcbbf4b660b2622accf7ff3": {
+      "tag": "1.6.0",
+      "versionName": "1.3.1",
+      "date": "2024-02-18",
+      "note": "b34c012^：StandardV2Ray v0 布局 C（带 ECH 块）"
+    },
+    "607afa8ce387ebc2809f2bd05bae9e8ee1692d2d": {
+      "tag": "1.6.0",
+      "versionName": "1.3.4",
+      "date": "2025-02-23",
+      "note": "c7ef42d^：StandardV2Ray v1 最后一版"
+    },
+    "2c3a6164bb91ff8929ba347b54a9094888f89ff5": {
+      "tag": "1.6.0",
+      "versionName": "1.3.8",
+      "date": "2025-04-09",
+      "note": "912a066^：StandardV2Ray v2 最后一版"
+    },
+    "110f3b21b2e77b1ad45abf21c9fa3d8f1beff30a": {
+      "tag": "1.6.0",
+      "versionName": "1.4.0",
+      "date": "2025-10-21",
+      "note": "4326aab^：StandardV2Ray v3（grpc 落入 httpupgrade 分支）"
+    },
+    "aa275d5e100c909ae4e815ab168f86f6e06c24ef": {
+      "tag": "1.6.0",
+      "versionName": "1.4.0",
+      "date": "2025-10-21",
+      "note": "b39ac9a^：StandardV2Ray v3 最后一版（grpc 已加 break）"
+    },
+    "bbbdf577c5f9ebe6564ea2c4f3b87898da95ac1c": {
+      "tag": "1.6.0",
+      "versionName": "1.5.0",
+      "date": "2026-08-14",
+      "note": "37a63a0^：ProxyEntity v0 最后一版"
+    },
+    "3fac5afe557cb9033bd34e5533f28557e04dbc72": {
+      "tag": "1.6.1",
+      "versionName": "1.6.0",
+      "date": "2026-08-14",
+      "note": "53acc48^：ProxyGroup（存储格式）v0 最后一版"
+    },
+    "04da88640fcce7dc8a6fa1111ba7d23eb6496569": {
+      "tag": "1.6.5",
+      "versionName": "1.6.5",
+      "date": "2026-08-18",
+      "note": "4e82874^：StandardV2Ray v4 最后一版"
+    },
+    "5d74526b60974814cb97de0da1b88a080ee6566a": {
+      "tag": "1.6.7",
+      "versionName": "1.6.6",
+      "date": "2026-08-19",
+      "note": "9039809^：AnyTLS v0 最后一版"
+    },
+    "19cb130f1241589c080cf613ca48023fce250ad7": {
+      "tag": "1.7.2-a1",
+      "versionName": "1.7.1",
+      "date": "2026-08-28",
+      "note": "744ac62^：Mieru v0、ProxyGroup（存储格式）v1 最后一版"
+    },
+    "629cdae1b44c4f751db30aeb7a359a966d4ab9df": {
+      "tag": "1.7.2-b2",
+      "versionName": "1.7.2-b1",
+      "date": "2026-09-01",
+      "note": "a02fc6f^：SubscriptionBean v1、ProxyGroup（分享格式）v0 最后一版"
+    },
+    "9220b31678c1a41d1f5729d3d5037c37424e99f5": {
+      "tag": "1.7.3",
+      "versionName": "1.7.3",
+      "date": "2026-09-06",
+      "note": "57f4507^：SubscriptionBean v2 最后一版"
+    },
+    "329572d18da470101d2b0a7394e0e657b6d7eaf4": {
+      "tag": "1.7.4-a2",
+      "versionName": "1.7.4-a1",
+      "date": "2026-09-10",
+      "note": "d72b889^：StandardV2Ray v5、Hysteria v7、Tuic v2、WireGuard v2、AnyTLS v1、ProxyGroup（分享格式）v1 最后一版"
+    },
+    "3bd39b94c870219103860c5273dcb686560ad064": {
+      "tag": "1.7.6-a1",
+      "versionName": "1.7.5",
+      "date": "2026-09-29",
+      "note": "bbe117c^：SubscriptionBean v4 最后一版"
+    },
+    "dd8f56d37773f7b494e3be988904e415b90acd62": {
+      "tag": null,
+      "versionName": "1.8.0-a1",
+      "date": "2026-10-05",
+      "note": "HEAD：当前版本"
+    }
+  }
+}

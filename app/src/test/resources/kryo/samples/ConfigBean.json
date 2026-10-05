@@ -1,0 +1,141 @@
+{
+  "class": "moe.matsuri.nb4a.proxy.config.ConfigBean",
+  "samples": [
+    {
+      "id": "ConfigBean/9d78e4f2/outbound",
+      "class": "moe.matsuri.nb4a.proxy.config.ConfigBean",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "ConfigBean": 0,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "type": 1,
+        "config": "{\"type\":\"direct\",\"tag\":\"fake-direct\"}",
+        "serverAddress": "config-unused.example.com",
+        "serverPort": 2,
+        "name": "样本 config",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-config\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"config\"}"
+      },
+      "expected": {
+        "type": 1,
+        "config": "{\"type\":\"direct\",\"tag\":\"fake-direct\"}",
+        "serverAddress": "config-unused.example.com",
+        "serverPort": 2,
+        "name": "样本 config",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-config\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"config\"}"
+      },
+      "base64": "AAAAAGNvbmZpZy11bnVzZWQuZXhhbXBsZS5jb+0CAAAAAQAAAKZ7InR5cGUiOiJkaXJlY3QiLCJ0YWciOiJmYWtlLWRpcmVjdCJ9AQAAAIrmoLfmnKwgY29uZmlneyJ0YWciOiJjdXN0b20tb3V0Ym91bmQtY29uZmlnIv2peyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJjb25maWcifQ==",
+      "current": false
+    },
+    {
+      "id": "ConfigBean/9d78e4f2/default",
+      "class": "moe.matsuri.nb4a.proxy.config.ConfigBean",
+      "form": "storage",
+      "source": {
+        "commit": "9d78e4f2870f3dff06f99425bd93cdf64e637e6e",
+        "tag": "1.6.0",
+        "versionName": "1.0.5"
+      },
+      "versions": {
+        "ConfigBean": 0,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "type": 0,
+        "config": "",
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "type": 0,
+        "config": "",
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AAAAADEyNy4wLjAusTgEAAAAAAAAgQEAAACBgYE=",
+      "current": false
+    },
+    {
+      "id": "ConfigBean/dd8f56d3/outbound",
+      "class": "moe.matsuri.nb4a.proxy.config.ConfigBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "ConfigBean": 0,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "type": 1,
+        "config": "{\"type\":\"direct\",\"tag\":\"fake-direct\"}",
+        "serverAddress": "config-unused.example.com",
+        "serverPort": 2,
+        "name": "样本 config",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-config\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"config\"}"
+      },
+      "expected": {
+        "type": 1,
+        "config": "{\"type\":\"direct\",\"tag\":\"fake-direct\"}",
+        "serverAddress": "config-unused.example.com",
+        "serverPort": 2,
+        "name": "样本 config",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-config\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"config\"}"
+      },
+      "base64": "AAAAAGNvbmZpZy11bnVzZWQuZXhhbXBsZS5jb+0CAAAAAQAAAKZ7InR5cGUiOiJkaXJlY3QiLCJ0YWciOiJmYWtlLWRpcmVjdCJ9AQAAAIrmoLfmnKwgY29uZmlneyJ0YWciOiJjdXN0b20tb3V0Ym91bmQtY29uZmlnIv2peyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJjb25maWcifQ==",
+      "current": true
+    },
+    {
+      "id": "ConfigBean/dd8f56d3/default",
+      "class": "moe.matsuri.nb4a.proxy.config.ConfigBean",
+      "form": "storage",
+      "source": {
+        "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
+        "tag": null,
+        "versionName": "1.8.0-a1"
+      },
+      "versions": {
+        "ConfigBean": 0,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "type": 0,
+        "config": "",
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "type": 0,
+        "config": "",
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AAAAADEyNy4wLjAusTgEAAAAAAAAgQEAAACBgYE=",
+      "current": true
+    }
+  ]
+}
