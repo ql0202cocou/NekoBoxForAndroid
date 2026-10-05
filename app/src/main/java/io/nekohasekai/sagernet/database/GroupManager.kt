@@ -163,9 +163,8 @@ object GroupManager {
         for (groupId in groupIds) iterator { groupRemoved(groupId) }
     }
 
-    // Profiles deleted with their group may still be referenced as another
-    // group's frontProxy/landingProxy; ConfigBuilder.resolveChain would get
-    // null from getById and silently drop the user's front/landing proxy.
+    // 随分组一起删掉的节点可能仍是别的分组的前置 / 落地：构建展开链时（resolveChain，ChainPlan.kt）
+    // 查不到它，只记一条日志就忽略，流量会绕过用户设的前置 / 落地
     fun resetDanglingGroupProxies() {
         // SQL-only column updates avoid writing stale subscription fields from
         // group snapshots while the :bg updater is persisting fresh metadata.

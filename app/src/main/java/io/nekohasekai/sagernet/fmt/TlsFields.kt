@@ -36,7 +36,7 @@ fun effectiveAllowInsecure(allowInsecure: Boolean?, globalAllowInsecure: Boolean
 fun buildSingBoxOutboundTLS(bean: AbstractBean, globalAllowInsecure: Boolean): OutboundTLSOptions? {
     val tls = tlsFields(bean) ?: return null
     // sing-box 的 certificate_public_key_sha256 是 SPKI 哈希，与证书 SHA-256 不通用。
-    // 判断与报错在 ConfigBuild.buildHopOutbound（certificatePinUnsupported）；这里只兜底，
+    // 判断与报错在 requireBuildableHop（ChainPlan.kt，certificatePinUnsupported）；这里只兜底，
     // 防将来绕过它的调用方把固定静默丢掉
     check(tls.certificateFingerprint.isNullOrBlank()) {
         "certificate pin reached the sing-box TLS builder"

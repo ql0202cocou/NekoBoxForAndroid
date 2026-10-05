@@ -6,8 +6,6 @@ import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_CONFIG
 import io.nekohasekai.sagernet.database.RuleEntity
 import io.nekohasekai.sagernet.database.SagerDatabase
-import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
-import io.nekohasekai.sagernet.fmt.internal.ChainBean
 import io.nekohasekai.sagernet.ktx.isIpAddress
 import io.nekohasekai.sagernet.ktx.splitHostPort
 import io.nekohasekai.sagernet.ktx.usableNameservers
@@ -15,7 +13,6 @@ import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.plugin.PluginManager
 import moe.matsuri.nb4a.*
 import moe.matsuri.nb4a.SingBoxOptions.*
-import moe.matsuri.nb4a.plugin.Plugins
 import moe.matsuri.nb4a.proxy.config.ConfigBean
 import moe.matsuri.nb4a.utils.JavaUtil.gson
 import moe.matsuri.nb4a.utils.Util
@@ -210,45 +207,8 @@ private fun fullConfigResult(proxy: ProxyEntity) = ConfigBuildResult(
     -1L
 )
 
-// 按用户填写的顺序展开链（含任意层嵌套），结果首项是第一跳；不是链的节点展开成它自己。
-// membersOf 对非链节点返回 null；lookup 按 id 批量取成员，取不到的交给 onMissing 后跳过，
-// 其余成员照常展开。只检查递归栈：链在自己的展开过程中再次出现才算循环引用，交给 onLoop
-// 抛错（已损坏的数据，避免栈溢出）；同一节点或子链出现在不同位置照常重复展开
-internal fun <T> expandChainInOrder(
-    root: T,
-    idOf: (T) -> Long,
-    membersOf: (T) -> List<Long>?,
-    lookup: (List<Long>) -> Map<Long, T>,
-    onMissing: (chain: T, missingId: Long) -> Unit,
-    onLoop: (chain: T) -> Nothing,
-): MutableList<T> {
-    val result = ArrayList<T>()
-    val visiting = HashSet<Long>()
-    fun expand(item: T) {
-        val members = membersOf(item)
-        if (members == null) {
-            result.add(item)
-            return
-        }
-        val id = idOf(item)
-        if (!visiting.add(id)) onLoop(item)
-        val found = lookup(members)
-        for (memberId in members) {
-            val member = found[memberId]
-            if (member == null) {
-                onMissing(item, memberId)
-                continue
-            }
-            expand(member)
-        }
-        visiting.remove(id)
-    }
-    expand(root)
-    return result
-}
-
 // 完整配置型自定义节点（ConfigBean.type == 0）：整份配置原样运行，只能单独使用
-private fun ProxyEntity.isFullConfig() =
+internal fun ProxyEntity.isFullConfig() =
     type == TYPE_CONFIG && (requireBean() as ConfigBean).type == 0
 
 // 普通构建（运行模式）得到的 ConfigBuildResult.selectorGroupId：只取决于节点所在分组。完整配置节点同 buildConfig
@@ -290,17 +250,11 @@ private class ConfigBuild(
     val globalAllowInsecure = settings.globalAllowInsecure
     val group = data.group(proxy.groupId)
 
-    // 返回的列表是倒序的（末尾是第一跳）：完整展开后只在这里反转一次
-    fun ProxyEntity.resolveChainInternal(): MutableList<ProxyEntity> = expandChainInOrder(
-        this,
-        idOf = { it.id },
-        membersOf = { (it.requireBean() as? ChainBean)?.proxies },
-        lookup = { ids -> data.profiles(ids).associateBy { it.id } },
-        onMissing = { chain, missingId ->
-            platform.warn("chain profile ${chain.id} references missing profile $missingId, skipped")
-        },
-        onLoop = { chain -> error("chain loop detected: profile ${chain.id} (${chain.requireBean().name})") },
-    ).asReversed()
+    // 警告只记日志
+    private val warn: (String) -> Unit = { platform.warn(it) }
+
+    // 一次构建的插件查询，按插件记住结果（见 PluginQueries）
+    private val plugins = PluginQueries(platform)
 
     fun selectorName(name_: String): String {
         // a profile named like an auto-generated tag (g-<entryId>,
@@ -317,35 +271,8 @@ private class ConfigBuild(
         return name
     }
 
-    fun ProxyEntity.resolveChain(): MutableList<ProxyEntity> {
-        // 选择器分组的成员同属一组，直接复用构建开头读到的那一行
-        val thisGroup = if (groupId == proxy.groupId) group else data.group(groupId)
-        val frontProxy = thisGroup?.frontProxy?.let { data.profile(it) }
-        val landingProxy = thisGroup?.landingProxy?.let { data.profile(it) }
-        if (thisGroup != null) {
-            if (thisGroup.frontProxy > 0 && frontProxy == null) {
-                platform.warn("group $groupId front proxy ${thisGroup.frontProxy} no longer exists, ignored")
-            }
-            if (thisGroup.landingProxy > 0 && landingProxy == null) {
-                platform.warn("group $groupId landing proxy ${thisGroup.landingProxy} no longer exists, ignored")
-            }
-        }
-        // 列表是倒序的（末尾是第一跳）。前置 / 落地代理本身是链时展开成成员，
-        // 否则原样加进来的 ChainBean 会在 buildHopOutbound 报 "can't reach"。
-        // 链的成员被删光时链行仍在，分组引用不会被 resetDanglingGroupProxies 清掉；
-        // 静默丢掉会让流量绕过用户设的前置 / 落地，直接报错
-        fun expand(hop: ProxyEntity, role: String) = hop.resolveChainInternal().ifEmpty {
-            error("group $groupId $role proxy ${hop.id} (${hop.displayName()}) has no valid member")
-        }
-        val list = resolveChainInternal()
-        if (frontProxy != null) {
-            list.addAll(expand(frontProxy, "front"))
-        }
-        if (landingProxy != null) {
-            list.addAll(0, expand(landingProxy, "landing"))
-        }
-        return list
-    }
+    // 根节点要建的整条链（倒序），见 ChainPlan.kt 的 resolveChain
+    private fun ProxyEntity.resolveChain(): MutableList<ProxyEntity> = resolveChain(data, proxy.groupId, group, warn)
 
     val extraRules = if (forTest) listOf() else data.enabledRules()
 
@@ -567,26 +494,9 @@ private class ConfigBuild(
         var pastEntity: ProxyEntity? = null
     }
 
-    // buildChain 与 precheck 共用的整链检查
-    private fun requireBuildableChain(entity: ProxyEntity, profileList: List<ProxyEntity>) {
-        // A chain whose members all dangle resolves to nothing: the config would
-        // lack the outbound rules reference and sing-box would fail with a cryptic
-        // "outbound not found". Fail loudly here instead, like the loop guard.
-        if (profileList.isEmpty()) {
-            error("chain profile ${entity.id} (${entity.requireBean().displayName()}) has no valid member")
-        }
-        // 同一个外部核心节点在链里出现两次（链编辑器允许重复加入，或分组前置同时
-        // 是组内某条链的首跳）：映射入站 tag（<链 tag>-mapping-<节点 id>）重名，
-        // sing-box 只会报 duplicate inbound tag。这里给出明确错误
-        profileList.filter { it.needExternal(globalAllowInsecure) }.groupBy { it.id }.values
-            .firstOrNull { it.size > 1 }?.let {
-                error("profile ${it[0].id} (${it[0].requireBean().displayName()}) runs on an external core and appears twice in chain ${entity.id}")
-            }
-    }
-
     private fun MyOptions.buildChain(chainId: Long, entity: ProxyEntity): String {
         val profileList = entity.resolveChain()
-        requireBuildableChain(entity, profileList)
+        requireBuildableChain(entity, profileList, globalAllowInsecure)
         // dedup by id and keep insertion order: a HashSet<ProxyEntity>
         // collapses two fully identical entities (the collapsed node's
         // traffic never lands in the DB) and iterates in arbitrary order
@@ -722,7 +632,7 @@ private class ConfigBuild(
     private fun MyOptions.buildHopOutbound(
         chain: ChainState, proxyEntity: ProxyEntity, bean: AbstractBean, tagOut: String,
     ): Pair<SingBoxOption, ExternalSocks?> {
-        requireBuildableHop(proxyEntity, bean)
+        requireBuildableHop(proxyEntity, bean, globalAllowInsecure)
         val currentOutbound: SingBoxOption
         var socks: ExternalSocks? = null
         if (proxyEntity.needExternal(globalAllowInsecure)) { // 外部核心出站
@@ -743,7 +653,7 @@ private class ConfigBuild(
             }
         } else {
             // internal outbound
-            currentOutbound = buildInternalOutbound(bean)
+            currentOutbound = buildInternalOutbound(bean, globalAllowInsecure)
 
             // internal mux
             if (!chain.muxApplied) {
@@ -801,7 +711,7 @@ private class ConfigBuild(
     ): ExternalDialTarget {
         if (bean.canMapping() && proxyEntity.needExternal(globalAllowInsecure)) {
             // 自带 protect 的插件不用映射
-            val needExternal = !(index == chain.profileList.lastIndex && hysteriaSkipsMapping(bean))
+            val needExternal = !(index == chain.profileList.lastIndex && hysteriaSkipsMapping(bean, plugins))
             if (needExternal) {
                 val mappingPort = platform.newPort()
 
@@ -830,65 +740,21 @@ private class ConfigBuild(
         return ExternalDialTarget.Direct
     }
 
-    // 同一次构建里每个插件的外部插件 app 只查一次（每次查询都是一轮 IPC），查不到的结果也记下
-    private val pluginAuthorities = HashMap<String, String?>()
-
-    // 链上最先拨号的一跳：只有 hysteria 走 Matsuri exe 免映射（没装外部插件时用内置的
-    // 也算）；其余协议不查插件。mapExternalHop 与 precheck 共用
-    private fun hysteriaSkipsMapping(bean: AbstractBean): Boolean {
-        if (bean !is HysteriaBean) return false
-        val pluginId = externalCore(bean)!!.pluginId
-        if (pluginId !in pluginAuthorities) pluginAuthorities[pluginId] = platform.pluginExternalAuthority(pluginId)
-        val authority = pluginAuthorities[pluginId]
-        if (authority == null || authority.startsWith(Plugins.AUTHORITIES_PREFIX_NEKO_EXE)) return true
-        throw Exception("You are using an unsupported $pluginId, please download the correct plugin.")
-    }
-
-    // buildHopOutbound 与 precheck 共用的单跳检查
-    private fun requireBuildableHop(proxyEntity: ProxyEntity, bean: AbstractBean) {
-        // 用户要求固定证书却静默放行，比没有这个功能更危险：内部与外部核心都在这里拒绝
-        if (proxyEntity.certificatePinUnsupported(globalAllowInsecure)) {
-            error("this core cannot pin certificates; clear the fingerprint or use a core that supports it")
-        }
-        // mldsa65Verify 同理：sing-box 上会被悄悄丢掉
-        proxyEntity.mldsa65VerifyUnsupported(globalAllowInsecure)?.let { error(it) }
-        // 完整配置型自定义节点作为链成员、前置 / 落地或路由目标时，给出明确
-        // 错误，而不是让 sing-box 以 "unknown outbound type" 拒绝整份配置
-        if (!proxyEntity.needExternal(globalAllowInsecure) && proxyEntity.isFullConfig()) {
-            error("a full-config profile can only run on its own")
-        }
-        // 自定义出站 JSON 要到 build() 末尾序列化时才解析，在这里先解析一次，
-        // 出错时才能带上节点名、预检才能跳过这个成员
-        if (!bean.customOutboundJson.isNullOrBlank()) Util.mergeJSON(HashMap<String, Any?>(), bean.customOutboundJson)
-    }
-
-    // 内部核心出站。ConfigBean（type 1）的 JSON 同理提前解析
-    private fun buildInternalOutbound(bean: AbstractBean): SingBoxOption =
-        buildSingBoxOutbound(bean, globalAllowInsecure).also { if (it is CustomSingBoxOption) it.getBasicMap() }
-
-    // 同一次构建里每个插件只查一次，查不到的结果也记下
-    private val pluginErrors = HashMap<String, Exception?>()
-
-    private fun requirePlugin(pluginId: String) {
-        if (pluginId !in pluginErrors) pluginErrors[pluginId] = platform.pluginError(pluginId)
-        pluginErrors[pluginId]?.let { throw it }
-    }
-
     // 选择器成员 / 路由规则目标构建前的只读预检：把 buildChain 会走的检查空跑一遍，
     // 结果全部丢弃。buildChain 抛错时已写入一半的出站、入站与端口，只能事先判断。
     // 不能写 MyOptions 与本类的构建状态，也不能分配端口（platform.newPort），所以不调 mapExternalHop
     private fun precheck(entity: ProxyEntity) {
         val profileList = entity.resolveChain()
-        requireBuildableChain(entity, profileList)
+        requireBuildableChain(entity, profileList, globalAllowInsecure)
         profileList.forEachIndexed { index, hop ->
             val bean = hop.requireBean()
             withProfileName(bean) {
-                requireBuildableHop(hop, bean)
+                requireBuildableHop(hop, bean, globalAllowInsecure)
                 if (!hop.needExternal(globalAllowInsecure)) {
-                    buildInternalOutbound(bean)
+                    buildInternalOutbound(bean, globalAllowInsecure)
                     return@withProfileName
                 }
-                if (bean.canMapping() && index == profileList.lastIndex) hysteriaSkipsMapping(bean)
+                if (bean.canMapping() && index == profileList.lastIndex) hysteriaSkipsMapping(bean, plugins)
                 // NekoBean 没有 ExternalCore，与 BoxInstance.init 一样跳过
                 val core = externalCore(bean) ?: return@withProfileName
                 // 经运行时同一个组装入口，给只有这一个跳实例的计划试生成一次。生成的配置丢弃，端口与凭据只是占位；
@@ -907,7 +773,7 @@ private class ConfigBuild(
                     tempFiles.forEach { runCatching { it.delete() } }
                 }
                 // 导出不需要装插件
-                if (!forExport) requirePlugin(core.pluginId)
+                if (!forExport) plugins.requireAvailable(core.pluginId)
             }
         }
     }

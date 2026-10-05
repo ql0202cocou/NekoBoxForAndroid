@@ -191,7 +191,7 @@ fun ProxyEntity.coreForType(globalAllowInsecure: Boolean): Int {
 // 应用保存的是整张证书的 SHA-256 指纹，只有 Xray（VMess / VLESS）与 mihomo（AnyTLS）能按它固定。
 // sing-box 有公钥固定（certificate_public_key_sha256，SPKI 哈希），但与整证书指纹不是一回事、
 // 不能通用；hysteria v1 插件没有对应选项。唯一判断点：运行 / 测试 / 导出 / 预检都经
-// ConfigBuild.requireBuildableHop 按它拒绝，编辑器保存时也按它提前拦下。构建传入设置快照里的全局「允许不安全」
+// requireBuildableHop（ChainPlan.kt）按它拒绝，编辑器保存时也按它提前拦下。构建传入设置快照里的全局「允许不安全」
 fun ProxyEntity.certificatePinUnsupported(globalAllowInsecure: Boolean): Boolean {
     val pin = tlsFields(requireBean())?.certificateFingerprint
     if (pin.isNullOrBlank()) return false
@@ -212,7 +212,7 @@ fun StandardV2RayBean.realityMldsa65VerifyActive(): Boolean =
 
 // mldsa65Verify（REALITY 后量子校验）只有 Xray 支持，sing-box 会把它悄悄丢掉。最终核心不是 Xray
 // 时返回拒绝原因，null 表示放行。core 只在字段生效时才取（resolvedCore 间接读设置）。
-// 判断点同 certificatePinUnsupported：ConfigBuild.requireBuildableHop 与编辑器保存
+// 判断点同 certificatePinUnsupported：requireBuildableHop（ChainPlan.kt）与编辑器保存
 fun mldsa65VerifyUnsupported(type: Int, bean: AbstractBean, core: () -> Int): String? {
     if (bean !is StandardV2RayBean || !bean.realityMldsa65VerifyActive()) return null
     return when (type) {

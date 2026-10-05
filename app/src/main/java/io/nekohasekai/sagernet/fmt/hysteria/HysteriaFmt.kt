@@ -312,7 +312,7 @@ fun isHysteria1PluginHopInterval(value: Int): Boolean = value == 0 || value >= 8
 
 // port 是本机 socks 入站的端口，target 是跳实例的拨号目标
 fun HysteriaBean.buildHysteria1Config(port: Int, target: ExternalDialTarget, cacheFile: (() -> File)?): String {
-    // hysteria v1 插件没有证书固定选项：判断与报错在 ConfigBuild.buildHopOutbound，
+    // hysteria v1 插件没有证书固定选项：判断与报错在 requireBuildableHop（ChainPlan.kt），
     // 这里只兜底（同 buildSingBoxOutboundTLS）
     check(certificateFingerprint.isBlank()) { "certificate pin reached the hysteria plugin builder" }
     if (protocolVersion != 1) {
