@@ -117,11 +117,12 @@ class ExternalRunPlan(val hops: List<ExternalHop>) {
 /** 一个外核进程：一组跳实例与它们合成的一份配置。 */
 class ExternalCoreProcess(val group: ExternalCoreGroup, val config: String) {
 
-    // writeCacheFile(prefix, ext, content) 落盘配置及进程要读的其它文件
+    // writeCacheFile(prefix, ext, content) 落盘配置及进程要读的其它文件；settings 取构建结果带出的那份
+    // （ConfigBuildResult.externalCoreSettings），与组装时相同
     fun launch(
         pluginPath: String,
         writeCacheFile: (String, String, String) -> File,
-        settings: ExternalCoreSettings = ExternalCoreSettings.fromDataStore(),
+        settings: ExternalCoreSettings,
     ): ExternalCoreLaunch = group.core.launch(pluginPath, config, writeCacheFile, settings)
 }
 
@@ -132,12 +133,13 @@ class ExternalCoreProcess(val group: ExternalCoreGroup, val config: String) {
  * 先按计划顺序逐个跳实例生成它在配置里的部分，出错时带上该节点名，报的是遍历顺序上第一个出错的节点
  * （与合并前逐节点生成时相同）；beforeHop 在每个跳实例之前调用（运行 / 测速用它确认插件已安装）。
  * cacheFile(prefix, ext) 分配配置可能引用的临时文件（hysteria 的 CA）；mihomoController 是测速时
- * mihomo 的 Clash API 端口与 secret，其余情况为 null。
+ * mihomo 的 Clash API 端口与 secret，其余情况为 null。settings 没有默认值：运行、测速、导出传构建结果带出的
+ * 那份（ConfigBuildResult.externalCoreSettings），预检传构建自己的设置快照，测试传固定值。
  */
 fun ExternalRunPlan.assemble(
     cacheFile: (String, String) -> File,
     mihomoController: Pair<Int, String>?,
-    settings: ExternalCoreSettings = ExternalCoreSettings.fromDataStore(),
+    settings: ExternalCoreSettings,
     beforeHop: (ExternalHop) -> Unit = {},
 ): List<ExternalCoreProcess> {
     val entries = HashMap<Int, Map<String, Any?>>()

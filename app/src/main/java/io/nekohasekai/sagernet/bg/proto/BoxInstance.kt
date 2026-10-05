@@ -109,10 +109,11 @@ abstract class BoxInstance(
             buildConfig()
             val plan = ExternalRunPlan.from(config)
             externalPlan = plan
-            externalProcesses = plan.assemble(
+            // 与逐节点生成时一样，计划里有外核才取测速控制端口；设置用构建时采集的那份
+            externalProcesses = if (plan.hops.isEmpty()) emptyList() else plan.assemble(
                 { prefix, ext -> newCacheFile(prefix, ext, app.cacheDir) },
-                // 与逐节点生成时一样，计划里有外核才取测速控制端口
-                if (plan.hops.isEmpty()) null else mihomoTestController(),
+                mihomoTestController(),
+                config.requireExternalCoreSettings(),
                 beforeHop = { initPlugin(it.pluginId) },
             )
             // ProxyInstance / TestInstance 的 loadConfig 都在这里收口
@@ -180,7 +181,9 @@ abstract class BoxInstance(
         try {
             val targets = ArrayList<Pair<ExternalHop, LocalPortTarget>>()
             for (process in externalProcesses) {
-                val launch = process.launch(initPlugin(process.group.pluginId).path, ::writeCacheFile)
+                val launch = process.launch(
+                    initPlugin(process.group.pluginId).path, ::writeCacheFile, config.requireExternalCoreSettings()
+                )
                 val exitCode = processes.start(launch.commands, launch.env)
                 val strict = verifiedCheck(process) != null
                 for (hop in process.group.hops) {

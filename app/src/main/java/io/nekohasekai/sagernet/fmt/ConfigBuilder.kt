@@ -2,7 +2,6 @@ package io.nekohasekai.sagernet.fmt
 
 import io.nekohasekai.sagernet.*
 import io.nekohasekai.sagernet.bg.VpnService
-import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_CONFIG
 import io.nekohasekai.sagernet.database.RuleEntity
@@ -10,15 +9,11 @@ import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.fmt.ConfigBuildResult.IndexEntity
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.fmt.internal.ChainBean
-import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.isIpAddress
-import io.nekohasekai.sagernet.ktx.parseNumericAddress
 import io.nekohasekai.sagernet.ktx.splitHostPort
 import io.nekohasekai.sagernet.ktx.usableNameservers
-import io.nekohasekai.sagernet.ktx.mkPort
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.plugin.PluginManager
-import io.nekohasekai.sagernet.utils.PackageCache
 import moe.matsuri.nb4a.*
 import moe.matsuri.nb4a.SingBoxOptions.*
 import moe.matsuri.nb4a.plugin.Plugins
@@ -28,6 +23,7 @@ import moe.matsuri.nb4a.utils.Util
 import moe.matsuri.nb4a.utils.listByLineOrComma
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.io.File
+import java.net.InetAddress
 
 const val TAG_MIXED = "mixed-in"
 
@@ -50,9 +46,9 @@ private val GENERATED_TAG_SHAPE = Regex("g-\\d+|c-\\d+.*")
 private const val PRECHECK_PORT = 1080
 private val PRECHECK_AUTH = LocalSocksAuth("u" + "0".repeat(16), "p" + "0".repeat(32))
 
-// sing-box 1.14 removed the legacy DNS server address format; map it to typed
-// servers the same way sing-box 1.13's internal upgrade did.
-private fun makeDnsServer(address: String, tag: String): DNSServerOptions {
+// sing-box 1.14 去掉了旧的 DNS 服务器地址格式：按 sing-box 1.13 内部升级的同样方式换成带类型的服务器。
+// parseNumeric 解析数字地址字面量（不是数字地址时返回 null），由构建的平台适配对象提供
+private fun makeDnsServer(address: String, tag: String, parseNumeric: (String) -> InetAddress?): DNSServerOptions {
     fun DNSServerOptions.setAuthority(authority: String) {
         val invalid = "Invalid DNS server authority"
         require(authority.isNotBlank() && authority.none { it.isWhitespace() || it in "/?#@" }) { invalid }
@@ -60,9 +56,9 @@ private fun makeDnsServer(address: String, tag: String): DNSServerOptions {
             ?: throw IllegalArgumentException(invalid)
         // Brackets promise an IPv6 literal, and only a bare one may keep its colons.
         if (authority.startsWith("[")) {
-            require(':' in host && host.parseNumericAddress() != null) { invalid }
+            require(':' in host && parseNumeric(host) != null) { invalid }
         } else {
-            require(':' !in host || host.parseNumericAddress() != null) { invalid }
+            require(':' !in host || parseNumeric(host) != null) { invalid }
         }
         require(host.isNotBlank() && '[' !in host && ']' !in host) { invalid }
         server = host
@@ -123,8 +119,15 @@ class ConfigBuildResult(
     // 本次构建的本机 socks 凭据：sing-box 里接入站支持认证的外核的 socks 出站都带它，外核运行计划
     // （ExternalRunPlan.from）把同一个值交给这些外核的入站。没有这样的跳实例时为 null
     val localAuth: LocalSocksAuth? = null,
+    // 构建时随 ConfigSettings 采集的外核设置：预检用的就是它，组装、启动外核也用它（运行、测速、导出）。
+    // 完整配置节点不采集设置，为 null，它也没有外核跳实例
+    val externalCoreSettings: ExternalCoreSettings? = null,
 ) {
     data class IndexEntity(var chain: LinkedHashMap<Int, ProxyEntity>)
+
+    // 组装与启动外核用的设置；只在有外核跳实例时调用（那时一定有）
+    fun requireExternalCoreSettings(): ExternalCoreSettings =
+        checkNotNull(externalCoreSettings) { "this config build captured no external core settings" }
 
     // 写日志前按值遮蔽本次构建的本机 socks 凭据（与格式、键名无关）；按键名的脱敏另外照常做
     fun redactLocalAuth(text: String): String = localAuth?.redact(text) ?: text
@@ -155,17 +158,22 @@ class ProfileBuildException(val profileName: String, cause: Throwable) :
     IllegalArgumentException("$profileName: ${cause.readableMessage}", cause)
 
 // 把 block 抛出的异常包成 ProfileBuildException。已带节点名的不重复包；
-// 缺插件保持原样，BaseService / 测试按类型识别它来引导安装插件
+// 缺插件保持原样，BaseService / 测试按类型识别它来引导安装插件；采集范围之外的输入不是节点的错，也不包
 inline fun <T> withProfileName(bean: AbstractBean, block: () -> T): T = try {
     block()
 } catch (e: ProfileBuildException) {
     throw e
 } catch (e: PluginManager.PluginNotFoundException) {
     throw e
+} catch (e: ConfigInputScopeException) {
+    throw e
 } catch (e: Exception) {
     throw ProfileBuildException(bean.displayName(), e)
 }
 
+// 构建的外壳：从设置、数据库与包名采集输入（captureConfigInput，见 ConfigInputAndroid.kt），连同本次构建的平台适配
+// 对象交给纯构建入口；插件状态不在这里采集，由构建经平台按需查询。完整配置节点照旧先直接返回、不采集；
+// 之后才检查 forTest / forExport 不能同时为真（ConfigBuildMode.of），顺序与以前一致。
 // diagnostics 是诊断收集器：构建抛异常时调用方仍能从中拿到已收集的部分，
 // 成功时 ConfigBuildResult.diagnostics 是同样的内容。newLocalAuth 生成本次构建的本机 socks 凭据，
 // 只在第一个需要它的跳实例处调用一次（见 ConfigBuildResult.localAuth）；测试可传固定的生成方式
@@ -174,20 +182,32 @@ fun buildConfig(
     diagnostics: MutableList<ConfigBuildDiagnostic> = ArrayList(),
     newLocalAuth: () -> LocalSocksAuth = LocalSocksAuth::random,
 ): ConfigBuildResult {
-
-    if (proxy.isFullConfig()) {
-        return ConfigBuildResult(
-            (proxy.requireBean() as ConfigBean).config,
-            listOf(),
-            proxy.id, //
-            mapOf(TAG_PROXY to listOf(proxy)), //
-            mapOf(proxy.id to TAG_PROXY), //
-            -1L
-        )
-    }
-
-    return ConfigBuild(proxy, forTest, forExport, diagnostics, newLocalAuth).build()
+    if (proxy.isFullConfig()) return fullConfigResult(proxy)
+    val mode = ConfigBuildMode.of(forTest, forExport)
+    return buildConfig(captureConfigInput(proxy, mode), diagnostics, newLocalAuth)
 }
+
+// 纯构建入口：只消费 input，不读设置、数据库、包名与插件状态，也不改调用方的对象（主节点从 input.main 新建）。
+// diagnostics、newLocalAuth 同上
+fun buildConfig(
+    input: ConfigInput,
+    diagnostics: MutableList<ConfigBuildDiagnostic> = ArrayList(),
+    newLocalAuth: () -> LocalSocksAuth = LocalSocksAuth::random,
+): ConfigBuildResult {
+    val proxy = input.main.newEntity()
+    if (proxy.isFullConfig()) return fullConfigResult(proxy)
+    return ConfigBuild(input, proxy, diagnostics, newLocalAuth).build()
+}
+
+// 完整配置节点的配置原样运行，没有外核
+private fun fullConfigResult(proxy: ProxyEntity) = ConfigBuildResult(
+    (proxy.requireBean() as ConfigBean).config,
+    listOf(),
+    proxy.id, //
+    mapOf(TAG_PROXY to listOf(proxy)), //
+    mapOf(proxy.id to TAG_PROXY), //
+    -1L
+)
 
 // 按用户填写的顺序展开链（含任意层嵌套），结果首项是第一跳；不是链的节点展开成它自己。
 // membersOf 对非链节点返回 null；lookup 按 id 批量取成员，取不到的交给 onMissing 后跳过，
@@ -238,16 +258,26 @@ fun selectorGroupIdOf(proxy: ProxyEntity): Long {
     return SagerDatabase.groupDao.getById(proxy.groupId)?.takeIf { it.isSelector }?.id ?: -1L
 }
 
-// One config build. The state below is shared by the sections build() runs
-// in order; each section was a stretch of the former single buildConfig
-// function and keeps its body, only the captured locals became properties.
-// Sections that fill the sing-box options are extensions on MyOptions so
-// their bodies read the same as inside the original MyOptions().apply.
+// 一次配置构建。下面的状态由 build() 依次运行的各段共用；每段原是以前单个 buildConfig 函数里的一截，
+// 函数体保持原样，只是捕获的局部变量变成了属性。填 sing-box 选项的段写成 MyOptions 的扩展，读起来与在原来的
+// MyOptions().apply 里一样。输入只来自 input（设置、数据快照、包名 UID、平台能力），不读 DataStore、DAO、
+// PackageCache、插件，也不改调用方的对象；proxy 是从 input.main 新建的主节点，整次构建只此一份。
+// 不碰 Android 运行环境，有两处例外，在 Android 上的行为与以前相同，只是不在「JVM 上可执行」的保证之内：
+// 损坏数据的报错消息（类型是链而 bean 为空的行，requireBean 的消息经 displayType 取界面字符串）；
+// NekoBean 的反序列化（用 org.json，JSON 损坏时调 Logs）
 private class ConfigBuild(
-    val proxy: ProxyEntity, val forTest: Boolean, val forExport: Boolean,
+    input: ConfigInput,
+    val proxy: ProxyEntity,
     val diagnostics: MutableList<ConfigBuildDiagnostic>,
     val newLocalAuth: () -> LocalSocksAuth,
 ) {
+
+    val settings = input.settings
+    val data = input.data
+    val platform = input.platform
+    val packageUids = input.packageUids
+    val forTest = input.mode == ConfigBuildMode.TEST
+    val forExport = input.mode == ConfigBuildMode.EXPORT
 
     val trafficMap = HashMap<String, List<ProxyEntity>>()
     val tagMap = HashMap<Long, String>()
@@ -256,17 +286,17 @@ private class ConfigBuild(
     // a profile named like a built-in outbound tag would collide with it
     val reservedSelectorTags = setOf(TAG_PROXY, TAG_DIRECT, TAG_BYPASS, TAG_BLOCK)
     // 全局「允许不安全」：影响 sing-box 出站的 TLS 与选核（needExternal 等）
-    val globalAllowInsecure get() = DataStore.globalAllowInsecure
-    val group = SagerDatabase.groupDao.getById(proxy.groupId)
+    val globalAllowInsecure = settings.globalAllowInsecure
+    val group = data.group(proxy.groupId)
 
     // 返回的列表是倒序的（末尾是第一跳）：完整展开后只在这里反转一次
     fun ProxyEntity.resolveChainInternal(): MutableList<ProxyEntity> = expandChainInOrder(
         this,
         idOf = { it.id },
         membersOf = { (it.requireBean() as? ChainBean)?.proxies },
-        lookup = { ids -> SagerDatabase.proxyDao.getEntities(ids).associateBy { it.id } },
+        lookup = { ids -> data.profiles(ids).associateBy { it.id } },
         onMissing = { chain, missingId ->
-            Logs.w("chain profile ${chain.id} references missing profile $missingId, skipped")
+            platform.warn("chain profile ${chain.id} references missing profile $missingId, skipped")
         },
         onLoop = { chain -> error("chain loop detected: profile ${chain.id} (${chain.requireBean().name})") },
     ).asReversed()
@@ -288,15 +318,15 @@ private class ConfigBuild(
 
     fun ProxyEntity.resolveChain(): MutableList<ProxyEntity> {
         // 选择器分组的成员同属一组，直接复用构建开头读到的那一行
-        val thisGroup = if (groupId == proxy.groupId) group else SagerDatabase.groupDao.getById(groupId)
-        val frontProxy = thisGroup?.frontProxy?.let { SagerDatabase.proxyDao.getById(it) }
-        val landingProxy = thisGroup?.landingProxy?.let { SagerDatabase.proxyDao.getById(it) }
+        val thisGroup = if (groupId == proxy.groupId) group else data.group(groupId)
+        val frontProxy = thisGroup?.frontProxy?.let { data.profile(it) }
+        val landingProxy = thisGroup?.landingProxy?.let { data.profile(it) }
         if (thisGroup != null) {
             if (thisGroup.frontProxy > 0 && frontProxy == null) {
-                Logs.w("group $groupId front proxy ${thisGroup.frontProxy} no longer exists, ignored")
+                platform.warn("group $groupId front proxy ${thisGroup.frontProxy} no longer exists, ignored")
             }
             if (thisGroup.landingProxy > 0 && landingProxy == null) {
-                Logs.w("group $groupId landing proxy ${thisGroup.landingProxy} no longer exists, ignored")
+                platform.warn("group $groupId landing proxy ${thisGroup.landingProxy} no longer exists, ignored")
             }
         }
         // 列表是倒序的（末尾是第一跳）。前置 / 落地代理本身是链时展开成成员，
@@ -316,12 +346,11 @@ private class ConfigBuild(
         return list
     }
 
-    val extraRules = if (forTest) listOf() else SagerDatabase.rulesDao.enabledRules()
+    val extraRules = if (forTest) listOf() else data.enabledRules()
 
+    // 按快照记下的数据源顺序建规则目标的出站
     val extraProxies =
-        if (forTest) mapOf() else SagerDatabase.proxyDao.getEntities(extraRules.mapNotNull { rule ->
-            rule.outbound.takeIf { it > 0 && it != proxy.id }
-        }.toHashSet().toList()).associateBy { it.id }
+        if (forTest) mapOf() else data.ruleTargets(ruleTargetIds(extraRules, proxy.id)).associateBy { it.id }
     // the group whose members become selector outbounds; null builds a plain
     // chain (tests and exports always do). 改这里的条件要同步 selectorGroupIdOf
     val selectorGroup = group?.takeIf { !forTest && it.isSelector && !forExport }
@@ -332,7 +361,7 @@ private class ConfigBuild(
     // per-group nameserver: resolve this group's node server domains with it,
     // multiple addresses (one per line) are used in order with fallback.
     // forTest honors it too: a fake node domain may only resolve through it.
-    val groupNameservers = group?.proxyServerNameserver.usableNameservers()
+    val groupNameservers = group?.proxyServerNameserver.usableNameservers(platform::parseNumericAddress)
     val groupNsDomains = LinkedHashSet<String>()
     // Parse once up front: both the DNS servers/rules below and the outbound
     // domain_resolver bindings in buildChain must reference only successfully
@@ -341,14 +370,14 @@ private class ConfigBuild(
     // (scheme + authority only get logged: a DoH path can embed tokens)
     val groupDnsServers = groupNameservers.mapIndexedNotNull { index, address ->
         runCatching {
-            makeDnsServer(address, "dns-group-$index").apply {
+            makeDnsServer(address, "dns-group-$index", platform::parseNumericAddress).apply {
                 // no detour either (see dns-direct): 1.14 dials directly
                 // by default and detouring to the empty direct outbound
                 // kills the box at start
                 domain_resolver = "dns-local"
             }
         }.getOrElse {
-            Logs.w(
+            platform.warn(
                 "Skip unsupported group nameserver at index $index: ${it.javaClass.simpleName}"
             )
             null
@@ -357,22 +386,22 @@ private class ConfigBuild(
     // libcore-only neko-sequential transport chaining the group nameservers
     // in order with dns-direct as the last resort
     val groupSequentialTag = "dns-node-${proxy.groupId}"
-    val isVPN = DataStore.serviceMode == Key.MODE_VPN
-    val bind = if (!forTest && DataStore.allowAccess) "0.0.0.0" else LOCALHOST
+    val isVPN = settings.serviceMode == Key.MODE_VPN
+    val bind = if (!forTest && settings.allowAccess) "0.0.0.0" else LOCALHOST
     // 每行一个 DNS 服务器，跳过空行和 # 注释
     fun dnsLines(text: String) = text.split("\n")
         .mapNotNull { dns -> dns.trim().takeIf { it.isNotBlank() && !it.startsWith("#") } }
-    val remoteDns = dnsLines(DataStore.remoteDns)
-    val directDNS = dnsLines(DataStore.directDns)
-    val enableDnsRouting = DataStore.enableDnsRouting
-    val useFakeDns = DataStore.enableFakeDns && !forTest
-    val needSniff = DataStore.trafficSniffing > 0
+    val remoteDns = dnsLines(settings.remoteDns)
+    val directDNS = dnsLines(settings.directDns)
+    val enableDnsRouting = settings.enableDnsRouting
+    val useFakeDns = settings.enableFakeDns && !forTest
+    val needSniff = settings.trafficSniffing > 0
     val externalIndexMap = ArrayList<IndexEntity>()
     // 本次构建的本机 socks 凭据，第一个需要它的跳实例处生成，之后共用；见 ConfigBuildResult.localAuth
     var localAuth: LocalSocksAuth? = null
     // 每个节点出站 / 端点的 tag -> 节点名，build() 末尾按最终配置换算成 boxIndexNames
     val hopNames = HashMap<String, String>()
-    val ipv6Mode = if (forTest) IPv6Mode.ENABLE else DataStore.ipv6Mode
+    val ipv6Mode = if (forTest) IPv6Mode.ENABLE else settings.ipv6Mode
 
     // IPv6 模式对应的 sing-box domain strategy；模式值越界时为 null
     val ipv6Strategy = when (ipv6Mode) {
@@ -389,9 +418,9 @@ private class ConfigBuild(
     // sing-box 1.14 has no server-level strategy (legacy DNS format removed):
     // the final server's strategy becomes the DNS default (below), the rest
     // are carried by the rule actions routing to each server.
-    val directStrategy = autoDnsDomainStrategy(SingBoxOptionsUtil.domainStrategy("dns-direct"))
-    val remoteStrategy = autoDnsDomainStrategy(SingBoxOptionsUtil.domainStrategy("dns-remote"))
-    val defaultServerDomainStrategy = SingBoxOptionsUtil.domainStrategy("server")
+    val directStrategy = autoDnsDomainStrategy(settings.domainStrategy("dns-direct"))
+    val remoteStrategy = autoDnsDomainStrategy(settings.domainStrategy("dns-remote"))
+    val defaultServerDomainStrategy = settings.domainStrategy("server")
 
     fun build(): ConfigBuildResult {
         val options = MyOptions().apply {
@@ -409,7 +438,7 @@ private class ConfigBuild(
             applyGroupNameserver()
             // 与 applyLogAndClashApi 排除 secret 同理：导出配置会被分享，
             // 不能混入本机全局自定义配置
-            if (!forTest && !forExport) _hack_custom_config = DataStore.globalCustomConfig
+            if (!forTest && !forExport) _hack_custom_config = settings.globalCustomConfig
         }
         val configMap = options.asMap()
         Util.mergeJSON(configMap, proxy.requireBean().customConfigJson)
@@ -424,6 +453,7 @@ private class ConfigBuild(
             hopNames,
             diagnostics.toList(),
             localAuth,
+            settings.externalCore,
         )
     }
 
@@ -440,19 +470,18 @@ private class ConfigBuild(
     }
 
     private fun MyOptions.applyLogAndClashApi() {
-        if (!forTest && DataStore.enableClashAPI) experimental = ExperimentalOptions().apply {
+        if (!forTest && settings.enableClashAPI) experimental = ExperimentalOptions().apply {
             clash_api = ClashAPIOptions().apply {
                 external_controller = CLASH_API_LISTEN
                 external_ui = "../files/yacd"
-                // without a secret every app on the device can read the connection
-                // list and switch nodes through the loopback port; an exported config
-                // is shared, so it must not carry this install's secret
-                if (!forExport) secret = DataStore.requireClashApiSecret()
+                // 没有 secret 时设备上任何应用都能经回环端口读连接列表、切换节点；导出的配置会被分享，
+                // 不能带本机的 secret。secret 由外壳在运行模式开了 Clash API 时取得（为空时生成并写回）
+                if (!forExport) secret = checkNotNull(settings.clashApiSecret) { "clash api secret was not captured" }
             }
         }
 
         log = LogOptions().apply {
-            level = when (DataStore.logLevel) {
+            level = when (settings.logLevel) {
                 0 -> "panic"
                 1 -> "warn"
                 2 -> "info"
@@ -470,13 +499,13 @@ private class ConfigBuild(
             if (isVPN) inbounds.add(Inbound_TunOptions().apply {
                 type = "tun"
                 tag = "tun-in"
-                stack = when (DataStore.tunImplementation) {
+                stack = when (settings.tunImplementation) {
                     TunImplementation.GVISOR -> "gvisor"
                     TunImplementation.SYSTEM -> "system"
                     else -> "mixed"
                 }
                 endpoint_independent_nat = true
-                mtu = DataStore.mtu
+                mtu = settings.mtu
                 address = when (ipv6Mode) {
                     IPv6Mode.DISABLE -> listOf(VpnService.PRIVATE_VLAN4_CLIENT + "/28")
                     IPv6Mode.ONLY -> listOf(VpnService.PRIVATE_VLAN6_CLIENT + "/126")
@@ -490,7 +519,7 @@ private class ConfigBuild(
                 type = "mixed"
                 tag = TAG_MIXED
                 listen = bind
-                listen_port = DataStore.mixedPort
+                listen_port = settings.mixedPort
             })
         }
     }
@@ -683,8 +712,8 @@ private class ConfigBuild(
     ): SingBoxOption {
         requireBuildableHop(proxyEntity, bean)
         val currentOutbound: SingBoxOption
-        if (proxyEntity.needExternal(globalAllowInsecure)) { // externel outbound
-            val localPort = mkPort()
+        if (proxyEntity.needExternal(globalAllowInsecure)) { // 外部核心出站
+            val localPort = platform.newPort()
             chain.externalChainMap[localPort] = proxyEntity
             currentOutbound = Outbound_SocksOptions().apply {
                 type = "socks"
@@ -760,7 +789,7 @@ private class ConfigBuild(
             // With ss protect, don't use mapping
             val needExternal = !(index == chain.profileList.lastIndex && hysteriaSkipsMapping(bean))
             if (needExternal) {
-                val mappingPort = mkPort()
+                val mappingPort = platform.newPort()
                 bean.finalAddress = LOCALHOST
                 bean.finalPort = mappingPort
 
@@ -787,13 +816,17 @@ private class ConfigBuild(
         }
     }
 
+    // 同一次构建里每个插件的外部插件 app 只查一次（每次查询都是一轮 IPC），查不到的结果也记下
+    private val pluginAuthorities = HashMap<String, String?>()
+
     // 链上最先拨号的一跳：只有 hysteria 走 Matsuri exe 免映射（没装外部插件时用内置的
-    // 也算）；其余协议不查插件，每次查询都是一轮 IPC。mapExternalHop 与 precheck 共用
+    // 也算）；其余协议不查插件。mapExternalHop 与 precheck 共用
     private fun hysteriaSkipsMapping(bean: AbstractBean): Boolean {
         if (bean !is HysteriaBean) return false
         val pluginId = externalCore(bean)!!.pluginId
-        val external = Plugins.getPluginExternal(pluginId)
-        if (external == null || external.authority.startsWith(Plugins.AUTHORITIES_PREFIX_NEKO_EXE)) return true
+        if (pluginId !in pluginAuthorities) pluginAuthorities[pluginId] = platform.pluginExternalAuthority(pluginId)
+        val authority = pluginAuthorities[pluginId]
+        if (authority == null || authority.startsWith(Plugins.AUTHORITIES_PREFIX_NEKO_EXE)) return true
         throw Exception("You are using an unsupported $pluginId, please download the correct plugin.")
     }
 
@@ -823,20 +856,13 @@ private class ConfigBuild(
     private val pluginErrors = HashMap<String, Exception?>()
 
     private fun requirePlugin(pluginId: String) {
-        if (pluginId !in pluginErrors) pluginErrors[pluginId] = try {
-            PluginManager.init(pluginId)
-            null
-        } catch (_: PluginManager.PluginNotFoundException) {
-            IllegalStateException("plugin $pluginId is not installed")
-        } catch (e: Exception) {
-            e
-        }
+        if (pluginId !in pluginErrors) pluginErrors[pluginId] = platform.pluginError(pluginId)
         pluginErrors[pluginId]?.let { throw it }
     }
 
     // 选择器成员 / 路由规则目标构建前的只读预检：把 buildChain 会走的检查空跑一遍，
     // 结果全部丢弃。buildChain 抛错时已写入一半的出站、入站与端口，只能事先判断。
-    // 不能写 MyOptions 与本类的构建状态、不能调 mkPort，也不能调 mapExternalHop
+    // 不能写 MyOptions 与本类的构建状态、不能分配端口（platform.newPort），也不能调 mapExternalHop
     // （它改写 bean.finalAddress）
     private fun precheck(entity: ProxyEntity) {
         val profileList = entity.resolveChain()
@@ -861,9 +887,8 @@ private class ConfigBuild(
                         PRECHECK_AUTH.takeIf { core.inboundAuth },
                     )
                     ExternalRunPlan(listOf(probe)).assemble({ prefix, ext ->
-                        File.createTempFile(prefix + "_", ".$ext", SagerNet.application.cacheDir)
-                            .also { tempFiles.add(it) }
-                    }, null)
+                        platform.createTempFile(prefix, ext).also { tempFiles.add(it) }
+                    }, null, settings.externalCore)
                 } finally {
                     tempFiles.forEach { runCatching { it.delete() } }
                 }
@@ -874,14 +899,16 @@ private class ConfigBuild(
     }
 
     // 选择器成员 / 路由规则目标预检失败时跳过并告警，而不是拖垮整份配置。
-    // 用户选中的节点不预检、照常报错——那是用户明确要用的
+    // 用户选中的节点不预检、照常报错——那是用户明确要用的。查了采集范围之外的输入是采集的缺漏，不跳过，整次构建失败
     private fun skipBroken(entity: ProxyEntity): Boolean {
         if (entity.id == proxy.id) return false
         try {
             precheck(entity)
             return false
+        } catch (e: ConfigInputScopeException) {
+            throw e
         } catch (e: Exception) {
-            Logs.w("profile ${entity.id} skipped", e)
+            platform.warn("profile ${entity.id} skipped", e)
             val name = entity.requireBean().displayName()
             // 出错的就是这个成员本身时，消息已以它的名字开头；链成员里出错的另有其名
             diagnostics += ConfigBuildDiagnostic.ProfileSkipped(
@@ -903,7 +930,7 @@ private class ConfigBuild(
         // build outbounds
         val selectorGroup = selectorGroup
         if (selectorGroup != null) {
-            val list = SagerDatabase.proxyDao.getByGroup(selectorGroup.id)
+            val list = data.profilesByGroup(selectorGroup.id)
             list.forEach {
                 // 完整配置型成员不是出站，塞进来会让整份配置被拒；选中它时
                 // selectorGroupIdOf 为 -1，走重启、由 buildConfig 开头单独运行
@@ -952,17 +979,16 @@ private class ConfigBuild(
     }
 
     private fun MyOptions.applyUserRule(rule: RuleEntity) {
-        if (rule.packages.isNotEmpty()) {
-            PackageCache.awaitLoadSync()
-        }
+        // UID 由外壳在读取事务之后解析好（PackageCache），这里只查表；没解析过的包名是采集的缺漏，整次构建失败
         val uidList = rule.packages.map {
-            PackageCache[it]?.takeIf { uid -> uid >= 1000 }
+            if (it !in packageUids) throw ConfigInputScopeException("package $it is not in the config input")
+            packageUids[it]?.takeIf { uid -> uid >= 1000 }
         }.toHashSet().filterNotNull()
         // 填了应用却一个 uid 都解析不到（已卸载 / 无效包名）时整条跳过：下面只在
         // uidList 非空时写 user_id，带 domain / ip 等其他条件的规则（及其 DNS 规则）
         // 会扩大到所有应用。先于下面「需要 VPN」的诊断判断，一条规则最多一条诊断
         if (rule.packages.isNotEmpty() && uidList.isEmpty()) {
-            Logs.w("rule ${rule.displayName()}: none of its apps are installed, skipped")
+            platform.warn("rule ${rule.displayName()}: none of its apps are installed, skipped")
             diagnostics += ConfigBuildDiagnostic.RuleAppsNotInstalled(rule.id, rule.displayName())
             return
         }
@@ -1109,7 +1135,7 @@ private class ConfigBuild(
 
         dns.servers.add(makeDnsServer(
             directDNS.firstOrNull() ?: throw Exception("No direct DNS, check your settings!"),
-            "dns-direct"
+            "dns-direct", platform::parseNumericAddress
         ).apply {
             // sing-box 1.14：不设 detour 的 typed DNS 服务器用自己的 dialer
             // 直连，正是这里要的；显式 detour 到空的 direct 出站反而会让整个
@@ -1120,7 +1146,7 @@ private class ConfigBuild(
         // Always use direct DNS for urlTest
         if (!forTest) dns.servers.add(makeDnsServer(
             remoteDns.firstOrNull() ?: throw Exception("No remote DNS, check your settings!"),
-            "dns-remote"
+            "dns-remote", platform::parseNumericAddress
         ).apply {
             // 远程 DNS 必须经隧道出去，同 1.14 之前走默认出站的行为：1.14 会让它
             // 直连（见 dns-direct），所以 detour 到代理出站。代理出站不会是空的
@@ -1156,7 +1182,7 @@ private class ConfigBuild(
             })
             // legacy inbound fields were removed in sing-box 1.13:
             // sniff / domain_strategy migrate to rule actions at the top
-            if (DataStore.resolveDestination) route.rules.add(0, Rule_DefaultOptions().apply {
+            if (settings.resolveDestination) route.rules.add(0, Rule_DefaultOptions().apply {
                 action = "resolve"
                 // 越界的 IPv6 模式按默认的 prefer_ipv4
                 _hack_config_map["strategy"] = ipv6Strategy ?: "prefer_ipv4"
@@ -1164,7 +1190,7 @@ private class ConfigBuild(
             if (needSniff) route.rules.add(0, Rule_DefaultOptions().apply {
                 action = "sniff"
             })
-            if (DataStore.bypassLanInCore) {
+            if (settings.bypassLanInCore) {
                 route.rules.add(Rule_DefaultOptions().apply {
                     outbound = TAG_BYPASS
                     ip_is_private = true
@@ -1231,7 +1257,7 @@ private class ConfigBuild(
                 DNSRule_DefaultOptions().apply {
                     domain = groupNsDomains.toList()
                     server = dnsServer.tag
-                    strategy = autoDnsDomainStrategy(SingBoxOptionsUtil.domainStrategy(dnsServer.tag))
+                    strategy = autoDnsDomainStrategy(settings.domainStrategy(dnsServer.tag))
                     // fallback 是 neko 补丁专有字段（原版 sing-box 对 DNS 规则
                     // 禁未知字段，解析即硬错误），导出配置不能携带
                     if (!forExport) fallback = true

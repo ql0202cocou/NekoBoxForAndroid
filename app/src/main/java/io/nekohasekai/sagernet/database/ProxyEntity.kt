@@ -226,10 +226,11 @@ data class ProxyEntity(
         val tempFiles = ArrayList<File>()
         try {
             // 与运行、测速同一个组装入口：每组（Xray、mihomo 各一组，插件核心每个跳实例一组）一段。
-            // 本机 socks 凭据是这次导出构建生成的，sing-box 一段与外核各段写的是同一组
-            val processes = ExternalRunPlan.from(config).assemble({ prefix, ext ->
+            // 本机 socks 凭据是这次导出构建生成的，sing-box 一段与外核各段写的是同一组；设置用构建时采集的那份
+            val plan = ExternalRunPlan.from(config)
+            val processes = if (plan.hops.isEmpty()) emptyList() else plan.assemble({ prefix, ext ->
                 File.createTempFile(prefix + "_", ".$ext", app.cacheDir).also { tempFiles.add(it) }
-            }, null)
+            }, null, config.requireExternalCoreSettings())
             for (process in processes) {
                 text.append("\n\n")
                 text.append(process.config)

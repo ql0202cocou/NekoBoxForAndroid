@@ -567,16 +567,9 @@ fun tlsFields(bean: AbstractBean): TlsFields? = when (bean) {
     else -> null
 }
 
-// 外核配置生成器与 launch 的生产设置：取 DataStore 当前值
-fun ExternalCoreSettings.Companion.fromDataStore() = ExternalCoreSettings(
-    logLevel = DataStore.logLevel,
-    ipv6Mode = DataStore.ipv6Mode,
-    globalAllowInsecure = DataStore.globalAllowInsecure,
-)
-
 // 由插件二进制承载的节点的外核：用哪个插件、跳实例怎样写进配置、怎样启动（外核运行计划见
 // ExternalRunPlan.kt，按 ExternalRunPlan.assemble 组装）。没有条目的节点（NekoBean）由调用方跳过，与以前一致。
-// 设置经 settings 传入；调用方不传时取 DataStore（生产实现），测试可传固定值
+// 设置经 settings 传入，没有默认值：生产上是构建时采集的那份（ConfigBuildResult.externalCoreSettings），测试传固定值
 sealed class ExternalCore(
     val pluginId: String,
     private val buildLaunch: (
@@ -600,7 +593,7 @@ sealed class ExternalCore(
         pluginPath: String,
         config: String,
         writeCacheFile: (String, String, String) -> File,
-        settings: ExternalCoreSettings = ExternalCoreSettings.fromDataStore(),
+        settings: ExternalCoreSettings,
     ): ExternalCoreLaunch = buildLaunch(settings, pluginPath, config, writeCacheFile)
 
     // Xray、mihomo：先逐个跳实例生成出站（Xray）/ 代理（mihomo），再把一组合成一份配置，标识在合成时写入
