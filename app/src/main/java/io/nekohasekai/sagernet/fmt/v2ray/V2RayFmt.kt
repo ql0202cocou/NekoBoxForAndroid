@@ -681,6 +681,12 @@ fun buildSingBoxOutboundStreamSettings(bean: StandardV2RayBean): V2RayTransportO
     }
 }
 
+// StandardV2RayBean.muxType 的取值：0–2 是 sing-mux 的三种协议，3 是 Xray 的 Mux.Cool（plan.md D15）
+const val MUX_H2MUX = 0
+const val MUX_SMUX = 1
+const val MUX_YAMUX = 2
+const val MUX_COOL = 3
+
 // StandardV2RayBean.muxType <-> multiplex protocol name (sing-box and mihomo
 // spell them the same); 0 is h2mux, mihomo's default
 fun muxProtocolName(type: Int): String = when (type) {
