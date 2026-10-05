@@ -7,7 +7,6 @@ import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.bg.SagerConnection
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
-import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.ConfigBuildResult
 import io.nekohasekai.sagernet.fmt.TAG_BYPASS
 import io.nekohasekai.sagernet.fmt.TAG_PROXY
@@ -60,9 +59,8 @@ class TrafficLooper(val data: BaseService.Data) {
     // no live box and must not sit between the loop and box.close().
     suspend fun postFinalTraffic() {
         if (!DataStore.profileTrafficStatistics) return
-        // one entity per id: two chains can carry the same profile under different tags
+        // 每个 id 推一次：同一节点可能在多条链里、属于不同的 tag
         val traffic = flushStats().distinctBy { it.id }
-            .map { TrafficData(id = it.id, rx = it.rx, tx = it.tx) }
         data.binder.broadcast { b ->
             for (t in traffic) {
                 b.cbTrafficUpdate(t)
@@ -80,19 +78,17 @@ class TrafficLooper(val data: BaseService.Data) {
         flushStats()
     }
 
-    // copy the live counters onto the entities and write them all in one transaction
-    private suspend fun flushStats(): List<ProxyEntity> = withContext(Dispatchers.IO) {
-        val updated = mutableListOf<ProxyEntity>()
-        data.proxy?.config?.trafficMap?.forEach { (_, ents) ->
-            for (ent in ents) {
-                // only skip this ent, not the rest of the tag's entries
-                val item = idMap[ent.id] ?: continue
-                ent.rx = item.rx
-                ent.tx = item.tx
-                updated.add(ent)
+    // 按统计关联逐个 (tag, 节点) 取当前计数，一个事务写库
+    private suspend fun flushStats(): List<TrafficData> = withContext(Dispatchers.IO) {
+        val updated = mutableListOf<TrafficData>()
+        data.proxy?.config?.traffic?.tags?.forEach { (_, ids) ->
+            for (id in ids) {
+                // 只跳过这一个节点，不跳过这个 tag 的其余节点
+                val item = idMap[id] ?: continue
+                updated.add(TrafficData(id = id, rx = item.rx, tx = item.tx))
             }
         }
-        ProfileManager.updateTraffic(updated) // update DB
+        ProfileManager.persistTraffic(updated) // update DB
         updated
     }
 
@@ -118,7 +114,7 @@ class TrafficLooper(val data: BaseService.Data) {
         // 要统计的 outbound tag。ProxyInstance 在 box.start() 之前用它装上统计服务：
         // 上游 trackers 无锁，libcore 的 SetV2rayStats 在启动后直接忽略
         fun statsTags(config: ConfigBuildResult): String =
-            (setOf(TAG_PROXY, TAG_BYPASS) + config.trafficMap.keys).joinToString("\n")
+            (setOf(TAG_PROXY, TAG_BYPASS) + config.traffic.tags.keys).joinToString("\n")
     }
 
     @Volatile
@@ -164,14 +160,11 @@ class TrafficLooper(val data: BaseService.Data) {
                 ignore = true
                 // post traffic when switch
                 if (DataStore.profileTrafficStatistics) {
-                    // find by id, not firstOrNull(): a chained/grouped tag maps to
-                    // several entities in an unordered set; selectorNowId still
-                    // holds the OLD id here (updated below), which is the one we want
-                    data.proxy?.config?.trafficMap?.get(tag)?.firstOrNull { it.id == selectorNowId }?.let {
-                        it.rx = rx
-                        it.tx = tx
+                    // 按 id 找：selectorNowId 在这里还是旧成员（下面才更新），落库的就是它
+                    if (data.proxy?.config?.traffic?.tags?.get(tag)?.contains(selectorNowId) == true) {
+                        val traffic = TrafficData(id = selectorNowId, rx = rx, tx = tx)
                         runOnDefaultDispatcher {
-                            ProfileManager.updateTraffic(it) // update DB
+                            ProfileManager.persistTraffic(listOf(traffic)) // update DB
                         }
                     }
                 }
@@ -213,19 +206,21 @@ class TrafficLooper(val data: BaseService.Data) {
                     idMap.clear()
                     idMap[-1] = itemBypass
                     //
-                    proxy.config.trafficMap.forEach { (tag, ents) ->
-                        for (ent in ents) {
+                    val traffic = proxy.config.traffic
+                    traffic.tags.forEach { (tag, ids) ->
+                        for (id in ids) {
+                            val initial = traffic.initial.getValue(id)
                             val item = TrafficUpdater.TrafficLooperData(
                                 tag = tag,
-                                rx = ent.rx,
-                                tx = ent.tx,
-                                rxBase = ent.rx,
-                                txBase = ent.tx,
+                                rx = initial.rx,
+                                tx = initial.tx,
+                                rxBase = initial.rx,
+                                txBase = initial.tx,
                                 ignore = proxy.config.selectorGroupId >= 0L,
                             )
-                            idMap[ent.id] = item
+                            idMap[id] = item
                             tagMap[tag] = item
-                            Logs.d("traffic count $tag to ${ent.id}")
+                            Logs.d("traffic count $tag to $id")
                         }
                     }
                     if (proxy.config.selectorGroupId >= 0L) {

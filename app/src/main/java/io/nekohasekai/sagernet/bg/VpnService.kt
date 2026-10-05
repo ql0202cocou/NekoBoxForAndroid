@@ -16,7 +16,6 @@ import androidx.core.app.ServiceCompat
 import io.nekohasekai.sagernet.*
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.fmt.LOCALHOST
-import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.ui.VpnRequestActivity
 import io.nekohasekai.sagernet.utils.Subnet
@@ -187,11 +186,8 @@ class VpnService : BaseVpnService(),
         var bypass = DataStore.bypass
         // read once: proxy is cleared on the main thread during shutdown
         val proxy = data.proxy ?: error("proxy not started")
-        // faketcp 插件以 root（su -c）运行，链里任一位置出现都要放行 root uid；
-        // 有前置 / 落地代理时它不在 it[0]
-        val needBypassRootUid = proxy.config.trafficMap.values.any { chain ->
-            chain.any { it.hysteriaBean?.protocol == HysteriaBean.PROTOCOL_FAKETCP }
-        }
+        // faketcp 插件以 root（su -c）运行，链里任一位置出现都要放行 root uid（构建时算好）
+        val needBypassRootUid = proxy.config.needsRootUidBypass
 
         if (proxyApps || needBypassRootUid) {
             val individual = mutableSetOf<String>()

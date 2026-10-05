@@ -99,7 +99,8 @@ class ConfigBuildResult(
     // 构建登记的每条链上走外核的节点与它们的运行时数据，外核运行计划只从这里得到（ExternalRunPlan.from）
     val externalChains: List<ExternalChainRecord>,
     var mainEntId: Long,
-    var trafficMap: Map<String, List<ProxyEntity>>,
+    // 流量统计关联：登记统计的出站 tag → 节点 id、各节点的初始累计、规则出站；只读，见 TrafficBindings
+    val traffic: TrafficBindings,
     var profileTagMap: Map<Long, String>,
     val selectorGroupId: Long,
     // "outbound[2]" / "endpoint[0]" -> 节点名，按最终配置里的位置记录；见 withBoxErrorProfileName
@@ -117,6 +118,8 @@ class ConfigBuildResult(
     // 测速时是否让 mihomo 自己测延迟（TestInstance 的 mihomoController）：构建按 mihomoDelayTestApplies 用它采集的
     // 主分组行与设置算出，只有测速构建用到。完整配置节点为 false
     val delayTestOnMihomo: Boolean = false,
+    // 统计关联里的节点有 hysteria faketcp（以 root 运行）：VpnService 要放行 root uid
+    val needsRootUidBypass: Boolean = false,
 ) {
     // 组装与启动外核用的设置；只在有外核跳实例时调用（那时一定有）
     fun requireExternalCoreSettings(): ExternalCoreSettings =
@@ -197,9 +200,10 @@ private fun fullConfigResult(proxy: ProxyEntity) = ConfigBuildResult(
     (proxy.requireBean() as ConfigBean).config,
     listOf(),
     proxy.id, //
-    mapOf(TAG_PROXY to listOf(proxy)), //
+    trafficBindingsOf(mapOf(TAG_PROXY to listOf(proxy)), null), //
     mapOf(proxy.id to TAG_PROXY), //
-    -1L
+    -1L,
+    needsRootUidBypass = needsRootUidBypass(mapOf(TAG_PROXY to listOf(proxy))),
 )
 
 // 完整配置型自定义节点（ConfigBean.type == 0）：整份配置原样运行，只能单独使用
@@ -366,7 +370,7 @@ private class ConfigBuild(
             gson.toJson(configMap),
             externalChains,
             proxy.id,
-            trafficMap,
+            trafficBindingsOf(trafficMap, configMap),
             tagMap,
             selectorGroup?.id ?: -1L,
             boxIndexNames(configMap),
@@ -374,7 +378,8 @@ private class ConfigBuild(
             diagnostics.toList(),
             localAuth,
             settings.externalCore,
-            mihomoDelayTestApplies(proxy, group, globalAllowInsecure),
+            delayTestOnMihomo = mihomoDelayTestApplies(proxy, group, globalAllowInsecure),
+            needsRootUidBypass = needsRootUidBypass(trafficMap),
         )
     }
 

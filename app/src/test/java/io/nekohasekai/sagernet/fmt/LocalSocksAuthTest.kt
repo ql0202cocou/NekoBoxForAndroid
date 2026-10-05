@@ -104,12 +104,12 @@ class LocalSocksAuthTest {
 
     private val auth = LocalSocksAuth.generate(Random(7))
 
-    private val result = ConfigBuildResult("{}", emptyList(), 1L, emptyMap(), emptyMap(), -1L, localAuth = auth)
+    private val result = ConfigBuildResult("{}", emptyList(), 1L, TrafficBindings(emptyMap(), emptyMap(), emptySet()), emptyMap(), -1L, localAuth = auth)
 
     private fun assertRedacted(text: String) {
         assertTrue("遮蔽前应当有凭据", auth.username in text && auth.password in text)
         // 构建里没有凭据时原样返回
-        assertEquals(text, ConfigBuildResult("{}", emptyList(), 1L, emptyMap(), emptyMap(), -1L).redactLocalAuth(text))
+        assertEquals(text, ConfigBuildResult("{}", emptyList(), 1L, TrafficBindings(emptyMap(), emptyMap(), emptySet()), emptyMap(), -1L).redactLocalAuth(text))
     }
 
     private fun assertClean(text: String) {

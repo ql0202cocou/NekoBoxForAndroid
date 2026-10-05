@@ -36,7 +36,8 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
         // 配置里有凭据，写进可导出的日志前脱敏：本次构建的本机 socks 凭据按值遮蔽，其余按键名。
         // 脱敏要对整份配置跑多遍正则，日志关闭时直接跳过
         if (Logs.enabled) Logs.d(Util.redactConfig(config.redactLocalAuth(config.config)))
-        if (BuildConfig.DEBUG) Logs.d(JavaUtil.gson.toJson(config.trafficMap))
+        // 统计关联只记 tag → 节点 id，不含节点数据
+        if (BuildConfig.DEBUG) Logs.d(JavaUtil.gson.toJson(config.traffic.tags))
     }
 
     // init 在 :bg 进程的 IO 线程上跑，Toast 要投到主线程

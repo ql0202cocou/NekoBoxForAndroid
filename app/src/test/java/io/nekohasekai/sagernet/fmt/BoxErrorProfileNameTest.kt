@@ -8,7 +8,7 @@ import org.junit.Test
 class BoxErrorProfileNameTest {
 
     private val result = ConfigBuildResult(
-        "", listOf(), 0L, mapOf(), mapOf(), -1L,
+        "", listOf(), 0L, TrafficBindings(mapOf(), mapOf(), setOf()), mapOf(), -1L,
         mapOf("outbound[2]" to "美国", "endpoint[0]" to "WG"),
         mapOf("g-23" to "日本", "c-1-7" to "中转", "香港" to "香港", "[IPLC" to "短", "[IPLC] 新加坡" to "[IPLC] 新加坡x"),
     )

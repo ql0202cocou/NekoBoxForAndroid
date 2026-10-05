@@ -1,5 +1,7 @@
 package io.nekohasekai.sagernet.fmt
 
+import io.nekohasekai.sagernet.database.ProxyEntity
+import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import java.util.Collections
 
 // 流量统计关联：构建结果里只读的纯数据，运行时由流量聚合（bg/proto/TrafficAccounting）按它记账。
@@ -35,4 +37,57 @@ class TrafficBindings(
         require(missing.isEmpty()) { "traffic bindings without initial totals: $missing" }
         require(this.ruleTags.all { it in this.tags }) { "rule traffic tags must be bound tags" }
     }
+}
+
+// 构建登记的 tag → 节点列表（ConfigBuild.trafficMap）换算成统计关联。列表内容与顺序原样保留；初始累计取每个 id
+// 第一次出现的那份节点（同一 id 的各份取自同一份快照，只有主链里的主节点是外壳交来的那份）。configMap 是最终配置
+// （合并过自定义配置），为 null 时没有规则出站（完整配置节点）
+internal fun trafficBindingsOf(chains: Map<String, List<ProxyEntity>>, configMap: Map<String, Any?>?): TrafficBindings {
+    val initial = LinkedHashMap<Long, TrafficTotals>()
+    for (list in chains.values) for (ent in list) initial.getOrPut(ent.id) { TrafficTotals(rx = ent.rx, tx = ent.tx) }
+    return TrafficBindings(
+        chains.mapValues { (_, list) -> list.map { it.id } },
+        initial,
+        configMap?.let { ruleTrafficTags(it, chains.keys) } ?: emptySet(),
+    )
+}
+
+// 外核映射入站的 tag（mapExternalHop：<链 tag>-mapping-<节点 id>）
+private val MAPPING_INBOUND_TAG = Regex("c-\\d+-mapping-\\d+")
+
+/**
+ * 规则出站：最终配置里 route.rules 以 outbound 直接路由到的、登记了统计（在 [bound] 里）的节点出站，加上 route.final
+ * 指向的登记出站；去掉 proxy（每轮本来就查）与 bypass（不记给节点）。
+ *
+ * - 只看最终配置，所以被跳过、没有应用的规则（应用都没装、条件为空、目标被跳过或不存在）不算；规则自带的自定义 JSON
+ *   与全局 / 节点自定义配置改出来的出站按改后的算。
+ * - 构建为外核链生成的规则（inbound 全是本次构建的映射入站）不是用户规则，不算：它们路由的是同一条连接的第二段，
+ *   查询会把同一份字节再记一次。排除只是不因为它们而多查出站：它们指向的出站若本来就要查询（非选择器模式每轮查
+ *   全部登记出站，或它同时是用户规则的目标），第二段的字节照样记给那个出站的集合——sing-box 按出站计数，分不开。
+ * - 指向主节点的规则的出站是 proxy，经 proxy 计；指向当前选中成员自己的出站的规则另记在那个出站上，与 proxy 记给
+ *   同一个集合，各算各的字节，不重复。
+ * - 没有登记统计的出站（链内的中间跳、复用别的链已建的全局出站）查不到字节，不算。
+ */
+internal fun ruleTrafficTags(configMap: Map<String, Any?>, bound: Set<String>): Set<String> {
+    val route = configMap["route"] as? Map<*, *> ?: return emptySet()
+    val targets = LinkedHashSet<String>()
+    for (rule in route["rules"] as? List<*> ?: emptyList<Any?>()) {
+        if (rule !is Map<*, *>) continue
+        val outbound = rule["outbound"] as? String ?: continue
+        val inbound = when (val value = rule["inbound"]) {
+            is String -> listOf(value)
+            is List<*> -> value
+            else -> emptyList()
+        }
+        if (inbound.isNotEmpty() && inbound.all { it is String && MAPPING_INBOUND_TAG.matches(it) }) continue
+        targets += outbound
+    }
+    (route["final"] as? String)?.let { targets += it }
+    return targets.filterTo(LinkedHashSet()) { it in bound && it != TAG_PROXY && it != TAG_BYPASS }
+}
+
+// 链里任一位置有 hysteria faketcp 节点（插件以 root 运行，VpnService 要放行 root uid）。看的是统计关联的同一批节点：
+// 有前置 / 落地代理时它不在链的第一个
+internal fun needsRootUidBypass(chains: Map<String, List<ProxyEntity>>): Boolean = chains.values.any { chain ->
+    chain.any { it.hysteriaBean?.protocol == HysteriaBean.PROTOCOL_FAKETCP }
 }

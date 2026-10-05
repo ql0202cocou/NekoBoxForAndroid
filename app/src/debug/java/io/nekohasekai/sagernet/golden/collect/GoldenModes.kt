@@ -182,8 +182,8 @@ fun runBoxMode(profile: ProxyEntity, forTest: Boolean): ModeOutput {
                 "selectorGroupId" to config.selectorGroupId,
                 "profileTagMap" to config.profileTagMap.entries.sortedBy { it.key }
                     .associateTo(LinkedHashMap()) { it.key.toString() to it.value },
-                "trafficMap" to config.trafficMap.entries.sortedBy { it.key }
-                    .associateTo(LinkedHashMap()) { (tag, list) -> tag to list.map { it.id } },
+                "trafficMap" to config.traffic.tags.entries.sortedBy { it.key }
+                    .associateTo(LinkedHashMap()) { (tag, ids) -> tag to ids },
                 "boxIndexNames" to config.boxIndexNames.toSortedMap(),
                 "boxTagNames" to config.boxTagNames.toSortedMap(),
             ),

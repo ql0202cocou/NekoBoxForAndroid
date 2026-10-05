@@ -8,6 +8,7 @@ import io.nekohasekai.sagernet.fmt.ExternalRunPlan
 import io.nekohasekai.sagernet.fmt.KryoConverters
 import io.nekohasekai.sagernet.fmt.LocalSocksAuth
 import io.nekohasekai.sagernet.fmt.TAG_PROXY
+import io.nekohasekai.sagernet.fmt.TrafficTotals
 import io.nekohasekai.sagernet.fmt.buildConfig
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -33,10 +34,11 @@ class GoldenJvmIsolationTest {
     // 同样的平台（端口从头分配）与凭据种子，同一份输入构建出的结果逐字相同
     private fun build(input: ConfigInput): ConfigBuildResult = buildConfig(input) { LocalSocksAuth.generate(Random(7)) }
 
-    // 结果里可比较的部分：配置原文、外核跳实例（端口与拨号目标）、流量与选择器的映射（按节点 id）
+    // 结果里可比较的部分：配置原文、外核跳实例（端口与拨号目标）、流量统计关联（按节点 id，含初始累计与规则出站）
+    // 与选择器的映射
     private fun ConfigBuildResult.fingerprint(): String {
         val hops = ExternalRunPlan.from(this).hops.map { "${it.profileId}@${it.localPort}->${it.target}" }
-        val traffic = trafficMap.entries.sortedBy { it.key }.map { (tag, list) -> "$tag=${list.map { it.id }}" }
+        val traffic = listOf(traffic.tags.toSortedMap(), traffic.initial.toSortedMap(), traffic.ruleTags.sorted(), needsRootUidBypass)
         return listOf(config, hops, traffic, profileTagMap.toSortedMap(), selectorGroupId, diagnostics).joinToString("\n")
     }
 
@@ -79,9 +81,14 @@ class GoldenJvmIsolationTest {
         val hop = ExternalRunPlan.from(result).hops.single()
         assertTrue("最先拨号的一跳经映射", hop.target is ExternalDialTarget.Mapped)
         assertArrayEquals(before, KryoConverters.serialize(bean))
-        // 构建结果里的主节点是拷贝，不是调用方的对象
-        assertNotSame(main, result.trafficMap.getValue(TAG_PROXY).single())
-        assertEquals(main.id, result.trafficMap.getValue(TAG_PROXY).single().id)
+        // 构建结果不持有调用方的对象：统计关联只记主节点的 id 与构建时的累计，之后改调用方对象的计数不影响它；
+        // 主节点那一跳的 bean 是拷贝（下面的 assertNotSame）
+        val counted = TrafficTotals(rx = main.rx, tx = main.tx)
+        assertEquals(listOf(main.id), result.traffic.tags.getValue(TAG_PROXY))
+        assertEquals(main.id, hop.profileId)
+        main.rx += 1000
+        main.tx += 100
+        assertEquals(counted, result.traffic.initial.getValue(main.id))
         // 映射只记在跳实例的拨号目标上：构建用的节点拷贝与采集时的字节相同
         assertNotSame(bean, hop.bean)
         assertArrayEquals(before, KryoConverters.serialize(hop.bean))

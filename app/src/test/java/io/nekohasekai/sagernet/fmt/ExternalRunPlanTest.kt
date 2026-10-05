@@ -415,7 +415,7 @@ class ExternalRunPlanTest {
 
     // 手工构造的构建结果：每条链是构建登记的外核节点
     private fun buildResult(localAuth: LocalSocksAuth?, vararg chains: List<ExternalHopRecord>) = ConfigBuildResult(
-        "{}", chains.map { ExternalChainRecord(it) }, 1L, emptyMap(), emptyMap(), -1L, localAuth = localAuth,
+        "{}", chains.map { ExternalChainRecord(it) }, 1L, TrafficBindings(emptyMap(), emptyMap(), emptySet()), emptyMap(), -1L, localAuth = localAuth,
         externalCoreSettings = settings,
     )
 

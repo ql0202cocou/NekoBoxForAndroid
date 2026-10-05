@@ -116,17 +116,23 @@ object ProfileManager {
     // Snapshot-safe partial writes: the entity may have been read at VPN/test
     // start, so only the columns this caller owns go back to the DB.
 
-    suspend fun updateTraffic(profile: ProxyEntity) {
-        SagerDatabase.proxyDao.updateTraffic(profile.id, profile.tx, profile.rx)
-    }
-
-    // One transaction for a whole sweep: the DB runs in TRUNCATE journal mode, so every
-    // single-row update is otherwise its own commit.
+    // 整批一个事务：数据库是 TRUNCATE 日志模式，逐行更新会各自提交一次。现在只有界面清除流量
+    // （ProfileRepository.clearTraffic）调用；运行中的统计按节点 id 走 persistTraffic
     suspend fun updateTraffic(profiles: List<ProxyEntity>) {
         if (profiles.isEmpty()) return
         SagerDatabase.instance.runInTransaction {
             for (profile in profiles) {
                 SagerDatabase.proxyDao.updateTraffic(profile.id, profile.tx, profile.rx)
+            }
+        }
+    }
+
+    // 按节点 id 写流量累计（运行中的统计不持有节点实体），整批一个事务，同 updateTraffic(List)
+    suspend fun persistTraffic(traffic: Collection<TrafficData>) {
+        if (traffic.isEmpty()) return
+        SagerDatabase.instance.runInTransaction {
+            for (t in traffic) {
+                SagerDatabase.proxyDao.updateTraffic(t.id, t.tx, t.rx)
             }
         }
     }

@@ -453,7 +453,7 @@ class ExternalCoreStartupTest {
 
     @Test
     fun `校验输出先按值遮蔽，解析出的报错里搜不到凭据`() {
-        val result = ConfigBuildResult("{}", emptyList(), 1L, emptyMap(), emptyMap(), -1L, localAuth = auth)
+        val result = ConfigBuildResult("{}", emptyList(), 1L, TrafficBindings(emptyMap(), emptyMap(), emptySet()), emptyMap(), -1L, localAuth = auth)
         val creds = "user ${auth.username} password ${auth.password}"
         val outputs = listOf(
             // 对得回节点

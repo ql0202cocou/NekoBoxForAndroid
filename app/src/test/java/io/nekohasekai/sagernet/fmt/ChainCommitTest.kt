@@ -128,7 +128,7 @@ class ChainCommitTest {
         config,
         ExternalRunPlan.from(this).hops.map { "${it.profileId}@${it.localPort}->${it.target}/${it.localAuth?.username}" },
         externalChains.map { chain -> chain.hops.map { it.profileId } },
-        trafficMap.mapValues { (_, list) -> list.map { it.id } }.toSortedMap(),
+        traffic.tags.toSortedMap(),
         profileTagMap.toSortedMap(),
         selectorGroupId,
         localAuth,
@@ -205,7 +205,7 @@ class ChainCommitTest {
         assertEquals("c-5-3", result.profileTagMap[5L])
         assertEquals("c-6-8", result.profileTagMap[6L])
         // 节点 6 的链：落地 8 是出口，最先拨号的 6 复用 g-6
-        assertEquals(listOf(8L, 6L), result.trafficMap.getValue("c-6-8").map { it.id })
+        assertEquals(listOf(8L, 6L), result.traffic.tags.getValue("c-6-8"))
         val outbounds = config(result).getAsJsonArray("outbounds").map { it.asJsonObject }
         assertEquals("g-6", outbounds.single { it.string("tag") == "c-6-8" }.string("detour"))
         assertEquals(1, outbounds.count { it.string("tag") == "g-6" })
@@ -276,7 +276,7 @@ class ChainCommitTest {
         }
         assertEquals(1, json.getAsJsonArray("inbounds").count { it.asJsonObject.string("tag")?.contains("-mapping-") == true })
         for (id in 1L..3L) {
-            assertEquals(listOf(id, 9L), result.trafficMap.getValue("socks-$id").map { it.id })
+            assertEquals(listOf(id, 9L), result.traffic.tags.getValue("socks-$id"))
         }
     }
 

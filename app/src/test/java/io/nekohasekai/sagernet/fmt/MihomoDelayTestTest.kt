@@ -123,7 +123,7 @@ class MihomoDelayTestTest {
 
     @Test
     fun `完整配置节点与手工拼出的构建结果不开`() {
-        assertFalse(ConfigBuildResult("{}", emptyList(), 1L, emptyMap(), emptyMap(), -1L).delayTestOnMihomo)
+        assertFalse(ConfigBuildResult("{}", emptyList(), 1L, TrafficBindings(emptyMap(), emptyMap(), emptySet()), emptyMap(), -1L).delayTestOnMihomo)
     }
 
     @Test
