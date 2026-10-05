@@ -79,7 +79,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 38249,
+      "listen_port": 37155,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-2-mapping-2",
@@ -87,7 +87,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 44661,
+      "listen_port": 42621,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-11-mapping-11",
@@ -117,7 +117,7 @@
     },
     {
       "server": "127.0.0.1",
-      "server_port": 45631,
+      "server_port": 40267,
       "tag": "g-2",
       "type": "socks"
     },
@@ -131,7 +131,7 @@
     },
     {
       "server": "127.0.0.1",
-      "server_port": 42131,
+      "server_port": 36243,
       "tag": "g-11",
       "type": "socks"
     },
@@ -224,7 +224,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "port": 45631,
+      "port": 40267,
       "protocol": "socks",
       "settings": {
         "udp": true
@@ -238,7 +238,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 38249,
+            "port": 37155,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
@@ -265,8 +265,8 @@
 log-level: warning
 mode: rule
 listeners:
-- {name: socks-in, type: socks, listen: 127.0.0.1, port: 42131, udp: true}
+- {name: socks-in, type: socks, listen: 127.0.0.1, port: 36243, udp: true}
 proxies:
-- {name: anytls-out, type: anytls, server: 127.0.0.1, port: 44661, password: golden-pass-anytls,
+- {name: anytls-out, type: anytls, server: 127.0.0.1, port: 42621, password: golden-pass-anytls,
   udp: true, sni: anytls.example.com}
 rules: ['MATCH,anytls-out']

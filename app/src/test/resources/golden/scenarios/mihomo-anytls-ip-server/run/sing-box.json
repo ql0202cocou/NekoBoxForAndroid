@@ -68,7 +68,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 43653,
+      "listen_port": 42987,
       "override_address": "203.0.113.60",
       "override_port": 8443,
       "tag": "c-0-mapping-1",
@@ -81,7 +81,7 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 32879,
+      "server_port": 43181,
       "tag": "proxy",
       "type": "socks"
     },

@@ -1,6 +1,6 @@
 {
   "formatVersion": 1,
-  "commit": "059c3f5fcee6e064583036d02d16db339ac1768b",
+  "commit": "b83499f02c18c6c53a5e0a36467736a1b0fd753f",
   "dirty": {
     "count": 0,
     "top": [],
@@ -55,14 +55,14 @@
     "pageSize": 16384,
     "locale": "en-US"
   },
-  "scenarios": 279,
+  "scenarios": 293,
   "counts": {
-    "runOk": 235,
+    "runOk": 249,
     "runError": 44,
-    "testOk": 241,
+    "testOk": 255,
     "testError": 38,
-    "exportOk": 235,
+    "exportOk": 249,
     "exportError": 44
   },
-  "collectedAt": "2026-10-04T16:05:43Z"
+  "collectedAt": "2026-10-05T00:56:42Z"
 }

@@ -1,0 +1,116 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {
+      "7": "c-7-4"
+    },
+    "trafficMap": {
+      "c-7-4": [
+        4,
+        5,
+        3,
+        7
+      ],
+      "proxy": [
+        6,
+        5,
+        4,
+        2,
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-multi-sw-xray-own",
+      "outbound[1]": "golden-multi-sw-mihomo-shared",
+      "outbound[2]": "golden-multi-sw-xray-shared",
+      "outbound[3]": "golden-multi-sw-ss-1",
+      "outbound[4]": "golden-multi-sw-xray-shared",
+      "outbound[5]": "golden-multi-sw-mihomo-shared",
+      "outbound[6]": "golden-multi-sw-ss-2"
+    },
+    "boxTagNames": {
+      "c-0-4": "golden-multi-sw-xray-shared",
+      "c-0-5": "golden-multi-sw-mihomo-shared",
+      "c-7-4": "golden-multi-sw-xray-shared",
+      "c-7-5": "golden-multi-sw-mihomo-shared",
+      "g-2": "golden-multi-sw-ss-1",
+      "g-3": "golden-multi-sw-ss-2",
+      "proxy": "golden-multi-sw-xray-own"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.xray-plugin.json",
+      "chainIndex": 0,
+      "profileId": 6,
+      "pluginId": "xray-plugin",
+      "port": 37793,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 35813,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-1.mihomo-plugin.yaml",
+      "chainIndex": 0,
+      "profileId": 5,
+      "pluginId": "mihomo-plugin",
+      "port": 34961,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 36801,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-2.xray-plugin.json",
+      "chainIndex": 0,
+      "profileId": 4,
+      "pluginId": "xray-plugin",
+      "port": 41061,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 44319,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-3.xray-plugin.json",
+      "chainIndex": 1,
+      "profileId": 4,
+      "pluginId": "xray-plugin",
+      "port": 39427,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 44189,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-4.mihomo-plugin.yaml",
+      "chainIndex": 1,
+      "profileId": 5,
+      "pluginId": "mihomo-plugin",
+      "port": 34339,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 46231,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      37793,
+      34961,
+      41061,
+      39427,
+      34339,
+      35813,
+      36801,
+      44319,
+      44189,
+      46231
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

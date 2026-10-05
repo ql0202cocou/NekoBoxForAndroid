@@ -38,9 +38,9 @@
       "chainIndex": 0,
       "profileId": 7,
       "pluginId": "mihomo-plugin",
-      "port": 39431,
+      "port": 42339,
       "finalAddress": "127.0.0.1",
-      "finalPort": 37293,
+      "finalPort": 44133,
       "controller": null,
       "tempFiles": []
     },
@@ -49,9 +49,9 @@
       "chainIndex": 0,
       "profileId": 6,
       "pluginId": "xray-plugin",
-      "port": 34785,
+      "port": 38699,
       "finalAddress": "127.0.0.1",
-      "finalPort": 39951,
+      "finalPort": 34701,
       "controller": null,
       "tempFiles": []
     },
@@ -60,12 +60,12 @@
       "chainIndex": 0,
       "profileId": 5,
       "pluginId": "hysteria-plugin",
-      "port": 40605,
+      "port": 45925,
       "finalAddress": "127.0.0.1",
-      "finalPort": 33513,
+      "finalPort": 45241,
       "controller": null,
       "tempFiles": [
-        "/data/user/0/moe.nb4a.debug/cache/hysteria_7282019056107297788.ca"
+        "/data/user/0/moe.nb4a.debug/cache/hysteria_3497076240763160101.ca"
       ]
     },
     {
@@ -73,9 +73,9 @@
       "chainIndex": 0,
       "profileId": 4,
       "pluginId": "mieru-plugin",
-      "port": 36967,
+      "port": 42875,
       "finalAddress": "127.0.0.1",
-      "finalPort": 33299,
+      "finalPort": 34871,
       "controller": null,
       "tempFiles": []
     },
@@ -84,9 +84,9 @@
       "chainIndex": 0,
       "profileId": 3,
       "pluginId": "naive-plugin",
-      "port": 45461,
+      "port": 36389,
       "finalAddress": "127.0.0.1",
-      "finalPort": 37947,
+      "finalPort": 43259,
       "controller": null,
       "tempFiles": []
     },
@@ -95,30 +95,30 @@
       "chainIndex": 0,
       "profileId": 2,
       "pluginId": "trojan-go-plugin",
-      "port": 40361,
+      "port": 41205,
       "finalAddress": "127.0.0.1",
-      "finalPort": 35211,
+      "finalPort": 33285,
       "controller": null,
       "tempFiles": []
     }
   ],
   "dynamic": {
     "ports": [
-      39431,
-      34785,
-      40605,
-      36967,
-      45461,
-      40361,
-      37293,
-      39951,
-      33513,
-      33299,
-      37947,
-      35211
+      42339,
+      38699,
+      45925,
+      42875,
+      36389,
+      41205,
+      44133,
+      34701,
+      45241,
+      34871,
+      43259,
+      33285
     ],
     "paths": [
-      "/data/user/0/moe.nb4a.debug/cache/hysteria_7282019056107297788.ca"
+      "/data/user/0/moe.nb4a.debug/cache/hysteria_3497076240763160101.ca"
     ],
     "secrets": []
   }

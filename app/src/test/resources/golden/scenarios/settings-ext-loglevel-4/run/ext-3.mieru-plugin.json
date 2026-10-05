@@ -1,6 +1,6 @@
 {
   "activeProfile": "default",
-  "socks5Port": 41651,
+  "socks5Port": 35005,
   "loggingLevel": "TRACE",
   "profiles": [
     {
@@ -14,7 +14,7 @@
           "ipAddress": "127.0.0.1",
           "portBindings": [
             {
-              "port": 41931,
+              "port": 44073,
               "protocol": "TCP"
             }
           ]

@@ -22,25 +22,25 @@
       "chainIndex": 0,
       "profileId": 1,
       "pluginId": "mihomo-plugin",
-      "port": 33779,
+      "port": 37853,
       "finalAddress": "127.0.0.1",
-      "finalPort": 32847,
+      "finalPort": 40759,
       "controller": {
-        "port": 39741,
-        "secret": "12699a2f4a9c4a0ea71f420703108323"
+        "port": 34411,
+        "secret": "5ea005bcf02d4af89516db4310843479"
       },
       "tempFiles": []
     }
   ],
   "dynamic": {
     "ports": [
-      33779,
-      32847,
-      39741
+      37853,
+      40759,
+      34411
     ],
     "paths": [],
     "secrets": [
-      "12699a2f4a9c4a0ea71f420703108323"
+      "5ea005bcf02d4af89516db4310843479"
     ]
   }
 }

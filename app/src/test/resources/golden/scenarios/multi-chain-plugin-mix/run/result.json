@@ -1,0 +1,137 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        8,
+        7,
+        6,
+        5,
+        4,
+        3,
+        2,
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-multi-pm-mihomo-2",
+      "outbound[1]": "golden-multi-pm-xray-2",
+      "outbound[2]": "golden-multi-pm-mieru",
+      "outbound[3]": "golden-multi-pm-mihomo-1",
+      "outbound[4]": "golden-multi-pm-naive",
+      "outbound[5]": "golden-multi-pm-xray-1",
+      "outbound[6]": "golden-multi-pm-trojan-go"
+    },
+    "boxTagNames": {
+      "c-0-3": "golden-multi-pm-xray-1",
+      "c-0-4": "golden-multi-pm-naive",
+      "c-0-5": "golden-multi-pm-mihomo-1",
+      "c-0-6": "golden-multi-pm-mieru",
+      "c-0-7": "golden-multi-pm-xray-2",
+      "g-2": "golden-multi-pm-trojan-go",
+      "proxy": "golden-multi-pm-mihomo-2"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.mihomo-plugin.yaml",
+      "chainIndex": 0,
+      "profileId": 8,
+      "pluginId": "mihomo-plugin",
+      "port": 43603,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 44687,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-1.xray-plugin.json",
+      "chainIndex": 0,
+      "profileId": 7,
+      "pluginId": "xray-plugin",
+      "port": 35439,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 37343,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-2.mieru-plugin.json",
+      "chainIndex": 0,
+      "profileId": 6,
+      "pluginId": "mieru-plugin",
+      "port": 38497,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 36837,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-3.mihomo-plugin.yaml",
+      "chainIndex": 0,
+      "profileId": 5,
+      "pluginId": "mihomo-plugin",
+      "port": 44127,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 38071,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-4.naive-plugin.json",
+      "chainIndex": 0,
+      "profileId": 4,
+      "pluginId": "naive-plugin",
+      "port": 38815,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 36455,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-5.xray-plugin.json",
+      "chainIndex": 0,
+      "profileId": 3,
+      "pluginId": "xray-plugin",
+      "port": 32953,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 41043,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-6.trojan-go-plugin.json",
+      "chainIndex": 0,
+      "profileId": 2,
+      "pluginId": "trojan-go-plugin",
+      "port": 46385,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 38651,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      43603,
+      35439,
+      38497,
+      44127,
+      38815,
+      32953,
+      46385,
+      44687,
+      37343,
+      36837,
+      38071,
+      36455,
+      41043,
+      38651
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

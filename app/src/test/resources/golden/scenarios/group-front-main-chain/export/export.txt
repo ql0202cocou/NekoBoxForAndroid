@@ -78,7 +78,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 41665,
+      "listen_port": 38353,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-3",
@@ -91,7 +91,7 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 43443,
+      "server_port": 37659,
       "tag": "proxy",
       "type": "socks"
     },
@@ -173,7 +173,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "port": 43443,
+      "port": 37659,
       "protocol": "socks",
       "settings": {
         "udp": true
@@ -187,7 +187,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 41665,
+            "port": 38353,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",

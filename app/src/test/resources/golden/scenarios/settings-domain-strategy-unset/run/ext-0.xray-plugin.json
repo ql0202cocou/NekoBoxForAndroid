@@ -5,7 +5,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "port": 44625,
+      "port": 46785,
       "protocol": "socks",
       "settings": {
         "udp": true
@@ -19,7 +19,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 36689,
+            "port": 42845,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",

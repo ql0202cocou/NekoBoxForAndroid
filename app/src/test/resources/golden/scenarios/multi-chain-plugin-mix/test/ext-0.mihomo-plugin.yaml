@@ -1,0 +1,8 @@
+log-level: warning
+mode: rule
+listeners:
+- {name: socks-in, type: socks, listen: 127.0.0.1, port: 46645, udp: true}
+proxies:
+- {name: anytls-out, type: anytls, server: 127.0.0.1, port: 34591, password: golden-pass-anytls,
+  udp: true, sni: mihomo-2.example.org}
+rules: ['MATCH,anytls-out']

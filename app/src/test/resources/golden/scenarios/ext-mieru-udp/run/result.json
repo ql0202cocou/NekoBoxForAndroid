@@ -22,17 +22,17 @@
       "chainIndex": 0,
       "profileId": 1,
       "pluginId": "mieru-plugin",
-      "port": 42993,
+      "port": 36121,
       "finalAddress": "127.0.0.1",
-      "finalPort": 43409,
+      "finalPort": 40005,
       "controller": null,
       "tempFiles": []
     }
   ],
   "dynamic": {
     "ports": [
-      42993,
-      43409
+      36121,
+      40005
     ],
     "paths": [],
     "secrets": []

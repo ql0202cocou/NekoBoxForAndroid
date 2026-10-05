@@ -1,0 +1,103 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {
+      "2": "c-2-2",
+      "3": "c-3-3",
+      "4": "c-4-4"
+    },
+    "trafficMap": {
+      "c-2-2": [
+        2,
+        10
+      ],
+      "c-3-3": [
+        3,
+        10
+      ],
+      "c-4-4": [
+        4,
+        10
+      ],
+      "proxy": [
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-multi-rf-main",
+      "outbound[1]": "golden-multi-rf-xray",
+      "outbound[2]": "golden-multi-rf-front",
+      "outbound[3]": "golden-multi-rf-mihomo",
+      "outbound[4]": "golden-multi-rf-ss"
+    },
+    "boxTagNames": {
+      "c-2-2": "golden-multi-rf-xray",
+      "c-3-3": "golden-multi-rf-mihomo",
+      "c-4-4": "golden-multi-rf-ss",
+      "g-10": "golden-multi-rf-front",
+      "proxy": "golden-multi-rf-main"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.xray-plugin.json",
+      "chainIndex": 0,
+      "profileId": 1,
+      "pluginId": "xray-plugin",
+      "port": 36807,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 33923,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-1.xray-plugin.json",
+      "chainIndex": 1,
+      "profileId": 2,
+      "pluginId": "xray-plugin",
+      "port": 42591,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 42185,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-2.xray-plugin.json",
+      "chainIndex": 1,
+      "profileId": 10,
+      "pluginId": "xray-plugin",
+      "port": 38331,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 38099,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-3.mihomo-plugin.yaml",
+      "chainIndex": 2,
+      "profileId": 3,
+      "pluginId": "mihomo-plugin",
+      "port": 39415,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 35639,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      36807,
+      42591,
+      38331,
+      39415,
+      33923,
+      42185,
+      38099,
+      35639
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

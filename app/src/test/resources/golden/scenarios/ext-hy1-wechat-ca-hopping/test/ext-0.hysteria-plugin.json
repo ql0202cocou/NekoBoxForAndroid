@@ -4,7 +4,7 @@
   "up_mbps": 10,
   "down_mbps": 50,
   "socks5": {
-    "listen": "127.0.0.1:37735"
+    "listen": "127.0.0.1:40999"
   },
   "retry": 5,
   "fast_open": true,
@@ -12,7 +12,7 @@
   "obfs": "golden-obfs",
   "auth_str": "golden-pass-hy1",
   "alpn": "h3",
-  "ca": "/data/user/0/moe.nb4a.debug/cache/hysteria_5464092297934450805.ca",
+  "ca": "/data/user/0/moe.nb4a.debug/cache/hysteria_8127984596617618495.ca",
   "insecure": true,
   "recv_window_conn": 131072,
   "recv_window": 262144,

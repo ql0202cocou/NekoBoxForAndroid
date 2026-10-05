@@ -22,17 +22,17 @@
       "chainIndex": 0,
       "profileId": 1,
       "pluginId": "naive-plugin",
-      "port": 34325,
+      "port": 44297,
       "finalAddress": "127.0.0.1",
-      "finalPort": 34615,
+      "finalPort": 34147,
       "controller": null,
       "tempFiles": []
     }
   ],
   "dynamic": {
     "ports": [
-      34325,
-      34615
+      44297,
+      34147
     ],
     "paths": [],
     "secrets": []

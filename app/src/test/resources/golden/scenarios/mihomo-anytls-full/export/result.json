@@ -3,8 +3,8 @@
   "exportName": "profiles.txt",
   "dynamic": {
     "ports": [
-      36425,
-      41359
+      35471,
+      41523
     ],
     "paths": [],
     "secrets": []

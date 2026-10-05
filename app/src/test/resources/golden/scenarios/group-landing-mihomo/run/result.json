@@ -25,9 +25,9 @@
       "chainIndex": 0,
       "profileId": 11,
       "pluginId": "mihomo-plugin",
-      "port": 35773,
+      "port": 41725,
       "finalAddress": "127.0.0.1",
-      "finalPort": 39713,
+      "finalPort": 38405,
       "controller": null,
       "tempFiles": []
     },
@@ -36,19 +36,19 @@
       "chainIndex": 0,
       "profileId": 1,
       "pluginId": "xray-plugin",
-      "port": 34007,
+      "port": 45681,
       "finalAddress": "127.0.0.1",
-      "finalPort": 44335,
+      "finalPort": 43515,
       "controller": null,
       "tempFiles": []
     }
   ],
   "dynamic": {
     "ports": [
-      35773,
-      34007,
-      39713,
-      44335
+      41725,
+      45681,
+      38405,
+      43515
     ],
     "paths": [],
     "secrets": []

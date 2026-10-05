@@ -26,21 +26,21 @@
       "chainIndex": 0,
       "profileId": 3,
       "pluginId": "hysteria-plugin",
-      "port": 42857,
+      "port": 43975,
       "finalAddress": "hy1.example.com",
       "finalPort": 1080,
       "controller": null,
       "tempFiles": [
-        "/data/user/0/moe.nb4a.debug/cache/hysteria_6560866743485145291.ca"
+        "/data/user/0/moe.nb4a.debug/cache/hysteria_1723568246483530786.ca"
       ]
     }
   ],
   "dynamic": {
     "ports": [
-      42857
+      43975
     ],
     "paths": [
-      "/data/user/0/moe.nb4a.debug/cache/hysteria_6560866743485145291.ca"
+      "/data/user/0/moe.nb4a.debug/cache/hysteria_1723568246483530786.ca"
     ],
     "secrets": []
   }

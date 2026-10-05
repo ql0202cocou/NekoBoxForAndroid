@@ -76,7 +76,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 42965,
+      "listen_port": 41269,
       "override_address": "mieru.example.com",
       "override_port": 2999,
       "tag": "c-0-mapping-1",
@@ -89,7 +89,7 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 46835,
+      "server_port": 33693,
       "tag": "proxy",
       "type": "socks"
     },
@@ -147,7 +147,7 @@
 
 {
   "activeProfile": "default",
-  "socks5Port": 46835,
+  "socks5Port": 33693,
   "loggingLevel": "FATAL",
   "profiles": [
     {
@@ -161,7 +161,7 @@
           "ipAddress": "127.0.0.1",
           "portBindings": [
             {
-              "port": 42965,
+              "port": 41269,
               "protocol": "TCP"
             }
           ]

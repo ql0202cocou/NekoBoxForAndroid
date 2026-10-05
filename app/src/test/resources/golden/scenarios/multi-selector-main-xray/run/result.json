@@ -1,0 +1,130 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 2,
+    "selectorGroupId": 1,
+    "profileTagMap": {
+      "1": "golden-multi-xray-1",
+      "2": "golden-multi-xray-2",
+      "3": "golden-multi-xray-3",
+      "4": "golden-multi-mihomo-1",
+      "5": "golden-multi-mihomo-2",
+      "6": "golden-multi-ss-1",
+      "7": "golden-multi-vmess-1"
+    },
+    "trafficMap": {
+      "golden-multi-mihomo-1": [
+        4
+      ],
+      "golden-multi-mihomo-2": [
+        5
+      ],
+      "golden-multi-ss-1": [
+        6
+      ],
+      "golden-multi-vmess-1": [
+        7
+      ],
+      "golden-multi-xray-1": [
+        1
+      ],
+      "golden-multi-xray-2": [
+        2
+      ],
+      "golden-multi-xray-3": [
+        3
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[1]": "golden-multi-xray-1",
+      "outbound[2]": "golden-multi-xray-2",
+      "outbound[3]": "golden-multi-xray-3",
+      "outbound[4]": "golden-multi-mihomo-1",
+      "outbound[5]": "golden-multi-mihomo-2",
+      "outbound[6]": "golden-multi-ss-1",
+      "outbound[7]": "golden-multi-vmess-1"
+    },
+    "boxTagNames": {
+      "golden-multi-mihomo-1": "golden-multi-mihomo-1",
+      "golden-multi-mihomo-2": "golden-multi-mihomo-2",
+      "golden-multi-ss-1": "golden-multi-ss-1",
+      "golden-multi-vmess-1": "golden-multi-vmess-1",
+      "golden-multi-xray-1": "golden-multi-xray-1",
+      "golden-multi-xray-2": "golden-multi-xray-2",
+      "golden-multi-xray-3": "golden-multi-xray-3"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.xray-plugin.json",
+      "chainIndex": 0,
+      "profileId": 1,
+      "pluginId": "xray-plugin",
+      "port": 35027,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 40445,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-1.xray-plugin.json",
+      "chainIndex": 1,
+      "profileId": 2,
+      "pluginId": "xray-plugin",
+      "port": 34421,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 36185,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-2.xray-plugin.json",
+      "chainIndex": 2,
+      "profileId": 3,
+      "pluginId": "xray-plugin",
+      "port": 36545,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 36319,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-3.mihomo-plugin.yaml",
+      "chainIndex": 3,
+      "profileId": 4,
+      "pluginId": "mihomo-plugin",
+      "port": 44987,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 35429,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-4.mihomo-plugin.yaml",
+      "chainIndex": 4,
+      "profileId": 5,
+      "pluginId": "mihomo-plugin",
+      "port": 34015,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 34951,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      35027,
+      34421,
+      36545,
+      44987,
+      34015,
+      40445,
+      36185,
+      36319,
+      35429,
+      34951
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

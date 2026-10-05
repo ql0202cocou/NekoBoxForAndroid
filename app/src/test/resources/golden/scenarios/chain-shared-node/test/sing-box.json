@@ -22,7 +22,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 37489,
+      "listen_port": 40721,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-3",
@@ -46,7 +46,7 @@
     },
     {
       "server": "127.0.0.1",
-      "server_port": 43629,
+      "server_port": 37595,
       "tag": "g-3",
       "type": "socks"
     },

@@ -1,5 +1,5 @@
 {
   "host-resolver-rules": "MAP naive.example.com 127.0.0.1",
-  "listen": "socks://127.0.0.1:46215",
-  "proxy": "quic://golden-user:golden-pass-naive@naive.example.com:37855/"
+  "listen": "socks://127.0.0.1:33047",
+  "proxy": "quic://golden-user:golden-pass-naive@naive.example.com:46741/"
 }

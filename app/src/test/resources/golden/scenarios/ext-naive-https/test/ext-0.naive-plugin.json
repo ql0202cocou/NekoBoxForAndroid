@@ -1,7 +1,7 @@
 {
   "host-resolver-rules": "MAP naive-sni.example.com 127.0.0.1",
-  "listen": "socks://127.0.0.1:41277",
-  "proxy": "https://golden-user:golden-pass-naive@naive-sni.example.com:39491/",
+  "listen": "socks://127.0.0.1:44661",
+  "proxy": "https://golden-user:golden-pass-naive@naive-sni.example.com:46753/",
   "extra-headers": "X-Golden: a\r\nX-Fixture: b",
   "insecure-concurrency": 2
 }

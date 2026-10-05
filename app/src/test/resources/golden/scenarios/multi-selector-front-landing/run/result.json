@@ -1,0 +1,169 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": 1,
+    "profileTagMap": {
+      "1": "golden-multi-fl-xray-1",
+      "2": "golden-multi-fl-xray-2",
+      "3": "golden-multi-fl-mihomo-1",
+      "4": "golden-multi-fl-ss"
+    },
+    "trafficMap": {
+      "golden-multi-fl-mihomo-1": [
+        11,
+        3,
+        10
+      ],
+      "golden-multi-fl-ss": [
+        11,
+        4,
+        10
+      ],
+      "golden-multi-fl-xray-1": [
+        11,
+        1,
+        10
+      ],
+      "golden-multi-fl-xray-2": [
+        11,
+        2,
+        10
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[1]": "golden-multi-fl-landing",
+      "outbound[2]": "golden-multi-fl-xray-1",
+      "outbound[3]": "golden-multi-fl-front",
+      "outbound[4]": "golden-multi-fl-landing",
+      "outbound[5]": "golden-multi-fl-xray-2",
+      "outbound[6]": "golden-multi-fl-landing",
+      "outbound[7]": "golden-multi-fl-mihomo-1",
+      "outbound[8]": "golden-multi-fl-landing",
+      "outbound[9]": "golden-multi-fl-ss"
+    },
+    "boxTagNames": {
+      "c-1-1": "golden-multi-fl-xray-1",
+      "c-2-2": "golden-multi-fl-xray-2",
+      "c-3-3": "golden-multi-fl-mihomo-1",
+      "c-4-4": "golden-multi-fl-ss",
+      "g-10": "golden-multi-fl-front",
+      "golden-multi-fl-mihomo-1": "golden-multi-fl-landing",
+      "golden-multi-fl-ss": "golden-multi-fl-landing",
+      "golden-multi-fl-xray-1": "golden-multi-fl-landing",
+      "golden-multi-fl-xray-2": "golden-multi-fl-landing"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.mihomo-plugin.yaml",
+      "chainIndex": 0,
+      "profileId": 11,
+      "pluginId": "mihomo-plugin",
+      "port": 36825,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 35815,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-1.xray-plugin.json",
+      "chainIndex": 0,
+      "profileId": 1,
+      "pluginId": "xray-plugin",
+      "port": 35087,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 34919,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-2.xray-plugin.json",
+      "chainIndex": 0,
+      "profileId": 10,
+      "pluginId": "xray-plugin",
+      "port": 39591,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 37565,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-3.mihomo-plugin.yaml",
+      "chainIndex": 1,
+      "profileId": 11,
+      "pluginId": "mihomo-plugin",
+      "port": 40979,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 34205,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-4.xray-plugin.json",
+      "chainIndex": 1,
+      "profileId": 2,
+      "pluginId": "xray-plugin",
+      "port": 37387,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 44101,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-5.mihomo-plugin.yaml",
+      "chainIndex": 2,
+      "profileId": 11,
+      "pluginId": "mihomo-plugin",
+      "port": 46323,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 37759,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-6.mihomo-plugin.yaml",
+      "chainIndex": 2,
+      "profileId": 3,
+      "pluginId": "mihomo-plugin",
+      "port": 42135,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 44597,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-7.mihomo-plugin.yaml",
+      "chainIndex": 3,
+      "profileId": 11,
+      "pluginId": "mihomo-plugin",
+      "port": 36017,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 39617,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      36825,
+      35087,
+      39591,
+      40979,
+      37387,
+      46323,
+      42135,
+      36017,
+      35815,
+      34919,
+      37565,
+      34205,
+      44101,
+      37759,
+      44597,
+      39617
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

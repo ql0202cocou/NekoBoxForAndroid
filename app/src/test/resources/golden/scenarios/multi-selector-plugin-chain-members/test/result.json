@@ -1,0 +1,57 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        4,
+        2,
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-multi-sp-xray-1",
+      "outbound[1]": "golden-multi-sp-trojan-go"
+    },
+    "boxTagNames": {
+      "g-2": "golden-multi-sp-trojan-go",
+      "proxy": "golden-multi-sp-xray-1"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.xray-plugin.json",
+      "chainIndex": 0,
+      "profileId": 4,
+      "pluginId": "xray-plugin",
+      "port": 41515,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 35859,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-1.trojan-go-plugin.json",
+      "chainIndex": 0,
+      "profileId": 2,
+      "pluginId": "trojan-go-plugin",
+      "port": 40937,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 45433,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      41515,
+      40937,
+      35859,
+      45433
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

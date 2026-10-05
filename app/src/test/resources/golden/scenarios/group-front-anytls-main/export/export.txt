@@ -77,7 +77,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 38819,
+      "listen_port": 39711,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-0-mapping-1",
@@ -90,7 +90,7 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 43217,
+      "server_port": 36101,
       "tag": "proxy",
       "type": "socks"
     },
@@ -157,8 +157,8 @@
 log-level: warning
 mode: rule
 listeners:
-- {name: socks-in, type: socks, listen: 127.0.0.1, port: 43217, udp: true}
+- {name: socks-in, type: socks, listen: 127.0.0.1, port: 36101, udp: true}
 proxies:
-- {name: anytls-out, type: anytls, server: 127.0.0.1, port: 38819, password: golden-pass-anytls,
+- {name: anytls-out, type: anytls, server: 127.0.0.1, port: 39711, password: golden-pass-anytls,
   udp: true, sni: anytls.example.com}
 rules: ['MATCH,anytls-out']

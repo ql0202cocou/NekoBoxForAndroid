@@ -1,0 +1,40 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-multi-rf-main"
+    },
+    "boxTagNames": {
+      "proxy": "golden-multi-rf-main"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.xray-plugin.json",
+      "chainIndex": 0,
+      "profileId": 1,
+      "pluginId": "xray-plugin",
+      "port": 34653,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 40921,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      34653,
+      40921
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

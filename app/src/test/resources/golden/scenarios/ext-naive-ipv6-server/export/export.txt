@@ -75,7 +75,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 38399,
+      "listen_port": 37685,
       "override_address": "2001:db8::71",
       "override_port": 443,
       "tag": "c-0-mapping-1",
@@ -88,7 +88,7 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 34089,
+      "server_port": 40301,
       "tag": "proxy",
       "type": "socks"
     },
@@ -145,6 +145,6 @@
 }
 
 {
-  "listen": "socks://127.0.0.1:34089",
-  "proxy": "https://golden-user:golden-pass-naive@127.0.0.1:38399/"
+  "listen": "socks://127.0.0.1:40301",
+  "proxy": "https://golden-user:golden-pass-naive@127.0.0.1:37685/"
 }

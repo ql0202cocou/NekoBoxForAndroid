@@ -3,19 +3,19 @@
   "exportName": "profiles.txt",
   "dynamic": {
     "ports": [
-      33103,
-      40875,
-      33899,
-      42679,
-      40867,
-      46611,
-      34705,
-      38157,
-      37403,
-      45143
+      43451,
+      40945,
+      39765,
+      39891,
+      36649,
+      40865,
+      42729,
+      37063,
+      33153,
+      40935
     ],
     "paths": [
-      "/data/user/0/moe.nb4a.debug/cache/hysteria_136258309012647047.ca"
+      "/data/user/0/moe.nb4a.debug/cache/hysteria_7325090413725843459.ca"
     ],
     "secrets": []
   }

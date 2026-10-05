@@ -1,0 +1,273 @@
+{
+  "dns": {
+    "final": "dns-remote",
+    "rules": [
+      {
+        "domain": [
+          "vmess-1.example.com",
+          "xray-ws-3.example.com",
+          "mihomo-1.example.com",
+          "xray-1.example.com",
+          "ss-1.example.com",
+          "xray-2.example.com",
+          "mihomo-2.example.com",
+          "dns.example.net"
+        ],
+        "server": "dns-direct",
+        "strategy": "ipv4_only"
+      },
+      {
+        "disable_cache": true,
+        "inbound": [
+          "tun-in"
+        ],
+        "server": "dns-fake",
+        "strategy": "ipv4_only"
+      }
+    ],
+    "servers": [
+      {
+        "detour": "direct",
+        "tag": "dns-local",
+        "type": "local"
+      },
+      {
+        "domain_resolver": "dns-local",
+        "path": "/dns-query",
+        "server": "192.0.2.53",
+        "tag": "dns-direct",
+        "type": "https"
+      },
+      {
+        "detour": "proxy",
+        "domain_resolver": "dns-direct",
+        "path": "/dns-query",
+        "server": "dns.example.net",
+        "tag": "dns-remote",
+        "type": "https"
+      },
+      {
+        "inet4_range": "198.18.0.0/15",
+        "inet6_range": "fc00::/18",
+        "tag": "dns-fake",
+        "type": "fakeip"
+      }
+    ],
+    "strategy": "ipv4_only"
+  },
+  "endpoints": [],
+  "inbounds": [
+    {
+      "address": [
+        "172.19.0.1/28"
+      ],
+      "endpoint_independent_nat": true,
+      "mtu": 9000,
+      "stack": "gvisor",
+      "tag": "tun-in",
+      "type": "tun"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 2080,
+      "tag": "mixed-in",
+      "type": "mixed"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 40445,
+      "override_address": "xray-1.example.com",
+      "override_port": 443,
+      "tag": "c-1-mapping-1",
+      "type": "direct"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 36185,
+      "override_address": "xray-2.example.com",
+      "override_port": 443,
+      "tag": "c-2-mapping-2",
+      "type": "direct"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 36319,
+      "override_address": "xray-ws-3.example.com",
+      "override_port": 443,
+      "tag": "c-3-mapping-3",
+      "type": "direct"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 35429,
+      "override_address": "mihomo-1.example.com",
+      "override_port": 8444,
+      "tag": "c-4-mapping-4",
+      "type": "direct"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 34951,
+      "override_address": "mihomo-2.example.com",
+      "override_port": 8445,
+      "tag": "c-5-mapping-5",
+      "type": "direct"
+    }
+  ],
+  "log": {
+    "level": "panic"
+  },
+  "outbounds": [
+    {
+      "default": "golden-multi-xray-2",
+      "outbounds": [
+        "golden-multi-xray-1",
+        "golden-multi-xray-2",
+        "golden-multi-xray-3",
+        "golden-multi-mihomo-1",
+        "golden-multi-mihomo-2",
+        "golden-multi-ss-1",
+        "golden-multi-vmess-1"
+      ],
+      "tag": "proxy",
+      "type": "selector"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 35027,
+      "tag": "golden-multi-xray-1",
+      "type": "socks"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 34421,
+      "tag": "golden-multi-xray-2",
+      "type": "socks"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 36545,
+      "tag": "golden-multi-xray-3",
+      "type": "socks"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 44987,
+      "tag": "golden-multi-mihomo-1",
+      "type": "socks"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 34015,
+      "tag": "golden-multi-mihomo-2",
+      "type": "socks"
+    },
+    {
+      "method": "aes-256-gcm",
+      "password": "golden-pass-ss",
+      "server": "ss-1.example.com",
+      "server_port": 8389,
+      "tag": "golden-multi-ss-1",
+      "type": "shadowsocks"
+    },
+    {
+      "alter_id": 0,
+      "packet_encoding": "",
+      "security": "auto",
+      "server": "vmess-1.example.com",
+      "server_port": 443,
+      "tls": {
+        "enabled": true,
+        "insecure": false,
+        "server_name": "cdn.example.org"
+      },
+      "transport": {
+        "headers": {
+          "Host": "cdn.example.org"
+        },
+        "path": "/golden-ws",
+        "type": "ws"
+      },
+      "uuid": "5a0c1e2f-3b4d-4e6f-8a9b-0c1d2e3f4a5b",
+      "tag": "golden-multi-vmess-1",
+      "type": "vmess"
+    },
+    {
+      "tag": "direct",
+      "type": "direct"
+    },
+    {
+      "tag": "bypass",
+      "type": "direct"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "default_domain_resolver": {
+      "server": "dns-direct",
+      "strategy": "prefer_ipv4"
+    },
+    "rule_set": [],
+    "rules": [
+      {
+        "action": "sniff"
+      },
+      {
+        "action": "hijack-dns",
+        "port": [
+          53
+        ]
+      },
+      {
+        "action": "hijack-dns",
+        "protocol": [
+          "dns"
+        ]
+      },
+      {
+        "inbound": [
+          "c-1-mapping-1"
+        ],
+        "outbound": "direct"
+      },
+      {
+        "inbound": [
+          "c-2-mapping-2"
+        ],
+        "outbound": "direct"
+      },
+      {
+        "inbound": [
+          "c-3-mapping-3"
+        ],
+        "outbound": "direct"
+      },
+      {
+        "inbound": [
+          "c-4-mapping-4"
+        ],
+        "outbound": "direct"
+      },
+      {
+        "inbound": [
+          "c-5-mapping-5"
+        ],
+        "outbound": "direct"
+      },
+      {
+        "action": "reject",
+        "ip_cidr": [
+          "224.0.0.0/3",
+          "ff00::/8"
+        ]
+      },
+      {
+        "action": "reject",
+        "source_ip_cidr": [
+          "224.0.0.0/3",
+          "ff00::/8"
+        ]
+      }
+    ]
+  }
+}

@@ -26,7 +26,7 @@
       "chainIndex": 0,
       "profileId": 3,
       "pluginId": "hysteria-plugin",
-      "port": 38881,
+      "port": 43669,
       "finalAddress": "hy1.example.com",
       "finalPort": 1080,
       "controller": null,
@@ -35,7 +35,7 @@
   ],
   "dynamic": {
     "ports": [
-      38881
+      43669
     ],
     "paths": [],
     "secrets": []

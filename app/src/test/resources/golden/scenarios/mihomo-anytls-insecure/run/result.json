@@ -22,17 +22,17 @@
       "chainIndex": 0,
       "profileId": 1,
       "pluginId": "mihomo-plugin",
-      "port": 43113,
+      "port": 44217,
       "finalAddress": "127.0.0.1",
-      "finalPort": 46069,
+      "finalPort": 40657,
       "controller": null,
       "tempFiles": []
     }
   ],
   "dynamic": {
     "ports": [
-      43113,
-      46069
+      44217,
+      40657
     ],
     "paths": [],
     "secrets": []

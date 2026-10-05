@@ -38,9 +38,9 @@
       "chainIndex": 0,
       "profileId": 7,
       "pluginId": "mihomo-plugin",
-      "port": 35299,
+      "port": 37413,
       "finalAddress": "127.0.0.1",
-      "finalPort": 36941,
+      "finalPort": 38477,
       "controller": null,
       "tempFiles": []
     },
@@ -49,12 +49,12 @@
       "chainIndex": 0,
       "profileId": 5,
       "pluginId": "hysteria-plugin",
-      "port": 37665,
+      "port": 33593,
       "finalAddress": "127.0.0.1",
-      "finalPort": 40953,
+      "finalPort": 38849,
       "controller": null,
       "tempFiles": [
-        "/data/user/0/moe.nb4a.debug/cache/hysteria_1436780928049747916.ca"
+        "/data/user/0/moe.nb4a.debug/cache/hysteria_6538013846311731440.ca"
       ]
     },
     {
@@ -62,9 +62,9 @@
       "chainIndex": 0,
       "profileId": 4,
       "pluginId": "mieru-plugin",
-      "port": 33579,
+      "port": 43275,
       "finalAddress": "127.0.0.1",
-      "finalPort": 36769,
+      "finalPort": 34239,
       "controller": null,
       "tempFiles": []
     },
@@ -73,9 +73,9 @@
       "chainIndex": 0,
       "profileId": 3,
       "pluginId": "naive-plugin",
-      "port": 34195,
+      "port": 40567,
       "finalAddress": "127.0.0.1",
-      "finalPort": 43933,
+      "finalPort": 34325,
       "controller": null,
       "tempFiles": []
     },
@@ -84,28 +84,28 @@
       "chainIndex": 0,
       "profileId": 2,
       "pluginId": "trojan-go-plugin",
-      "port": 33349,
+      "port": 39499,
       "finalAddress": "127.0.0.1",
-      "finalPort": 33907,
+      "finalPort": 44729,
       "controller": null,
       "tempFiles": []
     }
   ],
   "dynamic": {
     "ports": [
-      35299,
-      37665,
-      33579,
-      34195,
-      33349,
-      36941,
-      40953,
-      36769,
-      43933,
-      33907
+      37413,
+      33593,
+      43275,
+      40567,
+      39499,
+      38477,
+      38849,
+      34239,
+      34325,
+      44729
     ],
     "paths": [
-      "/data/user/0/moe.nb4a.debug/cache/hysteria_1436780928049747916.ca"
+      "/data/user/0/moe.nb4a.debug/cache/hysteria_6538013846311731440.ca"
     ],
     "secrets": []
   }

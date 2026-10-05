@@ -26,17 +26,17 @@
       "chainIndex": 0,
       "profileId": 3,
       "pluginId": "hysteria-plugin",
-      "port": 34171,
+      "port": 35115,
       "finalAddress": "127.0.0.1",
-      "finalPort": 44337,
+      "finalPort": 34195,
       "controller": null,
       "tempFiles": []
     }
   ],
   "dynamic": {
     "ports": [
-      34171,
-      44337
+      35115,
+      34195
     ],
     "paths": [],
     "secrets": []

@@ -22,17 +22,17 @@
       "chainIndex": 0,
       "profileId": 1,
       "pluginId": "trojan-go-plugin",
-      "port": 35613,
+      "port": 39295,
       "finalAddress": "127.0.0.1",
-      "finalPort": 39273,
+      "finalPort": 33473,
       "controller": null,
       "tempFiles": []
     }
   ],
   "dynamic": {
     "ports": [
-      35613,
-      39273
+      39295,
+      33473
     ],
     "paths": [],
     "secrets": []

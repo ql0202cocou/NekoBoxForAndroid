@@ -71,7 +71,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 45479,
+      "listen_port": 38437,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-3",
@@ -79,7 +79,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 35285,
+      "listen_port": 33557,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-0-mapping-4",
@@ -101,13 +101,13 @@
     },
     {
       "server": "127.0.0.1",
-      "server_port": 44877,
+      "server_port": 38267,
       "tag": "c-0-3",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 42701,
+      "server_port": 43433,
       "tag": "g-4",
       "type": "socks"
     },

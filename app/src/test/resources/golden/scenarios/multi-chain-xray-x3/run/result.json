@@ -1,0 +1,73 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        4,
+        3,
+        2,
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-multi-cx-xray-3",
+      "outbound[1]": "golden-multi-cx-xray-2",
+      "outbound[2]": "golden-multi-cx-xray-1"
+    },
+    "boxTagNames": {
+      "c-0-3": "golden-multi-cx-xray-2",
+      "g-2": "golden-multi-cx-xray-1",
+      "proxy": "golden-multi-cx-xray-3"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.xray-plugin.json",
+      "chainIndex": 0,
+      "profileId": 4,
+      "pluginId": "xray-plugin",
+      "port": 34819,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 36233,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-1.xray-plugin.json",
+      "chainIndex": 0,
+      "profileId": 3,
+      "pluginId": "xray-plugin",
+      "port": 37433,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 39453,
+      "controller": null,
+      "tempFiles": []
+    },
+    {
+      "file": "ext-2.xray-plugin.json",
+      "chainIndex": 0,
+      "profileId": 2,
+      "pluginId": "xray-plugin",
+      "port": 35069,
+      "finalAddress": "127.0.0.1",
+      "finalPort": 44995,
+      "controller": null,
+      "tempFiles": []
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      34819,
+      37433,
+      35069,
+      36233,
+      39453,
+      44995
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}

@@ -22,17 +22,17 @@
       "chainIndex": 0,
       "profileId": 1,
       "pluginId": "xray-plugin",
-      "port": 38507,
+      "port": 39329,
       "finalAddress": "127.0.0.1",
-      "finalPort": 39129,
+      "finalPort": 36231,
       "controller": null,
       "tempFiles": []
     }
   ],
   "dynamic": {
     "ports": [
-      38507,
-      39129
+      39329,
+      36231
     ],
     "paths": [],
     "secrets": []

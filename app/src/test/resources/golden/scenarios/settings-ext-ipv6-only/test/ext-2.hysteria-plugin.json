@@ -1,10 +1,10 @@
 {
-  "server": "127.0.0.1:42983",
+  "server": "127.0.0.1:41929",
   "protocol": "wechat-video",
   "up_mbps": 10,
   "down_mbps": 50,
   "socks5": {
-    "listen": "127.0.0.1:35321"
+    "listen": "127.0.0.1:36821"
   },
   "retry": 5,
   "fast_open": true,
@@ -13,6 +13,6 @@
   "auth_str": "golden-pass-hy1",
   "server_name": "hy1.example.com",
   "alpn": "hysteria",
-  "ca": "/data/user/0/moe.nb4a.debug/cache/hysteria_372431096881969778.ca",
+  "ca": "/data/user/0/moe.nb4a.debug/cache/hysteria_6542308087167759777.ca",
   "hop_interval": 10
 }

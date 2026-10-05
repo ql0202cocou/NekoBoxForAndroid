@@ -1,0 +1,305 @@
+{
+  "dns": {
+    "final": "dns-remote",
+    "rules": [
+      {
+        "domain": [
+          "xray-1.example.com",
+          "mihomo-2.example.com",
+          "xray-3.example.com",
+          "dns.example.net"
+        ],
+        "server": "dns-direct",
+        "strategy": "ipv4_only"
+      },
+      {
+        "disable_cache": true,
+        "inbound": [
+          "tun-in"
+        ],
+        "server": "dns-fake",
+        "strategy": "ipv4_only"
+      }
+    ],
+    "servers": [
+      {
+        "detour": "direct",
+        "tag": "dns-local",
+        "type": "local"
+      },
+      {
+        "domain_resolver": "dns-local",
+        "path": "/dns-query",
+        "server": "192.0.2.53",
+        "tag": "dns-direct",
+        "type": "https"
+      },
+      {
+        "detour": "proxy",
+        "domain_resolver": "dns-direct",
+        "path": "/dns-query",
+        "server": "dns.example.net",
+        "tag": "dns-remote",
+        "type": "https"
+      },
+      {
+        "inet4_range": "198.18.0.0/15",
+        "inet6_range": "fc00::/18",
+        "tag": "dns-fake",
+        "type": "fakeip"
+      }
+    ],
+    "strategy": "ipv4_only"
+  },
+  "endpoints": [],
+  "inbounds": [
+    {
+      "address": [
+        "172.19.0.1/28"
+      ],
+      "endpoint_independent_nat": true,
+      "mtu": 9000,
+      "stack": "gvisor",
+      "tag": "tun-in",
+      "type": "tun"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 2080,
+      "tag": "mixed-in",
+      "type": "mixed"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 35815,
+      "override_address": "mihomo-2.example.com",
+      "override_port": 8445,
+      "tag": "c-1-mapping-11",
+      "type": "direct"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 34919,
+      "override_address": "xray-1.example.com",
+      "override_port": 443,
+      "tag": "c-1-mapping-1",
+      "type": "direct"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 37565,
+      "override_address": "xray-3.example.com",
+      "override_port": 443,
+      "tag": "c-1-mapping-10",
+      "type": "direct"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 34205,
+      "override_address": "mihomo-2.example.com",
+      "override_port": 8445,
+      "tag": "c-2-mapping-11",
+      "type": "direct"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 44101,
+      "override_address": "xray-2.example.com",
+      "override_port": 443,
+      "tag": "c-2-mapping-2",
+      "type": "direct"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 37759,
+      "override_address": "mihomo-2.example.com",
+      "override_port": 8445,
+      "tag": "c-3-mapping-11",
+      "type": "direct"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 44597,
+      "override_address": "mihomo-1.example.com",
+      "override_port": 8444,
+      "tag": "c-3-mapping-3",
+      "type": "direct"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 39617,
+      "override_address": "mihomo-2.example.com",
+      "override_port": 8445,
+      "tag": "c-4-mapping-11",
+      "type": "direct"
+    }
+  ],
+  "log": {
+    "level": "panic"
+  },
+  "outbounds": [
+    {
+      "default": "golden-multi-fl-xray-1",
+      "outbounds": [
+        "golden-multi-fl-xray-1",
+        "golden-multi-fl-xray-2",
+        "golden-multi-fl-mihomo-1",
+        "golden-multi-fl-ss"
+      ],
+      "tag": "proxy",
+      "type": "selector"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 36825,
+      "tag": "golden-multi-fl-xray-1",
+      "type": "socks"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 35087,
+      "tag": "c-1-1",
+      "type": "socks"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 39591,
+      "tag": "g-10",
+      "type": "socks"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 40979,
+      "tag": "golden-multi-fl-xray-2",
+      "type": "socks"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 37387,
+      "tag": "c-2-2",
+      "type": "socks"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 46323,
+      "tag": "golden-multi-fl-mihomo-1",
+      "type": "socks"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 42135,
+      "tag": "c-3-3",
+      "type": "socks"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 36017,
+      "tag": "golden-multi-fl-ss",
+      "type": "socks"
+    },
+    {
+      "detour": "g-10",
+      "method": "aes-256-gcm",
+      "password": "golden-pass-ss",
+      "server": "ss-1.example.com",
+      "server_port": 8389,
+      "tag": "c-4-4",
+      "type": "shadowsocks"
+    },
+    {
+      "tag": "direct",
+      "type": "direct"
+    },
+    {
+      "tag": "bypass",
+      "type": "direct"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "default_domain_resolver": {
+      "server": "dns-direct",
+      "strategy": "prefer_ipv4"
+    },
+    "rule_set": [],
+    "rules": [
+      {
+        "action": "sniff"
+      },
+      {
+        "action": "hijack-dns",
+        "port": [
+          53
+        ]
+      },
+      {
+        "action": "hijack-dns",
+        "protocol": [
+          "dns"
+        ]
+      },
+      {
+        "inbound": [
+          "c-1-mapping-11"
+        ],
+        "outbound": "c-1-1"
+      },
+      {
+        "inbound": [
+          "c-1-mapping-1"
+        ],
+        "outbound": "g-10"
+      },
+      {
+        "inbound": [
+          "c-1-mapping-10"
+        ],
+        "outbound": "direct"
+      },
+      {
+        "inbound": [
+          "c-2-mapping-11"
+        ],
+        "outbound": "c-2-2"
+      },
+      {
+        "inbound": [
+          "c-2-mapping-2"
+        ],
+        "outbound": "g-10"
+      },
+      {
+        "inbound": [
+          "c-3-mapping-11"
+        ],
+        "outbound": "c-3-3"
+      },
+      {
+        "inbound": [
+          "c-3-mapping-3"
+        ],
+        "outbound": "g-10"
+      },
+      {
+        "inbound": [
+          "c-4-mapping-11"
+        ],
+        "outbound": "c-4-4"
+      },
+      {
+        "action": "reject",
+        "ip_cidr": [
+          "224.0.0.0/3",
+          "ff00::/8"
+        ]
+      },
+      {
+        "action": "reject",
+        "source_ip_cidr": [
+          "224.0.0.0/3",
+          "ff00::/8"
+        ]
+      }
+    ]
+  }
+}
