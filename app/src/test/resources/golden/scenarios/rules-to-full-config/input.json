@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "rules-to-full-config",
   "description": "规则目标是全配置型节点：预检跳过",
   "mainProfileId": 1,

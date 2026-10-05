@@ -22,7 +22,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 46161,
+      "listen_port": 34983,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-0-mapping-7",
@@ -30,7 +30,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 45059,
+      "listen_port": 40135,
       "override_address": "hy1.example.com",
       "override_port": 8443,
       "tag": "c-0-mapping-5",
@@ -38,7 +38,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 41513,
+      "listen_port": 46861,
       "override_address": "mieru.example.com",
       "override_port": 2999,
       "tag": "c-0-mapping-4",
@@ -46,7 +46,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 38649,
+      "listen_port": 37799,
       "override_address": "naive.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-3",
@@ -54,7 +54,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 45877,
+      "listen_port": 33039,
       "override_address": "trojan-go.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-2",
@@ -66,8 +66,10 @@
   },
   "outbounds": [
     {
+      "password": "p9adde6f19e7f9e9f1f907fa993a2d59d",
       "server": "127.0.0.1",
-      "server_port": 40279,
+      "server_port": 38439,
+      "username": "u15b9a1e077b8c8e5",
       "tag": "proxy",
       "type": "socks"
     },
@@ -96,25 +98,25 @@
     },
     {
       "server": "127.0.0.1",
-      "server_port": 40961,
+      "server_port": 40857,
       "tag": "c-0-5",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 39117,
+      "server_port": 40471,
       "tag": "c-0-4",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 36873,
+      "server_port": 46725,
       "tag": "c-0-3",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 38947,
+      "server_port": 37615,
       "tag": "g-2",
       "type": "socks"
     },

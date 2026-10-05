@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-vmess-ws",
   "description": "VMess ws，路径里带 ?ed=2048",
   "mainProfileId": 1,

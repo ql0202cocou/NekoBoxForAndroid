@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "xray-vmess-h2",
   "description": "VMess 手动指定 Xray 却用 h2：应报错",
   "mainProfileId": 1,

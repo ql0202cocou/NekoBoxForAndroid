@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "xray-vless-ipv6-server",
   "description": "VLESS REALITY，IPv6 服务器",
   "mainProfileId": 1,

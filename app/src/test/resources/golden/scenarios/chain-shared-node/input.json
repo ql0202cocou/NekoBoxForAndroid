@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "chain-shared-node",
   "description": "同一个 Xray 节点被两条链共享（主链与路由目标链）",
   "mainProfileId": 1,

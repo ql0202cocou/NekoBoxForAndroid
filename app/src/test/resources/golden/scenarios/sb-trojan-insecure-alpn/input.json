@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-trojan-insecure-alpn",
   "description": "Trojan allowInsecure + ALPN",
   "mainProfileId": 1,

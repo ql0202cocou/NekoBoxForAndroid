@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "custom-outbound-json-array",
   "description": "自定义出站 JSON 不是对象：应报错",
   "mainProfileId": 1,

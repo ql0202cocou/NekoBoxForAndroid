@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-socks5",
   "description": "SOCKS5，带用户名密码，域名服务器",
   "mainProfileId": 1,

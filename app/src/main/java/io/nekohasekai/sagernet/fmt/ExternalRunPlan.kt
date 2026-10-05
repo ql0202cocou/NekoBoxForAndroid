@@ -3,7 +3,8 @@ package io.nekohasekai.sagernet.fmt
 import java.io.File
 
 // 外核运行计划（plan.md K0 做法 1）：一次构建里全部的外核跳实例，以及它们按核心分成的组。
-// 计划从构建结果得到（externalIndex 加上构建时写进 bean 的 finalAddress / finalPort），不改构建过程。
+// 计划从构建结果得到（externalIndex 加上构建时写进 bean 的 finalAddress / finalPort，以及本机 socks 凭据），
+// 不改构建过程。
 // 运行（BoxInstance）、测速（TestInstance）、导出（ProxyEntity.exportConfig）都经 assemble 从计划生成
 // 外核配置，ConfigBuild.precheck 也经它试生成单个节点。只用纯 Kotlin 类型，JVM 单测可以手工构造
 
@@ -26,6 +27,11 @@ class ExternalHop(
     val core: ExternalCore = requireNotNull(externalCore(bean)) {
         "${bean.javaClass.simpleName} does not run on an external core"
     },
+    /**
+     * 外核在 localPort 上的 socks 入站要求的凭据，null 表示不认证。核心声明入站支持认证（[ExternalCore.inboundAuth]）
+     * 时必须有，否则必须没有，由 [ExternalRunPlan] 检查；sing-box 一侧的 socks 出站带的是同一个值。
+     */
+    val localAuth: LocalSocksAuth? = null,
 ) {
     val pluginId get() = core.pluginId
 
@@ -57,6 +63,22 @@ class ExternalRunPlan(val hops: List<ExternalHop>) {
                 "external hops ${same.joinToString { it.index.toString() }} share local port ${same[0].localPort}"
             )
         }
+        // 入站认证跟着核心的声明走：要认证的跳实例拿不到凭据就不建计划（不会生成不认证的入站），
+        // 不认证的核心也不带凭据（sing-box 一侧不会出示）；一个计划只有一组凭据
+        for (hop in hops) {
+            if (hop.core.inboundAuth) {
+                checkNotNull(hop.localAuth) {
+                    "external hop ${hop.index} (${hop.pluginId}) needs local socks credentials, but the build has none"
+                }
+            } else {
+                check(hop.localAuth == null) {
+                    "external hop ${hop.index} (${hop.pluginId}) does not take local socks credentials"
+                }
+            }
+        }
+        check(hops.mapNotNull { it.localAuth }.distinct().size <= 1) {
+            "external hops of one plan carry different local socks credentials"
+        }
     }
 
     /** 按核心分组；组的顺序按各组第一个跳实例在计划里的顺序，组内按计划顺序。 */
@@ -71,7 +93,9 @@ class ExternalRunPlan(val hops: List<ExternalHop>) {
     companion object {
         /**
          * 从构建结果得到计划：按 externalIndex 的顺序（链的顺序，链内按 buildHop 登记的顺序），映射目标取构建时
-         * 写进 bean 的 finalAddress / finalPort。没有外核条目的节点（NekoBean）跳过，与以前一致。
+         * 写进 bean 的 finalAddress / finalPort，入站支持认证的核心的跳实例取构建结果的本机 socks 凭据
+         * （与 sing-box 一侧的 socks 出站同一个值；构建结果里没有时建计划即抛错）。没有外核条目的节点
+         * （NekoBean）跳过，与以前一致。
          */
         fun from(result: ConfigBuildResult): ExternalRunPlan {
             val hops = ArrayList<ExternalHop>()
@@ -79,7 +103,10 @@ class ExternalRunPlan(val hops: List<ExternalHop>) {
                 for ((port, profile) in entry.chain) {
                     val bean = profile.requireBean()
                     val core = externalCore(bean) ?: continue
-                    hops += ExternalHop(hops.size, chainIndex, profile.id, bean, port, bean.finalAddress, bean.finalPort, core)
+                    hops += ExternalHop(
+                        hops.size, chainIndex, profile.id, bean, port, bean.finalAddress, bean.finalPort, core,
+                        result.localAuth.takeIf { core.inboundAuth },
+                    )
                 }
             }
             return ExternalRunPlan(hops)
@@ -151,3 +178,7 @@ internal fun requireDistinctHops(hops: List<ExternalHop>, reserved: Set<String>)
         throw IllegalStateException("tag $it is reserved by the external core")
     }
 }
+
+// 合并配置的生成器共用：入站一律要求认证，跳实例没有凭据时不生成配置，而不是写出不认证的入站
+internal fun ExternalHop.requireLocalAuth(): LocalSocksAuth =
+    localAuth ?: throw IllegalStateException("external hop $index ($pluginId) has no local socks credentials")

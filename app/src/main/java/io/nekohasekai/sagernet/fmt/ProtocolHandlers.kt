@@ -579,6 +579,9 @@ sealed class ExternalCore(
     // 启动前校验入口（见 ExternalCoreStartup.kt），只有 Xray、mihomo 有。只在用的是 APK 内置的二进制时生效：
     // 内置的才核实过校验入口、报错格式与就绪时的 SOCKS5 握手，外部插件 app 提供的同名核心照旧不校验
     val check: ExternalCoreCheck? = null,
+    // 本机 socks 入站是否要求用户名 / 密码认证（LocalSocksAuth）。构建（sing-box 的 socks 出站带不带凭据）与
+    // 运行计划（跳实例有没有凭据）都只看这项声明。只有核实过的核心声明为真，其配置生成器拿不到凭据时直接报错
+    val inboundAuth: Boolean = false,
 ) {
     // 合并核心：同一个计划里这个插件的全部跳实例共用一份配置、一个进程
     val merged get() = this is Merged
@@ -603,7 +606,8 @@ sealed class ExternalCore(
         ) -> String,
         buildLaunch: (ExternalCoreSettings, String, String, (String, String, String) -> File) -> ExternalCoreLaunch,
         check: ExternalCoreCheck,
-    ) : ExternalCore(pluginId, buildLaunch, check) {
+        inboundAuth: Boolean,
+    ) : ExternalCore(pluginId, buildLaunch, check, inboundAuth) {
 
         fun entry(hop: ExternalHop, settings: ExternalCoreSettings): Map<String, Any?> = buildEntry(settings, hop)
 
@@ -616,7 +620,7 @@ sealed class ExternalCore(
         ): String = buildConfig(settings, hops, entries, mihomoController)
     }
 
-    // 要装插件 app 的核心：每个跳实例一份配置、一个进程，配置与 K0 之前相同
+    // 要装插件 app 的核心：每个跳实例一份配置、一个进程，配置与 K0 之前相同。入站认证能力没有核实过，不声明
     class PerHop(
         pluginId: String,
         private val buildConfig: (settings: ExternalCoreSettings, port: Int, cacheFile: (String, String) -> File) -> String,
@@ -712,6 +716,8 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
             val configFile = writeCacheFile("xray", "json", config)
             ExternalCoreLaunch(listOf(pluginPath, "run", "-test", "-c", configFile.absolutePath))
         }, ::xrayCheckErrors),
+        // socks 入站的 auth: password（见 buildXrayConfig）
+        inboundAuth = true,
     )
 
     is AnyTLSBean -> ExternalCore.Merged(
@@ -734,6 +740,8 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
                 listOf(pluginPath, "-t", "-d", app.noBackupFilesDir.absolutePath, "-f", configFile.absolutePath)
             )
         }, ::mihomoCheckErrors),
+        // listener 自己的 users（见 buildMihomoConfig）
+        inboundAuth = true,
     )
 
     else -> null

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "multi-chains-shared-nonfirst",
   "description": "两条链共用中间的 Xray 与出口的 mihomo，都不是最先拨号的一跳",
   "mainProfileId": 1,

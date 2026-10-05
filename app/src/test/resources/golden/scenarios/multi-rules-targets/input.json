@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "multi-rules-targets",
   "description": "主节点走 Xray，规则目标是 2 个 Xray、2 个 mihomo 与 1 个内核节点",
   "mainProfileId": 1,

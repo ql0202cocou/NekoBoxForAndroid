@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "chain-same-external-twice",
   "description": "同一外核节点在一条链里出现两次：应报错",
   "mainProfileId": 1,

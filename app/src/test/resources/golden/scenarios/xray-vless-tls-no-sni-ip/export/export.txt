@@ -75,7 +75,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 33595,
+      "listen_port": 41959,
       "override_address": "192.0.2.50",
       "override_port": 443,
       "tag": "c-0-mapping-1",
@@ -87,8 +87,10 @@
   },
   "outbounds": [
     {
+      "password": "pcc8d4ff2afb78c5d0aaf32b586eee732",
       "server": "127.0.0.1",
-      "server_port": 45847,
+      "server_port": 41345,
+      "username": "ue7d938ee28413208",
       "tag": "proxy",
       "type": "socks"
     },
@@ -146,15 +148,23 @@
 
 {
   "log": {
-    "loglevel": "warning"
+    "loglevel": "warning",
+    "access": "none"
   },
   "inbounds": [
     {
       "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 45847,
+      "port": 41345,
       "protocol": "socks",
       "settings": {
+        "auth": "password",
+        "accounts": [
+          {
+            "user": "ue7d938ee28413208",
+            "pass": "pcc8d4ff2afb78c5d0aaf32b586eee732"
+          }
+        ],
         "udp": true
       }
     }
@@ -171,7 +181,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 33595,
+            "port": 41959,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",

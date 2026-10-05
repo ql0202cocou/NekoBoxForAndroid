@@ -4,9 +4,12 @@
   "dynamic": {
     "ports": [
       45363,
-      37371
+      34913
     ],
     "paths": [],
-    "secrets": []
+    "secrets": [
+      "uace4562a6f0db3d4",
+      "p69a1501f0e2d2b761082ba4bf6942db9"
+    ]
   }
 }

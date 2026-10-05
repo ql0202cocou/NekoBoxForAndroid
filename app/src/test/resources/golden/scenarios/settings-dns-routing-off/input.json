@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "settings-dns-routing-off",
   "description": "关闭 DNS 分流",
   "mainProfileId": 1,

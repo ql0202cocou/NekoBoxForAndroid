@@ -161,8 +161,8 @@ class TestInstance(profile: ProxyEntity, val link: String, private val timeout: 
     }
 
     override suspend fun loadConfig() {
-        // configs contain credentials; redact them before writing to the exportable log
-        if (BuildConfig.DEBUG) Logs.d(Util.redactConfig(config.config))
+        // 配置里有凭据，写进可导出的日志前脱敏：本次构建的本机 socks 凭据按值遮蔽，其余按键名
+        if (BuildConfig.DEBUG) Logs.d(Util.redactConfig(config.redactLocalAuth(config.config)))
         box = Libcore.newSingBoxInstance(config.config, LocalResolverImpl)
     }
 

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "chain-cross-group-member",
   "description": "链成员在别的分组",
   "mainProfileId": 1,

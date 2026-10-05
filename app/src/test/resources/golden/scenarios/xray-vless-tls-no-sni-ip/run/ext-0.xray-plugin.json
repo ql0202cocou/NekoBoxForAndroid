@@ -1,14 +1,22 @@
 {
   "log": {
-    "loglevel": "warning"
+    "loglevel": "warning",
+    "access": "none"
   },
   "inbounds": [
     {
       "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 43907,
+      "port": 36447,
       "protocol": "socks",
       "settings": {
+        "auth": "password",
+        "accounts": [
+          {
+            "user": "ue3b667c66c1e4ad9",
+            "pass": "pfd129638ea8f493865f69fc82523914a"
+          }
+        ],
         "udp": true
       }
     }
@@ -25,7 +33,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 41115,
+            "port": 45137,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",

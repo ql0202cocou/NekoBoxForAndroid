@@ -5,6 +5,7 @@ import io.nekohasekai.sagernet.fmt.ExternalHop
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.fmt.effectiveAllowInsecure
 import io.nekohasekai.sagernet.fmt.requireDistinctHops
+import io.nekohasekai.sagernet.fmt.requireLocalAuth
 import moe.matsuri.nb4a.utils.JavaUtil
 import moe.matsuri.nb4a.utils.echAsBase64
 import moe.matsuri.nb4a.utils.listByLineOrComma
@@ -18,7 +19,9 @@ private val MIHOMO_RESERVED_NAMES = setOf("DIRECT", "REJECT", "REJECT-DROP", "PA
 // 一组跳实例的 mihomo 配置（plan.md K0 做法 2）：每个跳实例一个本机 socks listener，用 proxy 字段固定走它自己的
 // 代理，不经过 rules。rules 只留 MATCH,REJECT 兜底：不写 rules 时没绑定代理的 listener 会走直连。
 // proxies 与 hops 一一对应，是 buildMihomoProxy 的结果。端口重复时 mihomo 只记一行错误、不退出，由这里先保证。
-// controllerPort / controllerSecret 打开 Clash API（external-controller），测速时由 mihomo 自己经代理测延迟
+// 每个 listener 用自己的 users 要求跳实例的本机 socks 凭据（ExternalHop.localAuth），拿不到就报错；不写全局的
+// authentication。controllerPort / controllerSecret 打开 Clash API（external-controller），测速时由 mihomo
+// 自己经代理测延迟
 fun buildMihomoConfig(
     hops: List<ExternalHop>,
     proxies: List<Map<String, Any?>>,
@@ -28,6 +31,7 @@ fun buildMihomoConfig(
 ): String {
     require(hops.size == proxies.size) { "${hops.size} hops but ${proxies.size} proxies" }
     requireDistinctHops(hops, MIHOMO_RESERVED_NAMES)
+    val auths = hops.map { it.requireLocalAuth() }
     val config = LinkedHashMap<String, Any?>()
     // 与 ConfigBuilder 的 sing-box 档位一致；mihomo 没有 trace，最高到 debug
     config["log-level"] = when (settings.logLevel) {
@@ -40,7 +44,7 @@ fun buildMihomoConfig(
         config["external-controller"] = "$LOCALHOST:$controllerPort"
         config["secret"] = controllerSecret
     }
-    config["listeners"] = hops.map { hop ->
+    config["listeners"] = hops.mapIndexed { i, hop ->
         val listener = LinkedHashMap<String, Any?>()
         listener["name"] = hop.inboundTag
         listener["type"] = "socks"
@@ -48,6 +52,8 @@ fun buildMihomoConfig(
         listener["port"] = hop.localPort
         listener["udp"] = true
         listener["proxy"] = hop.outboundTag
+        // users 为空或不写时 listener 不认证、-t 也不报错，所以恰好写一项
+        listener["users"] = listOf(linkedMapOf("username" to auths[i].username, "password" to auths[i].password))
         listener
     }
     config["proxies"] = hops.mapIndexed { i, hop ->

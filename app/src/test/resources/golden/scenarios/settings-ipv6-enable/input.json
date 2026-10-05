@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "settings-ipv6-enable",
   "description": "IPv6 启用",
   "mainProfileId": 1,

@@ -1,11 +1,25 @@
 log-level: warning
 mode: rule
 listeners:
-- {name: in-3, type: socks, listen: 127.0.0.1, port: 40531, udp: true, proxy: out-3}
-- {name: in-4, type: socks, listen: 127.0.0.1, port: 42211, udp: true, proxy: out-4}
+- name: in-3
+  type: socks
+  listen: 127.0.0.1
+  port: 34577
+  udp: true
+  proxy: out-3
+  users:
+  - {username: ucb47913cd6664f62, password: p0c21a20c4da087aa85e842d6b514a8e7}
+- name: in-4
+  type: socks
+  listen: 127.0.0.1
+  port: 33333
+  udp: true
+  proxy: out-4
+  users:
+  - {username: ucb47913cd6664f62, password: p0c21a20c4da087aa85e842d6b514a8e7}
 proxies:
-- {name: out-3, type: anytls, server: 127.0.0.1, port: 36127, password: golden-pass-anytls,
+- {name: out-3, type: anytls, server: 127.0.0.1, port: 35323, password: golden-pass-anytls,
   udp: true, sni: mihomo-1.example.org}
-- {name: out-4, type: anytls, server: 127.0.0.1, port: 33965, password: golden-pass-anytls,
+- {name: out-4, type: anytls, server: 127.0.0.1, port: 45625, password: golden-pass-anytls,
   udp: true, sni: mihomo-2.example.org}
 rules: ['MATCH,REJECT']

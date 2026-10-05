@@ -86,7 +86,7 @@
     },
     {
       "server": "127.0.0.1",
-      "server_port": 43935,
+      "server_port": 33875,
       "tag": "g-3",
       "type": "socks"
     },

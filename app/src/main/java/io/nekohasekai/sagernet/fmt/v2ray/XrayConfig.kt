@@ -5,6 +5,7 @@ import io.nekohasekai.sagernet.fmt.ExternalHop
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.fmt.effectiveAllowInsecure
 import io.nekohasekai.sagernet.fmt.requireDistinctHops
+import io.nekohasekai.sagernet.fmt.requireLocalAuth
 import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 import moe.matsuri.nb4a.utils.JavaUtil.gson
 import moe.matsuri.nb4a.utils.echAsBase64
@@ -35,10 +36,12 @@ const val XRAY_BLOCK_TAG = "block"
 
 // 一组跳实例的 Xray 配置（plan.md K0 做法 2）：每个跳实例一个本机 socks 入站，routing 按入站 tag 把它的
 // TCP 与 UDP 都指到它自己的出站。outbounds 与 hops 一一对应，是 buildXrayOutbound 的结果。
-// 规则指向不存在的出站、端口重复时 Xray 都不报错，tag 重复则整份配置启动失败：都在这里先保证
+// 规则指向不存在的出站、端口重复时 Xray 都不报错，tag 重复则整份配置启动失败：都在这里先保证。
+// 每个入站都要求跳实例的本机 socks 凭据（ExternalHop.localAuth），拿不到就报错，不生成不认证的入站
 fun buildXrayConfig(hops: List<ExternalHop>, outbounds: List<Map<String, Any?>>, settings: ExternalCoreSettings): String {
     require(hops.size == outbounds.size) { "${hops.size} hops but ${outbounds.size} outbounds" }
     requireDistinctHops(hops, setOf(XRAY_BLOCK_TAG))
+    val auths = hops.map { it.requireLocalAuth() }
     // 用共用的 gson 直接序列化集合；它不输出值为 null 的键，与 org.json put(键, null) 删键的结果一致
     return gson.toJson(LinkedHashMap<String, Any?>().apply {
         put("log", LinkedHashMap<String, Any?>().apply {
@@ -50,14 +53,22 @@ fun buildXrayConfig(hops: List<ExternalHop>, outbounds: List<Map<String, Any?>>,
                     else -> "warning"
                 }
             )
+            // 访问日志（每个连接的 accepted / rejected 行）不受 loglevel 控制：整体关掉，
+            // 启动就绪探测因此也不留行
+            put("access", "none")
         })
-        put("inbounds", hops.map { hop ->
+        put("inbounds", hops.mapIndexed { i, hop ->
             LinkedHashMap<String, Any?>().apply {
                 put("tag", hop.inboundTag)
                 put("listen", LOCALHOST)
                 put("port", hop.localPort)
                 put("protocol", "socks")
-                put("settings", LinkedHashMap<String, Any?>().apply { put("udp", true) })
+                put("settings", LinkedHashMap<String, Any?>().apply {
+                    // auth 必须正好是小写的 "password"：别的值 run -test 照样通过，运行时却不要求认证
+                    put("auth", "password")
+                    put("accounts", listOf(linkedMapOf("user" to auths[i].username, "pass" to auths[i].password)))
+                    put("udp", true)
+                })
             }
         })
         put("outbounds", ArrayList<Any?>().apply {

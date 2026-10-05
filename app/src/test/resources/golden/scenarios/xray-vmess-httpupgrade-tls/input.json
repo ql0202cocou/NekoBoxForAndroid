@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "xray-vmess-httpupgrade-tls",
   "description": "VMess 手动指定 Xray，httpupgrade + TLS",
   "mainProfileId": 1,

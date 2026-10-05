@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "xray-vless-mux-xudp",
   "description": "VLESS mux + xudp",
   "mainProfileId": 1,

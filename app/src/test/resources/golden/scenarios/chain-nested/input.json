@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "chain-nested",
   "description": "链里嵌套链",
   "mainProfileId": 1,

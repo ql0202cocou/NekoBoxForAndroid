@@ -71,7 +71,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 37161,
+      "listen_port": 37635,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-2-mapping-2",
@@ -111,8 +111,10 @@
       "type": "vmess"
     },
     {
+      "password": "pcc97845043e001d894f4dec570556094",
       "server": "127.0.0.1",
-      "server_port": 33471,
+      "server_port": 35569,
+      "username": "uc058d55dcc1e90c7",
       "tag": "golden-selc-xray",
       "type": "socks"
     },

@@ -73,7 +73,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 32943,
+      "listen_port": 38653,
       "override_address": "xray-2.example.com",
       "override_port": 443,
       "tag": "c-6-mapping-6",
@@ -81,7 +81,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 35749,
+      "listen_port": 41041,
       "override_address": "mihomo-2.example.com",
       "override_port": 8445,
       "tag": "c-7-mapping-7",
@@ -89,7 +89,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 36625,
+      "listen_port": 39067,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-1-mapping-4",
@@ -97,7 +97,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 37055,
+      "listen_port": 32877,
       "override_address": "trojan-go.example.com",
       "override_port": 443,
       "tag": "c-1-mapping-2",
@@ -105,7 +105,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 42995,
+      "listen_port": 34989,
       "override_address": "mihomo-1.example.com",
       "override_port": 8444,
       "tag": "c-9-mapping-5",
@@ -113,7 +113,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 39243,
+      "listen_port": 44577,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-9-mapping-4",
@@ -136,38 +136,48 @@
       "type": "selector"
     },
     {
+      "password": "p2dde9240c65e8326685bbf53f222b75c",
       "server": "127.0.0.1",
-      "server_port": 34515,
+      "server_port": 46881,
+      "username": "ud56b91a7ab2f26fc",
       "tag": "golden-multi-sp-xray-2",
       "type": "socks"
     },
     {
+      "password": "p2dde9240c65e8326685bbf53f222b75c",
       "server": "127.0.0.1",
-      "server_port": 36419,
+      "server_port": 34061,
+      "username": "ud56b91a7ab2f26fc",
       "tag": "golden-multi-sp-mihomo-2",
       "type": "socks"
     },
     {
+      "password": "p2dde9240c65e8326685bbf53f222b75c",
       "server": "127.0.0.1",
-      "server_port": 40497,
+      "server_port": 46671,
+      "username": "ud56b91a7ab2f26fc",
       "tag": "golden-multi-sp-chain-a",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 40643,
+      "server_port": 36247,
       "tag": "g-2",
       "type": "socks"
     },
     {
+      "password": "p2dde9240c65e8326685bbf53f222b75c",
       "server": "127.0.0.1",
-      "server_port": 45385,
+      "server_port": 40297,
+      "username": "ud56b91a7ab2f26fc",
       "tag": "golden-multi-sp-chain-c",
       "type": "socks"
     },
     {
+      "password": "p2dde9240c65e8326685bbf53f222b75c",
       "server": "127.0.0.1",
-      "server_port": 44647,
+      "server_port": 33629,
+      "username": "ud56b91a7ab2f26fc",
       "tag": "g-4",
       "type": "socks"
     },

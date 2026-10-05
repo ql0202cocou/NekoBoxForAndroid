@@ -75,7 +75,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 33715,
+      "listen_port": 45631,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-1-mapping-1",
@@ -83,7 +83,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 39223,
+      "listen_port": 36077,
       "override_address": "xray-2.example.com",
       "override_port": 443,
       "tag": "c-2-mapping-2",
@@ -91,7 +91,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 39479,
+      "listen_port": 36167,
       "override_address": "xray-ws-3.example.com",
       "override_port": 443,
       "tag": "c-3-mapping-3",
@@ -99,7 +99,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 45405,
+      "listen_port": 39075,
       "override_address": "mihomo-1.example.com",
       "override_port": 8444,
       "tag": "c-4-mapping-4",
@@ -107,7 +107,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 44129,
+      "listen_port": 37897,
       "override_address": "mihomo-2.example.com",
       "override_port": 8445,
       "tag": "c-5-mapping-5",
@@ -133,32 +133,42 @@
       "type": "selector"
     },
     {
+      "password": "p6265fc21c70f1229cf63919b1e5f6f52",
       "server": "127.0.0.1",
-      "server_port": 37873,
+      "server_port": 38769,
+      "username": "uf37a9baade502ca3",
       "tag": "golden-multi-xray-1",
       "type": "socks"
     },
     {
+      "password": "p6265fc21c70f1229cf63919b1e5f6f52",
       "server": "127.0.0.1",
-      "server_port": 35845,
+      "server_port": 37501,
+      "username": "uf37a9baade502ca3",
       "tag": "golden-multi-xray-2",
       "type": "socks"
     },
     {
+      "password": "p6265fc21c70f1229cf63919b1e5f6f52",
       "server": "127.0.0.1",
-      "server_port": 39365,
+      "server_port": 36947,
+      "username": "uf37a9baade502ca3",
       "tag": "golden-multi-xray-3",
       "type": "socks"
     },
     {
+      "password": "p6265fc21c70f1229cf63919b1e5f6f52",
       "server": "127.0.0.1",
-      "server_port": 35483,
+      "server_port": 40397,
+      "username": "uf37a9baade502ca3",
       "tag": "golden-multi-mihomo-1",
       "type": "socks"
     },
     {
+      "password": "p6265fc21c70f1229cf63919b1e5f6f52",
       "server": "127.0.0.1",
-      "server_port": 45969,
+      "server_port": 35373,
+      "username": "uf37a9baade502ca3",
       "tag": "golden-multi-mihomo-2",
       "type": "socks"
     },

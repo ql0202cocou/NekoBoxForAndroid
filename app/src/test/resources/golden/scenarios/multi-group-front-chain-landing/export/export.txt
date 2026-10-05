@@ -79,7 +79,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 43255,
+      "listen_port": 33441,
       "override_address": "xray-3.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-11",
@@ -87,7 +87,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 43465,
+      "listen_port": 43049,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-1",
@@ -95,7 +95,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 34675,
+      "listen_port": 44005,
       "override_address": "mihomo-1.example.com",
       "override_port": 8444,
       "tag": "c-0-mapping-13",
@@ -103,7 +103,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 39553,
+      "listen_port": 40835,
       "override_address": "xray-2.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-10",
@@ -115,26 +115,34 @@
   },
   "outbounds": [
     {
+      "password": "pf8beb89021a7fa1bd99241b0f1583d1c",
       "server": "127.0.0.1",
-      "server_port": 41189,
+      "server_port": 44907,
+      "username": "u2c7c6f91f80d01e4",
       "tag": "proxy",
       "type": "socks"
     },
     {
+      "password": "pf8beb89021a7fa1bd99241b0f1583d1c",
       "server": "127.0.0.1",
-      "server_port": 33205,
+      "server_port": 40651,
+      "username": "u2c7c6f91f80d01e4",
       "tag": "c-0-1",
       "type": "socks"
     },
     {
+      "password": "pf8beb89021a7fa1bd99241b0f1583d1c",
       "server": "127.0.0.1",
-      "server_port": 36709,
+      "server_port": 42023,
+      "username": "u2c7c6f91f80d01e4",
       "tag": "c-0-13",
       "type": "socks"
     },
     {
+      "password": "pf8beb89021a7fa1bd99241b0f1583d1c",
       "server": "127.0.0.1",
-      "server_port": 40297,
+      "server_port": 35385,
+      "username": "u2c7c6f91f80d01e4",
       "tag": "g-10",
       "type": "socks"
     },
@@ -210,33 +218,55 @@
 
 {
   "log": {
-    "loglevel": "warning"
+    "loglevel": "warning",
+    "access": "none"
   },
   "inbounds": [
     {
       "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 41189,
+      "port": 44907,
       "protocol": "socks",
       "settings": {
+        "auth": "password",
+        "accounts": [
+          {
+            "user": "u2c7c6f91f80d01e4",
+            "pass": "pf8beb89021a7fa1bd99241b0f1583d1c"
+          }
+        ],
         "udp": true
       }
     },
     {
       "tag": "in-1",
       "listen": "127.0.0.1",
-      "port": 33205,
+      "port": 40651,
       "protocol": "socks",
       "settings": {
+        "auth": "password",
+        "accounts": [
+          {
+            "user": "u2c7c6f91f80d01e4",
+            "pass": "pf8beb89021a7fa1bd99241b0f1583d1c"
+          }
+        ],
         "udp": true
       }
     },
     {
       "tag": "in-3",
       "listen": "127.0.0.1",
-      "port": 40297,
+      "port": 35385,
       "protocol": "socks",
       "settings": {
+        "auth": "password",
+        "accounts": [
+          {
+            "user": "u2c7c6f91f80d01e4",
+            "pass": "pf8beb89021a7fa1bd99241b0f1583d1c"
+          }
+        ],
         "udp": true
       }
     }
@@ -253,7 +283,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 43255,
+            "port": 33441,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
@@ -281,7 +311,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 43465,
+            "port": 43049,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
@@ -309,7 +339,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 39553,
+            "port": 40835,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
@@ -362,8 +392,15 @@
 log-level: warning
 mode: rule
 listeners:
-- {name: in-2, type: socks, listen: 127.0.0.1, port: 36709, udp: true, proxy: out-2}
+- name: in-2
+  type: socks
+  listen: 127.0.0.1
+  port: 42023
+  udp: true
+  proxy: out-2
+  users:
+  - {username: u2c7c6f91f80d01e4, password: pf8beb89021a7fa1bd99241b0f1583d1c}
 proxies:
-- {name: out-2, type: anytls, server: 127.0.0.1, port: 34675, password: golden-pass-anytls,
+- {name: out-2, type: anytls, server: 127.0.0.1, port: 44005, password: golden-pass-anytls,
   udp: true, sni: mihomo-1.example.org}
 rules: ['MATCH,REJECT']

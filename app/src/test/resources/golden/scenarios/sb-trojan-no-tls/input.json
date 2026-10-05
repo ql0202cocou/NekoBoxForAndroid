@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-trojan-no-tls",
   "description": "Trojan 关闭 TLS",
   "mainProfileId": 1,

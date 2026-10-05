@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-anytls-certificates",
   "description": "AnyTLS 手动指定 sing-box：自定义 CA + allowInsecure",
   "mainProfileId": 1,

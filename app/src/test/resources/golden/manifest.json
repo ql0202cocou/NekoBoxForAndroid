@@ -1,44 +1,44 @@
 {
-  "formatVersion": 2,
-  "commit": "a06c0d72f80032826b46b5383d3771e7137c2668",
+  "formatVersion": 3,
+  "commit": "009139211fd183aee0174c96590333ae63718082",
   "dirty": {
-    "count": 26,
+    "count": 24,
     "top": [
       "app/src/debug/java/io/nekohasekai/sagernet/golden/collect/GoldenCollector.kt",
       "app/src/debug/java/io/nekohasekai/sagernet/golden/collect/GoldenModes.kt",
-      "app/src/debug/java/io/nekohasekai/sagernet/golden/measure/GoldenMeasure.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/bg/ExternalCoreProbes.kt",
       "app/src/main/java/io/nekohasekai/sagernet/bg/proto/BoxInstance.kt",
       "app/src/main/java/io/nekohasekai/sagernet/bg/proto/ProxyInstance.kt",
       "app/src/main/java/io/nekohasekai/sagernet/bg/proto/TestInstance.kt",
       "app/src/main/java/io/nekohasekai/sagernet/database/ProxyEntity.kt",
       "app/src/main/java/io/nekohasekai/sagernet/fmt/ConfigBuilder.kt",
       "app/src/main/java/io/nekohasekai/sagernet/fmt/ExternalRunPlan.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/LocalSocksAuth.kt",
       "app/src/main/java/io/nekohasekai/sagernet/fmt/ProtocolHandlers.kt",
       "app/src/main/java/io/nekohasekai/sagernet/fmt/v2ray/XrayConfig.kt",
       "app/src/main/java/moe/matsuri/nb4a/proxy/anytls/MihomoConfig.kt",
+      "app/src/test/java/io/nekohasekai/sagernet/bg/ExternalCoreProbesTest.kt",
+      "app/src/test/java/io/nekohasekai/sagernet/fmt/ExternalCoreStartupTest.kt",
       "app/src/test/java/io/nekohasekai/sagernet/fmt/ExternalRunPlanTest.kt",
-      "app/src/test/java/io/nekohasekai/sagernet/fmt/v2ray/XrayConfigTest.kt",
+      "app/src/test/java/io/nekohasekai/sagernet/fmt/LocalSocksAuthTest.kt",
       "app/src/test/java/io/nekohasekai/sagernet/golden/GoldenBaseline.kt",
-      "app/src/test/java/io/nekohasekai/sagernet/golden/GoldenCompare.kt",
       "app/src/test/java/io/nekohasekai/sagernet/golden/GoldenCompareBaselineTest.kt",
       "app/src/test/java/io/nekohasekai/sagernet/golden/GoldenCompareTree.kt",
       "app/src/test/java/io/nekohasekai/sagernet/golden/GoldenCompareTreeTest.kt",
-      "app/src/test/java/io/nekohasekai/sagernet/golden/GoldenExternalCoreCheck.kt",
-      "app/src/test/java/io/nekohasekai/sagernet/golden/GoldenExternalCoreCheckTest.kt",
       "app/src/test/java/io/nekohasekai/sagernet/golden/GoldenExternalWiringTest.kt",
       "app/src/test/java/moe/matsuri/nb4a/proxy/anytls/MihomoConfigTest.kt",
-      "app/src/test/resources/golden/README.md",
-      "buildScript/golden/compare.sh",
-      "buildScript/golden/measure.sh"
+      "buildScript/golden/compare.sh"
     ],
-    "codeCount": 9,
+    "codeCount": 11,
     "codeTop": [
+      "app/src/main/java/io/nekohasekai/sagernet/bg/ExternalCoreProbes.kt",
       "app/src/main/java/io/nekohasekai/sagernet/bg/proto/BoxInstance.kt",
       "app/src/main/java/io/nekohasekai/sagernet/bg/proto/ProxyInstance.kt",
       "app/src/main/java/io/nekohasekai/sagernet/bg/proto/TestInstance.kt",
       "app/src/main/java/io/nekohasekai/sagernet/database/ProxyEntity.kt",
       "app/src/main/java/io/nekohasekai/sagernet/fmt/ConfigBuilder.kt",
       "app/src/main/java/io/nekohasekai/sagernet/fmt/ExternalRunPlan.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/LocalSocksAuth.kt",
       "app/src/main/java/io/nekohasekai/sagernet/fmt/ProtocolHandlers.kt",
       "app/src/main/java/io/nekohasekai/sagernet/fmt/v2ray/XrayConfig.kt",
       "app/src/main/java/moe/matsuri/nb4a/proxy/anytls/MihomoConfig.kt"
@@ -46,8 +46,8 @@
   },
   "app": {
     "applicationId": "moe.nb4a.debug",
-    "versionName": "1.7.8-a1",
-    "versionCode": 525,
+    "versionName": "1.8.0-a1",
+    "versionCode": 530,
     "flavor": "oss",
     "buildType": "debug"
   },
@@ -101,5 +101,25 @@
     "exportOk": 249,
     "exportError": 44
   },
-  "collectedAt": "2026-10-05T00:58:47Z"
+  "externalChecks": {
+    "checked": 254,
+    "failed": 0,
+    "inconclusive": 0,
+    "byPlugin": {
+      "xray-plugin": {
+        "checked": 167,
+        "passed": 167,
+        "failed": 0,
+        "inconclusive": 0
+      },
+      "mihomo-plugin": {
+        "checked": 87,
+        "passed": 87,
+        "failed": 0,
+        "inconclusive": 0
+      }
+    },
+    "problems": []
+  },
+  "collectedAt": "2026-10-05T03:30:50Z"
 }

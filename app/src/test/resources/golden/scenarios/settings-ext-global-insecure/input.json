@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "settings-ext-global-insecure",
   "description": "全外核链，全局 allowInsecure",
   "mainProfileId": 1,

@@ -154,9 +154,9 @@ private fun unquoteLogrus(text: String): String {
 }
 
 /**
- * 一个跳实例的就绪等待结果。strict 为真表示它跑在内置的 Xray / mihomo 上：要求完成 SOCKS5 握手，等不到就失败；
- * 否则（插件核心、外部插件 app 提供的核心）只等端口能连上，等不到只警告。exitCode 是等待期间监听它的进程
- * 退出时的退出码，lastError 是最后一次探测失败的原因。
+ * 一个跳实例的就绪等待结果。strict 为真表示它跑在内置的 Xray / mihomo 上：要求用本机 socks 凭据完成 SOCKS5 握手，
+ * 等不到就失败；否则（插件核心、外部插件 app 提供的核心）只等端口能连上，等不到只警告。exitCode 是等待期间监听
+ * 它的进程退出时的退出码，lastError 是最后一次探测失败的原因。
  */
 class HopReadiness(
     val hop: ExternalHop,

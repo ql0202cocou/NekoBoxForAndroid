@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "group-front-chain",
   "description": "前置本身是链",
   "mainProfileId": 1,

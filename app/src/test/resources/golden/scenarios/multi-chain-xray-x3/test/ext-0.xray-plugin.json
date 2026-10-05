@@ -1,32 +1,54 @@
 {
   "log": {
-    "loglevel": "warning"
+    "loglevel": "warning",
+    "access": "none"
   },
   "inbounds": [
     {
       "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 37771,
+      "port": 37333,
       "protocol": "socks",
       "settings": {
+        "auth": "password",
+        "accounts": [
+          {
+            "user": "uac763ba8b2d5c08e",
+            "pass": "p5e831a19873054f1e59481cc8c161f18"
+          }
+        ],
         "udp": true
       }
     },
     {
       "tag": "in-1",
       "listen": "127.0.0.1",
-      "port": 39631,
+      "port": 45633,
       "protocol": "socks",
       "settings": {
+        "auth": "password",
+        "accounts": [
+          {
+            "user": "uac763ba8b2d5c08e",
+            "pass": "p5e831a19873054f1e59481cc8c161f18"
+          }
+        ],
         "udp": true
       }
     },
     {
       "tag": "in-2",
       "listen": "127.0.0.1",
-      "port": 40409,
+      "port": 34555,
       "protocol": "socks",
       "settings": {
+        "auth": "password",
+        "accounts": [
+          {
+            "user": "uac763ba8b2d5c08e",
+            "pass": "p5e831a19873054f1e59481cc8c161f18"
+          }
+        ],
         "udp": true
       }
     }
@@ -43,7 +65,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 40425,
+            "port": 39933,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
@@ -71,7 +93,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 46609,
+            "port": 34831,
             "users": [
               {
                 "id": "5a0c1e2f-3b4d-4e6f-8a9b-0c1d2e3f4a5b",
@@ -103,7 +125,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 40107,
+            "port": 42847,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",

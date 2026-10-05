@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "mihomo-anytls-group-missing",
   "description": "AnyTLS 所在分组不存在：测速不开 Clash API",
   "mainProfileId": 1,

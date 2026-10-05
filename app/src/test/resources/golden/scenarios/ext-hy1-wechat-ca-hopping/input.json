@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "ext-hy1-wechat-ca-hopping",
   "description": "Hysteria 1 wechat-video：CA 临时文件、多端口、接收窗口、obfs",
   "mainProfileId": 1,

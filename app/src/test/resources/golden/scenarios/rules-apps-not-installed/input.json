@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "rules-apps-not-installed",
   "description": "按应用分流，应用都未安装：整条跳过",
   "mainProfileId": 1,

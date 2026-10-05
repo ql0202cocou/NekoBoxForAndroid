@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-trojan-utls",
   "description": "Trojan uTLS",
   "mainProfileId": 1,

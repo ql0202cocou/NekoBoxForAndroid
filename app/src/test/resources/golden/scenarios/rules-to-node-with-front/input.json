@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "rules-to-node-with-front",
   "description": "规则目标所在分组有前置",
   "mainProfileId": 1,

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-tuic-v5-disable-sni-insecure",
   "description": "TUIC v5：IP 服务器、禁用 SNI、allowInsecure",
   "mainProfileId": 1,

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "settings-mtu-1500",
   "description": "MTU 1500",
   "mainProfileId": 1,

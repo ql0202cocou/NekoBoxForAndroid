@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "settings-clash-api",
   "description": "开启 Clash API（固定 secret）",
   "mainProfileId": 1,

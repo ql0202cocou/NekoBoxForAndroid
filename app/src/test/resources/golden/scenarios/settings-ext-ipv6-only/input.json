@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "settings-ext-ipv6-only",
   "description": "全外核链，仅 IPv6",
   "mainProfileId": 1,

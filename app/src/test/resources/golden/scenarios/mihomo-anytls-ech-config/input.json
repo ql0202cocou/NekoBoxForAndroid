@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "mihomo-anytls-ech-config",
   "description": "AnyTLS ECH 内联配置",
   "mainProfileId": 1,

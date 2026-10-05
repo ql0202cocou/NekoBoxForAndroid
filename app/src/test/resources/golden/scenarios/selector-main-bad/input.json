@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "selector-main-bad",
   "description": "选择器：选中的节点本身构建失败（不预检，照常报错）",
   "mainProfileId": 1,

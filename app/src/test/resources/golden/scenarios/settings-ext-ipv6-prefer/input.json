@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "settings-ext-ipv6-prefer",
   "description": "全外核链，IPv6 优先",
   "mainProfileId": 1,

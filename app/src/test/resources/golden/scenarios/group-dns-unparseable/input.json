@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "group-dns-unparseable",
   "description": "分组 DNS 有解析不了的地址：跳过它",
   "mainProfileId": 1,

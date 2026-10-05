@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-vmess-grpc-tls",
   "description": "VMess gRPC + TLS",
   "mainProfileId": 1,

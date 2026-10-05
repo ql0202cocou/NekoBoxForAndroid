@@ -22,7 +22,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 42021,
+      "listen_port": 33393,
       "override_address": "192.0.2.50",
       "override_port": 443,
       "tag": "c-0-mapping-1",
@@ -34,8 +34,10 @@
   },
   "outbounds": [
     {
+      "password": "pe279f3797432087daae46b8d33a68e2a",
       "server": "127.0.0.1",
-      "server_port": 34671,
+      "server_port": 37419,
+      "username": "u3b4ed87b5a2452b4",
       "tag": "proxy",
       "type": "socks"
     },

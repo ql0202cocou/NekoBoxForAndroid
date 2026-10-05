@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-vmess-tls-utls",
   "description": "VMess TLS uTLS 指纹",
   "mainProfileId": 1,

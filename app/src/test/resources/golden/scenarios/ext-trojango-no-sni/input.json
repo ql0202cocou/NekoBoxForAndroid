@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "ext-trojango-no-sni",
   "description": "Trojan-Go 不填 SNI：经映射时兜底为服务器域名",
   "mainProfileId": 1,

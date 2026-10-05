@@ -36,31 +36,43 @@
           "index": 0,
           "chainIndex": 0,
           "profileId": 11,
-          "port": 39113,
+          "port": 35767,
           "finalAddress": "127.0.0.1",
-          "finalPort": 42833,
+          "finalPort": 33891,
           "inboundTag": "in-0",
-          "outboundTag": "out-0"
+          "outboundTag": "out-0",
+          "localAuth": {
+            "username": "ue694b28f490eb382",
+            "password": "p7d7ad02b9246be0e14c7502fed112d7d"
+          }
         },
         {
           "index": 1,
           "chainIndex": 0,
           "profileId": 1,
-          "port": 33151,
+          "port": 34313,
           "finalAddress": "127.0.0.1",
-          "finalPort": 40027,
+          "finalPort": 45291,
           "inboundTag": "in-1",
-          "outboundTag": "out-1"
+          "outboundTag": "out-1",
+          "localAuth": {
+            "username": "ue694b28f490eb382",
+            "password": "p7d7ad02b9246be0e14c7502fed112d7d"
+          }
         },
         {
           "index": 3,
           "chainIndex": 0,
           "profileId": 10,
-          "port": 35927,
+          "port": 42691,
           "finalAddress": "127.0.0.1",
-          "finalPort": 37103,
+          "finalPort": 44283,
           "inboundTag": "in-3",
-          "outboundTag": "out-3"
+          "outboundTag": "out-3",
+          "localAuth": {
+            "username": "ue694b28f490eb382",
+            "password": "p7d7ad02b9246be0e14c7502fed112d7d"
+          }
         }
       ]
     },
@@ -74,27 +86,34 @@
           "index": 2,
           "chainIndex": 0,
           "profileId": 13,
-          "port": 42567,
+          "port": 44055,
           "finalAddress": "127.0.0.1",
-          "finalPort": 34367,
+          "finalPort": 35687,
           "inboundTag": "in-2",
-          "outboundTag": "out-2"
+          "outboundTag": "out-2",
+          "localAuth": {
+            "username": "ue694b28f490eb382",
+            "password": "p7d7ad02b9246be0e14c7502fed112d7d"
+          }
         }
       ]
     }
   ],
   "dynamic": {
     "ports": [
-      39113,
-      33151,
-      42567,
-      35927,
-      42833,
-      40027,
-      34367,
-      37103
+      35767,
+      34313,
+      44055,
+      42691,
+      33891,
+      45291,
+      35687,
+      44283
     ],
     "paths": [],
-    "secrets": []
+    "secrets": [
+      "ue694b28f490eb382",
+      "p7d7ad02b9246be0e14c7502fed112d7d"
+    ]
   }
 }

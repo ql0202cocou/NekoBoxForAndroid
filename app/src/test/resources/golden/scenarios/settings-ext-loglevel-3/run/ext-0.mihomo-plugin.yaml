@@ -1,8 +1,15 @@
 log-level: debug
 mode: rule
 listeners:
-- {name: in-0, type: socks, listen: 127.0.0.1, port: 33085, udp: true, proxy: out-0}
+- name: in-0
+  type: socks
+  listen: 127.0.0.1
+  port: 45019
+  udp: true
+  proxy: out-0
+  users:
+  - {username: uce2d1daea24cf016, password: pf666fe8a0b3b77e3be91ff84be6020fb}
 proxies:
-- {name: out-0, type: anytls, server: 127.0.0.1, port: 43349, password: golden-pass-anytls,
+- {name: out-0, type: anytls, server: 127.0.0.1, port: 38933, password: golden-pass-anytls,
   udp: true, sni: anytls.example.com}
 rules: ['MATCH,REJECT']

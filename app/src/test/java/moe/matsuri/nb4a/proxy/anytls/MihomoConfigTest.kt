@@ -5,6 +5,7 @@ import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
 import io.nekohasekai.sagernet.fmt.ExternalHop
 import io.nekohasekai.sagernet.fmt.ExternalRunPlan
 import io.nekohasekai.sagernet.fmt.LOCALHOST
+import io.nekohasekai.sagernet.fmt.LocalSocksAuth
 import io.nekohasekai.sagernet.fmt.assemble
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -34,8 +35,11 @@ class MihomoConfigTest {
 
     private fun Map<String, Any?>.proxy() = list("proxies").single()
 
-    // 映射目标取 bean 的 finalAddress / finalPort，与 ExternalRunPlan.from 一样
-    private fun hop(bean: AnyTLSBean) = ExternalHop(0, 0, 1L, bean, 20001, bean.finalAddress, bean.finalPort)
+    private val auth = LocalSocksAuth("u0123456789abcdef", "p0123456789abcdef0123456789abcdef")
+
+    // 映射目标取 bean 的 finalAddress / finalPort，本机 socks 凭据取构建结果的，与 ExternalRunPlan.from 一样
+    private fun hop(bean: AnyTLSBean) =
+        ExternalHop(0, 0, 1L, bean, 20001, bean.finalAddress, bean.finalPort, localAuth = auth)
 
     private fun config(
         bean: AnyTLSBean,
@@ -65,12 +69,17 @@ class MihomoConfigTest {
         assertFalse(config.containsKey("secret"))
 
         val listener = config.list("listeners").single()
+        assertEquals(listOf("name", "type", "listen", "port", "udp", "proxy", "users"), listener.keys.toList())
         assertEquals("in-0", listener["name"])
         assertEquals("socks", listener["type"])
         assertEquals(LOCALHOST, listener["listen"])
         assertEquals(20001, listener["port"])
         assertEquals(true, listener["udp"])
         assertEquals("out-0", listener["proxy"])
+        // listener 自己要求跳实例的凭据，恰好一项；不写全局的认证项
+        assertEquals(listOf(mapOf("username" to auth.username, "password" to auth.password)), listener["users"])
+        assertFalse(config.containsKey("authentication"))
+        assertFalse(config.containsKey("skip-auth-prefixes"))
 
         val proxy = config.proxy()
         assertEquals("out-0", proxy["name"])
@@ -84,6 +93,19 @@ class MihomoConfigTest {
         assertFalse(proxy.containsKey("ech-opts"))
 
         assertEquals(listOf("MATCH,REJECT"), config["rules"])
+    }
+
+    @Test
+    fun `拿不到本机 socks 凭据时不生成配置`() {
+        val bean = bean()
+        val e = assertThrows(IllegalStateException::class.java) {
+            buildMihomoConfig(
+                listOf(ExternalHop(0, 0, 1L, bean, 20001, bean.finalAddress, bean.finalPort)),
+                listOf(buildMihomoProxy(bean, bean.finalAddress, bean.finalPort, settings)),
+                settings,
+            )
+        }
+        assertEquals("external hop 0 (mihomo-plugin) has no local socks credentials", e.message)
     }
 
     @Test

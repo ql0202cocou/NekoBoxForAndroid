@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "custom-xray-node-outbound-json",
   "description": "外核节点的自定义出站 JSON 合并到本机 socks 出站",
   "mainProfileId": 1,

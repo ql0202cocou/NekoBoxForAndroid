@@ -46,8 +46,9 @@ const val CLASH_API_LISTEN = "$LOCALHOST:9090"
 // a user-chosen profile name matching it would collide with one.
 private val GENERATED_TAG_SHAPE = Regex("g-\\d+|c-\\d+.*")
 
-// 预检生成外部核心配置用的占位端口，生成的配置随即丢弃
+// 预检生成外部核心配置用的占位端口与占位凭据，生成的配置随即丢弃；不为预检消耗随机数
 private const val PRECHECK_PORT = 1080
+private val PRECHECK_AUTH = LocalSocksAuth("u" + "0".repeat(16), "p" + "0".repeat(32))
 
 // sing-box 1.14 removed the legacy DNS server address format; map it to typed
 // servers the same way sing-box 1.13's internal upgrade did.
@@ -119,8 +120,14 @@ class ConfigBuildResult(
     val boxTagNames: Map<String, String> = emptyMap(),
     // 构建中收集到的诊断，提示由调用方生成；见 configBuildNotices
     val diagnostics: List<ConfigBuildDiagnostic> = emptyList(),
+    // 本次构建的本机 socks 凭据：sing-box 里接入站支持认证的外核的 socks 出站都带它，外核运行计划
+    // （ExternalRunPlan.from）把同一个值交给这些外核的入站。没有这样的跳实例时为 null
+    val localAuth: LocalSocksAuth? = null,
 ) {
     data class IndexEntity(var chain: LinkedHashMap<Int, ProxyEntity>)
+
+    // 写日志前按值遮蔽本次构建的本机 socks 凭据（与格式、键名无关）；按键名的脱敏另外照常做
+    fun redactLocalAuth(text: String): String = localAuth?.redact(text) ?: text
 }
 
 private val BOX_INDEX_ERROR = Regex("initialize ((?:outbound|endpoint)\\[\\d+])")
@@ -160,10 +167,12 @@ inline fun <T> withProfileName(bean: AbstractBean, block: () -> T): T = try {
 }
 
 // diagnostics 是诊断收集器：构建抛异常时调用方仍能从中拿到已收集的部分，
-// 成功时 ConfigBuildResult.diagnostics 是同样的内容
+// 成功时 ConfigBuildResult.diagnostics 是同样的内容。newLocalAuth 生成本次构建的本机 socks 凭据，
+// 只在第一个需要它的跳实例处调用一次（见 ConfigBuildResult.localAuth）；测试可传固定的生成方式
 fun buildConfig(
     proxy: ProxyEntity, forTest: Boolean = false, forExport: Boolean = false,
     diagnostics: MutableList<ConfigBuildDiagnostic> = ArrayList(),
+    newLocalAuth: () -> LocalSocksAuth = LocalSocksAuth::random,
 ): ConfigBuildResult {
 
     if (proxy.isFullConfig()) {
@@ -177,7 +186,7 @@ fun buildConfig(
         )
     }
 
-    return ConfigBuild(proxy, forTest, forExport, diagnostics).build()
+    return ConfigBuild(proxy, forTest, forExport, diagnostics, newLocalAuth).build()
 }
 
 // 按用户填写的顺序展开链（含任意层嵌套），结果首项是第一跳；不是链的节点展开成它自己。
@@ -237,6 +246,7 @@ fun selectorGroupIdOf(proxy: ProxyEntity): Long {
 private class ConfigBuild(
     val proxy: ProxyEntity, val forTest: Boolean, val forExport: Boolean,
     val diagnostics: MutableList<ConfigBuildDiagnostic>,
+    val newLocalAuth: () -> LocalSocksAuth,
 ) {
 
     val trafficMap = HashMap<String, List<ProxyEntity>>()
@@ -356,6 +366,8 @@ private class ConfigBuild(
     val useFakeDns = DataStore.enableFakeDns && !forTest
     val needSniff = DataStore.trafficSniffing > 0
     val externalIndexMap = ArrayList<IndexEntity>()
+    // 本次构建的本机 socks 凭据，第一个需要它的跳实例处生成，之后共用；见 ConfigBuildResult.localAuth
+    var localAuth: LocalSocksAuth? = null
     // 每个节点出站 / 端点的 tag -> 节点名，build() 末尾按最终配置换算成 boxIndexNames
     val hopNames = HashMap<String, String>()
     val ipv6Mode = if (forTest) IPv6Mode.ENABLE else DataStore.ipv6Mode
@@ -409,6 +421,7 @@ private class ConfigBuild(
             boxIndexNames(configMap),
             hopNames,
             diagnostics.toList(),
+            localAuth,
         )
     }
 
@@ -675,6 +688,12 @@ private class ConfigBuild(
                 type = "socks"
                 server = LOCALHOST
                 server_port = localPort
+                // 外核的入站要求认证时带上本次构建的凭据；外核一侧由运行计划从构建结果取同一个值
+                if (externalCore(bean)?.inboundAuth == true) {
+                    val auth = localAuth ?: newLocalAuth().also { localAuth = it }
+                    username = auth.username
+                    password = auth.password
+                }
             }
         } else {
             // internal outbound
@@ -831,11 +850,14 @@ private class ConfigBuild(
                 if (bean.canMapping() && index == profileList.lastIndex) hysteriaSkipsMapping(bean)
                 // NekoBean 没有 ExternalCore，与 BoxInstance.init 一样跳过
                 val core = externalCore(bean) ?: return@withProfileName
-                // 经运行时同一个组装入口，给只有这一个跳实例的计划试生成一次。生成的配置丢弃，端口只是占位，
+                // 经运行时同一个组装入口，给只有这一个跳实例的计划试生成一次。生成的配置丢弃，端口与凭据只是占位，
                 // 映射目标取 bean 现有的值（预检不能调 mapExternalHop）；hysteria 1 会写 CA 临时文件，用完删掉
                 val tempFiles = ArrayList<File>()
                 try {
-                    val probe = ExternalHop(0, 0, hop.id, bean, PRECHECK_PORT, bean.finalAddress.orEmpty(), bean.finalPort, core)
+                    val probe = ExternalHop(
+                        0, 0, hop.id, bean, PRECHECK_PORT, bean.finalAddress.orEmpty(), bean.finalPort, core,
+                        PRECHECK_AUTH.takeIf { core.inboundAuth },
+                    )
                     ExternalRunPlan(listOf(probe)).assemble({ prefix, ext ->
                         File.createTempFile(prefix + "_", ".$ext", SagerNet.application.cacheDir)
                             .also { tempFiles.add(it) }

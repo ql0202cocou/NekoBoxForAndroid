@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "chain-hy1-wechat-exit",
   "description": "Hysteria 1 插件节点是出口：经映射",
   "mainProfileId": 1,

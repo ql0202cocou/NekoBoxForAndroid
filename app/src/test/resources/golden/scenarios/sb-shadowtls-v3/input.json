@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-shadowtls-v3",
   "description": "ShadowTLS v3：ALPN、uTLS",
   "mainProfileId": 1,

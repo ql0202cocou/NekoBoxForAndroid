@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "group-front-missing",
   "description": "前置节点已不存在：忽略",
   "mainProfileId": 1,

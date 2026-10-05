@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-vless-quic-auto",
   "description": "VLESS quic：Xray 不支持，自动落到 sing-box",
   "mainProfileId": 1,

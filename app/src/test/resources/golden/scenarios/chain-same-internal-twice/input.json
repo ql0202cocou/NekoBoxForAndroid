@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "chain-same-internal-twice",
   "description": "同一内核节点在一条链里出现两次（tag 加序号）",
   "mainProfileId": 1,

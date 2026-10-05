@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "settings-allow-access",
   "description": "允许局域网访问",
   "mainProfileId": 1,

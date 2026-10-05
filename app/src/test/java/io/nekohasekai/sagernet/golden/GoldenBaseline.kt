@@ -9,6 +9,7 @@ import io.nekohasekai.sagernet.fmt.ExternalCoreGroup
 import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
 import io.nekohasekai.sagernet.fmt.ExternalHop
 import io.nekohasekai.sagernet.fmt.ExternalRunPlan
+import io.nekohasekai.sagernet.fmt.LocalSocksAuth
 import io.nekohasekai.sagernet.fmt.putByteArray
 import org.junit.Assume.assumeTrue
 import java.io.File
@@ -61,7 +62,7 @@ class GoldenExternalGroup(
     val hops: List<GoldenExternalHop>,
 )
 
-/** 一组里一个跳实例的记录；插件核心的配置不带标识，两个 tag 为 null。 */
+/** 一组里一个跳实例的记录；插件核心的配置不带标识，两个 tag 为 null；入站不认证的 localAuth 为 null。 */
 class GoldenExternalHop(
     val index: Int,
     val chainIndex: Int,
@@ -71,6 +72,7 @@ class GoldenExternalHop(
     val finalPort: Int,
     val inboundTag: String?,
     val outboundTag: String?,
+    val localAuth: LocalSocksAuth?,
 )
 
 /** 一个场景的 input.json。 */
@@ -171,13 +173,15 @@ class GoldenBaseline private constructor(val root: File) {
                         finalPort = hop.int("finalPort", at),
                         inboundTag = hop.optString("inboundTag", at),
                         outboundTag = hop.optString("outboundTag", at),
+                        localAuth = hop.localAuth(at),
                     )
                 }.also { check(it.isNotEmpty()) { "$at：第 $n 组没有跳实例" } },
             )
         }
 
     // 按 result.json 重建这个模式的完整计划：跳实例按 index 排好，bean 从 input.json 新建并写回映射目标
-    // （插件核心的生成器从 bean 读 finalAddress / finalPort）。计划自己分出的组必须与记录的一致
+    // （插件核心的生成器从 bean 读 finalAddress / finalPort），本机 socks 凭据用记录的值（计划自己检查哪些核心
+    // 必须有、一个计划只有一组）。计划自己分出的组必须与记录的一致
     private fun rebuildPlan(input: GoldenScenarioInput, groups: List<GoldenExternalGroup>, where: String): ExternalRunPlan {
         val hops = groups.flatMap { it.hops }.sortedBy { it.index }
         check(hops.map { it.index } == hops.indices.toList()) { "$where：跳实例序号 ${hops.map { it.index }} 不连续" }
@@ -186,7 +190,10 @@ class GoldenBaseline private constructor(val root: File) {
                 finalAddress = hop.finalAddress
                 finalPort = hop.finalPort
             }
-            ExternalHop(hop.index, hop.chainIndex, hop.profileId, bean, hop.port, hop.finalAddress, hop.finalPort)
+            ExternalHop(
+                hop.index, hop.chainIndex, hop.profileId, bean, hop.port, hop.finalAddress, hop.finalPort,
+                localAuth = hop.localAuth,
+            )
         })
         val planned = plan.groups.map { group -> group.pluginId to group.hops.map { it.index } }
         val recorded = groups.map { group -> group.pluginId to group.hops.map { it.index } }
@@ -289,6 +296,14 @@ private fun JsonObject.array(key: String, where: String) =
 private fun JsonObject.string(key: String, where: String): String =
     field(key, where).takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }?.asString
         ?: error("$where：$key 不是字符串")
+
+// 格式 3 起每个跳实例都有 localAuth：{username, password}，入站不认证时为 null
+private fun JsonObject.localAuth(where: String): LocalSocksAuth? {
+    val value = get("localAuth") ?: error("$where：缺少字段 localAuth")
+    if (value.isJsonNull) return null
+    val auth = value.takeIf { it.isJsonObject }?.asJsonObject ?: error("$where：localAuth 不是对象")
+    return LocalSocksAuth(auth.string("username", "$where localAuth"), auth.string("password", "$where localAuth"))
+}
 
 private fun JsonObject.optString(key: String, where: String): String? =
     get(key)?.takeUnless { it.isJsonNull }?.let { value ->

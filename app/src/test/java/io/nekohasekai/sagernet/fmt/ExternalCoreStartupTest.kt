@@ -4,6 +4,7 @@ import io.nekohasekai.sagernet.fmt.naive.NaiveBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -30,9 +31,14 @@ class ExternalCoreStartupTest {
         initializeDefaultValues()
     }
 
-    // 计划里的跳实例按顺序编号，本机端口从 21000 起
+    private val auth = LocalSocksAuth("u0123456789abcdef", "p0123456789abcdef0123456789abcdef")
+
+    // 计划里的跳实例按顺序编号，本机端口从 21000 起；入站支持认证的核心带凭据
     private fun plan(vararg beans: AbstractBean) = ExternalRunPlan(beans.mapIndexed { i, bean ->
-        ExternalHop(i, 0, i.toLong() + 1, bean, 21000 + i, LOCALHOST, 30000 + i)
+        ExternalHop(
+            i, 0, i.toLong() + 1, bean, 21000 + i, LOCALHOST, 30000 + i,
+            localAuth = auth.takeIf { externalCore(bean)!!.inboundAuth },
+        )
     })
 
     private val xrayGroup = plan(vless("x0"), vless("x1"), vless("x2")).groups.single()
@@ -320,6 +326,20 @@ class ExternalCoreStartupTest {
             "Xray exited with code 255 before its local inbounds were ready; see the log for details",
             outcome.failure!!.message,
         )
+    }
+
+    @Test
+    fun `就绪等待的报错文案里没有凭据`() {
+        val texts = listOf(
+            externalReadyOutcome(readiness(xrayGroup, true, ready = setOf(0, 2), error = "unexpected SOCKS5 reply 05 ff"), 5000),
+            externalReadyOutcome(readiness(mihomoGroup, true), 5000),
+            externalReadyOutcome(readiness(xrayGroup, true, exited = mapOf(0 to 23)), 5000),
+            externalReadyOutcome(readiness(mihomoGroup, false), 5000),
+        ).flatMap { listOfNotNull(it.failure?.message) + it.warnings }
+        assertTrue(texts.isNotEmpty())
+        for (text in texts) {
+            assertFalse(text, auth.username in text || auth.password in text)
+        }
     }
 
     @Test

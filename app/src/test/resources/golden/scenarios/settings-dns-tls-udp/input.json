@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "settings-dns-tls-udp",
   "description": "远程 DNS tls://、直连 DNS udp:// 带端口",
   "mainProfileId": 1,

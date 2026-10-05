@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "xray-vless-packetaddr",
   "description": "VLESS packetaddr：Xray 上静默忽略",
   "mainProfileId": 1,

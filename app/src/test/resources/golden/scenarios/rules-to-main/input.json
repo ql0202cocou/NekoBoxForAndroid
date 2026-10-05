@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "rules-to-main",
   "description": "规则目标就是选中的节点",
   "mainProfileId": 1,

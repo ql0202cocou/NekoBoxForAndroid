@@ -9,6 +9,13 @@ K0（每种核心一个进程）有意改变了外核一侧：Xray、mihomo 的�
 插件核心（Trojan-Go、Naive、Mieru、Hysteria 1）的配置原文与 v1 相同，Xray / mihomo 合并配置里每个跳实例的出站 /
 代理与 v1 对应的单节点配置相同，只多了标识。
 
+K0b（本机 socks 认证）又有意改变了两侧：sing-box 里接 Xray / mihomo 的本机 socks 出站带上本次构建的用户名 / 密码，
+Xray 的各入站要求同一组凭据（`auth` / `accounts`，并关掉访问日志 `log.access`），mihomo 的各 listener 用 `users`
+要求同一组凭据；产物格式升到 v3（`result.json` 的跳实例记录凭据，凭据登记进 `dynamic.secrets`）。做法是先用
+`./run golden compare --ignore-local-auth` 证明去掉认证之后 293 个场景与 K0 的 v2 基线逐场景一致，再整体换成新采集
+的结果，并再采集一次做完整比较。四种插件核心的入站认证没有核实过，配置与 v2 逐字节相同，sing-box 一侧接它们的
+socks 出站也不带凭据。
+
 采集入口只编进 debug 包（`app/src/debug/`），R1b 的 JVM 黄金测试建成后删除；这份基线不随之删除。
 
 ## 重新采集
@@ -61,6 +68,7 @@ APK 只按 `app/build/outputs/apk/oss/debug/output-metadata.json`（Gradle 每�
 ```bash
 ./run golden compare <新采集目录> [基线目录]                  # 全部产物，基线默认本目录
 ./run golden compare --sing-box-only <新采集目录> [基线目录]  # 只比 sing-box 一侧
+./run golden compare --ignore-local-auth <新采集目录> [基线目录]  # 全部产物，但先去掉本机 socks 认证
 ```
 
 比较逻辑在测试源集的 `GoldenCompareTree`（由 `GoldenCompareBaselineTest` 调用），规则见 `GoldenCompare.kt` 开头。
@@ -69,7 +77,15 @@ APK 只按 `app/build/outputs/apk/oss/debug/output-metadata.json`（Gradle 每�
 版本号的 `address/corpus.json` 不比较，外核一侧的动态值不出现也不给警告。它用来证明只改外核一侧的改动（含产物格式
 升级）没有动到 sing-box 一侧：两侧可以是不同格式版本的产物。
 
-## 目录结构（格式 v2）
+`--ignore-local-auth` 比较全部产物，但比较前从两侧去掉本机 socks 认证，去掉的正好是这些位置（实现在
+`GoldenCompareTree.kt` 的 `GoldenLocalAuth`，别处同名的键照常比较）：sing-box 配置（`sing-box.json` 与 `export.txt`
+第 0 段）里指向 127.0.0.1 的 socks 出站的 `username` / `password`；Xray 配置里各入站 `settings` 的 `auth` 与
+`accounts`、`log` 的 `access`；mihomo 配置里各 listener 的 `users`（`export.txt` 的外核段按结构认核心）；`result.json`
+里 `external[].hops[]` 的 `localAuth`，以及 `dynamic.secrets` 里这些凭据的值（取自跳实例的记录与 sing-box 配置里本机
+socks 出站的凭据）。`input.json` 与 `address/corpus.json` 顶层的 `formatVersion` 不比较。它用来证明加认证的改动只多出
+了认证：两侧可以一侧带认证（v3）、一侧不带（v2）。
+
+## 目录结构（格式 v3）
 
 ```
 manifest.json                                              采集元数据，不参与比较
@@ -84,7 +100,8 @@ address/corpus.json                                        地址解析语料与
 「组」来自外核运行计划（`fmt/ExternalRunPlan.kt`）：一次构建里每个走外核的跳实例（某条链上的一个外核节点；同一个
 节点在不同链里是不同的跳实例）按 `externalIndex` 的遍历顺序编号，Xray 的全部跳实例一组、mihomo 的全部跳实例一组，
 插件核心每个跳实例一组；组的顺序按各组第一个跳实例。一组一份配置、一个进程。v1 是一个跳实例一份配置（`ext-<n>`
-的 n 是跳实例序号），`result.json` 的 `external` 逐跳实例记录；其余布局与 v2 相同。
+的 n 是跳实例序号），`result.json` 的 `external` 逐跳实例记录；其余布局与 v2 相同。v3（K0b）的布局与 v2 相同，
+只是跳实例记录多了 `localAuth`、`dynamic.secrets` 多了本机 socks 凭据，配置里多了认证（见文首）。
 
 场景 id 只用小写字母、数字和连字符。配置原文按 UTF-8 原样写入，一个字节都不改；其余 JSON 由采集入口
 用 Gson 输出（缩进两格，末尾一个换行）。外核配置只有 mihomo 是 YAML。
@@ -123,7 +140,7 @@ address/corpus.json                                        地址解析语料与
 
 | 字段 | 内容 |
 | --- | --- |
-| `formatVersion` | 2（K0 起；v1 见「目录结构」一节末尾） |
+| `formatVersion` | 3（K0b 起；v1、v2 见「目录结构」一节末尾） |
 | `commit` | 采集所基于的提交 |
 | `dirty` | 工作区的改动：`count` 是有改动的路径总数（含未跟踪文件，0 即干净），`top` 是排序后的前 50 条；`codeCount` / `codeTop` 是其中不在 `app/src/debug/`、`app/src/test/`、`buildScript/golden/`、`doc/` 之下的路径，`codeCount` 非 0 说明有可能影响配置输出的代码改动。（旧格式的 manifest 没有 `dirty`，只有全部路径的数组 `dirtyPaths`） |
 | `app` | applicationId、versionName、versionCode、flavor、buildType |
@@ -154,7 +171,8 @@ address/corpus.json                                        地址解析语料与
 
 外核配置的 JVM 黄金测试也从这里取输入：`GoldenBaseline` 列出某个 pluginId 在 run / test 下的全部外核配置（一组一个
 用例），每个用例按 `result.json` 的 `external` 重建这个模式的完整运行计划（bean 每个用例新建一份，并写回
-`finalAddress` / `finalPort`；核对计划分出的组与标识和记录的一致；设置取 `effectiveSettings` 的 `logLevel`、
+`finalAddress` / `finalPort`；本机 socks 凭据用跳实例记录的 `localAuth`，计划自己检查 Xray / mihomo 的跳实例必须有、
+插件核心的不能有；核对计划分出的组与标识和记录的一致；设置取 `effectiveSettings` 的 `logLevel`、
 `ipv6Mode`、`globalAllowInsecure`），`GoldenExternalCoreCheck.assertMatchesBaseline(pluginId)` 经组装入口
 `assemble` 重新生成，取这一组的配置与原文做结构比较。端口直接用记录的值；`tempFiles` 与本次 `cacheFile` 分到的路径
 按动态路径比较。每个核心一个测试类（如 `GoldenMihomoTest`）。
@@ -163,8 +181,11 @@ address/corpus.json                                        地址解析语料与
 出站端口都恰好是某份外核配置里一个入站的端口（反过来每个外核入站也恰好被一个 socks 出站用到）；该入站绑定的出站拨向
 的地址端口等于跳实例的映射目标（hysteria 1 免映射时按 `serverPorts` 拨号，只核对地址）；映射目标是本机时，sing-box
 配置里有监听这个端口的映射入站。Xray 另核对第一个出站是 blackhole、每个入站恰有一条规则且指向存在的出站，mihomo
-另核对 `rules` 是 `MATCH,REJECT`、每个 listener 的 `proxy` 指向存在的代理。导出模式没有 `external` 记录，外核配置
-从 `export.txt` 的各段里取，并核对 Xray、mihomo 各最多一段。
+另核对 `rules` 是 `MATCH,REJECT`、每个 listener 的 `proxy` 指向存在的代理、没有全局的 `authentication` /
+`skip-auth-prefixes`。认证上两端也要一致：接 Xray / mihomo 的 socks 出站与对应的入站都有凭据且相同、非空，Xray 入站的
+`auth` 是 `"password"`、`accounts` 恰好一项、`udp` 仍为 true，mihomo listener 的 `users` 恰好一项；接插件核心的
+socks 出站与入站都没有；同一份 sing-box 配置里本机凭据只有一组；运行 / 测速另核对跳实例记录的 `localAuth` 就是入站要求
+的。导出模式没有 `external` 记录，外核配置从 `export.txt` 的各段里取，并核对 Xray、mihomo 各最多一段。
 
 ## result.json
 
@@ -177,7 +198,8 @@ address/corpus.json                                        地址解析语料与
              "trafficMap": { tag: [节点 id] }, "boxIndexNames": {}, "boxTagNames": {} },   仅 run / test 且 ok
   "external": [ { "file", "pluginId", "controller": { "port", "secret" } | null, "tempFiles": [],
                   "hops": [ { "index", "chainIndex", "profileId", "port", "finalAddress", "finalPort",
-                              "inboundTag", "outboundTag" } ] } ],                       仅 run / test 且 ok，一组一项，按组的顺序
+                              "inboundTag", "outboundTag",
+                              "localAuth": { "username", "password" } | null } ] } ],    仅 run / test 且 ok，一组一项，按组的顺序
   "dynamic": { "ports": [], "paths": [], "secrets": [] }
 }
 ```
@@ -187,7 +209,8 @@ address/corpus.json                                        地址解析语料与
 - `external[]` 一组一项：`file` 是这组的配置原文，`hops` 是组里的跳实例（`index` 是计划内序号，`chainIndex` 是
   所在链在 `externalIndex` 里的序号，`port` 是本机 socks 端口，`finalAddress` / `finalPort` 是映射目标）。
   `inboundTag` / `outboundTag` 是跳实例在 Xray 配置里的入站 / 出站 tag、在 mihomo 配置里的 listener / 代理名
-  （`in-<index>` / `out-<index>`）；插件核心的配置沿用单节点格式，不带标识，记为 null。
+  （`in-<index>` / `out-<index>`）；插件核心的配置沿用单节点格式，不带标识，记为 null。`localAuth` 是这个跳实例的
+  外核入站要求的本机 socks 凭据（与 sing-box 里接它的 socks 出站带的是同一组），入站不认证的（插件核心）记为 null。
 - `external[].controller` 是写进这份 mihomo 配置的测速控制端口与 secret（其余组为 null）；`tempFiles` 是组装期间经
   `cacheFile` 领到、且出现在这份外核配置里的文件（hysteria 1 的 CA），采集结束即删除。
 - `dynamic` 列出本模式这一次构建里每次运行都可能不同的全部取值，比较工具只按它替换：
@@ -195,7 +218,9 @@ address/corpus.json                                        地址解析语料与
     `server_port`（按 outbounds 顺序），再是 tag 含 `-mapping-` 的映射入站的 `listen_port`（按 inbounds
     顺序）；run / test 再补上运行计划里各跳实例的本机端口与测速控制端口。两次采集同一位置一一对应。
   - `paths`：临时文件的绝对路径（run / test 来自 `tempFiles`，export 按 cacheDir 前缀从原文里找）。
-  - `secrets`：测速时随机生成的 mihomo Clash API secret。
+  - `secrets`：测速时随机生成的 mihomo Clash API secret；本次构建随机生成的本机 socks 凭据（用户名、密码各一项）。
+    run / test 取自构建结果与运行计划，export 按 sing-box 配置的结构找（指向 127.0.0.1 的 socks 出站的 `username` /
+    `password`）。比较时按出现次序换成 `SECRET#n`。
   - 夹具与设置固定下来的值（mixed 端口、预先写好的 Clash API secret、节点的服务器端口等）不算动态值。
 
 ## address/corpus.json
@@ -317,4 +342,5 @@ raw/             原始数据：device.txt、host.txt、prepare/start/finish(.tx
   已由界面绑定服务而启动，不计入 `connectedMs`。
 - `connectedMs` 含外核的启动前校验与启动就绪等待（`BoxInstance.init` / `launch`）。二者各自的耗时记在 `raw/neko.log`
   的 Info 行里：`<插件 id>: config of <N> hops checked in <毫秒> ms`（每组一行）与
-  `external cores: <N> local inbounds ready in <毫秒> ms`；汇总不解析它们。
+  `external cores: <N> local inbounds ready in <毫秒> ms`；汇总不解析它们。K0b 起就绪等待对内置 Xray / mihomo 的每个入站做带用户名 / 密码的 SOCKS5
+  握手（凭据取自运行计划）；Xray 配置关掉了访问日志（`log.access` 为 `none`），探测与正常连接都不再留 accepted 行。

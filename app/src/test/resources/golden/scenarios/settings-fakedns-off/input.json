@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "settings-fakedns-off",
   "description": "关闭 FakeDNS",
   "mainProfileId": 1,

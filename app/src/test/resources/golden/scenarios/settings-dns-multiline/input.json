@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "settings-dns-multiline",
   "description": "多行 DNS（注释、空行，只取第一条）",
   "mainProfileId": 1,

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-vmess-unknown-transport",
   "description": "存量节点的未知传输方式 xhttp：应报错",
   "mainProfileId": 1,

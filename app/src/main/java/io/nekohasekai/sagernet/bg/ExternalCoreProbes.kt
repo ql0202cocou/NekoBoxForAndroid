@@ -2,18 +2,19 @@ package io.nekohasekai.sagernet.bg
 
 import android.os.Build
 import io.nekohasekai.sagernet.fmt.ExternalCoreLaunch
+import io.nekohasekai.sagernet.fmt.LocalSocksAuth
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import java.io.DataInputStream
 import java.io.File
 import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.net.SocketTimeoutException
 import kotlin.concurrent.thread
 
 // 外核启动前校验与启动就绪里碰进程、套接字的部分（plan.md K0 做法 3、5），由 BoxInstance 调用；
@@ -90,10 +91,15 @@ suspend fun runCheckProcess(
 }
 
 /**
- * 一个要等的本机端口。strict 为真时连上后还要完成 SOCKS5 无认证握手（发 05 01 00、收 05 00），监听它的进程
- * 退出就立即结束等待；否则只等端口能连上。exitCode 返回监听它的进程最近一次退出的退出码，仍在运行为 null。
+ * 一个要等的本机端口。strict 为真时连上后还要用 auth 完成 SOCKS5 用户名 / 密码握手（见 probeLocalPort），监听它的
+ * 进程退出就立即结束等待；否则只等端口能连上，不发任何字节（auth 不用）。exitCode 返回监听它的进程最近一次退出的
+ * 退出码，仍在运行为 null。
  */
-class LocalPortTarget(val port: Int, val strict: Boolean, val exitCode: () -> Int?)
+class LocalPortTarget(val port: Int, val strict: Boolean, val auth: LocalSocksAuth?, val exitCode: () -> Int?) {
+    init {
+        require(!strict || auth != null) { "local port $port needs credentials for the SOCKS5 handshake" }
+    }
+}
 
 /** 等待结束时一个端口的状态：ready 就绪；exitCode 非空表示等待期间进程退出；lastError 是最后一次探测失败的原因。 */
 class LocalPortStatus(val ready: Boolean, val exitCode: Int?, val lastError: String?)
@@ -111,7 +117,7 @@ suspend fun awaitLocalPorts(
     targets: List<LocalPortTarget>,
     timeoutMs: Long,
     isCancelled: () -> Boolean,
-    probe: (port: Int, socks5: Boolean) -> String? = ::probeLocalPort,
+    probe: (port: Int, auth: LocalSocksAuth?) -> String? = ::probeLocalPort,
 ): List<LocalPortStatus> {
     val ready = BooleanArray(targets.size)
     val exitCodes = arrayOfNulls<Int>(targets.size)
@@ -136,7 +142,7 @@ suspend fun awaitLocalPorts(
                 pending = true
                 continue
             }
-            val error = probe(target.port, target.strict)
+            val error = probe(target.port, if (target.strict) target.auth else null)
             if (error == null) ready[i] = true else {
                 errors[i] = error
                 pending = true
@@ -158,21 +164,55 @@ suspend fun awaitLocalPorts(
 
 private val LOOPBACK = InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1))
 
-/** 探测一次本机端口：就绪返回 null，否则返回原因。socks5 为真时还要完成 SOCKS5 无认证握手。 */
-fun probeLocalPort(port: Int, socks5: Boolean): String? = try {
+// 选中用户名 / 密码方法（05 02）且认证通过（01 00）
+private val SOCKS5_AUTH_ACCEPTED = byteArrayOf(5, 2, 1, 0)
+
+/**
+ * 探测一次本机端口：就绪返回 null，否则返回原因（只有应答的字节与套接字的错误，不含凭据）。auth 为 null 时只等
+ * 端口能连上，不发字节；否则一次写入 [socks5PasswordHandshake]，读满 4 字节，正好是 05 02 01 00 才算就绪，
+ * 别的应答、读超时、连接被关闭都不算。
+ */
+fun probeLocalPort(port: Int, auth: LocalSocksAuth?): String? = try {
     Socket().use { socket ->
         socket.connect(InetSocketAddress(LOOPBACK, port), PROBE_TIMEOUT_MS)
-        if (!socks5) return null
+        if (auth == null) return null
         socket.soTimeout = PROBE_TIMEOUT_MS
         socket.getOutputStream().apply {
-            write(byteArrayOf(5, 1, 0))
+            write(socks5PasswordHandshake(auth))
             flush()
         }
-        val reply = ByteArray(2)
-        DataInputStream(socket.getInputStream()).readFully(reply)
-        if (reply[0] == 5.toByte() && reply[1] == 0.toByte()) null
-        else "unexpected SOCKS5 reply %02x %02x".format(reply[0], reply[1])
+        val reply = ByteArray(SOCKS5_AUTH_ACCEPTED.size)
+        val input = socket.getInputStream()
+        var read = 0
+        var ended: String? = null
+        while (read < reply.size) {
+            val n = try {
+                input.read(reply, read, reply.size - read)
+            } catch (_: SocketTimeoutException) {
+                ended = "timed out"
+                break
+            }
+            if (n < 0) {
+                ended = "connection closed"
+                break
+            }
+            read += n
+        }
+        if (ended == null && reply.contentEquals(SOCKS5_AUTH_ACCEPTED)) return null
+        val got = if (read == 0) "no SOCKS5 reply" else
+            "unexpected SOCKS5 reply " + reply.take(read).joinToString(" ") { "%02x".format(it) }
+        got + ended?.let { " ($it)" }.orEmpty()
     }
 } catch (e: IOException) {
     e.message ?: e.javaClass.simpleName
+}
+
+/**
+ * 只提供用户名 / 密码一种方法的问候 05 01 02，紧接 RFC 1929 认证包 01 <ULEN> <USER> <PLEN> <PASS>。
+ * 两个内置核心都按这个顺序应答 05 02、01 00，所以一次写完再读。
+ */
+fun socks5PasswordHandshake(auth: LocalSocksAuth): ByteArray {
+    val user = auth.username.toByteArray(Charsets.UTF_8)
+    val pass = auth.password.toByteArray(Charsets.UTF_8)
+    return byteArrayOf(5, 1, 2, 1, user.size.toByte()) + user + byteArrayOf(pass.size.toByte()) + pass
 }

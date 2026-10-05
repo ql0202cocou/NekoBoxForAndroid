@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "ext-trojango-ip-server",
   "description": "Trojan-Go IPv4 服务器",
   "mainProfileId": 1,

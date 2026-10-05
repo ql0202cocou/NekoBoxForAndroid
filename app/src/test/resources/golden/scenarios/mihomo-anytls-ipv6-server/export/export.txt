@@ -75,7 +75,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 35605,
+      "listen_port": 40239,
       "override_address": "2001:db8::60",
       "override_port": 8443,
       "tag": "c-0-mapping-1",
@@ -87,8 +87,10 @@
   },
   "outbounds": [
     {
+      "password": "pe2462770164d420d15d4e028abe8064f",
       "server": "127.0.0.1",
-      "server_port": 44681,
+      "server_port": 39595,
+      "username": "ud44753963522cae2",
       "tag": "proxy",
       "type": "socks"
     },
@@ -147,8 +149,15 @@
 log-level: warning
 mode: rule
 listeners:
-- {name: in-0, type: socks, listen: 127.0.0.1, port: 44681, udp: true, proxy: out-0}
+- name: in-0
+  type: socks
+  listen: 127.0.0.1
+  port: 39595
+  udp: true
+  proxy: out-0
+  users:
+  - {username: ud44753963522cae2, password: pe2462770164d420d15d4e028abe8064f}
 proxies:
-- {name: out-0, type: anytls, server: 127.0.0.1, port: 35605, password: golden-pass-anytls,
+- {name: out-0, type: anytls, server: 127.0.0.1, port: 40239, password: golden-pass-anytls,
   udp: true, sni: '2001:db8::60'}
 rules: ['MATCH,REJECT']

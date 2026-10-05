@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "settings-domain-strategy-server-ipv6-only",
   "description": "节点服务器解析 ipv6_only，IPv6 优先",
   "mainProfileId": 1,

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "chain-2-internal",
   "description": "两跳全内核",
   "mainProfileId": 1,

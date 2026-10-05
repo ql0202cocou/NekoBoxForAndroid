@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-ss-plugin-v2ray",
   "description": "Shadowsocks + v2ray-plugin 插件参数",
   "mainProfileId": 1,

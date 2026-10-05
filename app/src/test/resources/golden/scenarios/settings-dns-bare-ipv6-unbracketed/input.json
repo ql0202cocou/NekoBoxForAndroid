@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "settings-dns-bare-ipv6-unbracketed",
   "description": "裸 IPv6 不带括号",
   "mainProfileId": 1,

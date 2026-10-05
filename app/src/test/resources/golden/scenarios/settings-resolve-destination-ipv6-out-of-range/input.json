@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "settings-resolve-destination-ipv6-out-of-range",
   "description": "解析目标地址（IPv6 模式越界）",
   "mainProfileId": 1,

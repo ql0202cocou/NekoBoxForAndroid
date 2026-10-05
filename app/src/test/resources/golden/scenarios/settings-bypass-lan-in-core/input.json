@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "settings-bypass-lan-in-core",
   "description": "内核绕过局域网",
   "mainProfileId": 1,

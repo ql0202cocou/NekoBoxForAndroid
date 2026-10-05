@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "selector-main-anytls",
   "description": "选择器：选中 mihomo 成员（测速时单节点开 Clash API）",
   "mainProfileId": 3,

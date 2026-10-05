@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "ext-mieru-udp",
   "description": "Mieru UDP + MTU",
   "mainProfileId": 1,

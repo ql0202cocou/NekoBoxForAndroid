@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "ext-naive-quic-uot",
   "description": "Naive quic + UDP over TCP",
   "mainProfileId": 1,

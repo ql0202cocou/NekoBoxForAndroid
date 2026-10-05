@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "ext-naive-ipv6-server",
   "description": "Naive IPv6 服务器",
   "mainProfileId": 1,

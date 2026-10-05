@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "settings-dns-bad-port",
   "description": "DNS 端口越界：应报错",
   "mainProfileId": 1,

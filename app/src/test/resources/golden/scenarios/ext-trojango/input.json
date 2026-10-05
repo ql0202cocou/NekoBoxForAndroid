@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "ext-trojango",
   "description": "Trojan-Go original + SNI",
   "mainProfileId": 1,

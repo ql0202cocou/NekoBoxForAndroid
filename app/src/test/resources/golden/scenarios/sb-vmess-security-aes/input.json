@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-vmess-security-aes",
   "description": "VMess 加密方式 aes-128-gcm",
   "mainProfileId": 1,

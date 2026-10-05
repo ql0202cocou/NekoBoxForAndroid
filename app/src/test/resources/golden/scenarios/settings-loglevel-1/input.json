@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "settings-loglevel-1",
   "description": "日志级别 warn",
   "mainProfileId": 1,

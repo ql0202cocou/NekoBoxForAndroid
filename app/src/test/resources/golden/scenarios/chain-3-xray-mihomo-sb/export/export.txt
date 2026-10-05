@@ -78,7 +78,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 44049,
+      "listen_port": 43783,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-0-mapping-4",
@@ -86,7 +86,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 40773,
+      "listen_port": 40403,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-3",
@@ -107,14 +107,18 @@
       "type": "shadowsocks"
     },
     {
+      "password": "pdf107ae05c34d0b2f4e48362293f8430",
       "server": "127.0.0.1",
-      "server_port": 34895,
+      "server_port": 42497,
+      "username": "u5a436eecf4375711",
       "tag": "c-0-4",
       "type": "socks"
     },
     {
+      "password": "pdf107ae05c34d0b2f4e48362293f8430",
       "server": "127.0.0.1",
-      "server_port": 36463,
+      "server_port": 34963,
+      "username": "u5a436eecf4375711",
       "tag": "g-3",
       "type": "socks"
     },
@@ -179,24 +183,39 @@
 log-level: warning
 mode: rule
 listeners:
-- {name: in-0, type: socks, listen: 127.0.0.1, port: 34895, udp: true, proxy: out-0}
+- name: in-0
+  type: socks
+  listen: 127.0.0.1
+  port: 42497
+  udp: true
+  proxy: out-0
+  users:
+  - {username: u5a436eecf4375711, password: pdf107ae05c34d0b2f4e48362293f8430}
 proxies:
-- {name: out-0, type: anytls, server: 127.0.0.1, port: 44049, password: golden-pass-anytls,
+- {name: out-0, type: anytls, server: 127.0.0.1, port: 43783, password: golden-pass-anytls,
   udp: true, sni: anytls.example.com}
 rules: ['MATCH,REJECT']
 
 
 {
   "log": {
-    "loglevel": "warning"
+    "loglevel": "warning",
+    "access": "none"
   },
   "inbounds": [
     {
       "tag": "in-1",
       "listen": "127.0.0.1",
-      "port": 36463,
+      "port": 34963,
       "protocol": "socks",
       "settings": {
+        "auth": "password",
+        "accounts": [
+          {
+            "user": "u5a436eecf4375711",
+            "pass": "pdf107ae05c34d0b2f4e48362293f8430"
+          }
+        ],
         "udp": true
       }
     }
@@ -213,7 +232,7 @@ rules: ['MATCH,REJECT']
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 40773,
+            "port": 40403,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",

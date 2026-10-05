@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "multi-group-front-chain-landing",
   "description": "分组前置是 Xray 加 mihomo 的链、落地是 Xray，主节点走 Xray",
   "mainProfileId": 1,

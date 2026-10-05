@@ -33,9 +33,9 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
         } finally {
             showBuildNotices()
         }
-        // configs contain credentials; redact them before writing to the exportable log.
+        // 配置里有凭据，写进可导出的日志前脱敏：本次构建的本机 socks 凭据按值遮蔽，其余按键名。
         // 脱敏要对整份配置跑多遍正则，日志关闭时直接跳过
-        if (Logs.enabled) Logs.d(Util.redactConfig(config.config))
+        if (Logs.enabled) Logs.d(Util.redactConfig(config.redactLocalAuth(config.config)))
         if (BuildConfig.DEBUG) Logs.d(JavaUtil.gson.toJson(config.trafficMap))
     }
 
@@ -53,7 +53,8 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
         // init 跑在 IO 上，destroyRunner 的 close() 可能与它并发：close() 漏掉的 box 与临时文件已由
         // BoxInstance.init 补收，launch() 也会因 isClosed() 直接返回
         if (isClosed()) return
-        if (Logs.enabled) externalProcesses.forEach { Logs.d(Util.redactSecrets(it.config)) }
+        // 外核配置同样先按值遮蔽本机 socks 凭据，再按键名脱敏
+        if (Logs.enabled) externalProcesses.forEach { Logs.d(Util.redactSecrets(config.redactLocalAuth(it.config))) }
     }
 
     override suspend fun launch() {

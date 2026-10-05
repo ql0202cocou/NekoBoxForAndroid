@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "mihomo-anytls-ipv6-server",
   "description": "AnyTLS IPv6 服务器",
   "mainProfileId": 1,

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-hy2",
   "description": "Hysteria 2：obfs、SNI、allowInsecure",
   "mainProfileId": 1,

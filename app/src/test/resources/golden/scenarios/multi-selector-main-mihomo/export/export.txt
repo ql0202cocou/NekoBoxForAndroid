@@ -76,7 +76,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 39993,
+      "listen_port": 46527,
       "override_address": "mihomo-2.example.com",
       "override_port": 8445,
       "tag": "c-0-mapping-5",
@@ -88,8 +88,10 @@
   },
   "outbounds": [
     {
+      "password": "pe90520d720c5a52dbe030b11f02ccddd",
       "server": "127.0.0.1",
-      "server_port": 45301,
+      "server_port": 42983,
+      "username": "u605bcf031a2caa7a",
       "tag": "proxy",
       "type": "socks"
     },
@@ -148,8 +150,15 @@
 log-level: warning
 mode: rule
 listeners:
-- {name: in-0, type: socks, listen: 127.0.0.1, port: 45301, udp: true, proxy: out-0}
+- name: in-0
+  type: socks
+  listen: 127.0.0.1
+  port: 42983
+  udp: true
+  proxy: out-0
+  users:
+  - {username: u605bcf031a2caa7a, password: pe90520d720c5a52dbe030b11f02ccddd}
 proxies:
-- {name: out-0, type: anytls, server: 127.0.0.1, port: 39993, password: golden-pass-anytls,
+- {name: out-0, type: anytls, server: 127.0.0.1, port: 46527, password: golden-pass-anytls,
   udp: true, sni: mihomo-2.example.org}
 rules: ['MATCH,REJECT']

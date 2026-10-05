@@ -152,6 +152,10 @@ fun runBoxMode(profile: ProxyEntity, forTest: Boolean): ModeOutput {
                         // 插件核心的配置沿用单节点格式，不带标识
                         "inboundTag" to hop.inboundTag.takeIf { group.core.merged },
                         "outboundTag" to hop.outboundTag.takeIf { group.core.merged },
+                        // 外核入站要求的本机 socks 凭据，不认证的为 null
+                        "localAuth" to hop.localAuth?.let {
+                            linkedMapOf("username" to it.username, "password" to it.password)
+                        },
                     )
                 },
             )
@@ -160,6 +164,13 @@ fun runBoxMode(profile: ProxyEntity, forTest: Boolean): ModeOutput {
         dynamicPorts += structuralPorts(parseFirstJson(config.config))
         dynamicPorts += instance.externalPlan.hops.map { it.localPort }
         instance.controller?.let { dynamicPorts += it.first }
+        // 本机 socks 凭据每次构建随机生成：sing-box 一侧（构建结果）与运行计划里的都登记
+        val secrets = LinkedHashSet<String>()
+        instance.controller?.let { secrets += it.second }
+        for (auth in listOfNotNull(config.localAuth) + instance.externalPlan.hops.mapNotNull { it.localAuth }) {
+            secrets += auth.username
+            secrets += auth.password
+        }
         val result = linkedMapOf<String, Any?>(
             "status" to "ok",
             "build" to linkedMapOf(
@@ -173,11 +184,7 @@ fun runBoxMode(profile: ProxyEntity, forTest: Boolean): ModeOutput {
                 "boxTagNames" to config.boxTagNames.toSortedMap(),
             ),
             "external" to external,
-            "dynamic" to dynamic(
-                dynamicPorts.toList(),
-                paths.distinct(),
-                listOfNotNull(instance.controller?.second),
-            ),
+            "dynamic" to dynamic(dynamicPorts.toList(), paths.distinct(), secrets.toList()),
         )
         return ModeOutput(result, files, instance.checks)
     } finally {
@@ -192,16 +199,17 @@ fun runExportMode(profile: ProxyEntity): ModeOutput {
     } catch (e: Exception) {
         return errorOutput(e)
     }
-    // 导出路径拿不到 externalIndex：本机端口从 sing-box 配置的结构里找，临时文件路径
-    // （导出时已删除，但路径留在配置里）按 cacheDir 前缀从原文里找
+    // 导出路径拿不到 externalIndex 与运行计划：本机端口与本机 socks 凭据从 sing-box 配置的结构里找，
+    // 临时文件路径（导出时已删除，但路径留在配置里）按 cacheDir 前缀从原文里找
     val pathPattern = Regex(Regex.escape(app.cacheDir.absolutePath) + "/[A-Za-z0-9_.-]+")
+    val singBox = parseFirstJson(text)
     val result = linkedMapOf<String, Any?>(
         "status" to "ok",
         "exportName" to name,
         "dynamic" to dynamic(
-            structuralPorts(parseFirstJson(text)),
+            structuralPorts(singBox),
             pathPattern.findAll(text).map { it.value }.distinct().toList(),
-            emptyList(),
+            structuralLocalAuth(singBox),
         ),
     )
     return ModeOutput(result, linkedMapOf("export.txt" to text))
@@ -247,22 +255,31 @@ private fun parseFirstJson(text: String): JsonObject? = try {
     null
 }
 
-// mkPort() 分到的端口在 sing-box 配置里的位置：连本机的 socks 出站（外核节点的本地端口）与
-// 映射入站（tag 形如 <链 tag>-mapping-<节点 id>）。先出站后入站，各按数组顺序。
-// 夹具里不出现指向 127.0.0.1 的用户节点，所以这两类都只可能来自构建
+private fun JsonElement.primitive(key: String) = (this as? JsonObject)?.get(key) as? JsonPrimitive
+private fun JsonElement.string(key: String) = primitive(key)?.takeIf { it.isString }?.asString
+private fun JsonElement.int(key: String) = primitive(key)?.takeIf { it.isNumber }?.asInt
+
+// 连本机的 socks 出站（外核节点的本地端口）。夹具里不出现指向 127.0.0.1 的用户节点，所以只可能来自构建
+private fun localSocksOutbounds(config: JsonObject): List<JsonElement> =
+    (config.get("outbounds") as? JsonArray)?.filter { it.string("type") == "socks" && it.string("server") == LOCALHOST }
+        .orEmpty()
+
+// mkPort() 分到的端口在 sing-box 配置里的位置：连本机的 socks 出站与映射入站（tag 形如
+// <链 tag>-mapping-<节点 id>）。先出站后入站，各按数组顺序
 private fun structuralPorts(config: JsonObject?): List<Int> {
     if (config == null) return emptyList()
     val ports = ArrayList<Int>()
-    fun JsonElement.primitive(key: String) = (this as? JsonObject)?.get(key) as? JsonPrimitive
-    fun JsonElement.string(key: String) = primitive(key)?.takeIf { it.isString }?.asString
-    fun JsonElement.int(key: String) = primitive(key)?.takeIf { it.isNumber }?.asInt
-    (config.get("outbounds") as? JsonArray)?.forEach {
-        if (it.string("type") == "socks" && it.string("server") == LOCALHOST) it.int("server_port")?.let(ports::add)
-    }
+    localSocksOutbounds(config).forEach { it.int("server_port")?.let(ports::add) }
     (config.get("inbounds") as? JsonArray)?.forEach {
         if (it.string("type") == "direct" && it.string("listen") == LOCALHOST &&
             it.string("tag")?.contains("-mapping-") == true
         ) it.int("listen_port")?.let(ports::add)
     }
     return ports.distinct()
+}
+
+// 本次构建随机生成的本机 socks 凭据在 sing-box 配置里的位置：连本机的 socks 出站的 username 与 password
+private fun structuralLocalAuth(config: JsonObject?): List<String> {
+    if (config == null) return emptyList()
+    return localSocksOutbounds(config).flatMap { listOfNotNull(it.string("username"), it.string("password")) }.distinct()
 }

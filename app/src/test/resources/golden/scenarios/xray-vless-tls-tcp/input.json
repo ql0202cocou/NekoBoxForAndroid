@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "xray-vless-tls-tcp",
   "description": "VLESS tcp + TLS + ALPN",
   "mainProfileId": 1,

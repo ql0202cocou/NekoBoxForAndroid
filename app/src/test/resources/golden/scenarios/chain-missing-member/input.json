@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "chain-missing-member",
   "description": "成员缺失：跳过缺失的成员",
   "mainProfileId": 1,

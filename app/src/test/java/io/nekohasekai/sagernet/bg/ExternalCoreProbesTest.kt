@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.bg
 
 import io.nekohasekai.sagernet.fmt.ExternalCoreLaunch
+import io.nekohasekai.sagernet.fmt.LocalSocksAuth
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -8,23 +9,28 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
-// 启动前校验进程与启动就绪等待（plan.md K0 做法 3、5）：/bin/sh 当校验进程，本机 ServerSocket 当外核入站
+// 启动前校验进程与启动就绪等待（plan.md K0 做法 3、5，K0b 带认证的握手）：/bin/sh 当校验进程，本机 ServerSocket 当外核入站
 class ExternalCoreProbesTest {
 
     @get:Rule
@@ -39,20 +45,48 @@ class ExternalCoreProbesTest {
 
     private val loopback = InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1))
 
-    // 一个本机监听：每个连接读到 request 那么多字节后回 reply（为 null 时什么都不回，连接挂着直到对端关闭）
-    private fun listener(request: Int = 3, reply: ByteArray? = byteArrayOf(5, 0)): Int {
+    private val auth = LocalSocksAuth("u0123456789abcdef", "p0123456789abcdef0123456789abcdef")
+
+    // 客户端应发出的字节：05 01 02，接 RFC 1929 认证包 01 <ULEN> <USER> <PLEN> <PASS>（不经生产代码拼）
+    private val expectedHandshake = byteArrayOf(5, 1, 2, 1, 17) + auth.username.toByteArray() +
+        byteArrayOf(33) + auth.password.toByteArray()
+
+    private val accepted = byteArrayOf(5, 2, 1, 0)
+
+    // 一个本机监听：每个连接读满 request 个字节（或读到对端关闭）后回 reply（为 null 时什么都不回）；
+    // closeAfterReply 为真时回完就断开，否则挂着直到对端关闭。每个连接收到的全部字节在连接结束时记进 received
+    private fun listener(
+        request: Int = expectedHandshake.size,
+        reply: ByteArray? = accepted,
+        closeAfterReply: Boolean = false,
+        received: MutableList<ByteArray>? = null,
+    ): Int {
         val server = ServerSocket(0, 50, loopback)
         servers += server
         thread(isDaemon = true) {
             while (!server.isClosed) {
                 val socket = runCatching { server.accept() }.getOrNull() ?: break
                 thread(isDaemon = true) {
+                    val buffer = ByteArrayOutputStream()
                     socket.use {
-                        runCatching {
+                        try {
                             val input = it.getInputStream()
-                            repeat(request) { input.read() }
+                            while (buffer.size() < request) {
+                                val b = input.read()
+                                if (b < 0) break
+                                buffer.write(b)
+                            }
                             if (reply != null) it.getOutputStream().apply { write(reply); flush() }
-                            input.read()
+                            if (!closeAfterReply) {
+                                while (true) {
+                                    val b = input.read()
+                                    if (b < 0) break
+                                    buffer.write(b)
+                                }
+                            }
+                        } catch (_: IOException) {
+                        } finally {
+                            received?.add(buffer.toByteArray())
                         }
                     }
                 }
@@ -66,14 +100,84 @@ class ExternalCoreProbesTest {
 
     private fun alive(): () -> Int? = { null }
 
+    private fun awaitReceived(received: List<ByteArray>): ByteArray {
+        repeat(100) {
+            received.firstOrNull()?.let { return it }
+            Thread.sleep(20)
+        }
+        error("server recorded no connection")
+    }
+
+    private fun assertNoCredentials(text: String?) {
+        assertTrue("应当给出原因", !text.isNullOrBlank())
+        assertFalse(text, auth.username in text!! || auth.password in text)
+    }
+
+    // ---- 就绪探测
+
+    @Test
+    fun `带认证的探测一次写出 05 01 02 与认证包，应答 05 02 01 00 才就绪`() {
+        assertArrayEquals(expectedHandshake, socks5PasswordHandshake(auth))
+        val received = CopyOnWriteArrayList<ByteArray>()
+        val port = listener(received = received)
+        assertNull(probeLocalPort(port, auth))
+        // 探测连接上收到的全部字节正好是握手，没有别的请求
+        assertArrayEquals(expectedHandshake, awaitReceived(received))
+    }
+
+    @Test
+    fun `其余应答、只回一半、直接断开都不算就绪，原因里没有凭据`() {
+        fun probe(reply: ByteArray?, closeAfterReply: Boolean = true, request: Int = expectedHandshake.size) =
+            probeLocalPort(listener(request = request, reply = reply, closeAfterReply = closeAfterReply), auth)
+
+        // Xray：不接受用户名 / 密码方法，或认证失败
+        probe(byteArrayOf(5, 0xff.toByte())).let {
+            assertEquals("unexpected SOCKS5 reply 05 ff (connection closed)", it)
+            assertNoCredentials(it)
+        }
+        // mihomo：认证失败
+        assertEquals("unexpected SOCKS5 reply 05 02 01 01", probe(byteArrayOf(5, 2, 1, 1)))
+        assertEquals("unexpected SOCKS5 reply 05 02 01 ff", probe(byteArrayOf(5, 2, 1, 0xff.toByte())))
+        // 选了无认证方法：服务端不要求认证
+        assertEquals("unexpected SOCKS5 reply 05 00 (connection closed)", probe(byteArrayOf(5, 0)))
+        // 只回一半：随即断开，或挂着不再应答
+        assertEquals("unexpected SOCKS5 reply 05 02 (connection closed)", probe(byteArrayOf(5, 2)))
+        assertEquals("unexpected SOCKS5 reply 05 02 (timed out)", probe(byteArrayOf(5, 2), closeAfterReply = false))
+        // 什么都不回：直接断开，或挂着
+        assertNoCredentials(probe(null, request = 0))
+        assertEquals("no SOCKS5 reply (timed out)", probe(null, closeAfterReply = false))
+        // 端口上没有人监听
+        assertNoCredentials(probeLocalPort(closedPort(), auth))
+    }
+
+    @Test
+    fun `只等端口的探测连上即就绪，不发任何字节`() {
+        val received = CopyOnWriteArrayList<ByteArray>()
+        // 服务端什么都不回、一直挂着：只连端口时照样就绪
+        val port = listener(request = 0, reply = null, received = received)
+        assertNull(probeLocalPort(port, null))
+        assertEquals(0, awaitReceived(received).size)
+        assertNoCredentials(probeLocalPort(closedPort(), null))
+    }
+
+    @Test
+    fun `内置核心的目标必须带凭据，等待时只对它们握手`() = runBlocking(Dispatchers.IO) {
+        assertThrows(IllegalArgumentException::class.java) { LocalPortTarget(1, true, null, alive()) }
+        val seen = CopyOnWriteArrayList<Pair<Int, LocalSocksAuth?>>()
+        awaitLocalPorts(
+            listOf(LocalPortTarget(1, true, auth, alive()), LocalPortTarget(2, false, auth, alive()), LocalPortTarget(3, false, null, alive())),
+            1000, { false },
+        ) { port, given -> seen += port to given; null }
+        assertEquals(listOf(1 to auth, 2 to null, 3 to null), seen.toList())
+    }
+
     // ---- 就绪等待
 
     @Test
     fun `握手成功即就绪`() = runBlocking(Dispatchers.IO) {
         val port = listener()
-        assertNull(probeLocalPort(port, socks5 = true))
         val started = System.nanoTime()
-        val status = awaitLocalPorts(listOf(LocalPortTarget(port, true, alive())), 5000, { false }).single()
+        val status = awaitLocalPorts(listOf(LocalPortTarget(port, true, auth, alive())), 5000, { false }).single()
         assertTrue(status.ready)
         assertNull(status.exitCode)
         assertTrue("就绪后立刻返回", System.nanoTime() - started < 1_000_000_000)
@@ -83,7 +187,7 @@ class ExternalCoreProbesTest {
     fun `始终连不上时等到超时，带最后一次的原因`() = runBlocking(Dispatchers.IO) {
         val port = closedPort()
         val started = System.nanoTime()
-        val status = awaitLocalPorts(listOf(LocalPortTarget(port, true, alive())), 300, { false }).single()
+        val status = awaitLocalPorts(listOf(LocalPortTarget(port, true, auth, alive())), 300, { false }).single()
         val elapsedMs = (System.nanoTime() - started) / 1_000_000
         assertFalse(status.ready)
         assertTrue(status.lastError, status.lastError!!.isNotBlank())
@@ -92,24 +196,21 @@ class ExternalCoreProbesTest {
     }
 
     @Test
-    fun `握手回了别的内容不算就绪，只连端口的不握手`() = runBlocking(Dispatchers.IO) {
-        val rejecting = listener(reply = byteArrayOf(5, 0xff.toByte()))
-        assertEquals("unexpected SOCKS5 reply 05 ff", probeLocalPort(rejecting, socks5 = true))
+    fun `握手被拒或不应答不算就绪，只连端口的照常就绪`() = runBlocking(Dispatchers.IO) {
+        val rejecting = listener(reply = byteArrayOf(5, 0xff.toByte()), closeAfterReply = true)
         // 接受连接却从不应答：握手读超时，只连端口时算就绪
         val silent = listener(reply = null)
-        assertTrue(probeLocalPort(silent, socks5 = true)!!.isNotBlank())
-        assertNull(probeLocalPort(silent, socks5 = false))
-
         val statuses = awaitLocalPorts(
             listOf(
-                LocalPortTarget(rejecting, true, alive()),
-                LocalPortTarget(silent, true, alive()),
-                LocalPortTarget(silent, false, alive()),
+                LocalPortTarget(rejecting, true, auth, alive()),
+                LocalPortTarget(silent, true, auth, alive()),
+                LocalPortTarget(silent, false, auth, alive()),
             ),
             600, { false },
         )
         assertEquals(listOf(false, false, true), statuses.map { it.ready })
-        assertEquals("unexpected SOCKS5 reply 05 ff", statuses[0].lastError)
+        assertEquals("unexpected SOCKS5 reply 05 ff (connection closed)", statuses[0].lastError)
+        assertNoCredentials(statuses[1].lastError)
     }
 
     @Test
@@ -118,7 +219,7 @@ class ExternalCoreProbesTest {
         val missing = closedPort()
         val last = listener()
         val statuses = awaitLocalPorts(
-            listOf(first, missing, last).map { LocalPortTarget(it, true, alive()) },
+            listOf(first, missing, last).map { LocalPortTarget(it, true, auth, alive()) },
             300, { false },
         )
         assertEquals(listOf(true, false, true), statuses.map { it.ready })
@@ -137,13 +238,13 @@ class ExternalCoreProbesTest {
                 while (!server.isClosed) {
                     val socket = runCatching { server.accept() }.getOrNull() ?: break
                     socket.use { s ->
-                        repeat(3) { s.getInputStream().read() }
-                        s.getOutputStream().write(byteArrayOf(5, 0))
+                        repeat(expectedHandshake.size) { s.getInputStream().read() }
+                        s.getOutputStream().write(accepted)
                     }
                 }
             }
         }
-        val status = awaitLocalPorts(listOf(LocalPortTarget(port, true, alive())), 5000, { false }).single()
+        val status = awaitLocalPorts(listOf(LocalPortTarget(port, true, auth, alive())), 5000, { false }).single()
         late.await()
         assertTrue(status.lastError, status.ready)
     }
@@ -158,7 +259,7 @@ class ExternalCoreProbesTest {
             closed.set(true)
         }
         try {
-            awaitLocalPorts(listOf(LocalPortTarget(port, true, alive())), 10_000, closed::get)
+            awaitLocalPorts(listOf(LocalPortTarget(port, true, auth, alive())), 10_000, closed::get)
             fail("应当抛 CancellationException")
         } catch (_: CancellationException) {
         }
@@ -171,7 +272,7 @@ class ExternalCoreProbesTest {
         val port = closedPort()
         val started = System.nanoTime()
         try {
-            withTimeout(100) { awaitLocalPorts(listOf(LocalPortTarget(port, true, alive())), 10_000, { false }) }
+            withTimeout(100) { awaitLocalPorts(listOf(LocalPortTarget(port, true, auth, alive())), 10_000, { false }) }
             fail("应当被取消")
         } catch (_: CancellationException) {
         }
@@ -184,7 +285,7 @@ class ExternalCoreProbesTest {
         val ready = listener()
         val started = System.nanoTime()
         val strict = awaitLocalPorts(
-            listOf(LocalPortTarget(missing, true) { 255 }, LocalPortTarget(closedPort(), true, alive())),
+            listOf(LocalPortTarget(missing, true, auth) { 255 }, LocalPortTarget(closedPort(), true, auth, alive())),
             10_000, { false },
         )
         assertTrue("不等到超时", System.nanoTime() - started < 1_000_000_000)
@@ -192,7 +293,7 @@ class ExternalCoreProbesTest {
         assertFalse(strict[0].ready)
 
         val lenient = awaitLocalPorts(
-            listOf(LocalPortTarget(missing, false) { 1 }, LocalPortTarget(ready, false, alive())),
+            listOf(LocalPortTarget(missing, false, null) { 1 }, LocalPortTarget(ready, false, null, alive())),
             10_000, { false },
         )
         assertEquals(1, lenient[0].exitCode)
@@ -204,7 +305,7 @@ class ExternalCoreProbesTest {
         // 探测成功（可能是同 uid 的别的进程应答的），但本实例的进程随后退出
         val calls = AtomicInteger()
         val status = awaitLocalPorts(
-            listOf(LocalPortTarget(1, true) { if (calls.incrementAndGet() > 1) 255 else null }),
+            listOf(LocalPortTarget(1, true, auth) { if (calls.incrementAndGet() > 1) 255 else null }),
             5000, { false },
         ) { _, _ -> null }.single()
         assertFalse(status.ready)

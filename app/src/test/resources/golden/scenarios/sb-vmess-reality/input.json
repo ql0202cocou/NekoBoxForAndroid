@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-vmess-reality",
   "description": "VMess + REALITY 跑在 sing-box 上（默认 uTLS chrome）",
   "mainProfileId": 1,

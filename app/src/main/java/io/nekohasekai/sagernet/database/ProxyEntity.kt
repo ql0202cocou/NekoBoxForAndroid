@@ -225,7 +225,8 @@ data class ProxyEntity(
         // 组装中途抛异常时也要清掉已创建的
         val tempFiles = ArrayList<File>()
         try {
-            // 与运行、测速同一个组装入口：每组（Xray、mihomo 各一组，插件核心每个跳实例一组）一段
+            // 与运行、测速同一个组装入口：每组（Xray、mihomo 各一组，插件核心每个跳实例一组）一段。
+            // 本机 socks 凭据是这次导出构建生成的，sing-box 一段与外核各段写的是同一组
             val processes = ExternalRunPlan.from(config).assemble({ prefix, ext ->
                 File.createTempFile(prefix + "_", ".$ext", app.cacheDir).also { tempFiles.add(it) }
             }, null)

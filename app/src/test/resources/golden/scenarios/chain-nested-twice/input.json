@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "chain-nested-twice",
   "description": "同一子链出现两次",
   "mainProfileId": 1,

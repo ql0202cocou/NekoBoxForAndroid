@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "group-landing-empty-chain",
   "description": "落地是没有成员的链：应报错",
   "mainProfileId": 1,

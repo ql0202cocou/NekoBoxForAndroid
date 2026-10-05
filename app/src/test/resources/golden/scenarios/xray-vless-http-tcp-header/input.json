@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "xray-vless-http-tcp-header",
   "description": "VLESS http 传输不带 TLS（tcp 伪 HTTP 头），多个 Host",
   "mainProfileId": 1,

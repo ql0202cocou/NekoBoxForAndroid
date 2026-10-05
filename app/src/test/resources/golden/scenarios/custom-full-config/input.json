@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "custom-full-config",
   "description": "全配置型自定义节点：整份配置原样运行",
   "mainProfileId": 1,

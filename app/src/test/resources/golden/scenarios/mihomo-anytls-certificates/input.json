@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "mihomo-anytls-certificates",
   "description": "AnyTLS 自定义证书换算成指纹",
   "mainProfileId": 1,

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-vless-h2-auto",
   "description": "VLESS h2：Xray 不支持，自动落到 sing-box",
   "mainProfileId": 1,

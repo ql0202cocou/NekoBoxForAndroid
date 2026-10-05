@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-http",
   "description": "HTTP 代理，带认证",
   "mainProfileId": 1,

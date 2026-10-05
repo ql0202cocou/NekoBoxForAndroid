@@ -178,7 +178,9 @@ abstract class BoxInstance(
                 val launch = process.launch(initPlugin(process.group.pluginId).path, ::writeCacheFile)
                 val exitCode = processes.start(launch.commands, launch.env)
                 val strict = verifiedCheck(process) != null
-                for (hop in process.group.hops) targets += hop to LocalPortTarget(hop.localPort, strict, exitCode)
+                for (hop in process.group.hops) {
+                    targets += hop to LocalPortTarget(hop.localPort, strict, hop.localAuth, exitCode)
+                }
             }
             awaitExternalCores(targets)
             // 等待刚结束时被关闭：外核进程已由 close() 停掉，不再启动 box
@@ -200,8 +202,8 @@ abstract class BoxInstance(
     }
 
     // 启动就绪（plan.md K0 做法 5）：外核进程起来之后、box.start() 之前，等计划里每个跳实例的本机入站就绪。
-    // 内置 Xray / mihomo 逐个端口完成 SOCKS5 握手，等不到或进程退出就失败；其余核心只等端口能连上，等不到
-    // 记警告照常启动。实例被关闭或协程被取消时立即停止等待（抛 CancellationException）
+    // 内置 Xray / mihomo 逐个端口用跳实例的本机 socks 凭据完成 SOCKS5 用户名 / 密码握手，等不到或进程退出就
+    // 失败；其余核心只等端口能连上，等不到记警告照常启动。实例被关闭或协程被取消时立即停止等待（抛 CancellationException）
     private suspend fun awaitExternalCores(targets: List<Pair<ExternalHop, LocalPortTarget>>) {
         if (targets.isEmpty()) return
         val startedAt = SystemClock.elapsedRealtime()

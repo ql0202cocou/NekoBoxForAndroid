@@ -77,7 +77,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 40897,
+      "listen_port": 37475,
       "override_address": "vmess.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-3",
@@ -85,7 +85,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 33921,
+      "listen_port": 33477,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-2",
@@ -97,14 +97,18 @@
   },
   "outbounds": [
     {
+      "password": "p1c6c4ac6e78598dfba6546e031b9a9c2",
       "server": "127.0.0.1",
-      "server_port": 33919,
+      "server_port": 43811,
+      "username": "u5697afd8aa66a9dd",
       "tag": "proxy",
       "type": "socks"
     },
     {
+      "password": "p1c6c4ac6e78598dfba6546e031b9a9c2",
       "server": "127.0.0.1",
-      "server_port": 41333,
+      "server_port": 37473,
+      "username": "u5697afd8aa66a9dd",
       "tag": "g-2",
       "type": "socks"
     },
@@ -168,24 +172,39 @@
 
 {
   "log": {
-    "loglevel": "warning"
+    "loglevel": "warning",
+    "access": "none"
   },
   "inbounds": [
     {
       "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 33919,
+      "port": 43811,
       "protocol": "socks",
       "settings": {
+        "auth": "password",
+        "accounts": [
+          {
+            "user": "u5697afd8aa66a9dd",
+            "pass": "p1c6c4ac6e78598dfba6546e031b9a9c2"
+          }
+        ],
         "udp": true
       }
     },
     {
       "tag": "in-1",
       "listen": "127.0.0.1",
-      "port": 41333,
+      "port": 37473,
       "protocol": "socks",
       "settings": {
+        "auth": "password",
+        "accounts": [
+          {
+            "user": "u5697afd8aa66a9dd",
+            "pass": "p1c6c4ac6e78598dfba6546e031b9a9c2"
+          }
+        ],
         "udp": true
       }
     }
@@ -202,7 +221,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 40897,
+            "port": 37475,
             "users": [
               {
                 "id": "5a0c1e2f-3b4d-4e6f-8a9b-0c1d2e3f4a5b",
@@ -230,7 +249,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 33921,
+            "port": 33477,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",

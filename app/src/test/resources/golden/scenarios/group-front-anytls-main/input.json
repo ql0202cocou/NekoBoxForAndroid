@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "group-front-anytls-main",
   "description": "AnyTLS 走 mihomo 且分组有前置：测速不开 Clash API",
   "mainProfileId": 1,

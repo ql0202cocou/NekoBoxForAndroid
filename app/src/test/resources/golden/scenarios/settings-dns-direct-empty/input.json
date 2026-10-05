@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "settings-dns-direct-empty",
   "description": "直连 DNS 为空：应报错",
   "mainProfileId": 1,

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "custom-node-config-json",
   "description": "节点自带的整份自定义配置（合并进最终配置）",
   "mainProfileId": 1,

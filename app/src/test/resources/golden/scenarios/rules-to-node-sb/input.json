@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "rules-to-node-sb",
   "description": "规则目标是另一个内核节点",
   "mainProfileId": 1,

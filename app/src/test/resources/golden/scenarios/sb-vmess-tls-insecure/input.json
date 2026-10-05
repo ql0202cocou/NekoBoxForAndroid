@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-vmess-tls-insecure",
   "description": "VMess TLS allowInsecure",
   "mainProfileId": 1,

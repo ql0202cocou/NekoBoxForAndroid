@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-ss-aead",
   "description": "Shadowsocks aes-256-gcm",
   "mainProfileId": 1,

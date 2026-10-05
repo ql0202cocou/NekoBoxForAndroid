@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "chain-single-member",
   "description": "只有一个成员的链",
   "mainProfileId": 1,

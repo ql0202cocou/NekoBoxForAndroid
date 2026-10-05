@@ -468,7 +468,8 @@ class GoldenCollector(private val args: CollectArgs) {
     }
 
     companion object {
-        const val FORMAT_VERSION = 2
+        // 3：result.json 的跳实例记录本机 socks 凭据，凭据登记进 dynamic.secrets（K0b）
+        const val FORMAT_VERSION = 3
         const val OUTPUT_DIR = "golden-out"
         const val OWNED_MARKER = "golden-collect.owned"
         val MODES = listOf("run", "test", "export")

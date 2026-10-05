@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "ext-hy1-bad-hop-interval",
   "description": "Hysteria 1 插件跳跃间隔过短：应报错",
   "mainProfileId": 1,

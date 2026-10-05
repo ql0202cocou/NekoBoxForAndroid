@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "settings-domain-strategy-unset",
   "description": "三个 domain strategy 都没写过",
   "mainProfileId": 1,

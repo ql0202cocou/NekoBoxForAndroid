@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "ext-hy1-bad-window",
   "description": "Hysteria 1 插件接收窗口过小：应报错",
   "mainProfileId": 1,

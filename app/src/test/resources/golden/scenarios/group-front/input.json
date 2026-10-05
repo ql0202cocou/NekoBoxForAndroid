@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "group-front",
   "description": "分组前置代理",
   "mainProfileId": 1,

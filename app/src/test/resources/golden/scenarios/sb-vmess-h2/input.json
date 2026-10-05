@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-vmess-h2",
   "description": "VMess http 传输带 TLS（h2）",
   "mainProfileId": 1,

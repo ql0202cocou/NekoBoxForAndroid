@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-ss-plugin-none",
   "description": "Shadowsocks 插件写作 none",
   "mainProfileId": 1,

@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "rules-to-broken-node",
   "description": "规则目标预检失败：跳过并按目标不存在处理",
   "mainProfileId": 1,

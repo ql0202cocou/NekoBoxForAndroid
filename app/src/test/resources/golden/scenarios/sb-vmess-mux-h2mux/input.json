@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-vmess-mux-h2mux",
   "description": "VMess mux h2mux + padding",
   "mainProfileId": 1,

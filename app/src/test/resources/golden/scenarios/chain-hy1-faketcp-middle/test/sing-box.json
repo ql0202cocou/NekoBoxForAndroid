@@ -38,7 +38,7 @@
     {
       "detour": "g-2",
       "server": "127.0.0.1",
-      "server_port": 32955,
+      "server_port": 38153,
       "tag": "c-0-3",
       "type": "socks"
     },

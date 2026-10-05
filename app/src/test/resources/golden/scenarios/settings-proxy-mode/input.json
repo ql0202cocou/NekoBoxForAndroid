@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "settings-proxy-mode",
   "description": "仅代理模式",
   "mainProfileId": 1,

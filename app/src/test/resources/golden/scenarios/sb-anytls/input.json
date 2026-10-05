@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "sb-anytls",
   "description": "AnyTLS 手动指定 sing-box：SNI、ALPN、uTLS、ECH",
   "mainProfileId": 1,

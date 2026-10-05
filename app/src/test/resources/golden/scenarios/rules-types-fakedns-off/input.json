@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "rules-types-fakedns-off",
   "description": "各类规则，关闭 FakeDNS",
   "mainProfileId": 1,

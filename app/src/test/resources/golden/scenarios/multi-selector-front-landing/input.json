@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "multi-selector-front-landing",
   "description": "选择器分组：前置走 Xray、落地走 mihomo，选中 Xray 成员；落地在每个成员的链里各出现一次",
   "mainProfileId": 1,

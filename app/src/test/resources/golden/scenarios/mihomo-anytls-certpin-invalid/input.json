@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "mihomo-anytls-certpin-invalid",
   "description": "AnyTLS 证书指纹格式不对：应报错",
   "mainProfileId": 1,

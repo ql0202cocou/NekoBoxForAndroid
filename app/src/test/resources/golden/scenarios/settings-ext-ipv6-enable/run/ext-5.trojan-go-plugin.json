@@ -1,9 +1,9 @@
 {
   "run_type": "client",
   "local_addr": "127.0.0.1",
-  "local_port": 32929,
+  "local_port": 37495,
   "remote_addr": "127.0.0.1",
-  "remote_port": 35941,
+  "remote_port": 38367,
   "password": [
     "golden-pass-trojan-go"
   ],

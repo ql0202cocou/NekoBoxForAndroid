@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "rules-bad-port",
   "description": "规则端口不是数字：应报错",
   "mainProfileId": 1,

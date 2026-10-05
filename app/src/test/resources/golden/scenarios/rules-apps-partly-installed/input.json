@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "rules-apps-partly-installed",
   "description": "按应用分流，部分应用未安装",
   "mainProfileId": 1,

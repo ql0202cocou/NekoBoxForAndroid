@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "selector-main-plugin",
   "description": "选择器：选中需要插件的成员（选中的不预检）",
   "mainProfileId": 1,

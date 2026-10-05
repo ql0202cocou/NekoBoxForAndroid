@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 3,
   "id": "multi-chain-mihomo-xray-mihomo",
   "description": "一条链：mihomo、Xray、mihomo，再接内核出口",
   "mainProfileId": 1,
