@@ -9,7 +9,8 @@ import java.io.File
 // NEKO_GOLDEN_ACTUAL   新采集的目录；不设就跳过
 // NEKO_GOLDEN_EXPECTED 基线目录，默认 app/src/test/resources/golden/；目录不存在就跳过
 // NEKO_GOLDEN_REPORT   报告写到这个文件，脚本据此确认测试确实执行、环境变量确实传到了测试进程
-// NEKO_GOLDEN_SCOPE    比较范围：all（默认）或 sing-box（只比 sing-box 一侧，见 GoldenCompareScope）
+// NEKO_GOLDEN_SCOPE    比较范围：all（默认）、sing-box（只比 sing-box 一侧）或 ignore-local-auth（忽略本机认证），
+//                      见 GoldenCompareScope
 class GoldenCompareBaselineTest {
 
     @Test
@@ -22,6 +23,7 @@ class GoldenCompareBaselineTest {
         val scope = when (val value = System.getenv("NEKO_GOLDEN_SCOPE").orEmpty()) {
             "", "all" -> GoldenCompareScope.ALL
             "sing-box" -> GoldenCompareScope.SING_BOX
+            "ignore-local-auth" -> GoldenCompareScope.IGNORE_LOCAL_AUTH
             else -> throw IllegalArgumentException("不认识的 NEKO_GOLDEN_SCOPE：$value")
         }
 

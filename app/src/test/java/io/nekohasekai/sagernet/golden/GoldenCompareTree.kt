@@ -6,7 +6,7 @@ import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
 
-// 比较两棵采集产物目录树（格式 v2，v1 的布局相同）：
+// 比较两棵采集产物目录树（格式 v3，v1 / v2 的布局相同）：
 // <根>/manifest.json（只打印）、scenarios/<id>/input.json、scenarios/<id>/<mode>/{result.json, sing-box.json,
 // ext-<n>.<pluginId>.<json|yaml>, export.txt}、address/corpus.json。
 // 每个场景的每个模式单独编号占位符；格式之外的文件按字节比较并给出警告。
@@ -22,6 +22,105 @@ enum class GoldenCompareScope(val label: String) {
      * 用来证明外核一侧的改动（含产物格式升级）没有动到 sing-box 一侧。
      */
     SING_BOX("只比 sing-box 一侧"),
+
+    /**
+     * 比较全部产物，但两侧都先去掉本机 socks 认证（见 [GoldenLocalAuth]）并容忍格式版本号不同（input.json 与
+     * address/corpus.json 顶层的 formatVersion）。用来证明加认证的改动（K0b）除了认证本身没有改动别的输出。
+     */
+    IGNORE_LOCAL_AUTH("忽略本机认证"),
+}
+
+/**
+ * [GoldenCompareScope.IGNORE_LOCAL_AUTH] 去掉的位置，正好是这些，别处同名的键照常比较：
+ * - sing-box 配置（sing-box.json、export.txt 第 0 段）里指向本机的 socks 出站的 username / password；
+ * - Xray 配置里各入站 settings 的 auth 与 accounts，以及 log 的 access；
+ * - mihomo 配置里各 listener 的 users；
+ * - result.json 里 external[].hops[] 的 localAuth，以及 dynamic.secrets 里本机认证的值（取自前两处：跳实例的
+ *   记录与 sing-box 配置里本机 socks 出站的凭据）。
+ * 解析不了或结构不符的文档原样返回，由比较本身报告。
+ */
+object GoldenLocalAuth {
+
+    private const val LOCALHOST = "127.0.0.1"
+
+    private fun GoldenValue.Obj.without(vararg keys: String) = GoldenValue.Obj(fields - keys.toSet())
+
+    private fun GoldenValue.Obj.with(key: String, value: GoldenValue) =
+        GoldenValue.Obj(LinkedHashMap(fields).apply { put(key, value) })
+
+    private fun GoldenValue.text(): String? = (this as? GoldenValue.Str)?.parts
+        ?.takeIf { parts -> parts.all { it is StrPart.Text } }?.joinToString("") { (it as StrPart.Text).text }
+
+    // 对象 key 下的数组逐项变换；没有这个数组时原样返回
+    private fun GoldenValue.mapArray(key: String, transform: (GoldenValue) -> GoldenValue): GoldenValue {
+        val obj = this as? GoldenValue.Obj ?: return this
+        val array = obj.fields[key] as? GoldenValue.Arr ?: return this
+        return obj.with(key, GoldenValue.Arr(array.items.map(transform)))
+    }
+
+    private fun isLocalSocks(outbound: GoldenValue): Boolean = outbound is GoldenValue.Obj &&
+        outbound.fields["type"]?.text() == "socks" && outbound.fields["server"]?.text() == LOCALHOST
+
+    /** sing-box 配置里指向本机的 socks 出站带的 username / password 的值。 */
+    fun singBoxValues(config: GoldenValue): Set<String> {
+        val outbounds = ((config as? GoldenValue.Obj)?.fields?.get("outbounds") as? GoldenValue.Arr)?.items.orEmpty()
+        return outbounds.filter(::isLocalSocks).flatMap { outbound ->
+            listOf("username", "password").mapNotNull { (outbound as GoldenValue.Obj).fields[it]?.text() }
+        }.toSet()
+    }
+
+    fun stripSingBox(config: GoldenValue): GoldenValue = config.mapArray("outbounds") { outbound ->
+        if (isLocalSocks(outbound)) (outbound as GoldenValue.Obj).without("username", "password") else outbound
+    }
+
+    fun stripXray(config: GoldenValue): GoldenValue {
+        val withoutAuth = config.mapArray("inbounds") { inbound ->
+            val obj = inbound as? GoldenValue.Obj ?: return@mapArray inbound
+            val settings = obj.fields["settings"] as? GoldenValue.Obj ?: return@mapArray inbound
+            obj.with("settings", settings.without("auth", "accounts"))
+        }
+        val root = withoutAuth as? GoldenValue.Obj ?: return withoutAuth
+        val log = root.fields["log"] as? GoldenValue.Obj ?: return root
+        return root.with("log", log.without("access"))
+    }
+
+    fun stripMihomo(config: GoldenValue): GoldenValue = config.mapArray("listeners") { listener ->
+        (listener as? GoldenValue.Obj)?.without("users") ?: listener
+    }
+
+    /** 认不出插件 id 时（export.txt 的外核段）按结构认：Xray 有 inbounds 与 routing，mihomo 有 listeners。 */
+    fun stripExternal(config: GoldenValue, pluginId: String?): GoldenValue {
+        val obj = config as? GoldenValue.Obj ?: return config
+        return when (pluginId) {
+            "xray-plugin" -> stripXray(obj)
+            "mihomo-plugin" -> stripMihomo(obj)
+            null -> when {
+                obj.fields["inbounds"] is GoldenValue.Arr && obj.fields["routing"] is GoldenValue.Obj -> stripXray(obj)
+                obj.fields["listeners"] is GoldenValue.Arr -> stripMihomo(obj)
+                else -> obj
+            }
+
+            else -> obj
+        }
+    }
+
+    // result.json 里 external[].hops[] 逐个变换
+    private fun GoldenValue.mapHops(transform: (GoldenValue.Obj) -> GoldenValue): GoldenValue =
+        mapArray("external") { group -> group.mapArray("hops") { hop -> (hop as? GoldenValue.Obj)?.let(transform) ?: hop } }
+
+    /** result.json 里跳实例记录的本机认证的值。 */
+    fun resultValues(result: GoldenValue): Set<String> {
+        val values = LinkedHashSet<String>()
+        result.mapHops { hop ->
+            (hop.fields["localAuth"] as? GoldenValue.Obj)?.let { auth ->
+                listOf("username", "password").mapNotNullTo(values) { auth.fields[it]?.text() }
+            }
+            hop
+        }
+        return values
+    }
+
+    fun stripResult(result: GoldenValue): GoldenValue = result.mapHops { it.without("localAuth") }
 }
 
 class GoldenTreeReport(
@@ -67,13 +166,18 @@ object GoldenCompareTree {
 
     private const val SIDE_E = "预期"
     private const val SIDE_A = "实际"
-    private val extName = Regex("ext-(0|[1-9][0-9]*)\\.[^/]+\\.(json|yaml)")
+    // ext-<组序号>.<pluginId>.<json|yaml>
+    private val extName = Regex("ext-(0|[1-9][0-9]*)\\.([^/]+)\\.(json|yaml)")
 
     fun compare(expectedRoot: File, actualRoot: File, scope: GoldenCompareScope = GoldenCompareScope.ALL): GoldenTreeReport =
         Run(expectedRoot, actualRoot, scope).run()
 
     private class Run(val e: File, val a: File, val scope: GoldenCompareScope) {
         val singBoxOnly = scope == GoldenCompareScope.SING_BOX
+        val ignoreLocalAuth = scope == GoldenCompareScope.IGNORE_LOCAL_AUTH
+
+        // 两侧可能是不同格式版本的产物时，不比较顶层的格式版本号
+        val versionKeys = if (singBoxOnly || ignoreLocalAuth) setOf("formatVersion") else emptySet()
         val diffs = ArrayList<GoldenDiff>()
         val warnings = ArrayList<String>()
         val handled = HashSet<String>()
@@ -97,7 +201,7 @@ object GoldenCompareTree {
             if (ids.isEmpty()) diffs.add(GoldenDiff("scenarios/", "", "两侧都没有任何场景"))
             for (id in ids) compareScenario("scenarios/$id")
 
-            if (singBoxOnly) handled.add("address/corpus.json") else compareFile("address/corpus.json")
+            if (singBoxOnly) handled.add("address/corpus.json") else compareFile("address/corpus.json", versionKeys)
 
             for (rel in (eFiles + aFiles - handled).sorted()) {
                 val inE = rel in eFiles
@@ -118,8 +222,7 @@ object GoldenCompareTree {
 
         fun compareScenario(rel: String) {
             if (!onBothSides(rel)) return
-            // 只比 sing-box 一侧时两侧可能是不同格式版本的产物
-            compareFile("$rel/input.json", if (singBoxOnly) setOf("formatVersion") else emptySet())
+            compareFile("$rel/input.json", versionKeys)
             for (mode in (subdirs(e, rel) + subdirs(a, rel)).toSortedSet()) {
                 val modeRel = "$rel/$mode"
                 if (onBothSides(modeRel)) compareMode(modeRel)
@@ -169,30 +272,49 @@ object GoldenCompareTree {
         }
 
         // 按约定的遍历次序给出本模式的文档：sing-box.json、ext-0、ext-1……、export.txt 各段，最后 result.json。
-        // 只比 sing-box 一侧时外核配置只记为已处理，export.txt 只取第 0 段
+        // 只比 sing-box 一侧时外核配置只记为已处理，export.txt 只取第 0 段；忽略本机认证时各文档先去掉认证
         fun modeDocuments(root: File, rel: String, side: String): Pair<List<GoldenDocument>, GoldenDynamic> {
             val names = File(root, rel).listFiles()?.filter { it.isFile }?.map { it.name }.orEmpty()
             val docs = ArrayList<GoldenDocument>()
-            if ("sing-box.json" in names) {
-                docs.add(document(root, "$rel/sing-box.json", "sing-box.json", GoldenFormat.JSON_OBJECT))
+            // 忽略本机认证时 sing-box 配置里本机 socks 出站的凭据，result.json 的 dynamic.secrets 里随之去掉
+            val localValues = LinkedHashSet<String>()
+            fun singBoxDocument(doc: GoldenDocument) = if (!ignoreLocalAuth) doc else doc.mapValue {
+                localValues += GoldenLocalAuth.singBoxValues(it)
+                GoldenLocalAuth.stripSingBox(it)
             }
-            names.mapNotNull { name -> extName.matchEntire(name)?.let { Triple(it.groupValues[1].toInt(), name, it.groupValues[2]) } }
+
+            fun externalDocument(doc: GoldenDocument, pluginId: String?) =
+                if (!ignoreLocalAuth) doc else doc.mapValue { GoldenLocalAuth.stripExternal(it, pluginId) }
+
+            if ("sing-box.json" in names) {
+                docs.add(singBoxDocument(document(root, "$rel/sing-box.json", "sing-box.json", GoldenFormat.JSON_OBJECT)))
+            }
+            names.mapNotNull { name -> extName.matchEntire(name)?.let { Triple(it.groupValues[1].toInt(), name, it) } }
                 .sortedWith(compareBy({ it.first }, { it.second }))
-                .forEach { (_, name, ext) ->
+                .forEach { (_, name, match) ->
                     if (singBoxOnly) {
                         handled.add("$rel/$name")
                         return@forEach
                     }
-                    val format = if (ext == "json") GoldenFormat.JSON else GoldenFormat.YAML
-                    docs.add(document(root, "$rel/$name", name, format))
+                    val format = if (match.groupValues[3] == "json") GoldenFormat.JSON else GoldenFormat.YAML
+                    docs.add(externalDocument(document(root, "$rel/$name", name, format), match.groupValues[2]))
                 }
             if ("export.txt" in names) {
                 val segments = exportSegments(root, "$rel/export.txt")
-                docs.addAll(if (singBoxOnly) segments.take(1) else segments)
+                docs.addAll(
+                    when {
+                        singBoxOnly -> segments.take(1)
+                        ignoreLocalAuth -> segments.mapIndexed { i, doc ->
+                            if (i == 0) singBoxDocument(doc) else externalDocument(doc, null)
+                        }
+
+                        else -> segments
+                    }
+                )
             }
             var dynamic = GoldenDynamic.NONE
             if ("result.json" in names) {
-                val (doc, dyn) = resultDocument(root, "$rel/result.json", side)
+                val (doc, dyn) = resultDocument(root, "$rel/result.json", side, localValues.takeIf { ignoreLocalAuth })
                 docs.add(doc)
                 dynamic = dyn
             }
@@ -217,17 +339,25 @@ object GoldenCompareTree {
             }
         }
 
-        // 取出 dynamic 供占位符使用；dynamic 本身只比较各类的个数
-        fun resultDocument(root: File, rel: String, side: String): Pair<GoldenDocument, GoldenDynamic> {
-            val value = try {
+        // 取出 dynamic 供占位符使用；dynamic 本身只比较各类的个数。localValues 不为 null 时忽略本机认证：
+        // 跳实例的 localAuth 去掉，dynamic.secrets 里去掉这些值与跳实例记录的凭据
+        fun resultDocument(
+            root: File,
+            rel: String,
+            side: String,
+            localValues: Set<String>?,
+        ): Pair<GoldenDocument, GoldenDynamic> {
+            val parsed = try {
                 GoldenParser.parseJson(readUtf8(File(root, rel)))
             } catch (ex: GoldenParseException) {
                 return GoldenDocument.ofError("result.json", ex.message!!) to GoldenDynamic.NONE
             }
             fun bad(message: String) = diffs.add(GoldenDiff(rel, "$.dynamic", "${side}一侧 $message"))
-            if (value !is GoldenValue.Obj) {
+            if (parsed !is GoldenValue.Obj) {
                 return GoldenDocument.ofError("result.json", "顶层不是 JSON 对象") to GoldenDynamic.NONE
             }
+            val local = localValues?.let { it + GoldenLocalAuth.resultValues(parsed) }
+            val value = if (local == null) parsed else GoldenLocalAuth.stripResult(parsed) as GoldenValue.Obj
             val dyn = value.fields["dynamic"]
             if (dyn !is GoldenValue.Obj) {
                 bad(if (dyn == null) "缺少 dynamic" else "dynamic 不是对象")
@@ -253,7 +383,8 @@ object GoldenCompareTree {
                 }
             }
 
-            val dynamic = GoldenDynamic(ports, strings("paths"), strings("secrets"))
+            val secrets = strings("secrets").filter { local == null || it !in local }
+            val dynamic = GoldenDynamic(ports, strings("paths"), secrets)
             val counts = GoldenValue.Obj(
                 linkedMapOf(
                     "ports" to GoldenValue.Integer(BigInteger.valueOf(dynamic.ports.size.toLong())),
@@ -267,6 +398,13 @@ object GoldenCompareTree {
             })
             return GoldenDocument.ofValue("result.json", replaced) to dynamic
         }
+    }
+
+    // 解析后的值经 transform 变换；解析失败时原样返回，由比较报告解析错误
+    private fun GoldenDocument.mapValue(transform: (GoldenValue) -> GoldenValue): GoldenDocument = try {
+        GoldenDocument.ofValue(name, transform(parsed()))
+    } catch (ex: GoldenParseException) {
+        this
     }
 
     // 去掉顶层对象里不比较的键；解析失败或不是对象时原样返回，由比较报告解析错误

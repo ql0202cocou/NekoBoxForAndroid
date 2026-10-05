@@ -1,23 +1,34 @@
 #!/bin/bash
 
 # 把新采集的配置产物与基线做结构比较并打印报告；有差异、或没能真正比较时返回非零。
-# 用法：./run golden compare [--sing-box-only] <新采集目录> [基线目录]
+# 用法：./run golden compare [--sing-box-only | --ignore-local-auth] <新采集目录> [基线目录]
 # 基线默认 app/src/test/resources/golden/。--sing-box-only 只比 sing-box 一侧（input.json、sing-box.json、
 # export.txt 第 0 段、result.json 除 external 之外的部分），用来证明外核一侧的改动没有动到 sing-box 一侧。
+# --ignore-local-auth 比较全部产物，但两侧先去掉本机 socks 认证（sing-box 本机 socks 出站的凭据、Xray 入站的
+# auth / accounts 与 log.access、mihomo listener 的 users、result.json 跳实例的 localAuth 与对应的 dynamic.secrets），
+# 并容忍格式版本号不同，用来证明加认证的改动只多出了认证。
 # 比较逻辑在 JVM 单测 GoldenCompareBaselineTest 里，这里负责传参、强制重跑，并取回测试写出的报告。
 
 set -eo pipefail
 
+USAGE="用法：./run golden compare [--sing-box-only | --ignore-local-auth] <新采集目录> [基线目录]"
 SCOPE=all
 SCOPE_LABEL=全部
-if [ "$1" = "--sing-box-only" ]; then
+case "$1" in
+--sing-box-only)
   SCOPE=sing-box
   SCOPE_LABEL="只比 sing-box 一侧"
   shift
-fi
+  ;;
+--ignore-local-auth)
+  SCOPE=ignore-local-auth
+  SCOPE_LABEL="忽略本机认证"
+  shift
+  ;;
+esac
 
 if [ $# -lt 1 ] || [ $# -gt 2 ]; then
-  echo "用法：./run golden compare [--sing-box-only] <新采集目录> [基线目录]" >&2
+  echo "$USAGE" >&2
   exit 2
 fi
 

@@ -475,6 +475,205 @@ class GoldenCompareTreeTest {
         assertTrue(compare(sample(first), sample(second)).render().contains("比较范围：全部\n"))
     }
 
+    // ---- 忽略本机认证
+
+    private class Auth(val user: String, val pass: String)
+
+    private val auth1 = Auth("u00112233445566aa", "p00112233445566778899aabbccddee01")
+    private val auth2 = Auth("u99887766554433bb", "pffeeddccbbaa99887766554433221102")
+
+    private fun creds(auth: Auth?) = if (auth == null) "" else """, "username": "${auth.user}", "password": "${auth.pass}""""
+
+    // g-3 接 Xray、g-4 接 mihomo（都是本机 socks 出站）；g-5 是用户自己的 socks 节点，凭据是夹具里固定的
+    private fun ilaSingBox(d: Dyn, auth: Auth?) = """
+        {
+          "inbounds": [
+            {"type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": 2080},
+            {"type": "direct", "tag": "c-0-mapping-3", "listen": "127.0.0.1", "listen_port": ${d.mapping}, "override_address": "example.com", "override_port": 443}
+          ],
+          "outbounds": [
+            {"type": "socks", "tag": "g-3", "server": "127.0.0.1", "server_port": ${d.socks}${creds(auth)}},
+            {"type": "socks", "tag": "g-4", "server": "127.0.0.1", "server_port": ${d.socks2}${creds(auth)}},
+            {"type": "socks", "tag": "g-5", "server": "198.51.100.7", "server_port": 1080, "username": "node-user", "password": "node-pass"},
+            {"type": "direct", "tag": "direct"}
+          ]
+        }
+    """.trimIndent()
+
+    private fun ilaXray(d: Dyn, auth: Auth?): String {
+        val access = if (auth == null) "" else """, "access": "none""""
+        val settings = if (auth == null) "" else
+            """"auth": "password", "accounts": [{"user": "${auth.user}", "pass": "${auth.pass}"}], """
+        return """
+            {
+              "log": {"loglevel": "warning"$access},
+              "inbounds": [{"tag": "in-0", "listen": "127.0.0.1", "port": ${d.socks}, "protocol": "socks", "settings": {$settings"udp": true}}],
+              "outbounds": [
+                {"tag": "block", "protocol": "blackhole"},
+                {"tag": "out-0", "protocol": "vless", "settings": {"vnext": [{"address": "127.0.0.1", "port": ${d.mapping}, "users": [{"id": "fake-uuid"}]}]}}
+              ],
+              "routing": {"domainStrategy": "AsIs", "rules": [{"type": "field", "inboundTag": ["in-0"], "outboundTag": "out-0"}]}
+            }
+        """.trimIndent()
+    }
+
+    private fun ilaMihomo(d: Dyn, auth: Auth?, controller: Boolean) = buildString {
+        append("log-level: warning\nmode: rule\n")
+        if (controller) append("external-controller: 127.0.0.1:${d.controller}\nsecret: ${d.secret}\n")
+        append("listeners:\n- name: in-1\n  type: socks\n  listen: 127.0.0.1\n  port: ${d.socks2}\n  udp: true\n  proxy: out-1\n")
+        if (auth != null) append("  users:\n  - {username: ${auth.user}, password: ${auth.pass}}\n")
+        append("proxies:\n- {name: out-1, type: anytls, server: example.org, port: 8443, password: fake-password, udp: true}\n")
+        append("rules: ['MATCH,REJECT']\n")
+    }
+
+    // 格式 3 起每个跳实例都有 localAuth；旧格式没有这个键
+    private fun ilaResult(d: Dyn, auth: Auth?, version: Int, controller: Boolean): String {
+        fun local() = when {
+            version < 3 -> ""
+            auth == null -> """, "localAuth": null"""
+            else -> """, "localAuth": {"username": "${auth.user}", "password": "${auth.pass}"}"""
+        }
+        val ports = listOfNotNull(d.socks, d.mapping, d.socks2, d.controller.takeIf { controller })
+        val secrets = listOfNotNull(d.secret.takeIf { controller }, auth?.user, auth?.pass).joinToString(", ") { "\"$it\"" }
+        return """
+            {
+              "status": "ok",
+              "build": {"mainEntId": 1, "selectorGroupId": -1, "profileTagMap": {"3": "g-3"}, "trafficMap": {"g-3": [3]}, "boxIndexNames": {}, "boxTagNames": {}},
+              "external": [
+                {"file": "ext-0.xray-plugin.json", "pluginId": "xray-plugin", "controller": null, "tempFiles": [],
+                 "hops": [{"index": 0, "chainIndex": 0, "profileId": 3, "port": ${d.socks}, "finalAddress": "127.0.0.1",
+                           "finalPort": ${d.mapping}, "inboundTag": "in-0", "outboundTag": "out-0"${local()}}]},
+                {"file": "ext-1.mihomo-plugin.yaml", "pluginId": "mihomo-plugin",
+                 "controller": ${if (controller) """{"port": ${d.controller}, "secret": "${d.secret}"}""" else "null"}, "tempFiles": [],
+                 "hops": [{"index": 1, "chainIndex": 1, "profileId": 4, "port": ${d.socks2}, "finalAddress": "example.org",
+                           "finalPort": 8443, "inboundTag": "in-1", "outboundTag": "out-1"${local()}}]}
+              ],
+              "dynamic": {"ports": $ports, "paths": [], "secrets": [$secrets]}
+            }
+        """.trimIndent()
+    }
+
+    // 一棵产物树：auth 为 null 时是加认证之前（格式 2）的样子
+    private fun ilaTree(d: Dyn, auth: Auth?, version: Int = if (auth == null) 2 else 3): MutableMap<String, String> {
+        val s = "scenarios/mixed-chain"
+        val exportSecrets = listOfNotNull(auth?.user, auth?.pass).joinToString(", ") { "\"$it\"" }
+        return linkedMapOf(
+            "manifest.json" to manifest("abc1234"),
+            "$s/input.json" to """{"formatVersion": $version, "profiles": [{"id": 3, "type": "vless"}, {"id": 4, "type": "anytls"}]}""",
+            "$s/run/sing-box.json" to ilaSingBox(d, auth),
+            "$s/run/ext-0.xray-plugin.json" to ilaXray(d, auth),
+            "$s/run/ext-1.mihomo-plugin.yaml" to ilaMihomo(d, auth, false),
+            "$s/run/result.json" to ilaResult(d, auth, version, false),
+            "$s/test/sing-box.json" to ilaSingBox(d, auth),
+            "$s/test/ext-0.xray-plugin.json" to ilaXray(d, auth),
+            "$s/test/ext-1.mihomo-plugin.yaml" to ilaMihomo(d, auth, true),
+            "$s/test/result.json" to ilaResult(d, auth, version, true),
+            "$s/export/export.txt" to ilaSingBox(d, auth) + "\n\n" + ilaXray(d, auth) + "\n\n" + ilaMihomo(d, auth, false),
+            "$s/export/result.json" to """{"status": "ok", "exportName": "profiles.txt", "dynamic": {"ports": [${d.socks}, ${d.mapping}, ${d.socks2}], "paths": [], "secrets": [$exportSecrets]}}""",
+            "address/corpus.json" to """{"formatVersion": $version, "entries": [{"input": "1.1.1.1", "numeric": true}]}""",
+        )
+    }
+
+    private fun compareIgnoringAuth(e: Map<String, String>, a: Map<String, String>) =
+        GoldenCompareTree.compare(write(e), write(a), GoldenCompareScope.IGNORE_LOCAL_AUTH)
+
+    @Test
+    fun `忽略本机认证时只多出认证的新产物与旧基线一致`() {
+        val r = compareIgnoringAuth(ilaTree(first, null), ilaTree(second, auth2))
+        assertSame(r)
+        assertTrue(r.render(), r.warnings.isEmpty())
+        assertTrue(r.render(), "比较范围：忽略本机认证\n" in r.render())
+        // 完整比较就不一致：认证本身、格式版本号都算差异
+        assertDiffer(
+            compare(ilaTree(first, null), ilaTree(second, auth2)),
+            "$.outbounds[0].username", "$.inbounds[0].settings.auth", "$.log.access", "$.listeners[0].users",
+            "$.external[0].hops[0].localAuth", "$.dynamic.secrets", "input.json", "address/corpus.json",
+        )
+        // 两次加了认证的采集：凭据按 dynamic.secrets 换成占位符，完整比较一致
+        val both = compare(ilaTree(first, auth1), ilaTree(second, auth2))
+        assertSame(both)
+        assertTrue(both.render(), both.warnings.isEmpty())
+    }
+
+    @Test
+    fun `忽略本机认证只去掉约定的位置，别处同名的键照常比较`() {
+        val base = ilaTree(first, null)
+        fun changed(path: String, transform: (String) -> String) = ilaTree(second, auth2).apply { put(path, transform(get(path)!!)) }
+        val run = "scenarios/mixed-chain/run"
+        // 用户自己的 socks 节点（不指向本机）的凭据
+        assertDiffer(
+            compareIgnoringAuth(base, changed("$run/sing-box.json") { it.replace("node-user", "node-user2") }),
+            "$.outbounds[2].username",
+        )
+        // 本机 socks 出站的其它字段
+        assertDiffer(
+            compareIgnoringAuth(base, changed("$run/sing-box.json") { it.replace("\"tag\": \"g-3\",", "\"tag\": \"g-3\", \"version\": \"4\",") }),
+            "$.outbounds[0].version",
+        )
+        // Xray：入站本身（不在 settings 里）的同名键、settings 的其它键、出站里的同名键
+        assertDiffer(
+            compareIgnoringAuth(base, changed("$run/ext-0.xray-plugin.json") { it.replace("\"tag\": \"in-0\",", "\"tag\": \"in-0\", \"auth\": \"password\",") }),
+            "$.inbounds[0].auth",
+        )
+        assertDiffer(
+            compareIgnoringAuth(base, changed("$run/ext-0.xray-plugin.json") { it.replace("\"udp\": true", "\"udp\": false") }),
+            "$.inbounds[0].settings.udp",
+        )
+        assertDiffer(
+            compareIgnoringAuth(base, changed("$run/ext-0.xray-plugin.json") { it.replace("\"protocol\": \"vless\", \"settings\": {", "\"protocol\": \"vless\", \"settings\": {\"accounts\": [], ") }),
+            "$.outbounds[1].settings.accounts",
+        )
+        assertDiffer(
+            compareIgnoringAuth(base, changed("$run/ext-0.xray-plugin.json") { it.replace("\"loglevel\": \"warning\"", "\"loglevel\": \"info\"") }),
+            "$.log.loglevel",
+        )
+        // mihomo：代理里的同名键、listener 的其它键
+        assertDiffer(
+            compareIgnoringAuth(base, changed("$run/ext-1.mihomo-plugin.yaml") { it.replace("udp: true}", "udp: true, users: []}") }),
+            "$.proxies[0].users",
+        )
+        assertDiffer(
+            compareIgnoringAuth(base, changed("$run/ext-1.mihomo-plugin.yaml") { it.replace("  proxy: out-1\n", "  proxy: out-0\n") }),
+            "$.listeners[0].proxy",
+        )
+        // result.json：组上（不在跳实例里）的同名键、多出来的别的 secret
+        assertDiffer(
+            compareIgnoringAuth(base, changed("$run/result.json") { it.replace("\"tempFiles\": [],\n", "\"tempFiles\": [], \"localAuth\": null,\n") }),
+            "$.external[0].localAuth",
+        )
+        assertDiffer(
+            compareIgnoringAuth(base, changed("$run/result.json") { it.replace("\"secrets\": [", "\"secrets\": [\"other\", ") }),
+            "$.dynamic.secrets：预期 0，实际 1",
+        )
+        // 凭据出现在约定之外的位置
+        assertDiffer(
+            compareIgnoringAuth(base, changed("$run/sing-box.json") { it.replace("\"tag\": \"direct\"", "\"tag\": \"direct\", \"note\": \"${auth2.user}\"") }),
+            "$.outbounds[3].note",
+        )
+        // export.txt 的外核段同样只去掉约定的位置
+        assertDiffer(
+            compareIgnoringAuth(base, changed("scenarios/mixed-chain/export/export.txt") { it.replace("udp: true}", "udp: false}") }),
+            "export.txt#2", "$.proxies[0].udp",
+        )
+    }
+
+    @Test
+    fun `忽略本机认证容忍格式版本号，别的差异照常报告`() {
+        val base = ilaTree(first, null)
+        assertSame(compareIgnoringAuth(base, ilaTree(second, auth2, version = 7)))
+        assertDiffer(
+            compareIgnoringAuth(base, ilaTree(second, auth2).apply { put("address/corpus.json", get("address/corpus.json")!!.replace("true", "false")) }),
+            "$.entries[0].numeric",
+        )
+        val input = "scenarios/mixed-chain/input.json"
+        assertDiffer(
+            compareIgnoringAuth(base, ilaTree(second, auth2).apply { put(input, get(input)!!.replace("\"vless\"", "\"vmess\"")) }),
+            "$.profiles[0].type",
+        )
+        // 方向反过来（基线带认证、新采集不带）同样只差认证
+        assertSame(compareIgnoringAuth(ilaTree(first, auth1), ilaTree(second, null)))
+    }
+
     // ---- 报告
 
     @Test
