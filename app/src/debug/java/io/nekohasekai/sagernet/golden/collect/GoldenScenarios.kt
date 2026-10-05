@@ -28,6 +28,7 @@ fun goldenScenarios(): List<Scenario> = scenarioTable {
     routeRules()
     settingsVariants()
     groupNameservers()
+    multiExternal()
 }
 
 private fun ScenarioTable.single(
@@ -1126,5 +1127,158 @@ private fun ScenarioTable.groupNameservers() {
         group(1, nameserver = "https://dns.example.org/dns-query\n192.0.2.1")
         node(1, vmess("golden-gdnsds-main").ws())
         settings { copy(domainStrategyServer = "ipv4_only", ipv6Mode = IPv6Mode.ENABLE) }
+    }
+}
+
+// 同一次构建里同一种外核（Xray / mihomo）有多个节点的各种来路（K0 合并外核进程前的旧输出）。
+// 每个节点用各自的服务器域名与 SNI，方便在合并后的配置里分辨；Xray 走 VLESS + REALITY，
+// mihomo 走 AnyTLS，内核走 Shadowsocks，Trojan-Go / Naive / Mieru 是要装插件 app 的节点
+private fun xrayNode(name: String, n: Int) =
+    vless(name, server = "xray-$n.example.com").reality(sni = "reality-$n.example.org")
+
+private fun xrayWsNode(name: String, n: Int) =
+    vmess(name, server = "xray-ws-$n.example.com").ws(host = "ws-$n.example.org").tls(sni = "ws-$n.example.org")
+
+private fun mihomoNode(name: String, n: Int) =
+    anytls(name, server = "mihomo-$n.example.com", port = 8443 + n, sni = "mihomo-$n.example.org")
+
+private fun ssNode(name: String, n: Int) = shadowsocks(name, server = "ss-$n.example.com", port = 8388 + n)
+
+// 选择器分组：3 个 Xray、2 个 mihomo、2 个内核成员；id 1-3 Xray，4-5 mihomo，6-7 内核
+private fun ScenarioBuilder.multiSelectorMembers() {
+    group(1, selector = true)
+    node(1, xrayNode("golden-multi-xray-1", 1))
+    node(2, xrayNode("golden-multi-xray-2", 2))
+    node(3, xrayWsNode("golden-multi-xray-3", 3), core = CORE_XRAY)
+    node(4, mihomoNode("golden-multi-mihomo-1", 1))
+    node(5, mihomoNode("golden-multi-mihomo-2", 2))
+    node(6, ssNode("golden-multi-ss-1", 1))
+    node(7, vmess("golden-multi-vmess-1", server = "vmess-1.example.com").ws().tls(sni = "cdn.example.org"))
+}
+
+private fun ScenarioTable.multiExternal() {
+    scenario("multi-selector-main-sb", "选择器：多个 Xray 与 mihomo 成员，选中内核成员") {
+        multiSelectorMembers()
+        main = 6
+    }
+    scenario("multi-selector-main-xray", "选择器：多个 Xray 与 mihomo 成员，选中 Xray 成员") {
+        multiSelectorMembers()
+        main = 2
+    }
+    scenario("multi-selector-main-mihomo", "选择器：多个 Xray 与 mihomo 成员，选中 mihomo 成员") {
+        multiSelectorMembers()
+        main = 5
+    }
+    scenario("multi-rules-targets", "主节点走 Xray，规则目标是 2 个 Xray、2 个 mihomo 与 1 个内核节点") {
+        node(1, xrayNode("golden-multi-rt-main", 1))
+        node(2, xrayNode("golden-multi-rt-xray-2", 2))
+        node(3, xrayWsNode("golden-multi-rt-xray-3", 3), core = CORE_XRAY)
+        node(4, mihomoNode("golden-multi-rt-mihomo-1", 1))
+        node(5, mihomoNode("golden-multi-rt-mihomo-2", 2))
+        node(6, ssNode("golden-multi-rt-ss", 1))
+        rule(1, outbound = 2) { domains = "domain:xray-2.example.org" }
+        rule(2, outbound = 3) { domains = "domain:xray-3.example.org" }
+        rule(3, outbound = 4) { domains = "domain:mihomo-1.example.org" }
+        rule(4, outbound = 5) { ip = "198.51.100.0/24" }
+        rule(5, outbound = 6) { domains = "domain:ss.example.org" }
+    }
+    scenario("multi-chain-mihomo-xray-mihomo", "一条链：mihomo、Xray、mihomo，再接内核出口") {
+        node(2, mihomoNode("golden-multi-cm-mihomo-1", 1))
+        node(3, xrayNode("golden-multi-cm-xray", 1))
+        node(4, mihomoNode("golden-multi-cm-mihomo-2", 2))
+        node(5, ssNode("golden-multi-cm-ss", 1))
+        chain(1, 2, 3, 4, 5)
+    }
+    scenario("multi-chain-xray-x3", "一条链：三个 Xray 节点") {
+        node(2, xrayNode("golden-multi-cx-xray-1", 1))
+        node(3, xrayWsNode("golden-multi-cx-xray-2", 2), core = CORE_XRAY)
+        node(4, xrayNode("golden-multi-cx-xray-3", 3))
+        chain(1, 2, 3, 4)
+    }
+    scenario("multi-chains-shared-nonfirst", "两条链共用中间的 Xray 与出口的 mihomo，都不是最先拨号的一跳") {
+        node(2, ssNode("golden-multi-sh-ss-1", 1))
+        node(3, ssNode("golden-multi-sh-ss-2", 2))
+        node(4, xrayNode("golden-multi-sh-xray", 1))
+        node(5, mihomoNode("golden-multi-sh-mihomo", 1))
+        chain(1, 2, 4, 5)
+        chain(6, 3, 4, 5, name = "golden-multi-sh-chain-b")
+        rule(1, outbound = 6) { domains = "domain:chain-b.example.org" }
+    }
+    scenario("multi-chains-shared-swapped", "两条链共用 Xray 与 mihomo 节点但顺序相反，主链另带一个独占的 Xray") {
+        node(2, ssNode("golden-multi-sw-ss-1", 1))
+        node(3, ssNode("golden-multi-sw-ss-2", 2))
+        node(4, xrayNode("golden-multi-sw-xray-shared", 1))
+        node(5, mihomoNode("golden-multi-sw-mihomo-shared", 1))
+        node(6, xrayNode("golden-multi-sw-xray-own", 2))
+        chain(1, 2, 4, 5, 6)
+        chain(7, 3, 5, 4, name = "golden-multi-sw-chain-b")
+        rule(1, outbound = 7) { domains = "domain:chain-b.example.org" }
+    }
+    scenario("multi-selector-front-landing", "选择器分组：前置走 Xray、落地走 mihomo，选中 Xray 成员；落地在每个成员的链里各出现一次") {
+        group(1, selector = true, front = 10, landing = 11)
+        group(2)
+        node(1, xrayNode("golden-multi-fl-xray-1", 1))
+        node(2, xrayNode("golden-multi-fl-xray-2", 2))
+        node(3, mihomoNode("golden-multi-fl-mihomo-1", 1))
+        node(4, ssNode("golden-multi-fl-ss", 1))
+        node(10, xrayNode("golden-multi-fl-front", 3), group = 2)
+        node(11, mihomoNode("golden-multi-fl-landing", 2), group = 2)
+    }
+    scenario("multi-selector-chain-members", "选择器成员本身是链，链里有多个 Xray 与 mihomo 节点（节点在别的分组）") {
+        group(1, selector = true)
+        group(2)
+        node(2, xrayNode("golden-multi-sc-xray-1", 1), group = 2)
+        node(3, xrayNode("golden-multi-sc-xray-2", 2), group = 2)
+        node(4, mihomoNode("golden-multi-sc-mihomo-1", 1), group = 2)
+        node(5, mihomoNode("golden-multi-sc-mihomo-2", 2), group = 2)
+        node(6, ssNode("golden-multi-sc-ss", 1), group = 2)
+        node(7, ssNode("golden-multi-sc-ss-member", 2))
+        chain(1, 2, 4, name = "golden-multi-sc-chain-a")
+        chain(8, 6, 3, 5, name = "golden-multi-sc-chain-b")
+        chain(9, 2, 3, name = "golden-multi-sc-chain-c")
+    }
+    scenario("multi-chain-plugin-mix", "一条链里 Xray、mihomo 与 Trojan-Go、Naive、Mieru 节点交错") {
+        node(2, trojanGo("golden-multi-pm-trojan-go"))
+        node(3, xrayNode("golden-multi-pm-xray-1", 1))
+        node(4, naive("golden-multi-pm-naive"))
+        node(5, mihomoNode("golden-multi-pm-mihomo-1", 1))
+        node(6, mieru("golden-multi-pm-mieru"))
+        node(7, xrayNode("golden-multi-pm-xray-2", 2))
+        node(8, mihomoNode("golden-multi-pm-mihomo-2", 2))
+        chain(1, 2, 3, 4, 5, 6, 7, 8, name = "golden-multi-pm-chain")
+    }
+    scenario("multi-selector-plugin-chain-members", "选择器成员是链：外核节点与要装插件 app 的节点混合（模拟器上无插件）") {
+        group(1, selector = true)
+        group(2)
+        node(2, trojanGo("golden-multi-sp-trojan-go"), group = 2)
+        node(3, naive("golden-multi-sp-naive"), group = 2)
+        node(4, xrayNode("golden-multi-sp-xray-1", 1), group = 2)
+        node(5, mihomoNode("golden-multi-sp-mihomo-1", 1), group = 2)
+        node(6, xrayNode("golden-multi-sp-xray-2", 2))
+        node(7, mihomoNode("golden-multi-sp-mihomo-2", 2))
+        chain(1, 2, 4, name = "golden-multi-sp-chain-a")
+        chain(8, 4, 3, 5, name = "golden-multi-sp-chain-b")
+        chain(9, 4, 5, name = "golden-multi-sp-chain-c")
+    }
+    scenario("multi-group-front-chain-landing", "分组前置是 Xray 加 mihomo 的链、落地是 Xray，主节点走 Xray") {
+        group(1, front = 12, landing = 11)
+        group(2)
+        node(1, xrayNode("golden-multi-fcl-main", 1))
+        node(10, xrayNode("golden-multi-fcl-front-xray", 2), group = 2)
+        node(13, mihomoNode("golden-multi-fcl-front-mihomo", 1), group = 2)
+        node(11, xrayNode("golden-multi-fcl-landing", 3), group = 2)
+        chain(12, 10, 13, group = 2, name = "golden-multi-fcl-front-chain")
+    }
+    scenario("multi-rules-front-groups", "规则目标所在的分组有走 Xray 的前置：前置在每个目标的链里各出现一次") {
+        group(1)
+        group(2, front = 10)
+        node(1, xrayNode("golden-multi-rf-main", 1))
+        node(2, xrayNode("golden-multi-rf-xray", 2), group = 2)
+        node(3, mihomoNode("golden-multi-rf-mihomo", 1), group = 2)
+        node(4, ssNode("golden-multi-rf-ss", 1), group = 2)
+        node(10, xrayNode("golden-multi-rf-front", 3), group = 2)
+        rule(1, outbound = 2) { domains = "domain:xray.example.org" }
+        rule(2, outbound = 3) { domains = "domain:mihomo.example.org" }
+        rule(3, outbound = 4) { domains = "domain:ss.example.org" }
     }
 }
