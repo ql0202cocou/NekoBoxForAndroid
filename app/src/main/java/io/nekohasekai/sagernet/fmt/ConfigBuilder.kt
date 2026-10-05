@@ -18,7 +18,6 @@ import moe.matsuri.nb4a.utils.JavaUtil.gson
 import moe.matsuri.nb4a.utils.Util
 import moe.matsuri.nb4a.utils.listByLineOrComma
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import java.io.File
 import java.net.InetAddress
 
 const val TAG_MIXED = "mixed-in"
@@ -37,10 +36,6 @@ const val CLASH_API_LISTEN = "$LOCALHOST:9090"
 // Shape of the tags buildConfig generates itself (g-<entryId>, c-<chainId>-…);
 // a user-chosen profile name matching it would collide with one.
 private val GENERATED_TAG_SHAPE = Regex("g-\\d+|c-\\d+.*")
-
-// 预检生成外部核心配置用的占位端口与占位凭据，生成的配置随即丢弃；不为预检消耗随机数
-private const val PRECHECK_PORT = 1080
-private val PRECHECK_AUTH = LocalSocksAuth("u" + "0".repeat(16), "p" + "0".repeat(32))
 
 // sing-box 1.14 去掉了旧的 DNS 服务器地址格式：按 sing-box 1.13 内部升级的同样方式换成带类型的服务器。
 // parseNumeric 解析数字地址字面量（不是数字地址时返回 null），由构建的平台适配对象提供
@@ -116,7 +111,7 @@ class ConfigBuildResult(
     // 本次构建的本机 socks 凭据：sing-box 里接入站支持认证的外核的 socks 出站都带它，外核运行计划
     // （ExternalRunPlan.from）把同一个值交给这些外核的入站。没有这样的跳实例时为 null
     val localAuth: LocalSocksAuth? = null,
-    // 构建时随 ConfigSettings 采集的外核设置：预检用的就是它，组装、启动外核也用它（运行、测速、导出）。
+    // 构建时随 ConfigSettings 采集的外核设置：成员检查的试生成用的就是它，组装、启动外核也用它（运行、测速、导出）。
     // 完整配置节点不采集设置，为 null，它也没有外核跳实例
     val externalCoreSettings: ExternalCoreSettings? = null,
     // 测速时是否让 mihomo 自己测延迟（TestInstance 的 mihomoController）：构建按 mihomoDelayTestApplies 用它采集的
@@ -271,8 +266,8 @@ private class ConfigBuild(
         return name
     }
 
-    // 根节点要建的整条链（倒序），见 ChainPlan.kt 的 resolveChain
-    private fun ProxyEntity.resolveChain(): MutableList<ProxyEntity> = resolveChain(data, proxy.groupId, group, warn)
+    // 规划链用的输入（见 planChain）：快照、主分组、设置里的全局「允许不安全」、本次构建的插件查询与警告
+    private val planContext = ChainPlanContext(data, proxy.groupId, group, globalAllowInsecure, plugins, warn)
 
     val extraRules = if (forTest) listOf() else data.enabledRules()
 
@@ -290,11 +285,9 @@ private class ConfigBuild(
     // forTest honors it too: a fake node domain may only resolve through it.
     val groupNameservers = group?.proxyServerNameserver.usableNameservers(platform::parseNumericAddress)
     val groupNsDomains = LinkedHashSet<String>()
-    // Parse once up front: both the DNS servers/rules below and the outbound
-    // domain_resolver bindings in buildChain must reference only successfully
-    // parsed servers. An address makeDnsServer cannot parse must not take down
-    // the whole config build — skip it and keep the remaining servers.
-    // (scheme + authority only get logged: a DoH path can embed tokens)
+    // 一开始就解析一次：下面的 DNS 服务器 / 规则与提交各跳时绑定的出站 domain_resolver（commitHop）都只能
+    // 引用解析成功的服务器。makeDnsServer 解析不了的地址不能拖垮整次构建，跳过它、保留其余的。
+    // （日志只记异常类名：DoH 路径里可能带 token）
     val groupDnsServers = groupNameservers.mapIndexedNotNull { index, address ->
         runCatching {
             makeDnsServer(address, "dns-group-$index", platform::parseNumericAddress).apply {
@@ -474,37 +467,52 @@ private class ConfigBuild(
         }
     }
 
-    // The state one hop of buildChain hands to the next.
+    // 提交一条链时一跳交给下一跳的状态。
     //
     // 隐含不变量：linkHop 在 index > 0 分支解引用 chain.pastEntity!! /
-    // pastOutbound / pastInboundTag，其安全依赖「buildHop 因 linkHop 返回 null
+    // pastOutbound / pastInboundTag，其安全依赖「commitHop 因 linkHop 返回 null
     // 而提前返回（needGlobal 命中已构建的全局 outbound）只可能发生在
     // index == profileList.lastIndex 那一跳」——lastIndex 之后没有下一跳，
     // 这些字段不会再被读取；中间跳若提前返回，下一跳读到的是上一跳的状态
-    // 或直接未初始化。修改 needGlobal 的置真条件时必须保住这条不变量。
+    // 或直接未初始化。修改 needGlobal 的置真条件时必须保住这条不变量
+    // （commitChain 也据此只对最后一跳判断复用、不给它分端口）。
     private class ChainState(val chainId: Long, val entity: ProxyEntity, val profileList: List<ProxyEntity>) {
         val chainTag = "c-$chainId"
-        // chainTagOut: v2ray outbound tag for this chain
+        // 这条链出口的 tag，linkHop 在 index 0 处定
         var chainTagOut = ""
-        // 这条链上走外核的节点，按 buildHop 的顺序登记
+        // 这条链上走外核的节点，按跳的顺序登记
         val externalHops = ArrayList<ExternalHopRecord>()
-        var muxApplied = false
         lateinit var pastOutbound: SingBoxOption
         lateinit var pastInboundTag: String
         var pastEntity: ProxyEntity? = null
     }
 
-    private fun MyOptions.buildChain(chainId: Long, entity: ProxyEntity): String {
-        val profileList = entity.resolveChain()
-        requireBuildableChain(entity, profileList, globalAllowInsecure)
-        // dedup by id and keep insertion order: a HashSet<ProxyEntity>
-        // collapses two fully identical entities (the collapsed node's
-        // traffic never lands in the DB) and iterates in arbitrary order
+    // 经映射的外核跳：映射入站的端口与它转去的服务器
+    private class MappedPort(val mapping: HopMapping, val port: Int)
+
+    // 外核跳在提交开头分到的本机 socks 端口与凭据（核心的入站不认证时为 null），经映射的另有映射端口
+    private class HopSockets(val localPort: Int, val localAuth: LocalSocksAuth?, val mapped: MappedPort?)
+
+    // 提交一条规划好的链（两段式的第二段，见 planChain）。先按跳的顺序把端口与凭据要齐：每跳先本机 socks 端口、
+    // 后映射端口，复用已建全局出站的那一跳（只可能是最后一跳）不要；之后才写：定 tag、接线（linkHop），写出站 /
+    // 入站 / 路由规则，登记外核跳数据与 trafficMap。分端口（platform.newPort）与生成凭据是这里仅有的会失败的调用，
+    // 都在第一处写入之前：失败时这条链什么都没写。例外是本次构建共用的凭据：同一条链里前面的跳已经生成并记下它、
+    // 后面的跳才分端口失败时，它留在构建状态里（整次构建随即失败，没有后果）
+    private fun MyOptions.commitChain(chainId: Long, plan: ChainPlan): String {
+        val entity = plan.entity
+        val profileList = plan.hops.map { it.entity }
+        // 按 id 去重并保持顺序：HashSet<ProxyEntity> 会把两个完全相同的实体并成一个
+        // （被并掉的节点的流量写不回数据库），遍历顺序也不定
         val chainTrafficList = (profileList + entity).distinctBy { it.id }
 
-        val chain = ChainState(chainId, entity, profileList)
+        // 与 linkHop 里 existing 的判断相同：全局出站只在最后一跳登记，这条链写到最后一跳之前不会改它
+        val reusesLast = globalOutbounds[profileList.last().id] != null
+        val sockets = plan.hops.mapIndexed { index, hop ->
+            if (index == plan.hops.lastIndex && reusesLast) null else allocateSockets(hop)
+        }
 
-        profileList.forEachIndexed { index, proxyEntity -> buildHop(chain, index, proxyEntity) }
+        val chain = ChainState(chainId, entity, profileList)
+        plan.hops.forEachIndexed { index, hop -> commitHop(chain, index, hop, sockets[index]) }
         // 每条链登记一条（没有外核节点的也是），序号即链在全部已建链里的序号
         externalChains.add(ExternalChainRecord(chain.externalHops.toList()))
 
@@ -512,8 +520,24 @@ private class ConfigBuild(
         return chain.chainTagOut
     }
 
-    private fun MyOptions.buildHop(chain: ChainState, index: Int, proxyEntity: ProxyEntity) {
-        val bean = proxyEntity.requireBean()
+    // 外核跳的端口与凭据，内部核心跳为 null。凭据整次构建只生成一次，在第一个需要它的跳实例处；
+    // 出错时同以前一样包上这一跳的节点名。一跳之内的次序也与以前相同：本机 socks 端口 → 凭据 → 映射端口
+    private fun allocateSockets(hop: HopPlan): HopSockets? {
+        val core = hop.core as? HopCore.External ?: return null
+        return withProfileName(hop.bean) {
+            val localPort = platform.newPort()
+            // 外核的入站要求认证时带上本次构建的凭据；外核一侧由运行计划从登记里取同一个值
+            val auth = if (core.needsLocalAuth) {
+                localAuth ?: newLocalAuth().also { localAuth = it }
+            } else null
+            HopSockets(localPort, auth, core.mapping?.let { MappedPort(it, platform.newPort()) })
+        }
+    }
+
+    // 写一跳：只有写入与不会失败的计算，会失败的都已在规划里做过，端口与凭据在 sockets 里
+    private fun MyOptions.commitHop(chain: ChainState, index: Int, hop: HopPlan, sockets: HopSockets?) {
+        val proxyEntity = hop.entity
+        val bean = hop.bean
 
         // 只收本组自己的节点：resolveChain() 还会带进分组的前置 / 落地与跨分组的链成员，
         // 这些节点的域名不该拿去问本组（常是私有、分区解析的）DNS
@@ -525,23 +549,56 @@ private class ConfigBuild(
         }
 
         val tagOut = linkHop(chain, index, proxyEntity) ?: return
-        val currentOutbound = withProfileName(bean) {
-            // 单跳的检查与只取决于节点本身的计算（planHop），之后才分端口、写配置
-            val hop = planHop(
-                proxyEntity, bean, index == chain.profileList.lastIndex, chain.muxApplied, globalAllowInsecure, plugins,
-            )
-            val (outbound, socks) = buildHopOutbound(chain, hop, tagOut)
-            val target = mapExternalHop(chain, index, hop)
-            if (socks != null) {
-                chain.externalHops += ExternalHopRecord(
-                    proxyEntity.id, bean, (hop.core as HopCore.External).core, socks.localPort, target, socks.localAuth,
-                )
+        // 外核跳的端口在 commitChain 开头已分好；没分的只有复用的最后一跳，它在上面 linkHop 处已返回
+        val core = hop.core
+        val currentOutbound = when (core) {
+            // 外核：sing-box 经本机 socks 出站连它
+            is HopCore.External -> localSocksOutbound(checkNotNull(sockets))
+            // 内部核心：出站已在规划时建好；一条链里只有第一个开了多路复用的内部核心跳带 multiplex（规划时已定）
+            is HopCore.Internal -> core.outbound.apply {
+                if (core.multiplex != null) _hack_config_map["multiplex"] = core.multiplex
             }
-            outbound
+        }
+
+        // 内部与外核共用
+        currentOutbound.apply {
+            if (hop.udpOverTcp) {
+                _hack_config_map["udp_over_tcp"] = true
+            }
+
+            // 域名解析：本组自己的域名节点经分组 DNS 的有序链（neko-sequential 传输）解析，其余拨号器都回落到
+            // route.default_domain_resolver。导出不绑定：neko-sequential 只有 libcore 有，原版 sing-box 1.14
+            // 仍经保留下来的 dns-group-N 规则解析出站。用户的自定义 JSON 在这之后合并，自带 domain_resolver 时以它为准
+            chain.pastEntity?.requireBean()?.apply {
+                // 上一跳的服务器域名直连解析，免得解析请求经它自己绕回来
+                if (defaultServerDomainStrategy != "" && !serverAddress.isIpAddress()) {
+                    domainListDNSDirectForce.add("full:$serverAddress")
+                }
+            }
+            if (!forExport && groupDnsServers.isNotEmpty() &&
+                proxyEntity.groupId == proxy.groupId &&
+                bean.serverAddress.isNotBlank() && !bean.serverAddress.isIpAddress()
+            ) {
+                _hack_config_map["domain_resolver"] = DomainResolveOptions().apply {
+                    server = groupSequentialTag
+                    if (!forTest) strategy = defaultServerDomainStrategy
+                }
+            }
+
+            _hack_config_map["tag"] = tagOut
+
+            _hack_custom_config = bean.customOutboundJson
+        }
+
+        if (core is HopCore.External) {
+            val socks = checkNotNull(sockets)
+            // 拨号目标：经映射的加映射入站；不映射的（不能映射的节点、hysteria 1 免映射的最先拨号的一跳）外核自己拨服务器
+            val target = socks.mapped?.let { addMappingInbound(chain, index, proxyEntity, it) } ?: ExternalDialTarget.Direct
+            chain.externalHops += ExternalHopRecord(proxyEntity.id, bean, core.core, socks.localPort, target, socks.localAuth)
         }
 
         hopNames[tagOut] = bean.displayName()
-        // wireguard is an endpoint since sing-box 1.13; its tag still resolves as an outbound
+        // sing-box 1.13 起 wireguard 是端点，它的 tag 照样能当出站引用
         if (currentOutbound is SingBoxOptions.Endpoint) {
             endpoints.add(currentOutbound)
         } else {
@@ -549,6 +606,43 @@ private class ConfigBuild(
         }
         chain.pastOutbound = currentOutbound
         chain.pastEntity = proxyEntity
+    }
+
+    // sing-box 连外核本机 socks 入站的出站，外核的入站要求认证时带上本次构建的凭据
+    private fun localSocksOutbound(socks: HopSockets) = Outbound_SocksOptions().apply {
+        type = "socks"
+        server = LOCALHOST
+        server_port = socks.localPort
+        socks.localAuth?.let { auth ->
+            username = auth.username
+            password = auth.password
+        }
+    }
+
+    // 经映射的外核跳的映射入站：外核的流量要经它出去，才能用已 protect 的 socket
+    private fun MyOptions.addMappingInbound(
+        chain: ChainState, index: Int, proxyEntity: ProxyEntity, mapped: MappedPort,
+    ): ExternalDialTarget {
+        inbounds.add(Inbound_DirectOptions().apply {
+            type = "direct"
+            listen = LOCALHOST
+            listen_port = mapped.port
+            tag = "${chain.chainTag}-mapping-${proxyEntity.id}"
+
+            override_address = mapped.mapping.address
+            override_port = mapped.mapping.port
+
+            chain.pastInboundTag = tag
+
+            // 最先拨号的一跳没有链规则接到它、它也不是出站，入站要显式路由到 direct
+            if (index == chain.profileList.lastIndex) {
+                route.rules.add(Rule_DefaultOptions().apply {
+                    inbound = listOf(tag)
+                    outbound = TAG_DIRECT
+                })
+            }
+        })
+        return ExternalDialTarget.Mapped(mapped.port)
     }
 
     // Settles the hop's outbound tag and wires the previous hop to it; null
@@ -628,151 +722,22 @@ private class ConfigBuild(
         return tagOut
     }
 
-    // sing-box 连外核的本机 socks 端点：端口与凭据（核心的入站不认证时为 null）
-    private class ExternalSocks(val localPort: Int, val localAuth: LocalSocksAuth?)
-
-    // 这一跳的 sing-box 出站；走外核时另带 sing-box 连外核用的本机端口与凭据，由 buildHop 登记
-    private fun MyOptions.buildHopOutbound(
-        chain: ChainState, hop: HopPlan, tagOut: String,
-    ): Pair<SingBoxOption, ExternalSocks?> {
-        val proxyEntity = hop.entity
-        val bean = hop.bean
-        val currentOutbound: SingBoxOption
-        var socks: ExternalSocks? = null
-        when (val core = hop.core) {
-            // 外核：sing-box 经本机 socks 出站连它
-            is HopCore.External -> {
-                val localPort = platform.newPort()
-                // 外核的入站要求认证时带上本次构建的凭据；外核一侧由运行计划从登记里取同一个值
-                val auth = if (core.needsLocalAuth) {
-                    localAuth ?: newLocalAuth().also { localAuth = it }
-                } else null
-                socks = ExternalSocks(localPort, auth)
-                currentOutbound = Outbound_SocksOptions().apply {
-                    type = "socks"
-                    server = LOCALHOST
-                    server_port = localPort
-                    if (auth != null) {
-                        username = auth.username
-                        password = auth.password
-                    }
-                }
-            }
-
-            // 内部核心：出站已在规划时建好；一条链里只有第一个开了多路复用的内部核心跳带 multiplex
-            is HopCore.Internal -> {
-                currentOutbound = core.outbound
-                if (core.multiplex != null) {
-                    chain.muxApplied = true
-                    currentOutbound._hack_config_map["multiplex"] = core.multiplex
-                }
-            }
-        }
-
-        // 内部与外核共用
-        currentOutbound.apply {
-            if (hop.udpOverTcp) {
-                _hack_config_map["udp_over_tcp"] = true
-            }
-
-            // 域名解析：本组自己的域名节点经分组 DNS 的有序链（neko-sequential 传输）解析，其余拨号器都回落到
-            // route.default_domain_resolver。导出不绑定：neko-sequential 只有 libcore 有，原版 sing-box 1.14
-            // 仍经保留下来的 dns-group-N 规则解析出站。用户的自定义 JSON 在这之后合并，自带 domain_resolver 时以它为准
-            chain.pastEntity?.requireBean()?.apply {
-                // 上一跳的服务器域名直连解析，免得解析请求经它自己绕回来
-                if (defaultServerDomainStrategy != "" && !serverAddress.isIpAddress()) {
-                    domainListDNSDirectForce.add("full:$serverAddress")
-                }
-            }
-            if (!forExport && groupDnsServers.isNotEmpty() &&
-                proxyEntity.groupId == proxy.groupId &&
-                bean.serverAddress.isNotBlank() && !bean.serverAddress.isIpAddress()
-            ) {
-                _hack_config_map["domain_resolver"] = DomainResolveOptions().apply {
-                    server = groupSequentialTag
-                    if (!forTest) strategy = defaultServerDomainStrategy
-                }
-            }
-
-            _hack_config_map["tag"] = tagOut
-
-            _hack_custom_config = bean.customOutboundJson
-        }
-        return currentOutbound to socks
+    // 选择器成员 / 路由规则目标规划每一跳之后另做的检查（主节点不做）：外核节点经运行时同一个组装入口试生成一次
+    // 配置（probeExternalHop），再确认插件可用（导出不需要装插件）。NekoBean 没有 ExternalCore，与 BoxInstance.init
+    // 一样跳过
+    private fun checkMemberHop(hop: HopPlan) {
+        val core = (hop.core as? HopCore.External)?.core ?: return
+        probeExternalHop(hop, core, settings.externalCore, platform::createTempFile)
+        if (!forExport) plugins.requireAvailable(core.pluginId)
     }
 
-    // 外核节点的拨号目标：规划定为经映射的外核节点分一个映射端口、加映射入站，返回 Mapped。不映射的（不能映射的
-    // 节点、hysteria 1 免映射的最先拨号的一跳）以及内部核心节点返回 Direct（内部核心节点的不用）
-    private fun MyOptions.mapExternalHop(chain: ChainState, index: Int, hop: HopPlan): ExternalDialTarget {
-        val mapping = (hop.core as? HopCore.External)?.mapping ?: return ExternalDialTarget.Direct
-        val mappingPort = platform.newPort()
-
-        inbounds.add(Inbound_DirectOptions().apply {
-            type = "direct"
-            listen = LOCALHOST
-            listen_port = mappingPort
-            tag = "${chain.chainTag}-mapping-${hop.entity.id}"
-
-            override_address = mapping.address
-            override_port = mapping.port
-
-            chain.pastInboundTag = tag
-
-            // 最先拨号的一跳没有链规则接到它、它也不是出站，入站要显式路由到 direct
-            if (index == chain.profileList.lastIndex) {
-                route.rules.add(Rule_DefaultOptions().apply {
-                    inbound = listOf(tag)
-                    outbound = TAG_DIRECT
-                })
-            }
-        })
-        return ExternalDialTarget.Mapped(mappingPort)
-    }
-
-    // 选择器成员 / 路由规则目标构建前的只读预检：把 buildChain 会走的检查空跑一遍，
-    // 结果全部丢弃。buildChain 抛错时已写入一半的出站、入站与端口，只能事先判断。
-    // 每跳与正式构建同一个规划（planHop），之后外核节点再试生成配置、确认插件可用；不分配端口（platform.newPort）
-    private fun precheck(entity: ProxyEntity) {
-        val profileList = entity.resolveChain()
-        requireBuildableChain(entity, profileList, globalAllowInsecure)
-        var muxApplied = false
-        profileList.forEachIndexed { index, hopEntity ->
-            val bean = hopEntity.requireBean()
-            withProfileName(bean) {
-                val hop = planHop(
-                    hopEntity, bean, index == profileList.lastIndex, muxApplied, globalAllowInsecure, plugins,
-                )
-                if ((hop.core as? HopCore.Internal)?.multiplex != null) muxApplied = true
-                // NekoBean 没有 ExternalCore，与 BoxInstance.init 一样跳过
-                val core = (hop.core as? HopCore.External)?.core ?: return@withProfileName
-                // 经运行时同一个组装入口，给只有这一个跳实例的计划试生成一次。生成的配置丢弃，端口与凭据只是占位；
-                // 不分配映射端口，拨号目标一律是「不映射、拨服务器本身」（与以前相同，生成器的输出与报错只取决于
-                // 节点本身）。hysteria 1 会写 CA 临时文件，用完删掉
-                val tempFiles = ArrayList<File>()
-                try {
-                    val probe = ExternalHop(
-                        0, 0, hopEntity.id, bean, PRECHECK_PORT, ExternalDialTarget.Direct, core,
-                        PRECHECK_AUTH.takeIf { core.inboundAuth },
-                    )
-                    ExternalRunPlan(listOf(probe)).assemble({ prefix, ext ->
-                        platform.createTempFile(prefix, ext).also { tempFiles.add(it) }
-                    }, null, settings.externalCore)
-                } finally {
-                    tempFiles.forEach { runCatching { it.delete() } }
-                }
-                // 导出不需要装插件
-                if (!forExport) plugins.requireAvailable(core.pluginId)
-            }
-        }
-    }
-
-    // 选择器成员 / 路由规则目标预检失败时跳过并告警，而不是拖垮整份配置。
-    // 用户选中的节点不预检、照常报错——那是用户明确要用的。查了采集范围之外的输入是采集的缺漏，不跳过，整次构建失败
-    private fun skipBroken(entity: ProxyEntity): Boolean {
-        if (entity.id == proxy.id) return false
-        try {
-            precheck(entity)
-            return false
+    // 规划一个根节点的链。选择器成员 / 路由规则目标每跳另做 checkMemberHop，规划失败时跳过并告警、记诊断，返回 null，
+    // 不拖垮整份配置；规划不写任何输出，跳过的成员什么都不留下。用户选中的节点不另做检查、出错照常整次失败——
+    // 那是用户明确要用的。查了采集范围之外的输入是采集的缺漏，不跳过，整次构建失败
+    private fun planOrSkip(entity: ProxyEntity): ChainPlan? {
+        if (entity.id == proxy.id) return planChain(entity, planContext)
+        return try {
+            planChain(entity, planContext, ::checkMemberHop)
         } catch (e: ConfigInputScopeException) {
             throw e
         } catch (e: Exception) {
@@ -782,17 +747,17 @@ private class ConfigBuild(
             diagnostics += ConfigBuildDiagnostic.ProfileSkipped(
                 entity.id, name, e.readableMessage, e is ProfileBuildException && e.profileName == name
             )
-            return true
+            null
         }
     }
 
     // 已作为别的链里最先拨号的一跳建过全局 outbound（globalOutbounds 在
     // profileList.lastIndex 处填入）的节点：只在它单独成链（所在分组没有前置 /
     // 落地）时直接复用那个 g-<id>，重建会让 outbound/inbound tag 重复、sing-box
-    // 拒绝整份配置。有前置 / 落地时裸的 g-<id> 不经过它们，要 buildChain：
-    // linkHop 会复用已建的 g-<id>，并在外面接上前置 / 落地
-    private fun MyOptions.reuseOrBuildChain(id: Long, entity: ProxyEntity): String =
-        globalOutbounds[id]?.takeIf { entity.resolveChain().size == 1 } ?: buildChain(id, entity)
+    // 拒绝整份配置。有前置 / 落地时裸的 g-<id> 不经过它们，要提交整条链：
+    // linkHop 会复用已建的 g-<id>，并在外面接上前置 / 落地。链有几跳取规划的结果
+    private fun MyOptions.reuseOrCommitChain(id: Long, plan: ChainPlan): String =
+        globalOutbounds[id]?.takeIf { plan.hops.size == 1 } ?: commitChain(id, plan)
 
     private fun MyOptions.buildOutbounds() {
         // build outbounds
@@ -803,11 +768,11 @@ private class ConfigBuild(
                 // 完整配置型成员不是出站，塞进来会让整份配置被拒；选中它时
                 // selectorGroupIdOf 为 -1，走重启、由 buildConfig 开头单独运行
                 if (it.isFullConfig()) return@forEach
-                if (skipBroken(it)) return@forEach
+                val plan = planOrSkip(it) ?: return@forEach
                 // 每个成员都要记进 tagMap：profileTagMap 驱动选择器切换，缺了它
                 // 连接中选这个成员会解析成空 tag、什么都不做。中间跳只有链内 tag，
                 // 照常单独建一个全局 outbound，让它仍可选、可被路由规则引用
-                tagMap[it.id] = reuseOrBuildChain(it.id, it)
+                tagMap[it.id] = reuseOrCommitChain(it.id, plan)
             }
             outbounds.add(0, Outbound_SelectorOptions().apply {
                 type = "selector"
@@ -818,17 +783,18 @@ private class ConfigBuild(
                 outbounds = tagMap.values.distinct()
             })
         } else {
-            buildChain(0, proxy)
+            commitChain(0, planChain(proxy, planContext))
         }
-        // build outbounds from route item
+        // 路由规则目标的出站
         extraProxies.forEach { (key, p) ->
             // 已作为选择器成员建过的先查 tagMap：重建会让前置多跳链的中间跳
             // 重名，sing-box 拒绝整份配置；tagMap 也会被改成不在选择器里的 tag，
             // 连接中选它不生效。中间跳没有可复用的全局 tag，单独建一个，不能丢掉
             // 这条路由规则
-            // 预检失败的目标跳过：规则随之落入「出站不存在」告警
-            if (tagMap[key] == null && skipBroken(p)) return@forEach
-            tagMap[key] = tagMap[key] ?: reuseOrBuildChain(key, p)
+            if (tagMap[key] != null) return@forEach
+            // 规划失败的目标跳过：规则随之落入「出站不存在」告警
+            val plan = planOrSkip(p) ?: return@forEach
+            tagMap[key] = reuseOrCommitChain(key, plan)
         }
 
         for (freedom in arrayOf(TAG_DIRECT, TAG_BYPASS)) outbounds.add(Outbound().apply {
@@ -1112,7 +1078,7 @@ private class ConfigBuild(
     private fun MyOptions.applyGroupNameserver() {
         // 分组的节点解析 DNS：本组节点的服务器域名用它解析，多台按顺序尝试。
         // 用户被劫持的查询走下面的 DNS 规则（neko 规则 fallback）；出站解析则绑定
-        // neko-sequential 传输（见 buildHopOutbound）。forTest 同样保留：节点域名
+        // neko-sequential 传输（见 commitHop）。forTest 同样保留：节点域名
         // 解析不了测试就拨不出去。解析不了的地址在 groupDnsServers 里已跳过
         if (groupDnsServers.isNotEmpty() && groupNsDomains.isNotEmpty()) {
             dns.servers.addAll(groupDnsServers)

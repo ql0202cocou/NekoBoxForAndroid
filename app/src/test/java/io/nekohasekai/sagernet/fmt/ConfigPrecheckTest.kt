@@ -14,8 +14,10 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
-// 选择器成员 / 路由规则目标的预检（ConfigBuild.precheck）的三条不变式，用 FakeConfigPlatform 的记录核对：
-// 试生成外核配置时建的临时文件构建结束时都已删除；预检不分配端口；预检用的是构建自己的外核设置
+// 选择器成员 / 路由规则目标的规划检查（planChain 每跳之后的 ConfigBuild.checkMemberHop）的几条不变式，用
+// FakeConfigPlatform 的记录核对：
+// 试生成外核配置时建的临时文件构建结束时都已删除；预检不分配端口；预检用的是构建自己的外核设置；
+// 先试生成、后确认插件可用
 class ConfigPrecheckTest {
 
     @get:Rule
@@ -30,12 +32,12 @@ class ConfigPrecheckTest {
         })
 
     // hysteria 1 走插件核心（微信视频伪装不能用 sing-box），带 CA：试生成配置时要写 CA 临时文件
-    private fun hysteria(id: Long, groupId: Long) = ProxyEntity(id = id, groupId = groupId, userOrder = id)
+    private fun hysteria(id: Long, groupId: Long, ports: String = "8443") = ProxyEntity(id = id, groupId = groupId, userOrder = id)
         .putBean(HysteriaBean().apply {
             name = "hy1-$id"
             protocolVersion = 1
             serverAddress = "hy$id.example.com"
-            serverPorts = "8443"
+            serverPorts = ports
             initializeDefaultValues()
             protocol = HysteriaBean.PROTOCOL_WECHAT_VIDEO
             caText = "-----BEGIN CERTIFICATE-----\nfake-$id\n-----END CERTIFICATE-----"
@@ -141,6 +143,28 @@ class ConfigPrecheckTest {
         assertEquals(listOf(result.profileTagMap.getValue(1)), selector.getAsJsonArray("outbounds").map { it.asString })
         assertTrue(ExternalRunPlan.from(result).hops.isEmpty())
         assertTrue("预检不分配端口", platform.ports.isEmpty())
+    }
+
+    @Test
+    fun `成员检查先试生成外核配置、后确认插件可用：两样都不过时报试生成的错，不查插件可用性`() {
+        // 选择器分组 1：主节点 1、hysteria 1 成员 2，端口写成非法值，hysteria-plugin 也没装
+        val source = MemoryConfigDataSource(
+            groups = listOf(ProxyGroup(id = 1, isSelector = true)),
+            profiles = listOf(main, hysteria(2, 1, ports = "abc")),
+            rules = emptyList(),
+        )
+        val platform = FakeConfigPlatform(
+            pluginErrors = mapOf("hysteria-plugin" to IllegalStateException("plugin hysteria-plugin is not installed")),
+            tempDir = tmp.newFolder(),
+        )
+        val diagnostics = ArrayList<ConfigBuildDiagnostic>()
+        val result = build(main, source, platform, diagnostics = diagnostics)
+
+        // 跳过的原因是试生成时的端口错误，不是插件未装
+        assertEquals(listOf(ConfigBuildDiagnostic.ProfileSkipped(2, "hy1-2", "hy1-2: Invalid Hysteria port", true)), diagnostics)
+        // 规划时查了外部插件 app；试生成失败后不再确认插件可用
+        assertEquals(listOf("pluginExternalAuthority(hysteria-plugin)"), platform.pluginQueries)
+        assertEquals(setOf(1L), result.profileTagMap.keys)
     }
 
     private fun JsonObject.string(key: String): String? = get(key)?.takeIf { it.isJsonPrimitive }?.asString

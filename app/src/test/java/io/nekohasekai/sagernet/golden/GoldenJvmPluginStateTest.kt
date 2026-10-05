@@ -66,8 +66,8 @@ class GoldenJvmPluginStateTest {
         assertEquals(names.values.toSet(), selector.getAsJsonArray("outbounds").map { it.asString }.toSet())
         assertEquals(1L, result.selectorGroupId)
 
-        // 每个插件在一次构建里只查一次：成员按顺序预检，2、3、4 各查一次插件；5 先查外部插件 app（最先拨号的一跳能映射），
-        // 再查插件；正式构建 5 时 mapExternalHop 再判断免映射用记住的结果；6 不能映射，插件结果已记住
+        // 每个插件在一次构建里只查一次：成员按顺序规划，2、3、4 各查一次插件；5 规划这一跳时先查外部插件 app（最先拨号的
+        // 一跳能映射），再查插件；提交时不再查；6 不能映射，插件结果已记住
         assertEquals(
             listOf(
                 "pluginError(trojan-go-plugin)",
@@ -103,7 +103,7 @@ class GoldenJvmPluginStateTest {
         val result = build("chain-hy1-wechat-first", platform, diagnostics)
 
         assertEquals(emptyList<ConfigBuildDiagnostic>(), diagnostics)
-        // 主节点不预检：只有 mapExternalHop 查一次外部插件 app
+        // 主节点不做成员检查：只有规划这一跳时查一次外部插件 app
         assertEquals(listOf("pluginExternalAuthority(hysteria-plugin)"), platform.pluginQueries)
         // 免映射：外核直接拨服务器，sing-box 里没有这一跳的映射入站
         val hop = ExternalRunPlan.from(result).hops.single()
@@ -123,7 +123,7 @@ class GoldenJvmPluginStateTest {
         val e = assertThrows(ProfileBuildException::class.java) {
             build("chain-hy1-wechat-first", platform, ArrayList())
         }
-        // hysteriaSkipsMapping 在 mapExternalHop 里抛出，buildHop 的 withProfileName 包上节点名
+        // hysteriaSkipsMapping 在规划这一跳时抛出，planChain 的 withProfileName 包上节点名
         assertEquals("golden-hy1-first", e.profileName)
         assertEquals(
             "golden-hy1-first: You are using an unsupported hysteria-plugin, please download the correct plugin.",

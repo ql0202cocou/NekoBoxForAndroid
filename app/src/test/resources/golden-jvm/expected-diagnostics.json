@@ -80,7 +80,7 @@
       }
     },
     "multi-selector-plugin-chain-members": {
-      "note": "只有运行模式按选择器构建。成员 8 是链（4 Xray、3 Naive、5 mihomo）：预检从出口一跳起逐跳检查，mihomo 一跳通过，Naive 一跳 requirePlugin 得「插件未安装」，经 withProfileName 包上 Naive 节点名；skipBroken 跳过成员 8，出错的不是成员本身，reasonNamesProfile 为 false。其余成员（6 Xray、7 mihomo、9 链 Xray + mihomo）都是内置核心，主节点 1 不预检",
+      "note": "只有运行模式按选择器构建。成员 8 是链（4 Xray、3 Naive、5 mihomo）：预检从出口一跳起逐跳检查，mihomo 一跳通过，Naive 一跳 requireAvailable 得「插件未安装」，经 withProfileName 包上 Naive 节点名；planOrSkip 跳过成员 8，出错的不是成员本身，reasonNamesProfile 为 false。其余成员（6 Xray、7 mihomo、9 链 Xray + mihomo）都是内置核心，主节点 1 不预检",
       "run": {
         "diagnostics": [
           {
@@ -119,7 +119,7 @@
       }
     },
     "rules-to-broken-node": {
-      "note": "规则 1 指向 TUIC v4 节点 2：buildOutbounds 里规则目标先 skipBroken，预检的 buildInternalOutbound 抛「TUIC v4 is no longer supported」并包上节点名，记 ProfileSkipped（出错的就是它本身）并告警；applyUserRules 时 tagMap 没有 2，规则出站为空，记 RuleOutboundMissing。导出同样预检（失败点与插件无关）。测速不带规则",
+      "note": "规则 1 指向 TUIC v4 节点 2：buildOutbounds 里规则目标经 planOrSkip 规划，规划时的 buildInternalOutbound 抛「TUIC v4 is no longer supported」并包上节点名，记 ProfileSkipped（出错的就是它本身）并告警；applyUserRules 时 tagMap 没有 2，规则出站为空，记 RuleOutboundMissing。导出同样预检（失败点与插件无关）。测速不带规则",
       "run": {
         "diagnostics": [
           {
@@ -196,7 +196,7 @@
       }
     },
     "rules-to-plugin-node": {
-      "note": "规则 1 指向 Trojan-Go 节点 2：运行模式的预检走到 requirePlugin，模拟器条件下插件未安装，包上节点名后记 ProfileSkipped 并告警，规则记 RuleOutboundMissing。导出不查插件（precheck 里 !forExport），规则照常生效，没有诊断。测速不带规则",
+      "note": "规则 1 指向 Trojan-Go 节点 2：运行模式的预检走到 requireAvailable，模拟器条件下插件未安装，包上节点名后记 ProfileSkipped 并告警，规则记 RuleOutboundMissing。导出不查插件（checkMemberHop 里 !forExport），规则照常生效，没有诊断。测速不带规则",
       "run": {
         "diagnostics": [
           {
@@ -279,7 +279,7 @@
       }
     },
     "selector-plugin-members": {
-      "note": "只有运行模式按选择器构建。成员 2 Trojan-Go、3 Naive、4 Mieru、5 Hysteria 1 wechat-video、6 Hysteria 1 faketcp 都走插件核心，预检最后的 requirePlugin 在模拟器条件下都得「插件未安装」并包上成员名；5 在此之前先查外部插件 app（查不到，免映射）；6 不能映射，不查。hysteria-plugin 的结果在本次构建里记住，5、6 报同一个原因",
+      "note": "只有运行模式按选择器构建。成员 2 Trojan-Go、3 Naive、4 Mieru、5 Hysteria 1 wechat-video、6 Hysteria 1 faketcp 都走插件核心，预检最后的 requireAvailable 在模拟器条件下都得「插件未安装」并包上成员名；5 在此之前先查外部插件 app（查不到，免映射）；6 不能映射，不查。hysteria-plugin 的结果在本次构建里记住，5、6 报同一个原因",
       "run": {
         "diagnostics": [
           {

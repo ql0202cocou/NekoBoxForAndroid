@@ -7,7 +7,8 @@ import java.io.File
 // 外核运行计划（plan.md K0 做法 1）：一次构建里全部的外核跳实例，以及它们按核心分成的组。
 // 计划只从构建结果里登记的外核跳数据（ConfigBuildResult.externalChains）得到，不读 bean 上的任何可变状态。
 // 运行（BoxInstance）、测速（TestInstance）、导出（ProxyEntity.exportConfig）都经 assemble 从计划生成
-// 外核配置，ConfigBuild.precheck 也经它试生成单个节点。只用纯 Kotlin 类型，JVM 单测可以手工构造
+// 外核配置，规划选择器成员 / 路由规则目标时也经它试生成单个节点（probeExternalHop）。只用纯 Kotlin 类型，JVM 单测
+// 可以手工构造
 
 /** 外核跳实例的拨号目标：外核自己的出站连到哪里。 */
 sealed interface ExternalDialTarget {
@@ -18,8 +19,8 @@ sealed interface ExternalDialTarget {
     data class Mapped(val port: Int) : ExternalDialTarget
 
     /**
-     * 不映射：外核自己拨节点的服务器（hysteria 1 走 Matsuri exe 插件时最先拨号的一跳、不能映射的节点、预检的
-     * 试生成）。地址端口怎么取由各生成器按协议决定，hysteria 1 按 serverPorts 拨号。
+     * 不映射：外核自己拨节点的服务器（hysteria 1 走 Matsuri exe 插件时最先拨号的一跳、不能映射的节点、成员检查
+     * 里 probeExternalHop 的试生成）。地址端口怎么取由各生成器按协议决定，hysteria 1 按 serverPorts 拨号。
      */
     data object Direct : ExternalDialTarget
 }
@@ -57,7 +58,7 @@ class ExternalHopRecord(
 )
 
 /**
- * 构建登记的一条链（buildChain 每调用一次一条，按调用顺序）：hops 是链上走外核的节点，按 buildHop 的顺序；
+ * 构建登记的一条链（ConfigBuild.commitChain 每提交一条链登记一条，按提交顺序）：hops 是链上走外核的节点，按跳的顺序；
  * 没有外核节点的链也有一条，hops 为空，它照样占一个链序号。
  */
 class ExternalChainRecord(val hops: List<ExternalHopRecord>)
@@ -145,7 +146,7 @@ class ExternalRunPlan(val hops: List<ExternalHop>) {
 
     companion object {
         /**
-         * 从构建结果得到计划：按 externalChains 的顺序（链的顺序，链内按 buildHop 登记的顺序），本机端口、拨号目标与
+         * 从构建结果得到计划：按 externalChains 的顺序（链的顺序，链内按跳的顺序），本机端口、拨号目标与
          * 本机 socks 凭据都取构建登记的值（凭据与 sing-box 一侧的 socks 出站同一个；核心要认证而登记里没有时
          * 建计划即抛错）。没有外核条目的节点（NekoBean）跳过、不占序号，与以前一致。
          */
@@ -185,7 +186,8 @@ class ExternalCoreProcess(val group: ExternalCoreGroup, val config: String) {
  * （与合并前逐节点生成时相同）；beforeHop 在每个跳实例之前调用（运行 / 测速用它确认插件已安装）。
  * cacheFile(prefix, ext) 分配配置可能引用的临时文件（hysteria 的 CA）；mihomoController 是测速时
  * mihomo 的 Clash API 端口与 secret，其余情况为 null。settings 没有默认值：运行、测速、导出传构建结果带出的
- * 那份（ConfigBuildResult.externalCoreSettings），预检传构建自己的设置快照，测试传固定值。
+ * 那份（ConfigBuildResult.externalCoreSettings），成员检查的试生成（probeExternalHop）传构建自己的设置快照，
+ * 测试传固定值。
  */
 fun ExternalRunPlan.assemble(
     cacheFile: (String, String) -> File,

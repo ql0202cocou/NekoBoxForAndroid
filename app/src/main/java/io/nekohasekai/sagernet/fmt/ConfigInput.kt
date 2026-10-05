@@ -58,7 +58,7 @@ fun selectorGroupOf(group: ProxyGroup?, mode: ConfigBuildMode): ProxyGroup? =
 
 /**
  * 构建查了采集范围之外的输入（快照里没有的 id、没解析的包名）。这是采集算法的缺漏，不是某个节点的数据问题：
- * 构建不能把它当成节点错误吞掉或包上节点名（skipBroken、withProfileName 都原样抛出），整次构建失败。
+ * 构建不能把它当成节点错误吞掉或包上节点名（planOrSkip、withProfileName 都原样抛出），整次构建失败。
  */
 class ConfigInputScopeException(message: String) : IllegalStateException(message)
 

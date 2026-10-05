@@ -180,7 +180,7 @@ address/corpus.json                                        地址解析语料与
 基线在只有内置 Xray 与 mihomo、没有任何外部插件 app 的模拟器上采集（`manifest.json` 的 `plugins` 记录了
 实际状态），以下结果随这个条件而定：
 
-- 选择器分组预检（`ConfigBuild.precheck` 的 `requirePlugin`）会跳过需要插件 app 的成员，路由规则指向这类
+- 选择器成员的规划检查（`ConfigBuild.checkMemberHop` 确认插件可用）会跳过需要插件 app 的成员，路由规则指向这类
   节点时同样被跳过（规则落入「出站不存在」）；导出模式不查插件，照常构建。这是旧行为，照实记录。
 - Hysteria 1 插件节点作为链上最先拨号的一跳时免映射：判断依据是外部插件 app 是否存在及其来源。
 - 按应用分流的规则只用 UID 由平台固定的系统包（`android` 与 `com.android.providers.settings` 为 1000、

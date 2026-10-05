@@ -8,6 +8,7 @@ import moe.matsuri.nb4a.SingBoxOptions.CustomSingBoxOption
 import moe.matsuri.nb4a.SingBoxOptions.SingBoxOption
 import moe.matsuri.nb4a.plugin.Plugins
 import moe.matsuri.nb4a.utils.Util
+import java.io.File
 
 // 配置构建里链的展开、逐跳检查与单跳规划（plan.md R2）。都是顶层函数，输入全部显式传入：数据快照、主节点所在分组、
 // 设置里的全局「允许不安全」、警告回调与插件查询；不读也不写 ConfigBuild 的状态，JVM 单测可以直接调用。
@@ -232,4 +233,86 @@ internal fun planHop(
         HopCore.Internal(outbound, mux?.takeIf { it.enabled }?.asMap())
     }
     return HopPlan(entity, bean, core, udpOverTcp(bean))
+}
+
+// 两段式构建（plan.md R2）：每条链先规划（planChain，下面），通过之后才提交（ConfigBuild.commitChain：先按跳的顺序要齐
+// 端口与凭据，再定 tag、接线，写出站 / 入站 / 路由规则，登记外核跳数据与 trafficMap）。会失败的计算都在规划里，
+// 规划失败的链不留下任何输出；选择器成员与路由规则目标规划失败时整条跳过，提交用的就是通过的那份规划
+
+/** 规划一条链用的输入：都取自本次构建，规划只读它们（插件查询的记忆表除外）。 */
+internal class ChainPlanContext(
+    val data: ConfigSnapshot,
+    /** 主节点所在分组的 id 与构建开头从快照读到的那一行（库里没有时为 null），见 [resolveChain]。 */
+    val mainGroupId: Long,
+    val mainGroup: ProxyGroup?,
+    /** 设置里的全局「允许不安全」：影响选核、sing-box 出站的 TLS 与单跳检查。 */
+    val globalAllowInsecure: Boolean,
+    val plugins: PluginQueries,
+    /** 展开链时的警告（缺失的成员、失效的前置 / 落地），只记日志。 */
+    val warn: (String) -> Unit,
+)
+
+/** 一条链的规划：entity 是根节点；hops 与 [resolveChain] 一样是倒序（首项是出口，末项是最先拨号的一跳），不为空。 */
+internal class ChainPlan(val entity: ProxyEntity, val hops: List<HopPlan>)
+
+/**
+ * 规划一条链：只展开一次链（[resolveChain]），做整链检查（[requireBuildableChain]），再按跳的顺序（从出口起）逐跳
+ * 规划（[planHop]）。对构建状态是纯的：不分配端口、不生成凭据、不定 tag，不写任何输出（插件查询的记忆表除外）。
+ *
+ * 检查类报错的次序与以前相同：展开链（含前置 / 落地）、整链检查，然后逐跳，每跳先 planHop、再 checkHop；逐跳的
+ * 报错经 withProfileName 包上该跳的节点名。分端口与生成凭据不在此列：它们在提交里，整条链规划通过之后才做，所以
+ * 一条链里既有检查不过的跳、分端口或生成凭据又会失败时，现在报的是检查。checkHop 是选择器成员与路由规则目标
+ * 另做的检查（试生成外核配置、确认插件可用），在每跳规划之后、下一跳之前调用；主节点不传。
+ *
+ * 最后一跳（最先拨号）已作为全局出站建过时，提交会复用它、不再写它，这里照样规划与检查。选择器成员与路由规则目标
+ * 以前的预检也检查它；主节点的链复用的那一跳与第一次建它时出自快照里同一条记录，检查只取决于节点内容、设置与记住的
+ * 插件查询结果，第一次已经通过，结果相同。
+ */
+internal fun planChain(entity: ProxyEntity, context: ChainPlanContext, checkHop: (HopPlan) -> Unit = {}): ChainPlan {
+    val globalAllowInsecure = context.globalAllowInsecure
+    val profileList = entity.resolveChain(context.data, context.mainGroupId, context.mainGroup, context.warn)
+    requireBuildableChain(entity, profileList, globalAllowInsecure)
+    // 链上已有内部核心跳带了多路复用（见 planHop）
+    var muxApplied = false
+    val hops = profileList.mapIndexed { index, hopEntity ->
+        val bean = hopEntity.requireBean()
+        withProfileName(bean) {
+            val hop = planHop(
+                hopEntity, bean, index == profileList.lastIndex, muxApplied, globalAllowInsecure, context.plugins,
+            )
+            if ((hop.core as? HopCore.Internal)?.multiplex != null) muxApplied = true
+            checkHop(hop)
+            hop
+        }
+    }
+    return ChainPlan(entity, hops)
+}
+
+// 试生成外核配置用的占位端口与占位凭据，生成的配置随即丢弃；不为它消耗随机数
+private const val PRECHECK_PORT = 1080
+private val PRECHECK_AUTH = LocalSocksAuth("u" + "0".repeat(16), "p" + "0".repeat(32))
+
+/**
+ * 试生成一个外核跳的配置（选择器成员 / 路由规则目标的规划检查之一）：经运行时同一个组装入口，给只有这一个跳实例的
+ * 计划生成一次，生成的配置丢弃。端口与凭据只是占位，拨号目标一律是「不映射、拨服务器本身」（报错只取决于节点与
+ * 外核设置，与这些占位无关），不分配端口、不生成凭据。hysteria 1 会写 CA 临时文件（createTempFile），用完删掉。
+ */
+internal fun probeExternalHop(
+    hop: HopPlan,
+    core: ExternalCore,
+    settings: ExternalCoreSettings,
+    createTempFile: (String, String) -> File,
+) {
+    val tempFiles = ArrayList<File>()
+    try {
+        val probe = ExternalHop(
+            0, 0, hop.entity.id, hop.bean, PRECHECK_PORT, ExternalDialTarget.Direct, core,
+            PRECHECK_AUTH.takeIf { core.inboundAuth },
+        )
+        ExternalRunPlan(listOf(probe)).assemble({ prefix, ext ->
+            createTempFile(prefix, ext).also { tempFiles.add(it) }
+        }, null, settings)
+    } finally {
+        tempFiles.forEach { runCatching { it.delete() } }
+    }
 }
