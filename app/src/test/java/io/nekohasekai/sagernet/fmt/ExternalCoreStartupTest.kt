@@ -197,6 +197,19 @@ class ExternalCoreStartupTest {
         }
     }
 
+    // Xray 对每个 Trojan 出站都打一条弃用警告（文本取自模拟器上的实际输出），退出码仍是 0。
+    // 警告不一定出现在输出里：同一份配置在模拟器上连跑，条数时有时无
+    private val xrayTrojanWarnings = xrayBanner + "\n" + List(2) {
+        "2026/10/06 10:21:07.18940$it [Warning] common/errors: The feature Trojan (with no Flow, etc.) is deprecated, " +
+            "not recommended for using and might be removed. Please migrate to VLESS with Flow & Seed as soon as possible."
+    }.joinToString("\n") + "\nConfiguration OK."
+
+    @Test
+    fun `Xray 退出码 0 时输出里的弃用警告不算失败`() {
+        assertTrue(xrayCheckErrors(xrayTrojanWarnings).isEmpty())
+        assertSame(ExternalCheckResult.Passed, xray.result(xrayGroup, 0, xrayTrojanWarnings))
+    }
+
     private fun failure(result: ExternalCheckResult): Exception = (result as ExternalCheckResult.Failed).error
 
     @Test
