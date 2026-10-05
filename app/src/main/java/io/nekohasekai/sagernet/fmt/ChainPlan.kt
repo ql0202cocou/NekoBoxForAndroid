@@ -9,8 +9,8 @@ import moe.matsuri.nb4a.SingBoxOptions.SingBoxOption
 import moe.matsuri.nb4a.plugin.Plugins
 import moe.matsuri.nb4a.utils.Util
 
-// 配置构建里链的展开与逐跳检查（plan.md R2）。都是顶层函数，输入全部显式传入：数据快照、主节点所在分组、设置里的
-// 全局「允许不安全」、警告回调与插件查询；不读也不写 ConfigBuild 的状态，JVM 单测可以直接调用。
+// 配置构建里链的展开、逐跳检查与单跳规划（plan.md R2）。都是顶层函数，输入全部显式传入：数据快照、主节点所在分组、
+// 设置里的全局「允许不安全」、警告回调与插件查询；不读也不写 ConfigBuild 的状态，JVM 单测可以直接调用。
 // 数据快照每次查询都给新对象，所以同一节点在不同链里（或同一条链展开两次）是不同的对象
 
 // 按用户填写的顺序展开链（含任意层嵌套），结果首项是第一跳；不是链的节点展开成它自己。
@@ -169,4 +169,67 @@ internal fun hysteriaSkipsMapping(bean: AbstractBean, plugins: PluginQueries): B
     val authority = plugins.externalAuthority(pluginId)
     if (authority == null || authority.startsWith(Plugins.AUTHORITIES_PREFIX_NEKO_EXE)) return true
     throw Exception("You are using an unsupported $pluginId, please download the correct plugin.")
+}
+
+/** 外核跳经 sing-box 的映射入站拨号时，入站转去的服务器地址与端口（hysteria 取 serverPorts 的第一个）。 */
+internal class HopMapping(val address: String, val port: Int)
+
+/** 一跳由谁拨号，以及构建要写进配置的、只取决于节点本身的部分。 */
+internal sealed interface HopCore {
+    /**
+     * 内部核心：outbound 是 sing-box 的出站 / 端点（tag、解析等由构建再填）；multiplex 是这一跳要带的多路复用选项，
+     * 一条链里只有第一个开了多路复用的内部核心跳才有（见 [planHop] 的 muxApplied）。
+     */
+    class Internal(val outbound: SingBoxOption, val multiplex: Map<String, Any?>?) : HopCore
+
+    /**
+     * 外核（needExternal）：sing-box 经本机 socks 出站连它。core 为 null 的节点（NekoBean）没有外核条目，运行计划跳过它。
+     * mapping 不为 null 时外核经 sing-box 的映射入站拨号；为 null 时不映射，外核自己拨服务器（节点不能映射，或链上
+     * 最先拨号的 hysteria 免映射）。
+     */
+    class External(val core: ExternalCore?, val mapping: HopMapping?) : HopCore {
+        /** 本机 socks 入站要求本次构建的凭据（核心声明的，见 [ExternalCore.inboundAuth]）。 */
+        val needsLocalAuth: Boolean get() = core?.inboundAuth == true
+    }
+}
+
+/** 一跳的规划：会失败的计算都已做完；端口、凭据与 tag 留给构建。entity / bean 是构建用的那一份。 */
+internal class HopPlan(
+    val entity: ProxyEntity,
+    val bean: AbstractBean,
+    val core: HopCore,
+    /** sing-box 出站带 udp_over_tcp。 */
+    val udpOverTcp: Boolean,
+)
+
+/**
+ * 规划一跳：先做单跳检查（[requireBuildableHop]），再按核心分两支——内部核心建好 sing-box 出站并按 muxApplied
+ * 定多路复用；外核定是否经映射。firstDialing 表示这一跳是链上最先拨号的一跳（倒序列表的末项）：只有它可能免映射，
+ * 免映射的判断要查外部插件 app（经 plugins，按插件记住结果）。muxApplied 表示链上在它之前的内部核心跳已带了多路复用。
+ *
+ * 不分配端口、不生成凭据、不定 tag，不写任何构建状态（插件查询的记忆表除外）；出错时抛出的异常不带节点名，调用方
+ * 经 withProfileName 包上。会抛出的检查依次是：证书固定、mldsa65Verify、完整配置节点、自定义出站 JSON（以上见
+ * [requireBuildableHop]），然后内部核心建出站（[buildInternalOutbound] 的各种拒绝），或外核最先拨号的 hysteria
+ * 装的不是 Matsuri exe 的插件。
+ */
+internal fun planHop(
+    entity: ProxyEntity,
+    bean: AbstractBean,
+    firstDialing: Boolean,
+    muxApplied: Boolean,
+    globalAllowInsecure: Boolean,
+    plugins: PluginQueries,
+): HopPlan {
+    requireBuildableHop(entity, bean, globalAllowInsecure)
+    val core = if (entity.needExternal(globalAllowInsecure)) {
+        // 外核的流量要经 sing-box 的映射入站出去，才能用已 protect 的 socket；自带 protect 的插件不用映射
+        val mapped = bean.canMapping() && !(firstDialing && hysteriaSkipsMapping(bean, plugins))
+        HopCore.External(externalCore(bean), if (mapped) HopMapping(bean.serverAddress, effectiveServerPort(bean)) else null)
+    } else {
+        val outbound = buildInternalOutbound(bean, globalAllowInsecure)
+        // 链上已有内部核心跳带了多路复用时不再取这一跳的选项
+        val mux = if (muxApplied) null else entity.singMux()
+        HopCore.Internal(outbound, mux?.takeIf { it.enabled }?.asMap())
+    }
+    return HopPlan(entity, bean, core, udpOverTcp(bean))
 }

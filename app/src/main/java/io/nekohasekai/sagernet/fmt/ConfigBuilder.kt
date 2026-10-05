@@ -515,9 +515,8 @@ private class ConfigBuild(
     private fun MyOptions.buildHop(chain: ChainState, index: Int, proxyEntity: ProxyEntity) {
         val bean = proxyEntity.requireBean()
 
-        // only this group's own nodes: resolveChain() also pulls in the group's front/
-        // landing proxy and any cross-group chain member, whose domains this group's
-        // (often private, split-horizon) nameserver has no business being asked about
+        // 只收本组自己的节点：resolveChain() 还会带进分组的前置 / 落地与跨分组的链成员，
+        // 这些节点的域名不该拿去问本组（常是私有、分区解析的）DNS
         if (groupNameservers.isNotEmpty() &&
             proxyEntity.groupId == proxy.groupId &&
             bean.serverAddress.isNotBlank() && !bean.serverAddress.isIpAddress()
@@ -527,11 +526,15 @@ private class ConfigBuild(
 
         val tagOut = linkHop(chain, index, proxyEntity) ?: return
         val currentOutbound = withProfileName(bean) {
-            val (outbound, socks) = buildHopOutbound(chain, proxyEntity, bean, tagOut)
-            val target = mapExternalHop(chain, index, proxyEntity, bean)
+            // 单跳的检查与只取决于节点本身的计算（planHop），之后才分端口、写配置
+            val hop = planHop(
+                proxyEntity, bean, index == chain.profileList.lastIndex, chain.muxApplied, globalAllowInsecure, plugins,
+            )
+            val (outbound, socks) = buildHopOutbound(chain, hop, tagOut)
+            val target = mapExternalHop(chain, index, hop)
             if (socks != null) {
                 chain.externalHops += ExternalHopRecord(
-                    proxyEntity.id, bean, externalCore(bean), socks.localPort, target, socks.localAuth,
+                    proxyEntity.id, bean, (hop.core as HopCore.External).core, socks.localPort, target, socks.localAuth,
                 )
             }
             outbound
@@ -630,58 +633,53 @@ private class ConfigBuild(
 
     // 这一跳的 sing-box 出站；走外核时另带 sing-box 连外核用的本机端口与凭据，由 buildHop 登记
     private fun MyOptions.buildHopOutbound(
-        chain: ChainState, proxyEntity: ProxyEntity, bean: AbstractBean, tagOut: String,
+        chain: ChainState, hop: HopPlan, tagOut: String,
     ): Pair<SingBoxOption, ExternalSocks?> {
-        requireBuildableHop(proxyEntity, bean, globalAllowInsecure)
+        val proxyEntity = hop.entity
+        val bean = hop.bean
         val currentOutbound: SingBoxOption
         var socks: ExternalSocks? = null
-        if (proxyEntity.needExternal(globalAllowInsecure)) { // 外部核心出站
-            val localPort = platform.newPort()
-            // 外核的入站要求认证时带上本次构建的凭据；外核一侧由运行计划从登记里取同一个值
-            val auth = if (externalCore(bean)?.inboundAuth == true) {
-                localAuth ?: newLocalAuth().also { localAuth = it }
-            } else null
-            socks = ExternalSocks(localPort, auth)
-            currentOutbound = Outbound_SocksOptions().apply {
-                type = "socks"
-                server = LOCALHOST
-                server_port = localPort
-                if (auth != null) {
-                    username = auth.username
-                    password = auth.password
+        when (val core = hop.core) {
+            // 外核：sing-box 经本机 socks 出站连它
+            is HopCore.External -> {
+                val localPort = platform.newPort()
+                // 外核的入站要求认证时带上本次构建的凭据；外核一侧由运行计划从登记里取同一个值
+                val auth = if (core.needsLocalAuth) {
+                    localAuth ?: newLocalAuth().also { localAuth = it }
+                } else null
+                socks = ExternalSocks(localPort, auth)
+                currentOutbound = Outbound_SocksOptions().apply {
+                    type = "socks"
+                    server = LOCALHOST
+                    server_port = localPort
+                    if (auth != null) {
+                        username = auth.username
+                        password = auth.password
+                    }
                 }
             }
-        } else {
-            // internal outbound
-            currentOutbound = buildInternalOutbound(bean, globalAllowInsecure)
 
-            // internal mux
-            if (!chain.muxApplied) {
-                val muxObj = proxyEntity.singMux()
-                if (muxObj != null && muxObj.enabled) {
+            // 内部核心：出站已在规划时建好；一条链里只有第一个开了多路复用的内部核心跳带 multiplex
+            is HopCore.Internal -> {
+                currentOutbound = core.outbound
+                if (core.multiplex != null) {
                     chain.muxApplied = true
-                    currentOutbound._hack_config_map["multiplex"] = muxObj.asMap()
+                    currentOutbound._hack_config_map["multiplex"] = core.multiplex
                 }
             }
         }
 
-        // internal & external
+        // 内部与外核共用
         currentOutbound.apply {
-            // udp over tcp
-            if (udpOverTcp(bean)) {
+            if (hop.udpOverTcp) {
                 _hack_config_map["udp_over_tcp"] = true
             }
 
-            // domain resolution: this group's own domain nodes resolve
-            // through the group's ordered nameserver chain (the
-            // neko-sequential transport); every other dialer falls
-            // back to route.default_domain_resolver. Exports skip the
-            // binding: neko-sequential is libcore-only, and vanilla
-            // sing-box 1.14 still resolves outbounds through the kept
-            // dns-group-N rules. User custom JSON merges after this
-            // and wins if it carries its own domain_resolver.
+            // 域名解析：本组自己的域名节点经分组 DNS 的有序链（neko-sequential 传输）解析，其余拨号器都回落到
+            // route.default_domain_resolver。导出不绑定：neko-sequential 只有 libcore 有，原版 sing-box 1.14
+            // 仍经保留下来的 dns-group-N 规则解析出站。用户的自定义 JSON 在这之后合并，自带 domain_resolver 时以它为准
             chain.pastEntity?.requireBean()?.apply {
-                // don't loopback
+                // 上一跳的服务器域名直连解析，免得解析请求经它自己绕回来
                 if (defaultServerDomainStrategy != "" && !serverAddress.isIpAddress()) {
                     domainListDNSDirectForce.add("full:$serverAddress")
                 }
@@ -703,67 +701,57 @@ private class ConfigBuild(
         return currentOutbound to socks
     }
 
-    // 外核节点的拨号目标：外核的流量要经 sing-box 的映射入站出去，才能用已 protect 的 socket；能映射的外核节点
-    // 分一个映射端口、加映射入站，返回 Mapped。不映射的（不能映射的节点、hysteria 1 免映射的最先拨号的一跳）
-    // 以及内部核心节点返回 Direct（内部核心节点的不用）
-    private fun MyOptions.mapExternalHop(
-        chain: ChainState, index: Int, proxyEntity: ProxyEntity, bean: AbstractBean,
-    ): ExternalDialTarget {
-        if (bean.canMapping() && proxyEntity.needExternal(globalAllowInsecure)) {
-            // 自带 protect 的插件不用映射
-            val needExternal = !(index == chain.profileList.lastIndex && hysteriaSkipsMapping(bean, plugins))
-            if (needExternal) {
-                val mappingPort = platform.newPort()
+    // 外核节点的拨号目标：规划定为经映射的外核节点分一个映射端口、加映射入站，返回 Mapped。不映射的（不能映射的
+    // 节点、hysteria 1 免映射的最先拨号的一跳）以及内部核心节点返回 Direct（内部核心节点的不用）
+    private fun MyOptions.mapExternalHop(chain: ChainState, index: Int, hop: HopPlan): ExternalDialTarget {
+        val mapping = (hop.core as? HopCore.External)?.mapping ?: return ExternalDialTarget.Direct
+        val mappingPort = platform.newPort()
 
-                inbounds.add(Inbound_DirectOptions().apply {
-                    type = "direct"
-                    listen = LOCALHOST
-                    listen_port = mappingPort
-                    tag = "${chain.chainTag}-mapping-${proxyEntity.id}"
+        inbounds.add(Inbound_DirectOptions().apply {
+            type = "direct"
+            listen = LOCALHOST
+            listen_port = mappingPort
+            tag = "${chain.chainTag}-mapping-${hop.entity.id}"
 
-                    override_address = bean.serverAddress
-                    override_port = effectiveServerPort(bean)
+            override_address = mapping.address
+            override_port = mapping.port
 
-                    chain.pastInboundTag = tag
+            chain.pastInboundTag = tag
 
-                    // no chain rule and not outbound, so need to set to direct
-                    if (index == chain.profileList.lastIndex) {
-                        route.rules.add(Rule_DefaultOptions().apply {
-                            inbound = listOf(tag)
-                            outbound = TAG_DIRECT
-                        })
-                    }
+            // 最先拨号的一跳没有链规则接到它、它也不是出站，入站要显式路由到 direct
+            if (index == chain.profileList.lastIndex) {
+                route.rules.add(Rule_DefaultOptions().apply {
+                    inbound = listOf(tag)
+                    outbound = TAG_DIRECT
                 })
-                return ExternalDialTarget.Mapped(mappingPort)
             }
-        }
-        return ExternalDialTarget.Direct
+        })
+        return ExternalDialTarget.Mapped(mappingPort)
     }
 
     // 选择器成员 / 路由规则目标构建前的只读预检：把 buildChain 会走的检查空跑一遍，
     // 结果全部丢弃。buildChain 抛错时已写入一半的出站、入站与端口，只能事先判断。
-    // 不能写 MyOptions 与本类的构建状态，也不能分配端口（platform.newPort），所以不调 mapExternalHop
+    // 每跳与正式构建同一个规划（planHop），之后外核节点再试生成配置、确认插件可用；不分配端口（platform.newPort）
     private fun precheck(entity: ProxyEntity) {
         val profileList = entity.resolveChain()
         requireBuildableChain(entity, profileList, globalAllowInsecure)
-        profileList.forEachIndexed { index, hop ->
-            val bean = hop.requireBean()
+        var muxApplied = false
+        profileList.forEachIndexed { index, hopEntity ->
+            val bean = hopEntity.requireBean()
             withProfileName(bean) {
-                requireBuildableHop(hop, bean, globalAllowInsecure)
-                if (!hop.needExternal(globalAllowInsecure)) {
-                    buildInternalOutbound(bean, globalAllowInsecure)
-                    return@withProfileName
-                }
-                if (bean.canMapping() && index == profileList.lastIndex) hysteriaSkipsMapping(bean, plugins)
+                val hop = planHop(
+                    hopEntity, bean, index == profileList.lastIndex, muxApplied, globalAllowInsecure, plugins,
+                )
+                if ((hop.core as? HopCore.Internal)?.multiplex != null) muxApplied = true
                 // NekoBean 没有 ExternalCore，与 BoxInstance.init 一样跳过
-                val core = externalCore(bean) ?: return@withProfileName
+                val core = (hop.core as? HopCore.External)?.core ?: return@withProfileName
                 // 经运行时同一个组装入口，给只有这一个跳实例的计划试生成一次。生成的配置丢弃，端口与凭据只是占位；
                 // 不分配映射端口，拨号目标一律是「不映射、拨服务器本身」（与以前相同，生成器的输出与报错只取决于
                 // 节点本身）。hysteria 1 会写 CA 临时文件，用完删掉
                 val tempFiles = ArrayList<File>()
                 try {
                     val probe = ExternalHop(
-                        0, 0, hop.id, bean, PRECHECK_PORT, ExternalDialTarget.Direct, core,
+                        0, 0, hopEntity.id, bean, PRECHECK_PORT, ExternalDialTarget.Direct, core,
                         PRECHECK_AUTH.takeIf { core.inboundAuth },
                     )
                     ExternalRunPlan(listOf(probe)).assemble({ prefix, ext ->
