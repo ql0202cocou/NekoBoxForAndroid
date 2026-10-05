@@ -244,9 +244,6 @@ fun ProxyEntity.needExternal(globalAllowInsecure: Boolean): Boolean {
     }
 }
 
-// 构建之外的调用方用：全局「允许不安全」取 DataStore 当前值
-fun ProxyEntity.needExternal(): Boolean = needExternal(DataStore.globalAllowInsecure)
-
 // type -> sing-box 多路复用选项，不支持 mux 的协议为 null
 fun ProxyEntity.singMux(): MultiplexOptions? {
     return when (type) {

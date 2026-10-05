@@ -1,5 +1,7 @@
 package io.nekohasekai.sagernet.fmt
 
+import io.nekohasekai.sagernet.database.ProxyEntity
+import io.nekohasekai.sagernet.database.ProxyGroup
 import java.io.File
 
 // 外核运行计划（plan.md K0 做法 1）：一次构建里全部的外核跳实例，以及它们按核心分成的组。
@@ -162,6 +164,40 @@ fun ExternalRunPlan.assemble(
         }
         ExternalCoreProcess(group, config)
     }
+}
+
+/**
+ * 导出的文本与文件名（ProxyEntity.exportConfig）：sing-box 配置后面按组的顺序接上各外核配置，段间一个空行。
+ * 外核配置经运行、测速共用的组装入口生成，本机 socks 凭据是这次导出构建生成的（两侧同一组），设置用构建时采集的
+ * 那份。有外核条目时文件名是 profiles.txt，否则是「profileName.json」。cacheFile 分配外核配置引用的临时文件
+ * （hysteria 1 的 CA）；文件由调用方删除，组装中途抛异常时也要删掉已分配的。
+ */
+fun exportConfigText(
+    config: ConfigBuildResult,
+    profileName: String,
+    cacheFile: (String, String) -> File,
+): Pair<String, String> {
+    val name = if (config.externalIndex.all { it.chain.isEmpty() }) "$profileName.json" else "profiles.txt"
+    val text = StringBuilder(config.config)
+    val plan = ExternalRunPlan.from(config)
+    if (plan.hops.isNotEmpty()) {
+        for (process in plan.assemble(cacheFile, null, config.requireExternalCoreSettings())) {
+            text.append("\n\n")
+            text.append(process.config)
+        }
+    }
+    return text.toString() to name
+}
+
+/**
+ * 测速时是否让 mihomo 自己测延迟（在它的配置里开 Clash API，见 [assemble] 的 mihomoController）：只有单节点的
+ * AnyTLS 走 mihomo、且所在分组没有前置 / 落地时；链上的节点仍走 sing-box 测。group 只在前两个条件成立时才取
+ * （生产上是一次数据库查询），取不到分组时为否。
+ */
+fun mihomoMeasuresDelay(profile: ProxyEntity, globalAllowInsecure: Boolean, group: () -> ProxyGroup?): Boolean {
+    if (profile.type != ProxyEntity.TYPE_ANYTLS || !profile.needExternal(globalAllowInsecure)) return false
+    val found = group() ?: return false
+    return found.frontProxy <= 0 && found.landingProxy <= 0
 }
 
 // 合并配置的生成器共用：同一份配置里的监听端口与标识各不相同，也不占用核心的保留名。

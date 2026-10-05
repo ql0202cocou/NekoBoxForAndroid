@@ -214,31 +214,20 @@ data class ProxyEntity(
 
     fun toStdLink(): String = standardLink(requireBean())
 
+    // 导出的文本与文件名，见 exportConfigText
     fun exportConfig(): Pair<String, String> {
-        var name = "${requireBean().displayName()}.json"
+        val name = requireBean().displayName()
         val config = buildConfig(this, forExport = true)
-        if (!config.externalIndex.all { it.chain.isEmpty() }) {
-            name = "profiles.txt"
-        }
-        val text = StringBuilder(config.config)
         // 外核配置可能引用临时文件（hysteria 的 CA）：导出的配置保留路径，文件本身不能留在 cacheDir，
         // 组装中途抛异常时也要清掉已创建的
         val tempFiles = ArrayList<File>()
         try {
-            // 与运行、测速同一个组装入口：每组（Xray、mihomo 各一组，插件核心每个跳实例一组）一段。
-            // 本机 socks 凭据是这次导出构建生成的，sing-box 一段与外核各段写的是同一组；设置用构建时采集的那份
-            val plan = ExternalRunPlan.from(config)
-            val processes = if (plan.hops.isEmpty()) emptyList() else plan.assemble({ prefix, ext ->
+            return exportConfigText(config, name) { prefix, ext ->
                 File.createTempFile(prefix + "_", ".$ext", app.cacheDir).also { tempFiles.add(it) }
-            }, null, config.requireExternalCoreSettings())
-            for (process in processes) {
-                text.append("\n\n")
-                text.append(process.config)
             }
         } finally {
             tempFiles.forEach { runCatching { it.delete() } }
         }
-        return text.toString() to name
     }
 
     // 实际使用的核心：自动时按协议选（coreForType），globalAllowInsecure 是全局「允许不安全」

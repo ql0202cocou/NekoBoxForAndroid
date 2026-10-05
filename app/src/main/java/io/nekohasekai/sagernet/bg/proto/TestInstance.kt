@@ -3,10 +3,11 @@ package io.nekohasekai.sagernet.bg.proto
 import android.os.SystemClock
 import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.bg.GuardedProcessPool
+import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.buildConfig
-import io.nekohasekai.sagernet.fmt.needExternal
+import io.nekohasekai.sagernet.fmt.mihomoMeasuresDelay
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.mkPort
 import io.nekohasekai.sagernet.ktx.runOnIoDispatcher
@@ -35,12 +36,12 @@ class TestInstance(profile: ProxyEntity, val link: String, private val timeout: 
     // double the budget so slow-but-working nodes don't report a timeout.
     private val mihomoTimeout = timeout * 2
 
-    // Single-node AnyTLS-on-mihomo: enable mihomo's Clash API so mihomo measures
-    // the delay through the proxy itself. Chained profiles keep the sing-box path.
+    // 单节点的 AnyTLS 走 mihomo 时开 mihomo 的 Clash API，让 mihomo 自己经代理测延迟；链上的节点仍走 sing-box。
+    // 条件见 mihomoMeasuresDelay
     private val mihomoController: Pair<Int, String>? by lazy {
-        if (profile.type != ProxyEntity.TYPE_ANYTLS || !profile.needExternal()) return@lazy null
-        val group = GroupManager.getGroup(profile.groupId) ?: return@lazy null
-        if (group.frontProxy > 0 || group.landingProxy > 0) return@lazy null
+        if (!mihomoMeasuresDelay(profile, DataStore.globalAllowInsecure) { GroupManager.getGroup(profile.groupId) }) {
+            return@lazy null
+        }
         mkPort() to UUID.randomUUID().toString().replace("-", "")
     }
 
