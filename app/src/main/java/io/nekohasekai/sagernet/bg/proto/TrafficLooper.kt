@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.bg.proto
 
 import android.os.IBinder
+import android.os.SystemClock
 import io.nekohasekai.sagernet.aidl.SpeedDisplayData
 import io.nekohasekai.sagernet.aidl.TrafficData
 import io.nekohasekai.sagernet.bg.BaseService
@@ -10,6 +11,7 @@ import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.fmt.ConfigBuildResult
 import io.nekohasekai.sagernet.fmt.TAG_BYPASS
 import io.nekohasekai.sagernet.fmt.TAG_PROXY
+import io.nekohasekai.sagernet.fmt.TrafficTotals
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import kotlinx.coroutines.CancellationException
@@ -19,7 +21,6 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.coroutineContext
 
@@ -32,14 +33,15 @@ class TrafficLooper(val data: BaseService.Data) {
     @Volatile
     private var job: Job? = null
     private val stopped = AtomicBoolean(false)
-    // loop() fills these (under statsLock) while selectMain() (via
-    // NativeInterface.selector_OnProxySelected) reads/writes them on another thread
-    private val idMap = ConcurrentHashMap<Long, TrafficUpdater.TrafficLooperData>() // id to 1 data
-    private val tagMap = ConcurrentHashMap<String, TrafficUpdater.TrafficLooperData>() // tag to 1 data
 
-    // 只在 loop 协程里读写：上一轮推给前台的各节点流量，以及已收过全量的前台回调
-    private val postedTraffic = HashMap<Long, Pair<Long, Long>>()
-    private val postedTo = HashSet<IBinder>()
+    // 本次运行的记账，循环第一轮在 Default 上建好后发布。selectMain（NativeInterface 的串行调度器）、
+    // clearStats（BaseService 的 Default）与 flushStats（IO）在别的线程上读；记账自己的锁管互斥，
+    // 建好之前到达的切换与清零照旧丢弃
+    @Volatile
+    private var accounting: TrafficAccounting? = null
+
+    // 只在 loop 协程里用：前台回调收过哪些推送
+    private val posts = TrafficPosts<IBinder>()
 
     suspend fun stop() {
         if (stopLoop()) postFinalTraffic()
@@ -59,8 +61,7 @@ class TrafficLooper(val data: BaseService.Data) {
     // no live box and must not sit between the loop and box.close().
     suspend fun postFinalTraffic() {
         if (!DataStore.profileTrafficStatistics) return
-        // 每个 id 推一次：同一节点可能在多条链里、属于不同的 tag
-        val traffic = flushStats().distinctBy { it.id }
+        val traffic = flushStats()
         data.binder.broadcast { b ->
             for (t in traffic) {
                 b.cbTrafficUpdate(t)
@@ -69,26 +70,20 @@ class TrafficLooper(val data: BaseService.Data) {
         Logs.d("finally traffic post done")
     }
 
-    // ACTION_SHUTDOWN kills the process without stopRunner, so stop() never
-    // runs; persist the counters without stopping the loop. Reads race the
-    // loop's TrafficUpdater writes, but a slightly stale counter beats
-    // losing it all.
+    // ACTION_SHUTDOWN 直接杀进程、不走 stopRunner，stop() 不会运行：不停循环，先把累计落库。
+    // 快照在记账的锁内取，与进行中的一轮互斥；之后的那一轮来不及落库，少一点总好过全丢
     suspend fun persistStats() {
         if (!DataStore.profileTrafficStatistics) return
         flushStats()
     }
 
-    // 按统计关联逐个 (tag, 节点) 取当前计数，一个事务写库
+    // 当前累计写库，每个节点一行、一个事务。写哪些节点仍按当前 data.proxy 的统计关联取（同以前：data.proxy
+    // 已置空时不写，已换成新实例时只写两边都有的节点），值取本循环的记账
     private suspend fun flushStats(): List<TrafficData> = withContext(Dispatchers.IO) {
-        val updated = mutableListOf<TrafficData>()
-        data.proxy?.config?.traffic?.tags?.forEach { (_, ids) ->
-            for (id in ids) {
-                // 只跳过这一个节点，不跳过这个 tag 的其余节点
-                val item = idMap[id] ?: continue
-                updated.add(TrafficData(id = id, rx = item.rx, tx = item.tx))
-            }
-        }
-        ProfileManager.persistTraffic(updated) // update DB
+        val bound = data.proxy?.config?.traffic?.tags ?: return@withContext emptyList()
+        val totals = accounting?.snapshot() ?: return@withContext emptyList()
+        val updated = TrafficAccounting.rowsToPersist(bound, totals).toTrafficData()
+        ProfileManager.persistTraffic(updated)
         updated
     }
 
@@ -103,11 +98,6 @@ class TrafficLooper(val data: BaseService.Data) {
     }
 
     companion object {
-        // selectorNowId 的哨兵初值：表示 selector 尚未发生过任何选择。
-        // 只要求不是 idMap 的有效键——不能是保留键 -1（bypass 项），
-        // 也不可能是真实 profile id（Room 自增 id 从 1 开始）
-        private const val SELECTOR_ID_NONE = -2L
-
         // loop() 会不会跑：速度显示关闭且不统计节点流量时直接返回
         fun enabled() = DataStore.speedInterval != 0 || DataStore.profileTrafficStatistics
 
@@ -115,66 +105,27 @@ class TrafficLooper(val data: BaseService.Data) {
         // 上游 trackers 无锁，libcore 的 SetV2rayStats 在启动后直接忽略
         fun statsTags(config: ConfigBuildResult): String =
             (setOf(TAG_PROXY, TAG_BYPASS) + config.traffic.tags.keys).joinToString("\n")
+
+        private fun TrafficTotals.toTrafficData(id: Long) = TrafficData(id = id, rx = rx, tx = tx)
+
+        private fun Map<Long, TrafficTotals>.toTrafficData() = map { (id, t) -> t.toTrafficData(id) }
     }
 
-    @Volatile
-    var selectorNowId = SELECTOR_ID_NONE
-
-    @Volatile
-    var selectorNowFakeTag = ""
-
-    // Shared by selectMain and the stats sweep in loop(): an interleaved
-    // selector switch would otherwise add the same TAG_PROXY diff to both the
-    // old and the new item (once in updateOne, once via the per-tag diff
-    // cache), double-counting it. A private lock, so the exclusion is not at
-    // the mercy of anyone holding this public object's monitor.
-    private val statsLock = Any()
-
-    // The UI cleared the tx/rx columns of these profiles in the DB: drop the
-    // counters this loop carries for them too, or the next persistStats/stop
-    // writes the pre-clear totals straight back. Scoped to the ids the UI
-    // actually cleared — it clears one group, the loop spans every profile in
-    // the running config. Under statsLock like every other read-modify-write here.
+    // 界面清除了这些节点在库里的流量列：本循环的累计也要清，否则下一次 persistStats / stop 会把清除前的
+    // 累计写回去。只清界面清除的那些 id（界面按分组清，本循环覆盖运行配置里的全部节点）；会话量不变
     fun clearStats(profileIds: LongArray) {
-        synchronized(statsLock) {
-            for (id in profileIds) {
-                idMap[id]?.apply {
-                    rx = 0
-                    tx = 0
-                    rxBase = 0
-                    txBase = 0
-                }
-            }
-        }
+        accounting?.clear(profileIds)
     }
 
-    // NativeInterface.selector_OnProxySelected serializes the selector events,
-    // but this read-modify-write still races the loop's stats sweep
-    fun selectMain(id: Long) {
-        synchronized(statsLock) {
-            Logs.d("select traffic count $TAG_PROXY to $id, old id is $selectorNowId")
-            val oldData = idMap[selectorNowId]
-            val newData = idMap[id] ?: return
-            oldData?.apply {
-                tag = selectorNowFakeTag
-                ignore = true
-                // post traffic when switch
-                if (DataStore.profileTrafficStatistics) {
-                    // 按 id 找：selectorNowId 在这里还是旧成员（下面才更新），落库的就是它
-                    if (data.proxy?.config?.traffic?.tags?.get(tag)?.contains(selectorNowId) == true) {
-                        val traffic = TrafficData(id = selectorNowId, rx = rx, tx = tx)
-                        runOnDefaultDispatcher {
-                            ProfileManager.persistTraffic(listOf(traffic)) // update DB
-                        }
-                    }
-                }
-            }
-            selectorNowFakeTag = newData.tag
-            selectorNowId = id
-            newData.apply {
-                tag = TAG_PROXY
-                ignore = false
-            }
+    // NativeInterface.selector_OnProxySelected 在串行调度器的协程里按事件顺序调用。切换前先把 proxy 上的字节结算给
+    // 旧成员，旧成员所在出站的整个集合就在调用方的协程里落库（一个事务），写完才返回：前后两次切换写到同一节点
+    // （共享的前置 / 落地）时，库里留下的是后一次的累计
+    suspend fun selectMain(id: Long) {
+        val accounting = accounting ?: return
+        Logs.d("select traffic count $TAG_PROXY to $id")
+        val old = accounting.select(id) ?: return
+        if (old.isNotEmpty() && DataStore.profileTrafficStatistics) {
+            ProfileManager.persistTraffic(old.toTrafficData())
         }
     }
 
@@ -189,107 +140,56 @@ class TrafficLooper(val data: BaseService.Data) {
         val countingOnly = delayMs == 0L
         val loopDelay = if (countingOnly) 1000L else delayMs
 
-        var trafficUpdater: TrafficUpdater? = null
-
-        // for display
-        val itemBypass = TrafficUpdater.TrafficLooperData(tag = TAG_BYPASS)
-
         // 单轮统计；每条提前 return 都落到下方 while 里的 delay
         suspend fun loopOnce() {
             val proxy = data.proxy ?: return
 
-            if (trafficUpdater == null) {
+            val accounting = this@TrafficLooper.accounting ?: run {
                 if (!proxy.isInitialized()) return
-                // under statsLock: a selectMain sneaking in mid-fill would see a
-                // half-populated idMap and drop the switch (id lookup fails)
-                synchronized(statsLock) {
-                    idMap.clear()
-                    idMap[-1] = itemBypass
-                    //
-                    val traffic = proxy.config.traffic
-                    traffic.tags.forEach { (tag, ids) ->
-                        for (id in ids) {
-                            val initial = traffic.initial.getValue(id)
-                            val item = TrafficUpdater.TrafficLooperData(
-                                tag = tag,
-                                rx = initial.rx,
-                                tx = initial.tx,
-                                rxBase = initial.rx,
-                                txBase = initial.tx,
-                                ignore = proxy.config.selectorGroupId >= 0L,
-                            )
-                            idMap[id] = item
-                            tagMap[tag] = item
-                            Logs.d("traffic count $tag to $id")
-                        }
-                    }
-                    if (proxy.config.selectorGroupId >= 0L) {
-                        selectMain(proxy.config.mainEntId)
-                    }
-                    //
-                    trafficUpdater = TrafficUpdater(
-                        box = proxy.box, items = idMap.values.toList()
-                    )
-                }
+                val config = proxy.config
+                if (Logs.enabled) config.traffic.tags.forEach { (tag, ids) -> Logs.d("traffic count $tag to $ids") }
+                // 这一轮只建记账、不查询：速率按轮间隔算，从这里起算；box 启动以来的字节留在计数器里，下一轮取走
+                this@TrafficLooper.accounting =
+                    TrafficAccounting.of(config, proxy.box::queryStats, SystemClock.elapsedRealtime())
+                return
             }
 
-            // mutually exclusive with selectMain, see statsLock
-            synchronized(statsLock) {
-                trafficUpdater?.updateAll()
-            }
+            // 记账的锁覆盖整轮查询，与 selectMain / clearStats 互斥
+            val round = accounting.sweep(SystemClock.elapsedRealtime())
             if (!coroutineContext.isActive) return
 
             if (countingOnly) return
 
-            // add all non-bypass to "main"
-            var mainTxRate = 0L
-            var mainRxRate = 0L
-            var mainTx = 0L
-            var mainRx = 0L
-            tagMap.forEach { (_, it) ->
-                if (!it.ignore) {
-                    mainTxRate += it.txRate
-                    mainRxRate += it.rxRate
-                }
-                mainTx += it.tx - it.txBase
-                mainRx += it.rx - it.rxBase
-            }
-
             // speed
             val speed = SpeedDisplayData(
-                mainTxRate,
-                mainRxRate,
-                if (showDirectSpeed) itemBypass.txRate else 0L,
-                if (showDirectSpeed) itemBypass.rxRate else 0L,
-                mainTx,
-                mainRx
+                round.txRateProxy,
+                round.rxRateProxy,
+                if (showDirectSpeed) round.txRateDirect else 0L,
+                if (showDirectSpeed) round.rxRateDirect else 0L,
+                round.txSession,
+                round.rxSession
             )
 
             // broadcast (MainActivity)
             if (data.state == BaseService.State.Connected
                 && data.binder.callbackIdMap.containsValue(SagerConnection.CONNECTION_ID_MAIN_ACTIVITY_FOREGROUND)
             ) {
-                // 每个节点的流量只推变化项：前台时逐个 binder 调用、每秒 N 次太多。
-                // 新出现的前台回调先收一次全量
-                val all = if (profileTrafficStatistics) {
-                    idMap.map { (id, item) -> TrafficData(id = id, rx = item.rx, tx = item.tx) }
-                } else emptyList()
-                val changed = all.filter { postedTraffic.put(it.id, it.rx to it.tx) != (it.rx to it.tx) }
+                // 每个节点的流量只推变化项，见 TrafficPosts
+                val changed = if (profileTrafficStatistics) round.changed.toTrafficData() else emptyList()
+                val all = lazy { if (profileTrafficStatistics) accounting.snapshot().toTrafficData() else emptyList() }
                 val seen = HashSet<IBinder>()
                 data.binder.broadcast { b ->
                     val binder = b.asBinder()
                     if (data.binder.callbackIdMap[binder] == SagerConnection.CONNECTION_ID_MAIN_ACTIVITY_FOREGROUND) {
                         b.cbSpeedUpdate(speed)
-                        for (t in if (binder in postedTo) changed else all) b.cbTrafficUpdate(t)
+                        for (t in posts.itemsFor(binder, changed, all)) b.cbTrafficUpdate(t)
                         seen.add(binder)
                     }
                 }
-                // 本轮收到推送的前台回调就是下一轮的 postedTo
-                postedTo.clear()
-                postedTo.addAll(seen)
+                posts.endRound(seen)
             } else {
                 // 没有前台回调：下一个前台回调视为新出现，收全量
-                postedTo.clear()
+                posts.endRound(emptySet())
             }
 
             // ServiceNotification
@@ -310,5 +210,22 @@ class TrafficLooper(val data: BaseService.Data) {
             }
             delay(loopDelay)
         }
+    }
+}
+
+/**
+ * 前台回调的节点流量推送：逐个 binder 调用、前台时每秒 N 次，全量太多，所以上一轮收过推送的回调只收本轮的变化项，
+ * 新出现的先收一次全量。只在循环协程里用。
+ */
+internal class TrafficPosts<K> {
+    // 上一轮收到推送的回调
+    private var postedTo: Set<K> = emptySet()
+
+    /** 回调 [key] 本轮要收的节点流量；[all] 只在有回调要收全量时取。 */
+    fun <T> itemsFor(key: K, changed: List<T>, all: Lazy<List<T>>): List<T> = if (key in postedTo) changed else all.value
+
+    /** 一轮推送结束：本轮收到推送的回调（[delivered]）就是下一轮的 postedTo；没有前台回调时传空集。 */
+    fun endRound(delivered: Set<K>) {
+        postedTo = delivered.toSet()
     }
 }

@@ -99,9 +99,8 @@ class BaseService {
 
                 Action.CLEAR_TRAFFIC_STATISTICS -> {
                     val ids = intent.getLongArrayExtra(Action.EXTRA_PROFILE_IDS)
-                    // off the receiver's main thread: clearStats contends with
-                    // the looper's stats sweep, which holds statsLock across
-                    // its JNI queryStats calls
+                    // 不在接收器的主线程上做：clearStats 与循环的统计扫描争记账的锁，
+                    // 扫描持锁做 JNI queryStats
                     if (ids != null) runOnDefaultDispatcher {
                         proxy?.looper?.clearStats(ids)
                     }

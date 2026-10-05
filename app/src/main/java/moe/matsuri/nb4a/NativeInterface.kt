@@ -90,8 +90,8 @@ class NativeInterface : BoxPlatformInterface, NB4AInterface {
         }
         Libcore.resetAllConnections()
         ServiceRegistry.baseService?.apply {
-            // serial dispatcher: rapid switches A->B must persist in event
-            // order, the Default pool could run B's coroutine before A's
+            // 串行调度器：快速连续切换（A→B→C）要按事件顺序结算与落库，Default 池可能先跑后到的那个协程。
+            // TrafficLooper.selectMain 在本协程里等落库完成才返回，落库的先后由这里的串行保证
             runOnSerialDispatcher {
                 // proxy can be nulled on service stop before this coroutine runs
                 val proxy = data.proxy ?: return@runOnSerialDispatcher

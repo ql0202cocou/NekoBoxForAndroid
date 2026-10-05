@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.bg.proto
 
+import io.nekohasekai.sagernet.fmt.ConfigBuildResult
 import io.nekohasekai.sagernet.fmt.TAG_BYPASS
 import io.nekohasekai.sagernet.fmt.TAG_PROXY
 import io.nekohasekai.sagernet.fmt.TrafficBindings
@@ -176,5 +177,25 @@ class TrafficAccounting(
         const val UPLINK = "uplink"
         const val DOWNLINK = "downlink"
         private val EMPTY = LongArray(0)
+
+        /**
+         * 按构建结果建一次运行的记账（TrafficLooper 用的就是它）：主节点所在分组是选择器时（selectorGroupId >= 0）
+         * 按 profileTagMap 记 proxy、最初选中构建的主节点，否则是非选择器模式。
+         */
+        fun of(config: ConfigBuildResult, query: (tag: String, direction: String) -> Long, startedAt: Long) =
+            TrafficAccounting(
+                config.traffic,
+                config.profileTagMap.takeIf { config.selectorGroupId >= 0L },
+                config.mainEntId,
+                query,
+                startedAt,
+            )
+
+        /**
+         * 停止 / 持久化时写库的行：[bound]（当前运行实例的统计关联，tag → 节点 id）里的每个节点一行，按 id 去重、保持
+         * 列表顺序，值取记账快照 [totals]；快照里没有的节点（运行实例已换成新的、节点不在本次记账里）不写。
+         */
+        fun rowsToPersist(bound: Map<String, List<Long>>, totals: Map<Long, TrafficTotals>): Map<Long, TrafficTotals> =
+            bound.values.flatten().distinct().mapNotNull { id -> totals[id]?.let { id to it } }.toMap(LinkedHashMap())
     }
 }

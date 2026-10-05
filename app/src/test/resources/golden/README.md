@@ -133,6 +133,19 @@ socks 出站的凭据）。`input.json` 与 `address/corpus.json` 顶层的 `for
 构建产物不变；构建不改写调用方对象的 bean）、`GoldenJvmPluginStateTest`（基线采集条件之外的插件状态：插件都已安装
 时选择器成员全部保留；外部插件 app 的 authority 是 Matsuri exe 前缀时 Hysteria 1 免映射、不是时报插件不受支持）。
 
+流量统计有两组测试也依赖本目录，重新采集或改动场景时要一起看：
+
+- `GoldenTrafficBindingsTest`：全部场景 run / test 两种模式的统计关联。tag → 节点 id 与 `result.json` 的
+  `build.trafficMap` 逐项相等，初始累计取自 `input.json`，放行 root uid 的判断与旧表达式一致；规则出站按测试里手写的
+  `EXPECTED_RULE_TAGS` 核对（每项写明理由）。新增或改动带启用规则的场景（`settings-*` 共用一组规则，另有统一的期望）
+  要在名单里按规则写出期望；名单里的场景不再存在或没核对到、放行 root uid 的场景 × 模式少于 3 个，测试同样失败。
+  `trafficMap` 变了先确认是有意的输出变化，再随基线一起审。
+- `TrafficScenarioTest`：流量聚合跑在若干场景的构建结果上（`sb-vmess-tcp`、`chain-2-internal`、`group-front`、
+  `group-landing`、`group-front-landing`、`selector-front-landing`、`selector-chain-members`、`selector-rule-targets`、
+  `chain-shared-node`、`multi-rules-front-groups`、`rules-two-to-same-node`，另借 `rules-to-main` 的那条规则改目标），
+  写死了场景 id、节点 id 与分组 id（例如 `selector-front-landing` 的成员 1、2，前置 10，落地 11）。这些场景的节点、
+  分组或规则变了，要跟着改测试；期望按注入的字节手算，不拿实际输出回填。
+
 两者各管一段：JVM 黄金测试覆盖纯构建、运行计划、组装与导出文本的全部产物和诊断，跑一遍约 3 秒，改配置生成时先跑它；
 模拟器采集（`./run golden collect` + `./run golden compare`）还覆盖 Android 一侧的外壳（DataStore、Room 读取事务与
 排序、PackageCache、插件探测与组装前的插件安装确认、`Os.inet_pton`、Conscrypt）与内置核心对每份合并配置的校验
