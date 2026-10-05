@@ -5,6 +5,7 @@ import io.nekohasekai.sagernet.bg.AbstractInstance
 import io.nekohasekai.sagernet.bg.GuardedProcessPool
 import io.nekohasekai.sagernet.bg.LocalPortTarget
 import io.nekohasekai.sagernet.bg.awaitLocalPorts
+import io.nekohasekai.sagernet.bg.probeWrongPassword
 import io.nekohasekai.sagernet.bg.runCheckProcess
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.ConfigBuildDiagnostic
@@ -18,7 +19,10 @@ import io.nekohasekai.sagernet.fmt.ExternalRunPlan
 import io.nekohasekai.sagernet.fmt.HopReadiness
 import io.nekohasekai.sagernet.fmt.assemble
 import io.nekohasekai.sagernet.fmt.buildConfig
+import io.nekohasekai.sagernet.fmt.externalAuthOutcome
 import io.nekohasekai.sagernet.fmt.externalReadyOutcome
+import io.nekohasekai.sagernet.fmt.localAuthCheckHops
+import io.nekohasekai.sagernet.fmt.requireLocalAuth
 import io.nekohasekai.sagernet.fmt.withBoxErrorProfileName
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.plugin.PluginManager
@@ -143,7 +147,8 @@ abstract class BoxInstance(
                     writeCacheFile(prefix, ext, content).also { files.add(it) }
                 }
                 val run = runCheckProcess(launch, app.noBackupFilesDir, CHECK_TIMEOUT_MS, ::isClosed)
-                check.result(group, run.exitCode, run.output)
+                // 核心可能在报错里回显配置原文：解析前按值遮蔽本次构建的凭据，免得进异常消息与日志
+                check.result(group, run.exitCode, config.redactLocalAuth(run.output))
             } catch (e: IOException) {
                 // 进程起不来：启动时同样会失败，照旧交给启动路径报错
                 ExternalCheckResult.Inconclusive("${check.coreName} config check could not run: ${e.readableMessage}")
@@ -185,6 +190,8 @@ abstract class BoxInstance(
             awaitExternalCores(targets)
             // 等待刚结束时被关闭：外核进程已由 close() 停掉，不再启动 box
             if (isClosed()) return
+            checkExternalAuth()
+            if (isClosed()) return
 
             try {
                 box.start()
@@ -218,6 +225,23 @@ abstract class BoxInstance(
         outcome.failure?.let { throw it }
         val elapsed = SystemClock.elapsedRealtime() - startedAt
         Logs.i("external cores: ${targets.size} local inbounds ready in $elapsed ms")
+    }
+
+    // 认证检查（K0b）：入站全部就绪之后，对每个内置 Xray / mihomo 进程抽第一个跳实例，用正确的用户名与错误的
+    // 密码握手一次。错误的密码被接受就不启动（入站的认证没有生效）；没有明确拒绝的记警告照常启动。
+    // 实例被关闭或协程被取消时立即停止（抛 CancellationException）
+    private suspend fun checkExternalAuth() {
+        val hops = localAuthCheckHops(externalProcesses) { verifiedCheck(it) != null }
+        if (hops.isEmpty()) return
+        val startedAt = SystemClock.elapsedRealtime()
+        val results = hops.map { hop ->
+            hop to probeWrongPassword(hop.localPort, hop.requireLocalAuth(), AUTH_CHECK_TIMEOUT_MS, ::isClosed)
+        }
+        val outcome = externalAuthOutcome(results)
+        outcome.warnings.forEach { Logs.w(it) }
+        outcome.failure?.let { throw it }
+        val elapsed = SystemClock.elapsedRealtime() - startedAt
+        Logs.i("external cores: local authentication of ${hops.size} processes checked in $elapsed ms")
     }
 
     private val closed = AtomicBoolean(false)
@@ -265,6 +289,10 @@ abstract class BoxInstance(
         // 模拟器上外核起来后几十毫秒内各入站就绪；5 秒约为百倍余量，覆盖低端机冷启动。进程退出会立即报错，
         // 这个时限只在进程活着却不监听（例如 mihomo 的端口被占用只记一行错误）时才会等满
         private const val READY_TIMEOUT_MS = 5_000L
+
+        // 认证检查一次握手的读时限：两个核心拒绝时都立即应答并断开，只有异常情况才会等满；比就绪探测宽，
+        // 免得负载高时把还没来得及的应答当成没有被接受
+        private const val AUTH_CHECK_TIMEOUT_MS = 1_000L
     }
 
 }

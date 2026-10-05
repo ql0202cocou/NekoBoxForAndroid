@@ -2,6 +2,7 @@ package io.nekohasekai.sagernet.bg
 
 import io.nekohasekai.sagernet.fmt.ExternalCoreLaunch
 import io.nekohasekai.sagernet.fmt.LocalSocksAuth
+import io.nekohasekai.sagernet.fmt.WrongPasswordReply
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -13,6 +14,7 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -111,7 +113,13 @@ class ExternalCoreProbesTest {
     private fun assertNoCredentials(text: String?) {
         assertTrue("应当给出原因", !text.isNullOrBlank())
         assertFalse(text, auth.username in text!! || auth.password in text)
+        assertFalse(text, wrongPassword in text)
     }
+
+    // 认证检查应发出的字节：用户名不变，密码改掉最后一个字符（等长、不同；不经生产代码拼）
+    private val wrongPassword = "p0123456789abcdef0123456789abcdex"
+    private val expectedWrongHandshake = byteArrayOf(5, 1, 2, 1, 17) + auth.username.toByteArray() +
+        byteArrayOf(33) + wrongPassword.toByteArray()
 
     // ---- 就绪探测
 
@@ -310,6 +318,99 @@ class ExternalCoreProbesTest {
         ) { _, _ -> null }.single()
         assertFalse(status.ready)
         assertEquals(255, status.exitCode)
+    }
+
+    // ---- 认证检查：正确的用户名与错误的密码握手一次
+
+    private fun wrongPasswordProbe(port: Int, timeoutMs: Long = 1000, isCancelled: () -> Boolean = { false }) =
+        runBlocking(Dispatchers.IO) { probeWrongPassword(port, auth, timeoutMs, isCancelled) }
+
+    private fun wrongPasswordProbe(reply: ByteArray?, closeAfterReply: Boolean = true, request: Int = expectedWrongHandshake.size) =
+        wrongPasswordProbe(listener(request = request, reply = reply, closeAfterReply = closeAfterReply), timeoutMs = 300)
+
+    @Test
+    fun `认证检查一次写出 05 01 02 与错误密码的认证包，应答 05 02 01 00 判为被接受`() {
+        assertEquals(expectedHandshake.size, expectedWrongHandshake.size)
+        assertFalse(expectedHandshake.contentEquals(expectedWrongHandshake))
+        val received = CopyOnWriteArrayList<ByteArray>()
+        val port = listener(request = expectedWrongHandshake.size, received = received)
+        assertSame(WrongPasswordReply.Accepted, wrongPasswordProbe(port))
+        // 连接上收到的全部字节正好是握手，没有别的请求
+        assertArrayEquals(expectedWrongHandshake, awaitReceived(received))
+    }
+
+    @Test
+    fun `认证检查：05 02 后跟非 00 的状态是明确拒绝`() {
+        // mihomo、Xray 拒绝错误密码时的应答
+        for (reply in listOf(byteArrayOf(5, 2, 1, 1), byteArrayOf(5, 2, 1, 0xff.toByte()))) {
+            val result = wrongPasswordProbe(reply)
+            assertTrue("$result", result is WrongPasswordReply.Rejected)
+            assertNoCredentials((result as WrongPasswordReply.Rejected).reply)
+        }
+        assertEquals("05 02 01 01", (wrongPasswordProbe(byteArrayOf(5, 2, 1, 1)) as WrongPasswordReply.Rejected).reply)
+        // 拒绝后不断开也一样
+        assertTrue(wrongPasswordProbe(byteArrayOf(5, 2, 1, 1), closeAfterReply = false) is WrongPasswordReply.Rejected)
+    }
+
+    @Test
+    fun `认证检查：其余应答、断开、超时、连不上都不算被接受，归为其它`() {
+        fun unclear(result: WrongPasswordReply): String {
+            assertTrue("$result", result is WrongPasswordReply.Unclear)
+            return (result as WrongPasswordReply.Unclear).reason.also(::assertNoCredentials)
+        }
+        // 不接受用户名 / 密码方法
+        assertEquals("unexpected SOCKS5 reply 05 ff (connection closed)", unclear(wrongPasswordProbe(byteArrayOf(5, 0xff.toByte()))))
+        // 只回一半：随即断开，或挂着不再应答
+        assertEquals("unexpected SOCKS5 reply 05 02 (connection closed)", unclear(wrongPasswordProbe(byteArrayOf(5, 2))))
+        assertEquals("unexpected SOCKS5 reply 05 02 (timed out)", unclear(wrongPasswordProbe(byteArrayOf(5, 2), closeAfterReply = false)))
+        // 状态为 00 但不是 05 02 01 00
+        assertEquals("unexpected SOCKS5 reply 05 02 02 00", unclear(wrongPasswordProbe(byteArrayOf(5, 2, 2, 0))))
+        // 什么都不回：直接断开，或挂着
+        unclear(wrongPasswordProbe(null, request = 0))
+        assertEquals("no SOCKS5 reply (timed out)", unclear(wrongPasswordProbe(null, closeAfterReply = false)))
+        // 端口上没有人监听
+        unclear(wrongPasswordProbe(closedPort()))
+    }
+
+    @Test
+    fun `认证检查不应答时等到时限`() {
+        val port = listener(request = expectedWrongHandshake.size, reply = null)
+        val started = System.nanoTime()
+        assertTrue(wrongPasswordProbe(port, timeoutMs = 400) is WrongPasswordReply.Unclear)
+        val elapsedMs = (System.nanoTime() - started) / 1_000_000
+        assertTrue("等到时限：$elapsedMs ms", elapsedMs >= 400)
+        assertTrue("不超过时限太多：$elapsedMs ms", elapsedMs < 1500)
+    }
+
+    @Test
+    fun `认证检查中实例被关闭立即停止`() {
+        val port = listener(request = expectedWrongHandshake.size, reply = null)
+        val closed = AtomicBoolean(false)
+        thread(isDaemon = true) {
+            Thread.sleep(100)
+            closed.set(true)
+        }
+        val started = System.nanoTime()
+        try {
+            wrongPasswordProbe(port, timeoutMs = 10_000, isCancelled = closed::get)
+            fail("应当抛 CancellationException")
+        } catch (_: CancellationException) {
+        }
+        // 已关闭时不再连接
+        assertThrows(CancellationException::class.java) { wrongPasswordProbe(port, isCancelled = { true }) }
+        assertTrue(System.nanoTime() - started < 1_000_000_000)
+    }
+
+    @Test
+    fun `认证检查中协程被取消立即停止`() = runBlocking(Dispatchers.IO) {
+        val port = listener(request = expectedWrongHandshake.size, reply = null)
+        val started = System.nanoTime()
+        try {
+            withTimeout(100) { probeWrongPassword(port, auth, 10_000) { false } }
+            fail("应当被取消")
+        } catch (_: CancellationException) {
+        }
+        assertTrue(System.nanoTime() - started < 1_000_000_000)
     }
 
     // ---- 校验进程

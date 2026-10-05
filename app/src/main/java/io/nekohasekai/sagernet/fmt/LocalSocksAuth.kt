@@ -22,6 +22,21 @@ class LocalSocksAuth(val username: String, val password: String) {
     /** 按值遮蔽：text 里出现的这组用户名与密码都换成 ***，与文本格式、键名无关。 */
     fun redact(text: String): String = text.replace(password, REDACTED).replace(username, REDACTED)
 
+    /**
+     * 启动时确认入站认证生效用的一组错误凭据：用户名不变，密码换成与真实密码 UTF-8 字节数相同、保证不同的值。
+     * 只改最后一个字符：ASCII 字符换成另一个 ASCII 字符；非 ASCII 字符换成与它编码字节数相同个数的 x。
+     */
+    fun withWrongPassword(): LocalSocksAuth {
+        val last = password.codePointBefore(password.length)
+        val head = password.substring(0, password.length - Character.charCount(last))
+        val tail = if (last < 0x80) {
+            if (last == 'x'.code) "y" else "x"
+        } else {
+            "x".repeat(String(Character.toChars(last)).utf8Size())
+        }
+        return LocalSocksAuth(username, head + tail)
+    }
+
     override fun equals(other: Any?): Boolean =
         other is LocalSocksAuth && other.username == username && other.password == password
 

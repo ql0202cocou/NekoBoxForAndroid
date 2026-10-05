@@ -364,4 +364,116 @@ class ExternalCoreStartupTest {
             outcome.warnings,
         )
     }
+
+    // ---- 认证检查（K0b）
+
+    private fun naive(name: String) = NaiveBean().apply {
+        this.name = name
+        serverAddress = "$name.example.com"
+        serverPort = 443
+        initializeDefaultValues()
+    }
+
+    @Test
+    fun `每个 strict 进程恰好查第一个跳实例，非 strict 的不查`() {
+        val processes = plan(vless("x0"), anytls("m0"), naive("nv"), vless("x1"), anytls("m1"), naive("nw"))
+            .groups.map { ExternalCoreProcess(it, "") }
+        assertEquals(listOf("xray-plugin", "mihomo-plugin", "naive-plugin", "naive-plugin"), processes.map { it.group.pluginId })
+        // 内置的 Xray、mihomo 都是 strict
+        assertEquals(
+            listOf("x0", "m0"),
+            localAuthCheckHops(processes) { it.group.core.check != null }.map { it.bean.displayName() },
+        )
+        // 外部插件 app 提供的 mihomo 不是 strict
+        assertEquals(
+            listOf("x0"),
+            localAuthCheckHops(processes) { it.group.pluginId == "xray-plugin" }.map { it.bean.displayName() },
+        )
+        assertTrue(localAuthCheckHops(processes) { false }.isEmpty())
+        assertTrue(localAuthCheckHops(emptyList()) { true }.isEmpty())
+    }
+
+    @Test
+    fun `错误的密码被接受时失败，消息写明核心、不带节点名与凭据`() {
+        val outcome = externalAuthOutcome(
+            listOf(
+                xrayGroup.hops[0] to WrongPasswordReply.Accepted,
+                mihomoGroup.hops[0] to WrongPasswordReply.Rejected("05 02 01 01"),
+            )
+        )
+        val failure = outcome.failure
+        assertTrue("$failure", failure is ExternalCoreAuthException)
+        val message = failure!!.message!!
+        assertEquals(
+            "Xray: local inbound accepted a wrong password, so local SOCKS authentication is not in effect; " +
+                "refusing to start",
+            message,
+        )
+        assertFalse(message, "x0" in message || auth.username in message || auth.password in message)
+        assertTrue(outcome.warnings.isEmpty())
+        // 两个核心都被接受时都列出
+        assertEquals(
+            "Xray, mihomo: local inbound accepted a wrong password, so local SOCKS authentication is not in effect; " +
+                "refusing to start",
+            externalAuthOutcome(
+                listOf(xrayGroup.hops[0] to WrongPasswordReply.Accepted, mihomoGroup.hops[0] to WrongPasswordReply.Accepted)
+            ).failure!!.message,
+        )
+    }
+
+    @Test
+    fun `明确拒绝即通过，其它情况只警告`() {
+        externalAuthOutcome(
+            listOf(
+                xrayGroup.hops[0] to WrongPasswordReply.Rejected("05 02 01 ff"),
+                mihomoGroup.hops[0] to WrongPasswordReply.Rejected("05 02 01 01"),
+            )
+        ).let {
+            assertNull(it.failure)
+            assertTrue(it.warnings.isEmpty())
+        }
+        val outcome = externalAuthOutcome(
+            listOf(
+                xrayGroup.hops[0] to WrongPasswordReply.Unclear("unexpected SOCKS5 reply 05 ff (connection closed)"),
+                mihomoGroup.hops[0] to WrongPasswordReply.Rejected("05 02 01 01"),
+            )
+        )
+        assertNull(outcome.failure)
+        assertEquals(
+            listOf(
+                "Xray: local inbound 127.0.0.1:21000 gave no clear rejection of a wrong password " +
+                    "(unexpected SOCKS5 reply 05 ff (connection closed)); starting anyway",
+            ),
+            outcome.warnings,
+        )
+        assertTrue(externalAuthOutcome(emptyList()).let { it.failure == null && it.warnings.isEmpty() })
+    }
+
+    // ---- 校验输出按值遮蔽
+
+    @Test
+    fun `校验输出先按值遮蔽，解析出的报错里搜不到凭据`() {
+        val result = ConfigBuildResult("{}", emptyList(), 1L, emptyMap(), emptyMap(), -1L, localAuth = auth)
+        val creds = "user ${auth.username} password ${auth.password}"
+        val outputs = listOf(
+            // 对得回节点
+            xray to "Failed to start: main: failed to load config files: [xray_1.json] > infra/conf: failed to build " +
+                "inbound config with tag in-0 > infra/conf: invalid $creds",
+            mihomo to mihomoOutput("listener 1: bad users: $creds"),
+            // 对不回节点
+            xray to "Failed to start: main: failed to load config files: [xray_1.json] > infra/conf/serial: $creds",
+            mihomo to mihomoOutput("yaml: $creds"),
+            // 认不出的输出，取最后几行
+            xray to "panic: $creds",
+        )
+        for ((check, output) in outputs) {
+            val group = if (check === xray) xrayGroup else mihomoGroup
+            // 不遮蔽时凭据会进消息：这条用例确实覆盖了回显的情况
+            val raw = failure(check.result(group, if (check === xray) 23 else 1, output)).message!!
+            assertTrue(raw, auth.password in raw)
+            val message = failure(check.result(group, if (check === xray) 23 else 1, result.redactLocalAuth(output))).message!!
+            assertFalse(message, auth.username in message || auth.password in message)
+            assertTrue(message, "***" in message)
+        }
+    }
 }

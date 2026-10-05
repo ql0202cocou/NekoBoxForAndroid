@@ -3,10 +3,13 @@ package io.nekohasekai.sagernet.bg
 import android.os.Build
 import io.nekohasekai.sagernet.fmt.ExternalCoreLaunch
 import io.nekohasekai.sagernet.fmt.LocalSocksAuth
+import io.nekohasekai.sagernet.fmt.WrongPasswordReply
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
@@ -17,9 +20,9 @@ import java.net.Socket
 import java.net.SocketTimeoutException
 import kotlin.concurrent.thread
 
-// 外核启动前校验与启动就绪里碰进程、套接字的部分（plan.md K0 做法 3、5），由 BoxInstance 调用；
+// 外核启动前校验、启动就绪与认证检查里碰进程、套接字的部分（plan.md K0 做法 3、5，K0b），由 BoxInstance 调用；
 // 结论与报错文案在 fmt/ExternalCoreStartup.kt。只用 JDK 与协程：JVM 单测可以拿 /bin/sh 当校验进程、
-// 本机 ServerSocket 当外核入站直接跑。两处等待都按 isCancelled（实例已关闭）与协程取消立即结束
+// 本机 ServerSocket 当外核入站直接跑。三处等待都按 isCancelled（实例已关闭）与协程取消立即结束
 
 /** 校验进程的结果：exitCode 为 null 表示超时被杀；output 是合并后的标准输出与标准错误，只留最后若干行。 */
 class CheckProcessResult(val exitCode: Int?, val output: String)
@@ -199,12 +202,84 @@ fun probeLocalPort(port: Int, auth: LocalSocksAuth?): String? = try {
             read += n
         }
         if (ended == null && reply.contentEquals(SOCKS5_AUTH_ACCEPTED)) return null
-        val got = if (read == 0) "no SOCKS5 reply" else
-            "unexpected SOCKS5 reply " + reply.take(read).joinToString(" ") { "%02x".format(it) }
-        got + ended?.let { " ($it)" }.orEmpty()
+        unexpectedReply(reply, read, ended)
     }
 } catch (e: IOException) {
     e.message ?: e.javaClass.simpleName
+}
+
+// 没读到预期应答时的原因：读到的字节（十六进制）加提前结束的原因
+private fun unexpectedReply(reply: ByteArray, read: Int, ended: String?): String {
+    val got = if (read == 0) "no SOCKS5 reply" else "unexpected SOCKS5 reply " + reply.take(read).toHex()
+    return got + ended?.let { " ($it)" }.orEmpty()
+}
+
+private fun List<Byte>.toHex() = joinToString(" ") { "%02x".format(it) }
+
+// 认证检查按小段读，每段之间看一次关闭与取消
+private const val AUTH_CHECK_READ_SLICE_MS = 50
+
+/**
+ * 认证检查的一次握手（结论在 fmt/ExternalCoreStartup.kt 的 externalAuthOutcome）：用 auth 的用户名与
+ * [LocalSocksAuth.withWrongPassword] 的错误密码，一次写入与就绪探测同构的 [socks5PasswordHandshake]，
+ * 读满 4 字节、读到对端关闭或超过 timeoutMs 为止。正好是 05 02 01 00 为 Accepted；读满且是 05 02 后跟非 00 的
+ * 状态为 Rejected；其余（别的应答、断开、超时、连接错误）为 Unclear。isCancelled 为真或协程被取消时抛
+ * CancellationException。
+ */
+suspend fun probeWrongPassword(
+    port: Int,
+    auth: LocalSocksAuth,
+    timeoutMs: Long,
+    isCancelled: () -> Boolean,
+): WrongPasswordReply {
+    val context = currentCoroutineContext()
+    fun checkCancelled() {
+        if (isCancelled()) throw CancellationException("closed while checking local inbound authentication")
+        context.ensureActive()
+    }
+    checkCancelled()
+    return try {
+        Socket().use { socket ->
+            socket.connect(InetSocketAddress(LOOPBACK, port), PROBE_TIMEOUT_MS)
+            socket.soTimeout = AUTH_CHECK_READ_SLICE_MS
+            socket.getOutputStream().apply {
+                write(socks5PasswordHandshake(auth.withWrongPassword()))
+                flush()
+            }
+            val reply = ByteArray(SOCKS5_AUTH_ACCEPTED.size)
+            val input = socket.getInputStream()
+            val deadline = System.nanoTime() + timeoutMs * 1_000_000
+            var read = 0
+            var ended: String? = null
+            while (read < reply.size) {
+                checkCancelled()
+                val n = try {
+                    input.read(reply, read, reply.size - read)
+                } catch (_: SocketTimeoutException) {
+                    if (System.nanoTime() - deadline >= 0) {
+                        ended = "timed out"
+                        break
+                    }
+                    continue
+                }
+                if (n < 0) {
+                    ended = "connection closed"
+                    break
+                }
+                read += n
+            }
+            when {
+                ended != null -> WrongPasswordReply.Unclear(unexpectedReply(reply, read, ended))
+                reply.contentEquals(SOCKS5_AUTH_ACCEPTED) -> WrongPasswordReply.Accepted
+                reply[0] == SOCKS5_AUTH_ACCEPTED[0] && reply[1] == SOCKS5_AUTH_ACCEPTED[1] && reply[3] != 0.toByte() ->
+                    WrongPasswordReply.Rejected(reply.toList().toHex())
+
+                else -> WrongPasswordReply.Unclear(unexpectedReply(reply, read, null))
+            }
+        }
+    } catch (e: IOException) {
+        WrongPasswordReply.Unclear(e.message ?: e.javaClass.simpleName)
+    }
 }
 
 /**

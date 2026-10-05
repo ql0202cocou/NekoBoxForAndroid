@@ -218,3 +218,52 @@ fun externalReadyOutcome(results: List<HopReadiness>, timeoutMs: Long): External
 private const val READY_FAILURE_NAMES = 5
 
 private fun localInbound(hop: ExternalHop) = "$LOCALHOST:${hop.localPort}"
+
+// 启动时确认入站认证生效（K0b）：内置 Xray / mihomo 的入站全部就绪之后、启动 box 之前，对每个这样的进程抽一个
+// 入站，用正确的用户名与错误的密码握手一次。认证生效时两个核心都立即拒绝；错误的密码被接受，说明入站实际上
+// 不认证，不启动。只看握手的应答，不解析日志
+
+/** 用错误的密码握手一次的结果。原因与应答里只有应答的字节与套接字的错误，不含凭据。 */
+sealed class WrongPasswordReply {
+    /** 应答正好是 05 02 01 00：错误的密码被接受，入站的认证没有生效。 */
+    object Accepted : WrongPasswordReply()
+
+    /** 选中用户名 / 密码方法后明确拒绝（05 02 后跟非 00 的状态）：认证生效。reply 是应答的十六进制。 */
+    class Rejected(val reply: String) : WrongPasswordReply()
+
+    /** 其余情况（别的应答、对端断开、读超时、连接错误）：没有被接受，但也不是预期的拒绝。 */
+    class Unclear(val reason: String) : WrongPasswordReply()
+}
+
+/** 认证没有生效、拒绝启动时抛出。消息只写核心，不带节点名与凭据。 */
+class ExternalCoreAuthException(message: String) : IllegalStateException(message)
+
+/**
+ * 要做认证检查的跳实例：strict 的进程（内置的 Xray / mihomo）各取它的第一个跳实例，其余进程不查。
+ * 同一进程的入站出自同一段配置生成，抽一个就能发现整个进程的认证没有生效；顺序同 processes。
+ */
+fun localAuthCheckHops(
+    processes: List<ExternalCoreProcess>,
+    strict: (ExternalCoreProcess) -> Boolean,
+): List<ExternalHop> = processes.filter(strict).map { it.group.hops.first() }
+
+/**
+ * 认证检查的结论：有错误密码被接受就失败（不启动 box）；Unclear 的记一条警告后照常启动；Rejected 即通过。
+ * 结论沿用 [ExternalReadyOutcome]。
+ */
+fun externalAuthOutcome(results: List<Pair<ExternalHop, WrongPasswordReply>>): ExternalReadyOutcome {
+    val warnings = results.mapNotNull { (hop, reply) ->
+        (reply as? WrongPasswordReply.Unclear)?.let {
+            "${coreName(hop)}: local inbound ${localInbound(hop)} gave no clear rejection of a wrong password " +
+                "(${it.reason}); starting anyway"
+        }
+    }
+    val accepted = results.filter { it.second is WrongPasswordReply.Accepted }.map { coreName(it.first) }.distinct()
+    val failure = if (accepted.isEmpty()) null else ExternalCoreAuthException(
+        "${accepted.joinToString(", ")}: local inbound accepted a wrong password, so local SOCKS authentication " +
+            "is not in effect; refusing to start"
+    )
+    return ExternalReadyOutcome(failure, warnings)
+}
+
+private fun coreName(hop: ExternalHop) = hop.core.check?.coreName ?: hop.pluginId

@@ -64,6 +64,42 @@ class LocalSocksAuthTest {
         LocalSocksAuth("x".repeat(255), "é".repeat(127))
     }
 
+    // ---- 认证检查用的错误密码：用户名不变，密码与真实密码 UTF-8 字节数相同且不同
+
+    private fun assertWrongPassword(real: LocalSocksAuth) {
+        val wrong = real.withWrongPassword()
+        assertEquals(real.username, wrong.username)
+        assertNotEquals(real.password, wrong.password)
+        assertEquals(
+            real.password,
+            real.password.toByteArray(Charsets.UTF_8).size,
+            wrong.password.toByteArray(Charsets.UTF_8).size,
+        )
+        // 只动最后一个字符
+        val kept = real.password.length - Character.charCount(real.password.codePointBefore(real.password.length))
+        assertEquals(real.password.substring(0, kept), wrong.password.substring(0, kept))
+    }
+
+    @Test
+    fun `错误密码与真实密码等长且不同`() {
+        repeat(50) { assertWrongPassword(LocalSocksAuth.random()) }
+        assertEquals("p0123x", LocalSocksAuth("u", "p0123f").withWrongPassword().password)
+        // 最后一个字符恰好是替换字符
+        assertEquals("p0123y", LocalSocksAuth("u", "p0123x").withWrongPassword().password)
+        assertEquals("x", LocalSocksAuth("u", "a").withWrongPassword().password)
+        assertEquals("y", LocalSocksAuth("u", "x").withWrongPassword().password)
+        assertWrongPassword(LocalSocksAuth("u", "x"))
+        // 255 字节（上限）
+        assertWrongPassword(LocalSocksAuth("u", "a".repeat(255)))
+        assertWrongPassword(LocalSocksAuth("u", "x".repeat(255)))
+        assertWrongPassword(LocalSocksAuth("u", "a".repeat(253) + "é"))
+        // 非 ASCII 的最后一个字符换成同样字节数的 ASCII
+        assertEquals("pxx", LocalSocksAuth("u", "pé").withWrongPassword().password)
+        assertEquals("pxxx", LocalSocksAuth("u", "p中").withWrongPassword().password)
+        assertEquals("pxxxx", LocalSocksAuth("u", "p\uD83D\uDE00").withWrongPassword().password)
+        assertWrongPassword(LocalSocksAuth("u", "\uD83D\uDE00"))
+    }
+
     // ---- 写日志前的遮蔽：三种文本里都搜不到本次的用户名与密码
 
     private val auth = LocalSocksAuth.generate(Random(7))
