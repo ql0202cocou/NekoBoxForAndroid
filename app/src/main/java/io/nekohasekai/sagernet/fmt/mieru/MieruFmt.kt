@@ -19,16 +19,20 @@
 package io.nekohasekai.sagernet.fmt.mieru
 
 import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
+import io.nekohasekai.sagernet.fmt.ExternalDialTarget
+import io.nekohasekai.sagernet.fmt.dialAddress
+import io.nekohasekai.sagernet.fmt.dialPort
 import moe.matsuri.nb4a.utils.JavaUtil.gson
 
-fun MieruBean.buildMieruConfig(port: Int, settings: ExternalCoreSettings): String {
+// port 是本机 socks 入站的端口，target 是跳实例的拨号目标（经映射时拨本机的映射入站，否则拨服务器本身）
+fun MieruBean.buildMieruConfig(port: Int, target: ExternalDialTarget, settings: ExternalCoreSettings): String {
     // 值为 null 的键由 Gson 省略，与 org.json 的 put(键, null) 删除键一致
     val serverInfo = arrayListOf(
         linkedMapOf<String, Any?>(
-            "ipAddress" to finalAddress,
+            "ipAddress" to target.dialAddress(this),
             "portBindings" to arrayListOf(
                 linkedMapOf<String, Any?>(
-                    "port" to finalPort,
+                    "port" to target.dialPort(this),
                     "protocol" to protocol,
                 )
             ),

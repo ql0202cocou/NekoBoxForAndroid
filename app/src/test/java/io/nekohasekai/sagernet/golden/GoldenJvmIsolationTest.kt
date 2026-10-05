@@ -5,10 +5,11 @@ import io.nekohasekai.sagernet.fmt.ConfigBuildResult
 import io.nekohasekai.sagernet.fmt.ConfigInput
 import io.nekohasekai.sagernet.fmt.ExternalDialTarget
 import io.nekohasekai.sagernet.fmt.ExternalRunPlan
-import io.nekohasekai.sagernet.fmt.LOCALHOST
+import io.nekohasekai.sagernet.fmt.KryoConverters
 import io.nekohasekai.sagernet.fmt.LocalSocksAuth
 import io.nekohasekai.sagernet.fmt.TAG_PROXY
 import io.nekohasekai.sagernet.fmt.buildConfig
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertTrue
@@ -65,22 +66,44 @@ class GoldenJvmIsolationTest {
     }
 
     @Test
-    fun `构建不改写调用方对象的 bean`() {
-        // 单个 Xray 节点：最先拨号的一跳经映射，映射目标写成本机与映射端口
+    fun `构建不改写调用方对象的 bean，也不改写它自己用的节点`() {
+        // 单个 Xray 节点：最先拨号的一跳经映射
         val scenario = scenario("xray-vless-tls-tcp")
         val source = baseline.input(scenario.id).dataSource()
         val main = scenario.main(source)
         val bean = main.requireBean()
-        val before = Triple(bean.serverAddress, bean.finalAddress, bean.finalPort)
-        assertEquals("采集前的映射目标就是服务器本身", bean.serverAddress, bean.finalAddress)
+        val before = KryoConverters.serialize(bean)
 
         val result = build(scenario.configInput(ConfigBuildMode.RUN, main, source, scenario.platform(tmp.newFolder())))
 
         val hop = ExternalRunPlan.from(result).hops.single()
         assertTrue("最先拨号的一跳经映射", hop.target is ExternalDialTarget.Mapped)
-        assertEquals(before, Triple(bean.serverAddress, bean.finalAddress, bean.finalPort))
+        assertArrayEquals(before, KryoConverters.serialize(bean))
         // 构建结果里的主节点是拷贝，不是调用方的对象
         assertNotSame(main, result.trafficMap.getValue(TAG_PROXY).single())
         assertEquals(main.id, result.trafficMap.getValue(TAG_PROXY).single().id)
+        // 映射只记在跳实例的拨号目标上：构建用的节点拷贝与采集时的字节相同
+        assertNotSame(bean, hop.bean)
+        assertArrayEquals(before, KryoConverters.serialize(hop.bean))
+    }
+
+    @Test
+    fun `构建不改写它从快照取来的节点：每个跳实例的 bean 与输入的字节相同`() {
+        // 选择器 + 前置 + 落地：同一个节点在多条链里各是一个跳实例
+        val scenario = scenario("multi-selector-front-landing")
+        val input = baseline.input(scenario.id)
+        val source = input.dataSource()
+        val result = build(scenario.configInput(ConfigBuildMode.RUN, scenario.main(source), source, scenario.platform(tmp.newFolder())))
+        val hops = ExternalRunPlan.from(result).hops
+        assertTrue("场景里应有外核跳实例", hops.isNotEmpty())
+        for (hop in hops) {
+            assertArrayEquals(
+                "节点 ${hop.profileId}", KryoConverters.serialize(input.newBean(hop.profileId)), KryoConverters.serialize(hop.bean),
+            )
+        }
+        // 同一个节点的不同跳实例是不同的对象
+        hops.groupBy { it.profileId }.values.filter { it.size > 1 }.forEach { same ->
+            assertEquals(same.size, same.map { System.identityHashCode(it.bean) }.distinct().size)
+        }
     }
 }

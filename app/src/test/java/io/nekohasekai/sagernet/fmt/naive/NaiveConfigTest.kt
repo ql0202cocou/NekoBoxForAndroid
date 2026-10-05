@@ -2,6 +2,9 @@ package io.nekohasekai.sagernet.fmt.naive
 
 import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
+import io.nekohasekai.sagernet.fmt.ExternalDialTarget
+import io.nekohasekai.sagernet.fmt.ExternalDialTarget.Direct
+import io.nekohasekai.sagernet.fmt.ExternalDialTarget.Mapped
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -12,27 +15,26 @@ class NaiveConfigTest {
 
     private fun bean(
         server: String = "naive.example.com",
+        port: Int = 443,
         sni: String = "",
         extraHeaders: String = "",
         insecureConcurrency: Int = 0,
         username: String = "u",
         password: String = "p",
-        finalAddress: String = "127.0.0.1",
     ) = NaiveBean().apply {
         serverAddress = server
-        serverPort = 443
+        serverPort = port
         this.sni = sni
         this.extraHeaders = extraHeaders
         this.insecureConcurrency = insecureConcurrency
         this.username = username
         this.password = password
         initializeDefaultValues()
-        this.finalAddress = finalAddress
-        finalPort = 1080
     }
 
-    private fun build(bean: NaiveBean, logLevel: Int = 0): Map<String, Any?> {
-        val obj = JsonParser.parseString(bean.buildNaiveConfig(2080, settings(logLevel))).asJsonObject
+    // 拨号目标默认经映射（本机的映射端口 1080）
+    private fun build(bean: NaiveBean, logLevel: Int = 0, target: ExternalDialTarget = Mapped(1080)): Map<String, Any?> {
+        val obj = JsonParser.parseString(bean.buildNaiveConfig(2080, target, settings(logLevel))).asJsonObject
         // 键的顺序也是输出的一部分
         return obj.entrySet().associateTo(LinkedHashMap()) { (k, v) ->
             k to if (v.asJsonPrimitive.isNumber) v.asInt else v.asString
@@ -78,12 +80,41 @@ class NaiveConfigTest {
     }
 
     @Test
-    fun `本地地址是 IPv6 时映射目标带方括号`() {
-        val withSni = build(bean(sni = "s.example.com", finalAddress = "2001:db8::1"))
+    fun `不映射时拨服务器本身：IPv6 地址带方括号，端口是服务器端口`() {
+        val withSni = build(bean(server = "2001:db8::1", port = 8443, sni = "s.example.com"), target = Direct)
         assertEquals("MAP s.example.com [2001:db8::1]", withSni["host-resolver-rules"])
-        val withoutSni = build(bean(finalAddress = "2001:db8::1"))
-        assertEquals("MAP naive.example.com [2001:db8::1]", withoutSni["host-resolver-rules"])
-        assertEquals("https://u:p@naive.example.com:1080/", withoutSni["proxy"])
+        assertEquals("https://u:p@s.example.com:8443/", withSni["proxy"])
+        val withoutSni = build(bean(server = "2001:db8::1", port = 8443), target = Direct)
+        assertEquals(listOf("listen", "proxy"), withoutSni.keys.toList())
+        assertEquals("https://u:p@[2001:db8::1]:8443/", withoutSni["proxy"])
+    }
+
+    @Test
+    fun `不映射且服务器是域名时映射到它自己`() {
+        val out = build(bean(port = 8443), target = Direct)
+        assertEquals("MAP naive.example.com naive.example.com", out["host-resolver-rules"])
+        assertEquals("https://u:p@naive.example.com:8443/", out["proxy"])
+        val ip = build(bean(server = "192.0.2.1", port = 8443), target = Direct)
+        assertEquals("https://u:p@192.0.2.1:8443/", ip["proxy"])
+    }
+
+    @Test
+    fun `服务器是 IP 字面量且没有 SNI 时不写 host-resolver-rules，拨号目标照常`() {
+        for (server in listOf("2001:db8::1", "192.0.2.1", "127.0.0.1")) {
+            val mapped = build(bean(server = server, port = 8443))
+            assertEquals(server, listOf("listen", "proxy"), mapped.keys.toList())
+            assertEquals(server, "https://u:p@127.0.0.1:1080/", mapped["proxy"])
+            val direct = build(bean(server = server, port = 8443), target = Direct)
+            assertEquals(server, listOf("listen", "proxy"), direct.keys.toList())
+        }
+        assertEquals("https://u:p@127.0.0.1:8443/", build(bean(server = "127.0.0.1", port = 8443), target = Direct)["proxy"])
+    }
+
+    @Test
+    fun `分享链接只用服务器地址端口与节点参数，与拨号目标无关`() {
+        val b = bean(server = "2001:db8::1", port = 8443, sni = "s.example.com").apply { name = "n" }
+        build(b, target = Mapped(40000))
+        assertEquals("naive+https://u:p@[2001:db8::1]:8443/?sni=s.example.com#n", b.toUri())
     }
 
     @Test

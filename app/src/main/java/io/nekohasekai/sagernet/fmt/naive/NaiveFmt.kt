@@ -1,7 +1,10 @@
 package io.nekohasekai.sagernet.fmt.naive
 
 import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
+import io.nekohasekai.sagernet.fmt.ExternalDialTarget
 import io.nekohasekai.sagernet.fmt.LOCALHOST
+import io.nekohasekai.sagernet.fmt.dialAddress
+import io.nekohasekai.sagernet.fmt.dialPort
 import io.nekohasekai.sagernet.ktx.*
 import moe.matsuri.nb4a.utils.JavaUtil.gson
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -32,13 +35,16 @@ fun parseNaive(link: String): NaiveBean {
     }
 }
 
-// proxyHost 非 null 即「本地 naive 进程要连的上游地址」：finalAddress/finalPort
-// 是 transient，配置构建时会被改写（映射地址、SNI），所以分享链接必须用
-// serverAddress/serverPort，构建期的局部地址由调用方显式传入，不给「忘了传」
-// 留一个默认读 bean 的后门
-fun NaiveBean.toUri(proxyHost: String? = null): String {
-    val builder = if (proxyHost != null) {
-        linkBuilder().host(proxyHost).port(finalPort)
+// 分享链接：服务器地址端口与全部参数
+fun NaiveBean.toUri(): String = buildUri(null)
+
+// 本地 naive 进程要连的上游（buildNaiveConfig 的 proxy）：地址端口由调用方按拨号目标显式给出，只带凭据
+private fun NaiveBean.toUpstreamUri(host: String, port: Int): String = buildUri(host to port)
+
+// upstream 为 null 时是分享链接，否则是上游地址端口
+private fun NaiveBean.buildUri(upstream: Pair<String, Int>?): String {
+    val builder = if (upstream != null) {
+        linkBuilder().host(upstream.first).port(upstream.second)
     } else {
         linkBuilder().host(serverAddress).port(serverPort)
     }
@@ -48,7 +54,7 @@ fun NaiveBean.toUri(proxyHost: String? = null): String {
             builder.password(password)
         }
     }
-    if (proxyHost == null) {
+    if (upstream == null) {
         if (sni.isNotBlank()) {
             builder.addQueryParameter("sni", sni)
         }
@@ -68,16 +74,17 @@ fun NaiveBean.toUri(proxyHost: String? = null): String {
             builder.addQueryParameter("insecure-concurrency", "$insecureConcurrency")
         }
     }
-    return builder.toLink(if (proxyHost != null) proto else "naive+$proto", false)
+    return builder.toLink(if (upstream != null) proto else "naive+$proto", false)
 }
 
-fun NaiveBean.buildNaiveConfig(port: Int, settings: ExternalCoreSettings): String {
+// port 是本机 socks 入站的端口，target 是跳实例的拨号目标（经映射时拨本机的映射入站，否则拨服务器本身）
+fun NaiveBean.buildNaiveConfig(port: Int, target: ExternalDialTarget, settings: ExternalCoreSettings): String {
     return LinkedHashMap<String, Any>().apply {
         // 地址改写只进局部变量（与 buildTrojanGoConfig 的 SNI 回退一致）：
-        // serverAddress 非 transient，写回 bean 会把 IPv6 方括号持久化，
-        // finalAddress 被 SNI 顶替后也会混进之后的分享链接
+        // 写回 bean 会把 IPv6 方括号持久化，被 SNI 顶替的地址也会混进之后的分享链接。
+        // serverAddress 为 null 时上一行已抛错，拨号地址在这里总是非空
         val wrappedServer = serverAddress.wrapIPV6Host()
-        var address = finalAddress.wrapIPV6Host()
+        var address = target.dialAddress(this@buildNaiveConfig).orEmpty().wrapIPV6Host()
 
         // process sni
         if (sni.isNotBlank()) {
@@ -95,7 +102,7 @@ fun NaiveBean.buildNaiveConfig(port: Int, settings: ExternalCoreSettings): Strin
         }
 
         this["listen"] = "socks://$LOCALHOST:$port"
-        this["proxy"] = toUri(address)
+        this["proxy"] = toUpstreamUri(address, target.dialPort(this@buildNaiveConfig))
         if (extraHeaders.isNotBlank()) {
             this["extra-headers"] = extraHeaders.split("\n").joinToString("\r\n")
         }

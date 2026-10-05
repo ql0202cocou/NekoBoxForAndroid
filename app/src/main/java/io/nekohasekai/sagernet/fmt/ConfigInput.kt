@@ -111,7 +111,7 @@ data class ConfigSettings(
 
 /**
  * 一个节点行的不可变记录：标量字段加 bean 的 Kryo 字节。[newEntity] 每次都新建实体与 bean（严格反序列化，
- * 会走 initializeDefaultValues，所以 finalAddress / finalPort 总是服务器本身），与 DAO 每次查询给新对象一致。
+ * 会走 initializeDefaultValues），与 DAO 每次查询给新对象一致。
  * bean 为 null 或类型未知的损坏行照样记录，报错留给构建原来的位置。
  */
 class ProfileRecord private constructor(

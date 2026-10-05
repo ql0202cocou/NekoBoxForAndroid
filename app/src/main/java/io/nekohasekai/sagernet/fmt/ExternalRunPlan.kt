@@ -200,7 +200,7 @@ fun ExternalRunPlan.assemble(
         withProfileName(hop.bean) {
             when (val core = hop.core) {
                 is ExternalCore.Merged -> entries[hop.index] = core.entry(hop, settings)
-                is ExternalCore.PerHop -> configs[hop.index] = core.config(hop.localPort, cacheFile, settings)
+                is ExternalCore.PerHop -> configs[hop.index] = core.config(hop, cacheFile, settings)
             }
         }
     }

@@ -573,8 +573,8 @@ private class ConfigBuild(
             error("chain profile ${entity.id} (${entity.requireBean().displayName()}) has no valid member")
         }
         // 同一个外部核心节点在链里出现两次（链编辑器允许重复加入，或分组前置同时
-        // 是组内某条链的首跳）：映射入站 tag 重名、两份插件配置共用一个 bean 的
-        // 映射端口，sing-box 只会报 duplicate inbound tag。这里给出明确错误
+        // 是组内某条链的首跳）：映射入站 tag（<链 tag>-mapping-<节点 id>）重名，
+        // sing-box 只会报 duplicate inbound tag。这里给出明确错误
         profileList.filter { it.needExternal(globalAllowInsecure) }.groupBy { it.id }.values
             .firstOrNull { it.size > 1 }?.let {
                 error("profile ${it[0].id} (${it[0].requireBean().displayName()}) runs on an external core and appears twice in chain ${entity.id}")
@@ -796,16 +796,11 @@ private class ConfigBuild(
     private fun MyOptions.mapExternalHop(
         chain: ChainState, index: Int, proxyEntity: ProxyEntity, bean: AbstractBean,
     ): ExternalDialTarget {
-        // 过渡：插件核心的生成器仍从 bean 读这两个字段，下一个提交移除
-        bean.finalAddress = bean.serverAddress
-        bean.finalPort = bean.serverPort
         if (bean.canMapping() && proxyEntity.needExternal(globalAllowInsecure)) {
             // 自带 protect 的插件不用映射
             val needExternal = !(index == chain.profileList.lastIndex && hysteriaSkipsMapping(bean))
             if (needExternal) {
                 val mappingPort = platform.newPort()
-                bean.finalAddress = LOCALHOST
-                bean.finalPort = mappingPort
 
                 inbounds.add(Inbound_DirectOptions().apply {
                     type = "direct"

@@ -619,16 +619,21 @@ sealed class ExternalCore(
         ): String = buildConfig(settings, hops, entries, mihomoController)
     }
 
-    // 要装插件 app 的核心：每个跳实例一份配置、一个进程，配置与 K0 之前相同。入站认证能力没有核实过，不声明
+    // 要装插件 app 的核心：每个跳实例一份配置、一个进程，配置与 K0 之前相同。入站认证能力没有核实过，不声明。
+    // 配置只取跳实例的本机端口与拨号目标（及它自己的 bean）
     class PerHop(
         pluginId: String,
-        private val buildConfig: (settings: ExternalCoreSettings, port: Int, cacheFile: (String, String) -> File) -> String,
+        private val buildConfig: (
+            settings: ExternalCoreSettings,
+            hop: ExternalHop,
+            cacheFile: (String, String) -> File,
+        ) -> String,
         buildLaunch: (ExternalCoreSettings, String, String, (String, String, String) -> File) -> ExternalCoreLaunch,
     ) : ExternalCore(pluginId, buildLaunch) {
 
         // cacheFile(prefix, ext) 分配配置可能引用的临时文件（hysteria 的 CA）
-        fun config(port: Int, cacheFile: (String, String) -> File, settings: ExternalCoreSettings): String =
-            buildConfig(settings, port, cacheFile)
+        fun config(hop: ExternalHop, cacheFile: (String, String) -> File, settings: ExternalCoreSettings): String =
+            buildConfig(settings, hop, cacheFile)
     }
 }
 
@@ -637,7 +642,7 @@ class ExternalCoreLaunch(val commands: List<String>, val env: Map<String, String
 fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
     is TrojanGoBean -> ExternalCore.PerHop(
         "trojan-go-plugin",
-        buildConfig = { settings, port, _ -> bean.buildTrojanGoConfig(port, settings) },
+        buildConfig = { settings, hop, _ -> bean.buildTrojanGoConfig(hop.localPort, hop.target, settings) },
         buildLaunch = { _, pluginPath, config, writeCacheFile ->
             val configFile = writeCacheFile("trojan_go", "json", config)
             ExternalCoreLaunch(listOf(pluginPath, "-config", configFile.absolutePath))
@@ -646,7 +651,7 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
 
     is MieruBean -> ExternalCore.PerHop(
         "mieru-plugin",
-        buildConfig = { settings, port, _ -> bean.buildMieruConfig(port, settings) },
+        buildConfig = { settings, hop, _ -> bean.buildMieruConfig(hop.localPort, hop.target, settings) },
         buildLaunch = { _, pluginPath, config, writeCacheFile ->
             val configFile = writeCacheFile("mieru", "json", config)
             ExternalCoreLaunch(
@@ -661,7 +666,7 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
 
     is NaiveBean -> ExternalCore.PerHop(
         "naive-plugin",
-        buildConfig = { settings, port, _ -> bean.buildNaiveConfig(port, settings) },
+        buildConfig = { settings, hop, _ -> bean.buildNaiveConfig(hop.localPort, hop.target, settings) },
         buildLaunch = { _, pluginPath, config, writeCacheFile ->
             val configFile = writeCacheFile("naive", "json", config)
             val env = mutableMapOf<String, String>()
@@ -675,7 +680,9 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
     is HysteriaBean -> ExternalCore.PerHop(
         "hysteria-plugin",
         // hysteria 1 的配置不读设置，只有启动参数读 logLevel
-        buildConfig = { _, port, cacheFile -> bean.buildHysteria1Config(port) { cacheFile("hysteria", "ca") } },
+        buildConfig = { _, hop, cacheFile ->
+            bean.buildHysteria1Config(hop.localPort, hop.target) { cacheFile("hysteria", "ca") }
+        },
         buildLaunch = { settings, pluginPath, config, writeCacheFile ->
             val configFile = writeCacheFile("hysteria", "json", config)
             val commands = mutableListOf(

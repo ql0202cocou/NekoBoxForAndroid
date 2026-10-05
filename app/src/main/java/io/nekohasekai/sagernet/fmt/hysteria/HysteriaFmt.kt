@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.fmt.hysteria
 
 import android.util.Base64
+import io.nekohasekai.sagernet.fmt.ExternalDialTarget
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.fmt.buildSingBoxOutboundTLS
 import io.nekohasekai.sagernet.ktx.*
@@ -309,7 +310,8 @@ fun isHysteria1PluginWindow(value: Int): Boolean = value == 0 || value >= 65536
 
 fun isHysteria1PluginHopInterval(value: Int): Boolean = value == 0 || value >= 8
 
-fun HysteriaBean.buildHysteria1Config(port: Int, cacheFile: (() -> File)?): String {
+// port 是本机 socks 入站的端口，target 是跳实例的拨号目标
+fun HysteriaBean.buildHysteria1Config(port: Int, target: ExternalDialTarget, cacheFile: (() -> File)?): String {
     // hysteria v1 插件没有证书固定选项：判断与报错在 ConfigBuild.buildHopOutbound，
     // 这里只兜底（同 buildSingBoxOutboundTLS）
     check(certificateFingerprint.isBlank()) { "certificate pin reached the hysteria plugin builder" }
@@ -324,13 +326,11 @@ fun HysteriaBean.buildHysteria1Config(port: Int, cacheFile: (() -> File)?): Stri
     }
     val ports = parseHysteriaPorts(serverPorts).joinHysteriaPorts()
     val config = LinkedHashMap<String, Any>().apply {
-        // When the node got a mapping inbound (chain member), finalAddress is
-        // rewritten to LOCALHOST and the plugin must dial the mapping port —
-        // displayAddress() would bypass the whole chain. Otherwise keep
-        // displayAddress(): hysteria's serverPort int is not synced with
-        // serverPorts, and port hopping only works on a direct dial.
-        if (finalAddress == LOCALHOST && serverAddress != LOCALHOST) {
-            put("server", "$LOCALHOST:$finalPort")
+        // 经映射（链成员）时插件必须拨本机的映射端口，直拨服务器会绕过整条链。不映射时按 serverPorts
+        // 直拨服务器：hysteria 的 serverPort 与 serverPorts 不同步，端口跳跃也只在直拨时可用。
+        // 服务器地址恰是本机时即使经映射也直拨（沿用以前的判断）
+        if (target is ExternalDialTarget.Mapped && serverAddress != LOCALHOST) {
+            put("server", "$LOCALHOST:${target.port}")
         } else {
             put("server", "${serverAddress.wrapIPV6Host()}:$ports")
         }
@@ -354,10 +354,10 @@ fun HysteriaBean.buildHysteria1Config(port: Int, cacheFile: (() -> File)?): Stri
             HysteriaBean.TYPE_BASE64 -> put("auth", authPayload)
             HysteriaBean.TYPE_STRING -> put("auth_str", authPayload)
         }
-        // keep the SNI fallback local; writing it back to the bean would add a
-        // peer the user never set to later share links
+        // 经映射时拨的是本机，SNI 回退到服务器域名。回退值只留在局部变量里，写回 bean 会让用户没设过的
+        // SNI 出现在之后的分享链接里
         val serverName = sni.ifBlank {
-            if (finalAddress == LOCALHOST && !serverAddress.isIpAddress()) serverAddress else ""
+            if (target is ExternalDialTarget.Mapped && !serverAddress.isIpAddress()) serverAddress else ""
         }
         if (serverName.isNotBlank()) {
             put("server_name", serverName)

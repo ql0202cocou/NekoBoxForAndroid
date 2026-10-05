@@ -84,14 +84,12 @@ class ConfigSnapshotTest {
         first.tx = 99
         first.requireBean().apply {
             serverAddress = "changed.example.com"
-            finalAddress = LOCALHOST
-            finalPort = 1
+            serverPort = 1
         }
         val third = snapshot.profile(12)!!
         assertEquals(0L, third.tx)
         assertEquals("s12.example.com", third.requireBean().serverAddress)
-        assertEquals("s12.example.com", third.requireBean().finalAddress)
-        assertEquals(20012, third.requireBean().finalPort)
+        assertEquals(20012, third.requireBean().serverPort)
 
         val g1 = snapshot.group(1)!!
         g1.frontProxy = 77
@@ -124,17 +122,17 @@ class ConfigSnapshotTest {
     }
 
     @Test
-    fun `记录从字节新建 bean，映射目标总是服务器本身`() {
+    fun `记录从字节新建 bean，与调用方的对象互不影响`() {
         val entity = socks(1, 1)
-        entity.requireBean().apply {
-            finalAddress = LOCALHOST
-            finalPort = 40000
-        }
-        val copy = ProfileRecord.of(entity).newEntity()
-        assertEquals("s1.example.com", copy.requireBean().finalAddress)
-        assertEquals(20001, copy.requireBean().finalPort)
-        // 调用方的对象没被动
-        assertEquals(LOCALHOST, entity.requireBean().finalAddress)
+        val record = ProfileRecord.of(entity)
+        entity.requireBean().serverPort = 40000
+        val copy = record.newEntity()
+        assertNotSame(entity.requireBean(), copy.requireBean())
+        assertEquals("s1.example.com", copy.requireBean().serverAddress)
+        assertEquals(20001, copy.requireBean().serverPort)
+        // 改拷贝也不动调用方的对象
+        copy.requireBean().serverAddress = LOCALHOST
+        assertEquals("s1.example.com", entity.requireBean().serverAddress)
     }
 
     @Test

@@ -216,7 +216,7 @@ class GoldenCollector(private val args: CollectArgs) {
         val settingsBefore = settingsSnapshot()
 
         for (mode in MODES) {
-            // 构建会改写 bean 的运行期字段（finalAddress / finalPort）：每种模式都从数据库重新取实体
+            // 每种模式都从数据库重新取实体，模式之间不共享对象（构建本身不改写传入的实体）
             val profile = SagerDatabase.proxyDao.getById(scenario.mainProfileId)
                 ?: error("scenario ${scenario.id}: main profile ${scenario.mainProfileId} is not in the table")
             val output = when (mode) {

@@ -2,6 +2,9 @@ package io.nekohasekai.sagernet.fmt.hysteria
 
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import io.nekohasekai.sagernet.fmt.ExternalDialTarget
+import io.nekohasekai.sagernet.fmt.ExternalDialTarget.Direct
+import io.nekohasekai.sagernet.fmt.ExternalDialTarget.Mapped
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -25,14 +28,12 @@ class Hysteria1ConfigTest {
         block()
     }
 
-    // 链成员：finalAddress 被改写成本机，终点端口是映射端口
-    private fun HysteriaBean.mapped(mappingPort: Int = 40000) {
-        finalAddress = "127.0.0.1"
-        finalPort = mappingPort
-    }
-
-    private fun HysteriaBean.build(port: Int = 2080, cacheFile: (() -> File)? = null): JsonObject =
-        JsonParser.parseString(buildHysteria1Config(port, cacheFile)).asJsonObject
+    // 拨号目标默认不映射（最先拨号的一跳免映射）；链成员经映射，拨本机的映射端口
+    private fun HysteriaBean.build(
+        port: Int = 2080,
+        target: ExternalDialTarget = Direct,
+        cacheFile: (() -> File)? = null,
+    ): JsonObject = JsonParser.parseString(buildHysteria1Config(port, target, cacheFile)).asJsonObject
 
     private fun JsonObject.str(key: String) = get(key).asString
 
@@ -83,36 +84,53 @@ class Hysteria1ConfigTest {
 
     @Test
     fun `链成员连映射端口`() {
-        val json = bean { mapped(41234) }.build()
+        val json = bean().build(target = Mapped(41234))
         assertEquals("127.0.0.1:41234", json.str("server"))
     }
 
     @Test
     fun `服务器本身就是本机时不走映射端口`() {
-        val json = bean { serverAddress = "127.0.0.1"; mapped(41234) }.build()
+        val json = bean { serverAddress = "127.0.0.1" }.build(target = Mapped(41234))
         assertEquals("127.0.0.1:8443", json.str("server"))
         assertFalse(json.has("server_name"))
     }
 
     @Test
     fun `链成员且没有 SNI 时域名当作 server_name`() {
-        assertEquals("hy1.example.com", bean { mapped() }.build().str("server_name"))
+        assertEquals("hy1.example.com", bean().build(target = Mapped(40000)).str("server_name"))
     }
 
     @Test
     fun `链成员且没有 SNI 时 IP 地址不当作 server_name`() {
-        assertFalse(bean { serverAddress = "192.0.2.10"; mapped() }.build().has("server_name"))
-        assertFalse(bean { serverAddress = "2001:db8::1"; mapped() }.build().has("server_name"))
+        assertFalse(bean { serverAddress = "192.0.2.10" }.build(target = Mapped(40000)).has("server_name"))
+        assertFalse(bean { serverAddress = "2001:db8::1" }.build(target = Mapped(40000)).has("server_name"))
     }
 
     @Test
     fun `非链成员且没有 SNI 时不输出 server_name`() {
-        assertFalse(bean().build().has("server_name"))
+        for (server in listOf("hy1.example.com", "192.0.2.10", "2001:db8::1", "127.0.0.1")) {
+            assertFalse(server, bean { serverAddress = server }.build().has("server_name"))
+        }
+    }
+
+    @Test
+    fun `不映射时按 serverPorts 直拨服务器，与 serverPort 无关`() {
+        val json = bean { serverPorts = "20000-20010"; serverPort = 1080 }.build()
+        assertEquals("hy1.example.com:20000-20010", json.str("server"))
+        assertEquals("[2001:db8::1]:8443", bean { serverAddress = "2001:db8::1" }.build().str("server"))
+        assertEquals("127.0.0.1:8443", bean { serverAddress = "127.0.0.1" }.build().str("server"))
+    }
+
+    @Test
+    fun `经映射时拨映射端口，不论服务器是域名、IPv4 还是 IPv6`() {
+        for (server in listOf("hy1.example.com", "192.0.2.10", "2001:db8::1")) {
+            assertEquals(server, "127.0.0.1:41234", bean { serverAddress = server }.build(target = Mapped(41234)).str("server"))
+        }
     }
 
     @Test
     fun `SNI 优先于回退值`() {
-        assertEquals("sni.example.org", bean { sni = "sni.example.org"; mapped() }.build().str("server_name"))
+        assertEquals("sni.example.org", bean { sni = "sni.example.org" }.build(target = Mapped(40000)).str("server_name"))
         assertEquals("sni.example.org", bean { sni = "sni.example.org" }.build().str("server_name"))
     }
 

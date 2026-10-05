@@ -24,10 +24,6 @@ public abstract class AbstractBean extends Serializable {
     public String customOutboundJson;
     public String customConfigJson;
 
-    //
-    public transient String finalAddress;
-    public transient int finalPort;
-
     public String displayName() {
         if (JavaUtil.isNotBlank(name)) {
             return name;
@@ -63,9 +59,6 @@ public abstract class AbstractBean extends Serializable {
             serverPort = 1080;
         }
         if (name == null) name = "";
-
-        finalAddress = serverAddress;
-        finalPort = serverPort;
 
         if (customOutboundJson == null) customOutboundJson = "";
         if (customConfigJson == null) customConfigJson = "";

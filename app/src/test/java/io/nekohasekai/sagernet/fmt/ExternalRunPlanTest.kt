@@ -5,6 +5,7 @@ import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.fmt.mieru.MieruBean
 import io.nekohasekai.sagernet.fmt.naive.NaiveBean
+import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
 import io.nekohasekai.sagernet.fmt.trojan_go.TrojanGoBean
 import io.nekohasekai.sagernet.fmt.trojan_go.buildTrojanGoConfig
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
@@ -121,12 +122,7 @@ class ExternalRunPlanTest {
         localAuth = auth.takeIf { externalCore(spec.bean)!!.inboundAuth },
     )
 
-    private fun plan(vararg specs: Spec) = ExternalRunPlan(specs.mapIndexed { i, spec ->
-        // 过渡：插件核心的生成器仍从 bean 读这两个字段，下一个提交移除
-        spec.bean.finalAddress = spec.target.dialAddress(spec.bean)
-        spec.bean.finalPort = spec.target.dialPort(spec.bean)
-        hop(i, spec)
-    })
+    private fun plan(vararg specs: Spec) = ExternalRunPlan(specs.mapIndexed(::hop))
 
     private fun noCacheFile(prefix: String, ext: String): File = error("不应申请临时文件：$prefix.$ext")
 
@@ -354,8 +350,8 @@ class ExternalRunPlanTest {
         )
         // 插件核心的配置就是单节点生成器的结果，格式不变
         val configs = plan.configs()
-        assertEquals((plan.hops[1].bean as TrojanGoBean).buildTrojanGoConfig(20001, settings), configs[1])
-        assertEquals((plan.hops[3].bean as TrojanGoBean).buildTrojanGoConfig(20003, settings), configs[3])
+        assertEquals((plan.hops[1].bean as TrojanGoBean).buildTrojanGoConfig(20001, plan.hops[1].target, settings), configs[1])
+        assertEquals((plan.hops[3].bean as TrojanGoBean).buildTrojanGoConfig(20003, plan.hops[3].target, settings), configs[3])
     }
 
     @Test
@@ -412,9 +408,6 @@ class ExternalRunPlanTest {
     // 构建登记的一个外核节点：凭据按核心的声明取 localAuth（与构建一样，入站不认证的核心不带）
     private fun record(id: Long, bean: AbstractBean, localPort: Int, mappingPort: Int, localAuth: LocalSocksAuth?): ExternalHopRecord {
         val core = externalCore(bean)
-        // 过渡：插件核心的生成器仍从 bean 读这两个字段，下一个提交移除
-        bean.finalAddress = LOCALHOST
-        bean.finalPort = mappingPort
         return ExternalHopRecord(
             id, bean, core, localPort, ExternalDialTarget.Mapped(mappingPort), localAuth.takeIf { core?.inboundAuth == true },
         )
@@ -423,7 +416,81 @@ class ExternalRunPlanTest {
     // 手工构造的构建结果：每条链是构建登记的外核节点
     private fun buildResult(localAuth: LocalSocksAuth?, vararg chains: List<ExternalHopRecord>) = ConfigBuildResult(
         "{}", chains.map { ExternalChainRecord(it) }, 1L, emptyMap(), emptyMap(), -1L, localAuth = localAuth,
+        externalCoreSettings = settings,
     )
+
+    // 走外核却没有外核条目的节点：生产上是 NekoBean（JVM 上建不了，它的字段初始化要用 org.json），
+    // 这里用同样 externalCore 为 null 的 SOCKSBean 代替；构建登记它，但不分映射端口
+    private fun withoutCore(id: Long, localPort: Int): ExternalHopRecord {
+        val bean = SOCKSBean().apply {
+            serverAddress = "192.0.2.50"
+            serverPort = 1080
+            initializeDefaultValues()
+        }
+        assertNull(externalCore(bean))
+        return ExternalHopRecord(id, bean, null, localPort, ExternalDialTarget.Direct, null)
+    }
+
+    @Test
+    fun `计划只取登记的数据：顺序、序号、链序号与拨号目标`() {
+        val x = vless("x", "x.example.com")
+        val hy = hysteria("h")
+        val t = trojanGo("t")
+        val result = buildResult(
+            auth,
+            // 链 0 没有外核节点，照样占一个链序号
+            emptyList(),
+            // 链 1：没有外核条目的节点不占计划序号，其后的 Xray 经映射
+            listOf(withoutCore(5, 21000), record(6, x, 21001, 31001, auth)),
+            // 链 2：免映射的 hysteria 1 直拨服务器，其后的 Trojan-Go 经映射
+            listOf(
+                ExternalHopRecord(7, hy, externalCore(hy), 21002, ExternalDialTarget.Direct, null),
+                record(8, t, 21003, 31003, auth),
+            ),
+        )
+        val plan = ExternalRunPlan.from(result)
+        assertEquals(listOf(0, 1, 2), plan.hops.map { it.index })
+        assertEquals(listOf(1, 2, 2), plan.hops.map { it.chainIndex })
+        assertEquals(listOf(6L, 7L, 8L), plan.hops.map { it.profileId })
+        assertEquals(listOf(21001, 21002, 21003), plan.hops.map { it.localPort })
+        assertEquals(
+            listOf(ExternalDialTarget.Mapped(31001), ExternalDialTarget.Direct, ExternalDialTarget.Mapped(31003)),
+            plan.hops.map { it.target },
+        )
+        assertSame(x, plan.hops[0].bean)
+        assertSame(hy, plan.hops[1].bean)
+        assertEquals(listOf("in-0", "in-1", "in-2"), plan.hops.map { it.inboundTag })
+        // 不映射的 hysteria 1 按 serverPorts 直拨服务器，经映射的 Trojan-Go 拨本机的映射端口
+        val configs = plan.assemble({ prefix, ext -> tmp.newFile("$prefix.$ext") }, null, settings).map { it.config }
+        assertEquals("hy1.example.com:8443", json(configs[1])["server"].asString)
+        assertEquals(LOCALHOST, json(configs[2])["remote_addr"].asString)
+        assertEquals(31003, json(configs[2])["remote_port"].asInt)
+    }
+
+    @Test
+    fun `同一条链两次拿到同一个本机端口时建计划即抛错`() {
+        val result = buildResult(
+            null,
+            listOf(record(1, trojanGo("a"), 21000, 31000, null), record(2, trojanGo("b"), 21000, 31001, null)),
+        )
+        val e = assertThrows(IllegalStateException::class.java) { ExternalRunPlan.from(result) }
+        assertTrue(e.message!!, "share local port 21000" in e.message!!)
+    }
+
+    @Test
+    fun `导出的文件名：登记过走外核的节点就是 profiles_txt，没有外核条目的也算`() {
+        fun export(result: ConfigBuildResult) = exportConfigText(result, "node") { prefix, ext -> tmp.newFile("$prefix.$ext") }
+        // 没有任何链登记外核节点
+        assertEquals("{}" to "node.json", export(buildResult(null, emptyList(), emptyList())))
+        // 只有没有外核条目的节点：计划是空的，文本只有 sing-box 配置，文件名仍是 profiles.txt
+        val onlyWithoutCore = buildResult(null, emptyList(), listOf(withoutCore(5, 21000)))
+        assertTrue(ExternalRunPlan.from(onlyWithoutCore).hops.isEmpty())
+        assertEquals("{}" to "profiles.txt", export(onlyWithoutCore))
+        // 有外核跳实例：sing-box 配置后接各组的外核配置
+        val (text, name) = export(buildResult(auth, listOf(record(1, vless("x", "x.example.com"), 21000, 31000, auth))))
+        assertEquals("profiles.txt", name)
+        assertTrue(text.startsWith("{}\n\n{"))
+    }
 
     @Test
     fun `计划从构建结果取凭据：合并核心的跳实例共用同一组，插件核心的没有`() {
@@ -443,7 +510,7 @@ class ExternalRunPlanTest {
         val configs = plan.assemble(::noCacheFile, null, settings).map { it.config }
         assertEquals(mapOf(21000 to (LOCALHOST to 31000)), checkXray(json(configs[0])))
         assertEquals(mapOf(21002 to (LOCALHOST to 31002)), checkMihomo(yaml(configs[2])))
-        assertEquals((plan.hops[1].bean as TrojanGoBean).buildTrojanGoConfig(21001, settings), configs[1])
+        assertEquals((plan.hops[1].bean as TrojanGoBean).buildTrojanGoConfig(21001, plan.hops[1].target, settings), configs[1])
         for (plugin in listOf(configs[1], configs[3])) {
             assertFalse(auth.username in plugin)
             assertFalse(auth.password in plugin)

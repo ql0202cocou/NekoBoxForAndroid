@@ -313,9 +313,6 @@ class GoldenBaseline private constructor(val root: File) {
                 }
                 ExternalDialTarget.Direct
             }
-            // 过渡：插件核心的生成器仍从 bean 读这两个字段，下一个提交移除
-            bean.finalAddress = hop.finalAddress
-            bean.finalPort = hop.finalPort
             ExternalHop(hop.index, hop.chainIndex, hop.profileId, bean, hop.port, target, localAuth = hop.localAuth)
         })
         val planned = plan.groups.map { group -> group.pluginId to group.hops.map { it.index } }

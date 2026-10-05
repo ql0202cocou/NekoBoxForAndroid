@@ -150,7 +150,7 @@ address/corpus.json                                        地址解析语料与
 ```
 
 「组」来自外核运行计划（`fmt/ExternalRunPlan.kt`）：一次构建里每个走外核的跳实例（某条链上的一个外核节点；同一个
-节点在不同链里是不同的跳实例）按 `externalIndex` 的遍历顺序编号，Xray 的全部跳实例一组、mihomo 的全部跳实例一组，
+节点在不同链里是不同的跳实例）按构建登记的顺序（`ConfigBuildResult.externalChains`：链的顺序，链内按跳的顺序）编号，Xray 的全部跳实例一组、mihomo 的全部跳实例一组，
 插件核心每个跳实例一组；组的顺序按各组第一个跳实例。一组一份配置、一个进程。v1 是一个跳实例一份配置（`ext-<n>`
 的 n 是跳实例序号），`result.json` 的 `external` 逐跳实例记录；其余布局与 v2 相同。v3（K0b）的布局与 v2 相同，
 只是跳实例记录多了 `localAuth`、`dynamic.secrets` 多了本机 socks 凭据，配置里多了认证（见文首）。
@@ -222,8 +222,9 @@ address/corpus.json                                        地址解析语料与
 核对类型，并核对重新序列化得到同样的字节。
 
 外核配置的 JVM 黄金测试也从这里取输入：`GoldenBaseline` 列出某个 pluginId 在 run / test 下的全部外核配置（一组一个
-用例），每个用例按 `result.json` 的 `external` 重建这个模式的完整运行计划（bean 每个用例新建一份，并写回
-`finalAddress` / `finalPort`；本机 socks 凭据用跳实例记录的 `localAuth`，计划自己检查 Xray / mihomo 的跳实例必须有、
+用例），每个用例按 `result.json` 的 `external` 重建这个模式的完整运行计划（bean 每个用例新建一份；拨号目标按记录的
+`finalAddress` / `finalPort` 还原：本机地址是经映射、端口即映射端口，其余是不映射，记录的必须正是节点的
+`serverAddress` / `serverPort`，服务器地址本身是本机的节点分不清两者，重建时直接报错；本机 socks 凭据用跳实例记录的 `localAuth`，计划自己检查 Xray / mihomo 的跳实例必须有、
 插件核心的不能有；核对计划分出的组与标识和记录的一致；设置取 `effectiveSettings` 的 `logLevel`、
 `ipv6Mode`、`globalAllowInsecure`），`GoldenExternalCoreCheck.assertMatchesBaseline(pluginId)` 经组装入口
 `assemble` 重新生成，取这一组的配置与原文做结构比较。端口直接用记录的值；`tempFiles` 与本次 `cacheFile` 分到的路径
@@ -259,7 +260,10 @@ socks 出站与入站都没有；同一份 sing-box 配置里本机凭据只有�
 - `error`：构建路径抛出的异常就是这个场景的旧行为，记异常类全名、`message`（不取本地化消息）与 cause 链。
 - `build` 里的映射按键排序输出；`trafficMap` 的值保持原列表顺序。
 - `external[]` 一组一项：`file` 是这组的配置原文，`hops` 是组里的跳实例（`index` 是计划内序号，`chainIndex` 是
-  所在链在 `externalIndex` 里的序号，`port` 是本机 socks 端口，`finalAddress` / `finalPort` 是映射目标）。
+  所在链在构建登记的全部链里的序号（没有外核节点的链也占一个），`port` 是本机 socks 端口，`finalAddress` /
+  `finalPort` 记跳实例的拨号目标：经映射时是 `127.0.0.1` 与映射入站的端口；不映射时是节点的 `serverAddress` 与
+  `serverPort`，其中 hysteria 1（免映射的最先拨号的一跳）实际按 `serverPorts` 拨号，`finalPort` 只是节点的
+  `serverPort` 字段，不参与拨号）。
   `inboundTag` / `outboundTag` 是跳实例在 Xray 配置里的入站 / 出站 tag、在 mihomo 配置里的 listener / 代理名
   （`in-<index>` / `out-<index>`）；插件核心的配置沿用单节点格式，不带标识，记为 null。`localAuth` 是这个跳实例的
   外核入站要求的本机 socks 凭据（与 sing-box 里接它的 socks 出站带的是同一组），入站不认证的（插件核心）记为 null。
