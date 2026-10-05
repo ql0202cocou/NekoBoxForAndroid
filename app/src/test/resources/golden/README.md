@@ -40,6 +40,7 @@ APK 只按 `app/build/outputs/apk/oss/debug/output-metadata.json`（Gradle 每�
 那一项，没有就取 universal，文件名以清单为准，不按目录里的文件名猜（目录里常留着旧版本的 APK）。`--no-build` 与
 `--no-install` 同样按清单选（后者只用它核对内置核心的哈希）。安装后、触发采集前，脚本还会核对设备上 debug 包的
 `versionCode` 与清单一致。清单不存在、没有对应条目、清单里的文件不存在、设备上的版本号不一致，都会返回非零并打印原因。
+这套选 APK、安装与核对的逻辑在 `buildScript/golden/lib.sh`，`measure.sh`（见文末「K0 实测」）共用。
 
 采集入口的约束：
 
@@ -176,3 +177,92 @@ address/corpus.json                                        地址解析语料与
 （CN=golden.example.com）。节点、分组、规则都按显式 id 写入；每个场景开始前把构建会读到的设置全部显式写好
 （含 Clash API secret 的固定假值）。采集入口在每种模式后核对设置表、每个场景结束时核对数据库，发现被构建
 改写就让整次采集失败。
+
+## K0 实测（measure）
+
+K0（每种核心一个进程）动手前后的对照数据：用一个外核节点很多的选择器分组启动服务，记录外核进程数随时间的变化、
+系统对 phantom process 的清理、应用重启外核的日志、内存与冷启动耗时。只测量，不改变任何运行行为；结果不进仓库。
+
+```bash
+export ANDROID_HOME=$HOME/Library/Android/sdk
+ANDROID_SERIAL=emulator-5554 ./run golden measure --out <空目录>            # 默认：38 Xray + 2 mihomo + 2 sing-box，取样 120 秒
+ANDROID_SERIAL=emulator-5554 ./run golden measure --xray 8 --out <空目录>   # 低于 32 个上限的对照
+```
+
+选项：`--xray` / `--mihomo` / `--singbox <N>`（各类节点个数，默认 38 / 2 / 2）、`--duration <秒>`（默认 120）、
+`--interval <秒>`（取样间隔，默认 3）、`--mem-at <秒>`（第一次记内存，默认 30，结束前再记一次）、
+`--mode vpn|proxy`（默认 vpn）、`--log-level <N>`（默认 1，见下）、`--settle <秒>`（拉起界面后等多久再启动，默认 5）、
+`--out`、`--allow-wipe`、`--no-build`、`--no-install`（与采集相同）。`./run golden measure --help` 列出全部选项。
+汇总要用 `python3`（只用标准库）。
+
+### 脚本做了什么
+
+1. 构建、按清单选 APK、安装、核对 `versionCode`（同采集）。
+2. 只读地记下设备条件：系统版本与 API 级别、内存、CPU 数、`device_config get activity_manager max_phantom_processes`
+   （`null` 为默认 32，全系统合计）、`settings get global settings_enable_monitor_phantom_procs`（`false` 时系统不杀）。
+   VPN 模式下把本应用的 `ACTIVATE_VPN` appop 设为 `allow`（等同用户在授权框点了确定），结束时恢复原值。
+3. `am force-stop` → `content call … --method measurePrepare`：防误伤检查，记下原有设置，写入夹具与实测设置 →
+   再 `am force-stop`，清空应用日志 `cache/neko.log`：主进程与 `:bg` 都按实测设置重新起来（日志等级在进程启动时读）。
+4. `am start -W` 拉起主界面，等 `--settle` 秒，记下启动前全系统进程数，开始在后台收 logcat（main / system / events /
+   crash，`-v epoch`）。
+5. `measureStart`：与界面启动按钮同一路径（`VpnRequestActivity.StartService`）——VPN 模式先确认
+   `VpnService.prepare()` 为空（已授权），再 `SagerNet.startService()`，记下发出请求的时刻后立即返回。
+   从后台启动前台服务在 Android 12 起受限，这里有两重保证：请求由主界面在前台的主进程发出（与用户点按钮时相同的
+   进程状态），VPN 模式另有系统对持有 `ACTIVATE_VPN` 的应用的豁免。被拒时 `startService()` 返回空，入口报错。
+6. 每 `--interval` 秒一次：同一条 `adb shell` 里取设备 uptime 与 `ps -A`，再调 `measureStatus` 取服务状态，直到
+   `--duration`。到 `--mem-at` 秒与结束前各记一次内存：经 `run-as` 读主进程、`:bg` 与全部外核子进程的
+   `/proc/<pid>/smaps_rollup`。取样结束后读一次 `dumpsys activity processes` 里系统登记的 phantom process。
+7. `measureFinish`：发 `Action.CLOSE` 广播停止服务（与通知栏停止按钮同一路径），等到 `Stopped`（30 秒），再清空节点 /
+   分组 / 规则三张表、按标记文件恢复设置。没停下来时不清夹具，脚本 `am force-stop` 后再调一次。脚本退出（含失败、
+   Ctrl-C）时总会走这一步。之后再取一次进程表核对外核残留，取回 `neko.log`，汇总。
+
+### 实测入口的约束
+
+- 与采集入口同一个 provider（`GoldenCollectProvider` 的 `measure*` 方法，实现在 `GoldenMeasure.kt`），只编进 debug 包，
+  只接受 adb shell 与 root 的调用；与采集互斥（同一时刻只跑一个 call）。
+- 防误伤：数据库里有不是实测入口建的节点 / 分组 / 规则时拒绝，除非带 `--allow-wipe`；服务正在运行、或采集被打断留下了
+  标记文件时也拒绝。夹具写入前建标记文件 `files/golden-measure.owned`（内容是原有设置表），清理完删除；中途被打断时，
+  下次运行据它认出夹具并按它恢复设置。
+- 设置：整表清空后只写实测需要的键——`serviceMode`、`logLevel`、选中的分组与节点、两个 DNS（`https://dns.example.net/dns-query`
+  与 `https://192.0.2.53/dns-query`，连不上，不向真实服务器发查询）——外加进程启动时会写回的 `legacyAssetsMigrated`；
+  其余取代码默认值。
+- 日志等级默认 1（warn）：0 会让 `Logs` 整体关闭，看不到 `GuardedProcessPool` 的「was killed / restart process」。
+  这也会让 Xray / mihomo 以 warning 级别输出日志，与等级 0 的用户略有不同。
+- 夹具：一个选择器分组（id 1），成员依次是 VLESS + REALITY（`xtls-rprx-vision`，uTLS chrome，走 Xray）、AnyTLS（走
+  mihomo）、sing-box 内核节点（Shadowsocks 与 VMess + WS + TLS 交替），选中第一个成员。服务器地址按顺序取
+  192.0.2.0/24、198.51.100.0/24、203.0.113.0/24 的 IP 字面量，凭据沿用采集夹具的虚构值。`measurePrepare` 会用生产代码
+  构建一次选中节点的配置，核对外核数量与参数一致，否则报错（并照常清理）。
+
+### 结果目录
+
+```
+result.json      汇总（字段见下）
+raw/             原始数据：device.txt、host.txt、prepare/start/finish(.txt|.json)、samples.txt、mem-*.txt、
+                 phantom-table.txt、ps-before.txt、ps-after.txt、logcat.txt、neko.log、am-start.txt、top-activity.txt
+```
+
+`result.json`（格式 v1，时间 `tMs` 都是相对发出启动请求的毫秒数，负数为请求之前）：
+
+| 字段 | 内容 |
+| --- | --- |
+| `args` | 本次参数 |
+| `app` | 包名、APK、versionCode、提交与工作区改动数、Xray / mihomo 版本（取自 `plugins.sh`） |
+| `device` | 系统版本、API 级别、build 类型、fingerprint、型号、ABI、`memTotalKb`、`cpus`；`maxPhantomProcesses` / `monitorPhantomProcs` 的原值与生效值；`processCountBeforeStart`（发出启动前 `ps -A` 的进程数）；`vpnAppopBefore`；`topActivityAtStart`（发出启动时前台的界面） |
+| `fixture` | `measurePrepare` 的返回：各类成员数、选中节点、按生产代码构建出的外核分布 `externalIndex` |
+| `start` | `connectedMs`：从发出启动到服务报 `Connected` 的毫秒数（主进程收到状态回调的时刻）；`transitions`：取样期间收到的全部状态变化（含消息）；没连上时 `failure` 给出状态与原因；请求本身失败时 `error` |
+| `processes.xray` / `.mihomo` | `expected`（节点数）、`max` 与 `maxAtMs`、`final`（最后一个样本）、`secondHalfMin` / `secondHalfMax`（后半段的范围）、`distinctPids`（取样期间出现过的不同 pid）、`pidsBeyondExpected`、`pidsNewAfterConnected`（连接后才出现的 pid，即重启出来的）、`pidsGoneBeforeEnd`。取样间隔内生灭的进程看不到，这些数只是下限 |
+| `processes.bgPids` / `mainPids` | 取样期间出现过的 `:bg` / 主进程 pid（多于一个说明进程重启过） |
+| `phantom` | 取样期间 logcat 里 ActivityManager 的 `Killing PhantomProcessRecord … : <原因>`：`killCount`、其中本应用外核的 `killCountOurCores`、按进程名与原因的计数、首末次时刻、`bursts`（2 秒内的算一批，带设备 epoch 秒与被杀 pid）与 `burstIntervalsMs`；`amKillEvents`（events 缓冲区的 `am_kill`）；`knownAtEnd` / `knownAtEndOurCores`（取样结束时系统登记的 phantom process 数）；`sampleLines`（含 phantom 字样的原文，前 12 条） |
+| `appLogs` | `neko.log` 里 `GuardedProcessPool` 的日志：`counts`（`startProcess`、`killed`、`unexpectedExit`、`exitsTooFast`、`restartProcess`、`stopGuard`，各分 Xray / mihomo）、`samples`（每类前 5 条原文）、`events`（时刻按 Go 日志前缀算，只精确到秒） |
+| `memory` | 两次内存快照（`t<秒>` 与 `end`）：`main`、`bg`、`xray`、`mihomo`、`externalCores`（含正在 fork 的子进程）、`total` 各给 `count`、`pids`、`pssKb`、`rssKb`、`swapPssKb`；`memAvailableKb`。PSS 已按共享页摊分，可直接相加；RSS 合计重复计入了共享的代码页，只作参考 |
+| `final` | 取样结束时的服务状态、是否仍在运行、取样期间是否停过及停止消息（例如外核反复退出太快被守护放弃） |
+| `stop` | 停止是否成功、停止前状态、`stopMs`、是否强行停止了应用、恢复的设置条数、三张表是否已清空、`leftoverProcesses`（停止 2 秒后残留的外核进程数） |
+| `samples` | 每个样本：`tMs`、`systemProcesses`（全系统进程数）、`xray` / `mihomo`（pid 列表）、`mainPid`、`bgPid`、`forkingChildren`（fork 之后、exec 之前仍叫「包名:bg」的子进程，即正在启动的外核）、`orphanCores`（父进程不是 `:bg` 的外核进程数）、`state` |
+
+### 读数时注意
+
+- 系统并不在外核进程一超过上限就清理：只在内部事件触发 CPU 统计扫描时才登记新的 phantom process 并按上限清理
+  （在 API 37 模拟器上观察到大约每 5 分钟一轮，一轮里可能连续扫描几次）。120 秒的窗口可能一次扫描都没碰上，这时
+  `phantom.knownAtEnd` 为 0；要看清理周期，用 `--duration` 跨过至少一轮。
+- 冷启动指：主进程与 `:bg` 是本次 `am force-stop` 后新起的，服务从未启动过，外核进程不存在；`:bg` 在拉起主界面时
+  已由界面绑定服务而启动，不计入 `connectedMs`。

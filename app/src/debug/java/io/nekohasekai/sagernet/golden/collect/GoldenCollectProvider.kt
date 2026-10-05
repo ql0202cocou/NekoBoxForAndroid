@@ -8,17 +8,21 @@ import android.os.Binder
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import io.nekohasekai.sagernet.golden.measure.GoldenMeasure
 import io.nekohasekai.sagernet.ktx.Logs
 import java.util.Base64
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
-// 旧配置输出的采集入口，只编进 debug 包，由 buildScript/golden/collect.sh 经
-//   adb shell content call --uri content://<applicationId>.golden --method collect --extra …
-// 触发。call() 同步跑完整次采集再返回，结果放在返回的 Bundle 里（status=ok / error 与原因）；
-// shell 持有 provider 期间进程按前台优先级对待，不会被冻结或回收。
-// 不启动 VPN / 代理服务，不启动任何外核进程，不发起网络连接
+// 只编进 debug 包的两个工具入口，经
+//   adb shell content call --uri content://<applicationId>.golden --method <方法> --extra …
+// 触发，结果放在返回的 Bundle 里（status=ok / error 与原因）：
+// - collect：旧配置输出的采集（buildScript/golden/collect.sh）。call() 同步跑完整次采集再返回；
+//   shell 持有 provider 期间进程按前台优先级对待，不会被冻结或回收。不启动 VPN / 代理服务，
+//   不启动任何外核进程，不发起网络连接
+// - measure*：K0 实测（buildScript/golden/measure.sh，见 GoldenMeasure）。会启动、停止服务，
+//   结果是 Base64 编码的 JSON（键 b64）
 class GoldenCollectProvider : ContentProvider() {
 
     private val running = AtomicBoolean(false)
@@ -29,8 +33,19 @@ class GoldenCollectProvider : ContentProvider() {
         // 只给 adb shell（2000）与 root（0）用：provider 必须 exported 才能被 shell 调到
         val uid = Binder.getCallingUid()
         if (uid != SHELL_UID && uid != ROOT_UID) throw SecurityException("golden collect is for adb shell only")
-        if (method != METHOD_COLLECT) return failure("unknown method $method")
-        if (!running.compareAndSet(false, true)) return failure("a collection is already running")
+        if (method != METHOD_COLLECT && method !in GoldenMeasure.METHODS) return failure("unknown method $method")
+        if (!running.compareAndSet(false, true)) return failure("a collection or measurement call is already running")
+        if (method != METHOD_COLLECT) return try {
+            awaitApplicationCreated()
+            measure(method, extras ?: Bundle.EMPTY)
+        } catch (e: CollectRefusedException) {
+            failure("refused: ${e.message}")
+        } catch (e: Throwable) {
+            Logs.e(e)
+            failure(e.stackTraceToString())
+        } finally {
+            running.set(false)
+        }
         return try {
             awaitApplicationCreated()
             val args = parseArgs(extras ?: Bundle.EMPTY)
@@ -61,6 +76,26 @@ class GoldenCollectProvider : ContentProvider() {
             failure(e.stackTraceToString())
         } finally {
             running.set(false)
+        }
+    }
+
+    // 同采集：在独立线程上跑（binder 线程上的调用方身份是 shell）
+    private fun measure(method: String, extras: Bundle): Bundle {
+        var result: Map<String, Any?>? = null
+        var failure: Throwable? = null
+        val worker = Thread({
+            try {
+                result = GoldenMeasure.call(method, extras)
+            } catch (e: Throwable) {
+                failure = e
+            }
+        }, "golden-measure")
+        worker.start()
+        worker.join()
+        failure?.let { throw it }
+        return Bundle().apply {
+            putString("status", "ok")
+            putString("b64", GoldenMeasure.encode(result!!))
         }
     }
 
