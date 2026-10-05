@@ -50,16 +50,13 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
 
     override suspend fun init() {
         super.init()
-        // init 跑在 IO 上，destroyRunner 的 close() 可能与它并发：box 还没赋值时
-        // close() 跳过了它，这里补收，launch() 也会因 isClosed() 直接返回
-        if (isClosed()) {
-            closeAfterLateInit()
-            return
-        }
+        // init 跑在 IO 上，destroyRunner 的 close() 可能与它并发：close() 漏掉的 box 与临时文件已由
+        // BoxInstance.init 补收，launch() 也会因 isClosed() 直接返回
+        if (isClosed()) return
         if (Logs.enabled) externalProcesses.forEach { Logs.d(Util.redactSecrets(it.config)) }
     }
 
-    override fun launch() {
+    override suspend fun launch() {
         // same guard as BoxInstance.launch: a closed instance must not become the
         // main instance (and start the protect server) on its way out
         if (isClosed()) return

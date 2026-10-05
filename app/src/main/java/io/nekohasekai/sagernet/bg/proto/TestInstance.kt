@@ -81,14 +81,12 @@ class TestInstance(profile: ProxyEntity, val link: String, private val timeout: 
                             // them, so bail out instead.
                             if (isClosed()) throw CancellationException("test cancelled")
                             init()
-                            if (isClosed()) {
-                                // close() ran during init(); launch() would bail
-                                // out and leak what init() built, so finish the
-                                // cleanup close() could not do
-                                closeAfterLateInit()
-                                throw CancellationException("test cancelled")
-                            }
+                            // close() 在 init() 期间跑过：它漏掉的 box 与临时文件已由
+                            // BoxInstance.init 补收，这里只需不再启动
+                            if (isClosed()) throw CancellationException("test cancelled")
+                            // 外核的本机入站就绪后才启动 box（BoxInstance.launch）
                             launch()
+                            if (isClosed()) throw CancellationException("test cancelled")
                             val controller = mihomoController
                             if (controller != null) {
                                 try {
@@ -101,10 +99,6 @@ class TestInstance(profile: ProxyEntity, val link: String, private val timeout: 
                                     cont.tryResume(Libcore.urlTest(box, link, timeout))
                                 }
                             } else {
-                                if (processes.processCount.get() > 0) {
-                                    // wait for plugin start
-                                    delay(500)
-                                }
                                 cont.tryResume(Libcore.urlTest(box, link, timeout))
                             }
                         } catch (e: Exception) {

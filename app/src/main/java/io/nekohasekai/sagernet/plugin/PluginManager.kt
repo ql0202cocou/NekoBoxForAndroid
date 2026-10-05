@@ -20,6 +20,8 @@ object PluginManager {
     data class InitResult(
         val path: String,
         val info: ProviderInfo,
+        // 用的是 APK 里内置的二进制（不是外部插件 app 提供的）：只有内置的 Xray / mihomo 核实过启动前校验与就绪握手
+        val builtin: Boolean = false,
     )
 
     @Throws(Throwable::class)
@@ -44,7 +46,7 @@ object PluginManager {
         // internal so
         if (info.applicationInfo == null) {
             try {
-                initNativeInternal(pluginId)?.let { return InitResult(it, info) }
+                initNativeInternal(pluginId)?.let { return InitResult(it, info, builtin = true) }
             } catch (t: Throwable) {
                 Logs.w("initNativeInternal failed", t)
             }

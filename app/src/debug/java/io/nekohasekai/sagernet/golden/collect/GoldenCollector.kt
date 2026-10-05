@@ -47,6 +47,38 @@ class CollectRefusedException(message: String) : Exception(message)
 
 class CollectSummary(val outDir: File, val scenarios: Int, val counts: Map<String, Int>)
 
+// 全部场景里跑过的启动前校验（内置 Xray / mihomo 的校验入口，见 BoxInstance.init）：按插件与结论计数，
+// 没过与没有结论的逐条记下场景、模式与原因。只进 manifest
+private class CheckStats {
+    private val byPlugin = LinkedHashMap<String, LinkedHashMap<String, Int>>()
+    private val problems = ArrayList<Map<String, Any?>>()
+
+    fun add(scenario: String, mode: String, checks: List<CheckRecord>) {
+        for (check in checks) {
+            val counts = byPlugin.getOrPut(check.pluginId) {
+                linkedMapOf("checked" to 0, "passed" to 0, "failed" to 0, "inconclusive" to 0)
+            }
+            counts["checked"] = counts.getValue("checked") + 1
+            counts[check.outcome] = counts.getValue(check.outcome) + 1
+            if (check.outcome != "passed") problems += linkedMapOf(
+                "scenario" to scenario,
+                "mode" to mode,
+                "pluginId" to check.pluginId,
+                "outcome" to check.outcome,
+                "message" to check.message,
+            )
+        }
+    }
+
+    fun toManifest(): Map<String, Any?> = linkedMapOf(
+        "checked" to byPlugin.values.sumOf { it.getValue("checked") },
+        "failed" to byPlugin.values.sumOf { it.getValue("failed") },
+        "inconclusive" to byPlugin.values.sumOf { it.getValue("inconclusive") },
+        "byPlugin" to byPlugin,
+        "problems" to problems,
+    )
+}
+
 // 一次完整采集：环境检查 → 防误伤检查 → 逐个场景写夹具、跑三种模式、落盘 →
 // 地址语料 → manifest → 清掉夹具并恢复原有设置
 class GoldenCollector(private val args: CollectArgs) {
@@ -75,15 +107,16 @@ class GoldenCollector(private val args: CollectArgs) {
             "testOk" to 0, "testError" to 0,
             "exportOk" to 0, "exportError" to 0,
         )
+        val checks = CheckStats()
         ownedMarker.writeText(encodeSettings(savedSettings))
         try {
             outDir.deleteRecursively()
             val preserved = savedSettings.filter { it.key in PRESERVED_SETTINGS }
             for (scenario in scenarios) {
-                collectScenario(scenario, plugins, preserved, counts)
+                collectScenario(scenario, plugins, preserved, counts, checks)
             }
             writeJson(File(outDir, "address/corpus.json"), GoldenAddressCorpus.build())
-            writeJson(File(outDir, "manifest.json"), manifest(scenarios.size, counts, plugins))
+            writeJson(File(outDir, "manifest.json"), manifest(scenarios.size, counts, checks, plugins))
         } finally {
             clearTables()
             kvDao.reset()
@@ -161,6 +194,7 @@ class GoldenCollector(private val args: CollectArgs) {
         plugins: Map<String, String>,
         preserved: List<KeyValuePair>,
         counts: MutableMap<String, Int>,
+        checks: CheckStats,
     ) {
         // 设置：整表清空后只写场景声明的键，外加 PRESERVED_SETTINGS
         val kvDao = PublicDatabase.kvPairDao
@@ -192,6 +226,7 @@ class GoldenCollector(private val args: CollectArgs) {
             }
             val key = mode + if (output.ok) "Ok" else "Error"
             counts[key] = counts.getValue(key) + 1
+            checks.add(scenario.id, mode, output.checks)
             val modeDir = File(dir, mode)
             writeJson(File(modeDir, "result.json"), output.result)
             for ((name, content) in output.files) {
@@ -352,7 +387,12 @@ class GoldenCollector(private val args: CollectArgs) {
         return rows
     }
 
-    private fun manifest(scenarioCount: Int, counts: Map<String, Int>, plugins: Map<String, String>): Map<String, Any?> {
+    private fun manifest(
+        scenarioCount: Int,
+        counts: Map<String, Int>,
+        checks: CheckStats,
+        plugins: Map<String, String>,
+    ): Map<String, Any?> {
         val versionBox = Libcore.versionBox()
         val singBoxVersion = versionBox.lineSequence().firstOrNull { it.startsWith("sing-box: ") }
             ?.removePrefix("sing-box: ")
@@ -398,6 +438,7 @@ class GoldenCollector(private val args: CollectArgs) {
             "system" to system,
             "scenarios" to scenarioCount,
             "counts" to counts,
+            "externalChecks" to checks.toManifest(),
             "collectedAt" to dateFormat.format(Date()),
         )
     }

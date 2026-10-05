@@ -576,6 +576,9 @@ sealed class ExternalCore(
         config: String,
         writeCacheFile: (String, String, String) -> File,
     ) -> ExternalCoreLaunch,
+    // 启动前校验入口（见 ExternalCoreStartup.kt），只有 Xray、mihomo 有。只在用的是 APK 内置的二进制时生效：
+    // 内置的才核实过校验入口、报错格式与就绪时的 SOCKS5 握手，外部插件 app 提供的同名核心照旧不校验
+    val check: ExternalCoreCheck? = null,
 ) {
     // 合并核心：同一个计划里这个插件的全部跳实例共用一份配置、一个进程
     val merged get() = this is Merged
@@ -599,7 +602,8 @@ sealed class ExternalCore(
             mihomoController: Pair<Int, String>?,
         ) -> String,
         buildLaunch: (ExternalCoreSettings, String, String, (String, String, String) -> File) -> ExternalCoreLaunch,
-    ) : ExternalCore(pluginId, buildLaunch) {
+        check: ExternalCoreCheck,
+    ) : ExternalCore(pluginId, buildLaunch, check) {
 
         fun entry(hop: ExternalHop, settings: ExternalCoreSettings): Map<String, Any?> = buildEntry(settings, hop)
 
@@ -703,6 +707,11 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
             val configFile = writeCacheFile("xray", "json", config)
             ExternalCoreLaunch(listOf(pluginPath, "run", "-c", configFile.absolutePath))
         },
+        // run -test 只加载配置、不监听不连接；配置有错时退出码 23
+        check = ExternalCoreCheck("Xray", { pluginPath, config, writeCacheFile ->
+            val configFile = writeCacheFile("xray", "json", config)
+            ExternalCoreLaunch(listOf(pluginPath, "run", "-test", "-c", configFile.absolutePath))
+        }, ::xrayCheckErrors),
     )
 
     is AnyTLSBean -> ExternalCore.Merged(
@@ -717,6 +726,14 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
                 listOf(pluginPath, "-d", app.noBackupFilesDir.absolutePath, "-f", configFile.absolutePath)
             )
         },
+        // -t 只解析配置、不监听不连接，失败时退出码 1。-f 指向的文件不存在时它会自己写一份默认配置并返回 0，
+        // 所以先写好文件；不带 -d 会在 $HOME/.config/mihomo 建目录，-d 与启动时相同
+        check = ExternalCoreCheck("mihomo", { pluginPath, config, writeCacheFile ->
+            val configFile = writeCacheFile("mihomo", "yaml", config)
+            ExternalCoreLaunch(
+                listOf(pluginPath, "-t", "-d", app.noBackupFilesDir.absolutePath, "-f", configFile.absolutePath)
+            )
+        }, ::mihomoCheckErrors),
     )
 
     else -> null

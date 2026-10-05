@@ -25,7 +25,6 @@ import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
 class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : CoroutineScope {
@@ -40,6 +39,11 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
         // own finally (with the SIGTERM grace period on API < 24)
         @Volatile
         var looperStarted = false
+
+        // 进程最近一次退出的退出码（含随后被守护重启的），从未退出为 null。只供启动就绪等待尽快发现
+        // 进程退出（见 start() 的返回值），守护与重启逻辑不看它
+        @Volatile
+        var lastExitCode: Int? = null
 
         private fun streamLogger(input: InputStream, logger: (String) -> Unit) = try {
             input.bufferedReader().use { it.forEachLine(logger) }
@@ -91,7 +95,9 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
                 // Descendants can inherit stdout/stderr after this child exits.
                 // Reaping must not wait for those pipes to reach EOF.
                 thread(name = "wait-$cmdName", isDaemon = true) {
-                    exitChannel.trySend(child.waitFor())
+                    val exitCode = child.waitFor()
+                    lastExitCode = exitCode
+                    exitChannel.trySend(exitCode)
                     closeStreams(child)
                 }
             }
@@ -144,29 +150,29 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
     }
 
     override val coroutineContext = Dispatchers.Main.immediate + Job()
-    val processCount = AtomicInteger(0)
 
     // every successfully started guard, so close() can reap processes whose
     // looper coroutine never ran (pool cancelled after the isActive check)
     private val guards = CopyOnWriteArrayList<Guard>()
 
+    // 返回值：这个进程最近一次退出的退出码，从未退出为 null。启动就绪等待据它尽快发现进程退出
     fun start(
         cmd: List<String>,
         env: Map<String, String> = emptyMap(),
-    ) {
+    ): () -> Int? {
         Logs.i("start process: ${Commandline.toString(cmd)}")
-        Guard(cmd, env).apply {
+        val guard = Guard(cmd, env).apply {
             start() // if start fails, IOException will be thrown directly
             guards.add(this)
             if (!coroutineContext.isActive) {
                 // close() already cancelled this pool: the looper launch below
                 // would never run and nothing else would kill this process
                 destroy()
-                return
+                return { lastExitCode }
             }
             launch { looper() }
         }
-        processCount.incrementAndGet()
+        return { guard.lastExitCode }
     }
 
     // 任意线程可调（BoxInstance.close 在主线程、TestInstance 的

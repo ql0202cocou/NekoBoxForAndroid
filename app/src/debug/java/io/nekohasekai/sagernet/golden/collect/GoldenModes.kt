@@ -11,6 +11,8 @@ import io.nekohasekai.sagernet.CONNECTION_TEST_URL
 import io.nekohasekai.sagernet.bg.proto.BoxInstance
 import io.nekohasekai.sagernet.bg.proto.TestInstance
 import io.nekohasekai.sagernet.database.ProxyEntity
+import io.nekohasekai.sagernet.fmt.ExternalCheckResult
+import io.nekohasekai.sagernet.fmt.ExternalCoreGroup
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.plugin.PluginManager
@@ -27,10 +29,18 @@ val PLUGINS_WITHOUT_APP = listOf("trojan-go-plugin", "naive-plugin", "mieru-plug
 
 private const val MIHOMO_PLUGIN = "mihomo-plugin"
 
-// 一种模式的产物：result.json 的内容与其它原文文件（文件名 → 内容）
-class ModeOutput(val result: Map<String, Any?>, val files: Map<String, String>) {
+// 一种模式的产物：result.json 的内容与其它原文文件（文件名 → 内容）；checks 是这一次 init() 里跑过的
+// 启动前校验（只进 manifest，不进 result.json）
+class ModeOutput(
+    val result: Map<String, Any?>,
+    val files: Map<String, String>,
+    val checks: List<CheckRecord> = emptyList(),
+) {
     val ok get() = result["status"] == "ok"
 }
+
+// 一次启动前校验：outcome 为 passed / failed / inconclusive，message 是没过或没有结论时的原因
+class CheckRecord(val pluginId: String, val outcome: String, val message: String?)
 
 // TestInstance 的 buildConfig / mihomoTestController 是 protected，测速模式经反射调用真实实现，
 // 不在这里复刻。采集开始前先解析一次，签名变了直接让整次采集失败
@@ -54,13 +64,16 @@ private fun Method.invokeUnwrapped(target: Any): Any? = try {
 }
 
 // 运行 / 测速模式直接跑真实的 BoxInstance.init()：buildConfig 后建外核运行计划，经共用的组装入口
-// 逐个跳实例 initPlugin 并生成每组的配置。这里只把 loadConfig 换成空操作（不建 libcore box、不启动
-// 任何东西），另按 PLUGINS_WITHOUT_APP 预填 pluginPath。测速模式的 buildConfig 与
-// mihomoTestController 转给一个真实的 TestInstance
+// 逐个跳实例 initPlugin 并生成每组的配置，再用内置 Xray / mihomo 的校验入口把每组合并配置加载一遍
+// （校验进程不监听、不联网）。这里只把 loadConfig 换成空操作（不建 libcore box，不启动外核本身），
+// 另按 PLUGINS_WITHOUT_APP 预填 pluginPath。测速模式的 buildConfig 与 mihomoTestController 转给一个
+// 真实的 TestInstance
 private class GoldenBoxInstance(profile: ProxyEntity, private val test: TestInstance?) : BoxInstance(profile) {
 
     var controller: Pair<Int, String>? = null
         private set
+
+    val checks = ArrayList<CheckRecord>()
 
     init {
         for (id in PLUGINS_WITHOUT_APP) pluginPath[id] = PluginManager.InitResult("", ProviderInfo())
@@ -83,6 +96,14 @@ private class GoldenBoxInstance(profile: ProxyEntity, private val test: TestInst
 
     override suspend fun loadConfig() {
     }
+
+    override fun onExternalCheck(group: ExternalCoreGroup, result: ExternalCheckResult) {
+        checks += when (result) {
+            is ExternalCheckResult.Passed -> CheckRecord(group.pluginId, "passed", null)
+            is ExternalCheckResult.Inconclusive -> CheckRecord(group.pluginId, "inconclusive", result.reason)
+            is ExternalCheckResult.Failed -> CheckRecord(group.pluginId, "failed", result.error.message)
+        }
+    }
 }
 
 fun runBoxMode(profile: ProxyEntity, forTest: Boolean): ModeOutput {
@@ -95,7 +116,7 @@ fun runBoxMode(profile: ProxyEntity, forTest: Boolean): ModeOutput {
         try {
             runBlocking { instance.init() }
         } catch (e: Exception) {
-            return errorOutput(e)
+            return errorOutput(e, instance.checks)
         }
         // 组装外核配置时经 cacheFile 领到的临时文件（hysteria 的 CA）落在 cacheDir 根下，
         // 文件名随机；按「init 前后新增」找出来，再按路径是否出现在配置原文里归到各外核
@@ -158,7 +179,7 @@ fun runBoxMode(profile: ProxyEntity, forTest: Boolean): ModeOutput {
                 listOfNotNull(instance.controller?.second),
             ),
         )
-        return ModeOutput(result, files)
+        return ModeOutput(result, files, instance.checks)
     } finally {
         // 从不抛出；删掉 init 期间建的临时文件
         instance.close()
@@ -195,7 +216,7 @@ private fun dynamic(ports: List<Int>, paths: List<String>, secrets: List<String>
     "secrets" to secrets,
 )
 
-private fun errorOutput(e: Throwable): ModeOutput {
+private fun errorOutput(e: Throwable, checks: List<CheckRecord> = emptyList()): ModeOutput {
     val causes = ArrayList<Map<String, Any?>>()
     val seen = IdentityHashMap<Throwable, Unit>()
     seen[e] = Unit
@@ -215,6 +236,7 @@ private fun errorOutput(e: Throwable): ModeOutput {
             "dynamic" to dynamic(emptyList(), emptyList(), emptyList()),
         ),
         emptyMap(),
+        checks,
     )
 }
 

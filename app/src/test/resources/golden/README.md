@@ -49,7 +49,8 @@ APK 只按 `app/build/outputs/apk/oss/debug/output-metadata.json`（Gradle 每�
 
 采集入口的约束：
 
-- 只接受 adb shell（uid 2000）与 root 的调用；不启动 VPN / 代理服务，不启动任何外核进程，不发起网络连接。
+- 只接受 adb shell（uid 2000）与 root 的调用；不启动 VPN / 代理服务，不发起网络连接。唯一启动的外部进程是内置
+  Xray / mihomo 的校验入口（`run -test` / `-t`，只加载配置、不监听不连接，见「三种模式」），不启动外核本身。
 - 防误伤：数据库里有不是采集入口建的节点 / 分组 / 规则时拒绝运行，除非带 `--allow-wipe`。采集结束后清空
   节点 / 分组 / 规则三张表，并把 `configuration.db` 的设置恢复成采集前的样子。
 - 环境检查：装了 Trojan-Go / Naive / Mieru / Hysteria 的外部插件 app 时拒绝（结果会变，见下文）；
@@ -92,13 +93,17 @@ address/corpus.json                                        地址解析语料与
 
 | mode | 走的路径 | 说明 |
 | --- | --- | --- |
-| `run` | 真实的 `BoxInstance.init()` | `buildConfig(profile)`，再由构建结果建外核运行计划，经运行 / 测速 / 导出共用的组装入口 `ExternalRunPlan.assemble` 逐个跳实例 `initPlugin`、生成每组的配置。只把 `loadConfig` 换成空操作（不建 libcore box），不调 `launch` |
+| `run` | 真实的 `BoxInstance.init()` | `buildConfig(profile)`，再由构建结果建外核运行计划，经运行 / 测速 / 导出共用的组装入口 `ExternalRunPlan.assemble` 逐个跳实例 `initPlugin`、生成每组的配置，最后做启动前校验：用内置 Xray / mihomo 的校验入口把每组合并配置加载一遍（与真实启动同一段代码；插件核心不校验）。只把 `loadConfig` 换成空操作（不建 libcore box），不调 `launch` |
 | `test` | 同上，`buildConfig` 与 `mihomoTestController` 经反射调用一个真实 `TestInstance` 的实现 | 即 `buildConfig(profile, true)`；单节点 AnyTLS 走 mihomo 且分组没有前置 / 落地时，mihomo 配置带 Clash API 端口与随机 secret |
 | `export` | 直接调 `ProxyEntity.exportConfig()` | sing-box 配置后接每组一段外核配置（同一个组装入口），段间一个空行 |
 
 与真实运行的差别只有两处：不建 libcore box；Trojan-Go / Naive / Mieru / Hysteria 插件在模拟器上都没装，
 `initPlugin` 会对它们抛「插件未安装」，run / test 预先往 `pluginPath` 填占位结果绕过（生成配置本身
-用不到插件路径）。每种模式都从数据库重新取实体，互不影响。
+用不到插件路径；占位结果不算内置二进制，与真实运行一样不校验）。每种模式都从数据库重新取实体，互不影响。
+
+启动前校验没过时 `init()` 抛出带节点名的错误，这个场景的这种模式就记成 `error`，与真实启动时用户看到的一样；
+基线里原来成功的场景若因此失败，说明有合并配置被内置核心拒绝，是要报告的发现，不能改场景绕过。每次校验的
+结论记进 `manifest.json` 的 `externalChecks`，不进 `result.json`。
 
 ## 依赖模拟器条件的结果
 
@@ -127,6 +132,7 @@ address/corpus.json                                        地址解析语料与
 | `plugins` | 六个外核插件 id 的状态：`builtin`、`missing` 或 `external:<包名>` |
 | `system` | API 级别（`sdkInt`、`sdkIntFull`）、系统版本、build fingerprint、ABI、页大小、语言 |
 | `scenarios` / `counts` | 场景数与各模式成功 / 失败的数量 |
+| `externalChecks` | run / test 模式里启动前校验的次数（每组 Xray / mihomo 合并配置一次）：`checked`、`failed`、`inconclusive`（超时、被信号杀掉、进程起不来，照常继续）的总数，`byPlugin` 按插件 id 分开计（另有 `passed`），`problems` 逐条列出没过与没有结论的场景、模式、插件与原因。基线全部场景的合并配置（Xray 167 份、mihomo 87 份）都应被校验且全部通过 |
 | `collectedAt` | 采集时间（UTC）；两次采集之间只有它允许不同 |
 
 ## input.json
@@ -309,3 +315,6 @@ raw/             原始数据：device.txt、host.txt、prepare/start/finish(.tx
   `phantom.knownAtEnd` 为 0；要看清理周期，用 `--duration` 跨过至少一轮。
 - 冷启动指：主进程与 `:bg` 是本次 `am force-stop` 后新起的，服务从未启动过，外核进程不存在；`:bg` 在拉起主界面时
   已由界面绑定服务而启动，不计入 `connectedMs`。
+- `connectedMs` 含外核的启动前校验与启动就绪等待（`BoxInstance.init` / `launch`）。二者各自的耗时记在 `raw/neko.log`
+  的 Info 行里：`<插件 id>: config of <N> hops checked in <毫秒> ms`（每组一行）与
+  `external cores: <N> local inbounds ready in <毫秒> ms`；汇总不解析它们。
