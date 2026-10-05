@@ -6,6 +6,7 @@ import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.fmt.effectiveAllowInsecure
 import io.nekohasekai.sagernet.fmt.requireDistinctHops
 import io.nekohasekai.sagernet.fmt.requireLocalAuth
+import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 import moe.matsuri.nb4a.utils.JavaUtil.gson
 import moe.matsuri.nb4a.utils.echAsBase64
@@ -13,7 +14,7 @@ import moe.matsuri.nb4a.utils.listByLineOrComma
 
 // Xray-core 已移除单独的 h2（带 TLS 的 "http"）与 quic 传输：固定版本对这类配置报「The feature HTTP transport
 // … has been removed」/「The feature QUIC transport … has been removed」。sing-box 仍实现两者，这类节点只能
-// 跑在 sing-box 上，选核（coreForType）据此不选 Xray
+// 跑在 sing-box 上，选核（coreForType）据此不选 Xray。VMess / VLESS / Trojan 共用
 fun StandardV2RayBean.xrayLacksTransport(): Boolean =
     type == "quic" || (type == "http" && isTLS())
 
@@ -146,7 +147,43 @@ fun buildXrayOutbound(
     }
 }
 
-// Xray 不能表达的传输与生效的 allowInsecure：生成前报错
+// Trojan 节点的 Xray 出站（D10），tag 与拨号目标同 VMess / VLESS。settings.servers 只放一项（Xray 只许一个），
+// 不写 flow（Xray 对 Trojan 的 flow 一律报已移除）；传输与 TLS / REALITY 与 VMess / VLESS 共用一套生成。
+// Xray 对每个 Trojan 出站都打一条弃用警告，run -test 的退出码仍是 0，校验照常通过
+fun buildXrayOutbound(
+    bean: TrojanBean,
+    dialAddress: String,
+    dialPort: Int,
+    settings: ExternalCoreSettings,
+): LinkedHashMap<String, Any?> {
+    requireXrayStream(bean, settings.globalAllowInsecure)
+    // Xray 自己也拒绝空密码，在这里报出来，调用方能带上节点名
+    if (bean.password.isNullOrEmpty()) error("Trojan password is empty")
+
+    return LinkedHashMap<String, Any?>().apply {
+        put("protocol", "trojan")
+        put("settings", LinkedHashMap<String, Any?>().apply {
+            put("servers", ArrayList<Any?>().apply {
+                add(LinkedHashMap<String, Any?>().apply {
+                    put("address", dialAddress)
+                    put("port", dialPort)
+                    put("password", bean.password)
+                })
+            })
+        })
+        put("streamSettings", buildXrayStreamSettings(bean, settings.globalAllowInsecure))
+        // 只有 enableMux 打开 Mux.Cool，写法同 VMess / VLESS。Trojan 没有 packet encoding：trojan:// 链接可能带进
+        // packetEncoding，这里不读，不因它写 xudpConcurrency；Trojan 也没有 vision 流控
+        if (bean.enableMux) {
+            put("mux", LinkedHashMap<String, Any?>().apply {
+                put("enabled", true)
+                put("concurrency", bean.xrayMuxConcurrency())
+            })
+        }
+    }
+}
+
+// Xray 不能表达的传输与生效的 allowInsecure：生成前报错，VMess / VLESS / Trojan 共用
 private fun requireXrayStream(bean: StandardV2RayBean, globalAllowInsecure: Boolean) {
     if (bean.xrayLacksTransport()) {
         error("xray-core no longer supports the ${bean.type} transport, use the sing-box core for this profile")
