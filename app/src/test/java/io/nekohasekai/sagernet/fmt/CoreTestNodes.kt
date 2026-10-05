@@ -33,8 +33,8 @@ object CoreTestNodes {
     data class Node(val type: Int, val core: Int, val bean: AbstractBean, val global: Boolean) {
         fun entity(): ProxyEntity = ProxyEntity(id = 1, groupId = 1, userOrder = 1).putBean(bean).also { it.core = core }
 
-        // 改动不影响原节点
-        fun copy(): Node = Node(type, core, bean.clone(), global)
+        // bean 深拷贝，改动不影响原节点
+        fun cloned(): Node = Node(type, core, bean.clone(), global)
     }
 
     fun node(bean: AbstractBean, core: Int = ProxyEntity.CORE_AUTO, global: Boolean = false): Node {
