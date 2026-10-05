@@ -36,7 +36,7 @@ class ExternalCoreStartupTest {
     // 计划里的跳实例按顺序编号，本机端口从 21000 起；入站支持认证的核心带凭据
     private fun plan(vararg beans: AbstractBean) = ExternalRunPlan(beans.mapIndexed { i, bean ->
         ExternalHop(
-            i, 0, i.toLong() + 1, bean, 21000 + i, LOCALHOST, 30000 + i,
+            i, 0, i.toLong() + 1, bean, 21000 + i, ExternalDialTarget.Mapped(30000 + i),
             localAuth = auth.takeIf { externalCore(bean)!!.inboundAuth },
         )
     })

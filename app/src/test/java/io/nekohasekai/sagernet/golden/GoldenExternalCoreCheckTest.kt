@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.golden
 
+import io.nekohasekai.sagernet.fmt.ExternalDialTarget
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -54,13 +55,13 @@ class GoldenExternalCoreCheckTest {
     }
 
     @Test
-    fun `mihomo 用例带上了运行期字段、测速控制端口与设置`() {
+    fun `mihomo 用例带上了拨号目标、测速控制端口与设置`() {
         val cases = GoldenBaseline.load().externalCases("mihomo-plugin")
         assertTrue(cases.all { it.format == GoldenFormat.YAML })
         val hops = cases.flatMap { it.group.hops }
         assertTrue(hops.all { it.bean is AnyTLSBean })
-        assertTrue(hops.all { it.finalAddress.isNotEmpty() && it.finalPort > 0 })
-        assertTrue(hops.all { it.bean.finalAddress == it.finalAddress && it.bean.finalPort == it.finalPort })
+        // mihomo 的跳实例都经映射（只有 hysteria 1 会免映射），拨号目标是本机的映射端口
+        assertTrue(hops.all { (it.target as? ExternalDialTarget.Mapped)?.port?.let { port -> port > 0 } == true })
         assertTrue(cases.filter { it.mode == GoldenBoxMode.RUN }.all { it.controller == null })
         assertTrue(cases.any { it.mode == GoldenBoxMode.TEST && it.controller != null })
         assertTrue("应当覆盖不同的日志级别", cases.map { it.settings.logLevel }.distinct().size > 1)

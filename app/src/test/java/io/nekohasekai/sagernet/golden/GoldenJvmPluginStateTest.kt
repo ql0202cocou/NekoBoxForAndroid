@@ -5,7 +5,7 @@ import io.nekohasekai.sagernet.fmt.ConfigBuildDiagnostic
 import io.nekohasekai.sagernet.fmt.ConfigBuildMode
 import io.nekohasekai.sagernet.fmt.ExternalRunPlan
 import io.nekohasekai.sagernet.fmt.FakeConfigPlatform
-import io.nekohasekai.sagernet.fmt.LOCALHOST
+import io.nekohasekai.sagernet.fmt.ExternalDialTarget
 import io.nekohasekai.sagernet.fmt.LocalSocksAuth
 import io.nekohasekai.sagernet.fmt.ProfileBuildException
 import io.nekohasekai.sagernet.fmt.TAG_PROXY
@@ -83,13 +83,11 @@ class GoldenJvmPluginStateTest {
         // 免映射）与 faketcp（不能映射）直接拨服务器
         val hops = ExternalRunPlan.from(result).hops
         assertEquals(listOf(2L, 3L, 4L, 5L, 6L), hops.map { it.profileId })
-        val input = baseline.input("selector-plugin-members")
         for (hop in hops) {
-            val server = input.newBean(hop.profileId)
             if (hop.profileId in 2L..4L) {
-                assertEquals("节点 ${hop.profileId}", LOCALHOST, hop.finalAddress)
+                assertTrue("节点 ${hop.profileId}", hop.target is ExternalDialTarget.Mapped)
             } else {
-                assertEquals("节点 ${hop.profileId}", server.serverAddress to server.serverPort, hop.finalAddress to hop.finalPort)
+                assertEquals("节点 ${hop.profileId}", ExternalDialTarget.Direct, hop.target)
             }
         }
     }
@@ -107,11 +105,10 @@ class GoldenJvmPluginStateTest {
         assertEquals(emptyList<ConfigBuildDiagnostic>(), diagnostics)
         // 主节点不预检：只有 mapExternalHop 查一次外部插件 app
         assertEquals(listOf("pluginExternalAuthority(hysteria-plugin)"), platform.pluginQueries)
-        // 免映射：映射目标是服务器本身，sing-box 里没有这一跳的映射入站
+        // 免映射：外核直接拨服务器，sing-box 里没有这一跳的映射入站
         val hop = ExternalRunPlan.from(result).hops.single()
-        val server = baseline.input("chain-hy1-wechat-first").newBean(3)
         assertEquals(3L, hop.profileId)
-        assertEquals(server.serverAddress to server.serverPort, hop.finalAddress to hop.finalPort)
+        assertEquals(ExternalDialTarget.Direct, hop.target)
         val inbounds = JsonParser.parseString(result.config).asJsonObject.getAsJsonArray("inbounds")
             .map { it.asJsonObject["tag"].asString }
         assertTrue("不该有映射入站：$inbounds", inbounds.none { it.contains("-mapping-") })

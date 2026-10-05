@@ -67,18 +67,18 @@ fun buildMihomoConfig(
     return Yaml().dump(config)
 }
 
-// mihomo 配置里一个跳实例的代理（name 由 buildMihomoConfig 写入）：拨向 finalAddress:finalPort，
+// mihomo 配置里一个跳实例的代理（name 由 buildMihomoConfig 写入）：拨向 dialAddress:dialPort（跳实例的拨号目标），
 // 其余与 K0 之前的单节点配置相同，节点本身的校验也在这里报错
 fun buildMihomoProxy(
     bean: AnyTLSBean,
-    finalAddress: String,
-    finalPort: Int,
+    dialAddress: String,
+    dialPort: Int,
     settings: ExternalCoreSettings,
 ): LinkedHashMap<String, Any?> {
     val proxy = LinkedHashMap<String, Any?>()
     proxy["type"] = "anytls"
-    proxy["server"] = finalAddress
-    proxy["port"] = finalPort
+    proxy["server"] = dialAddress
+    proxy["port"] = dialPort
     proxy["password"] = bean.password
     proxy["udp"] = true
     // 经 mapping 外核只能拨到本地地址，TLS SNI 需要显式兜底；

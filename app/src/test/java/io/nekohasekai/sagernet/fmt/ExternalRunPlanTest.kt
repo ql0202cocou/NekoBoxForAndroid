@@ -2,7 +2,6 @@ package io.nekohasekai.sagernet.fmt
 
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
-import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.fmt.mieru.MieruBean
 import io.nekohasekai.sagernet.fmt.naive.NaiveBean
@@ -105,25 +104,27 @@ class ExternalRunPlanTest {
     // 一个计划的本机 socks 凭据（固定种子，可复现）
     private val auth = LocalSocksAuth.generate(Random(1))
 
-    // 按顺序编号建计划；映射目标默认是本机的映射端口（经映射的链成员），bean 的运行期字段同步写好。
+    // 按顺序编号建计划；mappingPort 是经映射时本机映射入站的端口，null 表示不映射（外核直接拨服务器）。
     // 与 ExternalRunPlan.from 一样，入站支持认证的核心的跳实例带凭据
     private class Spec(
         val bean: AbstractBean,
         val localPort: Int,
-        val finalPort: Int,
+        val mappingPort: Int?,
         val chainIndex: Int = 0,
         val profileId: Long = localPort.toLong(),
-        val finalAddress: String = LOCALHOST,
-    )
+    ) {
+        val target: ExternalDialTarget get() = mappingPort?.let { ExternalDialTarget.Mapped(it) } ?: ExternalDialTarget.Direct
+    }
 
     private fun hop(i: Int, spec: Spec) = ExternalHop(
-        i, spec.chainIndex, spec.profileId, spec.bean, spec.localPort, spec.finalAddress, spec.finalPort,
+        i, spec.chainIndex, spec.profileId, spec.bean, spec.localPort, spec.target,
         localAuth = auth.takeIf { externalCore(spec.bean)!!.inboundAuth },
     )
 
     private fun plan(vararg specs: Spec) = ExternalRunPlan(specs.mapIndexed { i, spec ->
-        spec.bean.finalAddress = spec.finalAddress
-        spec.bean.finalPort = spec.finalPort
+        // 过渡：插件核心的生成器仍从 bean 读这两个字段，下一个提交移除
+        spec.bean.finalAddress = spec.target.dialAddress(spec.bean)
+        spec.bean.finalPort = spec.target.dialPort(spec.bean)
         hop(i, spec)
     })
 
@@ -192,7 +193,7 @@ class ExternalRunPlanTest {
     @Test
     fun `一组一个跳实例：Xray 入站、规则、出站一一绑定`() {
         val bean = vless("solo", "xray.example.com")
-        val plan = plan(Spec(bean, localPort = 21000, finalPort = 31000))
+        val plan = plan(Spec(bean, localPort = 21000, mappingPort = 31000))
         val config = json(plan.configs().single())
 
         assertEquals(mapOf(21000 to (LOCALHOST to 31000)), checkXray(config))
@@ -212,7 +213,7 @@ class ExternalRunPlanTest {
             Spec(anytls("m", "m.example.com"), 21001, 31001, chainIndex = 0),
             Spec(vmessWs("b", "b.example.com"), 21002, 31002, chainIndex = 1),
             // 首跳不经映射：外核直接拨服务器
-            Spec(vless("c", "c.example.com"), 21003, 443, chainIndex = 2, finalAddress = "c.example.com"),
+            Spec(vless("c", "c.example.com"), 21003, null, chainIndex = 2),
         )
         val processes = plan.assemble(::noCacheFile, null, settings)
         assertEquals(listOf("xray-plugin", "mihomo-plugin"), processes.map { it.group.pluginId })
@@ -286,7 +287,7 @@ class ExternalRunPlanTest {
             Spec(anytls("a", "a.example.com"), 25000, 35000),
             Spec(vless("x", "x.example.com"), 25001, 35001),
             Spec(anytls("b", "b.example.com"), 25002, 35002, chainIndex = 1),
-            Spec(anytls("c", "c.example.com"), 25003, 8443, chainIndex = 2, finalAddress = "c.example.com"),
+            Spec(anytls("c", "c.example.com"), 25003, null, chainIndex = 2),
         )
         val processes = plan.assemble(::noCacheFile, null, settings)
         assertEquals(listOf("mihomo-plugin", "xray-plugin"), processes.map { it.group.pluginId })
@@ -382,10 +383,10 @@ class ExternalRunPlanTest {
         assertTrue(e.message!!, "share local port 21000" in e.message!!)
         val bean = vless("a", "a.example.com")
         assertThrows(IllegalArgumentException::class.java) {
-            ExternalRunPlan(listOf(ExternalHop(1, 0, 1L, bean, 21000, LOCALHOST, 31000)))
+            ExternalRunPlan(listOf(ExternalHop(1, 0, 1L, bean, 21000, ExternalDialTarget.Mapped(31000))))
         }
         assertThrows(IllegalArgumentException::class.java) {
-            ExternalRunPlan(listOf(ExternalHop(0, 0, 1L, bean, 0, LOCALHOST, 31000)))
+            ExternalRunPlan(listOf(ExternalHop(0, 0, 1L, bean, 0, ExternalDialTarget.Mapped(31000))))
         }
     }
 
@@ -395,38 +396,41 @@ class ExternalRunPlanTest {
         val entry = buildXrayOutbound(bean, LOCALHOST, 31000, settings)
         // 不经计划直接拼出两个序号相同的跳实例
         val twins = listOf(
-            ExternalHop(0, 0, 1L, bean, 21000, LOCALHOST, 31000, localAuth = auth),
-            ExternalHop(0, 1, 1L, bean, 21001, LOCALHOST, 31001, localAuth = auth),
+            ExternalHop(0, 0, 1L, bean, 21000, ExternalDialTarget.Mapped(31000), localAuth = auth),
+            ExternalHop(0, 1, 1L, bean, 21001, ExternalDialTarget.Mapped(31001), localAuth = auth),
         )
         assertThrows(IllegalStateException::class.java) { buildXrayConfig(twins, listOf(entry, entry), settings) }
         val samePort = listOf(
-            ExternalHop(0, 0, 1L, bean, 21000, LOCALHOST, 31000, localAuth = auth),
-            ExternalHop(1, 1, 1L, bean, 21000, LOCALHOST, 31001, localAuth = auth),
+            ExternalHop(0, 0, 1L, bean, 21000, ExternalDialTarget.Mapped(31000), localAuth = auth),
+            ExternalHop(1, 1, 1L, bean, 21000, ExternalDialTarget.Mapped(31001), localAuth = auth),
         )
         assertThrows(IllegalStateException::class.java) { buildXrayConfig(samePort, listOf(entry, entry), settings) }
     }
 
     // ---- 本机 socks 认证（plan.md K0b）
 
-    private fun entity(id: Long, bean: AbstractBean) = ProxyEntity(id = id).putBean(bean)
-
-    // 手工构造的构建结果：每条链是「本机端口 → 节点」，bean 已写好映射目标
-    private fun buildResult(localAuth: LocalSocksAuth?, vararg chains: Map<Int, ProxyEntity>) = ConfigBuildResult(
-        "{}", chains.map { ConfigBuildResult.IndexEntity(LinkedHashMap(it)) }, 1L, emptyMap(), emptyMap(), -1L,
-        localAuth = localAuth,
-    )
-
-    private fun mapped(bean: AbstractBean, port: Int) = bean.apply {
-        finalAddress = LOCALHOST
-        finalPort = port
+    // 构建登记的一个外核节点：凭据按核心的声明取 localAuth（与构建一样，入站不认证的核心不带）
+    private fun record(id: Long, bean: AbstractBean, localPort: Int, mappingPort: Int, localAuth: LocalSocksAuth?): ExternalHopRecord {
+        val core = externalCore(bean)
+        // 过渡：插件核心的生成器仍从 bean 读这两个字段，下一个提交移除
+        bean.finalAddress = LOCALHOST
+        bean.finalPort = mappingPort
+        return ExternalHopRecord(
+            id, bean, core, localPort, ExternalDialTarget.Mapped(mappingPort), localAuth.takeIf { core?.inboundAuth == true },
+        )
     }
+
+    // 手工构造的构建结果：每条链是构建登记的外核节点
+    private fun buildResult(localAuth: LocalSocksAuth?, vararg chains: List<ExternalHopRecord>) = ConfigBuildResult(
+        "{}", chains.map { ExternalChainRecord(it) }, 1L, emptyMap(), emptyMap(), -1L, localAuth = localAuth,
+    )
 
     @Test
     fun `计划从构建结果取凭据：合并核心的跳实例共用同一组，插件核心的没有`() {
         val result = buildResult(
             auth,
-            mapOf(21000 to entity(1, mapped(vless("x", "x.example.com"), 31000)), 21001 to entity(2, mapped(trojanGo("t"), 31001))),
-            mapOf(21002 to entity(3, mapped(anytls("m", "m.example.com"), 31002)), 21003 to entity(4, mapped(naive("n"), 31003))),
+            listOf(record(1, vless("x", "x.example.com"), 21000, 31000, auth), record(2, trojanGo("t"), 21001, 31001, auth)),
+            listOf(record(3, anytls("m", "m.example.com"), 21002, 31002, auth), record(4, naive("n"), 21003, 31003, auth)),
         )
         val plan = ExternalRunPlan.from(result)
         assertEquals(listOf("xray-plugin", "trojan-go-plugin", "mihomo-plugin", "naive-plugin"), plan.hops.map { it.pluginId })
@@ -450,12 +454,12 @@ class ExternalRunPlanTest {
     fun `核心需要认证而构建结果里没有凭据时建计划即抛错`() {
         val result = buildResult(
             null,
-            mapOf(21000 to entity(1, mapped(trojanGo("t"), 31000)), 21001 to entity(2, mapped(anytls("m", "m.example.com"), 31001))),
+            listOf(record(1, trojanGo("t"), 21000, 31000, null), record(2, anytls("m", "m.example.com"), 21001, 31001, null)),
         )
         val e = assertThrows(IllegalStateException::class.java) { ExternalRunPlan.from(result) }
         assertTrue(e.message!!, "external hop 1 (mihomo-plugin) needs local socks credentials" in e.message!!)
         // 只有插件核心时不需要凭据
-        val plugins = buildResult(null, mapOf(21000 to entity(1, mapped(trojanGo("t"), 31000))))
+        val plugins = buildResult(null, listOf(record(1, trojanGo("t"), 21000, 31000, null)))
         assertNull(ExternalRunPlan.from(plugins).hops.single().localAuth)
     }
 
@@ -463,16 +467,16 @@ class ExternalRunPlanTest {
     fun `插件核心的跳实例带凭据、或一个计划里有两组凭据时拒绝`() {
         val other = LocalSocksAuth.generate(Random(2))
         assertThrows(IllegalStateException::class.java) {
-            ExternalRunPlan(listOf(ExternalHop(0, 0, 1L, mapped(trojanGo("t"), 31000), 21000, LOCALHOST, 31000, localAuth = auth)))
+            ExternalRunPlan(listOf(ExternalHop(0, 0, 1L, trojanGo("t"), 21000, ExternalDialTarget.Mapped(31000), localAuth = auth)))
         }
         assertThrows(IllegalStateException::class.java) {
-            ExternalRunPlan(listOf(ExternalHop(0, 0, 1L, mapped(vless("x", "x.example.com"), 31000), 21000, LOCALHOST, 31000)))
+            ExternalRunPlan(listOf(ExternalHop(0, 0, 1L, vless("x", "x.example.com"), 21000, ExternalDialTarget.Mapped(31000))))
         }
         val e = assertThrows(IllegalStateException::class.java) {
             ExternalRunPlan(
                 listOf(
-                    ExternalHop(0, 0, 1L, mapped(vless("x", "x.example.com"), 31000), 21000, LOCALHOST, 31000, localAuth = auth),
-                    ExternalHop(1, 0, 2L, mapped(anytls("m", "m.example.com"), 31001), 21001, LOCALHOST, 31001, localAuth = other),
+                    ExternalHop(0, 0, 1L, vless("x", "x.example.com"), 21000, ExternalDialTarget.Mapped(31000), localAuth = auth),
+                    ExternalHop(1, 0, 2L, anytls("m", "m.example.com"), 21001, ExternalDialTarget.Mapped(31001), localAuth = other),
                 )
             )
         }
@@ -487,15 +491,15 @@ class ExternalRunPlanTest {
         val xray = vless("x", "x.example.com")
         val mihomo = anytls("m", "m.example.com")
         val xrayHops = listOf(
-            ExternalHop(0, 0, 1L, xray, 21000, LOCALHOST, 31000, localAuth = auth),
-            ExternalHop(1, 0, 2L, xray, 21001, LOCALHOST, 31001),
+            ExternalHop(0, 0, 1L, xray, 21000, ExternalDialTarget.Mapped(31000), localAuth = auth),
+            ExternalHop(1, 0, 2L, xray, 21001, ExternalDialTarget.Mapped(31001)),
         )
         val xrayEntry = buildXrayOutbound(xray, LOCALHOST, 31000, settings)
         val e = assertThrows(IllegalStateException::class.java) {
             buildXrayConfig(xrayHops, listOf(xrayEntry, xrayEntry), settings)
         }
         assertEquals("external hop 1 (xray-plugin) has no local socks credentials", e.message)
-        val mihomoHop = ExternalHop(0, 0, 1L, mihomo, 21000, LOCALHOST, 31000)
+        val mihomoHop = ExternalHop(0, 0, 1L, mihomo, 21000, ExternalDialTarget.Mapped(31000))
         assertThrows(IllegalStateException::class.java) {
             buildMihomoConfig(listOf(mihomoHop), listOf(buildMihomoProxy(mihomo, LOCALHOST, 31000, settings)), settings)
         }

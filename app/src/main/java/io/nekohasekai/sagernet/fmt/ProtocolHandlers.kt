@@ -704,7 +704,9 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
     // buildConfig 只合成，不读 bean
     is VMessBean -> ExternalCore.Merged(
         "xray-plugin",
-        buildEntry = { settings, hop -> buildXrayOutbound(bean, hop.finalAddress, hop.finalPort, settings) },
+        buildEntry = { settings, hop ->
+            buildXrayOutbound(bean, hop.target.dialAddress(bean).orEmpty(), hop.target.dialPort(bean), settings)
+        },
         buildConfig = { settings, hops, outbounds, _ -> buildXrayConfig(hops, outbounds, settings) },
         buildLaunch = { _, pluginPath, config, writeCacheFile ->
             val configFile = writeCacheFile("xray", "json", config)
@@ -721,7 +723,9 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
 
     is AnyTLSBean -> ExternalCore.Merged(
         "mihomo-plugin",
-        buildEntry = { settings, hop -> buildMihomoProxy(bean, hop.finalAddress, hop.finalPort, settings) },
+        buildEntry = { settings, hop ->
+            buildMihomoProxy(bean, hop.target.dialAddress(bean).orEmpty(), hop.target.dialPort(bean), settings)
+        },
         buildConfig = { settings, hops, proxies, controller ->
             buildMihomoConfig(hops, proxies, settings, controller?.first, controller?.second ?: "")
         },

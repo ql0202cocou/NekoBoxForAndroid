@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.golden
 import io.nekohasekai.sagernet.fmt.ConfigBuildMode
 import io.nekohasekai.sagernet.fmt.ConfigBuildResult
 import io.nekohasekai.sagernet.fmt.ConfigInput
+import io.nekohasekai.sagernet.fmt.ExternalDialTarget
 import io.nekohasekai.sagernet.fmt.ExternalRunPlan
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.fmt.LocalSocksAuth
@@ -31,9 +32,9 @@ class GoldenJvmIsolationTest {
     // 同样的平台（端口从头分配）与凭据种子，同一份输入构建出的结果逐字相同
     private fun build(input: ConfigInput): ConfigBuildResult = buildConfig(input) { LocalSocksAuth.generate(Random(7)) }
 
-    // 结果里可比较的部分：配置原文、外核跳实例（端口与映射目标）、流量与选择器的映射（按节点 id）
+    // 结果里可比较的部分：配置原文、外核跳实例（端口与拨号目标）、流量与选择器的映射（按节点 id）
     private fun ConfigBuildResult.fingerprint(): String {
-        val hops = ExternalRunPlan.from(this).hops.map { "${it.profileId}@${it.localPort}->${it.finalAddress}:${it.finalPort}" }
+        val hops = ExternalRunPlan.from(this).hops.map { "${it.profileId}@${it.localPort}->${it.target}" }
         val traffic = trafficMap.entries.sortedBy { it.key }.map { (tag, list) -> "$tag=${list.map { it.id }}" }
         return listOf(config, hops, traffic, profileTagMap.toSortedMap(), selectorGroupId, diagnostics).joinToString("\n")
     }
@@ -76,7 +77,7 @@ class GoldenJvmIsolationTest {
         val result = build(scenario.configInput(ConfigBuildMode.RUN, main, source, scenario.platform(tmp.newFolder())))
 
         val hop = ExternalRunPlan.from(result).hops.single()
-        assertEquals("映射写在构建自己的拷贝上", LOCALHOST, hop.finalAddress)
+        assertTrue("最先拨号的一跳经映射", hop.target is ExternalDialTarget.Mapped)
         assertEquals(before, Triple(bean.serverAddress, bean.finalAddress, bean.finalPort))
         // 构建结果里的主节点是拷贝，不是调用方的对象
         assertNotSame(main, result.trafficMap.getValue(TAG_PROXY).single())

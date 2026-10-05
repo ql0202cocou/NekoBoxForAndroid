@@ -11,8 +11,10 @@ import io.nekohasekai.sagernet.fmt.ConfigBuildMode
 import io.nekohasekai.sagernet.fmt.ConfigSettings
 import io.nekohasekai.sagernet.fmt.ExternalCoreGroup
 import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
+import io.nekohasekai.sagernet.fmt.ExternalDialTarget
 import io.nekohasekai.sagernet.fmt.ExternalHop
 import io.nekohasekai.sagernet.fmt.ExternalRunPlan
+import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.fmt.LocalSocksAuth
 import io.nekohasekai.sagernet.fmt.MemoryConfigDataSource
 import io.nekohasekai.sagernet.fmt.needsClashApiSecret
@@ -43,7 +45,7 @@ class GoldenExternalCase(
     val file: String,
     val groupIndex: Int,
     val pluginId: String,
-    /** 跳实例的 bean 由 input.json 的 Kryo 字节新建，已写好 finalAddress / finalPort；用例之间不共享。 */
+    /** 跳实例的 bean 由 input.json 的 Kryo 字节新建，拨号目标按记录还原；用例之间不共享。 */
     val plan: ExternalRunPlan,
     /** 测速时 mihomo 的 Clash API 端口与 secret，其余情况为 null。 */
     val controller: Pair<Int, String>?,
@@ -292,21 +294,29 @@ class GoldenBaseline private constructor(val root: File) {
             )
         }
 
-    // 按 result.json 重建这个模式的完整计划：跳实例按 index 排好，bean 从 input.json 新建并写回映射目标
-    // （插件核心的生成器从 bean 读 finalAddress / finalPort），本机 socks 凭据用记录的值（计划自己检查哪些核心
-    // 必须有、一个计划只有一组）。计划自己分出的组必须与记录的一致
+    // 按 result.json 重建这个模式的完整计划：跳实例按 index 排好，bean 从 input.json 新建，拨号目标按记录的
+    // finalAddress / finalPort 还原（本机地址是经映射，端口即映射端口；其余是不映射，记录的必须正是节点的
+    // serverAddress 与 serverPort），本机 socks 凭据用记录的值（计划自己检查哪些核心必须有、一个计划只有一组）。
+    // 计划自己分出的组必须与记录的一致
     private fun rebuildPlan(input: GoldenScenarioInput, groups: List<GoldenExternalGroup>, where: String): ExternalRunPlan {
         val hops = groups.flatMap { it.hops }.sortedBy { it.index }
         check(hops.map { it.index } == hops.indices.toList()) { "$where：跳实例序号 ${hops.map { it.index }} 不连续" }
         val plan = ExternalRunPlan(hops.map { hop ->
-            val bean = input.newBean(hop.profileId).apply {
-                finalAddress = hop.finalAddress
-                finalPort = hop.finalPort
+            val bean = input.newBean(hop.profileId)
+            // 服务器地址本身就是本机时分不清是否经映射（记录的两个值可能相同）：基线里不该有这样的节点
+            check(bean.serverAddress != LOCALHOST) { "$where：跳实例 ${hop.index} 的服务器地址是本机，分不清是否经映射" }
+            val target = if (hop.finalAddress == LOCALHOST) {
+                ExternalDialTarget.Mapped(hop.finalPort)
+            } else {
+                check(hop.finalAddress == bean.serverAddress && hop.finalPort == bean.serverPort) {
+                    "$where：跳实例 ${hop.index} 不映射，记录的 ${hop.finalAddress}:${hop.finalPort} 却不是节点的服务器"
+                }
+                ExternalDialTarget.Direct
             }
-            ExternalHop(
-                hop.index, hop.chainIndex, hop.profileId, bean, hop.port, hop.finalAddress, hop.finalPort,
-                localAuth = hop.localAuth,
-            )
+            // 过渡：插件核心的生成器仍从 bean 读这两个字段，下一个提交移除
+            bean.finalAddress = hop.finalAddress
+            bean.finalPort = hop.finalPort
+            ExternalHop(hop.index, hop.chainIndex, hop.profileId, bean, hop.port, target, localAuth = hop.localAuth)
         })
         val planned = plan.groups.map { group -> group.pluginId to group.hops.map { it.index } }
         val recorded = groups.map { group -> group.pluginId to group.hops.map { it.index } }

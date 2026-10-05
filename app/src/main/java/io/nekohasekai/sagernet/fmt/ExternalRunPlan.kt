@@ -5,27 +5,78 @@ import io.nekohasekai.sagernet.database.ProxyGroup
 import java.io.File
 
 // 外核运行计划（plan.md K0 做法 1）：一次构建里全部的外核跳实例，以及它们按核心分成的组。
-// 计划从构建结果得到（externalIndex 加上构建时写进 bean 的 finalAddress / finalPort，以及本机 socks 凭据），
-// 不改构建过程。
+// 计划只从构建结果里登记的外核跳数据（ConfigBuildResult.externalChains）得到，不读 bean 上的任何可变状态。
 // 运行（BoxInstance）、测速（TestInstance）、导出（ProxyEntity.exportConfig）都经 assemble 从计划生成
 // 外核配置，ConfigBuild.precheck 也经它试生成单个节点。只用纯 Kotlin 类型，JVM 单测可以手工构造
 
+/** 外核跳实例的拨号目标：外核自己的出站连到哪里。 */
+sealed interface ExternalDialTarget {
+    /**
+     * 经映射：外核拨本机 [LOCALHOST] 上 sing-box 的映射入站（port），sing-box 再从这个入站以已 protect 的
+     * socket 连服务器。
+     */
+    data class Mapped(val port: Int) : ExternalDialTarget
+
+    /**
+     * 不映射：外核自己拨节点的服务器（hysteria 1 走 Matsuri exe 插件时最先拨号的一跳、不能映射的节点、预检的
+     * 试生成）。地址端口怎么取由各生成器按协议决定，hysteria 1 按 serverPorts 拨号。
+     */
+    data object Direct : ExternalDialTarget
+}
+
+/**
+ * 按节点 serverPort 拨号的核心（Xray、mihomo、Trojan-Go、Mieru、Naive）连的地址：经映射时是本机，不映射时是节点的
+ * 服务器地址。
+ */
+fun ExternalDialTarget.dialAddress(bean: AbstractBean): String? = when (this) {
+    is ExternalDialTarget.Mapped -> LOCALHOST
+    ExternalDialTarget.Direct -> bean.serverAddress
+}
+
+/**
+ * 同 [dialAddress] 的端口：经映射时是映射入站的端口，不映射时是节点的 serverPort。hysteria 1 不映射时按
+ * serverPorts 拨号，这个值对它没有意义（只用于黄金基线的 finalPort 记录）。
+ */
+fun ExternalDialTarget.dialPort(bean: AbstractBean): Int = when (this) {
+    is ExternalDialTarget.Mapped -> port
+    ExternalDialTarget.Direct -> bean.serverPort
+}
+
+/**
+ * 构建登记的一个走外核（needExternal）的节点：sing-box 一侧的 socks 出站连 localPort，带 localAuth（核心的入站
+ * 不认证时为 null）；target 是外核自己的拨号目标。core 为 null 的节点（NekoBean）没有外核条目，计划跳过它，
+ * 但它照样让导出的文件名成为 profiles.txt（见 [exportConfigText]）。bean 是构建自己的拷贝，构建不改写它。
+ */
+class ExternalHopRecord(
+    val profileId: Long,
+    val bean: AbstractBean,
+    val core: ExternalCore?,
+    val localPort: Int,
+    val target: ExternalDialTarget,
+    val localAuth: LocalSocksAuth?,
+)
+
+/**
+ * 构建登记的一条链（buildChain 每调用一次一条，按调用顺序）：hops 是链上走外核的节点，按 buildHop 的顺序；
+ * 没有外核节点的链也有一条，hops 为空，它照样占一个链序号。
+ */
+class ExternalChainRecord(val hops: List<ExternalHopRecord>)
+
 /**
  * 一个外核跳实例：某条链上一个走外核的节点。同一个节点出现在不同链里是不同的跳实例，
- * 各有各的本机端口与映射目标，不能按节点 id 合并。
+ * 各有各的本机端口与拨号目标，不能按节点 id 合并。
  */
 class ExternalHop(
-    /** 计划内序号：按 externalIndex 的遍历顺序从 0 起；配置里的标识由它生成。 */
+    /** 计划内序号：按 externalChains 的遍历顺序从 0 起；配置里的标识由它生成。 */
     val index: Int,
-    /** 所在链在 externalIndex 里的序号。 */
+    /** 所在链在 externalChains 里的序号。 */
     val chainIndex: Int,
     val profileId: Long,
     val bean: AbstractBean,
     /** sing-box 的 socks 出站连到的本机端口，外核在这里开 socks 入站。 */
     val localPort: Int,
-    /** 外核出站拨向的地址端口（映射目标）：经映射时是本机与映射入站的端口，否则是服务器本身。 */
-    val finalAddress: String,
-    val finalPort: Int,
+    /** 外核出站的拨号目标：经映射时拨本机的映射入站，不映射时自己拨服务器。 */
+    val target: ExternalDialTarget,
     val core: ExternalCore = requireNotNull(externalCore(bean)) {
         "${bean.javaClass.simpleName} does not run on an external core"
     },
@@ -94,20 +145,18 @@ class ExternalRunPlan(val hops: List<ExternalHop>) {
 
     companion object {
         /**
-         * 从构建结果得到计划：按 externalIndex 的顺序（链的顺序，链内按 buildHop 登记的顺序），映射目标取构建时
-         * 写进 bean 的 finalAddress / finalPort，入站支持认证的核心的跳实例取构建结果的本机 socks 凭据
-         * （与 sing-box 一侧的 socks 出站同一个值；构建结果里没有时建计划即抛错）。没有外核条目的节点
-         * （NekoBean）跳过，与以前一致。
+         * 从构建结果得到计划：按 externalChains 的顺序（链的顺序，链内按 buildHop 登记的顺序），本机端口、拨号目标与
+         * 本机 socks 凭据都取构建登记的值（凭据与 sing-box 一侧的 socks 出站同一个；核心要认证而登记里没有时
+         * 建计划即抛错）。没有外核条目的节点（NekoBean）跳过、不占序号，与以前一致。
          */
         fun from(result: ConfigBuildResult): ExternalRunPlan {
             val hops = ArrayList<ExternalHop>()
-            result.externalIndex.forEachIndexed { chainIndex, entry ->
-                for ((port, profile) in entry.chain) {
-                    val bean = profile.requireBean()
-                    val core = externalCore(bean) ?: continue
+            result.externalChains.forEachIndexed { chainIndex, chain ->
+                for (record in chain.hops) {
+                    val core = record.core ?: continue
                     hops += ExternalHop(
-                        hops.size, chainIndex, profile.id, bean, port, bean.finalAddress, bean.finalPort, core,
-                        result.localAuth.takeIf { core.inboundAuth },
+                        hops.size, chainIndex, record.profileId, record.bean, record.localPort, record.target, core,
+                        record.localAuth,
                     )
                 }
             }
@@ -169,15 +218,15 @@ fun ExternalRunPlan.assemble(
 /**
  * 导出的文本与文件名（ProxyEntity.exportConfig）：sing-box 配置后面按组的顺序接上各外核配置，段间一个空行。
  * 外核配置经运行、测速共用的组装入口生成，本机 socks 凭据是这次导出构建生成的（两侧同一组），设置用构建时采集的
- * 那份。有外核条目时文件名是 profiles.txt，否则是「profileName.json」。cacheFile 分配外核配置引用的临时文件
- * （hysteria 1 的 CA）；文件由调用方删除，组装中途抛异常时也要删掉已分配的。
+ * 那份。构建登记过走外核的节点（含没有外核条目的 NekoBean）时文件名是 profiles.txt，否则是「profileName.json」。
+ * cacheFile 分配外核配置引用的临时文件（hysteria 1 的 CA）；文件由调用方删除，组装中途抛异常时也要删掉已分配的。
  */
 fun exportConfigText(
     config: ConfigBuildResult,
     profileName: String,
     cacheFile: (String, String) -> File,
 ): Pair<String, String> {
-    val name = if (config.externalIndex.all { it.chain.isEmpty() }) "$profileName.json" else "profiles.txt"
+    val name = if (config.externalChains.all { it.hops.isEmpty() }) "$profileName.json" else "profiles.txt"
     val text = StringBuilder(config.config)
     val plan = ExternalRunPlan.from(config)
     if (plan.hops.isNotEmpty()) {

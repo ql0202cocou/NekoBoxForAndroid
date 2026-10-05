@@ -6,7 +6,6 @@ import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_CONFIG
 import io.nekohasekai.sagernet.database.RuleEntity
 import io.nekohasekai.sagernet.database.SagerDatabase
-import io.nekohasekai.sagernet.fmt.ConfigBuildResult.IndexEntity
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.fmt.internal.ChainBean
 import io.nekohasekai.sagernet.ktx.isIpAddress
@@ -105,7 +104,8 @@ private fun makeDnsServer(address: String, tag: String, parseNumeric: (String) -
 
 class ConfigBuildResult(
     var config: String,
-    var externalIndex: List<IndexEntity>,
+    // 构建登记的每条链上走外核的节点与它们的运行时数据，外核运行计划只从这里得到（ExternalRunPlan.from）
+    val externalChains: List<ExternalChainRecord>,
     var mainEntId: Long,
     var trafficMap: Map<String, List<ProxyEntity>>,
     var profileTagMap: Map<Long, String>,
@@ -123,8 +123,6 @@ class ConfigBuildResult(
     // 完整配置节点不采集设置，为 null，它也没有外核跳实例
     val externalCoreSettings: ExternalCoreSettings? = null,
 ) {
-    data class IndexEntity(var chain: LinkedHashMap<Int, ProxyEntity>)
-
     // 组装与启动外核用的设置；只在有外核跳实例时调用（那时一定有）
     fun requireExternalCoreSettings(): ExternalCoreSettings =
         checkNotNull(externalCoreSettings) { "this config build captured no external core settings" }
@@ -396,7 +394,7 @@ private class ConfigBuild(
     val enableDnsRouting = settings.enableDnsRouting
     val useFakeDns = settings.enableFakeDns && !forTest
     val needSniff = settings.trafficSniffing > 0
-    val externalIndexMap = ArrayList<IndexEntity>()
+    val externalChains = ArrayList<ExternalChainRecord>()
     // 本次构建的本机 socks 凭据，第一个需要它的跳实例处生成，之后共用；见 ConfigBuildResult.localAuth
     var localAuth: LocalSocksAuth? = null
     // 每个节点出站 / 端点的 tag -> 节点名，build() 末尾按最终配置换算成 boxIndexNames
@@ -444,7 +442,7 @@ private class ConfigBuild(
         Util.mergeJSON(configMap, proxy.requireBean().customConfigJson)
         return ConfigBuildResult(
             gson.toJson(configMap),
-            externalIndexMap,
+            externalChains,
             proxy.id,
             trafficMap,
             tagMap,
@@ -558,7 +556,8 @@ private class ConfigBuild(
         val chainTag = "c-$chainId"
         // chainTagOut: v2ray outbound tag for this chain
         var chainTagOut = ""
-        val externalChainMap = LinkedHashMap<Int, ProxyEntity>()
+        // 这条链上走外核的节点，按 buildHop 的顺序登记
+        val externalHops = ArrayList<ExternalHopRecord>()
         var muxApplied = false
         lateinit var pastOutbound: SingBoxOption
         lateinit var pastInboundTag: String
@@ -591,9 +590,10 @@ private class ConfigBuild(
         val chainTrafficList = (profileList + entity).distinctBy { it.id }
 
         val chain = ChainState(chainId, entity, profileList)
-        externalIndexMap.add(IndexEntity(chain.externalChainMap))
 
         profileList.forEachIndexed { index, proxyEntity -> buildHop(chain, index, proxyEntity) }
+        // 每条链登记一条（没有外核节点的也是），序号即链在全部已建链里的序号
+        externalChains.add(ExternalChainRecord(chain.externalHops.toList()))
 
         trafficMap[chain.chainTagOut] = chainTrafficList
         return chain.chainTagOut
@@ -614,9 +614,14 @@ private class ConfigBuild(
 
         val tagOut = linkHop(chain, index, proxyEntity) ?: return
         val currentOutbound = withProfileName(bean) {
-            buildHopOutbound(chain, proxyEntity, bean, tagOut).also {
-                mapExternalHop(chain, index, proxyEntity, bean)
+            val (outbound, socks) = buildHopOutbound(chain, proxyEntity, bean, tagOut)
+            val target = mapExternalHop(chain, index, proxyEntity, bean)
+            if (socks != null) {
+                chain.externalHops += ExternalHopRecord(
+                    proxyEntity.id, bean, externalCore(bean), socks.localPort, target, socks.localAuth,
+                )
             }
+            outbound
         }
 
         hopNames[tagOut] = bean.displayName()
@@ -707,21 +712,28 @@ private class ConfigBuild(
         return tagOut
     }
 
+    // sing-box 连外核的本机 socks 端点：端口与凭据（核心的入站不认证时为 null）
+    private class ExternalSocks(val localPort: Int, val localAuth: LocalSocksAuth?)
+
+    // 这一跳的 sing-box 出站；走外核时另带 sing-box 连外核用的本机端口与凭据，由 buildHop 登记
     private fun MyOptions.buildHopOutbound(
         chain: ChainState, proxyEntity: ProxyEntity, bean: AbstractBean, tagOut: String,
-    ): SingBoxOption {
+    ): Pair<SingBoxOption, ExternalSocks?> {
         requireBuildableHop(proxyEntity, bean)
         val currentOutbound: SingBoxOption
+        var socks: ExternalSocks? = null
         if (proxyEntity.needExternal(globalAllowInsecure)) { // 外部核心出站
             val localPort = platform.newPort()
-            chain.externalChainMap[localPort] = proxyEntity
+            // 外核的入站要求认证时带上本次构建的凭据；外核一侧由运行计划从登记里取同一个值
+            val auth = if (externalCore(bean)?.inboundAuth == true) {
+                localAuth ?: newLocalAuth().also { localAuth = it }
+            } else null
+            socks = ExternalSocks(localPort, auth)
             currentOutbound = Outbound_SocksOptions().apply {
                 type = "socks"
                 server = LOCALHOST
                 server_port = localPort
-                // 外核的入站要求认证时带上本次构建的凭据；外核一侧由运行计划从构建结果取同一个值
-                if (externalCore(bean)?.inboundAuth == true) {
-                    val auth = localAuth ?: newLocalAuth().also { localAuth = it }
+                if (auth != null) {
                     username = auth.username
                     password = auth.password
                 }
@@ -775,18 +787,20 @@ private class ConfigBuild(
 
             _hack_custom_config = bean.customOutboundJson
         }
-        return currentOutbound
+        return currentOutbound to socks
     }
 
+    // 外核节点的拨号目标：外核的流量要经 sing-box 的映射入站出去，才能用已 protect 的 socket；能映射的外核节点
+    // 分一个映射端口、加映射入站，返回 Mapped。不映射的（不能映射的节点、hysteria 1 免映射的最先拨号的一跳）
+    // 以及内部核心节点返回 Direct（内部核心节点的不用）
     private fun MyOptions.mapExternalHop(
         chain: ChainState, index: Int, proxyEntity: ProxyEntity, bean: AbstractBean,
-    ) {
-        // External proxy need a dokodemo-door inbound to forward the traffic
-        // For external proxy software, their traffic must goes to v2ray-core to use protected fd.
+    ): ExternalDialTarget {
+        // 过渡：插件核心的生成器仍从 bean 读这两个字段，下一个提交移除
         bean.finalAddress = bean.serverAddress
         bean.finalPort = bean.serverPort
         if (bean.canMapping() && proxyEntity.needExternal(globalAllowInsecure)) {
-            // With ss protect, don't use mapping
+            // 自带 protect 的插件不用映射
             val needExternal = !(index == chain.profileList.lastIndex && hysteriaSkipsMapping(bean))
             if (needExternal) {
                 val mappingPort = platform.newPort()
@@ -812,8 +826,10 @@ private class ConfigBuild(
                         })
                     }
                 })
+                return ExternalDialTarget.Mapped(mappingPort)
             }
         }
+        return ExternalDialTarget.Direct
     }
 
     // 同一次构建里每个插件的外部插件 app 只查一次（每次查询都是一轮 IPC），查不到的结果也记下
@@ -862,8 +878,7 @@ private class ConfigBuild(
 
     // 选择器成员 / 路由规则目标构建前的只读预检：把 buildChain 会走的检查空跑一遍，
     // 结果全部丢弃。buildChain 抛错时已写入一半的出站、入站与端口，只能事先判断。
-    // 不能写 MyOptions 与本类的构建状态、不能分配端口（platform.newPort），也不能调 mapExternalHop
-    // （它改写 bean.finalAddress）
+    // 不能写 MyOptions 与本类的构建状态，也不能分配端口（platform.newPort），所以不调 mapExternalHop
     private fun precheck(entity: ProxyEntity) {
         val profileList = entity.resolveChain()
         requireBuildableChain(entity, profileList)
@@ -878,12 +893,13 @@ private class ConfigBuild(
                 if (bean.canMapping() && index == profileList.lastIndex) hysteriaSkipsMapping(bean)
                 // NekoBean 没有 ExternalCore，与 BoxInstance.init 一样跳过
                 val core = externalCore(bean) ?: return@withProfileName
-                // 经运行时同一个组装入口，给只有这一个跳实例的计划试生成一次。生成的配置丢弃，端口与凭据只是占位，
-                // 映射目标取 bean 现有的值（预检不能调 mapExternalHop）；hysteria 1 会写 CA 临时文件，用完删掉
+                // 经运行时同一个组装入口，给只有这一个跳实例的计划试生成一次。生成的配置丢弃，端口与凭据只是占位；
+                // 不分配映射端口，拨号目标一律是「不映射、拨服务器本身」（与以前相同，生成器的输出与报错只取决于
+                // 节点本身）。hysteria 1 会写 CA 临时文件，用完删掉
                 val tempFiles = ArrayList<File>()
                 try {
                     val probe = ExternalHop(
-                        0, 0, hop.id, bean, PRECHECK_PORT, bean.finalAddress.orEmpty(), bean.finalPort, core,
+                        0, 0, hop.id, bean, PRECHECK_PORT, ExternalDialTarget.Direct, core,
                         PRECHECK_AUTH.takeIf { core.inboundAuth },
                     )
                     ExternalRunPlan(listOf(probe)).assemble({ prefix, ext ->

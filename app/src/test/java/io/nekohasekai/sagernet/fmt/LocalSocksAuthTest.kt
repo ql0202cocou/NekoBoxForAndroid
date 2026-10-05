@@ -152,9 +152,9 @@ class LocalSocksAuthTest {
         }
         return ExternalRunPlan(
             listOf(
-                ExternalHop(0, 0, 1L, xray, 21000, LOCALHOST, 31000, localAuth = auth),
-                ExternalHop(1, 0, 2L, mihomo, 21001, LOCALHOST, 31001, localAuth = auth),
-                ExternalHop(2, 1, 3L, xray, 21002, LOCALHOST, 31002, localAuth = auth),
+                ExternalHop(0, 0, 1L, xray, 21000, ExternalDialTarget.Mapped(31000), localAuth = auth),
+                ExternalHop(1, 0, 2L, mihomo, 21001, ExternalDialTarget.Mapped(31001), localAuth = auth),
+                ExternalHop(2, 1, 3L, xray, 21002, ExternalDialTarget.Mapped(31002), localAuth = auth),
             )
         )
     }

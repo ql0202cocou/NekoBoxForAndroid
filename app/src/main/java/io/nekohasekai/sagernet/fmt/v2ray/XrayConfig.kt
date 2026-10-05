@@ -91,12 +91,12 @@ fun buildXrayConfig(hops: List<ExternalHop>, outbounds: List<Map<String, Any?>>,
     })
 }
 
-// Xray 配置里一个跳实例的出站（tag 由 buildXrayConfig 写入）：拨向 finalAddress:finalPort，
+// Xray 配置里一个跳实例的出站（tag 由 buildXrayConfig 写入）：拨向 dialAddress:dialPort（跳实例的拨号目标），
 // 其余与 K0 之前的单节点配置相同，节点本身的校验也在这里报错
 fun buildXrayOutbound(
     bean: VMessBean,
-    finalAddress: String,
-    finalPort: Int,
+    dialAddress: String,
+    dialPort: Int,
     settings: ExternalCoreSettings,
 ): LinkedHashMap<String, Any?> {
     if (bean.xrayLacksTransport()) {
@@ -123,8 +123,8 @@ fun buildXrayOutbound(
         put("settings", LinkedHashMap<String, Any?>().apply {
             put("vnext", ArrayList<Any?>().apply {
                 add(LinkedHashMap<String, Any?>().apply {
-                    put("address", finalAddress)
-                    put("port", finalPort)
+                    put("address", dialAddress)
+                    put("port", dialPort)
                     put("users", ArrayList<Any?>().apply { add(user) })
                 })
             })

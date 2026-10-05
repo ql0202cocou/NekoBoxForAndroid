@@ -14,6 +14,8 @@ import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.ExternalCheckResult
 import io.nekohasekai.sagernet.fmt.ExternalCoreGroup
 import io.nekohasekai.sagernet.fmt.LOCALHOST
+import io.nekohasekai.sagernet.fmt.dialAddress
+import io.nekohasekai.sagernet.fmt.dialPort
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.plugin.PluginManager
 import kotlinx.coroutines.runBlocking
@@ -147,8 +149,10 @@ fun runBoxMode(profile: ProxyEntity, forTest: Boolean): ModeOutput {
                         "chainIndex" to hop.chainIndex,
                         "profileId" to hop.profileId,
                         "port" to hop.localPort,
-                        "finalAddress" to hop.finalAddress,
-                        "finalPort" to hop.finalPort,
+                        // 基线格式 v3 的两个键：经映射时是本机与映射端口，不映射时是节点的 serverAddress 与 serverPort
+                        // （hysteria 1 不映射时按 serverPorts 拨号，这里的端口不参与拨号）
+                        "finalAddress" to hop.target.dialAddress(hop.bean),
+                        "finalPort" to hop.target.dialPort(hop.bean),
                         // 插件核心的配置沿用单节点格式，不带标识
                         "inboundTag" to hop.inboundTag.takeIf { group.core.merged },
                         "outboundTag" to hop.outboundTag.takeIf { group.core.merged },

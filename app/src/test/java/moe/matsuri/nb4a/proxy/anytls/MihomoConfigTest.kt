@@ -2,11 +2,14 @@ package moe.matsuri.nb4a.proxy.anytls
 
 import io.nekohasekai.sagernet.IPv6Mode
 import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
+import io.nekohasekai.sagernet.fmt.ExternalDialTarget
 import io.nekohasekai.sagernet.fmt.ExternalHop
 import io.nekohasekai.sagernet.fmt.ExternalRunPlan
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.fmt.LocalSocksAuth
 import io.nekohasekai.sagernet.fmt.assemble
+import io.nekohasekai.sagernet.fmt.dialAddress
+import io.nekohasekai.sagernet.fmt.dialPort
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -37,18 +40,22 @@ class MihomoConfigTest {
 
     private val auth = LocalSocksAuth("u0123456789abcdef", "p0123456789abcdef0123456789abcdef")
 
-    // 映射目标取 bean 的 finalAddress / finalPort，本机 socks 凭据取构建结果的，与 ExternalRunPlan.from 一样
-    private fun hop(bean: AnyTLSBean) =
-        ExternalHop(0, 0, 1L, bean, 20001, bean.finalAddress, bean.finalPort, localAuth = auth)
+    // 拨号目标默认不映射（拨服务器本身），本机 socks 凭据取构建结果的，与 ExternalRunPlan.from 一样
+    private fun hop(bean: AnyTLSBean, target: ExternalDialTarget = ExternalDialTarget.Direct) =
+        ExternalHop(0, 0, 1L, bean, 20001, target, localAuth = auth)
+
+    private fun proxyEntry(bean: AnyTLSBean, target: ExternalDialTarget, settings: ExternalCoreSettings) =
+        buildMihomoProxy(bean, target.dialAddress(bean).orEmpty(), target.dialPort(bean), settings)
 
     private fun config(
         bean: AnyTLSBean,
         settings: ExternalCoreSettings = this.settings,
         controllerPort: Int? = null,
         controllerSecret: String = "",
+        target: ExternalDialTarget = ExternalDialTarget.Direct,
     ) = buildMihomoConfig(
-        listOf(hop(bean)),
-        listOf(buildMihomoProxy(bean, bean.finalAddress, bean.finalPort, settings)),
+        listOf(hop(bean, target)),
+        listOf(proxyEntry(bean, target, settings)),
         settings,
         controllerPort,
         controllerSecret,
@@ -59,7 +66,8 @@ class MihomoConfigTest {
         settings: ExternalCoreSettings = this.settings,
         controllerPort: Int? = null,
         controllerSecret: String = "",
-    ) = parse(config(bean, settings, controllerPort, controllerSecret))
+        target: ExternalDialTarget = ExternalDialTarget.Direct,
+    ) = parse(config(bean, settings, controllerPort, controllerSecret, target))
 
     @Test
     fun `基本结构：本机 socks 入口绑定唯一的 anytls 代理，其余流量拒绝`() {
@@ -100,8 +108,8 @@ class MihomoConfigTest {
         val bean = bean()
         val e = assertThrows(IllegalStateException::class.java) {
             buildMihomoConfig(
-                listOf(ExternalHop(0, 0, 1L, bean, 20001, bean.finalAddress, bean.finalPort)),
-                listOf(buildMihomoProxy(bean, bean.finalAddress, bean.finalPort, settings)),
+                listOf(ExternalHop(0, 0, 1L, bean, 20001, ExternalDialTarget.Direct)),
+                listOf(proxyEntry(bean, ExternalDialTarget.Direct, settings)),
                 settings,
             )
         }
@@ -127,10 +135,7 @@ class MihomoConfigTest {
 
     @Test
     fun `经映射时拨本机映射端口，SNI 兜底为原服务器地址`() {
-        val proxy = build(bean {
-            finalAddress = LOCALHOST
-            finalPort = 30001
-        }).proxy()
+        val proxy = build(target = ExternalDialTarget.Mapped(30001)).proxy()
         assertEquals(LOCALHOST, proxy["server"])
         assertEquals(30001, proxy["port"])
         assertEquals("server.example.test", proxy["sni"])
