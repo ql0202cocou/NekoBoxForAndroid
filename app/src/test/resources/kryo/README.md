@@ -13,8 +13,7 @@
   - `versions`：字节里各层写出的版本号（`AbstractBean` 指 `serialize` 之后的 extraVersion；嵌套的 bean / 订阅也列在内）；
   - `assigned`：生成时旧对象持有的全部字段值（`initializeDefaultValues` 之后再赋样例值；`default` 变体只做前者）；
   - `expected`：当前实现读出后**每个字段**应有的值，嵌套对象写成 `{"class", "fields"}`；
-  - `base64`：字节；`current`：是否为 HEAD 写出的当前版本样本；
-  - `knownIssue`（可选）：当前实现读不对的已知问题，见下文。
+  - `base64`：字节；`current`：是否为 HEAD 写出的当前版本样本。
 - `registry.json`：
   - `layers`：每一层的当前版本号（`current`）、有样本的版本（`sampled`）、没有样本的版本及原因（`unsampled`）；
   - `classes`：每个类从叶子到根依次写出的版本层；`skippedClasses`：不做的类及原因；
@@ -87,11 +86,12 @@
 样例覆盖：StandardV2Ray 系每个来源提交都有 VMess 的 tcp / ws / http / grpc / quic（以及有 httpupgrade 之后的 httpupgrade）、
 TLS 与非 TLS、ECH 开与关（有 ECH 之后）、VLESS、Trojan、HTTP、ShadowTLS 及各自的默认值样本；SSH 三种认证方式；
 Mieru TCP / UDP；Trojan-Go ws / original；Hysteria 1 / 2 与 v5 的「多端口写在地址里」；订阅 lastUpdated / expiryDate
-超过 int 的取值；实体里嵌 VMess / Shadowsocks / 链；分组的订阅型、基本型与分享格式。
+超过 int 的取值；实体里嵌 VMess / Shadowsocks / 链；分组的订阅型、基本型与分享格式。另有 grpc 两种布局判别的边界样本，见下文。
 
-**Kryo 版本：** 5526bf0（1.6.0 之前）以前 app 依赖的是 kryo 5.2.1，Gradle 缓存里没有，样本统一用 5.6.2 写出。
-本格式只用到 `ByteBufferOutput` 的 `writeInt` / `writeLong` / `writeBoolean` / `writeString` / `writeVarInt` / `writeBytes`，
-两个版本的这几种编码没有已知差异；但这一点没有用 5.2.1 实测核对。
+**Kryo 版本：** 5526bf0（1.6.0）之前 app 依赖的是 kryo 5.2.1。最初的样本统一用 5.6.2 写出；之后对当时依赖 5.2.1 的
+12 个来源提交（`9d78e4f2`、`34a30127`、`814025e9`、`eab03deb`、`a82e5b4f`、`8e976675`、`680b362b`、`607afa8c`、`2c3a6164`、
+`110f3b21`、`aa275d5e`、`bbbdf577`），用核对过校验值的 kryo 5.2.1 重新生成了它们的全部 175 个样本，与入库字节逐个相同。
+grpc 边界样本（来源提交都在这 12 个之内）直接用 5.2.1 写出，再用 5.6.2 写一遍，字节也逐个相同。
 
 ## 覆盖表
 
@@ -133,19 +133,45 @@ Mieru TCP / UDP；Trojan-Go ws / original；Hysteria 1 / 2 与 v5 的「多端�
   当前读取对 v0 用预读字节区分有无 ECH 块，A / B / C 的样本都覆盖了这一判断（含 VMess、Trojan、HTTP、ShadowTLS 四个子类）。
 - StandardV2Ray v3：布局 a（`912a066`–`4326aab^`）grpc 仍落入 httpupgrade 分支；布局 b（`4326aab`–`b39ac9a^`）grpc 已加
   `break`，只写 path，版本号仍是 3。
+- StandardV2Ray v1、v2 的 grpc 一律多写（`e805fe7`–`4326aab^` 之间），v4 起一律只写 path。
 - 其余带条件写出的字段（Mieru v0 的 mtu、SSH 的认证字段、Trojan-Go 的 ws 字段、StandardV2Ray v0–v2 的 ECH 子字段）
   都有取不同分支的样本。
 
-## 已知问题（`knownIssue`）
+## grpc 的两种布局
 
-下面三个样本当前实现读不对（字段错位，且不抛异常）。测试要求它们**仍然**读不对；修好后测试会失败，提示删掉标记、
-把它们并入正常样本：
+v0 与 v3 下 grpc 节点有「只写 path」（布局 A、b）和「path 之后多写 host、path」（布局 B、C、a）两种字节。当前读取在这两个
+版本号上预读：把 path 之后的字节按两种布局各读到末尾，只有只写 path 读得通、多写读不通时才按只写 path 读，其余情况维持
+多写读法（规则、依据与残留歧义写在 `StandardV2RayBean.grpcPathRepeated` 的注释里）。v1、v2 与 v4 起的读取路径不变。
 
-- `VMessBean/9d78e4f2/vmess-grpc-tls`、`VMessBean/a82e5b4f/vmess-grpc-tls`：v0 布局 A 的 grpc 只写 path，而
-  `version < 4` 分支按布局 B 多读两个字符串。e805fe7（1.2.9）起读写同时改成落入 httpupgrade 分支，所以 ≤1.2.8 写出的
-  grpc 节点（例如老备份）从那时起就读错了。
-- `VMessBean/aa275d5e/vmess-grpc-tls-ech`：v3 布局 b 的 grpc 只写 path，同样被多读两个字符串；该布局只存在于
-  `4326aab` 到 `b39ac9a` 之间，其间 `aa275d5e` 发过预览版 `pre-1.4.1-20251021-1`。
+样本：每个来源提交原有的 `vmess-grpc-tls(-ech)` 之外，布局 A（`a82e5b4f`）、B（`8e976675`）、C（`680b362b`）、a（`110f3b21`）、
+b（`aa275d5e`）各有同一组 5 个边界样本，覆盖判别时两种读法各自在哪一步读不通：
+
+| 变体 | 类 | security | path | sni | host |
+| --- | --- | --- | --- | --- | --- |
+| `vmess-grpc-tls-empty-path-sni` | VMess | tls | 空 | 空（与 path 相同） | `tls` |
+| `vless-grpc-tls-sni-eq-path` | VLESS | tls | `grpc-svc` | 与 path 相同 | 空 |
+| `trojan-grpc-none-empty-path` | Trojan | none | 空 | — | `none` |
+| `trojan-grpc-none-host-tls` | Trojan | none | `trojan-svc` | — | `tls` |
+| `vmess-grpc-tls-sni-empty` | VMess | tls | `/vmess-svc` | 空 | 非空 |
+
+只写 path 的布局里 host 不进字节；多写的布局里 host 为 `tls` 时，按只写 path 读会把它当作 security 并去读 TLS 字段。
+ECH 开与关在变体间交替（布局 C 覆盖 ECH 块的两种写法）。
+
+另有 8 个样本各自钉住判别规则里的一个条件：取值都是寻常的配置，但撤掉对应条件后就会判错（用历史实现写出后逐个确认过）。
+
+| 样本 | 布局 | 钉住的条件 |
+| --- | --- | --- |
+| `TrojanBean/8e976675/trojan-grpc-security-empty` | B | 两种读法都读得通时按多写读（security 为未规整的空串、path 为空） |
+| `VMessBean/680b362b/vmess-grpc-security-empty` | C | 版本号 0 的多写要同时试有 ECH 块的写法（只试无 ECH 块时会落到只写 path） |
+| `VMessBean/a82e5b4f/vmess-grpc-tls-short-id` | A | 多写时第二个字符串与 path 逐字节相同（sni 为空、path 与 realityShortId 的长度恰好对齐） |
+| `VMessBean/aa275d5e/vmess-grpc-tls-sni-differs` | b | 同上（sni 与 path 不同） |
+| `VMessBean/aa275d5e/vmess-grpc-tls-sni-eq-path-cert` | b | 版本号 3 的 enableECH 必须是 0 / 1 |
+| `TrojanBean/a82e5b4f/trojan-grpc-tls-sni-eq-path-h2` | A | 布局 C 的 ECH 块里 boolean 必须是 0 / 1 |
+| `VMessBean/a82e5b4f/vmess-grpc-tls-sni-eq-path-short` | A | extraVersion 必须是 1 |
+| `TrojanBean/a82e5b4f/trojan-grpc-tls-sni-eq-path-sid` | A | 必须恰好读到字节末尾 |
+
+其余条件（allowInsecure 与 mux 的 boolean 检查、预读吞掉异常、两种读法都读不通时维持多写）在寻常取值下没有找到能单独
+暴露它们的节点，只由一次性的随机差分验证覆盖。
 
 ## 升版本号时怎么补样本
 

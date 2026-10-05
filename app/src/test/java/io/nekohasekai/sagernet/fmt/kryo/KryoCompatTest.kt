@@ -16,7 +16,6 @@ class KryoCompatTest {
         assertTrue("${failures.size} 处不一致：\n" + failures.joinToString("\n"), failures.isEmpty())
     }
 
-    // 已知读不对的样本（knownIssue）单独处理：若某天读对了，提示删掉标记
     private fun readFailures(sample: Sample): List<String> = try {
         KryoSamples.diff(sample.id, KryoSamples.read(sample), sample.expected)
     } catch (e: Exception) {
@@ -32,12 +31,7 @@ class KryoCompatTest {
     fun `当前实现读旧字节，每个字段都符合当时写下的值或该版本分支的约定`() {
         val failures = ArrayList<String>()
         for (sample in KryoSamples.samples) {
-            val diff = readFailures(sample)
-            if (sample.knownIssue == null) {
-                failures += diff
-            } else if (diff.isEmpty()) {
-                failures += "${sample.id}：标记为已知问题（${sample.knownIssue}），现在却读对了；确认修复后删掉 knownIssue"
-            }
+            failures += readFailures(sample)
         }
         check(failures)
     }
@@ -46,7 +40,6 @@ class KryoCompatTest {
     fun `读进来再写出时各层版本号是当前值，读回字段不变`() {
         val failures = ArrayList<String>()
         for (sample in KryoSamples.samples) {
-            if (sample.knownIssue != null) continue
             try {
                 val obj = KryoSamples.read(sample)
                 val written = KryoSamples.versionsOf(obj)

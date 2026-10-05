@@ -30,7 +30,6 @@ object KryoSamples {
         val expected: JsonObject = json["expected"].asJsonObject
         val bytes: ByteArray = Base64.getDecoder().decode(json["base64"].asString)
         val current: Boolean = json["current"].asBoolean
-        val knownIssue: String? = json["knownIssue"]?.takeIf { !it.isJsonNull }?.asString
         override fun toString() = "$id（$file）"
     }
 
