@@ -239,14 +239,16 @@ fun exportConfigText(
 }
 
 /**
- * 测速时是否让 mihomo 自己测延迟（在它的配置里开 Clash API，见 [assemble] 的 mihomoController）：只有单节点的
- * AnyTLS 走 mihomo、且所在分组没有前置 / 落地时；链上的节点仍走 sing-box 测。group 只在前两个条件成立时才取
- * （生产上是一次数据库查询），取不到分组时为否。
+ * 测速时是否让 mihomo 自己测延迟（在它的配置里开 Clash API，见 [assemble] 的 mihomoController）：主节点本身是 AnyTLS
+ * 且跑在 mihomo 上（needExternal），并且主节点所在分组的行存在、前置与落地都不大于 0，即主节点自己就是那条链唯一的
+ * 一跳；链上的节点仍走 sing-box 测。分组的行不存在、前置 / 落地 id 大于 0 却指向已删除的节点时都为否（构建会忽略
+ * 后者，这里照旧按 id 判断）。构建用它算出 [ConfigBuildResult.delayTestOnMihomo]：main 是构建的主节点，mainGroup 是
+ * 快照里主节点所在分组的行，globalAllowInsecure 取构建时采集的设置，不读 DataStore、不另查数据库。
  */
-fun mihomoMeasuresDelay(profile: ProxyEntity, globalAllowInsecure: Boolean, group: () -> ProxyGroup?): Boolean {
-    if (profile.type != ProxyEntity.TYPE_ANYTLS || !profile.needExternal(globalAllowInsecure)) return false
-    val found = group() ?: return false
-    return found.frontProxy <= 0 && found.landingProxy <= 0
+internal fun mihomoDelayTestApplies(main: ProxyEntity, mainGroup: ProxyGroup?, globalAllowInsecure: Boolean): Boolean {
+    if (main.type != ProxyEntity.TYPE_ANYTLS || !main.needExternal(globalAllowInsecure)) return false
+    val group = mainGroup ?: return false
+    return group.frontProxy <= 0 && group.landingProxy <= 0
 }
 
 // 合并配置的生成器共用：同一份配置里的监听端口与标识各不相同，也不占用核心的保留名。

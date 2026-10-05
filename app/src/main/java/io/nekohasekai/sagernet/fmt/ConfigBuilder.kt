@@ -122,6 +122,9 @@ class ConfigBuildResult(
     // 构建时随 ConfigSettings 采集的外核设置：预检用的就是它，组装、启动外核也用它（运行、测速、导出）。
     // 完整配置节点不采集设置，为 null，它也没有外核跳实例
     val externalCoreSettings: ExternalCoreSettings? = null,
+    // 测速时是否让 mihomo 自己测延迟（TestInstance 的 mihomoController）：构建按 mihomoDelayTestApplies 用它采集的
+    // 主分组行与设置算出，只有测速构建用到。完整配置节点为 false
+    val delayTestOnMihomo: Boolean = false,
 ) {
     // 组装与启动外核用的设置；只在有外核跳实例时调用（那时一定有）
     fun requireExternalCoreSettings(): ExternalCoreSettings =
@@ -451,6 +454,7 @@ private class ConfigBuild(
             diagnostics.toList(),
             localAuth,
             settings.externalCore,
+            mihomoDelayTestApplies(proxy, group, globalAllowInsecure),
         )
     }
 

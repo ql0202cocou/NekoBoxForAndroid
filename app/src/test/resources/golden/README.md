@@ -109,7 +109,8 @@ socks 出站的凭据）。`input.json` 与 `address/corpus.json` 顶层的 `for
 - 组装时不做插件安装确认（`BoxInstance` 传给 `assemble` 的 `beforeHop`），也没有内置 Xray / mihomo 的启动前校验
   （只进 `manifest.json`）。
 - 平台换成假实现（`FakeConfigPlatform`）。端口从 50001 起递增、本机 socks 凭据用固定种子、测速控制 secret 是固定值：
-  都是 `dynamic` 里按出现次序替换的值；测速是否开 mihomo 的控制器用生产的 `mihomoMeasuresDelay` 判断。
+  都是 `dynamic` 里按出现次序替换的值；测速是否开 mihomo 的控制器取构建结果的
+  `delayTestOnMihomo`（构建按生产的 `mihomoDelayTestApplies` 用采集到的主分组行与设置算出）。
 - 数字地址解析（生产走 `Os.inet_pton`）先查 `address/corpus.json`，语料之外的输入走 `StrictNumericAddress`
   （按 bionic `inet_pton` 的规则：IPv4 四段十进制、前导零按十进制，IPv6 每组至多 4 位十六进制、不接受 zone）。
   `GoldenAddressCorpusTest` 要求它在全部语料上与设备结果一致。基线构建会查到的语料之外的输入只列在

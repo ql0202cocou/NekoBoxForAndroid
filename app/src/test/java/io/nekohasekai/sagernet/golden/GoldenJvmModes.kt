@@ -25,7 +25,6 @@ import io.nekohasekai.sagernet.fmt.buildConfig
 import io.nekohasekai.sagernet.fmt.dialAddress
 import io.nekohasekai.sagernet.fmt.dialPort
 import io.nekohasekai.sagernet.fmt.exportConfigText
-import io.nekohasekai.sagernet.fmt.mihomoMeasuresDelay
 import io.nekohasekai.sagernet.fmt.packagesToResolve
 import java.io.File
 import java.io.StringReader
@@ -106,7 +105,7 @@ class GoldenJvmScenario(
 
         val (result, files) = try {
             if (mode == ConfigBuildMode.EXPORT) export(main.requireBean().displayName(), ::build, tempDir)
-            else box(mode, ::build, main, input.configSettings(mode).globalAllowInsecure, source, platform, tempDir)
+            else box(mode, ::build, platform, tempDir)
         } catch (e: Exception) {
             errorResult(e) to emptyMap()
         }
@@ -117,9 +116,6 @@ class GoldenJvmScenario(
     private fun box(
         mode: ConfigBuildMode,
         build: () -> ConfigBuildResult,
-        main: ProxyEntity,
-        globalAllowInsecure: Boolean,
-        source: ConfigDataSource,
         platform: FakeConfigPlatform,
         tempDir: File,
     ): Pair<Map<String, Any?>, Map<String, String>> {
@@ -129,8 +125,8 @@ class GoldenJvmScenario(
         val created = ArrayList<String>()
         val processes = if (plan.hops.isEmpty()) emptyList() else plan.assemble(
             { prefix, ext -> File.createTempFile(prefix + "_", ".$ext", tempDir).also { created += it.absolutePath } },
-            // 同 TestInstance.mihomoController：端口来自平台（生产是 mkPort），secret 固定
-            if (mode == ConfigBuildMode.TEST && mihomoMeasuresDelay(main, globalAllowInsecure) { source.group(main.groupId) }) {
+            // 同 TestInstance.mihomoController：条件取构建结果，端口来自平台（生产是 mkPort），secret 固定
+            if (mode == ConfigBuildMode.TEST && config.delayTestOnMihomo) {
                 (platform.newPort() to TEST_CONTROLLER_SECRET).also { controller = it }
             } else null,
             config.requireExternalCoreSettings(),

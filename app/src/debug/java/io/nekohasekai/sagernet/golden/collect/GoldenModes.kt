@@ -203,7 +203,7 @@ fun runExportMode(profile: ProxyEntity): ModeOutput {
     } catch (e: Exception) {
         return errorOutput(e)
     }
-    // 导出路径拿不到 externalIndex 与运行计划：本机端口与本机 socks 凭据从 sing-box 配置的结构里找，
+    // 导出路径拿不到构建登记的外核跳数据（externalChains）与运行计划：本机端口与本机 socks 凭据从 sing-box 配置的结构里找，
     // 临时文件路径（导出时已删除，但路径留在配置里）按 cacheDir 前缀从原文里找
     val pathPattern = Regex(Regex.escape(app.cacheDir.absolutePath) + "/[A-Za-z0-9_.-]+")
     val singBox = parseFirstJson(text)
