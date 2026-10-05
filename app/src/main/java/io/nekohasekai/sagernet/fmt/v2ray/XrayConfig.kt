@@ -11,18 +11,17 @@ import moe.matsuri.nb4a.utils.JavaUtil.gson
 import moe.matsuri.nb4a.utils.echAsBase64
 import moe.matsuri.nb4a.utils.listByLineOrComma
 
-// Xray-core dropped the standalone h2 ("http" over TLS) and quic transports; the
-// shipped binary registers neither, so it answers such a config with "unknown
-// transport protocol". sing-box still implements both, so these profiles have to
-// run there — resolvedCore() routes them away from the Xray plugin.
-fun VMessBean.xrayLacksTransport(): Boolean =
+// Xray-core 已移除单独的 h2（带 TLS 的 "http"）与 quic 传输：固定版本对这类配置报「The feature HTTP transport
+// … has been removed」/「The feature QUIC transport … has been removed」。sing-box 仍实现两者，这类节点只能
+// 跑在 sing-box 上，选核（coreForType）据此不选 Xray
+fun StandardV2RayBean.xrayLacksTransport(): Boolean =
     type == "quic" || (type == "http" && isTLS())
 
 // Xray-core 自 2026-06-01 起在生成配置时拒绝 allowInsecure（已移除的功能，见固定版本 v26.3.27 的
 // infra/conf/transport_internet.go）；sing-box 仍支持 "insecure"，所以这类节点改走 sing-box，与
 // xrayLacksTransport 同样的回退。证书固定不受影响：pinnedPeerCertSha256 是官方给的替代，本来就优先于
 // allowInsecure。全局开关由调用方传入：选核（coreForType）与 buildXrayConfig 共用
-fun VMessBean.xrayLacksAllowInsecure(globalAllowInsecure: Boolean): Boolean =
+fun StandardV2RayBean.xrayLacksAllowInsecure(globalAllowInsecure: Boolean): Boolean =
     isTLS() && certificateFingerprint.isBlank() && effectiveAllowInsecure(allowInsecure, globalAllowInsecure)
 
 // 没有路由规则命中的流量走 outbounds 的第一项，所以第一项固定是 blackhole：漏了规则的入站只会丢流量，
@@ -99,12 +98,7 @@ fun buildXrayOutbound(
     dialPort: Int,
     settings: ExternalCoreSettings,
 ): LinkedHashMap<String, Any?> {
-    if (bean.xrayLacksTransport()) {
-        error("xray-core no longer supports the ${bean.type} transport, use the sing-box core for this profile")
-    }
-    if (bean.xrayLacksAllowInsecure(settings.globalAllowInsecure)) {
-        error("xray-core no longer supports allowInsecure, use a certificate fingerprint or the sing-box core for this profile")
-    }
+    requireXrayStream(bean, settings.globalAllowInsecure)
     val user = LinkedHashMap<String, Any?>().apply {
         put("id", bean.uuid)
         if (bean.isVLESS) {
@@ -138,10 +132,7 @@ fun buildXrayOutbound(
                 // -1 leaves TCP un-muxed, so packetEncoding=xudp alone only moves UDP
                 // onto xudp (sing-box packet_encoding semantics); mux.cool for TCP
                 // needs an explicit enableMux
-                put(
-                    "concurrency",
-                    if (bean.enableMux) (if (bean.muxConcurrency > 0) bean.muxConcurrency else 8) else -1
-                )
+                put("concurrency", if (bean.enableMux) bean.xrayMuxConcurrency() else -1)
                 if (bean.packetEncoding == 2) {
                     put("xudpConcurrency", 16)
                     // "allow": UDP/443 rides xudp like every other UDP flow, the same
@@ -155,7 +146,20 @@ fun buildXrayOutbound(
     }
 }
 
-private fun buildXrayStreamSettings(bean: VMessBean, globalAllowInsecure: Boolean): Map<String, Any?> {
+// Xray 不能表达的传输与生效的 allowInsecure：生成前报错
+private fun requireXrayStream(bean: StandardV2RayBean, globalAllowInsecure: Boolean) {
+    if (bean.xrayLacksTransport()) {
+        error("xray-core no longer supports the ${bean.type} transport, use the sing-box core for this profile")
+    }
+    if (bean.xrayLacksAllowInsecure(globalAllowInsecure)) {
+        error("xray-core no longer supports allowInsecure, use a certificate fingerprint or the sing-box core for this profile")
+    }
+}
+
+// 开 mux 时 Mux.Cool 每条连接的子连接上限；没填（≤0）时取 8
+private fun StandardV2RayBean.xrayMuxConcurrency(): Int = if (muxConcurrency > 0) muxConcurrency else 8
+
+private fun buildXrayStreamSettings(bean: StandardV2RayBean, globalAllowInsecure: Boolean): Map<String, Any?> {
     // 经 mapping 外核只能拨到本地地址，TLS SNI 需要显式兜底；
     // 与 sing-box 对齐：sni 为空时兜底为 serverAddress（IP 也一样）
     val sni = bean.sni.takeIf { it.isNotBlank() }
