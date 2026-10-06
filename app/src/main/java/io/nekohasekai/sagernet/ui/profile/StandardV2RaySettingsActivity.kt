@@ -145,7 +145,9 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
             .bindCertificateFingerprintPreference()
 
         type.preference.isVisible = !isHttp
-        // ProxyEntity.singMux() builds multiplex for VMess/Trojan only
+        // mux 分类给 VMess / VLESS / Trojan，三者共用 StandardV2RayBean 的 mux 字段：跑在 sing-box 上时由
+        // ProxyEntity.singMux() 建 multiplex（h2mux / smux / yamux；VLESS 与 VMess 同属 TYPE_VMESS），跑在 Xray 上时
+        // 只能是 Mux.Cool（可选项按核心给，见 MuxTypeChoices）。HTTP 没有 mux
         findPreference<PreferenceCategory>(Key.SERVER_MUX_CATEGORY)!!.isVisible = !isHttp
         uuid.preference.isVisible = !isHttp
         packetEncoding.preference.isVisible = isVmess || isVless

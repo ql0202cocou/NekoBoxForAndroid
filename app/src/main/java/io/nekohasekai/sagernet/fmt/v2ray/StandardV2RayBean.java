@@ -45,7 +45,7 @@ public abstract class StandardV2RayBean extends AbstractBean {
 
     public String realityShortId;
 
-    // Xray-only: sing-box 1.13 has no ML-DSA-65 REALITY support
+    // 只有 Xray 支持：sing-box 1.14.2 的 REALITY 没有 ML-DSA-65 校验
     public String realityMldsa65Verify;
 
     // SHA-256 hash of a served certificate (mihomo "fingerprint" / Xray

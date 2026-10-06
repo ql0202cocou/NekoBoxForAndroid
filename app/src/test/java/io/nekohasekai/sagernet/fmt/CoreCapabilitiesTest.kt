@@ -283,8 +283,8 @@ class CoreCapabilitiesTest {
     }
 
     @Test
-    fun `暂定的偏好例外`() {
-        // 维护者定了之后改这一处，并更新选核测试与对照表
+    fun `AnyTLS 带 certificates 的偏好例外`() {
+        // 维护者 2026-10-06 定：留在 mihomo。以后改动要同时更新选核测试与对照表
         assertTrue(ANYTLS_CERTIFICATES_PREFER_MIHOMO)
     }
 

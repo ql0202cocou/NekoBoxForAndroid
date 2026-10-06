@@ -5,7 +5,7 @@ package io.nekohasekai.sagernet.fmt
 // 清单本身由 CoreCapabilitiesTest 钉住，增删都要改测试
 
 enum class DifferenceDecision {
-    // 监管方已定
+    // 维护者已定
     DECIDED,
 
     // 按归类原则归入
@@ -56,7 +56,8 @@ enum class KnownDifference(
             DialCore.XRAY to "没填指纹时用 uTLS chrome（GetFingerprint(\"\")）",
             DialCore.SING_BOX to "没填指纹时用 Go 标准 TLS（REALITY 除外：生成器补 chrome）",
         ),
-        "不影响安全校验与连通；是否特殊处理等维护者定",
+        "不影响安全校验与连通；维护者 2026-10-06 定：只有迁移时换到 sing-box 的存量节点由升级标注规则 d 补写 firefox，" +
+            "新建节点不特殊处理",
         DifferenceDecision.DECIDED,
     ),
     PACKET_ENCODING_NONE(
@@ -101,7 +102,7 @@ enum class KnownDifference(
             DialCore.XRAY to "追加到系统根证书（系统根证书仍然可信）",
             DialCore.SING_BOX to "只信任这些证书（替换系统根证书）",
         ),
-        "两边都按证书链与域名校验，只是 Xray 额外信任系统根证书，不丢安全校验",
+        "Xray 丢掉「只信任这些 CA」的限制、仍额外信任系统根证书；证书链与域名仍校验",
         DifferenceDecision.DECIDED,
     ),
     CUSTOM_OUTBOUND_JSON_EXTERNAL(
@@ -121,7 +122,7 @@ enum class KnownDifference(
             DialCore.MIHOMO to "取第一张证书的 SHA-256 作证书固定（命中叶子时不查域名与有效期；CA 证书只有服务端发出才命中）；" +
                 "填了证书指纹时忽略 certificates；有固定时 allowInsecure 不生效",
         ),
-        "两种都不是放弃校验；自动选核不替用户换（mihomo 优先，暂定），手动选哪个都允许",
+        "两种都不是放弃校验；自动选核不替用户换，维护者 2026-10-06 定：留在 mihomo；手动选哪个都允许",
         DifferenceDecision.DECIDED,
     ),
     ECH_AUTO_QUERY_RESOLVER(

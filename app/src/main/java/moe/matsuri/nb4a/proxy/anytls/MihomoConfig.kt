@@ -87,11 +87,11 @@ fun buildMihomoProxy(
         ?: bean.serverAddress.takeIf { it.isNotBlank() }
     if (sni != null) proxy["sni"] = sni
     if (bean.alpn.isNotBlank()) proxy["alpn"] = bean.alpn.listByLineOrComma()
-    // mihomo has no custom-CA option ("certificate" is the mTLS client cert), so pin the
-    // server certificate's SHA-256 instead; a CA cert only matches if the server sends it
-    // in-chain. Pinning wins over allowInsecure: mihomo implements `fingerprint` as
-    // InsecureSkipVerify + VerifyConnection, so a leaf hash match already skips the
-    // name/expiry checks that make users reach for allowInsecure.
+    // mihomo 的单个代理上没有自定义 CA 选项（"certificate" 是 mTLS 的客户端证书）；进程级的 tls.custom-certifactes
+    // （上游拼写如此）作用于同一进程里的所有跳，本应用不用。所以改为固定服务端证书的 SHA-256：CA 证书只有在服务端把它
+    // 放进证书链时才能命中。证书固定优先于 allowInsecure：mihomo 的 fingerprint 是 InsecureSkipVerify 加
+    // VerifyConnection，命中叶子证书时就已经跳过了用户想用 allowInsecure 绕开的域名 / 有效期校验（命中链上其它
+    // 证书时把它当根证书，仍按 SNI 与有效期校验叶子）
     val explicitPin = bean.certificateFingerprint.takeIf { it.isNotBlank() }
     if (explicitPin != null) require(isCertificateFingerprint(explicitPin)) {
         "Invalid AnyTLS certificate fingerprint: expected a SHA-256 digest of 64 hex characters (colons allowed)"

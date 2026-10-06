@@ -15,7 +15,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_AUTO
 // 编辑器保存时的拦截、存量节点的升级标注（LegacyProfileUpgrade.kt 规则 d）
 
 // AnyTLS 带 certificates 时自动选核是否 mihomo 优先。两个核心对这个字段含义不同（sing-box 当自定义 CA，mihomo
-// 换算成第一张证书的固定），自动选核不替用户换；手动选哪个都允许。暂定，等维护者定（翻转这一处即可）
+// 换算成第一张证书的固定），自动选核不替用户换；手动选哪个都允许。维护者 2026-10-06 已定：留在 mihomo
 const val ANYTLS_CERTIFICATES_PREFER_MIHOMO = true
 
 // 能为该协议选的核心，按默认偏好排列（不能选核的协议为空）。Trojan 走 Xray 即 D10
@@ -26,7 +26,7 @@ fun candidateCores(protocol: CoreProtocol): List<DialCore> = when (protocol) {
 }
 
 // 自动选核的偏好顺序：REALITY 或 mldsa65Verify 生效时 Xray 优先（REALITY 由 Xray 定义，sing-box 与 mihomo 都是
-// 跟随实现，见 plan.md 选核策略的依据）；AnyTLS 带 certificates 时按上面的暂定规则 mihomo 优先；其余 sing-box 优先
+// 跟随实现，见 plan.md 选核策略的依据）；AnyTLS 带 certificates 时按上面的规则（维护者已定）mihomo 优先；其余 sing-box 优先
 fun preferenceOrder(requirements: CoreRequirements): List<DialCore> {
     val candidates = candidateCores(requirements.protocol)
     val first = when {

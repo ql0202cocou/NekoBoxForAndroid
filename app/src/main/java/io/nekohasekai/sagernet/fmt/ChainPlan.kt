@@ -242,9 +242,9 @@ internal fun planHop(
         HopCore.External(externalCore(bean), if (mapped) HopMapping(bean.serverAddress, effectiveServerPort(bean)) else null)
     } else {
         val outbound = buildInternalOutbound(bean, globalAllowInsecure)
-        // 链上已有内部核心跳带了多路复用时不再取这一跳的选项
+        // 链上已有内部核心跳带了多路复用时不再取这一跳的选项；singMux 只在这一跳开了 mux 时才不为 null
         val mux = if (muxApplied) null else entity.singMux()
-        HopCore.Internal(outbound, mux?.takeIf { it.enabled }?.asMap())
+        HopCore.Internal(outbound, mux?.asMap())
     }
     return HopPlan(entity, bean, choice, core, udpOverTcp(bean))
 }

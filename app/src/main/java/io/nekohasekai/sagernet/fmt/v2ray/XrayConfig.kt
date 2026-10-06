@@ -128,8 +128,9 @@ fun buildXrayOutbound(
             })
         })
         put("streamSettings", buildXrayStreamSettings(bean, settings.globalAllowInsecure))
-        // xudp rides on xray mux; packetaddr is not supported by xray.
-        // vision flow doesn't support mux; without mux VLESS carries UDP natively.
+        // packetEncoding = xudp 经 Xray 的 mux 配置表达（xudpConcurrency）；Xray 没有 packetaddr。另外 Xray 的 VMess / VLESS
+        // 出站默认就把 53、443 端口以外的 UDP 改走 XUDP，与 packetEncoding 无关。vision 流控不支持 mux，整个不写。
+        // 只开 mux 不开 xudp 时不写 xudpProxyUDP443，Xray 缺省拒绝 UDP/443（生成器缺口，未修；Trojan 的 mux 同样）
         if (!bean.isVisionFlow && (bean.enableMux || bean.packetEncoding == 2)) {
             put("mux", LinkedHashMap<String, Any?>().apply {
                 put("enabled", true)
@@ -282,7 +283,7 @@ private fun buildXrayStreamSettings(bean: StandardV2RayBean, globalAllowInsecure
                 if (sni != null) put("serverName", sni)
                 put("publicKey", bean.realityPubKey)
                 if (bean.realityShortId.isNotBlank()) put("shortId", bean.realityShortId)
-                // post-quantum REALITY; Xray-only, sing-box 1.13 does not support it
+                // 抗量子的 REALITY 校验，只有 Xray 有；sing-box 1.14.2 不支持
                 if (bean.realityMldsa65Verify.isNotBlank()) {
                     put("mldsa65Verify", bean.realityMldsa65Verify)
                 }
@@ -295,12 +296,10 @@ private fun buildXrayStreamSettings(bean: StandardV2RayBean, globalAllowInsecure
                 if (bean.alpn.isNotBlank()) {
                     put("alpn", bean.alpn.listByLineOrComma())
                 }
-                // Pinning wins over allowInsecure, the same policy as
-                // buildMihomoConfig: Xray hex-decodes pinnedPeerCertSha256 like
-                // mihomo and checks it against every served certificate with
-                // InsecureSkipVerify on (transport/internet/tls/pin.go), so a
-                // pin already skips the name/expiry checks allowInsecure is
-                // used for.
+                // 证书固定优先于 allowInsecure，取舍与 buildMihomoConfig 相同。Xray 与 mihomo 一样按十六进制解码
+                // pinnedPeerCertSha256，比对在 transport/internet/tls/config.go 的 verifyPeerCert / verifyChain 里
+                // （pin.go 只负责求哈希）：命中叶子证书时跳过校验；命中链上 IsCA 的证书时仍按 serverName 与有效期
+                // 校验；命中非 CA 的中间证书不算命中
                 val certPin = bean.certificateFingerprint.takeIf { it.isNotBlank() }
                 if (certPin != null) {
                     require(isCertificateFingerprint(certPin)) {

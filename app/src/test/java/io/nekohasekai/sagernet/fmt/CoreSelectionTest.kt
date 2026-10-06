@@ -339,7 +339,7 @@ class CoreSelectionTest {
     fun `AnyTLS 选核`() {
         assertSelected(SING_BOX, decide(anytls()))
         assertSelected(SING_BOX, decide(anytls { allowInsecure = true }))
-        // 暂定：带 certificates 时 mihomo 优先，手动选哪个都允许
+        // 维护者已定：带 certificates 时 mihomo 优先，手动选哪个都允许
         assertSelected(MIHOMO, decide(anytls { certificates = CoreTestNodes.CERT }))
         assertSelected(SING_BOX, decide(anytls { certificates = CoreTestNodes.CERT }, CORE_SING_BOX))
         assertSelected(MIHOMO, decide(anytls(), CORE_MIHOMO))
