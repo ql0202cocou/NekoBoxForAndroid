@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.ktx
 
 import com.google.gson.JsonParser
+import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.Serializable
 import io.nekohasekai.sagernet.fmt.http.parseHttp
@@ -89,7 +90,11 @@ class SubscriptionFoundException(val link: String) : RuntimeException()
 
 private val httpLinkRegex = "(http|https)://.*".toRegex()
 
-suspend fun parseProxies(text: String): List<AbstractBean> {
+// globalAllowInsecure：全局「允许不安全」，只在遇到 K1 之前生成的通用链接时读一次（标注见 parseUniversal）
+suspend fun parseProxies(
+    text: String,
+    globalAllowInsecure: () -> Boolean = { DataStore.globalAllowInsecure },
+): List<AbstractBean> {
     val links = text.split('\n').flatMap { it.trim().split(' ') }
     val linksByLine = text.split('\n').map { it.trim() }
 
@@ -98,8 +103,9 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
     // 第一条因传输方式不支持被拒的链接，一个节点都没解析出来时报给调用方
     var unsupportedTransport: UnsupportedTransportException? = null
 
+    val global by lazy(globalAllowInsecure)
     val linkParsers: List<Triple<String, String, (String) -> AbstractBean>> = listOf(
-        Triple("sn://", "universal", ::parseUniversal),
+        Triple("sn://", "universal") { link -> parseUniversal(link) { global } },
         Triple("socks://", "socks", ::parseSOCKS),
         Triple("socks4://", "socks", ::parseSOCKS),
         Triple("socks4a://", "socks", ::parseSOCKS),
