@@ -103,8 +103,21 @@ internal fun ProxyEntity.resolveChain(
     return list
 }
 
-// 整条链的检查。profileList 是 entity 展开后的整条链（resolveChain 的结果）
-internal fun requireBuildableChain(entity: ProxyEntity, profileList: List<ProxyEntity>, globalAllowInsecure: Boolean) {
+/**
+ * 一跳的选核要求与判定（CoreRequirements.kt、CoreSelection.kt）。[planChain] 对链上每个跳实例只算一次，整链检查、
+ * 单跳检查、内核 / 外核分支与提交时的接线都用这一份；与 [ProxyEntity.coreDecision] 的结果相同。
+ */
+internal class HopCoreChoice(val requirements: CoreRequirements, val decision: CoreDecision) {
+    companion object {
+        fun of(entity: ProxyEntity, globalAllowInsecure: Boolean): HopCoreChoice {
+            val requirements = coreRequirements(entity.type, entity.requireBean(), globalAllowInsecure)
+            return HopCoreChoice(requirements, decideCore(requirements, entity.core))
+        }
+    }
+}
+
+// 整条链的检查。profileList 是 entity 展开后的整条链（resolveChain 的结果），choices 与它一一对应
+internal fun requireBuildableChain(entity: ProxyEntity, profileList: List<ProxyEntity>, choices: List<HopCoreChoice>) {
     // 成员全部悬空的链展开后什么都没有：配置里会缺少路由规则引用的出站，sing-box 只会报含糊的
     // "outbound not found"。与循环引用一样在这里明确报错
     if (profileList.isEmpty()) {
@@ -113,22 +126,21 @@ internal fun requireBuildableChain(entity: ProxyEntity, profileList: List<ProxyE
     // 同一个外部核心节点在链里出现两次（链编辑器允许重复加入，或分组前置同时
     // 是组内某条链的首跳）：映射入站 tag（<链 tag>-mapping-<节点 id>）重名，
     // sing-box 只会报 duplicate inbound tag。这里给出明确错误
-    profileList.filter { it.needExternal(globalAllowInsecure) }.groupBy { it.id }.values
+    profileList.filterIndexed { index, it -> it.needExternal(choices[index].decision) }.groupBy { it.id }.values
         .firstOrNull { it.size > 1 }?.let {
             error("profile ${it[0].id} (${it[0].requireBean().displayName()}) runs on an external core and appears twice in chain ${entity.id}")
         }
 }
 
 // 单跳的检查，与节点在链里的位置无关
-internal fun requireBuildableHop(proxyEntity: ProxyEntity, bean: AbstractBean, globalAllowInsecure: Boolean) {
+internal fun requireBuildableHop(proxyEntity: ProxyEntity, bean: AbstractBean, decision: CoreDecision) {
     // 能力表的判定（CoreSelection.kt）：手动指定的核心承载不了、自动选核没有能完整承载的核心、不能选核的协议带了
     // 它的核心做不到的校验（证书固定、mldsa65Verify），都在这里拒绝并列出冲突字段。静默丢掉安全校验或退化传输比
     // 报错更危险；运行 / 测速 / 导出 / 成员检查都经过这里，编辑器保存时用同一个判定提前拦下
-    val decision = proxyEntity.coreDecision(globalAllowInsecure)
     if (decision is CoreDecision.Rejected) error(decision.message(proxyEntity.core))
     // 完整配置型自定义节点作为链成员、前置 / 落地或路由目标时，给出明确
     // 错误，而不是让 sing-box 以 "unknown outbound type" 拒绝整份配置
-    if (!proxyEntity.needExternal(globalAllowInsecure) && proxyEntity.isFullConfig()) {
+    if (!proxyEntity.needExternal(decision) && proxyEntity.isFullConfig()) {
         error("a full-config profile can only run on its own")
     }
     // 自定义出站 JSON 要到 build() 末尾序列化时才解析，在这里先解析一次，
@@ -197,13 +209,15 @@ internal sealed interface HopCore {
 internal class HopPlan(
     val entity: ProxyEntity,
     val bean: AbstractBean,
+    /** 这一跳的选核要求与判定，core 由它定。 */
+    val choice: HopCoreChoice,
     val core: HopCore,
     /** sing-box 出站带 udp_over_tcp。 */
     val udpOverTcp: Boolean,
 )
 
 /**
- * 规划一跳：先做单跳检查（[requireBuildableHop]），再按核心分两支——内部核心建好 sing-box 出站并按 muxApplied
+ * 规划一跳：choice 是这一跳已算好的选核要求与判定（[HopCoreChoice]）。先做单跳检查（[requireBuildableHop]），再按核心分两支——内部核心建好 sing-box 出站并按 muxApplied
  * 定多路复用；外核定是否经映射。firstDialing 表示这一跳是链上最先拨号的一跳（倒序列表的末项）：只有它可能免映射，
  * 免映射的判断要查外部插件 app（经 plugins，按插件记住结果）。muxApplied 表示链上在它之前的内部核心跳已带了多路复用。
  *
@@ -215,13 +229,14 @@ internal class HopPlan(
 internal fun planHop(
     entity: ProxyEntity,
     bean: AbstractBean,
+    choice: HopCoreChoice,
     firstDialing: Boolean,
     muxApplied: Boolean,
     globalAllowInsecure: Boolean,
     plugins: PluginQueries,
 ): HopPlan {
-    requireBuildableHop(entity, bean, globalAllowInsecure)
-    val core = if (entity.needExternal(globalAllowInsecure)) {
+    requireBuildableHop(entity, bean, choice.decision)
+    val core = if (entity.needExternal(choice.decision)) {
         // 外核的流量要经 sing-box 的映射入站出去，才能用已 protect 的 socket；自带 protect 的插件不用映射
         val mapped = bean.canMapping() && !(firstDialing && hysteriaSkipsMapping(bean, plugins))
         HopCore.External(externalCore(bean), if (mapped) HopMapping(bean.serverAddress, effectiveServerPort(bean)) else null)
@@ -231,7 +246,7 @@ internal fun planHop(
         val mux = if (muxApplied) null else entity.singMux()
         HopCore.Internal(outbound, mux?.takeIf { it.enabled }?.asMap())
     }
-    return HopPlan(entity, bean, core, udpOverTcp(bean))
+    return HopPlan(entity, bean, choice, core, udpOverTcp(bean))
 }
 
 // 两段式构建（plan.md R2）：每条链先规划（planChain，下面），通过之后才提交（ConfigBuild.commitChain：先按跳的顺序要齐
@@ -270,14 +285,17 @@ internal class ChainPlan(val entity: ProxyEntity, val hops: List<HopPlan>)
 internal fun planChain(entity: ProxyEntity, context: ChainPlanContext, checkHop: (HopPlan) -> Unit = {}): ChainPlan {
     val globalAllowInsecure = context.globalAllowInsecure
     val profileList = entity.resolveChain(context.data, context.mainGroupId, context.mainGroup, context.warn)
-    requireBuildableChain(entity, profileList, globalAllowInsecure)
+    // 每个跳实例的选核判定只算这一次；算的次序与以前整链检查里逐个判断外核的次序相同
+    val choices = profileList.map { HopCoreChoice.of(it, globalAllowInsecure) }
+    requireBuildableChain(entity, profileList, choices)
     // 链上已有内部核心跳带了多路复用（见 planHop）
     var muxApplied = false
     val hops = profileList.mapIndexed { index, hopEntity ->
         val bean = hopEntity.requireBean()
         withProfileName(bean) {
             val hop = planHop(
-                hopEntity, bean, index == profileList.lastIndex, muxApplied, globalAllowInsecure, context.plugins,
+                hopEntity, bean, choices[index], index == profileList.lastIndex, muxApplied, globalAllowInsecure,
+                context.plugins,
             )
             if ((hop.core as? HopCore.Internal)?.multiplex != null) muxApplied = true
             checkHop(hop)

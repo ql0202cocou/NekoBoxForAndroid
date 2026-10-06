@@ -173,8 +173,11 @@ fun StandardV2RayBean.realityMldsa65VerifyActive(): Boolean =
 // - 不能选核的协议：承载方式沿用现状，插件协议与 Neko 为真，hysteria 看 sing-box 能不能承载，其余为假；
 // - 被拒绝的节点为假：拒绝由 requireBuildableHop（ChainPlan.kt）报出，在那之前的整链检查不把它算作外核节点。
 // globalAllowInsecure 是设置快照里的全局「允许不安全」，影响判定
-fun ProxyEntity.needExternal(globalAllowInsecure: Boolean): Boolean =
-    when (val decision = coreDecision(globalAllowInsecure)) {
+fun ProxyEntity.needExternal(globalAllowInsecure: Boolean): Boolean = needExternal(coreDecision(globalAllowInsecure))
+
+// 同上，判定已经算好（构建的规划每跳只算一次，见 HopCoreChoice）
+fun ProxyEntity.needExternal(decision: CoreDecision): Boolean =
+    when (decision) {
         is CoreDecision.Selected -> decision.core != DialCore.SING_BOX
         CoreDecision.Fixed -> when (type) {
             TYPE_TROJAN_GO, TYPE_MIERU, TYPE_NAIVE, TYPE_NEKO -> true

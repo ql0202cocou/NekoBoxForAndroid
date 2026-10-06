@@ -32,7 +32,10 @@ class HopPlanTest {
         muxApplied: Boolean = false,
         globalAllowInsecure: Boolean = false,
         plugins: PluginQueries = PluginQueries(platform),
-    ) = planHop(entity, entity.requireBean(), firstDialing, muxApplied, globalAllowInsecure, plugins)
+    ) = planHop(
+        entity, entity.requireBean(), HopCoreChoice.of(entity, globalAllowInsecure), firstDialing, muxApplied,
+        globalAllowInsecure, plugins,
+    )
 
     private fun entity(bean: AbstractBean, core: Int? = null) = ProxyEntity(id = 1, groupId = 1, userOrder = 1)
         .apply { if (core != null) this.core = core }

@@ -490,6 +490,8 @@ private class ConfigBuild(
         lateinit var pastOutbound: SingBoxOption
         lateinit var pastInboundTag: String
         var pastEntity: ProxyEntity? = null
+        // 上一跳走外核（规划时按它的选核判定定下的 HopCore.External）
+        var pastExternal = false
     }
 
     // 经映射的外核跳：映射入站的端口与它转去的服务器
@@ -611,6 +613,7 @@ private class ConfigBuild(
         }
         chain.pastOutbound = currentOutbound
         chain.pastEntity = proxyEntity
+        chain.pastExternal = core is HopCore.External
     }
 
     // sing-box 连外核本机 socks 入站的出站，外核的入站要求认证时带上本次构建的凭据
@@ -704,7 +707,7 @@ private class ConfigBuild(
             // mapping inbound, which also requires canMapping() (NekoBean /
             // hy1 faketcp can't); those chain via detour like internal nodes
             val pastEntity = chain.pastEntity!!
-            if (pastEntity.needExternal(globalAllowInsecure) && pastEntity.requireBean().canMapping()) {
+            if (chain.pastExternal && pastEntity.requireBean().canMapping()) {
                 route.rules.add(Rule_DefaultOptions().apply {
                     inbound = listOf(chain.pastInboundTag)
                     outbound = tagOut
