@@ -5,6 +5,7 @@ import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.bg.GuardedProcessPool
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.buildConfig
+import io.nekohasekai.sagernet.fmt.withRealityHint
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.mkPort
 import io.nekohasekai.sagernet.ktx.runOnIoDispatcher
@@ -92,10 +93,10 @@ class TestInstance(profile: ProxyEntity, val link: String, private val timeout: 
                                     // message; re-test through the same tunnel via sing-box,
                                     // whose errors name the actual cause.
                                     Logs.w("mihomo delay test failed, retry via sing-box: ${e.message}")
-                                    cont.tryResume(Libcore.urlTest(box, link, timeout))
+                                    cont.tryResume(singBoxUrlTest())
                                 }
                             } else {
-                                cont.tryResume(Libcore.urlTest(box, link, timeout))
+                                cont.tryResume(singBoxUrlTest())
                             }
                         } catch (e: Exception) {
                             cont.tryResumeWithException(e)
@@ -108,6 +109,13 @@ class TestInstance(profile: ProxyEntity, val link: String, private val timeout: 
                 }
             }
         }
+    }
+
+    // 经 sing-box 测速；REALITY 握手失败时按构建结果补一句提示（ConfigBuildResult.withRealityHint）
+    private fun singBoxUrlTest(): Int = try {
+        Libcore.urlTest(box, link, timeout)
+    } catch (e: Exception) {
+        throw config.withRealityHint(e)
     }
 
     // Poll mihomo's Clash API until the core is up (replaces a fixed startup delay),

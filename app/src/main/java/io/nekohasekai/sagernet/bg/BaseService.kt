@@ -19,6 +19,7 @@ import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.RestoreJournal
 import io.nekohasekai.sagernet.fmt.selectorGroupIdOf
+import io.nekohasekai.sagernet.fmt.withRealityHint
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.plugin.PluginManager
 import io.nekohasekai.sagernet.utils.DefaultNetworkListener
@@ -209,14 +210,15 @@ class BaseService {
             // close() nulls data on the main thread while this runs on a binder
             // thread; box is lateinit, and a restart in progress has data.proxy
             // set before loadConfig() assigns it
-            val box = data?.proxy?.takeIf { it.isInitialized() }?.box
+            val proxy = data?.proxy?.takeIf { it.isInitialized() }
                 ?: error("core not started")
             try {
                 return Libcore.urlTest(
-                    box, DataStore.connectionTestURL, 3000
+                    proxy.box, DataStore.connectionTestURL, 3000
                 )
             } catch (e: Exception) {
-                error(Protocols.genFriendlyMsg(e.readableMessage))
+                // REALITY 握手失败时按这次运行的构建结果补一句提示
+                error(Protocols.genFriendlyMsg(proxy.config.withRealityHint(e).readableMessage))
             }
         }
 

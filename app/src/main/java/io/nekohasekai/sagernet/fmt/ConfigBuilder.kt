@@ -120,6 +120,8 @@ class ConfigBuildResult(
     val delayTestOnMihomo: Boolean = false,
     // 统计关联里的节点有 hysteria faketcp（以 root 运行）：VpnService 要放行 root uid
     val needsRootUidBypass: Boolean = false,
+    // 本次构建里 REALITY 且跑在 sing-box 上的节点，按提交的次序、每个节点一项；只读，见 withRealityHint
+    val realityOnSingBox: List<RealityOnSingBox> = emptyList(),
 ) {
     // 组装与启动外核用的设置；只在有外核跳实例时调用（那时一定有）
     fun requireExternalCoreSettings(): ExternalCoreSettings =
@@ -147,6 +149,37 @@ fun ConfigBuildResult.withBoxErrorProfileName(e: Exception): Exception {
         }
         ?: return e
     return ProfileBuildException(name, e)
+}
+
+// 构建里一个 REALITY 且跑在 sing-box 上的节点。xrayConflicts 是能力表对「Xray 能否完整承载它」的冲突
+// （coreConflicts），空表示可以改用 Xray（手动选了 sing-box 的节点才可能为空：自动选核时 REALITY 优先 Xray）
+class RealityOnSingBox(val profileId: Long, val name: String, val xrayConflicts: List<Conflict>)
+
+// sing-box 的 REALITY 客户端在服务端没认出它时报这一句（vendored sing-box common/tls/reality_client.go，
+// libcore 的金丝雀测试钉住）。错误外面还有 Go http.Client 等的包装，按子串匹配
+private const val REALITY_VERIFICATION_FAILED = "reality verification failed"
+
+// 带了 REALITY 提示的测速错误，cause 是原来的异常
+class RealityHintException(message: String, cause: Exception) : Exception(message, cause)
+
+// 测速报 REALITY 握手失败时补一句提示：sing-box 的 REALITY 客户端自报的版本固定，较新的 Xray 服务端可能拒绝它
+// （NEKO.md 的「接受上游行为」）。同一句报错也可能是公钥、shortId 填错或时间偏差，所以只说「可能」。
+// Xray 能完整承载的节点建议改核心，不能的列出冲突字段。错误里没有出站 tag，认不出是哪一跳：本次构建里有多个这样的
+// 节点时全部列出，不猜。消息不含这一句或构建里没有这样的节点时原样返回同一个对象。
+// 只用于测速（TestInstance、BaseService.urlTest）；运行时的连接失败只进日志，不经过这里
+fun ConfigBuildResult.withRealityHint(e: Exception): Exception {
+    val message = e.message ?: return e
+    if (realityOnSingBox.isEmpty() || !message.contains(REALITY_VERIFICATION_FAILED)) return e
+    val cause = "the server may require a newer REALITY client than sing-box provides"
+    fun RealityOnSingBox.advice() = if (xrayConflicts.isEmpty()) {
+        "profile \"$name\" can run on Xray: set its core to Xray"
+    } else {
+        "profile \"$name\" cannot run on Xray: " + xrayConflicts.joinToString("; ") { it.fieldText() }
+    }
+    val hint = realityOnSingBox.singleOrNull()?.let { "$cause; ${it.advice()}" }
+        ?: ("$cause; it is not known which of these REALITY profiles on sing-box failed: " +
+            realityOnSingBox.joinToString(" | ") { it.advice() })
+    return RealityHintException("$message. Hint: $hint", e)
 }
 
 // 某个节点的数据让构建失败：消息前加上节点名，否则分组里节点一多，用户看不出该改哪个
@@ -325,6 +358,8 @@ private class ConfigBuild(
     var localAuth: LocalSocksAuth? = null
     // 每个节点出站 / 端点的 tag -> 节点名，build() 末尾按最终配置换算成 boxIndexNames
     val hopNames = HashMap<String, String>()
+    // 节点 id -> REALITY 且跑在 sing-box 上的节点，提交链时从各跳的选核判定登记；见 ConfigBuildResult.realityOnSingBox
+    val realityOnSingBox = LinkedHashMap<Long, RealityOnSingBox>()
     val ipv6Mode = if (forTest) IPv6Mode.ENABLE else settings.ipv6Mode
 
     // IPv6 模式对应的 sing-box domain strategy；模式值越界时为 null
@@ -380,6 +415,7 @@ private class ConfigBuild(
             settings.externalCore,
             delayTestOnMihomo = mihomoDelayTestApplies(proxy, group, globalAllowInsecure),
             needsRootUidBypass = needsRootUidBypass(trafficMap),
+            realityOnSingBox = realityOnSingBox.values.toList(),
         )
     }
 
@@ -522,9 +558,21 @@ private class ConfigBuild(
         plan.hops.forEachIndexed { index, hop -> commitHop(chain, index, hop, sockets[index]) }
         // 每条链登记一条（没有外核节点的也是），序号即链在全部已建链里的序号
         externalChains.add(ExternalChainRecord(chain.externalHops.toList()))
+        plan.hops.forEach(::recordRealityOnSingBox)
 
         trafficMap[chain.chainTagOut] = chainTrafficList
         return chain.chainTagOut
+    }
+
+    // 选核判定选中 sing-box 的 REALITY 跳（同一节点在几条链里只记第一次）；复用的最后一跳在第一次提交时已记过
+    private fun recordRealityOnSingBox(hop: HopPlan) {
+        val decision = hop.choice.decision
+        val requirements = hop.choice.requirements
+        if (decision !is CoreDecision.Selected || decision.core != DialCore.SING_BOX) return
+        if (requirements.tls != TlsMode.REALITY) return
+        realityOnSingBox.getOrPut(hop.entity.id) {
+            RealityOnSingBox(hop.entity.id, hop.bean.displayName(), coreConflicts(DialCore.XRAY, requirements))
+        }
     }
 
     // 外核跳的端口与凭据，内部核心跳为 null。凭据整次构建只生成一次，在第一个需要它的跳实例处；

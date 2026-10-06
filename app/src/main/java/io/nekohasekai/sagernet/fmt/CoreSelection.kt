@@ -71,7 +71,7 @@ sealed class CoreDecision {
 }
 
 // 一条冲突的「[字段键] 原因 (取值)」，不带核心名
-private fun Conflict.fieldText(): String = buildString {
+internal fun Conflict.fieldText(): String = buildString {
     append('[').append(fields.joinToString(", ") { it.key }).append("] ").append(id.reason)
     value?.let { append(" (").append(it).append(')') }
 }
