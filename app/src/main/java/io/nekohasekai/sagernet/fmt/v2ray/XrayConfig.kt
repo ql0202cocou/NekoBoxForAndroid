@@ -130,23 +130,15 @@ fun buildXrayOutbound(
         put("streamSettings", buildXrayStreamSettings(bean))
         // packetEncoding = xudp 经 Xray 的 mux 配置表达（xudpConcurrency）；Xray 没有 packetaddr。另外 Xray 的 VMess / VLESS
         // 出站默认就把 53、443 端口以外的 UDP 改走 XUDP，与 packetEncoding 无关。vision 流控不支持 mux，整个不写。
-        // 只开 mux 不开 xudp 时不写 xudpProxyUDP443，Xray 缺省拒绝 UDP/443（生成器缺口，未修；Trojan 的 mux 同样）。
-        // 拒绝已在回环实测（K1b X2 L2-48…51，v26.3.27 与 v26.9.30 相同），拒绝记录只在 Xray 的 info 级
+        // 写了 mux 块就写 xudpProxyUDP443 = allow，见 xrayMuxUdp443
         if (!bean.isVisionFlow && (bean.enableMux || bean.packetEncoding == 2)) {
             put("mux", LinkedHashMap<String, Any?>().apply {
                 put("enabled", true)
-                // -1 leaves TCP un-muxed, so packetEncoding=xudp alone only moves UDP
-                // onto xudp (sing-box packet_encoding semantics); mux.cool for TCP
-                // needs an explicit enableMux
+                // 只开 xudp 时写 -1：TCP 不复用，只把 UDP 改走 XUDP（与 sing-box 的 packet_encoding 含义相同）；
+                // TCP 走 Mux.Cool 要显式开 enableMux
                 put("concurrency", if (bean.enableMux) bean.xrayMuxConcurrency() else -1)
-                if (bean.packetEncoding == 2) {
-                    put("xudpConcurrency", 16)
-                    // "allow": UDP/443 rides xudp like every other UDP flow, the same
-                    // as sing-box's packet_encoding=xudp. Whether QUIC is blocked is
-                    // the route rules' call (the default "Block QUIC" rule), not the
-                    // core's — Xray's default "reject" silently overrode that here.
-                    put("xudpProxyUDP443", "allow")
-                }
+                if (bean.packetEncoding == 2) put("xudpConcurrency", 16)
+                xrayMuxUdp443()
             })
         }
     }
@@ -183,6 +175,7 @@ fun buildXrayOutbound(
             put("mux", LinkedHashMap<String, Any?>().apply {
                 put("enabled", true)
                 put("concurrency", bean.xrayMuxConcurrency())
+                xrayMuxUdp443()
             })
         }
     }
@@ -200,6 +193,14 @@ private fun requireXrayStream(bean: StandardV2RayBean, globalAllowInsecure: Bool
 
 // 开 mux 时 Mux.Cool 每条连接的子连接上限；没填（≤0）时取 8
 private fun StandardV2RayBean.xrayMuxConcurrency(): Int = if (muxConcurrency > 0) muxConcurrency else 8
+
+// 有 mux 块时 UDP/443 怎么走（VMess / VLESS / Trojan 一致）：写 allow，与其它 UDP 一样经 mux（XUDP），与 sing-box 一致。
+// Xray 缺省（不写）是 reject：只开 Mux.Cool 时 UDP/443 被丢，拒绝记录只在 info 级，应用缺省的 warning 级下看不到
+// （K1b X2 L2-48…51、L2-S08 回环实测，v26.3.27 与 v26.9.30 相同；取值 reject / allow / skip 见 X1 S2-X11、X2 T2-119…123）。
+// 要不要挡 QUIC 由路由规则（缺省的「屏蔽 QUIC」）决定，不该由外核替用户决定。维护者 2026-10-06 定（K1b D16）
+private fun LinkedHashMap<String, Any?>.xrayMuxUdp443() {
+    put("xudpProxyUDP443", "allow")
+}
 
 private fun buildXrayStreamSettings(bean: StandardV2RayBean): Map<String, Any?> {
     // 经 mapping 外核只能拨到本地地址，TLS SNI 需要显式兜底；

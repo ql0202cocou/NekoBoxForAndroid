@@ -200,19 +200,19 @@ class XrayTrojanConfigTest {
     }
 
     @Test
-    fun `开 mux 写 Mux_Cool，packetEncoding 不读`() {
+    fun `开 mux 写 Mux_Cool 与 xudpProxyUDP443 allow，packetEncoding 不读`() {
         val muxed = build(trojan {
             enableMux = true
             muxConcurrency = 4
             packetEncoding = 2
         })
-        assertJson("""{"enabled":true,"concurrency":4}""", muxed.getAsJsonObject("mux"))
+        assertJson("""{"enabled":true,"concurrency":4,"xudpProxyUDP443":"allow"}""", muxed.getAsJsonObject("mux"))
         // 没填并发数时取 8，与 VMess / VLESS 相同
         val fallback = build(trojan {
             enableMux = true
             muxConcurrency = 0
         })
-        assertJson("""{"enabled":true,"concurrency":8}""", fallback.getAsJsonObject("mux"))
+        assertJson("""{"enabled":true,"concurrency":8,"xudpProxyUDP443":"allow"}""", fallback.getAsJsonObject("mux"))
         // trojan:// 链接带进来的 xudp 不开 mux
         val xudpOnly = build(trojan { packetEncoding = 2 })
         assertEquals(listOf("protocol", "settings", "streamSettings"), xudpOnly.keySet().toList())
@@ -313,7 +313,7 @@ class XrayTrojanConfigTest {
         assertJson(
             """{"tag":"out-3","protocol":"trojan","settings":{"servers":[{"address":"127.0.0.1","port":30003,
             "password":"fake-trojan-pass-2"}]},"streamSettings":{"network":"tcp","security":"tls",
-            "tlsSettings":{"serverName":"trojan.example.com"}},"mux":{"enabled":true,"concurrency":1}}""",
+            "tlsSettings":{"serverName":"trojan.example.com"}},"mux":{"enabled":true,"concurrency":1,"xudpProxyUDP443":"allow"}}""",
             written[4],
         )
         // 每个入站按 tag 路由到自己的出站，Trojan 与 VMess / VLESS 没有区别

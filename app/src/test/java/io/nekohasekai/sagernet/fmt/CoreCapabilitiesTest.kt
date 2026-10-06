@@ -337,7 +337,7 @@ class CoreCapabilitiesTest {
                 KnownDifference.UTLS_IMPLEMENTATION to DifferenceDecision.BY_PRINCIPLE,
                 KnownDifference.SING_BOX_UTLS_RANDOMIZED_SEED to DifferenceDecision.OPEN,
                 KnownDifference.CHAIN_MUX to DifferenceDecision.BY_PRINCIPLE,
-                KnownDifference.XRAY_MUX_UDP443 to DifferenceDecision.OPEN,
+                KnownDifference.XRAY_MUX_UDP443 to DifferenceDecision.DECIDED,
             ),
             KnownDifference.entries.associateWith { it.decision },
         )

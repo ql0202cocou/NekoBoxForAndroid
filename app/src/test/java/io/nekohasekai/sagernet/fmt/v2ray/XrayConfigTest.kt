@@ -51,6 +51,30 @@ class XrayConfigTest {
         assertJson("""{"id":"00000000-0000-0000-0000-000000000001","alterId":0,"security":"auto"}""", user)
     }
 
+    // K1b D16：有 mux 块就写 xudpProxyUDP443 = allow（Xray 缺省 reject 会丢掉 UDP/443）；只开 xudp 时 TCP 不复用
+    @Test
+    fun `mux 块总写 xudpProxyUDP443 allow`() {
+        assertJson(
+            """{"enabled":true,"concurrency":4,"xudpProxyUDP443":"allow"}""",
+            build(bean(vless = true) { enableMux = true; muxConcurrency = 4 }).getAsJsonObject("mux"),
+        )
+        assertJson(
+            """{"enabled":true,"concurrency":8,"xudpProxyUDP443":"allow"}""",
+            build(bean(vless = false) { enableMux = true; muxConcurrency = 0 }).getAsJsonObject("mux"),
+        )
+        assertJson(
+            """{"enabled":true,"concurrency":-1,"xudpConcurrency":16,"xudpProxyUDP443":"allow"}""",
+            build(bean(vless = true) { packetEncoding = 2 }).getAsJsonObject("mux"),
+        )
+        assertJson(
+            """{"enabled":true,"concurrency":2,"xudpConcurrency":16,"xudpProxyUDP443":"allow"}""",
+            build(bean(vless = false) { enableMux = true; muxConcurrency = 2; packetEncoding = 2 }).getAsJsonObject("mux"),
+        )
+        // 不开 mux 也不开 xudp、或 vision 流控：不写 mux 块
+        assertFalse(build(bean(vless = true)).has("mux"))
+        assertFalse(build(bean(vless = true) { encryption = StandardV2RayBean.FLOW_VISION; enableMux = true }).has("mux"))
+    }
+
     @Test
     fun `tcp 伪 HTTP 头没有 host 时不写 headers`() {
         val stream = build(bean(vless = true) { type = "http" }).stream()

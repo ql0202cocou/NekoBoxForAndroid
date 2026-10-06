@@ -164,7 +164,10 @@ class ExternalCoreInvariantsTest {
         val config = trojanConfig(
             trojanOutbound(),
             trojanOutbound(network = "ws", port = 31001),
-            trojanOutbound(network = "grpc", port = 31002, extra = mapOf("mux" to linkedMapOf("enabled" to true, "concurrency" to 8))),
+            trojanOutbound(
+                network = "grpc", port = 31002,
+                extra = mapOf("mux" to linkedMapOf("enabled" to true, "concurrency" to 8, "xudpProxyUDP443" to "allow")),
+            ),
         )
         noViolations("Xray Trojan", ExternalCoreInvariants.xray(config))
         // 与 vmess / vless 混在一份配置里
@@ -229,7 +232,9 @@ class ExternalCoreInvariantsTest {
         expectXray("tls 里的 dns 键", "表外的键 dns") { outbound(1).sub("streamSettings", "tlsSettings").add("dns", JsonObject()) }
         expectXray("tls 写 allowInsecure", "禁用的键 allowInsecure") { outbound(1).sub("streamSettings", "tlsSettings").addProperty("allowInsecure", true) }
         expectXray("security 与设置对不上", "realitySettings") { outbound(1).sub("streamSettings").add("realitySettings", JsonObject()) }
-        expectXray("mux 未知键", "表外的键 protocol") { outbound(1).add("mux", JsonObject().apply { addProperty("enabled", true); addProperty("concurrency", 8); addProperty("protocol", "x") }) }
+        expectXray("mux 未知键", "表外的键 protocol") { outbound(1).add("mux", JsonObject().apply { addProperty("enabled", true); addProperty("concurrency", 8); addProperty("xudpProxyUDP443", "allow"); addProperty("protocol", "x") }) }
+        expectXray("mux 不写 xudpProxyUDP443", "缺少键 xudpProxyUDP443") { outbound(1).add("mux", JsonObject().apply { addProperty("enabled", true); addProperty("concurrency", 8) }) }
+        expectXray("mux 的 xudpProxyUDP443 不是 allow", "应为 allow") { outbound(1).add("mux", JsonObject().apply { addProperty("enabled", true); addProperty("concurrency", 8); addProperty("xudpProxyUDP443", "reject") }) }
         expectXray("Trojan 写 flow", "表外的键 flow") { outbound(1).sub("settings", "servers").addProperty("flow", "xtls-rprx-vision") }
         expectXray("Trojan 两个 server", "应恰好一项") {
             val servers = outbound(1).getAsJsonObject("settings").getAsJsonArray("servers")

@@ -7,14 +7,14 @@
     {
       "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 36533,
+      "port": 43953,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "u4c9f83ffaf22177f",
-            "pass": "p6748198ae17daad7b20faf06a5a10868"
+            "user": "uf070e718ccc6adde",
+            "pass": "pe787448cd8f23af3ce534eda22f89524"
           }
         ],
         "udp": true
@@ -33,7 +33,7 @@
         "servers": [
           {
             "address": "127.0.0.1",
-            "port": 45669,
+            "port": 34017,
             "password": "golden-pass-trojan"
           }
         ]
@@ -51,7 +51,8 @@
       },
       "mux": {
         "enabled": true,
-        "concurrency": 4
+        "concurrency": 4,
+        "xudpProxyUDP443": "allow"
       }
     }
   ],

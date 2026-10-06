@@ -267,12 +267,12 @@ enum class KnownDifference(
     XRAY_MUX_UDP443(
         listOf(ProfileField.ENABLE_MUX, ProfileField.PACKET_ENCODING),
         mapOf(
-            DialCore.XRAY to "只开 mux、没开 xudp 时生成器不写 xudpProxyUDP443，缺省 reject，UDP/443 被 Xray 拒绝；" +
-                "拒绝记录只在 Xray 的 info 级，应用缺省（warning）下看不到",
+            DialCore.XRAY to "有 mux 块（开了 Mux.Cool 或 xudp）时生成器写 xudpProxyUDP443: allow，UDP/443 与其它 UDP 一样经 mux " +
+                "转发；不写时 Xray 缺省 reject，且拒绝记录只在 info 级",
             DialCore.SING_BOX to "sing-mux 照常转发 UDP/443",
         ),
-        "生成器缺口（I1 §5.1；K1b X2 L2-48…51 回环实测，v26.3.27 与 v26.9.30 相同，L2-S08 实测 warning 级下没有记录）：" +
-            "QUIC 被拒后应用一般回落 TCP，不丢安全校验；应在生成器里补，待维护者定",
-        DifferenceDecision.OPEN,
+        "维护者 2026-10-06 定（K1b D16）：生成器写 allow，与 sing-box 一致，要不要挡 QUIC 由路由规则决定（I1 §5.1；" +
+            "K1b X2 L2-48…51 回环实测 reject / 不写 / allow / skip，v26.3.27 与 v26.9.30 相同，L2-S08 实测 warning 级下没有拒绝记录）",
+        DifferenceDecision.DECIDED,
     ),
 }

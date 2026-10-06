@@ -140,7 +140,8 @@ object ExternalCoreInvariants {
     )
     val XRAY_CERTIFICATE = keys("usage", "certificate")
     val XRAY_REALITY = keys("publicKey", optional = setOf("serverName", "shortId", "mldsa65Verify", "fingerprint"))
-    val XRAY_MUX = keys("enabled", "concurrency", optional = setOf("xudpConcurrency", "xudpProxyUDP443"))
+    // xudpProxyUDP443 必须写且为 allow：不写时 Xray 缺省 reject，外核自己丢掉 UDP/443（K1b D16），哑管道不许替路由做决定
+    val XRAY_MUX = keys("enabled", "concurrency", "xudpProxyUDP443", optional = setOf("xudpConcurrency"))
 
     // ================= mihomo 的表 =================
 
@@ -465,7 +466,7 @@ object ExternalCoreInvariants {
             val mux = objectWithKeys(path, value, XRAY_MUX) ?: return
             requireEquals("$path.enabled", mux["enabled"], true)
             if (!isInt(mux["concurrency"])) bad("$path.concurrency", "不是整数")
-            mux["xudpProxyUDP443"]?.let { requireEquals("$path.xudpProxyUDP443", it, "allow") }
+            if ("xudpProxyUDP443" in mux) requireEquals("$path.xudpProxyUDP443", mux["xudpProxyUDP443"], "allow")
         }
     }
 

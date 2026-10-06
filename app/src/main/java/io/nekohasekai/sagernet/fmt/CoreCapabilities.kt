@@ -41,7 +41,8 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //     h2,http/1.1 时保留。
 //  8. echConfigList 支持的形式；echForceQuery 已删（写了被静默忽略），查询失败一律不通（用拒绝连接的本机 DoH
 //     地址验证）；查询从哪里发出（Xray 进程自己）。
-//  9. MuxConfig 的字段与缺省值（concurrency 0 按 8、负数关闭；xudpProxyUDP443 缺省 reject）、handler 的分派顺序。
+//  9. MuxConfig 的字段与缺省值（concurrency 0 按 8、负数关闭；xudpProxyUDP443 缺省 reject，生成器写 allow）、handler 的
+//     分派顺序。
 // 10. VMess / VLESS 的 UDP 默认走 cone XUDP；vision 与 mux 同开时的处理。
 // 11. 未知 JSON 键是否仍被静默忽略（XRAY_JSON_STRICT=true 也不拒绝）。键名大小写不敏感，只有拼错的键才丢，
 //     所以生成器里每个键名的拼写要靠测试保证。
