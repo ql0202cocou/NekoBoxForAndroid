@@ -227,7 +227,7 @@ class CoreSelectionChangeTableTest {
             "VMess 自动选核，REALITY，冻结规则走 sing-box（没有证书指纹）",
             "sing-box",
             "Xray；Xray 承载不了时留在 sing-box：REALITY + ws / httpupgrade / h2、mux 为 sing-mux、packetaddr、只有 sing-box 认的指纹",
-            "REALITY 客户端版本按 Xray 26.3.27 上报、带上 X25519MLKEM768；alpn 不再写进 ClientHello；UDP 默认走 XUDP；" +
+            "REALITY 客户端版本按 Xray 26.9.30 上报、带上 X25519MLKEM768；alpn 不再写进 ClientHello；UDP 默认走 XUDP；" +
                 "多一个 Xray 进程；自定义出站 JSON 改为作用到本机 socks 出站；导出变成 profiles.txt",
             setOf(Result.SING_BOX), setOf(Result.XRAY, Result.SING_BOX),
         ) { it.isVmess && it.auto && it.reality && it.carriedBy == Carrier.SING_BOX },

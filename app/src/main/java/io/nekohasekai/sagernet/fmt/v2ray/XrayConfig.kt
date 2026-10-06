@@ -19,9 +19,9 @@ import moe.matsuri.nb4a.utils.listByLineOrComma
 fun StandardV2RayBean.xrayLacksTransport(): Boolean =
     type == "quic" || (type == "http" && isTLS())
 
-// Xray-core 自 2026-06-01 起在生成配置时拒绝 allowInsecure（已移除的功能，见固定版本 v26.3.27 的
-// infra/conf/transport_internet.go）。证书固定不受影响：pinnedPeerCertSha256 是官方给的替代，本来就优先于
-// allowInsecure。REALITY 节点不算：REALITY 分支不写 allowInsecure（REALITY 不验证服务端证书）。
+// Xray-core 在生成配置时无条件拒绝 allowInsecure（已移除的功能；固定版本 v26.9.30 的
+// infra/conf/transport_security.go，写 false 不报错）。证书固定不受影响：pinnedPeerCertSha256 是官方给的替代，
+// 本来就优先于 allowInsecure。REALITY 节点不算：REALITY 分支不写 allowInsecure（REALITY 不验证服务端证书）。
 // 选核由能力表决定（XRAY_ALLOW_INSECURE），这里同 xrayLacksTransport 只是生成器的最后一道防线；
 // 全局开关由调用方传入（buildXrayOutbound 取 ExternalCoreSettings）
 fun StandardV2RayBean.xrayLacksAllowInsecure(globalAllowInsecure: Boolean): Boolean =
@@ -130,7 +130,8 @@ fun buildXrayOutbound(
         put("streamSettings", buildXrayStreamSettings(bean))
         // packetEncoding = xudp 经 Xray 的 mux 配置表达（xudpConcurrency）；Xray 没有 packetaddr。另外 Xray 的 VMess / VLESS
         // 出站默认就把 53、443 端口以外的 UDP 改走 XUDP，与 packetEncoding 无关。vision 流控不支持 mux，整个不写。
-        // 只开 mux 不开 xudp 时不写 xudpProxyUDP443，Xray 缺省拒绝 UDP/443（生成器缺口，未修；Trojan 的 mux 同样）
+        // 只开 mux 不开 xudp 时不写 xudpProxyUDP443，Xray 缺省拒绝 UDP/443（生成器缺口，未修；Trojan 的 mux 同样）。
+        // 拒绝已在回环实测（K1b X2 L2-48…51，v26.3.27 与 v26.9.30 相同），拒绝记录只在 Xray 的 info 级
         if (!bean.isVisionFlow && (bean.enableMux || bean.packetEncoding == 2)) {
             put("mux", LinkedHashMap<String, Any?>().apply {
                 put("enabled", true)
@@ -255,8 +256,7 @@ private fun buildXrayStreamSettings(bean: StandardV2RayBean): Map<String, Any?> 
 
             "httpupgrade" -> {
                 put("network", "httpupgrade")
-                // xray's json tag is all-lowercase; httpUpgradeSettings is
-                // silently ignored, dropping path and Host
+                // 键名大小写不敏感，只有拼错的键才丢；保持全小写只是与上游文档一致
                 put("httpupgradeSettings", LinkedHashMap<String, Any?>().apply {
                     if (bean.host.isNotBlank()) put("host", bean.host)
                     put("path", bean.path.takeIf { it.isNotBlank() } ?: "/")

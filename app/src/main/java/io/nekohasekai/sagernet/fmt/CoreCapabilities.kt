@@ -7,8 +7,10 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 // K1 能力表（plan.md「选核策略（完整能力匹配）」）：三个能替节点拨号的核心，各自对节点每项要求的声明，以及组合规则。
 // 选核（CoreSelection.kt）只读这里；节点的要求由 CoreRequirements.kt 提取。
 //
-// 依据（调查报告在 scratchpad/k1/reports/，证据编号沿用报告）：
-// - Xray：I1（v26.3.27 源码 S-X*、run -test 实测 T-*、本机回环 L-*）；
+// 依据（证据编号沿用报告；K1 的调查报告存于维护者本地 doc/agent/k1b-wip/k1-reports/，K1b 的 M1 / X1 / X2 存于维护者
+// 本地 doc/agent/k1b-wip/）：
+// - Xray：I1（v26.3.27 源码 S-X*、run -test 实测 T-*、本机回环 L-*）；K1b（v26.9.30 复核：X1 源码 S2-X*，X2 实测
+//   T2-* / L2-*）；
 // - mihomo：I1（v1.19.31 源码 S-M*、-t 实测 T-M*、回环 L-MA*）；
 // - sing-box：I2b（vendored libcore/sing-box，1.14.2 + 1.14.2-neko-1）；
 // - 生成器：I2b 的逐字段真值表（buildSingBoxOutbound*、buildXrayOutbound、buildMihomoProxy）。
@@ -24,40 +26,56 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //  1. Trojan 出站的写法：servers 与扁平写法、写 flow 被拒绝、只许一个 server、弃用警告不影响退出码。
 //  2. REALITY 能用哪些传输（现在是 tcp / grpc / xhttp）及其报错原文；h2、quic、http 已移除时的报错原文。
 //  3. realitySettings 客户端字段的校验：publicKey / password、shortId、fingerprint 的禁用名与默认值、mldsa65Verify
-//     的长度、spiderX；客户端上报的版本号。
-//  4. allowInsecure 的移除方式与报错原文，以及它按设备时钟判断这一点。
+//     的长度、spiderX；客户端上报的版本号。服务端（v26.9.8 起）要求 ClientHello 带 X25519MLKEM768 且排在 X25519
+//     之前，minClientVer 不能放宽：用新旧服务端 × 指纹的分进程矩阵验证（客户端、服务端各一个进程）。
+//  4. allowInsecure：v26.6.22 起无条件拒绝（不再看设备时钟），原文「… migrated to "pinnedPeerCertSha256"(pcs) and
+//     "verifyPeerCertByName"(vcn). …」；写 false 不报错。
 //  5. pinnedPeerCertSha256 的格式（十六进制、冒号、逗号）与匹配语义（命中叶子跳过校验；命中 IsCA 的链上证书按
 //     serverName 与有效期校验；其余不算命中），用回环验证；旧的固定字段是否仍被静默忽略。
-//  6. certificates 是追加到系统证书池还是替换；run -test 是否解析 PEM。
+//  6. certificates 是追加到系统证书池还是替换；run -test 是否解析 PEM。「追加」已实测：certificates 只放另一张
+//     CA，用 SSL_CERT_FILE 把服务端证书的 CA 放进 Go 的系统根时能通，加 disableSystemRoot 或不设 SSL_CERT_FILE
+//     时不通。
 //  7. fingerprint 的名单（XRAY_UTLS_FINGERPRINTS）、空值的默认（现在是 chrome）、不认识的名字是否报错；uTLS 下
-//     alpn 是否生效。
-//  8. echConfigList 支持的形式、echForceQuery 的缺省值（失败即拒绝）、查询从哪里发出。
+//     alpn 是否生效：预设模板盖掉用户的 alpn，randomized 系列用用户写的 alpn；ws 外层缺省 http/1.1，写
+//     h2,http/1.1 时保留。
+//  8. echConfigList 支持的形式；echForceQuery 已删（写了被静默忽略），查询失败一律不通（用拒绝连接的本机 DoH
+//     地址验证）；查询从哪里发出（Xray 进程自己）。
 //  9. MuxConfig 的字段与缺省值（concurrency 0 按 8、负数关闭；xudpProxyUDP443 缺省 reject）、handler 的分派顺序。
 // 10. VMess / VLESS 的 UDP 默认走 cone XUDP；vision 与 mux 同开时的处理。
-// 11. 未知 JSON 键是否仍被静默忽略。仍忽略时生成器里每个键名都要靠测试保证拼写，例如 httpupgradeSettings 全小写。
+// 11. 未知 JSON 键是否仍被静默忽略（XRAY_JSON_STRICT=true 也不拒绝）。键名大小写不敏感，只有拼错的键才丢，
+//     所以生成器里每个键名的拼写要靠测试保证。
 // 12. run -test 的退出码与「Failed to start: … with tag out-N > …」的报错格式（ExternalCoreStartup.kt 依赖它）。
+//     JSON 解码错误由 Go 1.27 改成「Config.outbounds.<下标>.…」（下标把首位的 block 也算在内），仍没有 tag。
+// 13. 公网明文禁令（v26.7.11 起）：不带 TLS 的 VLESS（没有 VLESS Encryption）/ Trojan 出站，服务端地址不在 Xray
+//     的私有名单里时 run -test 报错。私有名单含 127/8、::1、localhost 与 203.0.113.0/24、198.51.100.0/24 等文档
+//     地址段，所以测拒绝要用 2001:db8::/32 或普通域名；本应用的 Xray 跳一律拨 127.0.0.1，确认仍不触发。
+// 14. socks 入站的 UDP ASSOCIATE 语义（K0b）：入站端口本身是否收 UDP；每次通过认证的 ASSOCIATE 是否另开临时端口、
+//     只收声明的来源 IP、由第一个包锁定来源端口、随 TCP 控制连接关闭（v26.9.30 都是）。用回环逐项验证，并对照
+//     sing 的 SOCKS5 客户端在 ASSOCIATE 里写的地址。
+// 15. 顶层新键（env 改进程环境变量、geodata 会定时下载文件）：生成器不写，ExternalCoreInvariants 的 XRAY_TOP 把
+//     它们列为禁止项；再有新的顶层键同样列进去。
 //
 // mihomo：
-// 13. AnyTLSOption 的字段全集（是否新增自定义 CA、reality、mldsa 等）。
-// 14. fingerprint 的匹配语义（命中叶子跳过校验、命中非叶子按名字校验、是否要求 IsCA），用回环验证；-t 是否开始
+// 16. AnyTLSOption 的字段全集（是否新增自定义 CA、reality、mldsa 等）。
+// 17. fingerprint 的匹配语义（命中叶子跳过校验、命中非叶子按名字校验、是否要求 IsCA），用回环验证；-t 是否开始
 //     检查指纹格式。
-// 15. client-fingerprint 名单（MIHOMO_UTLS_FINGERPRINTS），以及名字不认识时是否仍静默退回 Go 标准 TLS。
-// 16. ech-opts：解码方式、只开开关时自动查询所用的解析器。
-// 17. tls.custom-certifactes 的键名（含拼写）、作用范围、加载失败时的行为；内置证书包是否仍默认开启。
-// 18. -t 的退出码与 logrus 报错格式（「proxy N: …」；dialer-proxy 的报错不带序号）。
+// 18. client-fingerprint 名单（MIHOMO_UTLS_FINGERPRINTS），以及名字不认识时是否仍静默退回 Go 标准 TLS。
+// 19. ech-opts：解码方式、只开开关时自动查询所用的解析器。
+// 20. tls.custom-certifactes 的键名（含拼写）、作用范围、加载失败时的行为；内置证书包是否仍默认开启。
+// 21. -t 的退出码与 logrus 报错格式（「proxy N: …」；dialer-proxy 的报错不带序号）。
 //
 // sing-box（vendored，libcore/sing-box）：
-// 19. common/tls/reality_client.go 的 REALITY 客户端：自报的客户端版本（SessionId 前三字节，现在固定 1.8.1）与
-//     去掉 X25519MLKEM768 的过滤是否还在、「reality verification failed」原文是否不变；对照最新 Xray 服务端缺省的
-//     minClientVer，复核 NEKO.md「Accepted upstream behavior」的 REALITY 一条与测速提示（withRealityHint）。
-//     libcore/reality_client_canary_test.go 在这些内容变化时先红。
-// 20. common/tls/utls_client.go 的 uTLS 指纹名单（uTLSClientHelloID，SING_BOX_UTLS_FINGERPRINTS），区分大小写、
+// 22. common/tls/reality_client.go 的 REALITY 客户端：自报的客户端版本（SessionId 前三字节，现在固定 1.8.1）与
+//     去掉 X25519MLKEM768 的过滤是否还在、「reality verification failed」原文是否不变；对照最新 Xray 服务端对
+//     ClientHello 的要求（第 3 条），复核 NEKO.md「Accepted upstream behavior」的 REALITY 一条与测速提示
+//     （withRealityHint）。libcore/reality_client_canary_test.go 在这些内容变化时先红。
+// 23. common/tls/utls_client.go 的 uTLS 指纹名单（uTLSClientHelloID，SING_BOX_UTLS_FINGERPRINTS），区分大小写、
 //     名单外加载配置时报错这两点是否不变。
 
 // 能替节点拨号的核心。value 与 ProxyEntity.CORE_* 相同；version 是这张表核实时的版本
 enum class DialCore(val value: Int, val displayName: String, val version: String) {
     SING_BOX(CORE_SING_BOX, "sing-box", "1.14.2"),
-    XRAY(CORE_XRAY, "Xray", "v26.3.27"),
+    XRAY(CORE_XRAY, "Xray", "v26.9.30"),
     MIHOMO(CORE_MIHOMO, "mihomo", "v1.19.31");
 
     companion object {
@@ -365,26 +383,30 @@ val SING_BOX_UTLS_FINGERPRINTS = CoreNames(
     ignoreCase = false,
 )
 
-// Xray v26.3.27 的 fingerprint：infra/conf/transport_internet.go 先转小写，再查 transport/internet/tls/tls.go 的
+// Xray v26.9.30 的 fingerprint：infra/conf/transport_internet.go 先转小写，再查 transport/internet/tls/tls.go 的
 // PresetFingerprints / ModernFingerprints / OtherFingerprints，名单外 run -test 报 unknown "fingerprint"。
-// unsafe 表示 Go 标准 TLS；REALITY 另外拒绝 unsafe 与 hellogolang（见组合规则）
+// unsafe 表示 Go 标准 TLS；REALITY 另外拒绝 unsafe 与 hellogolang（见组合规则）。
+// v26.9.30 比 v26.3.27 多了 hellochrome_133、hellofirefox_148、hellosafari_26_3（X2 T2-94/95/76 实测，旧版拒绝），
+// 没有删除；Modern / Other 两组按 v26.6.1（455f6bc2）的新表分组（X1 S2-X8）
 val XRAY_UTLS_FINGERPRINTS = CoreNames(
     setOf(
         // PresetFingerprints
         "chrome", "firefox", "safari", "ios", "android", "edge", "360", "qq",
         "random", "randomized", "randomizednoalpn", "unsafe",
-        // ModernFingerprints
-        "hellofirefox_99", "hellofirefox_102", "hellofirefox_105", "hellofirefox_120",
-        "hellochrome_83", "hellochrome_87", "hellochrome_96", "hellochrome_100", "hellochrome_102",
-        "hellochrome_106_shuffle", "hellochrome_120", "hellochrome_131",
-        "helloios_13", "helloios_14", "helloedge_85", "helloedge_106", "hellosafari_16_0",
-        "hello360_11_0", "helloqq_11_1",
-        // OtherFingerprints
+        // ModernFingerprints（random 在启动时从这一组里抽一个）
+        "hellofirefox_120", "hellofirefox_148", "hellochrome_120", "hellochrome_131", "hellochrome_133",
+        "helloios_13", "helloios_14", "helloedge_106", "hellosafari_26_3", "hello360_11_0", "helloqq_11_1",
+        // OtherFingerprints：Go 标准、随机、auto 与过旧的模板
         "hellogolang", "hellorandomized", "hellorandomizedalpn", "hellorandomizednoalpn",
         "hellofirefox_auto", "hellofirefox_55", "hellofirefox_56", "hellofirefox_63", "hellofirefox_65",
+        "hellofirefox_99", "hellofirefox_102", "hellofirefox_105",
         "hellochrome_auto", "hellochrome_58", "hellochrome_62", "hellochrome_70", "hellochrome_72",
+        "hellochrome_83", "hellochrome_87", "hellochrome_96", "hellochrome_100", "hellochrome_102",
+        "hellochrome_106_shuffle",
         "helloios_auto", "helloios_11_1", "helloios_12_1", "helloandroid_11_okhttp",
-        "helloedge_auto", "hellosafari_auto", "hello360_auto", "hello360_7_5", "helloqq_auto",
+        "helloedge_85", "helloedge_auto", "hellosafari_16_0", "hellosafari_auto",
+        "hello360_auto", "hello360_7_5", "helloqq_auto",
+        // OtherFingerprints 里的 Chrome 测试版
         "hellochrome_100_psk", "hellochrome_112_psk_shuf", "hellochrome_114_padding_psk_shuf",
         "hellochrome_115_pq", "hellochrome_115_pq_psk", "hellochrome_120_pq",
     ),
@@ -405,7 +427,7 @@ val MIHOMO_UTLS_FINGERPRINTS = CoreNames(
 // Xray REALITY 拒绝的 fingerprint（infra/conf/transport_internet.go，REALITY 分支）
 val XRAY_REALITY_FORBIDDEN_FINGERPRINTS = CoreNames(setOf("unsafe", "hellogolang"), ignoreCase = true)
 
-// VLESS flow：sing-vmess v0.2.8 vless/client.go 的 NewClient；Xray v26.3.27 infra/conf/vless.go 的出站 users 校验
+// VLESS flow：sing-vmess v0.2.8 vless/client.go 的 NewClient；Xray v26.9.30 infra/conf/vless.go 的出站 users 校验
 val SING_BOX_VLESS_FLOWS = CoreNames(setOf("xtls-rprx-vision"), ignoreCase = false)
 val XRAY_VLESS_FLOWS = CoreNames(setOf("xtls-rprx-vision", "xtls-rprx-vision-udp443"), ignoreCase = false)
 
@@ -500,7 +522,7 @@ val CAPABILITY_TABLE: Map<Requirement, Map<DialCore, CapabilityCell>> = linkedMa
         supported(XR, "追加到系统根证书"),
         supported(MH, "换算成第一张证书的 SHA-256 固定，含义不同（见已知差异 ANYTLS_CERTIFICATES）"),
     ),
-    // I1 §4.1：Xray 在 2026-06-01 之后的 run -test 就拒绝 allowInsecure（按设备时钟判断）
+    // I1 §4.1；X1 S2-X5、X2 T2-81：Xray 自 v26.6.22 起 run -test 无条件拒绝 allowInsecure（写 false 不报错）
     Requirement.ALLOW_INSECURE to row(
         supported(SB), unsupported(XR, CoreConflict.XRAY_ALLOW_INSECURE), supported(MH, "skip-cert-verify"),
     ),

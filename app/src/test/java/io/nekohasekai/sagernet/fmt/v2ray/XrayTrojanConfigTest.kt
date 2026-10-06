@@ -17,7 +17,8 @@ import org.junit.Test
 import java.util.Base64
 
 // Trojan 的 Xray 出站（D10 的生成器部分）：出站的完整形状、与 VMess / VLESS 共用的传输与 TLS 生成、
-// Trojan 自己的 mux 规则与报错。预期值按 Xray v26.3.27 接受的写法（settings.servers 一项）手写
+// Trojan 自己的 mux 规则与报错。预期值按 Xray 接受的写法（settings.servers 一项，v26.3.27 与 v26.9.30 相同，
+// K1b X2 T2-19…24）手写
 class XrayTrojanConfigTest {
 
     private val settings = ExternalCoreSettings(logLevel = 0, ipv6Mode = 0, globalAllowInsecure = false)

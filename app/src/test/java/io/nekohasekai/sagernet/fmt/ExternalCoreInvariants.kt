@@ -62,7 +62,11 @@ object ExternalCoreInvariants {
         forbidden = forbid(
             "路由之外的能力由 sing-box 负责", "dns", "policy", "api", "stats", "fakedns", "observatory", "burstObservatory",
             "reverse", "metrics", "transport", "browserDialer",
-        ),
+        ) +
+            // v26.3.27 之后新增的顶层键（env 自 v26.7.11、geodata 自 v26.4.25），只有源码依据（infra/conf/xray.go
+            // 的 Config：env 在进程启动时 setenv，geodata 可定时下载文件；K1b X1），没有实测
+            forbid("不改核心进程的环境变量", "env") +
+            forbid("不下载地理数据", "geodata"),
     )
     val XRAY_LOG = keys("loglevel", "access")
     val XRAY_LOG_LEVELS = setOf("warning", "info", "debug")

@@ -8,15 +8,15 @@ set -eo pipefail
 
 source buildScript/init/verify_sha256.sh
 
-XRAY_VERSION="v26.3.27"
+XRAY_VERSION="v26.9.30"
 MIHOMO_VERSION="v1.19.31"
 
 # sha256 of the extracted binaries (exactly what ships in the APK), frozen when
 # the versions above were bumped — recompute and update them together. Guards
 # against a release asset being swapped under the same tag: mihomo publishes no
 # checksums at all, and Xray's .dgst sits next to the asset it describes.
-XRAY_SHA256_arm64_v8a=19101a8191d6d606da975f719c8cdb80b8710b87ab17edc00ef74b9e39588714
-XRAY_SHA256_x86_64=26b2ac1e596242847a247df9e932ac480bf6072c5c686517f5a3017320895814
+XRAY_SHA256_arm64_v8a=6de04c5f5492c0d050f520a1aad10b68ec6fd21907599b95572ad8807dd833cb
+XRAY_SHA256_x86_64=c599dd642cc6063f5d87aa66295fec075cf101b680973f9a743f30705f651965
 MIHOMO_SHA256_arm64_v8a=dbd8af275219a097d66362d543b32f65ba0d4de9d96a49bf5e9abdcdad3af6f1
 MIHOMO_SHA256_x86_64=b3a9f4daba6351d7cefe512eeea735b380c8a6c441966ef84ab1e5ff0b5c4dac
 
