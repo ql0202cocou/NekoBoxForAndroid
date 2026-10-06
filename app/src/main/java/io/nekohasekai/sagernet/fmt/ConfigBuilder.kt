@@ -162,17 +162,19 @@ private const val REALITY_VERIFICATION_FAILED = "reality verification failed"
 // 带了 REALITY 提示的测速错误，cause 是原来的异常
 class RealityHintException(message: String, cause: Exception) : Exception(message, cause)
 
-// 测速报 REALITY 握手失败时补一句提示：sing-box 的 REALITY 客户端自报的版本固定，较新的 Xray 服务端可能拒绝它
-// （NEKO.md 的「接受上游行为」）。同一句报错也可能是公钥、shortId 填错或时间偏差，所以只说「可能」。
-// Xray 能完整承载的节点建议改核心，不能的列出冲突字段。错误里没有出站 tag，认不出是哪一跳：本次构建里有多个这样的
-// 节点时全部列出，不猜。消息不含这一句或构建里没有这样的节点时原样返回同一个对象。
+// 测速报 REALITY 握手失败时补一句提示：sing-box 的 REALITY 客户端不提供 X25519MLKEM768（自报版本也固定），
+// Xray v26.9.8 起的服务端要求它、运营者没有开关（NEKO.md 的「接受上游行为」）。同一句报错也可能是公钥、shortId
+// 填错或时间偏差，所以只说「可能」。Xray 能完整承载的节点建议改核心，并提醒指纹要选带 X25519MLKEM768 的模板：
+// 不带的（ios、edge、qq 等）在 Xray 上同样连不上这类服务端；不能改用 Xray 的列出冲突字段。错误里没有出站 tag，
+// 认不出是哪一跳：本次构建里有多个这样的节点时全部列出，不猜。消息不含这一句或构建里没有这样的节点时原样返回同一个对象。
 // 只用于测速（TestInstance、BaseService.urlTest）；运行时的连接失败只进日志，不经过这里
 fun ConfigBuildResult.withRealityHint(e: Exception): Exception {
     val message = e.message ?: return e
     if (realityOnSingBox.isEmpty() || !message.contains(REALITY_VERIFICATION_FAILED)) return e
-    val cause = "the server may require a newer REALITY client than sing-box provides"
+    val cause = "the server may require X25519MLKEM768, which the sing-box REALITY client does not offer"
     fun RealityOnSingBox.advice() = if (xrayConflicts.isEmpty()) {
-        "profile \"$name\" can run on Xray: set its core to Xray"
+        "profile \"$name\" can run on Xray: set its core to Xray and use a fingerprint with X25519MLKEM768 " +
+            "(chrome / firefox / safari family)"
     } else {
         "profile \"$name\" cannot run on Xray: " + xrayConflicts.joinToString("; ") { it.fieldText() }
     }

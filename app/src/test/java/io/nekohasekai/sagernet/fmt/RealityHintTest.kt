@@ -20,7 +20,8 @@ class RealityHintTest {
     )
 
     private val failed = "Get \"https://www.example.com/generate_204\": reality verification failed"
-    private val cause = "the server may require a newer REALITY client than sing-box provides"
+    private val cause = "the server may require X25519MLKEM768, which the sing-box REALITY client does not offer"
+    private val toXray = "set its core to Xray and use a fingerprint with X25519MLKEM768 (chrome / firefox / safari family)"
     private val wsConflict = Conflict(DialCore.XRAY, CoreConflict.XRAY_REALITY_TRANSPORT)
 
     @Test
@@ -28,7 +29,7 @@ class RealityHintTest {
         val e = Exception(failed)
         val hinted = result(RealityOnSingBox(3, "香港", emptyList())).withRealityHint(e)
         assertTrue(hinted is RealityHintException)
-        assertEquals("$failed. Hint: $cause; profile \"香港\" can run on Xray: set its core to Xray", hinted.message)
+        assertEquals("$failed. Hint: $cause; profile \"香港\" can run on Xray: $toXray", hinted.message)
         assertSame(e, hinted.cause)
     }
 
@@ -52,7 +53,7 @@ class RealityHintTest {
             "$failed. Hint: $cause; it is not known which of these REALITY profiles on sing-box failed: " +
                 "profile \"东京\" cannot run on Xray: [type, realityPubKey] Xray only runs REALITY over TCP or gRPC; " +
                 "[enableMux, muxType] ${CoreConflict.XRAY_SING_MUX.reason} (smux) | " +
-                "profile \"香港\" can run on Xray: set its core to Xray",
+                "profile \"香港\" can run on Xray: $toXray",
             hinted.message,
         )
     }

@@ -47,22 +47,38 @@ Accepted upstream behavior (no patch):
   `X25519MLKEM768` out of the uTLS ClientHello's supported groups and key
   shares, then rebuilds the handshake state; and it writes a constant client
   version into the REALITY session id (`SessionId[0..2] = 1, 8, 1`, i.e.
-  1.8.1), whatever sing-box's own version is. Effects: a server that only
-  accepts clients at or above some version treats the hello as a stranger and
-  forwards it to the camouflage site, so the client fails with
-  `reality verification failed` (Xray's REALITY server defaults `minClientVer`
-  to 26.3.27 since Xray v26.7.11, commit af7eb680, so sing-box can never
-  connect to such a server unless the operator lowers it); and the hybrid
-  post-quantum key exchange is never offered. Kept upstream unpatched: the
-  version bytes are part of the REALITY handshake, and reporting a newer one
-  would claim to be a client this code is not. The app handles it on the
-  Kotlin side (a REALITY node Xray can fully express runs on Xray; the
-  sing-box error gets an explanatory hint). On every sing-box upgrade re-read
+  1.8.1), whatever sing-box's own version is. Measured on an emulator
+  (2026-10-06, the vendored 1.14.2-neko-1 built from libcore's module graph,
+  client and server in separate processes): with the chrome fingerprint the
+  ClientHello offers only `X25519 P256 P384` (plus GREASE), and the chrome,
+  firefox and safari fingerprints all fail against a v26.9.30 server.
+  Effects on Xray's REALITY server:
+  - Xray v26.3.27 accepts it by default and rejects it once the operator sets
+    `minClientVer` to 26.3.27 or higher. Xray v26.7.11 to v26.7.28 defaulted
+    `minClientVer` to 26.3.27 (source only, commit af7eb680).
+  - Since Xray v26.9.8 (xtls/reality 8cdf7bf9) the server requires an
+    `X25519MLKEM768` key share placed before `X25519` (source; the measured
+    rejections all lacked the key share), with no operator switch: v26.9.30
+    rejects sing-box by default, and still rejects it with
+    `minClientVer` lowered to 1.8.0 (below the reported 1.8.1). Xray clients
+    whose fingerprint lacks `X25519MLKEM768` (ios, edge, qq, ...) are rejected
+    the same way, old or new client.
+  - A rejected hello is treated as a stranger and forwarded to the camouflage
+    site. sing-box then fails with `reality verification failed` when the
+    camouflage site's certificate is trusted (the usual case for a public
+    target), or with an x509 error (`certificate signed by unknown
+    authority`) when it is not.
+  The hybrid post-quantum key exchange is never offered either. Kept upstream
+  unpatched: the version bytes are part of the REALITY handshake, and
+  reporting a newer one would claim to be a client this code is not. The app
+  handles it on the Kotlin side (a REALITY node Xray can fully express runs
+  on Xray; the sing-box error gets an explanatory hint that also asks for a
+  fingerprint with `X25519MLKEM768`). On every sing-box upgrade re-read
   `common/tls/reality_client.go` (the version bytes, the curve / key share
   filter, the `reality verification failed` text), compare it with the newest
-  Xray server's default `minClientVer`, and revisit this entry and the app's
-  hint; the canary test `libcore/reality_client_canary_test.go` fails when
-  those pieces change.
+  Xray server's requirements on the ClientHello (key shares, default
+  `minClientVer`), and revisit this entry and the app's hint; the canary test
+  `libcore/reality_client_canary_test.go` fails when those pieces change.
 
 The `1.12.x-neko-1` commits only bump `constant/version.go` and carry no code
 changes.

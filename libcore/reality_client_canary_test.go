@@ -7,8 +7,8 @@ import (
 )
 
 // 金丝雀：sing-box 的 REALITY 客户端有两处限制（固定自报版本 1.8.1、去掉
-// X25519MLKEM768），服务端设了 minClientVer 时会表现为
-// "reality verification failed"。应用里的提示与 NEKO.md 的
+// X25519MLKEM768），Xray 服务端要求 X25519MLKEM768（v26.9.8 起）或设了
+// minClientVer 时会表现为 "reality verification failed"。应用里的提示与 NEKO.md 的
 // "Accepted upstream behavior" 都建立在这些事实上。升级 sing-box 后若这些
 // 内容变了，本测试先红，提醒回头核对。
 const realityClientFile = "sing-box/common/tls/reality_client.go"
@@ -29,7 +29,7 @@ func squashSpaces(s string) string {
 
 func realityCanaryHint() string {
 	return "sing-box 的 REALITY 客户端实现变了：请核对 " + realityClientFile +
-		" 的自报版本、X25519MLKEM768 处理与报错文本，对照新版 Xray 服务端默认 minClientVer，" +
+		" 的自报版本、X25519MLKEM768 处理与报错文本，对照新版 Xray 服务端对 ClientHello 的要求（key share、默认 minClientVer），" +
 		"并更新 libcore/sing-box/NEKO.md 的「Accepted upstream behavior」条目与应用里的 REALITY 失败提示"
 }
 
