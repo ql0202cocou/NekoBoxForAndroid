@@ -35,6 +35,7 @@ fun goldenScenarios(): List<Scenario> = scenarioTable {
     groupNameservers()
     multiExternal()
     k1Selection()
+    bug001Precheck()
 }
 
 private fun ScenarioTable.single(
@@ -1368,6 +1369,19 @@ private fun ScenarioTable.k1Selection() {
     single("k1-anytls-mihomo-only-utls", "对照表 13 的例外：AnyTLS 的 uTLS 指纹只有 mihomo 认（chrome120），留在 mihomo") {
         anytls("golden-k1-anytls-chrome120", sni = "anytls.example.com", utls = "chrome120")
     }
+    single(
+        "k1-anytls-psk-fingerprint-certificates",
+        "对照表 14：AnyTLS 带 certificates、uTLS 指纹是 mihomo 握手必败的 chrome_psk，自动选核走 sing-box（之前留在 mihomo）",
+    ) {
+        anytls("golden-k1-anytls-psk-ca", sni = "anytls.example.com", utls = "chrome_psk", certificates = Fx.CERT_PEM)
+    }
+    single(
+        "k1-anytls-randomized-mihomo-manual",
+        "对照表 14：AnyTLS 手动指定 mihomo、uTLS 指纹是 mihomo 握手必败的 randomized：应报错",
+        core = CORE_MIHOMO,
+    ) {
+        anytls("golden-k1-anytls-randomized-mihomo", sni = "anytls.example.com", utls = "randomized")
+    }
 
     // ---- 手动值与协议不匹配：报错并列出冲突
     single("k1-vmess-manual-mihomo", "VMess 手动指定 mihomo：本应用不能在 mihomo 上跑 VMess，应报错", core = CORE_MIHOMO) {
@@ -1413,5 +1427,18 @@ private fun ScenarioTable.k1Selection() {
         node(2, shadowsocks("golden-k1-chain-ss"))
         node(3, trojan("golden-k1-chain-trojan").reality(sni = "reality.example.org"))
         chain(1, 2, 3)
+    }
+}
+
+// BUG-001 短期预检（fmt/SingBoxValueSets.kt）：内部核心跳的枚举取值不在 sing-box 名单里时，构建前报错。
+// 钉住两种语义：选择器里没选中的坏成员被 planOrSkip 跳过（只在运行模式按选择器构建），选中的坏节点整次构建失败
+private fun ScenarioTable.bug001Precheck() {
+    scenario("bug001-selector-bad-ss-member", "选择器：选中合法的 Shadowsocks，另一个成员的 method 不在 sing-box 名单里，被跳过") {
+        group(1, selector = true)
+        node(1, shadowsocks("golden-bug001-ss-good"))
+        node(2, shadowsocks("golden-bug001-ss-bad", server = "ss-bad.example.com", method = "not-a-cipher"))
+    }
+    single("bug001-main-bad-ss", "主节点是 method 不在 sing-box 名单里的 Shadowsocks：应报错") {
+        shadowsocks("golden-bug001-main-bad-ss", method = "not-a-cipher")
     }
 }

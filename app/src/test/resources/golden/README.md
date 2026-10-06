@@ -106,7 +106,7 @@ socks 出站的凭据）。`input.json` 与 `address/corpus.json` 顶层的 `for
 ```
 
 配置构建只消费注入的输入（`fmt/ConfigInput.kt`）之后，整条构建能在普通 JVM 上跑。`GoldenJvmBuildTest` 对本目录
-每个场景的每种模式（324 × 3）：用 `input.json` 的 `groups` / `profiles` / `rules` 建内存数据源（查询语义同 DAO），
+每个场景的每种模式（328 × 3）：用 `input.json` 的 `groups` / `profiles` / `rules` 建内存数据源（查询语义同 DAO），
 设置取 `effectiveSettings`（Clash API secret 只在运行模式且开了 Clash API 时取，同生产外壳），包名 UID 取
 `packageUids`，插件状态按 `plugins` 回答（`missing` 即「plugin X is not installed」）；再走
 「采集引用闭包（`ConfigSnapshot.collect`）→ 纯构建入口 `buildConfig(input)` → `ExternalRunPlan.from` →
@@ -325,11 +325,18 @@ socks 出站与入站都没有；同一份 sing-box 配置里本机凭据只有�
 
 场景表在 `app/src/debug/java/io/nekohasekai/sagernet/golden/collect/GoldenScenarios.kt`，按类别分组：
 单节点（sing-box、Xray、mihomo、插件核心）、自定义配置、链、分组前置 / 落地、选择器、路由规则、设置变体、
-分组 DNS、同核心多节点（`multi-` 前缀）、K1 选核（`k1-` 前缀）。新增场景只往表里加；场景 id 入库后不要改名。
-目前 324 个场景（279 个按单项特性分类的，加 14 个 `multi-` 场景、31 个 `k1-` 场景）。
+分组 DNS、同核心多节点（`multi-` 前缀）、K1 选核（`k1-` 前缀）、BUG-001 短期预检（`bug001-` 前缀）。新增场景只往
+表里加；场景 id 入库后不要改名。目前 328 个场景（279 个按单项特性分类的，加 14 个 `multi-` 场景、33 个 `k1-` 场景、
+2 个 `bug001-` 场景）。
 
-`k1-` 场景的描述写明预期（选中的核心或拒绝），「对照表 N」指 K1 选核变更对照表的第 N 行；夹具都是 K1 写出的数据，
-手动核心值照原样生效（存量数据的升级标注不经过这里，由 `LegacyProfileUpgradeTest` 等单测覆盖）。
+`k1-` 场景的描述写明预期（选中的核心或拒绝），「对照表 N」指 K1 选核变更对照表的第 N 行（第 14 行「mihomo 握手必败的
+uTLS 指纹」是 K1b 加的，对应 `k1-anytls-psk-fingerprint-certificates` 与 `k1-anytls-randomized-mihomo-manual` 两个场景）；
+夹具都是 K1 写出的数据，手动核心值照原样生效（存量数据的升级标注不经过这里，由 `LegacyProfileUpgradeTest` 等单测覆盖）。
+
+`bug001-` 场景钉住 BUG-001 短期预检（`fmt/SingBoxValueSets.kt`：内部核心跳的枚举取值不在 sing-box 名单里时构建前
+报错）的两种语义：`bug001-selector-bad-ss-member` 的选择器里没选中的 Shadowsocks 成员 method 是 `not-a-cipher`，
+运行模式下被 `planOrSkip` 跳过、留一条 `ProfileSkipped` 诊断（期望见 `golden-jvm/expected-diagnostics.json`），
+测速与导出只构建选中的节点；`bug001-main-bad-ss` 的主节点本身是这样的节点，三种模式都整次失败。
 
 `multi-` 场景专门覆盖「一次构建里同一种外核（Xray 或 mihomo）有多个节点」，也就是 K0 把同核心节点合进一份配置、
 一个进程时要改变的情形；在 K0 之前采集，记下每个节点各占一个进程、各有一份配置的旧输出。来路包括：选择器分组里
