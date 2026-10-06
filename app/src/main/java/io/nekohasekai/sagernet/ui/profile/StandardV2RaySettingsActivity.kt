@@ -7,8 +7,11 @@ import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_AUTO
+import io.nekohasekai.sagernet.fmt.CoreDecision
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
+import io.nekohasekai.sagernet.fmt.v2ray.MUX_H2MUX
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.isRealityMldsa65Verify
@@ -185,7 +188,47 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
         }
 
         // 核心选项：VMess / VLESS / Trojan（D10，Trojan 也能走 Xray），HTTP 不能选核
-        findPreference<ListPreference>(Key.PROFILE_CORE)!!.isVisible = isVmess || isVless || bean is TrojanBean
+        findPreference<ListPreference>(Key.PROFILE_CORE)!!.apply {
+            isVisible = isVmess || isVless || bean is TrojanBean
+            setOnPreferenceChangeListener { _, newValue ->
+                val core = (newValue as String).toIntOrNull() ?: CORE_AUTO
+                updateMuxType(core, muxTypeForCore(core, muxType.readStringToIntFromCache()))
+                true
+            }
+        }
+
+        // mux 协议的可选项按核心显示（D15）
+        updateMuxType(editorCore(), null)
+        muxType.preference.setOnPreferenceChangeListener { _, newValue ->
+            muxPadding.preference.isVisible =
+                muxPaddingVisible(editorCore(), (newValue as String).toIntOrNull() ?: MUX_H2MUX)
+            true
+        }
+        enableMux.preference.setOnPreferenceChangeListener { _, newValue ->
+            // 从关切到开：自动选核时按「不开 mux 时会选的核心」挑协议族（监听器先于写入缓存调用，
+            // 临时 bean 里的 enableMux 仍是旧值，这里再显式置为假）
+            if (newValue == true) {
+                val core = editorCore()
+                val coreWithoutMux = if (core != CORE_AUTO) null else {
+                    val probe = editorBean().apply { enableMux = false }
+                    (decideEditorCore(probe, CORE_AUTO) as? CoreDecision.Selected)?.core
+                }
+                updateMuxType(core, muxTypeOnEnable(core, muxType.readStringToIntFromCache(), coreWithoutMux))
+            }
+            true
+        }
+    }
+
+    // 按核心换 muxType 的可选项；value 不为 null 且与当前值不同时改写（经偏好写回编辑缓存）。
+    // core 是即将生效的核心取值：核心选项的监听器先于写入缓存调用，不能从缓存读
+    private fun updateMuxType(core: Int, value: Int?) {
+        val choices = muxTypeChoices(core)
+        val preference = muxType.preference as SimpleMenuPreference
+        preference.setEntries(choices.entriesRes)
+        preference.setEntryValues(choices.valuesRes)
+        val current = muxType.readStringToIntFromCache()
+        if (value != null && value != current) preference.value = value.toString()
+        muxPadding.preference.isVisible = muxPaddingVisible(core, value ?: current)
     }
 
     private fun updateView(network: String) {

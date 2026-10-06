@@ -426,10 +426,26 @@
     </string-array>
 
 
-    <string-array name="mux_type">
+    <!-- mux 协议的可选项随核心变化（MuxTypeChoices）：取值 0–2 为 sing-mux，3 为 Xray 的 Mux.Cool -->
+    <string-array name="mux_type_sing_box_entry" translatable="false">
         <item>h2mux</item>
         <item>smux</item>
         <item>yamux</item>
+    </string-array>
+
+    <string-array name="mux_type_xray_entry" translatable="false">
+        <item>Mux.Cool</item>
+    </string-array>
+
+    <string-array name="mux_type_xray_value" translatable="false">
+        <item>3</item>
+    </string-array>
+
+    <string-array name="mux_type_auto_entry" translatable="false">
+        <item>h2mux (sing-box)</item>
+        <item>smux (sing-box)</item>
+        <item>yamux (sing-box)</item>
+        <item>Mux.Cool (Xray)</item>
     </string-array>
 
     <string-array name="dns_network_select">

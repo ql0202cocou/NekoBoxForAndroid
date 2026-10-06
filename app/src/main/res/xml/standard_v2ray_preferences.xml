@@ -171,8 +171,8 @@
             app:title="@string/enable_mux" />
         <moe.matsuri.nb4a.ui.SimpleMenuPreference
             app:defaultValue="0"
-            app:entries="@array/mux_type"
-            app:entryValues="@array/int_array_3"
+            app:entries="@array/mux_type_auto_entry"
+            app:entryValues="@array/int_array_4"
             app:key="muxType"
             app:title="@string/mux_type"
             app:useSimpleSummaryProvider="true" />
