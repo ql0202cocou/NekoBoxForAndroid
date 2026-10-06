@@ -181,7 +181,7 @@
       "core": 0,
       "beanColumn": "vmessBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
-      "beanKryoBase64": "BgAAAHhyYXktMS5leGFtcGxlLmNv7bsBAAClNmIxZDJmM2EtNGM1ZS00ZjdhLTliMGMtMWQyZTNmNGE1YjZjgf////90Y/B0bPNyZWFsaXR5LTEuZXhhbXBsZS5vcueBgQCBrFoyOXNaR1Z1TFhKbFlXeHBkSGt0Y0hWaWJHbGpMV3RsZVMwd01EQXdNREUwYTFiMmMzZDRlNWY2YTfiAIEAAAAAAAAAAAAAAQAAAIGBAQAAAGdvbGRlbi1tdWx0aS1mbC14cmF5LbGBgQ=="
+      "beanKryoBase64": "BwAAAHhyYXktMS5leGFtcGxlLmNv7bsBAAClNmIxZDJmM2EtNGM1ZS00ZjdhLTliMGMtMWQyZTNmNGE1YjZjgf////90Y/B0bPNyZWFsaXR5LTEuZXhhbXBsZS5vcueBgQCBrFoyOXNaR1Z1TFhKbFlXeHBkSGt0Y0hWaWJHbGpMV3RsZVMwd01EQXdNREUwYTFiMmMzZDRlNWY2YTfiAIEAAAAAAAAAAAAAAQAAAIGBAQAAAGdvbGRlbi1tdWx0aS1mbC14cmF5LbGBgQ=="
     },
     {
       "id": 2,
@@ -197,7 +197,7 @@
       "core": 0,
       "beanColumn": "vmessBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
-      "beanKryoBase64": "BgAAAHhyYXktMi5leGFtcGxlLmNv7bsBAAClNmIxZDJmM2EtNGM1ZS00ZjdhLTliMGMtMWQyZTNmNGE1YjZjgf////90Y/B0bPNyZWFsaXR5LTIuZXhhbXBsZS5vcueBgQCBrFoyOXNaR1Z1TFhKbFlXeHBkSGt0Y0hWaWJHbGpMV3RsZVMwd01EQXdNREUwYTFiMmMzZDRlNWY2YTfiAIEAAAAAAAAAAAAAAQAAAIGBAQAAAGdvbGRlbi1tdWx0aS1mbC14cmF5LbKBgQ=="
+      "beanKryoBase64": "BwAAAHhyYXktMi5leGFtcGxlLmNv7bsBAAClNmIxZDJmM2EtNGM1ZS00ZjdhLTliMGMtMWQyZTNmNGE1YjZjgf////90Y/B0bPNyZWFsaXR5LTIuZXhhbXBsZS5vcueBgQCBrFoyOXNaR1Z1TFhKbFlXeHBkSGt0Y0hWaWJHbGpMV3RsZVMwd01EQXdNREUwYTFiMmMzZDRlNWY2YTfiAIEAAAAAAAAAAAAAAQAAAIGBAQAAAGdvbGRlbi1tdWx0aS1mbC14cmF5LbKBgQ=="
     },
     {
       "id": 3,
@@ -245,7 +245,7 @@
       "core": 0,
       "beanColumn": "vmessBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
-      "beanKryoBase64": "BgAAAHhyYXktMy5leGFtcGxlLmNv7bsBAAClNmIxZDJmM2EtNGM1ZS00ZjdhLTliMGMtMWQyZTNmNGE1YjZjgf////90Y/B0bPNyZWFsaXR5LTMuZXhhbXBsZS5vcueBgQCBrFoyOXNaR1Z1TFhKbFlXeHBkSGt0Y0hWaWJHbGpMV3RsZVMwd01EQXdNREUwYTFiMmMzZDRlNWY2YTfiAIEAAAAAAAAAAAAAAQAAAIGBAQAAAGdvbGRlbi1tdWx0aS1mbC1mcm9u9IGB"
+      "beanKryoBase64": "BwAAAHhyYXktMy5leGFtcGxlLmNv7bsBAAClNmIxZDJmM2EtNGM1ZS00ZjdhLTliMGMtMWQyZTNmNGE1YjZjgf////90Y/B0bPNyZWFsaXR5LTMuZXhhbXBsZS5vcueBgQCBrFoyOXNaR1Z1TFhKbFlXeHBkSGt0Y0hWaWJHbGpMV3RsZVMwd01EQXdNREUwYTFiMmMzZDRlNWY2YTfiAIEAAAAAAAAAAAAAAQAAAIGBAQAAAGdvbGRlbi1tdWx0aS1mbC1mcm9u9IGB"
     },
     {
       "id": 11,

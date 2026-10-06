@@ -22,7 +22,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 46099,
+      "listen_port": 40401,
       "override_address": "hy1.example.com",
       "override_port": 8443,
       "tag": "c-0-mapping-3",
@@ -35,7 +35,7 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 36405,
+      "server_port": 40643,
       "tag": "proxy",
       "type": "socks"
     },

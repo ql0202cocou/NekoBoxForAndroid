@@ -22,7 +22,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 42927,
+      "listen_port": 37233,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-4",
@@ -30,7 +30,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 45069,
+      "listen_port": 36195,
       "override_address": "trojan-go.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-2",
@@ -42,16 +42,16 @@
   },
   "outbounds": [
     {
-      "password": "pd0e03526fb14845d4a601f00963be8bf",
+      "password": "pa929aa0529f1e7b46b1f0a92dcd8e40e",
       "server": "127.0.0.1",
-      "server_port": 35561,
-      "username": "u4a23e8a5efbd64d2",
+      "server_port": 34223,
+      "username": "ue9946b2cebae924c",
       "tag": "proxy",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 43749,
+      "server_port": 46011,
       "tag": "g-2",
       "type": "socks"
     },

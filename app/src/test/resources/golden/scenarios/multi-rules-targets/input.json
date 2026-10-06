@@ -169,7 +169,7 @@
       "core": 0,
       "beanColumn": "vmessBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
-      "beanKryoBase64": "BgAAAHhyYXktMS5leGFtcGxlLmNv7bsBAAClNmIxZDJmM2EtNGM1ZS00ZjdhLTliMGMtMWQyZTNmNGE1YjZjgf////90Y/B0bPNyZWFsaXR5LTEuZXhhbXBsZS5vcueBgQCBrFoyOXNaR1Z1TFhKbFlXeHBkSGt0Y0hWaWJHbGpMV3RsZVMwd01EQXdNREUwYTFiMmMzZDRlNWY2YTfiAIEAAAAAAAAAAAAAAQAAAIGBAQAAAGdvbGRlbi1tdWx0aS1ydC1tYWnugYE="
+      "beanKryoBase64": "BwAAAHhyYXktMS5leGFtcGxlLmNv7bsBAAClNmIxZDJmM2EtNGM1ZS00ZjdhLTliMGMtMWQyZTNmNGE1YjZjgf////90Y/B0bPNyZWFsaXR5LTEuZXhhbXBsZS5vcueBgQCBrFoyOXNaR1Z1TFhKbFlXeHBkSGt0Y0hWaWJHbGpMV3RsZVMwd01EQXdNREUwYTFiMmMzZDRlNWY2YTfiAIEAAAAAAAAAAAAAAQAAAIGBAQAAAGdvbGRlbi1tdWx0aS1ydC1tYWnugYE="
     },
     {
       "id": 2,
@@ -185,7 +185,7 @@
       "core": 0,
       "beanColumn": "vmessBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
-      "beanKryoBase64": "BgAAAHhyYXktMi5leGFtcGxlLmNv7bsBAAClNmIxZDJmM2EtNGM1ZS00ZjdhLTliMGMtMWQyZTNmNGE1YjZjgf////90Y/B0bPNyZWFsaXR5LTIuZXhhbXBsZS5vcueBgQCBrFoyOXNaR1Z1TFhKbFlXeHBkSGt0Y0hWaWJHbGpMV3RsZVMwd01EQXdNREUwYTFiMmMzZDRlNWY2YTfiAIEAAAAAAAAAAAAAAQAAAIGBAQAAAGdvbGRlbi1tdWx0aS1ydC14cmF5LbKBgQ=="
+      "beanKryoBase64": "BwAAAHhyYXktMi5leGFtcGxlLmNv7bsBAAClNmIxZDJmM2EtNGM1ZS00ZjdhLTliMGMtMWQyZTNmNGE1YjZjgf////90Y/B0bPNyZWFsaXR5LTIuZXhhbXBsZS5vcueBgQCBrFoyOXNaR1Z1TFhKbFlXeHBkSGt0Y0hWaWJHbGpMV3RsZVMwd01EQXdNREUwYTFiMmMzZDRlNWY2YTfiAIEAAAAAAAAAAAAAAQAAAIGBAQAAAGdvbGRlbi1tdWx0aS1ydC14cmF5LbKBgQ=="
     },
     {
       "id": 3,
@@ -201,7 +201,7 @@
       "core": 2,
       "beanColumn": "vmessBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
-      "beanKryoBase64": "BgAAAHhyYXktd3MtMy5leGFtcGxlLmNv7bsBAAClNWEwYzFlMmYtM2I0ZC00ZTZmLThhOWItMGMxZDJlM2Y0YTViYXV07wAAAAB383dzLTMuZXhhbXBsZS5vcucvZ29sZGVuLXfzAAAAAIF0bPN3cy0zLmV4YW1wbGUub3LngYEAgYGBAIEAAAAAAAAAAAAAAQAAAIGBAQAAAGdvbGRlbi1tdWx0aS1ydC14cmF5LbOBgQ=="
+      "beanKryoBase64": "BwAAAHhyYXktd3MtMy5leGFtcGxlLmNv7bsBAAClNWEwYzFlMmYtM2I0ZC00ZTZmLThhOWItMGMxZDJlM2Y0YTViYXV07wAAAAB383dzLTMuZXhhbXBsZS5vcucvZ29sZGVuLXfzAAAAAIF0bPN3cy0zLmV4YW1wbGUub3LngYEAgYGBAIEAAAAAAAAAAAAAAQAAAIGBAQAAAGdvbGRlbi1tdWx0aS1ydC14cmF5LbOBgQ=="
     },
     {
       "id": 4,

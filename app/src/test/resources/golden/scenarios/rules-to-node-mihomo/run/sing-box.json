@@ -70,7 +70,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 37661,
+      "listen_port": 34603,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-2-mapping-2",
@@ -99,10 +99,10 @@
       "type": "vmess"
     },
     {
-      "password": "p0721de968e0370361243d27964b59aa9",
+      "password": "pf8d2802f235535632c3776aa6a751d3a",
       "server": "127.0.0.1",
-      "server_port": 39877,
-      "username": "u05e0e151c7d22f73",
+      "server_port": 41019,
+      "username": "uc6fc395499e9c102",
       "tag": "g-2",
       "type": "socks"
     },

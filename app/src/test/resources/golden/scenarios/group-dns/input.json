@@ -181,7 +181,7 @@
       "core": 0,
       "beanColumn": "vmessBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
-      "beanKryoBase64": "BgAAAHZtZXNzLmV4YW1wbGUuY2/tuwEAAKU1YTBjMWUyZi0zYjRkLTRlNmYtOGE5Yi0wYzFkMmUzZjRhNWJhdXTvAAAAAHfzY2RuLmV4YW1wbGUub3LnL2dvbGRlbi138wAAAACBbm9u5QCBAAAAAAAAAAAAAAEAAACBgQEAAABnb2xkZW4tZ2Rucy1tYWnugYE="
+      "beanKryoBase64": "BwAAAHZtZXNzLmV4YW1wbGUuY2/tuwEAAKU1YTBjMWUyZi0zYjRkLTRlNmYtOGE5Yi0wYzFkMmUzZjRhNWJhdXTvAAAAAHfzY2RuLmV4YW1wbGUub3LnL2dvbGRlbi138wAAAACBbm9u5QCBAAAAAAAAAAAAAAEAAACBgQEAAABnb2xkZW4tZ2Rucy1tYWnugYE="
     },
     {
       "id": 2,
@@ -213,7 +213,7 @@
       "core": 0,
       "beanColumn": "trojanBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.trojan.TrojanBean",
-      "beanKryoBase64": "AgAAAAYAAAAyMDMuMC4xMTMuOLC7AQAAgYB0Y/B0bPN0cm9qYW4uZXhhbXBsZS5jb+2BgQCBgYEAgQAAAAAAAAAAAAABAAAAgYFnb2xkZW4tcGFzcy10cm9qYe4BAAAAZ29sZGVuLWdkbnMtafCBgQ=="
+      "beanKryoBase64": "AgAAAAcAAAAyMDMuMC4xMTMuOLC7AQAAgYB0Y/B0bPN0cm9qYW4uZXhhbXBsZS5jb+2BgQCBgYEAgQAAAAAAAAAAAAABAAAAgYFnb2xkZW4tcGFzcy10cm9qYe4BAAAAZ29sZGVuLWdkbnMtafCBgQ=="
     },
     {
       "id": 4,
@@ -229,7 +229,7 @@
       "core": 0,
       "beanColumn": "vmessBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
-      "beanKryoBase64": "BgAAAHZsZXNzLmV4YW1wbGUuY2/tuwEAAKU2YjFkMmYzYS00YzVlLTRmN2EtOWIwYy0xZDJlM2Y0YTViNmOB/////3Rj8HRs83d3dy5leGFtcGxlLmNv7YGBAIGsWjI5c1pHVnVMWEpsWVd4cGRIa3RjSFZpYkdsakxXdGxlUzB3TURBd01ERTBhMWIyYzNkNGU1ZjZhN+IAgQAAAAAAAAAAAAABAAAAgYEBAAAAZ29sZGVuLWdkbnMteHJh+YGB"
+      "beanKryoBase64": "BwAAAHZsZXNzLmV4YW1wbGUuY2/tuwEAAKU2YjFkMmYzYS00YzVlLTRmN2EtOWIwYy0xZDJlM2Y0YTViNmOB/////3Rj8HRs83d3dy5leGFtcGxlLmNv7YGBAIGsWjI5c1pHVnVMWEpsWVd4cGRIa3RjSFZpYkdsakxXdGxlUzB3TURBd01ERTBhMWIyYzNkNGU1ZjZhN+IAgQAAAAAAAAAAAAABAAAAgYEBAAAAZ29sZGVuLWdkbnMteHJh+YGB"
     }
   ],
   "rules": [

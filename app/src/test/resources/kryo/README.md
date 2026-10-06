@@ -29,7 +29,9 @@
     读每个样本，所有字段与 `expected` 一致；
   - 读进来的对象用当前实现再写出：各层版本号都是 `registry.json` 登记的当前值，再读回来字段仍与 `expected` 一致；
   - `current` 样本读进来再写出，字节完全相同；
-  - 样本里登记的 `versions` 与字节开头的版本号一致。
+  - 样本里登记的 `versions` 与字节开头的版本号一致；
+  - StandardV2Ray 层版本号 < 7 的样本读出后 bean 的 `legacyUnlabeled`（transient，不进字节、不参与字段比较）为真，
+    v7 样本为假，重新写出再读回为假。
 - `KryoCoverageTest`
   - 当前实现写出的每一层版本号与 `registry.json` 的 `current` 一致——升了版本号却没登记，在这里失败并指出层名；
   - 每层 0..current 的每个版本，要么有样本（且 `sampled` 与样本实际出现的版本一致），要么在 `unsampled` 里写明原因；
@@ -56,6 +58,11 @@
    - 其余（SOCKS 的 `sUoT`、StandardV2Ray 的 ECH / mux / REALITY ML-DSA / 证书指纹、Subscription 的流量与到期、
      `nameserverFromSubscription`、ProxyEntity 的 `core`、ProxyGroup 的 nameserver / 选择器 / 前置落地等）取默认值。
 3. 已经不存在的旧字段（StandardV2Ray v0–v2 的 `enablePqSignature`、`disabledDRS`）被读取分支跳过，不出现在 `expected`。
+
+StandardV2Ray 从 6 升到 7（K1，plan.md D15）时字节布局只有版本号变，读取分支也只多了一句「版本号 < 7 时置
+`legacyUnlabeled`」：这是 transient 标记，表示 K1 之前写下、mux 协议族等还没标注的数据。标注（`LegacyProfileUpgrade.kt`）
+在 bean 之外进行（数据库迁移、备份恢复、通用链接导入），bean 层读 v6 及以前的字节时不改任何公开字段，所以 v0–v6 样本的
+`expected` 照旧，不需要改写。
 
 ## 样本怎么来的
 
@@ -100,7 +107,7 @@ grpc 边界样本（来源提交都在这 12 个之内）直接用 5.2.1 写出�
 | 层 | 当前 | 有样本的版本（来源提交） | 没有样本的版本及原因 |
 | --- | --- | --- | --- |
 | AbstractBean（extraVersion） | 1 | v1（所有 bean 样本） | v0：早于本仓库历史；读取时不参与分支 |
-| StandardV2RayBean | 6 | v0 布局 A `9d78e4f2`、`a82e5b4f`；v0 布局 B `8e976675`；v0 布局 C `680b362b`；v1 `607afa8c`；v2 `2c3a6164`；v3 布局 a `110f3b21`；v3 布局 b `aa275d5e`；v4 `04da8864`（另有 `bbbdf577` 实体内嵌）；v5 `329572d1`；v6 HEAD | — |
+| StandardV2RayBean | 7 | v0 布局 A `9d78e4f2`、`a82e5b4f`；v0 布局 B `8e976675`；v0 布局 C `680b362b`；v1 `607afa8c`；v2 `2c3a6164`；v3 布局 a `110f3b21`；v3 布局 b `aa275d5e`；v4 `04da8864`（另有 `bbbdf577` 实体内嵌）；v5 `329572d1`；v6 `dd8f56d3`（含实体内嵌）；v7 HEAD（VMess / Trojan / HTTP / ShadowTLS 各一个全字段与默认值样本，另有 muxType = 3 的 VLESS 与 core = 2、Mux.Cool 的实体内嵌 VMess） | — |
 | TrojanBean | 2 | v2（每个 StandardV2Ray 来源提交、HEAD） | v0、v1：早于本仓库历史（读取分支是 StandardV2Ray 之前的旧布局） |
 | HttpBean | 0 | v0（同上） | — |
 | ShadowTLSBean | 0 | v0（同上） | — |
@@ -119,7 +126,7 @@ grpc 边界样本（来源提交都在这 12 个之内）直接用 5.2.1 写出�
 | NekoBean | 0 | 不做 | 字段初始化里有 `new JSONObject()`，mockable android.jar 的 org.json 在 JVM 上抛异常，构造不出来；自首个提交以来布局未变 |
 | SubscriptionBean | 5 | v1 `9d78e4f2`、`3fac5afe`、`19cb130f`、`629cdae1`；v2 `9220b316`；v4 `3bd39b94`；v5 HEAD | v0：早于本仓库历史；v3：历史上从未写出（57f4507 由 2 直接改为 4） |
 | SubscriptionBean（分享格式） | 0 | v0（每个分组分享格式样本） | — |
-| ProxyEntity | 1 | v0 `9d78e4f2`、`bbbdf577`；v1 HEAD | — |
+| ProxyEntity | 1 | v0 `9d78e4f2`、`bbbdf577`；v1 `dd8f56d3`（内嵌 Shadowsocks、链的两个仍是当前版本样本）、HEAD（内嵌 VMess） | — |
 | ProxyGroup（存储格式） | 2 | v0 `9d78e4f2`、`3fac5afe`；v1 `19cb130f`；v2 `629cdae1`、`9220b316`、`3bd39b94`、HEAD | — |
 | ProxyGroup（分享格式） | 2 | v0 `9d78e4f2`、`3fac5afe`、`19cb130f`、`629cdae1`；v1 `329572d1`；v2 HEAD | — |
 

@@ -37,28 +37,28 @@
           "index": 0,
           "chainIndex": 0,
           "profileId": 6,
-          "port": 35467,
+          "port": 45261,
           "finalAddress": "127.0.0.1",
-          "finalPort": 35809,
+          "finalPort": 41817,
           "inboundTag": "in-0",
           "outboundTag": "out-0",
           "localAuth": {
-            "username": "ub690c118cb672ae3",
-            "password": "p275add5992a2b13f0f003ce738ea1712"
+            "username": "u79e2732601eaed8a",
+            "password": "p1a839ece11ccccad29d7b2f2f5f6ad12"
           }
         },
         {
           "index": 2,
           "chainIndex": 0,
           "profileId": 4,
-          "port": 44613,
+          "port": 41763,
           "finalAddress": "127.0.0.1",
-          "finalPort": 35335,
+          "finalPort": 44965,
           "inboundTag": "in-2",
           "outboundTag": "out-2",
           "localAuth": {
-            "username": "ub690c118cb672ae3",
-            "password": "p275add5992a2b13f0f003ce738ea1712"
+            "username": "u79e2732601eaed8a",
+            "password": "p1a839ece11ccccad29d7b2f2f5f6ad12"
           }
         }
       ]
@@ -73,14 +73,14 @@
           "index": 1,
           "chainIndex": 0,
           "profileId": 5,
-          "port": 35463,
+          "port": 41575,
           "finalAddress": "127.0.0.1",
-          "finalPort": 41269,
+          "finalPort": 34769,
           "inboundTag": "in-1",
           "outboundTag": "out-1",
           "localAuth": {
-            "username": "ub690c118cb672ae3",
-            "password": "p275add5992a2b13f0f003ce738ea1712"
+            "username": "u79e2732601eaed8a",
+            "password": "p1a839ece11ccccad29d7b2f2f5f6ad12"
           }
         }
       ]
@@ -88,17 +88,17 @@
   ],
   "dynamic": {
     "ports": [
-      35467,
-      35463,
-      44613,
-      35809,
-      41269,
-      35335
+      45261,
+      41575,
+      41763,
+      41817,
+      34769,
+      44965
     ],
     "paths": [],
     "secrets": [
-      "ub690c118cb672ae3",
-      "p275add5992a2b13f0f003ce738ea1712"
+      "u79e2732601eaed8a",
+      "p1a839ece11ccccad29d7b2f2f5f6ad12"
     ]
   }
 }

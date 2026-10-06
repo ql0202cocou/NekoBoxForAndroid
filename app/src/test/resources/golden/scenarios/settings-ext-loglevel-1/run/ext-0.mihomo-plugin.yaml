@@ -4,12 +4,12 @@ listeners:
 - name: in-0
   type: socks
   listen: 127.0.0.1
-  port: 43325
+  port: 33549
   udp: true
   proxy: out-0
   users:
-  - {username: ue189973b58954e8c, password: p9bb308d8a076dc117cb3d9ac708f6bcc}
+  - {username: u9d11d7adbef031df, password: pe35db927d76c95700193db3f78b843c7}
 proxies:
-- {name: out-0, type: anytls, server: 127.0.0.1, port: 34601, password: golden-pass-anytls,
+- {name: out-0, type: anytls, server: 127.0.0.1, port: 35973, password: golden-pass-anytls,
   udp: true, sni: anytls.example.com}
 rules: ['MATCH,REJECT']

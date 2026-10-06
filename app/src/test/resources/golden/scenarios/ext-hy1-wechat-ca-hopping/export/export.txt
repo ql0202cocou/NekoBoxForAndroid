@@ -81,7 +81,7 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 38587,
+      "server_port": 43089,
       "tag": "proxy",
       "type": "socks"
     },
@@ -137,7 +137,7 @@
   "up_mbps": 10,
   "down_mbps": 50,
   "socks5": {
-    "listen": "127.0.0.1:38587"
+    "listen": "127.0.0.1:43089"
   },
   "retry": 5,
   "fast_open": true,
@@ -145,7 +145,7 @@
   "obfs": "golden-obfs",
   "auth_str": "golden-pass-hy1",
   "alpn": "h3",
-  "ca": "/data/user/0/moe.nb4a.debug/cache/hysteria_7436578844649037620.ca",
+  "ca": "/data/user/0/moe.nb4a.debug/cache/hysteria_4952355592510151747.ca",
   "insecure": true,
   "recv_window_conn": 131072,
   "recv_window": 262144,

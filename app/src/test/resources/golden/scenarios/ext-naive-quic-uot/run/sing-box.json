@@ -69,7 +69,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 36729,
+      "listen_port": 35813,
       "override_address": "naive.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-1",
@@ -82,7 +82,7 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 45157,
+      "server_port": 34771,
       "udp_over_tcp": true,
       "tag": "proxy",
       "type": "socks"

@@ -1,53 +1,16 @@
 {
   "formatVersion": 3,
-  "commit": "009139211fd183aee0174c96590333ae63718082",
+  "commit": "d1040171dda3cd162c10f432ae3e2fea2d3adf70",
   "dirty": {
-    "count": 24,
-    "top": [
-      "app/src/debug/java/io/nekohasekai/sagernet/golden/collect/GoldenCollector.kt",
-      "app/src/debug/java/io/nekohasekai/sagernet/golden/collect/GoldenModes.kt",
-      "app/src/main/java/io/nekohasekai/sagernet/bg/ExternalCoreProbes.kt",
-      "app/src/main/java/io/nekohasekai/sagernet/bg/proto/BoxInstance.kt",
-      "app/src/main/java/io/nekohasekai/sagernet/bg/proto/ProxyInstance.kt",
-      "app/src/main/java/io/nekohasekai/sagernet/bg/proto/TestInstance.kt",
-      "app/src/main/java/io/nekohasekai/sagernet/database/ProxyEntity.kt",
-      "app/src/main/java/io/nekohasekai/sagernet/fmt/ConfigBuilder.kt",
-      "app/src/main/java/io/nekohasekai/sagernet/fmt/ExternalRunPlan.kt",
-      "app/src/main/java/io/nekohasekai/sagernet/fmt/LocalSocksAuth.kt",
-      "app/src/main/java/io/nekohasekai/sagernet/fmt/ProtocolHandlers.kt",
-      "app/src/main/java/io/nekohasekai/sagernet/fmt/v2ray/XrayConfig.kt",
-      "app/src/main/java/moe/matsuri/nb4a/proxy/anytls/MihomoConfig.kt",
-      "app/src/test/java/io/nekohasekai/sagernet/bg/ExternalCoreProbesTest.kt",
-      "app/src/test/java/io/nekohasekai/sagernet/fmt/ExternalCoreStartupTest.kt",
-      "app/src/test/java/io/nekohasekai/sagernet/fmt/ExternalRunPlanTest.kt",
-      "app/src/test/java/io/nekohasekai/sagernet/fmt/LocalSocksAuthTest.kt",
-      "app/src/test/java/io/nekohasekai/sagernet/golden/GoldenBaseline.kt",
-      "app/src/test/java/io/nekohasekai/sagernet/golden/GoldenCompareBaselineTest.kt",
-      "app/src/test/java/io/nekohasekai/sagernet/golden/GoldenCompareTree.kt",
-      "app/src/test/java/io/nekohasekai/sagernet/golden/GoldenCompareTreeTest.kt",
-      "app/src/test/java/io/nekohasekai/sagernet/golden/GoldenExternalWiringTest.kt",
-      "app/src/test/java/moe/matsuri/nb4a/proxy/anytls/MihomoConfigTest.kt",
-      "buildScript/golden/compare.sh"
-    ],
-    "codeCount": 11,
-    "codeTop": [
-      "app/src/main/java/io/nekohasekai/sagernet/bg/ExternalCoreProbes.kt",
-      "app/src/main/java/io/nekohasekai/sagernet/bg/proto/BoxInstance.kt",
-      "app/src/main/java/io/nekohasekai/sagernet/bg/proto/ProxyInstance.kt",
-      "app/src/main/java/io/nekohasekai/sagernet/bg/proto/TestInstance.kt",
-      "app/src/main/java/io/nekohasekai/sagernet/database/ProxyEntity.kt",
-      "app/src/main/java/io/nekohasekai/sagernet/fmt/ConfigBuilder.kt",
-      "app/src/main/java/io/nekohasekai/sagernet/fmt/ExternalRunPlan.kt",
-      "app/src/main/java/io/nekohasekai/sagernet/fmt/LocalSocksAuth.kt",
-      "app/src/main/java/io/nekohasekai/sagernet/fmt/ProtocolHandlers.kt",
-      "app/src/main/java/io/nekohasekai/sagernet/fmt/v2ray/XrayConfig.kt",
-      "app/src/main/java/moe/matsuri/nb4a/proxy/anytls/MihomoConfig.kt"
-    ]
+    "count": 0,
+    "top": [],
+    "codeCount": 0,
+    "codeTop": []
   },
   "app": {
     "applicationId": "moe.nb4a.debug",
-    "versionName": "1.8.0-a1",
-    "versionCode": 530,
+    "versionName": "1.8.0-a3",
+    "versionCode": 540,
     "flavor": "oss",
     "buildType": "debug"
   },
@@ -121,5 +84,5 @@
     },
     "problems": []
   },
-  "collectedAt": "2026-10-05T03:30:50Z"
+  "collectedAt": "2026-10-06T00:54:07Z"
 }

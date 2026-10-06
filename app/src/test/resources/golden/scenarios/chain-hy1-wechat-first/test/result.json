@@ -26,14 +26,14 @@
       "pluginId": "hysteria-plugin",
       "controller": null,
       "tempFiles": [
-        "/data/user/0/moe.nb4a.debug/cache/hysteria_9130903550055660204.ca"
+        "/data/user/0/moe.nb4a.debug/cache/hysteria_7880982277735441823.ca"
       ],
       "hops": [
         {
           "index": 0,
           "chainIndex": 0,
           "profileId": 3,
-          "port": 36957,
+          "port": 39735,
           "finalAddress": "hy1.example.com",
           "finalPort": 1080,
           "inboundTag": null,
@@ -45,10 +45,10 @@
   ],
   "dynamic": {
     "ports": [
-      36957
+      39735
     ],
     "paths": [
-      "/data/user/0/moe.nb4a.debug/cache/hysteria_9130903550055660204.ca"
+      "/data/user/0/moe.nb4a.debug/cache/hysteria_7880982277735441823.ca"
     ],
     "secrets": []
   }

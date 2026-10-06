@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.fmt.kryo
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.fmt.kryo.KryoSamples.Sample
+import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.ktx.byteBuffer
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertTrue
@@ -66,6 +67,31 @@ class KryoCompatTest {
         for (sample in current) {
             assertArrayEquals(sample.toString(), sample.bytes, KryoSamples.write(KryoSamples.read(sample)))
         }
+    }
+
+    // StandardV2Ray 层版本号 < 7 是 K1 之前写下的数据：读出后带「未标注」标记（不进字节、不参与字段比较），
+    // 交给备份恢复与通用链接导入去标注；当前实现写出的 v7 没有这个标记，重新写出再读回也没有
+    @Test
+    fun `StandardV2Ray 版本号小于 7 的样本读出后带未标注标记`() {
+        val failures = ArrayList<String>()
+        var legacy = 0
+        var labeled = 0
+        for (sample in KryoSamples.samples) {
+            val version = sample.versions["StandardV2RayBean"] ?: continue
+            val obj = KryoSamples.read(sample)
+            val bean = (if (obj is ProxyEntity) obj.requireBean() else obj) as StandardV2RayBean
+            val expected = version < 7
+            if (expected) legacy++ else labeled++
+            if (bean.legacyUnlabeled != expected) {
+                failures += "${sample.id}：StandardV2Ray v$version 读出后 legacyUnlabeled 应为 $expected"
+            }
+            val again = KryoSamples.read(sample, KryoSamples.write(obj))
+            val againBean = (if (again is ProxyEntity) again.requireBean() else again) as StandardV2RayBean
+            if (againBean.legacyUnlabeled) failures += "${sample.id}：重新写出后读回仍带 legacyUnlabeled"
+        }
+        assertTrue("没有 v7 以前的样本", legacy > 0)
+        assertTrue("没有 v7 的样本", labeled > 0)
+        check(failures)
     }
 
     @Test

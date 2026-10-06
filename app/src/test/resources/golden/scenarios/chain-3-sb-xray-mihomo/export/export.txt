@@ -78,7 +78,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 39015,
+      "listen_port": 43865,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-0-mapping-4",
@@ -86,7 +86,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 44911,
+      "listen_port": 39073,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-3",
@@ -98,18 +98,18 @@
   },
   "outbounds": [
     {
-      "password": "p9af7357f7e52fb59d25b938645de29db",
+      "password": "p19ad5647e5e45ce8383cc8893b9251c8",
       "server": "127.0.0.1",
-      "server_port": 40289,
-      "username": "u45d0cf5c295e6b16",
+      "server_port": 37345,
+      "username": "u42c3032631b2c096",
       "tag": "proxy",
       "type": "socks"
     },
     {
-      "password": "p9af7357f7e52fb59d25b938645de29db",
+      "password": "p19ad5647e5e45ce8383cc8893b9251c8",
       "server": "127.0.0.1",
-      "server_port": 43625,
-      "username": "u45d0cf5c295e6b16",
+      "server_port": 37887,
+      "username": "u42c3032631b2c096",
       "tag": "c-0-3",
       "type": "socks"
     },
@@ -185,13 +185,13 @@ listeners:
 - name: in-0
   type: socks
   listen: 127.0.0.1
-  port: 40289
+  port: 37345
   udp: true
   proxy: out-0
   users:
-  - {username: u45d0cf5c295e6b16, password: p9af7357f7e52fb59d25b938645de29db}
+  - {username: u42c3032631b2c096, password: p19ad5647e5e45ce8383cc8893b9251c8}
 proxies:
-- {name: out-0, type: anytls, server: 127.0.0.1, port: 39015, password: golden-pass-anytls,
+- {name: out-0, type: anytls, server: 127.0.0.1, port: 43865, password: golden-pass-anytls,
   udp: true, sni: anytls.example.com}
 rules: ['MATCH,REJECT']
 
@@ -205,14 +205,14 @@ rules: ['MATCH,REJECT']
     {
       "tag": "in-1",
       "listen": "127.0.0.1",
-      "port": 43625,
+      "port": 37887,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "u45d0cf5c295e6b16",
-            "pass": "p9af7357f7e52fb59d25b938645de29db"
+            "user": "u42c3032631b2c096",
+            "pass": "p19ad5647e5e45ce8383cc8893b9251c8"
           }
         ],
         "udp": true
@@ -231,7 +231,7 @@ rules: ['MATCH,REJECT']
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 44911,
+            "port": 39073,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",

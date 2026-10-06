@@ -2171,7 +2171,7 @@
       "form": "storage",
       "source": {
         "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
-        "tag": null,
+        "tag": "1.8.0-a2",
         "versionName": "1.8.0-a1"
       },
       "versions": {
@@ -2246,7 +2246,7 @@
         "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"shadowtls\"}"
       },
       "base64": "AAAAAAYAAABzaGFkb3d0bHMuZXhhbXBsZS5uZfQLxQAApTAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDA5N3N0bHMtZW7jdGPwdGzzc25pLXNoYWRvd3Rscy5leGFtcGxlLm9y52gyLGh0dHAvMS6xxwEtLS0tLUJFR0lOIENFUlRJRklDQVRFLS0tLS0KUmtGTFJTMURSVkpVTFE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tAWNocm9t5atSa0ZMUlMxU1JVRk1TVlJaTFZCVlFreEpReTFMUlZrdE1EQXdNREF3TUEwMTIzYWJj5AFSa0ZMUlMxRlEwZ3RRMDlPUmtsyAIAAAABAQEAAAAIAAAAUmtGTFJTMU5URVJUUVMwMk5TMVdSVkpKUmxrvcEBYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQIAAABzaGFkb3d0bHMtZmFrZS1wYXNzd29y5AEAAACN5qC35pysIHNoYWRvd3Rsc6R7InRhZyI6ImN1c3RvbS1vdXRib3VuZC1zaGFkb3d0bHMifax7ImxvZyI6eyJsZXZlbCI6Indhcm4ifSwibm90ZSI6InNoYWRvd3RscyJ9",
-      "current": true
+      "current": false
     },
     {
       "id": "ShadowTLSBean/dd8f56d3/shadowtls-tls",
@@ -2254,7 +2254,7 @@
       "form": "storage",
       "source": {
         "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
-        "tag": null,
+        "tag": "1.8.0-a2",
         "versionName": "1.8.0-a1"
       },
       "versions": {
@@ -2329,7 +2329,7 @@
         "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"shadowtls-noech\"}"
       },
       "base64": "AAAAAAYAAABzaGFkb3d0bHMtMi5leGFtcGxlLm5l9AzFAAClMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDk3c3Rscy1lbmMtsnRj8HRs83NuaS1zaGFkb3d0bHMtbm9lY2guZXhhbXBsZS5vcudoMixodHRwLzEusccBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClJrRkxSUzFEUlZKVUxRPT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQFjaHJvbeWrUmtGTFJTMVNSVUZNU1ZSWkxWQlZRa3hKUXkxTFJWa3RNREF3TURBd01BMDEyM2FiY+QAUmtGTFJTMUZRMGd0UTA5T1JrbMgCAAAAAQEBAAAACAAAAFJrRkxSUzFOVEVSVFFTMDJOUzFXUlZKSlJsa73BAWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEDAAAAc2hhZG93dGxzLWZha2UtcGFzc3dvcmQtsgEAAACT5qC35pysIHNoYWRvd3Rscy1ub2VjaKp7InRhZyI6ImN1c3RvbS1vdXRib3VuZC1zaGFkb3d0bHMtbm9lY2gifbJ7ImxvZyI6eyJsZXZlbCI6Indhcm4ifSwibm90ZSI6InNoYWRvd3Rscy1ub2VjaCJ9",
-      "current": true
+      "current": false
     },
     {
       "id": "ShadowTLSBean/dd8f56d3/default",
@@ -2337,7 +2337,7 @@
       "form": "storage",
       "source": {
         "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
-        "tag": null,
+        "tag": "1.8.0-a2",
         "versionName": "1.8.0-a1"
       },
       "versions": {
@@ -2412,6 +2412,172 @@
         "customConfigJson": ""
       },
       "base64": "AAAAAAYAAAAxMjcuMC4wLrE4BAAAgYB0Y/B0bPOBgYEAgYGBAIEAAAAAAAAAAAAAAQAAAIGBAwAAAIEBAAAAgYGB",
+      "current": false
+    },
+    {
+      "id": "ShadowTLSBean/90134fb5/shadowtls-tls-ech",
+      "class": "moe.matsuri.nb4a.proxy.shadowtls.ShadowTLSBean",
+      "form": "storage",
+      "source": {
+        "commit": "90134fb5e6c56eddef109100ab72488a65b3a57b",
+        "tag": null,
+        "versionName": "1.8.0-a3"
+      },
+      "versions": {
+        "ShadowTLSBean": 0,
+        "StandardV2RayBean": 7,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "version": 2,
+        "password": "shadowtls-fake-password",
+        "uuid": "00000000-0000-4000-8000-000000000097",
+        "encryption": "stls-enc",
+        "type": "tcp",
+        "host": "cdn-shadowtls.example.net",
+        "path": "/path-shadowtls",
+        "security": "tls",
+        "sni": "sni-shadowtls.example.org",
+        "alpn": "h2,http/1.1",
+        "utlsFingerprint": "chrome",
+        "allowInsecure": true,
+        "realityPubKey": "RkFLRS1SRUFMSVRZLVBVQkxJQy1LRVktMDAwMDAwMA",
+        "realityShortId": "0123abcd",
+        "realityMldsa65Verify": "RkFLRS1NTERTQS02NS1WRVJJRlk=",
+        "certificateFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "wsMaxEarlyData": 2048,
+        "earlyDataHeaderName": "Sec-WebSocket-Protocol",
+        "certificates": "-----BEGIN CERTIFICATE-----\nRkFLRS1DRVJULQ==\n-----END CERTIFICATE-----",
+        "enableECH": true,
+        "echConfig": "RkFLRS1FQ0gtQ09ORklH",
+        "enableMux": true,
+        "muxPadding": true,
+        "muxType": 1,
+        "muxConcurrency": 8,
+        "packetEncoding": 2,
+        "serverAddress": "shadowtls.example.net",
+        "serverPort": 50443,
+        "name": "样本 shadowtls",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-shadowtls\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"shadowtls\"}"
+      },
+      "expected": {
+        "version": 2,
+        "password": "shadowtls-fake-password",
+        "uuid": "00000000-0000-4000-8000-000000000097",
+        "encryption": "stls-enc",
+        "type": "tcp",
+        "host": "",
+        "path": "",
+        "security": "tls",
+        "sni": "sni-shadowtls.example.org",
+        "alpn": "h2,http/1.1",
+        "utlsFingerprint": "chrome",
+        "allowInsecure": true,
+        "realityPubKey": "RkFLRS1SRUFMSVRZLVBVQkxJQy1LRVktMDAwMDAwMA",
+        "realityShortId": "0123abcd",
+        "realityMldsa65Verify": "RkFLRS1NTERTQS02NS1WRVJJRlk=",
+        "certificateFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "wsMaxEarlyData": 0,
+        "earlyDataHeaderName": "",
+        "certificates": "-----BEGIN CERTIFICATE-----\nRkFLRS1DRVJULQ==\n-----END CERTIFICATE-----",
+        "enableECH": true,
+        "echConfig": "RkFLRS1FQ0gtQ09ORklH",
+        "enableMux": true,
+        "muxPadding": true,
+        "muxType": 1,
+        "muxConcurrency": 8,
+        "packetEncoding": 2,
+        "serverAddress": "shadowtls.example.net",
+        "serverPort": 50443,
+        "name": "样本 shadowtls",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-shadowtls\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"shadowtls\"}"
+      },
+      "base64": "AAAAAAcAAABzaGFkb3d0bHMuZXhhbXBsZS5uZfQLxQAApTAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDA5N3N0bHMtZW7jdGPwdGzzc25pLXNoYWRvd3Rscy5leGFtcGxlLm9y52gyLGh0dHAvMS6xxwEtLS0tLUJFR0lOIENFUlRJRklDQVRFLS0tLS0KUmtGTFJTMURSVkpVTFE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tAWNocm9t5atSa0ZMUlMxU1JVRk1TVlJaTFZCVlFreEpReTFMUlZrdE1EQXdNREF3TUEwMTIzYWJj5AFSa0ZMUlMxRlEwZ3RRMDlPUmtsyAIAAAABAQEAAAAIAAAAUmtGTFJTMU5URVJUUVMwMk5TMVdSVkpKUmxrvcEBYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQIAAABzaGFkb3d0bHMtZmFrZS1wYXNzd29y5AEAAACN5qC35pysIHNoYWRvd3Rsc6R7InRhZyI6ImN1c3RvbS1vdXRib3VuZC1zaGFkb3d0bHMifax7ImxvZyI6eyJsZXZlbCI6Indhcm4ifSwibm90ZSI6InNoYWRvd3RscyJ9",
+      "current": true
+    },
+    {
+      "id": "ShadowTLSBean/90134fb5/default",
+      "class": "moe.matsuri.nb4a.proxy.shadowtls.ShadowTLSBean",
+      "form": "storage",
+      "source": {
+        "commit": "90134fb5e6c56eddef109100ab72488a65b3a57b",
+        "tag": null,
+        "versionName": "1.8.0-a3"
+      },
+      "versions": {
+        "ShadowTLSBean": 0,
+        "StandardV2RayBean": 7,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "version": 3,
+        "password": "",
+        "uuid": "",
+        "encryption": null,
+        "type": "tcp",
+        "host": "",
+        "path": "",
+        "security": "tls",
+        "sni": "",
+        "alpn": "",
+        "utlsFingerprint": "",
+        "allowInsecure": false,
+        "realityPubKey": "",
+        "realityShortId": "",
+        "realityMldsa65Verify": "",
+        "certificateFingerprint": "",
+        "wsMaxEarlyData": 0,
+        "earlyDataHeaderName": "",
+        "certificates": "",
+        "enableECH": false,
+        "echConfig": "",
+        "enableMux": false,
+        "muxPadding": false,
+        "muxType": 0,
+        "muxConcurrency": 1,
+        "packetEncoding": 0,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "version": 3,
+        "password": "",
+        "uuid": "",
+        "encryption": null,
+        "type": "tcp",
+        "host": "",
+        "path": "",
+        "security": "tls",
+        "sni": "",
+        "alpn": "",
+        "utlsFingerprint": "",
+        "allowInsecure": false,
+        "realityPubKey": "",
+        "realityShortId": "",
+        "realityMldsa65Verify": "",
+        "certificateFingerprint": "",
+        "wsMaxEarlyData": 0,
+        "earlyDataHeaderName": "",
+        "certificates": "",
+        "enableECH": false,
+        "echConfig": "",
+        "enableMux": false,
+        "muxPadding": false,
+        "muxType": 0,
+        "muxConcurrency": 1,
+        "packetEncoding": 0,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AAAAAAcAAAAxMjcuMC4wLrE4BAAAgYB0Y/B0bPOBgYEAgYGBAIEAAAAAAAAAAAAAAQAAAIGBAwAAAIEBAAAAgYGB",
       "current": true
     }
   ]

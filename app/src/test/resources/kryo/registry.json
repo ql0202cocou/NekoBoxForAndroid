@@ -10,7 +10,7 @@
       }
     },
     "StandardV2RayBean": {
-      "current": 6,
+      "current": 7,
       "sampled": [
         0,
         1,
@@ -18,7 +18,8 @@
         3,
         4,
         5,
-        6
+        6,
+        7
       ],
       "unsampled": {}
     },
@@ -415,10 +416,16 @@
       "note": "bbe117c^：SubscriptionBean v4 最后一版"
     },
     "dd8f56d37773f7b494e3be988904e415b90acd62": {
-      "tag": null,
+      "tag": "1.8.0-a2",
       "versionName": "1.8.0-a1",
       "date": "2026-10-05",
-      "note": "HEAD：当前版本"
+      "note": "1.8.0-a2 发版前的 HEAD：StandardV2Ray v6 最后一版；其余各层的当前版本样本"
+    },
+    "90134fb5e6c56eddef109100ab72488a65b3a57b": {
+      "tag": null,
+      "versionName": "1.8.0-a3",
+      "date": "2026-10-06",
+      "note": "HEAD：StandardV2Ray v7 的当前版本样本，由此提交加上升 v7 的改动（与样本同一提交入库）写出"
     }
   }
 }

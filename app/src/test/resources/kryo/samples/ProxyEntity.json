@@ -519,7 +519,7 @@
       "form": "storage",
       "source": {
         "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
-        "tag": null,
+        "tag": "1.8.0-a2",
         "versionName": "1.8.0-a1"
       },
       "versions": {
@@ -626,7 +626,7 @@
         }
       },
       "base64": "AQAAAGQAAAAAAAAABwAAAAAAAAAEAAAAHgAAAAAAAAAUGpm+HAAAAM2BAQAAAAAAAQAAAFcAAABlbnRpdHktdXVpZC2whemUmeivryAwsgQGAAAAZW50aXR5LXZtZXNzLmV4YW1wbGUuY2/tsywAAKUwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMjNhdXTvAAAAAHfzY2RuLWVudGl0eS12bWVzcy5leGFtcGxlLm5l9C9wYXRoLWVudGl0eS12bWVz8wAIAABTZWMtV2ViU29ja2V0LVByb3RvY2/sdGzzc25pLWVudGl0eS12bWVzcy5leGFtcGxlLm9y52gyLGh0dHAvMS6xxwEtLS0tLUJFR0lOIENFUlRJRklDQVRFLS0tLS0KUmtGTFJTMURSVkpVTFE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tAWNocm9t5atSa0ZMUlMxU1JVRk1TVlJaTFZCVlFreEpReTFMUlZrdE1EQXdNREF3TUEwMTIzYWJj5ABSa0ZMUlMxRlEwZ3RRMDlPUmtsyAIAAAABAQEAAAAIAAAAUmtGTFJTMU5URVJUUVMwMk5TMVdSVkpKUmxrvcEBYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQEAAACQ5qC35pysIGVudGl0eS12bWVzc6d7InRhZyI6ImN1c3RvbS1vdXRib3VuZC1lbnRpdHktdm1lc3Mifa97ImxvZyI6eyJsZXZlbCI6Indhcm4ifSwibm90ZSI6ImVudGl0eS12bWVzcyJ9AQIAAAA=",
-      "current": true
+      "current": false
     },
     {
       "id": "ProxyEntity/dd8f56d3/entity-ShadowsocksBean",
@@ -634,7 +634,7 @@
       "form": "storage",
       "source": {
         "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
-        "tag": null,
+        "tag": "1.8.0-a2",
         "versionName": "1.8.0-a1"
       },
       "versions": {
@@ -707,7 +707,7 @@
       "form": "storage",
       "source": {
         "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
-        "tag": null,
+        "tag": "1.8.0-a2",
         "versionName": "1.8.0-a1"
       },
       "versions": {
@@ -772,6 +772,121 @@
         }
       },
       "base64": "AQAAAGYAAAAAAAAABwAAAAAAAAAIAAAAIAAAAAAAAAAWGpm+HAAAAM+BAQAAAAAAAQAAAFkAAABlbnRpdHktdXVpZC2yhemUmeivryAyhgEBAAAAAgAAAGUAAAAAAAAAZgAAAAAAAAABAAAAkOagt+acrCBlbnRpdHktY2hhaW6neyJ0YWciOiJjdXN0b20tb3V0Ym91bmQtZW50aXR5LWNoYWluIn2veyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJlbnRpdHktY2hhaW4ifQECAAAA",
+      "current": true
+    },
+    {
+      "id": "ProxyEntity/90134fb5/entity-VMessBean",
+      "class": "io.nekohasekai.sagernet.database.ProxyEntity",
+      "form": "storage",
+      "source": {
+        "commit": "90134fb5e6c56eddef109100ab72488a65b3a57b",
+        "tag": null,
+        "versionName": "1.8.0-a3"
+      },
+      "versions": {
+        "ProxyEntity": 1,
+        "StandardV2RayBean": 7,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "id": 100,
+        "groupId": 7,
+        "type": 4,
+        "userOrder": 30,
+        "tx": 123456789012,
+        "rx": 98765,
+        "status": 1,
+        "ping": 87,
+        "uuid": "entity-uuid-0",
+        "error": "错误 0",
+        "core": 2,
+        "dirty": true,
+        "bean": {
+          "class": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
+          "fields": {
+            "alterId": 0,
+            "uuid": "00000000-0000-4000-8000-000000000023",
+            "encryption": "auto",
+            "type": "ws",
+            "host": "cdn-entity-vmess.example.net",
+            "path": "/path-entity-vmess",
+            "security": "tls",
+            "sni": "sni-entity-vmess.example.org",
+            "alpn": "h2,http/1.1",
+            "utlsFingerprint": "chrome",
+            "allowInsecure": true,
+            "realityPubKey": "RkFLRS1SRUFMSVRZLVBVQkxJQy1LRVktMDAwMDAwMA",
+            "realityShortId": "0123abcd",
+            "realityMldsa65Verify": "RkFLRS1NTERTQS02NS1WRVJJRlk=",
+            "certificateFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "wsMaxEarlyData": 2048,
+            "earlyDataHeaderName": "Sec-WebSocket-Protocol",
+            "certificates": "-----BEGIN CERTIFICATE-----\nRkFLRS1DRVJULQ==\n-----END CERTIFICATE-----",
+            "enableECH": false,
+            "echConfig": "RkFLRS1FQ0gtQ09ORklH",
+            "enableMux": true,
+            "muxPadding": true,
+            "muxType": 3,
+            "muxConcurrency": 8,
+            "packetEncoding": 2,
+            "serverAddress": "entity-vmess.example.com",
+            "serverPort": 11443,
+            "name": "样本 entity-vmess",
+            "customOutboundJson": "{\"tag\":\"custom-outbound-entity-vmess\"}",
+            "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"entity-vmess\"}"
+          }
+        }
+      },
+      "expected": {
+        "id": 100,
+        "groupId": 7,
+        "type": 4,
+        "userOrder": 30,
+        "tx": 123456789012,
+        "rx": 98765,
+        "status": 1,
+        "ping": 87,
+        "uuid": "entity-uuid-0",
+        "error": "错误 0",
+        "core": 2,
+        "dirty": true,
+        "bean": {
+          "class": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
+          "fields": {
+            "alterId": 0,
+            "uuid": "00000000-0000-4000-8000-000000000023",
+            "encryption": "auto",
+            "type": "ws",
+            "host": "cdn-entity-vmess.example.net",
+            "path": "/path-entity-vmess",
+            "security": "tls",
+            "sni": "sni-entity-vmess.example.org",
+            "alpn": "h2,http/1.1",
+            "utlsFingerprint": "chrome",
+            "allowInsecure": true,
+            "realityPubKey": "RkFLRS1SRUFMSVRZLVBVQkxJQy1LRVktMDAwMDAwMA",
+            "realityShortId": "0123abcd",
+            "realityMldsa65Verify": "RkFLRS1NTERTQS02NS1WRVJJRlk=",
+            "certificateFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "wsMaxEarlyData": 2048,
+            "earlyDataHeaderName": "Sec-WebSocket-Protocol",
+            "certificates": "-----BEGIN CERTIFICATE-----\nRkFLRS1DRVJULQ==\n-----END CERTIFICATE-----",
+            "enableECH": false,
+            "echConfig": "RkFLRS1FQ0gtQ09ORklH",
+            "enableMux": true,
+            "muxPadding": true,
+            "muxType": 3,
+            "muxConcurrency": 8,
+            "packetEncoding": 2,
+            "serverAddress": "entity-vmess.example.com",
+            "serverPort": 11443,
+            "name": "样本 entity-vmess",
+            "customOutboundJson": "{\"tag\":\"custom-outbound-entity-vmess\"}",
+            "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"entity-vmess\"}"
+          }
+        }
+      },
+      "base64": "AQAAAGQAAAAAAAAABwAAAAAAAAAEAAAAHgAAAAAAAAAUGpm+HAAAAM2BAQAAAAAAAQAAAFcAAABlbnRpdHktdXVpZC2whemUmeivryAwsgQHAAAAZW50aXR5LXZtZXNzLmV4YW1wbGUuY2/tsywAAKUwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMjNhdXTvAAAAAHfzY2RuLWVudGl0eS12bWVzcy5leGFtcGxlLm5l9C9wYXRoLWVudGl0eS12bWVz8wAIAABTZWMtV2ViU29ja2V0LVByb3RvY2/sdGzzc25pLWVudGl0eS12bWVzcy5leGFtcGxlLm9y52gyLGh0dHAvMS6xxwEtLS0tLUJFR0lOIENFUlRJRklDQVRFLS0tLS0KUmtGTFJTMURSVkpVTFE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tAWNocm9t5atSa0ZMUlMxU1JVRk1TVlJaTFZCVlFreEpReTFMUlZrdE1EQXdNREF3TUEwMTIzYWJj5ABSa0ZMUlMxRlEwZ3RRMDlPUmtsyAIAAAABAQMAAAAIAAAAUmtGTFJTMU5URVJUUVMwMk5TMVdSVkpKUmxrvcEBYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQEAAACQ5qC35pysIGVudGl0eS12bWVzc6d7InRhZyI6ImN1c3RvbS1vdXRib3VuZC1lbnRpdHktdm1lc3Mifa97ImxvZyI6eyJsZXZlbCI6Indhcm4ifSwibm90ZSI6ImVudGl0eS12bWVzcyJ9AQIAAAA=",
       "current": true
     }
   ]

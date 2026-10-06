@@ -4,8 +4,8 @@
     "rules": [
       {
         "domain": [
-          "vmess.example.com",
           "custom.example.com",
+          "vmess.example.com",
           "dns.example.net"
         ],
         "server": "dns-direct",

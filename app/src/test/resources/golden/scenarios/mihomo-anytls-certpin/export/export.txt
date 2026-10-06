@@ -76,7 +76,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 36789,
+      "listen_port": 42999,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-0-mapping-1",
@@ -88,10 +88,10 @@
   },
   "outbounds": [
     {
-      "password": "p1b94a13d5c06878e92c47f0d4a87458e",
+      "password": "pae5bcf0b0e583c9381841f2ddd5ec2de",
       "server": "127.0.0.1",
-      "server_port": 41849,
-      "username": "u1f31cf6c5d1d3d38",
+      "server_port": 45523,
+      "username": "ue1697cd02b018496",
       "tag": "proxy",
       "type": "socks"
     },
@@ -153,12 +153,12 @@ listeners:
 - name: in-0
   type: socks
   listen: 127.0.0.1
-  port: 41849
+  port: 45523
   udp: true
   proxy: out-0
   users:
-  - {username: u1f31cf6c5d1d3d38, password: p1b94a13d5c06878e92c47f0d4a87458e}
+  - {username: ue1697cd02b018496, password: pae5bcf0b0e583c9381841f2ddd5ec2de}
 proxies:
-- {name: out-0, type: anytls, server: 127.0.0.1, port: 36789, password: golden-pass-anytls,
+- {name: out-0, type: anytls, server: 127.0.0.1, port: 42999, password: golden-pass-anytls,
   udp: true, sni: anytls.example.com, fingerprint: 'AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89'}
 rules: ['MATCH,REJECT']

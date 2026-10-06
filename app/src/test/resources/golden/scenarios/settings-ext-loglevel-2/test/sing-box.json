@@ -22,7 +22,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 34635,
+      "listen_port": 43387,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-0-mapping-7",
@@ -30,7 +30,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 36819,
+      "listen_port": 41637,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-6",
@@ -38,7 +38,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 35487,
+      "listen_port": 36203,
       "override_address": "hy1.example.com",
       "override_port": 8443,
       "tag": "c-0-mapping-5",
@@ -46,7 +46,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 38741,
+      "listen_port": 32881,
       "override_address": "mieru.example.com",
       "override_port": 2999,
       "tag": "c-0-mapping-4",
@@ -54,7 +54,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 46559,
+      "listen_port": 46273,
       "override_address": "naive.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-3",
@@ -62,7 +62,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 35361,
+      "listen_port": 36913,
       "override_address": "trojan-go.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-2",
@@ -74,42 +74,42 @@
   },
   "outbounds": [
     {
-      "password": "pfa76f245c5bbf796fb47b004a63c9eaa",
+      "password": "pd118326e598e87b6a5b9ca7814cef681",
       "server": "127.0.0.1",
-      "server_port": 38011,
-      "username": "u8f0dea3a5b934e7e",
+      "server_port": 40973,
+      "username": "u6ea71cb13ee7822b",
       "tag": "proxy",
       "type": "socks"
     },
     {
-      "password": "pfa76f245c5bbf796fb47b004a63c9eaa",
+      "password": "pd118326e598e87b6a5b9ca7814cef681",
       "server": "127.0.0.1",
-      "server_port": 41215,
-      "username": "u8f0dea3a5b934e7e",
+      "server_port": 45805,
+      "username": "u6ea71cb13ee7822b",
       "tag": "c-0-6",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 39503,
+      "server_port": 37631,
       "tag": "c-0-5",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 44661,
+      "server_port": 39643,
       "tag": "c-0-4",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 46743,
+      "server_port": 42797,
       "tag": "c-0-3",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 39687,
+      "server_port": 37309,
       "tag": "g-2",
       "type": "socks"
     },

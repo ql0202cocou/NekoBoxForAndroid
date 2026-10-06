@@ -2404,7 +2404,7 @@
       "form": "storage",
       "source": {
         "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
-        "tag": null,
+        "tag": "1.8.0-a2",
         "versionName": "1.8.0-a1"
       },
       "versions": {
@@ -2479,7 +2479,7 @@
         "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"http\"}"
       },
       "base64": "AAAAAAYAAABodHRwLXByb3h5LmV4YW1wbGUub3Ln+50AAKUwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwNDJodHRwLWVu43Rj8HRs83NuaS1odHRwLmV4YW1wbGUub3LnaDIsaHR0cC8xLrHHAS0tLS0tQkVHSU4gQ0VSVElGSUNBVEUtLS0tLQpSa0ZMUlMxRFJWSlVMUT09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0BY2hyb23lq1JrRkxSUzFTUlVGTVNWUlpMVkJWUWt4SlF5MUxSVmt0TURBd01EQXdNQTAxMjNhYmPkAVJrRkxSUzFGUTBndFEwOU9Sa2zIAgAAAAEBAQAAAAgAAABSa0ZMUlMxTlRFUlRRUzAyTlMxV1JWSkpSbGu9wQFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhaHR0cC11c2XyaHR0cC1mYWtlLXBhc3N3b3LkAQAAAIjmoLfmnKwgaHR0cHsidGFnIjoiY3VzdG9tLW91dGJvdW5kLWh0dHAi/ad7ImxvZyI6eyJsZXZlbCI6Indhcm4ifSwibm90ZSI6Imh0dHAifQ==",
-      "current": true
+      "current": false
     },
     {
       "id": "HttpBean/dd8f56d3/http-tcp-none",
@@ -2487,7 +2487,7 @@
       "form": "storage",
       "source": {
         "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
-        "tag": null,
+        "tag": "1.8.0-a2",
         "versionName": "1.8.0-a1"
       },
       "versions": {
@@ -2562,7 +2562,7 @@
         "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"http-plain\"}"
       },
       "base64": "AAAAAAYAAAAxOTguNTEuMTAwLjKwkJwAAKUwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwNTZodHRwLXBsYWluLWVu43Rj8G5vbuUAUmtGTFJTMUZRMGd0UTA5T1JrbMgCAAAAAQEBAAAACAAAAFJrRkxSUzFOVEVSVFFTMDJOUzFXUlZKSlJsa73BAWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWGBgQEAAACO5qC35pysIGh0dHAtcGxhaW6leyJ0YWciOiJjdXN0b20tb3V0Ym91bmQtaHR0cC1wbGFpbiJ9rXsibG9nIjp7ImxldmVsIjoid2FybiJ9LCJub3RlIjoiaHR0cC1wbGFpbiJ9",
-      "current": true
+      "current": false
     },
     {
       "id": "HttpBean/dd8f56d3/default",
@@ -2570,7 +2570,7 @@
       "form": "storage",
       "source": {
         "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
-        "tag": null,
+        "tag": "1.8.0-a2",
         "versionName": "1.8.0-a1"
       },
       "versions": {
@@ -2645,6 +2645,172 @@
         "customConfigJson": ""
       },
       "base64": "AAAAAAYAAAAxMjcuMC4wLrE4BAAAgYB0Y/Bub27lAIEAAAAAAAAAAAAAAQAAAIGBgYEBAAAAgYGB",
+      "current": false
+    },
+    {
+      "id": "HttpBean/90134fb5/http-tcp-tls-ech",
+      "class": "io.nekohasekai.sagernet.fmt.http.HttpBean",
+      "form": "storage",
+      "source": {
+        "commit": "90134fb5e6c56eddef109100ab72488a65b3a57b",
+        "tag": null,
+        "versionName": "1.8.0-a3"
+      },
+      "versions": {
+        "HttpBean": 0,
+        "StandardV2RayBean": 7,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "username": "http-user",
+        "password": "http-fake-password",
+        "uuid": "00000000-0000-4000-8000-000000000042",
+        "encryption": "http-enc",
+        "type": "tcp",
+        "host": "cdn-http.example.net",
+        "path": "/path-http",
+        "security": "tls",
+        "sni": "sni-http.example.org",
+        "alpn": "h2,http/1.1",
+        "utlsFingerprint": "chrome",
+        "allowInsecure": true,
+        "realityPubKey": "RkFLRS1SRUFMSVRZLVBVQkxJQy1LRVktMDAwMDAwMA",
+        "realityShortId": "0123abcd",
+        "realityMldsa65Verify": "RkFLRS1NTERTQS02NS1WRVJJRlk=",
+        "certificateFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "wsMaxEarlyData": 2048,
+        "earlyDataHeaderName": "Sec-WebSocket-Protocol",
+        "certificates": "-----BEGIN CERTIFICATE-----\nRkFLRS1DRVJULQ==\n-----END CERTIFICATE-----",
+        "enableECH": true,
+        "echConfig": "RkFLRS1FQ0gtQ09ORklH",
+        "enableMux": true,
+        "muxPadding": true,
+        "muxType": 1,
+        "muxConcurrency": 8,
+        "packetEncoding": 2,
+        "serverAddress": "http-proxy.example.org",
+        "serverPort": 40443,
+        "name": "样本 http",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-http\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"http\"}"
+      },
+      "expected": {
+        "username": "http-user",
+        "password": "http-fake-password",
+        "uuid": "00000000-0000-4000-8000-000000000042",
+        "encryption": "http-enc",
+        "type": "tcp",
+        "host": "",
+        "path": "",
+        "security": "tls",
+        "sni": "sni-http.example.org",
+        "alpn": "h2,http/1.1",
+        "utlsFingerprint": "chrome",
+        "allowInsecure": true,
+        "realityPubKey": "RkFLRS1SRUFMSVRZLVBVQkxJQy1LRVktMDAwMDAwMA",
+        "realityShortId": "0123abcd",
+        "realityMldsa65Verify": "RkFLRS1NTERTQS02NS1WRVJJRlk=",
+        "certificateFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "wsMaxEarlyData": 0,
+        "earlyDataHeaderName": "",
+        "certificates": "-----BEGIN CERTIFICATE-----\nRkFLRS1DRVJULQ==\n-----END CERTIFICATE-----",
+        "enableECH": true,
+        "echConfig": "RkFLRS1FQ0gtQ09ORklH",
+        "enableMux": true,
+        "muxPadding": true,
+        "muxType": 1,
+        "muxConcurrency": 8,
+        "packetEncoding": 2,
+        "serverAddress": "http-proxy.example.org",
+        "serverPort": 40443,
+        "name": "样本 http",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-http\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"http\"}"
+      },
+      "base64": "AAAAAAcAAABodHRwLXByb3h5LmV4YW1wbGUub3Ln+50AAKUwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwNDJodHRwLWVu43Rj8HRs83NuaS1odHRwLmV4YW1wbGUub3LnaDIsaHR0cC8xLrHHAS0tLS0tQkVHSU4gQ0VSVElGSUNBVEUtLS0tLQpSa0ZMUlMxRFJWSlVMUT09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0BY2hyb23lq1JrRkxSUzFTUlVGTVNWUlpMVkJWUWt4SlF5MUxSVmt0TURBd01EQXdNQTAxMjNhYmPkAVJrRkxSUzFGUTBndFEwOU9Sa2zIAgAAAAEBAQAAAAgAAABSa0ZMUlMxTlRFUlRRUzAyTlMxV1JWSkpSbGu9wQFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhaHR0cC11c2XyaHR0cC1mYWtlLXBhc3N3b3LkAQAAAIjmoLfmnKwgaHR0cHsidGFnIjoiY3VzdG9tLW91dGJvdW5kLWh0dHAi/ad7ImxvZyI6eyJsZXZlbCI6Indhcm4ifSwibm90ZSI6Imh0dHAifQ==",
+      "current": true
+    },
+    {
+      "id": "HttpBean/90134fb5/default",
+      "class": "io.nekohasekai.sagernet.fmt.http.HttpBean",
+      "form": "storage",
+      "source": {
+        "commit": "90134fb5e6c56eddef109100ab72488a65b3a57b",
+        "tag": null,
+        "versionName": "1.8.0-a3"
+      },
+      "versions": {
+        "HttpBean": 0,
+        "StandardV2RayBean": 7,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "username": "",
+        "password": "",
+        "uuid": "",
+        "encryption": null,
+        "type": "tcp",
+        "host": "",
+        "path": "",
+        "security": "none",
+        "sni": "",
+        "alpn": "",
+        "utlsFingerprint": "",
+        "allowInsecure": false,
+        "realityPubKey": "",
+        "realityShortId": "",
+        "realityMldsa65Verify": "",
+        "certificateFingerprint": "",
+        "wsMaxEarlyData": 0,
+        "earlyDataHeaderName": "",
+        "certificates": "",
+        "enableECH": false,
+        "echConfig": "",
+        "enableMux": false,
+        "muxPadding": false,
+        "muxType": 0,
+        "muxConcurrency": 1,
+        "packetEncoding": 0,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "username": "",
+        "password": "",
+        "uuid": "",
+        "encryption": null,
+        "type": "tcp",
+        "host": "",
+        "path": "",
+        "security": "none",
+        "sni": "",
+        "alpn": "",
+        "utlsFingerprint": "",
+        "allowInsecure": false,
+        "realityPubKey": "",
+        "realityShortId": "",
+        "realityMldsa65Verify": "",
+        "certificateFingerprint": "",
+        "wsMaxEarlyData": 0,
+        "earlyDataHeaderName": "",
+        "certificates": "",
+        "enableECH": false,
+        "echConfig": "",
+        "enableMux": false,
+        "muxPadding": false,
+        "muxType": 0,
+        "muxConcurrency": 1,
+        "packetEncoding": 0,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AAAAAAcAAAAxMjcuMC4wLrE4BAAAgYB0Y/Bub27lAIEAAAAAAAAAAAAAAQAAAIGBgYEBAAAAgYGB",
       "current": true
     }
   ]

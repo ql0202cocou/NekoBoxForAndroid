@@ -355,7 +355,7 @@
       "form": "storage",
       "source": {
         "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
-        "tag": null,
+        "tag": "1.8.0-a2",
         "versionName": "1.8.0-a1"
       },
       "versions": {
@@ -417,7 +417,7 @@
       "form": "storage",
       "source": {
         "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
-        "tag": null,
+        "tag": "1.8.0-a2",
         "versionName": "1.8.0-a1"
       },
       "versions": {

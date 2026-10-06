@@ -169,7 +169,7 @@
       "core": 0,
       "beanColumn": "httpBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.http.HttpBean",
-      "beanKryoBase64": "AAAAAAYAAABodHRwLmV4YW1wbGUuY2/t+yAAAIGAdGPwdGzzcHJveHkuZXhhbXBsZS5jb+1oMixodHRwLzEusYEAgYGBAIEAAAAAAAAAAAAAAQAAAIGBZ29sZGVuLXVzZfJnb2xkZW4tcGFzcy1odHTwAQAAAGdvbGRlbi1odHRw84GB"
+      "beanKryoBase64": "AAAAAAcAAABodHRwLmV4YW1wbGUuY2/t+yAAAIGAdGPwdGzzcHJveHkuZXhhbXBsZS5jb+1oMixodHRwLzEusYEAgYGBAIEAAAAAAAAAAAAAAQAAAIGBZ29sZGVuLXVzZfJnb2xkZW4tcGFzcy1odHTwAQAAAGdvbGRlbi1odHRw84GB"
     }
   ],
   "rules": [],

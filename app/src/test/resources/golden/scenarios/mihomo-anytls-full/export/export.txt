@@ -76,7 +76,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 41859,
+      "listen_port": 42779,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-0-mapping-1",
@@ -88,10 +88,10 @@
   },
   "outbounds": [
     {
-      "password": "p8fa8c2ffc343342868226058a2725ba4",
+      "password": "p538307c745e51afe3e2041232729dca3",
       "server": "127.0.0.1",
-      "server_port": 41181,
-      "username": "u3560d4d5ca3f7129",
+      "server_port": 39757,
+      "username": "u63e9fee68546c4f8",
       "tag": "proxy",
       "type": "socks"
     },
@@ -153,16 +153,16 @@ listeners:
 - name: in-0
   type: socks
   listen: 127.0.0.1
-  port: 41181
+  port: 39757
   udp: true
   proxy: out-0
   users:
-  - {username: u3560d4d5ca3f7129, password: p8fa8c2ffc343342868226058a2725ba4}
+  - {username: u63e9fee68546c4f8, password: p538307c745e51afe3e2041232729dca3}
 proxies:
 - name: out-0
   type: anytls
   server: 127.0.0.1
-  port: 41859
+  port: 42779
   password: golden-pass-anytls
   udp: true
   sni: anytls.example.com

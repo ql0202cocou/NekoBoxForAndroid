@@ -77,7 +77,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 37155,
+      "listen_port": 34437,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-3",
@@ -85,7 +85,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 45473,
+      "listen_port": 40767,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-5-mapping-4",
@@ -108,18 +108,18 @@
       "type": "vmess"
     },
     {
-      "password": "p97b8b14c3b558a2048c860356aa99361",
+      "password": "p2d784ddcfd5fb7070591f456d9956f7e",
       "server": "127.0.0.1",
-      "server_port": 45059,
-      "username": "ucd6a0470454b2505",
+      "server_port": 32847,
+      "username": "u23d421a423cd9f17",
       "tag": "g-3",
       "type": "socks"
     },
     {
-      "password": "p97b8b14c3b558a2048c860356aa99361",
+      "password": "p2d784ddcfd5fb7070591f456d9956f7e",
       "server": "127.0.0.1",
-      "server_port": 44371,
-      "username": "ucd6a0470454b2505",
+      "server_port": 39485,
+      "username": "u23d421a423cd9f17",
       "tag": "c-5-4",
       "type": "socks"
     },
@@ -196,14 +196,14 @@
     {
       "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 45059,
+      "port": 32847,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "ucd6a0470454b2505",
-            "pass": "p97b8b14c3b558a2048c860356aa99361"
+            "user": "u23d421a423cd9f17",
+            "pass": "p2d784ddcfd5fb7070591f456d9956f7e"
           }
         ],
         "udp": true
@@ -222,7 +222,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 37155,
+            "port": 34437,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
@@ -264,12 +264,12 @@ listeners:
 - name: in-1
   type: socks
   listen: 127.0.0.1
-  port: 44371
+  port: 39485
   udp: true
   proxy: out-1
   users:
-  - {username: ucd6a0470454b2505, password: p97b8b14c3b558a2048c860356aa99361}
+  - {username: u23d421a423cd9f17, password: p2d784ddcfd5fb7070591f456d9956f7e}
 proxies:
-- {name: out-1, type: anytls, server: 127.0.0.1, port: 45473, password: golden-pass-anytls,
+- {name: out-1, type: anytls, server: 127.0.0.1, port: 40767, password: golden-pass-anytls,
   udp: true, sni: anytls.example.com}
 rules: ['MATCH,REJECT']

@@ -3353,7 +3353,7 @@
       "form": "storage",
       "source": {
         "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
-        "tag": null,
+        "tag": "1.8.0-a2",
         "versionName": "1.8.0-a1"
       },
       "versions": {
@@ -3426,7 +3426,7 @@
         "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"trojan\"}"
       },
       "base64": "AgAAAAYAAAB0cm9qYW4uZXhhbXBsZS5jb+3rdgAApTAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAyOXRyb2phbi1lbuN0Y/B0bPNzbmktdHJvamFuLmV4YW1wbGUub3LnaDIsaHR0cC8xLrHHAS0tLS0tQkVHSU4gQ0VSVElGSUNBVEUtLS0tLQpSa0ZMUlMxRFJWSlVMUT09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0BY2hyb23lq1JrRkxSUzFTUlVGTVNWUlpMVkJWUWt4SlF5MUxSVmt0TURBd01EQXdNQTAxMjNhYmPkAVJrRkxSUzFGUTBndFEwOU9Sa2zIAgAAAAEBAQAAAAgAAABSa0ZMUlMxTlRFUlRRUzAyTlMxV1JWSkpSbGu9wQFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhdHJvamFuLWZha2UtcGFzc3dvcuQBAAAAiuagt+acrCB0cm9qYW57InRhZyI6ImN1c3RvbS1vdXRib3VuZC10cm9qYW4i/al7ImxvZyI6eyJsZXZlbCI6Indhcm4ifSwibm90ZSI6InRyb2phbiJ9",
-      "current": true
+      "current": false
     },
     {
       "id": "TrojanBean/dd8f56d3/trojan-ws-none",
@@ -3434,7 +3434,7 @@
       "form": "storage",
       "source": {
         "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
-        "tag": null,
+        "tag": "1.8.0-a2",
         "versionName": "1.8.0-a1"
       },
       "versions": {
@@ -3507,7 +3507,7 @@
         "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"trojan-ws\"}"
       },
       "base64": "AgAAAAYAAAB0cm9qYW4td3MuZXhhbXBsZS5jb+2AdQAApTAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDA1OXRyb2phbi13cy1lbuN382Nkbi10cm9qYW4td3MuZXhhbXBsZS5uZfQvcGF0aC10cm9qYW4td/MACAAAU2VjLVdlYlNvY2tldC1Qcm90b2Nv7G5vbuUAUmtGTFJTMUZRMGd0UTA5T1JrbMgCAAAAAQEBAAAACAAAAFJrRkxSUzFOVEVSVFFTMDJOUzFXUlZKSlJsa73BAWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWF0cm9qYW4td3MtZmFrZS1wYXNzd29y5AEAAACN5qC35pysIHRyb2phbi13c6R7InRhZyI6ImN1c3RvbS1vdXRib3VuZC10cm9qYW4td3Mifax7ImxvZyI6eyJsZXZlbCI6Indhcm4ifSwibm90ZSI6InRyb2phbi13cyJ9",
-      "current": true
+      "current": false
     },
     {
       "id": "TrojanBean/dd8f56d3/default",
@@ -3515,7 +3515,7 @@
       "form": "storage",
       "source": {
         "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
-        "tag": null,
+        "tag": "1.8.0-a2",
         "versionName": "1.8.0-a1"
       },
       "versions": {
@@ -3588,6 +3588,168 @@
         "customConfigJson": ""
       },
       "base64": "AgAAAAYAAAAxMjcuMC4wLrE4BAAAgYB0Y/B0bPOBgYEAgYGBAIEAAAAAAAAAAAAAAQAAAIGBgQEAAACBgYE=",
+      "current": false
+    },
+    {
+      "id": "TrojanBean/90134fb5/trojan-ws-tls-ech",
+      "class": "io.nekohasekai.sagernet.fmt.trojan.TrojanBean",
+      "form": "storage",
+      "source": {
+        "commit": "90134fb5e6c56eddef109100ab72488a65b3a57b",
+        "tag": null,
+        "versionName": "1.8.0-a3"
+      },
+      "versions": {
+        "TrojanBean": 2,
+        "StandardV2RayBean": 7,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "password": "trojan-fake-password",
+        "uuid": "00000000-0000-4000-8000-000000000029",
+        "encryption": "trojan-enc",
+        "type": "ws",
+        "host": "cdn-trojan.example.net",
+        "path": "/path-trojan",
+        "security": "tls",
+        "sni": "sni-trojan.example.org",
+        "alpn": "h2,http/1.1",
+        "utlsFingerprint": "chrome",
+        "allowInsecure": true,
+        "realityPubKey": "RkFLRS1SRUFMSVRZLVBVQkxJQy1LRVktMDAwMDAwMA",
+        "realityShortId": "0123abcd",
+        "realityMldsa65Verify": "RkFLRS1NTERTQS02NS1WRVJJRlk=",
+        "certificateFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "wsMaxEarlyData": 2048,
+        "earlyDataHeaderName": "Sec-WebSocket-Protocol",
+        "certificates": "-----BEGIN CERTIFICATE-----\nRkFLRS1DRVJULQ==\n-----END CERTIFICATE-----",
+        "enableECH": true,
+        "echConfig": "RkFLRS1FQ0gtQ09ORklH",
+        "enableMux": true,
+        "muxPadding": true,
+        "muxType": 1,
+        "muxConcurrency": 8,
+        "packetEncoding": 2,
+        "serverAddress": "trojan.example.com",
+        "serverPort": 30443,
+        "name": "样本 trojan",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-trojan\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"trojan\"}"
+      },
+      "expected": {
+        "password": "trojan-fake-password",
+        "uuid": "00000000-0000-4000-8000-000000000029",
+        "encryption": "trojan-enc",
+        "type": "ws",
+        "host": "cdn-trojan.example.net",
+        "path": "/path-trojan",
+        "security": "tls",
+        "sni": "sni-trojan.example.org",
+        "alpn": "h2,http/1.1",
+        "utlsFingerprint": "chrome",
+        "allowInsecure": true,
+        "realityPubKey": "RkFLRS1SRUFMSVRZLVBVQkxJQy1LRVktMDAwMDAwMA",
+        "realityShortId": "0123abcd",
+        "realityMldsa65Verify": "RkFLRS1NTERTQS02NS1WRVJJRlk=",
+        "certificateFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "wsMaxEarlyData": 2048,
+        "earlyDataHeaderName": "Sec-WebSocket-Protocol",
+        "certificates": "-----BEGIN CERTIFICATE-----\nRkFLRS1DRVJULQ==\n-----END CERTIFICATE-----",
+        "enableECH": true,
+        "echConfig": "RkFLRS1FQ0gtQ09ORklH",
+        "enableMux": true,
+        "muxPadding": true,
+        "muxType": 1,
+        "muxConcurrency": 8,
+        "packetEncoding": 2,
+        "serverAddress": "trojan.example.com",
+        "serverPort": 30443,
+        "name": "样本 trojan",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-trojan\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"trojan\"}"
+      },
+      "base64": "AgAAAAcAAAB0cm9qYW4uZXhhbXBsZS5jb+3rdgAApTAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAyOXRyb2phbi1lbuN382Nkbi10cm9qYW4uZXhhbXBsZS5uZfQvcGF0aC10cm9qYe4ACAAAU2VjLVdlYlNvY2tldC1Qcm90b2Nv7HRs83NuaS10cm9qYW4uZXhhbXBsZS5vcudoMixodHRwLzEusccBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClJrRkxSUzFEUlZKVUxRPT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQFjaHJvbeWrUmtGTFJTMVNSVUZNU1ZSWkxWQlZRa3hKUXkxTFJWa3RNREF3TURBd01BMDEyM2FiY+QBUmtGTFJTMUZRMGd0UTA5T1JrbMgCAAAAAQEBAAAACAAAAFJrRkxSUzFOVEVSVFFTMDJOUzFXUlZKSlJsa73BAWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWF0cm9qYW4tZmFrZS1wYXNzd29y5AEAAACK5qC35pysIHRyb2phbnsidGFnIjoiY3VzdG9tLW91dGJvdW5kLXRyb2phbiL9qXsibG9nIjp7ImxldmVsIjoid2FybiJ9LCJub3RlIjoidHJvamFuIn0=",
+      "current": true
+    },
+    {
+      "id": "TrojanBean/90134fb5/default",
+      "class": "io.nekohasekai.sagernet.fmt.trojan.TrojanBean",
+      "form": "storage",
+      "source": {
+        "commit": "90134fb5e6c56eddef109100ab72488a65b3a57b",
+        "tag": null,
+        "versionName": "1.8.0-a3"
+      },
+      "versions": {
+        "TrojanBean": 2,
+        "StandardV2RayBean": 7,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "password": "",
+        "uuid": "",
+        "encryption": null,
+        "type": "tcp",
+        "host": "",
+        "path": "",
+        "security": "tls",
+        "sni": "",
+        "alpn": "",
+        "utlsFingerprint": "",
+        "allowInsecure": false,
+        "realityPubKey": "",
+        "realityShortId": "",
+        "realityMldsa65Verify": "",
+        "certificateFingerprint": "",
+        "wsMaxEarlyData": 0,
+        "earlyDataHeaderName": "",
+        "certificates": "",
+        "enableECH": false,
+        "echConfig": "",
+        "enableMux": false,
+        "muxPadding": false,
+        "muxType": 0,
+        "muxConcurrency": 1,
+        "packetEncoding": 0,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "password": "",
+        "uuid": "",
+        "encryption": null,
+        "type": "tcp",
+        "host": "",
+        "path": "",
+        "security": "tls",
+        "sni": "",
+        "alpn": "",
+        "utlsFingerprint": "",
+        "allowInsecure": false,
+        "realityPubKey": "",
+        "realityShortId": "",
+        "realityMldsa65Verify": "",
+        "certificateFingerprint": "",
+        "wsMaxEarlyData": 0,
+        "earlyDataHeaderName": "",
+        "certificates": "",
+        "enableECH": false,
+        "echConfig": "",
+        "enableMux": false,
+        "muxPadding": false,
+        "muxType": 0,
+        "muxConcurrency": 1,
+        "packetEncoding": 0,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AgAAAAcAAAAxMjcuMC4wLrE4BAAAgYB0Y/B0bPOBgYEAgYGBAIEAAAAAAAAAAAAAAQAAAIGBgQEAAACBgYE=",
       "current": true
     }
   ]

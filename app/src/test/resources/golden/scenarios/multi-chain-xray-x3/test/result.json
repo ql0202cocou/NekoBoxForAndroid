@@ -34,42 +34,42 @@
           "index": 0,
           "chainIndex": 0,
           "profileId": 4,
-          "port": 37333,
+          "port": 43681,
           "finalAddress": "127.0.0.1",
-          "finalPort": 39933,
+          "finalPort": 40255,
           "inboundTag": "in-0",
           "outboundTag": "out-0",
           "localAuth": {
-            "username": "uac763ba8b2d5c08e",
-            "password": "p5e831a19873054f1e59481cc8c161f18"
+            "username": "ua5ac0d264764e6b5",
+            "password": "pb4bed0faedca801f41ddd99b70c6a04b"
           }
         },
         {
           "index": 1,
           "chainIndex": 0,
           "profileId": 3,
-          "port": 45633,
+          "port": 37579,
           "finalAddress": "127.0.0.1",
-          "finalPort": 34831,
+          "finalPort": 46087,
           "inboundTag": "in-1",
           "outboundTag": "out-1",
           "localAuth": {
-            "username": "uac763ba8b2d5c08e",
-            "password": "p5e831a19873054f1e59481cc8c161f18"
+            "username": "ua5ac0d264764e6b5",
+            "password": "pb4bed0faedca801f41ddd99b70c6a04b"
           }
         },
         {
           "index": 2,
           "chainIndex": 0,
           "profileId": 2,
-          "port": 34555,
+          "port": 39013,
           "finalAddress": "127.0.0.1",
-          "finalPort": 42847,
+          "finalPort": 38871,
           "inboundTag": "in-2",
           "outboundTag": "out-2",
           "localAuth": {
-            "username": "uac763ba8b2d5c08e",
-            "password": "p5e831a19873054f1e59481cc8c161f18"
+            "username": "ua5ac0d264764e6b5",
+            "password": "pb4bed0faedca801f41ddd99b70c6a04b"
           }
         }
       ]
@@ -77,17 +77,17 @@
   ],
   "dynamic": {
     "ports": [
-      37333,
-      45633,
-      34555,
-      39933,
-      34831,
-      42847
+      43681,
+      37579,
+      39013,
+      40255,
+      46087,
+      38871
     ],
     "paths": [],
     "secrets": [
-      "uac763ba8b2d5c08e",
-      "p5e831a19873054f1e59481cc8c161f18"
+      "ua5ac0d264764e6b5",
+      "pb4bed0faedca801f41ddd99b70c6a04b"
     ]
   }
 }

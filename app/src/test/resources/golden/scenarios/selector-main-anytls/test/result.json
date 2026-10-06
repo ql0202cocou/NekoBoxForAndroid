@@ -21,8 +21,8 @@
       "file": "ext-0.mihomo-plugin.yaml",
       "pluginId": "mihomo-plugin",
       "controller": {
-        "port": 45621,
-        "secret": "f2d2c752a601460eb76103ddf9baebee"
+        "port": 34995,
+        "secret": "2b20841b59e94e04bd60b67091b77ebf"
       },
       "tempFiles": [],
       "hops": [
@@ -30,14 +30,14 @@
           "index": 0,
           "chainIndex": 0,
           "profileId": 3,
-          "port": 43139,
+          "port": 35995,
           "finalAddress": "127.0.0.1",
-          "finalPort": 41291,
+          "finalPort": 43283,
           "inboundTag": "in-0",
           "outboundTag": "out-0",
           "localAuth": {
-            "username": "uf69d7a74e07edd98",
-            "password": "pcab6d97ad6b2c7007c894c91383c732b"
+            "username": "ue8e84a2768ff1d38",
+            "password": "p76296b3068d7eaac9425b8661a7b3d6e"
           }
         }
       ]
@@ -45,15 +45,15 @@
   ],
   "dynamic": {
     "ports": [
-      43139,
-      41291,
-      45621
+      35995,
+      43283,
+      34995
     ],
     "paths": [],
     "secrets": [
-      "f2d2c752a601460eb76103ddf9baebee",
-      "uf69d7a74e07edd98",
-      "pcab6d97ad6b2c7007c894c91383c732b"
+      "2b20841b59e94e04bd60b67091b77ebf",
+      "ue8e84a2768ff1d38",
+      "p76296b3068d7eaac9425b8661a7b3d6e"
     ]
   }
 }

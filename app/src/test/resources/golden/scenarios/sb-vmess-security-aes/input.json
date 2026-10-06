@@ -169,7 +169,7 @@
       "core": 0,
       "beanColumn": "vmessBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
-      "beanKryoBase64": "BgAAAHZtZXNzLmV4YW1wbGUuY2/tuwEAAKU1YTBjMWUyZi0zYjRkLTRlNmYtOGE5Yi0wYzFkMmUzZjRhNWJhZXMtMTI4LWdj7QAAAAB0Y/Bub27lAIEAAAAAAAAAAAAAAQAAAIGBAQAAAGdvbGRlbi12bWVzcy1hZfOBgQ=="
+      "beanKryoBase64": "BwAAAHZtZXNzLmV4YW1wbGUuY2/tuwEAAKU1YTBjMWUyZi0zYjRkLTRlNmYtOGE5Yi0wYzFkMmUzZjRhNWJhZXMtMTI4LWdj7QAAAAB0Y/Bub27lAIEAAAAAAAAAAAAAAQAAAIGBAQAAAGdvbGRlbi12bWVzcy1hZfOBgQ=="
     }
   ],
   "rules": [],

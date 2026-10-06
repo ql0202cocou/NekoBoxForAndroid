@@ -33,14 +33,14 @@
           "index": 0,
           "chainIndex": 0,
           "profileId": 11,
-          "port": 44743,
+          "port": 33599,
           "finalAddress": "127.0.0.1",
-          "finalPort": 34225,
+          "finalPort": 37007,
           "inboundTag": "in-0",
           "outboundTag": "out-0",
           "localAuth": {
-            "username": "u701108f84c45720b",
-            "password": "pc3a894bcba6ce1f5d61d2e232de292d2"
+            "username": "u13cfb7bda6738f38",
+            "password": "p07074e8a24941550d5df567bbe85af19"
           }
         }
       ]
@@ -55,28 +55,28 @@
           "index": 1,
           "chainIndex": 0,
           "profileId": 1,
-          "port": 35437,
+          "port": 39149,
           "finalAddress": "127.0.0.1",
-          "finalPort": 37585,
+          "finalPort": 46861,
           "inboundTag": "in-1",
           "outboundTag": "out-1",
           "localAuth": {
-            "username": "u701108f84c45720b",
-            "password": "pc3a894bcba6ce1f5d61d2e232de292d2"
+            "username": "u13cfb7bda6738f38",
+            "password": "p07074e8a24941550d5df567bbe85af19"
           }
         },
         {
           "index": 2,
           "chainIndex": 0,
           "profileId": 10,
-          "port": 34503,
+          "port": 44191,
           "finalAddress": "127.0.0.1",
-          "finalPort": 39633,
+          "finalPort": 46311,
           "inboundTag": "in-2",
           "outboundTag": "out-2",
           "localAuth": {
-            "username": "u701108f84c45720b",
-            "password": "pc3a894bcba6ce1f5d61d2e232de292d2"
+            "username": "u13cfb7bda6738f38",
+            "password": "p07074e8a24941550d5df567bbe85af19"
           }
         }
       ]
@@ -84,17 +84,17 @@
   ],
   "dynamic": {
     "ports": [
-      44743,
-      35437,
-      34503,
-      34225,
-      37585,
-      39633
+      33599,
+      39149,
+      44191,
+      37007,
+      46861,
+      46311
     ],
     "paths": [],
     "secrets": [
-      "u701108f84c45720b",
-      "pc3a894bcba6ce1f5d61d2e232de292d2"
+      "u13cfb7bda6738f38",
+      "p07074e8a24941550d5df567bbe85af19"
     ]
   }
 }

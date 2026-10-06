@@ -7547,7 +7547,7 @@
       "form": "storage",
       "source": {
         "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
-        "tag": null,
+        "tag": "1.8.0-a2",
         "versionName": "1.8.0-a1"
       },
       "versions": {
@@ -7619,7 +7619,7 @@
         "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"vmess-tcp\"}"
       },
       "base64": "BgAAAHZtZXNzLXRjcC5leGFtcGxlLmNv7csoAAClMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDk4YWVzLTEyOC1nY+0DAAAAdGPwdGzzc25pLXZtZXNzLXRjcC5leGFtcGxlLm9y52gyLGh0dHAvMS6xxwEtLS0tLUJFR0lOIENFUlRJRklDQVRFLS0tLS0KUmtGTFJTMURSVkpVTFE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tAWNocm9t5atSa0ZMUlMxU1JVRk1TVlJaTFZCVlFreEpReTFMUlZrdE1EQXdNREF3TUEwMTIzYWJj5ABSa0ZMUlMxRlEwZ3RRMDlPUmtsyAIAAAABAQEAAAAIAAAAUmtGTFJTMU5URVJUUVMwMk5TMVdSVkpKUmxrvcEBYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQEAAACN5qC35pysIHZtZXNzLXRjcKR7InRhZyI6ImN1c3RvbS1vdXRib3VuZC12bWVzcy10Y3Aifax7ImxvZyI6eyJsZXZlbCI6Indhcm4ifSwibm90ZSI6InZtZXNzLXRjcCJ9",
-      "current": true
+      "current": false
     },
     {
       "id": "VMessBean/dd8f56d3/vmess-ws-tls-ech",
@@ -7627,7 +7627,7 @@
       "form": "storage",
       "source": {
         "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
-        "tag": null,
+        "tag": "1.8.0-a2",
         "versionName": "1.8.0-a1"
       },
       "versions": {
@@ -7699,7 +7699,7 @@
         "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"vmess-ws\"}"
       },
       "base64": "BgAAAHZtZXNzLXdzLmV4YW1wbGUuY2/tzCgAAKUwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwNzlhZXMtMTI4LWdj7QMAAAB382Nkbi12bWVzcy13cy5leGFtcGxlLm5l9C9wYXRoLXZtZXNzLXfzAAgAAFNlYy1XZWJTb2NrZXQtUHJvdG9jb+x0bPNzbmktdm1lc3Mtd3MuZXhhbXBsZS5vcudoMixodHRwLzEusccBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClJrRkxSUzFEUlZKVUxRPT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQFjaHJvbeWrUmtGTFJTMVNSVUZNU1ZSWkxWQlZRa3hKUXkxTFJWa3RNREF3TURBd01BMDEyM2FiY+QBUmtGTFJTMUZRMGd0UTA5T1JrbMgCAAAAAQEBAAAACAAAAFJrRkxSUzFOVEVSVFFTMDJOUzFXUlZKSlJsa73BAWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEBAAAAjOagt+acrCB2bWVzcy13c6N7InRhZyI6ImN1c3RvbS1vdXRib3VuZC12bWVzcy13cyJ9q3sibG9nIjp7ImxldmVsIjoid2FybiJ9LCJub3RlIjoidm1lc3Mtd3MifQ==",
-      "current": true
+      "current": false
     },
     {
       "id": "VMessBean/dd8f56d3/vmess-http-none",
@@ -7707,7 +7707,7 @@
       "form": "storage",
       "source": {
         "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
-        "tag": null,
+        "tag": "1.8.0-a2",
         "versionName": "1.8.0-a1"
       },
       "versions": {
@@ -7779,7 +7779,7 @@
         "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"vmess-http\"}"
       },
       "base64": "BgAAAHZtZXNzLWh0dHAuZXhhbXBsZS5jb+3NKAAApTAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDA5MWFlcy0xMjgtZ2PtAwAAAGh0dPBjZG4tdm1lc3MtaHR0cC5leGFtcGxlLm5l9C9wYXRoLXZtZXNzLWh0dPBub27lAFJrRkxSUzFGUTBndFEwOU9Sa2zIAgAAAAEBAQAAAAgAAABSa0ZMUlMxTlRFUlRRUzAyTlMxV1JWSkpSbGu9wQFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhAQAAAI7moLfmnKwgdm1lc3MtaHR0cKV7InRhZyI6ImN1c3RvbS1vdXRib3VuZC12bWVzcy1odHRwIn2teyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJ2bWVzcy1odHRwIn0=",
-      "current": true
+      "current": false
     },
     {
       "id": "VMessBean/dd8f56d3/vmess-grpc-tls-ech",
@@ -7787,7 +7787,7 @@
       "form": "storage",
       "source": {
         "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
-        "tag": null,
+        "tag": "1.8.0-a2",
         "versionName": "1.8.0-a1"
       },
       "versions": {
@@ -7859,7 +7859,7 @@
         "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"vmess-grpc\"}"
       },
       "base64": "BgAAAHZtZXNzLWdycGMuZXhhbXBsZS5jb+3OKAAApTAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDA2NWFlcy0xMjgtZ2PtAwAAAGdycOMvcGF0aC12bWVzcy1ncnDjdGzzc25pLXZtZXNzLWdycGMuZXhhbXBsZS5vcudoMixodHRwLzEusccBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClJrRkxSUzFEUlZKVUxRPT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQFjaHJvbeWrUmtGTFJTMVNSVUZNU1ZSWkxWQlZRa3hKUXkxTFJWa3RNREF3TURBd01BMDEyM2FiY+QBUmtGTFJTMUZRMGd0UTA5T1JrbMgCAAAAAQEBAAAACAAAAFJrRkxSUzFOVEVSVFFTMDJOUzFXUlZKSlJsa73BAWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEBAAAAjuagt+acrCB2bWVzcy1ncnBjpXsidGFnIjoiY3VzdG9tLW91dGJvdW5kLXZtZXNzLWdycGMifa17ImxvZyI6eyJsZXZlbCI6Indhcm4ifSwibm90ZSI6InZtZXNzLWdycGMifQ==",
-      "current": true
+      "current": false
     },
     {
       "id": "VMessBean/dd8f56d3/vmess-quic-none",
@@ -7867,7 +7867,7 @@
       "form": "storage",
       "source": {
         "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
-        "tag": null,
+        "tag": "1.8.0-a2",
         "versionName": "1.8.0-a1"
       },
       "versions": {
@@ -7939,7 +7939,7 @@
         "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"vmess-quic\"}"
       },
       "base64": "BgAAAHZtZXNzLXF1aWMuZXhhbXBsZS5jb+3PKAAApTAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDA3MWFlcy0xMjgtZ2PtAwAAAHF1aeNub27lAFJrRkxSUzFGUTBndFEwOU9Sa2zIAgAAAAEBAQAAAAgAAABSa0ZMUlMxTlRFUlRRUzAyTlMxV1JWSkpSbGu9wQFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhAQAAAI7moLfmnKwgdm1lc3MtcXVpY6V7InRhZyI6ImN1c3RvbS1vdXRib3VuZC12bWVzcy1xdWljIn2teyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJ2bWVzcy1xdWljIn0=",
-      "current": true
+      "current": false
     },
     {
       "id": "VMessBean/dd8f56d3/vmess-httpupgrade-tls",
@@ -7947,7 +7947,7 @@
       "form": "storage",
       "source": {
         "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
-        "tag": null,
+        "tag": "1.8.0-a2",
         "versionName": "1.8.0-a1"
       },
       "versions": {
@@ -8019,7 +8019,7 @@
         "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"vmess-httpupgrade\"}"
       },
       "base64": "BgAAAHZtZXNzLWh0dHB1cGdyYWRlLmV4YW1wbGUuY2/t0CgAAKUwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMjBhZXMtMTI4LWdj7QMAAABodHRwdXBncmFk5aJjZG4tdm1lc3MtaHR0cHVwZ3JhZGUuZXhhbXBsZS5uZXQvcGF0aC12bWVzcy1odHRwdXBncmFk5XRs86Jzbmktdm1lc3MtaHR0cHVwZ3JhZGUuZXhhbXBsZS5vcmdoMixodHRwLzEusccBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClJrRkxSUzFEUlZKVUxRPT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQFjaHJvbeWrUmtGTFJTMVNSVUZNU1ZSWkxWQlZRa3hKUXkxTFJWa3RNREF3TURBd01BMDEyM2FiY+QAUmtGTFJTMUZRMGd0UTA5T1JrbMgCAAAAAQEBAAAACAAAAFJrRkxSUzFOVEVSVFFTMDJOUzFXUlZKSlJsa73BAWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEBAAAAleagt+acrCB2bWVzcy1odHRwdXBncmFkZax7InRhZyI6ImN1c3RvbS1vdXRib3VuZC12bWVzcy1odHRwdXBncmFkZSJ9tHsibG9nIjp7ImxldmVsIjoid2FybiJ9LCJub3RlIjoidm1lc3MtaHR0cHVwZ3JhZGUifQ==",
-      "current": true
+      "current": false
     },
     {
       "id": "VMessBean/dd8f56d3/vless-tcp-tls",
@@ -8027,7 +8027,7 @@
       "form": "storage",
       "source": {
         "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
-        "tag": null,
+        "tag": "1.8.0-a2",
         "versionName": "1.8.0-a1"
       },
       "versions": {
@@ -8099,7 +8099,7 @@
         "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"vless\"}"
       },
       "base64": "BgAAADIwMy4wLjExMy4xsNtPAAClMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDczeHRscy1ycHJ4LXZpc2lv7v////90Y/B0bPNzbmktdmxlc3MuZXhhbXBsZS5vcudoMixodHRwLzEusccBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClJrRkxSUzFEUlZKVUxRPT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQFjaHJvbeWrUmtGTFJTMVNSVUZNU1ZSWkxWQlZRa3hKUXkxTFJWa3RNREF3TURBd01BMDEyM2FiY+QAUmtGTFJTMUZRMGd0UTA5T1JrbMgCAAAAAQEBAAAACAAAAFJrRkxSUzFOVEVSVFFTMDJOUzFXUlZKSlJsa73BAWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEBAAAAieagt+acrCB2bGVzc3sidGFnIjoiY3VzdG9tLW91dGJvdW5kLXZsZXNzIv2oeyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJ2bGVzcyJ9",
-      "current": true
+      "current": false
     },
     {
       "id": "VMessBean/dd8f56d3/default",
@@ -8107,7 +8107,7 @@
       "form": "storage",
       "source": {
         "commit": "dd8f56d37773f7b494e3be988904e415b90acd62",
-        "tag": null,
+        "tag": "1.8.0-a2",
         "versionName": "1.8.0-a1"
       },
       "versions": {
@@ -8179,6 +8179,246 @@
         "customConfigJson": ""
       },
       "base64": "BgAAADEyNy4wLjAusTgEAACBYXV07wAAAAB0Y/Bub27lAIEAAAAAAAAAAAAAAQAAAIGBAQAAAIGBgQ==",
+      "current": false
+    },
+    {
+      "id": "VMessBean/90134fb5/vmess-ws-tls-ech",
+      "class": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
+      "form": "storage",
+      "source": {
+        "commit": "90134fb5e6c56eddef109100ab72488a65b3a57b",
+        "tag": null,
+        "versionName": "1.8.0-a3"
+      },
+      "versions": {
+        "StandardV2RayBean": 7,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "alterId": 3,
+        "uuid": "00000000-0000-4000-8000-000000000079",
+        "encryption": "aes-128-gcm",
+        "type": "ws",
+        "host": "cdn-vmess-ws.example.net",
+        "path": "/path-vmess-ws",
+        "security": "tls",
+        "sni": "sni-vmess-ws.example.org",
+        "alpn": "h2,http/1.1",
+        "utlsFingerprint": "chrome",
+        "allowInsecure": true,
+        "realityPubKey": "RkFLRS1SRUFMSVRZLVBVQkxJQy1LRVktMDAwMDAwMA",
+        "realityShortId": "0123abcd",
+        "realityMldsa65Verify": "RkFLRS1NTERTQS02NS1WRVJJRlk=",
+        "certificateFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "wsMaxEarlyData": 2048,
+        "earlyDataHeaderName": "Sec-WebSocket-Protocol",
+        "certificates": "-----BEGIN CERTIFICATE-----\nRkFLRS1DRVJULQ==\n-----END CERTIFICATE-----",
+        "enableECH": true,
+        "echConfig": "RkFLRS1FQ0gtQ09ORklH",
+        "enableMux": true,
+        "muxPadding": true,
+        "muxType": 1,
+        "muxConcurrency": 8,
+        "packetEncoding": 2,
+        "serverAddress": "vmess-ws.example.com",
+        "serverPort": 10444,
+        "name": "样本 vmess-ws",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-vmess-ws\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"vmess-ws\"}"
+      },
+      "expected": {
+        "alterId": 3,
+        "uuid": "00000000-0000-4000-8000-000000000079",
+        "encryption": "aes-128-gcm",
+        "type": "ws",
+        "host": "cdn-vmess-ws.example.net",
+        "path": "/path-vmess-ws",
+        "security": "tls",
+        "sni": "sni-vmess-ws.example.org",
+        "alpn": "h2,http/1.1",
+        "utlsFingerprint": "chrome",
+        "allowInsecure": true,
+        "realityPubKey": "RkFLRS1SRUFMSVRZLVBVQkxJQy1LRVktMDAwMDAwMA",
+        "realityShortId": "0123abcd",
+        "realityMldsa65Verify": "RkFLRS1NTERTQS02NS1WRVJJRlk=",
+        "certificateFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "wsMaxEarlyData": 2048,
+        "earlyDataHeaderName": "Sec-WebSocket-Protocol",
+        "certificates": "-----BEGIN CERTIFICATE-----\nRkFLRS1DRVJULQ==\n-----END CERTIFICATE-----",
+        "enableECH": true,
+        "echConfig": "RkFLRS1FQ0gtQ09ORklH",
+        "enableMux": true,
+        "muxPadding": true,
+        "muxType": 1,
+        "muxConcurrency": 8,
+        "packetEncoding": 2,
+        "serverAddress": "vmess-ws.example.com",
+        "serverPort": 10444,
+        "name": "样本 vmess-ws",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-vmess-ws\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"vmess-ws\"}"
+      },
+      "base64": "BwAAAHZtZXNzLXdzLmV4YW1wbGUuY2/tzCgAAKUwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwNzlhZXMtMTI4LWdj7QMAAAB382Nkbi12bWVzcy13cy5leGFtcGxlLm5l9C9wYXRoLXZtZXNzLXfzAAgAAFNlYy1XZWJTb2NrZXQtUHJvdG9jb+x0bPNzbmktdm1lc3Mtd3MuZXhhbXBsZS5vcudoMixodHRwLzEusccBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClJrRkxSUzFEUlZKVUxRPT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQFjaHJvbeWrUmtGTFJTMVNSVUZNU1ZSWkxWQlZRa3hKUXkxTFJWa3RNREF3TURBd01BMDEyM2FiY+QBUmtGTFJTMUZRMGd0UTA5T1JrbMgCAAAAAQEBAAAACAAAAFJrRkxSUzFOVEVSVFFTMDJOUzFXUlZKSlJsa73BAWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEBAAAAjOagt+acrCB2bWVzcy13c6N7InRhZyI6ImN1c3RvbS1vdXRib3VuZC12bWVzcy13cyJ9q3sibG9nIjp7ImxldmVsIjoid2FybiJ9LCJub3RlIjoidm1lc3Mtd3MifQ==",
+      "current": true
+    },
+    {
+      "id": "VMessBean/90134fb5/default",
+      "class": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
+      "form": "storage",
+      "source": {
+        "commit": "90134fb5e6c56eddef109100ab72488a65b3a57b",
+        "tag": null,
+        "versionName": "1.8.0-a3"
+      },
+      "versions": {
+        "StandardV2RayBean": 7,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "alterId": 0,
+        "uuid": "",
+        "encryption": "auto",
+        "type": "tcp",
+        "host": "",
+        "path": "",
+        "security": "none",
+        "sni": "",
+        "alpn": "",
+        "utlsFingerprint": "",
+        "allowInsecure": false,
+        "realityPubKey": "",
+        "realityShortId": "",
+        "realityMldsa65Verify": "",
+        "certificateFingerprint": "",
+        "wsMaxEarlyData": 0,
+        "earlyDataHeaderName": "",
+        "certificates": "",
+        "enableECH": false,
+        "echConfig": "",
+        "enableMux": false,
+        "muxPadding": false,
+        "muxType": 0,
+        "muxConcurrency": 1,
+        "packetEncoding": 0,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "alterId": 0,
+        "uuid": "",
+        "encryption": "auto",
+        "type": "tcp",
+        "host": "",
+        "path": "",
+        "security": "none",
+        "sni": "",
+        "alpn": "",
+        "utlsFingerprint": "",
+        "allowInsecure": false,
+        "realityPubKey": "",
+        "realityShortId": "",
+        "realityMldsa65Verify": "",
+        "certificateFingerprint": "",
+        "wsMaxEarlyData": 0,
+        "earlyDataHeaderName": "",
+        "certificates": "",
+        "enableECH": false,
+        "echConfig": "",
+        "enableMux": false,
+        "muxPadding": false,
+        "muxType": 0,
+        "muxConcurrency": 1,
+        "packetEncoding": 0,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "BwAAADEyNy4wLjAusTgEAACBYXV07wAAAAB0Y/Bub27lAIEAAAAAAAAAAAAAAQAAAIGBAQAAAIGBgQ==",
+      "current": true
+    },
+    {
+      "id": "VMessBean/90134fb5/vless-tcp-tls-mux-cool",
+      "class": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
+      "form": "storage",
+      "source": {
+        "commit": "90134fb5e6c56eddef109100ab72488a65b3a57b",
+        "tag": null,
+        "versionName": "1.8.0-a3"
+      },
+      "versions": {
+        "StandardV2RayBean": 7,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "alterId": -1,
+        "uuid": "00000000-0000-4000-8000-000000000107",
+        "encryption": "",
+        "type": "tcp",
+        "host": "cdn-vless.example.net",
+        "path": "/path-vless",
+        "security": "tls",
+        "sni": "sni-vless.example.org",
+        "alpn": "h2,http/1.1",
+        "utlsFingerprint": "chrome",
+        "allowInsecure": true,
+        "realityPubKey": "",
+        "realityShortId": "",
+        "realityMldsa65Verify": "",
+        "certificateFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "wsMaxEarlyData": 2048,
+        "earlyDataHeaderName": "Sec-WebSocket-Protocol",
+        "certificates": "-----BEGIN CERTIFICATE-----\nRkFLRS1DRVJULQ==\n-----END CERTIFICATE-----",
+        "enableECH": false,
+        "echConfig": "RkFLRS1FQ0gtQ09ORklH",
+        "enableMux": true,
+        "muxPadding": true,
+        "muxType": 3,
+        "muxConcurrency": 8,
+        "packetEncoding": 2,
+        "serverAddress": "203.0.113.10",
+        "serverPort": 20444,
+        "name": "样本 vless-mux-cool",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-vless-mux-cool\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"vless-mux-cool\"}"
+      },
+      "expected": {
+        "alterId": -1,
+        "uuid": "00000000-0000-4000-8000-000000000107",
+        "encryption": "",
+        "type": "tcp",
+        "host": "",
+        "path": "",
+        "security": "tls",
+        "sni": "sni-vless.example.org",
+        "alpn": "h2,http/1.1",
+        "utlsFingerprint": "chrome",
+        "allowInsecure": true,
+        "realityPubKey": "",
+        "realityShortId": "",
+        "realityMldsa65Verify": "",
+        "certificateFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "wsMaxEarlyData": 0,
+        "earlyDataHeaderName": "",
+        "certificates": "-----BEGIN CERTIFICATE-----\nRkFLRS1DRVJULQ==\n-----END CERTIFICATE-----",
+        "enableECH": false,
+        "echConfig": "RkFLRS1FQ0gtQ09ORklH",
+        "enableMux": true,
+        "muxPadding": true,
+        "muxType": 3,
+        "muxConcurrency": 8,
+        "packetEncoding": 2,
+        "serverAddress": "203.0.113.10",
+        "serverPort": 20444,
+        "name": "样本 vless-mux-cool",
+        "customOutboundJson": "{\"tag\":\"custom-outbound-vless-mux-cool\"}",
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"vless-mux-cool\"}"
+      },
+      "base64": "BwAAADIwMy4wLjExMy4xsNxPAAClMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMTA3gf////90Y/B0bPNzbmktdmxlc3MuZXhhbXBsZS5vcudoMixodHRwLzEusccBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClJrRkxSUzFEUlZKVUxRPT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQFjaHJvbeWBgQBSa0ZMUlMxRlEwZ3RRMDlPUmtsyAIAAAABAQMAAAAIAAAAgcEBYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYQEAAACS5qC35pysIHZsZXNzLW11eC1jb29sqXsidGFnIjoiY3VzdG9tLW91dGJvdW5kLXZsZXNzLW11eC1jb29sIn2xeyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJ2bGVzcy1tdXgtY29vbCJ9",
       "current": true
     }
   ]

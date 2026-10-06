@@ -34,7 +34,7 @@
           "index": 0,
           "chainIndex": 0,
           "profileId": 3,
-          "port": 42817,
+          "port": 33379,
           "finalAddress": "hy1.example.com",
           "finalPort": 1080,
           "inboundTag": null,
@@ -46,7 +46,7 @@
   ],
   "dynamic": {
     "ports": [
-      42817
+      33379
     ],
     "paths": [],
     "secrets": []

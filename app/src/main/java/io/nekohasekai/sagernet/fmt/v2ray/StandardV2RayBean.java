@@ -79,6 +79,12 @@ public abstract class StandardV2RayBean extends AbstractBean {
 
     public Integer packetEncoding; // 1:packet 2:xudp
 
+    // K1 之前的实现写下的数据（这一层版本号 < 7）：mux 协议族、ws early data 的携带方式等还没按 K1 的选核标注
+    // （LegacyProfileUpgrade.kt）。只由 deserialize 置位，不进字节；备份恢复、通用链接导入标注完成后由调用方清掉。
+    // 数据库里的存量节点由 8 → 9 的迁移统一标注，之后读库仍可能读到 v6 字节（迁移只改写有变化的行），
+    // 读库得到的 bean 不看这个标记
+    public transient boolean legacyUnlabeled;
+
     @Override
     public void initializeDefaultValues() {
         super.initializeDefaultValues();
@@ -127,7 +133,8 @@ public abstract class StandardV2RayBean extends AbstractBean {
 
     @Override
     public void serialize(ByteBufferOutput output) {
-        output.writeInt(6);
+        // 7：字节布局与 6 相同，只用版本号区分 K1 之前写下、还没标注的数据（见 legacyUnlabeled）
+        output.writeInt(7);
         super.serialize(output);
         output.writeString(uuid);
         output.writeString(encryption);
@@ -188,6 +195,7 @@ public abstract class StandardV2RayBean extends AbstractBean {
     @Override
     public void deserialize(ByteBufferInput input) {
         int version = input.readInt();
+        legacyUnlabeled = version < 7;
         super.deserialize(input);
         uuid = input.readString();
         encryption = input.readString();

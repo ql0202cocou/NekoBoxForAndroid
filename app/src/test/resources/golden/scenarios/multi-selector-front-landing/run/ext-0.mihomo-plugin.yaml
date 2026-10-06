@@ -4,52 +4,52 @@ listeners:
 - name: in-0
   type: socks
   listen: 127.0.0.1
-  port: 33663
+  port: 41963
   udp: true
   proxy: out-0
   users:
-  - {username: u899aeef5b10bc1fc, password: p22bab7a1e39b1e036bdc39ee82d24f36}
+  - {username: uf9a295599ef79d29, password: pbf047e500a445fe585f7a12f1a2d9dc1}
 - name: in-3
   type: socks
   listen: 127.0.0.1
-  port: 41307
+  port: 38209
   udp: true
   proxy: out-3
   users:
-  - {username: u899aeef5b10bc1fc, password: p22bab7a1e39b1e036bdc39ee82d24f36}
+  - {username: uf9a295599ef79d29, password: pbf047e500a445fe585f7a12f1a2d9dc1}
 - name: in-5
   type: socks
   listen: 127.0.0.1
-  port: 37199
+  port: 34795
   udp: true
   proxy: out-5
   users:
-  - {username: u899aeef5b10bc1fc, password: p22bab7a1e39b1e036bdc39ee82d24f36}
+  - {username: uf9a295599ef79d29, password: pbf047e500a445fe585f7a12f1a2d9dc1}
 - name: in-6
   type: socks
   listen: 127.0.0.1
-  port: 38709
+  port: 41353
   udp: true
   proxy: out-6
   users:
-  - {username: u899aeef5b10bc1fc, password: p22bab7a1e39b1e036bdc39ee82d24f36}
+  - {username: uf9a295599ef79d29, password: pbf047e500a445fe585f7a12f1a2d9dc1}
 - name: in-7
   type: socks
   listen: 127.0.0.1
-  port: 45545
+  port: 33563
   udp: true
   proxy: out-7
   users:
-  - {username: u899aeef5b10bc1fc, password: p22bab7a1e39b1e036bdc39ee82d24f36}
+  - {username: uf9a295599ef79d29, password: pbf047e500a445fe585f7a12f1a2d9dc1}
 proxies:
-- {name: out-0, type: anytls, server: 127.0.0.1, port: 35387, password: golden-pass-anytls,
+- {name: out-0, type: anytls, server: 127.0.0.1, port: 46521, password: golden-pass-anytls,
   udp: true, sni: mihomo-2.example.org}
-- {name: out-3, type: anytls, server: 127.0.0.1, port: 46773, password: golden-pass-anytls,
+- {name: out-3, type: anytls, server: 127.0.0.1, port: 37997, password: golden-pass-anytls,
   udp: true, sni: mihomo-2.example.org}
-- {name: out-5, type: anytls, server: 127.0.0.1, port: 34815, password: golden-pass-anytls,
+- {name: out-5, type: anytls, server: 127.0.0.1, port: 35437, password: golden-pass-anytls,
   udp: true, sni: mihomo-2.example.org}
-- {name: out-6, type: anytls, server: 127.0.0.1, port: 35697, password: golden-pass-anytls,
+- {name: out-6, type: anytls, server: 127.0.0.1, port: 42849, password: golden-pass-anytls,
   udp: true, sni: mihomo-1.example.org}
-- {name: out-7, type: anytls, server: 127.0.0.1, port: 46291, password: golden-pass-anytls,
+- {name: out-7, type: anytls, server: 127.0.0.1, port: 41739, password: golden-pass-anytls,
   udp: true, sni: mihomo-2.example.org}
 rules: ['MATCH,REJECT']

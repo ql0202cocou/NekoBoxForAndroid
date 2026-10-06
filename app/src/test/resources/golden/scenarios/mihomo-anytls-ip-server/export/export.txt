@@ -75,7 +75,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 34683,
+      "listen_port": 40059,
       "override_address": "203.0.113.60",
       "override_port": 8443,
       "tag": "c-0-mapping-1",
@@ -87,10 +87,10 @@
   },
   "outbounds": [
     {
-      "password": "pc6040073718c96950a995ffd9b71bea0",
+      "password": "p5355df716f2b906b9dd7934f4b829855",
       "server": "127.0.0.1",
-      "server_port": 39803,
-      "username": "uaab2073089dfd145",
+      "server_port": 36167,
+      "username": "u55b2a4c33c34c06d",
       "tag": "proxy",
       "type": "socks"
     },
@@ -152,12 +152,12 @@ listeners:
 - name: in-0
   type: socks
   listen: 127.0.0.1
-  port: 39803
+  port: 36167
   udp: true
   proxy: out-0
   users:
-  - {username: uaab2073089dfd145, password: pc6040073718c96950a995ffd9b71bea0}
+  - {username: u55b2a4c33c34c06d, password: p5355df716f2b906b9dd7934f4b829855}
 proxies:
-- {name: out-0, type: anytls, server: 127.0.0.1, port: 34683, password: golden-pass-anytls,
+- {name: out-0, type: anytls, server: 127.0.0.1, port: 40059, password: golden-pass-anytls,
   udp: true, sni: 203.0.113.60}
 rules: ['MATCH,REJECT']
