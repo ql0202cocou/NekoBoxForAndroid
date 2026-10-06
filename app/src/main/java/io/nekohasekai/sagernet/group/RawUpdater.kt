@@ -29,6 +29,14 @@ internal fun shouldRejectUnauthHttpOnly(
     return existing.any { !it.isUnauthHttp() }
 }
 
+// 订阅更新按名字匹配到旧节点后换上新解析的 bean（putBean 按 bean 的类改 type）。协议类型变了时 core 改回自动：
+// 手动选核是针对旧协议做的。协议类型相同时保留（VMess 与 VLESS 同属 TYPE_VMESS，互换也保留）
+internal fun ProxyEntity.replaceSubscriptionBean(bean: AbstractBean) {
+    val oldType = type
+    putBean(bean)
+    if (type != oldType) core = ProxyEntity.CORE_AUTO
+}
+
 @Suppress("EXPERIMENTAL_API_USAGE")
 object RawUpdater : GroupUpdater() {
 
@@ -288,7 +296,7 @@ object RawUpdater : GroupUpdater() {
                     customOutboundJson = currentBean.customOutboundJson
                     customConfigJson = currentBean.customConfigJson
                 }
-                current.putBean(updatedBean)
+                current.replaceSubscriptionBean(updatedBean)
                 updatedCount += SagerDatabase.proxyDao.updateProxy(current)
             }
             Logs.d("Updated profiles: $updatedCount")
