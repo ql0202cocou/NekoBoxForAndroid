@@ -16,6 +16,43 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //
 // 升级任何一个核心都要回到这里逐条复核：DialCore.version 与 buildScript/lib/plugins.sh、vendored sing-box 的版本
 // 由单测绑定，不改表测试就不过（CoreCapabilitiesTest）。
+//
+// 升级核心时必须重测的条目（I1 §8 与 I4 §4；用 run -test / -t 与本机回环验证，结论写回本表、组合规则、已知差异
+// CoreKnownDifferences.kt 与相关生成器）：
+//
+// Xray：
+//  1. Trojan 出站的写法：servers 与扁平写法、写 flow 被拒绝、只许一个 server、弃用警告不影响退出码。
+//  2. REALITY 能用哪些传输（现在是 tcp / grpc / xhttp）及其报错原文；h2、quic、http 已移除时的报错原文。
+//  3. realitySettings 客户端字段的校验：publicKey / password、shortId、fingerprint 的禁用名与默认值、mldsa65Verify
+//     的长度、spiderX；客户端上报的版本号。
+//  4. allowInsecure 的移除方式与报错原文，以及它按设备时钟判断这一点。
+//  5. pinnedPeerCertSha256 的格式（十六进制、冒号、逗号）与匹配语义（命中叶子跳过校验；命中 IsCA 的链上证书按
+//     serverName 与有效期校验；其余不算命中），用回环验证；旧的固定字段是否仍被静默忽略。
+//  6. certificates 是追加到系统证书池还是替换；run -test 是否解析 PEM。
+//  7. fingerprint 的名单（XRAY_UTLS_FINGERPRINTS）、空值的默认（现在是 chrome）、不认识的名字是否报错；uTLS 下
+//     alpn 是否生效。
+//  8. echConfigList 支持的形式、echForceQuery 的缺省值（失败即拒绝）、查询从哪里发出。
+//  9. MuxConfig 的字段与缺省值（concurrency 0 按 8、负数关闭；xudpProxyUDP443 缺省 reject）、handler 的分派顺序。
+// 10. VMess / VLESS 的 UDP 默认走 cone XUDP；vision 与 mux 同开时的处理。
+// 11. 未知 JSON 键是否仍被静默忽略。仍忽略时生成器里每个键名都要靠测试保证拼写，例如 httpupgradeSettings 全小写。
+// 12. run -test 的退出码与「Failed to start: … with tag out-N > …」的报错格式（ExternalCoreStartup.kt 依赖它）。
+//
+// mihomo：
+// 13. AnyTLSOption 的字段全集（是否新增自定义 CA、reality、mldsa 等）。
+// 14. fingerprint 的匹配语义（命中叶子跳过校验、命中非叶子按名字校验、是否要求 IsCA），用回环验证；-t 是否开始
+//     检查指纹格式。
+// 15. client-fingerprint 名单（MIHOMO_UTLS_FINGERPRINTS），以及名字不认识时是否仍静默退回 Go 标准 TLS。
+// 16. ech-opts：解码方式、只开开关时自动查询所用的解析器。
+// 17. tls.custom-certifactes 的键名（含拼写）、作用范围、加载失败时的行为；内置证书包是否仍默认开启。
+// 18. -t 的退出码与 logrus 报错格式（「proxy N: …」；dialer-proxy 的报错不带序号）。
+//
+// sing-box（vendored，libcore/sing-box）：
+// 19. common/tls/reality_client.go 的 REALITY 客户端：自报的客户端版本（SessionId 前三字节，现在固定 1.8.1）与
+//     去掉 X25519MLKEM768 的过滤是否还在、「reality verification failed」原文是否不变；对照最新 Xray 服务端缺省的
+//     minClientVer，复核 NEKO.md「Accepted upstream behavior」的 REALITY 一条与测速提示（withRealityHint）。
+//     libcore/reality_client_canary_test.go 在这些内容变化时先红。
+// 20. common/tls/utls_client.go 的 uTLS 指纹名单（uTLSClientHelloID，SING_BOX_UTLS_FINGERPRINTS），区分大小写、
+//     名单外加载配置时报错这两点是否不变。
 
 // 能替节点拨号的核心。value 与 ProxyEntity.CORE_* 相同；version 是这张表核实时的版本
 enum class DialCore(val value: Int, val displayName: String, val version: String) {
