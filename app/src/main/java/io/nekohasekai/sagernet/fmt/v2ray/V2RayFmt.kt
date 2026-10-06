@@ -687,12 +687,14 @@ const val MUX_SMUX = 1
 const val MUX_YAMUX = 2
 const val MUX_COOL = 3
 
-// StandardV2RayBean.muxType <-> multiplex protocol name (sing-box and mihomo
-// spell them the same); 0 is h2mux, mihomo's default
+// StandardV2RayBean.muxType -> sing-mux 的协议名（sing-box 与 mihomo 写法相同）；0 是 h2mux，即 mihomo 的默认值。
+// Mux.Cool 与不认识的取值抛异常，不再当作 h2mux：这是 sing-box 一侧的最后防线，面向用户的拒绝由能力表在规划时报出
 fun muxProtocolName(type: Int): String = when (type) {
-    1 -> "smux"
-    2 -> "yamux"
-    else -> "h2mux"
+    MUX_H2MUX -> "h2mux"
+    MUX_SMUX -> "smux"
+    MUX_YAMUX -> "yamux"
+    MUX_COOL -> throw IllegalStateException("Mux.Cool only runs on Xray")
+    else -> throw IllegalStateException("unknown mux type $type")
 }
 
 fun muxProtocolType(name: String?): Int = when (name) {

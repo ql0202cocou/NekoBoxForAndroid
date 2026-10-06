@@ -244,16 +244,16 @@ fun ProxyEntity.needExternal(globalAllowInsecure: Boolean): Boolean {
     }
 }
 
-// type -> sing-box 多路复用选项，不支持 mux 的协议为 null
+// type -> sing-box 多路复用选项，不支持 mux 的协议与没开 mux 时为 null
 fun ProxyEntity.singMux(): MultiplexOptions? {
     return when (type) {
-        // vmess/vless/trojan share the StandardV2RayBean mux fields. Vision flow
-        // doesn't support mux: vendored sing-box silently clears the flow when
-        // multiplex is enabled (the Xray path guards this in XrayConfig); only
-        // VLESS can carry the flow, so the check is a no-op for trojan.
+        // VMess / VLESS / Trojan 共用 StandardV2RayBean 的 mux 字段。没开 mux 时不构造选项：关着 mux 的节点
+        // muxType 可以是任何值（包括只有 Xray 才有的 Mux.Cool），不该走到 muxProtocolName。
+        // vision 流控不支持 mux：vendored sing-box 开了 multiplex 时会悄悄清掉 flow（Xray 一侧在 XrayConfig 里拦），
+        // 只有 VLESS 带 flow，对 Trojan 这条判断不起作用
         TYPE_VMESS, TYPE_TROJAN -> (requireBean() as StandardV2RayBean).let { bean ->
-            if (bean.isVisionFlow) null else MultiplexOptions().apply {
-                enabled = bean.enableMux
+            if (bean.enableMux != true || bean.isVisionFlow) null else MultiplexOptions().apply {
+                enabled = true
                 padding = bean.muxPadding
                 max_streams = bean.muxConcurrency
                 protocol = muxProtocolName(bean.muxType)
