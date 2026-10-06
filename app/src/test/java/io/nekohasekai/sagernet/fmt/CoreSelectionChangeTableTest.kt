@@ -114,8 +114,14 @@ class CoreSelectionChangeTableTest {
             return false
         }
 
-    // mihomo 不认识、会静默改用 Go 标准 TLS 的指纹
-    private val Sample.mihomoDegrades get() = isAnyTls && utls?.let { !MIHOMO_UTLS_FINGERPRINTS.accepts(it) } == true
+    // mihomo 不认识、会静默改用 Go 标准 TLS 的指纹（认识但握手必败的另算，见 mihomoHandshakeFails）
+    private val Sample.mihomoDegrades
+        get() = isAnyTls && utls?.let {
+            !MIHOMO_UTLS_FINGERPRINTS.accepts(it) && !MIHOMO_UTLS_FINGERPRINTS_BROKEN.accepts(it)
+        } == true
+
+    // mihomo 认识、但握手必败的指纹（K1b 待决定项 D）
+    private val Sample.mihomoHandshakeFails get() = isAnyTls && utls?.let { MIHOMO_UTLS_FINGERPRINTS_BROKEN.accepts(it) } == true
 
     // 1.8.0-a3 的 Xray 生成器静默丢掉的字段：packetaddr、没填配置的 ECH、非 Sec-WebSocket-Protocol 的 early data 头名
     private val Sample.xrayDropsField: Boolean
@@ -256,6 +262,18 @@ class CoreSelectionChangeTableTest {
                 "少一个 mihomo 进程；自定义出站 JSON 改为作用到 AnyTLS 出站；导出从 profiles.txt 变成 .json",
             setOf(Result.MIHOMO), setOf(Result.SING_BOX, Result.MIHOMO),
         ) { it.isAnyTls && it.auto && it.anyTlsPlain && it.carriedBy == Carrier.MIHOMO },
+        Row(
+            "mihomo 握手必败的 uTLS 指纹",
+            "AnyTLS 冻结规则走 mihomo，uTLS 指纹是 mihomo 认识但握手必败的 chrome_psk、chrome_pq_psk、" +
+                "chrome_padding_psk_shuffle、randomized（自动选核、不带证书指纹与 certificates 的节点已归上一行）",
+            "mihomo（psk 三个每次握手都报 tls: empty psk detected；randomized 取决于进程的随机种子，多数进程每次都失败）",
+            "自动选核改走 sing-box（sing-box 认这些名字，带 certificates 的也不再留在 mihomo）；带证书指纹时 sing-box " +
+                "不能整证书固定，拒绝；手动 mihomo 拒绝；拒绝时报出指纹字段",
+            "psk 三个改走 sing-box 后能用（sing-box 把它们当 chrome）；randomized 在 sing-box 上按源码同样取决于进程种子" +
+                "（约三分之一进程失败，未实测）；带证书指纹或手动 mihomo 的变成启动前的明确报错（K1b 待决定项 D，" +
+                "维护者 2026-10-06 定；K1b M1 L2-MF-* 回环实测）",
+            setOf(Result.MIHOMO), setOf(Result.SING_BOX, Result.REJECTED),
+        ) { it.carriedBy == Carrier.MIHOMO && it.mihomoHandshakeFails },
     )
 
     private fun sample(node: Node): Sample {

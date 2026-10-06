@@ -35,6 +35,7 @@ fun coreConflictReason(id: CoreConflict): Int = when (id) {
     CoreConflict.XRAY_UTLS_FINGERPRINT -> R.string.core_conflict_xray_utls_fingerprint
     CoreConflict.XRAY_REALITY_UTLS_FINGERPRINT -> R.string.core_conflict_xray_reality_utls_fingerprint
     CoreConflict.MIHOMO_UTLS_FINGERPRINT -> R.string.core_conflict_mihomo_utls_fingerprint
+    CoreConflict.MIHOMO_UTLS_HANDSHAKE_FAILS -> R.string.core_conflict_mihomo_utls_handshake_fails
     CoreConflict.SING_BOX_MUX_COOL -> R.string.core_conflict_sing_box_mux_cool
     CoreConflict.XRAY_SING_MUX -> R.string.core_conflict_xray_sing_mux
     CoreConflict.XRAY_PACKETADDR -> R.string.core_conflict_xray_packetaddr

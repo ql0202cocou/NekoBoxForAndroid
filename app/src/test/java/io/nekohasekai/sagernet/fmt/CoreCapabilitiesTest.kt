@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.fmt
 
 import io.nekohasekai.sagernet.Key
+import io.nekohasekai.sagernet.database.ProxyEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -99,12 +100,14 @@ class CoreCapabilitiesTest {
     @Test
     fun `不支持的格子与组合规则只引用属于该核心的冲突`() {
         for ((requirement, cells) in CAPABILITY_TABLE) for ((core, cell) in cells) {
-            val conflict = when (cell) {
-                is CapabilityCell.Unsupported -> cell.conflict
-                is CapabilityCell.SupportedValues -> cell.outside
-                else -> null
-            } ?: continue
-            assertTrue("$requirement × $core → $conflict", conflict.core == null || conflict.core == core)
+            val conflicts = when (cell) {
+                is CapabilityCell.Unsupported -> listOf(cell.conflict)
+                is CapabilityCell.SupportedValues -> listOfNotNull(cell.outside, cell.rejected?.conflict)
+                else -> emptyList()
+            }
+            for (conflict in conflicts) {
+                assertTrue("$requirement × $core → $conflict", conflict.core == null || conflict.core == core)
+            }
         }
         for (rule in COMBINATION_RULES) assertEquals(rule.description, rule.core, rule.conflict.core)
     }
@@ -146,7 +149,11 @@ class CoreCapabilitiesTest {
         val used = HashSet<CoreConflict>()
         for (cells in CAPABILITY_TABLE.values) for (cell in cells.values) when (cell) {
             is CapabilityCell.Unsupported -> used += cell.conflict
-            is CapabilityCell.SupportedValues -> used += cell.outside
+            is CapabilityCell.SupportedValues -> {
+                used += cell.outside
+                cell.rejected?.let { used += it.conflict }
+            }
+
             else -> Unit
         }
         COMBINATION_RULES.forEach { used += it.conflict }
@@ -183,9 +190,10 @@ class CoreCapabilitiesTest {
         return Regex("""<item>(.*?)</item>|<item\s*/>""").findAll(body).map { it.groupValues[1] }.toList()
     }
 
-    // 编辑器下拉框里能选到的 uTLS 指纹（空表示不用），三个核心都认
+    // 编辑器下拉框里能选到的 uTLS 指纹（空表示不用）：sing-box 与 Xray 都认；mihomo 除 randomized 外都认，randomized
+    // 在 mihomo 上握手时常失败，是冲突（K1b 待决定项 D）
     @Test
-    fun `编辑器下拉框的 uTLS 指纹三个核心都认`() {
+    fun `编辑器下拉框的 uTLS 指纹 sing-box 与 Xray 都认，mihomo 只拒绝 randomized`() {
         val entries = stringArray("utls_fingerprint_entry")
         assertEquals(
             listOf("", "chrome", "firefox", "edge", "safari", "360", "qq", "ios", "android", "random", "randomized"),
@@ -194,7 +202,8 @@ class CoreCapabilitiesTest {
         for (name in entries.filter { it.isNotEmpty() }) {
             assertTrue(name, SING_BOX_UTLS_FINGERPRINTS.accepts(name))
             assertTrue(name, XRAY_UTLS_FINGERPRINTS.accepts(name))
-            assertTrue(name, MIHOMO_UTLS_FINGERPRINTS.accepts(name))
+            assertEquals(name, name != "randomized", MIHOMO_UTLS_FINGERPRINTS.accepts(name))
+            assertEquals(name, name == "randomized", MIHOMO_UTLS_FINGERPRINTS_BROKEN.accepts(name))
         }
     }
 
@@ -232,15 +241,56 @@ class CoreCapabilitiesTest {
             assertFalse(name, XRAY_UTLS_FINGERPRINTS.accepts(name))
         }
         // sing-box 与 mihomo 认、Xray 不认的
-        for (name in listOf("chrome_psk", "chrome_pq", "chrome_padding_psk_shuffle")) {
+        for (name in listOf("chrome_pq", "chrome_psk_shuffle")) {
             assertTrue(name, SING_BOX_UTLS_FINGERPRINTS.accepts(name))
             assertTrue(name, MIHOMO_UTLS_FINGERPRINTS.accepts(name))
+            assertFalse(name, XRAY_UTLS_FINGERPRINTS.accepts(name))
+        }
+        // sing-box 认；mihomo 认识但握手必败，记在单独的名单里（K1b M1 L2-MF-*）；Xray 不认
+        for (name in listOf("chrome_psk", "chrome_pq_psk", "chrome_padding_psk_shuffle")) {
+            assertTrue(name, SING_BOX_UTLS_FINGERPRINTS.accepts(name))
+            assertFalse(name, MIHOMO_UTLS_FINGERPRINTS.accepts(name))
+            assertTrue(name, MIHOMO_UTLS_FINGERPRINTS_BROKEN.accepts(name))
             assertFalse(name, XRAY_UTLS_FINGERPRINTS.accepts(name))
         }
         assertFalse(SING_BOX_VLESS_FLOWS.accepts("xtls-rprx-vision-udp443"))
         assertTrue(XRAY_VLESS_FLOWS.accepts("xtls-rprx-vision-udp443"))
         assertTrue(XRAY_WS_EARLY_DATA_HEADERS.accepts("sec-websocket-protocol"))
         assertFalse(XRAY_WS_EARLY_DATA_HEADERS.accepts("X-Early-Data"))
+    }
+
+    // K1b 待决定项 D：mihomo 认识、但握手必败的 4 个名字是单独的冲突，先于「名单外」命中；sing-box 照常接受
+    @Test
+    fun `mihomo 握手必败的指纹是单独的冲突，sing-box 仍接受`() {
+        val broken = listOf("chrome_psk", "chrome_pq_psk", "chrome_padding_psk_shuffle", "randomized")
+        assertEquals(broken.toSet(), MIHOMO_UTLS_FINGERPRINTS_BROKEN.names)
+        assertFalse(MIHOMO_UTLS_FINGERPRINTS_BROKEN.ignoreCase)
+        // 与能完成握手的名单不相交，合起来正是 mihomo 认识的 19 个名字（K1b M1 §3.3）
+        assertEquals(emptySet<String>(), MIHOMO_UTLS_FINGERPRINTS.names intersect MIHOMO_UTLS_FINGERPRINTS_BROKEN.names)
+        assertEquals(19, (MIHOMO_UTLS_FINGERPRINTS.names + MIHOMO_UTLS_FINGERPRINTS_BROKEN.names).size)
+        val cell = CAPABILITY_TABLE.getValue(Requirement.UTLS_FINGERPRINT).getValue(DialCore.MIHOMO)
+            as CapabilityCell.SupportedValues
+        assertEquals(CoreConflict.MIHOMO_UTLS_HANDSHAKE_FAILS, cell.rejected?.conflict)
+        assertTrue(cell.rejected?.names === MIHOMO_UTLS_FINGERPRINTS_BROKEN)
+        for (name in broken) {
+            val requirements = coreRequirements(
+                ProxyEntity.TYPE_ANYTLS,
+                CoreTestNodes.anytls { utlsFingerprint = name }, false,
+            )
+            assertEquals(
+                name, listOf(Conflict(DialCore.MIHOMO, CoreConflict.MIHOMO_UTLS_HANDSHAKE_FAILS, name)),
+                coreConflicts(DialCore.MIHOMO, requirements),
+            )
+            assertEquals(name, emptyList<Conflict>(), coreConflicts(DialCore.SING_BOX, requirements))
+        }
+        // 大小写不同的写法 mihomo 不认识，仍是原来的「名单外」冲突
+        val upper = coreRequirements(
+            ProxyEntity.TYPE_ANYTLS, CoreTestNodes.anytls { utlsFingerprint = "Randomized" }, false,
+        )
+        assertEquals(
+            listOf(Conflict(DialCore.MIHOMO, CoreConflict.MIHOMO_UTLS_FINGERPRINT, "Randomized")),
+            coreConflicts(DialCore.MIHOMO, upper),
+        )
     }
 
     // ---- 字段
@@ -285,6 +335,7 @@ class CoreCapabilitiesTest {
                 KnownDifference.HTTP_HEADER_CAMOUFLAGE to DifferenceDecision.OPEN,
                 KnownDifference.XUDP_UNDER_VISION to DifferenceDecision.BY_PRINCIPLE,
                 KnownDifference.UTLS_IMPLEMENTATION to DifferenceDecision.BY_PRINCIPLE,
+                KnownDifference.SING_BOX_UTLS_RANDOMIZED_SEED to DifferenceDecision.OPEN,
                 KnownDifference.CHAIN_MUX to DifferenceDecision.BY_PRINCIPLE,
                 KnownDifference.XRAY_MUX_UDP443 to DifferenceDecision.OPEN,
             ),
@@ -321,7 +372,9 @@ class CoreCapabilitiesTest {
         fun cell(cell: CapabilityCell): String = when (cell) {
             is CapabilityCell.Supported -> "✔" + (cell.note?.let { "：$it" } ?: "") + "（${cell.since}）"
             is CapabilityCell.SupportedValues -> "✔ 限名单 ${cell.names.names.size} 个" +
-                (if (cell.names.ignoreCase) "，不区分大小写" else "，区分大小写") + "；名单外 `${cell.outside}`（${cell.since}）"
+                (if (cell.names.ignoreCase) "，不区分大小写" else "，区分大小写") +
+                (cell.rejected?.let { "；${it.names.names.sorted().joinToString("、")} 报 `${it.conflict}`" } ?: "") +
+                "；名单外 `${cell.outside}`（${cell.since}）"
 
             is CapabilityCell.Unsupported -> "✘ ${cell.conflict.kind} `${cell.conflict}`（${cell.since}）"
             CapabilityCell.NotApplicable -> "—"

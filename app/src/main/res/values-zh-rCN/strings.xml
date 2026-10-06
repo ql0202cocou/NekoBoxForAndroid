@@ -443,6 +443,7 @@
     <string name="core_conflict_xray_utls_fingerprint">Xray 不认识这个 uTLS 指纹</string>
     <string name="core_conflict_xray_reality_utls_fingerprint">Xray 的 REALITY 需要 uTLS 指纹（不能是 unsafe 或 hellogolang）</string>
     <string name="core_conflict_mihomo_utls_fingerprint">mihomo 不认识这个 uTLS 指纹，会悄悄改用 Go 标准 TLS</string>
+    <string name="core_conflict_mihomo_utls_handshake_fails">mihomo 用此指纹握手必败或多数时候失败</string>
     <string name="core_conflict_sing_box_mux_cool">sing-box 没有 Mux.Cool（Xray 的多路复用）</string>
     <string name="core_conflict_xray_sing_mux">Xray 只有 Mux.Cool，没有 sing-mux（h2mux / smux / yamux）</string>
     <string name="core_conflict_xray_packetaddr">Xray 没有 packetaddr 包编码</string>

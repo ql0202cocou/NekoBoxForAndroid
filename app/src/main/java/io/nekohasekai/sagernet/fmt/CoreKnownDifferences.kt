@@ -239,6 +239,22 @@ enum class KnownDifference(
         "同名指纹都是 uTLS 模板，具体版本与随机取样不同，不影响安全校验",
         DifferenceDecision.BY_PRINCIPLE,
     ),
+    SING_BOX_UTLS_RANDOMIZED_SEED(
+        listOf(ProfileField.UTLS_FINGERPRINT),
+        mapOf(
+            DialCore.SING_BOX to "randomized 每个进程只生成一次随机种子：约 0.71 的进程把 X25519MLKEM768 列进 supported_groups，" +
+                "其中一半不给它 key share；Go 1.24 以上的 TLS 服务端（sing-box、Xray、mihomo 的服务端都是）对它发 " +
+                "HelloRetryRequest，uTLS 报 CurvePreferences includes unsupported curve，所以约 0.71×0.5 的进程每次拨号都失败；" +
+                "影响 sing-box 上所有带 TLS 的协议，K1b 之前就如此",
+            DialCore.MIHOMO to "同一家 uTLS（metacubex/utls），同样失败（K1b M1 L2-MF-randomized 实测多数进程失败），" +
+                "能力表已把 randomized 列为 mihomo 的冲突（MIHOMO_UTLS_HANDSHAKE_FAILS）",
+        ),
+        "只有源码推断、未实测（K1b R2 复核 R2-F1）：vendored common/tls/utls_client.go:353-370 每进程一次种子；utls v1.8.7 " +
+            "u_parrots.go:3058（0.71 的概率列入 X25519MLKEM768）与 :3118（0.5 的概率给 key share）；Go 1.26 " +
+            "crypto/tls/handshake_server_tls13.go:209-243 对客户端支持的 PQ 组发 HRR；utls handshake_client_tls13.go:339-346 " +
+            "报 CurvePreferences includes unsupported curve。待维护者定是否在 sing-box 上也作冲突",
+        DifferenceDecision.OPEN,
+    ),
     CHAIN_MUX(
         listOf(ProfileField.ENABLE_MUX),
         mapOf(

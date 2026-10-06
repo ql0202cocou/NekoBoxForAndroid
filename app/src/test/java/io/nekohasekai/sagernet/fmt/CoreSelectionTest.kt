@@ -7,6 +7,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_TROJAN
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_VMESS
 import io.nekohasekai.sagernet.fmt.CoreConflict.MIHOMO_UTLS_FINGERPRINT
+import io.nekohasekai.sagernet.fmt.CoreConflict.MIHOMO_UTLS_HANDSHAKE_FAILS
 import io.nekohasekai.sagernet.fmt.CoreConflict.MIHOMO_V2RAY_PROTOCOL
 import io.nekohasekai.sagernet.fmt.CoreConflict.PROTOCOL_CERTIFICATE_PIN
 import io.nekohasekai.sagernet.fmt.CoreConflict.PROTOCOL_MLDSA65_VERIFY
@@ -308,6 +309,31 @@ class CoreSelectionTest {
         )
         // 关掉 TLS 时指纹不生效
         assertSelected(SING_BOX, decide(vless { security = "none"; utlsFingerprint = "netscape" }))
+    }
+
+    // K1b 待决定项 D：mihomo 认识、但握手必败的指纹（chrome_psk、chrome_pq_psk、chrome_padding_psk_shuffle、randomized）
+    @Test
+    fun `mihomo 握手必败的 uTLS 指纹`() {
+        for (name in listOf("chrome_psk", "chrome_pq_psk", "chrome_padding_psk_shuffle", "randomized")) {
+            // 自动：sing-box 认这些名字，照常走 sing-box
+            assertSelected(SING_BOX, decide(anytls { utlsFingerprint = name }))
+            // 带 certificates 时原本优先 mihomo，现在 mihomo 有冲突，改走 sing-box
+            assertSelected(SING_BOX, decide(anytls { utlsFingerprint = name; certificates = CoreTestNodes.CERT }))
+            // 带证书指纹时 sing-box 不能整证书固定，mihomo 又握手必败：拒绝，两条冲突都列出
+            val pinned = assertRejected(
+                decide(anytls { utlsFingerprint = name; certificateFingerprint = CoreTestNodes.PIN }),
+                SING_BOX_CERTIFICATE_PIN, MIHOMO_UTLS_HANDSHAKE_FAILS,
+            )
+            assertEquals(name, pinned.conflicts.single { it.id == MIHOMO_UTLS_HANDSHAKE_FAILS }.value)
+            // 手动 mihomo：拒绝；手动 sing-box：照常
+            val manual = assertRejected(decide(anytls { utlsFingerprint = name }, CORE_MIHOMO), MIHOMO_UTLS_HANDSHAKE_FAILS)
+            assertEquals(
+                "the manually chosen core mihomo cannot run this profile: " +
+                    "[utlsFingerprint] mihomo's TLS handshake fails (always, or for most process seeds) with this fingerprint ($name)",
+                manual.message(CORE_MIHOMO),
+            )
+            assertSelected(SING_BOX, decide(anytls { utlsFingerprint = name }, CORE_SING_BOX))
+        }
     }
 
     // ---- VLESS flow 与 ws early data

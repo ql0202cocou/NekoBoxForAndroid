@@ -506,6 +506,7 @@
     <string name="core_conflict_xray_utls_fingerprint">Xray does not know this uTLS fingerprint</string>
     <string name="core_conflict_xray_reality_utls_fingerprint">Xray REALITY needs a uTLS fingerprint (not unsafe or hellogolang)</string>
     <string name="core_conflict_mihomo_utls_fingerprint">mihomo does not know this uTLS fingerprint and would silently use plain Go TLS</string>
+    <string name="core_conflict_mihomo_utls_handshake_fails">mihomo\'s TLS handshake fails (always, or for most process seeds) with this fingerprint</string>
     <string name="core_conflict_sing_box_mux_cool">sing-box has no Mux.Cool (Xray\'s multiplexing)</string>
     <string name="core_conflict_xray_sing_mux">Xray only has Mux.Cool, not sing-mux (h2mux / smux / yamux)</string>
     <string name="core_conflict_xray_packetaddr">Xray has no packetaddr packet encoding</string>

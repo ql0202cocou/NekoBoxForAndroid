@@ -60,7 +60,9 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 // 16. AnyTLSOption 的字段全集（是否新增自定义 CA、reality、mldsa 等）。
 // 17. fingerprint 的匹配语义（命中叶子跳过校验、命中非叶子按名字校验、是否要求 IsCA），用回环验证；-t 是否开始
 //     检查指纹格式。
-// 18. client-fingerprint 名单（MIHOMO_UTLS_FINGERPRINTS），以及名字不认识时是否仍静默退回 Go 标准 TLS。
+// 18. client-fingerprint 名单（MIHOMO_UTLS_FINGERPRINTS），以及名字不认识时是否仍静默退回 Go 标准 TLS；认识但握手
+//     必败的名字（MIHOMO_UTLS_FINGERPRINTS_BROKEN）用回环逐个拨号复核：psk 三个看 mihomo 是否开始设 OmitEmptyPsk，
+//     randomized 要起多个进程（失败与否取决于进程的随机种子）。
 // 19. ech-opts：解码方式、只开开关时自动查询所用的解析器。
 // 20. tls.custom-certifactes 的键名（含拼写）、作用范围、加载失败时的行为；内置证书包是否仍默认开启。
 // 21. -t 的退出码与 logrus 报错格式（「proxy N: …」；dialer-proxy 的报错不带序号）。
@@ -240,6 +242,10 @@ enum class CoreConflict(
         DialCore.MIHOMO, GapKind.CORE, listOf(ProfileField.UTLS_FINGERPRINT),
         "mihomo does not know this uTLS fingerprint and would silently use plain Go TLS",
     ),
+    MIHOMO_UTLS_HANDSHAKE_FAILS(
+        DialCore.MIHOMO, GapKind.CORE, listOf(ProfileField.UTLS_FINGERPRINT),
+        "mihomo's TLS handshake fails (always, or for most process seeds) with this fingerprint",
+    ),
 
     // ---- mux
     SING_BOX_MUX_COOL(
@@ -359,17 +365,22 @@ class CoreNames(val names: Set<String>, val ignoreCase: Boolean) {
     }
 }
 
+// 限名单的格子里单独拒绝的一组取值，命中时报 conflict
+class RejectedValues(val names: CoreNames, val conflict: CoreConflict)
+
 // 能力表的一格：某核心对某项要求的声明
 sealed class CapabilityCell {
     // 支持；note 写换算方式或限制（限制本身在组合规则或已知差异里）
     class Supported(val since: Since, val note: String? = null) : CapabilityCell()
 
-    // 只支持 names 里的取值，之外报 outside
+    // 只支持 names 里的取值，之外报 outside；rejected 是核心认识、但用了就跑不通的取值，先于 outside 判断，
+    // 报它自己的冲突（与 names 不相交，CoreCapabilitiesTest 检查）
     class SupportedValues(
         val since: Since,
         val names: CoreNames,
         val outside: CoreConflict,
         val note: String? = null,
+        val rejected: RejectedValues? = null,
     ) : CapabilityCell()
 
     class Unsupported(val since: Since, val conflict: CoreConflict) : CapabilityCell()
@@ -381,7 +392,8 @@ sealed class CapabilityCell {
 // ---- 取值名单
 
 // sing-box 1.14.2 的 uTLS 指纹，区分大小写，名单外在加载配置时报 unknown uTLS fingerprint
-// （libcore/sing-box/common/tls/utls_client.go 的 uTLSClientHelloID；空串在那里等于 chrome，但生成器不写空值）
+// （libcore/sing-box/common/tls/utls_client.go 的 uTLSClientHelloID；空串在那里等于 chrome，但生成器不写空值）。
+// randomized 虽在名单里，按源码在部分进程上同样握手失败（未实测，已知差异 SING_BOX_UTLS_RANDOMIZED_SEED）
 val SING_BOX_UTLS_FINGERPRINTS = CoreNames(
     setOf(
         "chrome", "chrome_psk", "chrome_psk_shuffle", "chrome_padding_psk_shuffle", "chrome_pq", "chrome_pq_psk",
@@ -421,13 +433,26 @@ val XRAY_UTLS_FINGERPRINTS = CoreNames(
 )
 
 // mihomo v1.19.32 的 client-fingerprint（component/tls/utls.go 的 GetFingerprint 与 fingerprints），区分大小写。
-// none 表示 Go 标准 TLS；名单外 -t 不报错，运行时只打 warning 并改用 Go 标准 TLS
+// none 表示 Go 标准 TLS；名单外 -t 不报错，运行时只打 warning 并改用 Go 标准 TLS。
+// mihomo 认识的名字共 19 个，这里只收能完成握手的 15 个，其余 4 个见 MIHOMO_UTLS_FINGERPRINTS_BROKEN
 val MIHOMO_UTLS_FINGERPRINTS = CoreNames(
     setOf(
         "none", "chrome", "firefox", "safari", "ios", "android", "edge", "360", "qq", "random",
         "chrome120", "firefox120", "safari16",
-        "chrome_psk", "chrome_psk_shuffle", "chrome_padding_psk_shuffle", "chrome_pq", "chrome_pq_psk", "randomized",
+        "chrome_psk_shuffle", "chrome_pq",
     ),
+    ignoreCase = false,
+)
+
+// mihomo 认识、-t 也不报错，但握手跑不通的名字（v1.19.31 与 v1.19.32 相同，K1b M1 L2-MF-* 回环实测）。维护者 2026-10-06
+// 定（K1b 待决定项 D）：从名单剔除，作为冲突 MIHOMO_UTLS_HANDSHAKE_FAILS。
+// - chrome_psk、chrome_pq_psk、chrome_padding_psk_shuffle：每次拨号都报 tls: empty psk detected。uTLS 在没有可恢复的
+//   会话时对带 PSK 扩展的模板直接报这个错，mihomo 没设 OmitEmptyPsk（M1 S2-U2）；
+// - randomized：同一进程里要么每次都失败（tls: CurvePreferences includes unsupported curve），要么每次都通，取决于进程
+//   启动时的随机种子，6 个进程里 4 个失败（M1 S2-U3，原因是推断）。
+// sing-box 认这 4 个名字（psk 三个在 sing-box 里等同 chrome），不受影响
+val MIHOMO_UTLS_FINGERPRINTS_BROKEN = CoreNames(
+    setOf("chrome_psk", "chrome_pq_psk", "chrome_padding_psk_shuffle", "randomized"),
     ignoreCase = false,
 )
 
@@ -450,8 +475,13 @@ private fun unsupported(core: DialCore, conflict: CoreConflict): CapabilityCell.
     return CapabilityCell.Unsupported(verifiedAt(core), conflict)
 }
 
-private fun values(core: DialCore, names: CoreNames, outside: CoreConflict, note: String? = null) =
-    CapabilityCell.SupportedValues(verifiedAt(core), names, outside, note)
+private fun values(
+    core: DialCore,
+    names: CoreNames,
+    outside: CoreConflict,
+    note: String? = null,
+    rejected: RejectedValues? = null,
+) = CapabilityCell.SupportedValues(verifiedAt(core), names, outside, note, rejected)
 
 private val NA = CapabilityCell.NotApplicable
 
@@ -536,7 +566,12 @@ val CAPABILITY_TABLE: Map<Requirement, Map<DialCore, CapabilityCell>> = linkedMa
     Requirement.UTLS_FINGERPRINT to row(
         values(SB, SING_BOX_UTLS_FINGERPRINTS, CoreConflict.SING_BOX_UTLS_FINGERPRINT),
         values(XR, XRAY_UTLS_FINGERPRINTS, CoreConflict.XRAY_UTLS_FINGERPRINT),
-        values(MH, MIHOMO_UTLS_FINGERPRINTS, CoreConflict.MIHOMO_UTLS_FINGERPRINT),
+        values(
+            MH, MIHOMO_UTLS_FINGERPRINTS, CoreConflict.MIHOMO_UTLS_FINGERPRINT,
+            rejected = RejectedValues(
+                MIHOMO_UTLS_FINGERPRINTS_BROKEN, CoreConflict.MIHOMO_UTLS_HANDSHAKE_FAILS,
+            ),
+        ),
     ),
     // I1 §4.3、S-M3；I2b §2.3
     Requirement.ECH_INLINE to row(
@@ -645,8 +680,11 @@ fun coreConflicts(core: DialCore, requirements: CoreRequirements): List<Conflict
         }
         when (val cell = CAPABILITY_TABLE.getValue(item.requirement).getValue(core)) {
             is CapabilityCell.Supported -> Unit
-            is CapabilityCell.SupportedValues -> if (!cell.names.accepts(item.value)) {
-                conflicts += Conflict(core, cell.outside, item.value)
+            is CapabilityCell.SupportedValues -> when {
+                cell.rejected?.names?.accepts(item.value) == true ->
+                    conflicts += Conflict(core, cell.rejected.conflict, item.value)
+
+                !cell.names.accepts(item.value) -> conflicts += Conflict(core, cell.outside, item.value)
             }
 
             is CapabilityCell.Unsupported -> conflicts += Conflict(core, cell.conflict, item.value)
