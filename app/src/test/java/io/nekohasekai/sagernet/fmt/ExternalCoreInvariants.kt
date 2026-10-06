@@ -127,8 +127,8 @@ object ExternalCoreInvariants {
     val XRAY_TCP_HEADER = keys("type", "request")
     val XRAY_TCP_REQUEST = keys("path", optional = setOf("headers"))
     val XRAY_TCP_HEADERS = keys("Host")
-    val XRAY_WS = keys("path", optional = setOf("headers"))
-    val XRAY_WS_HEADERS = keys("Host")
+    // Host 写独立的 host 键；headers 里的 Host 在 Xray 里已弃用，生成器不再写 headers
+    val XRAY_WS = keys("path", optional = setOf("host"), forbidden = forbid("Host 写独立的 host 键", "headers"))
     val XRAY_GRPC = keys("serviceName")
     val XRAY_HTTPUPGRADE = keys("path", optional = setOf("host"))
 
@@ -446,11 +446,7 @@ object ExternalCoreInvariants {
         fun ws(path: String, value: Any?) {
             val ws = objectWithKeys(path, value, XRAY_WS) ?: return
             if (ws["path"] !is String) bad("$path.path", "不是字符串")
-            ws["headers"]?.let { headers ->
-                objectWithKeys("$path.headers", headers, XRAY_WS_HEADERS)?.let {
-                    if (it["Host"] !is String) bad("$path.headers.Host", "不是字符串")
-                }
-            }
+            ws["host"]?.let { if (it !is String) bad("$path.host", "不是字符串") }
         }
 
         fun tls(path: String, value: Any?) {

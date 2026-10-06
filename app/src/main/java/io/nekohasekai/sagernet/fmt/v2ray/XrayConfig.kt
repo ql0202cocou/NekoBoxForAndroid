@@ -212,17 +212,16 @@ private fun buildXrayStreamSettings(bean: StandardV2RayBean): Map<String, Any?> 
             "ws" -> {
                 put("network", "ws")
                 put("wsSettings", LinkedHashMap<String, Any?>().apply {
-                    // Xray only reads early data from "?ed=N" in the path; the
-                    // maxEarlyData/earlyDataHeaderName keys are silently ignored.
+                    // Xray 只从路径里的「?ed=N」读 early data 上限；maxEarlyData / earlyDataHeaderName 这两个键会被静默忽略
                     val earlyData = bean.resolveWsEarlyData()
                     var path = earlyData.path
                     earlyData.maxEarlyData?.let {
                         path += (if (path.contains("?")) "&" else "?") + "ed=$it"
                     }
                     put("path", path)
-                    if (bean.host.isNotBlank()) {
-                        put("headers", LinkedHashMap<String, Any?>().apply { put("Host", bean.host) })
-                    }
+                    // Host 写独立的 host 键：写在 headers 里会打一条弃用警告，再被迁到 host（infra/conf/transport_method.go
+                    // 的 WebSocketConfig.Build，v26.9.30），两种写法发出的 Host 头相同
+                    if (bean.host.isNotBlank()) put("host", bean.host)
                 })
             }
 

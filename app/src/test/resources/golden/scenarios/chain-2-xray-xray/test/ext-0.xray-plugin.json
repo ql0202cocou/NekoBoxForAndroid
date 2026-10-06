@@ -7,14 +7,14 @@
     {
       "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 36527,
+      "port": 46163,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "uaa6b8031a5dca51a",
-            "pass": "pd2788c5c64a71b6295122e401e228afd"
+            "user": "u7ee5f6ac55c7ea17",
+            "pass": "pcc808d87fbf73785b120edec634798eb"
           }
         ],
         "udp": true
@@ -23,14 +23,14 @@
     {
       "tag": "in-1",
       "listen": "127.0.0.1",
-      "port": 46645,
+      "port": 40343,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "uaa6b8031a5dca51a",
-            "pass": "pd2788c5c64a71b6295122e401e228afd"
+            "user": "u7ee5f6ac55c7ea17",
+            "pass": "pcc808d87fbf73785b120edec634798eb"
           }
         ],
         "udp": true
@@ -49,7 +49,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 36569,
+            "port": 46125,
             "users": [
               {
                 "id": "5a0c1e2f-3b4d-4e6f-8a9b-0c1d2e3f4a5b",
@@ -64,9 +64,7 @@
         "network": "ws",
         "wsSettings": {
           "path": "/golden-ws",
-          "headers": {
-            "Host": "cdn.example.org"
-          }
+          "host": "cdn.example.org"
         }
       }
     },
@@ -77,7 +75,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 45001,
+            "port": 39719,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",

@@ -7,14 +7,14 @@
     {
       "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 45129,
+      "port": 39807,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "u48b040a737766401",
-            "pass": "p1cc4bc60009b51790e4b8c1964858b25"
+            "user": "u4979c28eafacc848",
+            "pass": "pd6a365a190b066e05efd3a9a37349bff"
           }
         ],
         "udp": true
@@ -23,14 +23,14 @@
     {
       "tag": "in-1",
       "listen": "127.0.0.1",
-      "port": 41403,
+      "port": 39999,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "u48b040a737766401",
-            "pass": "p1cc4bc60009b51790e4b8c1964858b25"
+            "user": "u4979c28eafacc848",
+            "pass": "pd6a365a190b066e05efd3a9a37349bff"
           }
         ],
         "udp": true
@@ -39,14 +39,14 @@
     {
       "tag": "in-2",
       "listen": "127.0.0.1",
-      "port": 44273,
+      "port": 37601,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "u48b040a737766401",
-            "pass": "p1cc4bc60009b51790e4b8c1964858b25"
+            "user": "u4979c28eafacc848",
+            "pass": "pd6a365a190b066e05efd3a9a37349bff"
           }
         ],
         "udp": true
@@ -65,7 +65,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 45649,
+            "port": 43879,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
@@ -93,7 +93,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 45447,
+            "port": 40969,
             "users": [
               {
                 "id": "5a0c1e2f-3b4d-4e6f-8a9b-0c1d2e3f4a5b",
@@ -108,9 +108,7 @@
         "network": "ws",
         "wsSettings": {
           "path": "/golden-ws",
-          "headers": {
-            "Host": "ws-2.example.org"
-          }
+          "host": "ws-2.example.org"
         },
         "security": "tls",
         "tlsSettings": {
@@ -125,7 +123,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 33641,
+            "port": 40347,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",

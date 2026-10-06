@@ -76,7 +76,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 36655,
+      "listen_port": 38359,
       "override_address": "trojan.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-1",
@@ -88,10 +88,10 @@
   },
   "outbounds": [
     {
-      "password": "pc844119882045da77813e18aadf99202",
+      "password": "p43b00699dde88cac7e6366280f08b219",
       "server": "127.0.0.1",
-      "server_port": 44577,
-      "username": "u5a4b9e2594ff4a86",
+      "server_port": 35345,
+      "username": "u434088d9b1434732",
       "tag": "proxy",
       "type": "socks"
     },
@@ -156,14 +156,14 @@
     {
       "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 44577,
+      "port": 35345,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "u5a4b9e2594ff4a86",
-            "pass": "pc844119882045da77813e18aadf99202"
+            "user": "u434088d9b1434732",
+            "pass": "p43b00699dde88cac7e6366280f08b219"
           }
         ],
         "udp": true
@@ -182,7 +182,7 @@
         "servers": [
           {
             "address": "127.0.0.1",
-            "port": 36655,
+            "port": 38359,
             "password": "golden-pass-trojan"
           }
         ]
@@ -191,9 +191,7 @@
         "network": "ws",
         "wsSettings": {
           "path": "/golden-ws",
-          "headers": {
-            "Host": "cdn.example.org"
-          }
+          "host": "cdn.example.org"
         },
         "security": "tls",
         "tlsSettings": {

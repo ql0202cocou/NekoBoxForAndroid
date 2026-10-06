@@ -7,14 +7,14 @@
     {
       "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 43447,
+      "port": 44579,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "u8d0da03de4fe24e5",
-            "pass": "p0e5a0e6583fb036226c3e78d447aceef"
+            "user": "ua69409da1c5ddee9",
+            "pass": "p55ca8527dbe4f8612a97b3b6c1fe5987"
           }
         ],
         "udp": true
@@ -23,14 +23,14 @@
     {
       "tag": "in-1",
       "listen": "127.0.0.1",
-      "port": 44981,
+      "port": 43265,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "u8d0da03de4fe24e5",
-            "pass": "p0e5a0e6583fb036226c3e78d447aceef"
+            "user": "ua69409da1c5ddee9",
+            "pass": "p55ca8527dbe4f8612a97b3b6c1fe5987"
           }
         ],
         "udp": true
@@ -39,14 +39,14 @@
     {
       "tag": "in-2",
       "listen": "127.0.0.1",
-      "port": 34303,
+      "port": 38477,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "u8d0da03de4fe24e5",
-            "pass": "p0e5a0e6583fb036226c3e78d447aceef"
+            "user": "ua69409da1c5ddee9",
+            "pass": "p55ca8527dbe4f8612a97b3b6c1fe5987"
           }
         ],
         "udp": true
@@ -65,7 +65,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 42469,
+            "port": 32923,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
@@ -93,7 +93,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 40969,
+            "port": 36173,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
@@ -121,7 +121,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 45891,
+            "port": 45465,
             "users": [
               {
                 "id": "5a0c1e2f-3b4d-4e6f-8a9b-0c1d2e3f4a5b",
@@ -136,9 +136,7 @@
         "network": "ws",
         "wsSettings": {
           "path": "/golden-ws",
-          "headers": {
-            "Host": "ws-3.example.org"
-          }
+          "host": "ws-3.example.org"
         },
         "security": "tls",
         "tlsSettings": {

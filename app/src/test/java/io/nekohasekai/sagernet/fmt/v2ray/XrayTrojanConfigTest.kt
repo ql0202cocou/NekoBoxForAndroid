@@ -76,7 +76,7 @@ class XrayTrojanConfigTest {
     }
 
     @Test
-    fun `ws 加 tls：路径里的 ed 保留，Host 写进 headers`() {
+    fun `ws 加 tls：路径里的 ed 保留，Host 写独立的 host 键`() {
         val stream = build(trojan {
             type = "ws"
             host = "cdn.example.net"
@@ -84,7 +84,7 @@ class XrayTrojanConfigTest {
             sni = "sni.example.com"
         }).stream()
         assertJson(
-            """{"network":"ws","wsSettings":{"path":"/ws?ed=2048","headers":{"Host":"cdn.example.net"}},
+            """{"network":"ws","wsSettings":{"path":"/ws?ed=2048","host":"cdn.example.net"},
             "security":"tls","tlsSettings":{"serverName":"sni.example.com"}}""",
             stream,
         )

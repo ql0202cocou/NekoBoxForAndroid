@@ -143,7 +143,7 @@ class ExternalCoreInvariantsTest {
         put("streamSettings", LinkedHashMap<String, Any?>().apply {
             put("network", network)
             when (network) {
-                "ws" -> put("wsSettings", linkedMapOf("path" to "/ws?ed=2048", "headers" to linkedMapOf("Host" to "cdn.example.net")))
+                "ws" -> put("wsSettings", linkedMapOf("path" to "/ws?ed=2048", "host" to "cdn.example.net"))
                 "grpc" -> put("grpcSettings", linkedMapOf("serviceName" to "svc"))
             }
             put("security", "tls")

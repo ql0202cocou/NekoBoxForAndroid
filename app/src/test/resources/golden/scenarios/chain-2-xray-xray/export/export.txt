@@ -77,7 +77,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 39277,
+      "listen_port": 43079,
       "override_address": "vmess.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-3",
@@ -85,7 +85,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 40339,
+      "listen_port": 34427,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-2",
@@ -97,18 +97,18 @@
   },
   "outbounds": [
     {
-      "password": "p28f87df889a40e610959f89f16640a9d",
+      "password": "p28fead4552110ae6edc2e8b6a1a21474",
       "server": "127.0.0.1",
-      "server_port": 33453,
-      "username": "uc808072ad4bb43c6",
+      "server_port": 42591,
+      "username": "u1da6ae0c01cefddd",
       "tag": "proxy",
       "type": "socks"
     },
     {
-      "password": "p28f87df889a40e610959f89f16640a9d",
+      "password": "p28fead4552110ae6edc2e8b6a1a21474",
       "server": "127.0.0.1",
-      "server_port": 36603,
-      "username": "uc808072ad4bb43c6",
+      "server_port": 39109,
+      "username": "u1da6ae0c01cefddd",
       "tag": "g-2",
       "type": "socks"
     },
@@ -179,14 +179,14 @@
     {
       "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 33453,
+      "port": 42591,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "uc808072ad4bb43c6",
-            "pass": "p28f87df889a40e610959f89f16640a9d"
+            "user": "u1da6ae0c01cefddd",
+            "pass": "p28fead4552110ae6edc2e8b6a1a21474"
           }
         ],
         "udp": true
@@ -195,14 +195,14 @@
     {
       "tag": "in-1",
       "listen": "127.0.0.1",
-      "port": 36603,
+      "port": 39109,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "uc808072ad4bb43c6",
-            "pass": "p28f87df889a40e610959f89f16640a9d"
+            "user": "u1da6ae0c01cefddd",
+            "pass": "p28fead4552110ae6edc2e8b6a1a21474"
           }
         ],
         "udp": true
@@ -221,7 +221,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 39277,
+            "port": 43079,
             "users": [
               {
                 "id": "5a0c1e2f-3b4d-4e6f-8a9b-0c1d2e3f4a5b",
@@ -236,9 +236,7 @@
         "network": "ws",
         "wsSettings": {
           "path": "/golden-ws",
-          "headers": {
-            "Host": "cdn.example.org"
-          }
+          "host": "cdn.example.org"
         }
       }
     },
@@ -249,7 +247,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 40339,
+            "port": 34427,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",

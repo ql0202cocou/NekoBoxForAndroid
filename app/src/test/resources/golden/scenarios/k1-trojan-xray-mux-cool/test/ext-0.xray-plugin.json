@@ -7,14 +7,14 @@
     {
       "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 46651,
+      "port": 36533,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "u3a054bcbaa9d6f78",
-            "pass": "p5cd79b8038bf51d31cd1d4411a278ad9"
+            "user": "u4c9f83ffaf22177f",
+            "pass": "p6748198ae17daad7b20faf06a5a10868"
           }
         ],
         "udp": true
@@ -33,7 +33,7 @@
         "servers": [
           {
             "address": "127.0.0.1",
-            "port": 45881,
+            "port": 45669,
             "password": "golden-pass-trojan"
           }
         ]
@@ -42,9 +42,7 @@
         "network": "ws",
         "wsSettings": {
           "path": "/golden-ws",
-          "headers": {
-            "Host": "cdn.example.org"
-          }
+          "host": "cdn.example.org"
         },
         "security": "tls",
         "tlsSettings": {

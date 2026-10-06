@@ -22,7 +22,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 38237,
+      "listen_port": 43931,
       "override_address": "mihomo-2.example.com",
       "override_port": 8445,
       "tag": "c-0-mapping-5",
@@ -34,10 +34,10 @@
   },
   "outbounds": [
     {
-      "password": "pd41c7267ebe618eae1b988278040a89c",
+      "password": "pae344979ef2f85ed0625f33941d91ac9",
       "server": "127.0.0.1",
-      "server_port": 43009,
-      "username": "u7101a900552ef033",
+      "server_port": 38861,
+      "username": "u8a184e7efbf7ecd7",
       "tag": "proxy",
       "type": "socks"
     },
