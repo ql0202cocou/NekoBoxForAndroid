@@ -6,6 +6,10 @@ import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.database.preference.KeyValuePair
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
+import io.nekohasekai.sagernet.fmt.beanForType
+import io.nekohasekai.sagernet.fmt.normalizedLegacyCore
+import io.nekohasekai.sagernet.fmt.upgradeLegacyProfile
+import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.ktx.app
 import moe.matsuri.nb4a.utils.Util
 import org.json.JSONObject
@@ -104,8 +108,47 @@ object BackupRestore {
                 }
             }
         } else null
+        // profiles 与 settings 都解出来之后才标注：全局「允许不安全」取哪一份要看这次会不会导入设置。
+        // 启动时重放中断的恢复也走这里，结果相同
+        profiles?.let { upgradeLegacyProfiles(it) { restoredGlobalAllowInsecure(settings) { DataStore.globalAllowInsecure } } }
         return Decoded(profiles, groups, rules, settings, skipped)
     }
+
+    // K1 之前的备份里还没标注的节点（StandardV2Ray v7 之前写下的 bean，见 legacyUnlabeled）按 K1 的选核就地标注一次
+    // （fmt/LegacyProfileUpgrade.kt），core 用实体自己的 core 列，标注完清掉标记。globalAllowInsecure 只在
+    // 遇到这样的节点时取一次。返回有改动的节点数。
+    // 不是 StandardV2Ray 系的节点没有版本标记，分不出新旧：手动核心值一律按规则 c 规范（AnyTLS 不在 0 / 1 / 3 之内的
+    // 改成 sing-box，其余不能选核的协议改回自动）。K1 写出的备份里这些值本来就在范围内，规范是空操作
+    fun upgradeLegacyProfiles(profiles: List<ProxyEntity>, globalAllowInsecure: () -> Boolean): Int {
+        val global by lazy(globalAllowInsecure)
+        var changed = 0
+        for (entity in profiles) {
+            val bean = entity.beanForType() as? StandardV2RayBean
+            if (bean == null) {
+                val normalized = normalizedLegacyCore(entity.type, entity.core)
+                if (normalized != entity.core) {
+                    entity.core = normalized
+                    changed++
+                }
+                continue
+            }
+            if (!bean.legacyUnlabeled) continue
+            val upgrade = upgradeLegacyProfile(entity.type, entity.core, bean, global)
+            entity.core = upgrade.core
+            bean.legacyUnlabeled = false
+            if (upgrade.changed) changed++
+        }
+        return changed
+    }
+
+    // 标注用的全局「允许不安全」：这次恢复会导入设置时，导入后本机的设置整表换成备份里的（mergeSettings 不保留
+    // 这个键），取备份里的值，没有这个键就是默认的 false；不导入设置时取本机当前值
+    fun restoredGlobalAllowInsecure(settings: List<KeyValuePair>?, local: () -> Boolean): Boolean =
+        if (settings != null) {
+            settings.firstOrNull { it.key == Key.GLOBAL_ALLOW_INSECURE }?.boolean ?: false
+        } else {
+            local()
+        }
 
     // Debug-only fault injection for the window between the two commits:
     // `adb shell run-as <package> touch files/debug.restore-crash`.

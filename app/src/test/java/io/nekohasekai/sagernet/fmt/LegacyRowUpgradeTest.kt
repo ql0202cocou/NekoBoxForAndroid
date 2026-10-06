@@ -28,7 +28,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.util.Base64
 
 // 数据库 8 → 9 迁移的逐行处理（upgradeLegacyRow）：输入是历史实现写出的真实 bean 字节（Kryo 兼容样本，
 // 外加旧黄金基线 input.json 里的三个节点），期望按节点字段逐条手写
@@ -157,28 +156,12 @@ class LegacyRowUpgradeTest {
         }
     }
 
-    // ---- 旧黄金基线（K1 重新采集之前，1.8.0-a1 起的实现在模拟器上写出的 v6 字节）里的三个 VLESS 节点，
-    // 覆盖 Kryo 样本没有的取值：没填 uTLS 指纹的非 REALITY TLS、没有头名的 ws early data
+    // ---- 旧黄金基线里的三个 VLESS 节点（LegacyV6Bytes），覆盖 Kryo 样本没有的取值：没填 uTLS 指纹的非 REALITY TLS、
+    // 没有头名的 ws early data
 
-    private fun golden(b64: String): ByteArray = Base64.getDecoder().decode(b64)
-
-    // xray-vless-tls-tcp：VLESS、tcp、TLS、没填指纹、没开 mux
-    private val vlessTlsTcp = golden(
-        "BgAAAHZsZXNzLmV4YW1wbGUuY2/tuwEAAKU2YjFkMmYzYS00YzVlLTRmN2EtOWIwYy0xZDJlM2Y0YTViNmOB/////3Rj8HRs83ZsZXNzLmV4YW1wbGUu" +
-            "Y2/taDIsaHR0cC8xLrGBAIGBgQCBAAAAAAAAAAAAAAEAAACBgQEAAABnb2xkZW4teHJheS10bPOBgQ==",
-    )
-
-    // xray-vless-ws-maxearlydata：VLESS、ws、TLS、wsMaxEarlyData = 1024、没有头名、路径 /golden-ws?x=1
-    private val vlessWsEarlyData = golden(
-        "BgAAAHZsZXNzLmV4YW1wbGUuY2/tuwEAAKU2YjFkMmYzYS00YzVlLTRmN2EtOWIwYy0xZDJlM2Y0YTViNmOB/////3fzY2RuLmV4YW1wbGUub3LnL2dv" +
-            "bGRlbi13cz94PbEABAAAgXRs82Nkbi5leGFtcGxlLm9y54GBAIGBgQCBAAAAAAAAAAAAAAEAAACBgQEAAABnb2xkZW4teHJheS13cy1l5IGB",
-    )
-
-    // xray-vless-mux：VLESS、tcp、TLS、没填指纹、开了 h2mux
-    private val vlessMux = golden(
-        "BgAAAHZsZXNzLmV4YW1wbGUuY2/tuwEAAKU2YjFkMmYzYS00YzVlLTRmN2EtOWIwYy0xZDJlM2Y0YTViNmOB/////3Rj8HRs83ZsZXNzLmV4YW1wbGUu" +
-            "Y2/tgYEAgYGBAIEAAAAAAQAAAAAAAAAAAIGBAQAAAGdvbGRlbi14cmF5LW11+IGB",
-    )
+    private val vlessTlsTcp get() = LegacyV6Bytes.vlessTlsTcp
+    private val vlessWsEarlyData get() = LegacyV6Bytes.vlessWsEarlyData
+    private val vlessMux get() = LegacyV6Bytes.vlessMux
 
     @Test
     fun `旧黄金基线的 VLESS：自动选核时补指纹、补头名、标 Mux Cool`() {
