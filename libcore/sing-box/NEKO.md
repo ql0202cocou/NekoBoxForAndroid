@@ -2,7 +2,7 @@
 
 This directory is a vendored copy of upstream
 [SagerNet/sing-box](https://github.com/SagerNet/sing-box) **v1.14.2** plus the
-NekoBox patch set (`1.14.2-neko-1`). The patches originate from
+NekoBox patch set (`1.14.2-neko-2`). The patches originate from
 `MatsuriDayo/sing-box` (`aed32ee3066cdbc7d471e3e0415c5134088962df`,
 `1.12.19-neko-1`); upstream NekoBox is unmaintained, so this fork maintains and
 rebases the patches itself. When rebasing onto a newer upstream sing-box
@@ -92,11 +92,12 @@ Additional patches maintained by this fork (not from MatsuriDayo):
 | ~~router: tracker read locks unlock via `defer` (neko-2)~~ | **removed in 1.14.2-neko-1** together with the lock above (it only restructured the `trackersAccess.RLock()` sites). |
 | dialer: interface-selection entry points honor `DoNotSelectInterface` (neko-2) | `common/dialer/default.go`: `DialParallelInterface`/`ListenSerialInterfacePacket` are public and accept an explicit `strategy`; `DialContext`/`ListenPacket` check `DoNotSelectInterface` first, but these two did not, so a future upstream caller passing a non-nil strategy would silently get interface selection — which conflicts with Android VPN protect semantics (libcore sets `DoNotSelectInterface = true` in `init`). Both now fall back to the plain dial/listen path when `DoNotSelectInterface` is set. |
 | boxapi: `StatsService()` returns a nil interface when disabled (neko-2) | `boxapi/v2ray_server.go`: `NewSbStatsService` returns nil when `!Enabled`; boxing that into `adapter.ConnectionTracker` produced a non-nil interface wrapping a nil `*SbStatsService`, which would panic on the first routed connection after `AppendTracker`. `StatsService()` now returns a nil interface when the service is nil, and libcore's `SetV2rayStats` skips a nil tracker (`AppendTracker` itself does not reject nil). |
+| SOCKS5 outbound declares an unspecified UDP ASSOCIATE source (1.14.2-neko-2) | `protocol/socks/outbound.go`. **Why**: sing's SOCKS5 client (`protocol/socks/handshake.go:90-107`, sing `87c33f17688f`, unchanged since v0.7.18) rewrites the UDP ASSOCIATE request's DST from the destination: a private (`IsPrivate`) IPv4 target is declared as `[::1]:0`, a private IPv6 target as `127.0.0.1:0` (public IPv4 → `0.0.0.0:0`, everything else → `[::]:0`). The datagrams actually leave from the dialing local address (127.0.0.1 towards the app's loopback external-core inbounds). Xray's socks inbound, rewritten in v26.6.x (≥ v26.6.22, source; measured on v26.9.30), accepts datagrams only from the declared source IP (the TCP peer's IP when `0.0.0.0` / `::` / a domain is declared); v26.3.27 and mihomo v1.19.32 do not check. One inbound UDP session opens one ASSOCIATE, declared from its *first* packet's destination, so a session whose first packet goes to 10/8, 172.16/12 or 192.168/16 is dropped as a whole — every later packet to any destination included — and Xray logs nothing, even at debug level. (Private IPv6 only worked by accident: `127.0.0.1` happens to be the real source.) **What**: for SOCKS5, `ListenPacket` and `DialContext(udp)` (so also `udp_connect` and UDP DNS through the outbound as a detour) go through the outbound's own `associate`, a copy of the UDP branch of sing's `Client.DialContext` that hands `ClientHandshake5` the unspecified address, written as `[::]:0`; the original destination still goes to `socks.NewAssociatePacketConn`, which uses it for `Write` and `RemoteAddr()`. Replacing the destination before calling sing's client would have been shorter but would point `Write` / `RemoteAddr()` at `[::]:0`. **Scope**: every SOCKS5 outbound, including user-made SOCKS5 nodes: for a public IPv4 target the declared DST changes from `0.0.0.0:0` (atyp 1) to `[::]:0` (atyp 4) — sing already declared `[::]:0` for domain, loopback and public IPv6 targets, so servers that worked with sing-box UDP already handle it. UoT (CONNECT, no ASSOCIATE), socks4 / 4a (still `socks4: udp unsupported`) and TCP are unchanged; the number of ASSOCIATE requests is unchanged (one per session). **Evidence**: emulator loopback against Xray v26.9.30, v26.3.27 and mihomo v1.19.32 (K1b report U1: L3-01/02 captured requests, L3-10…L3-17 failure before / success after, L3-20…L3-41 all three servers × three targets, ASSOCIATE count and lifetime; L3-50/51 `udp_connect` keeps writing to the original target). Regression test `protocol/socks/outbound_neko_test.go` (fork-added, part of the patch artifact, U1 T3-01): a fake SOCKS5 server asserts the declared DST is `[::]:0` and the first datagram's header is the original destination, for 8 targets × `ListenPacket` / `DialContext(udp)`; 10 subtests fail without the patch. The same file pins the error paths copied from sing (both entry points): `TestUDPAssociateAuthFailureClosesTCP` (the server answers the RFC 1929 auth with `01 01`; the call fails and the TCP control connection is closed) and `TestUDPAssociateContextDoneClosesTCP` (the server never answers the ASSOCIATE request; the call returns `context.DeadlineExceeded` and the TCP connection is closed); both fail when the `tcpConn.Close()` after a failed handshake and the context handling are removed (K1b review R1-F3 / R2 §2a). **Upstream**: sing's private-address branch looks inverted (and same-family loopback would still be wrong for a remote server). Not reported upstream (this project reports nothing upstream); drop this patch if a future sing declares an unspecified (or the real local) address. |
 
 ## Replayable patch artifact
 
 The whole patch set is materialized as a single replayable diff,
-`libcore/patches/sing-box-v1.14.2-neko-1.diff`: a clean clone of upstream tag
+`libcore/patches/sing-box-v1.14.2-neko-2.diff`: a clean clone of upstream tag
 v1.14.2 plus this file applied with `patch -p1` reproduces this directory
 exactly. Excluded from the artifact (and from the verification comparison):
 `.git`, the top-level `clients/` git submodule placeholders (not carried here;
@@ -118,7 +119,7 @@ git clone --depth 1 --branch v1.14.2 https://github.com/SagerNet/sing-box "$TMP/
 rm -rf "$TMP/a/clients"
 cp -R libcore/sing-box "$TMP/b"
 (cd "$TMP" && command diff -ruN --exclude=.git --exclude=NEKO.md a b) \
-  > libcore/patches/sing-box-v1.14.2-neko-1.diff
+  > libcore/patches/sing-box-v1.14.2-neko-2.diff
 ```
 
 The `a`/`b` directory names are load-bearing: they keep the diff header paths
@@ -137,7 +138,9 @@ same `diff -ruN` extraction plus `patch`; only `box.go` (needCacheFile) and
 1.14.1 → 1.14.2 rebase applied `1.14.1-neko-3` with `patch -p1` without any
 reject, offset or fuzz (the only overlapping upstream file, `box.go`, changed
 outside the patched hunk); `1.14.2-neko-1` is that set minus the two
-`trackersAccess` patches (see the table above).
+`trackersAccess` patches (see the table above). `1.14.2-neko-2` adds the SOCKS5
+UDP ASSOCIATE source patch on the same base; the artifact was renamed with it
+(`sing-box-v1.14.2-neko-1.diff` → `sing-box-v1.14.2-neko-2.diff`).
 
 ## go.mod divergence from upstream
 

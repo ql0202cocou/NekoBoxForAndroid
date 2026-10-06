@@ -115,7 +115,7 @@ fi
 # 核对它仍指向记录的 commit
 BOX_BASE_TAG=v1.14.2
 BOX_BASE_SHA=af6e64c3b69e6132ebaee0e1a3d24e93903f6709
-BOX_PATCH=libcore/patches/sing-box-v1.14.2-neko-1.diff
+BOX_PATCH=libcore/patches/sing-box-v1.14.2-neko-2.diff
 if [ ! -f "$BOX_PATCH" ]; then
   fail "$BOX_PATCH missing; regenerate it as documented in libcore/sing-box/NEKO.md"
 else

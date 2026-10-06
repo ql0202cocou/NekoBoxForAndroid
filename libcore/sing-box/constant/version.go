@@ -1,3 +1,3 @@
 package constant
 
-var Version = "1.14.2-neko-1"
+var Version = "1.14.2-neko-2"
