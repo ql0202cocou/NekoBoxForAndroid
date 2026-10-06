@@ -71,7 +71,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 32879,
+      "listen_port": 40143,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-4-mapping-3",
@@ -100,10 +100,10 @@
       "type": "vmess"
     },
     {
-      "password": "p4c2c7ffabe89a1370527e905cd79bfe7",
+      "password": "pf30d303d93ce62d93aa4346423242a19",
       "server": "127.0.0.1",
-      "server_port": 34259,
-      "username": "u258602f1a9de92cf",
+      "server_port": 34493,
+      "username": "u41c33afc4ac1bfa4",
       "tag": "c-4-3",
       "type": "socks"
     },

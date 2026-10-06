@@ -69,7 +69,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 43267,
+      "listen_port": 42437,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-1",
@@ -81,10 +81,10 @@
   },
   "outbounds": [
     {
-      "password": "p87ac79f086b0eaf192edbc734dfba9a6",
+      "password": "p0e8c66ed68becdc1d3c44029e784f5a2",
       "server": "127.0.0.1",
-      "server_port": 41407,
-      "username": "ub14faf275bfb40fd",
+      "server_port": 37187,
+      "username": "uc2e129b8f162de08",
       "tag": "proxy",
       "type": "socks"
     },

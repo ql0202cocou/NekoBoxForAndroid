@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-k1-anytls-randomized-mihomo: the manually chosen core mihomo cannot run this profile: [utlsFingerprint] mihomo's TLS handshake fails (always, or for most process seeds) with this fingerprint (randomized)",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "the manually chosen core mihomo cannot run this profile: [utlsFingerprint] mihomo's TLS handshake fails (always, or for most process seeds) with this fingerprint (randomized)"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

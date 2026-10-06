@@ -28,6 +28,14 @@ ECH 自动查询），保留夹具，产物变成「拒绝并列出冲突字段�
 `manifest.json` 的 `commit` 记录的是采集时工作副本的提交，整理历史后可能在 main 里查不到，核对以树哈希为准
 （对照工具只把它拼进显示文字）。
 
+K1b（内置 Xray 升到 v26.9.30、mihomo 升到 v1.19.32，vendored sing-box 升到 1.14.2-neko-2）格式仍是 v3，已有场景
+没有改名、没有改夹具。换基线时 69 个已有场景的产物有变化，全部是有意的，分三类（有场景同时属于两类）：60 个以带
+TLS 的 VMess 为 sing-box 出站的场景，`security` 由 `auto` 写成 `aes-128-gcm`；9 个场景的 Xray ws 出站把 Host 从
+`wsSettings.headers` 移到独立的 `wsSettings.host` 键（其中 3 个 `multi-selector-main-` 场景同时属于 VMess 一类）；4 个
+开了 Mux.Cool 的 Xray 场景，mux 块多出 `xudpProxyUDP443: allow`（其中 `k1-trojan-xray-mux-cool` 同时属于 ws 一类）。
+另加 2 个 `k1-` 场景钉住选核变更对照表第 14 行，2 个 `bug001-` 场景钉住 BUG-001 短期预检的跳过 / 失败语义（见「场景与
+夹具」）。`manifest.json` 记下新的核心版本与哈希；内置核心对全部 281 份合并配置的校验通过。
+
 采集入口只编进 debug 包（`app/src/debug/`）。采集入口与实测入口保留到 K1 阶段完成之后（维护者 2026-10-05 决定）：
 R1b 的 JVM 黄金测试（见「JVM 黄金测试」一节）不覆盖 Android 一侧的外壳（DataStore 的默认值、Room 读取事务、
 PackageCache、插件探测）与内置核心对合并配置的校验，这两样只有模拟器重新采集能对照。这份基线不随入口删除。

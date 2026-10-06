@@ -43,14 +43,14 @@
           "index": 0,
           "chainIndex": 0,
           "profileId": 7,
-          "port": 41785,
+          "port": 46053,
           "finalAddress": "127.0.0.1",
-          "finalPort": 43091,
+          "finalPort": 38795,
           "inboundTag": "in-0",
           "outboundTag": "out-0",
           "localAuth": {
-            "username": "u044661ee9251a865",
-            "password": "pa5afcc197c27ecd3e217b7c1643f74f9"
+            "username": "u6baa9689e17a0f85",
+            "password": "p0104fa89a31a5ac889298c6afeed4c7c"
           }
         }
       ]
@@ -65,14 +65,14 @@
           "index": 1,
           "chainIndex": 0,
           "profileId": 6,
-          "port": 33817,
+          "port": 34069,
           "finalAddress": "127.0.0.1",
-          "finalPort": 41219,
+          "finalPort": 38431,
           "inboundTag": "in-1",
           "outboundTag": "out-1",
           "localAuth": {
-            "username": "u044661ee9251a865",
-            "password": "pa5afcc197c27ecd3e217b7c1643f74f9"
+            "username": "u6baa9689e17a0f85",
+            "password": "p0104fa89a31a5ac889298c6afeed4c7c"
           }
         }
       ]
@@ -82,16 +82,16 @@
       "pluginId": "hysteria-plugin",
       "controller": null,
       "tempFiles": [
-        "/data/user/0/moe.nb4a.debug/cache/hysteria_8531451172762676590.ca"
+        "/data/user/0/moe.nb4a.debug/cache/hysteria_8183908392022741819.ca"
       ],
       "hops": [
         {
           "index": 2,
           "chainIndex": 0,
           "profileId": 5,
-          "port": 40537,
+          "port": 37085,
           "finalAddress": "127.0.0.1",
-          "finalPort": 40983,
+          "finalPort": 40617,
           "inboundTag": null,
           "outboundTag": null,
           "localAuth": null
@@ -108,9 +108,9 @@
           "index": 3,
           "chainIndex": 0,
           "profileId": 4,
-          "port": 34117,
+          "port": 35659,
           "finalAddress": "127.0.0.1",
-          "finalPort": 39785,
+          "finalPort": 40291,
           "inboundTag": null,
           "outboundTag": null,
           "localAuth": null
@@ -127,9 +127,9 @@
           "index": 4,
           "chainIndex": 0,
           "profileId": 3,
-          "port": 45697,
+          "port": 34885,
           "finalAddress": "127.0.0.1",
-          "finalPort": 41115,
+          "finalPort": 36943,
           "inboundTag": null,
           "outboundTag": null,
           "localAuth": null
@@ -146,9 +146,9 @@
           "index": 5,
           "chainIndex": 0,
           "profileId": 2,
-          "port": 40387,
+          "port": 40941,
           "finalAddress": "127.0.0.1",
-          "finalPort": 43757,
+          "finalPort": 40649,
           "inboundTag": null,
           "outboundTag": null,
           "localAuth": null
@@ -158,25 +158,25 @@
   ],
   "dynamic": {
     "ports": [
-      41785,
-      33817,
-      40537,
-      34117,
-      45697,
-      40387,
-      43091,
-      41219,
-      40983,
-      39785,
-      41115,
-      43757
+      46053,
+      34069,
+      37085,
+      35659,
+      34885,
+      40941,
+      38795,
+      38431,
+      40617,
+      40291,
+      36943,
+      40649
     ],
     "paths": [
-      "/data/user/0/moe.nb4a.debug/cache/hysteria_8531451172762676590.ca"
+      "/data/user/0/moe.nb4a.debug/cache/hysteria_8183908392022741819.ca"
     ],
     "secrets": [
-      "u044661ee9251a865",
-      "pa5afcc197c27ecd3e217b7c1643f74f9"
+      "u6baa9689e17a0f85",
+      "p0104fa89a31a5ac889298c6afeed4c7c"
     ]
   }
 }

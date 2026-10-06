@@ -75,7 +75,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 35191,
+      "listen_port": 33105,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-1-mapping-1",
@@ -83,7 +83,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 44919,
+      "listen_port": 44431,
       "override_address": "xray-2.example.com",
       "override_port": 443,
       "tag": "c-2-mapping-2",
@@ -91,7 +91,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 43453,
+      "listen_port": 44075,
       "override_address": "xray-ws-3.example.com",
       "override_port": 443,
       "tag": "c-3-mapping-3",
@@ -99,7 +99,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 34685,
+      "listen_port": 36579,
       "override_address": "mihomo-1.example.com",
       "override_port": 8444,
       "tag": "c-4-mapping-4",
@@ -107,7 +107,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 33783,
+      "listen_port": 45829,
       "override_address": "mihomo-2.example.com",
       "override_port": 8445,
       "tag": "c-5-mapping-5",
@@ -133,42 +133,42 @@
       "type": "selector"
     },
     {
-      "password": "pdd631c6d58e5c48c361a5a1ebb9075ec",
+      "password": "p25e30e3985001543daad50f09f66e6a5",
       "server": "127.0.0.1",
-      "server_port": 35999,
-      "username": "u8f4f160c696e25a0",
+      "server_port": 39235,
+      "username": "u9b76be908924608e",
       "tag": "golden-multi-xray-1",
       "type": "socks"
     },
     {
-      "password": "pdd631c6d58e5c48c361a5a1ebb9075ec",
+      "password": "p25e30e3985001543daad50f09f66e6a5",
       "server": "127.0.0.1",
-      "server_port": 35749,
-      "username": "u8f4f160c696e25a0",
+      "server_port": 46031,
+      "username": "u9b76be908924608e",
       "tag": "golden-multi-xray-2",
       "type": "socks"
     },
     {
-      "password": "pdd631c6d58e5c48c361a5a1ebb9075ec",
+      "password": "p25e30e3985001543daad50f09f66e6a5",
       "server": "127.0.0.1",
-      "server_port": 32849,
-      "username": "u8f4f160c696e25a0",
+      "server_port": 45095,
+      "username": "u9b76be908924608e",
       "tag": "golden-multi-xray-3",
       "type": "socks"
     },
     {
-      "password": "pdd631c6d58e5c48c361a5a1ebb9075ec",
+      "password": "p25e30e3985001543daad50f09f66e6a5",
       "server": "127.0.0.1",
-      "server_port": 40897,
-      "username": "u8f4f160c696e25a0",
+      "server_port": 42939,
+      "username": "u9b76be908924608e",
       "tag": "golden-multi-mihomo-1",
       "type": "socks"
     },
     {
-      "password": "pdd631c6d58e5c48c361a5a1ebb9075ec",
+      "password": "p25e30e3985001543daad50f09f66e6a5",
       "server": "127.0.0.1",
-      "server_port": 33479,
-      "username": "u8f4f160c696e25a0",
+      "server_port": 43075,
+      "username": "u9b76be908924608e",
       "tag": "golden-multi-mihomo-2",
       "type": "socks"
     },

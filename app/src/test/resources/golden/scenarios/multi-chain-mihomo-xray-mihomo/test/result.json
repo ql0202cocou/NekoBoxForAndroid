@@ -37,28 +37,28 @@
           "index": 0,
           "chainIndex": 0,
           "profileId": 4,
-          "port": 32983,
+          "port": 33111,
           "finalAddress": "127.0.0.1",
-          "finalPort": 38997,
+          "finalPort": 43355,
           "inboundTag": "in-0",
           "outboundTag": "out-0",
           "localAuth": {
-            "username": "uca1a07e2dbaffe6d",
-            "password": "paae1ae8bb637da366120dba8ef1cd84b"
+            "username": "u6b0698f644caad7e",
+            "password": "pd5d39ecda88a73293220f1aa73c1fe45"
           }
         },
         {
           "index": 2,
           "chainIndex": 0,
           "profileId": 2,
-          "port": 38073,
+          "port": 37257,
           "finalAddress": "127.0.0.1",
-          "finalPort": 38331,
+          "finalPort": 35433,
           "inboundTag": "in-2",
           "outboundTag": "out-2",
           "localAuth": {
-            "username": "uca1a07e2dbaffe6d",
-            "password": "paae1ae8bb637da366120dba8ef1cd84b"
+            "username": "u6b0698f644caad7e",
+            "password": "pd5d39ecda88a73293220f1aa73c1fe45"
           }
         }
       ]
@@ -73,14 +73,14 @@
           "index": 1,
           "chainIndex": 0,
           "profileId": 3,
-          "port": 46347,
+          "port": 39485,
           "finalAddress": "127.0.0.1",
-          "finalPort": 40525,
+          "finalPort": 44341,
           "inboundTag": "in-1",
           "outboundTag": "out-1",
           "localAuth": {
-            "username": "uca1a07e2dbaffe6d",
-            "password": "paae1ae8bb637da366120dba8ef1cd84b"
+            "username": "u6b0698f644caad7e",
+            "password": "pd5d39ecda88a73293220f1aa73c1fe45"
           }
         }
       ]
@@ -88,17 +88,17 @@
   ],
   "dynamic": {
     "ports": [
-      32983,
-      46347,
-      38073,
-      38997,
-      40525,
-      38331
+      33111,
+      39485,
+      37257,
+      43355,
+      44341,
+      35433
     ],
     "paths": [],
     "secrets": [
-      "uca1a07e2dbaffe6d",
-      "paae1ae8bb637da366120dba8ef1cd84b"
+      "u6b0698f644caad7e",
+      "pd5d39ecda88a73293220f1aa73c1fe45"
     ]
   }
 }

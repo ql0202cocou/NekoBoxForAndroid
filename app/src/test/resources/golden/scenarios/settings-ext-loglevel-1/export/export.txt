@@ -81,7 +81,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 41451,
+      "listen_port": 46575,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-0-mapping-7",
@@ -89,7 +89,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 38395,
+      "listen_port": 40385,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-6",
@@ -97,7 +97,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 38619,
+      "listen_port": 43173,
       "override_address": "hy1.example.com",
       "override_port": 8443,
       "tag": "c-0-mapping-5",
@@ -105,7 +105,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 42317,
+      "listen_port": 42541,
       "override_address": "mieru.example.com",
       "override_port": 2999,
       "tag": "c-0-mapping-4",
@@ -113,7 +113,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 38711,
+      "listen_port": 39705,
       "override_address": "naive.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-3",
@@ -121,7 +121,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 35553,
+      "listen_port": 35465,
       "override_address": "trojan-go.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-2",
@@ -133,42 +133,42 @@
   },
   "outbounds": [
     {
-      "password": "p5fbfd51ff7aff9257f2b0abcb76365c4",
+      "password": "p7c3456c13947b5ce7fb1975cf1b1ffa4",
       "server": "127.0.0.1",
-      "server_port": 37925,
-      "username": "ue29096145708693a",
+      "server_port": 37805,
+      "username": "u4e81c9f2025a77dc",
       "tag": "proxy",
       "type": "socks"
     },
     {
-      "password": "p5fbfd51ff7aff9257f2b0abcb76365c4",
+      "password": "p7c3456c13947b5ce7fb1975cf1b1ffa4",
       "server": "127.0.0.1",
-      "server_port": 33893,
-      "username": "ue29096145708693a",
+      "server_port": 35021,
+      "username": "u4e81c9f2025a77dc",
       "tag": "c-0-6",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 40083,
+      "server_port": 39133,
       "tag": "c-0-5",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 34139,
+      "server_port": 43065,
       "tag": "c-0-4",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 36493,
+      "server_port": 44649,
       "tag": "c-0-3",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 34691,
+      "server_port": 33359,
       "tag": "g-2",
       "type": "socks"
     },
@@ -260,13 +260,13 @@ listeners:
 - name: in-0
   type: socks
   listen: 127.0.0.1
-  port: 37925
+  port: 37805
   udp: true
   proxy: out-0
   users:
-  - {username: ue29096145708693a, password: p5fbfd51ff7aff9257f2b0abcb76365c4}
+  - {username: u4e81c9f2025a77dc, password: p7c3456c13947b5ce7fb1975cf1b1ffa4}
 proxies:
-- {name: out-0, type: anytls, server: 127.0.0.1, port: 41451, password: golden-pass-anytls,
+- {name: out-0, type: anytls, server: 127.0.0.1, port: 46575, password: golden-pass-anytls,
   udp: true, sni: anytls.example.com}
 rules: ['MATCH,REJECT']
 
@@ -280,14 +280,14 @@ rules: ['MATCH,REJECT']
     {
       "tag": "in-1",
       "listen": "127.0.0.1",
-      "port": 33893,
+      "port": 35021,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "ue29096145708693a",
-            "pass": "p5fbfd51ff7aff9257f2b0abcb76365c4"
+            "user": "u4e81c9f2025a77dc",
+            "pass": "p7c3456c13947b5ce7fb1975cf1b1ffa4"
           }
         ],
         "udp": true
@@ -306,7 +306,7 @@ rules: ['MATCH,REJECT']
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 38395,
+            "port": 40385,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
@@ -343,12 +343,12 @@ rules: ['MATCH,REJECT']
 }
 
 {
-  "server": "127.0.0.1:38619",
+  "server": "127.0.0.1:43173",
   "protocol": "wechat-video",
   "up_mbps": 10,
   "down_mbps": 50,
   "socks5": {
-    "listen": "127.0.0.1:40083"
+    "listen": "127.0.0.1:39133"
   },
   "retry": 5,
   "fast_open": true,
@@ -357,13 +357,13 @@ rules: ['MATCH,REJECT']
   "auth_str": "golden-pass-hy1",
   "server_name": "hy1.example.com",
   "alpn": "hysteria",
-  "ca": "/data/user/0/moe.nb4a.debug/cache/hysteria_8903986730732148406.ca",
+  "ca": "/data/user/0/moe.nb4a.debug/cache/hysteria_4636186076007322427.ca",
   "hop_interval": 10
 }
 
 {
   "activeProfile": "default",
-  "socks5Port": 34139,
+  "socks5Port": 43065,
   "loggingLevel": "WARN",
   "profiles": [
     {
@@ -377,7 +377,7 @@ rules: ['MATCH,REJECT']
           "ipAddress": "127.0.0.1",
           "portBindings": [
             {
-              "port": 42317,
+              "port": 42541,
               "protocol": "TCP"
             }
           ]
@@ -390,17 +390,17 @@ rules: ['MATCH,REJECT']
 
 {
   "host-resolver-rules": "MAP naive-sni.example.com 127.0.0.1",
-  "listen": "socks://127.0.0.1:36493",
-  "proxy": "https://golden-user:golden-pass-naive@naive-sni.example.com:38711/",
+  "listen": "socks://127.0.0.1:44649",
+  "proxy": "https://golden-user:golden-pass-naive@naive-sni.example.com:39705/",
   "log": ""
 }
 
 {
   "run_type": "client",
   "local_addr": "127.0.0.1",
-  "local_port": 34691,
+  "local_port": 33359,
   "remote_addr": "127.0.0.1",
-  "remote_port": 35553,
+  "remote_port": 35465,
   "password": [
     "golden-pass-trojan-go"
   ],

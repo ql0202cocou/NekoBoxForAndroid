@@ -1,0 +1,27 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": 1,
+    "profileTagMap": {
+      "1": "golden-bug001-ss-good"
+    },
+    "trafficMap": {
+      "golden-bug001-ss-good": [
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[1]": "golden-bug001-ss-good"
+    },
+    "boxTagNames": {
+      "golden-bug001-ss-good": "golden-bug001-ss-good"
+    }
+  },
+  "external": [],
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

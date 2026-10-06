@@ -33,14 +33,14 @@
           "index": 0,
           "chainIndex": 0,
           "profileId": 11,
-          "port": 44231,
+          "port": 36909,
           "finalAddress": "127.0.0.1",
-          "finalPort": 38837,
+          "finalPort": 34737,
           "inboundTag": "in-0",
           "outboundTag": "out-0",
           "localAuth": {
-            "username": "ued398fcc6c373c05",
-            "password": "p06e1095ebc11944e8ffed503e7c7d5b4"
+            "username": "ue02d1f870f7ae7c8",
+            "password": "pcef1b2a9247a0c61914eaeca1e0df91a"
           }
         }
       ]
@@ -55,28 +55,28 @@
           "index": 1,
           "chainIndex": 0,
           "profileId": 1,
-          "port": 33307,
+          "port": 43309,
           "finalAddress": "127.0.0.1",
-          "finalPort": 33127,
+          "finalPort": 46177,
           "inboundTag": "in-1",
           "outboundTag": "out-1",
           "localAuth": {
-            "username": "ued398fcc6c373c05",
-            "password": "p06e1095ebc11944e8ffed503e7c7d5b4"
+            "username": "ue02d1f870f7ae7c8",
+            "password": "pcef1b2a9247a0c61914eaeca1e0df91a"
           }
         },
         {
           "index": 2,
           "chainIndex": 0,
           "profileId": 10,
-          "port": 45669,
+          "port": 40101,
           "finalAddress": "127.0.0.1",
-          "finalPort": 33475,
+          "finalPort": 43193,
           "inboundTag": "in-2",
           "outboundTag": "out-2",
           "localAuth": {
-            "username": "ued398fcc6c373c05",
-            "password": "p06e1095ebc11944e8ffed503e7c7d5b4"
+            "username": "ue02d1f870f7ae7c8",
+            "password": "pcef1b2a9247a0c61914eaeca1e0df91a"
           }
         }
       ]
@@ -84,17 +84,17 @@
   ],
   "dynamic": {
     "ports": [
-      44231,
-      33307,
-      45669,
-      38837,
-      33127,
-      33475
+      36909,
+      43309,
+      40101,
+      34737,
+      46177,
+      43193
     ],
     "paths": [],
     "secrets": [
-      "ued398fcc6c373c05",
-      "p06e1095ebc11944e8ffed503e7c7d5b4"
+      "ue02d1f870f7ae7c8",
+      "pcef1b2a9247a0c61914eaeca1e0df91a"
     ]
   }
 }

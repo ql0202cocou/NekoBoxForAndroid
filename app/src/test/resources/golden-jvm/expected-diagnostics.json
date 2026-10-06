@@ -1,6 +1,23 @@
 {
   "formatVersion": 1,
   "scenarios": {
+    "bug001-selector-bad-ss-member": {
+      "note": "只有运行模式按选择器构建：主节点 1（合法的 Shadowsocks）是选中项，不预检；成员 2 的 Shadowsocks method 是 not-a-cipher，不在 sing-box 名单里，planHop 走内部核心分支时 buildInternalOutbound → buildSingBoxOutboundShadowsocksBean 的 requireSingBoxValue 抛 UnsupportedSingBoxValueException（取值形态合格，原样回显），withProfileName 包上成员名，planOrSkip 对这个未选中的坏成员记 ProfileSkipped 并告警一次。测速与导出模式只构建主节点，不碰成员，没有诊断。主节点就是坏节点的情形见 bug001-main-bad-ss：它在 planHop 里同样抛错，但主节点不经 planOrSkip，整次构建失败，没有诊断与警告，所以那个场景不在本文件里",
+      "run": {
+        "diagnostics": [
+          {
+            "type": "ProfileSkipped",
+            "profileId": 2,
+            "profileName": "golden-bug001-ss-bad",
+            "reason": "golden-bug001-ss-bad: sing-box does not support shadowsocks method \"not-a-cipher\"",
+            "reasonNamesProfile": true
+          }
+        ],
+        "warnings": [
+          "profile 2 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-bug001-ss-bad: sing-box does not support shadowsocks method \"not-a-cipher\""
+        ]
+      }
+    },
     "chain-all-missing": {
       "note": "主节点是链 1，成员 98、99 都不存在：resolveChainInternal 的 onMissing 按成员顺序各告一次警，随后 requireBuildableChain 因链为空报错。三种模式都只建这一条链，没有诊断",
       "run": {

@@ -3,10 +3,10 @@
   "exportName": "profiles.txt",
   "dynamic": {
     "ports": [
-      42259
+      43215
     ],
     "paths": [
-      "/data/user/0/moe.nb4a.debug/cache/hysteria_3137763727312037781.ca"
+      "/data/user/0/moe.nb4a.debug/cache/hysteria_7927666394875111438.ca"
     ],
     "secrets": []
   }

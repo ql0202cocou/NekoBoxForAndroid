@@ -1,6 +1,6 @@
 {
   "formatVersion": 3,
-  "commit": "427accd1d57f2723f5f7b351d787638843ff126b",
+  "commit": "faf07e3a79a406f9e509c347b71d590485155f7d",
   "dirty": {
     "count": 0,
     "top": [],
@@ -9,29 +9,29 @@
   },
   "app": {
     "applicationId": "moe.nb4a.debug",
-    "versionName": "1.8.0-a3",
-    "versionCode": 540,
+    "versionName": "1.8.0-a4",
+    "versionCode": 545,
     "flavor": "oss",
     "buildType": "debug"
   },
   "cores": {
     "sing-box": {
-      "version": "1.14.2-neko-1",
+      "version": "1.14.2-neko-2",
       "versionBox": [
-        "sing-box: 1.14.2-neko-1",
+        "sing-box: 1.14.2-neko-2",
         "go1.26.0@android/arm64",
         "with_conntrack,with_gvisor,with_quic,with_wireguard,with_utls,with_clash_api"
       ]
     },
     "xray": {
-      "version": "v26.3.27",
-      "pinnedSha256": "19101a8191d6d606da975f719c8cdb80b8710b87ab17edc00ef74b9e39588714",
-      "installedSha256": "8cbe2319771d8771a0375f5f53808023d13f29b57d7bc04b25e4a9ed557df9a5"
+      "version": "v26.9.30",
+      "pinnedSha256": "6de04c5f5492c0d050f520a1aad10b68ec6fd21907599b95572ad8807dd833cb",
+      "installedSha256": "674f49abbc757e9767cf5b337842c960f31f31b25174a48bf7fd76943855e7c0"
     },
     "mihomo": {
-      "version": "v1.19.31",
-      "pinnedSha256": "dbd8af275219a097d66362d543b32f65ba0d4de9d96a49bf5e9abdcdad3af6f1",
-      "installedSha256": "161dbceb36c3b96bcd87804def9641cfa02891b0e12218b752c6f1b8930a4fdc"
+      "version": "v1.19.32",
+      "pinnedSha256": "bb9afbd48717f92d59e07da35fb694b83d40d6edb63eb9033c2ee4174137d195",
+      "installedSha256": "a60729cec3f1b0f995c05df3ea7587584122278fb719dc9e90f6eeb54dc86c77"
     }
   },
   "plugins": {
@@ -55,14 +55,14 @@
     "pageSize": 16384,
     "locale": "en-US"
   },
-  "scenarios": 324,
+  "scenarios": 328,
   "counts": {
-    "runOk": 269,
-    "runError": 55,
-    "testOk": 275,
-    "testError": 49,
-    "exportOk": 269,
-    "exportError": 55
+    "runOk": 271,
+    "runError": 57,
+    "testOk": 277,
+    "testError": 51,
+    "exportOk": 271,
+    "exportError": 57
   },
   "externalChecks": {
     "checked": 281,
@@ -84,5 +84,5 @@
     },
     "problems": []
   },
-  "collectedAt": "2026-10-06T01:49:35Z"
+  "collectedAt": "2026-10-06T16:46:39Z"
 }

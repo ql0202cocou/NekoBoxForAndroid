@@ -130,7 +130,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 42171,
+      "listen_port": 41809,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-2-mapping-2",
@@ -138,7 +138,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 44025,
+      "listen_port": 46073,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-3-mapping-3",
@@ -181,10 +181,10 @@
       }
     },
     {
-      "password": "p0ee0d8f4b7145d620e2d11594e0edd83",
+      "password": "p9ba263766f498b836fdf45c2b0cc799f",
       "server": "127.0.0.1",
-      "server_port": 36977,
-      "username": "ue73cce02f17dc428",
+      "server_port": 40167,
+      "username": "uc6228b371283a322",
       "tag": "golden-gdnss-xray",
       "type": "socks",
       "domain_resolver": {
@@ -193,10 +193,10 @@
       }
     },
     {
-      "password": "p0ee0d8f4b7145d620e2d11594e0edd83",
+      "password": "p9ba263766f498b836fdf45c2b0cc799f",
       "server": "127.0.0.1",
-      "server_port": 43031,
-      "username": "ue73cce02f17dc428",
+      "server_port": 36121,
+      "username": "uc6228b371283a322",
       "tag": "golden-gdnss-anytls",
       "type": "socks",
       "domain_resolver": {

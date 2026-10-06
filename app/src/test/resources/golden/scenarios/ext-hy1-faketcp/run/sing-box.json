@@ -74,7 +74,7 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 37921,
+      "server_port": 37013,
       "tag": "proxy",
       "type": "socks"
     },

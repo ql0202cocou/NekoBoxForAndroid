@@ -37,28 +37,28 @@
           "index": 0,
           "chainIndex": 0,
           "profileId": 6,
-          "port": 34053,
+          "port": 37005,
           "finalAddress": "127.0.0.1",
-          "finalPort": 33759,
+          "finalPort": 42843,
           "inboundTag": "in-0",
           "outboundTag": "out-0",
           "localAuth": {
-            "username": "u0f6a14a078fd256a",
-            "password": "pa9ddd2c5b4c1df42ba30e3ed18af4a4d"
+            "username": "uc6a70051079d0d0a",
+            "password": "p3e6385f668a12eeb2afc720b48bfbcd4"
           }
         },
         {
           "index": 2,
           "chainIndex": 0,
           "profileId": 4,
-          "port": 46339,
+          "port": 33371,
           "finalAddress": "127.0.0.1",
-          "finalPort": 33745,
+          "finalPort": 45993,
           "inboundTag": "in-2",
           "outboundTag": "out-2",
           "localAuth": {
-            "username": "u0f6a14a078fd256a",
-            "password": "pa9ddd2c5b4c1df42ba30e3ed18af4a4d"
+            "username": "uc6a70051079d0d0a",
+            "password": "p3e6385f668a12eeb2afc720b48bfbcd4"
           }
         }
       ]
@@ -73,14 +73,14 @@
           "index": 1,
           "chainIndex": 0,
           "profileId": 5,
-          "port": 40623,
+          "port": 37359,
           "finalAddress": "127.0.0.1",
-          "finalPort": 43213,
+          "finalPort": 37309,
           "inboundTag": "in-1",
           "outboundTag": "out-1",
           "localAuth": {
-            "username": "u0f6a14a078fd256a",
-            "password": "pa9ddd2c5b4c1df42ba30e3ed18af4a4d"
+            "username": "uc6a70051079d0d0a",
+            "password": "p3e6385f668a12eeb2afc720b48bfbcd4"
           }
         }
       ]
@@ -88,17 +88,17 @@
   ],
   "dynamic": {
     "ports": [
-      34053,
-      40623,
-      46339,
-      33759,
-      43213,
-      33745
+      37005,
+      37359,
+      33371,
+      42843,
+      37309,
+      45993
     ],
     "paths": [],
     "secrets": [
-      "u0f6a14a078fd256a",
-      "pa9ddd2c5b4c1df42ba30e3ed18af4a4d"
+      "uc6a70051079d0d0a",
+      "p3e6385f668a12eeb2afc720b48bfbcd4"
     ]
   }
 }

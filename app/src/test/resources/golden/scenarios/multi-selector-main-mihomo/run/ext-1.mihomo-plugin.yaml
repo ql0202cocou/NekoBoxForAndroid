@@ -4,22 +4,22 @@ listeners:
 - name: in-3
   type: socks
   listen: 127.0.0.1
-  port: 35737
+  port: 45159
   udp: true
   proxy: out-3
   users:
-  - {username: ua2fe53aebb1b43ab, password: pe8378bea6a8dcdce2623b005e291a783}
+  - {username: u317e15f544828d32, password: p3a0aea9f4091a0344a2b2592e7287f91}
 - name: in-4
   type: socks
   listen: 127.0.0.1
-  port: 37475
+  port: 36481
   udp: true
   proxy: out-4
   users:
-  - {username: ua2fe53aebb1b43ab, password: pe8378bea6a8dcdce2623b005e291a783}
+  - {username: u317e15f544828d32, password: p3a0aea9f4091a0344a2b2592e7287f91}
 proxies:
-- {name: out-3, type: anytls, server: 127.0.0.1, port: 35917, password: golden-pass-anytls,
+- {name: out-3, type: anytls, server: 127.0.0.1, port: 40871, password: golden-pass-anytls,
   udp: true, sni: mihomo-1.example.org}
-- {name: out-4, type: anytls, server: 127.0.0.1, port: 35011, password: golden-pass-anytls,
+- {name: out-4, type: anytls, server: 127.0.0.1, port: 38813, password: golden-pass-anytls,
   udp: true, sni: mihomo-2.example.org}
 rules: ['MATCH,REJECT']

@@ -69,7 +69,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 36739,
+      "listen_port": 43121,
       "override_address": "mieru.example.com",
       "override_port": 2999,
       "tag": "c-0-mapping-1",
@@ -82,7 +82,7 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 39209,
+      "server_port": 42669,
       "tag": "proxy",
       "type": "socks"
     },

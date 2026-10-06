@@ -27,9 +27,9 @@
           "index": 0,
           "chainIndex": 0,
           "profileId": 1,
-          "port": 33849,
+          "port": 36409,
           "finalAddress": "127.0.0.1",
-          "finalPort": 40403,
+          "finalPort": 37735,
           "inboundTag": null,
           "outboundTag": null,
           "localAuth": null
@@ -39,8 +39,8 @@
   ],
   "dynamic": {
     "ports": [
-      33849,
-      40403
+      36409,
+      37735
     ],
     "paths": [],
     "secrets": []

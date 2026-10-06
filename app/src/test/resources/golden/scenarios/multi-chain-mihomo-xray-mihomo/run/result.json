@@ -37,28 +37,28 @@
           "index": 0,
           "chainIndex": 0,
           "profileId": 4,
-          "port": 38929,
+          "port": 43717,
           "finalAddress": "127.0.0.1",
-          "finalPort": 36031,
+          "finalPort": 34183,
           "inboundTag": "in-0",
           "outboundTag": "out-0",
           "localAuth": {
-            "username": "u69ab5e1efbfb24e9",
-            "password": "p59f926580d4cce98950dbf468982f90b"
+            "username": "u70d69e18c6941478",
+            "password": "p45588767c7342e97caa4bbf6c80e6bd9"
           }
         },
         {
           "index": 2,
           "chainIndex": 0,
           "profileId": 2,
-          "port": 44731,
+          "port": 35459,
           "finalAddress": "127.0.0.1",
-          "finalPort": 36029,
+          "finalPort": 37293,
           "inboundTag": "in-2",
           "outboundTag": "out-2",
           "localAuth": {
-            "username": "u69ab5e1efbfb24e9",
-            "password": "p59f926580d4cce98950dbf468982f90b"
+            "username": "u70d69e18c6941478",
+            "password": "p45588767c7342e97caa4bbf6c80e6bd9"
           }
         }
       ]
@@ -73,14 +73,14 @@
           "index": 1,
           "chainIndex": 0,
           "profileId": 3,
-          "port": 44073,
+          "port": 39505,
           "finalAddress": "127.0.0.1",
-          "finalPort": 35609,
+          "finalPort": 46275,
           "inboundTag": "in-1",
           "outboundTag": "out-1",
           "localAuth": {
-            "username": "u69ab5e1efbfb24e9",
-            "password": "p59f926580d4cce98950dbf468982f90b"
+            "username": "u70d69e18c6941478",
+            "password": "p45588767c7342e97caa4bbf6c80e6bd9"
           }
         }
       ]
@@ -88,17 +88,17 @@
   ],
   "dynamic": {
     "ports": [
-      38929,
-      44073,
-      44731,
-      36031,
-      35609,
-      36029
+      43717,
+      39505,
+      35459,
+      34183,
+      46275,
+      37293
     ],
     "paths": [],
     "secrets": [
-      "u69ab5e1efbfb24e9",
-      "p59f926580d4cce98950dbf468982f90b"
+      "u70d69e18c6941478",
+      "p45588767c7342e97caa4bbf6c80e6bd9"
     ]
   }
 }

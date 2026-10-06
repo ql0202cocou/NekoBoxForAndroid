@@ -76,7 +76,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 46367,
+      "listen_port": 41807,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-1",
@@ -88,10 +88,10 @@
   },
   "outbounds": [
     {
-      "password": "p328b40a76406d73e71bc2b1e034c3f98",
+      "password": "p88dac2001a7e69c432702b2ca10c0f29",
       "server": "127.0.0.1",
-      "server_port": 36245,
-      "username": "u6fa526bd47d8cc2e",
+      "server_port": 41307,
+      "username": "ucd0280a7a15666ac",
       "tag": "proxy",
       "type": "socks"
     },
@@ -156,14 +156,14 @@
     {
       "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 36245,
+      "port": 41307,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "u6fa526bd47d8cc2e",
-            "pass": "p328b40a76406d73e71bc2b1e034c3f98"
+            "user": "ucd0280a7a15666ac",
+            "pass": "p88dac2001a7e69c432702b2ca10c0f29"
           }
         ],
         "udp": true
@@ -182,7 +182,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 46367,
+            "port": 41807,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",

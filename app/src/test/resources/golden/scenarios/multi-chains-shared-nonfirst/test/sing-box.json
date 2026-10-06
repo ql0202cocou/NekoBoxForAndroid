@@ -22,7 +22,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 44753,
+      "listen_port": 34537,
       "override_address": "mihomo-1.example.com",
       "override_port": 8444,
       "tag": "c-0-mapping-5",
@@ -30,7 +30,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 41137,
+      "listen_port": 41007,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-4",
@@ -42,18 +42,18 @@
   },
   "outbounds": [
     {
-      "password": "p32bf66ffc0cf48366a3e0038b732d0df",
+      "password": "pd68774779af962d3bacefdaa63f87139",
       "server": "127.0.0.1",
-      "server_port": 44347,
-      "username": "u84f95e5ee0aa40e1",
+      "server_port": 36035,
+      "username": "uf12d6a8f8848dc7b",
       "tag": "proxy",
       "type": "socks"
     },
     {
-      "password": "p32bf66ffc0cf48366a3e0038b732d0df",
+      "password": "pd68774779af962d3bacefdaa63f87139",
       "server": "127.0.0.1",
-      "server_port": 43401,
-      "username": "u84f95e5ee0aa40e1",
+      "server_port": 36671,
+      "username": "uf12d6a8f8848dc7b",
       "tag": "c-0-4",
       "type": "socks"
     },

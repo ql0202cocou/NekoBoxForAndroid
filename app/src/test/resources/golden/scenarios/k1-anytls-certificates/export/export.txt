@@ -76,7 +76,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 43237,
+      "listen_port": 39101,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-0-mapping-1",
@@ -88,10 +88,10 @@
   },
   "outbounds": [
     {
-      "password": "pae5c4af5271468e8099e7ad712d00f03",
+      "password": "p5f232aaf854f084775d3017c99d18a5d",
       "server": "127.0.0.1",
-      "server_port": 36895,
-      "username": "ud15721952df57a8a",
+      "server_port": 37035,
+      "username": "u209af089e354b522",
       "tag": "proxy",
       "type": "socks"
     },
@@ -153,13 +153,13 @@ listeners:
 - name: in-0
   type: socks
   listen: 127.0.0.1
-  port: 36895
+  port: 37035
   udp: true
   proxy: out-0
   users:
-  - {username: ud15721952df57a8a, password: pae5c4af5271468e8099e7ad712d00f03}
+  - {username: u209af089e354b522, password: p5f232aaf854f084775d3017c99d18a5d}
 proxies:
-- {name: out-0, type: anytls, server: 127.0.0.1, port: 43237, password: golden-pass-anytls,
+- {name: out-0, type: anytls, server: 127.0.0.1, port: 39101, password: golden-pass-anytls,
   udp: true, sni: golden.example.com, fingerprint: 97f5a77c25b237060f2da6aab57e85164fa3b92f0ce0f97fdef0ac10986dc2d8,
   client-fingerprint: firefox}
 rules: ['MATCH,REJECT']

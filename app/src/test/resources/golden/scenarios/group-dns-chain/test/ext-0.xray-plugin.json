@@ -7,14 +7,14 @@
     {
       "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 45419,
+      "port": 34661,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "u60cbbfcfd009fb79",
-            "pass": "p80a5a1231112be3ef7dc44a60a6d4450"
+            "user": "ue9916c0c48f993a8",
+            "pass": "pe63dfd044cf086fd60bccbca56bea576"
           }
         ],
         "udp": true
@@ -33,7 +33,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 40573,
+            "port": 35441,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",

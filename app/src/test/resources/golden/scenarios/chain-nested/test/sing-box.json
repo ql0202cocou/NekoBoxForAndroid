@@ -22,7 +22,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 36649,
+      "listen_port": 41289,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-0-mapping-4",
@@ -30,7 +30,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 37339,
+      "listen_port": 35757,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-3",
@@ -42,18 +42,18 @@
   },
   "outbounds": [
     {
-      "password": "pba658cf97affada83420532139102d6f",
+      "password": "p9cbed4b4f1dd77e56cce77e6dfeb4cbe",
       "server": "127.0.0.1",
-      "server_port": 36039,
-      "username": "u4e48825e97ac4b14",
+      "server_port": 41397,
+      "username": "u03dd84fcd39b462d",
       "tag": "proxy",
       "type": "socks"
     },
     {
-      "password": "pba658cf97affada83420532139102d6f",
+      "password": "p9cbed4b4f1dd77e56cce77e6dfeb4cbe",
       "server": "127.0.0.1",
-      "server_port": 35961,
-      "username": "u4e48825e97ac4b14",
+      "server_port": 40389,
+      "username": "u03dd84fcd39b462d",
       "tag": "c-0-3",
       "type": "socks"
     },

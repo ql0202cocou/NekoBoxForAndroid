@@ -77,7 +77,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 43725,
+      "listen_port": 37273,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-2-mapping-2",
@@ -106,10 +106,10 @@
       "type": "vmess"
     },
     {
-      "password": "p49a06b58469a62b0583fd78a36f52aae",
+      "password": "p665620e66e74c5f505958c8b9bf6b752",
       "server": "127.0.0.1",
-      "server_port": 38869,
-      "username": "u23a175e1fbfaca79",
+      "server_port": 40735,
+      "username": "uc03e670bb4b9a757",
       "tag": "g-2",
       "type": "socks"
     },
@@ -177,12 +177,12 @@ listeners:
 - name: in-0
   type: socks
   listen: 127.0.0.1
-  port: 38869
+  port: 40735
   udp: true
   proxy: out-0
   users:
-  - {username: u23a175e1fbfaca79, password: p49a06b58469a62b0583fd78a36f52aae}
+  - {username: uc03e670bb4b9a757, password: p665620e66e74c5f505958c8b9bf6b752}
 proxies:
-- {name: out-0, type: anytls, server: 127.0.0.1, port: 43725, password: golden-pass-anytls,
+- {name: out-0, type: anytls, server: 127.0.0.1, port: 37273, password: golden-pass-anytls,
   udp: true, sni: anytls.example.com}
 rules: ['MATCH,REJECT']

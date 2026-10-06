@@ -3,25 +3,25 @@
   "exportName": "profiles.txt",
   "dynamic": {
     "ports": [
-      41319,
-      39093,
-      38161,
-      40901,
-      35887,
-      35949,
-      40689,
-      34599,
-      39193,
-      41797,
-      33521,
-      40681
+      46821,
+      42019,
+      45395,
+      40835,
+      40039,
+      41291,
+      40175,
+      42565,
+      36793,
+      38981,
+      41893,
+      35793
     ],
     "paths": [
-      "/data/user/0/moe.nb4a.debug/cache/hysteria_1953408138503306011.ca"
+      "/data/user/0/moe.nb4a.debug/cache/hysteria_6961063850443253250.ca"
     ],
     "secrets": [
-      "u202715b7a56ba822",
-      "pba30e44e223ec7bf24d2f906a04c36de"
+      "u6691b12a58a81f56",
+      "p073f1f8d7da8f32461ebe0a9e52c4af7"
     ]
   }
 }

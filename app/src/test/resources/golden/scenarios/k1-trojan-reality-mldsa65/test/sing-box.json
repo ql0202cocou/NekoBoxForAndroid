@@ -22,7 +22,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 41873,
+      "listen_port": 41467,
       "override_address": "trojan.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-1",
@@ -34,10 +34,10 @@
   },
   "outbounds": [
     {
-      "password": "p718a046bb72b8cccbb50ac8b563ba00c",
+      "password": "p0357e5552970ce8e5f3c81d7d1512181",
       "server": "127.0.0.1",
-      "server_port": 37241,
-      "username": "uc960e07d859a716d",
+      "server_port": 37151,
+      "username": "u37e4d69a6f02dbfd",
       "tag": "proxy",
       "type": "socks"
     },

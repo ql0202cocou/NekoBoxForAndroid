@@ -95,7 +95,7 @@
     {
       "detour": "g-2",
       "server": "127.0.0.1",
-      "server_port": 45595,
+      "server_port": 34905,
       "tag": "c-0-3",
       "type": "socks"
     },
@@ -159,7 +159,7 @@
   "up_mbps": 10,
   "down_mbps": 50,
   "socks5": {
-    "listen": "127.0.0.1:45595"
+    "listen": "127.0.0.1:34905"
   },
   "retry": 5,
   "fast_open": true,

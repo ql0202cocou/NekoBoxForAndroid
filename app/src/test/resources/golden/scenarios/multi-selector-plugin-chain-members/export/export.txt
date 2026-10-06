@@ -77,7 +77,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 42543,
+      "listen_port": 34111,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-4",
@@ -85,7 +85,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 35691,
+      "listen_port": 43233,
       "override_address": "trojan-go.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-2",
@@ -97,16 +97,16 @@
   },
   "outbounds": [
     {
-      "password": "pd1b48b5956e8ac5738bacb706aee4560",
+      "password": "pd96027f561dde1e81ca21d0bce46aeca",
       "server": "127.0.0.1",
-      "server_port": 41201,
-      "username": "u056dfad1322e4316",
+      "server_port": 41215,
+      "username": "u4a526e1eca0040d7",
       "tag": "proxy",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 40015,
+      "server_port": 41415,
       "tag": "g-2",
       "type": "socks"
     },
@@ -177,14 +177,14 @@
     {
       "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 41201,
+      "port": 41215,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "u056dfad1322e4316",
-            "pass": "pd1b48b5956e8ac5738bacb706aee4560"
+            "user": "u4a526e1eca0040d7",
+            "pass": "pd96027f561dde1e81ca21d0bce46aeca"
           }
         ],
         "udp": true
@@ -203,7 +203,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 42543,
+            "port": 34111,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
@@ -242,9 +242,9 @@
 {
   "run_type": "client",
   "local_addr": "127.0.0.1",
-  "local_port": 40015,
+  "local_port": 41415,
   "remote_addr": "127.0.0.1",
-  "remote_port": 35691,
+  "remote_port": 43233,
   "password": [
     "golden-pass-trojan-go"
   ],

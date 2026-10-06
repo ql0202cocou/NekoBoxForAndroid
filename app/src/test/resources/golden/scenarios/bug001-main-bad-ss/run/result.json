@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-bug001-main-bad-ss: sing-box does not support shadowsocks method \"not-a-cipher\"",
+    "causes": [
+      {
+        "class": "io.nekohasekai.sagernet.fmt.UnsupportedSingBoxValueException",
+        "message": "sing-box does not support shadowsocks method \"not-a-cipher\""
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}
