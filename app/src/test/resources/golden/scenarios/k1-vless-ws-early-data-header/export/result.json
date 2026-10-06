@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-k1-ws-ed-header.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

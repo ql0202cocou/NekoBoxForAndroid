@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-k1-sb-mux-cool: the manually chosen core sing-box cannot run this profile: [enableMux, muxType] sing-box has no Mux.Cool (Xray's multiplexing)",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "the manually chosen core sing-box cannot run this profile: [enableMux, muxType] sing-box has no Mux.Cool (Xray's multiplexing)"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

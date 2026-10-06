@@ -406,10 +406,10 @@ val CAPABILITY_TABLE: Map<Requirement, Map<DialCore, CapabilityCell>> = linkedMa
     Requirement.PROTOCOL_VLESS to row(
         supported(SB), supported(XR), unsupported(MH, CoreConflict.MIHOMO_V2RAY_PROTOCOL),
     ),
-    // D10：Xray 的 Trojan 出站经 run -test 与回环验证（I1 §2）；本应用的 Xray 生成器要随 K1 补上
+    // D10：Xray 的 Trojan 出站经 run -test 与回环验证（I1 §2）；生成器是 buildXrayOutbound 的 Trojan 重载
     Requirement.PROTOCOL_TROJAN to row(
         supported(SB),
-        supported(XR, "Xray 的 Trojan 出站（servers 只放一项、不写 flow），生成器随 D10 补"),
+        supported(XR, "Xray 的 Trojan 出站（servers 只放一项、不写 flow）"),
         unsupported(MH, CoreConflict.MIHOMO_V2RAY_PROTOCOL),
     ),
     // Xray 没有 anytls 出站（实测 unknown config id: anytls，I1 §7）

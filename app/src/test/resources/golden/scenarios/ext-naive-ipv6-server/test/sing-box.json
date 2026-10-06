@@ -22,7 +22,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 36709,
+      "listen_port": 39431,
       "override_address": "2001:db8::71",
       "override_port": 443,
       "tag": "c-0-mapping-1",
@@ -35,7 +35,7 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 40017,
+      "server_port": 40241,
       "tag": "proxy",
       "type": "socks"
     },

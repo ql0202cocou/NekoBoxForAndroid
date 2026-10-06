@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "xray-vless-mux",
-  "description": "VLESS mux（并发 0 → 8）",
+  "description": "VLESS Mux.Cool（并发 0 → 8）",
   "mainProfileId": 1,
   "settings": [
     {
@@ -166,10 +166,10 @@
       "ping": 0,
       "uuid": "",
       "error": null,
-      "core": 0,
+      "core": 2,
       "beanColumn": "vmessBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
-      "beanKryoBase64": "BwAAAHZsZXNzLmV4YW1wbGUuY2/tuwEAAKU2YjFkMmYzYS00YzVlLTRmN2EtOWIwYy0xZDJlM2Y0YTViNmOB/////3Rj8HRs83ZsZXNzLmV4YW1wbGUuY2/tgYEAgYGBAIEAAAAAAQAAAAAAAAAAAIGBAQAAAGdvbGRlbi14cmF5LW11+IGB"
+      "beanKryoBase64": "BwAAAHZsZXNzLmV4YW1wbGUuY2/tuwEAAKU2YjFkMmYzYS00YzVlLTRmN2EtOWIwYy0xZDJlM2Y0YTViNmOB/////3Rj8HRs83ZsZXNzLmV4YW1wbGUuY2/tgYEAgYGBAIEAAAAAAQADAAAAAAAAAIGBAQAAAGdvbGRlbi14cmF5LW11+IGB"
     }
   ],
   "rules": [],

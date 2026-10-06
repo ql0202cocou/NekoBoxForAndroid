@@ -1,0 +1,25 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-k1-anytls"
+    },
+    "boxTagNames": {
+      "proxy": "golden-k1-anytls"
+    }
+  },
+  "external": [],
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

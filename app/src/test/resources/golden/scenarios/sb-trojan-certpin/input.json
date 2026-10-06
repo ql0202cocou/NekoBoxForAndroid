@@ -166,7 +166,7 @@
       "ping": 0,
       "uuid": "",
       "error": null,
-      "core": 0,
+      "core": 1,
       "beanColumn": "trojanBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.trojan.TrojanBean",
       "beanKryoBase64": "AgAAAAcAAAB0cm9qYW4uZXhhbXBsZS5jb+27AQAAgYB0Y/B0bPN0cm9qYW4uZXhhbXBsZS5jb+2BgQCBgYEAgQAAAAAAAAAAAAABAAAAgeABQUI6Q0Q6RUY6MDE6MjM6NDU6Njc6ODk6QUI6Q0Q6RUY6MDE6MjM6NDU6Njc6ODk6QUI6Q0Q6RUY6MDE6MjM6NDU6Njc6ODk6QUI6Q0Q6RUY6MDE6MjM6NDU6Njc6ODlnb2xkZW4tcGFzcy10cm9qYe4BAAAAZ29sZGVuLXRyb2phbi1wae6BgQ=="

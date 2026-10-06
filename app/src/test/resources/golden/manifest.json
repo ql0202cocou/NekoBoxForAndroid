@@ -1,6 +1,6 @@
 {
   "formatVersion": 3,
-  "commit": "d1040171dda3cd162c10f432ae3e2fea2d3adf70",
+  "commit": "427accd1d57f2723f5f7b351d787638843ff126b",
   "dirty": {
     "count": 0,
     "top": [],
@@ -55,34 +55,34 @@
     "pageSize": 16384,
     "locale": "en-US"
   },
-  "scenarios": 293,
+  "scenarios": 324,
   "counts": {
-    "runOk": 249,
-    "runError": 44,
-    "testOk": 255,
-    "testError": 38,
-    "exportOk": 249,
-    "exportError": 44
+    "runOk": 269,
+    "runError": 55,
+    "testOk": 275,
+    "testError": 49,
+    "exportOk": 269,
+    "exportError": 55
   },
   "externalChecks": {
-    "checked": 254,
+    "checked": 281,
     "failed": 0,
     "inconclusive": 0,
     "byPlugin": {
       "xray-plugin": {
-        "checked": 167,
-        "passed": 167,
+        "checked": 190,
+        "passed": 190,
         "failed": 0,
         "inconclusive": 0
       },
       "mihomo-plugin": {
-        "checked": 87,
-        "passed": 87,
+        "checked": 91,
+        "passed": 91,
         "failed": 0,
         "inconclusive": 0
       }
     },
     "problems": []
   },
-  "collectedAt": "2026-10-06T00:54:07Z"
+  "collectedAt": "2026-10-06T01:49:35Z"
 }

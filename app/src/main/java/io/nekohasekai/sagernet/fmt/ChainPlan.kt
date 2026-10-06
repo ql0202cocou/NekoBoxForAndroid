@@ -121,12 +121,11 @@ internal fun requireBuildableChain(entity: ProxyEntity, profileList: List<ProxyE
 
 // 单跳的检查，与节点在链里的位置无关
 internal fun requireBuildableHop(proxyEntity: ProxyEntity, bean: AbstractBean, globalAllowInsecure: Boolean) {
-    // 用户要求固定证书却静默放行，比没有这个功能更危险：内部与外部核心都在这里拒绝
-    if (proxyEntity.certificatePinUnsupported(globalAllowInsecure)) {
-        error("this core cannot pin certificates; clear the fingerprint or use a core that supports it")
-    }
-    // mldsa65Verify 同理：sing-box 上会被悄悄丢掉
-    proxyEntity.mldsa65VerifyUnsupported(globalAllowInsecure)?.let { error(it) }
+    // 能力表的判定（CoreSelection.kt）：手动指定的核心承载不了、自动选核没有能完整承载的核心、不能选核的协议带了
+    // 它的核心做不到的校验（证书固定、mldsa65Verify），都在这里拒绝并列出冲突字段。静默丢掉安全校验或退化传输比
+    // 报错更危险；运行 / 测速 / 导出 / 成员检查都经过这里，编辑器保存时用同一个判定提前拦下
+    val decision = proxyEntity.coreDecision(globalAllowInsecure)
+    if (decision is CoreDecision.Rejected) error(decision.message(proxyEntity.core))
     // 完整配置型自定义节点作为链成员、前置 / 落地或路由目标时，给出明确
     // 错误，而不是让 sing-box 以 "unknown outbound type" 拒绝整份配置
     if (!proxyEntity.needExternal(globalAllowInsecure) && proxyEntity.isFullConfig()) {
@@ -209,9 +208,9 @@ internal class HopPlan(
  * 免映射的判断要查外部插件 app（经 plugins，按插件记住结果）。muxApplied 表示链上在它之前的内部核心跳已带了多路复用。
  *
  * 不分配端口、不生成凭据、不定 tag，不写任何构建状态（插件查询的记忆表除外）；出错时抛出的异常不带节点名，调用方
- * 经 withProfileName 包上。会抛出的检查依次是：证书固定、mldsa65Verify、完整配置节点、自定义出站 JSON（以上见
+ * 经 withProfileName 包上。会抛出的检查依次是：选核判定的拒绝、完整配置节点、自定义出站 JSON（以上见
  * [requireBuildableHop]），然后内部核心建出站（[buildInternalOutbound] 的各种拒绝），或外核最先拨号的 hysteria
- * 装的不是 Matsuri exe 的插件。
+ * 装的不是 Matsuri exe 的插件。内核还是外核由选核判定决定（needExternal），外核用哪个由 bean 的类决定（externalCore）。
  */
 internal fun planHop(
     entity: ProxyEntity,

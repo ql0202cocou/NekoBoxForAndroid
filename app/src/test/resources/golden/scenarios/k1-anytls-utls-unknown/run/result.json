@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-k1-anytls-netscape: no core can fully run this profile. sing-box: [utlsFingerprint] sing-box does not know this uTLS fingerprint (netscape). mihomo: [utlsFingerprint] mihomo does not know this uTLS fingerprint and would silently use plain Go TLS (netscape)",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "no core can fully run this profile. sing-box: [utlsFingerprint] sing-box does not know this uTLS fingerprint (netscape). mihomo: [utlsFingerprint] mihomo does not know this uTLS fingerprint and would silently use plain Go TLS (netscape)"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

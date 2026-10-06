@@ -1,10 +1,10 @@
 {
-  "server": "127.0.0.1:40401",
+  "server": "127.0.0.1:33185",
   "protocol": "wechat-video",
   "up_mbps": 10,
   "down_mbps": 50,
   "socks5": {
-    "listen": "127.0.0.1:40643"
+    "listen": "127.0.0.1:46375"
   },
   "retry": 5,
   "fast_open": true,

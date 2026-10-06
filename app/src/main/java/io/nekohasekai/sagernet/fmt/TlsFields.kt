@@ -28,7 +28,7 @@ class TlsFields(
 )
 
 // 全局「允许不安全」叠加在节点自己的开关之上，各核心（sing-box、Xray、mihomo）一致。
-// 全局值都由调用方传入：外核生成器经 ExternalCoreSettings，sing-box 出站与选核经构建的设置快照
+// 全局值都由调用方传入：外核生成器经 ExternalCoreSettings，sing-box 出站与选核判定经构建的设置快照
 fun effectiveAllowInsecure(allowInsecure: Boolean?, globalAllowInsecure: Boolean): Boolean =
     allowInsecure == true || globalAllowInsecure
 
@@ -36,7 +36,7 @@ fun effectiveAllowInsecure(allowInsecure: Boolean?, globalAllowInsecure: Boolean
 fun buildSingBoxOutboundTLS(bean: AbstractBean, globalAllowInsecure: Boolean): OutboundTLSOptions? {
     val tls = tlsFields(bean) ?: return null
     // sing-box 的 certificate_public_key_sha256 是 SPKI 哈希，与证书 SHA-256 不通用。
-    // 判断与报错在 requireBuildableHop（ChainPlan.kt，certificatePinUnsupported）；这里只兜底，
+    // 判断与报错在 requireBuildableHop（ChainPlan.kt，能力表的选核判定）；这里只兜底，
     // 防将来绕过它的调用方把固定静默丢掉
     check(tls.certificateFingerprint.isNullOrBlank()) {
         "certificate pin reached the sing-box TLS builder"

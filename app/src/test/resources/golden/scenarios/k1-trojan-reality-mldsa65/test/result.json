@@ -1,0 +1,54 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-k1-trojan-mldsa"
+    },
+    "boxTagNames": {
+      "proxy": "golden-k1-trojan-mldsa"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.xray-plugin.json",
+      "pluginId": "xray-plugin",
+      "controller": null,
+      "tempFiles": [],
+      "hops": [
+        {
+          "index": 0,
+          "chainIndex": 0,
+          "profileId": 1,
+          "port": 37241,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 41873,
+          "inboundTag": "in-0",
+          "outboundTag": "out-0",
+          "localAuth": {
+            "username": "uc960e07d859a716d",
+            "password": "p718a046bb72b8cccbb50ac8b563ba00c"
+          }
+        }
+      ]
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      37241,
+      41873
+    ],
+    "paths": [],
+    "secrets": [
+      "uc960e07d859a716d",
+      "p718a046bb72b8cccbb50ac8b563ba00c"
+    ]
+  }
+}

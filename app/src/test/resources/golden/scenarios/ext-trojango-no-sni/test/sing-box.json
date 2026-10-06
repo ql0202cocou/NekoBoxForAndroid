@@ -22,7 +22,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 46221,
+      "listen_port": 41031,
       "override_address": "trojan-go.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-1",
@@ -35,7 +35,7 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 40619,
+      "server_port": 39061,
       "tag": "proxy",
       "type": "socks"
     },

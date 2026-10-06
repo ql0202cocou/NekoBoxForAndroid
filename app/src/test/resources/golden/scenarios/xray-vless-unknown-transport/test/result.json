@@ -2,11 +2,11 @@
   "status": "error",
   "error": {
     "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
-    "message": "golden-xray-splithttp: unsupported transport \"splithttp\"",
+    "message": "golden-xray-splithttp: no core can fully run this profile. sing-box: [type] This app does not support the transport (splithttp). Xray: [type] This app does not support the transport (splithttp)",
     "causes": [
       {
-        "class": "io.nekohasekai.sagernet.fmt.v2ray.UnsupportedTransportException",
-        "message": "unsupported transport \"splithttp\""
+        "class": "java.lang.IllegalStateException",
+        "message": "no core can fully run this profile. sing-box: [type] This app does not support the transport (splithttp). Xray: [type] This app does not support the transport (splithttp)"
       }
     ]
   },

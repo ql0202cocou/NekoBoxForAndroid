@@ -238,6 +238,20 @@ class CoreSelectionTest {
         assertSelected(SING_BOX, decide(vless { reality(mldsa = true); security = "none" }))
     }
 
+    // 原 Mldsa65VerifyUnsupportedTest 的用例（函数已并入能力表）：只有 REALITY 真正生效且填了 mldsa65Verify 才算要求
+    @Test
+    fun `mldsa65Verify 只在 REALITY 生效时才算要求`() {
+        // 关掉 TLS 后残留的 REALITY 字段不算（Trojan 同 VLESS）
+        assertSelected(SING_BOX, decide(trojan { reality(mldsa = true); security = "none" }))
+        // 没有公钥即没开 REALITY
+        assertSelected(SING_BOX, decide(vless { reality(mldsa = true); realityPubKey = "" }))
+        // mldsa65Verify 是空白
+        val blank = trojan { reality(); realityMldsa65Verify = " " }
+        assertTrue(!coreRequirements(TYPE_TROJAN, blank, false).mldsa65Verify)
+        // 不是 V2Ray 系的协议没有这个字段
+        assertEquals(CoreDecision.Fixed, decide(io.nekohasekai.sagernet.fmt.socks.SOCKSBean().apply { initializeDefaultValues() }))
+    }
+
     // ---- mux 与 packet encoding
 
     @Test
@@ -387,6 +401,68 @@ class CoreSelectionTest {
                 PROTOCOL_MLDSA65_VERIFY in conflicts,
             )
         }
+    }
+
+    // ---- 构建时的拒绝原因（requireBuildableHop 抛出的文本）
+
+    @Test
+    fun `拒绝原因：手动指定写明核心，列出字段键与原因`() {
+        val rejected = assertRejected(decide(vmess { allowInsecure = true; packetEncoding = 1 }, CORE_XRAY), XRAY_ALLOW_INSECURE, XRAY_PACKETADDR)
+        assertEquals(
+            "the manually chosen core Xray cannot run this profile: " +
+                "[allowInsecure, globalAllowInsecure] Xray removed allowInsecure; pin the certificate fingerprint instead; " +
+                "[packetEncoding] Xray has no packetaddr packet encoding",
+            rejected.message(CORE_XRAY),
+        )
+        // 协议本身不能用这个核心
+        assertEquals(
+            "the manually chosen core mihomo cannot run this profile: [profileCore] This app cannot run VMess, VLESS or Trojan on mihomo",
+            assertRejected(decide(vmess(), CORE_MIHOMO), MIHOMO_V2RAY_PROTOCOL).message(CORE_MIHOMO),
+        )
+        // 不认识的核心值
+        assertEquals(
+            "the manually chosen core 7 cannot run this profile: [profileCore] Unknown core (7)",
+            assertRejected(decide(vless(), 7), CoreConflict.CORE_VALUE_UNKNOWN).message(7),
+        )
+    }
+
+    @Test
+    fun `拒绝原因：自动选核按核心分组，每组以核心名开头，带取值`() {
+        val rejected = assertRejected(
+            decide(vless { type = "quic"; utlsFingerprint = "chrome"; certificateFingerprint = CoreTestNodes.PIN }),
+            SING_BOX_QUIC_UTLS, SING_BOX_CERTIFICATE_PIN, XRAY_TRANSPORT_QUIC,
+        )
+        assertEquals(
+            "no core can fully run this profile. " +
+                "sing-box: [certificateFingerprint] sing-box cannot pin a whole-certificate SHA-256 (it only pins public keys); " +
+                "[type, utlsFingerprint] sing-box cannot use a uTLS fingerprint over QUIC: every connection fails. " +
+                "Xray: [type] Xray removed the QUIC transport",
+            rejected.message(CORE_AUTO),
+        )
+        val fingerprint = assertRejected(decide(anytls { utlsFingerprint = "netscape" }), SING_BOX_UTLS_FINGERPRINT, MIHOMO_UTLS_FINGERPRINT)
+        assertEquals(
+            "no core can fully run this profile. " +
+                "sing-box: [utlsFingerprint] sing-box does not know this uTLS fingerprint (netscape). " +
+                "mihomo: [utlsFingerprint] mihomo does not know this uTLS fingerprint and would silently use plain Go TLS (netscape)",
+            fingerprint.message(CORE_AUTO),
+        )
+    }
+
+    @Test
+    fun `拒绝原因：不能选核的协议只列冲突`() {
+        val pinned = HysteriaBean().apply { initializeDefaultValues(); certificateFingerprint = CoreTestNodes.PIN }
+        assertEquals(
+            "this profile cannot run as configured: [certificateFingerprint] The core for this protocol cannot pin certificates",
+            assertRejected(decide(pinned), PROTOCOL_CERTIFICATE_PIN).message(CORE_AUTO),
+        )
+        // 手动值也报出来，核心名按取值写
+        assertEquals(
+            "the manually chosen core Xray cannot run this profile: " +
+                "[profileCore] The core cannot be chosen for this protocol (2); " +
+                "[certificateFingerprint] The core for this protocol cannot pin certificates",
+            assertRejected(decide(pinned, CORE_XRAY), CoreConflict.CORE_NOT_SELECTABLE, PROTOCOL_CERTIFICATE_PIN)
+                .message(CORE_XRAY),
+        )
     }
 
     // ---- 整体性质

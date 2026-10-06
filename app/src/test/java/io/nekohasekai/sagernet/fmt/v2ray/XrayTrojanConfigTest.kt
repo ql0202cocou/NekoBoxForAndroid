@@ -6,6 +6,7 @@ import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
 import io.nekohasekai.sagernet.fmt.ExternalDialTarget
 import io.nekohasekai.sagernet.fmt.ExternalHop
+import io.nekohasekai.sagernet.fmt.ExternalRunPlan
 import io.nekohasekai.sagernet.fmt.LocalSocksAuth
 import io.nekohasekai.sagernet.fmt.externalCore
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
@@ -257,7 +258,6 @@ class XrayTrojanConfigTest {
 
     @Test
     fun `VMess、VLESS、Trojan 同在一份合并配置里`() {
-        val xray = externalCore(vmess(vless = false) {})!!
         val vmessWs = vmess(vless = false) {
             type = "ws"
             path = "/vmess"
@@ -279,10 +279,12 @@ class XrayTrojanConfigTest {
             enableMux = true
         }
         val beans = listOf(vmessWs, vlessReality, trojanGrpc, trojanMux)
-        // Trojan 还没有接到 externalCore，跳实例的核心按 Xray 显式给出
+        // 跳实例的外核按 bean 取（externalCore）：Trojan 与 VMess / VLESS 都是 Xray（D10），合成一组
         val hops = beans.mapIndexed { i, bean ->
-            ExternalHop(i, i, i + 1L, bean, 21000 + i, ExternalDialTarget.Mapped(30000 + i), core = xray, localAuth = auth)
+            ExternalHop(i, i, i + 1L, bean, 21000 + i, ExternalDialTarget.Mapped(30000 + i), localAuth = auth)
         }
+        assertEquals(listOf("xray-plugin"), beans.map { externalCore(it)!!.pluginId }.distinct())
+        assertEquals(1, ExternalRunPlan(hops).groups.size)
         val outbounds = beans.mapIndexed { i, bean ->
             when (bean) {
                 is VMessBean -> buildXrayOutbound(bean, "127.0.0.1", 30000 + i, settings)

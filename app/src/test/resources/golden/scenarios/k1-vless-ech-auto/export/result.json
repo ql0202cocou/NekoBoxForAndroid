@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-k1-ech-auto.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

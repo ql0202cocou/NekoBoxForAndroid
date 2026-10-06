@@ -76,7 +76,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 36489,
+      "listen_port": 36631,
       "override_address": "naive.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-1",
@@ -89,7 +89,7 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 35087,
+      "server_port": 37269,
       "udp_over_tcp": true,
       "tag": "proxy",
       "type": "socks"
@@ -148,6 +148,6 @@
 
 {
   "host-resolver-rules": "MAP naive.example.com 127.0.0.1",
-  "listen": "socks://127.0.0.1:35087",
-  "proxy": "quic://golden-user:golden-pass-naive@naive.example.com:36489/"
+  "listen": "socks://127.0.0.1:37269",
+  "proxy": "quic://golden-user:golden-pass-naive@naive.example.com:36631/"
 }

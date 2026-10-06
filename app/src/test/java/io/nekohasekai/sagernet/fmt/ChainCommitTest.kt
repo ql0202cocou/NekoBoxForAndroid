@@ -39,7 +39,7 @@ class ChainCommitTest {
             initializeDefaultValues()
         })
 
-    // VLESS + TLS，自动选核走 Xray
+    // VLESS + REALITY，自动选核走 Xray（K1 起不带 REALITY 的 VLESS 自动走 sing-box）
     private fun vless(id: Long, groupId: Long = 1, userOrder: Long = id) =
         ProxyEntity(id = id, groupId = groupId, userOrder = userOrder).putBean(VMessBean().apply {
             name = "vless-$id"
@@ -50,8 +50,11 @@ class ChainCommitTest {
             initializeDefaultValues()
             security = "tls"
             sni = "x$id.example.com"
+            realityPubKey = CoreTestNodes.REALITY_KEY
+            realityShortId = CoreTestNodes.SHORT_ID
         })
 
+    // AnyTLS 带证书指纹，自动选核走 mihomo（K1 起不带指纹与 certificates 的 AnyTLS 自动走 sing-box）
     private fun anytls(id: Long, groupId: Long = 1) = ProxyEntity(id = id, groupId = groupId, userOrder = id)
         .putBean(AnyTLSBean().apply {
             name = "anytls-$id"
@@ -59,6 +62,7 @@ class ChainCommitTest {
             serverPort = 9443
             password = "fake-password-$id"
             initializeDefaultValues()
+            certificateFingerprint = CoreTestNodes.PIN
         })
 
     private fun hysteria(id: Long, groupId: Long = 1) = ProxyEntity(id = id, groupId = groupId, userOrder = id)
@@ -80,7 +84,10 @@ class ChainCommitTest {
             initializeDefaultValues()
         })
 
+    // pinned：带证书指纹且手动指定 sing-box，选核判定拒绝（sing-box 不能整证书固定）。K1 起 Trojan 带指纹自动走 Xray，
+    // 要「这一跳检查不过」得手动选 sing-box
     private fun trojan(id: Long, pinned: Boolean, groupId: Long = 1) = ProxyEntity(id = id, groupId = groupId, userOrder = id)
+        .apply { if (pinned) core = ProxyEntity.CORE_SING_BOX }
         .putBean(TrojanBean().apply {
             name = "trojan-$id"
             serverAddress = "tj$id.example.com"
@@ -282,7 +289,7 @@ class ChainCommitTest {
 
     @Test
     fun `复用的最后一跳在规划里照样检查：规则目标按快照里的记录跳过`() {
-        // 主节点 1 是调用方的对象（没有证书指纹），快照里同 id 的记录带了不受支持的证书指纹。规则目标是分组 2 的链 5
+        // 主节点 1 是调用方的对象（没有证书指纹），快照里同 id 的记录手动选了 sing-box 又带证书指纹。规则目标是分组 2 的链 5
         // （1 最先拨号 → 6 出口）：1 复用主节点建成的 proxy，但检查的是链 5 自己的那份记录，链 5 跳过
         val caller = trojan(1, pinned = false)
         val platform = FakeConfigPlatform()
@@ -296,7 +303,8 @@ class ChainCommitTest {
             ),
             platform, diagnostics,
         )
-        val reason = "trojan-1: this core cannot pin certificates; clear the fingerprint or use a core that supports it"
+        val reason = "trojan-1: the manually chosen core sing-box cannot run this profile: " +
+            "[certificateFingerprint] sing-box cannot pin a whole-certificate SHA-256 (it only pins public keys)"
         assertEquals(
             listOf(
                 ConfigBuildDiagnostic.ProfileSkipped(5, "chain-5", reason, false),
@@ -311,7 +319,7 @@ class ChainCommitTest {
 
     @Test
     fun `规划在分端口与生成凭据之前：一条链里既有检查不过的跳又分不到端口时，报的是检查，凭据也没有生成`() {
-        // 主节点是链 1：3 trojan（证书固定不受支持，最先拨号）→ 2 vless（出口，Xray 要凭据）。以前出口先分端口、
+        // 主节点是链 1：3 trojan（手动 sing-box 却带证书指纹，最先拨号）→ 2 vless（出口，Xray 要凭据）。以前出口先分端口、
         // 生成凭据，分不到端口时报端口
         val failing = FailingPorts(FakeConfigPlatform(), failAt = 1)
         val auths = Auths()

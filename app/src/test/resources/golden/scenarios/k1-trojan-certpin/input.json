@@ -1,0 +1,185 @@
+{
+  "formatVersion": 3,
+  "id": "k1-trojan-certpin",
+  "description": "对照表 6：Trojan 证书固定，走 Xray（pinnedPeerCertSha256）",
+  "mainProfileId": 1,
+  "settings": [
+    {
+      "key": "allowAccess",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "bypassLanInCore",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "clashApiSecret",
+      "type": "string",
+      "value": "c1a5ba9e5ec4e7ab0de0f0ab1ec7a5e0"
+    },
+    {
+      "key": "directDns",
+      "type": "string",
+      "value": "https://192.0.2.53/dns-query"
+    },
+    {
+      "key": "domain_strategy_for_direct",
+      "type": "string",
+      "value": "auto"
+    },
+    {
+      "key": "domain_strategy_for_remote",
+      "type": "string",
+      "value": "auto"
+    },
+    {
+      "key": "domain_strategy_for_server",
+      "type": "string",
+      "value": "auto"
+    },
+    {
+      "key": "enableClashAPI",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "enableDnsRouting",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "key": "enableFakeDns",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "key": "globalAllowInsecure",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "globalCustomConfig",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "ipv6Mode",
+      "type": "string",
+      "value": "0"
+    },
+    {
+      "key": "legacyAssetsMigrated",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "key": "logLevel",
+      "type": "string",
+      "value": "0"
+    },
+    {
+      "key": "mixedPort",
+      "type": "string",
+      "value": "2080"
+    },
+    {
+      "key": "mtu",
+      "type": "string",
+      "value": "9000"
+    },
+    {
+      "key": "remoteDns",
+      "type": "string",
+      "value": "https://dns.example.net/dns-query"
+    },
+    {
+      "key": "resolveDestination",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "serviceMode",
+      "type": "string",
+      "value": "vpn"
+    },
+    {
+      "key": "trafficSniffing",
+      "type": "string",
+      "value": "1"
+    },
+    {
+      "key": "tunImplementation",
+      "type": "string",
+      "value": "0"
+    }
+  ],
+  "effectiveSettings": {
+    "serviceMode": "vpn",
+    "allowAccess": false,
+    "bypassLanInCore": false,
+    "remoteDns": "https://dns.example.net/dns-query",
+    "directDns": "https://192.0.2.53/dns-query",
+    "enableDnsRouting": true,
+    "enableFakeDns": true,
+    "trafficSniffing": 1,
+    "resolveDestination": false,
+    "ipv6Mode": 0,
+    "logLevel": 0,
+    "mixedPort": 2080,
+    "mtu": 9000,
+    "tunImplementation": 0,
+    "globalCustomConfig": "",
+    "enableClashAPI": false,
+    "clashApiSecret": "c1a5ba9e5ec4e7ab0de0f0ab1ec7a5e0",
+    "globalAllowInsecure": false,
+    "domainStrategy": {
+      "dns-remote": "",
+      "dns-direct": "",
+      "server": "prefer_ipv4"
+    }
+  },
+  "groups": [
+    {
+      "id": 1,
+      "userOrder": 1,
+      "ungrouped": false,
+      "name": "golden-group-1",
+      "type": 0,
+      "order": 0,
+      "isSelector": false,
+      "frontProxy": -1,
+      "landingProxy": -1,
+      "proxyServerNameserver": ""
+    }
+  ],
+  "profiles": [
+    {
+      "id": 1,
+      "groupId": 1,
+      "type": 6,
+      "userOrder": 1,
+      "tx": 0,
+      "rx": 0,
+      "status": 0,
+      "ping": 0,
+      "uuid": "",
+      "error": null,
+      "core": 0,
+      "beanColumn": "trojanBean",
+      "beanClass": "io.nekohasekai.sagernet.fmt.trojan.TrojanBean",
+      "beanKryoBase64": "AgAAAAcAAAB0cm9qYW4uZXhhbXBsZS5jb+27AQAAgYB0Y/B0bPN0cm9qYW4uZXhhbXBsZS5jb+2BgQCBgYEAgQAAAAAAAAAAAAABAAAAgeABQUI6Q0Q6RUY6MDE6MjM6NDU6Njc6ODk6QUI6Q0Q6RUY6MDE6MjM6NDU6Njc6ODk6QUI6Q0Q6RUY6MDE6MjM6NDU6Njc6ODk6QUI6Q0Q6RUY6MDE6MjM6NDU6Njc6ODlnb2xkZW4tcGFzcy10cm9qYe4BAAAAZ29sZGVuLWsxLXRyb2phbi1wae6BgQ=="
+    }
+  ],
+  "rules": [],
+  "packageUids": {},
+  "plugins": {
+    "xray-plugin": "builtin",
+    "mihomo-plugin": "builtin",
+    "trojan-go-plugin": "missing",
+    "naive-plugin": "missing",
+    "mieru-plugin": "missing",
+    "hysteria-plugin": "missing"
+  }
+}

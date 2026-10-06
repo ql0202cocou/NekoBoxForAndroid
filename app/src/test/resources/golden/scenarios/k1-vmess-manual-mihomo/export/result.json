@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-k1-vmess-mihomo: the manually chosen core mihomo cannot run this profile: [profileCore] This app cannot run VMess, VLESS or Trojan on mihomo",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "the manually chosen core mihomo cannot run this profile: [profileCore] This app cannot run VMess, VLESS or Trojan on mihomo"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

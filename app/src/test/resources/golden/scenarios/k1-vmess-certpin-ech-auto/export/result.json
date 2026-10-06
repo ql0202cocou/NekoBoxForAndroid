@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-k1-pin-ech-auto: no core can fully run this profile. sing-box: [certificateFingerprint] sing-box cannot pin a whole-certificate SHA-256 (it only pins public keys). Xray: [enableECH, echConfig] This app cannot make Xray look up the ECH config; fill in the ECH config",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "no core can fully run this profile. sing-box: [certificateFingerprint] sing-box cannot pin a whole-certificate SHA-256 (it only pins public keys). Xray: [enableECH, echConfig] This app cannot make Xray look up the ECH config; fill in the ECH config"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

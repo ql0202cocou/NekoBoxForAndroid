@@ -166,7 +166,7 @@
       "ping": 0,
       "uuid": "",
       "error": null,
-      "core": 0,
+      "core": 2,
       "beanColumn": "vmessBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
       "beanKryoBase64": "BwAAAHZsZXNzLmV4YW1wbGUuY2/tuwEAAKU2YjFkMmYzYS00YzVlLTRmN2EtOWIwYy0xZDJlM2Y0YTViNmOB/////3Rj8HRs83ZsZXNzLmV4YW1wbGUuY2/taDIsaHR0cC8xLrGBAIGBgQCBAAAAAAAAAAAAAAEAAACBgQEAAABnb2xkZW4teHJheS10bPOBgQ=="

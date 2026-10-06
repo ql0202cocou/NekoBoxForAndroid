@@ -1,0 +1,71 @@
+{
+  "log": {
+    "loglevel": "warning",
+    "access": "none"
+  },
+  "inbounds": [
+    {
+      "tag": "in-0",
+      "listen": "127.0.0.1",
+      "port": 34175,
+      "protocol": "socks",
+      "settings": {
+        "auth": "password",
+        "accounts": [
+          {
+            "user": "u908acbf5f1ceb729",
+            "pass": "p3957def64022ea68403a38f8a49bc5c1"
+          }
+        ],
+        "udp": true
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "block",
+      "protocol": "blackhole"
+    },
+    {
+      "tag": "out-0",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "127.0.0.1",
+            "port": 41979,
+            "users": [
+              {
+                "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "vless.example.com"
+        }
+      },
+      "mux": {
+        "enabled": true,
+        "concurrency": 4
+      }
+    }
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": [
+          "in-0"
+        ],
+        "outboundTag": "out-0"
+      }
+    ]
+  }
+}

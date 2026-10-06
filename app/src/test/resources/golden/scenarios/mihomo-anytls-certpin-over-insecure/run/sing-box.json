@@ -69,7 +69,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 37087,
+      "listen_port": 34063,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-0-mapping-1",
@@ -81,10 +81,10 @@
   },
   "outbounds": [
     {
-      "password": "p5f41cd2c5608d36ba315342737d0fe72",
+      "password": "pef488998abaead58db92434f8c5f9264",
       "server": "127.0.0.1",
-      "server_port": 34493,
-      "username": "uc82fdbcc6b379894",
+      "server_port": 32905,
+      "username": "u2d2281a32785b514",
       "tag": "proxy",
       "type": "socks"
     },

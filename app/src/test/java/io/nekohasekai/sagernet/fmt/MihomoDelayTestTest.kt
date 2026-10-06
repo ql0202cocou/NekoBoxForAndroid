@@ -15,7 +15,8 @@ import org.junit.Test
 // 时完全相同，只是事实取自本次构建（快照里的主分组行、构建时采集的设置）。每个用例走一次真实的测速构建（快照 → 纯构建）
 class MihomoDelayTestTest {
 
-    private fun anytls(id: Long, groupId: Long = 1, core: Int? = null) =
+    // pin 为真时带证书指纹，自动选核走 mihomo；为假时自动选核走 sing-box（K1）
+    private fun anytls(id: Long, groupId: Long = 1, core: Int? = null, pin: Boolean = true) =
         ProxyEntity(id = id, groupId = groupId, userOrder = id)
             .apply { if (core != null) this.core = core }
             .putBean(AnyTLSBean().apply {
@@ -24,6 +25,7 @@ class MihomoDelayTestTest {
                 serverPort = 8443
                 password = "fake-password-$id"
                 initializeDefaultValues()
+                if (pin) certificateFingerprint = CoreTestNodes.PIN
             })
 
     private fun socks(id: Long, groupId: Long = 1) = ProxyEntity(id = id, groupId = groupId, userOrder = id)
@@ -70,8 +72,8 @@ class MihomoDelayTestTest {
     private fun measures(main: ProxyEntity, groups: List<ProxyGroup>, others: List<ProxyEntity> = emptyList()) =
         testBuild(main, groups, others).delayTestOnMihomo
 
-    // 以前的条件（TestInstance 里的 mihomoMeasuresDelay）原样抄来作对照：类型是 AnyTLS 且 needExternal，取得到分组行，
-    // 前置与落地都不大于 0。group 是测速时读到的分组行
+    // 以前的条件（TestInstance 里的 mihomoMeasuresDelay）原样抄来作对照：类型是 AnyTLS 且 needExternal（K1 起跟着选核
+    // 判定），取得到分组行，前置与落地都不大于 0。group 是测速时读到的分组行
     private fun oldCondition(profile: ProxyEntity, globalAllowInsecure: Boolean, group: () -> ProxyGroup?): Boolean {
         if (profile.type != ProxyEntity.TYPE_ANYTLS || !profile.needExternal(globalAllowInsecure)) return false
         val found = group() ?: return false
@@ -116,7 +118,9 @@ class MihomoDelayTestTest {
 
     @Test
     fun `AnyTLS 选了 sing-box 核心或主节点不是 AnyTLS 时不开`() {
-        assertFalse(measures(anytls(1, core = ProxyEntity.CORE_SING_BOX), listOf(ProxyGroup(id = 1))))
+        assertFalse(measures(anytls(1, core = ProxyEntity.CORE_SING_BOX, pin = false), listOf(ProxyGroup(id = 1))))
+        // 没有证书指纹与 certificates 的 AnyTLS 自动选核走 sing-box（K1）
+        assertFalse(measures(anytls(1, pin = false), listOf(ProxyGroup(id = 1))))
         assertFalse(measures(vless(1), listOf(ProxyGroup(id = 1))))
         assertFalse(measures(socks(1), listOf(ProxyGroup(id = 1))))
     }
@@ -142,8 +146,9 @@ class MihomoDelayTestTest {
     fun `对各种主节点、分组与设置都与以前的条件结果相同`() {
         val mains = listOf(
             anytls(1),
-            anytls(1, core = ProxyEntity.CORE_SING_BOX),
-            anytls(1, core = ProxyEntity.CORE_MIHOMO),
+            anytls(1, pin = false),
+            anytls(1, core = ProxyEntity.CORE_SING_BOX, pin = false),
+            anytls(1, core = ProxyEntity.CORE_MIHOMO, pin = false),
             vless(1),
             socks(1),
             chain(1, 2),

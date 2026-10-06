@@ -214,7 +214,7 @@
       }
     },
     "selector-bad-members": {
-      "note": "只有运行模式按选择器构建，成员按 userOrder 逐个预检，主节点 1 不预检。2 TUIC v4（buildInternalOutbound）；3 Trojan 带证书指纹（certificatePinUnsupported，非 VMess / AnyTLS 一律不支持）；4 WireGuard reserved 只有两字节；5 强制 sing-box 的 VLESS REALITY 带 mldsa65Verify（mldsa65VerifyUnsupported）；6 type 1 自定义出站 JSON 解析失败（gson 的 EOFException 文本）；7 VMess 的 xhttp 传输（走 sing-box，不支持）；8 AnyTLS 证书解析失败（预检试组装 mihomo 配置时报，顶层消息不含平台相关的 cause）。都经 withProfileName 包上成员自己的名字，reasonNamesProfile 为 true",
+      "note": "只有运行模式按选择器构建，成员按 userOrder 逐个预检，主节点 1 不预检。2 TUIC v4（buildInternalOutbound）；3 Trojan 带证书指纹且手动指定 sing-box（K1 起 Trojan 带指纹自动走 Xray，夹具改为手动 sing-box 以保留「预检失败」的意图）：能力表判定手动 sing-box 有冲突 SING_BOX_CERTIFICATE_PIN，requireBuildableHop 按 CoreDecision.Rejected.message 报「the manually chosen core sing-box cannot run this profile: [字段键] 原因」；4 WireGuard reserved 只有两字节；5 强制 sing-box 的 VLESS REALITY 带 mldsa65Verify：同 3，冲突 SING_BOX_MLDSA65_VERIFY，字段键 realityMldsa65Verify；6 type 1 自定义出站 JSON 解析失败（gson 的 EOFException 文本）；7 VMess 的 xhttp 传输，自动选核：能力表对 sing-box 与 Xray 都报 TRANSPORT_UNKNOWN（取值 xhttp），按偏好顺序（不是 REALITY，sing-box 在前）分组成「no core can fully run this profile. sing-box: … Xray: …」，在 requireBuildableHop 拒绝，不再走到 sing-box 生成器的 unsupported transport；8 AnyTLS 证书解析失败（带 certificates 自动选核走 mihomo，预检试组装 mihomo 配置时报，顶层消息不含平台相关的 cause）。都经 withProfileName 包上成员自己的名字，reasonNamesProfile 为 true",
       "run": {
         "diagnostics": [
           {
@@ -228,7 +228,7 @@
             "type": "ProfileSkipped",
             "profileId": 3,
             "profileName": "golden-sel-trojan-pin",
-            "reason": "golden-sel-trojan-pin: this core cannot pin certificates; clear the fingerprint or use a core that supports it",
+            "reason": "golden-sel-trojan-pin: the manually chosen core sing-box cannot run this profile: [certificateFingerprint] sing-box cannot pin a whole-certificate SHA-256 (it only pins public keys)",
             "reasonNamesProfile": true
           },
           {
@@ -242,7 +242,7 @@
             "type": "ProfileSkipped",
             "profileId": 5,
             "profileName": "golden-sel-mldsa",
-            "reason": "golden-sel-mldsa: REALITY mldsa65Verify only works on the Xray core; switch this profile to the Xray core or clear mldsa65Verify",
+            "reason": "golden-sel-mldsa: the manually chosen core sing-box cannot run this profile: [realityMldsa65Verify] sing-box cannot verify REALITY mldsa65Verify",
             "reasonNamesProfile": true
           },
           {
@@ -256,7 +256,7 @@
             "type": "ProfileSkipped",
             "profileId": 7,
             "profileName": "golden-sel-xhttp",
-            "reason": "golden-sel-xhttp: unsupported transport \"xhttp\"",
+            "reason": "golden-sel-xhttp: no core can fully run this profile. sing-box: [type] This app does not support the transport (xhttp). Xray: [type] This app does not support the transport (xhttp)",
             "reasonNamesProfile": true
           },
           {
@@ -269,11 +269,11 @@
         ],
         "warnings": [
           "profile 2 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-tuic-v4: TUIC v4 is no longer supported",
-          "profile 3 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-trojan-pin: this core cannot pin certificates; clear the fingerprint or use a core that supports it",
+          "profile 3 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-trojan-pin: the manually chosen core sing-box cannot run this profile: [certificateFingerprint] sing-box cannot pin a whole-certificate SHA-256 (it only pins public keys)",
           "profile 4 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-wg-bad: WireGuard reserved must contain exactly three bytes (0..255)",
-          "profile 5 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-mldsa: REALITY mldsa65Verify only works on the Xray core; switch this profile to the Xray core or clear mldsa65Verify",
+          "profile 5 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-mldsa: the manually chosen core sing-box cannot run this profile: [realityMldsa65Verify] sing-box cannot verify REALITY mldsa65Verify",
           "profile 6 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-custom-broken: java.io.EOFException: End of input at line 1 column 15 path $.",
-          "profile 7 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-xhttp: unsupported transport \"xhttp\"",
+          "profile 7 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-xhttp: no core can fully run this profile. sing-box: [type] This app does not support the transport (xhttp). Xray: [type] This app does not support the transport (xhttp)",
           "profile 8 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-anytls-bad-ca: Invalid AnyTLS certificate for mihomo fingerprint pinning"
         ]
       }

@@ -8,72 +8,53 @@ import io.nekohasekai.sagernet.fmt.LegacyCoreSelection.Outcome
 import io.nekohasekai.sagernet.fmt.LegacyCoreSelection.Rejection
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
-import io.nekohasekai.sagernet.fmt.v2ray.buildXrayOutbound
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.security.MessageDigest
 import java.util.Random
 
-// 冻结副本（LegacyCoreSelection）与 1.8.0-a3 现行实现逐项相同：resolvedCore、coreForType、needExternal、
-// certificatePinUnsupported、mldsa65VerifyUnsupported，以及 buildXrayOutbound 开头的两条报错。
+// 冻结副本（LegacyCoreSelection）的真值表。
 //
-// 注意：这条对照只在原函数还在时成立。K1 接线时删掉或改写 ProxyEntity.resolvedCore / coreForType / needExternal /
-// certificatePinUnsupported / mldsa65VerifyUnsupported、或放宽 buildXrayOutbound 的那个代理，要把本测试改成钉住真值表
-// （把下面穷举的结果固定成预期），不能随原函数一起删掉
+// K1 接线之前，本测试逐项对照冻结副本与当时的现行实现（ProxyEntity.resolvedCore、coreForType、needExternal、
+// certificatePinUnsupported、mldsa65VerifyUnsupported，以及 buildXrayOutbound 开头的两条报错），全部相同。
+// 接线删掉了这些函数，对照改为钉住当时对照通过的结果：下面两组样本（穷举、固定种子的随机样本）逐个节点算出冻结
+// 副本的全部判定，按行拼起来取 SHA-256，并记下结果分布。摘要与分布是在接线之前的代码上（接线提交的父提交，原函数
+// 还在、原对照测试通过）算出的，以后冻结副本被误改，摘要就对不上。
+//
+// 摘要也取决于样本的生成（CoreTestNodes 的穷举取值与 randomSelectable / randomOther）：改动那里时，先在改动前的
+// 代码上确认本测试通过，再按新样本重算摘要，不能拿冻结副本改过之后的结果回填
 class LegacyCoreSelectionTest {
 
-    private val settings = { global: Boolean -> ExternalCoreSettings(logLevel = 0, ipv6Mode = 0, globalAllowInsecure = global) }
-
-    // 现行实现给出的结果，按冻结副本的 Outcome 表示
-    private fun currentOutcome(node: Node): Outcome {
-        val entity = node.entity()
-        if (entity.certificatePinUnsupported(node.global)) return Outcome.Rejected(Rejection.CERTIFICATE_PIN)
-        if (entity.mldsa65VerifyUnsupported(node.global) != null) return Outcome.Rejected(Rejection.MLDSA65_VERIFY)
-        if (!entity.needExternal(node.global)) return Outcome.Carried(Carrier.SING_BOX)
-        return when (entity.type) {
-            ProxyEntity.TYPE_VMESS -> {
-                val error = runCatching {
-                    buildXrayOutbound(node.bean as VMessBean, "127.0.0.1", 20000, settings(node.global))
-                }.exceptionOrNull()
-                when {
-                    error == null -> Outcome.Carried(Carrier.XRAY)
-                    error.message!!.startsWith("xray-core no longer supports the ") ->
-                        Outcome.Rejected(Rejection.XRAY_TRANSPORT)
-
-                    error.message!!.startsWith("xray-core no longer supports allowInsecure") ->
-                        Outcome.Rejected(Rejection.XRAY_ALLOW_INSECURE)
-
-                    else -> throw AssertionError("buildXrayOutbound 报了选核以外的错：${error.message}", error)
-                }
-            }
-
-            ProxyEntity.TYPE_ANYTLS -> Outcome.Carried(Carrier.MIHOMO)
-            else -> Outcome.Carried(Carrier.PLUGIN)
-        }
+    // 一个节点在冻结副本下的全部判定，一行
+    private fun row(node: Node): String {
+        val type = node.entity().type
+        val core = node.core
+        val bean = node.bean
+        val global = node.global
+        return listOf(
+            type, core, global, bean.javaClass.simpleName,
+            LegacyCoreSelection.resolvedCore(type, core, bean, global),
+            LegacyCoreSelection.coreForType(type, bean, global),
+            LegacyCoreSelection.needExternal(type, core, bean, global),
+            LegacyCoreSelection.certificatePinUnsupported(type, core, bean, global),
+            LegacyCoreSelection.mldsa65VerifyUnsupported(type, core, bean, global),
+            LegacyCoreSelection.carrier(type, core, bean, global),
+            LegacyCoreSelection.outcome(type, core, bean, global),
+        ).joinToString("|")
     }
 
-    private fun assertSame(node: Node) {
-        val entity = node.entity()
-        val label = "type=${node.type} core=${node.core} global=${node.global} bean=${node.bean.javaClass.simpleName}"
-        val type = entity.type
-        assertEquals(label, entity.resolvedCore(node.global), LegacyCoreSelection.resolvedCore(type, node.core, node.bean, node.global))
-        assertEquals(label, entity.coreForType(node.global), LegacyCoreSelection.coreForType(type, node.bean, node.global))
-        assertEquals(label, entity.needExternal(node.global), LegacyCoreSelection.needExternal(type, node.core, node.bean, node.global))
-        assertEquals(
-            label, entity.certificatePinUnsupported(node.global),
-            LegacyCoreSelection.certificatePinUnsupported(type, node.core, node.bean, node.global),
-        )
-        assertEquals(
-            label, entity.mldsa65VerifyUnsupported(node.global) != null,
-            LegacyCoreSelection.mldsa65VerifyUnsupported(type, node.core, node.bean, node.global),
-        )
-        assertEquals(label, currentOutcome(node), LegacyCoreSelection.outcome(type, node.core, node.bean, node.global))
-    }
+    private fun sha256(rows: List<String>): String = MessageDigest.getInstance("SHA-256")
+        .digest(rows.joinToString("\n").toByteArray())
+        .joinToString("") { "%02x".format(it) }
+
+    private fun distribution(nodes: List<Node>): Map<String, Int> = nodes
+        .groupingBy { LegacyCoreSelection.outcome(it.type, it.core, it.bean, it.global).toString() }
+        .eachCount().toSortedMap()
 
     // VMess / VLESS 的决定因素逐个穷举：协议、证书指纹、传输、安全层（含 REALITY）、节点与全局 allowInsecure、全部 core 取值
-    @Test
-    fun `VMess 与 VLESS 的决定因素穷举`() {
-        var count = 0
+    private fun exhaustiveNodes(): List<Node> {
+        val nodes = ArrayList<Node>()
         for (vless in listOf(false, true)) for (pin in listOf(false, true)) for (transport in CoreTestNodes.TRANSPORT_SAMPLES)
             for (security in listOf("none", "tls", "reality")) for (insecure in listOf(false, true))
                 for (mldsa in listOf(false, true)) for (global in listOf(false, true)) for (core in CoreTestNodes.CORE_SAMPLES) {
@@ -88,32 +69,40 @@ class LegacyCoreSelectionTest {
                         allowInsecure = insecure
                     }
                     val bean = if (vless) CoreTestNodes.vless(build) else CoreTestNodes.vmess(build)
-                    assertSame(CoreTestNodes.node(bean.clone(), core, global))
-                    count++
+                    nodes += CoreTestNodes.node(bean.clone(), core, global)
                 }
-        assertEquals(2 * 2 * 6 * 3 * 2 * 2 * 2 * CoreTestNodes.CORE_SAMPLES.size, count)
+        return nodes
+    }
+
+    private fun randomNodes(): List<Node> {
+        val random = Random(20261006)
+        return List(20_000) { CoreTestNodes.randomSelectable(random) } + List(5_000) { CoreTestNodes.randomOther(random) }
     }
 
     @Test
-    fun `随机节点逐项相同`() {
-        val random = Random(20261006)
-        val seen = HashMap<Outcome, Int>()
-        val nodes = List(20_000) { CoreTestNodes.randomSelectable(random) } + List(5_000) { CoreTestNodes.randomOther(random) }
-        for (node in nodes) {
-            assertSame(node)
-            seen.merge(LegacyCoreSelection.outcome(node.type, node.core, node.bean, node.global), 1, Int::plus)
-        }
-        // 每一种结果都要被随机样本覆盖到，对照才有意义
+    fun `VMess 与 VLESS 的决定因素穷举`() {
+        val nodes = exhaustiveNodes()
+        assertEquals(2 * 2 * 6 * 3 * 2 * 2 * 2 * CoreTestNodes.CORE_SAMPLES.size, nodes.size)
+        assertEquals(EXHAUSTIVE_DISTRIBUTION, distribution(nodes))
+        assertEquals(EXHAUSTIVE_SHA256, sha256(nodes.map(::row)))
+    }
+
+    @Test
+    fun `随机节点的判定不变`() {
+        val nodes = randomNodes()
+        val seen = distribution(nodes)
+        assertEquals(RANDOM_DISTRIBUTION, seen)
+        assertEquals(RANDOM_SHA256, sha256(nodes.map(::row)))
+        // 每一种结果都要被随机样本覆盖到，钉住的摘要才有意义
         val expected = Carrier.entries.map { Outcome.Carried(it) } + Rejection.entries.map { Outcome.Rejected(it) }
-        assertEquals(expected.toSet(), seen.keys)
+        assertEquals(expected.map { it.toString() }.toSortedSet(), seen.keys)
     }
 
     @Test
     fun `Neko 节点一律走插件`() {
         // NekoBean 不能在 JVM 上构造运行，Neko 分支也不读 bean
-        val entity = ProxyEntity(type = ProxyEntity.TYPE_NEKO)
         val dummy = SOCKSBean().apply { initializeDefaultValues() }
-        assertEquals(entity.needExternal(false), LegacyCoreSelection.needExternal(ProxyEntity.TYPE_NEKO, 0, dummy, false))
+        assertTrue(LegacyCoreSelection.needExternal(ProxyEntity.TYPE_NEKO, 0, dummy, false))
         assertEquals(Carrier.PLUGIN, LegacyCoreSelection.carrier(ProxyEntity.TYPE_NEKO, 0, dummy, false))
     }
 
@@ -129,5 +118,29 @@ class LegacyCoreSelectionTest {
             LegacyCoreSelection.outcome(type, ProxyEntity.CORE_XRAY, bean, true),
         )
         assertTrue(LegacyCoreSelection.outcome(type, 0, bean, true) == Outcome.Carried(Carrier.SING_BOX))
+    }
+
+    companion object {
+        // 以下取值在接线之前的代码上算出（见文件头）
+        const val EXHAUSTIVE_SHA256 = "82dca969c480bfe2290ead7eec80cd1724d5a6c2395ec5c3adfb163a5aff3d1d"
+        val EXHAUSTIVE_DISTRIBUTION: Map<String, Int> = sortedMapOf(
+            "Carried(carrier=SING_BOX)" to 1548,
+            "Carried(carrier=XRAY)" to 584,
+            "Rejected(rejection=CERTIFICATE_PIN)" to 832,
+            "Rejected(rejection=MLDSA65_VERIFY)" to 236,
+            "Rejected(rejection=XRAY_ALLOW_INSECURE)" to 96,
+            "Rejected(rejection=XRAY_TRANSPORT)" to 160,
+        )
+        const val RANDOM_SHA256 = "d869155e98c51eea4a5917e0ac631eefd465122e44bc458331d871a64f2a6655"
+        val RANDOM_DISTRIBUTION: Map<String, Int> = sortedMapOf(
+            "Carried(carrier=MIHOMO)" to 1649,
+            "Carried(carrier=PLUGIN)" to 1672,
+            "Carried(carrier=SING_BOX)" to 13692,
+            "Carried(carrier=XRAY)" to 1444,
+            "Rejected(rejection=CERTIFICATE_PIN)" to 4671,
+            "Rejected(rejection=MLDSA65_VERIFY)" to 1066,
+            "Rejected(rejection=XRAY_ALLOW_INSECURE)" to 304,
+            "Rejected(rejection=XRAY_TRANSPORT)" to 502,
+        )
     }
 }

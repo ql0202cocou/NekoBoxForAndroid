@@ -68,7 +68,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 35539,
+      "listen_port": 35835,
       "override_address": "2001:db8::60",
       "override_port": 8443,
       "tag": "c-0-mapping-1",
@@ -80,10 +80,10 @@
   },
   "outbounds": [
     {
-      "password": "pa6e5660c3783b29aaa192cf1978e901c",
+      "password": "pff6dffbd1d8cca1900cca0811408e3c2",
       "server": "127.0.0.1",
-      "server_port": 35841,
-      "username": "u2fd8801aacb989f4",
+      "server_port": 42703,
+      "username": "u1f5311c516d5a444",
       "tag": "proxy",
       "type": "socks"
     },

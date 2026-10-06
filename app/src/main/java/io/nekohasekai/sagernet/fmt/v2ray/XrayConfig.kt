@@ -13,17 +13,20 @@ import moe.matsuri.nb4a.utils.echAsBase64
 import moe.matsuri.nb4a.utils.listByLineOrComma
 
 // Xray-core 已移除单独的 h2（带 TLS 的 "http"）与 quic 传输：固定版本对这类配置报「The feature HTTP transport
-// … has been removed」/「The feature QUIC transport … has been removed」。sing-box 仍实现两者，这类节点只能
-// 跑在 sing-box 上，选核（coreForType）据此不选 Xray。VMess / VLESS / Trojan 共用
+// … has been removed」/「The feature QUIC transport … has been removed」。选核由能力表决定（XRAY_TRANSPORT_H2 /
+// XRAY_TRANSPORT_QUIC），这里只是生成器的最后一道防线：判定之外的调用方把这类节点交给 Xray 时报错，
+// 不生成核心会拒绝的配置。VMess / VLESS / Trojan 共用
 fun StandardV2RayBean.xrayLacksTransport(): Boolean =
     type == "quic" || (type == "http" && isTLS())
 
 // Xray-core 自 2026-06-01 起在生成配置时拒绝 allowInsecure（已移除的功能，见固定版本 v26.3.27 的
-// infra/conf/transport_internet.go）；sing-box 仍支持 "insecure"，所以这类节点改走 sing-box，与
-// xrayLacksTransport 同样的回退。证书固定不受影响：pinnedPeerCertSha256 是官方给的替代，本来就优先于
-// allowInsecure。全局开关由调用方传入：选核（coreForType）与 buildXrayConfig 共用
+// infra/conf/transport_internet.go）。证书固定不受影响：pinnedPeerCertSha256 是官方给的替代，本来就优先于
+// allowInsecure。REALITY 节点不算：REALITY 分支不写 allowInsecure（REALITY 不验证服务端证书）。
+// 选核由能力表决定（XRAY_ALLOW_INSECURE），这里同 xrayLacksTransport 只是生成器的最后一道防线；
+// 全局开关由调用方传入（buildXrayOutbound 取 ExternalCoreSettings）
 fun StandardV2RayBean.xrayLacksAllowInsecure(globalAllowInsecure: Boolean): Boolean =
-    isTLS() && certificateFingerprint.isBlank() && effectiveAllowInsecure(allowInsecure, globalAllowInsecure)
+    isTLS() && realityPubKey.isNullOrBlank() && certificateFingerprint.isNullOrBlank() &&
+        effectiveAllowInsecure(allowInsecure, globalAllowInsecure)
 
 // 没有路由规则命中的流量走 outbounds 的第一项，所以第一项固定是 blackhole：漏了规则的入站只会丢流量，
 // 不会串到某个节点
@@ -183,7 +186,7 @@ fun buildXrayOutbound(
     }
 }
 
-// Xray 不能表达的传输与生效的 allowInsecure：生成前报错，VMess / VLESS / Trojan 共用
+// Xray 不能表达的传输与生效的 allowInsecure：生成前报错（选核判定已排除这两类，这里兜底），VMess / VLESS / Trojan 共用
 private fun requireXrayStream(bean: StandardV2RayBean, globalAllowInsecure: Boolean) {
     if (bean.xrayLacksTransport()) {
         error("xray-core no longer supports the ${bean.type} transport, use the sing-box core for this profile")
@@ -304,9 +307,9 @@ private fun buildXrayStreamSettings(bean: StandardV2RayBean, globalAllowInsecure
                         "Invalid certificate fingerprint: expected a SHA-256 digest of 64 hex characters (colons allowed)"
                     }
                     put("pinnedPeerCertSha256", certPin)
-                } else if (effectiveAllowInsecure(bean.allowInsecure, globalAllowInsecure)) {
-                    put("allowInsecure", true)
                 }
+                // 从不写 allowInsecure：Xray 已移除这个功能（见 xrayLacksAllowInsecure），能力表也不让这类节点走 Xray；
+                // 没有证书指纹而 allowInsecure 生效的节点在 requireXrayStream 已报错，到不了这里
                 fp?.let { put("fingerprint", it) }
                 if (bean.certificates.isNotBlank()) {
                     put("certificates", ArrayList<Any?>().apply {

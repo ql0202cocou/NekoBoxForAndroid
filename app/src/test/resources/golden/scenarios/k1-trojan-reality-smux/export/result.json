@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-k1-trojan-reality-smux.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

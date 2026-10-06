@@ -16,6 +16,18 @@ Xray 的各入站要求同一组凭据（`auth` / `accounts`，并关掉访问�
 的结果，并再采集一次做完整比较。四种插件核心的入站认证没有核实过，配置与 v2 逐字节相同，sing-box 一侧接它们的
 socks 出站也不带凭据。
 
+K1（能力表选核）改了选核本身，格式仍是 v3。已有场景一个都没改名、没删：测「某个核心上的某个特性」或合并配置的场景，
+凡自动选核会换核的，夹具改为手动指定原来的核心（只有 `input.json` 的 `core` 变，产物逐字节不变）；手动指定原核心后
+在能力表下成为冲突、而意图可以用 K1 的写法表达的（Xray 上开 mux 改成 Mux.Cool、ws early data 写明
+Sec-WebSocket-Protocol 头名），夹具改成 K1 的写法，产物同样不变；意图就是那个冲突字段本身的（Xray 上的 packetaddr、
+ECH 自动查询），保留夹具，产物变成「拒绝并列出冲突字段」。测自动选核本身的场景（全局 allowInsecure 下的 REALITY）保留
+自动，接受新输出；选核相关的报错文本统一换成能力表的写法。另加 31 个 `k1-` 场景钉住选核变更对照表的每一行与
+手动值、mux 协议族、Trojan 走 Xray 等组合。换基线时 81 个已有场景有变化：60 个只改 `core`、4 个改成 K1 的写法（这 64 个
+产物不变）、2 个自动选核变化（全局 allowInsecure 下的 REALITY 改走 Xray，其中一个另把 AnyTLS 改为手动 mihomo）、13 个
+报错文本变化（其中 2 个同时改为手动 sing-box）、2 个变为拒绝；内置核心对全部 281 份合并配置的校验通过。
+`manifest.json` 的 `commit` 记录的是采集时工作副本的提交，整理历史后可能在 main 里查不到，核对以树哈希为准
+（对照工具只把它拼进显示文字）。
+
 采集入口只编进 debug 包（`app/src/debug/`）。采集入口与实测入口保留到 K1 阶段完成之后（维护者 2026-10-05 决定）：
 R1b 的 JVM 黄金测试（见「JVM 黄金测试」一节）不覆盖 Android 一侧的外壳（DataStore 的默认值、Room 读取事务、
 PackageCache、插件探测）与内置核心对合并配置的校验，这两样只有模拟器重新采集能对照。这份基线不随入口删除。
@@ -94,7 +106,7 @@ socks 出站的凭据）。`input.json` 与 `address/corpus.json` 顶层的 `for
 ```
 
 配置构建只消费注入的输入（`fmt/ConfigInput.kt`）之后，整条构建能在普通 JVM 上跑。`GoldenJvmBuildTest` 对本目录
-每个场景的每种模式（293 × 3）：用 `input.json` 的 `groups` / `profiles` / `rules` 建内存数据源（查询语义同 DAO），
+每个场景的每种模式（324 × 3）：用 `input.json` 的 `groups` / `profiles` / `rules` 建内存数据源（查询语义同 DAO），
 设置取 `effectiveSettings`（Clash API secret 只在运行模式且开了 Clash API 时取，同生产外壳），包名 UID 取
 `packageUids`，插件状态按 `plugins` 回答（`missing` 即「plugin X is not installed」）；再走
 「采集引用闭包（`ConfigSnapshot.collect`）→ 纯构建入口 `buildConfig(input)` → `ExternalRunPlan.from` →
@@ -215,7 +227,7 @@ address/corpus.json                                        地址解析语料与
 | `plugins` | 六个外核插件 id 的状态：`builtin`、`missing` 或 `external:<包名>` |
 | `system` | API 级别（`sdkInt`、`sdkIntFull`）、系统版本、build fingerprint、ABI、页大小、语言 |
 | `scenarios` / `counts` | 场景数与各模式成功 / 失败的数量 |
-| `externalChecks` | run / test 模式里启动前校验的次数（每组 Xray / mihomo 合并配置一次）：`checked`、`failed`、`inconclusive`（超时、被信号杀掉、进程起不来，照常继续）的总数，`byPlugin` 按插件 id 分开计（另有 `passed`），`problems` 逐条列出没过与没有结论的场景、模式、插件与原因。基线全部场景的合并配置（Xray 167 份、mihomo 87 份）都应被校验且全部通过 |
+| `externalChecks` | run / test 模式里启动前校验的次数（每组 Xray / mihomo 合并配置一次）：`checked`、`failed`、`inconclusive`（超时、被信号杀掉、进程起不来，照常继续）的总数，`byPlugin` 按插件 id 分开计（另有 `passed`），`problems` 逐条列出没过与没有结论的场景、模式、插件与原因。基线全部场景的合并配置（Xray 190 份、mihomo 91 份）都应被校验且全部通过 |
 | `collectedAt` | 采集时间（UTC）；两次采集之间只有它允许不同 |
 
 ## input.json
@@ -313,8 +325,11 @@ socks 出站与入站都没有；同一份 sing-box 配置里本机凭据只有�
 
 场景表在 `app/src/debug/java/io/nekohasekai/sagernet/golden/collect/GoldenScenarios.kt`，按类别分组：
 单节点（sing-box、Xray、mihomo、插件核心）、自定义配置、链、分组前置 / 落地、选择器、路由规则、设置变体、
-分组 DNS、同核心多节点（`multi-` 前缀）。新增场景只往表里加；场景 id 入库后不要改名。目前 293 个场景
-（279 个按单项特性分类的，加 14 个 `multi-` 场景）。
+分组 DNS、同核心多节点（`multi-` 前缀）、K1 选核（`k1-` 前缀）。新增场景只往表里加；场景 id 入库后不要改名。
+目前 324 个场景（279 个按单项特性分类的，加 14 个 `multi-` 场景、31 个 `k1-` 场景）。
+
+`k1-` 场景的描述写明预期（选中的核心或拒绝），「对照表 N」指 K1 选核变更对照表的第 N 行；夹具都是 K1 写出的数据，
+手动核心值照原样生效（存量数据的升级标注不经过这里，由 `LegacyProfileUpgradeTest` 等单测覆盖）。
 
 `multi-` 场景专门覆盖「一次构建里同一种外核（Xray 或 mihomo）有多个节点」，也就是 K0 把同核心节点合进一份配置、
 一个进程时要改变的情形；在 K0 之前采集，记下每个节点各占一个进程、各有一份配置的旧输出。来路包括：选择器分组里

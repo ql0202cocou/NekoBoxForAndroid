@@ -148,4 +148,27 @@ class XrayConfigTest {
             e.message,
         )
     }
+
+    // REALITY 分支本来就不写 allowInsecure：全局与节点的「允许不安全」都不该让它报错（K1 之前这里把 REALITY 节点误判成
+    // 不支持 allowInsecure）
+    @Test
+    fun `REALITY 节点在全局允许不安全时照常生成`() {
+        for (nodeInsecure in listOf(false, true)) {
+            val stream = build(
+                bean(vless = true) {
+                    security = "tls"
+                    sni = "sni.example.com"
+                    realityPubKey = realityKey
+                    allowInsecure = nodeInsecure
+                },
+                settings.copy(globalAllowInsecure = true),
+            ).stream()
+            assertJson(
+                """{"network":"tcp","security":"reality","realitySettings":""" +
+                    """{"serverName":"sni.example.com","publicKey":"$realityKey","fingerprint":"chrome"}}""",
+                stream,
+            )
+        }
+        assertFalse(bean(vless = true) { security = "tls"; realityPubKey = realityKey }.xrayLacksAllowInsecure(true))
+    }
 }

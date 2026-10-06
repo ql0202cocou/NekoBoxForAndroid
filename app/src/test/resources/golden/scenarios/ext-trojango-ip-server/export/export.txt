@@ -75,7 +75,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 44283,
+      "listen_port": 35173,
       "override_address": "198.51.100.70",
       "override_port": 443,
       "tag": "c-0-mapping-1",
@@ -88,7 +88,7 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 38351,
+      "server_port": 45561,
       "tag": "proxy",
       "type": "socks"
     },
@@ -147,9 +147,9 @@
 {
   "run_type": "client",
   "local_addr": "127.0.0.1",
-  "local_port": 38351,
+  "local_port": 45561,
   "remote_addr": "127.0.0.1",
-  "remote_port": 44283,
+  "remote_port": 35173,
   "password": [
     "golden-pass-trojan-go"
   ],

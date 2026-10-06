@@ -1,15 +1,18 @@
 {
-  "status": "ok",
-  "exportName": "profiles.txt",
-  "dynamic": {
-    "ports": [
-      42645,
-      37967
-    ],
-    "paths": [],
-    "secrets": [
-      "u91641faab3977b69",
-      "p16eb964637469c2403de1a75dea6c8c8"
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-xray-ech-auto: the manually chosen core Xray cannot run this profile: [enableECH, echConfig] This app cannot make Xray look up the ECH config; fill in the ECH config",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "the manually chosen core Xray cannot run this profile: [enableECH, echConfig] This app cannot make Xray look up the ECH config; fill in the ECH config"
+      }
     ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
   }
 }

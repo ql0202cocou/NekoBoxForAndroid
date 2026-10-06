@@ -73,7 +73,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 33315,
+      "listen_port": 35907,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-2-mapping-2",
@@ -81,7 +81,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 36993,
+      "listen_port": 36041,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-3-mapping-3",
@@ -127,18 +127,18 @@
       "type": "vmess"
     },
     {
-      "password": "p91073dbb7d50aeca16fc3828acddfa2c",
+      "password": "pb6c4281bd605847db48788ff5b59e16c",
       "server": "127.0.0.1",
-      "server_port": 46645,
-      "username": "u958187f58f484143",
+      "server_port": 36337,
+      "username": "u41487daabd1d765e",
       "tag": "golden-sel-xray",
       "type": "socks"
     },
     {
-      "password": "p91073dbb7d50aeca16fc3828acddfa2c",
+      "password": "pb6c4281bd605847db48788ff5b59e16c",
       "server": "127.0.0.1",
-      "server_port": 35607,
-      "username": "u958187f58f484143",
+      "server_port": 39823,
+      "username": "u41487daabd1d765e",
       "tag": "golden-sel-anytls",
       "type": "socks"
     },

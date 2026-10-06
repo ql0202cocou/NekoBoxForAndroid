@@ -2,9 +2,6 @@ package io.nekohasekai.sagernet.fmt
 
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.ProxyEntity
-import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_MIHOMO
-import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_SING_BOX
-import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_ANYTLS
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_CHAIN
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_CONFIG
@@ -22,7 +19,6 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_TROJAN_GO
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_TUIC
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_VMESS
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_WG
-import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.http.toUri
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
@@ -62,8 +58,6 @@ import io.nekohasekai.sagernet.fmt.v2ray.effectiveUtlsFingerprint
 import io.nekohasekai.sagernet.fmt.v2ray.isTLS
 import io.nekohasekai.sagernet.fmt.v2ray.muxProtocolName
 import io.nekohasekai.sagernet.fmt.v2ray.toUriVMessVLESSTrojan
-import io.nekohasekai.sagernet.fmt.v2ray.xrayLacksAllowInsecure
-import io.nekohasekai.sagernet.fmt.v2ray.xrayLacksTransport
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import io.nekohasekai.sagernet.fmt.wireguard.buildSingBoxEndpointWireGuardBean
 import io.nekohasekai.sagernet.ktx.Logs
@@ -169,80 +163,27 @@ fun ProxyEntity.haveLink(): Boolean {
     }
 }
 
-// type -> ProxyEntity.core 为 CORE_AUTO 时用的核心（原为 ProxyEntity.resolvedCore 里的 when）。
-// globalAllowInsecure 是全局「允许不安全」：它让 Xray 拒绝的 allowInsecure 生效，节点因此改走 sing-box
-fun ProxyEntity.coreForType(globalAllowInsecure: Boolean): Int {
-    return when (type) {
-        // xray dropped the h2/quic transports and, after 2026-06-01,
-        // allowInsecure; those profiles only run on sing-box.
-        // 设了证书指纹的 VMess 也优先 Xray：sing-box 不支持这个固定，会拒绝构建
-        // （见 buildSingBoxOutboundTLS）
-        TYPE_VMESS -> vmessBean!!.let { bean ->
-            val preferXray = bean.isVLESS || bean.certificateFingerprint.isNotBlank()
-            if (preferXray && !bean.xrayLacksTransport() && !bean.xrayLacksAllowInsecure(globalAllowInsecure)) CORE_XRAY
-            else CORE_SING_BOX
-        }
-
-        TYPE_ANYTLS -> CORE_MIHOMO
-        else -> CORE_SING_BOX
-    }
-}
-
-// 应用保存的是整张证书的 SHA-256 指纹，只有 Xray（VMess / VLESS）与 mihomo（AnyTLS）能按它固定。
-// sing-box 有公钥固定（certificate_public_key_sha256，SPKI 哈希），但与整证书指纹不是一回事、
-// 不能通用；hysteria v1 插件没有对应选项。唯一判断点：运行 / 测试 / 导出 / 预检都经
-// requireBuildableHop（ChainPlan.kt）按它拒绝，编辑器保存时也按它提前拦下。构建传入设置快照里的全局「允许不安全」
-fun ProxyEntity.certificatePinUnsupported(globalAllowInsecure: Boolean): Boolean {
-    val pin = tlsFields(requireBean())?.certificateFingerprint
-    if (pin.isNullOrBlank()) return false
-    return when (type) {
-        TYPE_VMESS -> resolvedCore(globalAllowInsecure) != CORE_XRAY
-        TYPE_ANYTLS -> resolvedCore(globalAllowInsecure) != CORE_MIHOMO
-        else -> true
-    }
-}
-
-// 构建之外的调用方（编辑器保存时）用：全局「允许不安全」取 DataStore 当前值
-fun ProxyEntity.certificatePinUnsupported(): Boolean = certificatePinUnsupported(DataStore.globalAllowInsecure)
-
 // REALITY 真正生效且配了 mldsa65Verify。编辑器里关掉 TLS 后隐藏的 REALITY 字段仍留在 bean 里，
 // 与 buildXrayConfig 一样以 security 开关为准，残留字段不算
 fun StandardV2RayBean.realityMldsa65VerifyActive(): Boolean =
     security == "tls" && !realityPubKey.isNullOrBlank() && !realityMldsa65Verify.isNullOrBlank()
 
-// mldsa65Verify（REALITY 后量子校验）只有 Xray 支持，sing-box 会把它悄悄丢掉。最终核心不是 Xray
-// 时返回拒绝原因，null 表示放行。core 只在字段生效时才取（resolvedCore 间接读设置）。
-// 判断点同 certificatePinUnsupported：requireBuildableHop（ChainPlan.kt）与编辑器保存
-fun mldsa65VerifyUnsupported(type: Int, bean: AbstractBean, core: () -> Int): String? {
-    if (bean !is StandardV2RayBean || !bean.realityMldsa65VerifyActive()) return null
-    return when (type) {
-        TYPE_VMESS -> if (core() == CORE_XRAY) null
-        else "REALITY mldsa65Verify only works on the Xray core; switch this profile to the Xray core or clear mldsa65Verify"
+// 该节点是否跑在外部核心进程上，跟着能力表的判定（ProxyEntity.coreDecision，CoreSelection.kt）走：
+// - 能选核的协议（VMess / VLESS / Trojan / AnyTLS）：选中 Xray 或 mihomo 为真，选中 sing-box 为假；
+// - 不能选核的协议：承载方式沿用现状，插件协议与 Neko 为真，hysteria 看 sing-box 能不能承载，其余为假；
+// - 被拒绝的节点为假：拒绝由 requireBuildableHop（ChainPlan.kt）报出，在那之前的整链检查不把它算作外核节点。
+// globalAllowInsecure 是设置快照里的全局「允许不安全」，影响判定
+fun ProxyEntity.needExternal(globalAllowInsecure: Boolean): Boolean =
+    when (val decision = coreDecision(globalAllowInsecure)) {
+        is CoreDecision.Selected -> decision.core != DialCore.SING_BOX
+        CoreDecision.Fixed -> when (type) {
+            TYPE_TROJAN_GO, TYPE_MIERU, TYPE_NAIVE, TYPE_NEKO -> true
+            TYPE_HYSTERIA -> !hysteriaBean!!.canUseSingBox()
+            else -> false
+        }
 
-        // Trojan 目前没有 Xray 路径，只能清空
-        else -> "REALITY mldsa65Verify only works on the Xray core, which this protocol cannot use; clear mldsa65Verify"
+        is CoreDecision.Rejected -> false
     }
-}
-
-fun ProxyEntity.mldsa65VerifyUnsupported(globalAllowInsecure: Boolean): String? =
-    mldsa65VerifyUnsupported(type, requireBean()) { resolvedCore(globalAllowInsecure) }
-
-// 构建之外的调用方（编辑器保存时）用：全局「允许不安全」取 DataStore 当前值
-fun ProxyEntity.mldsa65VerifyUnsupported(): String? = mldsa65VerifyUnsupported(DataStore.globalAllowInsecure)
-
-// type -> 该节点是否跑在外部核心进程上；globalAllowInsecure 影响选核（见 coreForType）
-fun ProxyEntity.needExternal(globalAllowInsecure: Boolean): Boolean {
-    return when (type) {
-        TYPE_TROJAN_GO -> true
-        TYPE_MIERU -> true
-        TYPE_NAIVE -> true
-        TYPE_VMESS -> resolvedCore(globalAllowInsecure) == CORE_XRAY
-        TYPE_HYSTERIA -> !hysteriaBean!!.canUseSingBox()
-        TYPE_ANYTLS -> resolvedCore(globalAllowInsecure) == CORE_MIHOMO
-        TYPE_NEKO -> true
-        else -> false
-    }
-}
 
 // type -> sing-box 多路复用选项，不支持 mux 的协议与没开 mux 时为 null
 fun ProxyEntity.singMux(): MultiplexOptions? {
@@ -708,25 +649,15 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
     )
 
     // 合并核心的 buildEntry 用的就是这个跳实例自己的 bean（ExternalHop.core 由它的 bean 取得），
-    // buildConfig 只合成，不读 bean
-    is VMessBean -> ExternalCore.Merged(
-        "xray-plugin",
-        buildEntry = { settings, hop ->
-            buildXrayOutbound(bean, hop.target.dialAddress(bean).orEmpty(), hop.target.dialPort(bean), settings)
-        },
-        buildConfig = { settings, hops, outbounds, _ -> buildXrayConfig(hops, outbounds, settings) },
-        buildLaunch = { _, pluginPath, config, writeCacheFile ->
-            val configFile = writeCacheFile("xray", "json", config)
-            ExternalCoreLaunch(listOf(pluginPath, "run", "-c", configFile.absolutePath))
-        },
-        // run -test 只加载配置、不监听不连接；配置有错时退出码 23
-        check = ExternalCoreCheck("Xray", { pluginPath, config, writeCacheFile ->
-            val configFile = writeCacheFile("xray", "json", config)
-            ExternalCoreLaunch(listOf(pluginPath, "run", "-test", "-c", configFile.absolutePath))
-        }, ::xrayCheckErrors),
-        // socks 入站的 auth: password（见 buildXrayConfig）
-        inboundAuth = true,
-    )
+    // buildConfig 只合成，不读 bean。这里只回答「这种 bean 走外核时用哪个外核」，走不走外核由选核判定决定
+    // （needExternal）：VMess / VLESS、Trojan（D10）都由 Xray 承载
+    is VMessBean -> xrayCore { settings, hop ->
+        buildXrayOutbound(bean, hop.target.dialAddress(bean).orEmpty(), hop.target.dialPort(bean), settings)
+    }
+
+    is TrojanBean -> xrayCore { settings, hop ->
+        buildXrayOutbound(bean, hop.target.dialAddress(bean).orEmpty(), hop.target.dialPort(bean), settings)
+    }
 
     is AnyTLSBean -> ExternalCore.Merged(
         "mihomo-plugin",
@@ -756,3 +687,22 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
 
     else -> null
 }
+
+// Xray 的外核条目，各协议只有出站的生成不同（buildXrayOutbound 按 bean 类型重载）
+private fun xrayCore(buildEntry: (settings: ExternalCoreSettings, hop: ExternalHop) -> Map<String, Any?>) =
+    ExternalCore.Merged(
+        "xray-plugin",
+        buildEntry = buildEntry,
+        buildConfig = { settings, hops, outbounds, _ -> buildXrayConfig(hops, outbounds, settings) },
+        buildLaunch = { _, pluginPath, config, writeCacheFile ->
+            val configFile = writeCacheFile("xray", "json", config)
+            ExternalCoreLaunch(listOf(pluginPath, "run", "-c", configFile.absolutePath))
+        },
+        // run -test 只加载配置、不监听不连接；配置有错时退出码 23
+        check = ExternalCoreCheck("Xray", { pluginPath, config, writeCacheFile ->
+            val configFile = writeCacheFile("xray", "json", config)
+            ExternalCoreLaunch(listOf(pluginPath, "run", "-test", "-c", configFile.absolutePath))
+        }, ::xrayCheckErrors),
+        // socks 入站的 auth: password（见 buildXrayConfig）
+        inboundAuth = true,
+    )

@@ -1,0 +1,72 @@
+{
+  "log": {
+    "loglevel": "warning",
+    "access": "none"
+  },
+  "inbounds": [
+    {
+      "tag": "in-0",
+      "listen": "127.0.0.1",
+      "port": 38337,
+      "protocol": "socks",
+      "settings": {
+        "auth": "password",
+        "accounts": [
+          {
+            "user": "u95b031be5d0ae331",
+            "pass": "p6e670b6ac125db1650e233a75c1073f3"
+          }
+        ],
+        "udp": true
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "block",
+      "protocol": "blackhole"
+    },
+    {
+      "tag": "out-0",
+      "protocol": "trojan",
+      "settings": {
+        "servers": [
+          {
+            "address": "127.0.0.1",
+            "port": 43853,
+            "password": "golden-pass-trojan"
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "ws",
+        "wsSettings": {
+          "path": "/golden-ws",
+          "headers": {
+            "Host": "cdn.example.org"
+          }
+        },
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "cdn.example.org"
+        }
+      },
+      "mux": {
+        "enabled": true,
+        "concurrency": 4
+      }
+    }
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": [
+          "in-0"
+        ],
+        "outboundTag": "out-0"
+      }
+    ]
+  }
+}

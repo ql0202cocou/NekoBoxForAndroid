@@ -1,0 +1,16 @@
+log-level: warning
+mode: rule
+listeners:
+- name: in-0
+  type: socks
+  listen: 127.0.0.1
+  port: 36981
+  udp: true
+  proxy: out-0
+  users:
+  - {username: u0cd4963216b1f6d2, password: p973edf706b8bdee4bef0453e74ea2ca4}
+proxies:
+- {name: out-0, type: anytls, server: 127.0.0.1, port: 41801, password: golden-pass-anytls,
+  udp: true, sni: golden.example.com, fingerprint: 97f5a77c25b237060f2da6aab57e85164fa3b92f0ce0f97fdef0ac10986dc2d8,
+  client-fingerprint: firefox}
+rules: ['MATCH,REJECT']

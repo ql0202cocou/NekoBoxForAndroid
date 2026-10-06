@@ -1,0 +1,70 @@
+{
+  "log": {
+    "loglevel": "warning",
+    "access": "none"
+  },
+  "inbounds": [
+    {
+      "tag": "in-1",
+      "listen": "127.0.0.1",
+      "port": 33817,
+      "protocol": "socks",
+      "settings": {
+        "auth": "password",
+        "accounts": [
+          {
+            "user": "u044661ee9251a865",
+            "pass": "pa5afcc197c27ecd3e217b7c1643f74f9"
+          }
+        ],
+        "udp": true
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "block",
+      "protocol": "blackhole"
+    },
+    {
+      "tag": "out-1",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "127.0.0.1",
+            "port": 41219,
+            "users": [
+              {
+                "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "www.example.com",
+          "publicKey": "Z29sZGVuLXJlYWxpdHktcHVibGljLWtleS0wMDAwMDE",
+          "shortId": "0a1b2c3d4e5f6a7b",
+          "fingerprint": "chrome"
+        }
+      }
+    }
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": [
+          "in-1"
+        ],
+        "outboundTag": "out-1"
+      }
+    ]
+  }
+}

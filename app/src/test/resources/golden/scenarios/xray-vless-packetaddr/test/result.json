@@ -1,54 +1,18 @@
 {
-  "status": "ok",
-  "build": {
-    "mainEntId": 1,
-    "selectorGroupId": -1,
-    "profileTagMap": {},
-    "trafficMap": {
-      "proxy": [
-        1
-      ]
-    },
-    "boxIndexNames": {
-      "outbound[0]": "golden-xray-packetaddr"
-    },
-    "boxTagNames": {
-      "proxy": "golden-xray-packetaddr"
-    }
-  },
-  "external": [
-    {
-      "file": "ext-0.xray-plugin.json",
-      "pluginId": "xray-plugin",
-      "controller": null,
-      "tempFiles": [],
-      "hops": [
-        {
-          "index": 0,
-          "chainIndex": 0,
-          "profileId": 1,
-          "port": 35005,
-          "finalAddress": "127.0.0.1",
-          "finalPort": 42231,
-          "inboundTag": "in-0",
-          "outboundTag": "out-0",
-          "localAuth": {
-            "username": "u51533c07c59924e3",
-            "password": "p1aaf448cf3d676cf030fed33308bed15"
-          }
-        }
-      ]
-    }
-  ],
-  "dynamic": {
-    "ports": [
-      35005,
-      42231
-    ],
-    "paths": [],
-    "secrets": [
-      "u51533c07c59924e3",
-      "p1aaf448cf3d676cf030fed33308bed15"
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-xray-packetaddr: the manually chosen core Xray cannot run this profile: [packetEncoding] Xray has no packetaddr packet encoding",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "the manually chosen core Xray cannot run this profile: [packetEncoding] Xray has no packetaddr packet encoding"
+      }
     ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
   }
 }

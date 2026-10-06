@@ -71,7 +71,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 32779,
+      "listen_port": 32771,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-2-mapping-2",
@@ -144,10 +144,10 @@
       "type": "trojan"
     },
     {
-      "password": "p385b995f391e32943a14a08296139321",
+      "password": "p5b98ed741cb24045dd5e5864c12a75f4",
       "server": "127.0.0.1",
-      "server_port": 35127,
-      "username": "u82149f1f4db4f6c8",
+      "server_port": 41035,
+      "username": "ubc4244087ec5bd96",
       "tag": "c-2-2",
       "type": "socks"
     },

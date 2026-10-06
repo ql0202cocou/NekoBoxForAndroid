@@ -22,7 +22,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 43283,
+      "listen_port": 40937,
       "override_address": "anytls.example.com",
       "override_port": 8443,
       "tag": "c-0-mapping-3",
@@ -34,10 +34,10 @@
   },
   "outbounds": [
     {
-      "password": "p76296b3068d7eaac9425b8661a7b3d6e",
+      "password": "p6d1818c5b22e726a3cff7f569e75f9b4",
       "server": "127.0.0.1",
-      "server_port": 35995,
-      "username": "ue8e84a2768ff1d38",
+      "server_port": 37195,
+      "username": "uffaa1ac36b213ab1",
       "tag": "proxy",
       "type": "socks"
     },

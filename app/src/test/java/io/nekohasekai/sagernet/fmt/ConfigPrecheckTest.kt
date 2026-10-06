@@ -16,7 +16,7 @@ import org.junit.rules.TemporaryFolder
 
 // 选择器成员 / 路由规则目标的规划检查（planChain 每跳之后的 ConfigBuild.checkMemberHop）的几条不变式，用
 // FakeConfigPlatform 的记录核对：
-// 试生成外核配置时建的临时文件构建结束时都已删除；预检不分配端口；预检用的是构建自己的外核设置；
+// 试生成外核配置时建的临时文件构建结束时都已删除；预检不分配端口；选核判定与试生成用的是构建自己的设置；
 // 先试生成、后确认插件可用
 class ConfigPrecheckTest {
 
@@ -43,19 +43,25 @@ class ConfigPrecheckTest {
             caText = "-----BEGIN CERTIFICATE-----\nfake-$id\n-----END CERTIFICATE-----"
         })
 
-    // VLESS + TLS，没有证书指纹；core 为 null 时自动选核
-    private fun vless(id: Long, groupId: Long, core: Int? = null) = ProxyEntity(id = id, groupId = groupId, userOrder = id)
-        .apply { if (core != null) this.core = core }
-        .putBean(VMessBean().apply {
-            name = "vless-$id"
-            serverAddress = "x$id.example.com"
-            serverPort = 443
-            uuid = "00000000-0000-0000-0000-0000000000%02x".format(id)
-            alterId = -1
-            initializeDefaultValues()
-            security = "tls"
-            sni = "x$id.example.com"
-        })
+    // VLESS + TLS，没有证书指纹；core 为 null 时自动选核。reality 为真时带 REALITY（自动选核走 Xray），
+    // 为假时是普通 TLS（K1 起自动选核走 sing-box）
+    private fun vless(id: Long, groupId: Long, core: Int? = null, reality: Boolean = true) =
+        ProxyEntity(id = id, groupId = groupId, userOrder = id)
+            .apply { if (core != null) this.core = core }
+            .putBean(VMessBean().apply {
+                name = "vless-$id"
+                serverAddress = "x$id.example.com"
+                serverPort = 443
+                uuid = "00000000-0000-0000-0000-0000000000%02x".format(id)
+                alterId = -1
+                initializeDefaultValues()
+                security = "tls"
+                sni = "x$id.example.com"
+                if (reality) {
+                    realityPubKey = CoreTestNodes.REALITY_KEY
+                    realityShortId = CoreTestNodes.SHORT_ID
+                }
+            })
 
     private fun rule(id: Long, outbound: Long) =
         RuleEntity(id = id, name = "rule-$id", userOrder = id, enabled = true, domains = "r$id.example.com", outbound = outbound)
@@ -118,12 +124,14 @@ class ConfigPrecheckTest {
     }
 
     @Test
-    fun `预检用构建自己的外核设置，组装会拒绝的成员在预检里跳过`() {
-        // 全局「允许不安全」打开：成员 2 强制走 Xray、开了 TLS、没有证书指纹，Xray 生成配置时拒绝 allowInsecure。
-        // 自动选核的节点会因此改走 sing-box，强制的不会，只能在预检里按构建的设置试生成时发现
+    fun `选核判定与试生成用构建自己的设置：手动 Xray 的成员按全局允许不安全跳过，REALITY 成员照常通过`() {
+        // 全局「允许不安全」打开（构建的设置快照）：成员 2 手动指定 Xray、普通 TLS、没有证书指纹，能力表判定 Xray
+        // 承载不了生效的 allowInsecure，规划时就拒绝（以前要到试生成时才由 buildXrayConfig 拒绝）。成员 3 是自动选核的
+        // REALITY，allowInsecure 对它不起作用：判定选 Xray，试生成也按同一份设置通过（以前生成器把 REALITY 误判成
+        // 不支持 allowInsecure）
         val source = MemoryConfigDataSource(
             groups = listOf(ProxyGroup(id = 1, isSelector = true)),
-            profiles = listOf(main, vless(2, 1, core = ProxyEntity.CORE_XRAY)),
+            profiles = listOf(main, vless(2, 1, core = ProxyEntity.CORE_XRAY, reality = false), vless(3, 1)),
             rules = emptyList(),
         )
         val platform = FakeConfigPlatform()
@@ -131,18 +139,30 @@ class ConfigPrecheckTest {
         val settings = testConfigSettings(globalAllowInsecure = true)
         val result = build(main, source, platform, settings, diagnostics)
 
-        // buildXrayConfig 的拒绝经组装入口包上节点名（ProfileBuildException），预检原样记下
-        val reason = "vless-2: xray-core no longer supports allowInsecure, " +
-            "use a certificate fingerprint or the sing-box core for this profile"
+        // 规划里的拒绝经 withProfileName 包上节点名（ProfileBuildException），预检原样记下
+        val reason = "vless-2: the manually chosen core Xray cannot run this profile: " +
+            "[allowInsecure, globalAllowInsecure] Xray removed allowInsecure; pin the certificate fingerprint instead"
         assertEquals(listOf(ConfigBuildDiagnostic.ProfileSkipped(2, "vless-2", reason, true)), diagnostics)
         assertEquals(listOf("profile 2 skipped: ${ProfileBuildException::class.java.name}: $reason"), platform.warnings)
-        // 选择器里只剩主节点，没有外核跳实例，组装不会再失败
-        assertEquals(setOf(1L), result.profileTagMap.keys)
+        // 选择器里剩主节点与成员 3；成员 3 是唯一的外核跳实例
+        assertEquals(setOf(1L, 3L), result.profileTagMap.keys)
         val selector = JsonParser.parseString(result.config).asJsonObject.getAsJsonArray("outbounds")
             .map { it.asJsonObject }.single { it.string("type") == "selector" }
-        assertEquals(listOf(result.profileTagMap.getValue(1)), selector.getAsJsonArray("outbounds").map { it.asString })
-        assertTrue(ExternalRunPlan.from(result).hops.isEmpty())
-        assertTrue("预检不分配端口", platform.ports.isEmpty())
+        assertEquals(
+            listOf(result.profileTagMap.getValue(1), result.profileTagMap.getValue(3)),
+            selector.getAsJsonArray("outbounds").map { it.asString },
+        )
+        assertEquals(listOf(3L), ExternalRunPlan.from(result).hops.map { it.profileId })
+        // 只有成员 3 分了端口：本机 socks 端口与映射端口
+        assertEquals(2, platform.ports.size)
+        assertEquals(listOf("pluginError(xray-plugin)"), platform.pluginQueries)
+
+        // 同样的成员不开全局「允许不安全」：成员 2 也通过
+        val secure = FakeConfigPlatform()
+        val secureDiagnostics = ArrayList<ConfigBuildDiagnostic>()
+        val secureResult = build(main, source, secure, testConfigSettings(globalAllowInsecure = false), secureDiagnostics)
+        assertTrue(secureDiagnostics.isEmpty())
+        assertEquals(setOf(1L, 2L, 3L), secureResult.profileTagMap.keys)
     }
 
     @Test

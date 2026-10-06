@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-k1-trojan-pin-smux: no core can fully run this profile. sing-box: [certificateFingerprint] sing-box cannot pin a whole-certificate SHA-256 (it only pins public keys). Xray: [enableMux, muxType] Xray only has Mux.Cool, not sing-mux (h2mux / smux / yamux) (smux)",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "no core can fully run this profile. sing-box: [certificateFingerprint] sing-box cannot pin a whole-certificate SHA-256 (it only pins public keys). Xray: [enableMux, muxType] Xray only has Mux.Cool, not sing-mux (h2mux / smux / yamux) (smux)"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

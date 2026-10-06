@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "settings-global-insecure",
-  "description": "全局 allowInsecure（VLESS 由 Xray 落到 sing-box）",
+  "description": "全局 allowInsecure（REALITY 节点不受影响，仍走 Xray）",
   "mainProfileId": 1,
   "settings": [
     {

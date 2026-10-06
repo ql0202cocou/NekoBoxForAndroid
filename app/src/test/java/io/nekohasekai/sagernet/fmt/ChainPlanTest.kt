@@ -51,6 +51,7 @@ class ChainPlanTest {
             enableMux = true
         })
 
+    // VLESS + REALITY，自动选核走 Xray（外核跳）
     private fun vless(id: Long, groupId: Long = 1) = ProxyEntity(id = id, groupId = groupId, userOrder = id)
         .putBean(VMessBean().apply {
             name = "vless-$id"
@@ -61,6 +62,8 @@ class ChainPlanTest {
             initializeDefaultValues()
             security = "tls"
             sni = "x$id.example.com"
+            realityPubKey = CoreTestNodes.REALITY_KEY
+            realityShortId = CoreTestNodes.SHORT_ID
         })
 
     private fun hysteria(id: Long, groupId: Long = 1) = ProxyEntity(id = id, groupId = groupId, userOrder = id)
@@ -73,7 +76,9 @@ class ChainPlanTest {
             protocol = HysteriaBean.PROTOCOL_WECHAT_VIDEO
         })
 
+    // 带证书指纹又手动指定 sing-box：选核判定拒绝（K1 起 Trojan 带指纹自动走 Xray）
     private fun trojanPinned(id: Long, groupId: Long = 1) = ProxyEntity(id = id, groupId = groupId, userOrder = id)
+        .apply { core = ProxyEntity.CORE_SING_BOX }
         .putBean(TrojanBean().apply {
             name = "trojan-pin-$id"
             serverAddress = "tp$id.example.com"
@@ -146,14 +151,15 @@ class ChainPlanTest {
 
     @Test
     fun `单跳规划的报错包上该跳的节点名，排在它前面的跳照常规划过`() {
-        // 链 1：3 trojan（证书固定不受支持，最先拨号）→ 2 socks（出口）
+        // 链 1：3 trojan（手动 sing-box 却带证书指纹，最先拨号）→ 2 socks（出口）
         val checked = ArrayList<Long>()
         val e = assertThrows(ProfileBuildException::class.java) {
             plan(listOf(chain(1, 3, 2), socks(2), trojanPinned(3))) { checked += it.entity.id }
         }
         assertEquals("trojan-pin-3", e.profileName)
         assertEquals(
-            "trojan-pin-3: this core cannot pin certificates; clear the fingerprint or use a core that supports it",
+            "trojan-pin-3: the manually chosen core sing-box cannot run this profile: " +
+                "[certificateFingerprint] sing-box cannot pin a whole-certificate SHA-256 (it only pins public keys)",
             e.message,
         )
         assertEquals(listOf(2L), checked)

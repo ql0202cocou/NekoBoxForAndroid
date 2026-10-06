@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "xray-vmess-security-mux",
-  "description": "VMess 手动指定 Xray，加密方式 + mux",
+  "description": "VMess 手动指定 Xray，加密方式 + Mux.Cool",
   "mainProfileId": 1,
   "settings": [
     {
@@ -169,7 +169,7 @@
       "core": 2,
       "beanColumn": "vmessBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
-      "beanKryoBase64": "BwAAAHZtZXNzLmV4YW1wbGUuY2/tuwEAAKU1YTBjMWUyZi0zYjRkLTRlNmYtOGE5Yi0wYzFkMmUzZjRhNWJjaGFjaGEyMC1wb2x5MTMwtQAAAAB0Y/Bub27lAIEAAAAAAQAAAAAAAwAAAIGBAQAAAGdvbGRlbi14cmF5LXZtZXNzLW11+IGB"
+      "beanKryoBase64": "BwAAAHZtZXNzLmV4YW1wbGUuY2/tuwEAAKU1YTBjMWUyZi0zYjRkLTRlNmYtOGE5Yi0wYzFkMmUzZjRhNWJjaGFjaGEyMC1wb2x5MTMwtQAAAAB0Y/Bub27lAIEAAAAAAQADAAAAAwAAAIGBAQAAAGdvbGRlbi14cmF5LXZtZXNzLW11+IGB"
     }
   ],
   "rules": [],

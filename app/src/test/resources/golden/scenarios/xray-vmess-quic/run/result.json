@@ -2,11 +2,11 @@
   "status": "error",
   "error": {
     "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
-    "message": "golden-xray-vmess-quic: xray-core no longer supports the quic transport, use the sing-box core for this profile",
+    "message": "golden-xray-vmess-quic: the manually chosen core Xray cannot run this profile: [type] Xray removed the QUIC transport",
     "causes": [
       {
         "class": "java.lang.IllegalStateException",
-        "message": "xray-core no longer supports the quic transport, use the sing-box core for this profile"
+        "message": "the manually chosen core Xray cannot run this profile: [type] Xray removed the QUIC transport"
       }
     ]
   },

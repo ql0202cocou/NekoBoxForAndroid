@@ -34,42 +34,42 @@
           "index": 0,
           "chainIndex": 0,
           "profileId": 4,
-          "port": 38385,
+          "port": 45129,
           "finalAddress": "127.0.0.1",
-          "finalPort": 40171,
+          "finalPort": 45649,
           "inboundTag": "in-0",
           "outboundTag": "out-0",
           "localAuth": {
-            "username": "ua499aa7253e4cb18",
-            "password": "pa5632b220e9971164d89430765080877"
+            "username": "u48b040a737766401",
+            "password": "p1cc4bc60009b51790e4b8c1964858b25"
           }
         },
         {
           "index": 1,
           "chainIndex": 0,
           "profileId": 3,
-          "port": 42431,
+          "port": 41403,
           "finalAddress": "127.0.0.1",
-          "finalPort": 43981,
+          "finalPort": 45447,
           "inboundTag": "in-1",
           "outboundTag": "out-1",
           "localAuth": {
-            "username": "ua499aa7253e4cb18",
-            "password": "pa5632b220e9971164d89430765080877"
+            "username": "u48b040a737766401",
+            "password": "p1cc4bc60009b51790e4b8c1964858b25"
           }
         },
         {
           "index": 2,
           "chainIndex": 0,
           "profileId": 2,
-          "port": 44425,
+          "port": 44273,
           "finalAddress": "127.0.0.1",
-          "finalPort": 35727,
+          "finalPort": 33641,
           "inboundTag": "in-2",
           "outboundTag": "out-2",
           "localAuth": {
-            "username": "ua499aa7253e4cb18",
-            "password": "pa5632b220e9971164d89430765080877"
+            "username": "u48b040a737766401",
+            "password": "p1cc4bc60009b51790e4b8c1964858b25"
           }
         }
       ]
@@ -77,17 +77,17 @@
   ],
   "dynamic": {
     "ports": [
-      38385,
-      42431,
-      44425,
-      40171,
-      43981,
-      35727
+      45129,
+      41403,
+      44273,
+      45649,
+      45447,
+      33641
     ],
     "paths": [],
     "secrets": [
-      "ua499aa7253e4cb18",
-      "pa5632b220e9971164d89430765080877"
+      "u48b040a737766401",
+      "p1cc4bc60009b51790e4b8c1964858b25"
     ]
   }
 }

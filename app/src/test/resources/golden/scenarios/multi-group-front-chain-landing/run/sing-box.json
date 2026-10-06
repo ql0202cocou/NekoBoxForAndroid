@@ -72,7 +72,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 45383,
+      "listen_port": 42803,
       "override_address": "xray-3.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-11",
@@ -80,7 +80,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 45605,
+      "listen_port": 34895,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-1",
@@ -88,7 +88,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 37673,
+      "listen_port": 39843,
       "override_address": "mihomo-1.example.com",
       "override_port": 8444,
       "tag": "c-0-mapping-13",
@@ -96,7 +96,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 34311,
+      "listen_port": 34419,
       "override_address": "xray-2.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-10",
@@ -108,34 +108,34 @@
   },
   "outbounds": [
     {
-      "password": "p9011f38910144b3ad0ce27d26c1a2425",
+      "password": "p8cbcf788fd8cb8aeb4341d93ff3615c3",
       "server": "127.0.0.1",
-      "server_port": 42641,
-      "username": "u153f8bda59df95d8",
+      "server_port": 44427,
+      "username": "u25f6f8df7272261d",
       "tag": "proxy",
       "type": "socks"
     },
     {
-      "password": "p9011f38910144b3ad0ce27d26c1a2425",
+      "password": "p8cbcf788fd8cb8aeb4341d93ff3615c3",
       "server": "127.0.0.1",
-      "server_port": 40483,
-      "username": "u153f8bda59df95d8",
+      "server_port": 34821,
+      "username": "u25f6f8df7272261d",
       "tag": "c-0-1",
       "type": "socks"
     },
     {
-      "password": "p9011f38910144b3ad0ce27d26c1a2425",
+      "password": "p8cbcf788fd8cb8aeb4341d93ff3615c3",
       "server": "127.0.0.1",
-      "server_port": 41449,
-      "username": "u153f8bda59df95d8",
+      "server_port": 46357,
+      "username": "u25f6f8df7272261d",
       "tag": "c-0-13",
       "type": "socks"
     },
     {
-      "password": "p9011f38910144b3ad0ce27d26c1a2425",
+      "password": "p8cbcf788fd8cb8aeb4341d93ff3615c3",
       "server": "127.0.0.1",
-      "server_port": 45031,
-      "username": "u153f8bda59df95d8",
+      "server_port": 43537,
+      "username": "u25f6f8df7272261d",
       "tag": "g-10",
       "type": "socks"
     },

@@ -81,7 +81,7 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 45191,
+      "server_port": 46779,
       "tag": "proxy",
       "type": "socks"
     },
@@ -137,7 +137,7 @@
   "up_mbps": 10,
   "down_mbps": 50,
   "socks5": {
-    "listen": "127.0.0.1:45191"
+    "listen": "127.0.0.1:46779"
   },
   "retry": 5,
   "fast_open": true,

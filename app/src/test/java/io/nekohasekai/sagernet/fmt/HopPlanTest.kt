@@ -59,7 +59,7 @@ class HopPlanTest {
         muxConcurrency = 4
     })
 
-    // VLESS + TLS，自动选核时走 Xray
+    // VLESS + TLS（不带 REALITY），自动选核时走 sing-box；要它走 Xray 时用 reality = true 或手动 Xray
     private fun vless(core: Int? = null, configure: VMessBean.() -> Unit = {}) = entity(VMessBean().apply {
         name = "vless"
         serverAddress = "x.example.com"
@@ -72,12 +72,14 @@ class HopPlanTest {
         configure()
     }, core)
 
+    // AnyTLS 带证书指纹，自动选核走 mihomo
     private fun anytls() = entity(AnyTLSBean().apply {
         name = "anytls"
         serverAddress = "a.example.net"
         serverPort = 9443
         password = "fake-password"
         initializeDefaultValues()
+        certificateFingerprint = CoreTestNodes.PIN
     })
 
     private fun trojanGo() = entity(TrojanGoBean().apply {
@@ -98,6 +100,7 @@ class HopPlanTest {
         this.protocol = protocol
     })
 
+    // 带证书指纹又手动指定 sing-box：选核判定拒绝（K1 起 Trojan 带指纹自动走 Xray）
     private fun trojanPinned(customOutboundJson: String = "") = entity(TrojanBean().apply {
         name = "trojan-pin"
         serverAddress = "tp.example.com"
@@ -107,7 +110,7 @@ class HopPlanTest {
         security = "tls"
         certificateFingerprint = "AA".repeat(32)
         this.customOutboundJson = customOutboundJson
-    })
+    }, core = ProxyEntity.CORE_SING_BOX)
 
     private fun tuicV4(customOutboundJson: String = "") = entity(TuicBean().apply {
         name = "tuic-v4"
@@ -167,7 +170,21 @@ class HopPlanTest {
 
     @Test
     fun `Xray 与 mihomo 节点经映射，入站转到节点服务器，本机入站要凭据`() {
-        for ((entity, pluginId) in listOf(vless() to "xray-plugin", anytls() to "mihomo-plugin")) {
+        val reality = vless {
+            realityPubKey = CoreTestNodes.REALITY_KEY
+            realityShortId = CoreTestNodes.SHORT_ID
+        }
+        val trojanOnXray = entity(TrojanBean().apply {
+            name = "trojan"
+            serverAddress = "tx.example.com"
+            serverPort = 443
+            password = "fake-password"
+            initializeDefaultValues()
+            security = "tls"
+        }, core = ProxyEntity.CORE_XRAY)
+        for ((entity, pluginId) in listOf(
+            reality to "xray-plugin", trojanOnXray to "xray-plugin", anytls() to "mihomo-plugin",
+        )) {
             for (firstDialing in listOf(false, true)) {
                 val core = plan(entity, firstDialing = firstDialing).core as HopCore.External
                 assertEquals(pluginId, core.core!!.pluginId)
@@ -179,6 +196,24 @@ class HopPlanTest {
         }
         assertTrue(platform.ports.isEmpty())
         assertTrue("只有 hysteria 查插件：${platform.pluginQueries}", platform.pluginQueries.isEmpty())
+    }
+
+    @Test
+    fun `能选核的协议由选核判定决定内核还是外核`() {
+        // 不带 REALITY 的 VLESS 与没有证书指纹的 AnyTLS 自动选核走 sing-box：建 sing-box 出站，不经映射
+        val auto = plan(vless()).core as HopCore.Internal
+        assertEquals("vless", auto.outbound.asMap()["type"])
+        val anytlsAuto = entity(AnyTLSBean().apply {
+            name = "anytls-auto"
+            serverAddress = "a.example.net"
+            serverPort = 9443
+            password = "fake-password"
+            initializeDefaultValues()
+        })
+        assertEquals("anytls", (plan(anytlsAuto).core as HopCore.Internal).outbound.asMap()["type"])
+        // 手动指定 Xray：外核
+        assertEquals("xray-plugin", (plan(vless(core = ProxyEntity.CORE_XRAY)).core as HopCore.External).core!!.pluginId)
+        assertTrue(platform.pluginQueries.isEmpty())
     }
 
     @Test
@@ -236,7 +271,30 @@ class HopPlanTest {
     @Test
     fun `拒绝证书固定不受支持的节点`() {
         val e = assertThrows(IllegalStateException::class.java) { plan(trojanPinned()) }
-        assertEquals("this core cannot pin certificates; clear the fingerprint or use a core that supports it", e.message)
+        assertEquals(PINNED_ON_SING_BOX, e.message)
+        // 不能选核的协议同样拒绝
+        val tuic = entity(TuicBean().apply {
+            name = "tuic-pin"
+            serverAddress = "q.example.com"
+            serverPort = 443
+            initializeDefaultValues()
+            certificateFingerprint = "CC".repeat(32)
+        })
+        assertEquals(
+            "this profile cannot run as configured: [certificateFingerprint] The core for this protocol cannot pin certificates",
+            assertThrows(IllegalStateException::class.java) { plan(tuic) }.message,
+        )
+    }
+
+    @Test
+    fun `拒绝手动值与协议不匹配的节点`() {
+        val e = assertThrows(IllegalStateException::class.java) { plan(vless(core = ProxyEntity.CORE_MIHOMO)) }
+        assertEquals(
+            "the manually chosen core mihomo cannot run this profile: [profileCore] This app cannot run VMess, VLESS or Trojan on mihomo",
+            e.message,
+        )
+        // 被拒的节点不算外核节点（整链检查里的「外核节点出现两次」不把它算进去）
+        assertFalse(vless(core = ProxyEntity.CORE_MIHOMO).needExternal(false))
     }
 
     @Test
@@ -247,7 +305,7 @@ class HopPlanTest {
         }
         val e = assertThrows(IllegalStateException::class.java) { plan(entity) }
         assertEquals(
-            "REALITY mldsa65Verify only works on the Xray core; switch this profile to the Xray core or clear mldsa65Verify",
+            "the manually chosen core sing-box cannot run this profile: [realityMldsa65Verify] sing-box cannot verify REALITY mldsa65Verify",
             e.message,
         )
         // 走 Xray 时放行
@@ -289,9 +347,9 @@ class HopPlanTest {
 
     @Test
     fun `一跳有多处错误时按固定次序报第一处`() {
-        // 证书固定先于自定义出站 JSON
+        // 选核判定（证书固定）先于自定义出站 JSON
         val pinned = assertThrows(IllegalStateException::class.java) { plan(trojanPinned(customOutboundJson = "{")) }
-        assertEquals("this core cannot pin certificates; clear the fingerprint or use a core that supports it", pinned.message)
+        assertEquals(PINNED_ON_SING_BOX, pinned.message)
         // 单跳检查（自定义出站 JSON）先于建出站（TUIC v4）
         val json = assertThrows(Exception::class.java) { plan(tuicV4(customOutboundJson = "{")) }
         assertTrue(json.message, json.message!!.contains("End of input"))
@@ -309,7 +367,15 @@ class HopPlanTest {
         val e = assertThrows(IllegalStateException::class.java) {
             plan(pinnedHysteria, firstDialing = true, plugins = PluginQueries(other))
         }
-        assertEquals("this core cannot pin certificates; clear the fingerprint or use a core that supports it", e.message)
+        assertEquals(
+            "this profile cannot run as configured: [certificateFingerprint] The core for this protocol cannot pin certificates",
+            e.message,
+        )
         assertTrue(other.pluginQueries.isEmpty())
+    }
+
+    private companion object {
+        const val PINNED_ON_SING_BOX = "the manually chosen core sing-box cannot run this profile: " +
+            "[certificateFingerprint] sing-box cannot pin a whole-certificate SHA-256 (it only pins public keys)"
     }
 }

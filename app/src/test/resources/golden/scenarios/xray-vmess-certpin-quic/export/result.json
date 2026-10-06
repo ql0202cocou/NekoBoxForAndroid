@@ -2,11 +2,11 @@
   "status": "error",
   "error": {
     "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
-    "message": "golden-vmess-pin-quic: this core cannot pin certificates; clear the fingerprint or use a core that supports it",
+    "message": "golden-vmess-pin-quic: no core can fully run this profile. sing-box: [certificateFingerprint] sing-box cannot pin a whole-certificate SHA-256 (it only pins public keys). Xray: [type] Xray removed the QUIC transport",
     "causes": [
       {
         "class": "java.lang.IllegalStateException",
-        "message": "this core cannot pin certificates; clear the fingerprint or use a core that supports it"
+        "message": "no core can fully run this profile. sing-box: [certificateFingerprint] sing-box cannot pin a whole-certificate SHA-256 (it only pins public keys). Xray: [type] Xray removed the QUIC transport"
       }
     ]
   },

@@ -1,17 +1,17 @@
 log-level: warning
 mode: rule
-external-controller: 127.0.0.1:39621
-secret: ee1ae4aec2114c369ac2255ec7400dbb
+external-controller: 127.0.0.1:40133
+secret: 3e81baf9e50644a2b590c91a8c2cced1
 listeners:
 - name: in-0
   type: socks
   listen: 127.0.0.1
-  port: 43637
+  port: 42881
   udp: true
   proxy: out-0
   users:
-  - {username: u95c848d5cb418e3c, password: p094f57d9440dba469a3439a6b3408ec1}
+  - {username: u70a09082e1c0fe48, password: pbf96a631a8ad7e6145a5402487063910}
 proxies:
-- {name: out-0, type: anytls, server: 127.0.0.1, port: 42225, password: golden-pass-anytls,
+- {name: out-0, type: anytls, server: 127.0.0.1, port: 37243, password: golden-pass-anytls,
   udp: true, sni: anytls.example.com, skip-cert-verify: true}
 rules: ['MATCH,REJECT']

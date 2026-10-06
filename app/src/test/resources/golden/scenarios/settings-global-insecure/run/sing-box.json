@@ -84,6 +84,14 @@
       "listen_port": 2080,
       "tag": "mixed-in",
       "type": "mixed"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 41237,
+      "override_address": "vless.example.com",
+      "override_port": 443,
+      "tag": "c-2-mapping-2",
+      "type": "direct"
     }
   ],
   "log": {
@@ -113,26 +121,12 @@
       "type": "vmess"
     },
     {
-      "packet_encoding": "",
-      "server": "vless.example.com",
-      "server_port": 443,
-      "tls": {
-        "enabled": true,
-        "insecure": true,
-        "reality": {
-          "enabled": true,
-          "public_key": "Z29sZGVuLXJlYWxpdHktcHVibGljLWtleS0wMDAwMDE",
-          "short_id": "0a1b2c3d4e5f6a7b"
-        },
-        "server_name": "www.example.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        }
-      },
-      "uuid": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
+      "password": "p0104ca59e435028a7ced188da2e77055",
+      "server": "127.0.0.1",
+      "server_port": 44049,
+      "username": "u0f5602e9c824d9a2",
       "tag": "g-2",
-      "type": "vless"
+      "type": "socks"
     },
     {
       "tag": "direct",
@@ -172,6 +166,12 @@
         "protocol": [
           "dns"
         ]
+      },
+      {
+        "inbound": [
+          "c-2-mapping-2"
+        ],
+        "outbound": "direct"
       },
       {
         "domain_suffix": [

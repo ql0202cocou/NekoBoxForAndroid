@@ -8,9 +8,11 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_AUTO
 // - 手动指定：只评估那个核心，有冲突（含「这个核心不能承载该协议」）就拒绝并列出冲突；
 // - 自动：按偏好顺序取第一个没有冲突的候选核心，都有冲突就拒绝，按核心列出各自的冲突；
 // - 不能选核的协议：承载方式沿用现状（sing-box 或插件），只做两条跨协议检查（整证书固定、mldsa65Verify），
-//   结论与 1.8.0-a3 的 certificatePinUnsupported / mldsa65VerifyUnsupported 相同。
+//   结论与 1.8.0-a3 的 certificatePinUnsupported / mldsa65VerifyUnsupported 相同（两者已删，冻结副本见
+//   LegacyCoreSelection.kt）。
 //
-// 尚未接线：现有的 coreForType / resolvedCore / needExternal 仍决定实际运行的核心
+// 用到判定的地方：构建（ProxyEntity.coreDecision → needExternal 决定内核 / 外核，requireBuildableHop 报拒绝）、
+// 编辑器保存时的拦截、存量节点的升级标注（LegacyProfileUpgrade.kt 规则 d）
 
 // AnyTLS 带 certificates 时自动选核是否 mihomo 优先。两个核心对这个字段含义不同（sing-box 当自定义 CA，mihomo
 // 换算成第一张证书的固定），自动选核不替用户换；手动选哪个都允许。暂定，等维护者定（翻转这一处即可）
@@ -49,7 +51,29 @@ sealed class CoreDecision {
     data class Rejected(val manual: Boolean, val conflicts: List<Conflict>) : CoreDecision() {
         fun byCore(): Map<DialCore?, List<Conflict>> = conflicts.groupBy { it.core }
         val fields: Set<ProfileField> get() = conflicts.flatMap { it.fields }.toSet()
+
+        // 构建时的拒绝原因（英文，一行；requireBuildableHop 抛出，经 withProfileName 带上节点名）。每条冲突写字段键
+        // 与英文原因，有取值时放在括号里：手动指定时写明是手动选的哪个核心（core 是实体的 core 列）；自动选核按核心
+        // 分组，每组一句、以核心名开头；不能选核的协议只列冲突。界面上的中文文案按冲突标识另行映射
+        // （ui/profile/CoreConflictText.kt）
+        fun message(core: Int): String = when {
+            manual -> "the manually chosen core ${DialCore.of(core)?.displayName ?: core.toString()} " +
+                "cannot run this profile: " + conflicts.joinToString("; ") { it.fieldText() }
+
+            conflicts.all { it.core == null } ->
+                "this profile cannot run as configured: " + conflicts.joinToString("; ") { it.fieldText() }
+
+            else -> "no core can fully run this profile. " + byCore().entries.joinToString(". ") { (dial, list) ->
+                (dial?.displayName ?: "any core") + ": " + list.joinToString("; ") { it.fieldText() }
+            }
+        }
     }
+}
+
+// 一条冲突的「[字段键] 原因 (取值)」，不带核心名
+private fun Conflict.fieldText(): String = buildString {
+    append('[').append(fields.joinToString(", ") { it.key }).append("] ").append(id.reason)
+    value?.let { append(" (").append(it).append(')') }
 }
 
 // core 是实体的 core 列（0 = 自动）

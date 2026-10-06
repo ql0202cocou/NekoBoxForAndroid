@@ -22,7 +22,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 35129,
+      "listen_port": 37249,
       "override_address": "mieru.example.com",
       "override_port": 2999,
       "tag": "c-0-mapping-1",
@@ -35,7 +35,7 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 36365,
+      "server_port": 33257,
       "tag": "proxy",
       "type": "socks"
     },

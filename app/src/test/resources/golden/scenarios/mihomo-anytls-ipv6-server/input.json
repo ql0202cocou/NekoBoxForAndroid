@@ -166,7 +166,7 @@
       "ping": 0,
       "uuid": "",
       "error": null,
-      "core": 0,
+      "core": 3,
       "beanColumn": "anyTLSBean",
       "beanClass": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
       "beanKryoBase64": "AgAAADIwMDE6ZGI4Ojo2sPsgAABnb2xkZW4tcGFzcy1hbnl0bPOBgYGBAIGBAAEAAABnb2xkZW4tYW55dGxzLXa2gYE="

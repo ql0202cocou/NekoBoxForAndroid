@@ -230,11 +230,10 @@ data class ProxyEntity(
         }
     }
 
-    // 实际使用的核心：自动时按协议选（coreForType），globalAllowInsecure 是全局「允许不安全」
-    fun resolvedCore(globalAllowInsecure: Boolean): Int {
-        if (core != CORE_AUTO) return core
-        return coreForType(globalAllowInsecure)
-    }
+    // 能力表对这个节点的选核判定（CoreSelection.kt）：core 列为手动值时只评估那个核心，自动时按偏好取第一个能
+    // 完整承载的核心。globalAllowInsecure 是全局「允许不安全」：构建取设置快照，编辑器取 DataStore 当前值
+    fun coreDecision(globalAllowInsecure: Boolean): CoreDecision =
+        decideCore(type, core, requireBean(), globalAllowInsecure)
 
     @androidx.room.Dao
     interface Dao {

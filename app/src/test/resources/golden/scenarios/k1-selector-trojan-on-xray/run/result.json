@@ -1,0 +1,128 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": 1,
+    "profileTagMap": {
+      "1": "golden-k1-sel-vless",
+      "2": "golden-k1-sel-trojan-reality",
+      "3": "golden-k1-sel-trojan-pin",
+      "4": "golden-k1-sel-trojan-grpc",
+      "5": "golden-k1-sel-anytls"
+    },
+    "trafficMap": {
+      "golden-k1-sel-anytls": [
+        5
+      ],
+      "golden-k1-sel-trojan-grpc": [
+        4
+      ],
+      "golden-k1-sel-trojan-pin": [
+        3
+      ],
+      "golden-k1-sel-trojan-reality": [
+        2
+      ],
+      "golden-k1-sel-vless": [
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[1]": "golden-k1-sel-vless",
+      "outbound[2]": "golden-k1-sel-trojan-reality",
+      "outbound[3]": "golden-k1-sel-trojan-pin",
+      "outbound[4]": "golden-k1-sel-trojan-grpc",
+      "outbound[5]": "golden-k1-sel-anytls"
+    },
+    "boxTagNames": {
+      "golden-k1-sel-anytls": "golden-k1-sel-anytls",
+      "golden-k1-sel-trojan-grpc": "golden-k1-sel-trojan-grpc",
+      "golden-k1-sel-trojan-pin": "golden-k1-sel-trojan-pin",
+      "golden-k1-sel-trojan-reality": "golden-k1-sel-trojan-reality",
+      "golden-k1-sel-vless": "golden-k1-sel-vless"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.xray-plugin.json",
+      "pluginId": "xray-plugin",
+      "controller": null,
+      "tempFiles": [],
+      "hops": [
+        {
+          "index": 0,
+          "chainIndex": 0,
+          "profileId": 1,
+          "port": 39723,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 33969,
+          "inboundTag": "in-0",
+          "outboundTag": "out-0",
+          "localAuth": {
+            "username": "u9664444154d928a9",
+            "password": "p060ae795548625046742671e9bd8c104"
+          }
+        },
+        {
+          "index": 1,
+          "chainIndex": 1,
+          "profileId": 2,
+          "port": 45189,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 35861,
+          "inboundTag": "in-1",
+          "outboundTag": "out-1",
+          "localAuth": {
+            "username": "u9664444154d928a9",
+            "password": "p060ae795548625046742671e9bd8c104"
+          }
+        },
+        {
+          "index": 2,
+          "chainIndex": 2,
+          "profileId": 3,
+          "port": 46625,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 44647,
+          "inboundTag": "in-2",
+          "outboundTag": "out-2",
+          "localAuth": {
+            "username": "u9664444154d928a9",
+            "password": "p060ae795548625046742671e9bd8c104"
+          }
+        },
+        {
+          "index": 3,
+          "chainIndex": 3,
+          "profileId": 4,
+          "port": 39927,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 35049,
+          "inboundTag": "in-3",
+          "outboundTag": "out-3",
+          "localAuth": {
+            "username": "u9664444154d928a9",
+            "password": "p060ae795548625046742671e9bd8c104"
+          }
+        }
+      ]
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      39723,
+      45189,
+      46625,
+      39927,
+      33969,
+      35861,
+      44647,
+      35049
+    ],
+    "paths": [],
+    "secrets": [
+      "u9664444154d928a9",
+      "p060ae795548625046742671e9bd8c104"
+    ]
+  }
+}

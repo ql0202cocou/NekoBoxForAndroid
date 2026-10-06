@@ -1,9 +1,15 @@
 {
   "status": "ok",
-  "exportName": "golden-set-main.json",
+  "exportName": "profiles.txt",
   "dynamic": {
-    "ports": [],
+    "ports": [
+      45081,
+      43227
+    ],
     "paths": [],
-    "secrets": []
+    "secrets": [
+      "uccf91173f778df15",
+      "p635cd66136c32b72af689e4ec361d614"
+    ]
   }
 }

@@ -1,15 +1,18 @@
 {
-  "status": "ok",
-  "exportName": "profiles.txt",
-  "dynamic": {
-    "ports": [
-      45343,
-      36739
-    ],
-    "paths": [],
-    "secrets": [
-      "ue8964c6f10867ed6",
-      "pd5dd82a104a2a7d17a6487eff58c4cee"
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-xray-packetaddr: the manually chosen core Xray cannot run this profile: [packetEncoding] Xray has no packetaddr packet encoding",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "the manually chosen core Xray cannot run this profile: [packetEncoding] Xray has no packetaddr packet encoding"
+      }
     ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
   }
 }

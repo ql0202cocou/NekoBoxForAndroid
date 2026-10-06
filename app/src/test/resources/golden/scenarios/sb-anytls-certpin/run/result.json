@@ -2,11 +2,11 @@
   "status": "error",
   "error": {
     "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
-    "message": "golden-sb-anytls-pin: this core cannot pin certificates; clear the fingerprint or use a core that supports it",
+    "message": "golden-sb-anytls-pin: the manually chosen core sing-box cannot run this profile: [certificateFingerprint] sing-box cannot pin a whole-certificate SHA-256 (it only pins public keys)",
     "causes": [
       {
         "class": "java.lang.IllegalStateException",
-        "message": "this core cannot pin certificates; clear the fingerprint or use a core that supports it"
+        "message": "the manually chosen core sing-box cannot run this profile: [certificateFingerprint] sing-box cannot pin a whole-certificate SHA-256 (it only pins public keys)"
       }
     ]
   },

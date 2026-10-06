@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-k1-xray-smux: the manually chosen core Xray cannot run this profile: [enableMux, muxType] Xray only has Mux.Cool, not sing-mux (h2mux / smux / yamux) (smux)",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "the manually chosen core Xray cannot run this profile: [enableMux, muxType] Xray only has Mux.Cool, not sing-mux (h2mux / smux / yamux) (smux)"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

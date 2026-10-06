@@ -2,11 +2,11 @@
   "status": "error",
   "error": {
     "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
-    "message": "golden-vmess-xhttp: unsupported transport \"xhttp\"",
+    "message": "golden-vmess-xhttp: no core can fully run this profile. sing-box: [type] This app does not support the transport (xhttp). Xray: [type] This app does not support the transport (xhttp)",
     "causes": [
       {
-        "class": "io.nekohasekai.sagernet.fmt.v2ray.UnsupportedTransportException",
-        "message": "unsupported transport \"xhttp\""
+        "class": "java.lang.IllegalStateException",
+        "message": "no core can fully run this profile. sing-box: [type] This app does not support the transport (xhttp). Xray: [type] This app does not support the transport (xhttp)"
       }
     ]
   },

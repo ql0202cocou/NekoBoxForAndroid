@@ -2,11 +2,11 @@
   "status": "error",
   "error": {
     "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
-    "message": "golden-trojan-mldsa: REALITY mldsa65Verify only works on the Xray core, which this protocol cannot use; clear mldsa65Verify",
+    "message": "golden-trojan-mldsa: the manually chosen core sing-box cannot run this profile: [realityMldsa65Verify] sing-box cannot verify REALITY mldsa65Verify",
     "causes": [
       {
         "class": "java.lang.IllegalStateException",
-        "message": "REALITY mldsa65Verify only works on the Xray core, which this protocol cannot use; clear mldsa65Verify"
+        "message": "the manually chosen core sing-box cannot run this profile: [realityMldsa65Verify] sing-box cannot verify REALITY mldsa65Verify"
       }
     ]
   },

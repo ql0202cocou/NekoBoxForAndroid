@@ -2,11 +2,11 @@
   "status": "error",
   "error": {
     "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
-    "message": "golden-tuic-pin: this core cannot pin certificates; clear the fingerprint or use a core that supports it",
+    "message": "golden-tuic-pin: this profile cannot run as configured: [certificateFingerprint] The core for this protocol cannot pin certificates",
     "causes": [
       {
         "class": "java.lang.IllegalStateException",
-        "message": "this core cannot pin certificates; clear the fingerprint or use a core that supports it"
+        "message": "this profile cannot run as configured: [certificateFingerprint] The core for this protocol cannot pin certificates"
       }
     ]
   },

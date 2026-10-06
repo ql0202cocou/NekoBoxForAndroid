@@ -202,9 +202,21 @@ class GoldenExternalWiringTest {
                 val target = own.firstOrNull()?.str("outboundTag")
                 val outbound = outbounds.singleOrNull { it.str("tag") == target }
                 expect(outbound != null && outbound.str("protocol") != "blackhole", where) { "入站 $tag 的规则指向 $target" }
-                val vnext = outbound?.getAsJsonObject("settings")?.getAsJsonArray("vnext")?.get(0)?.asJsonObject
+                // 拨号目标：VMess / VLESS 在 settings.vnext 里，Trojan（D10）在 settings.servers 里，都只有一项
+                val settings = outbound?.getAsJsonObject("settings")
+                val server = when (val protocol = outbound?.str("protocol")) {
+                    "vmess", "vless" -> settings?.getAsJsonArray("vnext")
+                    "trojan" -> settings?.getAsJsonArray("servers")
+                    else -> {
+                        expect(false, where) { "入站 $tag 的出站协议 $protocol 没有拨号目标" }
+                        null
+                    }
+                }?.let { servers ->
+                    expect(servers.size() == 1, where) { "出站 $target 有 ${servers.size()} 个拨号目标" }
+                    servers.firstOrNull()?.asJsonObject
+                }
                 Inbound(
-                    core, inbound["port"].asInt, vnext?.str("address").orEmpty(), vnext?.get("port")?.asInt, tag, target,
+                    core, inbound["port"].asInt, server?.str("address").orEmpty(), server?.get("port")?.asInt, tag, target,
                     xrayInboundAuth("$where 入站 $tag", inbound.getAsJsonObject("settings")),
                 )
             }

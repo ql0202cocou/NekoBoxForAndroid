@@ -1,0 +1,164 @@
+{
+  "dns": {
+    "final": "dns-remote",
+    "rules": [
+      {
+        "domain": [
+          "anytls.example.com",
+          "dns.example.net"
+        ],
+        "server": "dns-direct",
+        "strategy": "ipv4_only"
+      },
+      {
+        "outbound": [
+          "any"
+        ],
+        "server": "dns-direct",
+        "strategy": "ipv4_only"
+      },
+      {
+        "disable_cache": true,
+        "inbound": [
+          "tun-in"
+        ],
+        "server": "dns-fake",
+        "strategy": "ipv4_only"
+      }
+    ],
+    "servers": [
+      {
+        "detour": "direct",
+        "tag": "dns-local",
+        "type": "local"
+      },
+      {
+        "domain_resolver": "dns-local",
+        "path": "/dns-query",
+        "server": "192.0.2.53",
+        "tag": "dns-direct",
+        "type": "https"
+      },
+      {
+        "detour": "proxy",
+        "domain_resolver": "dns-direct",
+        "path": "/dns-query",
+        "server": "dns.example.net",
+        "tag": "dns-remote",
+        "type": "https"
+      },
+      {
+        "inet4_range": "198.18.0.0/15",
+        "inet6_range": "fc00::/18",
+        "tag": "dns-fake",
+        "type": "fakeip"
+      }
+    ],
+    "strategy": "ipv4_only"
+  },
+  "endpoints": [],
+  "inbounds": [
+    {
+      "address": [
+        "172.19.0.1/28"
+      ],
+      "endpoint_independent_nat": true,
+      "mtu": 9000,
+      "stack": "gvisor",
+      "tag": "tun-in",
+      "type": "tun"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 2080,
+      "tag": "mixed-in",
+      "type": "mixed"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 42531,
+      "override_address": "anytls.example.com",
+      "override_port": 8443,
+      "tag": "c-0-mapping-1",
+      "type": "direct"
+    }
+  ],
+  "log": {
+    "level": "panic"
+  },
+  "outbounds": [
+    {
+      "password": "p90583b0f0e9d0cc393e291062829bcc6",
+      "server": "127.0.0.1",
+      "server_port": 37263,
+      "username": "udd4b82c4b2c3dfae",
+      "tag": "proxy",
+      "type": "socks"
+    },
+    {
+      "tag": "direct",
+      "type": "direct"
+    },
+    {
+      "tag": "bypass",
+      "type": "direct"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "rule_set": [],
+    "rules": [
+      {
+        "action": "sniff"
+      },
+      {
+        "action": "hijack-dns",
+        "port": [
+          53
+        ]
+      },
+      {
+        "action": "hijack-dns",
+        "protocol": [
+          "dns"
+        ]
+      },
+      {
+        "inbound": [
+          "c-0-mapping-1"
+        ],
+        "outbound": "direct"
+      },
+      {
+        "action": "reject",
+        "ip_cidr": [
+          "224.0.0.0/3",
+          "ff00::/8"
+        ]
+      },
+      {
+        "action": "reject",
+        "source_ip_cidr": [
+          "224.0.0.0/3",
+          "ff00::/8"
+        ]
+      }
+    ]
+  }
+}
+
+log-level: warning
+mode: rule
+listeners:
+- name: in-0
+  type: socks
+  listen: 127.0.0.1
+  port: 37263
+  udp: true
+  proxy: out-0
+  users:
+  - {username: udd4b82c4b2c3dfae, password: p90583b0f0e9d0cc393e291062829bcc6}
+proxies:
+- {name: out-0, type: anytls, server: 127.0.0.1, port: 42531, password: golden-pass-anytls,
+  udp: true, sni: anytls.example.com, client-fingerprint: chrome120}
+rules: ['MATCH,REJECT']
