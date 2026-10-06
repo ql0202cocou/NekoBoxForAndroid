@@ -35,13 +35,13 @@ sing-box / universal proxy toolchain for Android.
 
 | 核心 / Core | 版本 / Version | 用途 / Used for |
 | --- | --- | --- |
-| [sing-box](https://github.com/SagerNet/sing-box) | v1.14.2（附带本仓库补丁 / with local patches） | 默认核心，未列在下面的协议都由它运行 / Default core for everything not listed below |
-| [Xray-core](https://github.com/XTLS/Xray-core) | v26.3.27 | VLESS 默认使用；Xray 不支持的传输或 `allowInsecure` 回落到 sing-box / VLESS by default; falls back to sing-box for transports or `allowInsecure` Xray lacks |
-| [mihomo](https://github.com/MetaCubeX/mihomo) | v1.19.31 | AnyTLS 默认使用 / AnyTLS by default |
+| [sing-box](https://github.com/SagerNet/sing-box) | v1.14.2（附带本仓库补丁 / with local patches） | 承载其余一切，可选核心时优先 / Runs everything else; preferred whenever the core can be chosen |
+| [Xray-core](https://github.com/XTLS/Xray-core) | v26.3.27 | 带 REALITY 或 mldsa65Verify 的 VMess / VLESS / Trojan 优先使用；节点带证书指纹、Mux.Cool，或只有 Xray 认的 flow / 指纹时也走 Xray / Preferred for VMess / VLESS / Trojan with REALITY or mldsa65Verify; also used when the profile has a certificate fingerprint, Mux.Cool, or a flow / fingerprint only Xray accepts |
+| [mihomo](https://github.com/MetaCubeX/mihomo) | v1.19.31 | 带证书指纹或 certificates 的 AnyTLS；只有 mihomo 认的指纹也走 mihomo / AnyTLS with a certificate fingerprint or certificates; also used for a fingerprint only mihomo accepts |
 
-VMess / VLESS 与 AnyTLS 节点可在编辑页手动指定核心。Trojan-Go、NaïveProxy、Mieru 以及 faketcp / wechat-video 模式的 Hysteria 1 需要另外安装对应插件。
+VMess / VLESS / Trojan 与 AnyTLS 节点可在编辑页手动指定核心；指定的核心承载不了节点的设置时报错并列出冲突字段，不再回落到其他核心。Trojan-Go、NaïveProxy、Mieru 以及 faketcp / wechat-video 模式的 Hysteria 1 需要另外安装对应插件。
 
-The core can be chosen per profile for VMess / VLESS and AnyTLS. Trojan-Go, NaïveProxy, Mieru and Hysteria 1 in faketcp / wechat-video mode need their plugin installed separately.
+The core can be chosen per profile for VMess / VLESS / Trojan and AnyTLS; if the chosen core cannot run the profile's settings, it fails with the conflicting fields listed instead of falling back to another core. Trojan-Go, NaïveProxy, Mieru and Hysteria 1 in faketcp / wechat-video mode need their plugin installed separately.
 
 ## 支持的订阅格式 / Supported Subscription Format
 
