@@ -184,8 +184,8 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
             }
         }
 
-        // core selection only applies to vmess/vless
-        findPreference<ListPreference>(Key.PROFILE_CORE)!!.isVisible = isVmess || isVless
+        // 核心选项：VMess / VLESS / Trojan（D10，Trojan 也能走 Xray），HTTP 不能选核
+        findPreference<ListPreference>(Key.PROFILE_CORE)!!.isVisible = isVmess || isVless || bean is TrojanBean
     }
 
     private fun updateView(network: String) {
