@@ -1,5 +1,8 @@
 package io.nekohasekai.sagernet.fmt.shadowsocks
 
+import io.nekohasekai.sagernet.fmt.SING_BOX_SHADOWSOCKS_METHODS
+import io.nekohasekai.sagernet.fmt.SING_BOX_SHADOWSOCKS_PLUGINS
+import io.nekohasekai.sagernet.fmt.requireSingBoxValue
 import io.nekohasekai.sagernet.ktx.*
 import moe.matsuri.nb4a.SingBoxOptions
 import moe.matsuri.nb4a.utils.Util
@@ -142,13 +145,17 @@ fun buildSingBoxOutboundShadowsocksBean(bean: ShadowsocksBean): SingBoxOptions.O
         server = bean.serverAddress
         server_port = bean.serverPort
         password = bean.password
-        method = bean.method
+        // sing-box 只在创建出站时才校验这两项，名单外的值先在这里报错（BUG-001，SingBoxValueSets.kt）
+        method = requireSingBoxValue("shadowsocks method", bean.method, SING_BOX_SHADOWSOCKS_METHODS)
         if (bean.plugin.isNotBlank()) {
             plugin = bean.plugin.substringBefore(";")
             plugin_opts = bean.plugin.substringAfter(";", "")
-            if (plugin == "none") {
+            // 插件名为空（如 ";obfs=http"）与 none 一样不写插件、不查名单：sing-box 对空插件名本来就不建插件
+            if (plugin.isNullOrBlank() || plugin == "none") {
                 plugin = null
                 plugin_opts = null
+            } else {
+                requireSingBoxValue("shadowsocks plugin", plugin, SING_BOX_SHADOWSOCKS_PLUGINS)
             }
         }
     }

@@ -35,6 +35,18 @@ class CoreCapabilitiesTest {
             .find(repoFile("libcore/sing-box/constant/version.go").readText())!!.groupValues[1]
         assertTrue(goVersion, Regex("""\d+\.\d+\.\d+-neko-\d+""").matches(goVersion))
         assertEquals(goVersion.substringBefore("-neko-"), DialCore.SING_BOX.version)
+        // BUG-001 的 sing-box 取值名单（SingBoxValueSets.kt）按同一个 vendored sing-box 核实
+        assertEquals(goVersion.substringBefore("-neko-"), SING_BOX_VALUE_SETS_VERSION)
+    }
+
+    // 取值名单抄自这些上游模块：libcore/sing-box/go.mod 里的版本一变就要回去逐项复核
+    @Test
+    fun `sing-box 取值名单依赖的模块版本与 go mod 一致`() {
+        val goMod = repoFile("libcore/sing-box/go.mod").readLines()
+        for ((module, version) in SING_BOX_VALUE_SET_MODULES) {
+            val pinned = goMod.mapNotNull { Regex("""^\s*${Regex.escape(module)} (\S+)""").find(it)?.groupValues?.get(1) }
+            assertEquals("go.mod 里 $module 应恰好一行", listOf(version), pinned)
+        }
     }
 
     @Test
@@ -184,6 +196,16 @@ class CoreCapabilitiesTest {
             assertTrue(name, XRAY_UTLS_FINGERPRINTS.accepts(name))
             assertTrue(name, MIHOMO_UTLS_FINGERPRINTS.accepts(name))
         }
+    }
+
+    // 编辑器下拉框里的取值都在 sing-box 的名单里（BUG-001 的预检不会拒绝编辑器能选到的值）
+    @Test
+    fun `编辑器下拉框的 sing-box 枚举取值都在名单里`() {
+        assertEquals(SING_BOX_SHADOWSOCKS_METHODS, stringArray("ss_enc_method_value").toSet())
+        assertEquals(listOf("", "obfs-local", "v2ray-plugin"), stringArray("box_shadowsocks_plugins"))
+        assertEquals(SING_BOX_SHADOWSOCKS_PLUGINS, stringArray("box_shadowsocks_plugins").filter { it.isNotEmpty() }.toSet())
+        for (security in stringArray("vmess_encryption_value")) assertTrue(security, security in SING_BOX_VMESS_SECURITIES)
+        for (cc in stringArray("tuic_congestion_controller_value")) assertTrue(cc, cc in SING_BOX_TUIC_CONGESTION_CONTROLS)
     }
 
     @Test

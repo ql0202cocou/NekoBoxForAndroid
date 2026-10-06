@@ -3,8 +3,10 @@ package io.nekohasekai.sagernet.fmt.v2ray
 import android.text.TextUtils
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
+import io.nekohasekai.sagernet.fmt.SING_BOX_VMESS_SECURITIES
 import io.nekohasekai.sagernet.fmt.buildSingBoxOutboundTLS
 import io.nekohasekai.sagernet.fmt.http.HttpBean
+import io.nekohasekai.sagernet.fmt.requireSingBoxValue
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.ktx.*
 import moe.matsuri.nb4a.SingBoxOptions.*
@@ -752,7 +754,10 @@ fun buildSingBoxOutboundStandardV2RayBean(bean: StandardV2RayBean, globalAllowIn
                 server_port = bean.serverPort
                 uuid = bean.uuid
                 alter_id = bean.alterId
-                security = bean.encryption.takeIf { it.isNotBlank() } ?: "auto"
+                // 名单外的加密方式 sing-box 只在创建出站时报错，先在这里报（BUG-001，SingBoxValueSets.kt）
+                security = requireSingBoxValue(
+                    "vmess security", bean.encryption.takeIf { it.isNotBlank() } ?: "auto", SING_BOX_VMESS_SECURITIES,
+                )
                 packet_encoding =
                     if (bean.packetEncoding == 0) "" else packetEncodingName(bean.packetEncoding)
                 tls = buildSingBoxOutboundTLS(bean, globalAllowInsecure)

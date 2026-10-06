@@ -1,6 +1,8 @@
 package io.nekohasekai.sagernet.fmt.tuic
 
+import io.nekohasekai.sagernet.fmt.SING_BOX_TUIC_CONGESTION_CONTROLS
 import io.nekohasekai.sagernet.fmt.buildSingBoxOutboundTLS
+import io.nekohasekai.sagernet.fmt.requireSingBoxValue
 import io.nekohasekai.sagernet.ktx.linkBuilder
 import io.nekohasekai.sagernet.ktx.toLink
 import io.nekohasekai.sagernet.ktx.uuidRegex
@@ -97,7 +99,10 @@ fun buildSingBoxOutboundTuicBean(bean: TuicBean, globalAllowInsecure: Boolean): 
         server_port = bean.serverPort
         uuid = bean.uuid
         password = bean.token
-        congestion_control = bean.congestionController
+        // 不写时 sing-box 按 cubic；写了名单外的值先在这里报错（BUG-001，SingBoxValueSets.kt）
+        congestion_control = bean.congestionController?.let {
+            requireSingBoxValue("tuic congestion control", it, SING_BOX_TUIC_CONGESTION_CONTROLS)
+        }
         when (bean.udpRelayMode) {
             "quic" -> udp_relay_mode = "quic"
         }
