@@ -11,11 +11,12 @@ import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.fmt.KryoConverters
 import io.nekohasekai.sagernet.fmt.gson.GsonConverters
+import io.nekohasekai.sagernet.ktx.Logs
 import java.util.concurrent.Executors
 
 @Database(
     entities = [ProxyGroup::class, ProxyEntity::class, RuleEntity::class],
-    version = 8,
+    version = 9,
     autoMigrations = [
         AutoMigration(from = 3, to = 4),
         AutoMigration(from = 4, to = 5),
@@ -71,10 +72,46 @@ abstract class SagerDatabase : RoomDatabase() {
             }
         }
 
+        // K1：存量节点的一次性升级标注（fmt/LegacyProfileUpgrade.kt）。表结构不变，只改写 core 列与 VMess 行的
+        // vmessBean：mux 协议族、ws early data 的携带方式、uTLS 指纹与手动核心值，让 K1 之前写下的节点在新的选核下
+        // 照原样运行。读写流程在 migrateLegacyRows（LegacyRowMigration.kt），逐行判断在纯函数 upgradeLegacyRow 里，
+        // 这里只执行 SQL。全局「允许不安全」从 configuration.db（另一个库，PublicDatabase）读，不会反过来打开本库；
+        // 只在遇到 VMess 行时读一次。
+        // 只写有变化的行；读不出的行原样保留，只记行号与异常类型。日志不含节点内容
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val store = object : LegacyRowStore {
+                    override fun query(sql: String, block: (LegacyRowCursor) -> Unit) {
+                        db.query(sql).use { cursor ->
+                            block(object : LegacyRowCursor {
+                                override fun moveToNext() = cursor.moveToNext()
+                                override fun getLong(index: Int) = cursor.getLong(index)
+                                override fun getInt(index: Int) = cursor.getInt(index)
+                                override fun isNull(index: Int) = cursor.isNull(index)
+                                override fun getBlob(index: Int): ByteArray = cursor.getBlob(index)
+                            })
+                        }
+                    }
+
+                    override fun updateCore(id: Long, core: Int) {
+                        db.execSQL("UPDATE `proxy_entities` SET `core` = ? WHERE `id` = ?", arrayOf<Any>(core, id))
+                    }
+
+                    override fun updateCoreAndVmessBean(id: Long, core: Int, vmessBean: ByteArray) {
+                        db.execSQL(
+                            "UPDATE `proxy_entities` SET `core` = ?, `vmessBean` = ? WHERE `id` = ?",
+                            arrayOf<Any>(core, vmessBean, id),
+                        )
+                    }
+                }
+                migrateLegacyRows(store, { DataStore.globalAllowInsecure }, { Logs.w(it) }, { Logs.i(it) })
+            }
+        }
+
         val instance by lazy {
             SagerNet.application.getDatabasePath(Key.DB_PROFILE).parentFile?.mkdirs()
             Room.databaseBuilder(SagerNet.application, SagerDatabase::class.java, Key.DB_PROFILE)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_8_9)
                 .setJournalMode(JournalMode.TRUNCATE)
                 .allowMainThreadQueries()
                 .enableMultiInstanceInvalidation()

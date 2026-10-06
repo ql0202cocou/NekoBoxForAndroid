@@ -8,6 +8,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_ANYTLS
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_VMESS
 import io.nekohasekai.sagernet.fmt.v2ray.MUX_COOL
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
+import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.v2rayTransportOrNull
 
 // K1 之前写下的节点（数据库、旧备份、旧通用链接）的一次性升级标注。只看节点本身与全局「允许不安全」，
@@ -120,4 +121,36 @@ private fun pathEmbedsEarlyData(path: String): Boolean {
     val queryIndex = path.indexOf('?').takeIf { it >= 0 } ?: path.indexOf("&ed=")
     val parameters = if (queryIndex >= 0) path.substring(queryIndex + 1).split('&') else emptyList()
     return parameters.any { it.startsWith("ed=") }
+}
+
+// 数据库 8 → 9 迁移（SagerDatabase）对一行 proxy_entities 的处理，纯函数。8 版数据库里的节点都是 K1 之前的实现写的
+// （旧版写库一律写 StandardV2Ray v6 及以下），所以不看 legacyUnlabeled，每行都按存量数据标注。
+// 只有 VMess / VLESS 行读 bean：规则 a、b、d 只落在当时走 Xray 的节点上，而当时只有 VMess 类型会走 Xray；
+// 其余行（以及没有 bean 字节的 VMess 行）只做规则 c，不读 bean。bean 用严格的反序列化读，读不出就整行不动
+// （返回 Unreadable，由调用方记日志），不把宽松读出的半截 bean 写回去。
+// globalAllowInsecure 只在读到 VMess bean 时取值
+sealed class LegacyRowUpgrade {
+    object Unchanged : LegacyRowUpgrade()
+
+    // vmessBean 为 null 表示 bean 列不改（只改了 core）
+    class Changed(val core: Int, val vmessBean: ByteArray?, val changes: Set<LegacyProfileChange>) : LegacyRowUpgrade()
+
+    class Unreadable(val error: Exception) : LegacyRowUpgrade()
+}
+
+fun upgradeLegacyRow(type: Int, core: Int, vmessBean: ByteArray?, globalAllowInsecure: () -> Boolean): LegacyRowUpgrade {
+    if (type != TYPE_VMESS || vmessBean == null || vmessBean.isEmpty()) {
+        val normalized = normalizedLegacyCore(type, core)
+        return if (normalized == core) LegacyRowUpgrade.Unchanged
+        else LegacyRowUpgrade.Changed(normalized, null, setOf(LegacyProfileChange.CORE_NORMALIZED))
+    }
+    val bean = try {
+        KryoConverters.deserialize(VMessBean(), vmessBean)
+    } catch (e: Exception) {
+        return LegacyRowUpgrade.Unreadable(e)
+    }
+    val upgrade = upgradeLegacyProfile(type, core, bean, globalAllowInsecure())
+    if (!upgrade.changed) return LegacyRowUpgrade.Unchanged
+    val beanChanged = upgrade.changes.any { it != LegacyProfileChange.CORE_NORMALIZED }
+    return LegacyRowUpgrade.Changed(upgrade.core, if (beanChanged) KryoConverters.serialize(bean) else null, upgrade.changes)
 }
