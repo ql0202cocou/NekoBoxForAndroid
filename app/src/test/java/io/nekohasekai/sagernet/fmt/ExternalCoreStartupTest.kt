@@ -11,7 +11,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 // 启动前校验的报错解析、结论与就绪等待的报错文案（plan.md K0 做法 3、5）。报错样例取自模拟器上内置的
-// Xray v26.3.27（run -test）与 mihomo v1.19.31（-t）对坏配置的真实输出
+// Xray v26.3.27（run -test）与 mihomo v1.19.31 / v1.19.32（-t）对坏配置的真实输出。升级后的格式与这些样例逐字相同
+// （Xray v26.9.30 见 K1b X2 §4.1，mihomo v1.19.32 见 K1b M1 §3.6）
 class ExternalCoreStartupTest {
 
     private fun vless(name: String) = VMessBean().apply {
@@ -159,6 +160,12 @@ class ExternalCoreStartupTest {
             assertEquals(1, it.position)
             assertEquals("listener: unsupport proxy type: sockz", it.reason)
         }
+        // v1.19.32 的真实输出（users 写成字符串，K1b M1 T2-E7）
+        mihomoCheckErrors(mihomoOutput("listener 0: 'users' is not a slice")).single().let {
+            assertEquals(0, it.position)
+            assertNull(it.tag)
+            assertEquals("listener: 'users' is not a slice", it.reason)
+        }
     }
 
     @Test
@@ -177,6 +184,13 @@ class ExternalCoreStartupTest {
             assertNull(it.tag)
             assertNull(it.position)
             assertEquals(unbound, it.reason)
+        }
+        // dialer-proxy 的报错不带序号，名字也不在「is the duplicate name」的形式里（v1.19.32 的真实输出，K1b M1 T2-E5）
+        val dialerProxy = "proxy [out-1] dialer-proxy [nope] not found"
+        mihomoCheckErrors(mihomoOutput(dialerProxy)).single().let {
+            assertNull(it.tag)
+            assertNull(it.position)
+            assertEquals(dialerProxy, it.reason)
         }
         assertEquals(
             "yaml: line 23: did not find expected key",

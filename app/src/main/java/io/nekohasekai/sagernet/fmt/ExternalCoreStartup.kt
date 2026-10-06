@@ -115,7 +115,7 @@ fun xrayCheckErrors(output: String): List<ExternalCheckError> = output.lineSeque
     ExternalCheckError(reason, tag = tag)
 }.toList()
 
-// mihomo v1.19.31 的 -t：失败时退出码 1，先输出 logrus 格式的错误行再输出「… test failed」，都在标准输出。
+// mihomo v1.19.32 的 -t：失败时退出码 1，先输出 logrus 格式的错误行再输出「… test failed」，都在标准输出。
 // 代理 / listener 按 0 起算的序号报（level=error msg="proxy 1: unsupport proxy type: anytlsx"），
 // 名字重复时报名字（msg="proxy out-0 is the duplicate name"）
 private val LOGRUS_ERROR = Regex("""\blevel=(?:error|fatal) msg="((?:[^"\\]|\\.)*)"""")

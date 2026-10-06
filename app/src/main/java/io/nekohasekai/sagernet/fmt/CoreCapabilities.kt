@@ -11,7 +11,8 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 // 本地 doc/agent/k1b-wip/）：
 // - Xray：I1（v26.3.27 源码 S-X*、run -test 实测 T-*、本机回环 L-*）；K1b（v26.9.30 复核：X1 源码 S2-X*，X2 实测
 //   T2-* / L2-*）；
-// - mihomo：I1（v1.19.31 源码 S-M*、-t 实测 T-M*、回环 L-MA*）；
+// - mihomo：I1（v1.19.31 源码 S-M*、-t 实测 T-M*、回环 L-MA*）；M1（v1.19.32 复核：源码 S2-M*、-t 实测 T2-*、回环
+//   L2-*）；
 // - sing-box：I2b（vendored libcore/sing-box，1.14.2 + 1.14.2-neko-1）；
 // - 生成器：I2b 的逐字段真值表（buildSingBoxOutbound*、buildXrayOutbound、buildMihomoProxy）。
 // uTLS 指纹名单、VLESS flow、ws early data 另读了上游固定 tag 的源码，位置写在各常量上。
@@ -76,7 +77,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 enum class DialCore(val value: Int, val displayName: String, val version: String) {
     SING_BOX(CORE_SING_BOX, "sing-box", "1.14.2"),
     XRAY(CORE_XRAY, "Xray", "v26.9.30"),
-    MIHOMO(CORE_MIHOMO, "mihomo", "v1.19.31");
+    MIHOMO(CORE_MIHOMO, "mihomo", "v1.19.32");
 
     companion object {
         fun of(value: Int): DialCore? = entries.firstOrNull { it.value == value }
@@ -413,7 +414,7 @@ val XRAY_UTLS_FINGERPRINTS = CoreNames(
     ignoreCase = true,
 )
 
-// mihomo v1.19.31 的 client-fingerprint（component/tls/utls.go 的 GetFingerprint 与 fingerprints），区分大小写。
+// mihomo v1.19.32 的 client-fingerprint（component/tls/utls.go 的 GetFingerprint 与 fingerprints），区分大小写。
 // none 表示 Go 标准 TLS；名单外 -t 不报错，运行时只打 warning 并改用 Go 标准 TLS
 val MIHOMO_UTLS_FINGERPRINTS = CoreNames(
     setOf(
