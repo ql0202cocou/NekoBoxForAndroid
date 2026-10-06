@@ -151,8 +151,9 @@ fun parseV2Ray(link: String): StandardV2RayBean {
     // Kitsunebi 都已失败，残片仍可能被 toHttpUrl 解析成「能导入但必挂」的
     // 节点；抛异常让 parseProxies 按解析失败跳过。地址与端口由
     // parseProxies 的 requireValidEndpoint 统一验，这里只管 uuid。
-    // vless:// 不会走到那种残片，只要求非空：Xray 与 sing-box 都接受任意字符串 id
-    // （按 UUIDv5 映射），Clash / JSON 订阅导入的这类节点导出后要能导回来
+    // vless:// 不会走到那种残片，只要求非空：Clash / JSON 订阅导入的非 UUID 字符串 id 导出后要能导回来。
+    // 这类 id 在 1–30 字节时 Xray 与 sing-box 按同一个 UUIDv5（命名空间全零）映射；31 字节与 37 字节以上 Xray 报错，
+    // 32–36 字节按十六进制分组读，sing-box 仍映射（见已知差异 V2RAY_ID_MAPPING）
     if (bean.uuid.isNullOrBlank() || !bean.isVLESS && !bean.uuid.matches(uuidRegex)) {
         error("invalid v2ray uuid")
     }
