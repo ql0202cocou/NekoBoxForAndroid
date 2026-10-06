@@ -127,7 +127,7 @@ fun buildXrayOutbound(
                 })
             })
         })
-        put("streamSettings", buildXrayStreamSettings(bean, settings.globalAllowInsecure))
+        put("streamSettings", buildXrayStreamSettings(bean))
         // packetEncoding = xudp 经 Xray 的 mux 配置表达（xudpConcurrency）；Xray 没有 packetaddr。另外 Xray 的 VMess / VLESS
         // 出站默认就把 53、443 端口以外的 UDP 改走 XUDP，与 packetEncoding 无关。vision 流控不支持 mux，整个不写。
         // 只开 mux 不开 xudp 时不写 xudpProxyUDP443，Xray 缺省拒绝 UDP/443（生成器缺口，未修；Trojan 的 mux 同样）
@@ -175,7 +175,7 @@ fun buildXrayOutbound(
                 })
             })
         })
-        put("streamSettings", buildXrayStreamSettings(bean, settings.globalAllowInsecure))
+        put("streamSettings", buildXrayStreamSettings(bean))
         // 只有 enableMux 打开 Mux.Cool，写法同 VMess / VLESS。Trojan 没有 packet encoding：trojan:// 链接可能带进
         // packetEncoding，这里不读，不因它写 xudpConcurrency；Trojan 也没有 vision 流控
         if (bean.enableMux) {
@@ -200,7 +200,7 @@ private fun requireXrayStream(bean: StandardV2RayBean, globalAllowInsecure: Bool
 // 开 mux 时 Mux.Cool 每条连接的子连接上限；没填（≤0）时取 8
 private fun StandardV2RayBean.xrayMuxConcurrency(): Int = if (muxConcurrency > 0) muxConcurrency else 8
 
-private fun buildXrayStreamSettings(bean: StandardV2RayBean, globalAllowInsecure: Boolean): Map<String, Any?> {
+private fun buildXrayStreamSettings(bean: StandardV2RayBean): Map<String, Any?> {
     // 经 mapping 外核只能拨到本地地址，TLS SNI 需要显式兜底；
     // 与 sing-box 对齐：sni 为空时兜底为 serverAddress（IP 也一样）
     val sni = bean.sni.takeIf { it.isNotBlank() }
