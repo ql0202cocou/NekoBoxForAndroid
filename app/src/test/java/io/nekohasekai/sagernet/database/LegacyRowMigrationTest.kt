@@ -9,7 +9,9 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_TROJAN
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_VMESS
 import io.nekohasekai.sagernet.fmt.KryoConverters
 import io.nekohasekai.sagernet.fmt.kryo.KryoSamples
+import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.fmt.v2ray.MUX_COOL
+import io.nekohasekai.sagernet.fmt.v2ray.MUX_H2MUX
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -59,6 +61,9 @@ class LegacyRowMigrationTest {
 
         override fun updateCoreAndVmessBean(id: Long, core: Int, vmessBean: ByteArray) =
             write(Write(id, core, "vmessBean", vmessBean))
+
+        override fun updateCoreAndTrojanBean(id: Long, core: Int, trojanBean: ByteArray) =
+            write(Write(id, core, "trojanBean", trojanBean))
     }
 
     private fun sample(id: String) = KryoSamples.samples.single { it.id == id }.bytes
@@ -117,12 +122,46 @@ class LegacyRowMigrationTest {
         assertEquals(1, run.globalReads)
     }
 
+    // Trojan 行读 trojanBean 列、改过的 bean 写回 trojanBean；读不出的行仍规范 core（只写 core）
+    @Test
+    fun `Trojan 行的 bean 列与读不出时的 core`() {
+        val sampleTrojan = sample("TrojanBean/aa275d5e/trojan-tcp-tls-ech")
+        // 被旧版读错位又写回的取值：开了 mux、muxType 越界
+        val oddTrojan = KryoConverters.serialize(KryoConverters.deserialize(TrojanBean(), sampleTrojan).apply { muxType = 7 })
+        val brokenVmess = sample("VMessBean/dd8f56d3/vmess-tcp-tls").let { it.copyOf(it.size / 2) }
+        val brokenTrojan = sampleTrojan.copyOf(sampleTrojan.size / 2)
+        val run = migrate(
+            // Trojan 的 bean 在 trojanBean 列；vmessBean 列里放着别的字节，不该读
+            row(2001, TYPE_TROJAN, CORE_XRAY, vmessBean = byteArrayOf(1, 2, 3), trojanBean = oddTrojan),
+            // 没越界的 Trojan：读了 bean，不改
+            row(2002, TYPE_TROJAN, CORE_AUTO, trojanBean = sampleTrojan),
+            // 读不出 + core 非法：只写 core
+            row(2003, TYPE_VMESS, CORE_MIHOMO, vmessBean = brokenVmess),
+            row(2004, TYPE_TROJAN, CORE_XRAY, trojanBean = brokenTrojan),
+            // 读不出 + core 合法：不写
+            row(2005, TYPE_TROJAN, CORE_AUTO, trojanBean = brokenTrojan),
+        )
+        val writes = run.store.writes
+        assertEquals(listOf(2001L, 2003L, 2004L), writes.map { it.id })
+        assertEquals(listOf(CORE_AUTO, CORE_SING_BOX, CORE_AUTO), writes.map { it.core })
+        assertEquals(listOf("trojanBean", null, null), writes.map { it.column })
+        KryoConverters.deserialize(TrojanBean(), writes[0].bytes!!).let { assertEquals(MUX_H2MUX, it.muxType) }
+        assertEquals(listOf(2003L, 2004L, 2005L), run.warnings.map { Regex("#(\\d+)").find(it)!!.groupValues[1].toLong() })
+        assertEquals(listOf("database 8 -> 9: 3 of 5 profiles upgraded, 3 unreadable"), run.infos)
+        assertEquals(1, run.globalReads)
+    }
+
     @Test
     fun `没有要读的 bean 时不取全局设置`() {
-        val run = migrate(row(1, TYPE_VMESS, CORE_AUTO), row(2, TYPE_ANYTLS, CORE_AUTO))
+        val run = migrate(
+            row(1, TYPE_VMESS, CORE_AUTO),
+            row(2, TYPE_TROJAN, CORE_AUTO),
+            // 不能选核的协议不读 bean 列
+            row(3, TYPE_ANYTLS, CORE_AUTO, vmessBean = byteArrayOf(1), trojanBean = byteArrayOf(1)),
+        )
         assertEquals(0, run.globalReads)
         assertTrue(run.store.writes.isEmpty())
-        assertEquals(listOf("database 8 -> 9: 0 of 2 profiles upgraded, 0 unreadable"), run.infos)
+        assertEquals(listOf("database 8 -> 9: 0 of 3 profiles upgraded, 0 unreadable"), run.infos)
     }
 
     @Test

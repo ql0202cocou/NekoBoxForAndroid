@@ -14,8 +14,11 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_VMESS
 import io.nekohasekai.sagernet.fmt.CoreTestNodes.reality
 import io.nekohasekai.sagernet.fmt.LegacyProfileChange.CORE_NORMALIZED
 import io.nekohasekai.sagernet.fmt.LegacyProfileChange.MUX_COOL
+import io.nekohasekai.sagernet.fmt.LegacyProfileChange.MUX_TYPE_NORMALIZED
+import io.nekohasekai.sagernet.fmt.LegacyProfileChange.PACKET_ENCODING_NORMALIZED
 import io.nekohasekai.sagernet.fmt.LegacyProfileChange.UTLS_FIREFOX
 import io.nekohasekai.sagernet.fmt.LegacyProfileChange.WS_EARLY_DATA_HEADER
+import io.nekohasekai.sagernet.fmt.v2ray.MUX_H2MUX
 import io.nekohasekai.sagernet.fmt.v2ray.MUX_SMUX
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
@@ -32,7 +35,7 @@ import org.junit.Test
 import java.util.Random
 import io.nekohasekai.sagernet.fmt.v2ray.MUX_COOL as MUX_COOL_VALUE
 
-// 存量节点的一次性升级标注（LegacyProfileUpgrade.kt）：四条规则逐类的表格测试，外加幂等与「不改变 K1 之前的承载」
+// 存量节点的一次性升级标注（LegacyProfileUpgrade.kt）：五条规则逐类的表格测试，外加幂等与「不改变 K1 之前的承载」
 class LegacyProfileUpgradeTest {
 
     private fun upgrade(type: Int, core: Int, bean: AbstractBean, global: Boolean = false) =
@@ -335,6 +338,76 @@ class LegacyProfileUpgradeTest {
         assertTrue(SING_BOX_UTLS_FINGERPRINTS.accepts(LEGACY_UTLS_FINGERPRINT))
         assertTrue(XRAY_UTLS_FINGERPRINTS.accepts(LEGACY_UTLS_FINGERPRINT))
         assertTrue(MIHOMO_UTLS_FINGERPRINTS.accepts(LEGACY_UTLS_FINGERPRINT))
+    }
+
+    // ---- 规则 e：越界取值规范化
+
+    private class OddCase(
+        val name: String,
+        val type: Int,
+        val core: Int,
+        val changes: Set<LegacyProfileChange>,
+        val packetEncoding: Int,
+        val muxType: Int,
+        val bean: () -> StandardV2RayBean,
+    )
+
+    private val oddCases = listOf(
+        OddCase("VMess TLS，packetEncoding = 5（当时走 sing-box）", TYPE_VMESS, CORE_AUTO, setOf(PACKET_ENCODING_NORMALIZED), 0, MUX_H2MUX) {
+            CoreTestNodes.vmess { packetEncoding = 5 }
+        },
+        OddCase("VMess 手动 Xray，packetEncoding = -1", TYPE_VMESS, CORE_XRAY, setOf(PACKET_ENCODING_NORMALIZED), 0, MUX_H2MUX) {
+            CoreTestNodes.vmess { packetEncoding = -1 }
+        },
+        OddCase("VLESS TLS，packetEncoding = 5（当时走 Xray，换到 sing-box，规则 d 另补指纹）", TYPE_VMESS, CORE_AUTO,
+            setOf(PACKET_ENCODING_NORMALIZED, UTLS_FIREFOX), 0, MUX_H2MUX) { CoreTestNodes.vless { packetEncoding = 5 } },
+        OddCase("Trojan，packetEncoding = 5", TYPE_TROJAN, CORE_AUTO, setOf(PACKET_ENCODING_NORMALIZED), 0, MUX_H2MUX) {
+            CoreTestNodes.trojan { packetEncoding = 5 }
+        },
+        OddCase("VMess 开 mux，muxType = 7（当时走 sing-box）", TYPE_VMESS, CORE_AUTO, setOf(MUX_TYPE_NORMALIZED), 0, MUX_H2MUX) {
+            CoreTestNodes.vmess { enableMux = true; muxType = 7 }
+        },
+        OddCase("VMess 开 mux，muxType = 3（当时走 sing-box，当作 h2mux）", TYPE_VMESS, CORE_AUTO, setOf(MUX_TYPE_NORMALIZED), 0, MUX_H2MUX) {
+            CoreTestNodes.vmess { enableMux = true; muxType = MUX_COOL_VALUE }
+        },
+        OddCase("VMess 手动 sing-box，开 mux，muxType = 3", TYPE_VMESS, CORE_SING_BOX, setOf(MUX_TYPE_NORMALIZED), 0, MUX_H2MUX) {
+            CoreTestNodes.vmess { enableMux = true; muxType = MUX_COOL_VALUE }
+        },
+        OddCase("Trojan 开 mux，muxType = 3", TYPE_TROJAN, CORE_AUTO, setOf(MUX_TYPE_NORMALIZED), 0, MUX_H2MUX) {
+            CoreTestNodes.trojan { enableMux = true; muxType = MUX_COOL_VALUE }
+        },
+        OddCase("Trojan 手动 Xray，开 mux，muxType = 7（core 改回自动）", TYPE_TROJAN, CORE_XRAY,
+            setOf(MUX_TYPE_NORMALIZED, CORE_NORMALIZED), 0, MUX_H2MUX) { CoreTestNodes.trojan { enableMux = true; muxType = 7 } },
+        OddCase("VLESS 开 mux，muxType = 7（当时走 Xray，规则 a 标为 Mux.Cool）", TYPE_VMESS, CORE_AUTO, setOf(MUX_COOL), 0, MUX_COOL_VALUE) {
+            CoreTestNodes.vless { enableMux = true; muxType = 7 }
+        },
+        OddCase("VMess 没开 mux，muxType = 7（两个核心都不读，不动）", TYPE_VMESS, CORE_AUTO, emptySet(), 0, 7) {
+            CoreTestNodes.vmess { enableMux = false; muxType = 7 }
+        },
+        OddCase("VMess 开 mux，muxType = 2（没越界，不动）", TYPE_VMESS, CORE_AUTO, emptySet(), 0, 2) {
+            CoreTestNodes.vmess { enableMux = true; muxType = 2 }
+        },
+    )
+
+    @Test
+    fun `规则 e：越界的 packetEncoding 与 muxType 规范成 1_8_0-a3 实际生效的值`() {
+        for (case in oddCases) {
+            val bean = case.bean()
+            val before = LegacyCoreSelection.carrier(case.type, case.core, bean, false)
+            val result = upgrade(case.type, case.core, bean)
+            assertEquals(case.name, case.changes, result.changes)
+            assertEquals(case.name, case.packetEncoding, bean.packetEncoding)
+            assertEquals(case.name, case.muxType, bean.muxType)
+            // 规范之后 K1 的判定能承载，且没有换核（规则 d 补指纹的那条除外：VLESS 一行的换核）
+            val decision = decideCore(case.type, result.core, bean, false)
+            assertTrue(case.name, decision is CoreDecision.Selected)
+            if (UTLS_FIREFOX !in result.changes) {
+                val expected = if (before == LegacyCoreSelection.Carrier.XRAY) DialCore.XRAY else DialCore.SING_BOX
+                assertEquals(case.name, expected, (decision as CoreDecision.Selected).core)
+            }
+            // 幂等
+            assertFalse(case.name, upgrade(case.type, result.core, bean).changed)
+        }
     }
 
     // ---- 整体性质

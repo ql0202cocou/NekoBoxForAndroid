@@ -72,12 +72,12 @@ abstract class SagerDatabase : RoomDatabase() {
             }
         }
 
-        // K1：存量节点的一次性升级标注（fmt/LegacyProfileUpgrade.kt）。表结构不变，只改写 core 列与 VMess 行的
-        // vmessBean：mux 协议族、ws early data 的携带方式、uTLS 指纹与手动核心值，让 K1 之前写下的节点在新的选核下
-        // 照原样运行。读写流程在 migrateLegacyRows（LegacyRowMigration.kt），逐行判断在纯函数 upgradeLegacyRow 里，
-        // 这里只执行 SQL。全局「允许不安全」从 configuration.db（另一个库，PublicDatabase）读，不会反过来打开本库；
-        // 只在遇到 VMess 行时读一次。
-        // 只写有变化的行；读不出的行原样保留，只记行号与异常类型。日志不含节点内容
+        // K1：存量节点的一次性升级标注（fmt/LegacyProfileUpgrade.kt）。表结构不变，只改写 core 列、VMess 行的
+        // vmessBean 与 Trojan 行的 trojanBean：mux 协议族、ws early data 的携带方式、uTLS 指纹、越界取值与手动核心值，
+        // 让 K1 之前写下的节点在新的选核下照原样运行。读写流程在 migrateLegacyRows（LegacyRowMigration.kt），逐行判断
+        // 在纯函数 upgradeLegacyRow 里，这里只执行 SQL。全局「允许不安全」从 configuration.db（另一个库，
+        // PublicDatabase）读，不会反过来打开本库；只在遇到 bean 时读一次。
+        // 只写有变化的行；bean 读不出的行只规范 core 列，只记行号与异常类型。日志不含节点内容
         private val MIGRATION_8_9 = object : Migration(8, 9) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 val store = object : LegacyRowStore {
@@ -101,6 +101,13 @@ abstract class SagerDatabase : RoomDatabase() {
                         db.execSQL(
                             "UPDATE `proxy_entities` SET `core` = ?, `vmessBean` = ? WHERE `id` = ?",
                             arrayOf<Any>(core, vmessBean, id),
+                        )
+                    }
+
+                    override fun updateCoreAndTrojanBean(id: Long, core: Int, trojanBean: ByteArray) {
+                        db.execSQL(
+                            "UPDATE `proxy_entities` SET `core` = ?, `trojanBean` = ? WHERE `id` = ?",
+                            arrayOf<Any>(core, trojanBean, id),
                         )
                     }
                 }

@@ -106,6 +106,12 @@ object CoreTestNodes {
     val WS_PATH_SAMPLES = listOf("/ws", "/ws?ed=2048", "", "/ws?a=1&ed=1024", "/path?a=1")
     val WS_HEADER_SAMPLES = listOf("", "", "Sec-WebSocket-Protocol", "sec-websocket-protocol", "X-Early-Data")
 
+    // packetEncoding / muxType：多数是 0–2，另有被旧版读错位又写回的行里可能出现的越界值（3 对 muxType 是 K1 的
+    // Mux.Cool，对存量数据仍算越界）。各只抽一次 nextInt，与只取 0–2 时消耗的随机数相同，冻结规则不看这两个字段，
+    // LegacyCoreSelectionTest 钉住的随机样本判定因此不变
+    val PACKET_ENCODING_SAMPLES = listOf(0, 1, 2, 0, 1, 2, 0, 1, 2, 3, 5, -1)
+    val MUX_TYPE_SAMPLES = listOf(0, 1, 2, 0, 1, 2, 0, 1, 2, 3, 7, -1)
+
     private fun <T> Random.pick(values: List<T>): T = values[nextInt(values.size)]
     private fun Random.chance(percent: Int) = nextInt(100) < percent
 
@@ -126,10 +132,10 @@ object CoreTestNodes {
         bean.enableECH = chance(30)
         bean.echConfig = if (chance(50)) ECH else ""
         bean.enableMux = chance(35)
-        bean.muxType = nextInt(3)
+        bean.muxType = pick(MUX_TYPE_SAMPLES)
         bean.muxPadding = chance(30)
         bean.muxConcurrency = pick(listOf(1, 4, 8))
-        bean.packetEncoding = nextInt(3)
+        bean.packetEncoding = pick(PACKET_ENCODING_SAMPLES)
         if (bean.type == "ws") {
             bean.path = pick(WS_PATH_SAMPLES)
             bean.host = if (chance(50)) "cdn.example.net" else ""

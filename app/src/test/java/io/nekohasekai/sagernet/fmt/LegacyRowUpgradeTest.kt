@@ -13,9 +13,14 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_TROJAN
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_VMESS
 import io.nekohasekai.sagernet.fmt.LegacyProfileChange.CORE_NORMALIZED
 import io.nekohasekai.sagernet.fmt.LegacyProfileChange.MUX_COOL
+import io.nekohasekai.sagernet.fmt.LegacyProfileChange.MUX_TYPE_NORMALIZED
+import io.nekohasekai.sagernet.fmt.LegacyProfileChange.PACKET_ENCODING_NORMALIZED
 import io.nekohasekai.sagernet.fmt.LegacyProfileChange.UTLS_FIREFOX
 import io.nekohasekai.sagernet.fmt.LegacyProfileChange.WS_EARLY_DATA_HEADER
 import io.nekohasekai.sagernet.fmt.kryo.KryoSamples
+import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
+import io.nekohasekai.sagernet.fmt.v2ray.MUX_H2MUX
+import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.ktx.byteBuffer
 import org.junit.Assert.assertEquals
@@ -79,7 +84,7 @@ class LegacyRowUpgradeTest {
         assertEquals(setOf(MUX_COOL), result.changes)
         val expected = sample("ProxyEntity/dd8f56d3/entity-VMessBean").expected
             .getAsJsonObject("bean").getAsJsonObject("fields")
-        assertRewritten("entity dd8f56d3", result.vmessBean!!, expected, mapOf("muxType" to 3))
+        assertRewritten("entity dd8f56d3", result.bean!!, expected, mapOf("muxType" to 3))
     }
 
     @Test
@@ -145,9 +150,9 @@ class LegacyRowUpgradeTest {
             assertEquals(where, case.expectedCore, result.core)
             assertEquals(where, case.changes, result.changes)
             if (case.overrides.isEmpty()) {
-                assertEquals("$where：只改 core 时不写 bean 列", null, result.vmessBean)
+                assertEquals("$where：只改 core 时不写 bean 列", null, result.bean)
             } else {
-                assertRewritten(where, result.vmessBean!!, s.expected, case.overrides)
+                assertRewritten(where, result.bean!!, s.expected, case.overrides)
             }
         }
     }
@@ -184,7 +189,7 @@ class LegacyRowUpgradeTest {
         val tls = upgrade(TYPE_VMESS, CORE_AUTO, vlessTlsTcp) as LegacyRowUpgrade.Changed
         assertEquals(setOf(UTLS_FIREFOX), tls.changes)
         assertEquals(CORE_AUTO, tls.core)
-        decode(tls.vmessBean!!).let {
+        decode(tls.bean!!).let {
             assertEquals("firefox", it.utlsFingerprint)
             assertEquals(before.apply { utlsFingerprint = "firefox" }, it)
         }
@@ -195,7 +200,7 @@ class LegacyRowUpgradeTest {
 
         val ws = upgrade(TYPE_VMESS, CORE_AUTO, vlessWsEarlyData) as LegacyRowUpgrade.Changed
         assertEquals(setOf(WS_EARLY_DATA_HEADER, UTLS_FIREFOX), ws.changes)
-        decode(ws.vmessBean!!).let {
+        decode(ws.bean!!).let {
             assertEquals(WS_EARLY_DATA_PROTOCOL_HEADER, it.earlyDataHeaderName)
             assertEquals(1024, it.wsMaxEarlyData)
             assertEquals("/golden-ws?x=1", it.path)
@@ -205,7 +210,7 @@ class LegacyRowUpgradeTest {
         val mux = upgrade(TYPE_VMESS, CORE_AUTO, vlessMux) as LegacyRowUpgrade.Changed
         // 标成 Mux.Cool 之后留在 Xray，不补指纹
         assertEquals(setOf(MUX_COOL), mux.changes)
-        decode(mux.vmessBean!!).let {
+        decode(mux.bean!!).let {
             assertEquals(3, it.muxType)
             assertEquals("", it.utlsFingerprint)
         }
@@ -213,10 +218,10 @@ class LegacyRowUpgradeTest {
         assertEquals(setOf(MUX_COOL), (upgrade(TYPE_VMESS, CORE_XRAY, vlessMux) as LegacyRowUpgrade.Changed).changes)
     }
 
-    // ---- 其余行：只做规则 c，不读 bean，也不取全局设置
+    // ---- 没有 bean 可读的行：只做规则 c，不读 bean，也不取全局设置
 
     @Test
-    fun `非 VMess 行只规范 core`() {
+    fun `不读 bean 的行只规范 core`() {
         val cases = listOf(
             Triple(TYPE_TROJAN, CORE_XRAY, CORE_AUTO),
             Triple(TYPE_TROJAN, CORE_AUTO, null),
@@ -225,57 +230,113 @@ class LegacyRowUpgradeTest {
             Triple(TYPE_ANYTLS, CORE_AUTO, null),
             Triple(TYPE_SOCKS, CORE_MIHOMO, CORE_AUTO),
             Triple(TYPE_HYSTERIA, CORE_AUTO, null),
-            // VMess 行没有 bean 字节（损坏数据）：同样只规范 core
+            // VMess / Trojan 行没有 bean 字节（损坏数据）：同样只规范 core
             Triple(TYPE_VMESS, CORE_MIHOMO, CORE_SING_BOX),
             Triple(TYPE_VMESS, CORE_XRAY, null),
         )
         for ((type, core, expected) in cases) {
             for (bytes in listOf(null, ByteArray(0))) {
-                if (type != TYPE_VMESS && bytes != null) continue
+                if (type != TYPE_VMESS && type != TYPE_TROJAN && bytes != null) continue
                 val result = upgradeLegacyRow(type, core, bytes) { error("不该读全局设置") }
                 if (expected == null) {
                     assertSame("type=$type core=$core", LegacyRowUpgrade.Unchanged, result)
                 } else {
                     result as LegacyRowUpgrade.Changed
                     assertEquals("type=$type core=$core", expected, result.core)
-                    assertEquals(null, result.vmessBean)
+                    assertEquals(null, result.bean)
                     assertEquals(setOf(CORE_NORMALIZED), result.changes)
                 }
             }
         }
-        // 非 VMess 行即使带着字节也不读（迁移只查 vmessBean 列，这里传什么都一样）
-        assertSame(LegacyRowUpgrade.Unchanged, upgradeLegacyRow(TYPE_TROJAN, CORE_AUTO, byteArrayOf(1, 2, 3)) { error("不该读") })
+        // VMess / Trojan 以外的行即使带着字节也不读（迁移不查它们的 bean 列，这里传什么都一样）
+        assertSame(LegacyRowUpgrade.Unchanged, upgradeLegacyRow(TYPE_ANYTLS, CORE_AUTO, byteArrayOf(1, 2, 3)) { error("不该读") })
+        assertSame(LegacyRowUpgrade.Unchanged, upgradeLegacyRow(TYPE_SOCKS, CORE_AUTO, byteArrayOf(1, 2, 3)) { error("不该读") })
     }
 
+    // bean 列不动；core 列照样按规则 c 规范（不看 bean），也不取全局设置
     @Test
-    fun `读不出的 bean 整行不动`() {
-        val bytes = sample("VMessBean/dd8f56d3/vmess-tcp-tls").bytes
-        for (broken in listOf(bytes.copyOf(bytes.size / 2), byteArrayOf(7, 0, 0, 0, 1))) {
-            val result = upgrade(TYPE_VMESS, CORE_XRAY, broken)
-            assertTrue(result is LegacyRowUpgrade.Unreadable)
+    fun `读不出的 bean 只规范 core`() {
+        val vmess = sample("VMessBean/dd8f56d3/vmess-tcp-tls").bytes
+        val trojan = sample("TrojanBean/aa275d5e/trojan-tcp-tls-ech").bytes
+        val cases = listOf(
+            Triple(TYPE_VMESS, CORE_XRAY, null),
+            Triple(TYPE_VMESS, CORE_MIHOMO, CORE_SING_BOX),
+            Triple(TYPE_VMESS, -1, CORE_SING_BOX),
+            Triple(TYPE_TROJAN, CORE_AUTO, null),
+            Triple(TYPE_TROJAN, CORE_XRAY, CORE_AUTO),
+        )
+        for ((type, core, expected) in cases) {
+            val bytes = if (type == TYPE_VMESS) vmess else trojan
+            for (broken in listOf(bytes.copyOf(bytes.size / 2), byteArrayOf(7, 0, 0, 0, 1))) {
+                val result = upgradeLegacyRow(type, core, broken) { error("读不出时不该读全局设置") }
+                result as LegacyRowUpgrade.Unreadable
+                assertEquals("type=$type core=$core", expected, result.core)
+            }
         }
     }
 
-    // 全部 v7 以前的 VMessBean 样本 × 各种 core × 全局开关：改写过的字节都是 v7、能读回，除了报告的字段外与原样一致；
-    // 没改写的结论与直接对 bean 标注一致
+    // ---- 规则 e：越界的 packetEncoding / muxType（被旧版读错位又写回的行）。历史样本里没有这种取值，用样本读出的
+    // bean 改出越界值再序列化
+
+    private fun <T : StandardV2RayBean> oddBytes(bean: T, id: String, block: T.() -> Unit): ByteArray =
+        KryoConverters.serialize(KryoConverters.deserialize(bean, sample(id).bytes).apply(block))
+
+    @Test
+    fun `规则 e：越界取值规范成 1_8_0-a3 实际生效的值`() {
+        // VMess：当时走 sing-box（没有证书指纹），packetEncoding = 5、开了 mux 且 muxType = 3
+        val vmess = oddBytes(VMessBean(), "VMessBean/329572d1/vmess-http-none") { packetEncoding = 5; enableMux = true; muxType = 3 }
+        val vmessResult = upgrade(TYPE_VMESS, CORE_AUTO, vmess) as LegacyRowUpgrade.Changed
+        assertEquals(setOf(PACKET_ENCODING_NORMALIZED, MUX_TYPE_NORMALIZED), vmessResult.changes)
+        decode(vmessResult.bean!!).let {
+            assertEquals(0, it.packetEncoding)
+            assertEquals(MUX_H2MUX, it.muxType)
+        }
+        // Trojan 行读 trojanBean：开了 mux 且 muxType = 7
+        val trojan = oddBytes(TrojanBean(), "TrojanBean/aa275d5e/trojan-tcp-tls-ech") { muxType = 7 }
+        val trojanResult = upgrade(TYPE_TROJAN, CORE_AUTO, trojan) as LegacyRowUpgrade.Changed
+        assertEquals(setOf(MUX_TYPE_NORMALIZED), trojanResult.changes)
+        assertEquals(CORE_AUTO, trojanResult.core)
+        KryoConverters.deserialize(TrojanBean(), trojanResult.bean!!).let {
+            assertEquals(MUX_H2MUX, it.muxType)
+            assertTrue(it.enableMux)
+        }
+        // Trojan 的手动 Xray 同时改回自动
+        val trojanXray = upgrade(TYPE_TROJAN, CORE_XRAY, trojan) as LegacyRowUpgrade.Changed
+        assertEquals(setOf(MUX_TYPE_NORMALIZED, CORE_NORMALIZED), trojanXray.changes)
+        assertEquals(CORE_AUTO, trojanXray.core)
+        // 没越界的 Trojan 行：读了 bean，什么都不改
+        assertSame(LegacyRowUpgrade.Unchanged, upgrade(TYPE_TROJAN, CORE_AUTO, sample("TrojanBean/aa275d5e/trojan-tcp-tls-ech").bytes))
+    }
+
+    // 全部 v7 以前的 VMessBean / TrojanBean 样本 × 各种 core × 全局开关：严格读都读得出；改写过的字节都是 v7、能读回，
+    // 除了报告的字段外与原样一致；没改写的结论与直接对 bean 标注一致
     @Test
     fun `全部旧样本：改写的字节只差报告的字段`() {
-        val fieldOf = mapOf(MUX_COOL to "muxType", WS_EARLY_DATA_HEADER to "earlyDataHeaderName", UTLS_FIREFOX to "utlsFingerprint")
+        val fieldOf = mapOf(
+            MUX_COOL to "muxType", WS_EARLY_DATA_HEADER to "earlyDataHeaderName", UTLS_FIREFOX to "utlsFingerprint",
+            PACKET_ENCODING_NORMALIZED to "packetEncoding", MUX_TYPE_NORMALIZED to "muxType",
+        )
+        val types = mapOf(VMessBean::class.java.name to TYPE_VMESS, TrojanBean::class.java.name to TYPE_TROJAN)
         var rewritten = 0
-        for (s in KryoSamples.samples.filter { it.className == VMessBean::class.java.name && it.versions.getValue("StandardV2RayBean") < 7 }) {
+        var trojanSamples = 0
+        for (s in KryoSamples.samples.filter { it.className in types && it.versions.getValue("StandardV2RayBean") < 7 }) {
+            val type = types.getValue(s.className)
+            if (type == TYPE_TROJAN) trojanSamples++
+            fun read(bytes: ByteArray): StandardV2RayBean =
+                if (type == TYPE_VMESS) decode(bytes) else KryoConverters.deserialize(TrojanBean(), bytes)
             for (core in listOf(CORE_AUTO, CORE_SING_BOX, CORE_XRAY, CORE_MIHOMO, -1)) for (global in listOf(false, true)) {
                 val where = "${s.id} core=$core global=$global"
-                val direct = decode(s.bytes).let { upgradeLegacyProfile(TYPE_VMESS, core, it, global) }
-                when (val result = upgrade(TYPE_VMESS, core, s.bytes, global)) {
+                val direct = read(s.bytes).let { upgradeLegacyProfile(type, core, it, global) }
+                when (val result = upgrade(type, core, s.bytes, global)) {
                     LegacyRowUpgrade.Unchanged -> assertFalse(where, direct.changed)
                     is LegacyRowUpgrade.Unreadable -> throw AssertionError(where, result.error)
                     is LegacyRowUpgrade.Changed -> {
                         assertEquals(where, direct.changes, result.changes)
                         assertEquals(where, direct.core, result.core)
-                        val bytes = result.vmessBean ?: continue
+                        val bytes = result.bean ?: continue
                         rewritten++
-                        val after = KryoSamples.fieldsOf(decode(bytes))
-                        val before = KryoSamples.fieldsOf(decode(s.bytes))
+                        val after = KryoSamples.fieldsOf(read(bytes))
+                        val before = KryoSamples.fieldsOf(read(s.bytes))
                         val changed = after.keys.filter { after[it] != before[it] }.toSet()
                         assertEquals(where, result.changes.mapNotNull { fieldOf[it] }.toSet(), changed)
                     }
@@ -283,5 +344,6 @@ class LegacyRowUpgradeTest {
             }
         }
         assertTrue(rewritten > 0)
+        assertTrue(trojanSamples > 0)
     }
 }
