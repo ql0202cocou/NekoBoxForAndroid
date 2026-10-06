@@ -267,6 +267,8 @@ class CoreCapabilitiesTest {
                 KnownDifference.REALITY_ALPN to DifferenceDecision.DECIDED,
                 KnownDifference.REALITY_ALLOW_INSECURE_CERTIFICATES to DifferenceDecision.DECIDED,
                 KnownDifference.XRAY_REALITY_IGNORES_PIN_ECH to DifferenceDecision.DECIDED,
+                KnownDifference.REALITY_SERVER_MLKEM to DifferenceDecision.DECIDED,
+                KnownDifference.REALITY_FINGERPRINT_MLKEM to DifferenceDecision.DECIDED,
                 KnownDifference.UTLS_DEFAULT to DifferenceDecision.DECIDED,
                 KnownDifference.PACKET_ENCODING_NONE to DifferenceDecision.DECIDED,
                 KnownDifference.VMESS_SECURITY_AUTO to DifferenceDecision.DECIDED,

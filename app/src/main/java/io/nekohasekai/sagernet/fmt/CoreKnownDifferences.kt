@@ -50,6 +50,33 @@ enum class KnownDifference(
         "REALITY 不按证书链验证服务端，ECH 与 REALITY 互斥，Xray 忽略它们不丢安全校验",
         DifferenceDecision.DECIDED,
     ),
+    REALITY_SERVER_MLKEM(
+        listOf(ProfileField.CORE, ProfileField.REALITY_PUBLIC_KEY),
+        mapOf(
+            DialCore.SING_BOX to "REALITY 客户端的 ClientHello 只有 X25519 / P-256 / P-384，不提供 X25519MLKEM768（自报 1.8.1）：" +
+                "Xray v26.9.8 以上的服务端一律拒绝，运营者没有开关（minClientVer 设 1.8.0 也拒），客户端报 " +
+                "reality verification failed（目标证书不受信时是 x509 错误）；连更早的服务端照常",
+            DialCore.XRAY to "用带 X25519MLKEM768 的指纹（chrome / firefox / safari 一类，空值即 chrome）新旧服务端都能连",
+        ),
+        "维护者 2026-10-06 定（K1b 待决定项 C）：只记差异并在测速失败时提示（withRealityHint、libcore/sing-box/NEKO.md），" +
+            "不拒绝手动选 sing-box 的 REALITY 节点，因为对 v26.9.8 以前的服务端仍可用；自动选核本来就让 REALITY 优先走 Xray" +
+            "（K1b X2 L2-M01…M08、M17…M20 实测）",
+        DifferenceDecision.DECIDED,
+    ),
+    REALITY_FINGERPRINT_MLKEM(
+        listOf(ProfileField.UTLS_FINGERPRINT, ProfileField.REALITY_PUBLIC_KEY),
+        mapOf(
+            DialCore.XRAY to "不带 X25519MLKEM768 的指纹（ios、edge、qq、360、android、hellochrome_120、hellofirefox_120、" +
+                "helloios_14、hello360_11_0 等）连 v26.9.8 以上的服务端必然失败，客户端报 received real certificate" +
+                "（android、360 自报不支持 TLS 1.3）；random / randomized 看抽到的模板，时通时不通",
+            DialCore.SING_BOX to "任何指纹都不带 X25519MLKEM768，同样连不上这类服务端（见 REALITY_SERVER_MLKEM）",
+        ),
+        "失败只取决于服务端版本与指纹，与客户端核心新旧无关：v26.3.27 客户端用 edge 连新服务端同样失败，新客户端用 edge " +
+            "连旧服务端能通（K1b X2 指纹清单 T2-55…80、L2-01…26 实测，新旧对比 L2-M09…M16、L2-64/66 实测）。维护者 2026-10-06 定" +
+            "（K1b 待决定项 C）：只记差异，不做冲突、" +
+            "不加编辑器提示",
+        DifferenceDecision.DECIDED,
+    ),
     UTLS_DEFAULT(
         listOf(ProfileField.UTLS_FINGERPRINT),
         mapOf(
