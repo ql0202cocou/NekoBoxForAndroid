@@ -4,18 +4,23 @@ import io.nekohasekai.sagernet.IPv6Mode
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.TunImplementation
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_AUTO
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_MIHOMO
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_SING_BOX
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 import io.nekohasekai.sagernet.fmt.AbstractBean
+import io.nekohasekai.sagernet.fmt.WS_EARLY_DATA_PROTOCOL_HEADER
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
 import io.nekohasekai.sagernet.fmt.ssh.SSHBean
+import io.nekohasekai.sagernet.fmt.v2ray.MUX_COOL
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean.FLOW_VISION
 import java.util.Base64
 
 // 场景表：一个场景一组输入（设置、分组、节点、规则、选中的节点），三种模式各采一次。
 // 新增场景只往这里加；场景 id 只用小写字母、数字和连字符，一经入库不要改名（基线按 id 对照）。
-// 主节点默认是 id 1，分组默认是 1（普通分组）
+// 主节点默认是 id 1，分组默认是 1（普通分组）。
+// K1（能力表选核）之后：测「某个核心上的某个特性」或合并配置的场景，凡自动选核会换核的，都手动指定原来的核心，输出
+// 与 K1 之前相同；测自动选核本身的场景保留自动。K1 的选核变化另由 k1- 前缀的场景钉住（k1Selection）
 fun goldenScenarios(): List<Scenario> = scenarioTable {
     singBoxNodes()
     xrayNodes()
@@ -29,16 +34,23 @@ fun goldenScenarios(): List<Scenario> = scenarioTable {
     settingsVariants()
     groupNameservers()
     multiExternal()
+    k1Selection()
 }
 
 private fun ScenarioTable.single(
     id: String,
     description: String,
     core: Int = CORE_AUTO,
+    global: Boolean = false,
     bean: () -> AbstractBean,
 ) = scenario(id, description) {
     node(1, bean(), core = core)
+    if (global) settings { copy(globalAllowInsecure = true) }
 }
+
+// mihomo 一侧的 AnyTLS 节点。K1 起不带证书指纹与 certificates 的 AnyTLS 自动选核走 sing-box；这些场景测的是 mihomo
+// （单节点特性、合并配置、链与选择器里的 mihomo 跳），手动指定 mihomo，输出与 K1 之前相同
+private fun ScenarioBuilder.mihomo(id: Long, bean: AbstractBean, group: Long = 1L) = node(id, bean, group, CORE_MIHOMO)
 
 // 一份自洽的完整 sing-box 配置（全配置型自定义节点）
 private const val FULL_CONFIG = """{
@@ -146,7 +158,7 @@ private fun ScenarioTable.singBoxNodes() {
     single("sb-vmess-tls-certificates", "VMess TLS 自定义 CA") {
         vmess("golden-vmess-ca").tls(sni = "golden.example.com", certificates = Fx.CERT_PEM)
     }
-    single("sb-vmess-reality", "VMess + REALITY 跑在 sing-box 上（默认 uTLS chrome）") {
+    single("sb-vmess-reality", "VMess + REALITY 跑在 sing-box 上（默认 uTLS chrome）", core = CORE_SING_BOX) {
         vmess("golden-vmess-reality").reality()
     }
     single("sb-vmess-mux-h2mux", "VMess mux h2mux + padding") {
@@ -214,20 +226,20 @@ private fun ScenarioTable.singBoxNodes() {
         trojan("golden-trojan-insecure").tls(sni = "trojan.example.com", alpn = "h2\nhttp/1.1", insecure = true)
     }
     single("sb-trojan-utls", "Trojan uTLS") { trojan("golden-trojan-utls").tls(sni = "trojan.example.com", utls = "ios") }
-    single("sb-trojan-reality", "Trojan + REALITY（sing-box）") { trojan("golden-trojan-reality").reality(utls = "edge") }
+    single("sb-trojan-reality", "Trojan + REALITY（sing-box）", core = CORE_SING_BOX) { trojan("golden-trojan-reality").reality(utls = "edge") }
     single("sb-trojan-mux-smux-padding", "Trojan mux smux + padding") {
         trojan("golden-trojan-mux").tls(sni = "trojan.example.com").mux(type = 1, padding = true, concurrency = 2)
     }
-    single("sb-trojan-certpin", "Trojan 证书固定：sing-box 不支持，应报错") {
+    single("sb-trojan-certpin", "Trojan 证书固定：sing-box 不支持，应报错", core = CORE_SING_BOX) {
         trojan("golden-trojan-pin").tls(sni = "trojan.example.com", pin = Fx.CERT_PIN)
     }
-    single("sb-trojan-mldsa65", "Trojan mldsa65Verify：没有 Xray 路径，应报错") {
+    single("sb-trojan-mldsa65", "Trojan mldsa65Verify 手动指定 sing-box：应报错", core = CORE_SING_BOX) {
         trojan("golden-trojan-mldsa").reality(mldsa65Verify = Fx.MLDSA65_VERIFY)
     }
-    single("sb-trojan-reality-bad-key", "REALITY 公钥格式不对：应报错") {
+    single("sb-trojan-reality-bad-key", "REALITY 公钥格式不对：应报错", core = CORE_SING_BOX) {
         trojan("golden-trojan-bad-key").reality(publicKey = "golden-short-key")
     }
-    single("sb-trojan-reality-bad-short-id", "REALITY short ID 奇数位：应报错") {
+    single("sb-trojan-reality-bad-short-id", "REALITY short ID 奇数位：应报错", core = CORE_SING_BOX) {
         trojan("golden-trojan-bad-sid").reality(shortId = "abc")
     }
 
@@ -308,7 +320,7 @@ private fun ScenarioTable.singBoxNodes() {
 }
 
 private fun ScenarioTable.xrayNodes() {
-    // VLESS 默认走 Xray
+    // VLESS + REALITY 自动选核走 Xray；不带 REALITY 的 VLESS 自动选核走 sing-box（K1），这里手动指定 Xray
     single("xray-vless-reality-vision", "VLESS REALITY + vision") {
         vless("golden-xray-reality", flow = FLOW_VISION).reality()
     }
@@ -318,49 +330,52 @@ private fun ScenarioTable.xrayNodes() {
     single("xray-vless-reality-bad-mldsa65", "mldsa65Verify 长度不对：应报错") {
         vless("golden-xray-bad-mldsa").reality(mldsa65Verify = "golden-too-short")
     }
-    single("xray-vless-tls-tcp", "VLESS tcp + TLS + ALPN") {
+    single("xray-vless-tls-tcp", "VLESS tcp + TLS + ALPN", core = CORE_XRAY) {
         vless("golden-xray-tls").tls(sni = "vless.example.com", alpn = "h2,http/1.1")
     }
-    single("xray-vless-tls-no-sni-ip", "VLESS TLS 不填 SNI、IP 服务器：SNI 兜底为服务器地址") {
+    single("xray-vless-tls-no-sni-ip", "VLESS TLS 不填 SNI、IP 服务器：SNI 兜底为服务器地址", core = CORE_XRAY) {
         vless("golden-xray-ip", server = "192.0.2.50").tls()
     }
-    single("xray-vless-ws-tls-earlydata", "VLESS ws（?ed=2048）+ TLS") {
+    single("xray-vless-ws-tls-earlydata", "VLESS ws（?ed=2048）+ TLS", core = CORE_XRAY) {
         vless("golden-xray-ws").ws(path = "/golden-ws?ed=2048").tls(sni = "cdn.example.org")
     }
-    single("xray-vless-ws-maxearlydata", "VLESS ws 显式 early data，路径已有查询参数") {
-        vless("golden-xray-ws-ed").ws(path = "/golden-ws?x=1", maxEarlyData = 1024).tls(sni = "cdn.example.org")
+    // 不填头名时 sing-box 把 early data 拼在路径里、Xray 放进 Sec-WebSocket-Protocol 头，含义不同（K1 能力表拒绝）：
+    // 显式写上 Xray 用的头名，Xray 的输出不变
+    single("xray-vless-ws-maxearlydata", "VLESS ws 显式 early data（Sec-WebSocket-Protocol 头），路径已有查询参数", core = CORE_XRAY) {
+        vless("golden-xray-ws-ed").ws(path = "/golden-ws?x=1", maxEarlyData = 1024, headerName = WS_EARLY_DATA_PROTOCOL_HEADER)
+            .tls(sni = "cdn.example.org")
     }
-    single("xray-vless-grpc-tls", "VLESS gRPC + TLS + uTLS") {
+    single("xray-vless-grpc-tls", "VLESS gRPC + TLS + uTLS", core = CORE_XRAY) {
         vless("golden-xray-grpc").transport("grpc", path = "golden-grpc").tls(sni = "grpc.example.org", utls = "safari")
     }
-    single("xray-vless-httpupgrade", "VLESS httpupgrade（路径留空）") {
+    single("xray-vless-httpupgrade", "VLESS httpupgrade（路径留空）", core = CORE_XRAY) {
         vless("golden-xray-hu").transport("httpupgrade", host = "hu.example.org")
     }
-    single("xray-vless-http-tcp-header", "VLESS http 传输不带 TLS（tcp 伪 HTTP 头），多个 Host") {
+    single("xray-vless-http-tcp-header", "VLESS http 传输不带 TLS（tcp 伪 HTTP 头），多个 Host", core = CORE_XRAY) {
         vless("golden-xray-http").transport("http", host = "a.example.org\nb.example.org")
     }
-    single("xray-vless-mux", "VLESS mux（并发 0 → 8）") {
-        vless("golden-xray-mux").tls(sni = "vless.example.com").mux(concurrency = 0)
+    single("xray-vless-mux", "VLESS Mux.Cool（并发 0 → 8）", core = CORE_XRAY) {
+        vless("golden-xray-mux").tls(sni = "vless.example.com").mux(type = MUX_COOL, concurrency = 0)
     }
-    single("xray-vless-xudp", "VLESS packet encoding xudp") {
+    single("xray-vless-xudp", "VLESS packet encoding xudp", core = CORE_XRAY) {
         vless("golden-xray-xudp").tls(sni = "vless.example.com").packetEncoding(2)
     }
-    single("xray-vless-mux-xudp", "VLESS mux + xudp") {
-        vless("golden-xray-mux-xudp").tls(sni = "vless.example.com").mux(concurrency = 4).packetEncoding(2)
+    single("xray-vless-mux-xudp", "VLESS Mux.Cool + xudp", core = CORE_XRAY) {
+        vless("golden-xray-mux-xudp").tls(sni = "vless.example.com").mux(type = MUX_COOL, concurrency = 4).packetEncoding(2)
     }
-    single("xray-vless-vision-mux", "VLESS vision 开 mux：Xray 上不输出 mux") {
+    single("xray-vless-vision-mux", "VLESS vision 开 mux：Xray 上不输出 mux", core = CORE_XRAY) {
         vless("golden-xray-vision-mux", flow = FLOW_VISION).tls(sni = "vless.example.com").mux()
     }
-    single("xray-vless-packetaddr", "VLESS packetaddr：Xray 上静默忽略") {
+    single("xray-vless-packetaddr", "VLESS packetaddr 手动指定 Xray：Xray 没有 packetaddr，应报错", core = CORE_XRAY) {
         vless("golden-xray-packetaddr").tls(sni = "vless.example.com").packetEncoding(1)
     }
-    single("xray-vless-ech", "VLESS TLS + ECH（内联配置）") {
+    single("xray-vless-ech", "VLESS TLS + ECH（内联配置）", core = CORE_XRAY) {
         vless("golden-xray-ech").tls(sni = "vless.example.com").ech(Fx.ECH_CONFIG)
     }
-    single("xray-vless-ech-auto", "VLESS TLS + ECH 不带配置：Xray 不输出 ECH") {
+    single("xray-vless-ech-auto", "VLESS TLS + ECH 不带配置，手动指定 Xray：Xray 不能自动查询，应报错", core = CORE_XRAY) {
         vless("golden-xray-ech-auto").tls(sni = "vless.example.com").ech()
     }
-    single("xray-vless-certificates", "VLESS TLS 自定义证书") {
+    single("xray-vless-certificates", "VLESS TLS 自定义证书", core = CORE_XRAY) {
         vless("golden-xray-ca").tls(sni = "golden.example.com", certificates = Fx.CERT_PEM)
     }
     single("xray-vless-ipv6-server", "VLESS REALITY，IPv6 服务器") {
@@ -385,8 +400,8 @@ private fun ScenarioTable.xrayNodes() {
     single("xray-vmess-http-tcp-header", "VMess 手动指定 Xray，tcp 伪 HTTP 头", core = CORE_XRAY) {
         vmess("golden-xray-vmess-http").transport("http", host = "a.example.org", path = "/golden-http")
     }
-    single("xray-vmess-security-mux", "VMess 手动指定 Xray，加密方式 + mux", core = CORE_XRAY) {
-        vmess("golden-xray-vmess-mux", security = "chacha20-poly1305").mux(concurrency = 3)
+    single("xray-vmess-security-mux", "VMess 手动指定 Xray，加密方式 + Mux.Cool", core = CORE_XRAY) {
+        vmess("golden-xray-vmess-mux", security = "chacha20-poly1305").mux(type = MUX_COOL, concurrency = 3)
     }
     single("xray-vmess-quic", "VMess 手动指定 Xray 却用 quic：应报错", core = CORE_XRAY) {
         vmess("golden-xray-vmess-quic").transport("quic").tls(sni = "quic.example.org")
@@ -412,9 +427,10 @@ private fun ScenarioTable.xrayNodes() {
 }
 
 private fun ScenarioTable.mihomoNodes() {
-    // AnyTLS 默认走 mihomo；单节点测速时 TestInstance 给 mihomo 开 Clash API
-    single("mihomo-anytls", "AnyTLS：SNI 留空，兜底为服务器域名") { anytls("golden-anytls") }
-    single("mihomo-anytls-full", "AnyTLS：SNI、多行 ALPN、uTLS") {
+    // 不带证书指纹与 certificates 的 AnyTLS 自动选核走 sing-box（K1），这里测 mihomo 的都手动指定 mihomo；带指纹或
+    // certificates 的自动选核仍走 mihomo。单节点测速时 TestInstance 给 mihomo 开 Clash API
+    single("mihomo-anytls", "AnyTLS：SNI 留空，兜底为服务器域名", core = CORE_MIHOMO) { anytls("golden-anytls") }
+    single("mihomo-anytls-full", "AnyTLS：SNI、多行 ALPN、uTLS", core = CORE_MIHOMO) {
         anytls("golden-anytls-full", sni = "anytls.example.com", alpn = "h2\nhttp/1.1", utls = "chrome")
     }
     single("mihomo-anytls-certpin", "AnyTLS 证书指纹（带冒号、大写）") {
@@ -426,11 +442,11 @@ private fun ScenarioTable.mihomoNodes() {
     single("mihomo-anytls-certpin-over-insecure", "证书指纹优先于 allowInsecure") {
         anytls("golden-anytls-pin-insecure", pin = Fx.CERT_PIN, insecure = true)
     }
-    single("mihomo-anytls-insecure", "AnyTLS allowInsecure") { anytls("golden-anytls-insecure", insecure = true) }
-    single("mihomo-anytls-ech-config", "AnyTLS ECH 内联配置") { anytls("golden-anytls-ech", echConfig = Fx.ECH_CONFIG) }
-    single("mihomo-anytls-ech-enable", "AnyTLS 只开 ECH") { anytls("golden-anytls-ech-on", enableEch = true) }
-    single("mihomo-anytls-ip-server", "AnyTLS IPv4 服务器") { anytls("golden-anytls-ip", server = "203.0.113.60") }
-    single("mihomo-anytls-ipv6-server", "AnyTLS IPv6 服务器") { anytls("golden-anytls-v6", server = "2001:db8::60") }
+    single("mihomo-anytls-insecure", "AnyTLS allowInsecure", core = CORE_MIHOMO) { anytls("golden-anytls-insecure", insecure = true) }
+    single("mihomo-anytls-ech-config", "AnyTLS ECH 内联配置", core = CORE_MIHOMO) { anytls("golden-anytls-ech", echConfig = Fx.ECH_CONFIG) }
+    single("mihomo-anytls-ech-enable", "AnyTLS 只开 ECH", core = CORE_MIHOMO) { anytls("golden-anytls-ech-on", enableEch = true) }
+    single("mihomo-anytls-ip-server", "AnyTLS IPv4 服务器", core = CORE_MIHOMO) { anytls("golden-anytls-ip", server = "203.0.113.60") }
+    single("mihomo-anytls-ipv6-server", "AnyTLS IPv6 服务器", core = CORE_MIHOMO) { anytls("golden-anytls-v6", server = "2001:db8::60") }
     single("mihomo-anytls-bad-certificate", "AnyTLS 证书解析失败：应报错") {
         anytls("golden-anytls-bad-ca", certificates = "-----BEGIN CERTIFICATE-----\ngolden-not-a-cert\n-----END CERTIFICATE-----")
     }
@@ -438,7 +454,7 @@ private fun ScenarioTable.mihomoNodes() {
         anytls("golden-anytls-bad-pin", pin = Fx.CERT_PIN_INVALID)
     }
     scenario("mihomo-anytls-group-missing", "AnyTLS 所在分组不存在：测速不开 Clash API") {
-        node(1, anytls("golden-anytls-orphan"), group = 9)
+        mihomo(1, anytls("golden-anytls-orphan"), group = 9)
         missingGroups += 9L
     }
 }
@@ -549,7 +565,7 @@ private fun ScenarioTable.chains() {
     )) scenario("chain-3-$suffix", "三跳混合链，顺序 $suffix") {
         node(2, shadowsocks("golden-chain-ss"))
         node(3, vless("golden-chain-xray").reality())
-        node(4, anytls("golden-chain-anytls"))
+        mihomo(4, anytls("golden-chain-anytls"))
         chain(1, *order)
     }
     scenario("chain-2-xray-xray", "两跳都走 Xray") {
@@ -563,7 +579,7 @@ private fun ScenarioTable.chains() {
     scenario("chain-nested", "链里嵌套链") {
         node(2, shadowsocks("golden-nested-ss"))
         node(3, vless("golden-nested-xray").reality())
-        node(4, anytls("golden-nested-anytls"))
+        mihomo(4, anytls("golden-nested-anytls"))
         chain(5, 3, 4, name = "golden-inner-chain")
         chain(1, 2, 5)
     }
@@ -577,7 +593,7 @@ private fun ScenarioTable.chains() {
     scenario("chain-shared-node", "同一个 Xray 节点被两条链共享（主链与路由目标链）") {
         node(2, vmess("golden-shared-exit-a"))
         node(3, vless("golden-shared-xray").reality())
-        node(4, anytls("golden-shared-exit-b"))
+        mihomo(4, anytls("golden-shared-exit-b"))
         chain(1, 3, 2)
         chain(5, 3, 4, name = "golden-shared-chain-b")
         rule(1, outbound = 5) { domains = "domain:shared.example.org" }
@@ -646,7 +662,7 @@ private fun ScenarioBuilder.allExternalChain() {
     node(4, mieru("golden-ext-mieru"))
     node(5, hysteria1("golden-ext-hy1", protocol = HysteriaBean.PROTOCOL_WECHAT_VIDEO, ca = Fx.CERT_PEM))
     node(6, vless("golden-ext-xray").reality())
-    node(7, anytls("golden-ext-anytls"))
+    mihomo(7, anytls("golden-ext-anytls"))
     chain(1, 2, 3, 4, 5, 6, 7, name = "golden-all-external")
 }
 
@@ -688,12 +704,12 @@ private fun ScenarioTable.frontAndLanding() {
         group(1, landing = 11)
         group(2)
         node(1, vless("golden-lm-main").reality())
-        node(11, anytls("golden-lm-landing"), group = 2)
+        mihomo(11, anytls("golden-lm-landing"), group = 2)
     }
     scenario("group-front-anytls-main", "AnyTLS 走 mihomo 且分组有前置：测速不开 Clash API") {
         group(1, front = 10)
         group(2)
-        node(1, anytls("golden-fa-main"))
+        mihomo(1, anytls("golden-fa-main"))
         node(10, shadowsocks("golden-fa-front"), group = 2)
     }
     scenario("group-front-plugin", "前置是 Trojan-Go 节点") {
@@ -727,7 +743,7 @@ private fun ScenarioTable.selectors() {
         group(1, selector = true)
         node(1, vmess("golden-sel-vmess").ws().tls(sni = "cdn.example.org"))
         node(2, vless("golden-sel-xray").reality())
-        node(3, anytls("golden-sel-anytls"))
+        mihomo(3, anytls("golden-sel-anytls"))
         node(4, trojan("golden-sel-trojan").tls(sni = "trojan.example.com"))
         node(5, hysteria2("golden-sel-hy2", ports = "20000-20100"))
     }
@@ -744,7 +760,7 @@ private fun ScenarioTable.selectors() {
         group(1, selector = true)
         node(1, vmess("golden-sel-good").ws())
         node(2, tuic("golden-sel-tuic-v4", version = 4))
-        node(3, trojan("golden-sel-trojan-pin").tls(sni = "trojan.example.com", pin = Fx.CERT_PIN))
+        node(3, trojan("golden-sel-trojan-pin").tls(sni = "trojan.example.com", pin = Fx.CERT_PIN), core = CORE_SING_BOX)
         node(4, wireguard("golden-sel-wg-bad", reserved = "1,2"))
         node(5, vless("golden-sel-mldsa").reality(mldsa65Verify = Fx.MLDSA65_VERIFY), core = CORE_SING_BOX)
         node(6, customBean("golden-sel-custom-broken", 1, "{golden-broken"))
@@ -812,7 +828,7 @@ private fun ScenarioTable.selectors() {
         node(1, vmess("golden-selr-vmess").ws())
         node(2, vless("golden-selr-xray").reality())
         node(10, shadowsocks("golden-selr-outside"), group = 2)
-        node(11, anytls("golden-selr-outside-mihomo"), group = 2)
+        mihomo(11, anytls("golden-selr-outside-mihomo"), group = 2)
         rule(1, outbound = 2) { domains = "domain:member.example.org" }
         rule(2, outbound = 10) { domains = "domain:outside.example.org" }
         rule(3, outbound = 11) { domains = "domain:outside-mihomo.example.org" }
@@ -884,7 +900,7 @@ private fun ScenarioTable.routeRules() {
     }
     scenario("rules-to-node-mihomo", "规则目标是 mihomo 节点") {
         node(1, vmess("golden-rtm-main").ws())
-        node(2, anytls("golden-rtm-anytls"))
+        mihomo(2, anytls("golden-rtm-anytls"))
         rule(1, outbound = 2) { ip = "198.51.100.0/24" }
     }
     scenario("rules-to-chain", "规则目标是另一条链") {
@@ -1015,7 +1031,7 @@ private fun ScenarioTable.settingsVariants() {
             copy(resolveDestination = true, ipv6Mode = 7)
         },
         Triple("clash-api", "开启 Clash API（固定 secret）") { copy(enableClashAPI = true) },
-        Triple("global-insecure", "全局 allowInsecure（VLESS 由 Xray 落到 sing-box）") { copy(globalAllowInsecure = true) },
+        Triple("global-insecure", "全局 allowInsecure（REALITY 节点不受影响，仍走 Xray）") { copy(globalAllowInsecure = true) },
         Triple("loglevel-1", "日志级别 warn") { copy(logLevel = 1) },
         Triple("loglevel-2", "日志级别 info") { copy(logLevel = 2) },
         Triple("loglevel-3", "日志级别 debug") { copy(logLevel = 3) },
@@ -1121,7 +1137,7 @@ private fun ScenarioTable.groupNameservers() {
         group(1, selector = true, nameserver = nameservers)
         node(1, vmess("golden-gdnss-vmess").ws())
         node(2, vless("golden-gdnss-xray").reality())
-        node(3, anytls("golden-gdnss-anytls"))
+        mihomo(3, anytls("golden-gdnss-anytls"))
     }
     scenario("group-dns-domain-strategy", "分组 DNS + 显式 domain strategy") {
         group(1, nameserver = "https://dns.example.org/dns-query\n192.0.2.1")
@@ -1132,7 +1148,7 @@ private fun ScenarioTable.groupNameservers() {
 
 // 同一次构建里同一种外核（Xray / mihomo）有多个节点的各种来路（K0 合并外核进程前的旧输出）。
 // 每个节点用各自的服务器域名与 SNI，方便在合并后的配置里分辨；Xray 走 VLESS + REALITY，
-// mihomo 走 AnyTLS，内核走 Shadowsocks，Trojan-Go / Naive / Mieru 是要装插件 app 的节点
+// mihomo 走手动指定 mihomo 的 AnyTLS，内核走 Shadowsocks，Trojan-Go / Naive / Mieru 是要装插件 app 的节点
 private fun xrayNode(name: String, n: Int) =
     vless(name, server = "xray-$n.example.com").reality(sni = "reality-$n.example.org")
 
@@ -1150,8 +1166,8 @@ private fun ScenarioBuilder.multiSelectorMembers() {
     node(1, xrayNode("golden-multi-xray-1", 1))
     node(2, xrayNode("golden-multi-xray-2", 2))
     node(3, xrayWsNode("golden-multi-xray-3", 3), core = CORE_XRAY)
-    node(4, mihomoNode("golden-multi-mihomo-1", 1))
-    node(5, mihomoNode("golden-multi-mihomo-2", 2))
+    mihomo(4, mihomoNode("golden-multi-mihomo-1", 1))
+    mihomo(5, mihomoNode("golden-multi-mihomo-2", 2))
     node(6, ssNode("golden-multi-ss-1", 1))
     node(7, vmess("golden-multi-vmess-1", server = "vmess-1.example.com").ws().tls(sni = "cdn.example.org"))
 }
@@ -1173,8 +1189,8 @@ private fun ScenarioTable.multiExternal() {
         node(1, xrayNode("golden-multi-rt-main", 1))
         node(2, xrayNode("golden-multi-rt-xray-2", 2))
         node(3, xrayWsNode("golden-multi-rt-xray-3", 3), core = CORE_XRAY)
-        node(4, mihomoNode("golden-multi-rt-mihomo-1", 1))
-        node(5, mihomoNode("golden-multi-rt-mihomo-2", 2))
+        mihomo(4, mihomoNode("golden-multi-rt-mihomo-1", 1))
+        mihomo(5, mihomoNode("golden-multi-rt-mihomo-2", 2))
         node(6, ssNode("golden-multi-rt-ss", 1))
         rule(1, outbound = 2) { domains = "domain:xray-2.example.org" }
         rule(2, outbound = 3) { domains = "domain:xray-3.example.org" }
@@ -1183,9 +1199,9 @@ private fun ScenarioTable.multiExternal() {
         rule(5, outbound = 6) { domains = "domain:ss.example.org" }
     }
     scenario("multi-chain-mihomo-xray-mihomo", "一条链：mihomo、Xray、mihomo，再接内核出口") {
-        node(2, mihomoNode("golden-multi-cm-mihomo-1", 1))
+        mihomo(2, mihomoNode("golden-multi-cm-mihomo-1", 1))
         node(3, xrayNode("golden-multi-cm-xray", 1))
-        node(4, mihomoNode("golden-multi-cm-mihomo-2", 2))
+        mihomo(4, mihomoNode("golden-multi-cm-mihomo-2", 2))
         node(5, ssNode("golden-multi-cm-ss", 1))
         chain(1, 2, 3, 4, 5)
     }
@@ -1199,7 +1215,7 @@ private fun ScenarioTable.multiExternal() {
         node(2, ssNode("golden-multi-sh-ss-1", 1))
         node(3, ssNode("golden-multi-sh-ss-2", 2))
         node(4, xrayNode("golden-multi-sh-xray", 1))
-        node(5, mihomoNode("golden-multi-sh-mihomo", 1))
+        mihomo(5, mihomoNode("golden-multi-sh-mihomo", 1))
         chain(1, 2, 4, 5)
         chain(6, 3, 4, 5, name = "golden-multi-sh-chain-b")
         rule(1, outbound = 6) { domains = "domain:chain-b.example.org" }
@@ -1208,7 +1224,7 @@ private fun ScenarioTable.multiExternal() {
         node(2, ssNode("golden-multi-sw-ss-1", 1))
         node(3, ssNode("golden-multi-sw-ss-2", 2))
         node(4, xrayNode("golden-multi-sw-xray-shared", 1))
-        node(5, mihomoNode("golden-multi-sw-mihomo-shared", 1))
+        mihomo(5, mihomoNode("golden-multi-sw-mihomo-shared", 1))
         node(6, xrayNode("golden-multi-sw-xray-own", 2))
         chain(1, 2, 4, 5, 6)
         chain(7, 3, 5, 4, name = "golden-multi-sw-chain-b")
@@ -1219,18 +1235,18 @@ private fun ScenarioTable.multiExternal() {
         group(2)
         node(1, xrayNode("golden-multi-fl-xray-1", 1))
         node(2, xrayNode("golden-multi-fl-xray-2", 2))
-        node(3, mihomoNode("golden-multi-fl-mihomo-1", 1))
+        mihomo(3, mihomoNode("golden-multi-fl-mihomo-1", 1))
         node(4, ssNode("golden-multi-fl-ss", 1))
         node(10, xrayNode("golden-multi-fl-front", 3), group = 2)
-        node(11, mihomoNode("golden-multi-fl-landing", 2), group = 2)
+        mihomo(11, mihomoNode("golden-multi-fl-landing", 2), group = 2)
     }
     scenario("multi-selector-chain-members", "选择器成员本身是链，链里有多个 Xray 与 mihomo 节点（节点在别的分组）") {
         group(1, selector = true)
         group(2)
         node(2, xrayNode("golden-multi-sc-xray-1", 1), group = 2)
         node(3, xrayNode("golden-multi-sc-xray-2", 2), group = 2)
-        node(4, mihomoNode("golden-multi-sc-mihomo-1", 1), group = 2)
-        node(5, mihomoNode("golden-multi-sc-mihomo-2", 2), group = 2)
+        mihomo(4, mihomoNode("golden-multi-sc-mihomo-1", 1), group = 2)
+        mihomo(5, mihomoNode("golden-multi-sc-mihomo-2", 2), group = 2)
         node(6, ssNode("golden-multi-sc-ss", 1), group = 2)
         node(7, ssNode("golden-multi-sc-ss-member", 2))
         chain(1, 2, 4, name = "golden-multi-sc-chain-a")
@@ -1241,10 +1257,10 @@ private fun ScenarioTable.multiExternal() {
         node(2, trojanGo("golden-multi-pm-trojan-go"))
         node(3, xrayNode("golden-multi-pm-xray-1", 1))
         node(4, naive("golden-multi-pm-naive"))
-        node(5, mihomoNode("golden-multi-pm-mihomo-1", 1))
+        mihomo(5, mihomoNode("golden-multi-pm-mihomo-1", 1))
         node(6, mieru("golden-multi-pm-mieru"))
         node(7, xrayNode("golden-multi-pm-xray-2", 2))
-        node(8, mihomoNode("golden-multi-pm-mihomo-2", 2))
+        mihomo(8, mihomoNode("golden-multi-pm-mihomo-2", 2))
         chain(1, 2, 3, 4, 5, 6, 7, 8, name = "golden-multi-pm-chain")
     }
     scenario("multi-selector-plugin-chain-members", "选择器成员是链：外核节点与要装插件 app 的节点混合（模拟器上无插件）") {
@@ -1253,9 +1269,9 @@ private fun ScenarioTable.multiExternal() {
         node(2, trojanGo("golden-multi-sp-trojan-go"), group = 2)
         node(3, naive("golden-multi-sp-naive"), group = 2)
         node(4, xrayNode("golden-multi-sp-xray-1", 1), group = 2)
-        node(5, mihomoNode("golden-multi-sp-mihomo-1", 1), group = 2)
+        mihomo(5, mihomoNode("golden-multi-sp-mihomo-1", 1), group = 2)
         node(6, xrayNode("golden-multi-sp-xray-2", 2))
-        node(7, mihomoNode("golden-multi-sp-mihomo-2", 2))
+        mihomo(7, mihomoNode("golden-multi-sp-mihomo-2", 2))
         chain(1, 2, 4, name = "golden-multi-sp-chain-a")
         chain(8, 4, 3, 5, name = "golden-multi-sp-chain-b")
         chain(9, 4, 5, name = "golden-multi-sp-chain-c")
@@ -1265,7 +1281,7 @@ private fun ScenarioTable.multiExternal() {
         group(2)
         node(1, xrayNode("golden-multi-fcl-main", 1))
         node(10, xrayNode("golden-multi-fcl-front-xray", 2), group = 2)
-        node(13, mihomoNode("golden-multi-fcl-front-mihomo", 1), group = 2)
+        mihomo(13, mihomoNode("golden-multi-fcl-front-mihomo", 1), group = 2)
         node(11, xrayNode("golden-multi-fcl-landing", 3), group = 2)
         chain(12, 10, 13, group = 2, name = "golden-multi-fcl-front-chain")
     }
@@ -1274,11 +1290,128 @@ private fun ScenarioTable.multiExternal() {
         group(2, front = 10)
         node(1, xrayNode("golden-multi-rf-main", 1))
         node(2, xrayNode("golden-multi-rf-xray", 2), group = 2)
-        node(3, mihomoNode("golden-multi-rf-mihomo", 1), group = 2)
+        mihomo(3, mihomoNode("golden-multi-rf-mihomo", 1), group = 2)
         node(4, ssNode("golden-multi-rf-ss", 1), group = 2)
         node(10, xrayNode("golden-multi-rf-front", 3), group = 2)
         rule(1, outbound = 2) { domains = "domain:xray.example.org" }
         rule(2, outbound = 3) { domains = "domain:mihomo.example.org" }
         rule(3, outbound = 4) { domains = "domain:ss.example.org" }
+    }
+}
+
+// K1 的选核（能力表，fmt/CoreSelection.kt）。描述写明预期：选中的核心，或拒绝。「对照表 N」指选核变更对照表的第 N 行
+// （按 K1 之前的冻结规则与 K1 的判定对比，行按顺序匹配），每行至少一个场景；另有手动值与协议不匹配、mux 协议族与核心、
+// Trojan 走 Xray（D10）与几种组合。没写全局「允许不安全」的场景都是关着的
+private fun ScenarioTable.k1Selection() {
+    // ---- 对照表各行（自动选核，除第 5 行按定义是手动 Xray）
+    single("k1-vmess-utls-xray-only", "对照表 1：VMess TLS 的 uTLS 指纹只有 Xray 认（randomizednoalpn），走 Xray") {
+        vmess("golden-k1-utls-xray-only").tls(sni = "vmess.example.com", utls = "randomizednoalpn")
+    }
+    single("k1-vless-reality-ws", "对照表 2：VLESS + REALITY + ws，Xray 不支持，落到 sing-box") {
+        vless("golden-k1-reality-ws").ws(path = "/golden-ws").reality()
+    }
+    single("k1-anytls-utls-unknown", "对照表 3：AnyTLS 的 uTLS 指纹 sing-box 与 mihomo 都不认（netscape）：应报错") {
+        anytls("golden-k1-anytls-netscape", sni = "anytls.example.com", utls = "netscape")
+    }
+    single("k1-vless-ech-auto", "对照表 4：VLESS TLS + ECH 不带配置，走 sing-box（ECH 自动查询生效）") {
+        vless("golden-k1-ech-auto").tls(sni = "vless.example.com").ech()
+    }
+    single("k1-vless-packetaddr", "对照表 4：VLESS TLS + packetaddr，走 sing-box（packetaddr 生效）") {
+        vless("golden-k1-packetaddr").tls(sni = "vless.example.com").packetEncoding(1)
+    }
+    single("k1-vless-ws-early-data-header", "对照表 4：VLESS ws 的 early data 用自定义头名，走 sing-box（头名生效）") {
+        vless("golden-k1-ws-ed-header").ws(path = "/golden-ws", maxEarlyData = 2048, headerName = "X-Golden-Early-Data")
+            .tls(sni = "cdn.example.org")
+    }
+    single("k1-vmess-certpin-ech-auto", "对照表 4：证书指纹 + ECH 不带配置，sing-box 不能固定、Xray 不能查询：应报错") {
+        vmess("golden-k1-pin-ech-auto").tls(sni = "vmess.example.com", pin = Fx.CERT_PIN).ech()
+    }
+    single("k1-vless-reality-insecure-xray", "对照表 5：手动 Xray 的 VLESS + REALITY 开了 allowInsecure，照常走 Xray", core = CORE_XRAY) {
+        vless("golden-k1-reality-insecure-xray", flow = FLOW_VISION).reality(insecure = true)
+    }
+    single("k1-trojan-certpin", "对照表 6：Trojan 证书固定，走 Xray（pinnedPeerCertSha256）") {
+        trojan("golden-k1-trojan-pin").tls(sni = "trojan.example.com", pin = Fx.CERT_PIN)
+    }
+    single("k1-trojan-certpin-smux", "对照表 6：Trojan 证书固定 + smux，sing-box 不能固定、Xray 没有 sing-mux：应报错") {
+        trojan("golden-k1-trojan-pin-smux").tls(sni = "trojan.example.com", pin = Fx.CERT_PIN).mux(type = 1)
+    }
+    single("k1-trojan-reality-mldsa65", "对照表 7：Trojan + REALITY + mldsa65Verify，走 Xray") {
+        trojan("golden-k1-trojan-mldsa").reality(mldsa65Verify = Fx.MLDSA65_VERIFY)
+    }
+    single("k1-vless-tls", "对照表 8：VLESS tcp + TLS 不带 REALITY，走 sing-box") {
+        vless("golden-k1-vless-tls").tls(sni = "vless.example.com", alpn = "h2,http/1.1")
+    }
+    single("k1-vless-mux-cool", "对照表 8 的例外：VLESS TLS 开了 Mux.Cool，留在 Xray") {
+        vless("golden-k1-vless-mux-cool").tls(sni = "vless.example.com").mux(type = MUX_COOL, concurrency = 4)
+    }
+    single("k1-vmess-notls-residual-pin", "对照表 9：VMess 关了 TLS、残留证书指纹，走 sing-box") {
+        vmess("golden-k1-vmess-residual-pin").tls(sni = "vmess.example.com", pin = Fx.CERT_PIN).noTls()
+    }
+    single("k1-vmess-reality", "对照表 10：VMess + REALITY，走 Xray") {
+        vmess("golden-k1-vmess-reality").reality()
+    }
+    single("k1-vless-reality-insecure", "对照表 11：VLESS + REALITY 开了 allowInsecure，走 Xray") {
+        vless("golden-k1-reality-insecure", flow = FLOW_VISION).reality(insecure = true)
+    }
+    single("k1-vless-reality-global-insecure", "对照表 11：VLESS + REALITY，全局允许不安全，走 Xray", global = true) {
+        vless("golden-k1-reality-global-insecure", flow = FLOW_VISION).reality()
+    }
+    single("k1-trojan-reality", "对照表 12：Trojan + REALITY，走 Xray（D10）") {
+        trojan("golden-k1-trojan-reality").reality(utls = "edge")
+    }
+    single("k1-trojan-reality-smux", "对照表 12 的例外：Trojan + REALITY 开了 smux，Xray 没有 sing-mux，留在 sing-box") {
+        trojan("golden-k1-trojan-reality-smux").reality().mux(type = 1, concurrency = 2)
+    }
+    single("k1-anytls", "对照表 13：AnyTLS 不带证书指纹与 certificates，走 sing-box") {
+        anytls("golden-k1-anytls", sni = "anytls.example.com", alpn = "h2", utls = "firefox")
+    }
+    single("k1-anytls-mihomo-only-utls", "对照表 13 的例外：AnyTLS 的 uTLS 指纹只有 mihomo 认（chrome120），留在 mihomo") {
+        anytls("golden-k1-anytls-chrome120", sni = "anytls.example.com", utls = "chrome120")
+    }
+
+    // ---- 手动值与协议不匹配：报错并列出冲突
+    single("k1-vmess-manual-mihomo", "VMess 手动指定 mihomo：本应用不能在 mihomo 上跑 VMess，应报错", core = CORE_MIHOMO) {
+        vmess("golden-k1-vmess-mihomo").tls(sni = "vmess.example.com")
+    }
+    single("k1-anytls-manual-xray", "AnyTLS 手动指定 Xray：Xray 没有 AnyTLS，应报错", core = CORE_XRAY) {
+        anytls("golden-k1-anytls-xray", sni = "anytls.example.com")
+    }
+    single("k1-trojan-manual-mihomo", "Trojan 手动指定 mihomo：应报错", core = CORE_MIHOMO) {
+        trojan("golden-k1-trojan-mihomo").tls(sni = "trojan.example.com")
+    }
+
+    // ---- mux 协议族与核心（D15）
+    single("k1-vmess-sb-mux-cool", "VMess 手动指定 sing-box 却用 Mux.Cool：sing-box 没有 Mux.Cool，应报错", core = CORE_SING_BOX) {
+        vmess("golden-k1-sb-mux-cool").tls(sni = "vmess.example.com").mux(type = MUX_COOL)
+    }
+    single("k1-vless-xray-smux", "VLESS 手动指定 Xray 却用 smux：Xray 没有 sing-mux，应报错", core = CORE_XRAY) {
+        vless("golden-k1-xray-smux").reality().mux(type = 1)
+    }
+    single("k1-trojan-xray-mux-cool", "Trojan 手动指定 Xray + Mux.Cool（D10）", core = CORE_XRAY) {
+        trojan("golden-k1-trojan-xray-mux").ws().tls(sni = "cdn.example.org").mux(type = MUX_COOL, concurrency = 4)
+    }
+
+    // ---- 其它组合
+    single("k1-vless-quic-utls", "VLESS quic + TLS 带 uTLS 指纹：sing-box 每次拨号都失败、Xray 没有 quic，应报错") {
+        vless("golden-k1-quic-utls").transport("quic").tls(sni = "quic.example.org", utls = "chrome")
+    }
+    single("k1-anytls-certificates", "AnyTLS 带 certificates，自动选核留在 mihomo（两个核心对它含义不同）") {
+        anytls("golden-k1-anytls-ca", sni = "golden.example.com", utls = "firefox", certificates = Fx.CERT_PEM)
+    }
+    scenario("k1-selector-trojan-on-xray", "选择器：VLESS / Trojan 各种走 Xray 的成员合进一份 Xray 配置，AnyTLS 成员走 sing-box") {
+        group(1, selector = true)
+        node(1, vless("golden-k1-sel-vless", server = "xray-1.example.com").reality(sni = "reality-1.example.org"))
+        node(2, trojan("golden-k1-sel-trojan-reality", server = "xray-2.example.com").reality(sni = "reality-2.example.org"))
+        node(3, trojan("golden-k1-sel-trojan-pin", server = "xray-3.example.com").tls(sni = "trojan-3.example.org", pin = Fx.CERT_PIN))
+        node(
+            4, trojan("golden-k1-sel-trojan-grpc", server = "xray-4.example.com").transport("grpc", path = "golden-grpc")
+                .tls(sni = "grpc-4.example.org"), core = CORE_XRAY,
+        )
+        node(5, anytls("golden-k1-sel-anytls", server = "anytls-5.example.com", sni = "anytls-5.example.org"))
+    }
+    scenario("k1-chain-trojan-xray", "链：Shadowsocks → Trojan + REALITY（Xray）出口") {
+        node(2, shadowsocks("golden-k1-chain-ss"))
+        node(3, trojan("golden-k1-chain-trojan").reality(sni = "reality.example.org"))
+        chain(1, 2, 3)
     }
 }

@@ -208,12 +208,14 @@ fun <T : StandardV2RayBean> T.tls(
     certificateFingerprint = pin
 }
 
+// insecure：节点的 allowInsecure（REALITY 下不起作用）；不开时不写这个字段，字节与以前相同
 fun <T : StandardV2RayBean> T.reality(
     sni: String = "www.example.com",
     publicKey: String = Fx.REALITY_PUBLIC_KEY,
     shortId: String = Fx.REALITY_SHORT_ID,
     mldsa65Verify: String = "",
     utls: String = "",
+    insecure: Boolean = false,
 ): T = apply {
     security = "tls"
     this.sni = sni
@@ -221,6 +223,7 @@ fun <T : StandardV2RayBean> T.reality(
     realityShortId = shortId
     realityMldsa65Verify = mldsa65Verify
     utlsFingerprint = utls
+    if (insecure) allowInsecure = true
 }
 
 fun <T : StandardV2RayBean> T.ech(config: String = ""): T = apply {
@@ -228,7 +231,7 @@ fun <T : StandardV2RayBean> T.ech(config: String = ""): T = apply {
     echConfig = config
 }
 
-// muxType：0 h2mux、1 smux、2 yamux
+// muxType：0 h2mux、1 smux、2 yamux（sing-mux，只有 sing-box），3 Mux.Cool（MUX_COOL，只有 Xray）
 fun <T : StandardV2RayBean> T.mux(type: Int = 0, padding: Boolean = false, concurrency: Int = 1): T = apply {
     enableMux = true
     muxType = type

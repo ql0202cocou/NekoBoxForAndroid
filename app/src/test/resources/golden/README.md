@@ -380,8 +380,9 @@ ANDROID_SERIAL=emulator-5554 ./run golden measure --xray 8 --out <空目录>   #
   其余取代码默认值。
 - 日志等级默认 1（warn）：0 会让 `Logs` 整体关闭，看不到 `GuardedProcessPool` 的「was killed / restart process」。
   这也会让 Xray / mihomo 以 warning 级别输出日志，与等级 0 的用户略有不同。
-- 夹具：一个选择器分组（id 1），成员依次是 VLESS + REALITY（`xtls-rprx-vision`，uTLS chrome，走 Xray）、AnyTLS（走
-  mihomo）、sing-box 内核节点（Shadowsocks 与 VMess + WS + TLS 交替），选中第一个成员。服务器地址按顺序取
+- 夹具：一个选择器分组（id 1），成员依次是 VLESS + REALITY（`xtls-rprx-vision`，uTLS chrome，自动选核走 Xray）、AnyTLS
+  （手动指定 mihomo：K1 起不带证书指纹的 AnyTLS 自动选核走 sing-box）、sing-box 内核节点（Shadowsocks 与 VMess + WS + TLS
+  交替），选中第一个成员。服务器地址按顺序取
   192.0.2.0/24、198.51.100.0/24、203.0.113.0/24 的 IP 字面量，凭据沿用采集夹具的虚构值。`measurePrepare` 会用生产代码
   构建一次选中节点的配置，核对外核数量与参数一致，否则报错（并照常清理）。
 

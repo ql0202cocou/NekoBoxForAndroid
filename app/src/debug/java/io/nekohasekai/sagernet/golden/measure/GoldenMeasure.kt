@@ -15,6 +15,7 @@ import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.bg.SagerConnection
 import io.nekohasekai.sagernet.bg.stateOrStopped
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.preference.KeyValuePair
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
@@ -180,22 +181,25 @@ object GoldenMeasure {
         )
     }
 
-    // 选择器分组：先 Xray（VLESS + REALITY），再 mihomo（AnyTLS），最后 sing-box 内核节点
-    // （Shadowsocks 与 VMess + WS + TLS 交替）。选中第一个成员。地址按顺序取 192.0.2.0/24、
-    // 198.51.100.0/24、203.0.113.0/24 的主机地址：IP 字面量，不触发域名解析，也连不上
+    // 选择器分组：先 Xray（VLESS + REALITY，自动选核走 Xray），再 mihomo（AnyTLS，手动指定 mihomo：K1 起不带证书
+    // 指纹的 AnyTLS 自动选核走 sing-box），最后 sing-box 内核节点（Shadowsocks 与 VMess + WS + TLS 交替）。选中第一个
+    // 成员。地址按顺序取 192.0.2.0/24、198.51.100.0/24、203.0.113.0/24 的主机地址：IP 字面量，不触发域名解析，也连不上
     private fun fixture(xray: Int, mihomo: Int, singbox: Int) = ScenarioBuilder("measure", "K0 实测").apply {
         group(GROUP_ID, name = "measure-selector", selector = true)
         var next = 0L
-        fun add(bean: AbstractBean) {
+        fun add(bean: AbstractBean, core: Int = ProxyEntity.CORE_AUTO) {
             next++
-            node(next, bean, group = GROUP_ID)
+            node(next, bean, group = GROUP_ID, core = core)
         }
         for (i in 1..xray) {
             add(vless("measure-xray-$i", server = address(next.toInt()), port = 443, flow = FLOW_VISION)
                 .reality(utls = "chrome"))
         }
         for (i in 1..mihomo) {
-            add(anytls("measure-anytls-$i", server = address(next.toInt()), port = 8443, sni = "anytls.example.com"))
+            add(
+                anytls("measure-anytls-$i", server = address(next.toInt()), port = 8443, sni = "anytls.example.com"),
+                ProxyEntity.CORE_MIHOMO,
+            )
         }
         for (i in 1..singbox) {
             val server = address(next.toInt())

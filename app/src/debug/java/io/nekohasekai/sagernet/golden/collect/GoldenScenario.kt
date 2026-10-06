@@ -27,7 +27,7 @@ const val KEY_DOMAIN_STRATEGY_SERVER = "domain_strategy_for_server"
 // 也只会取代码里的默认值，不会受上一个场景或设备原有设置影响。
 // 键的来源（沿调用链核对过）：ConfigBuilder 直接读的 17 项；SingBoxOptionsUtil.domainStrategy
 // 读的三个 domain_strategy 键；TlsFields.effectiveAllowInsecure 读 globalAllowInsecure
-// （也经 xrayLacksAllowInsecure → coreForType → resolvedCore 影响选核）；Xray / mihomo /
+// （也经 ProxyEntity.coreDecision 的能力表判定影响选核）；Xray / mihomo /
 // Trojan-Go / naive / mieru 生成器与 hysteria 的 ExternalCore.launch 读 logLevel，
 // Trojan-Go 生成器另读 ipv6Mode
 data class GoldenSettings(
