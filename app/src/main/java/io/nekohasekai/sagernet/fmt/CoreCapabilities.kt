@@ -148,6 +148,9 @@ enum class ProfileField(val key: String) {
     // VMess 的加密方式，VLESS 的 flow
     ENCRYPTION("encryption"),
     ALTER_ID("alterId"),
+
+    // VMess / VLESS 的 id。只用于已知差异；它是凭据，不能作为冲突的字段，取值也不能写进任何报错
+    UUID("uuid"),
     WS_MAX_EARLY_DATA("wsMaxEarlyData"),
     EARLY_DATA_HEADER_NAME("earlyDataHeaderName"),
     CUSTOM_OUTBOUND_JSON("customOutboundJson"),

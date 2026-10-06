@@ -89,6 +89,7 @@ fun profileFieldTitle(field: ProfileField, bean: AbstractBean): Int {
         ProfileField.PACKET_ENCODING -> R.string.packet_encoding
         ProfileField.ENCRYPTION -> if (bean is StandardV2RayBean && bean.isVLESS) R.string.xtls_flow else R.string.encryption
         ProfileField.ALTER_ID -> R.string.alter_id
+        ProfileField.UUID -> R.string.uuid
         ProfileField.WS_MAX_EARLY_DATA -> R.string.ws_max_early_data
         ProfileField.EARLY_DATA_HEADER_NAME -> R.string.early_data_header_name
         ProfileField.CUSTOM_OUTBOUND_JSON -> R.string.custom_outbound_json

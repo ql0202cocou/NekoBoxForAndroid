@@ -66,17 +66,45 @@ enum class KnownDifference(
             DialCore.SING_BOX to "packet_encoding 写空串，UDP 用协议原生方式",
             DialCore.XRAY to "不写编码；VMess / VLESS 的 UDP（53、443 端口除外）默认走 XUDP（cone）",
         ),
-        "UDP 封装不同但都能用，不涉及安全校验",
+        "UDP 封装不同但都能用，不涉及安全校验（Xray 一侧已在回环实测：不开 mux 时 5353 端口走 XUDP、53 端口走原生，" +
+            "v26.3.27 与 v26.9.30 相同，K1b X2 L2-52…54）",
         DifferenceDecision.DECIDED,
     ),
     VMESS_SECURITY_AUTO(
         listOf(ProfileField.ENCRYPTION),
         mapOf(
-            DialCore.SING_BOX to "带 TLS 时把 auto 换成 zero",
+            DialCore.SING_BOX to "带 TLS 时把 auto 换成 zero（libcore/sing-box/protocol/vmess/outbound.go）",
             DialCore.XRAY to "auto 按平台选 AES-128-GCM 或 ChaCha20-Poly1305",
         ),
-        "服务端按请求头里的加密方式解密，两种都能通；外层已有 TLS",
-        DifferenceDecision.DECIDED,
+        "Xray 服务端自 v26.7.11 起删掉了 none / zero：sing-box 带 TLS 时写的 zero 连这类服务端失败，服务端日志 " +
+            "unknown security type，客户端只见连接立即结束、没有报错；连 v26.3.27 服务端两种都能通（K1b X2 L2-V07/V08 " +
+            "实测，X1 S2-X22 源码）。是否改生成器或选核待维护者定（K1b 待决定项 A）",
+        DifferenceDecision.OPEN,
+    ),
+    VMESS_SECURITY_NONE_ZERO(
+        listOf(ProfileField.ENCRYPTION),
+        mapOf(
+            DialCore.XRAY to "none / zero 被静默改成 AUTO（不报错、不警告），连新旧服务端都能通",
+            DialCore.SING_BOX to "照写 none / zero，连 v26.7.11 以上的 Xray 服务端失败",
+        ),
+        "同一节点换核后一个能通一个不通，取决于服务端的 Xray 版本（K1b X2 T2-28/30、L2-42/43 实测 Xray 客户端，" +
+            "L2-V01/V03/V11 实测 sing-box 客户端），待维护者定",
+        DifferenceDecision.OPEN,
+    ),
+    V2RAY_ID_MAPPING(
+        listOf(ProfileField.UUID),
+        mapOf(
+            DialCore.XRAY to "id 按 common/uuid ParseString 解析：1–30 字节的非 UUID 串用 UUIDv5（命名空间全零）映射；" +
+                "空串、31 字节以上的非 UUID 串、32–36 字节里的非十六进制字符报错；32–36 字节时逐组读十六进制、" +
+                "每组前的连字符可有可无、读满 32 位后其余字符不看",
+            DialCore.SING_BOX to "id 按 gofrs/uuid FromString 解析（sing-vmess v0.2.8 的 VMess 与 VLESS 客户端）：" +
+                "只认 32 / 36 位与带花括号、urn:uuid: 前缀的写法，其余一律用同样的 UUIDv5 映射，从不报错",
+        ),
+        "1–30 字节的串两边映射结果相同；其余写法不同：Xray 报错的（空串、过长、带花括号或 urn 前缀）sing-box 照样能连，" +
+            "Xray 能读出 UUID 的 33–35 字节写法或 36 字节的非标准写法 sing-box 映射成另一个 UUID，换核后静默连不上" +
+            "（K1b 本地用两边的解析函数逐例核对；源码：X2 S2-X42，Xray common/uuid/uuid.go:67-83；sing-vmess v0.2.8 " +
+            "client.go:37、vless/client.go:28）。待维护者定",
+        DifferenceDecision.OPEN,
     ),
     MUX_COOL_PADDING(
         listOf(ProfileField.MUX_PADDING),
@@ -129,9 +157,11 @@ enum class KnownDifference(
         listOf(ProfileField.ENABLE_ECH),
         mapOf(
             DialCore.SING_BOX to "经 sing-box 自己的 DNS 路由查 HTTPS 记录",
-            DialCore.MIHOMO to "由 mihomo 进程自己的解析器查询（没配置时用系统解析器）",
+            DialCore.MIHOMO to "mihomo 进程自己发 DNS 查询：本应用不写 dns 段，发布版没有 cmfa 构建标签，读 " +
+                "/etc/resolv.conf；Android 上没有这个文件（模拟器实测），退到内置的 114.114.114.114 / 8.8.8.8（UDP 53）",
         ),
-        "两边都能自动查询；mihomo 这条查询走向没有实测（plan.md K1 的 ECH DNS 例外），待维护者定",
+        "两边都能自动查询；mihomo 一侧只有源码依据（K1b M1 S2-M3、S2-M12），查询的实际走向没有实测（plan.md K1 的 " +
+            "ECH DNS 例外），待维护者定",
         DifferenceDecision.OPEN,
     ),
     WS_EARLY_DATA_SIZE(
@@ -192,10 +222,12 @@ enum class KnownDifference(
     XRAY_MUX_UDP443(
         listOf(ProfileField.ENABLE_MUX, ProfileField.PACKET_ENCODING),
         mapOf(
-            DialCore.XRAY to "只开 mux、没开 xudp 时生成器不写 xudpProxyUDP443，缺省 reject，UDP/443 被 Xray 拒绝",
+            DialCore.XRAY to "只开 mux、没开 xudp 时生成器不写 xudpProxyUDP443，缺省 reject，UDP/443 被 Xray 拒绝；" +
+                "拒绝记录只在 Xray 的 info 级，应用缺省（warning）下看不到",
             DialCore.SING_BOX to "sing-mux 照常转发 UDP/443",
         ),
-        "生成器缺口（I1 §5.1，源码推断）：QUIC 被拒后应用一般回落 TCP，不丢安全校验；应在生成器里补，待维护者定",
+        "生成器缺口（I1 §5.1；K1b X2 L2-48…51 回环实测，v26.3.27 与 v26.9.30 相同，L2-S08 实测 warning 级下没有记录）：" +
+            "QUIC 被拒后应用一般回落 TCP，不丢安全校验；应在生成器里补，待维护者定",
         DifferenceDecision.OPEN,
     ),
 }
