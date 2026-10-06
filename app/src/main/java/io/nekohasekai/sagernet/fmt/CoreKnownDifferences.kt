@@ -73,13 +73,14 @@ enum class KnownDifference(
     VMESS_SECURITY_AUTO(
         listOf(ProfileField.ENCRYPTION),
         mapOf(
-            DialCore.SING_BOX to "带 TLS 时把 auto 换成 zero（libcore/sing-box/protocol/vmess/outbound.go）",
-            DialCore.XRAY to "auto 按平台选 AES-128-GCM 或 ChaCha20-Poly1305",
+            DialCore.SING_BOX to "带 TLS 时生成器把 auto（或空）写成 aes-128-gcm（vendored sing-box 会把 auto 换成 zero）；" +
+                "不带 TLS 时照写 auto",
+            DialCore.XRAY to "auto 按平台选：有 AES 硬件加速时 AES-128-GCM，否则 ChaCha20-Poly1305",
         ),
-        "Xray 服务端自 v26.7.11 起删掉了 none / zero：sing-box 带 TLS 时写的 zero 连这类服务端失败，服务端日志 " +
-            "unknown security type，客户端只见连接立即结束、没有报错；连 v26.3.27 服务端两种都能通（K1b X2 L2-V07/V08 " +
-            "实测，X1 S2-X22 源码）。是否改生成器或选核待维护者定（K1b 待决定项 A）",
-        DifferenceDecision.OPEN,
+        "维护者 2026-10-06 定（K1b 待决定项 A）：Xray 服务端自 v26.7.11 起删掉了 none / zero，sing-box 带 TLS 时换出的 " +
+            "zero 连这类服务端静默失败（K1b X2 L2-V07/V08 实测，X1 S2-X22 源码），生成器改写 aes-128-gcm 后对新旧服务端都能通；" +
+            "两边只在没有 AES 硬件加速的设备上选的加密不同，不影响连通",
+        DifferenceDecision.DECIDED,
     ),
     VMESS_SECURITY_NONE_ZERO(
         listOf(ProfileField.ENCRYPTION),
@@ -88,8 +89,9 @@ enum class KnownDifference(
             DialCore.SING_BOX to "照写 none / zero，连 v26.7.11 以上的 Xray 服务端失败",
         ),
         "同一节点换核后一个能通一个不通，取决于服务端的 Xray 版本（K1b X2 T2-28/30、L2-42/43 实测 Xray 客户端，" +
-            "L2-V01/V03/V11 实测 sing-box 客户端），待维护者定",
-        DifferenceDecision.OPEN,
+            "L2-V01/V03/V11 实测 sing-box 客户端）。维护者 2026-10-06 定（K1b 待决定项 A）：none / zero 是用户显式选的，" +
+            "生成器照写，不改写、不拦",
+        DifferenceDecision.DECIDED,
     ),
     V2RAY_ID_MAPPING(
         listOf(ProfileField.UUID),

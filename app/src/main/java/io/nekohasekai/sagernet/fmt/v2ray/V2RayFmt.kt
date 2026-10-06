@@ -748,19 +748,27 @@ fun buildSingBoxOutboundStandardV2RayBean(bean: StandardV2RayBean, globalAllowIn
                 tls = buildSingBoxOutboundTLS(bean, globalAllowInsecure)
                 transport = buildSingBoxOutboundStreamSettings(bean)
             }
+            val vmessTls = buildSingBoxOutboundTLS(bean, globalAllowInsecure)
+            // 名单外的加密方式 sing-box 只在创建出站时报错，先在这里报（BUG-001，SingBoxValueSets.kt）
+            val vmessSecurity = requireSingBoxValue(
+                "vmess security", bean.encryption.takeIf { it.isNotBlank() } ?: "auto", SING_BOX_VMESS_SECURITIES,
+            )
             return Outbound_VMessOptions().apply {
                 type = "vmess"
                 server = bean.serverAddress
                 server_port = bean.serverPort
                 uuid = bean.uuid
                 alter_id = bean.alterId
-                // 名单外的加密方式 sing-box 只在创建出站时报错，先在这里报（BUG-001，SingBoxValueSets.kt）
-                security = requireSingBoxValue(
-                    "vmess security", bean.encryption.takeIf { it.isNotBlank() } ?: "auto", SING_BOX_VMESS_SECURITIES,
-                )
+                // 带 TLS（含 REALITY）时 auto 写成 aes-128-gcm（维护者 2026-10-06 定，K1b 待决定项 A）：vendored
+                // sing-box 在有 TLS 时把 auto 换成 zero（libcore/sing-box/protocol/vmess/outbound.go:99-100），而 Xray
+                // 服务端自 v26.7.11 起删掉了 none / zero，这样的节点连新服务端静默失败（K1b X2 L2-V07，写 aes-128-gcm 能通）。
+                // Xray 客户端的 AUTO 在有 AES 硬件加速时取 AES-128-GCM（K1b X1 S2-X22），arm64 / amd64 设备上与这里相同。
+                // 不带 TLS 时 auto 照写（sing-box 自己选加密）；用户显式选的 none / zero 等照写，见已知差异
+                // VMESS_SECURITY_NONE_ZERO
+                security = if (vmessTls != null && vmessSecurity == "auto") "aes-128-gcm" else vmessSecurity
                 packet_encoding =
                     if (bean.packetEncoding == 0) "" else packetEncodingName(bean.packetEncoding)
-                tls = buildSingBoxOutboundTLS(bean, globalAllowInsecure)
+                tls = vmessTls
                 transport = buildSingBoxOutboundStreamSettings(bean)
             }
         }

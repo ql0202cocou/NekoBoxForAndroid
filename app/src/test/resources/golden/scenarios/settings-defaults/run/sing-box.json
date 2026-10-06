@@ -87,7 +87,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 35253,
+      "listen_port": 34389,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-2-mapping-2",
@@ -101,7 +101,7 @@
     {
       "alter_id": 0,
       "packet_encoding": "",
-      "security": "auto",
+      "security": "aes-128-gcm",
       "server": "vmess.example.com",
       "server_port": 443,
       "tls": {
@@ -121,10 +121,10 @@
       "type": "vmess"
     },
     {
-      "password": "p02ce62ec2005955576ad62690304603c",
+      "password": "pd4332a4b5b2b4bc2ef2c5e71cbce2a4f",
       "server": "127.0.0.1",
-      "server_port": 40139,
-      "username": "u84a4125e83266846",
+      "server_port": 33793,
+      "username": "u00a93616dbaccce9",
       "tag": "g-2",
       "type": "socks"
     },

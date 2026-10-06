@@ -53,14 +53,14 @@
           "index": 0,
           "chainIndex": 1,
           "profileId": 2,
-          "port": 46037,
+          "port": 40661,
           "finalAddress": "127.0.0.1",
-          "finalPort": 36523,
+          "finalPort": 35161,
           "inboundTag": "in-0",
           "outboundTag": "out-0",
           "localAuth": {
-            "username": "u3180bdf399dc36f7",
-            "password": "pcc26c1c2f2ac8e6d3b1e81c83ca11f80"
+            "username": "ub610e89c5f393de2",
+            "password": "pa3ad12f9f7f3d5d08a981e0265e057dd"
           }
         }
       ]
@@ -75,14 +75,14 @@
           "index": 1,
           "chainIndex": 2,
           "profileId": 3,
-          "port": 35833,
+          "port": 44739,
           "finalAddress": "127.0.0.1",
-          "finalPort": 43347,
+          "finalPort": 38251,
           "inboundTag": "in-1",
           "outboundTag": "out-1",
           "localAuth": {
-            "username": "u3180bdf399dc36f7",
-            "password": "pcc26c1c2f2ac8e6d3b1e81c83ca11f80"
+            "username": "ub610e89c5f393de2",
+            "password": "pa3ad12f9f7f3d5d08a981e0265e057dd"
           }
         }
       ]
@@ -90,15 +90,15 @@
   ],
   "dynamic": {
     "ports": [
-      46037,
-      35833,
-      36523,
-      43347
+      40661,
+      44739,
+      35161,
+      38251
     ],
     "paths": [],
     "secrets": [
-      "u3180bdf399dc36f7",
-      "pcc26c1c2f2ac8e6d3b1e81c83ca11f80"
+      "ub610e89c5f393de2",
+      "pa3ad12f9f7f3d5d08a981e0265e057dd"
     ]
   }
 }

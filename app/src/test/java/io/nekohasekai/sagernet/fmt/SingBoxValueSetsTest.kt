@@ -110,11 +110,12 @@ class SingBoxValueSetsTest {
 
     @Test
     fun `VMess 加密方式：名单里的全部通过，空值写 auto，名单外的被拒`() {
-        for (security in SING_BOX_VMESS_SECURITIES) {
-            val out = buildSingBoxOutboundStandardV2RayBean(CoreTestNodes.vmess { encryption = security }, false)
-            assertEquals(security, (out as Outbound_VMessOptions).security)
+        // 不带 TLS：名单里的值原样写出（带 TLS 时 auto 改写成 aes-128-gcm，见 SingBoxVMessSecurityTest）
+        for (value in SING_BOX_VMESS_SECURITIES) {
+            val out = buildSingBoxOutboundStandardV2RayBean(CoreTestNodes.vmess { security = "none"; encryption = value }, false)
+            assertEquals(value, (out as Outbound_VMessOptions).security)
         }
-        val blank = buildSingBoxOutboundStandardV2RayBean(CoreTestNodes.vmess { encryption = "" }, false)
+        val blank = buildSingBoxOutboundStandardV2RayBean(CoreTestNodes.vmess { security = "none"; encryption = "" }, false)
         assertEquals("auto", (blank as Outbound_VMessOptions).security)
         assertRejected("vmess security", "aes-256-gcm") {
             buildSingBoxOutboundStandardV2RayBean(CoreTestNodes.vmess { encryption = "aes-256-gcm" }, false)
