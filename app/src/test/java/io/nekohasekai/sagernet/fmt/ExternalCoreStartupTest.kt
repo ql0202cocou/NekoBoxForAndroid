@@ -113,6 +113,58 @@ class ExternalCoreStartupTest {
         assertTrue(error.reason.endsWith("> unexpected EOF"))
     }
 
+    // v26.9.30 对不合法 id 的真实输出（K1b X2 附录 A6 的 T2-S06、T2-S08）：common/uuid 把整串带进报错
+    private val xrayLongUuid = "Failed to start: main: failed to load config files: [sup/T2-S06-k0-vless-uuid-long.json] " +
+        "> infra/conf: failed to build outbound config with tag out-1 > infra/conf: failed to build outbound handler " +
+        "for protocol vless > common/uuid: invalid UUID: this-string-is-longer-than-thirty-bytes-x"
+    private val xrayEmptyUuid = "Failed to start: main: failed to load config files: [sup/T2-S08-k0-vless-uuid-empty.json] " +
+        "> infra/conf: failed to build outbound config with tag out-1 > infra/conf: failed to build outbound handler " +
+        "for protocol vless > common/uuid: invalid UUID: "
+
+    @Test
+    fun `Xray 报错里的 id 遮掉，保留 invalid UUID 前缀`() {
+        xrayCheckErrors(xrayLongUuid).single().let {
+            assertEquals("out-1", it.tag)
+            assertEquals("failed to build outbound handler for protocol vless > invalid UUID: ***", it.reason)
+        }
+        assertEquals(
+            "failed to build outbound handler for protocol vless > invalid UUID: ***",
+            xrayCheckErrors(xrayEmptyUuid).single().reason,
+        )
+        // 值里带「 > 」也遮到行尾，不会当成下一层漏出来
+        val secret = "abc > def > with tag out-0 and more"
+        val withSeparator = xrayLongUuid.replace("this-string-is-longer-than-thirty-bytes-x", secret)
+        xrayCheckErrors(withSeparator).single().let {
+            assertEquals("out-1", it.tag)
+            assertFalse(it.reason, "def" in it.reason)
+            assertTrue(it.reason, it.reason.endsWith("invalid UUID: ***"))
+        }
+        // 对不回节点、原文照给的报错同样遮蔽
+        val unbound = "Failed to start: main: failed to create server > common/uuid: invalid UUID: secret-id-value"
+        assertEquals("main: failed to create server > common/uuid: invalid UUID: ***", xrayCheckErrors(unbound).single().reason)
+        // 最终给用户的消息里也没有原值
+        val error = failure(xray.result(xrayGroup, 23, xrayBanner + "\n" + xrayLongUuid))
+        assertEquals("x1: failed to build outbound handler for protocol vless > invalid UUID: ***", error.message)
+    }
+
+    // 32–36 字节含非十六进制字符的 id：v26.9.30 common/uuid 原样返回 hex.Decode 的错误（按源码构造，未实测）
+    private val xrayHexUuid = "Failed to start: main: failed to load config files: [xray_1.json] " +
+        "> infra/conf: failed to build outbound config with tag out-1 > infra/conf: failed to build outbound handler " +
+        "for protocol vless > encoding/hex: invalid byte: U+0067 'g'"
+
+    @Test
+    fun `Xray 的十六进制报错也遮到行尾，不漏出 id 里的字符`() {
+        xrayCheckErrors(xrayHexUuid).single().let {
+            assertEquals("out-1", it.tag)
+            // 原因各层照例去掉开头的包路径（encoding/hex: ），遮掉的部分不回来
+            assertEquals("failed to build outbound handler for protocol vless > invalid byte: ***", it.reason)
+            assertFalse(it.reason, "'g'" in it.reason || "U+0067" in it.reason)
+        }
+        // 对不回节点、原文照给的报错保留完整前缀
+        val unbound = "Failed to start: main: failed to create server > encoding/hex: invalid byte: U+0073 's'"
+        assertEquals("main: failed to create server > encoding/hex: invalid byte: ***", xrayCheckErrors(unbound).single().reason)
+    }
+
     @Test
     fun `Xray 通过或没有报错行时没有失败`() {
         assertTrue(xrayCheckErrors("$xrayBanner\nConfiguration OK.").isEmpty())

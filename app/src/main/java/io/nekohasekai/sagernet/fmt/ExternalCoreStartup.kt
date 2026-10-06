@@ -99,13 +99,23 @@ private const val XRAY_FAILED = "Failed to start: "
 private val XRAY_TAG = Regex("""(?:\bwith tag|\bexisting tag found:) (\S+)$""")
 private val GO_PACKAGE_PREFIX = Regex("""^(?:main|[\w.-]+(?:/[\w.-]+)+): """)
 
+// id 不合法时 Xray 把用户填的整串带进报错（common/uuid 的「invalid UUID: <串>」）。id 是凭据，不能进异常消息：
+// 保留前缀让用户知道是 id 的问题，值一律遮成 ***（空串也一样，不暴露长度）。这一句是报错链最里层的原因，
+// 遮到行尾，值里带「 > 」也不会漏到下一层。
+// 32–36 字节、含非十六进制字符的 id，common/uuid 原样返回 hex.Decode 的错误（「encoding/hex: invalid byte: U+0067 'g'」，
+// 带出 id 里的一个字符），同样保留前缀、遮到行尾
+private val XRAY_INVALID_UUID = Regex("""\binvalid UUID:.*$""")
+private val XRAY_INVALID_HEX_BYTE = Regex("""\bencoding/hex: invalid byte:.*$""")
+
 fun xrayCheckErrors(output: String): List<ExternalCheckError> = output.lineSequence().mapNotNull { line ->
     val at = line.indexOf(XRAY_FAILED)
     if (at < 0) return@mapNotNull null
     val text = line.substring(at + XRAY_FAILED.length).trim()
+        .replace(XRAY_INVALID_UUID, "invalid UUID: ***")
+        .replace(XRAY_INVALID_HEX_BYTE, "encoding/hex: invalid byte: ***")
     val layers = text.split(" > ")
     val tagAt = layers.indexOfFirst { XRAY_TAG.containsMatchIn(it) }
-    // 找不到 tag 的（配置整体解析失败等）对不回节点，原文照给
+    // 找不到 tag 的（配置整体解析失败等）对不回节点，原文照给（凭据已遮蔽）
     if (tagAt < 0) return@mapNotNull ExternalCheckError(text)
     val tag = XRAY_TAG.find(layers[tagAt])!!.groupValues[1]
     // 原因取 tag 那一层之后的各层（tag 重复时那一层本身就是原因），去掉每层开头的 Go 包路径；
