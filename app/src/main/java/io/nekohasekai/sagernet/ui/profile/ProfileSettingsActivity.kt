@@ -43,8 +43,8 @@ import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
 import io.nekohasekai.sagernet.databinding.LayoutGroupItemBinding
 import io.nekohasekai.sagernet.fmt.AbstractBean
-import io.nekohasekai.sagernet.fmt.certificatePinUnsupported
-import io.nekohasekai.sagernet.fmt.mldsa65VerifyUnsupported
+import io.nekohasekai.sagernet.fmt.CoreDecision
+import io.nekohasekai.sagernet.fmt.decideCore
 import io.nekohasekai.sagernet.fmt.putBean
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.ui.EditorActivity
@@ -180,13 +180,24 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
     protected open fun validateEditor(): String? = null
 
     // 实体级字段，不在 bean 里；onCreate 时写入
-    private fun editorCore() = EditorCache.profileCacheStore.getString(Key.PROFILE_CORE)
+    protected fun editorCore() = EditorCache.profileCacheStore.getString(Key.PROFILE_CORE)
         ?.toIntOrNull() ?: ProxyEntity.CORE_AUTO
+
+    // 用编辑器当前内容拼一个临时 bean（serialize 逐字段读缓存库），给选核判定用，不落库
+    protected fun editorBean(): T = createEntity().apply { serialize() }.applyDefaultValues()
+
+    // 按能力表判定这个 bean 配上 core 的结果（D14）；全局「允许不安全」取 DataStore 当前值
+    protected fun decideEditorCore(bean: T, core: Int): CoreDecision =
+        decideCore(ProxyEntity().putBean(bean).type, core, bean, DataStore.globalAllowInsecure)
 
     override suspend fun saveAndExit() {
         awaitEditorReady()
+        // 编辑器里显示了核心选项才用它的值；不显示的（HTTP 与没有这个控件的协议）一律保存为自动，
+        // 不把打开时读到的旧值（例如别的协议留下的手动值）原样写回
+        var coreShown = false
         val canSave = onMainDispatcher {
             val screen = child?.preferenceScreen ?: return@onMainDispatcher false
+            coreShown = screen.findPreference<Preference>(Key.PROFILE_CORE)?.isVisible == true
             validateEditor()?.let { message ->
                 Toast.makeText(this@ProfileSettingsActivity, message, Toast.LENGTH_LONG).show()
                 return@onMainDispatcher false
@@ -213,26 +224,16 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         }
         if (!canSave) return
 
-        val profileCore = editorCore()
-        // 证书指纹、mldsa65Verify 配上不支持它的核心注定连不上（构建时拒绝）：用编辑器当前内容拼一个临时
-        // 实体，按与构建相同的规则判断。放在整数校验之后、主线程之外（serialize 逐字段读库）
-        val probe = ProxyEntity().apply {
-            core = profileCore
-            putBean(createEntity().apply { serialize() }.applyDefaultValues())
-        }
-        if (probe.certificatePinUnsupported()) {
+        val profileCore = if (coreShown) editorCore() else ProxyEntity.CORE_AUTO
+        // 保存时按能力表拦截（D14）：手动选的核心有冲突、或自动选核找不到能完整承载的核心，就列出冲突字段，
+        // 不保存。用编辑器当前内容拼临时 bean 判断，放在整数校验之后、主线程之外（serialize 逐字段读库）
+        val probe = editorBean()
+        val decision = decideEditorCore(probe, profileCore)
+        if (decision is CoreDecision.Rejected) {
             onMainDispatcher {
-                Toast.makeText(
-                    this@ProfileSettingsActivity, R.string.certificate_pin_unsupported_error, Toast.LENGTH_LONG
-                ).show()
-            }
-            return
-        }
-        if (probe.mldsa65VerifyUnsupported() != null) {
-            onMainDispatcher {
-                Toast.makeText(
-                    this@ProfileSettingsActivity, R.string.mldsa65_verify_unsupported_error, Toast.LENGTH_LONG
-                ).show()
+                MaterialAlertDialogBuilder(this@ProfileSettingsActivity).setTitle(R.string.error_title)
+                    .setMessage(coreRejectionMessage(decision, probe))
+                    .setPositiveButton(android.R.string.ok, null).show()
             }
             return
         }
