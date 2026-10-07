@@ -2,24 +2,35 @@
 
 package io.nekohasekai.sagernet.group
 
-import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.fmt.AbstractBean
+import io.nekohasekai.sagernet.fmt.CLASH_ENUM_PATHS
+import io.nekohasekai.sagernet.fmt.CLASH_KEY_NOT_SHOWN
+import io.nekohasekai.sagernet.fmt.ClashFieldReason
+import io.nekohasekai.sagernet.fmt.ClashFieldRecord
+import io.nekohasekai.sagernet.fmt.ClashFieldResult
+import io.nekohasekai.sagernet.fmt.ClashNodeFailure
+import io.nekohasekai.sagernet.fmt.ClashNodeResult
+import io.nekohasekai.sagernet.fmt.clashShownPath
+import io.nekohasekai.sagernet.fmt.clashShownValue
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
+import io.nekohasekai.sagernet.fmt.hysteria.parseHysteriaPorts
 import io.nekohasekai.sagernet.fmt.requireValidEndpoint
 import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.fmt.tuic.TuicBean
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
+import io.nekohasekai.sagernet.fmt.v2ray.UnsupportedTransportException
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.clashNetworkTransport
 import io.nekohasekai.sagernet.fmt.v2ray.isTLS
 import io.nekohasekai.sagernet.fmt.v2ray.muxProtocolType
 import io.nekohasekai.sagernet.fmt.v2ray.setTLS
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
-import io.nekohasekai.sagernet.fmt.wireguard.sanitizeImportedAllowedIps
-import io.nekohasekai.sagernet.ktx.*
+import io.nekohasekai.sagernet.fmt.wireguard.isWireGuardLocalAddressList
+import io.nekohasekai.sagernet.ktx.blankAsNull
+import io.nekohasekai.sagernet.ktx.isIpAddress
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 import org.yaml.snakeyaml.error.YAMLException
@@ -32,50 +43,103 @@ import org.yaml.snakeyaml.error.YAMLException
 fun loadClashYaml(text: String): Map<*, *> =
     clashYaml().load(text) as? Map<*, *> ?: throw YAMLException("Root node is not a map")
 
-fun parseClash(yaml: Map<*, *>): List<AbstractBean> {
+// 整份订阅没有 proxies 列表（或它不是列表）。parseRaw 换成本地化的「文件里没有节点」
+class ClashNoProxiesException : IllegalStateException("No proxies list in the Clash YAML")
+
+// parseClash 的结果：导入的节点（已补默认值并做过 Clash 修正），以及 proxies 里每个条目的结果，
+// 顺序与条目一致。全部条目都被跳过时 beans 为空，由调用方决定怎么报
+class ClashParseResult(val beans: List<AbstractBean>, val nodes: List<ClashNodeResult>)
+
+// 节点被整体拒绝，原因来自封闭集合；value 是原值，只在路径属于可显示的枚举键时按规则显示
+internal class ClashNodeRejected(
+    val failure: ClashNodeFailure,
+    val path: String? = null,
+    value: Any? = null,
+) : Exception(failure.text) {
+    val shownValue: String? = if (path != null && path in CLASH_ENUM_PATHS) clashShownValue(value) else null
+}
+
+// 一个节点解析期间记下的字段结果
+internal class ClashFields {
+    val records = ArrayList<ClashFieldRecord>()
+
+    fun ignored(path: String, reason: ClashFieldReason) {
+        records += ClashFieldRecord(clashShownPath(path.split('.')), ClashFieldResult.IGNORED, reason)
+    }
+}
+
+// 纯函数：不读 DataStore、不写日志、不取界面文案（JVM 单测直接覆盖）。
+// 单个坏节点只跳过它本身，不拖垮整次更新
+fun parseClash(yaml: Map<*, *>): ClashParseResult {
     val globalClientFingerprint = yaml["global-client-fingerprint"]?.toString() ?: ""
 
-    val proxies = mutableListOf<AbstractBean>()
-    // List<*> without the Map type argument: a generic List<Map> cast is
-    // erased, so the compiler checkcasts each element AFTER the loop's
-    // runCatching guard and one "- ss://..." string entry would kill the
-    // whole update with a ClassCastException
-    for (proxyEntry in (yaml["proxies"] as? List<*> ?: error(
-        app.getString(R.string.no_proxies_found_in_file)
-    ))) {
-        // Skip a single broken node instead of failing the whole update
-        runCatching {
-            val proxy = proxyEntry as? Map<String, Any?>
-                ?: error("proxy entry is not a map")
-            // 端点在 bean 上统一校验；必须早于下方的 initializeDefaultValues，
-            // 否则缺省被填成 127.0.0.1:1080 就验不出缺失
-            val bean = parseClashProxy(proxy) ?: return@runCatching
-            bean.requireValidEndpoint()
-            proxies.add(bean)
-        }.onFailure { Logs.w("Subscription entry rejected: ${it.javaClass.simpleName}") }
-    }
+    // 用 List<*> 而不带 Map 类型参数：泛型 List<Map> 的强转会被擦除，编译器在判断之后才逐个元素
+    // checkcast，一个「- ss://...」字符串条目就会抛 ClassCastException 拖垮整次更新
+    val entries = yaml["proxies"] as? List<*> ?: throw ClashNoProxiesException()
+    val beans = mutableListOf<AbstractBean>()
+    val nodes = ArrayList<ClashNodeResult>(entries.size)
+    entries.forEachIndexed { index, entry -> nodes += parseClashEntry(index, entry, beans) }
 
     // Fix ent
-    proxies.forEach {
+    beans.forEach {
         it.initializeDefaultValues()
         if (it is StandardV2RayBean) it.applyClashFixups(globalClientFingerprint)
     }
-    return proxies.takeIf { it.isNotEmpty() } ?: error("Not found")
+    return ClashParseResult(beans, nodes)
 }
 
-// clash "type" -> bean. An unknown type yields null and the node is skipped
-// silently, as before; a broken node of a known type throws and is logged by
-// the caller.
-private fun parseClashProxy(proxy: Map<String, Any?>): AbstractBean? = when (proxy["type"] as String) {
+private fun parseClashEntry(index: Int, entry: Any?, beans: MutableList<AbstractBean>): ClashNodeResult {
+    val proxy = entry as? Map<String, Any?>
+        ?: return ClashNodeResult.Failed(index, CLASH_KEY_NOT_SHOWN, null, ClashNodeFailure.ENTRY_NOT_MAP)
+    val name = proxy["name"]?.toString()
+    val type = proxy["type"] as? String
+        ?: return ClashNodeResult.Failed(
+            index, clashShownValue(proxy["type"]), name, ClashNodeFailure.MISSING_TYPE
+        )
+    val shownType = clashShownValue(type)
+    val fields = ClashFields()
+    return try {
+        val bean = parseClashProxy(type, proxy, fields)
+            ?: return ClashNodeResult.UnknownType(index, shownType, name)
+        // 端点在 bean 上统一校验；必须早于 parseClash 尾部的 initializeDefaultValues，
+        // 否则缺省被填成 127.0.0.1:1080 就验不出缺失
+        clashEndpointFailure(bean)?.let { throw ClashNodeRejected(it) }
+        bean.requireValidEndpoint()
+        beans.add(bean)
+        ClashNodeResult.Imported(index, shownType, name, fields.records)
+    } catch (e: ClashNodeRejected) {
+        ClashNodeResult.Failed(index, shownType, name, e.failure, e.path, e.shownValue)
+    } catch (e: UnsupportedTransportException) {
+        ClashNodeResult.Failed(
+            index, shownType, name, ClashNodeFailure.UNSUPPORTED_TRANSPORT, "network", clashShownValue(e.transport)
+        )
+    } catch (e: Exception) {
+        ClashNodeResult.Failed(index, shownType, name, ClashNodeFailure.OTHER, detail = e.javaClass.simpleName)
+    }
+}
+
+// requireValidEndpoint 的同一套判断，只为给出封闭集合里的原因；它本身仍在后面照常调用
+private fun clashEndpointFailure(bean: AbstractBean): ClashNodeFailure? {
+    if (bean.serverAddress.isNullOrBlank()) return ClashNodeFailure.MISSING_SERVER
+    if (bean is HysteriaBean) {
+        val ports = bean.serverPorts ?: return ClashNodeFailure.MISSING_PORT
+        return if (runCatching { parseHysteriaPorts(ports) }.isSuccess) null else ClashNodeFailure.INVALID_PORT
+    }
+    val port = bean.serverPort ?: return ClashNodeFailure.MISSING_PORT
+    return if (port in 1..65535) null else ClashNodeFailure.INVALID_PORT
+}
+
+// clash 的 type -> bean。不认识的 type 返回 null，按类型不支持报告；已知类型的坏节点抛异常
+private fun parseClashProxy(type: String, proxy: Map<String, Any?>, fields: ClashFields): AbstractBean? = when (type) {
     "socks5" -> parseClashSocks(proxy)
     "http" -> parseClashHttp(proxy)
     "ss" -> parseClashShadowsocks(proxy)
-    "vmess", "vless", "trojan" -> parseClashV2Ray(proxy)
-    "anytls" -> parseClashAnyTLS(proxy)
-    "hysteria" -> parseClashHysteria(proxy, 1)
-    "hysteria2", "hy2" -> parseClashHysteria(proxy, 2)
-    "tuic" -> parseClashTuic(proxy)
-    "wireguard" -> parseClashWireGuard(proxy)
+    "vmess", "vless", "trojan" -> parseClashV2Ray(proxy, fields)
+    "anytls" -> parseClashAnyTLS(proxy, fields)
+    "hysteria" -> parseClashHysteria(proxy, 1, fields)
+    "hysteria2", "hy2" -> parseClashHysteria(proxy, 2, fields)
+    "tuic" -> parseClashTuic(proxy, fields)
+    "wireguard" -> parseClashWireGuard(proxy, fields)
     else -> null
 }
 
@@ -129,7 +193,7 @@ private fun parseClashShadowsocks(proxy: Map<String, Any?>): ShadowsocksBean {
             // *-opts keys and have no sip003 plugin here; importing
             // the node without them yields something that looks fine
             // and can never connect, so drop it loudly instead
-            else -> error("unsupported shadowsocks plugin: $ssPluginName")
+            else -> throw ClashNodeRejected(ClashNodeFailure.UNSUPPORTED_SS_PLUGIN, "plugin", ssPluginName)
         }
     }
     return ShadowsocksBean().apply {
@@ -143,7 +207,7 @@ private fun parseClashShadowsocks(proxy: Map<String, Any?>): ShadowsocksBean {
     }
 }
 
-private fun parseClashV2Ray(proxy: Map<String, Any?>): StandardV2RayBean {
+private fun parseClashV2Ray(proxy: Map<String, Any?>, fields: ClashFields): StandardV2RayBean {
     val bean = when (proxy["type"] as String) {
         "vmess" -> VMessBean()
         "vless" -> VMessBean().apply {
@@ -158,13 +222,11 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>): StandardV2RayBean {
         else -> error("impossible")
     }
 
-    // error() instead of continue: continuing the outer
-    // loop from an inline lambda is experimental; the
-    // runCatching wrapper skips this node either way.
+    // 抛异常而不是 continue：调用方只跳过这一个节点
     bean.serverAddress = proxy["server"]?.toString()
-        ?: error("missing server")
-    bean.serverPort = proxy["port"]?.toString()?.toIntOrNull()
-        ?: error("missing port")
+        ?: throw ClashNodeRejected(ClashNodeFailure.MISSING_SERVER)
+    val port = proxy["port"]?.toString() ?: throw ClashNodeRejected(ClashNodeFailure.MISSING_PORT)
+    bean.serverPort = port.toIntOrNull() ?: throw ClashNodeRejected(ClashNodeFailure.INVALID_PORT)
 
     for (opt in proxy) {
         when (opt.key) {
@@ -213,7 +275,7 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>): StandardV2RayBean {
                 opt.value.clashBoolean()
 
             "fingerprint" -> bean.certificateFingerprint =
-                parseCertificateFingerprint(opt.value)
+                parseCertificateFingerprint(opt.value, fields)
 
             "client-fingerprint" -> bean.utlsFingerprint =
                 opt.value as String
@@ -361,7 +423,7 @@ private fun StandardV2RayBean.applyClashTransportOpts(key: String, value: Any?) 
     }
 }
 
-private fun parseClashAnyTLS(proxy: Map<String, Any?>): AnyTLSBean {
+private fun parseClashAnyTLS(proxy: Map<String, Any?>, fields: ClashFields): AnyTLSBean {
     val bean = AnyTLSBean()
     for (opt in proxy) {
         if (opt.value == null) continue
@@ -381,12 +443,11 @@ private fun parseClashAnyTLS(proxy: Map<String, Any?>): AnyTLSBean {
             // CLIENT cert (ca.GetTLSConfig -> GetClientCertificate),
             // not a custom CA — mapping them to bean.certificates
             // would become a server-cert pin that can never match.
-            "certificate", "private-key" -> Logs.w(
-                "clash anytls mTLS client cert is unsupported, dropped"
-            )
+            "certificate", "private-key" ->
+                fields.ignored(opt.key, ClashFieldReason.MTLS_CLIENT_CERT)
 
             "fingerprint" -> bean.certificateFingerprint =
-                parseCertificateFingerprint(opt.value)
+                parseCertificateFingerprint(opt.value, fields)
 
             "alpn" -> {
                 val alpn = (opt.value as? (List<String>))
@@ -411,7 +472,7 @@ private fun parseClashAnyTLS(proxy: Map<String, Any?>): AnyTLSBean {
 // hysteria and hysteria2 share most keys; the version-specific ones sit in
 // the nested when. hysteria 1 defaults a missing bandwidth to 100 Mbps where
 // hysteria 2 leaves it at 0.
-private fun parseClashHysteria(proxy: Map<String, Any?>, version: Int): HysteriaBean {
+private fun parseClashHysteria(proxy: Map<String, Any?>, version: Int, fields: ClashFields): HysteriaBean {
     val bean = HysteriaBean()
     bean.protocolVersion = version
     val defaultMbps = if (version == 1) 100 else 0
@@ -427,7 +488,7 @@ private fun parseClashHysteria(proxy: Map<String, Any?>, version: Int): Hysteria
             "sni" -> bean.sni = opt.value.toString()
 
             "fingerprint" -> bean.certificateFingerprint =
-                parseCertificateFingerprint(opt.value)
+                parseCertificateFingerprint(opt.value, fields)
 
             "skip-cert-verify" -> bean.allowInsecure =
                 opt.value.clashBoolean()
@@ -497,7 +558,7 @@ private fun parseClashHysteria(proxy: Map<String, Any?>, version: Int): Hysteria
     return bean
 }
 
-private fun parseClashTuic(proxy: Map<String, Any?>): TuicBean {
+private fun parseClashTuic(proxy: Map<String, Any?>, fields: ClashFields): TuicBean {
     val bean = TuicBean()
     var ip = ""
     for (opt in proxy) {
@@ -511,10 +572,7 @@ private fun parseClashTuic(proxy: Map<String, Any?>): TuicBean {
             // mihomo treats a "token" node as TUIC v4, which the
             // core dropped; importing it would only fail at connect
             // time, so skip it like an unsupported ss plugin
-            "token" -> {
-                Logs.w("Skipping TUIC v4 (token) node: v4 is not supported")
-                error("unsupported TUIC v4 (token) node")
-            }
+            "token" -> throw ClashNodeRejected(ClashNodeFailure.TUIC_V4, "token")
 
             "uuid" -> bean.uuid = opt.value.toString()
 
@@ -534,7 +592,7 @@ private fun parseClashTuic(proxy: Map<String, Any?>): TuicBean {
             "ca-str" -> bean.caText = opt.value.toString()
 
             "fingerprint" -> bean.certificateFingerprint =
-                parseCertificateFingerprint(opt.value)
+                parseCertificateFingerprint(opt.value, fields)
 
             "fast-open" -> bean.fastConnect =
                 opt.value.clashBoolean()
@@ -567,7 +625,7 @@ private fun parseClashTuic(proxy: Map<String, Any?>): TuicBean {
     return bean
 }
 
-private fun parseClashWireGuard(proxy: Map<String, Any?>): WireGuardBean {
+private fun parseClashWireGuard(proxy: Map<String, Any?>, fields: ClashFields): WireGuardBean {
     // 不做 applyDefaultValues：serverPort 填了默认值后，缺 port 的节点会
     // 瞒过 requireValidEndpoint；归一化统一由调用处尾部完成
     val bean = WireGuardBean()
@@ -601,15 +659,19 @@ private fun parseClashWireGuard(proxy: Map<String, Any?>): WireGuardBean {
             "persistent-keepalive" -> bean.peerKeepalive =
                 opt.value.toString().toIntOrNull() ?: 0
 
-            // 构建时生效（留空才用默认路由），见 buildSingBoxEndpointWireGuardBean
-            "allowed-ips" -> bean.peerAllowedIps = sanitizeImportedAllowedIps(
-                (opt.value as? List<*>)?.mapNotNull { it?.toString() }
+            // 构建时生效（留空才用默认路由），见 buildSingBoxEndpointWireGuardBean。
+            // 非法值在导入时清空，同 sanitizeImportedAllowedIps（它会写日志，这里只记下字段结果）
+            "allowed-ips" -> {
+                val raw = (opt.value as? List<*>)?.mapNotNull { it?.toString() }
                     ?.joinToString(",") ?: opt.value.toString()
-            )
+                bean.peerAllowedIps = if (isWireGuardLocalAddressList(raw)) raw else {
+                    fields.ignored(opt.key, ClashFieldReason.INVALID_DROPPED)
+                    ""
+                }
+            }
 
-            "remote-dns-resolve", "amnezia-wg-option" -> Logs.w(
-                "clash wireguard ${opt.key.replace("_", "-")} is unsupported, dropped"
-            )
+            "remote-dns-resolve", "amnezia-wg-option" ->
+                fields.ignored(opt.key, ClashFieldReason.NOT_SUPPORTED)
         }
     }
     bean.localAddress = localAddresses.joinToString("\n")
@@ -640,10 +702,10 @@ private fun clashCipher(cipher: String): String {
 
 // mihomo "fingerprint" is the SHA-256 hash of a served certificate; a value
 // in any other shape would only fail inside the core, so it is dropped here
-private fun parseCertificateFingerprint(value: Any?): String {
+private fun parseCertificateFingerprint(value: Any?, fields: ClashFields): String {
     val text = value?.toString() ?: ""
     if (text.isNotEmpty() && !isCertificateFingerprint(text)) {
-        Logs.w("clash fingerprint is not a SHA-256 digest, dropped")
+        fields.ignored("fingerprint", ClashFieldReason.INVALID_DROPPED)
         return ""
     }
     return text

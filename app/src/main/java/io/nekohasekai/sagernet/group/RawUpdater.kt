@@ -5,6 +5,7 @@ import androidx.core.net.toUri
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.*
 import io.nekohasekai.sagernet.fmt.AbstractBean
+import io.nekohasekai.sagernet.fmt.ClashNodeResult
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.putBean
 import io.nekohasekai.sagernet.fmt.v2ray.UnsupportedTransportException
@@ -369,7 +370,13 @@ object RawUpdater : GroupUpdater() {
         if (text.contains("proxies:")) {
             // clash & meta
             try {
-                return parseClash(loadClashYaml(text).also(onClashYaml))
+                val result = try {
+                    parseClash(loadClashYaml(text).also(onClashYaml))
+                } catch (e: ClashNoProxiesException) {
+                    error(app.getString(R.string.no_proxies_found_in_file))
+                }
+                logClashEntries(result)
+                return result.beans.takeIf { it.isNotEmpty() } ?: error("Not found")
             } catch (e: YAMLException) {
                 Logs.w("Subscription parsing failed: ${e.javaClass.simpleName}")
             }
@@ -424,6 +431,18 @@ object RawUpdater : GroupUpdater() {
         }
 
         return null
+    }
+
+    // 节点名不进日志：用条目序号与 type
+    private fun logClashEntries(result: ClashParseResult) {
+        for (node in result.nodes) when (node) {
+            is ClashNodeResult.Failed -> Logs.w("Subscription entry rejected: #${node.index} ${node.type}: ${node.description}")
+            is ClashNodeResult.Imported -> for (field in node.fields) {
+                Logs.w("Subscription entry #${node.index} ${node.type}: ${field.path} ${field.reason?.text ?: ""}")
+            }
+
+            is ClashNodeResult.UnknownType -> Unit
+        }
     }
 
     // mihomo/clash 订阅里 dns.proxy-server-nameserver（或顶层同名字段）的地址列表，
