@@ -101,7 +101,7 @@
 
     </androidx.coordinatorlayout.widget.CoordinatorLayout>
 
-    <com.google.android.material.navigation.NavigationView
+    <io.nekohasekai.sagernet.widget.InsetNavigationView
         android:id="@+id/nav_view"
         style="@style/Widget.Design.NavigationView"
         android:layout_width="wrap_content"
@@ -112,7 +112,7 @@
         app:itemTextColor="@color/navigation_icon"
         app:menu="@menu/main_drawer_menu" />
 
-    <com.google.android.material.navigation.NavigationView
+    <io.nekohasekai.sagernet.widget.InsetNavigationView
         android:id="@+id/nav_view_black"
         style="@style/Widget.Design.NavigationView"
         android:layout_width="wrap_content"

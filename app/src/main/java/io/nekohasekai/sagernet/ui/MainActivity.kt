@@ -84,7 +84,8 @@ class MainActivity : ThemedActivity(),
         // extends under it. The FAB is anchored to the bar's top edge, which only moves
         // up as the bar grows.
         binding.statsContent.padForSystemBars()
-        // The drawer's NavigationView handles its own insets (fitsSystemWindows in layout_main).
+        // 抽屉的上下插入区由 NavigationView 自己处理（layout_main 里的 fitsSystemWindows），
+        // 起始侧（横屏时的导航栏、刘海）由 InsetNavigationView 补上
 
         if (savedInstanceState == null) {
             displayFragmentWithId(R.id.nav_configuration)
