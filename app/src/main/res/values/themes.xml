@@ -17,18 +17,12 @@
              Tab 用 Widget.Material3.TabLayout 的默认文字色与 primary 指示条 -->
         <item name="appBarColor">?attr/colorSurface</item>
         <item name="actionBarTheme">@style/ThemeOverlay.Material3.Toolbar.Surface</item>
-        <!-- 只剩备份页按钮在用，按钮底是 colorAccent（= primary） -->
-        <item name="whiteOrTextPrimary">?attr/colorOnPrimary</item>
 
         <!-- 去掉 ActionBar，但保留它的样式与主题 -->
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
 
         <item name="chipStyle">@style/Widget.SagerNet.Chip.Choice</item>
-
-        <item name="itemShapeAppearance">
-            @style/ShapeAppearance.Material3.Corner.Medium
-        </item>
 
         <item name="alertDialogTheme">
             @style/ThemeOverlay.SagerNet.MaterialAlertDialog
@@ -63,18 +57,12 @@
              Tab 用 Widget.Material3.TabLayout 的默认文字色与 primary 指示条 -->
         <item name="appBarColor">?attr/colorSurface</item>
         <item name="actionBarTheme">@style/ThemeOverlay.Material3.Toolbar.Surface</item>
-        <!-- 只剩备份页按钮在用，按钮底是 colorAccent（= primary） -->
-        <item name="whiteOrTextPrimary">?attr/colorOnPrimary</item>
 
         <!-- 去掉 ActionBar，但保留它的样式与主题 -->
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
 
         <item name="chipStyle">@style/Widget.SagerNet.Chip.Choice</item>
-
-        <item name="itemShapeAppearance">
-            @style/ShapeAppearance.Material3.Corner.Medium
-        </item>
 
         <item name="alertDialogTheme">
             @style/ThemeOverlay.SagerNet.MaterialAlertDialog

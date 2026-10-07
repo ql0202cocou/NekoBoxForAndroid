@@ -24,7 +24,6 @@ abstract class ThemedActivity : AppCompatActivity {
     constructor() : super()
     constructor(contentLayoutId: Int) : super(contentLayoutId)
 
-    var themeResId = 0
     var uiMode = 0
     open val isDialog = false
 
@@ -57,12 +56,6 @@ abstract class ThemedActivity : AppCompatActivity {
         if (DataStore.hideFromRecents) SagerNet.setExcludeFromRecents(true)
 
         uiMode = resources.configuration.uiMode
-    }
-
-    override fun setTheme(resId: Int) {
-        super.setTheme(resId)
-
-        themeResId = resId
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

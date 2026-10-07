@@ -7,7 +7,6 @@
     <attr name="primaryOrTextPrimary" format="color" />
     <attr name="fabColorBackground" format="color" />
     <attr name="selectedColorPrimary" format="color" />
-    <attr name="whiteOrTextPrimary" format="color" />
     <!-- 顶部栏（含其下的 TabLayout）的底色；状态栏图标颜色与 Custom Tabs 工具栏色也按它取 -->
     <attr name="appBarColor" format="color" />
 </resources>
