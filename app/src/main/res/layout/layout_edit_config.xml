@@ -50,7 +50,7 @@
             android:id="@+id/action_tab"
             android:layout_width="36dp"
             android:layout_height="36dp"
-            android:background="?primaryOrTextPrimary"
+            android:background="?attr/colorSurfaceContainerHigh"
             android:contentDescription="@string/insert_tab"
             android:padding="8dp"
             android:src="@drawable/baseline_keyboard_tab_24"
@@ -70,7 +70,7 @@
             android:id="@+id/action_undo"
             android:layout_width="36dp"
             android:layout_height="36dp"
-            android:background="?primaryOrTextPrimary"
+            android:background="?attr/colorSurfaceContainerHigh"
             android:contentDescription="@string/undo"
             android:padding="8dp"
             android:src="@drawable/baseline_undo_24"
@@ -80,7 +80,7 @@
             android:id="@+id/action_redo"
             android:layout_width="36dp"
             android:layout_height="36dp"
-            android:background="?primaryOrTextPrimary"
+            android:background="?attr/colorSurfaceContainerHigh"
             android:contentDescription="@string/redo"
             android:padding="8dp"
             android:src="@drawable/baseline_redo_24"
@@ -90,7 +90,7 @@
             android:id="@+id/action_format"
             android:layout_width="36dp"
             android:layout_height="36dp"
-            android:background="?primaryOrTextPrimary"
+            android:background="?attr/colorSurfaceContainerHigh"
             android:contentDescription="@string/format"
             android:padding="8dp"
             android:src="@drawable/ic_baseline_format_align_left_24"
@@ -99,7 +99,7 @@
         <ImageView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="?primaryOrTextPrimary" />
+            android:background="?attr/colorSurfaceContainerHigh" />
 
     </LinearLayout>
 

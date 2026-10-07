@@ -35,9 +35,15 @@ object Theme {
     // 选色网格里的 6 种主题，顺序即显示顺序：粉（默认）、橙、蓝、绿、白、黑
     val KEPT = listOf(PINK_SSR, ORANGE, BLUE, GREEN, GREY, BLACK)
 
-    // 已并入代表的旧编号 → 代表编号。归并只在读取时映射，不改写存储的编号；
-    // 以后把某种颜色加回来，只要从这里删掉那一行（再把它加进 KEPT、补回下面两个 when 的分支），
-    // 原来选过它的用户就会恢复原来的颜色
+    // 已并入代表的旧编号 → 代表编号。归并只在读取时映射，不改写存储的编号。
+    // 以后把某种颜色加回来，要改这些地方：
+    //   1. 从这里删掉那一行，把它加进 KEPT（顺序即选色网格的显示顺序）；
+    //   2. 在下面 getTheme / getDialogTheme 两个 when 里补分支；
+    //   3. 在 M3Palette.specs（测试代码）加一条种子，彩色主题同时加进 seedColorNames，
+    //      再按 M3PaletteTest 的说明重新生成 colors_m3_*.xml 与 themes_m3.xml；
+    //   4. 在 ColorPickerPreference.SWATCH_COLORS 补上它的色块颜色；
+    //   5. 改 ThemeMergeTest 手写的归并表（expected）与样式表（styles），以及其中 KEPT 的顺序。
+    // 原来选过它的用户会恢复为该颜色重新生成的 M3 配色（不是 M2 时代的原色）
     val MERGED: Map<Int, Int> = mapOf(
         RED to PINK_SSR,
         PINK to PINK_SSR,

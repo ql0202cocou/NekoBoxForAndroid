@@ -25,7 +25,7 @@
             android:layout_height="wrap_content"
             android:max="1"
             android:visibility="invisible"
-            app:indicatorColor="?colorMaterial100"
+            app:indicatorColor="?attr/colorPrimary"
             app:layout_anchor="@+id/fab"
             app:layout_anchorGravity="center"
             app:layout_behavior="io.nekohasekai.sagernet.widget.FabProgressBehavior"
@@ -41,7 +41,8 @@
             app:backgroundTint="?fabColorBackground"
             app:layout_anchor="@id/stats"
             app:pressedTranslationZ="6dp"
-            app:srcCompat="@drawable/ic_service_idle" />
+            app:srcCompat="@drawable/ic_service_idle"
+            app:tint="?attr/colorOnPrimaryContainer" />
 
         <io.nekohasekai.sagernet.widget.StatsBar
             android:id="@+id/stats"
@@ -70,7 +71,7 @@
                     android:layout_gravity="fill_horizontal"
                     android:ellipsize="marquee"
                     android:singleLine="true"
-                    android:textColor="?whiteOrTextPrimary"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="14sp" />
 
                 <TextView
@@ -81,7 +82,7 @@
                     android:layout_gravity="fill_horizontal"
                     android:ellipsize="marquee"
                     android:singleLine="true"
-                    android:textColor="?whiteOrTextPrimary"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="14sp" />
 
                 <TextView
@@ -91,7 +92,7 @@
                     android:layout_gravity="fill_horizontal"
                     android:ellipsize="end"
                     android:maxLines="1"
-                    android:textColor="?whiteOrTextPrimary"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="16sp"
                     tools:text="@string/connection_test_available" />
 
@@ -109,19 +110,6 @@
         android:layout_gravity="start"
         android:fitsSystemWindows="true"
         app:itemIconTint="@color/navigation_icon"
-        app:itemTextColor="@color/navigation_icon"
-        app:menu="@menu/main_drawer_menu" />
-
-    <io.nekohasekai.sagernet.widget.InsetNavigationView
-        android:id="@+id/nav_view_black"
-        style="@style/Widget.Design.NavigationView"
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent"
-        android:layout_gravity="start"
-        android:fitsSystemWindows="true"
-        app:itemIconTint="@color/navigation_icon"
-        app:itemShapeAppearance="@style/ShapeAppearance.Material3.Corner.Medium"
-        app:itemShapeFillColor="@color/navigation_item"
         app:itemTextColor="@color/navigation_icon"
         app:menu="@menu/main_drawer_menu" />
 
