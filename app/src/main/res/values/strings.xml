@@ -5,6 +5,8 @@
     <string name="app_desc">The universal proxy toolchain for Android, written in Kotlin.</string>
     <string name="project">Project</string>
     <string name="github">Source code</string>
+    <string name="app_icon">App icon</string>
+    <string name="app_icon_credit">OpenMoji (CC BY-SA 4.0)</string>
     <string name="app_version">Version</string>
     <string name="version_x">Version (%s)</string>
     <string name="logcat">Export debug information</string>

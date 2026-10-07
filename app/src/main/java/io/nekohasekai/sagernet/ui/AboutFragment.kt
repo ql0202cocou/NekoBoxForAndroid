@@ -34,6 +34,9 @@ import kotlinx.coroutines.withContext
 
 private const val REPO_URL = "https://github.com/ql0202cocou/NekoBoxForAndroid"
 
+// 应用图标来自 OpenMoji（CC BY-SA 4.0），关于页按许可署名
+private const val OPENMOJI_URL = "https://openmoji.org/"
+
 class AboutFragment : ToolbarFragment(R.layout.layout_about) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -156,6 +159,15 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                                 .text(R.string.github)
                                 .setOnClickAction {
                                     requireContext().launchCustomTab(REPO_URL)
+                                }
+                                .build())
+                        .addItem(
+                            MaterialAboutActionItem.Builder()
+                                .icon(R.drawable.ic_action_copyright)
+                                .text(R.string.app_icon)
+                                .subText(R.string.app_icon_credit)
+                                .setOnClickAction {
+                                    requireContext().launchCustomTab(OPENMOJI_URL)
                                 }
                                 .build())
                         .build())

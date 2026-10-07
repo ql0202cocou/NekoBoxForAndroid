@@ -88,6 +88,14 @@ Web Dashboard:
 
 - [Yacd-meta](https://github.com/MetaCubeX/Yacd-meta)
 
+应用图标 / App icon:
+
+应用图标是 [OpenMoji](https://openmoji.org/)（仓库 [hfg-gmuend/openmoji](https://github.com/hfg-gmuend/openmoji)）的棺材 emoji ⚰️（U+26B0），按 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) 许可使用。`app/src/main/res/drawable/ic_launcher_foreground.xml`、`app/src/main/res/drawable/ic_launcher_monochrome.xml` 与 `app/src/main/res/mipmap-*/ic_launcher.png` 是它的派生作品，同样按 CC BY-SA 4.0 发布；仓库其余部分仍按 GPL-3.0 发布。
+
+All emojis designed by [OpenMoji](https://openmoji.org/) – the open-source emoji and icon project. License: [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
+
+The app icon is OpenMoji's coffin emoji ⚰️ (U+26B0) from [hfg-gmuend/openmoji](https://github.com/hfg-gmuend/openmoji). `app/src/main/res/drawable/ic_launcher_foreground.xml`, `app/src/main/res/drawable/ic_launcher_monochrome.xml` and `app/src/main/res/mipmap-*/ic_launcher.png` are adaptations of it and are licensed under CC BY-SA 4.0 as well; the rest of the repository remains under GPL-3.0.
+
 ## Fork 信息 / Fork Information
 
 本仓库是 [MatsuriDayo/NekoBoxForAndroid](https://github.com/MatsuriDayo/NekoBoxForAndroid) 的 fork，上游放弃维护后本仓库由本人独立维护，仅在此 README 中说明 fork 关系，未在 GitHub 上建立 fork 关联。这个项目是我的个人项目，今后也不打算推广本项目的任何成果，这个项目仅仅只是方便我自己在手机上使用 Github 、 OpenRouter 等等开发者服务，请见谅。
