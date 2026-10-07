@@ -15,6 +15,8 @@ import androidx.activity.addCallback
 import androidx.annotation.IdRes
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.doOnLayout
+import androidx.fragment.app.Fragment
 import androidx.preference.PreferenceDataStore
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.navigation.NavigationView
@@ -86,6 +88,23 @@ class MainActivity : ThemedActivity(),
 
         if (savedInstanceState == null) {
             displayFragmentWithId(R.id.nav_configuration)
+        } else {
+            // 重建时 FragmentManager 已自行恢复了当前页面，不经过 displayFragment()，
+            // 这里补上按页面决定的 FAB 与 StatsBar 可见性，都不播动画，免得第一帧先显示再收起。
+            // FAB 和 allowShow 立即处理：FAB 还没布局，hide() / show() 直接改可见性。
+            // StatsBar 的收起距离在它的 Behavior 布局完成后才确定，早于此收起会让它
+            // 原地隐身，FAB 回到配置页时就停在 StatsBar 展开时的位置，所以等整个
+            // coordinator 布局完再无动画收起，仍早于第一次绘制
+            val visible = bottomControlsVisible(
+                supportFragmentManager.findFragmentById(R.id.fragment_holder)
+            )
+            if (visible != null) {
+                binding.stats.allowShow = visible
+                if (visible) binding.fab.show() else {
+                    binding.fab.hide()
+                    binding.coordinator.doOnLayout { binding.stats.performHide(false) }
+                }
+            }
         }
         onBackPressedDispatcher.addCallback {
             if (supportFragmentManager.findFragmentById(R.id.fragment_holder) is ConfigurationFragment) {
@@ -342,16 +361,35 @@ class MainActivity : ThemedActivity(),
     }
 
 
+    // 配置页总是显示 FAB 并允许 StatsBar 出现；其它页面除非开了「底栏」，否则两者都隐藏，
+    // StatsBar 也不再随连接状态弹出（changeState 只在 allowShow 时 performShow）。
+    // 返回 null 表示保持现状（其它页面且开了「底栏」）
+    private fun bottomControlsVisible(fragment: Fragment?): Boolean? = when {
+        fragment is ConfigurationFragment -> true
+        !DataStore.showBottomBar -> false
+        else -> null
+    }
+
+    private fun updateBottomControls(fragment: Fragment?) {
+        when (bottomControlsVisible(fragment)) {
+            true -> {
+                binding.stats.allowShow = true
+                binding.fab.show()
+            }
+
+            false -> {
+                binding.stats.allowShow = false
+                binding.stats.performHide()
+                binding.fab.hide()
+            }
+
+            null -> {}
+        }
+    }
+
     @SuppressLint("CommitTransaction")
     fun displayFragment(fragment: ToolbarFragment) {
-        if (fragment is ConfigurationFragment) {
-            binding.stats.allowShow = true
-            binding.fab.show()
-        } else if (!DataStore.showBottomBar) {
-            binding.stats.allowShow = false
-            binding.stats.performHide()
-            binding.fab.hide()
-        }
+        updateBottomControls(fragment)
         supportFragmentManager.beginTransaction()
             .replace(R.id.fragment_holder, fragment)
             .commitAllowingStateLoss()
