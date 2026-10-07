@@ -1,3 +1,8 @@
 <resources>
     <dimen name="qrcode_size">264dp</dimen>
+    <!-- 主界面节点列表的底部留白，让最后一张卡片能滚到 FAB 上方。StatsBar 收起时，
+         BottomAppBar 把 FAB 底边放在导航栏上方 16dp（Material 的
+         mtrl_bottomappbar_fab_bottom_margin）；FAB 高 56dp（design_fab_size_normal），
+         再留 16dp 间隔：16 + 56 + 16。导航栏高度另外加在代码里 -->
+    <dimen name="fab_list_clearance">88dp</dimen>
 </resources>

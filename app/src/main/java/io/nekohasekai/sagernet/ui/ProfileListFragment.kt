@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.os.BundleCompat
 import androidx.core.view.size
+import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -159,10 +160,18 @@ class ProfileListFragment : Fragment() {
         }
 
         configurationListView = view.findViewById(R.id.configuration_list)
-        // 布局里固定的 48dp 底部留白早于 edge-to-edge，已经让开 FAB；手势条也不能盖住列表内容。
-        // 主界面工具栏的节点搜索会弹键盘，键盘弹出时取键盘高度，搜索结果才能滚到最后一项；
-        // 选择节点页不加载工具栏菜单，没有搜索框，不需要让开键盘
-        configurationListView.padForSystemBars(bottomAtLeast = true, ime = !select)
+        if (select) {
+            // 选择节点页没有 FAB：保留 XML 的 48dp 底部留白，只保证不低于导航栏。
+            // 这一页不加载工具栏菜单，没有搜索框，不需要让开键盘
+            configurationListView.padForSystemBars(bottomAtLeast = true)
+        } else {
+            // 主界面：FAB 停在导航栏上方，底部留白取 FAB 所占高度再加导航栏。
+            // 工具栏的节点搜索会弹键盘，键盘弹出时改加键盘高度，搜索结果才能滚到最后一项
+            configurationListView.updatePadding(
+                bottom = resources.getDimensionPixelSize(R.dimen.fab_list_clearance)
+            )
+            configurationListView.padForSystemBars(ime = true)
+        }
         layoutManager = FixedLinearLayoutManager(configurationListView)
         configurationListView.layoutManager = layoutManager
         adapter = ConfigurationAdapter(this)
