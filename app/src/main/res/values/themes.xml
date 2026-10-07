@@ -113,11 +113,12 @@
         <item name="android:textColor">?primaryOrTextPrimary</item>
     </style>
 
-    <!-- M3 的默认 chipStyle 是不可勾选的 Assist，这里从 Filter 派生并隐藏勾选图标，保持单选 Chip 的外观 -->
+    <!-- M3 的默认 chipStyle 是不可勾选的 Assist，这里从 Filter 派生并隐藏勾选图标，保持单选 Chip 的外观；
+         文字两侧内边距 12dp：没有勾选图标，左右对称，一行放得下分应用代理页的几个 Chip -->
     <style name="Widget.SagerNet.Chip.Choice" parent="Widget.Material3.Chip.Filter">
         <item name="checkedIconVisible">false</item>
-        <item name="textStartPadding">30dp</item>
-        <item name="textEndPadding">30dp</item>
+        <item name="textStartPadding">12dp</item>
+        <item name="textEndPadding">12dp</item>
         <item name="chipBackgroundColor">@color/chip_background</item>
         <item name="android:textColor">@color/chip_text_color</item>
         <item name="checkedIconTint">?primaryOrTextPrimary</item>
