@@ -32,6 +32,37 @@ object Theme {
 
     private fun defaultTheme() = PINK_SSR
 
+    // 选色网格里的 6 种主题，顺序即显示顺序：粉（默认）、橙、蓝、绿、白、黑
+    val KEPT = listOf(PINK_SSR, ORANGE, BLUE, GREEN, GREY, BLACK)
+
+    // 已并入代表的旧编号 → 代表编号。归并只在读取时映射，不改写存储的编号；
+    // 以后把某种颜色加回来，只要从这里删掉那一行（再把它加进 KEPT、补回下面两个 when 的分支），
+    // 原来选过它的用户就会恢复原来的颜色
+    val MERGED: Map<Int, Int> = mapOf(
+        RED to PINK_SSR,
+        PINK to PINK_SSR,
+        PURPLE to PINK_SSR,
+        YELLOW to ORANGE,
+        AMBER to ORANGE,
+        DEEP_ORANGE to ORANGE,
+        BROWN to ORANGE,
+        DEEP_PURPLE to BLUE,
+        INDIGO to BLUE,
+        LIGHT_BLUE to BLUE,
+        CYAN to BLUE,
+        BLUE_GREY to BLUE,
+        TEAL to GREEN,
+        LIGHT_GREEN to GREEN,
+        LIME to GREEN,
+    )
+
+    // 存储的编号 → 实际使用的主题编号：KEPT 里的取自身，MERGED 里的取代表，
+    // 其它（含从未写过的 0、负数和未知编号）取默认主题
+    fun canonicalTheme(theme: Int): Int = when (theme) {
+        in KEPT -> theme
+        else -> MERGED[theme] ?: defaultTheme()
+    }
+
     fun apply(context: Context) {
         context.setTheme(getTheme())
     }
@@ -49,56 +80,24 @@ object Theme {
     }
 
     fun getTheme(theme: Int): Int {
-        return when (theme) {
-            RED -> R.style.Theme_SagerNet_Red
-            PINK -> R.style.Theme_SagerNet
-            PINK_SSR -> R.style.Theme_SagerNet_Pink_SSR
-            PURPLE -> R.style.Theme_SagerNet_Purple
-            DEEP_PURPLE -> R.style.Theme_SagerNet_DeepPurple
-            INDIGO -> R.style.Theme_SagerNet_Indigo
-            BLUE -> R.style.Theme_SagerNet_Blue
-            LIGHT_BLUE -> R.style.Theme_SagerNet_LightBlue
-            CYAN -> R.style.Theme_SagerNet_Cyan
-            TEAL -> R.style.Theme_SagerNet_Teal
-            GREEN -> R.style.Theme_SagerNet_Green
-            LIGHT_GREEN -> R.style.Theme_SagerNet_LightGreen
-            LIME -> R.style.Theme_SagerNet_Lime
-            YELLOW -> R.style.Theme_SagerNet_Yellow
-            AMBER -> R.style.Theme_SagerNet_Amber
+        return when (canonicalTheme(theme)) {
             ORANGE -> R.style.Theme_SagerNet_Orange
-            DEEP_ORANGE -> R.style.Theme_SagerNet_DeepOrange
-            BROWN -> R.style.Theme_SagerNet_Brown
+            BLUE -> R.style.Theme_SagerNet_Blue
+            GREEN -> R.style.Theme_SagerNet_Green
             GREY -> R.style.Theme_SagerNet_Grey
-            BLUE_GREY -> R.style.Theme_SagerNet_BlueGrey
             BLACK -> R.style.Theme_SagerNet_Black
-            else -> getTheme(defaultTheme())
+            else -> R.style.Theme_SagerNet_Pink_SSR
         }
     }
 
     fun getDialogTheme(theme: Int): Int {
-        return when (theme) {
-            RED -> R.style.Theme_SagerNet_Dialog_Red
-            PINK -> R.style.Theme_SagerNet_Dialog
-            PINK_SSR -> R.style.Theme_SagerNet_Dialog_Pink_SSR
-            PURPLE -> R.style.Theme_SagerNet_Dialog_Purple
-            DEEP_PURPLE -> R.style.Theme_SagerNet_Dialog_DeepPurple
-            INDIGO -> R.style.Theme_SagerNet_Dialog_Indigo
-            BLUE -> R.style.Theme_SagerNet_Dialog_Blue
-            LIGHT_BLUE -> R.style.Theme_SagerNet_Dialog_LightBlue
-            CYAN -> R.style.Theme_SagerNet_Dialog_Cyan
-            TEAL -> R.style.Theme_SagerNet_Dialog_Teal
-            GREEN -> R.style.Theme_SagerNet_Dialog_Green
-            LIGHT_GREEN -> R.style.Theme_SagerNet_Dialog_LightGreen
-            LIME -> R.style.Theme_SagerNet_Dialog_Lime
-            YELLOW -> R.style.Theme_SagerNet_Dialog_Yellow
-            AMBER -> R.style.Theme_SagerNet_Dialog_Amber
+        return when (canonicalTheme(theme)) {
             ORANGE -> R.style.Theme_SagerNet_Dialog_Orange
-            DEEP_ORANGE -> R.style.Theme_SagerNet_Dialog_DeepOrange
-            BROWN -> R.style.Theme_SagerNet_Dialog_Brown
+            BLUE -> R.style.Theme_SagerNet_Dialog_Blue
+            GREEN -> R.style.Theme_SagerNet_Dialog_Green
             GREY -> R.style.Theme_SagerNet_Dialog_Grey
-            BLUE_GREY -> R.style.Theme_SagerNet_Dialog_BlueGrey
             BLACK -> R.style.Theme_SagerNet_Dialog_Black
-            else -> getDialogTheme(defaultTheme())
+            else -> R.style.Theme_SagerNet_Dialog_Pink_SSR
         }
     }
 
