@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 应用图标前景：棺材（U+26B0）。
+     来源：OpenMoji（https://openmoji.org），hfg-gmuend/openmoji 仓库的 color/svg/26B0.svg。
+     许可：CC BY-SA 4.0（https://creativecommons.org/licenses/by-sa/4.0/）。
+     本文件是其派生作品（转为 VectorDrawable，外层 group 缩放平移进 108dp 画布的 66dp 安全区，
+     去掉了原图里不可见的两条 stroke="none" 十字线），按同一许可发布。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.998"
+        android:scaleY="0.998"
+        android:translateX="17.9084"
+        android:translateY="18.072">
+        <!-- 棺盖：原图 color 层的木色填充，同色描边 2 -->
+        <path
+            android:fillColor="#FFA57939"
+            android:strokeColor="#FFA57939"
+            android:strokeWidth="2"
+            android:strokeMiterLimit="10"
+            android:pathData="M31.6322,67.6h9.0635 c1.3055,0,2.4611-0.8442,2.858-2.0879L55.9064,26.807c0.271-0.8492,0.1504-1.7749-0.3292-2.5262L43.772,5.7859 C43.2209,4.9225,42.2675,4.4,41.2432,4.4H31.0847c-1.0242,0-1.9777,0.5225-2.5288,1.3859L16.7507,24.2807 c-0.4796,0.7514-0.6002,1.6771-0.3292,2.5262l12.3527,38.7051C29.1711,66.7558,30.3267,67.6,31.6322,67.6z" />
+        <!-- 右侧板：原图 color 层的深木色多边形，同色描边 1、圆角连接 -->
+        <path
+            android:fillColor="#FF6A462F"
+            android:strokeColor="#FF6A462F"
+            android:strokeWidth="1"
+            android:strokeLineJoin="round"
+            android:strokeMiterLimit="10"
+            android:pathData="M39.25,4.4 L47.5,26.5 L39.25,67.6 L41.5,67.5 L56,25.382 L41.5,4.5 Z" />
+        <!-- 外轮廓：原图 line 层的黑色描边 2 -->
+        <path
+            android:strokeColor="#FF000000"
+            android:strokeWidth="2"
+            android:strokeMiterLimit="10"
+            android:pathData="M31.6322,67.6h9.0635 c1.3055,0,2.4611-0.8442,2.858-2.0879L55.9064,26.807c0.271-0.8492,0.1504-1.7749-0.3292-2.5262L43.772,5.7859 C43.2209,4.9225,42.2675,4.4,41.2432,4.4H31.0847c-1.0242,0-1.9777,0.5225-2.5288,1.3859L16.7507,24.2807 c-0.4796,0.7514-0.6002,1.6771-0.3292,2.5262l12.3527,38.7051C29.1711,66.7558,30.3267,67.6,31.6322,67.6z" />
+    </group>
+</vector>
