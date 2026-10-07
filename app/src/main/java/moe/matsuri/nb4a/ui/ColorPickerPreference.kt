@@ -1,9 +1,7 @@
 package moe.matsuri.nb4a.ui
 
 import android.content.Context
-import android.content.res.Resources
 import android.graphics.Color
-import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
 import android.util.AttributeSet
@@ -25,7 +23,6 @@ import androidx.preference.PreferenceViewHolder
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.utils.Theme
 import kotlin.math.roundToInt
 
@@ -47,56 +44,41 @@ class ColorPickerPreference
 
         // holder 会被复用：每次绑定都重建右侧色点，不用一次性标记，否则重新绑定后不会再加回来
         widgetFrame.removeAllViews()
-        widgetFrame.addView(
-            getNekoImageViewAtColor(
-                context.getColorAttr(androidx.appcompat.R.attr.colorPrimary),
-                48,
-                0
-            )
+        // 当前主题的种子色，与选色网格一致（M3 配色下 colorPrimary 不是种子色本身）
+        val seed = ContextCompat.getColor(
+            context, SWATCH_COLORS.getValue(Theme.canonicalTheme(getPersistedInt(0)))
         )
+        val factor = context.resources.displayMetrics.density
+        widgetFrame.addView(ImageView(context).apply {
+            layoutParams = ViewGroup.LayoutParams((48 * factor).roundToInt(), (48 * factor).roundToInt())
+            setPadding((8 * factor).roundToInt())
+            setImageDrawable(seedCircle(seed))
+        })
         widgetFrame.visibility = View.VISIBLE
     }
 
-    fun getNekoImageViewAtColor(color: Int, sizeDp: Int, paddingDp: Int): ImageView {
-        // dp 换算成像素
+    // 种子色圆，外圈一道 colorOutline 描边：白色在浅色底、黑色在深色底上才看得见
+    private fun seedCircle(color: Int): GradientDrawable {
         val factor = context.resources.displayMetrics.density
-        val size = (sizeDp * factor).roundToInt()
-        val paddingSize = (paddingDp * factor).roundToInt()
-
-        return ImageView(context).apply {
-            layoutParams = ViewGroup.LayoutParams(size, size)
-            setPadding(paddingSize)
-            setImageDrawable(getNekoAtColor(resources, color))
-        }
-    }
-
-    fun getNekoAtColor(res: Resources, color: Int): Drawable {
-        val neko = ResourcesCompat.getDrawable(
-            res,
-            R.drawable.ic_baseline_fiber_manual_record_24,
-            null
-        )!!
-        DrawableCompat.setTint(neko.mutate(), color)
-        return neko
-    }
-
-    // 选色网格的一格：中心是种子色圆，外圈一道描边，白色在浅色对话框、黑色在深色对话框上
-    // 才看得见；选中的那格中心再叠一个对比色的勾
-    private fun getSwatchView(color: Int, selected: Boolean): ImageView {
-        val factor = context.resources.displayMetrics.density
-        val size = (64 * factor).roundToInt()
-        val padding = (10 * factor).roundToInt()
-        // M2 主题不设置 colorOutline，退回次要文字色；换 M3 后自动取 colorOutline
+        // 主题没有 colorOutline 时退回次要文字色
         val outline = MaterialColors.getColor(
             context,
             com.google.android.material.R.attr.colorOutline,
             MaterialColors.getColor(context, android.R.attr.textColorSecondary, Color.GRAY)
         )
-        val circle = GradientDrawable().apply {
+        return GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(color)
             setStroke(factor.roundToInt().coerceAtLeast(1), outline)
         }
+    }
+
+    // 选色网格的一格：中心是带描边的种子色圆；选中的那格中心再叠一个对比色的勾
+    private fun getSwatchView(color: Int, selected: Boolean): ImageView {
+        val factor = context.resources.displayMetrics.density
+        val size = (64 * factor).roundToInt()
+        val padding = (10 * factor).roundToInt()
+        val circle = seedCircle(color)
         val drawable = if (selected) {
             val check = ResourcesCompat.getDrawable(
                 context.resources, R.drawable.ic_action_done, context.theme

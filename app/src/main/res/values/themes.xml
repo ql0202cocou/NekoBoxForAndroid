@@ -13,11 +13,10 @@
         <item name="primaryOrTextPrimary">?attr/colorPrimary</item>
         <item name="fabColorBackground">?attr/colorPrimaryContainer</item>
         <item name="selectedColorPrimary">?attr/colorPrimary</item>
-        <item name="actionBarTheme">@style/ThemeOverlay.AppCompat.Dark.ActionBar</item>
-        <item name="tabTextColor">#99FFFFFF</item>
-        <item name="tabSelectedTextColor">@color/white</item>
-        <item name="tabIndicatorColor">@color/white</item>
-        <item name="tabRippleColor">@color/white</item>
+        <!-- 顶部栏按 M3：surface 底，标题与图标 onSurface，主题色只做点缀；
+             Tab 用 Widget.Material3.TabLayout 的默认文字色与 primary 指示条 -->
+        <item name="appBarColor">?attr/colorSurface</item>
+        <item name="actionBarTheme">@style/ThemeOverlay.Material3.Toolbar.Surface</item>
         <!-- 只剩备份页按钮在用，按钮底是 colorAccent（= primary） -->
         <item name="whiteOrTextPrimary">?attr/colorOnPrimary</item>
 
@@ -60,11 +59,10 @@
         <item name="primaryOrTextPrimary">?attr/colorPrimary</item>
         <item name="fabColorBackground">?attr/colorPrimaryContainer</item>
         <item name="selectedColorPrimary">?attr/colorPrimary</item>
-        <item name="actionBarTheme">@style/ThemeOverlay.AppCompat.Dark.ActionBar</item>
-        <item name="tabTextColor">#99FFFFFF</item>
-        <item name="tabSelectedTextColor">@color/white</item>
-        <item name="tabIndicatorColor">@color/white</item>
-        <item name="tabRippleColor">@color/white</item>
+        <!-- 顶部栏按 M3：surface 底，标题与图标 onSurface，主题色只做点缀；
+             Tab 用 Widget.Material3.TabLayout 的默认文字色与 primary 指示条 -->
+        <item name="appBarColor">?attr/colorSurface</item>
+        <item name="actionBarTheme">@style/ThemeOverlay.Material3.Toolbar.Surface</item>
         <!-- 只剩备份页按钮在用，按钮底是 colorAccent（= primary） -->
         <item name="whiteOrTextPrimary">?attr/colorOnPrimary</item>
 

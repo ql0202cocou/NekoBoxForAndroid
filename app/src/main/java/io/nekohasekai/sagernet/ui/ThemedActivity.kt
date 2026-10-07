@@ -13,6 +13,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.graphics.ColorUtils
 import androidx.fragment.app.DialogFragment
 import com.google.android.material.snackbar.Snackbar
+import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ktx.getColorAttr
@@ -36,15 +37,14 @@ abstract class ThemedActivity : AppCompatActivity {
         Theme.applyNightTheme()
 
         if (!isDialog) {
-            // The status bar sits on the colorPrimary AppBar, whose colour does not follow
-            // day/night (Black theme is #2B2B2B in light mode, Yellow/Lime are light in dark
-            // mode), so pick the icon colour from that background instead of the UI mode.
-            // The navigation bar is over the themed surface, where the day/night default is right.
-            val appBarLuminance = ColorUtils.calculateLuminance(getColorAttr(androidx.appcompat.R.attr.colorPrimary))
+            // 状态栏压在顶部栏上，图标颜色按顶部栏的实际底色（appBarColor）判断。顶部栏现在是
+            // surface，结果等于跟随日夜；保留按底色判断的写法，以后换顶部栏颜色不用改这里。
+            // 导航栏压在主题的 surface 上，日夜默认值就是对的
+            val appBarLuminance = ColorUtils.calculateLuminance(getColorAttr(R.attr.appBarColor))
             val statusBarStyle = if (appBarLuminance < 0.5) {
                 SystemBarStyle.dark(Color.TRANSPARENT)
             } else {
-                // the dark scrim only ever applied below API 23, which the minSdk no longer reaches
+                // 第二个参数（深色遮罩）只在 API 23 以下生效，minSdk 24 用不到，给透明即可
                 SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
             }
             enableEdgeToEdge(statusBarStyle = statusBarStyle)

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.browser.customtabs.CustomTabColorSchemeParams
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.core.net.toUri
+import io.nekohasekai.sagernet.R
 
 fun Context.launchCustomTab(link: String) {
     CustomTabsIntent.Builder().apply {
@@ -11,13 +12,13 @@ fun Context.launchCustomTab(link: String) {
         setColorSchemeParams(
             CustomTabsIntent.COLOR_SCHEME_LIGHT,
             CustomTabColorSchemeParams.Builder().apply {
-                setToolbarColor(getColorAttr(androidx.appcompat.R.attr.colorPrimary))
+                setToolbarColor(getColorAttr(R.attr.appBarColor))
             }.build()
         )
         setColorSchemeParams(
             CustomTabsIntent.COLOR_SCHEME_DARK,
             CustomTabColorSchemeParams.Builder().apply {
-                setToolbarColor(getColorAttr(androidx.appcompat.R.attr.colorPrimary))
+                setToolbarColor(getColorAttr(R.attr.appBarColor))
             }.build()
         )
     }.build().apply {
