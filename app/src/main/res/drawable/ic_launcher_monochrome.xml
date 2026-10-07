@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 主题图标单色层：棺材（U+26B0）线稿，只留外轮廓与盖板 / 侧板分界线，系统只取透明度着色。
+     来源：OpenMoji（https://openmoji.org），hfg-gmuend/openmoji 仓库的 color/svg/26B0.svg 的黑色描边路径；
+     分界线取自同一文件深色侧板多边形的左边。
+     许可：CC BY-SA 4.0（https://creativecommons.org/licenses/by-sa/4.0/）。
+     本文件是其派生作品（线宽加粗到显示约 3.6dp，外层 group 缩放平移进 66dp 安全区），按同一许可发布。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.973"
+        android:scaleY="0.973"
+        android:translateX="18.8125"
+        android:translateY="18.972">
+        <!-- 外轮廓 -->
+        <path
+            android:strokeColor="#FF000000"
+            android:strokeWidth="3.7"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M31.6322,67.6h9.0635 c1.3055,0,2.4611-0.8442,2.858-2.0879L55.9064,26.807c0.271-0.8492,0.1504-1.7749-0.3292-2.5262L43.772,5.7859 C43.2209,4.9225,42.2675,4.4,41.2432,4.4H31.0847c-1.0242,0-1.9777,0.5225-2.5288,1.3859L16.7507,24.2807 c-0.4796,0.7514-0.6002,1.6771-0.3292,2.5262l12.3527,38.7051C29.1711,66.7558,30.3267,67.6,31.6322,67.6z" />
+        <!-- 盖板与右侧板的分界线 -->
+        <path
+            android:strokeColor="#FF000000"
+            android:strokeWidth="3.7"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M39.25,4.4 L47.5,26.5 L39.25,67.6" />
+    </group>
+</vector>
