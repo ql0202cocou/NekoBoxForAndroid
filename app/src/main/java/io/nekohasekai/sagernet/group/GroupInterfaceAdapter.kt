@@ -6,6 +6,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.ProxyGroup
+import io.nekohasekai.sagernet.fmt.ClashImportSummary
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
@@ -71,52 +72,32 @@ class GroupInterfaceAdapter(val context: ThemedActivity) : GroupManager.Interfac
         updated: Map<String, String>,
         deleted: List<String>,
         duplicate: List<String>,
-        byUser: Boolean
+        byUser: Boolean,
+        importSummary: ClashImportSummary?,
     ) {
+        val getString = { id: Int, arg: Any -> context.getString(id, arg) }
         if (changed == 0 && duplicate.isEmpty()) {
-            if (byUser) onMainDispatcher {
-                if (!context.isFinishing && !context.isDestroyed) {
-                    context.snackbar(
-                        context.getString(R.string.group_no_difference, group.displayName())
-                    ).show()
+            if (byUser) {
+                onMainDispatcher {
+                    if (!context.isFinishing && !context.isDestroyed) {
+                        context.snackbar(
+                            context.getString(R.string.group_no_difference, group.displayName())
+                        ).show()
+                    }
+                }
+                // 节点没有变化，但订阅里有被跳过或有损导入的节点：只弹汇总，标题是导入结果而不是 Diff
+                val summary = groupUpdateDialogText(
+                    emptyList(), emptyMap(), emptyList(), emptyList(), importSummary, getString
+                )
+                if (summary.isNotEmpty()) runOnMainDispatcher {
+                    delay(1000L)
+                    showDiffDialog(group, summary, R.string.clash_import_title)
                 }
             }
             return
         }
 
-        // 每类名单只列前 maxLines 条，超出的折成一行总数：数万节点的订阅首更
-        // 全量拼进单个对话框会让主线程渲染卡死。调用方先 take 再格式化，
-        // 不为只显示几十条而把全量名单都格式化一遍
-        val maxLines = 50
-        fun joinNames(total: Int, shown: List<String>): String {
-            val lines = if (total > shown.size) {
-                shown + context.getString(R.string.group_diff_more, total)
-            } else shown
-            return lines.joinToString("\n", postfix = "\n\n")
-        }
-
-        var status = ""
-        if (added.isNotEmpty()) {
-            status += context.getString(
-                R.string.group_added, joinNames(added.size, added.take(maxLines))
-            )
-        }
-        if (updated.isNotEmpty()) {
-            status += context.getString(R.string.group_changed,
-                joinNames(updated.size, updated.entries.take(maxLines).map {
-                    if (it.key == it.value) it.key else "${it.key} => ${it.value}"
-                }))
-        }
-        if (deleted.isNotEmpty()) {
-            status += context.getString(
-                R.string.group_deleted, joinNames(deleted.size, deleted.take(maxLines))
-            )
-        }
-        if (duplicate.isNotEmpty()) {
-            status += context.getString(
-                R.string.group_duplicate, joinNames(duplicate.size, duplicate.take(maxLines))
-            )
-        }
+        val status = groupUpdateDialogText(added, updated, deleted, duplicate, importSummary, getString)
 
         // 用 launch 而不是挂起调用方：snackbar 后的 1 秒延迟和弹窗不该占用
         // 订阅更新的分组锁（executeUpdate 的 finally 要等本回调返回才释放）
@@ -126,16 +107,19 @@ class GroupInterfaceAdapter(val context: ThemedActivity) : GroupManager.Interfac
                 context.getString(R.string.group_updated, group.name, changed)
             ).show()
             delay(1000L)
-
-            // Showing a dialog on a destroyed activity throws BadTokenException;
-            // don't let it bubble up and misreport the successful update as failed.
-            if (context.isFinishing || context.isDestroyed) return@runOnMainDispatcher
-            runCatching {
-                MaterialAlertDialogBuilder(context).setTitle(
-                    context.getString(R.string.group_diff, group.displayName())
-                ).setMessage(status.trim()).setPositiveButton(android.R.string.ok, null).show()
-            }.onFailure { Logs.w(it) }
+            showDiffDialog(group, status)
         }
+    }
+
+    // 在主线程调用。activity 已销毁时弹窗会抛 BadTokenException：不让它冒出去，
+    // 把成功的更新误报成失败。title 是带一个参数（分组名）的字符串
+    private fun showDiffDialog(group: ProxyGroup, text: String, title: Int = R.string.group_diff) {
+        if (context.isFinishing || context.isDestroyed) return
+        runCatching {
+            MaterialAlertDialogBuilder(context).setTitle(
+                context.getString(title, group.displayName())
+            ).setMessage(text).setPositiveButton(android.R.string.ok, null).show()
+        }.onFailure { Logs.w(it) }
     }
 
     override suspend fun onUpdateFailure(group: ProxyGroup, message: String) {

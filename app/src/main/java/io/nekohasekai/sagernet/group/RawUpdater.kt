@@ -5,7 +5,7 @@ import androidx.core.net.toUri
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.*
 import io.nekohasekai.sagernet.fmt.AbstractBean
-import io.nekohasekai.sagernet.fmt.ClashNodeResult
+import io.nekohasekai.sagernet.fmt.ClashImportSummary
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.putBean
 import io.nekohasekai.sagernet.fmt.v2ray.UnsupportedTransportException
@@ -52,14 +52,17 @@ object RawUpdater : GroupUpdater() {
         val link = subscription.link
         var proxies: List<AbstractBean>
         var clashRoot: Map<*, *>? = null
+        // Clash 订阅的导入汇总（被跳过、有损导入的节点），随更新结果交给界面
+        var importSummary: ClashImportSummary? = null
         var remoteGroupName: String? = null
         if (link.startsWith("content://")) {
             val contentText = app.contentResolver.openInputStream(link.toUri())
                 ?.use { it.readBytesLimited().toString(Charsets.UTF_8) }
                 ?: error(app.getString(R.string.no_proxies_found_in_subscription))
 
-            proxies = parseRaw(contentText) { clashRoot = it }
-                ?: error(app.getString(R.string.no_proxies_found_in_subscription))
+            proxies = parseRaw(
+                contentText, onClashYaml = { clashRoot = it }, onClashImport = { importSummary = it },
+            ) ?: error(app.getString(R.string.no_proxies_found_in_subscription))
 
             // 本地文件没有 Subscription-Userinfo 响应头：订阅从 http(s) 改成
             // content:// 后显式清掉残留，下面的解析块会把流量字段一并归零
@@ -81,8 +84,9 @@ object RawUpdater : GroupUpdater() {
             }.execute()
             try {
                 val responseText = Util.getStringBox(response.contentString)
-                proxies = parseRaw(responseText) { clashRoot = it }
-                    ?: error(app.getString(R.string.no_proxies_found))
+                proxies = parseRaw(
+                    responseText, onClashYaml = { clashRoot = it }, onClashImport = { importSummary = it },
+                ) ?: error(app.getString(R.string.no_proxies_found))
 
                 subscription.subscriptionUserinfo =
                     Util.getStringBox(response.getHeader("Subscription-Userinfo"))
@@ -350,12 +354,13 @@ object RawUpdater : GroupUpdater() {
         // 节点未删」的中间态
         ProfileManager.clearSelectedProxyIfGone()
         userInterface?.onUpdateSuccess(
-            proxyGroup, changed, added, updated, deleted, duplicate, byUser
+            proxyGroup, changed, added, updated, deleted, duplicate, byUser, importSummary
         )
     }
 
     // onClashYaml：clash YAML 根节点载入成功时回调（无论节点解析成败），
     // doUpdate 借它读 dns 段，免得把整份订阅再解析一遍。
+    // onClashImport：clash 节点解析完、至少导入了一个节点时回调，参数是这次导入的汇总（可能为空）。
     // base64Depth 是内部递归深度：base64 整段编码的订阅解开后重跑一次本函数，
     // 只此一层，防无限递归
     suspend fun parseRaw(
@@ -363,6 +368,7 @@ object RawUpdater : GroupUpdater() {
         fileName: String = "",
         base64Depth: Int = 0,
         onClashYaml: (Map<*, *>) -> Unit = {},
+        onClashImport: (ClashImportSummary) -> Unit = {},
     ): List<AbstractBean>? {
 
         require(text.length <= MAX_IMPORT_BYTES) { "Import exceeds size limit" }
@@ -375,8 +381,12 @@ object RawUpdater : GroupUpdater() {
                 } catch (e: ClashNoProxiesException) {
                     error(app.getString(R.string.no_proxies_found_in_file))
                 }
-                logClashEntries(result)
-                return result.beans.takeIf { it.isNotEmpty() } ?: error("Not found")
+                val summary = ClashImportSummary.of(result.nodes)
+                // 所有入口（订阅更新、剪贴板 / 文件 / ZIP、扫码）都经这里写一次日志
+                summary.logText().takeIf { it.isNotEmpty() }?.let { Logs.i(it) }
+                val beans = result.beans.takeIf { it.isNotEmpty() } ?: error("Not found")
+                onClashImport(summary)
+                return beans
             } catch (e: YAMLException) {
                 Logs.w("Subscription parsing failed: ${e.javaClass.simpleName}")
             }
@@ -412,7 +422,9 @@ object RawUpdater : GroupUpdater() {
             // 整段 base64 编码的订阅（Clash YAML 常被整体编码）：解码文本重跑
             // 一次原始解析（含 Clash 判定），限一层
             if (base64Depth == 0) {
-                parseRaw(decoded, fileName, base64Depth = 1, onClashYaml)?.let { return it }
+                parseRaw(
+                    decoded, fileName, base64Depth = 1, onClashYaml = onClashYaml, onClashImport = onClashImport,
+                )?.let { return it }
             }
             return parseProxies(decoded).takeIf { it.isNotEmpty() }
                 ?: error("Not found")
@@ -431,19 +443,6 @@ object RawUpdater : GroupUpdater() {
         }
 
         return null
-    }
-
-    // 节点名不进日志：用条目序号与 type
-    private fun logClashEntries(result: ClashParseResult) {
-        for (node in result.nodes) when (node) {
-            is ClashNodeResult.Failed -> Logs.w("Subscription entry rejected: #${node.index} ${node.type}: ${node.description}")
-            is ClashNodeResult.Imported -> node.fields.filter { it.lossy }.takeIf { it.isNotEmpty() }?.let { lossy ->
-                Logs.w("Subscription entry #${node.index} ${node.type}: " +
-                        lossy.joinToString { "${it.path} ${it.reason?.text ?: ""}" })
-            }
-
-            is ClashNodeResult.UnknownType -> Unit
-        }
     }
 
     // mihomo/clash 订阅里 dns.proxy-server-nameserver（或顶层同名字段）的地址列表，

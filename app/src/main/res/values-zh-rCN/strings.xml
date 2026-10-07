@@ -171,6 +171,11 @@
     <string name="group_duplicate">重复:
         \n%s</string>
     <string name="group_diff_more">… 等 %d 项</string>
+    <string name="clash_import_unsupported_type">未导入（类型不支持）:\n%s</string>
+    <string name="clash_import_failed">未导入（解析失败）:\n%s</string>
+    <string name="clash_import_lossy">已导入，部分字段未保留:\n%s</string>
+    <string name="clash_import_no_effect">已忽略（对本应用无影响）:\n%s</string>
+    <string name="clash_import_title">导入结果 (%s)</string>
     <string name="deduplication">去重</string>
     <string name="version_x">版本 (%s)</string>
     <string name="ss_cat">Shadowsocks 设置</string>

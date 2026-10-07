@@ -2,6 +2,7 @@ package io.nekohasekai.sagernet.database
 
 import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.Key
+import io.nekohasekai.sagernet.fmt.ClashImportSummary
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import kotlinx.coroutines.CancellationException
@@ -31,7 +32,9 @@ object GroupManager {
             updated: Map<String, String>,
             deleted: List<String>,
             duplicate: List<String>,
-            byUser: Boolean
+            byUser: Boolean,
+            // Clash 订阅的导入汇总，其它格式为 null
+            importSummary: ClashImportSummary?,
         )
 
         suspend fun onUpdateFailure(group: ProxyGroup, message: String)
