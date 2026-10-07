@@ -81,7 +81,7 @@ class StatsBar @JvmOverloads constructor(
     }
 
     fun changeState(state: BaseService.State) {
-        val activity = context as MainActivity
+        val activity = context.unwrapTo<MainActivity>()
         fun postWhenStarted(what: () -> Unit) = activity.lifecycleScope.launch(Dispatchers.Main) {
             delay(100L)
             activity.lifecycle.withStarted { what() }
@@ -123,7 +123,7 @@ class StatsBar @JvmOverloads constructor(
     }
 
     fun testConnection() {
-        val activity = context as MainActivity
+        val activity = context.unwrapTo<MainActivity>()
         isEnabled = false
         setStatus(app.getText(R.string.connection_test_testing))
         runOnDefaultDispatcher {

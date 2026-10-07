@@ -1,12 +1,10 @@
 <resources>
-    <!-- Base application theme. -->
-    <style name="Theme.SagerNet" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="actionBarStyle">@style/Widget.MaterialComponents.ActionBar.Solid</item>
-        <item name="actionModeCloseDrawable">@drawable/ic_navigation_close</item>
-        <item name="colorButtonNormal">?colorAccent</item>
-        <item name="android:navigationBarColor">?colorPrimaryDark</item>
+    <!-- 应用基础主题 -->
+    <style name="Theme.SagerNet" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/material_pink_500</item>
         <item name="colorPrimaryDark">@color/material_pink_700</item>
+        <!-- M3 主题默认 colorAccent = ?colorSecondary，开关、设置分类标题、备份页按钮都按它着色；
+             这里和每个颜色变体都显式给值，所以不会落到 secondary -->
         <item name="colorAccent">@color/material_pink_accent_200</item>
 
         <item name="colorMaterial100">@color/material_pink_100</item>
@@ -26,35 +24,36 @@
         <item name="tabRippleColor">@color/white</item>
         <item name="whiteOrTextPrimary">@color/white</item>
 
-        <item name="windowActionModeOverlay">true</item>
-
-        <!-- Remove ActionBar but keep styles and themes -->
+        <!-- 去掉 ActionBar，但保留它的样式与主题 -->
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
 
-        <item name="chipStyle">@style/Widget.MaterialComponents.Chip.Choice.SagerNet</item>
+        <item name="chipStyle">@style/Widget.SagerNet.Chip.Choice</item>
 
         <item name="itemShapeAppearance">
-            @style/ShapeAppearance.MaterialComponents.MediumComponent
+            @style/ShapeAppearance.Material3.Corner.Medium
         </item>
 
         <item name="alertDialogTheme">
-            @style/ThemeOverlay.MaterialComponents.MaterialAlertDialog.SagerNet
+            @style/ThemeOverlay.SagerNet.MaterialAlertDialog
         </item>
 
         <item name="materialAlertDialogTheme">
-            @style/ThemeOverlay.MaterialComponents.MaterialAlertDialog.SagerNet
+            @style/ThemeOverlay.SagerNet.MaterialAlertDialog
         </item>
+
+        <!-- M3 默认底栏把 FAB 挪到右端并嵌进底栏（end + embed），和底栏同色看不见；
+             Legacy 保留 M2 的居中凹槽（center + cradle） -->
+        <item name="bottomAppBarStyle">@style/Widget.Material3.BottomAppBar.Legacy</item>
 
     </style>
 
-    <style name="Theme.SagerNet.Dialog" parent="Theme.MaterialComponents.DayNight.Dialog.Alert">
-        <item name="actionBarStyle">@style/Widget.MaterialComponents.ActionBar.Solid</item>
-        <item name="actionModeCloseDrawable">@drawable/ic_navigation_close</item>
-        <item name="colorButtonNormal">?colorAccent</item>
-        <item name="android:navigationBarColor">?colorPrimaryDark</item>
+    <style name="Theme.SagerNet.Dialog" parent="Theme.Material3.DayNight.Dialog.Alert">
+        <!-- M3 下 ?colorPrimaryDark 就是 primary，导航栏不再跟它走，免得在可见时成一条主题色带 -->
+        <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="colorPrimary">@color/material_pink_500</item>
         <item name="colorPrimaryDark">@color/material_pink_700</item>
+        <!-- M3 主题默认 colorAccent = ?colorSecondary；这里和每个颜色变体都显式给值 -->
         <item name="colorAccent">@color/material_pink_accent_200</item>
 
         <item name="colorMaterial100">@color/material_pink_100</item>
@@ -74,24 +73,22 @@
         <item name="tabRippleColor">@color/white</item>
         <item name="whiteOrTextPrimary">@color/white</item>
 
-        <item name="windowActionModeOverlay">true</item>
-
-        <!-- Remove ActionBar but keep styles and themes -->
+        <!-- 去掉 ActionBar，但保留它的样式与主题 -->
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
 
-        <item name="chipStyle">@style/Widget.MaterialComponents.Chip.Choice.SagerNet</item>
+        <item name="chipStyle">@style/Widget.SagerNet.Chip.Choice</item>
 
         <item name="itemShapeAppearance">
-            @style/ShapeAppearance.MaterialComponents.MediumComponent
+            @style/ShapeAppearance.Material3.Corner.Medium
         </item>
 
         <item name="alertDialogTheme">
-            @style/ThemeOverlay.MaterialComponents.MaterialAlertDialog.SagerNet
+            @style/ThemeOverlay.SagerNet.MaterialAlertDialog
         </item>
 
         <item name="materialAlertDialogTheme">
-            @style/ThemeOverlay.MaterialComponents.MaterialAlertDialog.SagerNet
+            @style/ThemeOverlay.SagerNet.MaterialAlertDialog
         </item>
 
         <item name="windowFixedHeightMajor" type="dimen">95%</item>
@@ -103,27 +100,29 @@
         <item name="android:textStyle">bold</item>
     </style>
 
-    <style name="ThemeOverlay.MaterialComponents.MaterialAlertDialog.SagerNet">
+    <style name="ThemeOverlay.SagerNet.MaterialAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
         <item name="buttonBarPositiveButtonStyle">
-            @style/Widget.MaterialComponents.Button.TextButton.Dialog.Primary
+            @style/Widget.SagerNet.Button.TextButton.Dialog
         </item>
         <item name="buttonBarNegativeButtonStyle">
-            @style/Widget.MaterialComponents.Button.TextButton.Dialog.Primary
+            @style/Widget.SagerNet.Button.TextButton.Dialog
         </item>
         <item name="buttonBarNeutralButtonStyle">
-            @style/Widget.MaterialComponents.Button.TextButton.Dialog.Flush.Primary
+            @style/Widget.SagerNet.Button.TextButton.Dialog.Flush
         </item>
     </style>
 
-    <style name="Widget.MaterialComponents.Button.TextButton.Dialog.Primary">
+    <style name="Widget.SagerNet.Button.TextButton.Dialog" parent="Widget.Material3.Button.TextButton.Dialog">
         <item name="android:textColor">?primaryOrTextPrimary</item>
     </style>
 
-    <style name="Widget.MaterialComponents.Button.TextButton.Dialog.Flush.Primary">
+    <style name="Widget.SagerNet.Button.TextButton.Dialog.Flush" parent="Widget.Material3.Button.TextButton.Dialog.Flush">
         <item name="android:textColor">?primaryOrTextPrimary</item>
     </style>
 
-    <style name="Widget.MaterialComponents.Chip.Choice.SagerNet">
+    <!-- M3 的默认 chipStyle 是不可勾选的 Assist，这里从 Filter 派生并隐藏勾选图标，保持单选 Chip 的外观 -->
+    <style name="Widget.SagerNet.Chip.Choice" parent="Widget.Material3.Chip.Filter">
+        <item name="checkedIconVisible">false</item>
         <item name="textStartPadding">30dp</item>
         <item name="textEndPadding">30dp</item>
         <item name="chipBackgroundColor">@color/chip_background</item>
@@ -282,7 +281,6 @@
         <item name="colorAccent">@color/material_yellow_accent_200</item>
         <item name="colorMaterial100">@color/material_yellow_100</item>
         <item name="colorMaterial300">@color/material_yellow_300</item>
-        <item name="colorOnPrimarySurface">@color/black</item>
     </style>
 
     <style name="Theme.SagerNet.Dialog.Amber">
@@ -435,7 +433,6 @@
         <item name="colorAccent">@color/material_yellow_accent_200</item>
         <item name="colorMaterial100">@color/material_yellow_100</item>
         <item name="colorMaterial300">@color/material_yellow_300</item>
-        <item name="colorOnPrimarySurface">@color/black</item>
     </style>
 
     <style name="Theme.SagerNet.Black">
@@ -472,7 +469,7 @@
         <item name="primaryOrTextPrimary">?android:textColorPrimary</item>
     </style>
 
-    <style name="Theme.Start" parent="Theme.MaterialComponents.DayNight">
+    <style name="Theme.Start" parent="Theme.Material3.DayNight">
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="colorPrimary">@android:color/transparent</item>
         <item name="colorPrimaryDark">@android:color/transparent</item>

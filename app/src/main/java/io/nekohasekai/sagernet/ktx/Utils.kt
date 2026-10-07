@@ -9,6 +9,7 @@ import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
 import android.content.ContentResolver
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
@@ -364,3 +365,8 @@ fun <T> Continuation<T>.tryResumeWithException(exception: Throwable) {
 
 operator fun AtomicInteger.getValue(thisRef: Any?, property: KProperty<*>): Int = get()
 operator fun AtomicInteger.setValue(thisRef: Any?, property: KProperty<*>, value: Int) = set(value)
+
+// M3 的 BottomAppBar 等控件带 materialThemeOverlay，视图的 context 被包成 ContextThemeWrapper，
+// 直接强转会 ClassCastException：沿 baseContext 向上找到宿主（Activity 等）再取用
+inline fun <reified T> Context.unwrapTo(): T =
+    generateSequence(this) { (it as? ContextWrapper)?.baseContext }.filterIsInstance<T>().first()

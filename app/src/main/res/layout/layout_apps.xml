@@ -29,7 +29,6 @@
                 android:theme="?actionBarTheme"
                 android:touchscreenBlocksFocus="false"
                 app:layout_collapseMode="pin"
-                app:popupTheme="@style/ThemeOverlay.AppCompat.DayNight"
                 app:title="@string/app_name" />
 
             <!-- 视差系数 1：折叠时搜索卡片原地不动、被列表从下方盖住，不会跟着 AppBar
@@ -91,7 +90,7 @@
 
                             <com.google.android.material.chip.Chip
                                 android:id="@+id/show_system_apps"
-                                style="@style/Widget.MaterialComponents.Chip.Filter"
+                                style="@style/Widget.Material3.Chip.Filter"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginEnd="8dp"
