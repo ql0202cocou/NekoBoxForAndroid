@@ -5,6 +5,7 @@ import androidx.core.net.toUri
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.*
 import io.nekohasekai.sagernet.fmt.AbstractBean
+import io.nekohasekai.sagernet.fmt.ClashImportException
 import io.nekohasekai.sagernet.fmt.ClashImportSummary
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.putBean
@@ -384,7 +385,8 @@ object RawUpdater : GroupUpdater() {
                 val summary = ClashImportSummary.of(result.nodes)
                 // 所有入口（订阅更新、剪贴板 / 文件 / ZIP、扫码）都经这里写一次日志
                 summary.logText().takeIf { it.isNotEmpty() }?.let { Logs.i(it) }
-                val beans = result.beans.takeIf { it.isNotEmpty() } ?: error("Not found")
+                // 一个节点都没导入：汇总随异常交给调用方（订阅更新的失败提示、ZIP 导入的 ImportBatch）
+                val beans = result.beans.takeIf { it.isNotEmpty() } ?: throw ClashImportException(summary)
                 onClashImport(summary)
                 return beans
             } catch (e: YAMLException) {
@@ -428,6 +430,11 @@ object RawUpdater : GroupUpdater() {
             }
             return parseProxies(decoded).takeIf { it.isNotEmpty() }
                 ?: error("Not found")
+        } catch (e: ClashImportException) {
+            // 解码后认准了格式、却一个节点都没导入：把原因报给用户，而不是笼统的「没找到节点」
+            throw e
+        } catch (e: UnsupportedTransportException) {
+            throw e
         } catch (e: Exception) {
             Logs.w("Subscription parsing failed: ${e.javaClass.simpleName}")
         }
@@ -438,6 +445,8 @@ object RawUpdater : GroupUpdater() {
             throw e
         } catch (e: UnsupportedTransportException) {
             // 分享链接全因传输方式不支持被拒：把原因报给用户，而不是笼统的「没找到节点」
+            throw e
+        } catch (e: ClashImportException) {
             throw e
         } catch (ignored: Exception) {
         }

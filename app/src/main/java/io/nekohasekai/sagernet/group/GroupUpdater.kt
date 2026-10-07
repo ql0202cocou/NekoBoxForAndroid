@@ -6,6 +6,7 @@ import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.database.SubscriptionBean
 import io.nekohasekai.sagernet.fmt.AbstractBean
+import io.nekohasekai.sagernet.fmt.ClashImportException
 import io.nekohasekai.sagernet.fmt.fillSniFromServerAddress
 import io.nekohasekai.sagernet.fmt.supportsAddressRewrite
 import io.nekohasekai.sagernet.ktx.*
@@ -157,7 +158,7 @@ abstract class GroupUpdater {
                         if (subscription == null) {
                             // a corrupted backup restore can leave a subscription group without one
                             Logs.w("Group ${proxyGroup.id} has no subscription")
-                            userInterface?.onUpdateFailure(proxyGroup, "group has no subscription")
+                            userInterface?.onUpdateFailure(proxyGroup, "group has no subscription", null)
                             return@coroutineScope false
                         }
 
@@ -179,12 +180,15 @@ abstract class GroupUpdater {
                             // 退化成裸类名，换成本地化提示
                             Logs.w(e)
                             userInterface?.onUpdateFailure(
-                                proxyGroup, app.getString(R.string.subscription_is_link)
+                                proxyGroup, app.getString(R.string.subscription_is_link), null
                             )
                             false
                         } catch (e: Throwable) {
                             Logs.w(e)
-                            userInterface?.onUpdateFailure(proxyGroup, e.readableMessage)
+                            // Clash 订阅一个节点都没导入时，异常带着汇总（哪些节点因何被跳过），一并交给界面
+                            userInterface?.onUpdateFailure(
+                                proxyGroup, e.readableMessage, (e as? ClashImportException)?.summary
+                            )
                             false
                         }
                     } finally {

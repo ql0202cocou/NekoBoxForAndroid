@@ -4,6 +4,7 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.fmt.ClashFieldReason
 import io.nekohasekai.sagernet.fmt.ClashFieldRecord
 import io.nekohasekai.sagernet.fmt.ClashFieldResult
+import io.nekohasekai.sagernet.fmt.ClashImportException
 import io.nekohasekai.sagernet.fmt.ClashImportSummary
 import io.nekohasekai.sagernet.fmt.ClashNodeFailure
 import io.nekohasekai.sagernet.fmt.ClashNodeResult
@@ -11,6 +12,7 @@ import io.nekohasekai.sagernet.ktx.Logs
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -237,5 +239,49 @@ class ClashImportSummaryTest {
         assertEquals(1, beans!!.size)
         assertEquals(1, summary!!.unknownType)
         assertEquals(1, summary!!.complete)
+    }
+
+    @Test
+    fun `全部节点被跳过时 parseRaw 抛出带汇总的异常，消息不含值`() {
+        Logs.enabled = false
+        var called = false
+        val e = assertThrows(ClashImportException::class.java) {
+            runBlocking {
+                RawUpdater.parseRaw(
+                    "proxies:\n" +
+                            "  - {name: node-zq20, type: snell, server: snell-zq21.example.com, port: 443, psk: psk-zq22}\n" +
+                            "  - {name: node-zq23, type: vmess, server: vmess-zq24.example.com, port: 443, uuid: uuid-zq25, network: kcp}\n" +
+                            "  - {name: node-zq26, type: socks5, server: 192.0.2.88, port: port-zq27}",
+                    onClashImport = { called = true },
+                )
+            }
+        }
+        assertFalse(called)
+        assertEquals(
+            "No proxies imported from the Clash subscription: 3 entries, 1 unsupported type, 2 failed to parse",
+            e.message,
+        )
+        // 更新失败的提示从异常里取汇总，渲染成与 Diff 对话框同样的分节
+        val text = groupUpdateDialogText(emptyList(), emptyMap(), emptyList(), emptyList(), e.summary, ::getString)
+        assertEquals(
+            "[unsupported]\nnode-zq20 (snell)\n\n" +
+                    "[failed]\nnode-zq23 (vmess): unsupported transport at network = kcp\nnode-zq26 (socks5): invalid port",
+            text,
+        )
+        for (secret in listOf("zq21", "zq22", "zq24", "zq25", "192.0.2.88", "zq27")) {
+            assertFalse(e.summary.logText().contains(secret))
+            assertFalse(text.contains(secret))
+        }
+    }
+
+    @Test
+    fun `proxies 为空列表时同样抛出，汇总为空不弹对话框`() {
+        Logs.enabled = false
+        val e = assertThrows(ClashImportException::class.java) {
+            runBlocking { RawUpdater.parseRaw("proxies: []") }
+        }
+        assertEquals(0, e.summary.total)
+        assertTrue(e.summary.isEmpty)
+        assertEquals("", groupUpdateDialogText(emptyList(), emptyMap(), emptyList(), emptyList(), e.summary, ::getString))
     }
 }

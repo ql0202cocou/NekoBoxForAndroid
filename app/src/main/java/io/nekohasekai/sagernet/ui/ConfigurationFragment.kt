@@ -31,6 +31,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.fmt.AbstractBean
+import io.nekohasekai.sagernet.fmt.ClashImportException
 import io.nekohasekai.sagernet.fmt.displayType
 import io.nekohasekai.sagernet.fmt.v2ray.UnsupportedTransportException
 import io.nekohasekai.sagernet.group.GroupUpdater
@@ -313,7 +314,7 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
                     if (fileName.endsWith(".zip")) {
                         // try parse wireguard zip
                         // use(): a throwing parseRaw used to leak the fd
-                        // 单个条目因传输方式不支持被拒时记下继续，见 ImportBatch
+                        // 单个条目被拒（传输方式不支持、Clash 一个节点都没导入）时记下继续，见 ImportBatch
                         val batch = ImportBatch<AbstractBean>()
                         ZipInputStream(inputStream).use { zip ->
                             var remaining = MAX_IMPORT_BYTES
@@ -328,6 +329,9 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
                                 try {
                                     batch.add(RawUpdater.parseRaw(fileText, entry.name))
                                 } catch (e: UnsupportedTransportException) {
+                                    Logs.w("ZIP entry rejected: ${e.readableMessage}")
+                                    batch.reject(e)
+                                } catch (e: ClashImportException) {
                                     Logs.w("ZIP entry rejected: ${e.readableMessage}")
                                     batch.reject(e)
                                 }

@@ -37,7 +37,8 @@ object GroupManager {
             importSummary: ClashImportSummary?,
         )
 
-        suspend fun onUpdateFailure(group: ProxyGroup, message: String)
+        // importSummary：Clash 订阅一个节点都没导入时的汇总（ClashImportException），其它失败为 null
+        suspend fun onUpdateFailure(group: ProxyGroup, message: String, importSummary: ClashImportSummary?)
     }
 
     // copy-on-write: iteration walks a snapshot, so a listener may add or

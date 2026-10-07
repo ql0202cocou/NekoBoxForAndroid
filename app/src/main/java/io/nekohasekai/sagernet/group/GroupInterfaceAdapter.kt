@@ -122,11 +122,19 @@ class GroupInterfaceAdapter(val context: ThemedActivity) : GroupManager.Interfac
         }.onFailure { Logs.w(it) }
     }
 
-    override suspend fun onUpdateFailure(group: ProxyGroup, message: String) {
+    override suspend fun onUpdateFailure(group: ProxyGroup, message: String, importSummary: ClashImportSummary?) {
         onMainDispatcher {
             if (!context.isFinishing && !context.isDestroyed) {
                 context.snackbar(message).show()
             }
+        }
+        // Clash 订阅一个节点都没导入：snackbar 只有计数，被跳过的节点与原因另弹一个导入结果对话框
+        val summary = groupUpdateDialogText(
+            emptyList(), emptyMap(), emptyList(), emptyList(), importSummary,
+        ) { id, arg -> context.getString(id, arg) }
+        if (summary.isNotEmpty()) runOnMainDispatcher {
+            delay(1000L)
+            showDiffDialog(group, summary, R.string.clash_import_title)
         }
     }
 

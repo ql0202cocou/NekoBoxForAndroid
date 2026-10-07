@@ -1,5 +1,8 @@
 package io.nekohasekai.sagernet.group
 
+import io.nekohasekai.sagernet.fmt.ClashImportException
+import io.nekohasekai.sagernet.fmt.ClashImportSummary
+import io.nekohasekai.sagernet.fmt.ClashNodeResult
 import io.nekohasekai.sagernet.fmt.v2ray.UnsupportedTransportException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
@@ -47,5 +50,32 @@ class ImportBatchTest {
         batch.add(null)
         assertTrue(batch.result().isEmpty())
         assertTrue(ImportBatch<String>().result().isEmpty())
+    }
+
+    private fun clashRejected() =
+        ClashImportException(ClashImportSummary.of(listOf(ClashNodeResult.UnknownType(0, "ssr", "a"))))
+
+    @Test
+    fun `Clash 一个节点都没导入的段与传输方式被拒同等处理`() {
+        val batch = ImportBatch<String>()
+        batch.reject(clashRejected())
+        batch.add(listOf("a"))
+        assertEquals(listOf("a"), batch.result())
+    }
+
+    @Test
+    fun `两种被拒原因混在一起时抛出第一条`() {
+        val first = clashRejected()
+        val batch = ImportBatch<String>()
+        batch.reject(first)
+        batch.reject(UnsupportedTransportException("xhttp"))
+        val e = assertThrows(ClashImportException::class.java) { batch.result() }
+        assertSame(first, e)
+
+        val transport = UnsupportedTransportException("kcp")
+        val other = ImportBatch<String>()
+        other.reject(transport)
+        other.reject(clashRejected())
+        assertSame(transport, assertThrows(UnsupportedTransportException::class.java) { other.result() })
     }
 }

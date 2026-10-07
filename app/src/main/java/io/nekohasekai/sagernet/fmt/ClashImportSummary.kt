@@ -47,6 +47,11 @@ class ClashImportSummary private constructor(
         if (sorted.size > LOG_ITEMS) append("; and ${sorted.size - LOG_ITEMS} more")
     }
 
+    // 一个节点都没导入时的异常消息：英文，只有计数
+    fun failureMessage(): String =
+        "No proxies imported from the Clash subscription: $total entries, " +
+                "$unknownType unsupported type, $failed failed to parse"
+
     // 界面文本块：分节，每节最多 UI_LINES 行，超出的折成一行总数（同订阅更新的 Diff 对话框）。
     // getString 按资源 id 取带一个参数的字符串（运行时即 Context.getString(id, arg)）
     fun uiText(getString: (resId: Int, arg: Any) -> String): String {
@@ -138,3 +143,7 @@ class ClashImportSummary private constructor(
         }
     }
 }
+
+// Clash 订阅认准了，但一个节点都没导入（全部类型不支持或解析失败，或 proxies 为空）：带着汇总穿过
+// parseRaw 的各层（不当成「这一策略没认出东西」吞掉）与 ImportBatch，交给更新失败的提示
+class ClashImportException(val summary: ClashImportSummary) : IllegalStateException(summary.failureMessage())
