@@ -228,6 +228,8 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>, fields: ClashFields): Stan
     val port = proxy["port"]?.toString() ?: throw ClashNodeRejected(ClashNodeFailure.MISSING_PORT)
     bean.serverPort = port.toIntOrNull() ?: throw ClashNodeRejected(ClashNodeFailure.INVALID_PORT)
 
+    // ws-opts 的 v2ray-http-upgrade：循环结束、network 定下来之后再套用，与键的先后无关
+    var httpUpgrade = false
     for (opt in proxy) {
         when (opt.key) {
             "name" -> bean.name = opt.value?.toString()
@@ -299,7 +301,7 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>, fields: ClashFields): Stan
             "network" -> bean.type = clashNetworkTransport(opt.value?.toString())
 
             "ws-opts", "h2-opts", "http-opts", "grpc-opts" ->
-                bean.applyClashTransportOpts(opt.key, opt.value)
+                if (bean.applyClashTransportOpts(opt.key, opt.value)) httpUpgrade = true
 
             "smux" -> (opt.value as? Map<String, Any?>)?.also {
                 for (smuxOpt in it) {
@@ -332,12 +334,16 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>, fields: ClashFields): Stan
             }
         }
     }
+    // mihomo 只在 network 为 ws 时读 ws-opts（含升级标记），其它 network 下它不起作用
+    if (httpUpgrade && bean.type == "ws") bean.type = "httpupgrade"
     return bean
 }
 
-// clash *-opts -> StandardV2RayBean transport fields (type/host/path and the
-// ws early-data pair), the parsing side of buildSingBoxOutboundStreamSettings
-private fun StandardV2RayBean.applyClashTransportOpts(key: String, value: Any?) {
+// clash *-opts -> StandardV2RayBean 的 host / path 与 ws early data 两个字段，
+// 即 buildSingBoxOutboundStreamSettings 的解析一侧。返回 ws-opts 是否要求 HTTP upgrade：
+// 它改的是传输方式，要等 network 定下来再由调用方套用
+private fun StandardV2RayBean.applyClashTransportOpts(key: String, value: Any?): Boolean {
+    var httpUpgrade = false
     when (key) {
         "ws-opts" -> (value as? Map<String, Any?>)?.also {
             for (wsOpt in it) {
@@ -365,9 +371,7 @@ private fun StandardV2RayBean.applyClashTransportOpts(key: String, value: Any?) 
                     }
 
                     "v2ray-http-upgrade" -> {
-                        if (wsOpt.value.clashBoolean()) {
-                            type = "httpupgrade"
-                        }
+                        if (wsOpt.value.clashBoolean()) httpUpgrade = true
                     }
                 }
             }
@@ -421,6 +425,7 @@ private fun StandardV2RayBean.applyClashTransportOpts(key: String, value: Any?) 
             }
         }
     }
+    return httpUpgrade
 }
 
 private fun parseClashAnyTLS(proxy: Map<String, Any?>, fields: ClashFields): AnyTLSBean {

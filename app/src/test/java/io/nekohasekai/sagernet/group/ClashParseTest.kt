@@ -164,4 +164,25 @@ class ClashParseTest {
         assertEquals("sni.example.com", vmess.sni)
         assertEquals("auto", vmess.encryption)
     }
+
+    private fun v2rayType(vararg entries: String): String {
+        val node = entries.joinToString(", ", prefix = "{name: a, type: vmess, server: v.example.com, port: 443, uuid: 00000000-0000-0000-0000-000000000003, ", postfix = "}")
+        return (parse("proxies:\n  - $node").beans.single() as VMessBean).type
+    }
+
+    @Test
+    fun `ws-opts 的 HTTP upgrade 与键顺序无关`() {
+        val upgrade = "ws-opts: {v2ray-http-upgrade: true, path: /up}"
+        assertEquals("httpupgrade", v2rayType("network: ws", upgrade))
+        assertEquals("httpupgrade", v2rayType(upgrade, "network: ws"))
+    }
+
+    @Test
+    fun `HTTP upgrade 只在 network 为 ws 时生效`() {
+        val upgrade = "ws-opts: {v2ray-http-upgrade: true}"
+        assertEquals("grpc", v2rayType("network: grpc", upgrade))
+        assertEquals("grpc", v2rayType(upgrade, "network: grpc"))
+        assertEquals("tcp", v2rayType(upgrade))
+        assertEquals("ws", v2rayType("network: ws", "ws-opts: {v2ray-http-upgrade: false}"))
+    }
 }
