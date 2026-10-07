@@ -437,8 +437,9 @@ object RawUpdater : GroupUpdater() {
     private fun logClashEntries(result: ClashParseResult) {
         for (node in result.nodes) when (node) {
             is ClashNodeResult.Failed -> Logs.w("Subscription entry rejected: #${node.index} ${node.type}: ${node.description}")
-            is ClashNodeResult.Imported -> for (field in node.fields) {
-                Logs.w("Subscription entry #${node.index} ${node.type}: ${field.path} ${field.reason?.text ?: ""}")
+            is ClashNodeResult.Imported -> node.fields.filter { it.lossy }.takeIf { it.isNotEmpty() }?.let { lossy ->
+                Logs.w("Subscription entry #${node.index} ${node.type}: " +
+                        lossy.joinToString { "${it.path} ${it.reason?.text ?: ""}" })
             }
 
             is ClashNodeResult.UnknownType -> Unit

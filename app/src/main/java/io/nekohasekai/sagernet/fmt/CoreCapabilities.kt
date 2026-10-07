@@ -79,6 +79,10 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 // 24. SingBoxValueSets.kt 的四个名单（Shadowsocks 加密方式与插件名、VMess 加密方式、TUIC 拥塞控制）：升级 vendored
 //     sing-box 或 sing-shadowsocks2 / sing-vmess / sing-quic 时逐项对照上游源码复核（取值、大小写、空串的处理），
 //     改名单与 SING_BOX_VALUE_SETS_VERSION / SING_BOX_VALUE_SET_MODULES。CoreCapabilitiesTest 的版本绑定会先红。
+//
+// Clash 订阅导入（K3a）：
+// 25. mihomo 升级后核对 group/ClashImportFields.kt 的键表（adapter/outbound/*.go 的 proxy 标签）与
+//     CLASH_NO_EFFECT_KEYS。
 
 // 能替节点拨号的核心。value 与 ProxyEntity.CORE_* 相同；version 是这张表核实时的版本
 enum class DialCore(val value: Int, val displayName: String, val version: String) {

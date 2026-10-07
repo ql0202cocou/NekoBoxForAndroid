@@ -5,9 +5,6 @@ package io.nekohasekai.sagernet.group
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.CLASH_ENUM_PATHS
 import io.nekohasekai.sagernet.fmt.CLASH_KEY_NOT_SHOWN
-import io.nekohasekai.sagernet.fmt.ClashFieldReason
-import io.nekohasekai.sagernet.fmt.ClashFieldRecord
-import io.nekohasekai.sagernet.fmt.ClashFieldResult
 import io.nekohasekai.sagernet.fmt.ClashNodeFailure
 import io.nekohasekai.sagernet.fmt.ClashNodeResult
 import io.nekohasekai.sagernet.fmt.clashShownPath
@@ -50,21 +47,37 @@ class ClashNoProxiesException : IllegalStateException("No proxies list in the Cl
 // 顺序与条目一致。全部条目都被跳过时 beans 为空，由调用方决定怎么报
 class ClashParseResult(val beans: List<AbstractBean>, val nodes: List<ClashNodeResult>)
 
-// 节点被整体拒绝，原因来自封闭集合；value 是原值，只在路径属于可显示的枚举键时按规则显示
+// 节点被整体拒绝，原因来自封闭集合。路径按段给出，构造时每段都按键名规则处理（不能显示的段写成占位串），
+// 不带键的原文；value 是原值，只在路径属于可显示的枚举键时按规则显示
 internal class ClashNodeRejected(
     val failure: ClashNodeFailure,
-    val path: String? = null,
+    segments: List<Any?>? = null,
     value: Any? = null,
 ) : Exception(failure.text) {
-    val shownValue: String? = if (path != null && path in CLASH_ENUM_PATHS) clashShownValue(value) else null
+    // 只有一段的路径（固定的键名）
+    constructor(failure: ClashNodeFailure, key: String, value: Any? = null) : this(failure, listOf(key), value)
+
+    val path: String? = segments?.let { clashShownPath(it) }
+    val shownValue: String? =
+        if (segments != null && segments.joinToString(".") in CLASH_ENUM_PATHS) clashShownValue(value) else null
 }
 
-// 一个节点解析期间记下的字段结果
-internal class ClashFields {
-    val records = ArrayList<ClashFieldRecord>()
+// 读一个键时的意外异常（类型不对、数字格式错）换成封闭集合里的原因并指出键，节点照旧被跳过。
+// parent 是嵌套对象的键名（如 smux）；键本身按段交给 ClashNodeRejected，不是字符串的键（YAML 复杂键）
+// 只显示占位串
+private inline fun <T> clashKey(key: Any?, value: Any?, parent: String? = null, read: () -> T): T = try {
+    read()
+} catch (e: ClashNodeRejected) {
+    throw e
+} catch (e: UnsupportedTransportException) {
+    throw e
+} catch (e: Exception) {
+    throw when (if (parent == null) (key as? String)?.replace('_', '-') else null) {
+        "server" -> if (value == null) ClashNodeRejected(ClashNodeFailure.MISSING_SERVER)
+        else ClashNodeRejected(ClashNodeFailure.INVALID_VALUE, "server")
 
-    fun ignored(path: String, reason: ClashFieldReason) {
-        records += ClashFieldRecord(clashShownPath(path.split('.')), ClashFieldResult.IGNORED, reason)
+        "port" -> ClashNodeRejected(if (value == null) ClashNodeFailure.MISSING_PORT else ClashNodeFailure.INVALID_PORT)
+        else -> ClashNodeRejected(ClashNodeFailure.INVALID_VALUE, listOfNotNull(parent) + listOf(key), value)
     }
 }
 
@@ -97,16 +110,17 @@ private fun parseClashEntry(index: Int, entry: Any?, beans: MutableList<Abstract
             index, clashShownValue(proxy["type"]), name, ClashNodeFailure.MISSING_TYPE
         )
     val shownType = clashShownValue(type)
-    val fields = ClashFields()
     return try {
-        val bean = parseClashProxy(type, proxy, fields)
+        val bean = parseClashProxy(type, proxy)
             ?: return ClashNodeResult.UnknownType(index, shownType, name)
         // 端点在 bean 上统一校验；必须早于 parseClash 尾部的 initializeDefaultValues，
         // 否则缺省被填成 127.0.0.1:1080 就验不出缺失
         clashEndpointFailure(bean)?.let { throw ClashNodeRejected(it) }
         bean.requireValidEndpoint()
+        // 字段记录只读输入与解析结果，不改 bean，也不会因记录本身出错让节点被跳过
+        val fields = classifyClashFields(type, proxy, bean)
         beans.add(bean)
-        ClashNodeResult.Imported(index, shownType, name, fields.records)
+        ClashNodeResult.Imported(index, shownType, name, fields)
     } catch (e: ClashNodeRejected) {
         ClashNodeResult.Failed(index, shownType, name, e.failure, e.path, e.shownValue)
     } catch (e: UnsupportedTransportException) {
@@ -130,30 +144,30 @@ private fun clashEndpointFailure(bean: AbstractBean): ClashNodeFailure? {
 }
 
 // clash 的 type -> bean。不认识的 type 返回 null，按类型不支持报告；已知类型的坏节点抛异常
-private fun parseClashProxy(type: String, proxy: Map<String, Any?>, fields: ClashFields): AbstractBean? = when (type) {
+private fun parseClashProxy(type: String, proxy: Map<String, Any?>): AbstractBean? = when (type) {
     "socks5" -> parseClashSocks(proxy)
     "http" -> parseClashHttp(proxy)
     "ss" -> parseClashShadowsocks(proxy)
-    "vmess", "vless", "trojan" -> parseClashV2Ray(proxy, fields)
-    "anytls" -> parseClashAnyTLS(proxy, fields)
-    "hysteria" -> parseClashHysteria(proxy, 1, fields)
-    "hysteria2", "hy2" -> parseClashHysteria(proxy, 2, fields)
-    "tuic" -> parseClashTuic(proxy, fields)
-    "wireguard" -> parseClashWireGuard(proxy, fields)
+    "vmess", "vless", "trojan" -> parseClashV2Ray(proxy)
+    "anytls" -> parseClashAnyTLS(proxy)
+    "hysteria" -> parseClashHysteria(proxy, 1)
+    "hysteria2", "hy2" -> parseClashHysteria(proxy, 2)
+    "tuic" -> parseClashTuic(proxy)
+    "wireguard" -> parseClashWireGuard(proxy)
     else -> null
 }
 
 private fun parseClashSocks(proxy: Map<String, Any?>) = SOCKSBean().apply {
-    serverAddress = proxy["server"] as String
-    serverPort = proxy["port"].toString().toInt()
+    serverAddress = clashKey("server", proxy["server"]) { proxy["server"] as String }
+    serverPort = clashKey("port", proxy["port"]) { proxy["port"].toString().toInt() }
     username = proxy["username"]?.toString()
     password = proxy["password"]?.toString()
     name = proxy["name"]?.toString()
 }
 
 private fun parseClashHttp(proxy: Map<String, Any?>) = HttpBean().apply {
-    serverAddress = proxy["server"] as String
-    serverPort = proxy["port"].toString().toInt()
+    serverAddress = clashKey("server", proxy["server"]) { proxy["server"] as String }
+    serverPort = clashKey("port", proxy["port"]) { proxy["port"].toString().toInt() }
     username = proxy["username"]?.toString()
     password = proxy["password"]?.toString()
     setTLS(proxy["tls"].clashBoolean())
@@ -197,17 +211,17 @@ private fun parseClashShadowsocks(proxy: Map<String, Any?>): ShadowsocksBean {
         }
     }
     return ShadowsocksBean().apply {
-    serverAddress = proxy["server"] as String
-    serverPort = proxy["port"].toString().toInt()
+    serverAddress = clashKey("server", proxy["server"]) { proxy["server"] as String }
+    serverPort = clashKey("port", proxy["port"]) { proxy["port"].toString().toInt() }
     password = proxy["password"]?.toString()
-    method = clashCipher(proxy["cipher"] as String)
+    method = clashKey("cipher", proxy["cipher"]) { clashCipher(proxy["cipher"] as String) }
     plugin = ssPlugin.joinToString(";")
     sUoT = proxy["udp-over-tcp"].clashBoolean()
     name = proxy["name"]?.toString()
     }
 }
 
-private fun parseClashV2Ray(proxy: Map<String, Any?>, fields: ClashFields): StandardV2RayBean {
+private fun parseClashV2Ray(proxy: Map<String, Any?>): StandardV2RayBean {
     val bean = when (proxy["type"] as String) {
         "vmess" -> VMessBean()
         "vless" -> VMessBean().apply {
@@ -230,7 +244,7 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>, fields: ClashFields): Stan
 
     // ws-opts 的 v2ray-http-upgrade：循环结束、network 定下来之后再套用，与键的先后无关
     var httpUpgrade = false
-    for (opt in proxy) {
+    for (opt in proxy) clashKey(opt.key, opt.value) {
         when (opt.key) {
             "name" -> bean.name = opt.value?.toString()
             "password" -> if (bean is TrojanBean) bean.password =
@@ -277,7 +291,7 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>, fields: ClashFields): Stan
                 opt.value.clashBoolean()
 
             "fingerprint" -> bean.certificateFingerprint =
-                parseCertificateFingerprint(opt.value, fields)
+                parseCertificateFingerprint(opt.value)
 
             "client-fingerprint" -> bean.utlsFingerprint =
                 opt.value as String
@@ -304,7 +318,7 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>, fields: ClashFields): Stan
                 if (bean.applyClashTransportOpts(opt.key, opt.value)) httpUpgrade = true
 
             "smux" -> (opt.value as? Map<String, Any?>)?.also {
-                for (smuxOpt in it) {
+                for (smuxOpt in it) clashKey(smuxOpt.key, smuxOpt.value, "smux") {
                     when (smuxOpt.key) {
                         "enabled" -> bean.enableMux =
                             smuxOpt.value.clashBoolean()
@@ -428,45 +442,44 @@ private fun StandardV2RayBean.applyClashTransportOpts(key: String, value: Any?):
     return httpUpgrade
 }
 
-private fun parseClashAnyTLS(proxy: Map<String, Any?>, fields: ClashFields): AnyTLSBean {
+private fun parseClashAnyTLS(proxy: Map<String, Any?>): AnyTLSBean {
     val bean = AnyTLSBean()
     for (opt in proxy) {
         if (opt.value == null) continue
-        when (opt.key.replace("_", "-")) {
-            "name" -> bean.name = opt.value.toString()
-            "server" -> bean.serverAddress = opt.value as String
-            "port" -> bean.serverPort = opt.value.toString().toInt()
-            "password" -> bean.password = opt.value.toString()
-            "client-fingerprint" -> bean.utlsFingerprint =
-                opt.value as String
+        clashKey(opt.key, opt.value) {
+            when (opt.key.replace("_", "-")) {
+                "name" -> bean.name = opt.value.toString()
+                "server" -> bean.serverAddress = opt.value as String
+                "port" -> bean.serverPort = opt.value.toString().toInt()
+                "password" -> bean.password = opt.value.toString()
+                "client-fingerprint" -> bean.utlsFingerprint =
+                    opt.value as String
 
-            "sni" -> bean.sni = opt.value.toString()
-            "skip-cert-verify" -> bean.allowInsecure =
-                opt.value.clashBoolean()
+                "sni" -> bean.sni = opt.value.toString()
+                "skip-cert-verify" -> bean.allowInsecure =
+                    opt.value.clashBoolean()
 
-            // mihomo's "certificate"/"private-key" are the mTLS
-            // CLIENT cert (ca.GetTLSConfig -> GetClientCertificate),
-            // not a custom CA — mapping them to bean.certificates
-            // would become a server-cert pin that can never match.
-            "certificate", "private-key" ->
-                fields.ignored(opt.key, ClashFieldReason.MTLS_CLIENT_CERT)
+                // mihomo 的 certificate / private-key 是 mTLS 的客户端证书（ca.GetTLSConfig ->
+                // GetClientCertificate），不是自定义 CA：映射到 bean.certificates 会变成永远对不上的
+                // 服务端证书固定。不导入，由字段记录报告
 
-            "fingerprint" -> bean.certificateFingerprint =
-                parseCertificateFingerprint(opt.value, fields)
+                "fingerprint" -> bean.certificateFingerprint =
+                    parseCertificateFingerprint(opt.value)
 
-            "alpn" -> {
-                val alpn = (opt.value as? (List<String>))
-                bean.alpn = alpn?.joinToString("\n")
-            }
+                "alpn" -> {
+                    val alpn = (opt.value as? (List<String>))
+                    bean.alpn = alpn?.joinToString("\n")
+                }
 
-            "ech-opts" -> (opt.value as? Map<String, Any?>)?.also {
-                val enable = it["enable"]
-                bean.enableECH = enable.clashBoolean()
-                // mihomo turns ECH on from the config
-                // alone when "enable" is absent
-                if (enable == null || bean.enableECH) {
-                    bean.echConfig =
-                        it["config"]?.toString() ?: ""
+                "ech-opts" -> (opt.value as? Map<String, Any?>)?.also {
+                    val enable = it["enable"]
+                    bean.enableECH = enable.clashBoolean()
+                    // 没写 enable 时有 config 就保存（本应用随后开 ECH）：沿用旧的宽松读法。mihomo v1.19.32 的
+                    // ECHOptions.Parse 没有 enable 就不开 ECH，字段记录报告这处不同，是否跟进由维护者定
+                    if (enable == null || bean.enableECH) {
+                        bean.echConfig =
+                            it["config"]?.toString() ?: ""
+                    }
                 }
             }
         }
@@ -477,83 +490,85 @@ private fun parseClashAnyTLS(proxy: Map<String, Any?>, fields: ClashFields): Any
 // hysteria and hysteria2 share most keys; the version-specific ones sit in
 // the nested when. hysteria 1 defaults a missing bandwidth to 100 Mbps where
 // hysteria 2 leaves it at 0.
-private fun parseClashHysteria(proxy: Map<String, Any?>, version: Int, fields: ClashFields): HysteriaBean {
+private fun parseClashHysteria(proxy: Map<String, Any?>, version: Int): HysteriaBean {
     val bean = HysteriaBean()
     bean.protocolVersion = version
     val defaultMbps = if (version == 1) 100 else 0
     var hopPorts = ""
     for (opt in proxy) {
         if (opt.value == null) continue
-        when (val key = opt.key.replace("_", "-")) {
-            "name" -> bean.name = opt.value.toString()
-            "server" -> bean.serverAddress = opt.value as String
-            "port" -> bean.serverPorts = opt.value.toString()
-            "ports" -> hopPorts = opt.value.toString()
+        clashKey(opt.key, opt.value) {
+            when (val key = opt.key.replace("_", "-")) {
+                "name" -> bean.name = opt.value.toString()
+                "server" -> bean.serverAddress = opt.value as String
+                "port" -> bean.serverPorts = opt.value.toString()
+                "ports" -> hopPorts = opt.value.toString()
 
-            "sni" -> bean.sni = opt.value.toString()
+                "sni" -> bean.sni = opt.value.toString()
 
-            "fingerprint" -> bean.certificateFingerprint =
-                parseCertificateFingerprint(opt.value, fields)
+                "fingerprint" -> bean.certificateFingerprint =
+                    parseCertificateFingerprint(opt.value)
 
-            "skip-cert-verify" -> bean.allowInsecure =
-                opt.value.clashBoolean()
+                "skip-cert-verify" -> bean.allowInsecure =
+                    opt.value.clashBoolean()
 
-            "up" -> bean.uploadMbps =
-                opt.value.toString().substringBefore(" ").toIntOrNull() ?: defaultMbps
+                "up" -> bean.uploadMbps =
+                    opt.value.toString().substringBefore(" ").toIntOrNull() ?: defaultMbps
 
-            "down" -> bean.downloadMbps =
-                opt.value.toString().substringBefore(" ").toIntOrNull() ?: defaultMbps
+                "down" -> bean.downloadMbps =
+                    opt.value.toString().substringBefore(" ").toIntOrNull() ?: defaultMbps
 
-            // clash "ca" is a local file path, only
-            // "ca-str" carries an inline PEM
-            "ca-str" -> bean.caText = opt.value.toString()
+                // clash "ca" is a local file path, only
+                // "ca-str" carries an inline PEM
+                "ca-str" -> bean.caText = opt.value.toString()
 
-            "hop-interval" -> bean.hopInterval =
-                opt.value.toString().toIntOrNull() ?: bean.hopInterval
+                "hop-interval" -> bean.hopInterval =
+                    opt.value.toString().toIntOrNull() ?: bean.hopInterval
 
-            else -> if (version == 1) when (key) {
-                "obfs" -> bean.obfuscation = opt.value.toString()
+                else -> if (version == 1) when (key) {
+                    "obfs" -> bean.obfuscation = opt.value.toString()
 
-                "auth-str" -> {
-                    bean.authPayloadType = HysteriaBean.TYPE_STRING
-                    bean.authPayload = opt.value.toString()
-                }
-
-                "auth" -> {
-                    bean.authPayloadType = HysteriaBean.TYPE_BASE64
-                    bean.authPayload = opt.value.toString()
-                }
-
-                "protocol" -> {
-                    when (opt.value.toString()) {
-                        "faketcp" -> bean.protocol =
-                            HysteriaBean.PROTOCOL_FAKETCP
-
-                        "wechat-video" -> bean.protocol =
-                            HysteriaBean.PROTOCOL_WECHAT_VIDEO
+                    "auth-str" -> {
+                        bean.authPayloadType = HysteriaBean.TYPE_STRING
+                        bean.authPayload = opt.value.toString()
                     }
+
+                    "auth" -> {
+                        bean.authPayloadType = HysteriaBean.TYPE_BASE64
+                        bean.authPayload = opt.value.toString()
+                    }
+
+                    "protocol" -> {
+                        when (opt.value.toString()) {
+                            "faketcp" -> bean.protocol =
+                                HysteriaBean.PROTOCOL_FAKETCP
+
+                            "wechat-video" -> bean.protocol =
+                                HysteriaBean.PROTOCOL_WECHAT_VIDEO
+                        }
+                    }
+
+                    "recv-window-conn" -> bean.streamReceiveWindow =
+                        opt.value.toString().toIntOrNull() ?: 0
+
+                    "recv-window" -> bean.connectionReceiveWindow =
+                        opt.value.toString().toIntOrNull() ?: 0
+
+                    "disable-mtu-discovery" -> bean.disableMtuDiscovery =
+                        opt.value.clashBoolean() || opt.value.toString() == "1"
+
+                    "alpn" -> {
+                        val alpn = (opt.value as? (List<String>))
+                        bean.alpn = alpn?.joinToString("\n") ?: "h3"
+                    }
+                } else when (key) {
+                    "obfs-password" -> bean.obfuscation = opt.value.toString()
+
+                    "password" -> bean.authPayload = opt.value.toString()
+
+                    // no "alpn" here: hysteria2 mandates h3 and the
+                    // sing-box builder hardcodes it
                 }
-
-                "recv-window-conn" -> bean.streamReceiveWindow =
-                    opt.value.toString().toIntOrNull() ?: 0
-
-                "recv-window" -> bean.connectionReceiveWindow =
-                    opt.value.toString().toIntOrNull() ?: 0
-
-                "disable-mtu-discovery" -> bean.disableMtuDiscovery =
-                    opt.value.clashBoolean() || opt.value.toString() == "1"
-
-                "alpn" -> {
-                    val alpn = (opt.value as? (List<String>))
-                    bean.alpn = alpn?.joinToString("\n") ?: "h3"
-                }
-            } else when (key) {
-                "obfs-password" -> bean.obfuscation = opt.value.toString()
-
-                "password" -> bean.authPayload = opt.value.toString()
-
-                // no "alpn" here: hysteria2 mandates h3 and the
-                // sing-box builder hardcodes it
             }
         }
     }
@@ -563,61 +578,63 @@ private fun parseClashHysteria(proxy: Map<String, Any?>, version: Int, fields: C
     return bean
 }
 
-private fun parseClashTuic(proxy: Map<String, Any?>, fields: ClashFields): TuicBean {
+private fun parseClashTuic(proxy: Map<String, Any?>): TuicBean {
     val bean = TuicBean()
     var ip = ""
     for (opt in proxy) {
         if (opt.value == null) continue
-        when (opt.key.replace("_", "-")) {
-            "name" -> bean.name = opt.value.toString()
-            "server" -> bean.serverAddress = opt.value.toString()
-            "ip" -> ip = opt.value.toString()
-            "port" -> bean.serverPort = opt.value.toString().toInt()
+        clashKey(opt.key, opt.value) {
+            when (opt.key.replace("_", "-")) {
+                "name" -> bean.name = opt.value.toString()
+                "server" -> bean.serverAddress = opt.value.toString()
+                "ip" -> ip = opt.value.toString()
+                "port" -> bean.serverPort = opt.value.toString().toInt()
 
-            // mihomo treats a "token" node as TUIC v4, which the
-            // core dropped; importing it would only fail at connect
-            // time, so skip it like an unsupported ss plugin
-            "token" -> throw ClashNodeRejected(ClashNodeFailure.TUIC_V4, "token")
+                // mihomo treats a "token" node as TUIC v4, which the
+                // core dropped; importing it would only fail at connect
+                // time, so skip it like an unsupported ss plugin
+                "token" -> throw ClashNodeRejected(ClashNodeFailure.TUIC_V4, "token")
 
-            "uuid" -> bean.uuid = opt.value.toString()
+                "uuid" -> bean.uuid = opt.value.toString()
 
-            "password" -> bean.token = opt.value.toString()
+                "password" -> bean.token = opt.value.toString()
 
-            "skip-cert-verify" -> bean.allowInsecure =
-                opt.value.clashBoolean()
+                "skip-cert-verify" -> bean.allowInsecure =
+                    opt.value.clashBoolean()
 
-            "disable-sni" -> bean.disableSNI =
-                opt.value.clashBoolean()
+                "disable-sni" -> bean.disableSNI =
+                    opt.value.clashBoolean()
 
-            "reduce-rtt" -> bean.reduceRTT =
-                opt.value.clashBoolean()
+                "reduce-rtt" -> bean.reduceRTT =
+                    opt.value.clashBoolean()
 
-            "sni" -> bean.sni = opt.value.toString()
+                "sni" -> bean.sni = opt.value.toString()
 
-            "ca-str" -> bean.caText = opt.value.toString()
+                "ca-str" -> bean.caText = opt.value.toString()
 
-            "fingerprint" -> bean.certificateFingerprint =
-                parseCertificateFingerprint(opt.value, fields)
+                "fingerprint" -> bean.certificateFingerprint =
+                    parseCertificateFingerprint(opt.value)
 
-            "fast-open" -> bean.fastConnect =
-                opt.value.clashBoolean()
+                "fast-open" -> bean.fastConnect =
+                    opt.value.clashBoolean()
 
-            "alpn" -> {
-                val alpn = (opt.value as? (List<String>))
-                bean.alpn = alpn?.joinToString("\n")
+                "alpn" -> {
+                    val alpn = (opt.value as? (List<String>))
+                    bean.alpn = alpn?.joinToString("\n")
+                }
+
+                "congestion-controller" -> bean.congestionController =
+                    opt.value.toString()
+
+                "udp-relay-mode" -> bean.udpRelayMode = opt.value.toString()
+
+                // mihomo milliseconds, sing-box seconds (rounded)
+                "heartbeat-interval" -> bean.heartbeatInterval =
+                    opt.value.toString().toLongOrNull()
+                        ?.let { ((it + 500) / 1000).toInt().coerceAtLeast(0) }
+                        ?: bean.heartbeatInterval
+
             }
-
-            "congestion-controller" -> bean.congestionController =
-                opt.value.toString()
-
-            "udp-relay-mode" -> bean.udpRelayMode = opt.value.toString()
-
-            // mihomo milliseconds, sing-box seconds (rounded)
-            "heartbeat-interval" -> bean.heartbeatInterval =
-                opt.value.toString().toLongOrNull()
-                    ?.let { ((it + 500) / 1000).toInt().coerceAtLeast(0) }
-                    ?: bean.heartbeatInterval
-
         }
     }
     if (ip.isNotBlank()) {
@@ -630,53 +647,51 @@ private fun parseClashTuic(proxy: Map<String, Any?>, fields: ClashFields): TuicB
     return bean
 }
 
-private fun parseClashWireGuard(proxy: Map<String, Any?>, fields: ClashFields): WireGuardBean {
+private fun parseClashWireGuard(proxy: Map<String, Any?>): WireGuardBean {
     // 不做 applyDefaultValues：serverPort 填了默认值后，缺 port 的节点会
     // 瞒过 requireValidEndpoint；归一化统一由调用处尾部完成
     val bean = WireGuardBean()
     val localAddresses = mutableListOf<String>()
     for (opt in proxy) {
         if (opt.value == null) continue
-        when (opt.key.replace("_", "-")) {
-            "name" -> bean.name = opt.value.toString()
-            "server" -> bean.serverAddress = opt.value.toString()
-            "port" -> bean.serverPort = opt.value.toString().toInt()
-            "ip", "ipv6" -> {
-                val address = opt.value.toString()
-                if (address.isNotBlank()) localAddresses.add(address)
-            }
-
-            "private-key" -> bean.privateKey = opt.value.toString()
-            "public-key" -> bean.peerPublicKey = opt.value.toString()
-            "pre-shared-key" -> bean.peerPreSharedKey =
-                opt.value.toString()
-
-            "mtu" -> bean.mtu =
-                opt.value.toString().toIntOrNull() ?: bean.mtu
-
-            // mihomo writes the three reserved bytes as a
-            // list; the bean keeps genReservedList's comma form
-            "reserved" -> bean.reserved =
-                (opt.value as? List<*>)?.joinToString(",") {
-                    it?.toString() ?: ""
-                } ?: opt.value.toString()
-
-            "persistent-keepalive" -> bean.peerKeepalive =
-                opt.value.toString().toIntOrNull() ?: 0
-
-            // 构建时生效（留空才用默认路由），见 buildSingBoxEndpointWireGuardBean。
-            // 非法值在导入时清空，同 sanitizeImportedAllowedIps（它会写日志，这里只记下字段结果）
-            "allowed-ips" -> {
-                val raw = (opt.value as? List<*>)?.mapNotNull { it?.toString() }
-                    ?.joinToString(",") ?: opt.value.toString()
-                bean.peerAllowedIps = if (isWireGuardLocalAddressList(raw)) raw else {
-                    fields.ignored(opt.key, ClashFieldReason.INVALID_DROPPED)
-                    ""
+        clashKey(opt.key, opt.value) {
+            when (opt.key.replace("_", "-")) {
+                "name" -> bean.name = opt.value.toString()
+                "server" -> bean.serverAddress = opt.value.toString()
+                "port" -> bean.serverPort = opt.value.toString().toInt()
+                "ip", "ipv6" -> {
+                    val address = opt.value.toString()
+                    if (address.isNotBlank()) localAddresses.add(address)
                 }
-            }
 
-            "remote-dns-resolve", "amnezia-wg-option" ->
-                fields.ignored(opt.key, ClashFieldReason.NOT_SUPPORTED)
+                "private-key" -> bean.privateKey = opt.value.toString()
+                "public-key" -> bean.peerPublicKey = opt.value.toString()
+                "pre-shared-key" -> bean.peerPreSharedKey =
+                    opt.value.toString()
+
+                "mtu" -> bean.mtu =
+                    opt.value.toString().toIntOrNull() ?: bean.mtu
+
+                // mihomo writes the three reserved bytes as a
+                // list; the bean keeps genReservedList's comma form
+                "reserved" -> bean.reserved =
+                    (opt.value as? List<*>)?.joinToString(",") {
+                        it?.toString() ?: ""
+                    } ?: opt.value.toString()
+
+                "persistent-keepalive" -> bean.peerKeepalive =
+                    opt.value.toString().toIntOrNull() ?: 0
+
+                // 构建时生效（留空才用默认路由），见 buildSingBoxEndpointWireGuardBean。
+                // 非法值在导入时清空，同 sanitizeImportedAllowedIps（它会写日志，这里由字段记录报告）
+                "allowed-ips" -> {
+                    val raw = (opt.value as? List<*>)?.mapNotNull { it?.toString() }
+                        ?.joinToString(",") ?: opt.value.toString()
+                    bean.peerAllowedIps = if (isWireGuardLocalAddressList(raw)) raw else ""
+                }
+
+                // remote-dns-resolve、amnezia-wg-option 不支持，由字段记录报告
+            }
         }
     }
     bean.localAddress = localAddresses.joinToString("\n")
@@ -705,13 +720,10 @@ private fun clashCipher(cipher: String): String {
     }
 }
 
-// mihomo "fingerprint" is the SHA-256 hash of a served certificate; a value
-// in any other shape would only fail inside the core, so it is dropped here
-private fun parseCertificateFingerprint(value: Any?, fields: ClashFields): String {
+// mihomo 的 fingerprint 是服务端证书的 SHA-256 摘要；别的形状的值进了核心也只会失败，这里丢掉
+// （字段记录报告它）
+private fun parseCertificateFingerprint(value: Any?): String {
     val text = value?.toString() ?: ""
-    if (text.isNotEmpty() && !isCertificateFingerprint(text)) {
-        fields.ignored("fingerprint", ClashFieldReason.INVALID_DROPPED)
-        return ""
-    }
+    if (text.isNotEmpty() && !isCertificateFingerprint(text)) return ""
     return text
 }

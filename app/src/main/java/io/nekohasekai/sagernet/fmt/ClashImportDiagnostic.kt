@@ -31,12 +31,45 @@ fun clashShownPath(segments: List<Any?>): String = segments.joinToString(".") { 
 
 enum class ClashFieldResult { KEPT, CONVERTED, IGNORED, REJECTED }
 
-// 字段结果的原因（封闭集合，英文短语）。lossy 只对 IGNORED 有意义：false 表示在本应用里本来就没有
-// 对应行为（无影响），不计入「有损」
+// 字段结果的原因（封闭集合，英文短语）。lossy 只对 IGNORED 有意义：false 表示这个键在本应用与 mihomo 里
+// 结果一样（本来就没有对应行为、在 mihomo 里也不起作用、或取的是默认值），汇总里单列，不计入「有损」
 enum class ClashFieldReason(val text: String, val lossy: Boolean = true) {
+    // CONVERTED：表示法不同但语义等价
+    EQUIVALENT_VALUE("equivalent value"),
+    LIST_JOINED("list kept as lines"),
+    UNIT_CONVERTED("converted to seconds"),
+    REALITY_IMPLIES_TLS("REALITY implies TLS"),
+    DIAL_ADDRESS("used as the dial address"),
+
+    // IGNORED，有损
+    NOT_READ("not imported"),
     INVALID_DROPPED("invalid value, dropped"),
+    UNKNOWN_VALUE("unknown value, default used"),
+    OVERRIDDEN("overridden by another key"),
+    FIRST_ITEM_ONLY("only the first item imported"),
+    ROUNDED("rounded to whole seconds"),
+    RATE_UNIT_DROPPED("rate unit not converted"),
+    SEMANTICS_DIFFER("applied differently than mihomo"),
     MTLS_CLIENT_CERT("mTLS client certificate is not supported"),
     NOT_SUPPORTED("not supported"),
+    REALITY_NO_PUBLIC_KEY("REALITY options without public-key"),
+    NOT_CLASSIFIED("fields not classified"),
+
+    // IGNORED，无影响：随节点而定的四种
+    UNKNOWN_KEY("not a mihomo option for this type", false),
+    INACTIVE("inactive for this node in mihomo", false),
+    DEFAULT_VALUE("empty or false, same as absent", false),
+    MATCHES_RESULT("same result as without it", false),
+
+    // IGNORED，无影响：CLASH_NO_EFFECT_KEYS 名单里的键，各自的理由
+    NO_UDP_SWITCH("UDP use follows the protocol here", false),
+    NO_TCP_FAST_OPEN("no per-node TCP Fast Open here", false),
+    NO_MPTCP("no per-node MPTCP here", false),
+    NO_INTERFACE_NAME("outbound interface is managed by the VPN service", false),
+    NO_ROUTING_MARK("routing mark is managed by the VPN service", false),
+    NO_IP_VERSION("address family follows the global IPv6 setting", false),
+    NO_WIREGUARD_WORKERS("mihomo worker count, no counterpart", false),
+    NO_WIREGUARD_IP_STACK("mihomo user-space stack choice, no counterpart", false),
 }
 
 // 一个字段的结果。path 已按显示规则处理；shownValue 只有 CLASH_ENUM_PATHS 里的键才有
@@ -56,6 +89,7 @@ enum class ClashNodeFailure(val text: String) {
     MISSING_SERVER("missing server"),
     MISSING_PORT("missing port"),
     INVALID_PORT("invalid port"),
+    INVALID_VALUE("invalid value"),
     UNSUPPORTED_TRANSPORT("unsupported transport"),
     UNSUPPORTED_SS_PLUGIN("unsupported shadowsocks plugin"),
     TUIC_V4("TUIC v4 (token) is not supported"),
@@ -71,12 +105,15 @@ sealed class ClashNodeResult {
     abstract val type: String
     abstract val name: String?
 
+    // fields 按输入里的键序列出每个非空键（含嵌套对象的子键）的结果；有损字段为空即完整导入
     data class Imported(
         override val index: Int,
         override val type: String,
         override val name: String?,
         val fields: List<ClashFieldRecord>,
-    ) : ClashNodeResult()
+    ) : ClashNodeResult() {
+        val lossy get() = fields.any { it.lossy }
+    }
 
     data class UnknownType(
         override val index: Int,
@@ -94,6 +131,10 @@ sealed class ClashNodeResult {
         val shownValue: String? = null,
         val detail: String? = null,
     ) : ClashNodeResult() {
+        // 导致拒绝的字段（REJECTED）；整个条目的问题（不是 map、缺 type、端点）没有字段
+        val field: ClashFieldRecord?
+            get() = path?.let { ClashFieldRecord(it, ClashFieldResult.REJECTED, null, shownValue) }
+
         val description: String
             get() = buildString {
                 append(failure.text)
