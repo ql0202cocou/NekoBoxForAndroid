@@ -276,7 +276,8 @@ abstract class AppSelectActivity : ThemedActivity() {
         views.list.itemAnimator = DefaultItemAnimator()
         views.list.adapter = appsAdapter
 
-        views.list.padForSystemBars()
+        // 列表上方是搜索框：键盘弹出时列表底部也要让开键盘，才能滚到最后一项
+        views.list.padForSystemBars(ime = true)
 
         views.search.addTextChangedListener {
             appsAdapter.filter.filter(it?.toString() ?: "")

@@ -22,6 +22,8 @@ val safeDrawingTypes = WindowInsetsCompat.Type.systemBars() or WindowInsetsCompa
  *   then also gets `clipToPadding = false` so its content scrolls through the inset area.
  * @param bottomAtLeast the declared bottom padding already reserves space (e.g. for a
  *   FAB): grow it to the navigation bar inset instead of adding the two together.
+ * @param ime 底部同时让开软键盘：取导航栏与键盘两者较高的一个。只给上方有输入框、
+ *   键盘弹出时仍要能滚到最后一项的列表用（edge-to-edge 窗口不会因键盘缩小）。
  * @param consume forward the insets to children with the handled types zeroed. Only for a
  *   view that owns its whole subtree (e.g. a WebView container): below API 30 consumed
  *   insets also stop reaching later siblings.
@@ -30,12 +32,16 @@ fun View.padForSystemBars(
     statusBarTop: Boolean = false,
     bottom: Boolean = true,
     bottomAtLeast: Boolean = false,
+    ime: Boolean = false,
     consume: Boolean = false,
 ) {
     val base = Rect(paddingLeft, paddingTop, paddingRight, paddingBottom)
     if (bottom) (this as? ViewGroup)?.clipToPadding = false
     ViewCompat.setOnApplyWindowInsetsListener(this) { v, insets ->
         val safeDrawing = insets.getInsets(safeDrawingTypes)
+        val bottomInset = if (ime) {
+            maxOf(safeDrawing.bottom, insets.getInsets(WindowInsetsCompat.Type.ime()).bottom)
+        } else safeDrawing.bottom
         v.updatePadding(
             left = base.left + safeDrawing.left,
             top = if (statusBarTop) {
@@ -44,8 +50,8 @@ fun View.padForSystemBars(
             right = base.right + safeDrawing.right,
             bottom = when {
                 !bottom -> base.bottom
-                bottomAtLeast -> maxOf(base.bottom, safeDrawing.bottom)
-                else -> base.bottom + safeDrawing.bottom
+                bottomAtLeast -> maxOf(base.bottom, bottomInset)
+                else -> base.bottom + bottomInset
             },
         )
         if (consume) {

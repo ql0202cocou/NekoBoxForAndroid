@@ -159,9 +159,10 @@ class ProfileListFragment : Fragment() {
         }
 
         configurationListView = view.findViewById(R.id.configuration_list)
-        // The XML's fixed 48dp bottom padding predates edge-to-edge and already
-        // clears the FAB; never let the gesture pill cover list content either.
-        configurationListView.padForSystemBars(bottomAtLeast = true)
+        // 布局里固定的 48dp 底部留白早于 edge-to-edge，已经让开 FAB；手势条也不能盖住列表内容。
+        // 主界面工具栏的节点搜索会弹键盘，键盘弹出时取键盘高度，搜索结果才能滚到最后一项；
+        // 选择节点页不加载工具栏菜单，没有搜索框，不需要让开键盘
+        configurationListView.padForSystemBars(bottomAtLeast = true, ime = !select)
         layoutManager = FixedLinearLayoutManager(configurationListView)
         configurationListView.layoutManager = layoutManager
         adapter = ConfigurationAdapter(this)

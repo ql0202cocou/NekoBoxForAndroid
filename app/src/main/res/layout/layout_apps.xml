@@ -16,7 +16,8 @@
         <com.google.android.material.appbar.CollapsingToolbarLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:layout_scrollFlags="scroll|enterAlways"
+            android:minHeight="?attr/actionBarSize"
+            app:layout_scrollFlags="scroll|enterAlways|exitUntilCollapsed"
             app:titleEnabled="false">
 
             <com.google.android.material.appbar.MaterialToolbar
@@ -31,11 +32,15 @@
                 app:popupTheme="@style/ThemeOverlay.AppCompat.DayNight"
                 app:title="@string/app_name" />
 
+            <!-- 视差系数 1：折叠时搜索卡片原地不动、被列表从下方盖住，不会跟着 AppBar
+                 上移到状态栏后面；Toolbar 固定在状态栏下方 -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingTop="56dp">
+                android:paddingTop="56dp"
+                app:layout_collapseMode="parallax"
+                app:layout_collapseParallaxMultiplier="1.0">
 
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
