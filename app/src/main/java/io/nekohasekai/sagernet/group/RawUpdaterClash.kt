@@ -3,12 +3,12 @@
 package io.nekohasekai.sagernet.group
 
 import io.nekohasekai.sagernet.fmt.AbstractBean
-import io.nekohasekai.sagernet.fmt.CLASH_ENUM_PATHS
 import io.nekohasekai.sagernet.fmt.CLASH_KEY_NOT_SHOWN
 import io.nekohasekai.sagernet.fmt.ClashNodeFailure
 import io.nekohasekai.sagernet.fmt.ClashNodeResult
 import io.nekohasekai.sagernet.fmt.clashShownPath
 import io.nekohasekai.sagernet.fmt.clashShownValue
+import io.nekohasekai.sagernet.fmt.clashShownValueAt
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.fmt.hysteria.parseHysteriaPorts
@@ -53,13 +53,15 @@ internal class ClashNodeRejected(
     val failure: ClashNodeFailure,
     segments: List<Any?>? = null,
     value: Any? = null,
+    // 节点的 type，只用于判断按 type 才能显示的值（CLASH_ENUM_PATHS_BY_TYPE）
+    type: String? = null,
 ) : Exception(failure.text) {
     // 只有一段的路径（固定的键名）
     constructor(failure: ClashNodeFailure, key: String, value: Any? = null) : this(failure, listOf(key), value)
 
     val path: String? = segments?.let { clashShownPath(it) }
     val shownValue: String? =
-        if (segments != null && segments.joinToString(".") in CLASH_ENUM_PATHS) clashShownValue(value) else null
+        segments?.let { clashShownValueAt(type, it.joinToString("."), value) }
 }
 
 // 读一个键时的意外异常（类型不对、数字格式错）换成封闭集合里的原因并指出键，节点照旧被跳过。
@@ -117,6 +119,7 @@ private fun parseClashEntry(index: Int, entry: Any?, beans: MutableList<Abstract
         // 否则缺省被填成 127.0.0.1:1080 就验不出缺失
         clashEndpointFailure(bean)?.let { throw ClashNodeRejected(it) }
         bean.requireValidEndpoint()
+        clashRejection(type, proxy, bean)?.let { throw it }
         // 字段记录只读输入与解析结果，不改 bean，也不会因记录本身出错让节点被跳过
         val fields = classifyClashFields(type, proxy, bean)
         beans.add(bean)
@@ -141,6 +144,107 @@ private fun clashEndpointFailure(bean: AbstractBean): ClashNodeFailure? {
     }
     val port = bean.serverPort ?: return ClashNodeFailure.MISSING_PORT
     return if (port in 1..65535) null else ClashNodeFailure.INVALID_PORT
+}
+
+// 安全校验不能悄悄丢；导入后永远连不上的节点要大声丢弃（与 TUIC v4、不支持的 SS 插件同一原则）。
+// 下面几类在本应用里没有对应实现或解析器读不到，照常导入只会少一道校验或永远连不上，整个节点拒绝。
+// 涉及安全的键按 mihomo 的读法找（mihomoEntry）：mihomo 认、解析器不认的写法同样是丢了。路径用节点里的原始键名
+private fun clashRejection(type: String, proxy: Map<String, Any?>, bean: AbstractBean): ClashNodeRejected? {
+    fun rejected(failure: ClashNodeFailure, vararg path: Any?) = ClashNodeRejected(failure, path.toList())
+    // mihomo 读法下打开 TLS 的那个键（键名大小写不同、写成整数 1 都算）；没打开时为 null
+    val tls = proxy.mihomoEntry("tls")?.takeIf { it.value.mihomoTrue() }
+    // socks5：本应用的 SOCKS 出站没有 TLS，导入成明文永远连不上
+    if (bean is SOCKSBean) return tls?.let { rejected(ClashNodeFailure.TLS_NOT_SUPPORTED, it.key) }
+    // vmess / vless / http：mihomo 打开了 TLS，导入的节点却是明文
+    if (bean is StandardV2RayBean && bean !is TrojanBean && tls != null && !bean.isTLS()) {
+        return rejected(ClashNodeFailure.SECURITY_SETTING_NOT_READ, tls.key)
+    }
+
+    // 证书固定（TLS 打开时；vmess / vless / http 的 TLS 关着时它不起作用）：值不是 SHA-256 摘要（解析器会丢掉），
+    // 或是摘要却没被解析器读到（键名写法不同）
+    val pin = when (bean) {
+        is StandardV2RayBean -> if (bean.isTLS()) bean.certificateFingerprint.orEmpty() else null
+        is AnyTLSBean -> bean.certificateFingerprint.orEmpty()
+        is HysteriaBean -> bean.certificateFingerprint.orEmpty()
+        is TuicBean -> bean.certificateFingerprint.orEmpty()
+        else -> null
+    }
+    if (pin != null) proxy.mihomoEntry("fingerprint")?.let { fingerprint ->
+        val text = fingerprint.value?.toString().orEmpty()
+        if (text.isNotEmpty() && !isCertificateFingerprint(text)) {
+            return rejected(ClashNodeFailure.CERT_FINGERPRINT_INVALID, fingerprint.key)
+        }
+        if (text.isNotEmpty() && text != pin) return rejected(ClashNodeFailure.SECURITY_SETTING_NOT_READ, fingerprint.key)
+    }
+
+    if (bean is StandardV2RayBean && bean !is HttpBean) {
+        // 带 REALITY 公钥，TLS 却被写在后面的 tls: false 关掉：导入成明文节点（mihomo 对这种配置报 REALITY requires TLS）。
+        // tls: false 写在 reality-opts 前面时 REALITY 照常打开 TLS，不在此列
+        if (!bean.realityPubKey.isNullOrBlank() && !bean.isTLS()) return rejected(ClashNodeFailure.REALITY_WITHOUT_TLS, "tls")
+        // reality-opts：mihomo 只在 public-key 非空时启用 REALITY（RealityOptions.Parse），空公钥或只有 short-id 的
+        // 两边都是普通 TLS，照常导入。只拒三种：不是 map（mihomo 解码失败）；mihomo 读到了公钥（含 Public-Key、
+        // reality_opts 之类的写法），解析器没拿到；vmess / vless 没有可用公钥的 reality-opts 让解析器打开了 TLS，
+        // mihomo 却是明文
+        proxy.mihomoEntry("reality-opts")?.let { reality ->
+            val opts = reality.value
+            if (opts !is Map<*, *>) {
+                if (!opts.isFalseOrEmpty()) return rejected(ClashNodeFailure.REALITY_PUBLIC_KEY_MISSING, reality.key)
+            } else opts.mihomoEntry("public-key")?.let { publicKey ->
+                val text = publicKey.value?.toString().orEmpty()
+                if (text.isNotEmpty() && text != bean.realityPubKey) {
+                    return rejected(ClashNodeFailure.REALITY_PUBLIC_KEY_MISSING, reality.key, publicKey.key)
+                }
+            }
+        }
+        if (bean !is TrojanBean && bean.isTLS() && bean.realityPubKey.isNullOrBlank() && tls == null &&
+            !proxy["tls"].clashBoolean()
+        ) return rejected(ClashNodeFailure.REALITY_PUBLIC_KEY_MISSING, "reality-opts")
+
+        // mihomo 的 VLESS 加密层（encryption 不是空串或 none）
+        if (bean is VMessBean && bean.isVLESS) proxy.mihomoEntry("encryption")?.let { encryption ->
+            val text = encryption.value?.toString()
+            if (text != null && text != "" && text != "none") return rejected(ClashNodeFailure.VLESS_ENCRYPTION, encryption.key)
+        }
+    }
+
+    // TLS 层变体（shadow-tls / restls / jls，vmess 另有 tlsmirror），是否生效按 mihomo 判断；anytls 同样支持前三种
+    val variants = when {
+        bean is VMessBean && !bean.isVLESS -> listOf("shadow-tls-opts", "restls-opts", "jls-opts", "tlsmirror-opts")
+        bean is VMessBean || bean is TrojanBean || bean is AnyTLSBean -> listOf("shadow-tls-opts", "restls-opts", "jls-opts")
+        else -> emptyList()
+    }
+    for (key in variants) {
+        val entry = proxy.mihomoEntry(key) ?: continue
+        if (clashTlsVariantActive(key, entry.value)) return rejected(ClashNodeFailure.TLS_VARIANT, entry.key)
+    }
+    // trojan 的 ss-opts 加密层
+    if (bean is TrojanBean) {
+        val ssOpts = proxy.mihomoEntry("ss-opts")
+        if (ssOpts != null && clashTlsVariantActive("ss-opts", ssOpts.value)) {
+            return rejected(ClashNodeFailure.EXTRA_ENCRYPTION, ssOpts.key)
+        }
+    }
+
+    // ss 的 v2ray-plugin：插件打开 TLS 时的证书固定，本应用的插件做不到（mihomo 的插件选项解码器不把 _ 当作 -）
+    if (bean is ShadowsocksBean && proxy.mihomoEntry("plugin")?.value?.toString() == "v2ray-plugin") {
+        proxy.mihomoEntry("plugin-opts")?.let { pluginOpts ->
+            val opts = pluginOpts.value as? Map<*, *> ?: return@let
+            val pluginPin = opts.mihomoEntry("fingerprint", underscoreAsDash = false) ?: return@let
+            if (opts.mihomoEntry("tls", underscoreAsDash = false)?.value.mihomoTrue() &&
+                !pluginPin.value?.toString().isNullOrEmpty()
+            ) return rejected(ClashNodeFailure.CERT_PIN_NOT_SUPPORTED, pluginOpts.key, pluginPin.key)
+        }
+    }
+
+    // hysteria2 的混淆：构建只会写 salamander，gecko 等其它类型本应用没有。只有已知的混淆类型名才显示
+    // （CLASH_ENUM_PATHS_BY_TYPE：误写进来的口令不显示；hysteria v1 的 obfs 是口令，从不显示）
+    if (bean is HysteriaBean && bean.protocolVersion == 2) proxy.mihomoEntry("obfs")?.let { obfs ->
+        val text = obfs.value?.toString().orEmpty()
+        if (text.isNotEmpty() && text != "salamander") {
+            return ClashNodeRejected(ClashNodeFailure.OBFS_NOT_SUPPORTED, listOf(obfs.key), obfs.value, type)
+        }
+    }
+    return null
 }
 
 // clash 的 type -> bean。不认识的 type 返回 null，按类型不支持报告；已知类型的坏节点抛异常
@@ -174,6 +278,9 @@ private fun parseClashHttp(proxy: Map<String, Any?>) = HttpBean().apply {
     sni = proxy["sni"]?.toString()
     name = proxy["name"]?.toString()
     allowInsecure = proxy["skip-cert-verify"].clashBoolean()
+    // 证书固定（mihomo 只在 TLS 打开时用）：合法摘要读进来，本应用的 HTTP 出站做不到，构建时由选核明确拒绝
+    // （PROTOCOL_CERTIFICATE_PIN），不再悄悄丢掉；不合法的值整个节点被拒（clashRejection）
+    if (isTLS()) proxy["fingerprint"]?.let { certificateFingerprint = parseCertificateFingerprint(it) }
 }
 
 private fun parseClashShadowsocks(proxy: Map<String, Any?>): ShadowsocksBean {

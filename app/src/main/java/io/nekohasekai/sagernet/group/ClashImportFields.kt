@@ -1,7 +1,6 @@
 package io.nekohasekai.sagernet.group
 
 import io.nekohasekai.sagernet.fmt.AbstractBean
-import io.nekohasekai.sagernet.fmt.CLASH_ENUM_PATHS
 import io.nekohasekai.sagernet.fmt.ClashFieldReason
 import io.nekohasekai.sagernet.fmt.ClashFieldReason.DEFAULT_VALUE
 import io.nekohasekai.sagernet.fmt.ClashFieldReason.DIAL_ADDRESS
@@ -17,7 +16,6 @@ import io.nekohasekai.sagernet.fmt.ClashFieldReason.NOT_SUPPORTED
 import io.nekohasekai.sagernet.fmt.ClashFieldReason.OVERRIDDEN
 import io.nekohasekai.sagernet.fmt.ClashFieldReason.RATE_UNIT_DROPPED
 import io.nekohasekai.sagernet.fmt.ClashFieldReason.REALITY_IMPLIES_TLS
-import io.nekohasekai.sagernet.fmt.ClashFieldReason.REALITY_NO_PUBLIC_KEY
 import io.nekohasekai.sagernet.fmt.ClashFieldReason.ROUNDED
 import io.nekohasekai.sagernet.fmt.ClashFieldReason.SEMANTICS_DIFFER
 import io.nekohasekai.sagernet.fmt.ClashFieldReason.UNIT_CONVERTED
@@ -26,7 +24,7 @@ import io.nekohasekai.sagernet.fmt.ClashFieldReason.UNKNOWN_VALUE
 import io.nekohasekai.sagernet.fmt.ClashFieldRecord
 import io.nekohasekai.sagernet.fmt.ClashFieldResult
 import io.nekohasekai.sagernet.fmt.clashShownPath
-import io.nekohasekai.sagernet.fmt.clashShownValue
+import io.nekohasekai.sagernet.fmt.clashShownValueAt
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
@@ -73,7 +71,9 @@ private typealias ClashInactive = (List<String>) -> ClashFieldReason?
 // 解析出的节点 -> 字段记录。记录本身出错时不让节点被跳过，只记一条「未分类」
 internal fun classifyClashFields(type: String, proxy: Map<String, Any?>, bean: AbstractBean): List<ClashFieldRecord> = try {
     // anytls / hysteria / tuic / wireguard 的解析器把键里的 _ 当作 -，其余按原样
-    val fields = ClashFields(proxy, normalizeKeys = bean is AnyTLSBean || bean is HysteriaBean || bean is TuicBean || bean is WireGuardBean)
+    val fields = ClashFields(
+        type, proxy, normalizeKeys = bean is AnyTLSBean || bean is HysteriaBean || bean is TuicBean || bean is WireGuardBean,
+    )
     fields.kept("name")
     if (type == "hy2") fields.converted(EQUIVALENT_VALUE, "type") else fields.kept("type")
     val (table, inactive) = when (bean) {
@@ -94,15 +94,47 @@ internal fun classifyClashFields(type: String, proxy: Map<String, Any?>, bean: A
 
 private fun normalizeClashKey(key: String) = key.lowercase().replace('_', '-')
 
-private fun Any?.isFalseOrEmpty(): Boolean = when (this) {
+internal fun Any?.isFalseOrEmpty(): Boolean = when (this) {
     null -> true
     is Map<*, *> -> isEmpty()
     is List<*> -> isEmpty()
     else -> toString().let { it.isBlank() || it.lowercase() in setOf("false", "no", "off", "0") }
 }
 
-// 一个节点的字段记录。路径在内部是原始键的序列，写进记录时才按显示规则处理
-internal class ClashFields(private val proxy: Map<String, Any?>, private val normalizeKeys: Boolean) {
+// mihomo 解码时找键的办法（common/structure 的 Decoder）：先找原样的键，没有再不区分大小写地找；代理选项的解码器
+// 还把 _ 当作 -（ss 的 plugin-opts 用的解码器不当）。同一个键写了几种拼法时 mihomo 取哪个随 map 的遍历顺序而定，
+// 这里取最后一个（与解析器按键序覆盖一致）。返回找到的条目，路径用它的原始键名
+internal fun Map<*, *>.mihomoEntry(name: String, underscoreAsDash: Boolean = true): Map.Entry<*, *>? {
+    entries.firstOrNull { it.key == name }?.let { return it }
+    return entries.lastOrNull { (key, _) ->
+        key is String && (if (underscoreAsDash) key.replace('_', '-') else key).equals(name, ignoreCase = true)
+    }
+}
+
+// mihomo 的布尔解码（WeaklyTypedInput）：true，或不是 0 的整数。本应用的 YAML 把标量都读成字符串，这里按字面判断；
+// yes / on 沿用 clashBoolean 的宽松读法
+internal fun Any?.mihomoTrue(): Boolean = clashBoolean() || this?.toString()?.let { clashInt(it) }.let { it != null && it != 0L }
+
+// YAML 的整数字面（十进制或 0x / 0o / 0b 前缀，可带正负号与 _）；不是整数时为 null
+private fun clashInt(text: String): Long? {
+    var digits = text.replace("_", "")
+    val negative = digits.startsWith("-")
+    if (negative || digits.startsWith("+")) digits = digits.substring(1)
+    val value = when {
+        digits.startsWith("0x", ignoreCase = true) -> digits.substring(2).toLongOrNull(16)
+        digits.startsWith("0o", ignoreCase = true) -> digits.substring(2).toLongOrNull(8)
+        digits.startsWith("0b", ignoreCase = true) -> digits.substring(2).toLongOrNull(2)
+        else -> digits.toLongOrNull()
+    } ?: return null
+    return if (negative) -value else value
+}
+
+// 一个节点的字段记录。路径在内部是原始键的序列，写进记录时才按显示规则处理；type 只用于判断哪些值可以显示
+internal class ClashFields(
+    private val type: String,
+    private val proxy: Map<String, Any?>,
+    private val normalizeKeys: Boolean,
+) {
     private val records = HashMap<List<String>, ClashFieldRecord>()
     private val opened = HashSet<List<String>>()
 
@@ -140,7 +172,7 @@ internal class ClashFields(private val proxy: Map<String, Any?>, private val nor
 
     private fun shownValue(path: List<String>, value: Any?): String? {
         val normalized = path.joinToString(".") { normalizeClashKey(it) }
-        return if (normalized in CLASH_ENUM_PATHS) clashShownValue(value) else null
+        return clashShownValueAt(type, normalized, value)
     }
 
     fun recordAt(path: List<String>, result: ClashFieldResult, reason: ClashFieldReason?) {
@@ -314,13 +346,16 @@ private val WIREGUARD_KEYS = BASIC_KEYS + setOf(
 private fun ClashFields.tlsOffInactive(tlsOn: Boolean): ClashInactive =
     { path -> if (!tlsOn && path[0] in TLS_ONLY_KEYS) INACTIVE else null }
 
-// fingerprint：SHA-256 摘要原样保留；其它形状的值被解析器丢掉（TLS 关着时本来就不起作用）
-private fun ClashFields.fingerprint(tlsOn: Boolean) {
+// fingerprint：SHA-256 摘要原样保留。其它形状的值被解析器丢掉：TLS 打开时整个节点被拒（clashRejection），
+// 能到这里的只有 TLS 关着、本来就不起作用的。pinSupported 为假的类型（http、hysteria、hysteria2、tuic）本应用
+// 做不到证书固定：摘要照样读进来，构建时被选核明确拒绝（PROTOCOL_CERTIFICATE_PIN），不再悄悄丢，这里记有损
+private fun ClashFields.fingerprint(pinSupported: Boolean = true) {
     val value = text("fingerprint") ?: return
     when {
-        value.isEmpty() || isCertificateFingerprint(value) -> kept("fingerprint")
-        !tlsOn -> ignored(INACTIVE, "fingerprint")
-        else -> ignored(INVALID_DROPPED, "fingerprint")
+        value.isEmpty() -> kept("fingerprint")
+        !isCertificateFingerprint(value) -> ignored(INACTIVE, "fingerprint")
+        pinSupported -> kept("fingerprint")
+        else -> ignored(NOT_SUPPORTED, "fingerprint")
     }
 }
 
@@ -339,6 +374,8 @@ private fun ClashFields.socks(): Pair<Set<String>, ClashInactive> {
 private fun ClashFields.http(bean: HttpBean): Pair<Set<String>, ClashInactive> {
     kept("server"); kept("port"); kept("username"); kept("password")
     kept("tls"); kept("sni"); kept("skip-cert-verify")
+    // 只在 TLS 打开时读（关着时随下面的 TLS_ONLY_KEYS 记无影响）
+    if (bean.security == "tls") fingerprint(pinSupported = false)
     return HTTP_KEYS to tlsOffInactive(bean.security == "tls")
 }
 
@@ -396,16 +433,20 @@ private fun ClashFields.shadowsocks(bean: ShadowsocksBean): Pair<Set<String>, Cl
     }
 }
 
-// 带 mihomo 激活条件的 TLS 变体 / 附加加密层子对象：激活时本应用没有对应实现
-private fun ClashFields.tlsVariantActive(key: String): Boolean {
-    val opts = value(key) as? Map<*, *> ?: return false
-    fun has(name: String) = !opts[name].isFalseOrEmpty()
+// 带 mihomo 激活条件的 TLS 变体 / 附加加密层子对象是否生效（判断同 mihomo 的 *Options.Parse 与
+// trojan.go 的 ss-opts）。生效时本应用没有对应实现：vmess / vless / trojan / anytls 上整个节点被拒（clashRejection）。
+// 子键按 mihomo 的读法找；字符串字段非空即生效（"false"、"0" 也算），version 不是 0 即生效，enabled 按 mihomo 的布尔
+internal fun clashTlsVariantActive(key: String, value: Any?): Boolean {
+    val opts = value as? Map<*, *> ?: return false
+    fun raw(name: String) = opts.mihomoEntry(name)?.value
+    fun text(name: String) = raw(name)?.toString().orEmpty().isNotEmpty()
+    fun number(name: String) = raw(name)?.toString().orEmpty().let { it.isNotEmpty() && clashInt(it) != 0L }
     return when (key) {
-        "shadow-tls-opts" -> has("password") || has("version")
-        "restls-opts" -> has("password") || has("version-hint") || has("restls-script")
-        "jls-opts" -> has("username") || has("password")
-        "tlsmirror-opts" -> has("primary-key")
-        "ss-opts" -> opts["enabled"].clashBoolean()
+        "shadow-tls-opts" -> text("password") || number("version")
+        "restls-opts" -> text("password") || text("version-hint") || text("restls-script")
+        "jls-opts" -> text("username") || text("password")
+        "tlsmirror-opts" -> text("primary-key")
+        "ss-opts" -> raw("enabled").mihomoTrue()
         else -> false
     }
 }
@@ -415,7 +456,7 @@ private fun ClashFields.tlsVariants(keys: List<String>) {
         val value = value(key) ?: continue
         when {
             value !is Map<*, *> -> ignored(INVALID_DROPPED, key)
-            tlsVariantActive(key) -> ignored(NOT_READ, key)
+            clashTlsVariantActive(key, value) -> ignored(NOT_READ, key)
             else -> ignored(INACTIVE, key)
         }
     }
@@ -484,21 +525,15 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
 
     val reality = value("reality-opts")
     val realityKey = !bean.realityPubKey.isNullOrBlank()
+    // 没有可用公钥的 reality-opts 把 TLS 打开、带公钥的 REALITY 被写在后面的 tls: false 关掉，这两种整个节点被拒
+    // （clashRejection），所以 tls 与最终状态不一致只会是带公钥的 REALITY 打开了 TLS
     if (!trojan && present("tls")) {
-        when {
-            flag("tls") == tlsOn -> kept("tls")
-            realityKey -> converted(REALITY_IMPLIES_TLS, "tls")
-            // reality-opts 没有公钥也会把 TLS 打开
-            else -> ignored(SEMANTICS_DIFFER, "tls")
-        }
+        if (flag("tls") == tlsOn) kept("tls") else converted(REALITY_IMPLIES_TLS, "tls")
     }
     when {
-        reality == null -> Unit
-        reality !is Map<*, *> -> ignored(INVALID_DROPPED, "reality-opts")
-        reality.isEmpty() -> Unit
-        !realityKey -> ignored(REALITY_NO_PUBLIC_KEY, "reality-opts")
-        // 解析器按键序处理：写在 reality-opts 后面的 tls: false 把 TLS 关掉，REALITY 随之不起作用
-        !tlsOn -> ignored(OVERRIDDEN, "reality-opts")
+        reality.isFalseOrEmpty() -> Unit
+        // 没有公钥：mihomo 的 RealityOptions.Parse 不启用 REALITY，本应用同样不用，整个对象不起作用
+        !realityKey -> ignored(INACTIVE, "reality-opts")
         else -> {
             kept("reality-opts", "public-key"); kept("reality-opts", "short-id")
             // sing-box 的 REALITY 不提供 X25519MLKEM768（libcore/sing-box/NEKO.md），false 与之相同
@@ -516,7 +551,7 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
     keptIfFinal(bean.sni, sniKey)
     alpnList(bean.alpn)
     kept("skip-cert-verify")
-    fingerprint(tlsOn)
+    fingerprint()
     kept("client-fingerprint")
 
     val network = text("network")
@@ -562,12 +597,8 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
             else -> listOf("shadow-tls-opts", "restls-opts", "jls-opts")
         }
     )
-    if (vless) when (text("encryption")) {
-        null -> Unit
-        // mihomo 的 encryption.NewClient 对空串与 none 都不加密
-        "", "none" -> ignored(MATCHES_RESULT, "encryption")
-        else -> ignored(NOT_READ, "encryption")
-    }
+    // mihomo 的 encryption.NewClient 对空串与 none 都不加密；其它取值整个节点被拒（clashRejection）
+    if (vless) ignored(MATCHES_RESULT, "encryption")
 
     val table = when {
         vmess -> VMESS_KEYS
@@ -832,7 +863,7 @@ private fun ClashFields.anyTLS(bean: AnyTLSBean): Pair<Set<String>, ClashInactiv
     for (key in listOf("certificate", "private-key")) {
         if (present(key) && !value(key).isFalseOrEmpty()) ignored(MTLS_CLIENT_CERT, key)
     }
-    fingerprint(true)
+    fingerprint()
     alpnList(bean.alpn)
     when (val ech = value("ech-opts")) {
         null -> Unit
@@ -888,7 +919,7 @@ private fun ClashFields.rate(key: String, finalMbps: Int?) {
 private fun ClashFields.hysteria(bean: HysteriaBean): Pair<Set<String>, ClashInactive> {
     val v1 = bean.protocolVersion == 1
     kept("server"); kept("sni"); kept("skip-cert-verify"); kept("ca-str")
-    fingerprint(true)
+    fingerprint(pinSupported = false)
     // ports 在时端口跳跃用它，port 两边都不再用
     val hopping = !text("ports").isNullOrBlank()
     if (hopping) ignored(INACTIVE, "port") else kept("port")
@@ -958,7 +989,7 @@ private fun ClashFields.hysteria(bean: HysteriaBean): Pair<Set<String>, ClashIna
 private fun ClashFields.tuic(bean: TuicBean): Pair<Set<String>, ClashInactive> {
     kept("server"); kept("port"); kept("uuid"); kept("password"); kept("skip-cert-verify")
     kept("disable-sni"); kept("reduce-rtt"); kept("sni"); kept("ca-str"); kept("congestion-controller")
-    fingerprint(true)
+    fingerprint(pinSupported = false)
     alpnList(bean.alpn)
     // ip 是实际拨号的地址，server 退为 SNI（mihomo 同样如此）
     if (!text("ip").isNullOrBlank()) converted(DIAL_ADDRESS, "ip") else ignored(DEFAULT_VALUE, "ip")

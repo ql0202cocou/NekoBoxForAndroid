@@ -17,6 +17,22 @@ val CLASH_ENUM_PATHS = setOf(
     "ip-version", "alpn",
 )
 
+// 只对某些 type 可以显示值的键，且只显示列出的取值，其它值一律是占位串：hysteria2（hy2）的 obfs 是混淆类型名，
+// 但用户可能把口令误写进去（与 hysteria v1 混淆），所以只显示已知的类型名；hysteria（v1）的 obfs 是混淆口令，不显示
+private val HYSTERIA2_OBFS_TYPES = setOf("salamander", "gecko")
+val CLASH_ENUM_PATHS_BY_TYPE: Map<String, Map<String, Set<String>>> = mapOf(
+    "hysteria2" to mapOf("obfs" to HYSTERIA2_OBFS_TYPES),
+    "hy2" to mapOf("obfs" to HYSTERIA2_OBFS_TYPES),
+)
+
+// 字段路径的值在诊断文本里显示成什么；null 表示这个路径不带值。type 是节点的 type
+// （不知道时为 null，只按 CLASH_ENUM_PATHS 判断）
+fun clashShownValueAt(type: String?, path: String, value: Any?): String? {
+    if (path in CLASH_ENUM_PATHS) return clashShownValue(value)
+    val allowed = type?.let { CLASH_ENUM_PATHS_BY_TYPE[it]?.get(path) } ?: return null
+    return if (value?.toString() in allowed) clashShownValue(value) else CLASH_VALUE_NOT_SHOWN
+}
+
 fun clashShownValue(value: Any?): String {
     // 列表（alpn）逐项判断，任何一项不能显示就整体不显示
     val items = if (value is List<*>) value.map { it?.toString() ?: "" } else listOf(value?.toString() ?: "")
@@ -52,7 +68,6 @@ enum class ClashFieldReason(val text: String, val lossy: Boolean = true) {
     SEMANTICS_DIFFER("applied differently than mihomo"),
     MTLS_CLIENT_CERT("mTLS client certificate is not supported"),
     NOT_SUPPORTED("not supported"),
-    REALITY_NO_PUBLIC_KEY("REALITY options without public-key"),
     NOT_CLASSIFIED("fields not classified"),
 
     // IGNORED，无影响：随节点而定的四种
@@ -72,7 +87,7 @@ enum class ClashFieldReason(val text: String, val lossy: Boolean = true) {
     NO_WIREGUARD_IP_STACK("mihomo user-space stack choice, no counterpart", false),
 }
 
-// 一个字段的结果。path 已按显示规则处理；shownValue 只有 CLASH_ENUM_PATHS 里的键才有
+// 一个字段的结果。path 已按显示规则处理；shownValue 只有 CLASH_ENUM_PATHS / CLASH_ENUM_PATHS_BY_TYPE 里的键才有
 data class ClashFieldRecord(
     val path: String,
     val result: ClashFieldResult,
@@ -93,6 +108,18 @@ enum class ClashNodeFailure(val text: String) {
     UNSUPPORTED_TRANSPORT("unsupported transport"),
     UNSUPPORTED_SS_PLUGIN("unsupported shadowsocks plugin"),
     TUIC_V4("TUIC v4 (token) is not supported"),
+
+    // 本应用没有对应实现或读不到：照常导入只会少一道安全校验或永远连不上（clashRejection）
+    CERT_FINGERPRINT_INVALID("fingerprint is not a SHA-256 certificate digest"),
+    REALITY_PUBLIC_KEY_MISSING("REALITY options without public-key"),
+    VLESS_ENCRYPTION("VLESS encryption is not supported"),
+    TLS_VARIANT("TLS variant is not supported"),
+    EXTRA_ENCRYPTION("extra encryption layer is not supported"),
+    REALITY_WITHOUT_TLS("REALITY with TLS turned off"),
+    SECURITY_SETTING_NOT_READ("security setting not read"),
+    TLS_NOT_SUPPORTED("TLS is not supported for this type"),
+    CERT_PIN_NOT_SUPPORTED("certificate pinning is not supported"),
+    OBFS_NOT_SUPPORTED("obfs type is not supported"),
 
     // 兜底：detail 是异常类名
     OTHER("parse error"),

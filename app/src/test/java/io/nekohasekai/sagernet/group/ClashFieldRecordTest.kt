@@ -344,9 +344,6 @@ class ClashFieldRecordTest {
         val grpc = fields("{name: v, type: vmess, server: v.example.com, port: 443, uuid: $uuid, network: grpc, grpc-opts: {grpc-service-name: svc}, ws-opts: {path: /ws}}")
         assertField(grpc, "grpc-opts.grpc-service-name", IGNORED, ClashFieldReason.OVERRIDDEN)
         assertField(grpc, "ws-opts.path", IGNORED, ClashFieldReason.SEMANTICS_DIFFER)
-
-        val reality = fields("{name: l, type: vless, server: l.example.com, port: 443, uuid: $uuid, reality-opts: {public-key: $pbk}, tls: false}")
-        assertField(reality, "reality-opts", IGNORED, ClashFieldReason.OVERRIDDEN)
     }
 
     // ---------- 等价转换不计损失 ----------
@@ -371,11 +368,8 @@ class ClashFieldRecordTest {
     }
 
     @Test
-    fun `不是 SHA-256 摘要的 fingerprint 在 TLS 打开时记有损，关着时无影响`() {
-        assertField(
-            fields("{name: t, type: trojan, server: t.example.com, port: 443, password: pw-o, fingerprint: chrome}"),
-            "fingerprint", IGNORED, ClashFieldReason.INVALID_DROPPED,
-        )
+    fun `TLS 关着时不是 SHA-256 摘要的 fingerprint 无影响`() {
+        // TLS 打开时整个节点被拒，见 ClashRejectionTest
         assertField(
             fields("{name: v, type: vmess, server: v.example.com, port: 443, uuid: $uuid, fingerprint: chrome}"),
             "fingerprint", IGNORED, ClashFieldReason.INACTIVE,
