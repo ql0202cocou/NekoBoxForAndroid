@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dock 项的背景：选中时是全圆角的 secondaryContainer 胶囊（大小同项），按压涟漪限在同一胶囊内 -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="?attr/colorControlHighlight">
+    <item android:id="@android:id/mask">
+        <shape android:shape="rectangle">
+            <corners android:radius="@dimen/nav_dock_item_radius" />
+            <solid android:color="@android:color/white" />
+        </shape>
+    </item>
+    <item>
+        <selector
+            android:enterFadeDuration="200"
+            android:exitFadeDuration="200">
+            <item android:state_selected="true">
+                <shape android:shape="rectangle">
+                    <corners android:radius="@dimen/nav_dock_item_radius" />
+                    <solid android:color="?attr/colorSecondaryContainer" />
+                </shape>
+            </item>
+        </selector>
+    </item>
+</ripple>

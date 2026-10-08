@@ -11,6 +11,8 @@ import io.nekohasekai.sagernet.widget.padForSystemBars
 
 class ToolsFragment : ToolbarFragment(R.layout.layout_tools) {
 
+    override val opensFromSettings = true
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         toolbar.setTitle(R.string.menu_tools)

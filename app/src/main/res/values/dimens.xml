@@ -5,4 +5,13 @@
          mtrl_bottomappbar_fab_bottom_margin）；FAB 高 56dp（design_fab_size_normal），
          再留 16dp 间隔：16 + 56 + 16。导航栏高度另外加在代码里 -->
     <dimen name="fab_list_clearance">88dp</dimen>
+    <!-- 主界面底部悬浮 Dock：高 64dp，全圆角，内边距 4dp，项高 56dp；底边在导航栏上方 2dp；
+         右侧让出连接按钮：12（右边距）+ 56（按钮）+ 8（间隙） -->
+    <dimen name="nav_dock_height">64dp</dimen>
+    <dimen name="nav_dock_radius">32dp</dimen>
+    <dimen name="nav_dock_padding">4dp</dimen>
+    <dimen name="nav_dock_elevation">3dp</dimen>
+    <dimen name="nav_dock_item_radius">28dp</dimen>
+    <dimen name="nav_dock_margin_bottom">2dp</dimen>
+    <dimen name="nav_dock_margin_end">76dp</dimen>
 </resources>

@@ -27,6 +27,8 @@ import io.nekohasekai.sagernet.bg.ServiceRegistry
 
 class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenuItemClickListener {
 
+    override val opensFromSettings = true
+
     private var mWebView: WebView? = null
     private var webviewContainer: ViewGroup? = null
 

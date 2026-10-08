@@ -8,18 +8,18 @@ import android.net.Uri
 import androidx.core.net.toUri
 import android.os.Build
 import android.os.Bundle
+import android.os.Parcelable
 import android.os.RemoteException
 import android.view.KeyEvent
-import android.view.MenuItem
 import androidx.activity.addCallback
 import androidx.annotation.IdRes
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
 import androidx.core.view.doOnLayout
 import androidx.fragment.app.Fragment
 import androidx.preference.PreferenceDataStore
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.navigation.NavigationView
 import com.google.android.material.snackbar.Snackbar
 import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.GroupType
@@ -51,32 +51,40 @@ import io.nekohasekai.sagernet.ktx.parseProxies
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.widget.padForSystemBars
+import io.nekohasekai.sagernet.widget.safeDrawingTypes
+import io.nekohasekai.sagernet.widget.systemBarMargins
 import moe.matsuri.nb4a.utils.Util
 import io.nekohasekai.sagernet.bg.ServiceRegistry
 
 class MainActivity : ThemedActivity(),
     SagerConnection.Callback,
-    OnPreferenceDataStoreChangeListener,
-    NavigationView.OnNavigationItemSelectedListener {
+    OnPreferenceDataStoreChangeListener {
 
     lateinit var binding: LayoutMainBinding
-    lateinit var navigation: NavigationView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         binding = LayoutMainBinding.inflate(layoutInflater)
         binding.fab.initProgress(binding.fabProgress)
-        navigation = binding.navView
-        navigation.setNavigationItemSelectedListener(this)
+        binding.dock.onItemSelected = { id ->
+            // 已在该页时不重建页面；二级页面上点「设置」仍回到设置页
+            if (pageIdOf(currentFragment()) != id) displayFragmentWithId(id)
+        }
 
         // Edge-to-edge: the gesture pill overlaps the bottom of the stats bar. Pad its
         // inner layout so the text stays above the pill while the bar's background band
         // extends under it. The FAB is anchored to the bar's top edge, which only moves
         // up as the bar grows.
         binding.statsContent.padForSystemBars()
-        // 抽屉的上下插入区由 NavigationView 自己处理（layout_main 里的 fitsSystemWindows），
-        // 起始侧（横屏时的导航栏、刘海）由 InsetNavigationView 补上
+        // Dock 悬浮在导航栏上方，横屏时也避开侧边的导航栏与刘海。插入区在外层 coordinator 上
+        // 统一取：它先于所有子视图收到，API 30 以下某个页面（仪表板的 WebView 容器）把插入区
+        // 清零后，排在后面的兄弟视图就只能收到清零后的值
+        val dockMargins = binding.dock.systemBarMargins()
+        ViewCompat.setOnApplyWindowInsetsListener(binding.coordinator) { _, insets ->
+            dockMargins(insets.getInsets(safeDrawingTypes))
+            insets
+        }
 
         if (savedInstanceState == null) {
             displayFragmentWithId(R.id.nav_configuration)
@@ -87,9 +95,10 @@ class MainActivity : ThemedActivity(),
             // StatsBar 的收起距离在它的 Behavior 布局完成后才确定，早于此收起会让它
             // 原地隐身，FAB 回到配置页时就停在 StatsBar 展开时的位置，所以等整个
             // coordinator 布局完再无动画收起，仍早于第一次绘制
-            val visible = bottomControlsVisible(
-                supportFragmentManager.findFragmentById(R.id.fragment_holder)
-            )
+            val fragment = currentFragment()
+            // Dock 的选中项同样按恢复出来的页面设置（二级页面选中「设置」）
+            binding.dock.select(dockItemOf(fragment))
+            val visible = bottomControlsVisible(fragment)
             if (visible != null) {
                 binding.stats.allowShow = visible
                 if (visible) binding.fab.show() else {
@@ -98,11 +107,16 @@ class MainActivity : ThemedActivity(),
                 }
             }
         }
+        // 返回：二级页面回设置页，其它一级页面回配置页，配置页退到后台
         onBackPressedDispatcher.addCallback {
-            if (supportFragmentManager.findFragmentById(R.id.fragment_holder) is ConfigurationFragment) {
-                moveTaskToBack(true)
-            } else {
-                displayFragmentWithId(R.id.nav_configuration)
+            val fragment = currentFragment()
+            when {
+                fragment is ConfigurationFragment -> moveTaskToBack(true)
+                (fragment as? ToolbarFragment)?.opensFromSettings == true -> {
+                    displayFragmentWithId(R.id.nav_settings)
+                }
+
+                else -> displayFragmentWithId(R.id.nav_configuration)
             }
         }
 
@@ -123,8 +137,6 @@ class MainActivity : ThemedActivity(),
             onNewIntent(intent)
         }
 
-        refreshNavMenu(DataStore.enableClashAPI)
-
         // sdk 33 notification
         if (Build.VERSION.SDK_INT >= 33) {
             val checkPermission =
@@ -143,12 +155,6 @@ class MainActivity : ThemedActivity(),
                 .setMessage(R.string.preview_version_hint)
                 .setPositiveButton(android.R.string.ok, null)
                 .show()
-        }
-    }
-
-    fun refreshNavMenu(clashApi: Boolean) {
-        if (::navigation.isInitialized) {
-            navigation.menu.findItem(R.id.nav_traffic)?.isVisible = clashApi
         }
     }
 
@@ -345,14 +351,6 @@ class MainActivity : ThemedActivity(),
             .show()
     }
 
-    override fun onNavigationItemSelected(item: MenuItem): Boolean {
-        if (item.isChecked) binding.drawerLayout.closeDrawers() else {
-            return displayFragmentWithId(item.itemId)
-        }
-        return true
-    }
-
-
     // 配置页总是显示 FAB 并允许 StatsBar 出现；其它页面除非开了「底栏」，否则两者都隐藏，
     // StatsBar 也不再随连接状态弹出（changeState 只在 allowShow 时 performShow）。
     // 返回 null 表示保持现状（其它页面且开了「底栏」）
@@ -385,7 +383,49 @@ class MainActivity : ThemedActivity(),
         supportFragmentManager.beginTransaction()
             .replace(R.id.fragment_holder, fragment)
             .commitAllowingStateLoss()
-        binding.drawerLayout.closeDrawers()
+        binding.dock.select(dockItemOf(fragment))
+        settingsListState = when {
+            // 从设置页进二级页面：记下设置列表的滚动位置（替换是异步提交的，此时设置页还在）
+            fragment.opensFromSettings -> (currentFragment() as? SettingsFragment)?.let {
+                (supportFragmentManager.findFragmentById(R.id.settings) as? SettingsPreferenceFragment)
+                    ?.listState()
+            }
+            // 回到设置页：交给新的设置列表恢复（takeSettingsListState）
+            fragment is SettingsFragment -> settingsListState
+            else -> null
+        }
+    }
+
+    // 设置页末尾的四个入口进入二级页面前，设置列表的滚动状态；返回设置页时恢复，免得每次从顶部滚到底
+    private var settingsListState: Parcelable? = null
+
+    /** 新的设置列表取走进入二级页面前保存的滚动状态，只取一次 */
+    fun takeSettingsListState(): Parcelable? = settingsListState.also { settingsListState = null }
+
+    private fun currentFragment(): Fragment? =
+        supportFragmentManager.findFragmentById(R.id.fragment_holder)
+
+    // 页面在 Dock 上对应的项：二级页面都从设置页进入，选中「设置」
+    @IdRes
+    private fun dockItemOf(fragment: Fragment?): Int = when (fragment) {
+        is ConfigurationFragment -> R.id.nav_configuration
+        is GroupFragment -> R.id.nav_group
+        is RouteFragment -> R.id.nav_route
+        else -> R.id.nav_settings
+    }
+
+    // 当前页面自己的 id（与 displayFragmentWithId 的分发一致），未知页面为 0
+    @IdRes
+    private fun pageIdOf(fragment: Fragment?): Int = when (fragment) {
+        is ConfigurationFragment -> R.id.nav_configuration
+        is GroupFragment -> R.id.nav_group
+        is RouteFragment -> R.id.nav_route
+        is SettingsFragment -> R.id.nav_settings
+        is WebviewFragment -> R.id.nav_traffic
+        is ToolsFragment -> R.id.nav_tools
+        is LogcatFragment -> R.id.nav_logcat
+        is AboutFragment -> R.id.nav_about
+        else -> 0
     }
 
     fun displayFragmentWithId(@IdRes id: Int): Boolean {
@@ -405,7 +445,6 @@ class MainActivity : ThemedActivity(),
 
             else -> return false
         }
-        navigation.menu.findItem(id).isChecked = true
         return true
     }
 
@@ -428,10 +467,9 @@ class MainActivity : ThemedActivity(),
     // callers show() the returned Snackbar
     @SuppressLint("ShowToast")
     override fun snackbarInternal(text: CharSequence): Snackbar {
+        // 显示在 Dock 之上（Dock 在所有页面常驻）
         return Snackbar.make(binding.coordinator, text, Snackbar.LENGTH_LONG).apply {
-            if (binding.fab.isShown) {
-                anchorView = binding.fab
-            }
+            anchorView = binding.dock
         }
     }
 
@@ -511,26 +549,11 @@ class MainActivity : ThemedActivity(),
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        when (keyCode) {
-            KeyEvent.KEYCODE_DPAD_LEFT -> {
-                if (super.onKeyDown(keyCode, event)) return true
-                binding.drawerLayout.open()
-                navigation.requestFocus()
-            }
-
-            KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                if (binding.drawerLayout.isOpen) {
-                    binding.drawerLayout.close()
-                    return true
-                }
-            }
-        }
-
+        // 焦点在 Dock 上时方向键只走系统的焦点移动，不转给页面：配置页会把焦点抢回节点列表，
+        // 遥控器用户就没法在 Dock 里左右移动
+        if (binding.dock.hasFocus()) return super.onKeyDown(keyCode, event)
         if (super.onKeyDown(keyCode, event)) return true
-        if (binding.drawerLayout.isOpen) return false
-
-        val fragment =
-            supportFragmentManager.findFragmentById(R.id.fragment_holder) as? ToolbarFragment
+        val fragment = currentFragment() as? ToolbarFragment
         return fragment != null && fragment.onKeyDown(keyCode, event)
     }
 

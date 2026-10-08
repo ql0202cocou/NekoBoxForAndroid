@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dock 的一项：图标 24dp、间距 3dp、标签。朗读用整项的 contentDescription，子视图不单独朗读 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="0dp"
+    android:layout_height="match_parent"
+    android:layout_weight="1"
+    android:background="@drawable/nav_dock_item_background"
+    android:clickable="true"
+    android:focusable="true"
+    android:gravity="center"
+    android:orientation="vertical">
+
+    <ImageView
+        android:id="@+id/nav_dock_icon"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:importantForAccessibility="no"
+        app:tint="@color/nav_dock_item" />
+
+    <!-- 11sp 单行不截断：360dp 宽的屏上一项只有 66dp，英文「Configuration」放不下 11sp，
+         靠自动缩放降到 9–11sp 之间；高度随字号（至少 16dp），字体放大时不被压回小字号。
+         9sp 仍放不下时才在末尾显示省略号，不折行裁字 -->
+    <TextView
+        android:id="@+id/nav_dock_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:ellipsize="end"
+        android:fontFamily="sans-serif-medium"
+        android:gravity="center"
+        android:importantForAccessibility="no"
+        android:maxLines="1"
+        android:minHeight="16dp"
+        android:textColor="@color/nav_dock_item"
+        android:textSize="11sp"
+        app:autoSizeMaxTextSize="11sp"
+        app:autoSizeMinTextSize="9sp"
+        app:autoSizeStepGranularity="1sp"
+        app:autoSizeTextType="uniform" />
+
+</LinearLayout>

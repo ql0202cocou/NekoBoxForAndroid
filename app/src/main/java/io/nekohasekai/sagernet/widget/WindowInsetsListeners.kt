@@ -7,6 +7,7 @@ import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.doOnAttach
+import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
 
 /** The inset types a view must keep its content clear of: system bars and display cutouts. */
@@ -61,4 +62,24 @@ fun View.padForSystemBars(
     // A view added after the window's initial dispatch (fragment swap) gets no insets
     // until someone asks; ask as soon as it is attached.
     doOnAttach { ViewCompat.requestApplyInsets(it) }
+}
+
+/**
+ * 悬浮在内容上方、贴底边的控件（主界面的 Dock 等）：在布局声明的起止与底部外边距上，加上
+ * 系统栏与刘海的插入区。返回的函数由宿主在收到插入区时调用，这里不注册监听：宿主在更上层
+ * 统一取插入区，避免被前面的兄弟视图清零（见 [padForSystemBars] 的 consume）。
+ */
+fun View.systemBarMargins(): (Insets) -> Unit {
+    val declared = layoutParams as ViewGroup.MarginLayoutParams
+    val baseStart = declared.marginStart
+    val baseEnd = declared.marginEnd
+    val baseBottom = declared.bottomMargin
+    return { safeDrawing ->
+        val rtl = layoutDirection == View.LAYOUT_DIRECTION_RTL
+        updateLayoutParams<ViewGroup.MarginLayoutParams> {
+            marginStart = baseStart + if (rtl) safeDrawing.right else safeDrawing.left
+            marginEnd = baseEnd + if (rtl) safeDrawing.left else safeDrawing.right
+            bottomMargin = baseBottom + safeDrawing.bottom
+        }
+    }
 }

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dock 项的图标与文字：选中项在 secondaryContainer 胶囊上用 onSecondaryContainer，其余 onSurfaceVariant -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="?attr/colorOnSecondaryContainer" android:state_selected="true" />
+    <item android:color="?attr/colorOnSurfaceVariant" />
+</selector>

@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.ui
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.os.Parcelable
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
@@ -34,7 +35,14 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
 
         listView.layoutManager = FixedLinearLayoutManager(listView)
         listView.padForSystemBars()
+        // 从二级页面返回：恢复进入前的滚动位置（入口都在列表末尾）
+        (activity as? MainActivity)?.takeSettingsListState()?.let {
+            listView.layoutManager?.onRestoreInstanceState(it)
+        }
     }
+
+    /** 设置列表当前的滚动状态，由 MainActivity 在进入二级页面前保存 */
+    fun listState(): Parcelable? = view?.let { listView.layoutManager?.onSaveInstanceState() }
 
     private val reloadListener = Preference.OnPreferenceChangeListener { _, _ ->
         needReload()
@@ -151,8 +159,18 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         val resolveDestination = findPreference<SwitchPreference>(Key.RESOLVE_DESTINATION)!!
         val acquireWakeLock = findPreference<SwitchPreference>(Key.ACQUIRE_WAKE_LOCK)!!
         val enableClashAPI = findPreference<SwitchPreference>(Key.ENABLE_CLASH_API)!!
+        // 末尾的页面入口：点击打开 MainActivity 的对应页面
+        for ((key, page) in navEntries) {
+            findPreference<Preference>(key)!!.setOnPreferenceClickListener {
+                (activity as? MainActivity)?.displayFragmentWithId(page)
+                true
+            }
+        }
+        val navDashboard = findPreference<Preference>(KEY_NAV_DASHBOARD)!!
+        navDashboard.isVisible = DataStore.enableClashAPI
         enableClashAPI.setOnPreferenceChangeListener { _, newValue ->
-            (activity as MainActivity?)?.refreshNavMenu(newValue as Boolean)
+            // 回调早于写入，直接用新值
+            navDashboard.isVisible = newValue as Boolean
             needReload()
             true
         }
@@ -189,6 +207,18 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         tunImplementation.onPreferenceChangeListener = reloadListener
         acquireWakeLock.onPreferenceChangeListener = reloadListener
         globalCustomConfig.onPreferenceChangeListener = reloadListener
+    }
+
+    internal companion object {
+        const val KEY_NAV_DASHBOARD = "navDashboard"
+
+        // 设置页末尾的页面入口（global_preferences.xml 的最后一组）→ 页面 id
+        val navEntries = listOf(
+            KEY_NAV_DASHBOARD to R.id.nav_traffic,
+            "navLogs" to R.id.nav_logcat,
+            "navTools" to R.id.nav_tools,
+            "navAbout" to R.id.nav_about,
+        )
     }
 
     override fun onResume() {

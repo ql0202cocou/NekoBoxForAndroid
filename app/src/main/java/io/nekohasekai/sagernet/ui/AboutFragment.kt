@@ -39,6 +39,8 @@ private const val OPENMOJI_URL = "https://openmoji.org/"
 
 class AboutFragment : ToolbarFragment(R.layout.layout_about) {
 
+    override val opensFromSettings = true
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 

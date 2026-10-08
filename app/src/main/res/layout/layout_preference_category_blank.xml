@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 无标题的设置分类：只留 8dp 间隔（上方仍有分类之间的分隔线），不占标题行的高度 -->
+<View xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="8dp" />
