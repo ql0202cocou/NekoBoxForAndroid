@@ -7,7 +7,6 @@
         <item name="colorAccent">?attr/colorPrimary</item>
 
         <!-- 自定义颜色属性都指向 M3 角色，随所选主题与日夜切换 -->
-        <item name="colorMaterial300">?attr/colorSurfaceContainer</item>
         <item name="accentOrTextSecondary">?attr/colorPrimary</item>
         <item name="primaryOrTextSecondary">?attr/colorPrimary</item>
         <item name="primaryOrTextPrimary">?attr/colorPrimary</item>
@@ -32,10 +31,6 @@
             @style/ThemeOverlay.SagerNet.MaterialAlertDialog
         </item>
 
-        <!-- M3 默认底栏把 FAB 挪到右端并嵌进底栏（end + embed），和底栏同色看不见；
-             Legacy 保留 M2 的居中凹槽（center + cradle） -->
-        <item name="bottomAppBarStyle">@style/Widget.Material3.BottomAppBar.Legacy</item>
-
     </style>
 
     <style name="Theme.SagerNet.Dialog" parent="Theme.Material3.DayNight.Dialog.Alert">
@@ -47,7 +42,6 @@
         <item name="colorAccent">?attr/colorPrimary</item>
 
         <!-- 自定义颜色属性都指向 M3 角色，随所选主题与日夜切换 -->
-        <item name="colorMaterial300">?attr/colorSurfaceContainer</item>
         <item name="accentOrTextSecondary">?attr/colorPrimary</item>
         <item name="primaryOrTextSecondary">?attr/colorPrimary</item>
         <item name="primaryOrTextPrimary">?attr/colorPrimary</item>

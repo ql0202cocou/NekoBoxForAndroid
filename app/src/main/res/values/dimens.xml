@@ -1,10 +1,5 @@
 <resources>
     <dimen name="qrcode_size">264dp</dimen>
-    <!-- 主界面节点列表的底部留白，让最后一张卡片能滚到 FAB 上方。StatsBar 收起时，
-         BottomAppBar 把 FAB 底边放在导航栏上方 16dp（Material 的
-         mtrl_bottomappbar_fab_bottom_margin）；FAB 高 56dp（design_fab_size_normal），
-         再留 16dp 间隔：16 + 56 + 16。导航栏高度另外加在代码里 -->
-    <dimen name="fab_list_clearance">88dp</dimen>
     <!-- 主界面底部悬浮 Dock：高 64dp，全圆角，内边距 4dp，项高 56dp；底边在导航栏上方 2dp；
          右侧让出连接按钮：12（右边距）+ 56（按钮）+ 8（间隙） -->
     <dimen name="nav_dock_height">64dp</dimen>
@@ -14,4 +9,10 @@
     <dimen name="nav_dock_item_radius">28dp</dimen>
     <dimen name="nav_dock_margin_bottom">2dp</dimen>
     <dimen name="nav_dock_margin_end">76dp</dimen>
+    <!-- Dock 顶边再往上 8dp：状态卡片的底边距，也是主界面列表在导航栏之上要让出的高度
+         （2 + 64 + 8）；状态卡片出现时列表再让出卡片高度 + 8dp -->
+    <dimen name="nav_dock_clearance">74dp</dimen>
+    <dimen name="stats_bar_gap">8dp</dimen>
+    <!-- 连接按钮（56dp）与 Dock 垂直居中：2 + (64 − 56) / 2 -->
+    <dimen name="fab_margin_bottom">6dp</dimen>
 </resources>

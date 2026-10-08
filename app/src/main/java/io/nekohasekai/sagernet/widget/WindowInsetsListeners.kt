@@ -6,7 +6,6 @@ import android.view.ViewGroup
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.doOnAttach
 import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
 
@@ -25,6 +24,9 @@ val safeDrawingTypes = WindowInsetsCompat.Type.systemBars() or WindowInsetsCompa
  *   FAB): grow it to the navigation bar inset instead of adding the two together.
  * @param ime 底部同时让开软键盘：取导航栏与键盘两者较高的一个。只给上方有输入框、
  *   键盘弹出时仍要能滚到最后一项的列表用（edge-to-edge 窗口不会因键盘缩小）。
+ * @param bottomExtra 底部在插入区之外再让出的高度（px），每次分发插入区时取值：主界面的列表
+ *   要让开悬浮的 Dock 与状态卡片，宿主在它们变化时重新请求分发。只在 [bottom] 为真、
+ *   键盘没有弹出时生效（键盘盖住了 Dock 与卡片）。
  * @param consume forward the insets to children with the handled types zeroed. Only for a
  *   view that owns its whole subtree (e.g. a WebView container): below API 30 consumed
  *   insets also stop reaching later siblings.
@@ -35,14 +37,16 @@ fun View.padForSystemBars(
     bottomAtLeast: Boolean = false,
     ime: Boolean = false,
     consume: Boolean = false,
+    bottomExtra: () -> Int = { 0 },
 ) {
     val base = Rect(paddingLeft, paddingTop, paddingRight, paddingBottom)
     if (bottom) (this as? ViewGroup)?.clipToPadding = false
     ViewCompat.setOnApplyWindowInsetsListener(this) { v, insets ->
         val safeDrawing = insets.getInsets(safeDrawingTypes)
-        val bottomInset = if (ime) {
-            maxOf(safeDrawing.bottom, insets.getInsets(WindowInsetsCompat.Type.ime()).bottom)
-        } else safeDrawing.bottom
+        val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+        val bottomInset = if (ime) maxOf(safeDrawing.bottom, imeBottom) else safeDrawing.bottom
+        // 键盘弹出时 Dock 与状态卡片被它盖住，不再为它们留白
+        val extra = if (imeBottom > 0) 0 else bottomExtra()
         v.updatePadding(
             left = base.left + safeDrawing.left,
             top = if (statusBarTop) {
@@ -51,17 +55,21 @@ fun View.padForSystemBars(
             right = base.right + safeDrawing.right,
             bottom = when {
                 !bottom -> base.bottom
-                bottomAtLeast -> maxOf(base.bottom, bottomInset)
-                else -> base.bottom + bottomInset
+                bottomAtLeast -> maxOf(base.bottom, bottomInset) + extra
+                else -> base.bottom + bottomInset + extra
             },
         )
         if (consume) {
             WindowInsetsCompat.Builder(insets).setInsets(safeDrawingTypes, Insets.NONE).build()
         } else insets
     }
-    // A view added after the window's initial dispatch (fragment swap) gets no insets
-    // until someone asks; ask as soon as it is attached.
-    doOnAttach { ViewCompat.requestApplyInsets(it) }
+    // 窗口首次分发之后才挂上的视图（切换页面）收不到插入区，要自己请求；每次挂回窗口都请求：
+    // ViewPager2 缓存里脱离窗口的页面错过了期间的分发（如连接状态变化后的 bottomExtra）
+    if (isAttachedToWindow) ViewCompat.requestApplyInsets(this)
+    addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+        override fun onViewAttachedToWindow(v: View) = ViewCompat.requestApplyInsets(v)
+        override fun onViewDetachedFromWindow(v: View) = Unit
+    })
 }
 
 /**

@@ -16,7 +16,6 @@ import androidx.annotation.IdRes
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
-import androidx.core.view.doOnLayout
 import androidx.fragment.app.Fragment
 import androidx.preference.PreferenceDataStore
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -50,11 +49,18 @@ import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.parseProxies
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
-import io.nekohasekai.sagernet.widget.padForSystemBars
 import io.nekohasekai.sagernet.widget.safeDrawingTypes
 import io.nekohasekai.sagernet.widget.systemBarMargins
 import moe.matsuri.nb4a.utils.Util
 import io.nekohasekai.sagernet.bg.ServiceRegistry
+
+/**
+ * 页面由 MainActivity 托管时，滚动视图底部要为悬浮的 Dock 与状态卡片让出的高度
+ * （[MainActivity.bottomControlsClearance]），给 padForSystemBars 的 bottomExtra 用；
+ * 其它宿主（选节点、通知里的切换对话框）没有 Dock，为 0
+ */
+fun Fragment.mainBottomClearance(): () -> Int =
+    { (activity as? MainActivity)?.bottomControlsClearance() ?: 0 }
 
 class MainActivity : ThemedActivity(),
     SagerConnection.Callback,
@@ -72,40 +78,26 @@ class MainActivity : ThemedActivity(),
             if (pageIdOf(currentFragment()) != id) displayFragmentWithId(id)
         }
 
-        // Edge-to-edge: the gesture pill overlaps the bottom of the stats bar. Pad its
-        // inner layout so the text stays above the pill while the bar's background band
-        // extends under it. The FAB is anchored to the bar's top edge, which only moves
-        // up as the bar grows.
-        binding.statsContent.padForSystemBars()
-        // Dock 悬浮在导航栏上方，横屏时也避开侧边的导航栏与刘海。插入区在外层 coordinator 上
-        // 统一取：它先于所有子视图收到，API 30 以下某个页面（仪表板的 WebView 容器）把插入区
-        // 清零后，排在后面的兄弟视图就只能收到清零后的值
-        val dockMargins = binding.dock.systemBarMargins()
+        // Dock、连接按钮、状态卡片悬浮在导航栏上方，横屏时也避开侧边的导航栏与刘海。插入区在
+        // 外层 coordinator 上统一取：它先于所有子视图收到，API 30 以下某个页面（仪表板的 WebView
+        // 容器）把插入区清零后，排在后面的兄弟视图就只能收到清零后的值
+        val floatingMargins = listOf(binding.dock, binding.fab, binding.stats).map { it.systemBarMargins() }
         ViewCompat.setOnApplyWindowInsetsListener(binding.coordinator) { _, insets ->
-            dockMargins(insets.getInsets(safeDrawingTypes))
+            val safeDrawing = insets.getInsets(safeDrawingTypes)
+            for (apply in floatingMargins) apply(safeDrawing)
             insets
+        }
+        // 列表底部留白含状态卡片的高度（bottomControlsClearance）：卡片高度变了就重新分发插入区
+        binding.stats.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
+            if (bottom - top != oldBottom - oldTop) ViewCompat.requestApplyInsets(binding.coordinator)
         }
 
         if (savedInstanceState == null) {
             displayFragmentWithId(R.id.nav_configuration)
         } else {
             // 重建时 FragmentManager 已自行恢复了当前页面，不经过 displayFragment()，
-            // 这里补上按页面决定的 FAB 与 StatsBar 可见性，都不播动画，免得第一帧先显示再收起。
-            // FAB 和 allowShow 立即处理：FAB 还没布局，hide() / show() 直接改可见性。
-            // StatsBar 的收起距离在它的 Behavior 布局完成后才确定，早于此收起会让它
-            // 原地隐身，FAB 回到配置页时就停在 StatsBar 展开时的位置，所以等整个
-            // coordinator 布局完再无动画收起，仍早于第一次绘制
-            val fragment = currentFragment()
-            // Dock 的选中项同样按恢复出来的页面设置（二级页面选中「设置」）
-            binding.dock.select(dockItemOf(fragment))
-            val visible = bottomControlsVisible(fragment)
-            if (visible != null) {
-                binding.stats.allowShow = visible
-                if (visible) binding.fab.show() else {
-                    binding.fab.hide()
-                    binding.coordinator.doOnLayout { binding.stats.performHide(false) }
-                }
-            }
+            // Dock 的选中项在这里按恢复出来的页面设置（二级页面选中「设置」）
+            binding.dock.select(dockItemOf(currentFragment()))
         }
         // 返回：二级页面回设置页，其它一级页面回配置页，配置页退到后台
         onBackPressedDispatcher.addCallback {
@@ -351,35 +343,21 @@ class MainActivity : ThemedActivity(),
             .show()
     }
 
-    // 配置页总是显示 FAB 并允许 StatsBar 出现；其它页面除非开了「底栏」，否则两者都隐藏，
-    // StatsBar 也不再随连接状态弹出（changeState 只在 allowShow 时 performShow）。
-    // 返回 null 表示保持现状（其它页面且开了「底栏」）
-    private fun bottomControlsVisible(fragment: Fragment?): Boolean? = when {
-        fragment is ConfigurationFragment -> true
-        !DataStore.showBottomBar -> false
-        else -> null
-    }
-
-    private fun updateBottomControls(fragment: Fragment?) {
-        when (bottomControlsVisible(fragment)) {
-            true -> {
-                binding.stats.allowShow = true
-                binding.fab.show()
-            }
-
-            false -> {
-                binding.stats.allowShow = false
-                binding.stats.performHide()
-                binding.fab.hide()
-            }
-
-            null -> {}
+    /**
+     * 主界面列表底部在导航栏插入区之外要让出的高度（px）：Dock 区（底边距、Dock、8dp 间隔），
+     * 已连接、状态卡片允许出现时再加卡片高度与 8dp 间隔。连接状态或卡片高度变化时
+     * 重新分发插入区，各列表的 padForSystemBars(bottomExtra) 随之更新
+     */
+    fun bottomControlsClearance(): Int {
+        var clearance = resources.getDimensionPixelSize(R.dimen.nav_dock_clearance)
+        if (binding.stats.allowShow) {
+            clearance += binding.stats.height + resources.getDimensionPixelSize(R.dimen.stats_bar_gap)
         }
+        return clearance
     }
 
     @SuppressLint("CommitTransaction")
     fun displayFragment(fragment: ToolbarFragment) {
-        updateBottomControls(fragment)
         supportFragmentManager.beginTransaction()
             .replace(R.id.fragment_holder, fragment)
             .commitAllowingStateLoss()
@@ -458,7 +436,9 @@ class MainActivity : ThemedActivity(),
         if (state == BaseService.State.Stopped) ProfileManager.liveTraffic.clear()
 
         binding.fab.changeState(state, ServiceRegistry.state, animate)
-        binding.stats.changeState(state)
+        val statsAllowed = binding.stats.allowShow
+        binding.stats.changeState(state, animate)
+        if (binding.stats.allowShow != statsAllowed) ViewCompat.requestApplyInsets(binding.coordinator)
         if (msg != null) snackbar(getString(R.string.vpn_error, msg)).show()
         (supportFragmentManager.findFragmentById(R.id.fragment_holder) as? WebviewFragment)
             ?.onCoreStateChanged(state)
@@ -467,9 +447,9 @@ class MainActivity : ThemedActivity(),
     // callers show() the returned Snackbar
     @SuppressLint("ShowToast")
     override fun snackbarInternal(text: CharSequence): Snackbar {
-        // 显示在 Dock 之上（Dock 在所有页面常驻）
+        // 显示在 Dock 之上（Dock 在所有页面常驻）；状态卡片展开时在卡片之上，不盖住它
         return Snackbar.make(binding.coordinator, text, Snackbar.LENGTH_LONG).apply {
-            anchorView = binding.dock
+            anchorView = if (binding.stats.isExpanded) binding.stats else binding.dock
         }
     }
 

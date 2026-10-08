@@ -54,7 +54,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         toolbar.setOnMenuItemClickListener(this)
 
         groupListView = view.findViewById(R.id.group_list)
-        groupListView.padForSystemBars()
+        groupListView.padForSystemBars(bottomExtra = mainBottomClearance())
         layoutManager = FixedLinearLayoutManager(groupListView)
         groupListView.layoutManager = layoutManager
 

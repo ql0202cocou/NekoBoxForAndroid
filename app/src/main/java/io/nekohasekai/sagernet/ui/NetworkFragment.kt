@@ -15,7 +15,7 @@ class NetworkFragment : NamedFragment(R.layout.layout_network) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        view.padForSystemBars()
+        view.padForSystemBars(bottomExtra = mainBottomClearance())
 
         val binding = LayoutNetworkBinding.bind(view)
         binding.stunTest.setOnClickListener {

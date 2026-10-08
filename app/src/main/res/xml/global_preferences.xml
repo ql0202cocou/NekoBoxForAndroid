@@ -245,9 +245,6 @@
             app:key="appTLSVersion"
             app:title="@string/app_tls_version"
             app:useSimpleSummaryProvider="true" />
-        <SwitchPreference
-            app:key="showBottomBar"
-            app:title="@string/show_bottom_bar" />
     </PreferenceCategory>
     <!-- 原侧边抽屉第二、三组的入口：点击打开对应的二级页面（不存值）。
          仪表板只在开启 Clash API 时显示 -->

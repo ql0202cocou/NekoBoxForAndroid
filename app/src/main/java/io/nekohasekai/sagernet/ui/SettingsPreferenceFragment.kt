@@ -34,7 +34,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         super.onViewCreated(view, savedInstanceState)
 
         listView.layoutManager = FixedLinearLayoutManager(listView)
-        listView.padForSystemBars()
+        listView.padForSystemBars(bottomExtra = mainBottomClearance())
         // 从二级页面返回：恢复进入前的滚动位置（入口都在列表末尾）
         (activity as? MainActivity)?.takeSettingsListState()?.let {
             listView.layoutManager?.onRestoreInstanceState(it)

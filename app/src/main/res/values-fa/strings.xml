@@ -382,7 +382,6 @@
     <string name="domain_strategy_for_remote">راهبرد دامنه برای ارتباط از راه دور</string>
     <string name="domain_strategy_for_direct">راهبرد دامنه برای ارتباط مستقیم</string>
     <string name="domain_strategy_for_server">راهبرد دامنه برای نشانی‌های سرور</string>
-    <string name="show_bottom_bar">نمایش نوار پایین مانند SagerNet</string>
     <string name="utls_fingerprint">اثر انگشت uTLS</string>
     <string name="custom_outbound_json">خروجی سفارشی JSON</string>
     <string name="custom_config_json">پراکسی سفارشی JSON</string>

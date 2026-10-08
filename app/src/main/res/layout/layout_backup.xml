@@ -1,66 +1,76 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- 外层可滚动：主界面底部为 Dock 与状态卡片留白后，矮屏上也能滚到最后的按钮，
+     滚动时状态卡片随之收起 -->
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:clipToPadding="false"
+    android:fillViewport="true">
 
-    <Button
-        android:id="@+id/reset_settings"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/reset_settings" />
+        android:orientation="vertical"
+        android:padding="16dp">
 
-    <CheckBox
-        android:id="@+id/backup_configurations"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:checked="true"
-        android:text="@string/backup_groups_and_configurations"
-        android:textAppearance="?attr/textAppearanceSubtitle2" />
+        <Button
+            android:id="@+id/reset_settings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/reset_settings" />
 
-    <CheckBox
-        android:id="@+id/backup_rules"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:checked="true"
-        android:text="@string/backup_rules"
-        android:textAppearance="?attr/textAppearanceSubtitle2" />
+        <CheckBox
+            android:id="@+id/backup_configurations"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="@string/backup_groups_and_configurations"
+            android:textAppearance="?attr/textAppearanceSubtitle2" />
 
-
-    <CheckBox
-        android:id="@+id/backup_settings"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:checked="true"
-        android:text="@string/backup_settings"
-        android:textAppearance="?attr/textAppearanceSubtitle2" />
-
-    <Button
-        android:id="@+id/action_export"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/action_export" />
-
-    <Button
-        android:id="@+id/action_share"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/share" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="@string/backup_summary"
-        android:textColor="?android:textColorTertiary" />
-
-    <Button
-        android:id="@+id/action_import_file"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="@string/action_import_file" />
+        <CheckBox
+            android:id="@+id/backup_rules"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="@string/backup_rules"
+            android:textAppearance="?attr/textAppearanceSubtitle2" />
 
 
-</LinearLayout>
+        <CheckBox
+            android:id="@+id/backup_settings"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="@string/backup_settings"
+            android:textAppearance="?attr/textAppearanceSubtitle2" />
+
+        <Button
+            android:id="@+id/action_export"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/action_export" />
+
+        <Button
+            android:id="@+id/action_share"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/share" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/backup_summary"
+            android:textColor="?android:textColorTertiary" />
+
+        <Button
+            android:id="@+id/action_import_file"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/action_import_file" />
+
+
+    </LinearLayout>
+
+</androidx.core.widget.NestedScrollView>

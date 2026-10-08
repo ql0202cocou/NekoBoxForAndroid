@@ -165,12 +165,11 @@ class ProfileListFragment : Fragment() {
             // 这一页不加载工具栏菜单，没有搜索框，不需要让开键盘
             configurationListView.padForSystemBars(bottomAtLeast = true)
         } else {
-            // 主界面：FAB 停在导航栏上方，底部留白取 FAB 所占高度再加导航栏。
+            // 主界面：底部留白与顶部相同（XML 的 48dp 只给选择节点页），再加导航栏与悬浮的
+            // Dock、状态卡片所占高度（mainBottomClearance）。
             // 工具栏的节点搜索会弹键盘，键盘弹出时改加键盘高度，搜索结果才能滚到最后一项
-            configurationListView.updatePadding(
-                bottom = resources.getDimensionPixelSize(R.dimen.fab_list_clearance)
-            )
-            configurationListView.padForSystemBars(ime = true)
+            configurationListView.updatePadding(bottom = configurationListView.paddingTop)
+            configurationListView.padForSystemBars(ime = true, bottomExtra = mainBottomClearance())
         }
         layoutManager = FixedLinearLayoutManager(configurationListView)
         configurationListView.layoutManager = layoutManager

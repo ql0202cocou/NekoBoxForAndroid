@@ -42,7 +42,7 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
 
         binding.textview.breakStrategy = 0 // simple
 
-        binding.scroolview.padForSystemBars()
+        binding.scroolview.padForSystemBars(bottomExtra = mainBottomClearance())
 
         reloadSession()
     }

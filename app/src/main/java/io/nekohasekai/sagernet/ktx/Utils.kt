@@ -366,7 +366,7 @@ fun <T> Continuation<T>.tryResumeWithException(exception: Throwable) {
 operator fun AtomicInteger.getValue(thisRef: Any?, property: KProperty<*>): Int = get()
 operator fun AtomicInteger.setValue(thisRef: Any?, property: KProperty<*>, value: Int) = set(value)
 
-// M3 的 BottomAppBar 等控件带 materialThemeOverlay，视图的 context 被包成 ContextThemeWrapper，
+// M3 的 MaterialCardView 等控件带 materialThemeOverlay，视图的 context 可能被包成 ContextThemeWrapper，
 // 直接强转会 ClassCastException：沿 baseContext 向上找到宿主（Activity 等）再取用
 inline fun <reified T> Context.unwrapTo(): T =
     generateSequence(this) { (it as? ContextWrapper)?.baseContext }.filterIsInstance<T>().first()

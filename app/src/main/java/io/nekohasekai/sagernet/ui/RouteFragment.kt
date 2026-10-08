@@ -37,7 +37,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
         toolbar.setOnMenuItemClickListener(this)
 
         ruleListView = view.findViewById(R.id.route_list)
-        ruleListView.padForSystemBars()
+        ruleListView.padForSystemBars(bottomExtra = mainBottomClearance())
         ruleListView.layoutManager = FixedLinearLayoutManager(ruleListView)
 
         // onViewCreated can run again (rotation): unregister the previous

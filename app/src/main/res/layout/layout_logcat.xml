@@ -16,7 +16,8 @@
         android:layout_height="match_parent"
         android:padding="8dp">
 
-        <ScrollView
+        <!-- NestedScrollView：滚动时主界面的状态卡片随之收起 / 拉出 -->
+        <androidx.core.widget.NestedScrollView
             android:id="@+id/scroolview"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
@@ -31,7 +32,7 @@
                 android:gravity="start|top"
                 android:textIsSelectable="true"
                 tools:ignore="LabelFor" />
-        </ScrollView>
+        </androidx.core.widget.NestedScrollView>
     </LinearLayout>
 
 

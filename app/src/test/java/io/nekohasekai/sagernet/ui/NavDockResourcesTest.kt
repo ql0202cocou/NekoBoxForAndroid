@@ -53,6 +53,11 @@ class NavDockResourcesTest {
         // 选中胶囊是项高（Dock 高减去上下内边距）的全圆角
         assertEquals((height - 2 * d.getValue("nav_dock_padding")) / 2, d["nav_dock_item_radius"])
         assertEquals(height / 2, d["nav_dock_radius"])
+        val marginBottom = d.getValue("nav_dock_margin_bottom")
+        // 连接按钮（56dp）与 Dock 垂直居中
+        assertEquals(marginBottom + (height - 56) / 2, d["fab_margin_bottom"])
+        // 状态卡片的底边距、列表在导航栏之上的留白：Dock 顶边再往上 8dp
+        assertEquals(marginBottom + height + 8, d["nav_dock_clearance"])
     }
 
     @Test

@@ -26,36 +26,44 @@
         app:trackCornerRadius="@dimen/mtrl_progress_track_thickness"
         app:trackThickness="8dp" />
 
+    <!-- 连接按钮：固定在右下角，与 Dock 垂直居中（底边距 2 + (64 − 56) / 2）。
+         外边距在 MainActivity 里再加上系统栏与刘海的插入区 -->
     <io.nekohasekai.sagernet.widget.ServiceButton
         android:id="@+id/fab"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="12dp"
+        android:layout_marginBottom="@dimen/fab_margin_bottom"
         android:elevation="6dp"
         android:nextFocusDown="@+id/stats"
         app:backgroundTint="?fabColorBackground"
-        app:layout_anchor="@id/stats"
         app:pressedTranslationZ="6dp"
         app:srcCompat="@drawable/ic_service_idle"
         app:tint="?attr/colorOnPrimaryContainer" />
 
+    <!-- 状态卡片：悬浮在 Dock 上方 8dp（底边距 2 + 64 + 8），只在已连接时出现 -->
     <io.nekohasekai.sagernet.widget.StatsBar
         android:id="@+id/stats"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="@dimen/nav_dock_clearance"
         android:nextFocusUp="@+id/fab"
-        app:backgroundTint="?colorMaterial300"
-        app:contentInsetStart="0dp"
-        app:hideOnScroll="true"
-        app:layout_scrollFlags="enterAlways|scroll">
+        app:cardBackgroundColor="?attr/colorSurfaceContainer"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="2dp"
+        app:strokeWidth="0dp">
 
         <LinearLayout
             android:id="@+id/stats_content"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="?android:attr/selectableItemBackground"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:paddingHorizontal="20dp"
+            android:paddingVertical="16dp">
 
             <TextView
                 android:id="@+id/tx"

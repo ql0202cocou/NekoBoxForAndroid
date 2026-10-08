@@ -49,7 +49,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         super.onViewCreated(view, savedInstanceState)
 
         val binding = LayoutBackupBinding.bind(view)
-        binding.root.padForSystemBars()
+        binding.root.padForSystemBars(bottomExtra = mainBottomClearance())
 
         binding.resetSettings.setOnClickListener {
             requireContext().confirm(R.string.reset_settings_message) {

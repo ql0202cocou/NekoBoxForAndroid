@@ -46,7 +46,7 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
 
         val binding = LayoutAboutBinding.bind(view)
 
-        binding.aboutScroll.padForSystemBars()
+        binding.aboutScroll.padForSystemBars(bottomExtra = mainBottomClearance())
         toolbar.setTitle(R.string.menu_about)
 
         if (savedInstanceState == null) {
