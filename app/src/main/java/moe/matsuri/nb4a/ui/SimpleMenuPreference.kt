@@ -18,11 +18,11 @@ package moe.matsuri.nb4a.ui
 
 import android.content.Context
 import android.util.AttributeSet
+import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.Spinner
-import androidx.core.content.ContextCompat
 import androidx.preference.DropDownPreference
 import androidx.preference.PreferenceViewHolder
 import io.nekohasekai.sagernet.R
@@ -48,6 +48,15 @@ open class SimpleMenuPreference
         super.onBindViewHolder(holder)
         val mSpinner = holder.itemView.findViewById<Spinner>(androidx.preference.R.id.spinner)
         mSpinner.layoutParams.width = ViewGroup.LayoutParams.WRAP_CONTENT
+        // 弹出窗口用 M3 菜单背景（popupMenuBackground：surfaceContainer、4dp 圆角、上下 8dp 内边距），
+        // 不用 Spinner 默认的 colorBackgroundFloating
+        val popupBackground = TypedValue()
+        if (mSpinner.context.theme.resolveAttribute(
+                com.google.android.material.R.attr.popupMenuBackground, popupBackground, true
+            ) && popupBackground.resourceId != 0
+        ) {
+            mSpinner.setPopupBackgroundResource(popupBackground.resourceId)
+        }
     }
 
     override fun createAdapter(): ArrayAdapter<CharSequence?> {
@@ -70,15 +79,12 @@ open class SimpleMenuPreference
 
         override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
             val view: View = super.getDropDownView(position, convertView, parent)
+            // 选中行 secondaryContainer；其余行透明，透出弹出窗口的 surfaceContainer，
+            // 列表的按压反馈画在行下面，行不能是不透明底色
             if (position == currentPosition) {
                 view.setBackgroundColor(context.getColorAttr(com.google.android.material.R.attr.colorSecondaryContainer))
             } else {
-                view.setBackgroundColor(
-                    ContextCompat.getColor(
-                        context,
-                        R.color.preference_simple_menu_background
-                    )
-                )
+                view.background = null
             }
             return view
         }
