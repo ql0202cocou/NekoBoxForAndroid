@@ -7,7 +7,6 @@
         <item name="colorAccent">?attr/colorPrimary</item>
 
         <!-- 自定义颜色属性都指向 M3 角色，随所选主题与日夜切换 -->
-        <item name="accentOrTextSecondary">?attr/colorPrimary</item>
         <item name="primaryOrTextSecondary">?attr/colorPrimary</item>
         <item name="primaryOrTextPrimary">?attr/colorPrimary</item>
         <item name="fabColorBackground">?attr/colorPrimaryContainer</item>
@@ -51,7 +50,6 @@
         <item name="colorAccent">?attr/colorPrimary</item>
 
         <!-- 自定义颜色属性都指向 M3 角色，随所选主题与日夜切换 -->
-        <item name="accentOrTextSecondary">?attr/colorPrimary</item>
         <item name="primaryOrTextSecondary">?attr/colorPrimary</item>
         <item name="primaryOrTextPrimary">?attr/colorPrimary</item>
         <item name="fabColorBackground">?attr/colorPrimaryContainer</item>
