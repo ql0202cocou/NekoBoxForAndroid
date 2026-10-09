@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 次要文字与控件默认色（android:textColorSecondary / textColorTertiary、colorControlNormal）：
+     结构照 M3 的 m3_default_color_secondary_text，禁用态 onSurface 38%，其余 onSurfaceVariant -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:alpha="@dimen/material_emphasis_disabled" android:color="?attr/colorOnSurface" android:state_enabled="false" />
+    <item android:color="?attr/colorOnSurfaceVariant" />
+</selector>

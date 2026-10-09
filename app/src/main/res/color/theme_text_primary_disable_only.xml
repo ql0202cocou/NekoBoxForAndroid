@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- android:textColorPrimaryDisableOnly（AppCompat 的 Spinner 条目、ActionBar 菜单文字等）：
+     结构照 M3 的 m3_primary_text_disable_only，禁用态 60%，颜色换成 onSurface -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:alpha="@dimen/material_emphasis_medium" android:color="?attr/colorOnSurface" android:state_enabled="false" />
+    <item android:color="?attr/colorOnSurface" />
+</selector>

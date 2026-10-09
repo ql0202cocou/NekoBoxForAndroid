@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 提示文字（android:textColorHint）：M3 文本框的占位文字用 onSurfaceVariant，禁用态 onSurface 38%。
+     M3 主题自带的 m3_hint_foreground 亮色是 onBackground 38%、暗色 60%，亮暗不对称，这里统一 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:alpha="@dimen/material_emphasis_disabled" android:color="?attr/colorOnSurface" android:state_enabled="false" />
+    <item android:color="?attr/colorOnSurfaceVariant" />
+</selector>

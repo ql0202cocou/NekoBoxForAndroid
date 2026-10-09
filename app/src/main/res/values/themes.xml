@@ -16,6 +16,15 @@
              Tab 用 Widget.Material3.TabLayout 的默认文字色与 primary 指示条 -->
         <item name="appBarColor">?attr/colorSurface</item>
         <item name="actionBarTheme">@style/ThemeOverlay.Material3.Toolbar.Surface</item>
+        <!-- 文字与控件默认色走主题角色（res/color/theme_text_*）：M3 主题把它们指向固定的基线中性色，
+             不随六套主题变；这里改成 onSurface / onSurfaceVariant 的状态列表，禁用态 alpha 照 M3 -->
+        <item name="android:textColorPrimary">@color/theme_text_primary</item>
+        <item name="android:textColorSecondary">@color/theme_text_secondary</item>
+        <item name="android:textColorTertiary">@color/theme_text_secondary</item>
+        <item name="android:textColorHint">@color/theme_text_hint</item>
+        <item name="android:textColorPrimaryDisableOnly">@color/theme_text_primary_disable_only</item>
+        <item name="android:textColorAlertDialogListItem">@color/theme_text_primary</item>
+        <item name="colorControlNormal">@color/theme_text_secondary</item>
 
         <!-- 去掉 ActionBar，但保留它的样式与主题 -->
         <item name="windowActionBar">false</item>
@@ -51,6 +60,15 @@
              Tab 用 Widget.Material3.TabLayout 的默认文字色与 primary 指示条 -->
         <item name="appBarColor">?attr/colorSurface</item>
         <item name="actionBarTheme">@style/ThemeOverlay.Material3.Toolbar.Surface</item>
+        <!-- 文字与控件默认色走主题角色（res/color/theme_text_*）：M3 主题把它们指向固定的基线中性色，
+             不随六套主题变；这里改成 onSurface / onSurfaceVariant 的状态列表，禁用态 alpha 照 M3 -->
+        <item name="android:textColorPrimary">@color/theme_text_primary</item>
+        <item name="android:textColorSecondary">@color/theme_text_secondary</item>
+        <item name="android:textColorTertiary">@color/theme_text_secondary</item>
+        <item name="android:textColorHint">@color/theme_text_hint</item>
+        <item name="android:textColorPrimaryDisableOnly">@color/theme_text_primary_disable_only</item>
+        <item name="android:textColorAlertDialogListItem">@color/theme_text_primary</item>
+        <item name="colorControlNormal">@color/theme_text_secondary</item>
 
         <!-- 去掉 ActionBar，但保留它的样式与主题 -->
         <item name="windowActionBar">false</item>

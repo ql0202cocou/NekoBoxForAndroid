@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 主文字（android:textColorPrimary / textColorAlertDialogListItem）：结构照 M3 的
+     m3_default_color_primary_text，只把固定基线色换成主题角色 onSurface，随所选主题与日夜切换 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:alpha="@dimen/material_emphasis_disabled" android:color="?attr/colorOnSurface" android:state_enabled="false" />
+    <item android:color="?attr/colorOnSurface" />
+</selector>

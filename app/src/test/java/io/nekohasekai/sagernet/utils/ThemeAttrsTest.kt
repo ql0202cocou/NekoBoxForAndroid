@@ -15,6 +15,8 @@ import javax.xml.parsers.DocumentBuilderFactory
  * 布局与 drawable 直接引用这些属性（如 ?attr/appBarColor），对话框主题的界面（SwitchActivity）
  * 也加载同样的布局；某个主题漏了属性，解析颜色时会抛异常崩溃，而编译和 lint 都发现不了。
  *
+ * 同样钉住两个基础主题覆盖的文字与控件颜色属性（themedTextAttrs）：两边都指向 res/color/theme_text_*，取值相同。
+ *
  * Theme.Start 豁免：它是应用级主题，只作用于启动窗口和不调用 Theme.apply 的界面（BlankActivity、
  * VpnRequestActivity 与几个快捷方式入口），这些界面都不加载布局，用不到自定义属性。
  */
@@ -54,6 +56,30 @@ class ThemeAttrsTest {
                 assertFalse("$theme 没有给 $attr 赋值", items[attr].isNullOrEmpty())
             }
         }
+    }
+
+    // 两个基础主题覆盖 M3 固定基线色的文字与控件属性（U2 N2）：必须都写、取值相同，且指向主题角色的状态列表
+    private val themedTextAttrs = listOf(
+        "android:textColorPrimary",
+        "android:textColorSecondary",
+        "android:textColorTertiary",
+        "android:textColorHint",
+        "android:textColorPrimaryDisableOnly",
+        "android:textColorAlertDialogListItem",
+        "colorControlNormal",
+    )
+
+    @Test
+    fun baseThemesAgreeOnThemedTextColors() {
+        val (app, dialog) = baseThemes.map { theme ->
+            val items = styleItems(theme)
+            for (attr in themedTextAttrs) {
+                val value = items[attr]
+                assertTrue("$theme 的 $attr 没有指向 @color/theme_text_*：$value", value?.startsWith("@color/theme_text_") == true)
+            }
+            items.filterKeys { it in themedTextAttrs }
+        }
+        assertEquals("Theme.SagerNet 与 Theme.SagerNet.Dialog 的文字颜色属性取值不同", app, dialog)
     }
 
     @Test
