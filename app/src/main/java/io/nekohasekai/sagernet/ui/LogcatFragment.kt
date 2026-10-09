@@ -1,7 +1,6 @@
 package io.nekohasekai.sagernet.ui
 
 import android.annotation.SuppressLint
-import android.graphics.Color
 import android.os.Bundle
 import android.text.SpannableString
 import android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
@@ -47,31 +46,32 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
         reloadSession()
     }
 
-    private fun getColorForLine(line: String): ForegroundColorSpan {
-        var color = ForegroundColorSpan(Color.GRAY)
-        when {
-            line.contains("INFO[") || line.contains(" [Info]") -> {
-                color = ForegroundColorSpan((0xFF86C166).toInt())
-            }
+    // 日志三色（res/color 的 log_info / log_error / log_other，亮暗各一套）：在主线程取好再交给 IO 上的着色
+    private class LogColors(val info: Int, val error: Int, val other: Int)
 
-            line.contains("ERROR[") || line.contains(" [Error]") -> {
-                color = ForegroundColorSpan(Color.RED)
-            }
-
-            line.contains("WARN[") || line.contains(" [Warning]") -> {
-                color = ForegroundColorSpan(Color.RED)
-            }
+    private fun getColorForLine(line: String, colors: LogColors): ForegroundColorSpan {
+        val color = when {
+            line.contains("INFO[") || line.contains(" [Info]") -> colors.info
+            line.contains("ERROR[") || line.contains(" [Error]") -> colors.error
+            line.contains("WARN[") || line.contains(" [Warning]") -> colors.error
+            else -> colors.other
         }
-        return color
+        return ForegroundColorSpan(color)
     }
 
     // 读日志文件（最多 50KB）和着色放到 IO 上，只把显示留在主线程
     private fun reloadSession() = viewLifecycleOwner.lifecycleScope.launch {
+        val context = requireContext()
+        val colors = LogColors(
+            context.getColour(R.color.log_info),
+            context.getColour(R.color.log_error),
+            context.getColour(R.color.log_other),
+        )
         val span = withContext(Dispatchers.IO) {
             SpannableString(String(SendLog.getNekoLog(50 * 1024))).also { span ->
                 var offset = 0
                 for (line in span.lines()) {
-                    val color = getColorForLine(line)
+                    val color = getColorForLine(line, colors)
                     span.setSpan(
                         color, offset, offset + line.length, SPAN_EXCLUSIVE_EXCLUSIVE
                     )

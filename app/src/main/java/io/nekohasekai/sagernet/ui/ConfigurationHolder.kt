@@ -174,7 +174,7 @@ class ConfigurationHolder(
                     if (entity.id != proxyEntity.id) return@onMainDispatcher
                     shareLayer.setBackgroundColor(Color.TRANSPARENT)
                     shareButton.setImageResource(R.drawable.ic_social_share)
-                    shareButton.setColorFilter(Color.GRAY)
+                    shareButton.setColorFilter(shareButton.context.getColorAttr(com.google.android.material.R.attr.colorOnSurfaceVariant))
                     shareButton.isVisible = true
 
                     shareLayout.setOnClickListener {
@@ -233,9 +233,9 @@ class ConfigurationHolder(
             }
         } else if (proxyEntity.status == 1) {
             profileStatus.text = groupFragment.getString(R.string.available, proxyEntity.ping)
-            profileStatus.setTextColor(groupFragment.requireContext().getColour(R.color.material_green_500))
+            profileStatus.setTextColor(groupFragment.requireContext().getColour(R.color.status_ok))
         } else {
-            profileStatus.setTextColor(groupFragment.requireContext().getColour(R.color.material_red_500))
+            profileStatus.setTextColor(groupFragment.requireContext().getColour(R.color.status_error))
             if (proxyEntity.status == 2) {
                 profileStatus.text = proxyEntity.error
             }

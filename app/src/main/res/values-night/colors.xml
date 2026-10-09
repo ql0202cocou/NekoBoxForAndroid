@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 语义色的暗色版：同色系更浅的一档，在深色底上保持对比 -->
+    <!-- 测速可用 / 不可用：green 300 / red 300 -->
+    <color name="status_ok">#81C784</color>
+    <color name="status_error">#E57373</color>
+    <!-- 日志页三色：信息沿用原来的 #86C166，错误与警告 red 300，其它 grey 500 -->
+    <color name="log_info">#86C166</color>
+    <color name="log_error">#E57373</color>
+    <color name="log_other">#9E9E9E</color>
+</resources>

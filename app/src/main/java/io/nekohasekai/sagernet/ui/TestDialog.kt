@@ -100,17 +100,17 @@ class TestDialog(fragment: ConfigurationFragment) {
 
                 1 -> {
                     profileStatusText = fragment.getString(R.string.available, profile.ping)
-                    profileStatusColor = context.getColour(R.color.material_green_500)
+                    profileStatusColor = context.getColour(R.color.status_ok)
                 }
 
                 2 -> {
                     profileStatusText = profile.error
-                    profileStatusColor = context.getColour(R.color.material_red_500)
+                    profileStatusColor = context.getColour(R.color.status_error)
                 }
 
                 3 -> {
                     profileStatusText = context.unavailableText(profile.error)
-                    profileStatusColor = context.getColour(R.color.material_red_500)
+                    profileStatusColor = context.getColour(R.color.status_error)
                 }
             }
 

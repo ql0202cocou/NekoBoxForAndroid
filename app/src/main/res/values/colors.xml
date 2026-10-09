@@ -4,12 +4,20 @@
     <color name="material_blue_500">#2196F3</color>
     <color name="material_green_500">#4CAF50</color>
     <color name="material_orange_500">#FF9800</color>
-    <color name="material_red_500">#F44336</color>
-    <color name="material_red_accent_200">#FF5252</color>
 
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
     <color name="color_pink_ssr">#fb7299</color>
+
+    <!-- 语义色，亮暗各一套（暗色见 values-night/colors.xml），取值来自 Material 2014 色板。
+         测速可用 / 不可用：亮色沿用原来的 green 500 / red 500 -->
+    <color name="status_ok">#4CAF50</color>
+    <color name="status_error">#F44336</color>
+    <!-- 日志页三色：原来亮暗共用 #86C166 / #FF0000 / #888888，在亮色底上对比不足，
+         亮色改用 green 700 / red 700 / grey 600 -->
+    <color name="log_info">#388E3C</color>
+    <color name="log_error">#D32F2F</color>
+    <color name="log_other">#757575</color>
 
 </resources>
