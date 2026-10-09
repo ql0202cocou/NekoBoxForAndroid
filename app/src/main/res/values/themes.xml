@@ -32,8 +32,6 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
 
-        <item name="chipStyle">@style/Widget.SagerNet.Chip.Choice</item>
-
         <item name="alertDialogTheme">
             @style/ThemeOverlay.SagerNet.MaterialAlertDialog
         </item>
@@ -77,8 +75,6 @@
         <!-- 去掉 ActionBar，但保留它的样式与主题 -->
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
-
-        <item name="chipStyle">@style/Widget.SagerNet.Chip.Choice</item>
 
         <item name="alertDialogTheme">
             @style/ThemeOverlay.SagerNet.MaterialAlertDialog
@@ -129,18 +125,6 @@
 
     <style name="Widget.SagerNet.Button.TextButton.Dialog.Flush" parent="Widget.Material3.Button.TextButton.Dialog.Flush">
         <item name="android:textColor">?primaryOrTextPrimary</item>
-    </style>
-
-    <!-- M3 的默认 chipStyle 是不可勾选的 Assist，这里从 Filter 派生并隐藏勾选图标，保持单选 Chip 的外观；
-         文字两侧内边距 12dp：没有勾选图标，左右对称，一行放得下分应用代理页的几个 Chip -->
-    <style name="Widget.SagerNet.Chip.Choice" parent="Widget.Material3.Chip.Filter">
-        <item name="checkedIconVisible">false</item>
-        <item name="textStartPadding">12dp</item>
-        <item name="textEndPadding">12dp</item>
-        <item name="chipBackgroundColor">@color/chip_background</item>
-        <item name="android:textColor">@color/chip_text_color</item>
-        <item name="checkedIconTint">?primaryOrTextPrimary</item>
-        <item name="rippleColor">@color/chip_ripple_color</item>
     </style>
 
     <style name="Theme.Start" parent="Theme.Material3.DayNight">

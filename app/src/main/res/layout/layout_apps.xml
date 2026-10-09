@@ -63,18 +63,21 @@
 
                             <com.google.android.material.chip.Chip
                                 android:id="@+id/appProxyModeDisable"
+                                style="@style/Widget.Material3.Chip.Filter"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="@string/off" />
 
                             <com.google.android.material.chip.Chip
                                 android:id="@+id/appProxyModeOn"
+                                style="@style/Widget.Material3.Chip.Filter"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="@string/route_proxy" />
 
                             <com.google.android.material.chip.Chip
                                 android:id="@+id/appProxyModeBypass"
+                                style="@style/Widget.Material3.Chip.Filter"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:checked="true"
@@ -82,28 +85,28 @@
 
                         </com.google.android.material.chip.ChipGroup>
 
-                        <LinearLayout
-                            android:layout_width="wrap_content"
+                        <!-- 窄屏一行放不下两个 Chip 时换行（ChipGroup 不设单选，只当流式布局） -->
+                        <com.google.android.material.chip.ChipGroup
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:orientation="horizontal">
+                            android:layout_marginBottom="4dp">
 
                             <com.google.android.material.chip.Chip
                                 android:id="@+id/show_system_apps"
                                 style="@style/Widget.Material3.Chip.Filter"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginEnd="8dp"
-                                android:layout_marginBottom="4dp"
                                 android:text="@string/show_system_apps" />
 
                             <com.google.android.material.chip.Chip
                                 android:id="@+id/autoSelectProxyApps"
+                                style="@style/Widget.Material3.Chip.Assist"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:checkable="false"
                                 android:text="@string/auto_select_proxy_apps" />
 
-                        </LinearLayout>
+                        </com.google.android.material.chip.ChipGroup>
 
                         <com.google.android.material.textfield.TextInputLayout
                             android:layout_width="match_parent"
