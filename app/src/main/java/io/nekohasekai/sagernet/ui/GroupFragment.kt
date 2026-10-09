@@ -2,6 +2,7 @@ package io.nekohasekai.sagernet.ui
 
 import android.content.Intent
 import android.os.Bundle
+import android.text.format.DateFormat
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
@@ -504,7 +505,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                     // 计数期间 holder 可能已被复用；离开分组页时 fragment 也可能已销毁，
                     // 下面的 getString 走 requireContext，会在 appScope 上抛异常崩溃
                     if (proxyGroup.id != group.id || !isAdded) return@onMainDispatcher
-                    @Suppress("DEPRECATION") when (group.type) {
+                    when (group.type) {
                         GroupType.BASIC -> {
                             if (size == 0L) {
                                 groupStatus.setText(R.string.group_status_empty)
@@ -527,7 +528,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                                     getString(
                                         R.string.group_status_proxies_subscription,
                                         size,
-                                        "${date.month + 1} - ${date.date}"
+                                        DateFormat.getDateFormat(requireContext()).format(date)
                                     )
                                 }
                             }
