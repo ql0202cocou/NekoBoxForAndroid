@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- AppCompat AlertDialog.Builder 建的对话框（设置页的列表 / 文本对话框等）的窗口背景，
+     照 MaterialAlertDialogBuilder 在代码里设的背景：外围留 M3 的 backgroundInset，
+     28dp 圆角（shapeAppearanceCornerExtraLarge），surfaceContainerHigh 填充 -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetLeft="@dimen/alert_dialog_inset_horizontal"
+    android:insetTop="@dimen/alert_dialog_inset_vertical"
+    android:insetRight="@dimen/alert_dialog_inset_horizontal"
+    android:insetBottom="@dimen/alert_dialog_inset_vertical">
+    <shape android:shape="rectangle">
+        <corners android:radius="@dimen/alert_dialog_corner_radius" />
+        <solid android:color="?attr/colorSurfaceContainerHigh" />
+    </shape>
+</inset>

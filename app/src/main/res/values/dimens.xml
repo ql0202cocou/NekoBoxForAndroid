@@ -15,4 +15,10 @@
     <dimen name="stats_bar_gap">8dp</dimen>
     <!-- 连接按钮（56dp）与 Dock 垂直居中：2 + (64 − 56) / 2 -->
     <dimen name="fab_margin_bottom">6dp</dimen>
+    <!-- 对话框窗口背景（drawable/alert_dialog_background）：取值同 material 的
+         mtrl_alert_dialog_background_inset_*（高度不足 480dp 时四边 10dp，见 values-h480dp）与
+         m3_alert_dialog_corner_size -->
+    <dimen name="alert_dialog_inset_horizontal">10dp</dimen>
+    <dimen name="alert_dialog_inset_vertical">10dp</dimen>
+    <dimen name="alert_dialog_corner_radius">28dp</dimen>
 </resources>

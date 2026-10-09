@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 高度 ≥ 480dp 时对话框左右 24dp、上下 80dp，同 material 的 values-h480dp -->
+    <dimen name="alert_dialog_inset_horizontal">24dp</dimen>
+    <dimen name="alert_dialog_inset_vertical">80dp</dimen>
+</resources>

@@ -107,6 +107,11 @@
     </style>
 
     <style name="ThemeOverlay.SagerNet.MaterialAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <!-- alertDialogTheme 也指向这里：AppCompat AlertDialog.Builder 建的对话框不经 MaterialAlertDialogBuilder 设背景，
+             父链里的窗口背景是 2dp 圆角、colorBackgroundFloating（亮 #FFFFFF / 暗 #424242）。换成与
+             MaterialAlertDialogBuilder 相同的外观；后者在代码里另设背景，不受影响 -->
+        <item name="android:windowBackground">@drawable/alert_dialog_background</item>
+        <item name="android:colorBackground">?attr/colorSurfaceContainerHigh</item>
         <item name="buttonBarPositiveButtonStyle">
             @style/Widget.SagerNet.Button.TextButton.Dialog
         </item>
