@@ -13,6 +13,7 @@ import androidx.core.view.*
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.R
@@ -22,6 +23,7 @@ import io.nekohasekai.sagernet.fmt.haveLink
 import io.nekohasekai.sagernet.fmt.toUniversalLink
 import io.nekohasekai.sagernet.group.GroupUpdater
 import io.nekohasekai.sagernet.ktx.*
+import io.nekohasekai.sagernet.widget.liftOnScrollOf
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import io.nekohasekai.sagernet.widget.QRCodeDialog
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
@@ -55,6 +57,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
 
         groupListView = view.findViewById(R.id.group_list)
         groupListView.padForSystemBars(bottomExtra = mainBottomClearance())
+        view.findViewById<AppBarLayout>(R.id.appbar).liftOnScrollOf(groupListView)
         layoutManager = FixedLinearLayoutManager(groupListView)
         groupListView.layoutManager = layoutManager
 

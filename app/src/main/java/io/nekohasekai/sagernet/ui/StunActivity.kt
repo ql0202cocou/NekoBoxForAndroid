@@ -4,9 +4,11 @@ import android.os.Bundle
 import androidx.appcompat.app.AlertDialog
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.appbar.AppBarLayout
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.databinding.LayoutStunBinding
 import io.nekohasekai.sagernet.ktx.readableMessage
+import io.nekohasekai.sagernet.widget.liftOnScrollOf
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +37,7 @@ class StunActivity : ThemedActivity() {
             doTest()
         }
         binding.mainLayout.padForSystemBars()
+        findViewById<AppBarLayout>(R.id.appbar).liftOnScrollOf(binding.mainLayout)
     }
 
     private fun doTest() {

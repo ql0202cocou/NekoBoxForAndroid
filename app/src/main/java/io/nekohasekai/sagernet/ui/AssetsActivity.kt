@@ -12,6 +12,7 @@ import androidx.core.view.isInvisible
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.snackbar.Snackbar
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
@@ -20,6 +21,7 @@ import io.nekohasekai.sagernet.databinding.LayoutAssetItemBinding
 import io.nekohasekai.sagernet.databinding.LayoutAssetsBinding
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
+import io.nekohasekai.sagernet.widget.liftOnScrollOf
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import libcore.Libcore
 import moe.matsuri.nb4a.utils.Util
@@ -67,6 +69,7 @@ class AssetsActivity : ThemedActivity() {
 
         binding.recyclerView.layoutManager = FixedLinearLayoutManager(binding.recyclerView)
         binding.recyclerView.padForSystemBars()
+        findViewById<AppBarLayout>(R.id.appbar).liftOnScrollOf(binding.recyclerView)
         adapter = AssetAdapter()
         binding.recyclerView.adapter = adapter
 

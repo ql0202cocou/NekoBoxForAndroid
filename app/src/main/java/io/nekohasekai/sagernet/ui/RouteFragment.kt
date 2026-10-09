@@ -10,12 +10,14 @@ import androidx.core.view.isGone
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.appbar.AppBarLayout
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.RuleEntity
 import io.nekohasekai.sagernet.databinding.LayoutRouteItemBinding
 import io.nekohasekai.sagernet.ktx.*
+import io.nekohasekai.sagernet.widget.liftOnScrollOf
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
 import kotlinx.coroutines.Dispatchers
@@ -58,6 +60,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
 
         ruleListView = view.findViewById(R.id.route_list)
         ruleListView.padForSystemBars(bottomExtra = mainBottomClearance())
+        view.findViewById<AppBarLayout>(R.id.appbar).liftOnScrollOf(ruleListView)
         ruleListView.layoutManager = FixedLinearLayoutManager(ruleListView)
 
         // onViewCreated can run again (rotation): unregister the previous

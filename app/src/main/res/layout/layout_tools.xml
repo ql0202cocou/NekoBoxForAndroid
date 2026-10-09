@@ -7,20 +7,34 @@
     android:orientation="vertical"
     tools:context=".ui.ToolsFragment">
 
-    <include
-        layout="@layout/layout_appbar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
-
-    <com.google.android.material.tabs.TabLayout
-        android:id="@+id/tools_tab"
+    <!-- 顶部栏与 Tab 条放进同一个 AppBarLayout，页面滚动时整体抬升（liftOnScroll）。
+         没有 CoordinatorLayout，抬升由 ToolsFragment.updateAppBarLift 手动驱动，
+         与主界面的 layout_group_list.xml 做法一致 -->
+    <io.nekohasekai.sagernet.widget.InsetAppBarLayout
+        android:id="@+id/appbar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@drawable/appbar_tabs_background"
-        app:tabIndicatorFullWidth="false"
-        app:tabMode="fixed"
-        app:tabPaddingStart="16dp"
-        app:tabUnboundedRipple="false" />
+        android:background="?attr/appBarColor"
+        app:liftOnScroll="true">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:theme="?actionBarTheme"
+            android:touchscreenBlocksFocus="false"
+            app:title="@string/app_name" />
+
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/tools_tab"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/appbar_tabs_divider"
+            app:tabIndicatorFullWidth="false"
+            app:tabMode="fixed"
+            app:tabPaddingStart="16dp"
+            app:tabUnboundedRipple="false" />
+    </io.nekohasekai.sagernet.widget.InsetAppBarLayout>
 
     <androidx.viewpager2.widget.ViewPager2
         android:id="@+id/tools_pager"

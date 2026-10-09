@@ -16,6 +16,11 @@ class NetworkFragment : NamedFragment(R.layout.layout_network) {
         super.onViewCreated(view, savedInstanceState)
 
         view.padForSystemBars(bottomExtra = mainBottomClearance())
+        // 滚动时通知工具页重新判断顶部栏是否抬升
+        view.setOnScrollChangeListener { _, _, _, _, _ ->
+            (parentFragment as? ToolsFragment)?.updateAppBarLift()
+        }
+        view.post { (parentFragment as? ToolsFragment)?.updateAppBarLift() }
 
         val binding = LayoutNetworkBinding.bind(view)
         binding.stunTest.setOnClickListener {

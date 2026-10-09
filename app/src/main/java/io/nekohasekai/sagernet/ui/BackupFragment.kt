@@ -50,6 +50,11 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
 
         val binding = LayoutBackupBinding.bind(view)
         binding.root.padForSystemBars(bottomExtra = mainBottomClearance())
+        // 滚动时通知工具页重新判断顶部栏是否抬升
+        binding.root.setOnScrollChangeListener { _, _, _, _, _ ->
+            (parentFragment as? ToolsFragment)?.updateAppBarLift()
+        }
+        binding.root.post { (parentFragment as? ToolsFragment)?.updateAppBarLift() }
 
         binding.resetSettings.setOnClickListener {
             requireContext().confirm(R.string.reset_settings_message) {

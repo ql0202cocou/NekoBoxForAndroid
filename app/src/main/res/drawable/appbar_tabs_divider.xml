@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 主界面分组 Tab 条的背景：只有底部 1dp 分隔线，其余透明。
-     与 appbar_tabs_background 的区别：后者自带 appBarColor 底色（工具页还在用），
-     这里底色交给外层 AppBarLayout，列表滚动时它变成 surfaceContainer，Tab 条才能同色透出 -->
+<!-- 顶部栏下 Tab 条（主界面分组、工具页）的背景：只有底部 1dp 分隔线，其余透明。
+     底色交给外层 AppBarLayout，内容滚动时它变成 surfaceContainer，Tab 条才能同色透出 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:gravity="bottom">
         <shape>

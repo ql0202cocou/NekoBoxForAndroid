@@ -12,9 +12,11 @@ import androidx.appcompat.widget.Toolbar
 import androidx.core.view.doOnLayout
 import androidx.core.view.isGone
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.appbar.AppBarLayout
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.databinding.LayoutLogcatBinding
 import io.nekohasekai.sagernet.ktx.*
+import io.nekohasekai.sagernet.widget.liftOnScrollOf
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -43,6 +45,7 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
         binding.textview.breakStrategy = 0 // simple
 
         binding.scroolview.padForSystemBars(bottomExtra = mainBottomClearance())
+        view.findViewById<AppBarLayout>(R.id.appbar).liftOnScrollOf(binding.scroolview)
 
         reloadSession()
     }
