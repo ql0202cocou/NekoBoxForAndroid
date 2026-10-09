@@ -27,7 +27,7 @@
                 android:layout_gravity="center_vertical"
                 android:layout_weight="1"
                 android:gravity="center_vertical"
-                android:paddingStart="12dp"
+                android:paddingStart="16dp"
                 android:paddingTop="8dp"
                 android:paddingBottom="8dp">
 
@@ -35,9 +35,8 @@
                     android:id="@+id/profile_name"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textAppearance="?android:attr/textAppearanceSmall"
-                    android:textColor="?android:attr/textColorPrimary"
-                    android:textStyle="bold"
+                    android:textAppearance="?attr/textAppearanceTitleMedium"
+                    android:textColor="?attr/colorOnSurface"
                     tools:text="@string/profile_name" />
             </LinearLayout>
 
@@ -98,8 +97,8 @@
             android:layout_height="wrap_content"
             android:gravity="bottom"
             android:orientation="horizontal"
-            android:paddingStart="12dp"
-            android:paddingEnd="8dp">
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -111,17 +110,18 @@
                     android:id="@+id/profile_type"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textAppearance="?android:attr/textAppearanceSmall"
-                    android:textColor="?attr/accentOrTextSecondary" />
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
 
+                <!-- 出站是规则的「结果」：比摘要重一级，不用 primary -->
                 <TextView
                     android:layout_marginTop="4dp"
                     android:layout_marginBottom="12dp"
                     android:id="@+id/route_outbound"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textAppearance="?android:attr/textAppearanceSmall"
-                    android:textColor="?attr/accentOrTextSecondary" />
+                    android:textAppearance="?attr/textAppearanceLabelLarge"
+                    android:textColor="?attr/colorOnSurface" />
 
             </LinearLayout>
 
