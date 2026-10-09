@@ -226,7 +226,7 @@ class ConfigurationHolder(
         if (proxyEntity.status <= 0) {
             if (showTraffic) {
                 profileStatus.text = trafficText.text
-                profileStatus.setTextColor(groupFragment.requireContext().getColorAttr(android.R.attr.textColorSecondary))
+                profileStatus.setTextColor(groupFragment.requireContext().getColorAttr(com.google.android.material.R.attr.colorOnSurfaceVariant))
                 trafficText.text = ""
             } else {
                 profileStatus.text = ""

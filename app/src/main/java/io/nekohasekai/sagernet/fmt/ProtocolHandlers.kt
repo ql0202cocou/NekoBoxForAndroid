@@ -385,12 +385,9 @@ fun List<AbstractBean>.filterValidEndpoint(): List<AbstractBean> = filter { bean
 }
 
 // type -> color attribute for the profile list (was Protocols.getProtocolColor)
-fun protocolColorAttr(type: Int): Int {
-    return when (type) {
-        TYPE_NEKO -> android.R.attr.textColorPrimary
-        else -> R.attr.accentOrTextSecondary
-    }
-}
+// 协议名不再用主色（避免与选中 / 可用的语义混淆），所有类型统一为次要文字角色
+@Suppress("UNUSED_PARAMETER")
+fun protocolColorAttr(type: Int): Int = com.google.android.material.R.attr.colorOnSurfaceVariant
 
 // bean class -> whether a standard (protocol-specific) share link exists
 // (was ProxyEntity.haveStandardLink)

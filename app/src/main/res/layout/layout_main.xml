@@ -73,8 +73,8 @@
                 android:layout_gravity="fill_horizontal"
                 android:ellipsize="marquee"
                 android:singleLine="true"
-                android:textColor="?attr/colorOnSurface"
-                android:textSize="14sp" />
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:textColor="?attr/colorOnSurface" />
 
             <TextView
                 android:id="@+id/rx"
@@ -84,8 +84,8 @@
                 android:layout_gravity="fill_horizontal"
                 android:ellipsize="marquee"
                 android:singleLine="true"
-                android:textColor="?attr/colorOnSurface"
-                android:textSize="14sp" />
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:textColor="?attr/colorOnSurface" />
 
             <TextView
                 android:id="@+id/status"
@@ -94,8 +94,8 @@
                 android:layout_gravity="fill_horizontal"
                 android:ellipsize="end"
                 android:maxLines="1"
+                android:textAppearance="?attr/textAppearanceBodyLarge"
                 android:textColor="?attr/colorOnSurface"
-                android:textSize="16sp"
                 tools:text="@string/connection_test_available" />
 
         </LinearLayout>
