@@ -22,6 +22,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
+import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.CompletableDeferred
@@ -418,6 +419,9 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                                         groupName.text = group.displayName()
                                         // 更新入口在卡片里是图标；移动对话框改为点整张卡片
                                         groupUpdate.isVisible = false
+                                        // 对话框里没有进度与状态文字，去掉它们的占位，卡片只留名称一行
+                                        subscriptionUpdateProgress.isGone = true
+                                        groupStatusRow.isGone = true
                                         root.setOnClickListener {
                                             runOnDefaultDispatcher {
                                                 val oldGroupId = ent.groupId
