@@ -12,7 +12,6 @@ import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.database.GroupRepository
 import io.nekohasekai.sagernet.database.ProfileRepository
-import io.nekohasekai.sagernet.ktx.dp2px
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import java.util.concurrent.atomic.AtomicBoolean
@@ -71,9 +70,10 @@ class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentS
                     groupList = newGroupList
                     notifyDataSetChanged()
                     if (set) fragment.groupPager.setCurrentItem(selectedGroupIndex, false)
+                    // 换页后新页的滚动位置不同，等页面挂上再取一次抬升状态
+                    fragment.groupPager.post { fragment.updateAppBarLift() }
                     val hideTab = groupList.size < 2
                     fragment.tabLayout.isGone = hideTab
-                    fragment.toolbar.elevation = if (hideTab) 0F else dp2px(4).toFloat()
                     if (!fragment.select) {
                         fragment.groupPager.registerOnPageChangeCallback(fragment.updateSelectedCallback)
                     }

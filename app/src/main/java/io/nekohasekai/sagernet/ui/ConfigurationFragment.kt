@@ -17,6 +17,7 @@ import androidx.core.os.BundleCompat
 import androidx.core.os.bundleOf
 import androidx.preference.PreferenceDataStore
 import androidx.viewpager2.widget.ViewPager2
+import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
 import io.nekohasekai.sagernet.GroupType
@@ -57,7 +58,6 @@ import io.nekohasekai.sagernet.ktx.startFilesForResult
 import io.nekohasekai.sagernet.ktx.writeToDocument
 import io.nekohasekai.sagernet.plugin.PluginManager
 import io.nekohasekai.sagernet.ui.profile.settingActivityOf
-import io.nekohasekai.sagernet.widget.padForSystemBars
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -121,6 +121,7 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
     lateinit var adapter: GroupPagerAdapter
     lateinit var tabLayout: TabLayout
     lateinit var groupPager: ViewPager2
+    private lateinit var appBar: AppBarLayout
 
     val alwaysShowAddress by lazy { DataStore.alwaysShowAddress }
 
@@ -131,6 +132,25 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
             Logs.e(e)
             null
         }
+    }
+
+    /**
+     * 顶部栏（含 Tab 条）是否抬升：当前页的列表能向上滚就抬升。
+     * 主界面没有 CoordinatorLayout（嵌套滚动要一路传到外层给 Dock 与状态卡片），
+     * AppBarLayout 的抬升不会自己触发，由这里手动驱动。
+     * 按 groupPager.currentItem 取当前页：选择模式下 DataStore.selectedGroup 不更新，
+     * getCurrentGroupFragment 不适用
+     */
+    fun updateAppBarLift() {
+        if (!::appBar.isInitialized || !::groupPager.isInitialized || !::adapter.isInitialized) return
+        val id = adapter.groupList.getOrNull(groupPager.currentItem)?.id
+        val page = id?.let { childFragmentManager.findFragmentByTag("f$it") as? ProfileListFragment }
+        val list = page?.listViewOrNull
+        appBar.setLifted(list?.canScrollVertically(-1) == true)
+    }
+
+    private val appBarLiftCallback = object : ViewPager2.OnPageChangeCallback() {
+        override fun onPageSelected(position: Int) = updateAppBarLift()
     }
 
     val updateSelectedCallback = object : ViewPager2.OnPageChangeCallback() {
@@ -200,9 +220,7 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
 
         groupPager = view.findViewById(R.id.group_pager)
         tabLayout = view.findViewById(R.id.group_tab)
-        // Side navigation bar / cutout in landscape: the AppBar padding above does not cover
-        // this sibling strip. Top/bottom stay untouched.
-        tabLayout.padForSystemBars(bottom = false)
+        appBar = view.findViewById(R.id.appbar)
 
         // onViewCreated can run again (rotation): unregister the previous
         // adapter before replacing it
@@ -216,6 +234,9 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
 
         groupPager.adapter = adapter
         groupPager.offscreenPageLimit = 2
+        // 普通与选择模式都要跟着换页更新抬升；先注销再注册，onViewCreated 会再次执行
+        groupPager.unregisterOnPageChangeCallback(appBarLiftCallback)
+        groupPager.registerOnPageChangeCallback(appBarLiftCallback)
 
         TabLayoutMediator(tabLayout, groupPager) { tab, position ->
             if (adapter.groupList.size > position) {

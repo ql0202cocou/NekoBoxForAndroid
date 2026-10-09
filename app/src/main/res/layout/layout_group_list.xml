@@ -7,21 +7,35 @@
     android:orientation="vertical"
     tools:context=".ui.ConfigurationFragment">
 
-    <include
-        layout="@layout/layout_appbar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
-
-    <com.google.android.material.tabs.TabLayout
-        android:id="@+id/group_tab"
+    <!-- 顶部栏与 Tab 条放进同一个 AppBarLayout，列表滚动时整体抬升（liftOnScroll）。
+         这里没有 CoordinatorLayout，抬升由 ConfigurationFragment.updateAppBarLift 手动驱动：
+         再套一层 CoordinatorLayout 会吃掉嵌套滚动，底部 Dock 与状态卡片就不再随列表收起 -->
+    <io.nekohasekai.sagernet.widget.InsetAppBarLayout
+        android:id="@+id/appbar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@drawable/appbar_tabs_background"
-        android:visibility="gone"
-        app:tabIndicatorFullWidth="false"
-        app:tabMode="scrollable"
-        app:tabPaddingStart="16dp"
-        app:tabUnboundedRipple="false" />
+        android:background="?attr/appBarColor"
+        app:liftOnScroll="true">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:theme="?actionBarTheme"
+            android:touchscreenBlocksFocus="false"
+            app:title="@string/app_name" />
+
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/group_tab"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/appbar_tabs_divider"
+            android:visibility="gone"
+            app:tabIndicatorFullWidth="false"
+            app:tabMode="scrollable"
+            app:tabPaddingStart="16dp"
+            app:tabUnboundedRipple="false" />
+    </io.nekohasekai.sagernet.widget.InsetAppBarLayout>
 
     <androidx.viewpager2.widget.ViewPager2
         android:id="@+id/group_pager"

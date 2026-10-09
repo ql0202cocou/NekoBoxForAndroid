@@ -76,6 +76,17 @@ class ProfileListFragment : Fragment() {
     lateinit var layoutManager: LinearLayoutManager
     lateinit var configurationListView: RecyclerView
 
+    // 视图还没建出来（ViewPager 预载间隙）时为空
+    val listViewOrNull: RecyclerView?
+        get() = if (::configurationListView.isInitialized) configurationListView else null
+
+    // 列表滚动时通知父级更新顶部栏抬升；onViewCreated 会再次执行，换新前先摘掉旧的
+    private val liftScrollListener = object : RecyclerView.OnScrollListener() {
+        override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+            (parentFragment as? ConfigurationFragment)?.updateAppBarLift()
+        }
+    }
+
     private val parentConfiguration by lazy {
         try {
             parentFragment as ConfigurationFragment
@@ -100,6 +111,7 @@ class ProfileListFragment : Fragment() {
         }
         checkOrderMenu()
         configurationListView.requestFocus()
+        (parentFragment as? ConfigurationFragment)?.updateAppBarLift()
     }
 
     fun checkOrderMenu() {
@@ -171,6 +183,8 @@ class ProfileListFragment : Fragment() {
             configurationListView.updatePadding(bottom = configurationListView.paddingTop)
             configurationListView.padForSystemBars(ime = true, bottomExtra = mainBottomClearance())
         }
+        configurationListView.removeOnScrollListener(liftScrollListener)
+        configurationListView.addOnScrollListener(liftScrollListener)
         layoutManager = FixedLinearLayoutManager(configurationListView)
         configurationListView.layoutManager = layoutManager
         adapter = ConfigurationAdapter(this)
