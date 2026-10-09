@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SwitchPreferenceCompat 的开关控件（经 preferenceTheme → switchPreferenceCompatStyle 指定）：
+     对齐 androidx 自带的 preference_widget_switch_compat，只把 SwitchCompat 换成 M3 的 MaterialSwitch；
+     id 必须是 androidx.preference 的 switchWidget，点击由整行处理，控件本身不可点、不取焦点 -->
+<com.google.android.material.materialswitch.MaterialSwitch xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@id/switchWidget"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@null"
+    android:clickable="false"
+    android:focusable="false" />

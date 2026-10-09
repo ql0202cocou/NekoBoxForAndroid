@@ -25,6 +25,8 @@
         <item name="android:textColorPrimaryDisableOnly">@color/theme_text_primary_disable_only</item>
         <item name="android:textColorAlertDialogListItem">@color/theme_text_primary</item>
         <item name="colorControlNormal">@color/theme_text_secondary</item>
+        <!-- 设置页的开关用 M3 MaterialSwitch（见 PreferenceThemeOverlay.SagerNet） -->
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay.SagerNet</item>
 
         <!-- 去掉 ActionBar，但保留它的样式与主题 -->
         <item name="windowActionBar">false</item>
@@ -69,6 +71,8 @@
         <item name="android:textColorPrimaryDisableOnly">@color/theme_text_primary_disable_only</item>
         <item name="android:textColorAlertDialogListItem">@color/theme_text_primary</item>
         <item name="colorControlNormal">@color/theme_text_secondary</item>
+        <!-- 设置页的开关用 M3 MaterialSwitch（见 PreferenceThemeOverlay.SagerNet） -->
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay.SagerNet</item>
 
         <!-- 去掉 ActionBar，但保留它的样式与主题 -->
         <item name="windowActionBar">false</item>
@@ -86,6 +90,15 @@
 
         <item name="windowFixedHeightMajor" type="dimen">95%</item>
 
+    </style>
+
+    <!-- 设置页主题：在 androidx 默认的 PreferenceThemeOverlay 上只换 SwitchPreferenceCompat 的开关控件 -->
+    <style name="PreferenceThemeOverlay.SagerNet" parent="PreferenceThemeOverlay">
+        <item name="switchPreferenceCompatStyle">@style/Preference.SwitchPreferenceCompat.SagerNet</item>
+    </style>
+
+    <style name="Preference.SwitchPreferenceCompat.SagerNet" parent="Preference.SwitchPreferenceCompat.Material">
+        <item name="android:widgetLayout">@layout/preference_widget_material_switch</item>
     </style>
 
     <style name="AppearanceFoundation.Title" parent="TextAppearance.AppCompat.Title">

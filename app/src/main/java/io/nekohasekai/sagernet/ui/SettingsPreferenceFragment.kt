@@ -25,7 +25,7 @@ import io.nekohasekai.sagernet.bg.ServiceRegistry
 
 class SettingsPreferenceFragment : PreferenceFragmentCompat() {
 
-    private lateinit var isProxyApps: SwitchPreference
+    private lateinit var isProxyApps: SwitchPreferenceCompat
 
     private lateinit var globalCustomConfig: EditConfigPreference
 
@@ -74,7 +74,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             Theme.applyNightTheme()
             true
         }
-        findPreference<SwitchPreference>(Key.HIDE_FROM_RECENTS)!!.setOnPreferenceChangeListener { _, newValue ->
+        findPreference<SwitchPreferenceCompat>(Key.HIDE_FROM_RECENTS)!!.setOnPreferenceChangeListener { _, newValue ->
             // 回调早于写入，直接用新值
             SagerNet.setExcludeFromRecents(newValue as Boolean)
             true
@@ -82,19 +82,19 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         val mixedPort = findPreference<EditTextPreference>(Key.MIXED_PORT)!!
         val serviceMode = findPreference<Preference>(Key.SERVICE_MODE)!!
         val allowAccess = findPreference<Preference>(Key.ALLOW_ACCESS)!!
-        val appendHttpProxy = findPreference<SwitchPreference>(Key.APPEND_HTTP_PROXY)!!
+        val appendHttpProxy = findPreference<SwitchPreferenceCompat>(Key.APPEND_HTTP_PROXY)!!
 
-        val showDirectSpeed = findPreference<SwitchPreference>(Key.SHOW_DIRECT_SPEED)!!
+        val showDirectSpeed = findPreference<SwitchPreferenceCompat>(Key.SHOW_DIRECT_SPEED)!!
         val ipv6Mode = findPreference<Preference>(Key.IPV6_MODE)!!
         val trafficSniffing = findPreference<Preference>(Key.TRAFFIC_SNIFFING)!!
 
-        val bypassLan = findPreference<SwitchPreference>(Key.BYPASS_LAN)!!
-        val bypassLanInCore = findPreference<SwitchPreference>(Key.BYPASS_LAN_IN_CORE)!!
+        val bypassLan = findPreference<SwitchPreferenceCompat>(Key.BYPASS_LAN)!!
+        val bypassLanInCore = findPreference<SwitchPreferenceCompat>(Key.BYPASS_LAN_IN_CORE)!!
 
         val remoteDns = findPreference<EditTextPreference>(Key.REMOTE_DNS)!!
         val directDns = findPreference<EditTextPreference>(Key.DIRECT_DNS)!!
-        val enableDnsRouting = findPreference<SwitchPreference>(Key.ENABLE_DNS_ROUTING)!!
-        val enableFakeDns = findPreference<SwitchPreference>(Key.ENABLE_FAKEDNS)!!
+        val enableDnsRouting = findPreference<SwitchPreferenceCompat>(Key.ENABLE_DNS_ROUTING)!!
+        val enableFakeDns = findPreference<SwitchPreferenceCompat>(Key.ENABLE_FAKEDNS)!!
 
         val logLevel = findPreference<LongClickListPreference>(Key.LOG_LEVEL)!!
         val mtu = findPreference<MTUPreference>(Key.MTU)!!
@@ -141,7 +141,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         }
 
         val profileTrafficStatistics =
-            findPreference<SwitchPreference>(Key.PROFILE_TRAFFIC_STATISTICS)!!
+            findPreference<SwitchPreferenceCompat>(Key.PROFILE_TRAFFIC_STATISTICS)!!
         val speedInterval = findPreference<SimpleMenuPreference>(Key.SPEED_INTERVAL)!!
         profileTrafficStatistics.isEnabled = speedInterval.value.toString() != "0"
         speedInterval.setOnPreferenceChangeListener { _, newValue ->
@@ -156,9 +156,9 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         }
 
         val tunImplementation = findPreference<SimpleMenuPreference>(Key.TUN_IMPLEMENTATION)!!
-        val resolveDestination = findPreference<SwitchPreference>(Key.RESOLVE_DESTINATION)!!
-        val acquireWakeLock = findPreference<SwitchPreference>(Key.ACQUIRE_WAKE_LOCK)!!
-        val enableClashAPI = findPreference<SwitchPreference>(Key.ENABLE_CLASH_API)!!
+        val resolveDestination = findPreference<SwitchPreferenceCompat>(Key.RESOLVE_DESTINATION)!!
+        val acquireWakeLock = findPreference<SwitchPreferenceCompat>(Key.ACQUIRE_WAKE_LOCK)!!
+        val enableClashAPI = findPreference<SwitchPreferenceCompat>(Key.ENABLE_CLASH_API)!!
         // 末尾的页面入口：点击打开 MainActivity 的对应页面
         for ((key, page) in navEntries) {
             findPreference<Preference>(key)!!.setOnPreferenceClickListener {

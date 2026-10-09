@@ -166,7 +166,7 @@ class GroupSettingsActivity(
         }
 
         val subscriptionAutoUpdate =
-            findPreference<SwitchPreference>(Key.SUBSCRIPTION_AUTO_UPDATE)!!
+            findPreference<SwitchPreferenceCompat>(Key.SUBSCRIPTION_AUTO_UPDATE)!!
         val subscriptionAutoUpdateDelay =
             findPreference<EditTextPreference>(Key.SUBSCRIPTION_AUTO_UPDATE_DELAY)!!
 
