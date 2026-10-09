@@ -1,7 +1,9 @@
 package io.nekohasekai.sagernet.widget
 
 import android.view.View
+import android.view.ViewGroup
 import com.google.android.material.appbar.AppBarLayout
+import io.nekohasekai.sagernet.R
 
 /*
  * 顶部栏随内容滚动抬升（liftOnScroll）的手动驱动。
@@ -26,4 +28,27 @@ fun AppBarLayout.liftOnScrollOf(scrolling: View) {
     scrolling.setOnScrollChangeListener { _, _, _, _, _ -> update() }
     // 恢复的滚动位置、旋转重建后没有滚动事件，布局完成后补一次
     scrolling.post { update() }
+}
+
+/**
+ * 让本视图所在页面的顶部栏随本视图的滚动抬升：从 parent 往上找，取第一个直接含 R.id.appbar
+ * 子视图的祖先，对它的 AppBarLayout 调 [liftOnScrollOf]；找不到就什么都不做。
+ *
+ * 不用 activity.findViewById(R.id.appbar)：同一棵视图树里可能有别的页面的顶部栏
+ * （如 MainActivity 里被替换下来但尚未移除的页面，或同时存在的其它 fragment），
+ * 按 id 全局查找可能取到错的那个。
+ */
+fun View.liftAncestorAppBar() {
+    var node = parent
+    while (node is ViewGroup) {
+        // 只认直接子视图：深搜可能先取到更深层、属于别的页面的顶部栏
+        for (i in 0 until node.childCount) {
+            val child = node.getChildAt(i)
+            if (child.id == R.id.appbar && child is AppBarLayout) {
+                child.liftOnScrollOf(this)
+                return
+            }
+        }
+        node = node.parent
+    }
 }

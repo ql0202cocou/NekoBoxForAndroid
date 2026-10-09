@@ -19,6 +19,7 @@ import com.blacksquircle.ui.editorkit.utils.EditorTheme
 import com.blacksquircle.ui.language.json.JsonLanguage
 import com.github.shadowsocks.plugin.Empty
 import com.github.shadowsocks.plugin.fragment.AlertDialogFragment
+import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
@@ -29,6 +30,7 @@ import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.toStringPretty
 import io.nekohasekai.sagernet.ui.ThemedActivity
+import io.nekohasekai.sagernet.widget.liftOnScrollOf
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import io.nekohasekai.sagernet.widget.safeDrawingTypes
 import moe.matsuri.nb4a.ui.ExtendedKeyboard
@@ -177,6 +179,9 @@ class ConfigEditActivity : ThemedActivity() {
         }
 
         binding.editorContainer.padForSystemBars(bottom = false)
+        // 顶栏随编辑器滚动抬升，取代原来顶栏下的固定分隔线。
+        // 编辑器的 onScrollChanged 重写链都调了 super，View 级的滚动监听会被触发
+        findViewById<AppBarLayout>(R.id.appbar).liftOnScrollOf(binding.editor)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

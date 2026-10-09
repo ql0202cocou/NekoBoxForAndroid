@@ -40,6 +40,9 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
 
     override val preferenceListReachesBottom = false
 
+    // 偏好部分只有「Profile Name」一行，顶栏正下方的内容（跳列表）不随它滚动，抬升没有对应的滚动源
+    override val liftAppBarWithPreferenceList = false
+
     val proxyList = ArrayList<ProxyEntity>()
 
     // Keep the cache in sync with proxyList so a rotation (which rebuilds

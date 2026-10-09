@@ -29,6 +29,7 @@ import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.widget.OutboundPreference
+import io.nekohasekai.sagernet.widget.liftAncestorAppBar
 import io.nekohasekai.sagernet.widget.padForSystemBars
 
 /**
@@ -87,6 +88,9 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
 
     /** 偏好列表是否是屏幕最底部的可滚动视图；链式代理设置下方另有节点列表，由它承接底部 inset。 */
     open val preferenceListReachesBottom = true
+
+    /** 顶部栏是否随偏好列表的滚动抬升；偏好列表之外还有内容紧贴顶部栏时关掉（见链式代理设置）。 */
+    open val liftAppBarWithPreferenceList = true
 
     abstract fun PreferenceFragmentCompat.createPreferences(
         savedInstanceState: Bundle?,
@@ -190,6 +194,7 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
             super.onViewCreated(view, savedInstanceState)
 
             listView.padForSystemBars(bottom = activity?.preferenceListReachesBottom ?: true)
+            if (activity?.liftAppBarWithPreferenceList != false) listView.liftAncestorAppBar()
 
             activity?.apply {
                 viewCreated(view, savedInstanceState)
