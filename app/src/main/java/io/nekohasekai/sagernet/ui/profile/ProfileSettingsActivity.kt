@@ -473,7 +473,8 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             return if (text.isNullOrBlank()) {
                 preference.context.getString(androidx.preference.R.string.not_set)
             } else {
-                "\u2022".repeat(text.length)
+                // 固定 8 个圆点：圆点数若等于密码长度，旁观者能直接数出长度
+                "\u2022".repeat(8)
             }
         }
 
