@@ -5,7 +5,6 @@ import android.os.Bundle
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
-import android.widget.LinearLayout
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.PopupMenu
 import androidx.appcompat.widget.Toolbar
@@ -416,10 +415,6 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
 
         fun bindProgress() {
             if (proxyGroup.id in GroupUpdater.updating) {
-                (groupName.parent as LinearLayout).apply {
-                    setPadding(paddingLeft, dp2px(11), paddingRight, paddingBottom)
-                }
-
                 subscriptionUpdateProgress.isVisible = true
 
                 if (!GroupUpdater.progress.containsKey(proxyGroup.id)) {
@@ -435,11 +430,8 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                 updateButton.isInvisible = true
                 editButton.isGone = true
             } else {
-                (groupName.parent as LinearLayout).apply {
-                    setPadding(paddingLeft, dp2px(15), paddingRight, paddingBottom)
-                }
-
-                subscriptionUpdateProgress.isVisible = false
+                // 进度条常驻占位（invisible），更新开始 / 结束时卡片高度不变
+                subscriptionUpdateProgress.isInvisible = true
                 updateButton.isInvisible = proxyGroup.type != GroupType.SUBSCRIPTION
                 editButton.isGone = proxyGroup.ungrouped
             }
@@ -500,10 +492,8 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             if (lines.isNotEmpty()) {
                 groupTraffic.isVisible = true
                 groupTraffic.text = lines.joinToString("\n")
-                groupStatus.setPadding(0)
             } else {
                 groupTraffic.isVisible = false
-                groupStatus.setPadding(0, 0, 0, dp2px(4))
             }
 
             groupUser.text = subscription?.username ?: ""

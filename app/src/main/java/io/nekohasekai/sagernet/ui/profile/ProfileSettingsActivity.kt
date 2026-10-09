@@ -416,8 +416,9 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                                         edit.isVisible = false
                                         options.isVisible = false
                                         groupName.text = group.displayName()
-                                        groupUpdate.text = getString(R.string.move)
-                                        groupUpdate.setOnClickListener {
+                                        // 更新入口在卡片里是图标；移动对话框改为点整张卡片
+                                        groupUpdate.isVisible = false
+                                        root.setOnClickListener {
                                             runOnDefaultDispatcher {
                                                 val oldGroupId = ent.groupId
                                                 val newGroupId = group.id
@@ -438,7 +439,8 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                             val scrollView = ScrollView(context).apply {
                                 addView(view)
                             }
-                            MaterialAlertDialogBuilder(activity).setView(scrollView).show()
+                            MaterialAlertDialogBuilder(activity).setTitle(R.string.move)
+                                .setView(scrollView).show()
                         }
                     }
                 }
