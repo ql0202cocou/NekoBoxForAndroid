@@ -2,14 +2,15 @@ package moe.matsuri.nb4a.ui
 
 import android.content.Context
 import android.util.AttributeSet
+import android.view.LayoutInflater
 import android.view.View
 import android.view.inputmethod.EditorInfo
-import android.widget.EditText
 import android.widget.Toast
 import androidx.preference.ListPreference
 import androidx.preference.PreferenceViewHolder
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.databinding.LayoutDialogInputBinding
 
 class MTUPreference
 @JvmOverloads constructor(
@@ -27,15 +28,17 @@ class MTUPreference
         super.onBindViewHolder(holder)
         val itemView: View = holder.itemView
         itemView.setOnLongClickListener {
-            val view = EditText(context).apply {
+            val binding = LayoutDialogInputBinding.inflate(LayoutInflater.from(context))
+            binding.inputLayout.hint = context.getString(R.string.mtu)
+            binding.edit.apply {
                 inputType = EditorInfo.TYPE_CLASS_NUMBER
                 setText(preferenceDataStore?.getString(key, "") ?: "")
             }
 
             MaterialAlertDialogBuilder(context).setTitle("MTU")
-                .setView(view)
+                .setView(binding.root)
                 .setPositiveButton(android.R.string.ok) { _, _ ->
-                    val mtu = view.text.toString().toIntOrNull()
+                    val mtu = binding.edit.text.toString().toIntOrNull()
                     if (mtu == null || mtu < 1000 || mtu > 10000) {
                         Toast.makeText(
                             context,

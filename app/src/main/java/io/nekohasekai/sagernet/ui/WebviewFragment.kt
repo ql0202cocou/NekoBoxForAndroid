@@ -7,12 +7,12 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.*
-import android.widget.EditText
 import androidx.appcompat.widget.Toolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.databinding.LayoutDialogInputBinding
 import io.nekohasekai.sagernet.databinding.LayoutWebviewBinding
 import io.nekohasekai.sagernet.fmt.CLASH_API_LISTEN
 import io.nekohasekai.sagernet.ktx.launchCustomTab
@@ -190,14 +190,16 @@ class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenu
     override fun onMenuItemClick(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.action_set_url -> {
-                val view = EditText(context).apply {
+                val binding = LayoutDialogInputBinding.inflate(layoutInflater)
+                binding.inputLayout.hint = getString(R.string.set_panel_url)
+                binding.edit.apply {
                     inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
                     setText(DataStore.yacdURL)
                 }
                 MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.set_panel_url)
-                    .setView(view)
+                    .setView(binding.root)
                     .setPositiveButton(android.R.string.ok) { _, _ ->
-                        DataStore.yacdURL = view.text.toString()
+                        DataStore.yacdURL = binding.edit.text.toString()
                         // close 之后 WebView 已销毁，重建一个再加载
                         loadPanel(mWebView ?: recreateWebView() ?: return@setPositiveButton)
                     }

@@ -6,7 +6,6 @@ import android.os.Bundle
 import android.os.Parcelable
 import android.view.View
 import android.view.inputmethod.EditorInfo
-import android.widget.EditText
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.preference.*
@@ -15,6 +14,7 @@ import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.databinding.LayoutDialogInputBinding
 import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
 import io.nekohasekai.sagernet.database.preference.isIntegerInRange
 import io.nekohasekai.sagernet.ktx.*
@@ -111,17 +111,19 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         logLevel.setOnLongClickListener {
             if (context == null) return@setOnLongClickListener true
 
-            val view = EditText(context).apply {
+            val binding = LayoutDialogInputBinding.inflate(layoutInflater)
+            binding.inputLayout.hint = getString(R.string.log_buffer_size)
+            binding.edit.apply {
                 inputType = EditorInfo.TYPE_CLASS_NUMBER
                 var size = DataStore.logBufSize
                 if (size == 0) size = 50
                 setText(size.toString())
             }
 
-            MaterialAlertDialogBuilder(requireContext()).setTitle("Log buffer size (kb)")
-                .setView(view)
+            MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.log_buffer_size)
+                .setView(binding.root)
                 .setPositiveButton(android.R.string.ok) { _, _ ->
-                    DataStore.logBufSize = view.text.toString().toIntOrNull() ?: 0
+                    DataStore.logBufSize = binding.edit.text.toString().toIntOrNull() ?: 0
                     if (DataStore.logBufSize <= 0) DataStore.logBufSize = 50
                     needRestart()
                 }
