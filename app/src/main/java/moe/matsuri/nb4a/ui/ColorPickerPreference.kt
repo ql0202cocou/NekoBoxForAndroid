@@ -37,6 +37,11 @@ class ColorPickerPreference
     context, attrs, defStyle
 ) {
 
+    init {
+        // 摘要显示当前主题名；存的可能是被归并的旧编号，nameRes 按代表取
+        setSummaryProvider { context.getString(Theme.nameRes(getPersistedInt(0))) }
+    }
+
     override fun onBindViewHolder(holder: PreferenceViewHolder) {
         super.onBindViewHolder(holder)
 
@@ -53,6 +58,8 @@ class ColorPickerPreference
             layoutParams = ViewGroup.LayoutParams((48 * factor).roundToInt(), (48 * factor).roundToInt())
             setPadding((8 * factor).roundToInt())
             setImageDrawable(seedCircle(seed))
+            // 装饰：主题名称已在摘要里
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         })
         widgetFrame.visibility = View.VISIBLE
     }
@@ -120,10 +127,13 @@ class ColorPickerPreference
             for (themeId in Theme.KEPT) {
                 val color = ContextCompat.getColor(context, SWATCH_COLORS.getValue(themeId))
                 val view = getSwatchView(color, themeId == current).apply {
+                    contentDescription = context.getString(Theme.nameRes(themeId))
                     setOnClickListener {
                         // 遵循 Preference 契约：监听器接受才持久化；写入的总是代表编号
                         if (callChangeListener(themeId)) {
                             persistInt(themeId)
+                            // persistInt 不会通知刷新，摘要要跟着变
+                            notifyChanged()
                         }
                         dialog.dismiss()
                     }

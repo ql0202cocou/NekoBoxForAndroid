@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.utils
 
 import android.content.Context
+import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatDelegate
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
@@ -67,6 +68,17 @@ object Theme {
     fun canonicalTheme(theme: Int): Int = when (theme) {
         in KEPT -> theme
         else -> MERGED[theme] ?: defaultTheme()
+    }
+
+    // 选色网格与设置行摘要里显示的主题名称：按归并后的代表取，只认 KEPT 里的六个
+    @StringRes
+    fun nameRes(themeId: Int): Int = when (canonicalTheme(themeId)) {
+        ORANGE -> R.string.theme_orange
+        BLUE -> R.string.theme_blue
+        GREEN -> R.string.theme_green
+        GREY -> R.string.theme_white
+        BLACK -> R.string.theme_black
+        else -> R.string.theme_pink
     }
 
     fun apply(context: Context) {
