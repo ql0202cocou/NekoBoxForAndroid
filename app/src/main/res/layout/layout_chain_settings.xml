@@ -30,7 +30,6 @@
         android:padding="4dp"
         android:overScrollMode="never"
         app:fastScrollAutoHide="true"
-        app:fastScrollPopupTextColor="?colorPrimary"
         app:fastScrollThumbColor="?colorPrimary"
         app:fastScrollThumbInactiveColor="?colorPrimary">
 
