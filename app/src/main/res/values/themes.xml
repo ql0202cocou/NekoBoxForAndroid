@@ -86,9 +86,18 @@
 
     </style>
 
-    <!-- 设置页主题：在 androidx 默认的 PreferenceThemeOverlay 上只换 SwitchPreferenceCompat 的开关控件 -->
+    <!-- 设置类页面（androidx.preference）的主题：
+         开关换成 M3 MaterialSwitch；分类标题用 M3 的 titleSmall（颜色仍走库的 colorAccent，即 primary）；
+         分隔线换成 outlineVariant（库自带的是固定 #1f000000，暗色底上几乎看不见） -->
     <style name="PreferenceThemeOverlay.SagerNet" parent="PreferenceThemeOverlay">
         <item name="switchPreferenceCompatStyle">@style/Preference.SwitchPreferenceCompat.SagerNet</item>
+        <item name="preferenceCategoryTitleTextAppearance">?attr/textAppearanceTitleSmall</item>
+        <item name="preferenceFragmentCompatStyle">@style/PreferenceFragment.SagerNet</item>
+        <item name="preferenceFragmentStyle">@style/PreferenceFragment.SagerNet</item>
+    </style>
+
+    <style name="PreferenceFragment.SagerNet" parent="PreferenceFragment.Material">
+        <item name="android:divider">@drawable/preference_list_divider</item>
     </style>
 
     <style name="Preference.SwitchPreferenceCompat.SagerNet" parent="Preference.SwitchPreferenceCompat.Material">

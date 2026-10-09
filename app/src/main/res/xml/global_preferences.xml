@@ -53,6 +53,7 @@
             app:useSimpleSummaryProvider="true" />
         <SwitchPreferenceCompat
             app:defaultValue="true"
+            app:iconSpaceReserved="true"
             app:key="profileTrafficStatistics"
             app:summary="@string/profile_traffic_statistics_summary"
             app:title="@string/profile_traffic_statistics" />
@@ -64,9 +65,11 @@
             app:title="@string/show_direct_speed"
             app:useSimpleSummaryProvider="true" />
         <SwitchPreferenceCompat
+            app:iconSpaceReserved="true"
             app:key="showGroupInNotification"
             app:title="@string/show_group_in_notification" />
         <SwitchPreferenceCompat
+            app:iconSpaceReserved="true"
             app:key="hideFromRecents"
             app:title="@string/hide_from_recents" />
         <SwitchPreferenceCompat
@@ -110,6 +113,7 @@
             app:key="bypassLan"
             app:title="@string/route_opt_bypass_lan" />
         <SwitchPreferenceCompat
+            app:iconSpaceReserved="true"
             app:key="bypassLanInCore"
             app:title="@string/bypass_lan_in_core" />
         <moe.matsuri.nb4a.ui.SimpleMenuPreference
@@ -199,6 +203,7 @@
             app:useSimpleSummaryProvider="true" />
         <SwitchPreferenceCompat
             app:defaultValue="false"
+            app:iconSpaceReserved="true"
             app:key="appendHttpProxy"
             app:summary="@string/append_http_proxy_sum"
             app:title="@string/append_http_proxy" />
@@ -228,6 +233,7 @@
             app:title="@string/network_change_reset_connections"
             app:useSimpleSummaryProvider="true" />
         <SwitchPreferenceCompat
+            app:iconSpaceReserved="true"
             app:key="wakeResetConnections"
             app:title="@string/wake_reset_connections"
             app:useSimpleSummaryProvider="true" />
@@ -236,6 +242,7 @@
             app:key="globalAllowInsecure"
             app:title="@string/global_allow_insecure" />
         <SwitchPreferenceCompat
+            app:iconSpaceReserved="true"
             app:key="allowInsecureOnRequest"
             app:title="@string/allow_insecure_on_request_sum" />
         <moe.matsuri.nb4a.ui.SimpleMenuPreference

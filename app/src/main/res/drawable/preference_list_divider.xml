@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 设置类页面的分隔线：替换 androidx.preference 自带的固定黑色半透明线，改用主题的 outlineVariant -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <size android:height="1dp" />
+    <solid android:color="?attr/colorOutlineVariant" />
+</shape>
