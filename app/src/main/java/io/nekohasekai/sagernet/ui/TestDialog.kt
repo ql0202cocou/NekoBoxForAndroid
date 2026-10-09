@@ -90,12 +90,12 @@ class TestDialog(fragment: ConfigurationFragment) {
             when (profile.status) {
                 -1 -> {
                     profileStatusText = profile.error
-                    profileStatusColor = context.getColorAttr(android.R.attr.textColorSecondary)
+                    profileStatusColor = context.getColorAttr(com.google.android.material.R.attr.colorOnSurfaceVariant)
                 }
 
                 0 -> {
                     profileStatusText = fragment.getString(R.string.connection_test_testing)
-                    profileStatusColor = context.getColorAttr(android.R.attr.textColorSecondary)
+                    profileStatusColor = context.getColorAttr(com.google.android.material.R.attr.colorOnSurfaceVariant)
                 }
 
                 1 -> {
