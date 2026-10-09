@@ -373,6 +373,7 @@
     <string name="menu_tools">Tools</string>
     <string name="menu_log">Logs</string>
     <string name="clear_logcat">Clear Logcat</string>
+    <string name="log_empty">No logs</string>
     <string name="wireguard_local_address">Local Address</string>
     <string name="wireguard_public_key">Peer Public Key</string>
     <string name="wireguard_psk">Peer Pre-Shared Key</string>
@@ -484,6 +485,8 @@
     <string name="profile_list_empty">No profiles yet</string>
     <string name="profile_list_empty_hint">Tap + to add or import</string>
     <string name="profile_list_no_match">No matching profiles</string>
+    <string name="route_list_empty">No routing rules</string>
+    <string name="route_list_empty_hint">Tap + to create one, or restore the defaults from the menu</string>
     <string name="app_list_permission_denied">Unable to read installed apps.\nThis is usually because the system has restricted app read permissions.\nPlease grant permissions in the system settings.</string>
     <string name="open_app_settings">Open System Settings</string>
     <string name="integer_range_error">Enter an integer between %1$d and %2$d.</string>

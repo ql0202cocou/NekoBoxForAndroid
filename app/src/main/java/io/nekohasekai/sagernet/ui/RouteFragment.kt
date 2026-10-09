@@ -6,6 +6,7 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.widget.Toolbar
+import androidx.core.view.isGone
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
@@ -27,6 +28,25 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
     lateinit var ruleAdapter: RuleAdapter
     lateinit var undoManager: UndoSnackbarManager<RuleEntity>
 
+    // 适配器第一次数据变化之前也是空的，等它之后才允许显示占位，免得刚建好页面时闪一下
+    private var listLoaded = false
+    private var emptyObserverAdapter: RuleAdapter? = null
+    private val emptyObserver = object : RecyclerView.AdapterDataObserver() {
+        override fun onChanged() = onListChanged()
+        override fun onItemRangeInserted(positionStart: Int, itemCount: Int) = onListChanged()
+        override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) = onListChanged()
+    }
+
+    private fun onListChanged() {
+        listLoaded = true
+        updateEmptyState()
+    }
+
+    private fun updateEmptyState() {
+        val holder = view?.findViewById<View>(R.id.route_list_empty) ?: return
+        holder.isGone = !listLoaded || !::ruleAdapter.isInitialized || ruleAdapter.itemCount != 0
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
@@ -45,9 +65,14 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
         if (::ruleAdapter.isInitialized) {
             ProfileManager.removeListener(ruleAdapter)
         }
+        emptyObserverAdapter?.unregisterAdapterDataObserver(emptyObserver)
+        listLoaded = false
         ruleAdapter = RuleAdapter()
+        emptyObserverAdapter = ruleAdapter
+        ruleAdapter.registerAdapterDataObserver(emptyObserver)
         ProfileManager.addListener(ruleAdapter)
         ruleListView.adapter = ruleAdapter
+        updateEmptyState()
         undoManager = UndoSnackbarManager(activity, ruleAdapter)
 
         ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(ItemTouchHelper.UP or ItemTouchHelper.DOWN, ItemTouchHelper.START) {
@@ -77,6 +102,8 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
     }
 
     override fun onDestroy() {
+        emptyObserverAdapter?.unregisterAdapterDataObserver(emptyObserver)
+        emptyObserverAdapter = null
         if (::ruleAdapter.isInitialized) {
             ProfileManager.removeListener(ruleAdapter)
         }

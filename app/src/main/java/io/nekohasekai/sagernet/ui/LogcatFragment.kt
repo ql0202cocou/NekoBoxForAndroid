@@ -10,6 +10,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.widget.Toolbar
 import androidx.core.view.doOnLayout
+import androidx.core.view.isGone
 import androidx.lifecycle.lifecycleScope
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.databinding.LayoutLogcatBinding
@@ -80,6 +81,7 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
             }
         }
         binding.textview.text = span
+        binding.logEmpty.isGone = span.isNotBlank()
         binding.textview.clearFocus()
         // 等 textview 完成最终 layout 再滚动到底部
         binding.textview.doOnLayout {
@@ -108,6 +110,7 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
                     }
                     withContext(Dispatchers.Main.immediate) {
                         binding.textview.text = ""
+                        binding.logEmpty.isGone = false
                     }
                 }
 
