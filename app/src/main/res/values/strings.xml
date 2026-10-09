@@ -481,6 +481,9 @@
     <string name="reset_settings">Restore default settings</string>
     <string name="reset_settings_message">Restore default settings, but data such as nodes and groups will be retained. To completely clear data, clear application data directly in the system settings.</string>
     <string name="minimize">Minimize</string>
+    <string name="profile_list_empty">No profiles yet</string>
+    <string name="profile_list_empty_hint">Tap + to add or import</string>
+    <string name="profile_list_no_match">No matching profiles</string>
     <string name="app_list_permission_denied">Unable to read installed apps.\nThis is usually because the system has restricted app read permissions.\nPlease grant permissions in the system settings.</string>
     <string name="open_app_settings">Open System Settings</string>
     <string name="integer_range_error">Enter an integer between %1$d and %2$d.</string>

@@ -4,7 +4,9 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
 import androidx.core.os.BundleCompat
+import androidx.core.view.isGone
 import androidx.core.view.size
 import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
@@ -79,6 +81,40 @@ class ProfileListFragment : Fragment() {
     // 视图还没建出来（ViewPager 预载间隙）时为空
     val listViewOrNull: RecyclerView?
         get() = if (::configurationListView.isInitialized) configurationListView else null
+
+    // 空状态占位：空分组显示「还没有节点」，搜索无结果显示「没有匹配的节点」。
+    // 列表首次载入前适配器也是空的，等第一次数据变化（reloadProfiles / filter 都以它收尾）
+    // 之后才允许显示，免得每个分组页刚建好时占位闪一下
+    private var listLoaded = false
+    private var emptyObserverAdapter: ConfigurationAdapter? = null
+    private val emptyObserver = object : RecyclerView.AdapterDataObserver() {
+        override fun onChanged() = onListChanged()
+        override fun onItemRangeInserted(positionStart: Int, itemCount: Int) = onListChanged()
+        override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) = onListChanged()
+    }
+
+    private fun onListChanged() {
+        listLoaded = true
+        updateEmptyState()
+        (parentFragment as? ConfigurationFragment)?.updateAppBarLift()
+    }
+
+    private fun updateEmptyState() {
+        val root = view ?: return
+        val holder = root.findViewById<View>(R.id.profile_list_empty) ?: return
+        val listAdapter = adapter
+        if (!listLoaded || listAdapter == null || listAdapter.itemCount != 0) {
+            holder.isGone = true
+            return
+        }
+        val filtered = listAdapter.isFiltered
+        root.findViewById<TextView>(R.id.empty_title).setText(
+            if (filtered) R.string.profile_list_no_match else R.string.profile_list_empty
+        )
+        // 选择模式页没有 + 号，不显示添加提示
+        root.findViewById<View>(R.id.empty_hint).isGone = filtered || select
+        holder.isGone = false
+    }
 
     // 列表滚动时通知父级更新顶部栏抬升；onViewCreated 会再次执行，换新前先摘掉旧的
     private val liftScrollListener = object : RecyclerView.OnScrollListener() {
@@ -187,11 +223,16 @@ class ProfileListFragment : Fragment() {
         configurationListView.addOnScrollListener(liftScrollListener)
         layoutManager = FixedLinearLayoutManager(configurationListView)
         configurationListView.layoutManager = layoutManager
+        emptyObserverAdapter?.unregisterAdapterDataObserver(emptyObserver)
+        listLoaded = false
         adapter = ConfigurationAdapter(this)
+        emptyObserverAdapter = adapter
+        adapter!!.registerAdapterDataObserver(emptyObserver)
         ProfileManager.addListener(adapter!!)
         GroupManager.addListener(adapter!!)
         configurationListView.adapter = adapter
         configurationListView.setItemViewCacheSize(20)
+        updateEmptyState()
 
         if (!select) {
 
@@ -248,6 +289,8 @@ class ProfileListFragment : Fragment() {
     }
 
     override fun onDestroy() {
+        emptyObserverAdapter?.unregisterAdapterDataObserver(emptyObserver)
+        emptyObserverAdapter = null
         adapter?.let {
             ProfileManager.removeListener(it)
             GroupManager.removeListener(it)
