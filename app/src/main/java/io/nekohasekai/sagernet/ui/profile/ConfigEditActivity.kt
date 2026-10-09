@@ -2,6 +2,7 @@ package io.nekohasekai.sagernet.ui.profile
 
 import android.annotation.SuppressLint
 import android.content.DialogInterface
+import android.content.res.Configuration
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
@@ -14,6 +15,7 @@ import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
 import androidx.core.widget.addTextChangedListener
 import com.blacksquircle.ui.editorkit.insert
+import com.blacksquircle.ui.editorkit.utils.EditorTheme
 import com.blacksquircle.ui.language.json.JsonLanguage
 import com.github.shadowsocks.plugin.Empty
 import com.github.shadowsocks.plugin.fragment.AlertDialogFragment
@@ -91,6 +93,15 @@ class ConfigEditActivity : ThemedActivity() {
 
         binding.editor.apply {
             language = JsonLanguage()
+            // 配色随亮暗切换：库默认配色在亮色底上的符号（{ } : ,）几乎看不见。
+            // 底色与当前行高亮改用页面的颜色角色，避免与页面 surface 色差
+            val night = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
+                    Configuration.UI_MODE_NIGHT_YES
+            val base = if (night) EditorTheme.DARCULA else EditorTheme.INTELLIJ_LIGHT
+            colorScheme = base.copy(
+                backgroundColor = getColorAttr(com.google.android.material.R.attr.colorSurface),
+                selectedLineColor = getColorAttr(com.google.android.material.R.attr.colorSurfaceContainer),
+            )
             setHorizontallyScrolling(true)
             if (useConfigStore) {
                 setTextContent(DataStore.configurationStore.getString(key) ?: "")
@@ -143,8 +154,8 @@ class ConfigEditActivity : ThemedActivity() {
             }
         }
         extendedKeyboard.setHasFixedSize(true)
-        extendedKeyboard.submitList("{},:_\"".map { it.toString() })
-        extendedKeyboard.setBackgroundColor(getColorAttr(com.google.android.material.R.attr.colorSurfaceContainerHigh))
+        // 键位 40dp 宽：窄屏上放不下时靠末尾的键滚动，所以最常用的引号排在最前、下划线最后
+        extendedKeyboard.submitList("\"{},:_".map { it.toString() })
 
         val keyboardContainer = findViewById<LinearLayout>(R.id.keyboard_container)
         ViewCompat.setOnApplyWindowInsetsListener(keyboardContainer) { v, windowInsets ->
