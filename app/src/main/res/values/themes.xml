@@ -97,11 +97,6 @@
         <item name="android:widgetLayout">@layout/preference_widget_material_switch</item>
     </style>
 
-    <style name="AppearanceFoundation.Title" parent="TextAppearance.AppCompat.Title">
-        <item name="android:textColor">?attr/colorOnSurface</item>
-        <item name="android:textStyle">bold</item>
-    </style>
-
     <style name="ThemeOverlay.SagerNet.MaterialAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
         <!-- alertDialogTheme 也指向这里：AppCompat AlertDialog.Builder 建的对话框不经 MaterialAlertDialogBuilder 设背景，
              父链里的窗口背景是 2dp 圆角、colorBackgroundFloating（亮 #FFFFFF / 暗 #424242）。换成与

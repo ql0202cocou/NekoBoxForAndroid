@@ -31,7 +31,7 @@ class StunActivity : ThemedActivity() {
         supportActionBar?.apply {
             setTitle(R.string.stun_test)
             setDisplayHomeAsUpEnabled(true)
-            setHomeAsUpIndicator(R.drawable.baseline_arrow_back_24)
+            setHomeAsUpIndicator(R.drawable.ic_navigation_close)
         }
         binding.stunTest.setOnClickListener {
             doTest()

@@ -20,14 +20,21 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:gravity="center"
+            android:orientation="vertical"
             android:visibility="gone">
+
+            <com.google.android.material.progressindicator.CircularProgressIndicator
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:indeterminate="true" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_gravity="center"
+                android:layout_marginTop="16dp"
                 android:text="@string/stun_attest_loading"
-                android:textAppearance="@style/AppearanceFoundation.Title" />
+                android:textAppearance="?attr/textAppearanceBodyLarge"
+                android:textColor="?attr/colorOnSurfaceVariant" />
         </LinearLayout>
 
 
@@ -46,9 +53,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginLeft="16dp"
                     android:layout_marginTop="16dp"
-                    android:layout_marginRight="16dp"
-                    android:clickable="true"
-                    android:focusable="true">
+                    android:layout_marginRight="16dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -56,20 +61,18 @@
                         android:orientation="vertical"
                         android:padding="16dp">
 
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:labelFor="@id/nat_stun_server"
-                            android:text="@string/nat_stun_server_hint"
-                            android:textAppearance="?attr/textAppearanceSubtitle2" />
-
-                        <EditText
-                            android:id="@+id/nat_stun_server"
+                        <com.google.android.material.textfield.TextInputLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:ems="10"
-                            android:inputType="text"
-                            android:text="stun.voipgate.com:3478" />
+                            android:hint="@string/nat_stun_server_hint">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/nat_stun_server"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="textUri"
+                                android:text="stun.voipgate.com:3478" />
+                        </com.google.android.material.textfield.TextInputLayout>
 
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -79,9 +82,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginLeft="16dp"
                     android:layout_marginTop="16dp"
-                    android:layout_marginRight="16dp"
-                    android:clickable="true"
-                    android:focusable="true">
+                    android:layout_marginRight="16dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -93,12 +94,16 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/nat_result_hint"
-                            android:textAppearance="?attr/textAppearanceSubtitle2" />
+                            android:textAppearance="?attr/textAppearanceTitleMedium"
+                            android:textColor="?attr/colorOnSurface" />
 
                         <TextView
                             android:id="@+id/nat_result"
                             android:layout_width="match_parent"
-                            android:layout_height="wrap_content" />
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:textAppearance="?attr/textAppearanceBodyMedium"
+                            android:textColor="?attr/colorOnSurface" />
 
                     </LinearLayout>
 

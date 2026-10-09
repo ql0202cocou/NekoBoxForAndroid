@@ -27,7 +27,7 @@
             android:layout_height="wrap_content"
             android:checked="true"
             android:text="@string/backup_groups_and_configurations"
-            android:textAppearance="?attr/textAppearanceSubtitle2" />
+            android:textAppearance="?attr/textAppearanceBodyLarge" />
 
         <CheckBox
             android:id="@+id/backup_rules"
@@ -35,7 +35,7 @@
             android:layout_height="wrap_content"
             android:checked="true"
             android:text="@string/backup_rules"
-            android:textAppearance="?attr/textAppearanceSubtitle2" />
+            android:textAppearance="?attr/textAppearanceBodyLarge" />
 
 
         <CheckBox
@@ -44,7 +44,7 @@
             android:layout_height="wrap_content"
             android:checked="true"
             android:text="@string/backup_settings"
-            android:textAppearance="?attr/textAppearanceSubtitle2" />
+            android:textAppearance="?attr/textAppearanceBodyLarge" />
 
         <Button
             android:id="@+id/action_export"
@@ -64,7 +64,8 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:text="@string/backup_summary"
-            android:textColor="?android:textColorTertiary" />
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:textColor="?attr/colorOnSurfaceVariant" />
 
         <Button
             android:id="@+id/action_import_file"
