@@ -44,12 +44,9 @@
     <string name="cag_route">Налаштування маршруту</string>
     <string name="allow_access">Дозволити підключення з локальної мережі</string>
     <string name="allow_access_sum">Прив’язати вхідні сервери до 0.0.0.0</string>
-    <string name="inbound_settings">Вхідні налаштування</string>
-    <string name="general_settings">Налаштування програми</string>
     <string name="cag_ws">Налаштування WebSocket</string>
     <string name="ws_max_early_data" translatable="false">Max early data</string>
     <string name="speed_interval">Інтервал оновлення сповіщення про швидкість</string>
-    <string name="cag_misc">Різні налаштування</string>
     <string name="show_direct_speed">Показати пряму швидкість</string>
     <string name="show_direct_speed_sum">У сповіщенні також покажіть швидкість трафіку без проксі-сервера</string>
     <string name="security_settings">Налаштування безпеки TLS</string>
@@ -62,7 +59,6 @@
     <string name="connection_test_available">Успіх: рукостискання HTTPS зайняло %dмс</string>
     <string name="connection_test_available_http">Успіх: рукостискання HTTP зайняло %dмс</string>
     <string name="connection_test_error">Не вдалося: %s</string>
-    <string name="cag_dns">Налаштування DNS</string>
     <string name="remote_dns">Віддалений DNS</string>
     <string name="direct_dns">Прямий DNS</string>
     <string name="enable_dns_routing">Увімкнути маршрутизацію DNS</string>

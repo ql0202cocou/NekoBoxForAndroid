@@ -58,12 +58,9 @@
     <string name="cag_route">Route Settings</string>
     <string name="allow_access">Allow Connections from the LAN</string>
     <string name="allow_access_sum">Bind inbound servers to 0.0.0.0</string>
-    <string name="inbound_settings">Inbound Settings</string>
-    <string name="general_settings">App Settings</string>
     <string name="cag_ws">WebSocket Settings</string>
     <string name="ws_max_early_data" translatable="false">Max early data</string>
     <string name="speed_interval">Speed Notification Update Interval</string>
-    <string name="cag_misc">Misc Settings</string>
     <string name="show_direct_speed">Show Direct Speed</string>
     <string name="show_direct_speed_sum">Show the traffic speed without proxy in the notification as
         well</string>
@@ -82,7 +79,6 @@
     <string name="connection_test_available">Success: HTTPS handshake took %dms</string>
     <string name="connection_test_available_http">Success: HTTP handshake took %dms</string>
     <string name="connection_test_error">Failed: %s</string>
-    <string name="cag_dns">DNS Settings</string>
     <string name="remote_dns">Remote DNS</string>
     <string name="direct_dns">Direct DNS</string>
     <string name="enable_dns_routing">Enable DNS Routing</string>
@@ -190,6 +186,16 @@
     <string name="clipboard_empty">Clipboard is empty</string>
     <!-- menu category -->
     <string name="settings">Settings</string>
+    <string name="settings_service">Service</string>
+    <string name="settings_interface">Interface &amp; notifications</string>
+    <string name="settings_route">Route</string>
+    <string name="settings_dns" translatable="false">DNS</string>
+    <string name="settings_inbound">Inbound</string>
+    <string name="settings_advanced">Advanced</string>
+    <string name="settings_cat_interface">Interface</string>
+    <string name="settings_cat_notification">Notification &amp; statistics</string>
+    <string name="settings_cat_security">Security</string>
+    <string name="settings_cat_debug">Testing &amp; debugging</string>
     <string name="edit">Edit</string>
     <string name="share">Share</string>
     <string name="add_profile">Add Profile</string>

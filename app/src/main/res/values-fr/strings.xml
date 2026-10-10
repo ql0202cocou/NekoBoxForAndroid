@@ -29,7 +29,6 @@
     <string name="apps">Applications</string>
     <string name="clear_profiles_message">Êtes-vous sûr(e) de vouloir supprimer ce groupe \?</string>
     <string name="profile_import_message">Confirmez-vous que vous voulez importer le profil %s \?</string>
-    <string name="general_settings">Paramètres de l\'appli</string>
     <string name="cag_route">Paramètres d\'itinéraire</string>
     <string name="service_mode">Mode service</string>
     <string name="group_diff">Diff (%s)</string>
@@ -104,7 +103,6 @@
     <string name="on">Actif</string>
     <string name="connection_test_error">Échec : %s</string>
     <string name="menu_route">Route</string>
-    <string name="cag_dns">Paramètres DNS</string>
     <string name="protocol">Protocole</string>
     <string name="port_proxy">Port du Proxy SOCKS5</string>
     <string name="route_asset_updated">Mis à jour</string>
@@ -118,7 +116,6 @@
     <string name="speed_detail">Proxy： %1$s↑ %2$s↓
 \nDirecte： %3$s↑ %4$s↓</string>
     <string name="subscriptions">Souscriptions</string>
-    <string name="cag_misc">Paramètres divers</string>
     <string name="enable_dns_routing">Activer le routage DNS</string>
     <string name="invalid_server">Nom de serveur invalide</string>
     <string name="show_direct_speed_sum">Afficher également la vitesse du trafic sans proxy dans la notification</string>
@@ -127,7 +124,6 @@
     <string name="password">Mot de passe</string>
     <string name="connection_test_domain_not_found">Domaine non trouvé</string>
     <string name="allow_access">Autoriser les Connexions depuis le réseau local</string>
-    <string name="inbound_settings">Paramètres Entrants</string>
     <string name="speed_interval">Intervalle de mise à jour des notifications de vitesse</string>
     <string name="allow_insecure_sum">Désactivez la vérification des certificats. Lorsque cette option est activée, cette configuration est aussi sécurisée que le texte en clair</string>
     <string name="speed">%s/s</string>

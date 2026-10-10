@@ -15,7 +15,8 @@ open class ToolbarFragment : Fragment {
     lateinit var toolbar: Toolbar
 
     /**
-     * 从设置页末尾进入的二级页面（日志、工具、关于、仪表板）：顶部栏左侧是返回箭头，回到设置页。
+     * 从设置一级页进入的二级页面（六个设置分类页，以及日志、工具、关于、仪表板）：
+     * 顶部栏左侧是返回箭头，回到设置一级页。
      * 一级页面由底部 Dock 切换，顶部栏没有导航图标
      */
     open val opensFromSettings = false

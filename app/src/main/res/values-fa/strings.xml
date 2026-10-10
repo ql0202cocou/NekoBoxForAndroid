@@ -44,12 +44,9 @@
     <string name="cag_route">تنظیمات مسیردهی</string>
     <string name="allow_access">اجازه اتصال از شبکه محلی</string>
     <string name="allow_access_sum">اجازه اتصال سرورهای ورودی به 0.0.0.0</string>
-    <string name="inbound_settings">تنظیمات اتصالات ورودی</string>
-    <string name="general_settings">تنظیمات برنامه</string>
     <string name="cag_ws">تنظیمات WebSocket</string>
     <string name="ws_max_early_data" translatable="false">Max early data</string>
     <string name="speed_interval">تنظیم فاصله زمانی نمایش سرعت</string>
-    <string name="cag_misc">تنظیمات متفرقه</string>
     <string name="show_direct_speed">نمایش سرعت</string>
     <string name="show_direct_speed_sum">نمایش سرعت اتصال، حتی در هنگام غیرفعال بودن پراکسی</string>
     <string name="security_settings">تنظیمات امنیت TLS</string>
@@ -62,7 +59,6 @@
     <string name="connection_test_available">اتصال موفق! سرعت برقراری ارتباط HTTPS: %dms</string>
     <string name="connection_test_available_http">اتصال موفق! سرعت برقراری ارتباط HTTP: %dms</string>
     <string name="connection_test_error">ناموفق بود: %s</string>
-    <string name="cag_dns">تنظیمات DNs</string>
     <string name="remote_dns">DNS ریموت</string>
     <string name="direct_dns">DNS مستقیم</string>
     <string name="enable_dns_routing">فعال‌کردن مسیریابی DNS</string>

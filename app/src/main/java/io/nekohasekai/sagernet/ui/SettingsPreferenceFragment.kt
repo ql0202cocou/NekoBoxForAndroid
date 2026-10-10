@@ -24,6 +24,10 @@ import io.nekohasekai.sagernet.widget.padForSystemBars
 import moe.matsuri.nb4a.ui.*
 import io.nekohasekai.sagernet.bg.ServiceRegistry
 
+/**
+ * 设置页的列表。一级页（rootKey 为空）只有六个分类入口和页面入口；
+ * 分类页用分类 key（[sections]）作 rootKey 加载同一份 XML，只给本页存在的行接监听。
+ */
 class SettingsPreferenceFragment : PreferenceFragmentCompat() {
 
     private lateinit var isProxyApps: SwitchPreferenceCompat
@@ -37,13 +41,15 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         listView.layoutManager = FixedLinearLayoutManager(listView)
         listView.padForSystemBars(bottomExtra = mainBottomClearance())
         listView.liftAncestorAppBar()
-        // 从二级页面返回：恢复进入前的滚动位置（入口都在列表末尾）
-        (activity as? MainActivity)?.takeSettingsListState()?.let {
-            listView.layoutManager?.onRestoreInstanceState(it)
+        // 从二级页面返回一级页：恢复进入前的滚动位置（页面入口在列表末尾）
+        if (arguments?.getString(ARG_PREFERENCE_ROOT) == null) {
+            (activity as? MainActivity)?.takeSettingsListState()?.let {
+                listView.layoutManager?.onRestoreInstanceState(it)
+            }
         }
     }
 
-    /** 设置列表当前的滚动状态，由 MainActivity 在进入二级页面前保存 */
+    /** 一级列表当前的滚动状态，由 MainActivity 经 SettingsFragment 在进入二级页面前保存 */
     fun listState(): Parcelable? = view?.let { listView.layoutManager?.onSaveInstanceState() }
 
     private val reloadListener = Preference.OnPreferenceChangeListener { _, _ ->
@@ -54,8 +60,47 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         preferenceManager.preferenceDataStore = DataStore.configurationStore
         DataStore.initGlobal()
-        addPreferencesFromResource(R.xml.global_preferences)
+        setPreferencesFromResource(R.xml.global_preferences, rootKey)
 
+        // 整份 XML 都被解析，但 rootKey 之外的行不在本页：只给本页的行接监听
+        when (rootKey) {
+            null -> setupHub()
+            KEY_SERVICE -> setupService()
+            KEY_INTERFACE -> setupInterface()
+            KEY_ROUTE -> setupRoute()
+            KEY_DNS -> setupDns()
+            KEY_INBOUND -> setupInbound()
+            KEY_ADVANCED -> setupAdvanced()
+        }
+    }
+
+    // 一级页：末尾的页面入口点击打开 MainActivity 的对应页面；仪表板只在开启 Clash API 时显示
+    // （开关在「高级」页，回到一级页时重建列表，这里读取最新值）
+    private fun setupHub() {
+        for ((key, page) in navEntries) {
+            findPreference<Preference>(key)!!.setOnPreferenceClickListener {
+                (activity as? MainActivity)?.displayFragmentWithId(page)
+                true
+            }
+        }
+        findPreference<Preference>(KEY_NAV_DASHBOARD)!!.isVisible = DataStore.enableClashAPI
+    }
+
+    private fun setupService() {
+        findPreference<Preference>(Key.SERVICE_MODE)!!.setOnPreferenceChangeListener { _, _ ->
+            if (ServiceRegistry.state.started) SagerNet.stopService()
+            true
+        }
+        findPreference<Preference>(Key.TUN_IMPLEMENTATION)!!.onPreferenceChangeListener = reloadListener
+        findPreference<MTUPreference>(Key.MTU)!!.onPreferenceChangeListener = reloadListener
+        val metedNetwork = findPreference<Preference>(Key.METERED_NETWORK)!!
+        if (Build.VERSION.SDK_INT < 28) {
+            metedNetwork.remove()
+        }
+        findPreference<Preference>(Key.ACQUIRE_WAKE_LOCK)!!.onPreferenceChangeListener = reloadListener
+    }
+
+    private fun setupInterface() {
         val appTheme = findPreference<ColorPickerPreference>(Key.APP_THEME)!!
         appTheme.setOnPreferenceChangeListener { _, newTheme ->
             if (ServiceRegistry.state.started) {
@@ -81,25 +126,61 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             SagerNet.setExcludeFromRecents(newValue as Boolean)
             true
         }
+
+        val profileTrafficStatistics =
+            findPreference<SwitchPreferenceCompat>(Key.PROFILE_TRAFFIC_STATISTICS)!!
+        val speedInterval = findPreference<SimpleMenuPreference>(Key.SPEED_INTERVAL)!!
+        profileTrafficStatistics.isEnabled = speedInterval.value.toString() != "0"
+        speedInterval.setOnPreferenceChangeListener { _, newValue ->
+            profileTrafficStatistics.isEnabled = newValue.toString() != "0"
+            needReload()
+            true
+        }
+        findPreference<SwitchPreferenceCompat>(Key.SHOW_DIRECT_SPEED)!!.onPreferenceChangeListener = reloadListener
+    }
+
+    private fun setupRoute() {
+        isProxyApps = findPreference(Key.PROXY_APPS)!!
+        isProxyApps.setOnPreferenceChangeListener { _, newValue ->
+            startActivity(Intent(activity, AppManagerActivity::class.java))
+            newValue as Boolean
+        }
+        findPreference<SwitchPreferenceCompat>(Key.BYPASS_LAN)!!.onPreferenceChangeListener = reloadListener
+        findPreference<SwitchPreferenceCompat>(Key.BYPASS_LAN_IN_CORE)!!.onPreferenceChangeListener = reloadListener
+        findPreference<Preference>(Key.TRAFFIC_SNIFFING)!!.onPreferenceChangeListener = reloadListener
+        findPreference<SwitchPreferenceCompat>(Key.RESOLVE_DESTINATION)!!.onPreferenceChangeListener = reloadListener
+        findPreference<Preference>(Key.IPV6_MODE)!!.onPreferenceChangeListener = reloadListener
+    }
+
+    private fun setupDns() {
+        findPreference<EditTextPreference>(Key.REMOTE_DNS)!!.onPreferenceChangeListener = reloadListener
+        findPreference<EditTextPreference>(Key.DIRECT_DNS)!!.onPreferenceChangeListener = reloadListener
+        findPreference<SwitchPreferenceCompat>(Key.ENABLE_DNS_ROUTING)!!.onPreferenceChangeListener = reloadListener
+        findPreference<SwitchPreferenceCompat>(Key.ENABLE_FAKEDNS)!!.onPreferenceChangeListener = reloadListener
+    }
+
+    private fun setupInbound() {
         val mixedPort = findPreference<EditTextPreference>(Key.MIXED_PORT)!!
-        val serviceMode = findPreference<Preference>(Key.SERVICE_MODE)!!
-        val allowAccess = findPreference<Preference>(Key.ALLOW_ACCESS)!!
-        val appendHttpProxy = findPreference<SwitchPreferenceCompat>(Key.APPEND_HTTP_PROXY)!!
+        mixedPort.setOnBindEditTextListener(EditTextPreferenceModifiers.Port)
+        // 范围同 DataStore.mixedPort 的 parsePort：越界值会被静默换成 2080 + 用户偏移，
+        // 界面却显示原值，所以在保存前拦下
+        mixedPort.setOnPreferenceChangeListener { _, newValue ->
+            if (!isIntegerInRange(newValue, 1025, 65535)) {
+                Toast.makeText(
+                    requireContext(), getString(R.string.integer_range_error, 1025, 65535), Toast.LENGTH_LONG
+                ).show()
+                false
+            } else {
+                needReload()
+                true
+            }
+        }
+        findPreference<SwitchPreferenceCompat>(Key.APPEND_HTTP_PROXY)!!.onPreferenceChangeListener = reloadListener
+        findPreference<Preference>(Key.ALLOW_ACCESS)!!.onPreferenceChangeListener = reloadListener
+    }
 
-        val showDirectSpeed = findPreference<SwitchPreferenceCompat>(Key.SHOW_DIRECT_SPEED)!!
-        val ipv6Mode = findPreference<Preference>(Key.IPV6_MODE)!!
-        val trafficSniffing = findPreference<Preference>(Key.TRAFFIC_SNIFFING)!!
-
-        val bypassLan = findPreference<SwitchPreferenceCompat>(Key.BYPASS_LAN)!!
-        val bypassLanInCore = findPreference<SwitchPreferenceCompat>(Key.BYPASS_LAN_IN_CORE)!!
-
-        val remoteDns = findPreference<EditTextPreference>(Key.REMOTE_DNS)!!
-        val directDns = findPreference<EditTextPreference>(Key.DIRECT_DNS)!!
-        val enableDnsRouting = findPreference<SwitchPreferenceCompat>(Key.ENABLE_DNS_ROUTING)!!
-        val enableFakeDns = findPreference<SwitchPreferenceCompat>(Key.ENABLE_FAKEDNS)!!
-
+    private fun setupAdvanced() {
         val logLevel = findPreference<LongClickListPreference>(Key.LOG_LEVEL)!!
-        val mtu = findPreference<MTUPreference>(Key.MTU)!!
         globalCustomConfig = findPreference(Key.GLOBAL_CUSTOM_CONFIG)!!
         globalCustomConfig.useConfigStore(Key.GLOBAL_CUSTOM_CONFIG)
 
@@ -132,89 +213,31 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             true
         }
 
-        mixedPort.setOnBindEditTextListener(EditTextPreferenceModifiers.Port)
-
-        val metedNetwork = findPreference<Preference>(Key.METERED_NETWORK)!!
-        if (Build.VERSION.SDK_INT < 28) {
-            metedNetwork.remove()
-        }
-        isProxyApps = findPreference(Key.PROXY_APPS)!!
-        isProxyApps.setOnPreferenceChangeListener { _, newValue ->
-            startActivity(Intent(activity, AppManagerActivity::class.java))
-            newValue as Boolean
-        }
-
-        val profileTrafficStatistics =
-            findPreference<SwitchPreferenceCompat>(Key.PROFILE_TRAFFIC_STATISTICS)!!
-        val speedInterval = findPreference<SimpleMenuPreference>(Key.SPEED_INTERVAL)!!
-        profileTrafficStatistics.isEnabled = speedInterval.value.toString() != "0"
-        speedInterval.setOnPreferenceChangeListener { _, newValue ->
-            profileTrafficStatistics.isEnabled = newValue.toString() != "0"
-            needReload()
-            true
-        }
-
-        serviceMode.setOnPreferenceChangeListener { _, _ ->
-            if (ServiceRegistry.state.started) SagerNet.stopService()
-            true
-        }
-
-        val tunImplementation = findPreference<SimpleMenuPreference>(Key.TUN_IMPLEMENTATION)!!
-        val resolveDestination = findPreference<SwitchPreferenceCompat>(Key.RESOLVE_DESTINATION)!!
-        val acquireWakeLock = findPreference<SwitchPreferenceCompat>(Key.ACQUIRE_WAKE_LOCK)!!
-        val enableClashAPI = findPreference<SwitchPreferenceCompat>(Key.ENABLE_CLASH_API)!!
-        // 末尾的页面入口：点击打开 MainActivity 的对应页面
-        for ((key, page) in navEntries) {
-            findPreference<Preference>(key)!!.setOnPreferenceClickListener {
-                (activity as? MainActivity)?.displayFragmentWithId(page)
-                true
-            }
-        }
-        val navDashboard = findPreference<Preference>(KEY_NAV_DASHBOARD)!!
-        navDashboard.isVisible = DataStore.enableClashAPI
-        enableClashAPI.setOnPreferenceChangeListener { _, newValue ->
-            // 回调早于写入，直接用新值
-            navDashboard.isVisible = newValue as Boolean
-            needReload()
-            true
-        }
-
-        // 范围同 DataStore.mixedPort 的 parsePort：越界值会被静默换成 2080 + 用户偏移，
-        // 界面却显示原值，所以在保存前拦下
-        mixedPort.setOnPreferenceChangeListener { _, newValue ->
-            if (!isIntegerInRange(newValue, 1025, 65535)) {
-                Toast.makeText(
-                    requireContext(), getString(R.string.integer_range_error, 1025, 65535), Toast.LENGTH_LONG
-                ).show()
-                false
-            } else {
-                needReload()
-                true
-            }
-        }
-        appendHttpProxy.onPreferenceChangeListener = reloadListener
-        showDirectSpeed.onPreferenceChangeListener = reloadListener
-        trafficSniffing.onPreferenceChangeListener = reloadListener
-        bypassLan.onPreferenceChangeListener = reloadListener
-        bypassLanInCore.onPreferenceChangeListener = reloadListener
-        mtu.onPreferenceChangeListener = reloadListener
-
-        enableFakeDns.onPreferenceChangeListener = reloadListener
-        remoteDns.onPreferenceChangeListener = reloadListener
-        directDns.onPreferenceChangeListener = reloadListener
-        enableDnsRouting.onPreferenceChangeListener = reloadListener
-
-        ipv6Mode.onPreferenceChangeListener = reloadListener
-        allowAccess.onPreferenceChangeListener = reloadListener
-
-        resolveDestination.onPreferenceChangeListener = reloadListener
-        tunImplementation.onPreferenceChangeListener = reloadListener
-        acquireWakeLock.onPreferenceChangeListener = reloadListener
+        // 仪表板入口的显隐在一级页重建时读取，这里只需重载
+        findPreference<SwitchPreferenceCompat>(Key.ENABLE_CLASH_API)!!.onPreferenceChangeListener = reloadListener
         globalCustomConfig.onPreferenceChangeListener = reloadListener
     }
 
     internal companion object {
         const val KEY_NAV_DASHBOARD = "navDashboard"
+
+        const val KEY_SERVICE = "sectionService"
+        const val KEY_INTERFACE = "sectionInterface"
+        const val KEY_ROUTE = "sectionRoute"
+        const val KEY_DNS = "sectionDns"
+        const val KEY_INBOUND = "sectionInbound"
+        const val KEY_ADVANCED = "sectionAdvanced"
+
+        // 设置一级页的六个分类（global_preferences.xml 开头的六个 PreferenceScreen）→ 标题；
+        // 顺序同 XML，二级页的顶部栏标题与入口行是同一字符串
+        val sections = listOf(
+            KEY_SERVICE to R.string.settings_service,
+            KEY_INTERFACE to R.string.settings_interface,
+            KEY_ROUTE to R.string.settings_route,
+            KEY_DNS to R.string.settings_dns,
+            KEY_INBOUND to R.string.settings_inbound,
+            KEY_ADVANCED to R.string.settings_advanced,
+        )
 
         // 设置页末尾的页面入口（global_preferences.xml 的最后一组）→ 页面 id
         val navEntries = listOf(

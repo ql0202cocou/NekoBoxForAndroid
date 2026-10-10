@@ -8,7 +8,6 @@
     <string name="enable_dns_routing">DNS Yönlendirmesini Etkinleştir</string>
     <string name="direct_dns">Direkt DNS</string>
     <string name="remote_dns">Uzak DNS</string>
-    <string name="cag_dns">DNS Ayarları</string>
     <string name="connection_test_error">Başarısız: %s</string>
     <string name="connection_test_available_http">Başarılı: HTTP el sıkışması %dms sonra gerçekleşti</string>
     <string name="connection_test_available">Başarılı: HTTPS el sıkışması %dms sonra gerçekleşti</string>
@@ -22,11 +21,8 @@
     <string name="security_settings">Güvenlik Ayarları</string>
     <string name="show_direct_speed_sum">Vekil sunucu olmadan oluşan veri trafiği hızını da göster</string>
     <string name="show_direct_speed">Direkt Hızı Göster</string>
-    <string name="cag_misc">Diğer Ayarlar</string>
     <string name="speed_interval">Hız Bildirimi Güncelleme Aralığı</string>
     <string name="cag_ws">WebSocket Ayarları</string>
-    <string name="general_settings">Uygulama Ayarları</string>
-    <string name="inbound_settings">Geliş Ayarları</string>
     <string name="allow_access_sum">Gelen sunucu isteklerini 0.0.0.0 üzerine bağla</string>
     <string name="allow_access">Yerel ağdan bağlantılara izin ver</string>
     <string name="cag_route">Rota Ayarları</string>

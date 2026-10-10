@@ -62,7 +62,6 @@
     <string name="enable_dns_routing">تمكين توجيه DNS</string>
     <string name="direct_dns">DNS المباشر</string>
     <string name="remote_dns">DNS البعيد</string>
-    <string name="cag_dns">إعدادات DNS</string>
     <string name="connection_test_error">فشل: %s</string>
     <string name="connection_test_available_http">نجاح: استغرقت مصافحة HTTP %dms</string>
     <string name="connection_test_available">نجاح: استغرقت مصافحة HTTPS %dms</string>
@@ -79,11 +78,8 @@
     <string name="show_direct_speed_sum">أظهر سرعة المرور بدون وكيل في الإشعار أيضًا</string>
     <string name="show_direct_speed">عرض السرعة المباشرة</string>
     <string name="allow_access_sum">ربط خوادم الإدخال إلى 0.0.0.0</string>
-    <string name="cag_misc">إعدادات متنوعة</string>
     <string name="speed_interval">الفاصل الزمني لتحديث إشعار السرعة</string>
     <string name="cag_ws">إعدادات WebSocket</string>
-    <string name="general_settings">إعدادات التطبيقات</string>
-    <string name="inbound_settings">إعدادات الواردة</string>
     <string name="allow_access">السماح بالاتصالات من الشبكة المحلية</string>
     <string name="cag_route">إعدادات الطريق</string>
     <string name="route_asset_updated">محدث</string>

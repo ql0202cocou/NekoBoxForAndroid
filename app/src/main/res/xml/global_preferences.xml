@@ -1,25 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 设置页的结构：一级页只有六个分类入口（嵌套的 PreferenceScreen，点击由 MainActivity 的
+     onPreferenceStartScreen 打开二级页）加末尾四个页面入口；分类里的行都在二级页。
+     二级页用 setPreferencesFromResource(这份 XML, 分类 key) 加载，整份文件都会被解析。
+     分类 key 与顺序由 SettingsPreferenceFragment.sections 对应，SettingsSectionsResourcesTest 钉住 -->
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
-    <PreferenceCategory app:title="@string/general_settings">
+    <PreferenceScreen
+        app:icon="@drawable/ic_device_developer_mode"
+        app:key="sectionService"
+        app:persistent="false"
+        app:title="@string/settings_service">
         <SwitchPreferenceCompat
             app:defaultValue="false"
             app:icon="@drawable/ic_communication_phonelink_ring"
             app:key="isAutoConnect"
             app:summary="@string/auto_connect_summary"
             app:title="@string/auto_connect" />
-        <moe.matsuri.nb4a.ui.ColorPickerPreference
-            android:title="@string/theme"
-            app:icon="@drawable/ic_baseline_color_lens_24"
-            app:key="appTheme" />
-        <moe.matsuri.nb4a.ui.SimpleMenuPreference
-            app:defaultValue="0"
-            app:entries="@array/night_mode"
-            app:entryValues="@array/int_array_4"
-            app:icon="@drawable/ic_baseline_wb_sunny_24"
-            app:key="nightTheme"
-            app:title="@string/night_mode"
-            app:useSimpleSummaryProvider="true" />
         <moe.matsuri.nb4a.ui.SimpleMenuPreference
             app:defaultValue="vpn"
             app:entries="@array/service_modes"
@@ -43,40 +39,6 @@
             app:icon="@drawable/baseline_public_24"
             app:key="mtu"
             app:title="@string/mtu" />
-        <moe.matsuri.nb4a.ui.SimpleMenuPreference
-            app:defaultValue="1000"
-            app:entries="@array/notification_entry"
-            app:entryValues="@array/notification_value"
-            app:icon="@drawable/ic_baseline_shutter_speed_24"
-            app:key="speedInterval"
-            app:title="@string/speed_interval"
-            app:useSimpleSummaryProvider="true" />
-        <SwitchPreferenceCompat
-            app:defaultValue="true"
-            app:iconSpaceReserved="true"
-            app:key="profileTrafficStatistics"
-            app:summary="@string/profile_traffic_statistics_summary"
-            app:title="@string/profile_traffic_statistics" />
-        <SwitchPreferenceCompat
-            app:defaultValue="true"
-            app:icon="@drawable/ic_baseline_speed_24"
-            app:key="showDirectSpeed"
-            app:summary="@string/show_direct_speed_sum"
-            app:title="@string/show_direct_speed"
-            app:useSimpleSummaryProvider="true" />
-        <SwitchPreferenceCompat
-            app:iconSpaceReserved="true"
-            app:key="showGroupInNotification"
-            app:title="@string/show_group_in_notification" />
-        <SwitchPreferenceCompat
-            app:iconSpaceReserved="true"
-            app:key="hideFromRecents"
-            app:title="@string/hide_from_recents" />
-        <SwitchPreferenceCompat
-            app:icon="@drawable/ic_baseline_center_focus_weak_24"
-            app:key="alwaysShowAddress"
-            app:summary="@string/always_show_address_sum"
-            app:title="@string/always_show_address" />
         <SwitchPreferenceCompat
             app:icon="@drawable/ic_device_data_usage"
             app:key="meteredNetwork"
@@ -87,22 +49,81 @@
             app:key="acquireWakeLock"
             app:summary="@string/acquire_wake_lock_summary"
             app:title="@string/acquire_wake_lock" />
-        <moe.matsuri.nb4a.ui.LongClickListPreference
-            app:defaultValue="0"
-            app:entries="@array/log_level"
-            app:entryValues="@array/int_array_5"
-            app:icon="@drawable/ic_baseline_bug_report_24"
-            app:key="logLevel"
-            app:title="@string/log_level"
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:icon="@drawable/ic_baseline_flip_camera_android_24"
+            app:key="networkChangeResetConnections"
+            app:title="@string/network_change_reset_connections"
             app:useSimpleSummaryProvider="true" />
-        <moe.matsuri.nb4a.ui.EditConfigPreference
-            app:icon="@drawable/ic_baseline_layers_24"
-            app:key="globalCustomConfig"
-            app:title="@string/custom_config"
+        <SwitchPreferenceCompat
+            app:iconSpaceReserved="true"
+            app:key="wakeResetConnections"
+            app:title="@string/wake_reset_connections"
             app:useSimpleSummaryProvider="true" />
-    </PreferenceCategory>
+    </PreferenceScreen>
 
-    <PreferenceCategory app:title="@string/cag_route">
+    <PreferenceScreen
+        app:icon="@drawable/ic_baseline_color_lens_24"
+        app:key="sectionInterface"
+        app:persistent="false"
+        app:title="@string/settings_interface">
+        <PreferenceCategory app:title="@string/settings_cat_interface">
+            <moe.matsuri.nb4a.ui.ColorPickerPreference
+                android:title="@string/theme"
+                app:icon="@drawable/ic_baseline_color_lens_24"
+                app:key="appTheme" />
+            <moe.matsuri.nb4a.ui.SimpleMenuPreference
+                app:defaultValue="0"
+                app:entries="@array/night_mode"
+                app:entryValues="@array/int_array_4"
+                app:icon="@drawable/ic_baseline_wb_sunny_24"
+                app:key="nightTheme"
+                app:title="@string/night_mode"
+                app:useSimpleSummaryProvider="true" />
+            <SwitchPreferenceCompat
+                app:icon="@drawable/ic_baseline_center_focus_weak_24"
+                app:key="alwaysShowAddress"
+                app:summary="@string/always_show_address_sum"
+                app:title="@string/always_show_address" />
+            <SwitchPreferenceCompat
+                app:iconSpaceReserved="true"
+                app:key="hideFromRecents"
+                app:title="@string/hide_from_recents" />
+        </PreferenceCategory>
+        <PreferenceCategory app:title="@string/settings_cat_notification">
+            <moe.matsuri.nb4a.ui.SimpleMenuPreference
+                app:defaultValue="1000"
+                app:entries="@array/notification_entry"
+                app:entryValues="@array/notification_value"
+                app:icon="@drawable/ic_baseline_shutter_speed_24"
+                app:key="speedInterval"
+                app:title="@string/speed_interval"
+                app:useSimpleSummaryProvider="true" />
+            <SwitchPreferenceCompat
+                app:defaultValue="true"
+                app:iconSpaceReserved="true"
+                app:key="profileTrafficStatistics"
+                app:summary="@string/profile_traffic_statistics_summary"
+                app:title="@string/profile_traffic_statistics" />
+            <SwitchPreferenceCompat
+                app:defaultValue="true"
+                app:icon="@drawable/ic_baseline_speed_24"
+                app:key="showDirectSpeed"
+                app:summary="@string/show_direct_speed_sum"
+                app:title="@string/show_direct_speed"
+                app:useSimpleSummaryProvider="true" />
+            <SwitchPreferenceCompat
+                app:iconSpaceReserved="true"
+                app:key="showGroupInNotification"
+                app:title="@string/show_group_in_notification" />
+        </PreferenceCategory>
+    </PreferenceScreen>
+
+    <PreferenceScreen
+        app:icon="@drawable/ic_maps_directions"
+        app:key="sectionRoute"
+        app:persistent="false"
+        app:title="@string/settings_route">
         <SwitchPreferenceCompat
             app:icon="@drawable/ic_navigation_apps"
             app:key="proxyApps"
@@ -145,9 +166,13 @@
             app:key="rulesProvider"
             app:title="@string/route_rules_provider"
             app:useSimpleSummaryProvider="true" />
-    </PreferenceCategory>
+    </PreferenceScreen>
 
-    <PreferenceCategory app:title="@string/cag_dns">
+    <PreferenceScreen
+        app:icon="@drawable/ic_action_dns"
+        app:key="sectionDns"
+        app:persistent="false"
+        app:title="@string/settings_dns">
         <EditTextPreference
             app:defaultValue="https://dns.google/dns-query"
             app:icon="@drawable/ic_action_dns"
@@ -193,9 +218,13 @@
             app:key="enableFakeDns"
             app:summary="@string/fakedns_message"
             app:title="@string/enable_fakedns" />
-    </PreferenceCategory>
+    </PreferenceScreen>
 
-    <PreferenceCategory app:title="@string/inbound_settings">
+    <PreferenceScreen
+        app:icon="@drawable/ic_hardware_router"
+        app:key="sectionInbound"
+        app:persistent="false"
+        app:title="@string/settings_inbound">
         <EditTextPreference
             app:icon="@drawable/ic_maps_directions_boat"
             app:key="mixedPort"
@@ -212,47 +241,58 @@
             app:key="allowAccess"
             app:summary="@string/allow_access_sum"
             app:title="@string/allow_access" />
-    </PreferenceCategory>
+    </PreferenceScreen>
 
-    <PreferenceCategory app:title="@string/cag_misc">
-        <moe.matsuri.nb4a.ui.UrlTestPreference
-            app:defaultValue="http://cp.cloudflare.com/"
-            app:icon="@drawable/ic_baseline_cast_connected_24"
-            app:key="connectionTestURL"
-            app:title="@string/connection_test_url"
-            app:useSimpleSummaryProvider="true" />
-        <SwitchPreferenceCompat
-            app:icon="@drawable/baseline_construction_24"
-            app:key="enableClashAPI"
-            app:summary="@string/enable_clash_api_summary"
-            app:title="@string/enable_clash_api" />
-        <SwitchPreferenceCompat
-            app:defaultValue="true"
-            app:icon="@drawable/ic_baseline_flip_camera_android_24"
-            app:key="networkChangeResetConnections"
-            app:title="@string/network_change_reset_connections"
-            app:useSimpleSummaryProvider="true" />
-        <SwitchPreferenceCompat
-            app:iconSpaceReserved="true"
-            app:key="wakeResetConnections"
-            app:title="@string/wake_reset_connections"
-            app:useSimpleSummaryProvider="true" />
-        <SwitchPreferenceCompat
-            app:icon="@drawable/ic_action_lock_open"
-            app:key="globalAllowInsecure"
-            app:title="@string/global_allow_insecure" />
-        <SwitchPreferenceCompat
-            app:iconSpaceReserved="true"
-            app:key="allowInsecureOnRequest"
-            app:title="@string/allow_insecure_on_request_sum" />
-        <moe.matsuri.nb4a.ui.SimpleMenuPreference
-            app:defaultValue="1.2"
-            app:entries="@array/app_tls_version"
-            app:entryValues="@array/app_tls_version"
-            app:key="appTLSVersion"
-            app:title="@string/app_tls_version"
-            app:useSimpleSummaryProvider="true" />
-    </PreferenceCategory>
+    <PreferenceScreen
+        app:icon="@drawable/baseline_developer_board_24"
+        app:key="sectionAdvanced"
+        app:persistent="false"
+        app:title="@string/settings_advanced">
+        <PreferenceCategory app:title="@string/settings_cat_security">
+            <SwitchPreferenceCompat
+                app:icon="@drawable/ic_action_lock_open"
+                app:key="globalAllowInsecure"
+                app:title="@string/global_allow_insecure" />
+            <SwitchPreferenceCompat
+                app:iconSpaceReserved="true"
+                app:key="allowInsecureOnRequest"
+                app:title="@string/allow_insecure_on_request_sum" />
+            <moe.matsuri.nb4a.ui.SimpleMenuPreference
+                app:defaultValue="1.2"
+                app:entries="@array/app_tls_version"
+                app:entryValues="@array/app_tls_version"
+                app:key="appTLSVersion"
+                app:title="@string/app_tls_version"
+                app:useSimpleSummaryProvider="true" />
+        </PreferenceCategory>
+        <PreferenceCategory app:title="@string/settings_cat_debug">
+            <moe.matsuri.nb4a.ui.UrlTestPreference
+                app:defaultValue="http://cp.cloudflare.com/"
+                app:icon="@drawable/ic_baseline_cast_connected_24"
+                app:key="connectionTestURL"
+                app:title="@string/connection_test_url"
+                app:useSimpleSummaryProvider="true" />
+            <SwitchPreferenceCompat
+                app:icon="@drawable/baseline_construction_24"
+                app:key="enableClashAPI"
+                app:summary="@string/enable_clash_api_summary"
+                app:title="@string/enable_clash_api" />
+            <moe.matsuri.nb4a.ui.LongClickListPreference
+                app:defaultValue="0"
+                app:entries="@array/log_level"
+                app:entryValues="@array/int_array_5"
+                app:icon="@drawable/ic_baseline_bug_report_24"
+                app:key="logLevel"
+                app:title="@string/log_level"
+                app:useSimpleSummaryProvider="true" />
+            <moe.matsuri.nb4a.ui.EditConfigPreference
+                app:icon="@drawable/ic_baseline_layers_24"
+                app:key="globalCustomConfig"
+                app:title="@string/custom_config"
+                app:useSimpleSummaryProvider="true" />
+        </PreferenceCategory>
+    </PreferenceScreen>
+
     <!-- 原侧边抽屉第二、三组的入口：点击打开对应的二级页面（不存值）。
          仪表板只在开启 Clash API 时显示 -->
     <PreferenceCategory android:layout="@layout/layout_preference_category_blank">

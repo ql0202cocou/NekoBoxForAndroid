@@ -19,7 +19,6 @@
     <string name="enable_dns_routing">Aktifkan DNS Routing</string>
     <string name="direct_dns">Direk DNS</string>
     <string name="remote_dns">Remot DNS</string>
-    <string name="cag_dns">Pengaturan DNS</string>
     <string name="connection_test_error">Gagal: %s</string>
     <string name="connection_test_available_http">Sukses: handshake HTTP butuh %dms</string>
     <string name="connection_test_available">Sukses: handshake HTTPS butuh %dms</string>
@@ -33,11 +32,8 @@
     <string name="security_settings">Pengaturan Keamanan</string>
     <string name="show_direct_speed_sum">Tampilkan lalu lintas kecepatan koneksi tanpa proksi di notifikasi</string>
     <string name="show_direct_speed">Tampilkan Kecepatan Direk</string>
-    <string name="cag_misc">Pengaturan Lainnya</string>
     <string name="speed_interval">Interval Pembaruan Notifikasi Kecepatan</string>
     <string name="cag_ws">Pengaturan WebSocket</string>
-    <string name="general_settings">Pengaturan Aplikasi</string>
-    <string name="inbound_settings">Pengaturan Inbound</string>
     <string name="allow_access_sum">Ikat server masuk ke 0.0.0.0</string>
     <string name="allow_access">Izinkan koneksi dari LAN</string>
     <string name="cag_route">Pengaturan Rute</string>

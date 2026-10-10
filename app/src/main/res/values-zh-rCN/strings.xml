@@ -37,10 +37,7 @@
     <string name="port_proxy">代理端口</string>
     <string name="allow_access">允许来自局域网的连接</string>
     <string name="allow_access_sum">将入站绑定至 0.0.0.0</string>
-    <string name="cag_dns">DNS 设置</string>
     <string name="cag_route">路由设置</string>
-    <string name="inbound_settings">入站设置</string>
-    <string name="general_settings">软件设置</string>
     <string name="cag_ws">WebSocket 设置</string>
     <string name="speed_interval">速度通知更新间隔</string>
     <string name="traffic">%1$s↑ %2$s↓</string>
@@ -103,6 +100,15 @@
     <string name="clipboard_empty">剪切板没有内容</string>
     <!-- menu category -->
     <string name="settings">设置</string>
+    <string name="settings_service">运行</string>
+    <string name="settings_interface">界面与通知</string>
+    <string name="settings_route">路由</string>
+    <string name="settings_inbound">入站</string>
+    <string name="settings_advanced">高级</string>
+    <string name="settings_cat_interface">界面</string>
+    <string name="settings_cat_notification">通知与统计</string>
+    <string name="settings_cat_security">安全</string>
+    <string name="settings_cat_debug">测试与调试</string>
     <string name="edit">编辑</string>
     <string name="share">分享</string>
     <string name="add_profile">添加服务器配置</string>
@@ -159,7 +165,6 @@
     <string name="domain_strategy">域名解析策略</string>
     <string name="traffic_sniffing">启用流量探测</string>
     <string name="disable">禁用</string>
-    <string name="cag_misc">杂项</string>
     <string name="enable_mux">启用多路复用</string>
     <string name="mux_concurrency">复用最大并发</string>
     <string name="mux_preference">多路复用</string>

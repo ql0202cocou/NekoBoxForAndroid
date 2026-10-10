@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 主界面各页面的 id：一级页面对应 Dock 的四项，其余是从设置页末尾进入的二级页面。
+    <!-- 主界面各页面的 id：一级页面对应 Dock 的四项，其余是从设置一级页进入的二级页面
+         （设置的六个分类页不占 id，由 SettingsFragment.section 打开）。
          MainActivity.displayFragmentWithId 按它们分发 -->
     <item name="nav_configuration" type="id" />
     <item name="nav_group" type="id" />

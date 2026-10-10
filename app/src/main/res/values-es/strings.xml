@@ -40,12 +40,9 @@
     <string name="cag_route">Ajustes de ruta</string> 
     <string name="allow_access">Permitir conexiones desde la LAN</string> 
     <string name="allow_access_sum">Vincular servidores entrantes a 0.0.0.0</string> 
-    <string name="inbound_settings">Ajustes de entrada</string> 
-    <string name="general_settings">Ajustes de la app</string> 
     <string name="cag_ws">Ajustes de WebSocket</string> 
     <string name="ws_max_early_data" translatable="false">Max early data</string> 
     <string name="speed_interval">Intervalo de actualización de notificación de velocidad</string> 
-    <string name="cag_misc">Ajustes misceláneos</string> 
     <string name="show_direct_speed">Mostrar velocidad directa</string> 
     <string name="show_direct_speed_sum">Muestra la velocidad del tráfico sin proxy en la notificación también</string> 
     <string name="security_settings">Ajustes de seguridad</string> 
@@ -58,7 +55,6 @@
     <string name="connection_test_available">Éxito: el protocolo de enlace HTTPS tomó %dms</string> 
     <string name="connection_test_available_http">Éxito: el protocolo de enlace HTTP tomó %dms</string> 
     <string name="connection_test_error">Error: %s</string> 
-    <string name="cag_dns">Ajustes de DNS</string> 
     <string name="remote_dns">DNS remoto</string> 
     <string name="direct_dns">DNS directo</string> 
     <string name="enable_dns_routing">Activar enrutamiento DNS</string>

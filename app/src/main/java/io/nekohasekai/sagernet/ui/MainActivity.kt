@@ -18,6 +18,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.fragment.app.Fragment
 import androidx.preference.PreferenceDataStore
+import androidx.preference.PreferenceFragmentCompat
+import androidx.preference.PreferenceScreen
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import io.nekohasekai.sagernet.BuildConfig
@@ -64,7 +66,8 @@ fun Fragment.mainBottomClearance(): () -> Int =
 
 class MainActivity : ThemedActivity(),
     SagerConnection.Callback,
-    OnPreferenceDataStoreChangeListener {
+    OnPreferenceDataStoreChangeListener,
+    PreferenceFragmentCompat.OnPreferenceStartScreenCallback {
 
     lateinit var binding: LayoutMainBinding
 
@@ -74,7 +77,7 @@ class MainActivity : ThemedActivity(),
         binding = LayoutMainBinding.inflate(layoutInflater)
         binding.fab.initProgress(binding.fabProgress)
         binding.dock.onItemSelected = { id ->
-            // 已在该页时不重建页面；二级页面上点「设置」仍回到设置页
+            // 已在该页时不重建页面；二级页面（含设置的分类页）上点「设置」回到设置一级页
             if (pageIdOf(currentFragment()) != id) displayFragmentWithId(id)
         }
 
@@ -364,26 +367,33 @@ class MainActivity : ThemedActivity(),
         binding.dock.select(dockItemOf(fragment))
         settingsListState = when {
             // 从设置页进二级页面：记下设置列表的滚动位置（替换是异步提交的，此时设置页还在）
-            fragment.opensFromSettings -> (currentFragment() as? SettingsFragment)?.let {
-                (supportFragmentManager.findFragmentById(R.id.settings) as? SettingsPreferenceFragment)
-                    ?.listState()
-            }
-            // 回到设置页：交给新的设置列表恢复（takeSettingsListState）
+            // （只有一级页有非空状态；分类页间不互相进入）
+            fragment.opensFromSettings -> (currentFragment() as? SettingsFragment)?.listState()
+            // 回到设置一级页：交给新的设置列表恢复（takeSettingsListState）
             fragment is SettingsFragment -> settingsListState
             else -> null
         }
     }
 
-    // 设置页末尾的四个入口进入二级页面前，设置列表的滚动状态；返回设置页时恢复，免得每次从顶部滚到底
+    // 从设置一级页进入二级页面（六个分类页和末尾四个入口）前，一级列表的滚动状态；
+    // 返回一级页时恢复，免得每次从顶部滚到底
     private var settingsListState: Parcelable? = null
 
     /** 新的设置列表取走进入二级页面前保存的滚动状态，只取一次 */
     fun takeSettingsListState(): Parcelable? = settingsListState.also { settingsListState = null }
 
+    /** 设置一级页上点分类入口（嵌套的 PreferenceScreen）：打开对应的二级页 */
+    override fun onPreferenceStartScreen(
+        caller: PreferenceFragmentCompat, pref: PreferenceScreen
+    ): Boolean {
+        displayFragment(SettingsFragment.section(pref.key))
+        return true
+    }
+
     private fun currentFragment(): Fragment? =
         supportFragmentManager.findFragmentById(R.id.fragment_holder)
 
-    // 页面在 Dock 上对应的项：二级页面都从设置页进入，选中「设置」
+    // 页面在 Dock 上对应的项：二级页面（分类页、日志、工具、关于、仪表板）都从设置页进入，选中「设置」
     @IdRes
     private fun dockItemOf(fragment: Fragment?): Int = when (fragment) {
         is ConfigurationFragment -> R.id.nav_configuration
@@ -398,7 +408,8 @@ class MainActivity : ThemedActivity(),
         is ConfigurationFragment -> R.id.nav_configuration
         is GroupFragment -> R.id.nav_group
         is RouteFragment -> R.id.nav_route
-        is SettingsFragment -> R.id.nav_settings
+        // 只有一级页算「设置」；分类页为 0，所以在分类页上点 Dock 的「设置」会回到一级页
+        is SettingsFragment -> if (fragment.sectionKey == null) R.id.nav_settings else 0
         is WebviewFragment -> R.id.nav_traffic
         is ToolsFragment -> R.id.nav_tools
         is LogcatFragment -> R.id.nav_logcat
@@ -414,7 +425,7 @@ class MainActivity : ThemedActivity(),
 
             R.id.nav_group -> displayFragment(GroupFragment())
             R.id.nav_route -> displayFragment(RouteFragment())
-            R.id.nav_settings -> displayFragment(SettingsFragment())
+            R.id.nav_settings -> displayFragment(SettingsFragment.hub())
             R.id.nav_traffic -> displayFragment(WebviewFragment())
             R.id.nav_tools -> displayFragment(ToolsFragment())
             R.id.nav_logcat -> displayFragment(LogcatFragment())

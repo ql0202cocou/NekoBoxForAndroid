@@ -228,7 +228,6 @@
     <string name="enable_dns_routing">Aktiver DNS -ruting</string>
     <string name="direct_dns">Direkte DNS</string>
     <string name="remote_dns">Ekstern DNS</string>
-    <string name="cag_dns">DNS innstillinger</string>
     <string name="connection_test_error">Mislyktes: %s</string>
     <string name="connection_test_available_http">Suksess: HTTP håndtrykk tok %dms</string>
     <string name="connection_test_available">Suksess: HTTPS håndtrykk tok %dms</string>
@@ -240,11 +239,8 @@
     <string name="security_settings">Sikkerhetsinnstillinger</string>
     <string name="show_direct_speed_sum">Vis også trafikkhastigheten uten proxy i varselet</string>
     <string name="show_direct_speed">Vis direkte hastighet</string>
-    <string name="cag_misc">Diverse innstillinger</string>
     <string name="speed_interval">Oppdateringsintervall for hastighetsvarsling</string>
     <string name="cag_ws">WebSocket -innstillinger</string>
-    <string name="general_settings">Appinnstillinger</string>
-    <string name="inbound_settings">Innkommende innstillinger</string>
     <string name="allow_access_sum">Bind innkommende servere til 0.0.0.0</string>
     <string name="allow_access">Tillat tilkoblinger fra LAN</string>
     <string name="cag_route">Ruteinnstillinger</string>
