@@ -101,12 +101,11 @@
     <!-- menu category -->
     <string name="settings">设置</string>
     <string name="settings_service">运行</string>
-    <string name="settings_interface">界面与通知</string>
+    <string name="settings_interface">界面</string>
+    <string name="settings_notification">通知</string>
     <string name="settings_route">路由</string>
     <string name="settings_inbound">入站</string>
     <string name="settings_advanced">高级</string>
-    <string name="settings_cat_interface">界面</string>
-    <string name="settings_cat_notification">通知与统计</string>
     <string name="settings_cat_security">安全</string>
     <string name="settings_cat_debug">测试与调试</string>
     <string name="edit">编辑</string>

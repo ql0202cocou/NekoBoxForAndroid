@@ -9,10 +9,10 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 /**
  * 钉住设置页按分类拆成二级页后，编译、lint 都查不出的约定：
- * - global_preferences.xml 根下依次是六个分类（PreferenceScreen）加恰好一个页面入口组，
+ * - global_preferences.xml 根下依次是七个分类（PreferenceScreen）加恰好一个页面入口组，
  *   分类 key 与顺序等于 [SettingsPreferenceFragment.sections]：key 对不上，
  *   setPreferencesFromResource 会抛异常，一级页上的入口也会缺；
- * - 设置项一个不少、也不重复：六个分类里所有行的 key 恰好是拆分前的 40 个；
+ * - 设置项一个不少、也不重复：七个分类里所有行的 key 恰好是拆分前的 40 个；
  * - 每个分类都有标题和图标（一级页上的入口行靠它们显示）。
  */
 class SettingsSectionsResourcesTest {
@@ -48,7 +48,7 @@ class SettingsSectionsResourcesTest {
     @Test
     fun rootHoldsSixSectionsThenOneEntryGroup() {
         val tags = root.children().map { it.tagName }
-        assertEquals(List(6) { "PreferenceScreen" } + "PreferenceCategory", tags)
+        assertEquals(List(7) { "PreferenceScreen" } + "PreferenceCategory", tags)
         assertEquals(
             SettingsPreferenceFragment.sections.map { it.first },
             screens.map { it.getAttribute("app:key") },

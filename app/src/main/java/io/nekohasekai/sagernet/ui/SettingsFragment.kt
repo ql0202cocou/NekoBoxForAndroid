@@ -7,7 +7,7 @@ import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.R
 
 /**
- * 设置页的外壳：一级页（[hub]，六个分类入口加页面入口）和六个分类二级页（[section]）共用。
+ * 设置页的外壳：一级页（[hub]，七个分类入口加页面入口）和七个分类二级页（[section]）共用。
  * 二级页的顶部栏是返回箭头，回一级页；列表本身是 [SettingsPreferenceFragment]，按分类 key 加载。
  */
 class SettingsFragment : ToolbarFragment(R.layout.layout_config_settings) {
@@ -49,7 +49,7 @@ class SettingsFragment : ToolbarFragment(R.layout.layout_config_settings) {
     companion object {
         private const val ARG_SECTION = "section"
 
-        /** 一级页：六个分类入口加页面入口 */
+        /** 一级页：七个分类入口加页面入口 */
         fun hub() = SettingsFragment()
 
         /** 分类二级页，[key] 取自 [SettingsPreferenceFragment.sections] */

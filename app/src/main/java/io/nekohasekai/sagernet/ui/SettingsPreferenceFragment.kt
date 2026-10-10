@@ -25,7 +25,7 @@ import moe.matsuri.nb4a.ui.*
 import io.nekohasekai.sagernet.bg.ServiceRegistry
 
 /**
- * 设置页的列表。一级页（rootKey 为空）只有六个分类入口和页面入口；
+ * 设置页的列表。一级页（rootKey 为空）只有七个分类入口和页面入口；
  * 分类页用分类 key（[sections]）作 rootKey 加载同一份 XML，只给本页存在的行接监听。
  */
 class SettingsPreferenceFragment : PreferenceFragmentCompat() {
@@ -67,6 +67,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             null -> setupHub()
             KEY_SERVICE -> setupService()
             KEY_INTERFACE -> setupInterface()
+            KEY_NOTIFICATION -> setupNotification()
             KEY_ROUTE -> setupRoute()
             KEY_DNS -> setupDns()
             KEY_INBOUND -> setupInbound()
@@ -126,7 +127,9 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             SagerNet.setExcludeFromRecents(newValue as Boolean)
             true
         }
+    }
 
+    private fun setupNotification() {
         val profileTrafficStatistics =
             findPreference<SwitchPreferenceCompat>(Key.PROFILE_TRAFFIC_STATISTICS)!!
         val speedInterval = findPreference<SimpleMenuPreference>(Key.SPEED_INTERVAL)!!
@@ -223,16 +226,18 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
 
         const val KEY_SERVICE = "sectionService"
         const val KEY_INTERFACE = "sectionInterface"
+        const val KEY_NOTIFICATION = "sectionNotification"
         const val KEY_ROUTE = "sectionRoute"
         const val KEY_DNS = "sectionDns"
         const val KEY_INBOUND = "sectionInbound"
         const val KEY_ADVANCED = "sectionAdvanced"
 
-        // 设置一级页的六个分类（global_preferences.xml 开头的六个 PreferenceScreen）→ 标题；
+        // 设置一级页的七个分类（global_preferences.xml 开头的七个 PreferenceScreen）→ 标题；
         // 顺序同 XML，二级页的顶部栏标题与入口行是同一字符串
         val sections = listOf(
             KEY_SERVICE to R.string.settings_service,
             KEY_INTERFACE to R.string.settings_interface,
+            KEY_NOTIFICATION to R.string.settings_notification,
             KEY_ROUTE to R.string.settings_route,
             KEY_DNS to R.string.settings_dns,
             KEY_INBOUND to R.string.settings_inbound,

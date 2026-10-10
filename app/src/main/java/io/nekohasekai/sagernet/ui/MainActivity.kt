@@ -375,7 +375,7 @@ class MainActivity : ThemedActivity(),
         }
     }
 
-    // 从设置一级页进入二级页面（六个分类页和末尾四个入口）前，一级列表的滚动状态；
+    // 从设置一级页进入二级页面（七个分类页和末尾四个入口）前，一级列表的滚动状态；
     // 返回一级页时恢复，免得每次从顶部滚到底
     private var settingsListState: Parcelable? = null
 
