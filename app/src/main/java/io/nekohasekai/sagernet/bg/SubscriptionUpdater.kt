@@ -136,7 +136,7 @@ object SubscriptionUpdater : GroupManager.Listener {
             .setWhen(0)
             .setTicker(applicationContext.getString(R.string.forward_success))
             .setContentTitle(applicationContext.getString(R.string.subscription_update))
-            .setSmallIcon(R.drawable.ic_service_active)
+            .setSmallIcon(R.drawable.ic_box)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
 
         // POST_NOTIFICATIONS is requested in MainActivity; when denied, notify()

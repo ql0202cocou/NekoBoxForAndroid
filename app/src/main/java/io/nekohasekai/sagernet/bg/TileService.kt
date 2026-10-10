@@ -9,11 +9,11 @@ import io.nekohasekai.sagernet.database.ProfileManager
 import android.service.quicksettings.TileService as BaseTileService
 
 class TileService : BaseTileService(), SagerConnection.Callback {
-    private val iconIdle by lazy { Icon.createWithResource(this, R.drawable.ic_service_idle) }
-    private val iconBusy by lazy { Icon.createWithResource(this, R.drawable.ic_service_busy) }
-    // ic_service_connected is an animated vector for ServiceButton; tiles cannot
-    // animate it and would show a wrong frame, so the static airplane is used here.
-    private val iconConnected by lazy { Icon.createWithResource(this, R.drawable.ic_service_busy) }
+    // 磁贴用应用图标「盒」的剪影，停止状态带斜杠；主界面按钮的 ic_service_* 是另一套（纸飞机、带动画），
+    // 动画矢量在磁贴里不会播放、只会停在错误的一帧，所以这里全是静态图，状态颜色由系统按 Tile.STATE_* 着色
+    private val iconIdle by lazy { Icon.createWithResource(this, R.drawable.ic_box_off) }
+    private val iconBusy by lazy { Icon.createWithResource(this, R.drawable.ic_box) }
+    private val iconConnected by lazy { Icon.createWithResource(this, R.drawable.ic_box) }
     private var tapPending = false
 
     private val connection = SagerConnection(SagerConnection.CONNECTION_ID_TILE)

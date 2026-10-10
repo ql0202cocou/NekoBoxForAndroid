@@ -90,11 +90,11 @@ Web Dashboard:
 
 应用图标 / App icon:
 
-应用图标是 [OpenMoji](https://openmoji.org/)（仓库 [hfg-gmuend/openmoji](https://github.com/hfg-gmuend/openmoji)）的棺材 emoji ⚰️（U+26B0），按 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) 许可使用。`app/src/main/res/drawable/ic_launcher_foreground.xml`、`app/src/main/res/drawable/ic_launcher_monochrome.xml` 与 `app/src/main/res/mipmap-*/ic_launcher.png` 是它的派生作品，同样按 CC BY-SA 4.0 发布；仓库其余部分仍按 GPL-3.0 发布。
+应用图标是 [OpenMoji](https://openmoji.org/)（仓库 [hfg-gmuend/openmoji](https://github.com/hfg-gmuend/openmoji)）的棺材 emoji ⚰️（U+26B0），按 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) 许可使用。`app/src/main/res/drawable/ic_launcher_foreground.xml`、`app/src/main/res/drawable/ic_launcher_monochrome.xml`、`app/src/main/res/mipmap-*/ic_launcher.png` 与快捷设置磁贴的 `app/src/main/res/drawable/ic_box.xml`、`app/src/main/res/drawable/ic_box_off.xml` 是它的派生作品，同样按 CC BY-SA 4.0 发布；仓库其余部分仍按 GPL-3.0 发布。
 
 All emojis designed by [OpenMoji](https://openmoji.org/) – the open-source emoji and icon project. License: [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
 
-The app icon is OpenMoji's coffin emoji ⚰️ (U+26B0) from [hfg-gmuend/openmoji](https://github.com/hfg-gmuend/openmoji). `app/src/main/res/drawable/ic_launcher_foreground.xml`, `app/src/main/res/drawable/ic_launcher_monochrome.xml` and `app/src/main/res/mipmap-*/ic_launcher.png` are adaptations of it and are licensed under CC BY-SA 4.0 as well; the rest of the repository remains under GPL-3.0.
+The app icon is OpenMoji's coffin emoji ⚰️ (U+26B0) from [hfg-gmuend/openmoji](https://github.com/hfg-gmuend/openmoji). `app/src/main/res/drawable/ic_launcher_foreground.xml`, `app/src/main/res/drawable/ic_launcher_monochrome.xml`, `app/src/main/res/mipmap-*/ic_launcher.png` and the quick settings tile icons `app/src/main/res/drawable/ic_box.xml`, `app/src/main/res/drawable/ic_box_off.xml` are adaptations of it and are licensed under CC BY-SA 4.0 as well; the rest of the repository remains under GPL-3.0.
 
 ## Fork 信息 / Fork Information
 

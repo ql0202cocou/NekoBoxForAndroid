@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 快捷设置磁贴图标（已停止）：带斜杠的「盒」剪影。斜杠与沿斜杠镂空的 clip-path 照搬 ic_service_idle，
+     clip-path 对后面的 group 生效，「盒」被斜杠旁的一条细缝切开，斜杠本身不被切。
+     来源：OpenMoji（https://openmoji.org），hfg-gmuend/openmoji 仓库的 color/svg/26B0.svg 的外轮廓路径，
+     与应用图标（ic_launcher_foreground / ic_launcher_monochrome）同源。
+     许可：CC BY-SA 4.0（https://creativecommons.org/licenses/by-sa/4.0/）。本文件是其派生作品
+     （外轮廓改为实心剪影，缩放平移进 24dp 画布、高 20dp 居中），按同一许可发布。
+     颜色固定白色：磁贴由系统按 Tile.STATE_* 着色，只取形状。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:name="strike_thru_path"
+        android:fillColor="#fff"
+        android:pathData="M 19.73 22 L 21 20.73 L 3.27 3 L 2 4.27 Z" />
+    <clip-path
+        android:name="strike_thru_mask"
+        android:pathData="M 0 0 L 24 0 L 24 24 L 0 24 L 0 0 Z M 4.54 1.73 L 3.27 3 L 21 20.73 L 22.27 19.46 Z" />
+    <group
+        android:scaleX="0.3165"
+        android:scaleY="0.3165"
+        android:translateX="0.5557"
+        android:translateY="0.6076">
+        <path
+            android:fillColor="#fff"
+            android:pathData="M31.6322,67.6h9.0635 c1.3055,0,2.4611-0.8442,2.858-2.0879L55.9064,26.807c0.271-0.8492,0.1504-1.7749-0.3292-2.5262L43.772,5.7859 C43.2209,4.9225,42.2675,4.4,41.2432,4.4H31.0847c-1.0242,0-1.9777,0.5225-2.5288,1.3859L16.7507,24.2807 c-0.4796,0.7514-0.6002,1.6771-0.3292,2.5262l12.3527,38.7051C29.1711,66.7558,30.3267,67.6,31.6322,67.6z" />
+    </group>
+</vector>

@@ -101,14 +101,14 @@ class VpnService : BaseVpnService(),
                         ServiceNotification.flags
                     )
                 )
-                .setSmallIcon(R.drawable.ic_service_active)
+                .setSmallIcon(R.drawable.ic_box)
                 .setAutoCancel(true)
                 .build()
         } else {
             // placeholder, removed again below
             NotificationCompat.Builder(this, "service-vpn")
                 .setContentTitle(getString(R.string.service_vpn))
-                .setSmallIcon(R.drawable.ic_service_active)
+                .setSmallIcon(R.drawable.ic_box)
                 .build()
         }
         // Started via startForegroundService(): not calling startForeground()
