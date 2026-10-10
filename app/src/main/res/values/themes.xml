@@ -100,6 +100,9 @@
 
     <style name="Preference.SwitchPreferenceCompat.SagerNet" parent="Preference.SwitchPreferenceCompat.Material">
         <item name="android:widgetLayout">@layout/preference_widget_material_switch</item>
+        <!-- 库里这个样式把标题固定为单行，长标题（如「网络变化时重置出站连接」的英文）被截成省略号；
+             改回多行，短标题的行高不变 -->
+        <item name="singleLineTitle">false</item>
     </style>
 
     <style name="ThemeOverlay.SagerNet.MaterialAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
