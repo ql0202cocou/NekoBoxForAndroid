@@ -244,7 +244,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             KEY_ADVANCED to R.string.settings_advanced,
         )
 
-        // 设置页末尾的页面入口（global_preferences.xml 的最后一组）→ 页面 id
+        // 设置页末尾的页面入口（global_preferences.xml 根下的最后四行）→ 页面 id
         val navEntries = listOf(
             KEY_NAV_DASHBOARD to R.id.nav_traffic,
             "navLogs" to R.id.nav_logcat,

@@ -38,8 +38,8 @@ class NavDockResourcesTest {
 
     @Test
     fun settingsNavEntriesMatchPreferences() {
-        val category = parse("xml/global_preferences.xml").childElements("PreferenceCategory").last()
-        val keys = category.childElements("Preference").map { it.getAttribute("app:key") }
+        val keys = parse("xml/global_preferences.xml").childElements("Preference")
+            .map { it.getAttribute("app:key") }
         assertEquals(listOf("navDashboard", "navLogs", "navTools", "navAbout"), keys)
         assertEquals(keys, SettingsPreferenceFragment.navEntries.map { it.first })
     }
