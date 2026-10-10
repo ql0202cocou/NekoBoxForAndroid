@@ -56,7 +56,7 @@
             app:title="@string/network_change_reset_connections"
             app:useSimpleSummaryProvider="true" />
         <SwitchPreferenceCompat
-            app:iconSpaceReserved="true"
+            app:icon="@drawable/ic_baseline_restart_alt_24"
             app:key="wakeResetConnections"
             app:title="@string/wake_reset_connections"
             app:useSimpleSummaryProvider="true" />
@@ -85,7 +85,7 @@
             app:summary="@string/always_show_address_sum"
             app:title="@string/always_show_address" />
         <SwitchPreferenceCompat
-            app:iconSpaceReserved="true"
+            app:icon="@drawable/ic_baseline_visibility_off_24"
             app:key="hideFromRecents"
             app:title="@string/hide_from_recents" />
     </PreferenceScreen>
@@ -105,7 +105,7 @@
             app:useSimpleSummaryProvider="true" />
         <SwitchPreferenceCompat
             app:defaultValue="true"
-            app:iconSpaceReserved="true"
+            app:icon="@drawable/ic_baseline_bar_chart_24"
             app:key="profileTrafficStatistics"
             app:summary="@string/profile_traffic_statistics_summary"
             app:title="@string/profile_traffic_statistics" />
@@ -117,7 +117,7 @@
             app:title="@string/show_direct_speed"
             app:useSimpleSummaryProvider="true" />
         <SwitchPreferenceCompat
-            app:iconSpaceReserved="true"
+            app:icon="@drawable/ic_baseline_view_list_24"
             app:key="showGroupInNotification"
             app:title="@string/show_group_in_notification" />
     </PreferenceScreen>
@@ -137,7 +137,7 @@
             app:key="bypassLan"
             app:title="@string/route_opt_bypass_lan" />
         <SwitchPreferenceCompat
-            app:iconSpaceReserved="true"
+            app:icon="@drawable/ic_baseline_lan_24"
             app:key="bypassLanInCore"
             app:title="@string/bypass_lan_in_core" />
         <moe.matsuri.nb4a.ui.SimpleMenuPreference
@@ -186,6 +186,7 @@
             app:defaultValue="auto"
             app:entries="@array/dns_network_select"
             app:entryValues="@array/dns_network_select"
+            app:icon="@drawable/ic_baseline_alt_route_24"
             app:key="domain_strategy_for_remote"
             app:title="@string/domain_strategy_for_remote"
             app:useSimpleSummaryProvider="true" />
@@ -199,6 +200,7 @@
             app:defaultValue="auto"
             app:entries="@array/dns_network_select"
             app:entryValues="@array/dns_network_select"
+            app:icon="@drawable/ic_baseline_alt_route_24"
             app:key="domain_strategy_for_direct"
             app:title="@string/domain_strategy_for_direct"
             app:useSimpleSummaryProvider="true" />
@@ -206,6 +208,7 @@
             app:defaultValue="auto"
             app:entries="@array/dns_network_select"
             app:entryValues="@array/dns_network_select"
+            app:icon="@drawable/ic_baseline_alt_route_24"
             app:key="domain_strategy_for_server"
             app:title="@string/domain_strategy_for_server"
             app:useSimpleSummaryProvider="true" />
@@ -235,7 +238,7 @@
             app:useSimpleSummaryProvider="true" />
         <SwitchPreferenceCompat
             app:defaultValue="false"
-            app:iconSpaceReserved="true"
+            app:icon="@drawable/ic_baseline_http_24"
             app:key="appendHttpProxy"
             app:summary="@string/append_http_proxy_sum"
             app:title="@string/append_http_proxy" />
@@ -257,13 +260,14 @@
                 app:key="globalAllowInsecure"
                 app:title="@string/global_allow_insecure" />
             <SwitchPreferenceCompat
-                app:iconSpaceReserved="true"
+                app:icon="@drawable/ic_baseline_no_encryption_24"
                 app:key="allowInsecureOnRequest"
                 app:title="@string/allow_insecure_on_request_sum" />
             <moe.matsuri.nb4a.ui.SimpleMenuPreference
                 app:defaultValue="1.2"
                 app:entries="@array/app_tls_version"
                 app:entryValues="@array/app_tls_version"
+                app:icon="@drawable/ic_baseline_security_24"
                 app:key="appTLSVersion"
                 app:title="@string/app_tls_version"
                 app:useSimpleSummaryProvider="true" />
