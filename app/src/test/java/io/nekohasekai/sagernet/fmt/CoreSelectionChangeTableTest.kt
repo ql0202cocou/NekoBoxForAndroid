@@ -212,7 +212,7 @@ class CoreSelectionChangeTableTest {
             "sing-box；sing-box 不能完整承载时留在 Xray：带证书指纹、开了 mux（标注为 Mux.Cool）、只有 Xray 认的指纹或 flow",
             "少一个 Xray 进程；packetaddr、xudp 由 sing-box 处理；没填 uTLS 指纹的存量节点经标注补写 firefox（Xray 上没填时是 chrome，" +
                 "sing-box 上没填是 Go 标准 TLS）；" +
-                "certificates 从「追加到系统根证书」变成「只信任它」；UDP 不再默认走 XUDP；early data 经标注仍走 " +
+                "certificates 从「追加到 Xray 的信任库（v26.10.10 起是内置根证书包）」变成「只信任它」；UDP 不再默认走 XUDP；early data 经标注仍走 " +
                 "Sec-WebSocket-Protocol 头；自定义出站 JSON 从本机 socks 出站改为作用到 VLESS 出站；导出从 profiles.txt 变成 .json；" +
                 "不带 TLS 的 http 伪装传输（tcp 伪 HTTP 头）改由 sing-box 的 http 传输承载，与 Xray 服务端的互通未实测" +
                 "（VMess 一直这样用）；迁移按当时的全局「允许不安全」标注 Mux.Cool，之后打开全局开关，开了 mux 的非 REALITY " +

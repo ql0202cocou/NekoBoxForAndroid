@@ -10,7 +10,8 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 // 依据（证据编号沿用报告；K1 的调查报告存于维护者本地 doc/agent/k1b-wip/k1-reports/，K1b 的 M1 / X1 / X2 存于维护者
 // 本地 doc/agent/k1b-wip/）：
 // - Xray：I1（v26.3.27 源码 S-X*、run -test 实测 T-*、本机回环 L-*）；K1b（v26.9.30 复核：X1 源码 S2-X*，X2 实测
-//   T2-* / L2-*）；
+//   T2-* / L2-*）；N9（v26.10.10 复核，2026-10-11：对比 v26.9.30 的 diff 只碰第 6 / 9 / 12 / 14 / 15 条，其余按 diff
+//   未变，结论见维护者本地 doc/agent/core-wip/reports/N9-xray.md）；
 // - mihomo：I1（v1.19.31 源码 S-M*、-t 实测 T-M*、回环 L-MA*）；M1（v1.19.32 复核：源码 S2-M*、-t 实测 T2-*、回环
 //   L2-*）；
 // - sing-box：I2b（vendored libcore/sing-box，1.14.2 + 1.14.2-neko-1）；现为 1.14.3-neko-1，此后的补丁（SOCKS5 出站的
@@ -34,9 +35,10 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //     "verifyPeerCertByName"(vcn). …」；写 false 不报错。
 //  5. pinnedPeerCertSha256 的格式（十六进制、冒号、逗号）与匹配语义（命中叶子跳过校验；命中 IsCA 的链上证书按
 //     serverName 与有效期校验；其余不算命中），用回环验证；旧的固定字段是否仍被静默忽略。
-//  6. certificates 是追加到系统证书池还是替换；run -test 是否解析 PEM。「追加」已实测：certificates 只放另一张
-//     CA，用 SSL_CERT_FILE 把服务端证书的 CA 放进 Go 的系统根时能通，加 disableSystemRoot 或不设 SSL_CERT_FILE
-//     时不通。
+//  6. certificates 是追加到信任库还是替换；run -test 是否解析 PEM。v26.9.30 前的底座是 Go 的系统根（「追加」已实测：
+//     certificates 只放另一张 CA，用 SSL_CERT_FILE 把服务端证书的 CA 放进 Go 的系统根时能通，加 disableSystemRoot
+//     或不设 SSL_CERT_FILE 时不通）；v26.10.10 起默认底座是 Xray 内置的根证书包，tlsSettings.useSystemCa 为真才用
+//     系统库（加载失败也退回内置包），certificates 追加在所选池的副本上，disableSystemRoot 仍是只信任自带证书。
 //  7. fingerprint 的名单（XRAY_UTLS_FINGERPRINTS）、空值的默认（现在是 chrome）、不认识的名字是否报错；uTLS 下
 //     alpn 是否生效：预设模板盖掉用户的 alpn，randomized 系列用用户写的 alpn；ws 外层缺省 http/1.1，写
 //     h2,http/1.1 时保留。
@@ -87,7 +89,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 // 能替节点拨号的核心。value 与 ProxyEntity.CORE_* 相同；version 是这张表核实时的版本
 enum class DialCore(val value: Int, val displayName: String, val version: String) {
     SING_BOX(CORE_SING_BOX, "sing-box", "1.14.3"),
-    XRAY(CORE_XRAY, "Xray", "v26.9.30"),
+    XRAY(CORE_XRAY, "Xray", "v26.10.10"),
     MIHOMO(CORE_MIHOMO, "mihomo", "v1.19.32");
 
     companion object {
@@ -559,10 +561,10 @@ val CAPABILITY_TABLE: Map<Requirement, Map<DialCore, CapabilityCell>> = linkedMa
         supported(XR, "pinnedPeerCertSha256；REALITY 下不写（见已知差异）"),
         supported(MH, "fingerprint"),
     ),
-    // I1 §4.2（Xray 追加到系统根证书）；I2b §2.3（sing-box 替换系统根证书）；I1 §6.3（mihomo 换算成第一张证书的固定）
+    // I1 §4.2（Xray 追加到信任库，v26.10.10 起底座是内置根证书包）；I2b §2.3（sing-box 替换系统根证书）；I1 §6.3（mihomo 换算成第一张证书的固定）
     Requirement.CUSTOM_CA to row(
         supported(SB, "只信任这些证书"),
-        supported(XR, "追加到系统根证书"),
+        supported(XR, "追加到 Xray 内置根证书包（v26.10.10 起；此前追加到系统根证书）"),
         supported(MH, "换算成第一张证书的 SHA-256 固定，含义不同（见已知差异 ANYTLS_CERTIFICATES）"),
     ),
     // I1 §4.1；X1 S2-X5、X2 T2-81：Xray 自 v26.6.22 起 run -test 无条件拒绝 allowInsecure（写 false 不报错）

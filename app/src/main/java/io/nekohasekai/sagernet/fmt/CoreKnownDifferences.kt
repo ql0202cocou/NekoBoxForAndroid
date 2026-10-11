@@ -156,10 +156,11 @@ enum class KnownDifference(
     CERTIFICATES_TRUST(
         listOf(ProfileField.CERTIFICATES),
         mapOf(
-            DialCore.XRAY to "追加到系统根证书（系统根证书仍然可信）",
+            DialCore.XRAY to "追加到 Xray 内置的根证书包（v26.10.10 起；useSystemCa 可改用系统根证书，本应用不写该键，" +
+                "此前追加到系统根证书），内置根证书仍然可信",
             DialCore.SING_BOX to "只信任这些证书（替换系统根证书）",
         ),
-        "Xray 丢掉「只信任这些 CA」的限制、仍额外信任系统根证书；证书链与域名仍校验",
+        "Xray 丢掉「只信任这些 CA」的限制、仍额外信任内置根证书（不含设备系统根证书库里额外装的 CA）；证书链与域名仍校验",
         DifferenceDecision.DECIDED,
     ),
     CUSTOM_OUTBOUND_JSON_EXTERNAL(
