@@ -317,10 +317,17 @@ class BaseService {
         // ForegroundServiceStartNotAllowedException（IllegalStateException
         // 子类，单个 catch 即可覆盖，无需按 API 引用该类），8-11 抛普通
         // IllegalStateException。丢掉这次启动好过让进程崩溃；返回是否发出了启动
+        //
+        // 重放的目标按当前运行模式取（SagerConnection.serviceClass，界面启动服务用的同一个），不是 this 的类：
+        // 停止期间用户可能已把模式改了（VPN 运行中改成仅代理，设置页先 stopService），重放到旧模式的类
+        // 会被它的模式守卫拒绝、静默停在 Stopped，用户点的重载什么都没起来。目标不是自己时，本实例已
+        // 停完，启动成功后自行 stopSelf，否则会作为已启动的空服务残留
         fun startRunner(): Boolean {
-            val intent = Intent(service, service.javaClass)
+            val target = SagerConnection.serviceClass
+            val intent = Intent(service, target)
             return try {
                 ContextCompat.startForegroundService(service, intent)
+                if (target != service.javaClass) service.stopSelf()
                 true
             } catch (e: IllegalStateException) {
                 Logs.w(e)
