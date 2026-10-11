@@ -63,6 +63,19 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
         getItem(id)?.let { holder.bind(it) }
     }
 
+    // 带 payload 的更新（onUpdated）：ItemAnimator 复用同一个 holder 就地重绑，不再整张卡片交叉淡变，
+    // 状态行的文字变化由 holder 自己判断并淡入
+    override fun onBindViewHolder(
+        holder: ConfigurationHolder, position: Int, payloads: MutableList<Any>
+    ) {
+        if (payloads.isEmpty()) {
+            super.onBindViewHolder(holder, position, payloads)
+            return
+        }
+        val id = configurationIdList.getOrNull(position) ?: return
+        getItem(id)?.let { holder.bind(it) }
+    }
+
     override fun getItemCount(): Int {
         return configurationIdList.size
     }
@@ -202,7 +215,7 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
             // 库里的 tx/rx 可能落后于实时流量，重绑时 bind 会优先取
             // ProfileManager.liveTraffic
             configurationList[profile.id] = profile
-            notifyItemChanged(index)
+            notifyItemChanged(index, PAYLOAD_UPDATED)
         }
     }
 
@@ -301,4 +314,8 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
         }
     }
 
+    private companion object {
+        // 节点被更新（测试结果、编辑等）：就地重绑，不触发整卡的变更动画
+        const val PAYLOAD_UPDATED = "updated"
+    }
 }

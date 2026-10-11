@@ -11,6 +11,7 @@ import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.motion.MotionUtils
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.TrafficData
@@ -58,9 +59,21 @@ class ConfigurationHolder(
     val shareButton: ImageView = view.findViewById(R.id.shareIcon)
     val removeButton: ImageView = view.findViewById(R.id.remove)
 
+    // 上次绑定的节点 id 与本次绑定是否要让状态行淡入：只有「同一个 holder 上同一个节点」
+    // 的测试结果文字变化才淡入（整组重读 notifyDataSetChanged 与带 payload 的更新都会走到这里），
+    // 首次绑定、滚动复用、换节点都不动画
+    private var boundId = Long.MIN_VALUE
+    private var fadeStatus = false
+
     fun bind(proxyEntity: ProxyEntity) {
         if (groupFragment.parentFragment !is ConfigurationFragment) return
 
+        fadeStatus = boundId == proxyEntity.id
+        boundId = proxyEntity.id
+        if (!fadeStatus) {
+            profileStatus.animate().cancel()
+            profileStatus.alpha = 1f
+        }
         entity = proxyEntity
 
         if (groupFragment.select) {
@@ -111,6 +124,7 @@ class ConfigurationHolder(
         profileType.setTextColor(groupFragment.requireContext().getProtocolColor(proxyEntity.type))
 
         bindTraffic(ProfileManager.liveTraffic[proxyEntity.id])
+        fadeStatus = false
 
         editButton.setOnClickListener {
             it.context.startActivity(proxyEntity.settingIntent(it.context))
@@ -220,6 +234,7 @@ class ConfigurationHolder(
         }
 
         profileAddress.text = address
+        val previousStatus = profileStatus.text.toString()
         (trafficText.parent as View).isGone =
             (!showTraffic || proxyEntity.status <= 0) && address.isBlank()
 
@@ -249,6 +264,16 @@ class ConfigurationHolder(
             }
         } else {
             profileStatus.setOnClickListener(null)
+        }
+
+        if (fadeStatus && proxyEntity.status > 0 && profileStatus.text.toString() != previousStatus) {
+            profileStatus.animate().cancel()
+            profileStatus.alpha = 0f
+            profileStatus.animate().alpha(1f).setDuration(
+                MotionUtils.resolveThemeDuration(
+                    view.context, com.google.android.material.R.attr.motionDurationShort4, 200
+                ).toLong()
+            ).start()
         }
     }
 
