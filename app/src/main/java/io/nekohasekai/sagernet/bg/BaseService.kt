@@ -142,7 +142,7 @@ class BaseService {
         fun changeState(s: State, msg: String? = null) {
             if (state == s && msg == null) return
             state = s
-            ServiceRegistry.state = s
+            ServiceRegistry.setState(service, s)
             binder.stateChanged(s, msg)
         }
     }
@@ -375,8 +375,9 @@ class BaseService {
         }
 
         fun stopRunner(restart: Boolean = false, msg: String? = null) {
-            ServiceRegistry.baseService = null
-            ServiceRegistry.vpnService = null
+            // 只清自己登记的：旧实例在停止期间，新模式的服务可能已经接管了注册表（见 ServiceRegistry 的属主规则）
+            ServiceRegistry.releaseBase(this)
+            ServiceRegistry.releaseVpn(service)
 
             // 记在 pendingStart 上再判重：已在 Stopping 时本次调用只留下重启意图
             if (restart) data.pendingStart = true
@@ -422,8 +423,9 @@ class BaseService {
             val data = data
             releaseSubclassResources()
             // stopRunner 之外的另一条出口：注册表同样要清，否则
-            // NativeInterface.selector_OnProxySelected 会拿到已销毁的服务
-            ServiceRegistry.baseService = null
+            // NativeInterface.selector_OnProxySelected 会拿到已销毁的服务；只清自己登记的，
+            // 已被新实例接管的不动
+            ServiceRegistry.releaseBase(this)
             // 框架 destroy 可能落在 connectingJob 的挂起点之间：不取消的话它
             // 恢复后会在已关闭的实例上 init 出无人回收的 box
             data.connectingJob?.cancel()
@@ -453,10 +455,8 @@ class BaseService {
                     // 副本）。close 返回时 startVpn 必已结束，这里再收一次
                     releaseSubclassResources()
                     // binder 已关，只更新进程内状态；关闭期间新服务若已起来
-                    //（onStartCommand 先置 baseService），不覆盖它的状态
-                    if (!alreadyStopped && ServiceRegistry.baseService == null &&
-                        ServiceRegistry.state == State.Stopping
-                    ) ServiceRegistry.state = State.Stopped
+                    //（onStartCommand 先 claimBase），不覆盖它的状态
+                    if (!alreadyStopped) ServiceRegistry.settleStoppedIfUnclaimed()
                 }
             } else {
                 data.changeState(State.Stopped)
@@ -545,7 +545,7 @@ class BaseService {
         }
 
         fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-            ServiceRegistry.baseService = this
+            ServiceRegistry.claimBase(this)
 
             val data = data
             if (data.state != State.Stopped) {

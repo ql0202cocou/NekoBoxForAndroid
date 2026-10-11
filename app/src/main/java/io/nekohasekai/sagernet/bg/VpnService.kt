@@ -52,7 +52,7 @@ class VpnService : BaseVpnService(),
     }
 
     override suspend fun startProcesses() {
-        ServiceRegistry.vpnService = this
+        ServiceRegistry.claimVpn(this)
         super.startProcesses() // launch proxy instance
     }
 
@@ -283,7 +283,8 @@ class VpnService : BaseVpnService(),
     }
 
     override fun onDestroy() {
-        ServiceRegistry.vpnService = null
+        // 只清自己登记的：模式切换时新起的服务可能已经接管
+        ServiceRegistry.releaseVpn(this)
         super.onDestroy()
         destroyRunner()
     }
