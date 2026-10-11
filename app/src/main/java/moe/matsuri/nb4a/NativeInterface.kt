@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.Build.VERSION_CODES
 import androidx.annotation.RequiresApi
 import io.nekohasekai.sagernet.SagerNet
+import io.nekohasekai.sagernet.bg.ProxyService
 import io.nekohasekai.sagernet.bg.ServiceNotification
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
@@ -23,11 +24,24 @@ class NativeInterface : BoxPlatformInterface, NB4AInterface {
 
     //  libbox interface
 
+    // :bg 进程里每次出站拨号都会走到这里（libcore 的 UsePlatformAutoDetectInterfaceControl 恒为 true）。
+    // 按注册表里正在跑的服务的类型分流，不看 DataStore.serviceMode（设置里的模式可能已被改而旧服务还在跑）：
+    //  - 有 VpnService：照旧 protect，失败照旧抛。VPN 模式下 startProcesses 先登记再启动 box，拨号总能看到它
+    //  - 没有 VpnService，运行的是 ProxyService（仅代理模式）：没有 tun，套接字本来就走物理网络，没有东西
+    //    需要 protect，直接返回
+    //  - 两者都没有：照旧抛。服务还没登记（VPN 模式下 VpnService 尚未登记）、或已被注销时，放行会让套接字
+    //    进入 tun 回环，所以绝不能 fail-open；失败必须抛，Go 侧才不会把未保护的套接字当已保护
     override fun autoDetectInterfaceControl(fd: Int) {
-        // failure must throw so the Go side (bg dial / protect server) doesn't
-        // treat an unprotected socket as protected
-        val vpn = ServiceRegistry.vpnService ?: throw Exception("no VpnService")
-        if (!vpn.protect(fd)) throw Exception("VpnService.protect failed")
+        val registry = ServiceRegistry
+        when (dialProtectAction(registry.vpnService != null, registry.baseService is ProxyService)) {
+            DialProtectAction.PROTECT -> {
+                val vpn = registry.vpnService ?: throw Exception("no VpnService")
+                if (!vpn.protect(fd)) throw Exception("VpnService.protect failed")
+            }
+
+            DialProtectAction.SKIP -> return
+            DialProtectAction.FAIL -> throw Exception("no VpnService")
+        }
     }
 
     override fun openTun(singTunOptionsJson: String, tunPlatformOptionsJson: String): Long {
@@ -116,4 +130,14 @@ class NativeInterface : BoxPlatformInterface, NB4AInterface {
         }
     }
 
+}
+
+// 出站拨号的 protect 分流（autoDetectInterfaceControl）：已登记 VpnService 一律 protect（VPN 模式，含停止
+// 与启动重叠的窗口），否则登记的是 ProxyService 才跳过，其余一律失败
+internal enum class DialProtectAction { PROTECT, SKIP, FAIL }
+
+internal fun dialProtectAction(vpnRegistered: Boolean, baseIsProxyService: Boolean): DialProtectAction = when {
+    vpnRegistered -> DialProtectAction.PROTECT
+    baseIsProxyService -> DialProtectAction.SKIP
+    else -> DialProtectAction.FAIL
 }
