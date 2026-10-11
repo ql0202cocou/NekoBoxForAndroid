@@ -21,7 +21,9 @@ import androidx.preference.PreferenceDataStore
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceScreen
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.motion.MotionUtils
 import com.google.android.material.snackbar.Snackbar
+import com.google.android.material.transition.MaterialFadeThrough
 import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.Key
@@ -361,7 +363,11 @@ class MainActivity : ThemedActivity(),
 
     @SuppressLint("CommitTransaction")
     fun displayFragment(fragment: ToolbarFragment) {
+        val previous = currentFragment()
+        // 冷启动第一次显示没有旧页面，不做转场
+        if (previous != null) applyPageTransition(previous, fragment)
         supportFragmentManager.beginTransaction()
+            .setReorderingAllowed(true)
             .replace(R.id.fragment_holder, fragment)
             .commitAllowingStateLoss()
         binding.dock.select(dockItemOf(fragment))
@@ -373,6 +379,21 @@ class MainActivity : ThemedActivity(),
             fragment is SettingsFragment -> settingsListState
             else -> null
         }
+    }
+
+    /**
+     * 页面替换的转场：选哪种转场都在这里决定。目前所有切换都是交叉淡变（MaterialFadeThrough），
+     * Dock、状态卡片、连接按钮在 Activity 布局里，不参与。时长读主题的 motionDurationMedium2
+     */
+    private fun applyPageTransition(previous: Fragment, next: Fragment) {
+        previous.exitTransition = fadeThrough()
+        next.enterTransition = fadeThrough()
+    }
+
+    private fun fadeThrough(): MaterialFadeThrough = MaterialFadeThrough().apply {
+        duration = MotionUtils.resolveThemeDuration(
+            this@MainActivity, com.google.android.material.R.attr.motionDurationMedium2, 300
+        ).toLong()
     }
 
     // 从设置一级页进入二级页面（七个分类页和末尾四个入口）前，一级列表的滚动状态；
