@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 连接按钮图标路径变形：带轻微过冲（约 10%）的缓出，到终点前略微越过再回落 -->
+<overshootInterpolator xmlns:android="http://schemas.android.com/apk/res/android"
+    android:tension="1.7" />

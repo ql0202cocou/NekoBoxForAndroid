@@ -7,22 +7,22 @@
         <aapt:attr name="android:animation">
             <objectAnimator
                 android:propertyName="pathData"
-                android:duration="@android:integer/config_mediumAnimTime"
+                android:duration="@integer/service_icon_morph_duration"
                 android:valueFrom="M 2 4.27 L 3.27 3 L 3.27 3 L 2 4.27 Z"
                 android:valueTo="M 19.73 22 L 21 20.73 L 3.27 3 L 2 4.27 Z"
                 android:valueType="pathType"
-                android:interpolator="@android:interpolator/fast_out_slow_in"/>
+                android:interpolator="@interpolator/service_icon_morph"/>
         </aapt:attr>
     </target>
     <target android:name="strike_thru_mask">
         <aapt:attr name="android:animation">
             <objectAnimator
                 android:propertyName="pathData"
-                android:duration="@android:integer/config_mediumAnimTime"
+                android:duration="@integer/service_icon_morph_duration"
                 android:valueFrom="M 0 0 L 24 0 L 24 24 L 0 24 L 0 0 Z M 4.54 1.73 L 3.27 3 L 3.27 3 L 4.54 1.73 Z"
                 android:valueTo="M 0 0 L 24 0 L 24 24 L 0 24 L 0 0 Z M 4.54 1.73 L 3.27 3 L 21 20.73 L 22.27 19.46 Z"
                 android:valueType="pathType"
-                android:interpolator="@android:interpolator/fast_out_slow_in"/>
+                android:interpolator="@interpolator/service_icon_morph"/>
         </aapt:attr>
     </target>
 </animated-vector>

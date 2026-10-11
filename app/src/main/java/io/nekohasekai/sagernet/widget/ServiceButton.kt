@@ -63,7 +63,7 @@ class ServiceButton @JvmOverloads constructor(
         AnimatedState(R.drawable.ic_service_connecting) {
             hideProgress()
             delayedAnimation = (context as LifecycleOwner).lifecycleScope.launch {
-                delay(context.resources.getInteger(android.R.integer.config_mediumAnimTime) + 1000L)
+                delay(context.resources.getInteger(R.integer.service_icon_morph_duration) + 1000L)
                 isIndeterminate = true
                 show()
             }

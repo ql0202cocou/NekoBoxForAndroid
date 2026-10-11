@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 连接按钮四态图标的变形时长（ms），对应 M3 的 motionDurationLong1；
+         不再用厂商可改的 config_mediumAnimTime。ServiceButton 的进度环延迟也读它 -->
+    <integer name="service_icon_morph_duration">450</integer>
+</resources>
