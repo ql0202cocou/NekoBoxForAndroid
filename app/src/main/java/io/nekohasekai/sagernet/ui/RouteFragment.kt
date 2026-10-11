@@ -6,7 +6,6 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.widget.Toolbar
-import androidx.core.view.isGone
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
@@ -46,7 +45,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
 
     private fun updateEmptyState() {
         val holder = view?.findViewById<View>(R.id.route_list_empty) ?: return
-        holder.isGone = !listLoaded || !::ruleAdapter.isInitialized || ruleAdapter.itemCount != 0
+        holder.setPlaceholderVisible(listLoaded && ::ruleAdapter.isInitialized && ruleAdapter.itemCount == 0)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {

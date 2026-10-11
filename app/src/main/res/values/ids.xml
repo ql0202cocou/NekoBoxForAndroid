@@ -11,4 +11,7 @@
     <item name="nav_traffic" type="id" />
     <item name="nav_tools" type="id" />
     <item name="nav_about" type="id" />
+
+    <!-- setPlaceholderVisible 记录占位视图当前的目标显隐（淡出期间视图仍是 VISIBLE） -->
+    <item name="placeholder_target" type="id" />
 </resources>

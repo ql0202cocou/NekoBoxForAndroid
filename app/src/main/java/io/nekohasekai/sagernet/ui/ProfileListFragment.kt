@@ -24,6 +24,7 @@ import io.nekohasekai.sagernet.databinding.LayoutProfileListBinding
 import io.nekohasekai.sagernet.ktx.FixedLinearLayoutManager
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
+import io.nekohasekai.sagernet.ktx.setPlaceholderVisible
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import kotlinx.coroutines.sync.Mutex
@@ -104,7 +105,7 @@ class ProfileListFragment : Fragment() {
         val holder = root.findViewById<View>(R.id.profile_list_empty) ?: return
         val listAdapter = adapter
         if (!listLoaded || listAdapter == null || listAdapter.itemCount != 0) {
-            holder.isGone = true
+            holder.setPlaceholderVisible(false)
             return
         }
         val filtered = listAdapter.isFiltered
@@ -113,7 +114,7 @@ class ProfileListFragment : Fragment() {
         )
         // 选择模式页没有 + 号，不显示添加提示
         root.findViewById<View>(R.id.empty_hint).isGone = filtered || select
-        holder.isGone = false
+        holder.setPlaceholderVisible(true)
     }
 
     // 列表滚动时通知父级更新顶部栏抬升；onViewCreated 会再次执行，换新前先摘掉旧的

@@ -10,6 +10,8 @@ import android.util.SparseBooleanArray
 import android.view.KeyEvent
 import android.view.Menu
 import android.view.MenuItem
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.view.View
 import android.view.ViewGroup
 import android.widget.CompoundButton
@@ -36,6 +38,8 @@ import io.nekohasekai.sagernet.databinding.LayoutAppPlaceholderBinding
 import io.nekohasekai.sagernet.databinding.LayoutAppsItemBinding
 import io.nekohasekai.sagernet.ktx.crossFadeFrom
 import io.nekohasekai.sagernet.ktx.exportToClipboard
+import io.nekohasekai.sagernet.ktx.setPlaceholderVisible
+import io.nekohasekai.sagernet.ktx.shortAnimTime
 import io.nekohasekai.sagernet.utils.PackageCache
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import kotlinx.coroutines.Dispatchers
@@ -240,7 +244,12 @@ abstract class AppSelectActivity : ThemedActivity() {
             appsAdapter.filter.filter(views.search.text?.toString() ?: "")
             if (apps.isEmpty()) {
                 views.list.visibility = View.GONE
-                views.placeholder.root.crossFadeFrom(loading)
+                views.placeholder.root.setPlaceholderVisible(true)
+                loading.animate().alpha(0F).setListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        loading.visibility = View.GONE
+                    }
+                }).duration = shortAnimTime
             } else {
                 views.list.crossFadeFrom(loading)
             }
