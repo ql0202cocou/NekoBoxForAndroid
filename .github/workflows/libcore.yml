@@ -72,7 +72,7 @@ jobs:
           go-version: '1.26'
           cache-dependency-path: libcore/go.sum
       - name: Download Geo Assets
-        # geo 缓存测试要用真实数据库，下载脚本按固定的 sha256 校验；测试只读，
+        # geo 缓存测试要用真实数据库，下载脚本取上游最新发布并按该发布附带的 .sha256sum 校验；测试只读，
         # 直接用 assets 里的文件
         run: ./run lib assets
       - name: Go Test
