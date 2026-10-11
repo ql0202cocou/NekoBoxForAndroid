@@ -11,7 +11,6 @@ import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.motion.MotionUtils
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.TrafficData
@@ -25,6 +24,7 @@ import io.nekohasekai.sagernet.ktx.alert
 import io.nekohasekai.sagernet.ktx.exportToClipboard
 import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.ktx.getColour
+import io.nekohasekai.sagernet.ktx.motionDuration
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
@@ -121,7 +121,7 @@ class ConfigurationHolder(
 
         profileName.text = proxyEntity.displayName()
         profileType.text = proxyEntity.displayType()
-        profileType.setTextColor(groupFragment.requireContext().getProtocolColor(proxyEntity.type))
+        profileType.setTextColor(groupFragment.requireContext().getProtocolColor())
 
         bindTraffic(ProfileManager.liveTraffic[proxyEntity.id])
         fadeStatus = false
@@ -270,9 +270,7 @@ class ConfigurationHolder(
             profileStatus.animate().cancel()
             profileStatus.alpha = 0f
             profileStatus.animate().alpha(1f).setDuration(
-                MotionUtils.resolveThemeDuration(
-                    view.context, com.google.android.material.R.attr.motionDurationShort4, 200
-                ).toLong()
+                view.context.motionDuration(com.google.android.material.R.attr.motionDurationShort4, 200)
             ).start()
         }
     }

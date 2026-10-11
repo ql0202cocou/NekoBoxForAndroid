@@ -194,6 +194,16 @@ internal class ClashFields(
         path(*names)?.let { recordAt(it, ClashFieldResult.IGNORED, reason) }
     }
 
+    // 整数字段：读得成整数记 KEPT，否则解析器丢掉；键不在时什么都不记
+    fun intField(vararg names: String) {
+        if (text(*names)?.toIntOrNull() != null) kept(*names) else ignored(INVALID_DROPPED, *names)
+    }
+
+    // ech-opts 只在 enable 打开时 mihomo 才用
+    fun echOptsInactive(): (List<String>) -> ClashFieldReason? = { path ->
+        if (path[0] == "ech-opts" && !flag("ech-opts", "enable")) INACTIVE else null
+    }
+
     // 值相同记 KEPT，不同说明被别的键改写了
     fun keptIfFinal(final: String?, vararg names: String) {
         val path = path(*names) ?: return
@@ -489,9 +499,7 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
     kept("server"); kept("port")
     if (trojan) kept("password") else kept("uuid")
     if (vmess) {
-        if (present("alterId")) {
-            if (text("alterId")?.toIntOrNull() != null) kept("alterId") else ignored(INVALID_DROPPED, "alterId")
-        }
+        intField("alterId")
         if (present("cipher")) {
             if (value("cipher") is String) kept("cipher") else ignored(INVALID_DROPPED, "cipher")
         }
@@ -789,10 +797,7 @@ private fun ClashFields.wsOpts(bean: StandardV2RayBean) {
             }
         }
     }
-    if (present("ws-opts", "max-early-data")) {
-        if (text("ws-opts", "max-early-data")?.toIntOrNull() != null) kept("ws-opts", "max-early-data")
-        else ignored(INVALID_DROPPED, "ws-opts", "max-early-data")
-    }
+    intField("ws-opts", "max-early-data")
     kept("ws-opts", "early-data-header-name")
     if (present("ws-opts", "v2ray-http-upgrade")) {
         if (flag("ws-opts", "v2ray-http-upgrade")) converted(EQUIVALENT_VALUE, "ws-opts", "v2ray-http-upgrade")
@@ -929,9 +934,7 @@ private fun ClashFields.hysteria(bean: HysteriaBean): Pair<Set<String>, ClashIna
     kept("ports")
     rate("up", bean.uploadMbps)
     rate("down", bean.downloadMbps)
-    if (present("hop-interval")) {
-        if (text("hop-interval")?.toIntOrNull() != null) kept("hop-interval") else ignored(INVALID_DROPPED, "hop-interval")
-    }
+    intField("hop-interval")
     if (v1) {
         kept("obfs"); kept("disable-mtu-discovery")
         // mihomo 的 NewHysteria：auth 非空时总是用它（base64 解码），auth-str 不起作用；auth 为空才用 auth-str。
@@ -951,11 +954,7 @@ private fun ClashFields.hysteria(bean: HysteriaBean): Pair<Set<String>, ClashIna
             "udp", "faketcp", "wechat-video" -> kept("protocol")
             else -> ignored(UNKNOWN_VALUE, "protocol")
         }
-        for (key in listOf("recv-window-conn", "recv-window")) {
-            if (present(key)) {
-                if (text(key)?.toIntOrNull() != null) kept(key) else ignored(INVALID_DROPPED, key)
-            }
-        }
+        intField("recv-window-conn"); intField("recv-window")
         if (present("alpn")) {
             if (value("alpn") is List<*>) converted(LIST_JOINED, "alpn") else ignored(INVALID_DROPPED, "alpn")
         }
@@ -984,9 +983,7 @@ private fun ClashFields.hysteria(bean: HysteriaBean): Pair<Set<String>, ClashIna
             else -> if (alpn.isFalseOrEmpty()) ignored(DEFAULT_VALUE, "alpn") else ignored(SEMANTICS_DIFFER, "alpn")
         }
     }
-    return (if (v1) HYSTERIA_KEYS else HYSTERIA2_KEYS) to { path ->
-        if (path[0] == "ech-opts" && !flag("ech-opts", "enable")) INACTIVE else null
-    }
+    return (if (v1) HYSTERIA_KEYS else HYSTERIA2_KEYS) to echOptsInactive()
 }
 
 private fun ClashFields.tuic(bean: TuicBean): Pair<Set<String>, ClashInactive> {
@@ -1017,19 +1014,13 @@ private fun ClashFields.tuic(bean: TuicBean): Pair<Set<String>, ClashInactive> {
     if (present("fast-open")) {
         if (flag("fast-open")) ignored(INACTIVE, "fast-open") else ignored(DEFAULT_VALUE, "fast-open")
     }
-    return TUIC_KEYS to { path ->
-        if (path[0] == "ech-opts" && !flag("ech-opts", "enable")) INACTIVE else null
-    }
+    return TUIC_KEYS to echOptsInactive()
 }
 
 private fun ClashFields.wireGuard(bean: WireGuardBean): Pair<Set<String>, ClashInactive> {
     kept("server"); kept("port"); kept("ip"); kept("ipv6"); kept("private-key"); kept("public-key")
     kept("pre-shared-key")
-    for (key in listOf("mtu", "persistent-keepalive")) {
-        if (present(key)) {
-            if (text(key)?.toIntOrNull() != null) kept(key) else ignored(INVALID_DROPPED, key)
-        }
-    }
+    intField("mtu"); intField("persistent-keepalive")
     when (val reserved = value("reserved")) {
         null -> Unit
         is List<*> -> converted(LIST_JOINED, "reserved")

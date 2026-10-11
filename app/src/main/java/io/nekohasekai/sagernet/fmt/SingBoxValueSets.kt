@@ -32,12 +32,13 @@ val SING_BOX_VALUE_SET_MODULES = mapOf(
 class UnsupportedSingBoxValueException(val field: String, val value: String?) :
     IllegalArgumentException("sing-box does not support $field ${shownSingBoxValue(value)}")
 
-// 可以回显的取值形态：枚举名常见的字符，最长 64
-private val SHOWN_SINGBOX_VALUE = Regex("^[A-Za-z0-9._+-]{1,64}$")
+// 可以回显的取值形态：枚举名常见的字符，最长 64。报错与 Clash 导入诊断共用这一条规则与占位串
+internal val SHOWABLE_VALUE = Regex("^[A-Za-z0-9._+-]{1,64}$")
+const val VALUE_NOT_SHOWN = "(value not shown)"
 
 // 报错里的取值：形态合格的加引号原样写出，否则（含 null 与空串）写 (value not shown)
 internal fun shownSingBoxValue(value: String?): String =
-    if (value != null && SHOWN_SINGBOX_VALUE.matches(value)) "\"$value\"" else "(value not shown)"
+    if (value != null && SHOWABLE_VALUE.matches(value)) "\"$value\"" else VALUE_NOT_SHOWN
 
 // Shadowsocks 加密方式。sing-shadowsocks2（版本见 SING_BOX_VALUE_SET_MODULES）：shadowaead/method.go（AEAD）、shadowaead_2022/method.go（2022）、
 // shadowstream/method.go（流密码）、cipher/method_none.go（none），经 shadowsocks.go 的空白导入注册；名单外

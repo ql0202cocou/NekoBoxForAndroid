@@ -25,6 +25,7 @@ import androidx.core.graphics.drawable.IconCompat
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
+import io.nekohasekai.sagernet.fmt.coreSelectable
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -193,12 +194,8 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
     override suspend fun saveAndExit() {
         awaitEditorReady()
-        // 编辑器里显示了核心选项才用它的值；不显示的（HTTP 与没有这个控件的协议）一律保存为自动，
-        // 不把打开时读到的旧值（例如别的协议留下的手动值）原样写回
-        var coreShown = false
         val canSave = onMainDispatcher {
             val screen = child?.preferenceScreen ?: return@onMainDispatcher false
-            coreShown = screen.findPreference<Preference>(Key.PROFILE_CORE)?.isVisible == true
             validateEditor()?.let { message ->
                 Toast.makeText(this@ProfileSettingsActivity, message, Toast.LENGTH_LONG).show()
                 return@onMainDispatcher false
@@ -225,10 +222,12 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         }
         if (!canSave) return
 
-        val profileCore = if (coreShown) editorCore() else ProxyEntity.CORE_AUTO
         // 保存时按能力表拦截（D14）：手动选的核心有冲突、或自动选核找不到能完整承载的核心，就列出冲突字段，
         // 不保存。用编辑器当前内容拼临时 bean 判断，放在整数校验之后、主线程之外（serialize 逐字段读库）
         val probe = editorBean()
+        // 能选核的协议才用核心选项的值；不能选的（HTTP 与其它协议）一律保存为自动，
+        // 不把打开时读到的旧值（例如别的协议留下的手动值）原样写回
+        val profileCore = if (coreSelectable(ProxyEntity().putBean(probe).type, probe)) editorCore() else ProxyEntity.CORE_AUTO
         val decision = decideEditorCore(probe, profileCore)
         if (decision is CoreDecision.Rejected) {
             onMainDispatcher {

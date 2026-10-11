@@ -6,15 +6,16 @@ import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.CLASH_KEY_NOT_SHOWN
 import io.nekohasekai.sagernet.fmt.ClashNodeFailure
 import io.nekohasekai.sagernet.fmt.ClashNodeResult
+import io.nekohasekai.sagernet.fmt.EndpointProblem
 import io.nekohasekai.sagernet.fmt.clashShownPath
 import io.nekohasekai.sagernet.fmt.clashShownValue
 import io.nekohasekai.sagernet.fmt.clashShownValueAt
+import io.nekohasekai.sagernet.fmt.endpointProblem
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
-import io.nekohasekai.sagernet.fmt.hysteria.parseHysteriaPorts
-import io.nekohasekai.sagernet.fmt.requireValidEndpoint
 import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
+import io.nekohasekai.sagernet.fmt.tlsFields
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.fmt.tuic.TuicBean
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
@@ -117,8 +118,7 @@ private fun parseClashEntry(index: Int, entry: Any?, beans: MutableList<Abstract
             ?: return ClashNodeResult.UnknownType(index, shownType, name)
         // 端点在 bean 上统一校验；必须早于 parseClash 尾部的 initializeDefaultValues，
         // 否则缺省被填成 127.0.0.1:1080 就验不出缺失
-        clashEndpointFailure(bean)?.let { throw ClashNodeRejected(it) }
-        bean.requireValidEndpoint()
+        bean.endpointProblem()?.let { throw ClashNodeRejected(it.clashFailure()) }
         clashRejection(type, proxy, bean)?.let { throw it }
         // 字段记录只读输入与解析结果，不改 bean，也不会因记录本身出错让节点被跳过
         val fields = classifyClashFields(type, proxy, bean)
@@ -135,15 +135,10 @@ private fun parseClashEntry(index: Int, entry: Any?, beans: MutableList<Abstract
     }
 }
 
-// requireValidEndpoint 的同一套判断，只为给出封闭集合里的原因；它本身仍在后面照常调用
-private fun clashEndpointFailure(bean: AbstractBean): ClashNodeFailure? {
-    if (bean.serverAddress.isNullOrBlank()) return ClashNodeFailure.MISSING_SERVER
-    if (bean is HysteriaBean) {
-        val ports = bean.serverPorts ?: return ClashNodeFailure.MISSING_PORT
-        return if (runCatching { parseHysteriaPorts(ports) }.isSuccess) null else ClashNodeFailure.INVALID_PORT
-    }
-    val port = bean.serverPort ?: return ClashNodeFailure.MISSING_PORT
-    return if (port in 1..65535) null else ClashNodeFailure.INVALID_PORT
+private fun EndpointProblem.clashFailure() = when (this) {
+    EndpointProblem.MISSING_SERVER -> ClashNodeFailure.MISSING_SERVER
+    EndpointProblem.MISSING_PORT -> ClashNodeFailure.MISSING_PORT
+    EndpointProblem.INVALID_PORT -> ClashNodeFailure.INVALID_PORT
 }
 
 // 安全校验不能悄悄丢；导入后永远连不上的节点要大声丢弃（与 TUIC v4、不支持的 SS 插件同一原则）。
@@ -162,13 +157,7 @@ private fun clashRejection(type: String, proxy: Map<String, Any?>, bean: Abstrac
 
     // 证书固定（TLS 打开时；vmess / vless / http 的 TLS 关着时它不起作用）：值不是 SHA-256 摘要（解析器会丢掉），
     // 或是摘要却没被解析器读到（键名写法不同）
-    val pin = when (bean) {
-        is StandardV2RayBean -> if (bean.isTLS()) bean.certificateFingerprint.orEmpty() else null
-        is AnyTLSBean -> bean.certificateFingerprint.orEmpty()
-        is HysteriaBean -> bean.certificateFingerprint.orEmpty()
-        is TuicBean -> bean.certificateFingerprint.orEmpty()
-        else -> null
-    }
+    val pin = tlsFields(bean)?.let { it.certificateFingerprint.orEmpty() }
     if (pin != null) proxy.mihomoEntry("fingerprint")?.let { fingerprint ->
         val text = fingerprint.value?.toString().orEmpty()
         if (text.isNotEmpty() && !isCertificateFingerprint(text)) {

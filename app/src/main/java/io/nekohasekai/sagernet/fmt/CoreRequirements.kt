@@ -124,22 +124,31 @@ data class CoreRequirements(
 
 data class RequirementItem(val requirement: Requirement, val value: String? = null)
 
-fun coreRequirements(type: Int, bean: AbstractBean, globalAllowInsecure: Boolean): CoreRequirements = when {
-    type == TYPE_VMESS && bean is VMessBean -> standardRequirements(
-        type, bean, if (bean.isVLESS) CoreProtocol.VLESS else CoreProtocol.VMESS, globalAllowInsecure,
-    )
+fun coreRequirements(type: Int, bean: AbstractBean, globalAllowInsecure: Boolean): CoreRequirements =
+    when (val protocol = coreProtocolOf(type, bean)) {
+        CoreProtocol.ANYTLS -> anyTlsRequirements(type, bean as AnyTLSBean, globalAllowInsecure)
+        CoreProtocol.OTHER -> otherRequirements(type, bean)
+        else -> standardRequirements(type, bean as StandardV2RayBean, protocol, globalAllowInsecure)
+    }
 
-    type == TYPE_TROJAN && bean is TrojanBean -> standardRequirements(type, bean, CoreProtocol.TROJAN, globalAllowInsecure)
-    type == TYPE_ANYTLS && bean is AnyTLSBean -> anyTlsRequirements(type, bean, globalAllowInsecure)
-
-    // 不能选核的协议只留两条跨协议检查要用的：整证书固定（与 tlsFields 的取法相同）和生效的 mldsa65Verify
-    else -> CoreRequirements(
-        type = type,
-        protocol = CoreProtocol.OTHER,
-        mldsa65Verify = bean is StandardV2RayBean && bean.realityMldsa65VerifyActive(),
-        certificatePin = !tlsFields(bean)?.certificateFingerprint.isNullOrBlank(),
-    )
+// 节点按哪种协议参与选核；OTHER 是不能选核的协议
+private fun coreProtocolOf(type: Int, bean: AbstractBean): CoreProtocol = when {
+    type == TYPE_VMESS && bean is VMessBean -> if (bean.isVLESS) CoreProtocol.VLESS else CoreProtocol.VMESS
+    type == TYPE_TROJAN && bean is TrojanBean -> CoreProtocol.TROJAN
+    type == TYPE_ANYTLS && bean is AnyTLSBean -> CoreProtocol.ANYTLS
+    else -> CoreProtocol.OTHER
 }
+
+// 能否选核：编辑器据此显示核心选项、保存时决定用不用它的值，与能力表同一个划分
+fun coreSelectable(type: Int, bean: AbstractBean): Boolean = coreProtocolOf(type, bean) != CoreProtocol.OTHER
+
+// 不能选核的协议只留两条跨协议检查要用的：整证书固定（与 tlsFields 的取法相同）和生效的 mldsa65Verify
+private fun otherRequirements(type: Int, bean: AbstractBean) = CoreRequirements(
+    type = type,
+    protocol = CoreProtocol.OTHER,
+    mldsa65Verify = bean is StandardV2RayBean && bean.realityMldsa65VerifyActive(),
+    certificatePin = !tlsFields(bean)?.certificateFingerprint.isNullOrBlank(),
+)
 
 private fun standardRequirements(
     type: Int,
@@ -204,14 +213,14 @@ private fun standardRequirements(
     )
 }
 
-private fun muxRequirement(muxType: Int) = MuxRequirement(
-    when (muxType) {
-        MUX_H2MUX, MUX_SMUX, MUX_YAMUX -> MuxFamily.SING_MUX
-        MUX_COOL -> MuxFamily.MUX_COOL
-        else -> MuxFamily.UNKNOWN
-    },
-    muxType,
-)
+private fun muxRequirement(muxType: Int) = MuxRequirement(muxFamilyOf(muxType), muxType)
+
+// muxType 属于哪个协议族；能力表与编辑器的 mux 选项（MuxTypeChoices）共用这一个划分
+fun muxFamilyOf(muxType: Int): MuxFamily = when (muxType) {
+    MUX_H2MUX, MUX_SMUX, MUX_YAMUX -> MuxFamily.SING_MUX
+    MUX_COOL -> MuxFamily.MUX_COOL
+    else -> MuxFamily.UNKNOWN
+}
 
 private fun anyTlsRequirements(type: Int, bean: AnyTLSBean, globalAllowInsecure: Boolean): CoreRequirements {
     val certificatePin = !bean.certificateFingerprint.isNullOrBlank()

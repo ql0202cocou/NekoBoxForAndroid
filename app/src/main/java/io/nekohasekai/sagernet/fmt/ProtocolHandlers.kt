@@ -366,14 +366,25 @@ fun effectiveServerPort(bean: AbstractBean): Int = when (bean) {
 // hysteria 的端口在 serverPorts（支持端口跳跃），单独验；ConfigBean 的
 // 端点写在 config JSON 里，bean 的 address/port 字段无意义，豁免
 fun AbstractBean.requireValidEndpoint() {
-    if (this is ConfigBean) return
-    if (serverAddress.isNullOrBlank()) error("missing server")
+    endpointProblem()?.let { error(it.text) }
+}
+
+enum class EndpointProblem(val text: String) {
+    MISSING_SERVER("missing server"),
+    MISSING_PORT("missing port"),
+    INVALID_PORT("invalid port"),
+}
+
+// 端点哪里不对，有效时为 null。requireValidEndpoint 与 Clash 导入（要封闭集合里的原因）共用这一套判断
+fun AbstractBean.endpointProblem(): EndpointProblem? {
+    if (this is ConfigBean) return null
+    if (serverAddress.isNullOrBlank()) return EndpointProblem.MISSING_SERVER
     if (this is HysteriaBean) {
-        parseHysteriaPorts(serverPorts ?: error("missing hysteria port"))
-    } else {
-        val port = serverPort
-        if (port == null || port !in 1..65535) error("invalid port")
+        val ports = serverPorts ?: return EndpointProblem.MISSING_PORT
+        return if (runCatching { parseHysteriaPorts(ports) }.isSuccess) null else EndpointProblem.INVALID_PORT
     }
+    val port = serverPort ?: return EndpointProblem.MISSING_PORT
+    return if (port in 1..65535) null else EndpointProblem.INVALID_PORT
 }
 
 // 各订阅入口共用的「坏节点丢弃，不拖垮整批」过滤，同样必须早于
@@ -384,10 +395,9 @@ fun List<AbstractBean>.filterValidEndpoint(): List<AbstractBean> = filter { bean
         .isSuccess
 }
 
-// type -> color attribute for the profile list (was Protocols.getProtocolColor)
+// 节点列表里协议名的颜色属性（原 Protocols.getProtocolColor 按类型取）。
 // 协议名不再用主色（避免与选中 / 可用的语义混淆），所有类型统一为次要文字角色
-@Suppress("UNUSED_PARAMETER")
-fun protocolColorAttr(type: Int): Int = com.google.android.material.R.attr.colorOnSurfaceVariant
+fun protocolColorAttr(): Int = com.google.android.material.R.attr.colorOnSurfaceVariant
 
 // bean class -> whether a standard (protocol-specific) share link exists
 // (was ProxyEntity.haveStandardLink)

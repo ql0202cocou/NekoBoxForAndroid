@@ -205,7 +205,7 @@ fun externalReadyOutcome(results: List<HopReadiness>, timeoutMs: Long): External
     val strictFailures = results.filter { it.strict && !it.ready }
     // 进程退出排在前面：它是原因，同组其余跳实例的未就绪只是结果
     strictFailures.firstOrNull { it.exitCode != null }?.let { exited ->
-        val core = exited.hop.core.check?.coreName ?: exited.hop.pluginId
+        val core = coreName(exited.hop)
         val message = "$core exited with code ${exited.exitCode} before its local inbounds were ready; " +
             "see the log for details"
         return ExternalReadyOutcome(IOException(message), warnings)

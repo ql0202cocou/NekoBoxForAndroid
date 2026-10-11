@@ -365,7 +365,7 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
 
             profileName.text = proxyEntity.displayName()
             profileType.text = proxyEntity.displayType()
-            profileType.setTextColor(getProtocolColor(proxyEntity.type))
+            profileType.setTextColor(getProtocolColor())
 
             val rx = proxyEntity.rx
             val tx = proxyEntity.tx

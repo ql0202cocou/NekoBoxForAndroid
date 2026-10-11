@@ -16,7 +16,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import libcore.Libcore
 import moe.matsuri.nb4a.net.LocalResolverImpl
-import moe.matsuri.nb4a.utils.Util
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
@@ -166,7 +165,7 @@ class TestInstance(profile: ProxyEntity, val link: String, private val timeout: 
 
     override suspend fun loadConfig() {
         // 配置里有凭据，写进可导出的日志前脱敏：本次构建的本机 socks 凭据按值遮蔽，其余按键名
-        if (BuildConfig.DEBUG) Logs.d(Util.redactConfig(config.redactLocalAuth(config.config)))
+        if (BuildConfig.DEBUG) Logs.d(config.loggableConfig())
         box = Libcore.newSingBoxInstance(config.config, LocalResolverImpl)
     }
 

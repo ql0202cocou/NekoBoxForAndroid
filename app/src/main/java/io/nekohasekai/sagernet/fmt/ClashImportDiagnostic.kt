@@ -4,10 +4,9 @@ package io.nekohasekai.sagernet.fmt
 // 日志与提示由调用方从这些结果生成（与 ConfigBuildDiagnostic 同一做法）。
 // 诊断里不留原始值：字段路径与可显示的值在记录时就按下面的显示规则处理过
 
-// 可以原样显示的值 / 键名：整串匹配这个正则（与 UnsupportedSingBoxValueException 一致），
+// 可以原样显示的值 / 键名：整串匹配 SHOWABLE_VALUE（与 UnsupportedSingBoxValueException 同一条），
 // 否则显示占位串，不透露长度
-private val CLASH_SHOWABLE = Regex("^[A-Za-z0-9._+-]{1,64}$")
-const val CLASH_VALUE_NOT_SHOWN = "(value not shown)"
+const val CLASH_VALUE_NOT_SHOWN = VALUE_NOT_SHOWN
 const val CLASH_KEY_NOT_SHOWN = "(key not shown)"
 
 // 只有这些键的值可以出现在诊断文本里（字段路径），其它值一律不出现
@@ -36,13 +35,13 @@ fun clashShownValueAt(type: String?, path: String, value: Any?): String? {
 fun clashShownValue(value: Any?): String {
     // 列表（alpn）逐项判断，任何一项不能显示就整体不显示
     val items = if (value is List<*>) value.map { it?.toString() ?: "" } else listOf(value?.toString() ?: "")
-    return if (items.all { CLASH_SHOWABLE.matches(it) }) items.joinToString(",") else CLASH_VALUE_NOT_SHOWN
+    return if (items.all { SHOWABLE_VALUE.matches(it) }) items.joinToString(",") else CLASH_VALUE_NOT_SHOWN
 }
 
 // 不是字符串的键一律不显示：除了复杂键（列表 / map），还有带显式标签（!!int、!!bool 等）的标量键，
 // 它们的 toString 能通过正则
 fun clashShownKey(key: Any?): String =
-    (key as? String)?.takeIf { CLASH_SHOWABLE.matches(it) } ?: CLASH_KEY_NOT_SHOWN
+    (key as? String)?.takeIf { SHOWABLE_VALUE.matches(it) } ?: CLASH_KEY_NOT_SHOWN
 
 // 字段路径：每段都按键名规则显示（headers 下的头名由用户决定）
 fun clashShownPath(segments: List<Any?>): String = segments.joinToString(".") { clashShownKey(it) }

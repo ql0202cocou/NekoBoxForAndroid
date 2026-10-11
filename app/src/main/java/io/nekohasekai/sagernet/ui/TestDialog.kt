@@ -119,7 +119,7 @@ class TestDialog(fragment: ConfigurationFragment) {
                 append("\n")
                 append(
                     profile.displayType(),
-                    ForegroundColorSpan(context.getProtocolColor(profile.type)),
+                    ForegroundColorSpan(context.getProtocolColor()),
                     SPAN_EXCLUSIVE_EXCLUSIVE
                 )
                 append(" ")

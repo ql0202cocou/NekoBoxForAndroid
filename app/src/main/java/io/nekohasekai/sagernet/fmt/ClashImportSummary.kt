@@ -2,6 +2,12 @@ package io.nekohasekai.sagernet.fmt
 
 import io.nekohasekai.sagernet.R
 
+// 名单块（订阅更新的 Diff 对话框与导入汇总共用）：shown 之外还有的折成一行剩余条数，块尾空一行
+internal fun foldedLines(total: Int, shown: List<String>, getString: (resId: Int, arg: Any) -> String): String {
+    val lines = if (total > shown.size) shown + getString(R.string.group_diff_more, total - shown.size) else shown
+    return lines.joinToString("\n", postfix = "\n\n")
+}
+
 // 一次 Clash 导入的汇总：从各条目的结果算出计数，生成一段英文日志与给界面的文本块。纯数据，
 // 不碰界面；文案由调用方传入的 getString 取（与 configBuildNotices 同一做法）。
 // 各条目的结果按四类计数：完整导入、有损导入、类型不支持、解析失败（后三类分组计数，见下）。
@@ -56,11 +62,8 @@ class ClashImportSummary private constructor(
     // getString 按资源 id 取带一个参数的字符串（运行时即 Context.getString(id, arg)）
     fun uiText(getString: (resId: Int, arg: Any) -> String): String {
         if (isEmpty) return ""
-        fun section(resId: Int, total: Int, lines: List<String>): String {
-            if (total == 0) return ""
-            val shown = if (total > lines.size) lines + getString(R.string.group_diff_more, total - lines.size) else lines
-            return getString(resId, shown.joinToString("\n", postfix = "\n\n"))
-        }
+        fun section(resId: Int, total: Int, lines: List<String>): String =
+            if (total == 0) "" else getString(resId, foldedLines(total, lines, getString))
         val noEffect = noEffectFields.sorted()
         return section(R.string.clash_import_unsupported_type, unknownType, unknownTypeLines) +
                 section(R.string.clash_import_failed, failed, failedLines) +

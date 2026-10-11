@@ -11,7 +11,6 @@ import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
 import moe.matsuri.nb4a.utils.JavaUtil
-import moe.matsuri.nb4a.utils.Util
 
 class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Interface) :
     BoxInstance(profile) {
@@ -35,7 +34,7 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
         }
         // 配置里有凭据，写进可导出的日志前脱敏：本次构建的本机 socks 凭据按值遮蔽，其余按键名。
         // 脱敏要对整份配置跑多遍正则，日志关闭时直接跳过
-        if (Logs.enabled) Logs.d(Util.redactConfig(config.redactLocalAuth(config.config)))
+        if (Logs.enabled) Logs.d(config.loggableConfig())
         // 统计关联只记 tag → 节点 id，不含节点数据
         if (BuildConfig.DEBUG) Logs.d(JavaUtil.gson.toJson(config.traffic.tags))
     }
@@ -55,7 +54,7 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
         // BoxInstance.init 补收，launch() 也会因 isClosed() 直接返回
         if (isClosed()) return
         // 外核配置同样先按值遮蔽本机 socks 凭据，再按键名脱敏
-        if (Logs.enabled) externalProcesses.forEach { Logs.d(Util.redactSecrets(config.redactLocalAuth(it.config))) }
+        if (Logs.enabled) externalProcesses.forEach { Logs.d(config.loggableExternalConfig(it.config)) }
     }
 
     override suspend fun launch() {

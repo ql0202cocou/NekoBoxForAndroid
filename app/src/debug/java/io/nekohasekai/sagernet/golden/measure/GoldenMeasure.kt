@@ -7,7 +7,6 @@ import android.os.Process
 import android.os.SystemClock
 import androidx.core.content.getSystemService
 import com.google.gson.GsonBuilder
-import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.ISagerNetService
@@ -17,7 +16,6 @@ import io.nekohasekai.sagernet.bg.stateOrStopped
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.SagerDatabase
-import io.nekohasekai.sagernet.database.preference.KeyValuePair
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.ExternalRunPlan
@@ -130,9 +128,9 @@ object GoldenMeasure {
 
         val kvDao = PublicDatabase.kvPairDao
         val savedSettings = ownedMarker.takeIf { it.isFile }
-            ?.let { runCatching { decodeSettings(it.readText()) }.getOrNull() }
+            ?.let { runCatching { GoldenCollector.decodeSettings(it.readText()) }.getOrNull() }
             ?: kvDao.all()
-        ownedMarker.writeText(encodeSettings(savedSettings))
+        ownedMarker.writeText(GoldenCollector.encodeSettings(savedSettings))
 
         val fixture = fixture(xray, mihomo, singbox)
         SagerDatabase.instance.runInTransaction {
@@ -382,7 +380,7 @@ object GoldenMeasure {
 
         // 2. 清夹具、恢复设置
         if (ownedMarker.isFile) {
-            val saved = decodeSettings(ownedMarker.readText())
+            val saved = GoldenCollector.decodeSettings(ownedMarker.readText())
             SagerDatabase.instance.runInTransaction {
                 SagerDatabase.rulesDao.reset()
                 SagerDatabase.proxyDao.reset()
@@ -398,19 +396,5 @@ object GoldenMeasure {
         result["tablesEmpty"] = SagerDatabase.groupDao.allGroups().isEmpty() &&
             SagerDatabase.proxyDao.getAll().isEmpty() && SagerDatabase.rulesDao.allRules().isEmpty()
         return result
-    }
-
-    // 标记文件的格式与采集入口相同：[{key, valueType, value(Base64)}]
-    private fun encodeSettings(list: List<KeyValuePair>): String = gson.toJson(list.map {
-        linkedMapOf("key" to it.key, "valueType" to it.valueType, "value" to Base64.getEncoder().encodeToString(it.value))
-    })
-
-    private fun decodeSettings(text: String): List<KeyValuePair> = JsonParser.parseString(text).asJsonArray.map {
-        val row = it.asJsonObject
-        KeyValuePair().apply {
-            key = row["key"].asString
-            valueType = row["valueType"].asInt
-            value = Base64.getDecoder().decode(row["value"].asString)
-        }
     }
 }

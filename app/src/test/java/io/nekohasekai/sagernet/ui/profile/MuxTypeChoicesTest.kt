@@ -13,6 +13,7 @@ import io.nekohasekai.sagernet.fmt.CoreTestNodes.vmess
 import io.nekohasekai.sagernet.fmt.DialCore
 import io.nekohasekai.sagernet.fmt.MuxFamily
 import io.nekohasekai.sagernet.fmt.decideCore
+import io.nekohasekai.sagernet.fmt.muxFamilyOf
 import io.nekohasekai.sagernet.fmt.v2ray.MUX_COOL
 import io.nekohasekai.sagernet.fmt.v2ray.MUX_H2MUX
 import io.nekohasekai.sagernet.fmt.v2ray.MUX_SMUX

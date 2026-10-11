@@ -246,19 +246,6 @@ class GoldenCollector(private val args: CollectArgs) {
         }
     }
 
-    private fun encodeSettings(list: List<KeyValuePair>): String = gson.toJson(list.map {
-        linkedMapOf("key" to it.key, "valueType" to it.valueType, "value" to Base64.getEncoder().encodeToString(it.value))
-    })
-
-    private fun decodeSettings(text: String): List<KeyValuePair> = JsonParser.parseString(text).asJsonArray.map {
-        val row = it.asJsonObject
-        KeyValuePair().apply {
-            key = row["key"].asString
-            valueType = row["valueType"].asInt
-            value = Base64.getDecoder().decode(row["value"].asString)
-        }
-    }
-
     private fun settingsSnapshot(): Map<String, String> = PublicDatabase.kvPairDao.all()
         .associate { it.key to "${it.valueType}:${Base64.getEncoder().encodeToString(it.value)}" }
 
@@ -484,5 +471,21 @@ class GoldenCollector(private val args: CollectArgs) {
             "mihomo-plugin" to "libmihomo.so",
             "hysteria-plugin" to "libhysteria.so",
         )
+
+        // 标记文件里保存的设置（采集与实测入口共用）：[{key, valueType, value(Base64)}]
+        private val markerGson = GsonBuilder().disableHtmlEscaping().create()
+
+        fun encodeSettings(list: List<KeyValuePair>): String = markerGson.toJson(list.map {
+            linkedMapOf("key" to it.key, "valueType" to it.valueType, "value" to Base64.getEncoder().encodeToString(it.value))
+        })
+
+        fun decodeSettings(text: String): List<KeyValuePair> = JsonParser.parseString(text).asJsonArray.map {
+            val row = it.asJsonObject
+            KeyValuePair().apply {
+                key = row["key"].asString
+                valueType = row["valueType"].asInt
+                value = Base64.getDecoder().decode(row["value"].asString)
+            }
+        }
     }
 }

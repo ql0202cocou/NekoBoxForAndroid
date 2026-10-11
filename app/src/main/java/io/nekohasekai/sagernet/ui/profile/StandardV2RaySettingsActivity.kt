@@ -7,9 +7,12 @@ import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_AUTO
 import io.nekohasekai.sagernet.fmt.CoreDecision
+import io.nekohasekai.sagernet.fmt.coreSelectable
 import io.nekohasekai.sagernet.fmt.http.HttpBean
+import io.nekohasekai.sagernet.fmt.putBean
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.fmt.v2ray.MUX_H2MUX
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
@@ -189,9 +192,9 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
             }
         }
 
-        // 核心选项：VMess / VLESS / Trojan（D10，Trojan 也能走 Xray），HTTP 不能选核
+        // 核心选项：只在能选核的协议上显示（VMess / VLESS / Trojan，D10），HTTP 不能选核
         findPreference<ListPreference>(Key.PROFILE_CORE)!!.apply {
-            isVisible = isVmess || isVless || bean is TrojanBean
+            isVisible = coreSelectable(ProxyEntity().putBean(bean).type, bean)
             setOnPreferenceChangeListener { _, newValue ->
                 val core = (newValue as String).toIntOrNull() ?: CORE_AUTO
                 updateMuxType(core, muxTypeForCore(core, muxType.readStringToIntFromCache()))

@@ -43,8 +43,8 @@ object Protocols {
 
     // Display
 
-    fun Context.getProtocolColor(type: Int): Int {
-        return getColorAttr(protocolColorAttr(type))
+    fun Context.getProtocolColor(): Int {
+        return getColorAttr(protocolColorAttr())
     }
 
     // Test

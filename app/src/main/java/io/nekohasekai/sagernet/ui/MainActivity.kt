@@ -22,7 +22,6 @@ import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceScreen
 import androidx.transition.Visibility
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.motion.MotionUtils
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.transition.MaterialFadeThrough
 import com.google.android.material.transition.MaterialSharedAxis
@@ -51,6 +50,7 @@ import io.nekohasekai.sagernet.group.GroupUpdater
 import io.nekohasekai.sagernet.ktx.alert
 import io.nekohasekai.sagernet.ktx.isPreview
 import io.nekohasekai.sagernet.ktx.launchCustomTab
+import io.nekohasekai.sagernet.ktx.motionDuration
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.parseProxies
 import io.nekohasekai.sagernet.ktx.readableMessage
@@ -415,9 +415,7 @@ class MainActivity : ThemedActivity(),
         themedDuration(MaterialSharedAxis(MaterialSharedAxis.X, forward))
 
     private fun <T : Visibility> themedDuration(transition: T): T = transition.apply {
-        duration = MotionUtils.resolveThemeDuration(
-            this@MainActivity, com.google.android.material.R.attr.motionDurationMedium2, 300
-        ).toLong()
+        duration = motionDuration(com.google.android.material.R.attr.motionDurationMedium2, 300)
     }
 
     // 下一次 displayFragment 是返回设置一级页（返回箭头 / 返回键），不是 Dock 切换

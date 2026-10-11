@@ -129,6 +129,10 @@ class ConfigBuildResult(
 
     // 写日志前按值遮蔽本次构建的本机 socks 凭据（与格式、键名无关）；按键名的脱敏另外照常做
     fun redactLocalAuth(text: String): String = localAuth?.redact(text) ?: text
+
+    // 写日志用的文本：先按值遮本机 socks 凭据，再按键名脱敏。顺序是约定，只在这两处组合
+    fun loggableConfig(): String = Util.redactConfig(redactLocalAuth(config))
+    fun loggableExternalConfig(text: String): String = Util.redactSecrets(redactLocalAuth(text))
 }
 
 private val BOX_INDEX_ERROR = Regex("initialize ((?:outbound|endpoint)\\[\\d+])")
@@ -512,8 +516,8 @@ private class ConfigBuild(
 
     // 提交一条链时一跳交给下一跳的状态。
     //
-    // 隐含不变量：linkHop 在 index > 0 分支解引用 chain.pastEntity!! /
-    // pastOutbound / pastInboundTag，其安全依赖「commitHop 因 linkHop 返回 null
+    // 隐含不变量：linkHop 在 index > 0 分支读 pastOutbound /
+    // pastMappingInbound，其安全依赖「commitHop 因 linkHop 返回 null
     // 而提前返回（needGlobal 命中已构建的全局 outbound）只可能发生在
     // index == profileList.lastIndex 那一跳」——lastIndex 之后没有下一跳，
     // 这些字段不会再被读取；中间跳若提前返回，下一跳读到的是上一跳的状态
@@ -526,10 +530,9 @@ private class ConfigBuild(
         // 这条链上走外核的节点，按跳的顺序登记
         val externalHops = ArrayList<ExternalHopRecord>()
         lateinit var pastOutbound: SingBoxOption
-        lateinit var pastInboundTag: String
         var pastEntity: ProxyEntity? = null
-        // 上一跳走外核（规划时按它的选核判定定下的 HopCore.External）
-        var pastExternal = false
+        // 上一跳的映射入站 tag；上一跳没有映射入站（内部核心、不能映射的外核）时为 null，经 detour 接
+        var pastMappingInbound: String? = null
     }
 
     // 经映射的外核跳：映射入站的端口与它转去的服务器
@@ -647,10 +650,14 @@ private class ConfigBuild(
             _hack_custom_config = bean.customOutboundJson
         }
 
+        var mappingInbound: String? = null
         if (core is HopCore.External) {
             val socks = checkNotNull(sockets)
             // 拨号目标：经映射的加映射入站；不映射的（不能映射的节点、hysteria 1 免映射的最先拨号的一跳）外核自己拨服务器
-            val target = socks.mapped?.let { addMappingInbound(chain, index, proxyEntity, it) } ?: ExternalDialTarget.Direct
+            val target = socks.mapped?.let {
+                mappingInbound = addMappingInbound(chain, index, proxyEntity, it)
+                ExternalDialTarget.Mapped(it.port)
+            } ?: ExternalDialTarget.Direct
             chain.externalHops += ExternalHopRecord(proxyEntity.id, bean, core.core, socks.localPort, target, socks.localAuth)
         }
 
@@ -663,7 +670,7 @@ private class ConfigBuild(
         }
         chain.pastOutbound = currentOutbound
         chain.pastEntity = proxyEntity
-        chain.pastExternal = core is HopCore.External
+        chain.pastMappingInbound = mappingInbound
     }
 
     // sing-box 连外核本机 socks 入站的出站，外核的入站要求认证时带上本次构建的凭据
@@ -677,20 +684,19 @@ private class ConfigBuild(
         }
     }
 
-    // 经映射的外核跳的映射入站：外核的流量要经它出去，才能用已 protect 的 socket
+    // 经映射的外核跳的映射入站：外核的流量要经它出去，才能用已 protect 的 socket。返回入站的 tag
     private fun MyOptions.addMappingInbound(
         chain: ChainState, index: Int, proxyEntity: ProxyEntity, mapped: MappedPort,
-    ): ExternalDialTarget {
+    ): String {
+        val inboundTag = "${chain.chainTag}-mapping-${proxyEntity.id}"
         inbounds.add(Inbound_DirectOptions().apply {
             type = "direct"
             listen = LOCALHOST
             listen_port = mapped.port
-            tag = "${chain.chainTag}-mapping-${proxyEntity.id}"
+            tag = inboundTag
 
             override_address = mapped.mapping.address
             override_port = mapped.mapping.port
-
-            chain.pastInboundTag = tag
 
             // 最先拨号的一跳没有链规则接到它、它也不是出站，入站要显式路由到 direct
             if (index == chain.profileList.lastIndex) {
@@ -700,7 +706,7 @@ private class ConfigBuild(
                 })
             }
         })
-        return ExternalDialTarget.Mapped(mapped.port)
+        return inboundTag
     }
 
     // Settles the hop's outbound tag and wires the previous hop to it; null
@@ -752,14 +758,11 @@ private class ConfigBuild(
 
         // chain rules
         if (index > 0) {
-            // chain route/proxy rules
-            // pastInboundTag is only assigned when the past profile got a
-            // mapping inbound, which also requires canMapping() (NekoBean /
-            // hy1 faketcp can't); those chain via detour like internal nodes
-            val pastEntity = chain.pastEntity!!
-            if (chain.pastExternal && pastEntity.requireBean().canMapping()) {
+            // 上一跳有映射入站的经路由规则接过来，其余（内部核心、不能映射的外核）经 detour
+            val pastMappingInbound = chain.pastMappingInbound
+            if (pastMappingInbound != null) {
                 route.rules.add(Rule_DefaultOptions().apply {
-                    inbound = listOf(chain.pastInboundTag)
+                    inbound = listOf(pastMappingInbound)
                     outbound = tagOut
                 })
             } else {

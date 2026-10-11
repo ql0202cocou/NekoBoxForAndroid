@@ -87,18 +87,21 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         findPreference<Preference>(KEY_NAV_DASHBOARD)!!.isVisible = DataStore.enableClashAPI
     }
 
+    // 这些设置改了要重载服务；按分类各自绑定（只找本分类里的设置项）
+    private fun reloadOn(vararg keys: String) = keys.forEach {
+        findPreference<Preference>(it)!!.onPreferenceChangeListener = reloadListener
+    }
+
     private fun setupService() {
         findPreference<Preference>(Key.SERVICE_MODE)!!.setOnPreferenceChangeListener { _, _ ->
             if (ServiceRegistry.state.started) SagerNet.stopService()
             true
         }
-        findPreference<Preference>(Key.TUN_IMPLEMENTATION)!!.onPreferenceChangeListener = reloadListener
-        findPreference<MTUPreference>(Key.MTU)!!.onPreferenceChangeListener = reloadListener
+        reloadOn(Key.TUN_IMPLEMENTATION, Key.MTU, Key.ACQUIRE_WAKE_LOCK)
         val metedNetwork = findPreference<Preference>(Key.METERED_NETWORK)!!
         if (Build.VERSION.SDK_INT < 28) {
             metedNetwork.remove()
         }
-        findPreference<Preference>(Key.ACQUIRE_WAKE_LOCK)!!.onPreferenceChangeListener = reloadListener
     }
 
     private fun setupInterface() {
@@ -139,7 +142,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             needReload()
             true
         }
-        findPreference<SwitchPreferenceCompat>(Key.SHOW_DIRECT_SPEED)!!.onPreferenceChangeListener = reloadListener
+        reloadOn(Key.SHOW_DIRECT_SPEED)
     }
 
     private fun setupRoute() {
@@ -148,18 +151,11 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             startActivity(Intent(activity, AppManagerActivity::class.java))
             newValue as Boolean
         }
-        findPreference<SwitchPreferenceCompat>(Key.BYPASS_LAN)!!.onPreferenceChangeListener = reloadListener
-        findPreference<SwitchPreferenceCompat>(Key.BYPASS_LAN_IN_CORE)!!.onPreferenceChangeListener = reloadListener
-        findPreference<Preference>(Key.TRAFFIC_SNIFFING)!!.onPreferenceChangeListener = reloadListener
-        findPreference<SwitchPreferenceCompat>(Key.RESOLVE_DESTINATION)!!.onPreferenceChangeListener = reloadListener
-        findPreference<Preference>(Key.IPV6_MODE)!!.onPreferenceChangeListener = reloadListener
+        reloadOn(Key.BYPASS_LAN, Key.BYPASS_LAN_IN_CORE, Key.TRAFFIC_SNIFFING, Key.RESOLVE_DESTINATION, Key.IPV6_MODE)
     }
 
     private fun setupDns() {
-        findPreference<EditTextPreference>(Key.REMOTE_DNS)!!.onPreferenceChangeListener = reloadListener
-        findPreference<EditTextPreference>(Key.DIRECT_DNS)!!.onPreferenceChangeListener = reloadListener
-        findPreference<SwitchPreferenceCompat>(Key.ENABLE_DNS_ROUTING)!!.onPreferenceChangeListener = reloadListener
-        findPreference<SwitchPreferenceCompat>(Key.ENABLE_FAKEDNS)!!.onPreferenceChangeListener = reloadListener
+        reloadOn(Key.REMOTE_DNS, Key.DIRECT_DNS, Key.ENABLE_DNS_ROUTING, Key.ENABLE_FAKEDNS)
     }
 
     private fun setupInbound() {
@@ -178,8 +174,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 true
             }
         }
-        findPreference<SwitchPreferenceCompat>(Key.APPEND_HTTP_PROXY)!!.onPreferenceChangeListener = reloadListener
-        findPreference<Preference>(Key.ALLOW_ACCESS)!!.onPreferenceChangeListener = reloadListener
+        reloadOn(Key.APPEND_HTTP_PROXY, Key.ALLOW_ACCESS)
     }
 
     private fun setupAdvanced() {
@@ -217,7 +212,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         }
 
         // 仪表板入口的显隐在一级页重建时读取，这里只需重载
-        findPreference<SwitchPreferenceCompat>(Key.ENABLE_CLASH_API)!!.onPreferenceChangeListener = reloadListener
+        reloadOn(Key.ENABLE_CLASH_API)
         globalCustomConfig.onPreferenceChangeListener = reloadListener
     }
 

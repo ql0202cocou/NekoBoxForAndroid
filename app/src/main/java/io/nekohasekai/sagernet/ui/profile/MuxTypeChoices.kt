@@ -6,7 +6,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_AUTO
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_SING_BOX
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 import io.nekohasekai.sagernet.fmt.DialCore
-import io.nekohasekai.sagernet.fmt.MuxFamily
+import io.nekohasekai.sagernet.fmt.muxFamilyOf
 import io.nekohasekai.sagernet.fmt.v2ray.MUX_COOL
 import io.nekohasekai.sagernet.fmt.v2ray.MUX_H2MUX
 import io.nekohasekai.sagernet.fmt.v2ray.MUX_SMUX
@@ -36,13 +36,6 @@ fun muxTypeChoices(core: Int): MuxTypeChoices = when (core) {
     CORE_SING_BOX -> MuxTypeChoices.SING_BOX
     CORE_XRAY -> MuxTypeChoices.XRAY
     else -> MuxTypeChoices.ALL
-}
-
-// muxType 属于哪个协议族，与能力表（CoreRequirements）的划分相同
-fun muxFamilyOf(muxType: Int): MuxFamily = when (muxType) {
-    MUX_H2MUX, MUX_SMUX, MUX_YAMUX -> MuxFamily.SING_MUX
-    MUX_COOL -> MuxFamily.MUX_COOL
-    else -> MuxFamily.UNKNOWN
 }
 
 // 核心的默认 mux 协议族；mihomo 不承载 V2Ray 系协议，没有
