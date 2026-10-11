@@ -1,9 +1,16 @@
 package libcore
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/sagernet/sing-box/adapter"
+	"github.com/sagernet/sing-box/common/trafficcontrol"
+	"github.com/sagernet/sing/service"
 )
 
 // Minimal config that starts on desktop: no inbounds (nothing to bind), a
@@ -206,4 +213,77 @@ func TestBoxInstanceResetAllConnectionsAfterClose(t *testing.T) {
 	}()
 
 	ResetAllConnections()
+}
+
+// 钉住 libcore/sing-box/NEKO.md 里 needCacheFile 的补丁：libcore 总是传 PlatformLogWriter，
+// 上游在 needCacheFile 与「创建 trafficcontrol.Manager + clashmode.Manager」两个条件里都有
+// `|| options.PlatformLogWriter != nil`，补丁去掉了这两处。条件被改回上游写法时，任何配置都会常驻
+// cache file 服务（工作目录多出 cache.db，选择器启动时用缓存的选择覆盖应用指定的默认项）和
+// traffic manager（每条连接多一层 tracker）。traffic manager 用 MustRegisterPtr 注册，读取要用 PtrFromContext。
+//
+// 阳性对照先证明断言测得到「有」，下面最小配置的「没有」才是补丁的效果。
+func TestBoxInstanceOptionalServicesNeedExplicitConfig(t *testing.T) {
+	// 工作目录换成临时目录：cache file 的默认路径是进程当前目录下的 cache.db
+	dir := t.TempDir()
+	t.Chdir(dir)
+
+	startClose := func(t *testing.T, config string) (*BoxInstance, func()) {
+		t.Helper()
+		instance, err := NewSingBoxInstance(config, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := instance.Start(); err != nil {
+			t.Fatal(err)
+		}
+		return instance, func() {
+			if err := instance.Close(); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	t.Run("positive cache_file", func(t *testing.T) {
+		path := filepath.Join(dir, "explicit-cache.db")
+		config := fmt.Sprintf(`{
+			"log": {"level": "panic"},
+			"outbounds": [{"type": "direct", "tag": "direct"}],
+			"experimental": {"cache_file": {"enabled": true, "path": %q}}
+		}`, path)
+		instance, closeBox := startClose(t, config)
+		defer closeBox()
+		if service.FromContext[adapter.CacheFile](instance.ctx) == nil {
+			t.Fatal("cache_file enabled but no CacheFile registered")
+		}
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("cache file not created: %v", err)
+		}
+	})
+
+	t.Run("positive clash_api", func(t *testing.T) {
+		// external_controller 留空：不监听端口，只让 traffic manager 被创建
+		instance, closeBox := startClose(t, `{
+			"log": {"level": "panic"},
+			"outbounds": [{"type": "direct", "tag": "direct"}],
+			"experimental": {"clash_api": {}}
+		}`)
+		defer closeBox()
+		if service.PtrFromContext[trafficcontrol.Manager](instance.ctx) == nil {
+			t.Fatal("clash_api configured but no traffic manager registered")
+		}
+	})
+
+	t.Run("minimal config registers neither", func(t *testing.T) {
+		instance, closeBox := startClose(t, lifecycleBoxConfig)
+		if service.FromContext[adapter.CacheFile](instance.ctx) != nil {
+			t.Error("CacheFile registered without experimental.cache_file")
+		}
+		if service.PtrFromContext[trafficcontrol.Manager](instance.ctx) != nil {
+			t.Error("traffic manager registered without clash_api / v2ray_api")
+		}
+		closeBox()
+		if _, err := os.Stat(filepath.Join(dir, "cache.db")); !os.IsNotExist(err) {
+			t.Errorf("cache.db left in working directory (stat err = %v)", err)
+		}
+	})
 }

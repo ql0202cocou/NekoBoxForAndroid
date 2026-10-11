@@ -63,6 +63,8 @@ type BoxInstance struct {
 	access sync.Mutex
 
 	*box.Box
+	// 创建 box 用的上下文：只给测试断言注册在其中的服务用，不影响任何行为
+	ctx    context.Context
 	cancel context.CancelFunc
 	state  int
 
@@ -113,6 +115,7 @@ func NewSingBoxInstance(config string, localTransport LocalDNSTransport) (b *Box
 
 	b = &BoxInstance{
 		Box:          instance,
+		ctx:          ctx,
 		cancel:       cancel,
 		pauseManager: service.FromContext[pause.Manager](ctx),
 	}
