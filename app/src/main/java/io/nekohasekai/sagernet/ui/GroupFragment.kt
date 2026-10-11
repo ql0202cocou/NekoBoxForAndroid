@@ -72,7 +72,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
 
         undoManager = UndoSnackbarManager(activity, groupAdapter)
 
-        ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+        ItemTouchHelper(object : DragScaleCallback(
             ItemTouchHelper.UP or ItemTouchHelper.DOWN, ItemTouchHelper.START
         ) {
             override fun getSwipeDirs(

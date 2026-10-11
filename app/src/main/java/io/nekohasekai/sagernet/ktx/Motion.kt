@@ -7,6 +7,8 @@ import android.provider.Settings
 import android.view.View
 import androidx.annotation.AttrRes
 import androidx.core.view.isVisible
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.motion.MotionUtils
 import io.nekohasekai.sagernet.R
 
@@ -73,3 +75,34 @@ fun View.setPlaceholderVisible(visible: Boolean) {
 }
 
 private const val PLACEHOLDER_START_SCALE = 0.92f
+
+/**
+ * 拖拽排序的 ItemTouchHelper 回调基类：拖起时被拖的卡片放大到 1.02，松手恢复。
+ * 只动缩放，不改 elevation，也不用 MaterialCardView.setDragged。动画用 ViewPropertyAnimator，
+ * 自动服从系统动画时长缩放
+ */
+abstract class DragScaleCallback(dragDirs: Int, swipeDirs: Int) :
+    ItemTouchHelper.SimpleCallback(dragDirs, swipeDirs) {
+
+    override fun onSelectedChanged(viewHolder: RecyclerView.ViewHolder?, actionState: Int) {
+        super.onSelectedChanged(viewHolder, actionState)
+        if (actionState == ItemTouchHelper.ACTION_STATE_DRAG && viewHolder != null) {
+            scaleTo(viewHolder.itemView, DRAG_SCALE)
+        }
+    }
+
+    override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
+        super.clearView(recyclerView, viewHolder)
+        scaleTo(viewHolder.itemView, 1f)
+    }
+
+    private fun scaleTo(view: View, scale: Float) {
+        view.animate().scaleX(scale).scaleY(scale)
+            .setDuration(view.context.motionDuration(com.google.android.material.R.attr.motionDurationShort4, 200))
+            .start()
+    }
+
+    private companion object {
+        const val DRAG_SCALE = 1.02f
+    }
+}

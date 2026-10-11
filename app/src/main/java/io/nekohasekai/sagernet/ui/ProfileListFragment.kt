@@ -23,6 +23,7 @@ import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.databinding.LayoutProfileListBinding
+import io.nekohasekai.sagernet.ktx.DragScaleCallback
 import io.nekohasekai.sagernet.ktx.FixedLinearLayoutManager
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.animatorsEnabled
@@ -279,7 +280,7 @@ class ProfileListFragment : Fragment() {
             undoManager = UndoSnackbarManager(activity as MainActivity, adapter!!)
 
             itemTouchHelper?.attachToRecyclerView(null)
-            itemTouchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+            itemTouchHelper = ItemTouchHelper(object : DragScaleCallback(
                 ItemTouchHelper.UP or ItemTouchHelper.DOWN, ItemTouchHelper.START
             ) {
                 override fun getSwipeDirs(

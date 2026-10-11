@@ -94,7 +94,7 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
         configurationAdapter = ProxiesAdapter()
         configurationList.adapter = configurationAdapter
 
-        ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+        ItemTouchHelper(object : DragScaleCallback(
             ItemTouchHelper.UP or ItemTouchHelper.DOWN, ItemTouchHelper.START
         ) {
             override fun getSwipeDirs(
