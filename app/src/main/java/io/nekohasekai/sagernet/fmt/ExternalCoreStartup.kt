@@ -103,7 +103,8 @@ private val GO_PACKAGE_PREFIX = Regex("""^(?:main|[\w.-]+(?:/[\w.-]+)+): """)
 // 保留前缀让用户知道是 id 的问题，值一律遮成 ***（空串也一样，不暴露长度）。这一句是报错链最里层的原因，
 // 遮到行尾，值里带「 > 」也不会漏到下一层。
 // 32–36 字节、含非十六进制字符的 id，common/uuid 原样返回 hex.Decode 的错误（「encoding/hex: invalid byte: U+0067 'g'」，
-// 带出 id 里的一个字符），同样保留前缀、遮到行尾
+// 带出 id 里的一个字符），同样遮到行尾；有 tag 时这一层和其它层一样去掉 Go 包路径（encoding/hex），
+// 显示为「invalid byte: ***」
 private val XRAY_INVALID_UUID = Regex("""\binvalid UUID:.*$""")
 private val XRAY_INVALID_HEX_BYTE = Regex("""\bencoding/hex: invalid byte:.*$""")
 

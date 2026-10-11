@@ -140,10 +140,6 @@ class ExternalRunPlan(val hops: List<ExternalHop>) {
         .groupBy { if (it.core.merged) it.pluginId else "${it.pluginId}#${it.index}" }
         .values.map { ExternalCoreGroup(it.first().core, it) }
 
-    /** 按合并配置里的标识（入站 / 出站 tag、listener / 代理名）找回跳实例，外核报错时据此对回节点。 */
-    fun hopByTag(tag: String): ExternalHop? =
-        hops.firstOrNull { it.core.merged && (it.inboundTag == tag || it.outboundTag == tag) }
-
     companion object {
         /**
          * 从构建结果得到计划：按 externalChains 的顺序（链的顺序，链内按跳的顺序），本机端口、拨号目标与

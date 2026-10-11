@@ -355,7 +355,7 @@ class ExternalRunPlanTest {
     }
 
     @Test
-    fun `标识由计划序号决定，能从标识找回跳实例与节点`() {
+    fun `标识由计划序号决定`() {
         val plan = plan(
             Spec(vless("x", "x.example.com"), 21000, 31000, profileId = 7),
             Spec(trojanGo("t"), 21001, 31001, profileId = 8),
@@ -363,12 +363,6 @@ class ExternalRunPlanTest {
         )
         assertEquals(listOf("in-0", "in-1", "in-2"), plan.hops.map { it.inboundTag })
         assertEquals(listOf("out-0", "out-1", "out-2"), plan.hops.map { it.outboundTag })
-        assertEquals(7L, plan.hopByTag("in-0")!!.profileId)
-        assertEquals(9L, plan.hopByTag("out-2")!!.profileId)
-        assertEquals("m", plan.hopByTag("out-2")!!.bean.displayName())
-        // 插件核心的配置不带标识
-        assertNull(plan.hopByTag("in-1"))
-        assertNull(plan.hopByTag(XRAY_BLOCK_TAG))
     }
 
     @Test

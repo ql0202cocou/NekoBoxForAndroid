@@ -52,7 +52,7 @@ internal fun trafficBindingsOf(chains: Map<String, List<ProxyEntity>>, configMap
     )
 }
 
-// 外核映射入站的 tag（mapExternalHop：<链 tag>-mapping-<节点 id>）
+// 外核映射入站的 tag（ConfigBuilder.addMappingInbound：<链 tag>-mapping-<节点 id>）
 private val MAPPING_INBOUND_TAG = Regex("c-\\d+-mapping-\\d+")
 
 /**
