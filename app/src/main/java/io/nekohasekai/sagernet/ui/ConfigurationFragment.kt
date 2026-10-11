@@ -153,6 +153,18 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
         override fun onPageSelected(position: Int) = updateAppBarLift()
     }
 
+    // 节点卡片的错位入场只在冷启动（本页不是经转场进入）和用户切分组时播；经 Dock 淡变回到本页时
+    // 不播，免得两种动画叠在一起。ViewPager2 建好后的第一次 onPageSelected 是初始页，不算用户切换
+    private var pageSelections = 0
+    private val enterAnimationCallback = object : ViewPager2.OnPageChangeCallback() {
+        override fun onPageSelected(position: Int) {
+            pageSelections++
+        }
+    }
+
+    /** 当前选中的分组页能否播错位入场：用户切过分组，或本页不是经转场进入的 */
+    fun allowsEnterAnimation(): Boolean = pageSelections > 1 || enterTransition == null
+
     val updateSelectedCallback = object : ViewPager2.OnPageChangeCallback() {
         override fun onPageScrolled(
             position: Int, positionOffset: Float, positionOffsetPixels: Int
@@ -237,6 +249,9 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
         // 普通与选择模式都要跟着换页更新抬升；先注销再注册，onViewCreated 会再次执行
         groupPager.unregisterOnPageChangeCallback(appBarLiftCallback)
         groupPager.registerOnPageChangeCallback(appBarLiftCallback)
+        groupPager.unregisterOnPageChangeCallback(enterAnimationCallback)
+        pageSelections = 0
+        groupPager.registerOnPageChangeCallback(enterAnimationCallback)
 
         TabLayoutMediator(tabLayout, groupPager) { tab, position ->
             if (adapter.groupList.size > position) {

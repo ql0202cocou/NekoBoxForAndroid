@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 切到分组后节点卡片错位入场：每项延迟 8%（约 24ms），自上而下 -->
+<layoutAnimation xmlns:android="http://schemas.android.com/apk/res/android"
+    android:animation="@anim/profile_list_item_enter"
+    android:animationOrder="normal"
+    android:delay="8%" />

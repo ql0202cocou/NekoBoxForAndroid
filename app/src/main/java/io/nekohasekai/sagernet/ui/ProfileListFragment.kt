@@ -3,6 +3,8 @@ package io.nekohasekai.sagernet.ui
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
+import android.view.animation.Animation
+import android.view.animation.AnimationUtils
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.core.os.BundleCompat
@@ -23,6 +25,7 @@ import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.databinding.LayoutProfileListBinding
 import io.nekohasekai.sagernet.ktx.FixedLinearLayoutManager
 import io.nekohasekai.sagernet.ktx.Logs
+import io.nekohasekai.sagernet.ktx.animatorsEnabled
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.setPlaceholderVisible
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
@@ -97,6 +100,7 @@ class ProfileListFragment : Fragment() {
     private fun onListChanged() {
         listLoaded = true
         updateEmptyState()
+        playEnterAnimationOnce()
         (parentFragment as? ConfigurationFragment)?.updateAppBarLift()
     }
 
@@ -115,6 +119,33 @@ class ProfileListFragment : Fragment() {
         // 选择模式页没有 + 号，不显示添加提示
         root.findViewById<View>(R.id.empty_hint).isGone = filtered || select
         holder.setPlaceholderVisible(true)
+    }
+
+    // 这一页的节点卡片还没播过错位入场：第一次拿到非空数据并且正可见时播一次
+    // （onListChanged 与 onResume 两条路径，先到先播）；滚动、刷新状态、搜索都不再触发。
+    // 只在冷启动与用户切分组时播：经 Dock 淡变回到配置页时父级在转场中，这一页按已播处理。
+    // view 动画不服从系统动画时长缩放，所以关闭动画时不播
+    private var enterAnimationPlayed = false
+
+    private fun playEnterAnimationOnce() {
+        if (enterAnimationPlayed || select || !isResumed) return
+        val list = listViewOrNull ?: return
+        val listAdapter = adapter ?: return
+        if (!listLoaded || listAdapter.itemCount == 0 || !list.isShown) return
+        enterAnimationPlayed = true
+        if ((parentFragment as? ConfigurationFragment)?.allowsEnterAnimation() == false) return
+        if (!requireContext().animatorsEnabled()) return
+        list.layoutAnimation = AnimationUtils.loadLayoutAnimation(
+            requireContext(), R.anim.layout_profile_list_enter
+        )
+        list.setLayoutAnimationListener(object : Animation.AnimationListener {
+            override fun onAnimationStart(animation: Animation?) = Unit
+            override fun onAnimationRepeat(animation: Animation?) = Unit
+            override fun onAnimationEnd(animation: Animation?) {
+                list.layoutAnimation = null
+            }
+        })
+        list.scheduleLayoutAnimation()
     }
 
     // 列表滚动时通知父级更新顶部栏抬升；onViewCreated 会再次执行，换新前先摘掉旧的
@@ -148,6 +179,7 @@ class ProfileListFragment : Fragment() {
         }
         checkOrderMenu()
         configurationListView.requestFocus()
+        playEnterAnimationOnce()
         (parentFragment as? ConfigurationFragment)?.updateAppBarLift()
     }
 
@@ -226,6 +258,7 @@ class ProfileListFragment : Fragment() {
         configurationListView.layoutManager = layoutManager
         emptyObserverAdapter?.unregisterAdapterDataObserver(emptyObserver)
         listLoaded = false
+        enterAnimationPlayed = false
         adapter = ConfigurationAdapter(this)
         emptyObserverAdapter = adapter
         adapter!!.registerAdapterDataObserver(emptyObserver)

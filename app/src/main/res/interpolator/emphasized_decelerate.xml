@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- M3 的 emphasized decelerate 曲线（与主题 motionEasingEmphasizedDecelerateInterpolator 同值），
+     给不能读主题属性的 view 动画 XML 用 -->
+<pathInterpolator xmlns:android="http://schemas.android.com/apk/res/android"
+    android:controlX1="0.05"
+    android:controlY1="0.7"
+    android:controlX2="0.1"
+    android:controlY2="1" />

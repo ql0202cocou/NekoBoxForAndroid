@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 节点卡片入场：透明度占前 25%（75ms），同时从下方 32dp 滑回原位，共 300ms -->
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shareInterpolator="false">
+    <alpha
+        android:duration="75"
+        android:fromAlpha="0"
+        android:interpolator="@android:interpolator/linear"
+        android:toAlpha="1" />
+    <translate
+        android:duration="300"
+        android:fromYDelta="32dp"
+        android:interpolator="@interpolator/emphasized_decelerate"
+        android:toYDelta="0" />
+</set>
