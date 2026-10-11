@@ -176,7 +176,7 @@
     <string name="alpn">应用层协议协商</string>
     <string name="group_duplicate">重复:
         \n%s</string>
-    <string name="group_diff_more">… 等 %d 项</string>
+    <string name="group_diff_more">… 另有 %d 项</string>
     <string name="clash_import_unsupported_type">未导入（类型不支持）:\n%s</string>
     <string name="clash_import_failed">未导入（解析失败）:\n%s</string>
     <string name="clash_import_lossy">已导入，部分字段未保留:\n%s</string>

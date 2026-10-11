@@ -117,14 +117,14 @@ class ClashImportSummaryTest {
     }
 
     @Test
-    fun `界面每节最多 50 行，超出的折成总数`() {
+    fun `界面每节最多 50 行，超出的折成剩余条数`() {
         val nodes = (0 until 60).map { ClashNodeResult.UnknownType(it, "ssr", "n$it") }
         val ui = ClashImportSummary.of(nodes).uiText(::getString)
         val lines = ui.trim().lines()
         assertEquals("[unsupported]", lines.first())
         assertEquals(1 + 50 + 1, lines.size)
         assertEquals("n49 (ssr)", lines[50])
-        assertEquals("[more 60]", lines.last())
+        assertEquals("[more 10]", lines.last())
     }
 
     @Test
@@ -137,9 +137,9 @@ class ClashImportSummaryTest {
         val failedAt = lines.indexOf("[failed]")
         val lossyAt = lines.indexOf("[lossy]")
         assertEquals("f49 (vmess): unsupported transport at network = kcp", lines[failedAt + 50])
-        assertEquals("[more 60]", lines[failedAt + 51])
+        assertEquals("[more 10]", lines[failedAt + 51])
         assertEquals("l49 (vless): smux.max-connections: not imported", lines[lossyAt + 50])
-        assertEquals("[more 70]", lines[lossyAt + 51])
+        assertEquals("[more 20]", lines[lossyAt + 51])
         assertEquals(lossyAt + 52, lines.size)
     }
 
@@ -223,6 +223,11 @@ class ClashImportSummaryTest {
             groupUpdateDialogText(emptyList(), linkedMapOf("old" to "new", "same" to "same"), emptyList(), emptyList(), null, ::getString),
         )
         assertEquals("", groupUpdateDialogText(emptyList(), emptyMap(), emptyList(), emptyList(), null, ::getString))
+        // 超出 GROUP_DIFF_LINES 的折成一行剩余条数
+        val added = (0 until GROUP_DIFF_LINES + 3).map { "a$it" }
+        val lines = groupUpdateDialogText(added, emptyMap(), emptyList(), emptyList(), null, ::getString).lines()
+        assertEquals("a${GROUP_DIFF_LINES - 1}", lines[GROUP_DIFF_LINES])
+        assertEquals("[more 3]", lines[GROUP_DIFF_LINES + 1])
     }
 
     @Test

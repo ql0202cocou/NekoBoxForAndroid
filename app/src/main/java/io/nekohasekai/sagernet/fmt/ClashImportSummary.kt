@@ -52,13 +52,13 @@ class ClashImportSummary private constructor(
         "No proxies imported from the Clash subscription: $total entries, " +
                 "$unknownType unsupported type, $failed failed to parse"
 
-    // 界面文本块：分节，每节最多 UI_LINES 行，超出的折成一行总数（同订阅更新的 Diff 对话框）。
+    // 界面文本块：分节，每节最多 UI_LINES 行，超出的折成一行剩余条数（同订阅更新的 Diff 对话框）。
     // getString 按资源 id 取带一个参数的字符串（运行时即 Context.getString(id, arg)）
     fun uiText(getString: (resId: Int, arg: Any) -> String): String {
         if (isEmpty) return ""
         fun section(resId: Int, total: Int, lines: List<String>): String {
             if (total == 0) return ""
-            val shown = if (total > lines.size) lines + getString(R.string.group_diff_more, total) else lines
+            val shown = if (total > lines.size) lines + getString(R.string.group_diff_more, total - lines.size) else lines
             return getString(resId, shown.joinToString("\n", postfix = "\n\n"))
         }
         val noEffect = noEffectFields.sorted()
