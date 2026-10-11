@@ -640,13 +640,26 @@ class ClashFieldRecordTest {
             "name: t, type: trojan, server: t.example.com, port: 443, password: pw-y",
             "name: a, type: anytls, server: a.example.com, port: 443, password: pw-y",
             "name: u, type: tuic, server: u.example.com, port: 443, uuid: $uuid",
-        )) for (key in listOf<Any>(listOf("zq61", "zq62"), mapOf("zq63" to "zq64"))) {
+        )) for (key in listOf<Any>(listOf("zq61", "zq62"), mapOf("zq63" to "zq64"), 6160, true)) {
             val entry = LinkedHashMap<Any?, Any?>(loadClashYaml("{$base}"))
             entry[key] = "x"
             val failed = parseClash(mapOf("proxies" to listOf(entry))).nodes.single() as ClashNodeResult.Failed
             assertEquals(ClashNodeFailure.INVALID_VALUE, failed.failure)
             assertEquals(CLASH_KEY_NOT_SHOWN, failed.path)
             assertEquals("invalid value at $CLASH_KEY_NOT_SHOWN", failed.description)
+        }
+    }
+
+    @Test
+    fun `显式标签的非字符串标量键：字段路径只显示占位串`() {
+        // 本应用的 YAML 把未加标签的数字 / 布尔读成字符串，加了 !!int 之类的显式标签才会得到非字符串键；
+        // 它们的 toString 能通过显示正则，但非字符串键一律不显示
+        val v = "name: v, type: vmess, server: v.example.com, port: 443, uuid: $uuid"
+        for (key in listOf("!!int 6171", "!!float 6172.5", "!!bool true")) {
+            val fields = fields("{$v, network: ws, ws-opts: {headers: {$key: x, X-Plain: v}}}")
+            assertField(fields, "ws-opts.headers.$CLASH_KEY_NOT_SHOWN", IGNORED, ClashFieldReason.NOT_READ)
+            assertField(fields, "ws-opts.headers.X-Plain", IGNORED, ClashFieldReason.NOT_READ)
+            assertFalse(key, fields.keys.any { it.contains("617") || it.contains("true") })
         }
     }
 

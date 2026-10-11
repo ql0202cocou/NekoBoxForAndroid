@@ -231,22 +231,25 @@ internal class ClashFields(
             // mihomo 的解码器对 null 什么都不做，与没写一样
             if (value == null) continue
             val path = prefix + key.toString()
-            val record = records[path]
+            // 不是字符串的键不会有记录、也不展开；显示用原键，路径里这一段是占位串
+            val record = if (key is String) records[path] else null
             when {
                 record != null -> out += record
-                path in opened && value is Map<*, *> -> walk(value, path, table, inactive, out)
-                else -> out += unread(path, value, table, inactive)
+                key is String && path in opened && value is Map<*, *> -> walk(value, path, table, inactive, out)
+                else -> out += unread(path, prefix + key, value, table, inactive)
             }
         }
     }
 
-    private fun unread(path: List<String>, value: Any, table: Set<String>, inactive: ClashInactive): ClashFieldRecord {
+    private fun unread(
+        path: List<String>, shownPath: List<Any?>, value: Any, table: Set<String>, inactive: ClashInactive,
+    ): ClashFieldRecord {
         val normalized = path.map { normalizeClashKey(it) }
         val reason = inactive(normalized)
             ?: (if (normalized.size == 1) CLASH_NO_EFFECT_KEYS[normalized[0]] else null)
             ?: (if (value.isFalseOrEmpty()) DEFAULT_VALUE else null)
             ?: (if (table.knows(normalized)) NOT_READ else UNKNOWN_KEY)
-        return ClashFieldRecord(clashShownPath(path), ClashFieldResult.IGNORED, reason, shownValue(path, value))
+        return ClashFieldRecord(clashShownPath(shownPath), ClashFieldResult.IGNORED, reason, shownValue(path, value))
     }
 
     // 键表里的 a.b.* 表示 a.b 是键名自由的 map（如 headers）

@@ -39,8 +39,10 @@ fun clashShownValue(value: Any?): String {
     return if (items.all { CLASH_SHOWABLE.matches(it) }) items.joinToString(",") else CLASH_VALUE_NOT_SHOWN
 }
 
+// 不是字符串的键一律不显示：除了复杂键（列表 / map），还有带显式标签（!!int、!!bool 等）的标量键，
+// 它们的 toString 能通过正则
 fun clashShownKey(key: Any?): String =
-    key?.toString()?.takeIf { CLASH_SHOWABLE.matches(it) } ?: CLASH_KEY_NOT_SHOWN
+    (key as? String)?.takeIf { CLASH_SHOWABLE.matches(it) } ?: CLASH_KEY_NOT_SHOWN
 
 // 字段路径：每段都按键名规则显示（headers 下的头名由用户决定）
 fun clashShownPath(segments: List<Any?>): String = segments.joinToString(".") { clashShownKey(it) }
