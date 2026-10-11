@@ -56,6 +56,13 @@ fun buildSingBoxOutboundTLS(bean: AbstractBean, globalAllowInsecure: Boolean): O
             }
         }
         tls.utlsFingerprint.blankAsNull()?.let {
+            // uTLS 指纹只在 sing-box 创建出站时才校验。VMess / VLESS / Trojan / AnyTLS 在选核阶段就会因名单外的指纹
+            // 报冲突，但 HTTP、ShadowTLS 是 OTHER 协议，能力表不为它们产生要求，没有选核冲突可拦；导入又原样保留
+            // 链接里的 fp=。这里按同一份名单（SING_BOX_UTLS_FINGERPRINTS）预检，让未选中的成员被跳过，
+            // 而不是一个陌生指纹拖垮整份配置。对前几类协议这是第二道防线
+            if (!SING_BOX_UTLS_FINGERPRINTS.accepts(it)) {
+                throw UnsupportedSingBoxValueException("uTLS fingerprint", it)
+            }
             utls = OutboundUTLSOptions().apply {
                 enabled = true
                 fingerprint = it

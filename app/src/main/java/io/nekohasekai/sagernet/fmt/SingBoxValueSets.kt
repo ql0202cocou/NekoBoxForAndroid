@@ -5,7 +5,11 @@ package io.nekohasekai.sagernet.fmt
 // → 各协议的 sing-box 构建函数）先按名单检查，取值不在名单里就抛 UnsupportedSingBoxValueException：选择器成员与
 // 路由规则目标由 planOrSkip 跳过并记 ProfileSkipped，选中的节点整次构建失败。外核跳不经这里（各核心有自己的名单）。
 //
-// 每个名单逐项抄自 vendored sing-box（SING_BOX_VALUE_SETS_VERSION）与它依赖的上游模块源码，模块版本取自
+// 本文件持有 Shadowsocks 加密方式、Shadowsocks 插件名、VMess 加密方式、TUIC 拥塞控制四份名单；uTLS 指纹的名单在
+// CoreCapabilities.kt（SING_BOX_UTLS_FINGERPRINTS，选核阶段也用），这里只是预检的入口之一：TlsFields.kt 的
+// buildSingBoxOutboundTLS 按它预检后同样抛 UnsupportedSingBoxValueException。
+//
+// 本文件的四份名单逐项抄自 vendored sing-box（SING_BOX_VALUE_SETS_VERSION）与它依赖的上游模块源码，模块版本取自
 // libcore/sing-box/go.mod（SING_BOX_VALUE_SET_MODULES）；CoreCapabilitiesTest 把两者与仓库里的版本绑定，升级
 // sing-box 或这些模块时测试先红，要回来逐项复核。名单都区分大小写（上游按字符串原样比较）。
 // 检查的是 bean 里的值：自定义出站 JSON（customOutboundJson）到序列化时才合并，它覆盖同名键后的值不算。这类节点

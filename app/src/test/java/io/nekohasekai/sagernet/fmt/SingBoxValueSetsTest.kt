@@ -2,6 +2,7 @@ package io.nekohasekai.sagernet.fmt
 
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
+import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
 import io.nekohasekai.sagernet.fmt.shadowsocks.buildSingBoxOutboundShadowsocksBean
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
@@ -9,6 +10,11 @@ import io.nekohasekai.sagernet.fmt.tuic.TuicBean
 import io.nekohasekai.sagernet.fmt.tuic.buildSingBoxOutboundTuicBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.buildSingBoxOutboundStandardV2RayBean
+import io.nekohasekai.sagernet.fmt.v2ray.setTLS
+import moe.matsuri.nb4a.SingBoxOptions.Outbound_HTTPOptions
+import moe.matsuri.nb4a.SingBoxOptions.Outbound_ShadowTLSOptions
+import moe.matsuri.nb4a.proxy.shadowtls.ShadowTLSBean
+import moe.matsuri.nb4a.proxy.shadowtls.buildSingBoxOutboundShadowTLSBean
 import moe.matsuri.nb4a.SingBoxOptions.Outbound_VMessOptions
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -41,6 +47,25 @@ class SingBoxValueSetsTest {
         serverPort = 443
         initializeDefaultValues()
         congestionController = congestion
+    }
+
+    private fun http(fingerprint: String?) = HttpBean().apply {
+        name = "http"
+        serverAddress = "192.0.2.20"
+        serverPort = 443
+        initializeDefaultValues()
+        setTLS(true)
+        sni = "h.example.com"
+        utlsFingerprint = fingerprint
+    }
+
+    private fun shadowTls(fingerprint: String?) = ShadowTLSBean().apply {
+        name = "shadowtls"
+        serverAddress = "192.0.2.21"
+        serverPort = 443
+        initializeDefaultValues()
+        sni = "s.example.com"
+        utlsFingerprint = fingerprint
     }
 
     private fun assertRejected(field: String, value: String?, block: () -> Unit) {
@@ -199,5 +224,65 @@ class SingBoxValueSetsTest {
         assertEquals("ss-2", e.profileName)
         assertEquals("ss-2: sing-box does not support shadowsocks method \"not-a-cipher\"", e.message)
         assertEquals("shadowsocks method", (e.cause as UnsupportedSingBoxValueException).field)
+    }
+
+    // ---- uTLS 指纹（HTTP、ShadowTLS 没有选核冲突可拦，名单在 CoreCapabilities.kt）
+
+    @Test
+    fun `uTLS 指纹：HTTP 与 ShadowTLS 名单里的全部原样写出，不写时不带 utls`() {
+        for (fp in SING_BOX_UTLS_FINGERPRINTS.names) {
+            val h = buildSingBoxOutboundStandardV2RayBean(http(fp), false) as Outbound_HTTPOptions
+            assertEquals(fp, h.tls.utls.fingerprint)
+            assertEquals(fp, buildSingBoxOutboundShadowTLSBean(shadowTls(fp), false).tls.utls.fingerprint)
+        }
+        assertEquals("chrome", (buildSingBoxOutboundStandardV2RayBean(http("chrome"), false) as Outbound_HTTPOptions).tls.utls.fingerprint)
+        assertNull((buildSingBoxOutboundStandardV2RayBean(http(""), false) as Outbound_HTTPOptions).tls.utls)
+        assertNull(buildSingBoxOutboundShadowTLSBean(shadowTls(null), false).tls.utls)
+    }
+
+    @Test
+    fun `uTLS 指纹：大小写不同与 Xray 写法被拒，消息有字段与取值`() {
+        for (fp in listOf("Chrome", "hellochrome_120", "unsafe", "CHROME")) {
+            assertRejected("uTLS fingerprint", fp) { buildSingBoxOutboundStandardV2RayBean(http(fp), false) }
+            assertRejected("uTLS fingerprint", fp) { buildSingBoxOutboundShadowTLSBean(shadowTls(fp), false) }
+        }
+        val e = assertThrows(UnsupportedSingBoxValueException::class.java) {
+            buildSingBoxOutboundStandardV2RayBean(http("hellochrome_120"), false)
+        }
+        assertEquals("sing-box does not support uTLS fingerprint \"hellochrome_120\"", e.message)
+    }
+
+    @Test
+    fun `uTLS 指纹：形态不合格的取值不回显`() {
+        for (fp in listOf("a b", "指纹", "x".repeat(65))) {
+            val e = assertThrows(UnsupportedSingBoxValueException::class.java) {
+                buildSingBoxOutboundStandardV2RayBean(http(fp), false)
+            }
+            assertEquals("sing-box does not support uTLS fingerprint (value not shown)", e.message)
+        }
+    }
+
+    private fun httpEntity(id: Long, fingerprint: String) = ProxyEntity(id = id, groupId = 1, userOrder = id)
+        .putBean(http(fingerprint).apply { name = "http-$id" })
+
+    @Test
+    fun `选择器里没选中的 HTTP 成员带陌生指纹被跳过，选中的整次构建失败`() {
+        val main = socks(1)
+        val diagnostics = ArrayList<ConfigBuildDiagnostic>()
+        val result = build(main, listOf(main, httpEntity(2, "Chrome"), httpEntity(3, "chrome")), diagnostics)
+        assertEquals(
+            listOf(
+                ConfigBuildDiagnostic.ProfileSkipped(
+                    2, "http-2", "http-2: sing-box does not support uTLS fingerprint \"Chrome\"", true,
+                ),
+            ),
+            diagnostics,
+        )
+        assertEquals(setOf(1L, 3L), result.profileTagMap.keys)
+
+        val bad = httpEntity(2, "Chrome")
+        val e = assertThrows(ProfileBuildException::class.java) { build(bad, listOf(bad, socks(1))) }
+        assertEquals("http-2", e.profileName)
+        assertEquals("uTLS fingerprint", (e.cause as UnsupportedSingBoxValueException).field)
     }
 }
