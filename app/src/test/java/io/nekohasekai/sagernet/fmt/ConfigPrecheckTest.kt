@@ -187,5 +187,23 @@ class ConfigPrecheckTest {
         assertEquals(setOf(1L), result.profileTagMap.keys)
     }
 
+    @Test
+    fun `bean 损坏的成员照常跳过，诊断用节点 id 代替名字`() {
+        // 成员 2 类型是 VMess 但没存 bean（损坏数据）：取名字也会抛，跳过与诊断不能因此落空
+        val broken = ProxyEntity(id = 2, groupId = 1, userOrder = 2, type = ProxyEntity.TYPE_VMESS)
+        val source = MemoryConfigDataSource(
+            groups = listOf(ProxyGroup(id = 1, isSelector = true)),
+            profiles = listOf(main, broken),
+            rules = emptyList(),
+        )
+        val diagnostics = ArrayList<ConfigBuildDiagnostic>()
+        val result = build(main, source, FakeConfigPlatform(), diagnostics = diagnostics)
+
+        val skipped = diagnostics.single() as ConfigBuildDiagnostic.ProfileSkipped
+        assertEquals(2L, skipped.profileId)
+        assertEquals("profile 2", skipped.profileName)
+        assertEquals(setOf(1L), result.profileTagMap.keys)
+    }
+
     private fun JsonObject.string(key: String): String? = get(key)?.takeIf { it.isJsonPrimitive }?.asString
 }

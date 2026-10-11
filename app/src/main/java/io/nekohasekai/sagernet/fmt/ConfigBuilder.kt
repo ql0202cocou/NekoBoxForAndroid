@@ -800,7 +800,12 @@ private class ConfigBuild(
             throw e
         } catch (e: Exception) {
             platform.warn("profile ${entity.id} skipped", e)
-            val name = entity.requireBean().displayName()
+            // bean 损坏时取名字也会抛（可能正是跳过的原因），退回节点 id，跳过与诊断照常进行
+            val name = try {
+                entity.requireBean().displayName()
+            } catch (_: IllegalStateException) {
+                "profile ${entity.id}"
+            }
             // 出错的就是这个成员本身时，消息已以它的名字开头；链成员里出错的另有其名
             diagnostics += ConfigBuildDiagnostic.ProfileSkipped(
                 entity.id, name, e.readableMessage, e is ProfileBuildException && e.profileName == name
