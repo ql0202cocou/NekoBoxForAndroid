@@ -18,13 +18,13 @@ package io.nekohasekai.sagernet.fmt
 // method），所以报错只回显形如 ^[A-Za-z0-9._+-]{1,64}$ 的取值，其余写 (value not shown)，不暴露长度。
 
 // 名单核实时 vendored sing-box 的上游版本（libcore/sing-box/constant/version.go 去掉 -neko-N）
-const val SING_BOX_VALUE_SETS_VERSION = "1.14.2"
+const val SING_BOX_VALUE_SETS_VERSION = "1.14.3"
 
 // 名单依赖的上游模块与核实时的版本（libcore/sing-box/go.mod 的 require）
 val SING_BOX_VALUE_SET_MODULES = mapOf(
-    "github.com/sagernet/sing-shadowsocks2" to "v0.2.1",
-    "github.com/sagernet/sing-vmess" to "v0.2.8",
-    "github.com/sagernet/sing-quic" to "v0.7.1-0.20260924092235-6a3a24d65b99",
+    "github.com/sagernet/sing-shadowsocks2" to "v0.2.2-0.20260929152114-a69d1086332b",
+    "github.com/sagernet/sing-vmess" to "v0.2.9-0.20260929152519-9b95ab8c9478",
+    "github.com/sagernet/sing-quic" to "v0.7.2-0.20261002084117-75c3ac4fa12b",
 )
 
 // 取值不在 sing-box 的名单里。field 是报错里的字段说明，value 是原值（只给代码判断用，不进消息）；
@@ -39,7 +39,7 @@ private val SHOWN_SINGBOX_VALUE = Regex("^[A-Za-z0-9._+-]{1,64}$")
 internal fun shownSingBoxValue(value: String?): String =
     if (value != null && SHOWN_SINGBOX_VALUE.matches(value)) "\"$value\"" else "(value not shown)"
 
-// Shadowsocks 加密方式。sing-shadowsocks2 v0.2.1：shadowaead/method.go（AEAD）、shadowaead_2022/method.go（2022）、
+// Shadowsocks 加密方式。sing-shadowsocks2（版本见 SING_BOX_VALUE_SET_MODULES）：shadowaead/method.go（AEAD）、shadowaead_2022/method.go（2022）、
 // shadowstream/method.go（流密码）、cipher/method_none.go（none），经 shadowsocks.go 的空白导入注册；名单外
 // cipher/method_registry.go 的 CreateMethod 报 unknown method（vendored protocol/shadowsocks/outbound.go 调用）
 val SING_BOX_SHADOWSOCKS_METHODS: Set<String> = setOf(
@@ -58,11 +58,11 @@ val SING_BOX_SHADOWSOCKS_METHODS: Set<String> = setOf(
 // 参数，如 ss:// 链接原样保留的 ";obfs=http"）与 none 都当作不写，不查名单
 val SING_BOX_SHADOWSOCKS_PLUGINS: Set<String> = setOf("obfs-local", "v2ray-plugin")
 
-// VMess 加密方式（出站的 security）。sing-vmess v0.2.8 client.go 的 NewClient，名单外报 unsupported security type；
+// VMess 加密方式（出站的 security）。sing-vmess（同上）client.go 的 NewClient，名单外报 unsupported security type；
 // vendored protocol/vmess/outbound.go 先把空串当 auto（构建函数也把空值写成 auto）
 val SING_BOX_VMESS_SECURITIES: Set<String> = setOf("auto", "none", "zero", "aes-128-cfb", "aes-128-gcm", "chacha20-poly1305")
 
-// TUIC 拥塞控制。sing-quic v0.7.1-0.20260924092235-6a3a24d65b99 tuic/client.go 的 NewClient：空串按 cubic，名单外报
+// TUIC 拥塞控制。sing-quic（同上）tuic/client.go 的 NewClient：空串按 cubic，名单外报
 // unknown congestion control algorithm
 val SING_BOX_TUIC_CONGESTION_CONTROLS: Set<String> = setOf("", "cubic", "new_reno", "bbr")
 

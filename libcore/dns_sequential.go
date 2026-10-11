@@ -63,7 +63,7 @@ func newSequentialTransport(ctx context.Context, logger log.ContextLogger, tag s
 	}, nil
 }
 
-func (t *SequentialTransport) Start(stage adapter.StartStage) (err error) {
+func (t *SequentialTransport) Start(stage adapter.StartStage, scope *adapter.Scope) (err error) {
 	defer device.DeferPanicToError("SequentialTransport.Start", func(err_ error) { err = err_ })
 
 	if stage != adapter.StartStateStart {
@@ -80,10 +80,6 @@ func (t *SequentialTransport) Start(stage adapter.StartStage) (err error) {
 			return E.New("member server cannot be ", DNSTypeSequential, ": ", member)
 		}
 	}
-	return nil
-}
-
-func (t *SequentialTransport) Close() error {
 	return nil
 }
 

@@ -20,12 +20,11 @@ type stubDNSTransport struct {
 	err      error
 }
 
-func (t *stubDNSTransport) Start(stage adapter.StartStage) error { return nil }
-func (t *stubDNSTransport) Close() error                         { return nil }
-func (t *stubDNSTransport) Type() string                         { return t.typeName }
-func (t *stubDNSTransport) Tag() string                          { return t.tag }
-func (t *stubDNSTransport) Dependencies() []string               { return nil }
-func (t *stubDNSTransport) Reset()                               {}
+func (t *stubDNSTransport) Start(adapter.StartStage, *adapter.Scope) error { return nil }
+func (t *stubDNSTransport) Type() string                                   { return t.typeName }
+func (t *stubDNSTransport) Tag() string                                    { return t.tag }
+func (t *stubDNSTransport) Dependencies() []string                         { return nil }
+func (t *stubDNSTransport) Reset()                                         {}
 
 func (t *stubDNSTransport) Exchange(ctx context.Context, message *mDNS.Msg) (*mDNS.Msg, error) {
 	t.calls++
@@ -43,16 +42,14 @@ type stubDNSTransportManager struct {
 	transports map[string]adapter.DNSTransport
 }
 
-func (m *stubDNSTransportManager) Start(stage adapter.StartStage) error { return nil }
-func (m *stubDNSTransportManager) Close() error                         { return nil }
-func (m *stubDNSTransportManager) Transports() []adapter.DNSTransport   { return nil }
+func (m *stubDNSTransportManager) Start(adapter.StartStage, *adapter.Scope) error { return nil }
+func (m *stubDNSTransportManager) Transports() []adapter.DNSTransport             { return nil }
 func (m *stubDNSTransportManager) Transport(tag string) (adapter.DNSTransport, bool) {
 	transport, loaded := m.transports[tag]
 	return transport, loaded
 }
 func (m *stubDNSTransportManager) Default() adapter.DNSTransport   { return nil }
 func (m *stubDNSTransportManager) FakeIP() adapter.FakeIPTransport { return nil }
-func (m *stubDNSTransportManager) Remove(tag string) error         { return nil }
 func (m *stubDNSTransportManager) Create(ctx context.Context, logger log.ContextLogger, tag string, transportType string, options any) error {
 	return nil
 }
@@ -211,7 +208,7 @@ func TestSequentialStartValidation(t *testing.T) {
 	// missing member
 	manager := &stubDNSTransportManager{transports: map[string]adapter.DNSTransport{}}
 	transport := newSequentialTestTransport(t, manager, "seq", "a")
-	if err := transport.Start(adapter.StartStateStart); err == nil {
+	if err := transport.Start(adapter.StartStateStart, nil); err == nil {
 		t.Fatal("missing member must fail start")
 	}
 
@@ -219,12 +216,12 @@ func TestSequentialStartValidation(t *testing.T) {
 	inner := &stubDNSTransport{tag: "inner", typeName: DNSTypeSequential}
 	manager2 := &stubDNSTransportManager{transports: map[string]adapter.DNSTransport{"inner": inner}}
 	transport2 := newSequentialTestTransport(t, manager2, "seq", "inner")
-	if err := transport2.Start(adapter.StartStateStart); err == nil {
+	if err := transport2.Start(adapter.StartStateStart, nil); err == nil {
 		t.Fatal("sequential member must fail start")
 	}
 
 	// other stages are no-ops even with broken members
-	if err := transport.Start(adapter.StartStatePostStart); err != nil {
+	if err := transport.Start(adapter.StartStatePostStart, nil); err != nil {
 		t.Fatal(err)
 	}
 }

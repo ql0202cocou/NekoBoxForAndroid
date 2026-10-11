@@ -13,8 +13,8 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //   T2-* / L2-*）；
 // - mihomo：I1（v1.19.31 源码 S-M*、-t 实测 T-M*、回环 L-MA*）；M1（v1.19.32 复核：源码 S2-M*、-t 实测 T2-*、回环
 //   L2-*）；
-// - sing-box：I2b（vendored libcore/sing-box，1.14.2 + 1.14.2-neko-1）；现为 1.14.2-neko-2，neko-2 只改 SOCKS5 出站的
-//   UDP ASSOCIATE 握手，与本表无关；
+// - sing-box：I2b（vendored libcore/sing-box，1.14.2 + 1.14.2-neko-1）；现为 1.14.3-neko-1，此后的补丁（SOCKS5 出站的
+//   UDP ASSOCIATE 握手）与 1.14.3 的上游改动都不涉及本表各项；
 // - 生成器：I2b 的逐字段真值表（buildSingBoxOutbound*、buildXrayOutbound、buildMihomoProxy）。
 // uTLS 指纹名单、VLESS flow、ws early data 另读了上游固定 tag 的源码，位置写在各常量上。
 //
@@ -86,7 +86,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 
 // 能替节点拨号的核心。value 与 ProxyEntity.CORE_* 相同；version 是这张表核实时的版本
 enum class DialCore(val value: Int, val displayName: String, val version: String) {
-    SING_BOX(CORE_SING_BOX, "sing-box", "1.14.2"),
+    SING_BOX(CORE_SING_BOX, "sing-box", "1.14.3"),
     XRAY(CORE_XRAY, "Xray", "v26.9.30"),
     MIHOMO(CORE_MIHOMO, "mihomo", "v1.19.32");
 
@@ -397,7 +397,7 @@ sealed class CapabilityCell {
 
 // ---- 取值名单
 
-// sing-box 1.14.2 的 uTLS 指纹，区分大小写，名单外在加载配置时报 unknown uTLS fingerprint
+// sing-box 1.14.3 的 uTLS 指纹（utls_client.go 自 1.14.2 未变），区分大小写，名单外在加载配置时报 unknown uTLS fingerprint
 // （libcore/sing-box/common/tls/utls_client.go 的 uTLSClientHelloID；空串在那里等于 chrome，但生成器不写空值）。
 // randomized 虽在名单里，按源码在部分进程上同样握手失败（未实测，已知差异 SING_BOX_UTLS_RANDOMIZED_SEED）
 val SING_BOX_UTLS_FINGERPRINTS = CoreNames(

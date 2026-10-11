@@ -52,11 +52,8 @@ func newPlatformTransport(iif LocalDNSTransport, tag string, options option.Loca
 	}
 }
 
-func (p *platformLocalDNSTransport) Start(stage adapter.StartStage) error {
-	return nil
-}
-
-func (p *platformLocalDNSTransport) Close() error {
+// 1.14.3 起 Lifecycle 不含 Close，清理改由 scope.Add 登记；本传输无需清理
+func (p *platformLocalDNSTransport) Start(stage adapter.StartStage, scope *adapter.Scope) error {
 	return nil
 }
 
