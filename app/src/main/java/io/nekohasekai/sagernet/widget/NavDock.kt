@@ -1,5 +1,8 @@
 package io.nekohasekai.sagernet.widget
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.content.Context
 import android.util.AttributeSet
 import android.view.LayoutInflater
@@ -18,10 +21,15 @@ import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.dynamicanimation.animation.DynamicAnimation
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
+import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import com.google.android.material.card.MaterialCardView
+import com.google.android.material.motion.MotionUtils
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.ktx.animatorsEnabled
 import io.nekohasekai.sagernet.ktx.getColorAttr
+import io.nekohasekai.sagernet.ktx.motionDuration
+import kotlin.math.PI
+import kotlin.math.sin
 
 /**
  * 主界面底部的悬浮 Dock：四个一级页面（配置、分组、路由、设置）的入口，横向等分。
@@ -36,13 +44,18 @@ class NavDock @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null,
 ) : MaterialCardView(context, attrs) {
 
-    private class Item(@IdRes val id: Int, @DrawableRes val icon: Int, @StringRes val title: Int)
+    private class Item(
+        @IdRes val id: Int,
+        @DrawableRes val icon: Int,
+        @DrawableRes val iconOutline: Int,
+        @StringRes val title: Int,
+    )
 
     private val items = listOf(
-        Item(R.id.nav_configuration, R.drawable.ic_action_description, R.string.menu_configuration),
-        Item(R.id.nav_group, R.drawable.ic_baseline_view_list_24, R.string.menu_group),
-        Item(R.id.nav_route, R.drawable.ic_maps_directions, R.string.menu_route),
-        Item(R.id.nav_settings, R.drawable.ic_action_settings, R.string.settings),
+        Item(R.id.nav_configuration, R.drawable.ic_action_description, R.drawable.ic_outline_description_24, R.string.menu_configuration),
+        Item(R.id.nav_group, R.drawable.ic_baseline_view_list_24, R.drawable.ic_outline_view_list_24, R.string.menu_group),
+        Item(R.id.nav_route, R.drawable.ic_maps_directions, R.drawable.ic_outline_directions_24, R.string.menu_route),
+        Item(R.id.nav_settings, R.drawable.ic_action_settings, R.drawable.ic_outline_settings_24, R.string.settings),
     )
 
     private val itemViews = mutableMapOf<Int, View>()
@@ -98,7 +111,8 @@ class NavDock @JvmOverloads constructor(
         for (item in items) {
             val view = inflater.inflate(R.layout.layout_nav_dock_item, row, false)
             val title = context.getText(item.title)
-            view.findViewById<ImageView>(R.id.nav_dock_icon).setImageResource(item.icon)
+            view.findViewById<ImageView>(R.id.nav_dock_icon_outline).setImageResource(item.iconOutline)
+            view.findViewById<ImageView>(R.id.nav_dock_icon_fill).setImageResource(item.icon)
             view.findViewById<TextView>(R.id.nav_dock_label).text = title
             view.contentDescription = title
             ViewCompat.setAccessibilityDelegate(view, buttonRole)
@@ -112,8 +126,60 @@ class NavDock @JvmOverloads constructor(
     fun select(@IdRes id: Int) {
         val changed = selectedId != id
         selectedId = id
-        for ((itemId, view) in itemViews) view.isSelected = itemId == id
+        // 首次放位（还没有胶囊位置）不做动画；系统动画关闭时 setIconFilled 直接切换
+        val animate = changed && pillPlaced
+        for ((itemId, view) in itemViews) {
+            val selected = itemId == id
+            val wasSelected = view.isSelected
+            view.isSelected = selected
+            if (selected != wasSelected || !pillPlaced) setIconFilled(view, selected, animate)
+        }
         if (changed) alignPill(animate = pillPlaced)
+    }
+
+    /**
+     * 图标：未选中是线条，选中是填充。选中时填充层 350ms 淡入（主题 motionEasingStandardInterpolator）
+     * 并做一次 1 到 1.1 到 1 的正弦缩放脉冲；取消选中时填充层淡出。[animate] 为 false
+     * 或系统动画关闭时直接切换
+     */
+    private fun setIconFilled(item: View, filled: Boolean, animate: Boolean) {
+        val fill = item.findViewById<View>(R.id.nav_dock_icon_fill)
+        val box = item.findViewById<View>(R.id.nav_dock_icon)
+        (box.getTag(R.id.nav_dock_pulse) as? ValueAnimator)?.cancel()
+        fill.animate().cancel()
+        val target = if (filled) 1f else 0f
+        if (!animate || !context.animatorsEnabled()) {
+            fill.alpha = target
+            box.scaleX = 1f
+            box.scaleY = 1f
+            return
+        }
+        val duration = context.motionDuration(
+            com.google.android.material.R.attr.motionDurationMedium3, ICON_FILL_DURATION_MS
+        )
+        fill.animate().alpha(target).setDuration(duration)
+            .setInterpolator(
+                MotionUtils.resolveThemeInterpolator(
+                    context, com.google.android.material.R.attr.motionEasingStandardInterpolator,
+                    FastOutSlowInInterpolator()
+                )
+            ).start()
+        if (filled) {
+            val pulse = ValueAnimator.ofFloat(0f, 1f).setDuration(duration)
+            pulse.addUpdateListener {
+                val scale = 1f + ICON_PULSE * sin(PI * it.animatedFraction).toFloat()
+                box.scaleX = scale
+                box.scaleY = scale
+            }
+            pulse.addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    box.scaleX = 1f
+                    box.scaleY = 1f
+                }
+            })
+            box.setTag(R.id.nav_dock_pulse, pulse)
+            pulse.start()
+        }
     }
 
     /**
@@ -150,5 +216,9 @@ class NavDock @JvmOverloads constructor(
         // M3 默认的空间弹簧（spatial default）
         const val PILL_STIFFNESS = 380f
         const val PILL_DAMPING_RATIO = 0.8f
+
+        // 填充层淡入与脉冲：350ms（主题的 motionDurationMedium3），脉冲峰值放大 10%
+        const val ICON_FILL_DURATION_MS = 350
+        const val ICON_PULSE = 0.1f
     }
 }

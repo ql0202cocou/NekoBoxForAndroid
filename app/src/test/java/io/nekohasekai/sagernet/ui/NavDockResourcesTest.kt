@@ -81,6 +81,20 @@ class NavDockResourcesTest {
     }
 
     @Test
+    fun dockItemIconHasOutlineAndFillLayers() {
+        // 图标两层：线条层常显、填充层 alpha 0 起步，NavDock 选中时把填充层淡入；
+        // 两层都走同一套状态色，选中项颜色不能和线条层脱节
+        val layout = File(res, "layout/layout_nav_dock_item.xml").readText()
+        assertTrue(layout.contains("@+id/nav_dock_icon_outline"))
+        assertTrue(layout.contains("@+id/nav_dock_icon_fill"))
+        assertEquals(2, Regex("app:tint=\"@color/nav_dock_item\"").findAll(layout).count())
+        assertTrue(layout.contains("android:alpha=\"0\""))
+        for (name in listOf("description", "view_list", "directions", "settings")) {
+            assertTrue("缺少 ic_outline_${name}_24", File(res, "drawable/ic_outline_${name}_24.xml").isFile)
+        }
+    }
+
+    @Test
     fun selectedPillLivesInDockNotInItemBackground() {
         // 选中胶囊是 NavDock 里的共享视图（弹簧滑动）；项背景只留按压涟漪，不能再画一份选中态胶囊
         val background = File(res, "drawable/nav_dock_item_background.xml").readText()

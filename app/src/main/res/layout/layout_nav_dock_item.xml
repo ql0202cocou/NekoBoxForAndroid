@@ -11,12 +11,28 @@
     android:gravity="center"
     android:orientation="vertical">
 
-    <ImageView
+    <!-- 图标两层：线条层常显，填充层选中时淡入（NavDock 控制），颜色都走 nav_dock_item -->
+    <FrameLayout
         android:id="@+id/nav_dock_icon"
         android:layout_width="24dp"
         android:layout_height="24dp"
-        android:importantForAccessibility="no"
-        app:tint="@color/nav_dock_item" />
+        android:importantForAccessibility="no">
+
+        <ImageView
+            android:id="@+id/nav_dock_icon_outline"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:importantForAccessibility="no"
+            app:tint="@color/nav_dock_item" />
+
+        <ImageView
+            android:id="@+id/nav_dock_icon_fill"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:alpha="0"
+            android:importantForAccessibility="no"
+            app:tint="@color/nav_dock_item" />
+    </FrameLayout>
 
     <!-- 11sp 单行不截断：360dp 宽的屏上一项只有 66dp，英文「Configuration」放不下 11sp，
          靠自动缩放降到 9–11sp 之间；高度随字号（至少 16dp），字体放大时不被压回小字号。

@@ -14,4 +14,7 @@
 
     <!-- setPlaceholderVisible 记录占位视图当前的目标显隐（淡出期间视图仍是 VISIBLE） -->
     <item name="placeholder_target" type="id" />
+
+    <!-- NavDock 图标脉冲动画挂在图标容器上的 tag，换选中项时取出来取消 -->
+    <item name="nav_dock_pulse" type="id" />
 </resources>
