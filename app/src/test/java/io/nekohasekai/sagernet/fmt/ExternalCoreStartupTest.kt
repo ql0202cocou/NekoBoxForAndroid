@@ -165,6 +165,43 @@ class ExternalCoreStartupTest {
         assertEquals("main: failed to create server > encoding/hex: invalid byte: ***", xrayCheckErrors(unbound).single().reason)
     }
 
+    // v26.9.30 与 v26.10.10 对不合法 REALITY shortId 的真实输出（K1c N9 E4、K1b T2-68 / T2-69）：infra/conf 把值原样带出
+    private val xrayShortIdPrefix = "Failed to start: main: failed to load config files: [E4-reality-shortid-nonhex.json] " +
+        "> infra/conf: failed to build outbound config with tag out-1 > infra/conf: failed to build stream settings " +
+        "for outbound detour > infra/conf: Failed to build REALITY config. > infra/conf: "
+    private val xrayShortIdNonHex = xrayShortIdPrefix + "invalid \"shortId\": zz12qq34"
+    private val xrayShortIdTooLong = xrayShortIdPrefix + "too long \"shortId\": 0123456789abcdef0"
+
+    @Test
+    fun `Xray 报错里的 REALITY shortId 遮掉，保留前缀`() {
+        xrayCheckErrors(xrayShortIdNonHex).single().let {
+            assertEquals("out-1", it.tag)
+            assertTrue(it.reason, it.reason.endsWith("invalid \"shortId\": ***"))
+            assertFalse(it.reason, "zz12qq34" in it.reason)
+        }
+        xrayCheckErrors(xrayShortIdTooLong).single().let {
+            assertEquals("out-1", it.tag)
+            assertTrue(it.reason, it.reason.endsWith("too long \"shortId\": ***"))
+            assertFalse(it.reason, "0123456789abcdef0" in it.reason)
+        }
+        // 值里带「 > 」也遮到行尾，不会当成下一层漏出来
+        val withSeparator = xrayShortIdPrefix + "invalid \"shortId\": abc > def > with tag out-0 and more"
+        xrayCheckErrors(withSeparator).single().let {
+            assertEquals("out-1", it.tag)
+            assertFalse(it.reason, "def" in it.reason || "abc" in it.reason)
+            assertTrue(it.reason, it.reason.endsWith("invalid \"shortId\": ***"))
+        }
+        // 对不回节点、原文照给的报错同样遮蔽
+        val unbound = "Failed to start: main: failed to create server > infra/conf: invalid \"shortId\": secret"
+        assertEquals("main: failed to create server > infra/conf: invalid \"shortId\": ***", xrayCheckErrors(unbound).single().reason)
+        // 最终给用户的消息里也没有原值
+        val message = failure(xray.result(xrayGroup, 23, xrayBanner + "\n" + xrayShortIdNonHex)).message.orEmpty()
+        assertTrue(message, message.endsWith("invalid \"shortId\": ***"))
+        assertFalse(message, "zz12qq34" in message)
+        val tooLong = failure(xray.result(xrayGroup, 23, xrayBanner + "\n" + xrayShortIdTooLong)).message.orEmpty()
+        assertFalse(tooLong, "0123456789abcdef0" in tooLong)
+    }
+
     @Test
     fun `Xray 通过或没有报错行时没有失败`() {
         assertTrue(xrayCheckErrors("$xrayBanner\nConfiguration OK.").isEmpty())
