@@ -23,6 +23,7 @@ import com.google.android.material.progressindicator.BaseProgressIndicator
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.ktx.animatorsEnabled
+import io.nekohasekai.sagernet.ktx.unwrapTo
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -71,7 +72,7 @@ class ServiceButton @JvmOverloads constructor(
     private val iconConnecting by lazy {
         AnimatedState(R.drawable.ic_service_connecting) {
             hideProgress()
-            delayedAnimation = (context as LifecycleOwner).lifecycleScope.launch {
+            delayedAnimation = context.unwrapTo<LifecycleOwner>().lifecycleScope.launch {
                 delay(context.resources.getInteger(R.integer.service_icon_morph_duration) + 1000L)
                 isIndeterminate = true
                 show()
@@ -116,13 +117,13 @@ class ServiceButton @JvmOverloads constructor(
         return drawableState
     }
 
-    fun changeState(state: BaseService.State, previousState: BaseService.State, animate: Boolean) {
+    fun changeState(state: BaseService.State, animate: Boolean) {
         when (state) {
             BaseService.State.Connecting -> changeState(iconConnecting, animate)
             BaseService.State.Connected -> changeState(iconConnected, animate)
-            BaseService.State.Stopping -> {
-                changeState(iconStopping, animate && previousState == BaseService.State.Connected)
-            }
+            // 变形动画只从已连接的图标开始；此时 checked 还是上一个状态的值。
+            // 不能用 ServiceRegistry.state：SagerConnection 在 binder 线程先写入新状态再派发回调，读到的已是新值
+            BaseService.State.Stopping -> changeState(iconStopping, animate && checked)
             else -> changeState(iconStopped, animate)
         }
         checked = state == BaseService.State.Connected

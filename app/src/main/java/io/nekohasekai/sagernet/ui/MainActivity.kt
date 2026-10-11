@@ -500,7 +500,7 @@ class MainActivity : ThemedActivity(),
         // 停止时终值已随 postFinalTraffic 落库，缓存的实时流量不再需要
         if (state == BaseService.State.Stopped) ProfileManager.liveTraffic.clear()
 
-        binding.fab.changeState(state, ServiceRegistry.state, animate)
+        binding.fab.changeState(state, animate)
         val statsAllowed = binding.stats.allowShow
         binding.stats.changeState(state, animate)
         if (binding.stats.allowShow != statsAllowed) ViewCompat.requestApplyInsets(binding.coordinator)
