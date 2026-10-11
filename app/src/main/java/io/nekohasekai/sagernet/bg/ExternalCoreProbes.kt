@@ -95,16 +95,19 @@ suspend fun runCheckProcess(
 
 /**
  * 一个要等的本机端口。strict 为真时连上后还要用 auth 完成 SOCKS5 用户名 / 密码握手（见 probeLocalPort），监听它的
- * 进程退出就立即结束等待；否则只等端口能连上，不发任何字节（auth 不用）。exitCode 返回监听它的进程最近一次退出的
- * 退出码，仍在运行为 null。
+ * 进程被守护放弃（不会再重启）就立即结束等待；否则只等端口能连上，不发任何字节（auth 不用）。process 是监听它的
+ * 进程在守护下的状态：进程退出后被守护重启不算失败，等待继续，直到监听回来。
  */
-class LocalPortTarget(val port: Int, val strict: Boolean, val auth: LocalSocksAuth?, val exitCode: () -> Int?) {
+class LocalPortTarget(val port: Int, val strict: Boolean, val auth: LocalSocksAuth?, val process: ProcessState) {
     init {
         require(!strict || auth != null) { "local port $port needs credentials for the SOCKS5 handshake" }
     }
 }
 
-/** 等待结束时一个端口的状态：ready 就绪；exitCode 非空表示等待期间进程退出；lastError 是最后一次探测失败的原因。 */
+/**
+ * 等待结束时一个端口的状态：ready 就绪；exitCode 非空表示监听它的进程已退出且没有在跑（守护放弃，或到期时仍在重启
+ * 之间）；lastError 是最后一次探测失败的原因。
+ */
 class LocalPortStatus(val ready: Boolean, val exitCode: Int?, val lastError: String?)
 
 private const val READY_POLL_MS = 20L
@@ -112,9 +115,14 @@ private const val PROBE_TIMEOUT_MS = 200
 
 /**
  * 逐个端口确认就绪（mihomo 的 listener 并发启动，最后一个能连上不代表前面的都好了）。直到每个端口都就绪或其
- * 进程已退出、某个 strict 端口的进程退出、或超时为止；不解析日志，也不访问远端。返回与 targets 一一对应。
- * 判定就绪时再确认一次 strict 端口的进程仍在：端口被同 uid 的别的进程同时监听（SO_REUSEPORT）时，探测可能先被
- * 它应答，而本实例的进程随后因故退出。isCancelled 为真或协程被取消时抛 CancellationException。
+ * 进程被守护放弃、或超时为止；不解析日志，也不访问远端。返回与 targets 一一对应。
+ * 进程退出但守护重启了它（低端机冷启动叠加被杀常见）不算失败：等待继续，监听回来后照常就绪。只有 strict 端口的
+ * 进程被守护放弃（进程退得太快、重启失败、池关闭）才立即整体返回，其余端口的状态是返回时的快照；非 strict 端口的
+ * 进程被放弃只停止等它。到期仍未就绪时：进程不在跑按退出码归类（exitCode 非空），在跑则 exitCode 为 null 并带
+ * lastError。
+ * 就绪必须对应同一次进程生命周期：探测期间进程退出过（哪怕已重启）不算，重新探测；判定 strict 端口就绪后还要
+ * 确认进程仍在、没有再退出过——端口被同 uid 的别的进程同时监听（SO_REUSEPORT）时，探测可能先被它应答，而本实例
+ * 的进程随后因故退出。isCancelled 为真或协程被取消时抛 CancellationException。
  */
 suspend fun awaitLocalPorts(
     targets: List<LocalPortTarget>,
@@ -123,20 +131,31 @@ suspend fun awaitLocalPorts(
     probe: (port: Int, auth: LocalSocksAuth?) -> String? = ::probeLocalPort,
 ): List<LocalPortStatus> {
     val ready = BooleanArray(targets.size)
+    // 就绪判定时的进程退出代次；之后代次变了，说明就绪的探测可能不属于当前这个进程
+    val readyExits = IntArray(targets.size)
+    // 守护已放弃的目标，不再等
+    val gaveUp = BooleanArray(targets.size)
     val exitCodes = arrayOfNulls<Int>(targets.size)
     val errors = arrayOfNulls<String>(targets.size)
     fun statuses() = targets.indices.map { LocalPortStatus(ready[it], exitCodes[it], errors[it]) }
     fun cancelled() = CancellationException("closed while waiting for external cores")
+    fun giveUp(i: Int, state: ProcessState) {
+        gaveUp[i] = true
+        ready[i] = false
+        exitCodes[i] = state.exitCode
+        // 池关闭时进程可能还没退出，没有退出码可报
+        if (state.exitCode == null) errors[i] = "process was stopped"
+    }
 
     val deadline = System.nanoTime() + timeoutMs * 1_000_000
     while (true) {
         var pending = false
         for ((i, target) in targets.withIndex()) {
-            if (ready[i] || exitCodes[i] != null) continue
+            if (ready[i] || gaveUp[i]) continue
             if (isCancelled()) throw cancelled()
-            val exitCode = target.exitCode()
-            if (exitCode != null) {
-                exitCodes[i] = exitCode
+            val state = target.process
+            if (state.abandoned) {
+                giveUp(i, state)
                 if (target.strict) return statuses()
                 continue
             }
@@ -145,22 +164,41 @@ suspend fun awaitLocalPorts(
                 pending = true
                 continue
             }
+            // 先取代次再探测：探测成功但期间进程退出过，应答可能来自旧进程，不算
+            val exits = state.exits
             val error = probe(target.port, if (target.strict) target.auth else null)
-            if (error == null) ready[i] = true else {
-                errors[i] = error
+            if (error == null && state.exits == exits) {
+                ready[i] = true
+                readyExits[i] = exits
+            } else {
+                errors[i] = error ?: "process restarted during the probe"
                 pending = true
             }
         }
         if (isCancelled()) throw cancelled()
+        // 复核 strict 端口：进程被放弃，或就绪之后退出过（未重启、或已重启但应答可能来自旧进程）都不算就绪；
+        // 已重启的回到待探测，由下一轮重新探测
+        for ((i, target) in targets.withIndex()) {
+            if (!ready[i] || !target.strict) continue
+            val state = target.process
+            if (state.abandoned) {
+                giveUp(i, state)
+                return statuses()
+            }
+            if (!state.running || state.exits != readyExits[i]) {
+                ready[i] = false
+                errors[i] = "process exited after the probe"
+                pending = true
+            }
+        }
         if (!pending || System.nanoTime() - deadline >= 0) break
         delay(READY_POLL_MS)
     }
+    // 到期：没就绪且进程当前不在跑的，按退出码归类；在跑的 exitCode 为 null，由 lastError 说明
     for ((i, target) in targets.withIndex()) {
-        if (!ready[i] || !target.strict) continue
-        target.exitCode()?.let {
-            ready[i] = false
-            exitCodes[i] = it
-        }
+        if (ready[i] || gaveUp[i]) continue
+        val state = target.process
+        if (!state.running) exitCodes[i] = state.exitCode
     }
     return statuses()
 }

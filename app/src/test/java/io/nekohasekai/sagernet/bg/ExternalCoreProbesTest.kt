@@ -13,6 +13,7 @@ import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
@@ -100,7 +101,17 @@ class ExternalCoreProbesTest {
     // 一个此刻没有人监听的端口
     private fun closedPort(): Int = ServerSocket(0, 50, loopback).use { it.localPort }
 
-    private fun alive(): () -> Int? = { null }
+    // 一直在跑、从未退出的进程
+    private fun alive(): ProcessState = GuardedProcessState()
+
+    // 退出过一次、守护还没来得及重启的进程
+    private fun exited(code: Int): GuardedProcessState = GuardedProcessState().apply { onExited(code) }
+
+    // 守护放弃的进程（退得太快 / 重启失败 / 池关闭）
+    private fun abandoned(code: Int?): GuardedProcessState = GuardedProcessState().apply {
+        if (code != null) onExited(code)
+        onAbandoned()
+    }
 
     private fun awaitReceived(received: List<ByteArray>): ByteArray {
         repeat(100) {
@@ -288,12 +299,12 @@ class ExternalCoreProbesTest {
     }
 
     @Test
-    fun `内置核心的进程退出立即结束，插件核心的退出只停止等它`() = runBlocking(Dispatchers.IO) {
+    fun `守护放弃：内置核心立即结束，插件核心只停止等它`() = runBlocking(Dispatchers.IO) {
         val missing = closedPort()
         val ready = listener()
         val started = System.nanoTime()
         val strict = awaitLocalPorts(
-            listOf(LocalPortTarget(missing, true, auth) { 255 }, LocalPortTarget(closedPort(), true, auth, alive())),
+            listOf(LocalPortTarget(missing, true, auth, abandoned(255)), LocalPortTarget(closedPort(), true, auth, alive())),
             10_000, { false },
         )
         assertTrue("不等到超时", System.nanoTime() - started < 1_000_000_000)
@@ -301,21 +312,115 @@ class ExternalCoreProbesTest {
         assertFalse(strict[0].ready)
 
         val lenient = awaitLocalPorts(
-            listOf(LocalPortTarget(missing, false, null) { 1 }, LocalPortTarget(ready, false, null, alive())),
+            listOf(LocalPortTarget(missing, false, null, abandoned(1)), LocalPortTarget(ready, false, null, alive())),
             10_000, { false },
         )
         assertEquals(1, lenient[0].exitCode)
+        assertFalse(lenient[0].ready)
         assertTrue(lenient[1].ready)
     }
 
     @Test
-    fun `判定就绪时确认内置核心的进程仍在`() = runBlocking(Dispatchers.IO) {
-        // 探测成功（可能是同 uid 的别的进程应答的），但本实例的进程随后退出
+    fun `守护放弃时池已关闭、进程没有退出码：立即结束且不带退出码`() = runBlocking(Dispatchers.IO) {
+        val status = awaitLocalPorts(listOf(LocalPortTarget(closedPort(), true, auth, abandoned(null))), 10_000, { false }).single()
+        assertFalse(status.ready)
+        assertNull(status.exitCode)
+        assertEquals("process was stopped", status.lastError)
+    }
+
+    @Test
+    fun `退出后已被守护重启的内置核心：等待继续，监听回来即就绪`() = runBlocking(Dispatchers.IO) {
+        val port = closedPort()
+        // 一开始就退出过一次（守护毫秒级重启后在跑），监听 300ms 后才回来
+        val state = GuardedProcessState().apply { onExited(137); onStarted() }
+        val late = async(Dispatchers.IO) {
+            delay(300)
+            val server = ServerSocket()
+            server.reuseAddress = true
+            server.bind(InetSocketAddress(loopback, port))
+            servers += server
+            thread(isDaemon = true) {
+                while (!server.isClosed) {
+                    val socket = runCatching { server.accept() }.getOrNull() ?: break
+                    socket.use { s ->
+                        repeat(expectedHandshake.size) { s.getInputStream().read() }
+                        s.getOutputStream().write(accepted)
+                    }
+                }
+            }
+        }
+        val status = awaitLocalPorts(listOf(LocalPortTarget(port, true, auth, state)), 5000, { false }).single()
+        late.await()
+        assertTrue(status.lastError, status.ready)
+        assertNull(status.exitCode)
+    }
+
+    @Test
+    fun `等待中进程被杀又被重启：不判失败，重启后探测通过`() = runBlocking(Dispatchers.IO) {
+        val state = GuardedProcessState()
         val calls = AtomicInteger()
-        val status = awaitLocalPorts(
-            listOf(LocalPortTarget(1, true, auth) { if (calls.incrementAndGet() > 1) 255 else null }),
-            5000, { false },
-        ) { _, _ -> null }.single()
+        val status = awaitLocalPorts(listOf(LocalPortTarget(1, true, auth, state)), 5000, { false }) { _, _ ->
+            // 第一次探测前进程被杀，随后被守护重启，第三次探测起监听回来
+            when (calls.incrementAndGet()) {
+                1 -> { state.onExited(137); "connection refused" }
+                2 -> { state.onStarted(); "connection refused" }
+                else -> null
+            }
+        }.single()
+        assertTrue(status.lastError, status.ready)
+        assertNull(status.exitCode)
+    }
+
+    @Test
+    fun `到期仍不就绪：进程不在跑带退出码，在跑则无退出码且带探测错误`() = runBlocking(Dispatchers.IO) {
+        val down = awaitLocalPorts(
+            listOf(LocalPortTarget(closedPort(), true, auth, exited(137))), 200, { false },
+        ).single()
+        assertFalse(down.ready)
+        assertEquals(137, down.exitCode)
+
+        val restarted = GuardedProcessState().apply { onExited(137); onStarted() }
+        val running = awaitLocalPorts(listOf(LocalPortTarget(closedPort(), true, auth, restarted)), 200, { false }).single()
+        assertFalse(running.ready)
+        assertNull(running.exitCode)
+        assertNotNull(running.lastError)
+    }
+
+    @Test
+    fun `探测成功但期间进程退出过：不算就绪，重新探测`() = runBlocking(Dispatchers.IO) {
+        val state = GuardedProcessState()
+        val calls = AtomicInteger()
+        val status = awaitLocalPorts(listOf(LocalPortTarget(1, true, auth, state)), 5000, { false }) { _, _ ->
+            // 第一次探测期间进程退出又被重启（应答可能来自旧进程），第二次探测才算数
+            if (calls.incrementAndGet() == 1) state.run { onExited(137); onStarted() }
+            null
+        }.single()
+        assertTrue(status.lastError, status.ready)
+        assertEquals(2, calls.get())
+    }
+
+    @Test
+    fun `判定就绪后进程退出且未重启：内置核心不算就绪并带退出码`() = runBlocking(Dispatchers.IO) {
+        // 探测成功（可能是同 uid 的别的进程应答的），但本实例的进程随后退出
+        val state = GuardedProcessState()
+        val status = awaitLocalPorts(listOf(LocalPortTarget(1, true, auth, state)), 300, { false }) { _, _ ->
+            state.onExited(255)
+            null
+        }.single()
+        assertFalse(status.ready)
+        assertEquals(255, status.exitCode)
+    }
+
+    @Test
+    fun `判定就绪后守护放弃：内置核心立即结束`() = runBlocking(Dispatchers.IO) {
+        val state = GuardedProcessState()
+        val started = System.nanoTime()
+        val status = awaitLocalPorts(listOf(LocalPortTarget(1, true, auth, state)), 10_000, { false }) { _, _ ->
+            state.onExited(255)
+            state.onAbandoned()
+            null
+        }.single()
+        assertTrue("不等到超时", System.nanoTime() - started < 1_000_000_000)
         assertFalse(status.ready)
         assertEquals(255, status.exitCode)
     }

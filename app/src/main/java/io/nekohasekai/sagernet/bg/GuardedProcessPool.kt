@@ -40,10 +40,9 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
         @Volatile
         var looperStarted = false
 
-        // 进程最近一次退出的退出码（含随后被守护重启的），从未退出为 null。只供启动就绪等待尽快发现
-        // 进程退出（见 start() 的返回值），守护与重启逻辑不看它
-        @Volatile
-        var lastExitCode: Int? = null
+        // 进程的运行状态，只供启动就绪等待发现进程退出与守护放弃（见 start() 的返回值与 ProcessState），
+        // 守护与重启逻辑不看它
+        val state = GuardedProcessState()
 
         private fun streamLogger(input: InputStream, logger: (String) -> Unit) = try {
             input.bufferedReader().use { it.forEachLine(logger) }
@@ -96,7 +95,8 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
                 // Reaping must not wait for those pipes to reach EOF.
                 thread(name = "wait-$cmdName", isDaemon = true) {
                     val exitCode = child.waitFor()
-                    lastExitCode = exitCode
+                    // 先更新状态再通知 looper：looper 重启进程后才会置 running，不会被这里晚到的写覆盖
+                    state.onExited(exitCode)
                     exitChannel.trySend(exitCode)
                     closeStreams(child)
                 }
@@ -118,6 +118,7 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
                     }
                     Logs.i("restart process: ${Commandline.toString(cmd)} (last exit code: $exitCode)")
                     start()
+                    state.onStarted()
                     running = true
                     spawnLoggers()
                 }
@@ -136,6 +137,8 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
                     }
                 }
             } finally {
+                // 先标记放弃再清理（清理最长要等几秒）：就绪等待据此知道不会再重启
+                state.onAbandoned()
                 if (running) withContext(NonCancellable) {  // clean-up cannot be cancelled
                     process.destroy()                       // kill the process
                     if (Build.VERSION.SDK_INT >= 26) {
@@ -155,11 +158,12 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
     // looper coroutine never ran (pool cancelled after the isActive check)
     private val guards = CopyOnWriteArrayList<Guard>()
 
-    // 返回值：这个进程最近一次退出的退出码，从未退出为 null。启动就绪等待据它尽快发现进程退出
+    // 返回值：这个进程的运行状态（退出码、是否在跑、守护是否放弃、退出代次）。启动就绪等待据它区分
+    // 「守护已放弃」与「退出后已被守护重启」，只有前者才立即判启动失败
     fun start(
         cmd: List<String>,
         env: Map<String, String> = emptyMap(),
-    ): () -> Int? {
+    ): ProcessState {
         Logs.i("start process: ${Commandline.toString(cmd)}")
         val guard = Guard(cmd, env).apply {
             start() // if start fails, IOException will be thrown directly
@@ -168,11 +172,12 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
                 // close() already cancelled this pool: the looper launch below
                 // would never run and nothing else would kill this process
                 destroy()
-                return { lastExitCode }
+                state.onAbandoned()
+                return state
             }
             launch { looper() }
         }
-        return { guard.lastExitCode }
+        return guard.state
     }
 
     // 任意线程可调（BoxInstance.close 在主线程、TestInstance 的
@@ -188,7 +193,11 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
         // first dispatch; guards with a started looper clean up in their own
         // finally, so an unconditional destroy here would cut the graceful
         // shutdown short
-        guards.forEach { if (!it.looperStarted) it.destroy() }
+        // 没跑起来的 looper 没有 finally 可标记放弃，这里一并标记
+        guards.forEach {
+            it.state.onAbandoned()
+            if (!it.looperStarted) it.destroy()
+        }
         return scope.launch {
             this@GuardedProcessPool.coroutineContext[Job]!!.cancelAndJoin()
             onClosed()

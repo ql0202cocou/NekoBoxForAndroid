@@ -6,7 +6,9 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -108,6 +110,29 @@ class GuardedProcessPoolTest {
 
         assertTrue(notStarted.destroyed)
         assertFalse(started.destroyed)
+    }
+
+    @Test
+    fun `新建的状态：在跑、未退出、未放弃、代次 0；close 把 guard 标记为放弃`() = runBlocking {
+        val pool = GuardedProcessPool { }
+        val guard = newGuard(pool, FakeProcess(), looperStarted = true)
+        addGuard(pool, guard)
+        val state = guard.javaClass.getDeclaredField("state").apply { isAccessible = true }.get(guard) as GuardedProcessState
+        assertTrue(state.running)
+        assertNull(state.exitCode)
+        assertFalse(state.abandoned)
+        assertEquals(0, state.exits)
+
+        state.onExited(137)
+        assertFalse(state.running)
+        assertEquals(137, state.exitCode)
+        assertEquals(1, state.exits)
+        state.onStarted()
+        assertTrue(state.running)
+        assertEquals(1, state.exits)
+
+        pool.close(this).join()
+        assertTrue(state.abandoned)
     }
 
     @Test
