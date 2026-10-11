@@ -788,9 +788,17 @@ private class ConfigBuild(
     // 一样跳过
     private fun checkMemberHop(hop: HopPlan) {
         val core = (hop.core as? HopCore.External)?.core ?: return
-        probeExternalHop(hop, core, settings.externalCore, platform::createTempFile)
+        val probed = hop.entity.id to core.pluginId
+        if (probed !in probedHops) {
+            probeExternalHop(hop, core, settings.externalCore, platform::createTempFile)
+            probedHops += probed
+        }
         if (!forExport) plugins.requireAvailable(core.pluginId)
     }
+
+    // 试生成通过的外核跳（节点 id、插件）。结果只取决于节点、外核与本次构建的设置，而分组的前置 / 落地节点出现在
+    // 每个成员的链里，不必逐条重复生成；失败的不记，每次照常报
+    private val probedHops = HashSet<Pair<Long, String>>()
 
     // 规划一个根节点的链。选择器成员 / 路由规则目标每跳另做 checkMemberHop，规划失败时跳过并告警、记诊断，返回 null，
     // 不拖垮整份配置；规划不写任何输出，跳过的成员什么都不留下。用户选中的节点不另做检查、出错照常整次失败——
