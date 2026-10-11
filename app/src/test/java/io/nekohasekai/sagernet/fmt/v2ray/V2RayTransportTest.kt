@@ -54,6 +54,17 @@ class V2RayTransportTest {
     }
 
     @Test
+    fun `形态不合格的值不回显`() {
+        for (name in listOf("bad\nline-zq71", "has space-zq72", "x".repeat(65))) {
+            val e = assertThrows(UnsupportedTransportException::class.java) {
+                requireV2RayTransport(name)
+            }
+            assertEquals(name, e.transport)
+            assertEquals("unsupported transport (value not shown)", e.message)
+        }
+    }
+
+    @Test
     fun `Clash network 不写或 tcp 是 TCP`() {
         assertEquals("tcp", clashNetworkTransport(null))
         assertEquals("tcp", clashNetworkTransport(""))

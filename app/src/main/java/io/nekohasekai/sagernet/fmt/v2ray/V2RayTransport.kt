@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.fmt.v2ray
 
+import io.nekohasekai.sagernet.fmt.shownSingBoxValue
 import java.util.Locale
 
 // StandardV2RayBean.type 认哪些值、别名怎么映射，只在这个文件里定义。
@@ -7,8 +8,9 @@ import java.util.Locale
 // 不认识的值抛 UnsupportedTransportException，不再静默按 TCP 运行。
 // XHTTP / SplitHTTP 尚未支持（plan.md K2），按未知值拒绝。
 
+// 值来自远端订阅，消息会进界面与可导出的日志：只有形态合格的才回显（规则同 shownSingBoxValue）
 class UnsupportedTransportException(val transport: String?) :
-    IllegalArgumentException("unsupported transport \"$transport\"")
+    IllegalArgumentException("unsupported transport ${shownSingBoxValue(transport)}")
 
 // 规范名。http 在 TLS 上是 h2，不带 TLS 时是 tcp 的伪 HTTP 头
 val V2RAY_TRANSPORTS = setOf("tcp", "http", "ws", "quic", "grpc", "httpupgrade")
