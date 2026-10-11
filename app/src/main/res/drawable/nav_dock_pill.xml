@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dock 的共享选中胶囊：全圆角的 secondaryContainer，高度同项，宽度由 NavDock 按选中项设置 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="@dimen/nav_dock_item_radius" />
+    <solid android:color="?attr/colorSecondaryContainer" />
+</shape>

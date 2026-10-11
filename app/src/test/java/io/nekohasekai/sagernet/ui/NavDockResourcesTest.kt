@@ -50,7 +50,7 @@ class NavDockResourcesTest {
         val height = d.getValue("nav_dock_height")
         // 右侧让出连接按钮：右边距 12 + 按钮 56 + 间隙 8
         assertEquals(12 + 56 + 8, d["nav_dock_margin_end"])
-        // 选中胶囊是项高（Dock 高减去上下内边距）的全圆角
+        // 选中胶囊（nav_dock_pill）与项涟漪蒙版是项高（Dock 高减去上下内边距）的全圆角
         assertEquals((height - 2 * d.getValue("nav_dock_padding")) / 2, d["nav_dock_item_radius"])
         assertEquals(height / 2, d["nav_dock_radius"])
         val marginBottom = d.getValue("nav_dock_margin_bottom")
@@ -65,6 +65,7 @@ class NavDockResourcesTest {
         val files = listOf(
             "color/nav_dock_item.xml",
             "drawable/nav_dock_item_background.xml",
+            "drawable/nav_dock_pill.xml",
             "layout/layout_nav_dock_item.xml",
             "layout/layout_main.xml",
         )
@@ -77,5 +78,15 @@ class NavDockResourcesTest {
         val mask = File(res, "drawable/nav_dock_item_background.xml").readText()
         assertEquals(1, Regex("@android:color/").findAll(mask).count())
         assertTrue(mask.contains("@android:color/white"))
+    }
+
+    @Test
+    fun selectedPillLivesInDockNotInItemBackground() {
+        // 选中胶囊是 NavDock 里的共享视图（弹簧滑动）；项背景只留按压涟漪，不能再画一份选中态胶囊
+        val background = File(res, "drawable/nav_dock_item_background.xml").readText()
+        assertTrue("项背景里不应再有选中态", !background.contains("state_selected"))
+        val pill = File(res, "drawable/nav_dock_pill.xml").readText()
+        assertTrue(pill.contains("?attr/colorSecondaryContainer"))
+        assertTrue(pill.contains("@dimen/nav_dock_item_radius"))
     }
 }
