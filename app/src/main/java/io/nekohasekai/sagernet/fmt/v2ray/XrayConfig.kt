@@ -283,7 +283,7 @@ private fun buildXrayStreamSettings(bean: StandardV2RayBean): Map<String, Any?> 
                 if (sni != null) put("serverName", sni)
                 put("publicKey", bean.realityPubKey)
                 if (bean.realityShortId.isNotBlank()) put("shortId", bean.realityShortId)
-                // 抗量子的 REALITY 校验，只有 Xray 有；sing-box 1.14.2 不支持
+                // 抗量子的 REALITY 校验，只有 Xray 有；vendored sing-box 的 REALITY 客户端不支持，升级 sing-box 时按 CoreCapabilities 第 22 条复核
                 if (bean.realityMldsa65Verify.isNotBlank()) {
                     put("mldsa65Verify", bean.realityMldsa65Verify)
                 }

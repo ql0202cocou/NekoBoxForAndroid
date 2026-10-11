@@ -75,7 +75,8 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 // 22. common/tls/reality_client.go 的 REALITY 客户端：自报的客户端版本（SessionId 前三字节，现在固定 1.8.1）与
 //     去掉 X25519MLKEM768 的过滤是否还在、「reality verification failed」原文是否不变；对照最新 Xray 服务端对
 //     ClientHello 的要求（第 3 条），复核 NEKO.md「Accepted upstream behavior」的 REALITY 一条与测速提示
-//     （withRealityHint）。libcore/reality_client_canary_test.go 在这些内容变化时先红。
+//     （withRealityHint）。libcore/reality_client_canary_test.go 在这些内容变化时先红。顺带看它有没有加 mldsa65Verify
+//     （抗量子校验，现在只有 Xray 有，能力表按 Requirement 记）。
 // 23. common/tls/utls_client.go 的 uTLS 指纹名单（uTLSClientHelloID，SING_BOX_UTLS_FINGERPRINTS），区分大小写、
 //     名单外加载配置时报错这两点是否不变。
 // 24. SingBoxValueSets.kt 的四个名单（Shadowsocks 加密方式与插件名、VMess 加密方式、TUIC 拥塞控制）：升级 vendored
