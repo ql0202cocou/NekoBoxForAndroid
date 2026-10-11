@@ -29,7 +29,7 @@ open class ToolbarFragment : Fragment {
             // 读屏朗读用 AppCompat 自带的「向上导航」文案（各语言都有翻译），不新增字符串
             toolbar.setNavigationContentDescription(androidx.appcompat.R.string.abc_action_bar_up_description)
             toolbar.setNavigationOnClickListener {
-                (activity as? MainActivity)?.displayFragmentWithId(R.id.nav_settings)
+                (activity as? MainActivity)?.backToSettings()
             }
         }
     }

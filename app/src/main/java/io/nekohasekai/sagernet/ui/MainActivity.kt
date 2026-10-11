@@ -20,10 +20,12 @@ import androidx.fragment.app.Fragment
 import androidx.preference.PreferenceDataStore
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceScreen
+import androidx.transition.Visibility
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.motion.MotionUtils
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.transition.MaterialFadeThrough
+import com.google.android.material.transition.MaterialSharedAxis
 import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.Key
@@ -109,9 +111,7 @@ class MainActivity : ThemedActivity(),
             val fragment = currentFragment()
             when {
                 fragment is ConfigurationFragment -> moveTaskToBack(true)
-                (fragment as? ToolbarFragment)?.opensFromSettings == true -> {
-                    displayFragmentWithId(R.id.nav_settings)
-                }
+                (fragment as? ToolbarFragment)?.opensFromSettings == true -> backToSettings()
 
                 else -> displayFragmentWithId(R.id.nav_configuration)
             }
@@ -382,18 +382,51 @@ class MainActivity : ThemedActivity(),
     }
 
     /**
-     * 页面替换的转场：选哪种转场都在这里决定。目前所有切换都是交叉淡变（MaterialFadeThrough），
+     * 页面替换的转场：选哪种转场都在这里决定。从设置一级页压栈进入二级页面（七个分类页和末尾四个
+     * 入口）用 X 轴共享轴向前，经返回箭头 / 返回键（[backToSettings]）回设置一级页用向后；
+     * 其余切换（含在二级页上点 Dock）都是交叉淡变（MaterialFadeThrough）。
      * Dock、状态卡片、连接按钮在 Activity 布局里，不参与。时长读主题的 motionDurationMedium2
      */
-    private fun applyPageTransition(previous: Fragment, next: Fragment) {
-        previous.exitTransition = fadeThrough()
-        next.enterTransition = fadeThrough()
+    private fun applyPageTransition(previous: Fragment, next: ToolbarFragment) {
+        val backToHub = returningToSettings
+        returningToSettings = false
+        val fromHub = previous is SettingsFragment && previous.sectionKey == null
+        val toHub = next is SettingsFragment && next.sectionKey == null
+        when {
+            fromHub && next.opensFromSettings -> {
+                previous.exitTransition = sharedAxisX(true)
+                next.enterTransition = sharedAxisX(true)
+            }
+
+            backToHub && toHub && (previous as? ToolbarFragment)?.opensFromSettings == true -> {
+                previous.exitTransition = sharedAxisX(false)
+                next.enterTransition = sharedAxisX(false)
+            }
+
+            else -> {
+                previous.exitTransition = themedDuration(MaterialFadeThrough())
+                next.enterTransition = themedDuration(MaterialFadeThrough())
+            }
+        }
     }
 
-    private fun fadeThrough(): MaterialFadeThrough = MaterialFadeThrough().apply {
+    // 方向用库默认的 Gravity.END，RTL 下自动镜像
+    private fun sharedAxisX(forward: Boolean): MaterialSharedAxis =
+        themedDuration(MaterialSharedAxis(MaterialSharedAxis.X, forward))
+
+    private fun <T : Visibility> themedDuration(transition: T): T = transition.apply {
         duration = MotionUtils.resolveThemeDuration(
             this@MainActivity, com.google.android.material.R.attr.motionDurationMedium2, 300
         ).toLong()
+    }
+
+    // 下一次 displayFragment 是返回设置一级页（返回箭头 / 返回键），不是 Dock 切换
+    private var returningToSettings = false
+
+    /** 二级页返回设置一级页：转场用 X 轴共享轴向后 */
+    fun backToSettings() {
+        returningToSettings = true
+        displayFragmentWithId(R.id.nav_settings)
     }
 
     // 从设置一级页进入二级页面（七个分类页和末尾四个入口）前，一级列表的滚动状态；
