@@ -40,7 +40,7 @@ jobs:
       - name: Install NDK 25.0.8775105
         if: steps.cache.outputs.cache-hit != 'true'
         # runner 镜像不带 NDK 25，预装的是更新的版本（27 及以上）；没有这一步，
-        # buildScript/init/env_ndk.sh 会悄悄退回用预装的 NDK，核心就被错误的 NDK 构建
+        # buildScript/init/env_ndk.sh 找不到 NDK 25 会直接报错退出
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;25.0.8775105" > /dev/null
       - name: Native Build
         if: steps.cache.outputs.cache-hit != 'true'

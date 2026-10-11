@@ -56,7 +56,7 @@ gh_get() {
     }
   fi
   if [ "$code" = 403 ] || [ "$code" = 429 ]; then
-    echo "ERROR: GitHub API 被限速 (HTTP $code): $path；请设置 GH_TOKEN 或 GITHUB_TOKEN 后重试" >&2
+    echo "ERROR: GitHub API 被限速 (HTTP $code): ${path}；请设置 GH_TOKEN 或 GITHUB_TOKEN 后重试" >&2
     return 1
   fi
   if [ "$code" != 200 ]; then
@@ -148,7 +148,7 @@ fi
 report_core "mihomo" MetaCubeX/mihomo "$MIHOMO_PINNED"
 
 # sing-box：只提示最新稳定版，不影响退出码
-echo "== sing-box: 固定 v$SINGBOX_PINNED（仅提示，不影响退出码）"
+echo "== sing-box: 固定 v${SINGBOX_PINNED}（仅提示，不影响退出码）"
 if sb=$(newer_releases SagerNet/sing-box "v$SINGBOX_PINNED"); then
   if [ -z "$sb" ]; then
     echo "   没有比 v$SINGBOX_PINNED 更新的稳定发布"

@@ -25,6 +25,9 @@
 # 失败时返回非零并打印原因；无论成败都会停掉服务、清掉夹具、恢复设置。
 
 set -eo pipefail
+# 秒数的格式化（awk 除法、printf %f）随 LC_NUMERIC 变：小数点是逗号的 locale 下会得到「1,998」，
+# 设备端 sleep 拒收，取样中途退出。固定用 C locale
+export LC_ALL=C
 
 cd "$(dirname "$0")/../.."
 
