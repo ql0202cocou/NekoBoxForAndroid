@@ -7,6 +7,7 @@ import android.os.SystemClock
 import android.view.KeyEvent
 import android.view.MenuItem
 import android.view.View
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.PopupMenu
 import androidx.appcompat.widget.SearchView
@@ -229,6 +230,19 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
                     cancelSearch(searchView)
                 }
             }
+
+            // 搜索框展开时返回键先收起它，而不是直接退出；收起后回调停用，
+            // 返回交还给 MainActivity 的页面级处理
+            val closeSearchOnBack = object : OnBackPressedCallback(false) {
+                override fun handleOnBackPressed() = cancelSearch(searchView)
+            }
+            requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, closeSearchOnBack)
+            searchView.setOnSearchClickListener { closeSearchOnBack.isEnabled = true }
+            searchView.setOnCloseListener {
+                closeSearchOnBack.isEnabled = false
+                false
+            }
+            searchViewBackCallback = closeSearchOnBack
         }
 
         groupPager = view.findViewById(R.id.group_pager)
@@ -761,9 +775,12 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
             }
         }
 
+    private var searchViewBackCallback: OnBackPressedCallback? = null
+
     private fun cancelSearch(searchView: SearchView) {
         searchView.onActionViewCollapsed()
         searchView.clearFocus()
+        searchViewBackCallback?.isEnabled = false
     }
 
 }

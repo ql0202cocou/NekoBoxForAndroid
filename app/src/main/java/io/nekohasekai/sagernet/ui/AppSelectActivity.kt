@@ -18,6 +18,7 @@ import android.widget.CompoundButton
 import android.widget.EditText
 import android.widget.Filter
 import android.widget.Filterable
+import android.widget.TextView
 import androidx.annotation.MenuRes
 import androidx.annotation.StringRes
 import androidx.annotation.UiThread
@@ -187,6 +188,7 @@ abstract class AppSelectActivity : ThemedActivity() {
                 @Suppress("UNCHECKED_CAST")
                 filteredApps = results.values as List<ProxiedApp>
                 notifyDataSetChanged()
+                updateEmptyHint()
             }
         }
 
@@ -201,6 +203,23 @@ abstract class AppSelectActivity : ThemedActivity() {
     private val loading by lazy { findViewById<View>(R.id.loading) }
 
     private lateinit var views: Views
+
+    // 应用列表首次载入完成之前不显示「列表为空」的提示，免得载入中或首次过滤前闪一下
+    private var appsReady = false
+
+    // 应用已载入但过滤后没有可显示的项：没有用户应用且没开「显示系统应用」，或搜索无结果。
+    // 一个应用都没有（多半是没有读取应用列表的权限）走 layout_app_placeholder，不在这里处理
+    private fun updateEmptyHint() {
+        val hint = findViewById<TextView>(R.id.app_empty)
+        val show = appsReady && apps.isNotEmpty() && appsAdapter.filteredApps.isEmpty()
+        if (show) {
+            hint.setText(
+                if (views.search.text.isNullOrEmpty()) R.string.app_list_empty
+                else R.string.app_list_no_match
+            )
+        }
+        hint.setPlaceholderVisible(show)
+    }
 
     // proxiedUids 是 adapter 在主线程读的 SparseBooleanArray，本身不是线程安全的，
     // 只在主线程修改
@@ -251,6 +270,7 @@ abstract class AppSelectActivity : ThemedActivity() {
             } catch (e: Exception) {
                 Logs.w(e)
             }
+            appsReady = true
             appsAdapter.filter.filter(views.search.text?.toString() ?: "")
             if (apps.isEmpty()) {
                 views.list.visibility = View.GONE

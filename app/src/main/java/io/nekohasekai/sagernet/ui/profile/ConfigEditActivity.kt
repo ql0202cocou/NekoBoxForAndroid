@@ -39,7 +39,11 @@ import io.nekohasekai.sagernet.database.EditorCache
 
 class ConfigEditActivity : ThemedActivity() {
 
-    var dirty = false
+    // 载入时的文本；未保存与否只看当前文本是否与它相同。
+    // 存储内容在本页存活期间不变，所以重建时重新载入即可得到同一份，不必进 savedInstanceState
+    private var loadedText = ""
+    private val dirty: Boolean
+        get() = binding.editor.text.toString() != loadedText
     var key = Key.SERVER_CONFIG
     var useConfigStore = false
 
@@ -71,11 +75,7 @@ class ConfigEditActivity : ThemedActivity() {
             getString("useConfigStore")?.let { useConfigStore = true }
         }
 
-        // The framework restores the editor text on recreation; restore the
-        // dirty flag with it, or the back guard would be bypassed after a
-        // rotation.
         if (savedInstanceState != null) {
-            dirty = savedInstanceState.getBoolean("dirty")
             parentDirty = savedInstanceState.getBoolean("parentDirty")
         } else {
             parentDirty = EditorCache.dirty
@@ -110,11 +110,11 @@ class ConfigEditActivity : ThemedActivity() {
             } else {
                 setTextContent(EditorCache.profileCacheStore.getString(key) ?: "")
             }
+            loadedText = text.toString()
+            // 系统在重建时恢复文本也会触发监听，所以每次都按「与载入文本是否相同」重算，
+            // 改回原样即视为未修改
             addTextChangedListener {
-                if (!dirty) {
-                    dirty = true
-                    EditorCache.dirty = true
-                }
+                EditorCache.dirty = if (dirty) true else parentDirty
             }
         }
 
@@ -186,7 +186,6 @@ class ConfigEditActivity : ThemedActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        outState.putBoolean("dirty", dirty)
         outState.putBoolean("parentDirty", parentDirty)
     }
 

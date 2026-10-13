@@ -160,6 +160,8 @@
     <string name="proxied_apps_summary">Configure VPN mode for selected apps</string>
     <string name="on">On</string>
     <string name="off">Off</string>
+    <string name="app_list_empty">No user apps. Turn on \"Show system apps\" to see system apps.</string>
+    <string name="app_list_no_match">No matching apps</string>
     <string name="search_apps">Search…</string>
     <string name="invert_selections">Invert selections</string>
     <string name="clear_selections">Clear selections</string>
@@ -411,6 +413,7 @@
     <string name="start">Start</string>
     <string name="stun_attest_loading">This may take a few minutes…</string>
     <string name="nat_stun_server_hint">Stun server</string>
+    <string name="nat_stun_server_empty">Enter a STUN server (host:port)</string>
     <string name="nat_result_hint">NAT check result</string>
     <string name="tools_network">Network</string>
     <string name="mtu" translatable="false">MTU</string>

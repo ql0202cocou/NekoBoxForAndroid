@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.ui
 import android.os.Bundle
 import androidx.appcompat.app.AlertDialog
 import androidx.core.view.isVisible
+import androidx.core.widget.addTextChangedListener
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.appbar.AppBarLayout
 import io.nekohasekai.sagernet.R
@@ -36,13 +37,22 @@ class StunActivity : ThemedActivity() {
         binding.stunTest.setOnClickListener {
             doTest()
         }
+        // 用户重新输入时清掉空值错误
+        binding.natStunServer.addTextChangedListener {
+            binding.natStunServerLayout.error = null
+        }
         binding.mainLayout.padForSystemBars()
         findViewById<AppBarLayout>(R.id.appbar).liftOnScrollOf(binding.mainLayout)
     }
 
     private fun doTest() {
         if (testJob?.isActive == true) return
-        val server = binding.natStunServer.text.toString()
+        // 空值交给 libcore 会得到 `address  : missing port in address`，开始前先挡掉
+        val server = binding.natStunServer.text.toString().trim()
+        if (server.isEmpty()) {
+            binding.natStunServerLayout.error = getString(R.string.nat_stun_server_empty)
+            return
+        }
         binding.waitLayout.isVisible = true
         binding.stunTest.isEnabled = false
         testJob = lifecycleScope.launch {
