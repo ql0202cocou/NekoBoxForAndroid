@@ -8,6 +8,8 @@ import io.nekohasekai.sagernet.fmt.ClashNodeFailure
 import io.nekohasekai.sagernet.fmt.ClashNodeFailure.CERT_FINGERPRINT_INVALID
 import io.nekohasekai.sagernet.fmt.ClashNodeFailure.CERT_PIN_NOT_SUPPORTED
 import io.nekohasekai.sagernet.fmt.ClashNodeFailure.EXTRA_ENCRYPTION
+import io.nekohasekai.sagernet.fmt.ClashNodeFailure.INVALID_VALUE
+import io.nekohasekai.sagernet.fmt.ClashNodeFailure.MISSING_OBFS_PASSWORD
 import io.nekohasekai.sagernet.fmt.ClashNodeFailure.OBFS_NOT_SUPPORTED
 import io.nekohasekai.sagernet.fmt.ClashNodeFailure.REALITY_PUBLIC_KEY_MISSING
 import io.nekohasekai.sagernet.fmt.ClashNodeFailure.REALITY_WITHOUT_TLS
@@ -17,6 +19,7 @@ import io.nekohasekai.sagernet.fmt.ClashNodeFailure.TLS_VARIANT
 import io.nekohasekai.sagernet.fmt.ClashNodeFailure.VLESS_ENCRYPTION
 import io.nekohasekai.sagernet.fmt.ClashNodeResult
 import io.nekohasekai.sagernet.fmt.http.HttpBean
+import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -274,5 +277,63 @@ class ClashRejectionTest {
                 assertTrue(text, text.contains(CLASH_VALUE_NOT_SHOWN))
             }
         }
+    }
+
+    @Test
+    fun `hysteria2 写了 salamander 却没有口令时拒绝`() {
+        // 依据 mihomo adapter/outbound/hysteria2.go NewHysteria2：Obfs 非空而 ObfsPassword 为空，返回 missing obfs password
+        val hy2 = "name: h, type: hysteria2, server: h.example.com, port: 443, password: pw-placeholder"
+        assertRejected("$hy2, obfs: salamander", MISSING_OBFS_PASSWORD, "obfs")
+        assertRejected("$hy2, obfs: salamander, obfs-password: \"\"", MISSING_OBFS_PASSWORD, "obfs")
+        assertRejected("$hy2, Obfs: salamander", MISSING_OBFS_PASSWORD, "Obfs")
+        val failed = node("$hy2, obfs: salamander") as ClashNodeResult.Failed
+        assertEquals("salamander", failed.shownValue)
+        assertEquals("missing obfs password at obfs = salamander", failed.description)
+        // 口令写在大小写不同的键上、解析器没读到：导入成不混淆的节点永远连不上，同样拒绝
+        assertRejected("$hy2, obfs: salamander, Obfs-Password: op-placeholder", SECURITY_SETTING_NOT_READ, "obfs")
+        // 只写口令不写 obfs：mihomo 不混淆，照常导入，口令不起作用
+        val plain = parsed("$hy2, obfs-password: op-placeholder")
+        assertEquals("", (plain.beans.single() as HysteriaBean).obfuscation)
+        // 写了 salamander 和口令：混淆
+        val salamander = parsed("$hy2, obfs: salamander, obfs-password: op-placeholder")
+        assertEquals("op-placeholder", (salamander.beans.single() as HysteriaBean).obfuscation)
+    }
+
+    @Test
+    fun `hysteria 的 auth 不是标准 base64 时拒绝，原因里没有值`() {
+        // 依据 mihomo adapter/outbound/hysteria.go NewHysteria：Auth 非空就用 base64.StdEncoding 解码，解不开返回错误
+        val h = "name: h, type: hysteria, server: h.example.com, port: 443"
+        assertRejected("$h, auth: secret-zq81", INVALID_VALUE, "auth")
+        assertRejected("$h, Auth: \"YWJ\"", INVALID_VALUE, "Auth")
+        assertRejected("$h, auth: \"YW-j\"", INVALID_VALUE, "auth")
+        val failed = node("$h, auth: secret-zq81") as ClashNodeResult.Failed
+        assertNull(failed.shownValue)
+        assertFalse(failed.description.contains("zq81"))
+        // 解得开的照常导入；auth 为空时 auth-str 不受影响
+        assertImported("$h, auth: YWJj")
+        assertImported("$h, auth: YWI=")
+        assertImported("$h, auth: \"\", auth-str: not base64!")
+    }
+
+    @Test
+    fun `vless 的 flow 至少 16 个字节却不以 vision 开头时拒绝`() {
+        // 依据 mihomo adapter/outbound/vless.go NewVless：len(Flow) >= 16 时 Flow[:16] 必须是 xtls-rprx-vision，否则报 unsupported xtls flow type
+        assertRejected("$vless, flow: foo-xtls-rprx-vision", INVALID_VALUE, "flow")
+        assertRejected("$vless, flow: xtls-rprx-direct", INVALID_VALUE, "flow")
+        assertRejected("$vless, Flow: xtls-rprx-origin", INVALID_VALUE, "Flow")
+        assertEquals("xtls-rprx-direct", (node("$vless, flow: xtls-rprx-direct") as ClashNodeResult.Failed).shownValue)
+        // 按字节计长度（Go 的 len 是字节数）：6 个汉字是 18 个字节，拒绝；5 个汉字是 15 个字节，静默忽略，照常导入
+        assertRejected("$vless, flow: 测试测试测试", INVALID_VALUE, "flow")
+        assertImported("$vless, flow: 测试测试测")
+        // 恰好 16 个字节而不是 vision：拒绝；恰好 15 个字节：mihomo 静默忽略，照常导入
+        assertRejected("$vless, flow: abcdefghijklmnop", INVALID_VALUE, "flow")
+        assertImported("$vless, flow: abcdefghijklmno")
+        // 以 vision 开头、不足 16 个字节或为空的照常导入
+        assertImported("$vless, flow: xtls-rprx-vision")
+        assertImported("$vless, flow: xtls-rprx-vision-udp443")
+        assertImported("$vless, flow: none")
+        assertImported("$vless, flow: \"\"")
+        // vmess 没有 flow
+        assertImported("$vmess, flow: foo-xtls-rprx-vision")
     }
 }

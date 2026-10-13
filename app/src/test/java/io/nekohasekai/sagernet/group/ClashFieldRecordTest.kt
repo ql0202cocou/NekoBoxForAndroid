@@ -341,9 +341,10 @@ class ClashFieldRecordTest {
         // mihomo 不读 vmess 的 sni，用的是 servername
         assertField(sni, "sni", IGNORED, ClashFieldReason.SEMANTICS_DIFFER)
 
+        // 别的 network 的 opts 不套用（见 `只套用当前 network 的 opts`），不会改写当前 network 的值
         val grpc = fields("{name: v, type: vmess, server: v.example.com, port: 443, uuid: $uuid, network: grpc, grpc-opts: {grpc-service-name: svc}, ws-opts: {path: /ws}}")
-        assertField(grpc, "grpc-opts.grpc-service-name", IGNORED, ClashFieldReason.OVERRIDDEN)
-        assertField(grpc, "ws-opts.path", IGNORED, ClashFieldReason.SEMANTICS_DIFFER)
+        assertField(grpc, "grpc-opts.grpc-service-name", KEPT)
+        assertField(grpc, "ws-opts", IGNORED, ClashFieldReason.INACTIVE)
     }
 
     // ---------- 等价转换不计损失 ----------
@@ -424,7 +425,8 @@ class ClashFieldRecordTest {
         assertEquals(CLASH_VALUE_NOT_SHOWN, shown("{$vmess, alpn: [h2, $bad]}", "alpn"))
         // 64 个字符以内的合法值原样显示；超长的不显示
         assertEquals("h2,h3", shown("{$vmess, alpn: [h2, h3]}", "alpn"))
-        assertEquals(CLASH_VALUE_NOT_SHOWN, shown("{$vless, flow: ${"x".repeat(65)}}", "flow"))
+        // flow 超过 16 个字节又不以 vision 开头时节点被拒，值同样按规则处理
+        assertEquals(CLASH_VALUE_NOT_SHOWN, failedShown("{$vless, flow: ${"x".repeat(65)}}"))
     }
 
     @Test
@@ -452,10 +454,14 @@ class ClashFieldRecordTest {
     @Test
     fun `hysteria 的 auth 非空时总是生效，auth-str 无影响`() {
         val h = "name: h, type: hysteria, server: h.example.com, port: 443"
-        // 先 auth 后 auth-str：解析器用了 auth-str，mihomo 用 auth
-        val authFirst = fields("{$h, auth: YWJj, auth-str: pw-p}")
-        assertField(authFirst, "auth", IGNORED, ClashFieldReason.OVERRIDDEN)
+        // 先 auth 后 auth-str：两边都用 auth（依据 mihomo adapter/outbound/hysteria.go NewHysteria：Auth 非空就用它，
+        // AuthString 只在 Auth 为空时用；与键的先后无关）
+        val (firstBean, authFirst) = imported("{$h, auth: YWJj, auth-str: pw-p}")
+        assertEquals(HysteriaBean.TYPE_BASE64, (firstBean as HysteriaBean).authPayloadType)
+        assertEquals("YWJj", firstBean.authPayload)
+        assertField(authFirst, "auth", KEPT)
         assertField(authFirst, "auth-str", IGNORED, ClashFieldReason.INACTIVE)
+        assertNoLoss(authFirst)
         // 先 auth-str 后 auth：两边都用 auth
         val (bean, strFirst) = imported("{$h, auth-str: pw-p, auth: YWJj}")
         assertEquals(HysteriaBean.TYPE_BASE64, (bean as HysteriaBean).authPayloadType)
@@ -497,27 +503,39 @@ class ClashFieldRecordTest {
         assertField(fields, "h2-opts.host", CONVERTED, ClashFieldReason.LIST_JOINED)
         assertField(fields, "h2-opts.path", KEPT)
         assertNoLoss(fields)
-        // 写在后面的 http-opts 改写了 host：h2-opts 的被改写，http-opts 的 mihomo 不读却生效了
-        val overridden = fields("{$v, h2-opts: {host: [a.example.com]}, http-opts: {headers: {Host: [c.example.com]}}}")
-        assertField(overridden, "h2-opts.host", IGNORED, ClashFieldReason.OVERRIDDEN)
-        assertField(overridden, "http-opts.headers.Host", IGNORED, ClashFieldReason.SEMANTICS_DIFFER)
+        // 写在后面的 http-opts 不是当前 network 的：mihomo 不读，解析器也不套用，h2-opts 的 host 不会被改写
+        val other = fields("{$v, h2-opts: {host: [a.example.com]}, http-opts: {headers: {Host: [c.example.com]}}}")
+        assertField(other, "h2-opts.host", CONVERTED, ClashFieldReason.LIST_JOINED)
+        assertField(other, "http-opts", IGNORED, ClashFieldReason.INACTIVE)
     }
 
     @Test
-    fun `别的 network 的 opts 写进了最终 host 或 path 时按子键记有损`() {
-        // tcp 加 TLS：ws-opts 的 Host 被 applyClashFixups 当成 SNI，mihomo 用 server
+    fun `只套用当前 network 的 opts，其它 network 的不再改写 host path SNI`() {
+        // 依据 mihomo adapter/outbound/vmess.go StreamConnContext、vless.go、trojan.go：每个 network 只读自己的 *-opts
+        // tcp 加 TLS：ws-opts 的 Host 不再被 applyClashFixups 当成 SNI（mihomo 用 server）
         val (tcpBean, tcp) = imported(
             "{name: v, type: vmess, server: v.example.com, port: 443, uuid: $uuid, tls: true, network: tcp, ws-opts: {path: /ws, headers: {Host: cdn.example.com}}}"
         )
-        assertEquals("cdn.example.com", (tcpBean as VMessBean).sni)
-        assertField(tcp, "ws-opts.headers.Host", IGNORED, ClashFieldReason.SEMANTICS_DIFFER)
-        // tcp 不用 path
-        assertField(tcp, "ws-opts.path", IGNORED, ClashFieldReason.INACTIVE)
-        // trojan 不写 network：h2-opts 的 host 同样变成 SNI
-        assertField(
-            fields("{name: t, type: trojan, server: t.example.com, port: 443, password: pw-r, h2-opts: {host: [cdn.example.com]}}"),
-            "h2-opts.host", IGNORED, ClashFieldReason.SEMANTICS_DIFFER,
+        tcpBean as VMessBean
+        assertEquals("", tcpBean.sni)
+        assertEquals("", tcpBean.host)
+        assertEquals("", tcpBean.path)
+        assertField(tcp, "ws-opts", IGNORED, ClashFieldReason.INACTIVE)
+        assertNoLoss(tcp)
+        // trojan 不写 network：h2-opts 不是 trojan 的选项
+        val (trojan, trojanFields) = imported(
+            "{name: t, type: trojan, server: t.example.com, port: 443, password: pw-r, h2-opts: {host: [cdn.example.com]}}"
         )
+        assertEquals("", (trojan as TrojanBean).sni)
+        assertField(trojanFields, "h2-opts", IGNORED, ClashFieldReason.INACTIVE)
+        // network 在 opts 之后写也一样；ws 与 grpc 的 opts 互不影响
+        val (ws, wsFields) = imported(
+            "{name: v, type: vmess, server: v.example.com, port: 80, uuid: $uuid, grpc-opts: {grpc-service-name: svc}, ws-opts: {path: /ws}, network: ws}"
+        )
+        assertEquals("/ws", (ws as VMessBean).path)
+        assertField(wsFields, "ws-opts.path", KEPT)
+        assertField(wsFields, "grpc-opts", IGNORED, ClashFieldReason.INACTIVE)
+        assertNoLoss(wsFields)
         // 写了 servername，tcp 又不用 host / path：仍无影响
         val quiet = fields(
             "{name: v, type: vmess, server: v.example.com, port: 443, uuid: $uuid, tls: true, servername: v.example.com, ws-opts: {path: /ws, headers: {Host: cdn.example.com}}}"
@@ -574,36 +592,108 @@ class ClashFieldRecordTest {
             fields("{name: s, type: ss, server: s.example.com, port: 1, cipher: aes-128-gcm, password: pw-u, client-fingerprint: chrome}"),
             "client-fingerprint", IGNORED, ClashFieldReason.INACTIVE,
         )
-        // hysteria2 只写 obfs-password：mihomo 不混淆，本应用开 salamander
-        assertField(
-            fields("{name: h, type: hysteria2, server: h.example.com, port: 443, password: pw-v, obfs-password: op-v}"),
-            "obfs-password", IGNORED, ClashFieldReason.SEMANTICS_DIFFER,
+        // hysteria2 只写 obfs-password：mihomo 不混淆（NewHysteria2 只在 Obfs 非空时用口令），本应用同样不混淆
+        val (plain, onlyPassword) = imported(
+            "{name: h, type: hysteria2, server: h.example.com, port: 443, password: pw-v, obfs-password: op-v}"
         )
-        // hysteria2 写了 salamander 却没有混淆密码：mihomo 报 missing obfs password，本应用导入成不混淆的节点
-        for (password in listOf("", ", obfs-password: \"\"")) {
-            val (bean, noPassword) = imported("{name: h, type: hysteria2, server: h.example.com, port: 443, password: pw-v, obfs: salamander$password}")
-            assertField(noPassword, "obfs", IGNORED, ClashFieldReason.SEMANTICS_DIFFER)
-            assertTrue(noPassword.getValue("obfs").lossy)
-            assertEquals("", (bean as HysteriaBean).obfuscation)
-        }
-        // anytls 的 ech-opts：只写 config 时本应用开 ECH、mihomo 不开；enable 关着时 config 无影响
+        assertField(onlyPassword, "obfs-password", IGNORED, ClashFieldReason.INACTIVE)
+        assertNoLoss(onlyPassword)
+        assertEquals("", (plain as HysteriaBean).obfuscation)
+    }
+
+    @Test
+    fun `anytls 的 ech-opts 只写 config 不写 enable 时不开 ECH`() {
+        // 依据 mihomo adapter/outbound/ech.go ECHOptions.Parse：!o.Enable 就返回 nil，config 不起作用
         val a = "name: a, type: anytls, server: a.example.com, port: 443, password: pw-w"
-        assertField(fields("{$a, ech-opts: {config: ZWNoLWNvbmZpZw==}}"), "ech-opts.config", IGNORED, ClashFieldReason.SEMANTICS_DIFFER)
-        assertField(
-            fields("{$a, ech-opts: {enable: false, config: ZWNoLWNvbmZpZw==}}"),
-            "ech-opts.config", IGNORED, ClashFieldReason.INACTIVE,
+        val (onlyConfig, onlyConfigFields) = imported("{$a, ech-opts: {config: ZWNoLWNvbmZpZw==}}")
+        onlyConfig as AnyTLSBean
+        assertEquals(false, onlyConfig.enableECH)
+        assertEquals("", onlyConfig.echConfig)
+        assertField(onlyConfigFields, "ech-opts.config", IGNORED, ClashFieldReason.INACTIVE)
+        assertNoLoss(onlyConfigFields)
+        val (disabled, disabledFields) = imported("{$a, ech-opts: {enable: false, config: ZWNoLWNvbmZpZw==}}")
+        assertEquals("", (disabled as AnyTLSBean).echConfig)
+        assertField(disabledFields, "ech-opts.config", IGNORED, ClashFieldReason.INACTIVE)
+        // enable 打开：config 照常保存
+        val (enabled, enabledFields) = imported("{$a, ech-opts: {enable: true, config: ZWNoLWNvbmZpZw==}}")
+        assertEquals(true, (enabled as AnyTLSBean).enableECH)
+        assertEquals("ZWNoLWNvbmZpZw==", enabled.echConfig)
+        assertField(enabledFields, "ech-opts.config", KEPT)
+        // 整数 1 在 mihomo 里也是真，解析器不认：enable 记「未导入」
+        val (one, oneFields) = imported("{$a, ech-opts: {enable: 1, config: ZWNoLWNvbmZpZw==}}")
+        assertEquals(false, (one as AnyTLSBean).enableECH)
+        assertField(oneFields, "ech-opts.enable", IGNORED, ClashFieldReason.NOT_READ)
+        assertField(oneFields, "ech-opts.config", IGNORED, ClashFieldReason.NOT_READ)
+    }
+
+    @Test
+    fun `顶层的 global-client-fingerprint 不再读取，只在没写指纹的 REALITY 节点上报告`() {
+        // 依据 mihomo config/config.go parseGeneral：该配置已移除，只打一条错误日志
+        val reality = "name: l, type: vless, server: l.example.com, port: 443, uuid: $uuid, reality-opts: {public-key: $pbk}"
+        val plain = "name: p, type: vless, server: p.example.com, port: 443, uuid: $uuid, tls: true"
+        val own = "name: o, type: vless, server: o.example.com, port: 443, uuid: $uuid, client-fingerprint: firefox, reality-opts: {public-key: $pbk}"
+        val result = parseClash(
+            loadClashYaml("global-client-fingerprint: safari\nproxies:\n  - {$reality}\n  - {$plain}\n  - {$own}")
         )
-        // h2 不带 TLS：本应用是 HTTP/1.1 伪装头，mihomo 是 h2c
-        assertField(
-            fields("{name: v, type: vmess, server: v.example.com, port: 80, uuid: $uuid, network: h2, h2-opts: {path: /h2}}"),
-            "network", IGNORED, ClashFieldReason.SEMANTICS_DIFFER,
-        )
-        // trojan 的 h2 / http：mihomo 当裸 TCP，本应用套 HTTP 传输
-        for (network in listOf("h2", "http")) {
-            assertField(
-                fields("{name: t, type: trojan, server: t.example.com, port: 443, password: pw-x, network: $network}"),
-                "network", IGNORED, ClashFieldReason.SEMANTICS_DIFFER,
+        // 不再把全局值补给 REALITY 节点：用默认的 chrome
+        assertEquals(listOf("chrome", "", "firefox"), result.beans.map { (it as VMessBean).utlsFingerprint })
+        val records = result.nodes.map { (it as ClashNodeResult.Imported).fields.associateBy { f -> f.path } }
+        assertField(records[0], "global-client-fingerprint", IGNORED, ClashFieldReason.REMOVED_IN_MIHOMO)
+        assertTrue(records[0].getValue("global-client-fingerprint").lossy)
+        assertNull(records[1]["global-client-fingerprint"])
+        assertNull(records[2]["global-client-fingerprint"])
+        // 没写全局值时没有这条记录
+        val without = parsed("{$reality}")
+        assertNull((without.nodes.single() as ClashNodeResult.Imported).fields.find { it.path == "global-client-fingerprint" })
+        assertEquals("chrome", (without.beans.single() as VMessBean).utlsFingerprint)
+    }
+
+    @Test
+    fun `trojan 的 network 只认 ws 与 grpc，其它值按 mihomo 当作 TCP 导入`() {
+        // 依据 mihomo adapter/outbound/trojan.go StreamConnContext / dialContext：switch Network 只有 ws 与 grpc，default 是 tcp
+        for (network in listOf("h2", "http", "xhttp", "kcp", "quic", "WS")) {
+            val (bean, trojan) = imported(
+                "{name: t, type: trojan, server: t.example.com, port: 443, password: pw-x, network: $network, ws-opts: {path: /ws}}"
             )
+            assertEquals(network, "tcp", (bean as TrojanBean).type)
+            assertEquals(network, "", bean.path)
+            assertField(trojan, "network", IGNORED, ClashFieldReason.UNKNOWN_VALUE)
+            assertEquals(network, trojan.getValue("network").shownValue)
+            assertTrue(trojan.getValue("network").lossy)
+            // 不是 ws，ws-opts 不起作用
+            assertField(trojan, "ws-opts", IGNORED, ClashFieldReason.INACTIVE)
+        }
+        // ws 与 grpc 照旧
+        val (ws, wsFields) = imported(
+            "{name: t, type: trojan, server: t.example.com, port: 443, password: pw-x, network: ws, ws-opts: {path: /ws}}"
+        )
+        assertEquals("ws", (ws as TrojanBean).type)
+        assertField(wsFields, "network", KEPT)
+    }
+
+    @Test
+    fun `vmess 与 vless 的 h2 http 只导入对得上的 TLS 组合`() {
+        // 依据 mihomo adapter/outbound/vmess.go StreamConnContext：http 是 TLS（可选）之上的 HTTP/1.1 伪装头，
+        // h2 是 HTTP/2（tls 关着时是明文 h2c）。本应用的 http 传输带 TLS 时是 h2、不带 TLS 时是伪装头
+        for (type in listOf("vmess", "vless")) {
+            val base = "name: v, type: $type, server: v.example.com, port: 443, uuid: $uuid"
+            val (h2, h2Fields) = imported("{$base, tls: true, network: h2, h2-opts: {host: [a.example.com], path: /h2}}")
+            assertEquals("http", (h2 as VMessBean).type)
+            assertField(h2Fields, "network", CONVERTED, ClashFieldReason.EQUIVALENT_VALUE)
+            val (http, httpFields) = imported("{$base, network: http, http-opts: {path: [/a], headers: {Host: [b.example.com]}}}")
+            assertEquals("http", (http as VMessBean).type)
+            assertEquals("/a", http.path)
+            assertField(httpFields, "network", KEPT)
+            // h2 不带 TLS（h2c）、http 带 TLS（TLS 里的 HTTP/1.1 伪装头）：没有对应的表示，整个节点被拒
+            for (node in listOf("{$base, network: h2}", "{$base, tls: true, network: http}")) {
+                val failed = parsed(node).nodes.single() as ClashNodeResult.Failed
+                assertEquals(node, ClashNodeFailure.TRANSPORT_TLS_MISMATCH, failed.failure)
+                assertEquals("network", failed.path)
+                assertEquals("transport does not match the TLS setting at network = ${if (node.endsWith("h2}")) "h2" else "http"}", failed.description)
+            }
+            // REALITY 也会打开 TLS
+            val reality = parsed("{$base, network: http, reality-opts: {public-key: $pbk}}").nodes.single()
+            assertEquals(ClashNodeFailure.TRANSPORT_TLS_MISMATCH, (reality as ClashNodeResult.Failed).failure)
         }
     }
 
@@ -619,16 +709,53 @@ class ClashFieldRecordTest {
     }
 
     @Test
-    fun `同名异义：reserved 字符串、只包含 vision 的 flow、packet`() {
+    fun `同名异义：reserved 字符串`() {
         assertField(
             fields("{name: w, type: wireguard, server: 198.51.100.20, port: 51820, private-key: pk-placeholder, reserved: AQID}"),
             "reserved", IGNORED, ClashFieldReason.SEMANTICS_DIFFER,
         )
+    }
+
+    @Test
+    fun `packet-encoding 的 packet 按 mihomo 当作 packetaddr`() {
+        // 依据 mihomo adapter/outbound/vmess.go NewVmess 与 vless.go NewVless：case "packetaddr", "packet"
+        for (type in listOf("vmess", "vless")) {
+            val (bean, packet) = imported("{name: n, type: $type, server: n.example.com, port: 443, uuid: $uuid, packet-encoding: packet}")
+            assertEquals(1, (bean as VMessBean).packetEncoding)
+            assertField(packet, "packet-encoding", CONVERTED, ClashFieldReason.EQUIVALENT_VALUE)
+            assertEquals("packet", packet.getValue("packet-encoding").shownValue)
+            assertNoLoss(packet)
+        }
+    }
+
+    @Test
+    fun `vless 的 flow 按 mihomo 的判断：以 vision 开头才是 vision`() {
+        // 依据 mihomo adapter/outbound/vless.go NewVless：flow 至少 16 个字节时取前 16 个字节，必须恰好是 xtls-rprx-vision
         val l = "name: l, type: vless, server: l.example.com, port: 443, uuid: $uuid"
-        assertField(fields("{$l, flow: foo-xtls-rprx-vision}"), "flow", IGNORED, ClashFieldReason.SEMANTICS_DIFFER)
-        val packet = fields("{$l, packet-encoding: packet}")
-        assertField(packet, "packet-encoding", IGNORED, ClashFieldReason.SEMANTICS_DIFFER)
-        assertEquals("packet", packet.getValue("packet-encoding").shownValue)
+        val (vision, visionFields) = imported("{$l, flow: xtls-rprx-vision-udp443}")
+        assertEquals("xtls-rprx-vision", (vision as VMessBean).encryption)
+        assertField(visionFields, "flow", CONVERTED, ClashFieldReason.EQUIVALENT_VALUE)
+        // 不足 16 个字节的值被 mihomo 静默忽略，不是 vision
+        val (short, shortFields) = imported("{$l, flow: none}")
+        assertEquals("", (short as VMessBean).encryption ?: "")
+        assertField(shortFields, "flow", IGNORED, ClashFieldReason.UNKNOWN_VALUE)
+        // 只是包含 vision：mihomo 报 unsupported xtls flow type，节点被拒（见 ClashRejectionTest）
+        val failed = parsed("{$l, flow: foo-xtls-rprx-vision}").nodes.single() as ClashNodeResult.Failed
+        assertEquals(ClashNodeFailure.INVALID_VALUE, failed.failure)
+        assertEquals("flow", failed.path)
+    }
+
+    @Test
+    fun `vmess 的 cipher 按 mihomo 转小写`() {
+        // 依据 mihomo adapter/outbound/vmess.go NewVmess：security := strings.ToLower(option.Cipher)
+        val v = "name: v, type: vmess, server: v.example.com, port: 443, uuid: $uuid"
+        val (upper, upperFields) = imported("{$v, cipher: AES-128-GCM}")
+        assertEquals("aes-128-gcm", (upper as VMessBean).encryption)
+        assertField(upperFields, "cipher", CONVERTED, ClashFieldReason.EQUIVALENT_VALUE)
+        assertNoLoss(upperFields)
+        val (lower, lowerFields) = imported("{$v, cipher: auto}")
+        assertEquals("auto", (lower as VMessBean).encryption)
+        assertField(lowerFields, "cipher", KEPT)
     }
 
     // ---------- inactive 判断按 mihomo 的读法 ----------

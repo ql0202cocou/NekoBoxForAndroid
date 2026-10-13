@@ -70,6 +70,7 @@ enum class ClashFieldReason(val text: String, val lossy: Boolean = true) {
     MTLS_CLIENT_CERT("mTLS client certificate is not supported"),
     NOT_SUPPORTED("not supported"),
     NOT_CLASSIFIED("fields not classified"),
+    REMOVED_IN_MIHOMO("removed in mihomo, not read"),
 
     // IGNORED，无影响：随节点而定的四种
     UNKNOWN_KEY("not a mihomo option for this type", false),
@@ -107,6 +108,7 @@ enum class ClashNodeFailure(val text: String) {
     INVALID_PORT("invalid port"),
     INVALID_VALUE("invalid value"),
     UNSUPPORTED_TRANSPORT("unsupported transport"),
+    TRANSPORT_TLS_MISMATCH("transport does not match the TLS setting"),
     UNSUPPORTED_SS_PLUGIN("unsupported shadowsocks plugin"),
     TUIC_V4("TUIC v4 (token) is not supported"),
 
@@ -121,6 +123,7 @@ enum class ClashNodeFailure(val text: String) {
     TLS_NOT_SUPPORTED("TLS is not supported for this type"),
     CERT_PIN_NOT_SUPPORTED("certificate pinning is not supported"),
     OBFS_NOT_SUPPORTED("obfs type is not supported"),
+    MISSING_OBFS_PASSWORD("missing obfs password"),
 
     // 兜底：detail 是异常类名
     OTHER("parse error"),

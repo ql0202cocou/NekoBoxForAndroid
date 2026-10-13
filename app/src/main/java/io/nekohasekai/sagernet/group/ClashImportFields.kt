@@ -537,7 +537,13 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
     if (vmess) {
         intField("alterId")
         if (present("cipher")) {
-            if (value("cipher") is String) kept("cipher") else ignored(INVALID_DROPPED, "cipher")
+            // mihomo 把 cipher 转成小写再用，解析器同样转小写（大小写不同的写法是等价转换）
+            val cipher = value("cipher")
+            when {
+                cipher !is String -> ignored(INVALID_DROPPED, "cipher")
+                cipher == bean.encryption -> kept("cipher")
+                else -> converted(EQUIVALENT_VALUE, "cipher")
+            }
         }
     }
     if (vless) {
@@ -545,10 +551,10 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
             null -> Unit
             !is String -> ignored(INVALID_DROPPED, "flow")
             "", StandardV2RayBean.FLOW_VISION -> kept("flow")
-            // mihomo 截到 16 个字符后要求恰好是 vision：xtls-rprx-vision-udp443 一样是 vision
+            // mihomo 截到 16 个字节后要求恰好是 vision：xtls-rprx-vision-udp443 一样是 vision
             else -> if (flow.startsWith(StandardV2RayBean.FLOW_VISION)) converted(EQUIVALENT_VALUE, "flow")
-            // 只是包含 vision（如 foo-xtls-rprx-vision）：mihomo 报错，解析器仍按 vision 导入
-            else if (flow.contains(StandardV2RayBean.FLOW_VISION)) ignored(SEMANTICS_DIFFER, "flow")
+            // 不足 16 个字节的值 mihomo 静默忽略，解析器同样不当作 vision；至少 16 个字节的其它值 mihomo 报错，
+            // 节点已在 clashRejection 里被拒，到不了这里
             else ignored(UNKNOWN_VALUE, "flow")
         }
     }
@@ -557,8 +563,8 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
         when (value("packet-encoding")) {
             null -> Unit
             "packetaddr", "xudp" -> kept("packet-encoding")
-            // mihomo 把 packet 当作 packetaddr，解析器归 0
-            "packet" -> ignored(SEMANTICS_DIFFER, "packet-encoding")
+            // mihomo 把 packet 当作 packetaddr，解析器同样归为 packetaddr
+            "packet" -> converted(EQUIVALENT_VALUE, "packet-encoding")
             else -> ignored(UNKNOWN_VALUE, "packet-encoding")
         }
         // 两个布尔键解析器不读：结果与 mihomo 一致就没有影响
@@ -602,7 +608,7 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
     kept("client-fingerprint")
 
     val network = text("network")
-    val activeOpts = network(type, network, tlsOn)
+    val activeOpts = network(type, network)
     // 是否生效按 mihomo 读到的 network 判断：解析器没读到 network（如 Network: ws）而 mihomo 读到时，
     // 对应的 *-opts 在 mihomo 里是生效的，解析器却没套用
     val mihomoActiveOpts = optsKeyOf(type, mihomoValue("network")?.toString())
@@ -675,21 +681,17 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
 }
 
 // network 的记录；返回 mihomo 在这个 network 下读的 *-opts 键
-private fun ClashFields.network(type: String, network: String?, tlsOn: Boolean): String? {
+private fun ClashFields.network(type: String, network: String?): String? {
     if (network == null) return null
-    when (network) {
-        "", "tcp" -> kept("network")
-        "ws", "grpc" -> kept("network")
-        // mihomo 的 trojan 只认 ws / grpc，h2 / http 在它那里是裸 TCP，本应用却套上 HTTP 传输
-        "h2" -> when {
-            type == "trojan" -> ignored(SEMANTICS_DIFFER, "network")
-            tlsOn -> converted(EQUIVALENT_VALUE, "network")
-            // 本应用不带 TLS 的 http 传输是 HTTP/1.1 伪装头，不是 h2
-            else -> ignored(SEMANTICS_DIFFER, "network")
-        }
-
-        // mihomo 的 http 是 HTTP/1.1 伪装头（带 TLS 时在 TLS 里），本应用带 TLS 时是 h2
-        "http" -> if (type == "trojan" || tlsOn) ignored(SEMANTICS_DIFFER, "network") else kept("network")
+    when {
+        network == "" || network == "tcp" || network == "ws" || network == "grpc" -> kept("network")
+        // mihomo 的 trojan.go 只认 ws / grpc，其它值（h2、http、xhttp、kcp 等）一律当作 TCP 跑，解析器同样按 TCP 导入；
+        // 值在这里不被认识，记「未知值，用了默认」
+        type == "trojan" -> ignored(UNKNOWN_VALUE, "network")
+        // vmess / vless 的 h2 写成本应用的 http 传输（带 TLS 时是 h2；不带 TLS 的 h2c 已在解析时被拒）
+        network == "h2" -> converted(EQUIVALENT_VALUE, "network")
+        // http 是 HTTP/1.1 伪装头，对应本应用不带 TLS 的 http 传输（带 TLS 的已在解析时被拒）
+        network == "http" -> kept("network")
     }
     return optsKeyOf(type, network)
 }
@@ -702,13 +704,6 @@ private fun optsKeyOf(type: String, network: String?): String? = when (network) 
     "http" -> if (type == "trojan") null else "http-opts"
     else -> null
 }
-
-// 解析器对 ws / h2 / http / grpc 四种 *-opts 一律套用（applyClashTransportOpts），mihomo 只读当前 network 的那个
-private val CLASH_PARSED_OPTS = listOf("ws-opts", "h2-opts", "http-opts", "grpc-opts")
-
-// 构建时用到 bean.host / bean.path 的传输方式（buildSingBoxOutboundStreamSettings 与 Xray 生成器），tcp 两个都不用
-private val TRANSPORTS_USING_HOST = setOf("ws", "httpupgrade", "http")
-private val TRANSPORTS_USING_PATH = setOf("ws", "httpupgrade", "http", "grpc")
 
 // 解析器从一个 *-opts 对象写进 bean 的值：子键的原始路径，写的是 host（否则是 path），写入的值
 private class ClashOptsWrite(val path: List<String>, val host: Boolean, val value: String?)
@@ -751,11 +746,10 @@ private fun ClashFields.optsWrites(key: String): List<ClashOptsWrite> {
     return out
 }
 
-// 当前 network 的 *-opts 记完之后，再按 mihomo 的实际行为改写几类记录：
+// 当前 network 的 *-opts 记完之后，再按 mihomo 的实际行为改写几类记录（别的 network 的 *-opts 解析器不套用，
+// 与 mihomo 一样不起作用，按整个对象记无影响）：
 // - SNI：本应用的 applyClashFixups 在没写 SNI 时拿第一个 host 补上；mihomo 只有 vmess / vless 的 ws 拿 Host 头，
 //   其余用 server。补出来的 SNI 与 mihomo 不同时，提供 host 的子键记有损。
-// - 别的 network 的 *-opts：写进了构建会用到的最终 host / path（host 也可能经上一条变成 SNI），且与当前
-//   network 的 opts 给出的值不同时，按子键记有损；其余仍按整个对象记无影响。
 // - alpn：mihomo 在 vmess / vless 的 ws（http/1.1）、grpc 与 h2（h2），trojan 的 grpc（h2）上把 ALPN 写死，
 //   不读 alpn；本应用把它交给核心（sing-box 的传输只在它为空时补同样的默认值）。
 // - servername / sni 里 mihomo 不读的那个（vmess / vless 的 sni，trojan 的 servername）：解析器照读，
@@ -774,18 +768,6 @@ private fun ClashFields.sniAndTransport(
     if (hostSni && firstHost != mihomoSni) {
         for (write in active) {
             if (write.host && write.value.orEmpty() == bean.host.orEmpty()) {
-                recordAt(write.path, ClashFieldResult.IGNORED, SEMANTICS_DIFFER)
-            }
-        }
-    }
-
-    for (key in CLASH_PARSED_OPTS) {
-        if (key == activeOpts) continue
-        for (write in optsWrites(key)) {
-            val used = if (write.host) bean.type in TRANSPORTS_USING_HOST || hostSni else bean.type in TRANSPORTS_USING_PATH
-            val final = if (write.host) bean.host else bean.path
-            val expected = active.lastOrNull { it.host == write.host }?.value
-            if (used && write.value.orEmpty() == final.orEmpty() && write.value.orEmpty() != expected.orEmpty()) {
                 recordAt(write.path, ClashFieldResult.IGNORED, SEMANTICS_DIFFER)
             }
         }
@@ -925,16 +907,15 @@ private fun ClashFields.anyTLS(bean: AnyTLSBean): Pair<Set<String>, ClashInactiv
         !is Map<*, *> -> ignored(INVALID_DROPPED, "ech-opts")
         else -> {
             open("ech-opts")
-            kept("ech-opts", "enable")
-            when {
-                ech["enable"].clashBoolean() -> kept("ech-opts", "config")
-                // 没写 enable 时本应用有 config 就开 ECH，mihomo v1.19.32 要 enable 才开
-                ech["enable"] == null && !ech["config"].isFalseOrEmpty() -> ignored(SEMANTICS_DIFFER, "ech-opts", "config")
-            }
+            // enable 关着或没写时 mihomo 不开 ECH（ECHOptions.Parse），config 无影响（下面的 inactive 判断）；
+            // 整数 1 之类解析器不认的写法 mihomo 认，此时 enable 没被读进来
+            if (ech["enable"].clashBoolean() == ech["enable"].mihomoTrue()) kept("ech-opts", "enable")
+            else ignored(NOT_READ, "ech-opts", "enable")
+            if (ech["enable"].clashBoolean()) kept("ech-opts", "config")
         }
     }
     tlsVariants(listOf("shadow-tls-opts", "restls-opts", "jls-opts"))
-    // enable 没打开时 mihomo 不用 ech-opts 的其余子键（ECHOptions.Parse）；没写 enable 的 config 上面已有记录
+    // enable 没打开时 mihomo 不用 ech-opts 的其余子键（ECHOptions.Parse），没写 enable 时也一样
     return ANYTLS_KEYS to { path ->
         if (path.size == 2 && path[0] == "ech-opts" && path[1] != "enable" && !mihomoFlag("ech-opts", "enable")) INACTIVE
         else null
@@ -985,7 +966,7 @@ private fun ClashFields.hysteria(bean: HysteriaBean): Pair<Set<String>, ClashIna
     if (v1) {
         kept("obfs"); kept("disable-mtu-discovery")
         // mihomo 的 NewHysteria：auth 非空时总是用它（base64 解码），auth-str 不起作用；auth 为空才用 auth-str。
-        // 解析器两个都读、后写的生效，所以按最终值判断：与 mihomo 用的那个不同就是被改写了
+        // 解析器同样与键的先后无关；仍按最终值判断：写法不同、解析器没读到的键会让最终值与 mihomo 用的不同
         val auth = text("auth")
         val authStr = text("auth-str")
         if (!auth.isNullOrEmpty()) {
@@ -1007,21 +988,18 @@ private fun ClashFields.hysteria(bean: HysteriaBean): Pair<Set<String>, ClashIna
         }
     } else {
         kept("password")
-        // 构建时只认 salamander，有混淆密码就用它
+        // 构建时只认 salamander。混淆只由 obfs 决定：obfs 写了 salamander 才用 obfs-password；obfs 写了别的类型，
+        // 或写了 salamander 却没有口令（mihomo 报 missing obfs password）的节点已在 clashRejection 里被拒
         val obfs = text("obfs")
         when {
             obfs == null -> Unit
             obfs.isEmpty() -> kept("obfs")
-            // 写了 salamander 却没有混淆密码：mihomo 报 missing obfs password，节点起不来；
-            // 本应用没有密码就不混淆，导入成能连但不混淆的节点，两边结果不同
-            obfs == "salamander" && text("obfs-password").isNullOrEmpty() -> ignored(SEMANTICS_DIFFER, "obfs")
             obfs == "salamander" -> converted(EQUIVALENT_VALUE, "obfs")
             else -> ignored(UNKNOWN_VALUE, "obfs")
         }
         if (present("obfs-password")) {
-            // 没写 obfs 时 mihomo 不混淆，本应用有密码就开 salamander
-            if (obfs.isNullOrEmpty() && !value("obfs-password").isFalseOrEmpty()) ignored(SEMANTICS_DIFFER, "obfs-password")
-            else kept("obfs-password")
+            // 没写 obfs 时 mihomo 不混淆，本应用同样不混淆，口令不起作用
+            if (obfs.isNullOrEmpty()) ignored(INACTIVE, "obfs-password") else kept("obfs-password")
         }
         // 构建写死 h3
         when (val alpn = value("alpn")) {
