@@ -261,7 +261,7 @@
       "core": 0,
       "beanColumn": "ssBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean",
-      "beanKryoBase64": "AgAAAHNzLTEuZXhhbXBsZS5jb+3FIAAAYWVzLTI1Ni1nY+1nb2xkZW4tcGFzcy1z84EAAQAAAGdvbGRlbi1tdWx0aS1zYy1z84GB"
+      "beanKryoBase64": "AwAAAHNzLTEuZXhhbXBsZS5jb+3FIAAAYWVzLTI1Ni1nY+1nb2xkZW4tcGFzcy1z84EAAgAAAAEAAABnb2xkZW4tbXVsdGktc2Mtc/OBgQ=="
     },
     {
       "id": 7,
@@ -277,7 +277,7 @@
       "core": 0,
       "beanColumn": "ssBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean",
-      "beanKryoBase64": "AgAAAHNzLTIuZXhhbXBsZS5jb+3GIAAAYWVzLTI1Ni1nY+1nb2xkZW4tcGFzcy1z84EAAQAAAGdvbGRlbi1tdWx0aS1zYy1zcy1tZW1iZfKBgQ=="
+      "beanKryoBase64": "AwAAAHNzLTIuZXhhbXBsZS5jb+3GIAAAYWVzLTI1Ni1nY+1nb2xkZW4tcGFzcy1z84EAAgAAAAEAAABnb2xkZW4tbXVsdGktc2Mtc3MtbWVtYmXygYE="
     },
     {
       "id": 8,

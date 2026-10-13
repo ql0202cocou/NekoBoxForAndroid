@@ -326,7 +326,7 @@ class ClashFieldRecordTest {
 
         val ss = fields("{name: s, type: ss, server: s.example.com, port: 1, cipher: aes-128-gcm, password: pw-m, plugin: v2ray-plugin, plugin-opts: {mode: websocket, mux: false}, udp-over-tcp: true}")
         assertField(ss, "plugin-opts.mux", IGNORED, ClashFieldReason.SEMANTICS_DIFFER)
-        assertField(ss, "udp-over-tcp", IGNORED, ClashFieldReason.SEMANTICS_DIFFER)
+        assertField(ss, "udp-over-tcp", KEPT)
 
         val wireguard = fields("{name: w, type: wireguard, server: 198.51.100.20, port: 51820, private-key: pk-placeholder, allowed-ips: bad-placeholder, remote-dns-resolve: true, dns: [192.0.2.53]}")
         assertField(wireguard, "allowed-ips", IGNORED, ClashFieldReason.INVALID_DROPPED)
@@ -646,6 +646,50 @@ class ClashFieldRecordTest {
         val without = parsed("{$reality}")
         assertNull((without.nodes.single() as ClashNodeResult.Imported).fields.find { it.path == "global-client-fingerprint" })
         assertEquals("chrome", (without.beans.single() as VMessBean).utlsFingerprint)
+    }
+
+    @Test
+    fun `ss 的 udp-over-tcp 版本按 mihomo 的规则写进节点`() {
+        // 依据 mihomo adapter/outbound/shadowsocks.go NewShadowSocks：UDPOverTCPVersion 为 0（没写）时用 uot.LegacyVersion（1），
+        // 1 与 2 照用，其它值报错；ListenPacketContext 按版本选 uot.NewConn（1）或 NewLazyConn（2）
+        val s = "name: s, type: ss, server: s.example.com, port: 1, cipher: aes-128-gcm, password: pw-z"
+        val (absent, absentFields) = imported("{$s, udp-over-tcp: true}")
+        assertEquals(true, (absent as ShadowsocksBean).sUoT)
+        assertEquals(1, absent.sUoTVersion)
+        assertField(absentFields, "udp-over-tcp", KEPT)
+        assertNoLoss(absentFields)
+        val (two, twoFields) = imported("{$s, udp-over-tcp: true, udp-over-tcp-version: 2}")
+        assertEquals(2, (two as ShadowsocksBean).sUoTVersion)
+        assertField(twoFields, "udp-over-tcp-version", KEPT)
+        val (one, oneFields) = imported("{$s, udp-over-tcp: true, udp-over-tcp-version: 1}")
+        assertEquals(1, (one as ShadowsocksBean).sUoTVersion)
+        assertField(oneFields, "udp-over-tcp-version", KEPT)
+        // 0 与不写同义
+        val (zero, zeroFields) = imported("{$s, udp-over-tcp: true, udp-over-tcp-version: 0}")
+        assertEquals(1, (zero as ShadowsocksBean).sUoTVersion)
+        assertField(zeroFields, "udp-over-tcp-version", CONVERTED, ClashFieldReason.EQUIVALENT_VALUE)
+        // 键的先后无关
+        assertEquals(2, (imported("{$s, udp-over-tcp-version: 2, udp-over-tcp: true}").first as ShadowsocksBean).sUoTVersion)
+        // UoT 没开：版本不起作用，留默认值 2
+        val (off, offFields) = imported("{$s, udp-over-tcp-version: 1}")
+        assertEquals(false, (off as ShadowsocksBean).sUoT)
+        assertEquals(2, off.sUoTVersion)
+        assertField(offFields, "udp-over-tcp-version", IGNORED, ClashFieldReason.INACTIVE)
+        // 不是 1、2、0：mihomo 创建节点时报 unknown udp over tcp protocol version，与 UoT 开没开无关；
+        // 拒绝按 mihomo 的读法找键（大小写不敏感、_ 当作 -），写法不同的键同样生效
+        for (node in listOf(
+            "{$s, udp-over-tcp: true, udp-over-tcp-version: 3}", "{$s, udp-over-tcp-version: 3}", "{$s, udp-over-tcp-version: abc}",
+            "{$s, Udp-Over-Tcp-Version: 3}", "{$s, udp_over_tcp_version: 3}",
+        )) {
+            val failed = parsed(node).nodes.single() as ClashNodeResult.Failed
+            assertEquals(node, ClashNodeFailure.INVALID_VALUE, failed.failure)
+            assertTrue(node, failed.path!!.equals("udp-over-tcp-version", ignoreCase = true) || failed.path == "udp_over_tcp_version")
+            assertNull(failed.shownValue)
+        }
+        // 整数 1 在 mihomo 里也是真，解析器不认：UoT 没有被读进来
+        val (int, intFields) = imported("{$s, udp-over-tcp: 1}")
+        assertEquals(false, (int as ShadowsocksBean).sUoT)
+        assertField(intFields, "udp-over-tcp", IGNORED, ClashFieldReason.NOT_READ)
     }
 
     @Test

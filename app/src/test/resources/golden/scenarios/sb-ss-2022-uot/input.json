@@ -169,7 +169,7 @@
       "core": 0,
       "beanColumn": "ssBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean",
-      "beanKryoBase64": "AgAAAHNzLmV4YW1wbGUuY2/txCAAADIwMjItYmxha2UzLWFlcy0xMjgtZ2PtWjI5c1pHVnVMWE56TWpBeU1pMHhOZz29gQEBAAAAZ29sZGVuLXNzLTIwMrKBgQ=="
+      "beanKryoBase64": "AwAAAHNzLmV4YW1wbGUuY2/txCAAADIwMjItYmxha2UzLWFlcy0xMjgtZ2PtWjI5c1pHVnVMWE56TWpBeU1pMHhOZz29gQECAAAAAQAAAGdvbGRlbi1zcy0yMDKygYE="
     }
   ],
   "rules": [],

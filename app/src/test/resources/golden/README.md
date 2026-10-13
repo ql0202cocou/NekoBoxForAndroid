@@ -41,6 +41,11 @@ TLS 的 VMess 为 sing-box 出站的场景，`security` 由 `auto` 写成 `aes-1
 文件），按审查过的差异修改，随后在模拟器上重采集，这 6 个文件与采集结果一致。没有整体替换基线，`manifest.json`
 仍是 K1b 那次采集。
 
+2026-10-14 Shadowsocks 的存储格式升到 v3（加 UDP over TCP 版本字段，默认 2）：含 Shadowsocks 节点的 44 个场景
+（48 个节点）只有 `input.json` 里这些节点的 `beanKryoBase64` 变化（版本号 2 → 3，多写一个整数 2），产物逐字节不变
+（sing-box 只在版本为 1 时把 `udp_over_tcp` 写成对象）。这 44 份 `input.json` 取自模拟器重采集的结果，对照工具
+除这 48 处外没有差异；其余文件没有替换，`manifest.json` 仍是 K1b 那次采集。
+
 采集入口只编进 debug 包（`app/src/debug/`）。采集入口与实测入口保留到 K1 阶段完成之后（维护者 2026-10-05 决定）：
 R1b 的 JVM 黄金测试（见「JVM 黄金测试」一节）不覆盖 Android 一侧的外壳（DataStore 的默认值、Room 读取事务、
 PackageCache、插件探测）与内置核心对合并配置的校验，这两样只有模拟器重新采集能对照。这份基线不随入口删除。

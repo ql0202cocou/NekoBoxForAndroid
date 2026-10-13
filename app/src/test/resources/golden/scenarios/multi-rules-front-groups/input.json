@@ -229,7 +229,7 @@
       "core": 0,
       "beanColumn": "ssBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean",
-      "beanKryoBase64": "AgAAAHNzLTEuZXhhbXBsZS5jb+3FIAAAYWVzLTI1Ni1nY+1nb2xkZW4tcGFzcy1z84EAAQAAAGdvbGRlbi1tdWx0aS1yZi1z84GB"
+      "beanKryoBase64": "AwAAAHNzLTEuZXhhbXBsZS5jb+3FIAAAYWVzLTI1Ni1nY+1nb2xkZW4tcGFzcy1z84EAAgAAAAEAAABnb2xkZW4tbXVsdGktcmYtc/OBgQ=="
     },
     {
       "id": 10,

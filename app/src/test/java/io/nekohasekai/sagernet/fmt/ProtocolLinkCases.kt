@@ -169,7 +169,9 @@ object ProtocolLinkCases {
 
     private val shadowsocksSpec = LinkSpec(
         "Shadowsocks", TYPE_SS, ShadowsocksBean::class.java, "ss",
-        neverInLink = generic(),
+        neverInLink = generic() + mapOf(
+            "sUoTVersion" to "ss 链接只有 uot=1 一个开关，没有版本参数；链接导入的节点取默认版本 2（只有 Clash 订阅会写 1）",
+        ),
         cases = listOf(
             LinkCase("ss-plugin-uot") {
                 shadowsocks { plugin = "obfs-local;obfs=http;obfs-host=cdn.example.com"; sUoT = true }

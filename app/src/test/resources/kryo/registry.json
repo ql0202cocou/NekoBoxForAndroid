@@ -48,9 +48,10 @@
       "unsampled": {}
     },
     "ShadowsocksBean": {
-      "current": 2,
+      "current": 3,
       "sampled": [
-        2
+        2,
+        3
       ],
       "unsampled": {
         "0": "早于本仓库历史：首个提交 7d9798c 已写出更高的版本号，本仓库里没有写这个版本的实现",
@@ -426,6 +427,12 @@
       "versionName": "1.8.0-a3",
       "date": "2026-10-06",
       "note": "HEAD：StandardV2Ray v7 的当前版本样本，由此提交加上升 v7 的改动（与样本同一提交入库）写出"
+    },
+    "997ebc691321fa76c59496ae64e47ceed41ae2c2": {
+      "tag": null,
+      "versionName": "1.8.0",
+      "date": "2026-10-14",
+      "note": "HEAD：Shadowsocks v3（加 sUoTVersion）的当前版本样本，由此提交加上升 v3 的改动（与样本同一提交入库）写出"
     }
   }
 }

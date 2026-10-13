@@ -169,7 +169,7 @@
       "core": 0,
       "beanColumn": "ssBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean",
-      "beanKryoBase64": "AgAAAHNzLmV4YW1wbGUuY2/txCAAAGFlcy0yNTYtZ2PtZ29sZGVuLXBhc3Mtc/PBAXYycmF5LXBsdWdpbjttb2RlPXdlYnNvY2tldDt0bHM7aG9zdD13cy5leGFtcGxlLm9yZztwYXRoPS9nb2xkZW4AAQAAAGdvbGRlbi1zcy12MnJheS1wbHVnae6BgQ=="
+      "beanKryoBase64": "AwAAAHNzLmV4YW1wbGUuY2/txCAAAGFlcy0yNTYtZ2PtZ29sZGVuLXBhc3Mtc/PBAXYycmF5LXBsdWdpbjttb2RlPXdlYnNvY2tldDt0bHM7aG9zdD13cy5leGFtcGxlLm9yZztwYXRoPS9nb2xkZW4AAgAAAAEAAABnb2xkZW4tc3MtdjJyYXktcGx1Z2nugYE="
     }
   ],
   "rules": [],

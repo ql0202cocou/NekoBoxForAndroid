@@ -119,7 +119,7 @@ internal fun Map<*, *>.mihomoEntry(name: String, underscoreAsDash: Boolean = tru
 internal fun Any?.mihomoTrue(): Boolean = clashBoolean() || this?.toString()?.let { clashInt(it) }.let { it != null && it != 0L }
 
 // YAML 的整数字面（十进制或 0x / 0o / 0b 前缀，可带正负号与 _）；不是整数时为 null
-private fun clashInt(text: String): Long? {
+internal fun clashInt(text: String): Long? {
     var digits = text.replace("_", "")
     val negative = digits.startsWith("-")
     if (negative || digits.startsWith("+")) digits = digits.substring(1)
@@ -453,13 +453,16 @@ private fun ClashFields.shadowsocks(bean: ShadowsocksBean): Pair<Set<String>, Cl
             }
         }
     }
-    // udp-over-tcp：mihomo 不写版本时用 1，sing-box 的 udp_over_tcp 用 2，只有显式写 2 时两边一致
+    // udp-over-tcp：版本按 mihomo 的规则写进 bean（不写或 0 是 1，2 是 2，见 clashUdpOverTcpVersion），
+    // sing-box 一侧只在版本是 1 时写出来。整数 1 之类解析器不认的写法 mihomo 认，此时 UoT 没有被读进来
     val uot = bean.sUoT == true
-    val uotVersion = text("udp-over-tcp-version")
     if (present("udp-over-tcp")) {
-        if (uot && uotVersion != "2") ignored(SEMANTICS_DIFFER, "udp-over-tcp") else kept("udp-over-tcp")
+        if (value("udp-over-tcp").mihomoTrue() == uot) kept("udp-over-tcp") else ignored(NOT_READ, "udp-over-tcp")
     }
-    if (uot && uotVersion == "2") ignored(MATCHES_RESULT, "udp-over-tcp-version")
+    if (uot && present("udp-over-tcp-version")) {
+        if (text("udp-over-tcp-version") == "0") converted(EQUIVALENT_VALUE, "udp-over-tcp-version")
+        else kept("udp-over-tcp-version")
+    }
     // 下面几处按 mihomo 的读法判断（plugin 与 udp-over-tcp 在 mihomo 里不区分键名大小写；plugin-opts 的子键用的解码器
     // 不把 _ 当作 -，见 NewShadowSocks）
     val mihomoPlugin = mihomoValue("plugin")?.toString().orEmpty()

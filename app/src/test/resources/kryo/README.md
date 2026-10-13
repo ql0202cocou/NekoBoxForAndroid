@@ -56,7 +56,7 @@
    - Hysteria `version < 6`：`serverAddress` 末尾是多端口（含 `-` 或 `,`）时拆成地址与 `serverPorts`，否则
      `serverPorts = serverPort`；
    - Tuic `version < 2`：`protocolVersion = 4`；
-   - 其余（SOCKS 的 `sUoT`、StandardV2Ray 的 ECH / mux / REALITY ML-DSA / 证书指纹、Subscription 的流量与到期、
+   - 其余（SOCKS 的 `sUoT`、Shadowsocks 的 `sUoTVersion`（默认 2，即旧行为）、StandardV2Ray 的 ECH / mux / REALITY ML-DSA / 证书指纹、Subscription 的流量与到期、
      `nameserverFromSubscription`、ProxyEntity 的 `core`、ProxyGroup 的 nameserver / 选择器 / 前置落地等）取默认值。
 3. 已经不存在的旧字段（StandardV2Ray v0–v2 的 `enablePqSignature`、`disabledDRS`）被读取分支跳过，不出现在 `expected`。
 
@@ -112,7 +112,7 @@ grpc 边界样本（来源提交都在这 12 个之内）直接用 5.2.1 写出�
 | TrojanBean | 2 | v2（每个 StandardV2Ray 来源提交、HEAD） | v0、v1：早于本仓库历史（读取分支是 StandardV2Ray 之前的旧布局） |
 | HttpBean | 0 | v0（同上） | — |
 | ShadowTLSBean | 0 | v0（同上） | — |
-| ShadowsocksBean | 2 | v2 `9d78e4f2`、`bbbdf577`（实体内嵌）、HEAD | v0、v1：早于本仓库历史 |
+| ShadowsocksBean | 3 | v2 `9d78e4f2`、`bbbdf577`（实体内嵌）、`dd8f56d3`（含实体内嵌）；v3 HEAD（Shadowsocks 加 `sUoTVersion`，全字段与默认值各一个） | v0、v1：早于本仓库历史 |
 | SOCKSBean | 2 | v1 `9d78e4f2`；v2 HEAD | v0：早于本仓库历史 |
 | HysteriaBean | 8 | v5 `9d78e4f2`、`814025e9`（含多端口地址）；v6 `eab03deb`；v7 `329572d1`；v8 HEAD | v0–v4：早于本仓库历史 |
 | MieruBean | 1 | v0 `19cb130f`（TCP 不写 mtu、UDP 写）；v1 HEAD | — |
@@ -127,7 +127,7 @@ grpc 边界样本（来源提交都在这 12 个之内）直接用 5.2.1 写出�
 | NekoBean | 0 | 不做 | 字段初始化里有 `new JSONObject()`，mockable android.jar 的 org.json 在 JVM 上抛异常，构造不出来；自首个提交以来布局未变 |
 | SubscriptionBean | 5 | v1 `9d78e4f2`、`3fac5afe`、`19cb130f`、`629cdae1`；v2 `9220b316`；v4 `3bd39b94`；v5 HEAD | v0：早于本仓库历史；v3：历史上从未写出（57f4507 由 2 直接改为 4） |
 | SubscriptionBean（分享格式） | 0 | v0（每个分组分享格式样本） | — |
-| ProxyEntity | 1 | v0 `9d78e4f2`、`bbbdf577`；v1 `dd8f56d3`（内嵌 Shadowsocks、链的两个仍是当前版本样本）、HEAD（内嵌 VMess） | — |
+| ProxyEntity | 1 | v0 `9d78e4f2`、`bbbdf577`；v1 `dd8f56d3`（内嵌 Shadowsocks 的是 ShadowsocksBean v2 的旧样本，内嵌链的仍是当前版本样本）、HEAD（内嵌 VMess）；内嵌 Shadowsocks v3 由 ShadowsocksBean 层的当前版本样本覆盖，ProxyEntity 层本身的格式没变 | — |
 | ProxyGroup（存储格式） | 2 | v0 `9d78e4f2`、`3fac5afe`；v1 `19cb130f`；v2 `629cdae1`、`9220b316`、`3bd39b94`、HEAD | — |
 | ProxyGroup（分享格式） | 2 | v0 `9d78e4f2`、`3fac5afe`、`19cb130f`、`629cdae1`；v1 `329572d1`；v2 HEAD | — |
 

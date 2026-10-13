@@ -235,6 +235,13 @@ private fun clashRejection(type: String, proxy: Map<String, Any?>, bean: Abstrac
         }
     }
 
+    // ss 的 udp-over-tcp-version：mihomo 不接受 1、2 以外的值（0 与不写同义），无论 UoT 开没开
+    if (bean is ShadowsocksBean) proxy.mihomoEntry("udp-over-tcp-version")?.let { version ->
+        if (version.value != null && clashUdpOverTcpVersion(version.value) == null) {
+            return rejected(ClashNodeFailure.INVALID_VALUE, version.key)
+        }
+    }
+
     // ss 的 v2ray-plugin：插件打开 TLS 时的证书固定，本应用的插件做不到（mihomo 的插件选项解码器不把 _ 当作 -）
     if (bean is ShadowsocksBean && proxy.mihomoEntry("plugin")?.value?.toString() == "v2ray-plugin") {
         proxy.mihomoEntry("plugin-opts")?.let { pluginOpts ->
@@ -354,7 +361,21 @@ private fun parseClashShadowsocks(proxy: Map<String, Any?>): ShadowsocksBean {
     method = clashKey("cipher", proxy["cipher"]) { clashCipher(proxy["cipher"] as String) }
     plugin = ssPlugin.joinToString(";")
     sUoT = proxy["udp-over-tcp"].clashBoolean()
+    // 版本不属于 sing-box 默认值（2）时才记下；UoT 没开时版本不起作用，留默认值
+    if (sUoT == true) sUoTVersion = clashUdpOverTcpVersion(proxy["udp-over-tcp-version"]) ?: 1
     name = proxy["name"]?.toString()
+    }
+}
+
+// mihomo 的 NewShadowSocks：udp-over-tcp-version 是 1 或 2，不写（或写 0）时用 1，其它值报错（报错与 UoT 开没开无关，
+// 在 clashRejection 里拒绝）。返回 null 表示这个值 mihomo 不接受。sing-box 的 udp_over_tcp 只写 true 时用 2，
+// 所以不写版本的 Clash 节点要显式带上版本 1
+internal fun clashUdpOverTcpVersion(value: Any?): Int? {
+    if (value == null) return 1
+    return when (clashInt(value.toString())) {
+        0L, 1L -> 1
+        2L -> 2
+        else -> null
     }
 }
 

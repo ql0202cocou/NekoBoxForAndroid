@@ -623,7 +623,7 @@ private class ConfigBuild(
         // 内部与外核共用
         currentOutbound.apply {
             if (hop.udpOverTcp) {
-                _hack_config_map["udp_over_tcp"] = true
+                _hack_config_map["udp_over_tcp"] = udpOverTcpOption(hop.bean)
             }
 
             // 域名解析：本组自己的域名节点经分组 DNS 的有序链（neko-sequential 传输）解析，其余拨号器都回落到

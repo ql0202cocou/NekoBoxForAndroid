@@ -447,6 +447,11 @@ fun udpOverTcp(bean: AbstractBean): Boolean = when (bean) {
     else -> false
 }
 
+// sing-box 出站的 udp_over_tcp 值。默认版本（2）写 true，与加版本字段之前的输出逐字节相同；
+// 只有 Shadowsocks 节点指定了版本 1 才写成带版本的对象
+fun udpOverTcpOption(bean: AbstractBean): Any =
+    if (bean is ShadowsocksBean && bean.sUoTVersion == 1) linkedMapOf("enabled" to true, "version" to 1) else true
+
 // bean class -> whether GroupUpdater may replace serverAddress with a resolved
 // IP (was the when in GroupUpdater.resolveAddresses)
 fun supportsAddressRewrite(bean: AbstractBean): Boolean = when (bean) {

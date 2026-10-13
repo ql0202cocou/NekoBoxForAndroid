@@ -170,6 +170,7 @@
             "password": "entity-ss-fake-password",
             "plugin": "",
             "sUoT": false,
+            "sUoTVersion": 2,
             "serverAddress": "192.0.2.44",
             "serverPort": 8389,
             "name": "样本 entity-ss",
@@ -429,6 +430,7 @@
             "password": "entity-ss-fake-password",
             "plugin": "",
             "sUoT": false,
+            "sUoTVersion": 2,
             "serverAddress": "192.0.2.44",
             "serverPort": 8389,
             "name": "样本 entity-ss",
@@ -690,6 +692,7 @@
             "password": "entity-ss-fake-password",
             "plugin": "",
             "sUoT": false,
+            "sUoTVersion": 2,
             "serverAddress": "192.0.2.44",
             "serverPort": 8389,
             "name": "样本 entity-ss",
@@ -699,7 +702,7 @@
         }
       },
       "base64": "AQAAAGUAAAAAAAAABwAAAAAAAAACAAAAHwAAAAAAAAAVGpm+HAAAAM6BAQAAAAAAAQAAAFgAAABlbnRpdHktdXVpZC2xhemUmeivryAxmwECAAAAMTkyLjAuMi40tMUgAABhZXMtMTI4LWdj7WVudGl0eS1zcy1mYWtlLXBhc3N3b3LkgQABAAAAjeagt+acrCBlbnRpdHktc3OkeyJ0YWciOiJjdXN0b20tb3V0Ym91bmQtZW50aXR5LXNzIn2seyJsb2ciOnsibGV2ZWwiOiJ3YXJuIn0sIm5vdGUiOiJlbnRpdHktc3MifQECAAAA",
-      "current": true
+      "current": false
     },
     {
       "id": "ProxyEntity/dd8f56d3/entity-ChainBean",
