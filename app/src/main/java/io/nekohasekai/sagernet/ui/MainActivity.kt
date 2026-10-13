@@ -47,6 +47,11 @@ import io.nekohasekai.sagernet.fmt.KryoConverters
 import io.nekohasekai.sagernet.fmt.PluginEntry
 import io.nekohasekai.sagernet.group.GroupInterfaceAdapter
 import io.nekohasekai.sagernet.group.GroupUpdater
+import io.nekohasekai.sagernet.group.IMPORT_PREVIEW_LINK_MAX
+import io.nekohasekai.sagernet.group.IMPORT_PREVIEW_NAME_MAX
+import io.nekohasekai.sagernet.group.SubscriptionPreset
+import io.nekohasekai.sagernet.group.subscriptionPresets
+import io.nekohasekai.sagernet.group.truncateForDisplay
 import io.nekohasekai.sagernet.ktx.alert
 import io.nekohasekai.sagernet.ktx.isPreview
 import io.nekohasekai.sagernet.ktx.launchCustomTab
@@ -240,10 +245,29 @@ class MainActivity : ThemedActivity(),
 
             displayFragmentWithId(R.id.nav_group)
 
-            val message = getString(R.string.subscription_import_message, name)
+            // 深链内容来自外部且可能极长：确认框里的名称、链接与预设值先截断再显示，
+            // 导入的仍是完整值
+            val message = getString(
+                R.string.subscription_import_message, truncateForDisplay(name, IMPORT_PREVIEW_NAME_MAX)
+            )
+            val presets = subscriptionPresets(
+                group.proxyServerNameserver, group.subscription?.forceResolve, group.subscription?.customUserAgent
+            ).joinToString("\n") { (field, value) ->
+                val label = when (field) {
+                    SubscriptionPreset.PROXY_SERVER_NAMESERVER -> getString(R.string.proxy_server_nameserver)
+                    SubscriptionPreset.FORCE_RESOLVE -> getString(R.string.force_resolve)
+                    SubscriptionPreset.CUSTOM_USER_AGENT -> getString(R.string.subscription_user_agent)
+                }
+                "$label: $value"
+            }
+            val shownLink = link?.takeIf { it.isNotBlank() }?.let { truncateForDisplay(it, IMPORT_PREVIEW_LINK_MAX) }
+            val details = listOfNotNull(
+                shownLink,
+                presets.takeIf { it.isNotEmpty() }?.let { getString(R.string.subscription_import_presets) + "\n" + it },
+            ).joinToString("\n\n")
 
             MaterialAlertDialogBuilder(this@MainActivity).setTitle(R.string.subscription_import)
-                .setMessage(if (!link.isNullOrBlank()) "$message\n\n$link" else message)
+                .setMessage(if (details.isNotEmpty()) "$message\n\n$details" else message)
                 .setPositiveButton(R.string.yes) { _, _ ->
                     runOnDefaultDispatcher {
                         finishImportSubscription(group)

@@ -9,8 +9,27 @@ import java.util.Locale
 // XHTTP / SplitHTTP 尚未支持（plan.md K2），按未知值拒绝。
 
 // 值来自远端订阅，消息会进界面与可导出的日志：只有形态合格的才回显（规则同 shownSingBoxValue）
-class UnsupportedTransportException(val transport: String?) :
-    IllegalArgumentException("unsupported transport ${shownSingBoxValue(transport)}")
+open class UnsupportedTransportException(
+    val transport: String?,
+    message: String = "unsupported transport ${shownSingBoxValue(transport)}",
+) : IllegalArgumentException(message)
+
+// 分享链接的 security（VMess JSON 的 tls 字段）取值不认识。继承 UnsupportedTransportException 是有意的：
+// 所有批量导入路径（parseProxies 逐条跳过、ZIP 逐条目、订阅整体）与格式回退链已按它处理，
+// 一条被拒只记原因、不拖垮其余条目；取值回显规则同上
+class UnsupportedSecurityException(val security: String?) :
+    UnsupportedTransportException(security, "unsupported security ${shownSingBoxValue(security)}")
+
+// 已知的 security 取值：none（明确不加密，空值同义）、tls、reality。
+// 返回规范小写名（"" 表示未指定）；xtls 等未知值抛 UnsupportedSecurityException，
+// 不能按无 TLS 导入让用户以为有加密、实际走明文
+fun requireV2RaySecurity(value: String?): String {
+    if (value.isNullOrBlank()) return ""
+    return when (val name = value.lowercase(Locale.ROOT)) {
+        "none", "tls", "reality" -> name
+        else -> throw UnsupportedSecurityException(value)
+    }
+}
 
 // 规范名。http 在 TLS 上是 h2，不带 TLS 时是 tcp 的伪 HTTP 头
 val V2RAY_TRANSPORTS = setOf("tcp", "http", "ws", "quic", "grpc", "httpupgrade")

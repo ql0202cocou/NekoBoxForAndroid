@@ -10,6 +10,17 @@ import org.junit.Test
 
 class V2RayTransportTest {
 
+    // 解析失败的回退链会写日志，JVM 里没有 libcore
+    @org.junit.Before
+    fun silenceLogs() {
+        io.nekohasekai.sagernet.ktx.Logs.enabled = false
+    }
+
+    @org.junit.After
+    fun restoreLogs() {
+        io.nekohasekai.sagernet.ktx.Logs.enabled = true
+    }
+
     @Test
     fun `已知传输方式原样返回`() {
         for (name in listOf("tcp", "http", "ws", "quic", "grpc", "httpupgrade")) {
@@ -134,5 +145,64 @@ class V2RayTransportTest {
             type = "grpc"
             path = "svc"
         })!!.type)
+    }
+
+    // 未知 security 拒绝导入，与未知传输方式一致
+
+    private val uuid = "00000000-0000-0000-0000-000000000000"
+
+    @Test
+    fun `标准链接已知 security 照旧`() {
+        assertEquals("tls", vless("security=tls").security)
+        assertEquals("tls", vless("security=reality").security)
+        assertEquals("none", vless("security=none").security)
+        assertEquals("none", vless("").security)
+        assertEquals("none", vless("security=").security)
+        assertEquals("tls", TrojanBean().apply { parseDuckSoft("https://pw@example.com:443".toHttpUrl()) }.security)
+    }
+
+    @Test
+    fun `标准链接未知 security 拒绝`() {
+        for (name in listOf("xtls", "tsl", "ssl")) {
+            val e = assertThrows(UnsupportedSecurityException::class.java) { vless("security=$name") }
+            assertEquals(name, e.security)
+            assertEquals("unsupported security \"$name\"", e.message)
+        }
+        assertThrows(UnsupportedTransportException::class.java) {
+            TrojanBean().parseDuckSoft("https://pw@example.com:443?security=xtls".toHttpUrl())
+        }
+        val hidden = assertThrows(UnsupportedSecurityException::class.java) { vless("security=a%20b") }
+        assertEquals("unsupported security (value not shown)", hidden.message)
+    }
+
+    private fun vmessJson(tls: String): String {
+        return """{"v":"2","ps":"n","add":"example.com","port":"443","id":"$uuid","aid":"0","net":"tcp","tls":"$tls"}"""
+    }
+
+    @Test
+    fun `VMess JSON 已知 tls 照旧，未知拒绝`() {
+        assertEquals("tls", parseV2RayNJson(vmessJson("tls")).security)
+        assertEquals("tls", parseV2RayNJson(vmessJson("reality")).security)
+        assertTrue(parseV2RayNJson(vmessJson("")).security.isNullOrEmpty())
+        assertTrue(parseV2RayNJson(vmessJson("none")).security.isNullOrEmpty())
+        val e = assertThrows(UnsupportedSecurityException::class.java) { parseV2RayNJson(vmessJson("xtls")) }
+        assertEquals("xtls", e.security)
+    }
+
+    @Test
+    fun `批量导入里 security 未知的一条不影响其它条`() {
+        val text = listOf(
+            "vless://$uuid@a.example.com:443?security=tls#a",
+            "vless://$uuid@b.example.com:443?security=xtls#b",
+            "vless://$uuid@c.example.com:443?security=none#c",
+        ).joinToString("\n")
+        val result = kotlinx.coroutines.runBlocking { io.nekohasekai.sagernet.ktx.parseProxies(text) { false } }
+        assertEquals(listOf("a.example.com", "c.example.com"), result.map { it.serverAddress })
+        val onlyBad = assertThrows(UnsupportedTransportException::class.java) {
+            kotlinx.coroutines.runBlocking {
+                io.nekohasekai.sagernet.ktx.parseProxies("vless://$uuid@b.example.com:443?security=xtls") { false }
+            }
+        }
+        assertTrue(onlyBad is UnsupportedSecurityException)
     }
 }

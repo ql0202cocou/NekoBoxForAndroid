@@ -1,6 +1,5 @@
 package io.nekohasekai.sagernet.fmt.v2ray
 
-import android.text.TextUtils
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
 import io.nekohasekai.sagernet.fmt.SING_BOX_VMESS_SECURITIES
@@ -182,7 +181,8 @@ fun StandardV2RayBean.parseDuckSoft(url: HttpUrl) {
     type = requireV2RayTransport(url.queryParameter("type"))
     if (url.queryParameter("headerType") == "http") type = "http"
 
-    security = url.queryParameter("security")
+    // 未知值（xtls、拼写错误等）抛异常拒绝导入，不按无 TLS 处理
+    security = requireV2RaySecurity(url.queryParameter("security"))
     if (security.isNullOrBlank()) {
         security = if (this is TrojanBean) "tls" else "none"
     }
@@ -335,14 +335,19 @@ fun parseV2RayN(link: String): VMessBean {
     if (result.contains("= vmess")) {
         return parseCsvVMess(result)
     }
+    return parseV2RayNJson(result)
+}
+
+// 解码后的 v2rayN JSON 分享内容（拆出来便于 JVM 单测，base64 解码走 JNI）
+internal fun parseV2RayNJson(result: String): VMessBean {
     val bean = VMessBean()
     val vmessQRCode = Gson().fromJson(result, VmessQRCode::class.java)
 
     // Although VmessQRCode fields are non null, looks like Gson may still create null fields
-    if (TextUtils.isEmpty(vmessQRCode.add)
-        || TextUtils.isEmpty(vmessQRCode.port)
-        || TextUtils.isEmpty(vmessQRCode.id)
-        || TextUtils.isEmpty(vmessQRCode.net)
+    if (vmessQRCode.add.isNullOrEmpty()
+        || vmessQRCode.port.isNullOrEmpty()
+        || vmessQRCode.id.isNullOrEmpty()
+        || vmessQRCode.net.isNullOrEmpty()
     ) {
         throw Exception("invalid VmessQRCode")
     }
@@ -360,7 +365,9 @@ fun parseV2RayN(link: String): VMessBean {
     bean.path = vmessQRCode.path
     // tcp 带伪 HTTP 头
     if (bean.type == "tcp" && vmessQRCode.type == "http") bean.type = "http"
-    when (vmessQRCode.tls) {
+    // 未知值抛异常拒绝导入，不按无 TLS 处理
+    val vmessTls = requireV2RaySecurity(vmessQRCode.tls)
+    when (vmessTls) {
         "tls", "reality" -> {
             bean.security = "tls"
             bean.sni = vmessQRCode.sni
@@ -375,7 +382,7 @@ fun parseV2RayN(link: String): VMessBean {
                 // "1" marks enable-only, a real config is base64
                 if (vmessQRCode.ech != "1") bean.echConfig = vmessQRCode.ech
             }
-            if (vmessQRCode.tls == "reality") {
+            if (vmessTls == "reality") {
                 bean.realityPubKey = vmessQRCode.pbk
                 bean.realityShortId = vmessQRCode.sid
                 if (!vmessQRCode.pqv.isNullOrBlank()) bean.realityMldsa65Verify = vmessQRCode.pqv
