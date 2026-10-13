@@ -29,6 +29,8 @@ guava = "33.7.1-android"
 recyclerview-fastscroll = "2.0.1"
 desugar-jdk-libs = "2.1.5"
 junit = "4.13.2"
+# 只用于单测：在 JVM 上执行 Room 数据库迁移（SagerDatabaseMigrationTest）
+sqlite-jdbc = "3.53.4.0"
 
 [libraries]
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
@@ -65,6 +67,7 @@ guava = { group = "com.google.guava", name = "guava", version.ref = "guava" }
 recyclerview-fastscroll = { group = "com.simplecityapps", name = "recyclerview-fastscroll", version.ref = "recyclerview-fastscroll" }
 desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugar-jdk-libs" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+sqlite-jdbc = { group = "org.xerial", name = "sqlite-jdbc", version.ref = "sqlite-jdbc" }
 
 [plugins]
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
