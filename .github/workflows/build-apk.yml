@@ -10,11 +10,6 @@ on:
         description: "Git ref to check out (empty = caller's ref)"
         required: false
         type: string
-      retention-days:
-        description: "Retention of the APKs artifact in days (release uses the default; preview has no publish job so the artifact is the only product)"
-        required: false
-        type: number
-        default: 1
 # runs-on 固定为 ubuntu-24.04，原因见 libcore.yml
 jobs:
   build:
@@ -92,9 +87,8 @@ jobs:
         with:
           name: APKs
           path: ${{ env.APK }}
-          # release: hand-off for the publish job only; published APKs live as release assets
-          # preview: no publish job — the artifact IS the product, so preview.yml passes 7
-          retention-days: ${{ inputs.retention-days }}
+          # 只用来交给 release 的 publish job；发布出的 APK 在 release 资产里
+          retention-days: 1
           if-no-files-found: error
   check:
     # 与 build 并行跑 app 单测与全量 lint（warningsAsErrors），不拖长总时长；
