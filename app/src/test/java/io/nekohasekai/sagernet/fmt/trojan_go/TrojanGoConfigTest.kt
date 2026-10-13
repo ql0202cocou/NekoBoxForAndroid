@@ -39,8 +39,9 @@ class TrojanGoConfigTest {
         logLevel: Int = 2,
         ipv6Mode: Int = IPv6Mode.DISABLE,
         target: ExternalDialTarget = Mapped(1234),
+        globalAllowInsecure: Boolean = false,
     ): JsonObject = JsonParser.parseString(
-        b.buildTrojanGoConfig(1080, target, ExternalCoreSettings(logLevel, ipv6Mode, false))
+        b.buildTrojanGoConfig(1080, target, ExternalCoreSettings(logLevel, ipv6Mode, globalAllowInsecure))
     ).asJsonObject
 
     @Test
@@ -116,6 +117,17 @@ class TrojanGoConfigTest {
         val ssl = build(bean(serverAddress = "192.0.2.4", allowInsecure = true))["ssl"].asJsonObject
         assertEquals(setOf("verify"), ssl.keySet())
         assertFalse(ssl["verify"].asBoolean)
+    }
+
+    @Test
+    fun `全局允许不安全与节点开关取或：四种组合`() {
+        for (global in listOf(false, true)) {
+            for (node in listOf(false, true)) {
+                val ssl = build(bean(allowInsecure = node), globalAllowInsecure = global)["ssl"].asJsonObject
+                assertEquals("global=$global node=$node", global || node, ssl.has("verify"))
+                if (global || node) assertFalse(ssl["verify"].asBoolean)
+            }
+        }
     }
 
     @Test

@@ -36,6 +36,11 @@ TLS 的 VMess 为 sing-box 出站的场景，`security` 由 `auto` 写成 `aes-1
 另加 2 个 `k1-` 场景钉住选核变更对照表第 14 行，2 个 `bug001-` 场景钉住 BUG-001 短期预检的跳过 / 失败语义（见「场景与
 夹具」）。`manifest.json` 记下新的核心版本与哈希；内置核心对全部 281 份合并配置的校验通过。
 
+2026-10-14 全局「允许不安全」改为对 Hysteria 1 与 Trojan-Go 插件节点也生效：只有 `settings-ext-global-insecure`
+的外核一侧有意变化（Hysteria 1 配置加 `insecure`，Trojan-Go 的 `ssl` 加 `verify: false`，run / test / export 共 6 个
+文件），按审查过的差异修改，随后在模拟器上重采集，这 6 个文件与采集结果一致。没有整体替换基线，`manifest.json`
+仍是 K1b 那次采集。
+
 采集入口只编进 debug 包（`app/src/debug/`）。采集入口与实测入口保留到 K1 阶段完成之后（维护者 2026-10-05 决定）：
 R1b 的 JVM 黄金测试（见「JVM 黄金测试」一节）不覆盖 Android 一侧的外壳（DataStore 的默认值、Room 读取事务、
 PackageCache、插件探测）与内置核心对合并配置的校验，这两样只有模拟器重新采集能对照。这份基线不随入口删除。

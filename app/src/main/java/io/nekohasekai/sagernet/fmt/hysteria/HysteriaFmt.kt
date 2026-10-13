@@ -1,9 +1,11 @@
 package io.nekohasekai.sagernet.fmt.hysteria
 
 import android.util.Base64
+import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
 import io.nekohasekai.sagernet.fmt.ExternalDialTarget
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.fmt.buildSingBoxOutboundTLS
+import io.nekohasekai.sagernet.fmt.effectiveAllowInsecure
 import io.nekohasekai.sagernet.fmt.shownSingBoxValue
 import io.nekohasekai.sagernet.ktx.*
 import moe.matsuri.nb4a.SingBoxOptions
@@ -313,7 +315,12 @@ fun isHysteria1PluginWindow(value: Int): Boolean = value == 0 || value >= 65536
 fun isHysteria1PluginHopInterval(value: Int): Boolean = value == 0 || value >= 8
 
 // port 是本机 socks 入站的端口，target 是跳实例的拨号目标
-fun HysteriaBean.buildHysteria1Config(port: Int, target: ExternalDialTarget, cacheFile: (() -> File)?): String {
+fun HysteriaBean.buildHysteria1Config(
+    port: Int,
+    target: ExternalDialTarget,
+    settings: ExternalCoreSettings,
+    cacheFile: (() -> File)?,
+): String {
     // hysteria v1 插件没有证书固定选项：判断与报错在 requireBuildableHop（ChainPlan.kt），
     // 这里只兜底（同 buildSingBoxOutboundTLS）
     check(certificateFingerprint.isBlank()) { "certificate pin reached the hysteria plugin builder" }
@@ -373,7 +380,9 @@ fun HysteriaBean.buildHysteria1Config(port: Int, target: ExternalDialTarget, cac
             put("ca", caFile.absolutePath)
         }
 
-        if (allowInsecure) put("insecure", true)
+        // 全局「允许不安全」叠加在节点开关上，与 sing-box 出站一致。证书固定已在上面兜底拒绝，不会并存；
+        // 自定义 CA 与 insecure 并存时两者都写，同 sing-box 的 certificate + insecure
+        if (effectiveAllowInsecure(allowInsecure, settings.globalAllowInsecure)) put("insecure", true)
         if (streamReceiveWindow > 0) put("recv_window_conn", streamReceiveWindow)
         if (connectionReceiveWindow > 0) put("recv_window", connectionReceiveWindow)
         if (disableMtuDiscovery) put("disable_mtu_discovery", true)

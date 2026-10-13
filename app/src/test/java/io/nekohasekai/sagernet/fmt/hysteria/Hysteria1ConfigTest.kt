@@ -2,6 +2,7 @@ package io.nekohasekai.sagernet.fmt.hysteria
 
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
 import io.nekohasekai.sagernet.fmt.ExternalDialTarget
 import io.nekohasekai.sagernet.fmt.ExternalDialTarget.Direct
 import io.nekohasekai.sagernet.fmt.ExternalDialTarget.Mapped
@@ -32,8 +33,11 @@ class Hysteria1ConfigTest {
     private fun HysteriaBean.build(
         port: Int = 2080,
         target: ExternalDialTarget = Direct,
+        globalAllowInsecure: Boolean = false,
         cacheFile: (() -> File)? = null,
-    ): JsonObject = JsonParser.parseString(buildHysteria1Config(port, target, cacheFile)).asJsonObject
+    ): JsonObject = JsonParser.parseString(
+        buildHysteria1Config(port, target, ExternalCoreSettings(2, 0, globalAllowInsecure), cacheFile)
+    ).asJsonObject
 
     private fun JsonObject.str(key: String) = get(key).asString
 
@@ -197,6 +201,34 @@ class Hysteria1ConfigTest {
         // ca 排在 alpn 之后、hop_interval 之前
         val keys = json.keySet().toList()
         assertEquals(listOf("ca", "hop_interval"), keys.takeLast(2))
+    }
+
+    @Test
+    fun `全局允许不安全与节点开关取或：四种组合`() {
+        for (global in listOf(false, true)) {
+            for (node in listOf(false, true)) {
+                val json = bean { allowInsecure = node }.build(globalAllowInsecure = global)
+                assertEquals("global=$global node=$node", global || node, json.has("insecure"))
+            }
+        }
+    }
+
+    @Test
+    fun `全局允许不安全与自定义 CA 并存：CA 与 insecure 都写`() {
+        val file = tmp.newFile()
+        val json = bean { caText = "CERT" }.build(globalAllowInsecure = true) { file }
+        assertEquals(file.absolutePath, json.str("ca"))
+        assertTrue(json["insecure"].asBoolean)
+        val off = bean { caText = "CERT" }.build(globalAllowInsecure = false) { file }
+        assertEquals(file.absolutePath, off.str("ca"))
+        assertFalse(off.has("insecure"))
+    }
+
+    @Test
+    fun `证书固定时即使全局允许不安全也拒绝生成`() {
+        assertFails(IllegalStateException::class.java, "certificate pin reached the hysteria plugin builder") {
+            bean { certificateFingerprint = "AA" }.build(globalAllowInsecure = true)
+        }
     }
 
     @Test

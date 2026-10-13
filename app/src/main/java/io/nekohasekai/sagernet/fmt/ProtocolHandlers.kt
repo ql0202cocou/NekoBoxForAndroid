@@ -630,9 +630,9 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
 
     is HysteriaBean -> ExternalCore.PerHop(
         "hysteria-plugin",
-        // hysteria 1 的配置不读设置，只有启动参数读 logLevel
-        buildConfig = { _, hop, cacheFile ->
-            bean.buildHysteria1Config(hop.localPort, hop.target) { cacheFile("hysteria", "ca") }
+        // 配置读全局「允许不安全」，启动参数读 logLevel
+        buildConfig = { settings, hop, cacheFile ->
+            bean.buildHysteria1Config(hop.localPort, hop.target, settings) { cacheFile("hysteria", "ca") }
         },
         buildLaunch = { settings, pluginPath, config, writeCacheFile ->
             val configFile = writeCacheFile("hysteria", "json", config)

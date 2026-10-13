@@ -6,6 +6,7 @@ import io.nekohasekai.sagernet.fmt.ExternalDialTarget
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.fmt.dialAddress
 import io.nekohasekai.sagernet.fmt.dialPort
+import io.nekohasekai.sagernet.fmt.effectiveAllowInsecure
 import io.nekohasekai.sagernet.ktx.*
 import moe.matsuri.nb4a.Protocols
 import moe.matsuri.nb4a.utils.JavaUtil
@@ -127,7 +128,8 @@ fun TrojanGoBean.buildTrojanGoConfig(port: Int, target: ExternalDialTarget, sett
 
     val ssl = LinkedHashMap<String, Any>()
     if (sslSni.isNotBlank()) ssl["sni"] = sslSni
-    if (allowInsecure) ssl["verify"] = false
+    // 全局「允许不安全」叠加在节点开关上（trojan-go 没有证书固定与自定义 CA 选项）
+    if (effectiveAllowInsecure(allowInsecure, settings.globalAllowInsecure)) ssl["verify"] = false
     config["ssl"] = ssl
 
     when {

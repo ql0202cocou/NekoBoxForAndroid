@@ -27,7 +27,8 @@ class TlsFields(
     val realityShortId: String? = null,
 )
 
-// 全局「允许不安全」叠加在节点自己的开关之上，各核心（sing-box、Xray、mihomo）一致。
+// 全局「允许不安全」叠加在节点自己的开关之上，各核心（sing-box、Xray、mihomo、Hysteria 1 与 Trojan-Go 插件）一致。
+// Naive、Mieru 没有这个语义，不涉及
 // 全局值都由调用方传入：外核生成器经 ExternalCoreSettings，sing-box 出站与选核判定经构建的设置快照
 fun effectiveAllowInsecure(allowInsecure: Boolean?, globalAllowInsecure: Boolean): Boolean =
     allowInsecure == true || globalAllowInsecure
