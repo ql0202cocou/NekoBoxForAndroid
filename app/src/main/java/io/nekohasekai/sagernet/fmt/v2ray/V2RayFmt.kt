@@ -440,9 +440,12 @@ private fun parseCsvVMess(csv: String): VMessBean {
 
 }
 
-fun VMessBean.toV2rayN(): String {
+fun VMessBean.toV2rayN(): String = "vmess://" + NGUtil.encode(toV2rayNJson())
+
+// v2rayN 分享内容的 JSON（拆出来便于 JVM 单测，base64 编码走 android.util.Base64）
+internal fun VMessBean.toV2rayNJson(): String {
     val bean = this
-    return "vmess://" + VmessQRCode().apply {
+    return Gson().toJson(VmessQRCode().apply {
         v = "2"
         ps = bean.name
         add = bean.serverAddress
@@ -502,9 +505,7 @@ fun VMessBean.toV2rayN(): String {
             // "1" marks enable-only (no pinned config)
             ech = bean.echConfig.ifBlank { "1" }
         }
-    }.let {
-        NGUtil.encode(Gson().toJson(it))
-    }
+    })
 }
 
 fun StandardV2RayBean.toUriVMessVLESSTrojan(isTrojan: Boolean): String {

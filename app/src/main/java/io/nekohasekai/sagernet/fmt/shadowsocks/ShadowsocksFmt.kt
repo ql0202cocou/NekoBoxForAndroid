@@ -94,9 +94,12 @@ fun parseShadowsocks(url: String): ShadowsocksBean {
 
 }
 
-fun ShadowsocksBean.toUri(): String {
+fun ShadowsocksBean.toUri(): String = toUri(Util::b64EncodeUrlSafe)
 
-    val builder = linkBuilder().username(Util.b64EncodeUrlSafe("$method:$password"))
+// userinfo 的 base64 编码走 android.util.Base64，拆出编码器参数便于 JVM 单测
+internal fun ShadowsocksBean.toUri(encodeUserInfo: (String) -> String): String {
+
+    val builder = linkBuilder().username(encodeUserInfo("$method:$password"))
         .host(serverAddress)
         .port(serverPort)
 
