@@ -90,22 +90,85 @@ func lookupHosts(ctx context.Context, servers string, domain string) (string, er
 	return "", fmt.Errorf("no DNS server returned addresses")
 }
 
+// familyGrace：A / AAAA 其中一类已拿到地址后，等另一类的最长时间。有的服务器对
+// 不认识的类型直接丢包，不设上限的话每个域名都要白等满单台超时
+const familyGrace = time.Second
+
+type familyResult struct {
+	queryType uint16
+	addresses []string
+	err       error
+}
+
+// 同一台服务器的 A 与 AAAA 并行查询、共用这台服务器的单台超时，返回两类结果的并集
+// （A 在前）。任一类拿到地址就算这台服务器成功；两类都失败或都为空才返回错误，由
+// lookupHosts 换下一台。地址族的取舍（禁用 / 仅 IPv6 等）由调用方按 IPv6 模式处理，
+// 这里不做过滤。空应答（NOERROR 无记录、NXDOMAIN、REFUSED）不看 Rcode，一律按空处理
 func lookupHost(ctx context.Context, server string, domain string) (string, error) {
-	// An empty answer covers NOERROR-empty, NXDOMAIN and REFUSED alike —
-	// lookupHostType does not inspect Rcode, so those all return (nil, nil) and
-	// still reach the AAAA leg. Only a transport-level failure short-circuits,
-	// and retrying that over the same server would just burn the timeout twice.
-	addresses, err := lookupHostType(ctx, server, domain, mDNS.TypeA)
-	if err == nil && len(addresses) == 0 {
-		addresses, err = lookupHostType(ctx, server, domain, mDNS.TypeAAAA)
+	serverCtx, cancel := context.WithTimeout(ctx, perServerTimeout)
+	defer cancel()
+
+	types := []uint16{mDNS.TypeA, mDNS.TypeAAAA}
+	results := make(chan familyResult, len(types))
+	for _, queryType := range types {
+		go func() {
+			result := familyResult{queryType: queryType}
+			defer func() { results <- result }()
+			defer device.DeferPanicToError("lookupHost", func(err error) { result.err = err })
+			result.addresses, result.err = lookupHostType(serverCtx, server, domain, queryType)
+		}()
 	}
-	if err != nil {
-		return "", err
+
+	var collected [2]*familyResult
+	var grace <-chan time.Time
+	var graceTimer *time.Timer
+	defer func() {
+		if graceTimer != nil {
+			graceTimer.Stop()
+		}
+	}()
+collect:
+	for pending := len(types); pending > 0; {
+		select {
+		case result := <-results:
+			pending--
+			collected[familyIndex(result.queryType)] = &result
+			if len(result.addresses) > 0 && pending > 0 && grace == nil {
+				graceTimer = time.NewTimer(familyGrace)
+				grace = graceTimer.C
+			}
+		case <-grace:
+			// 另一类迟迟不回：放弃它，并关掉它占用的连接
+			cancel()
+			break collect
+		}
 	}
-	if len(addresses) == 0 {
-		return "", fmt.Errorf("empty response for %s", domain)
+
+	var addresses []string
+	var firstErr error
+	for _, result := range collected {
+		if result == nil {
+			continue
+		}
+		addresses = append(addresses, result.addresses...)
+		if result.err != nil && firstErr == nil {
+			firstErr = result.err
+		}
 	}
-	return strings.Join(addresses, "\n"), nil
+	if len(addresses) > 0 {
+		return strings.Join(addresses, "\n"), nil
+	}
+	if firstErr != nil {
+		return "", firstErr
+	}
+	return "", fmt.Errorf("empty response for %s", domain)
+}
+
+func familyIndex(queryType uint16) int {
+	if queryType == mDNS.TypeAAAA {
+		return 1
+	}
+	return 0
 }
 
 // 单台服务器的超时：不通或不回应的服务器不能吃光 StartLookupHosts 的整个预算，

@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.ktx
 
+import io.nekohasekai.sagernet.IPv6Mode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -164,5 +165,41 @@ class NetsTest {
     @Test
     fun `splitHostPort 方括号后接非端口内容返回 null`() {
         assertNull("[2001:db8::1]junk".splitHostPort())
+    }
+
+    private val v4a = InetAddress.getByAddress(byteArrayOf(192.toByte(), 0, 2, 1))
+    private val v4b = InetAddress.getByAddress(byteArrayOf(192.toByte(), 0, 2, 2))
+    private val v6a = InetAddress.getByAddress(ByteArray(16).also { it[0] = 0x20; it[1] = 0x01; it[2] = 0x0d; it[3] = 0xb8.toByte(); it[15] = 1 })
+    private val v6b = InetAddress.getByAddress(ByteArray(16).also { it[0] = 0x20; it[1] = 0x01; it[2] = 0x0d; it[3] = 0xb8.toByte(); it[15] = 2 })
+
+    @Test
+    fun `orderByIpv6Mode 禁用只留 IPv4`() {
+        assertEquals(listOf(v4a, v4b), listOf(v6a, v4a, v6b, v4b).orderByIpv6Mode(IPv6Mode.DISABLE))
+        assertEquals(emptyList<InetAddress>(), listOf(v6a, v6b).orderByIpv6Mode(IPv6Mode.DISABLE))
+    }
+
+    @Test
+    fun `orderByIpv6Mode 启用时 IPv4 在前且保留 IPv6`() {
+        assertEquals(listOf(v4a, v4b, v6a, v6b), listOf(v6a, v4a, v6b, v4b).orderByIpv6Mode(IPv6Mode.ENABLE))
+        assertEquals(listOf(v6a), listOf(v6a).orderByIpv6Mode(IPv6Mode.ENABLE))
+    }
+
+    @Test
+    fun `orderByIpv6Mode 优先时 IPv6 在前且保留 IPv4`() {
+        assertEquals(listOf(v6a, v6b, v4a, v4b), listOf(v4a, v6a, v4b, v6b).orderByIpv6Mode(IPv6Mode.PREFER))
+        assertEquals(listOf(v4a), listOf(v4a).orderByIpv6Mode(IPv6Mode.PREFER))
+    }
+
+    @Test
+    fun `orderByIpv6Mode 仅 IPv6 不回退 IPv4`() {
+        assertEquals(listOf(v6a, v6b), listOf(v4a, v6a, v4b, v6b).orderByIpv6Mode(IPv6Mode.ONLY))
+        assertEquals(emptyList<InetAddress>(), listOf(v4a, v4b).orderByIpv6Mode(IPv6Mode.ONLY))
+    }
+
+    @Test
+    fun `orderByIpv6Mode 去重且越界模式按启用处理`() {
+        assertEquals(listOf(v4a, v6a), listOf(v6a, v4a, v6a, v4a).orderByIpv6Mode(IPv6Mode.ENABLE))
+        assertEquals(listOf(v4a, v6a), listOf(v6a, v4a).orderByIpv6Mode(7))
+        assertEquals(emptyList<InetAddress>(), emptyList<InetAddress>().orderByIpv6Mode(IPv6Mode.ONLY))
     }
 }

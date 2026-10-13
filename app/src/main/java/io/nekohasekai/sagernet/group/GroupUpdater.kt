@@ -51,7 +51,6 @@ abstract class GroupUpdater {
         val progress = Progress(profiles.size)
         GroupUpdater.progress[groupId] = progress
         GroupManager.postProgress(groupId)
-        val ipv6First = ipv6Mode >= IPv6Mode.PREFER
 
         // 同一订阅里的节点常共用域名：每个域名只解析一次，结果套用到所有同域名节点
         val byDomain = profiles.filter {
@@ -72,13 +71,14 @@ abstract class GroupUpdater {
                                 // fakeip 段的假 IP 并被写进库。没有底层网络（如切换网络途中）
                                 // 就判这个域名解析失败，不回退默认解析器
                                 lookupSystem(domain, SagerNet.underlyingNetwork ?: error("no underlying network"))
+                                    .orderByIpv6Mode(ipv6Mode)
                             } else {
                                 // 分组配了节点解析 DNS 时优先用它，没配或失败时回退系统 DNS
                                 //（VPN 连着时系统 DNS 由内核解析）
-                                lookupServerAddress(domain, groupNameserver, null)
+                                lookupServerAddress(domain, groupNameserver, null, ipv6Mode)
                             }
                             if (results.isEmpty()) error("empty response")
-                            for (profile in sameDomain) rewriteAddress(profile, results, ipv6First)
+                            for (profile in sameDomain) rewriteAddress(profile, results, ipv6Mode)
                         } catch (e: CancellationException) {
                             throw e
                         } catch (e: Exception) {
@@ -94,10 +94,12 @@ abstract class GroupUpdater {
         }
     }
 
+    // 按 IPv6 模式过滤排序后取第一个；被模式排除的地址族不会写入（过滤后为空即解析失败）
     protected fun rewriteAddress(
-        bean: AbstractBean, addresses: List<InetAddress>, ipv6First: Boolean
+        bean: AbstractBean, addresses: List<InetAddress>, ipv6Mode: Int
     ) {
-        val address = addresses.sortedBy { (it is Inet4Address) == ipv6First }[0].hostAddress
+        val address = addresses.orderByIpv6Mode(ipv6Mode).firstOrNull()?.hostAddress
+            ?: error("no address allowed by IPv6 mode")
         fillSniFromServerAddress(bean)
         bean.serverAddress = address
     }

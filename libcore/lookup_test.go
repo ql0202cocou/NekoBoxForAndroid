@@ -168,7 +168,7 @@ func TestLookupHostsSharedBudget(t *testing.T) {
 			t.Fatalf("%q, %v", got, err)
 		}
 		if queries.Load() != 2 {
-			t.Fatal("expected A then AAAA")
+			t.Fatal("expected one A and one AAAA query")
 		}
 	})
 	t.Run("deadline prevents next server", func(t *testing.T) {
@@ -183,7 +183,8 @@ func TestLookupHostsSharedBudget(t *testing.T) {
 		if time.Since(start) > time.Second {
 			t.Fatal("lookup exceeded shared budget tolerance")
 		}
-		if queries.Load()-before != 1 {
+		// 同一台服务器的 A 与 AAAA 并行各查一次，预算用完后不再查第二台
+		if queries.Load()-before != 2 {
 			t.Fatal("queried again after deadline")
 		}
 	})
@@ -204,4 +205,126 @@ func TestLookupHostsSharedBudget(t *testing.T) {
 			}
 		}
 	})
+}
+
+// 假 DNS 服务器：按域名前缀决定 A / AAAA 各自的行为。
+// 域名第一段形如 a-ok / a-drop / a-empty，后接 "." 与 aaaa-ok / aaaa-drop / aaaa-empty
+// （drop 为不回应）。记录两类查询各被收到的次数
+type familyServer struct {
+	address string
+	silent  bool // 为 true 时对所有查询都不回应
+	a, aaaa atomic.Int32
+}
+
+func startFamilyServer(t *testing.T, silent bool) *familyServer {
+	t.Helper()
+	packet, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fake := &familyServer{address: "udp://" + packet.LocalAddr().String(), silent: silent}
+	ready := make(chan struct{})
+	server := &dns.Server{PacketConn: packet, NotifyStartedFunc: func() { close(ready) }, Handler: dns.HandlerFunc(func(w dns.ResponseWriter, q *dns.Msg) {
+		question := q.Question[0]
+		parts := strings.SplitN(question.Name, ".", 3)
+		mode := parts[0]
+		if question.Qtype == dns.TypeAAAA {
+			fake.aaaa.Add(1)
+			mode = parts[1]
+		} else {
+			fake.a.Add(1)
+		}
+		if fake.silent || strings.HasSuffix(mode, "drop") {
+			return
+		}
+		reply := new(dns.Msg)
+		reply.SetReply(q)
+		if strings.HasSuffix(mode, "ok") {
+			header := dns.RR_Header{Name: question.Name, Rrtype: question.Qtype, Class: dns.ClassINET}
+			if question.Qtype == dns.TypeAAAA {
+				reply.Answer = []dns.RR{&dns.AAAA{Hdr: header, AAAA: net.ParseIP("2001:db8::1")}}
+			} else {
+				reply.Answer = []dns.RR{&dns.A{Hdr: header, A: net.ParseIP("192.0.2.1")}}
+			}
+		}
+		if err := w.WriteMsg(reply); err != nil {
+			t.Error(err)
+		}
+	})}
+	go server.ActivateAndServe()
+	<-ready
+	t.Cleanup(func() { server.Shutdown() })
+	return fake
+}
+
+func TestLookupHostBothFamilies(t *testing.T) {
+	server := startFamilyServer(t, false)
+	for _, tc := range []struct {
+		name, domain, want string
+		fails              bool
+	}{
+		{"A 与 AAAA 都有，取并集且 A 在前", "a-ok.aaaa-ok.test", "192.0.2.1\n2001:db8::1", false},
+		{"只有 A", "a-ok.aaaa-empty.test", "192.0.2.1", false},
+		{"只有 AAAA", "a-empty.aaaa-ok.test", "2001:db8::1", false},
+		{"两类都为空", "a-empty.aaaa-empty.test", "", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			beforeA, beforeAAAA := server.a.Load(), server.aaaa.Load()
+			got, err := lookupHost(ctx, server.address, tc.domain)
+			if tc.fails != (err != nil) || got != tc.want {
+				t.Fatalf("%q, %v", got, err)
+			}
+			if server.a.Load()-beforeA != 1 || server.aaaa.Load()-beforeAAAA != 1 {
+				t.Fatal("A 与 AAAA 应各查询一次")
+			}
+		})
+	}
+}
+
+func TestLookupHostOneFamilyTimesOut(t *testing.T) {
+	server := startFamilyServer(t, false)
+	// 一类不回应、另一类有地址：只等宽限期就返回已有的结果，不等满单台超时
+	for domain, want := range map[string]string{
+		"a-ok.aaaa-drop.test": "192.0.2.1",
+		"a-drop.aaaa-ok.test": "2001:db8::1",
+	} {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		start := time.Now()
+		got, err := lookupHost(ctx, server.address, domain)
+		cancel()
+		if err != nil || got != want {
+			t.Fatalf("%s: %q, %v", domain, got, err)
+		}
+		if elapsed := time.Since(start); elapsed > perServerTimeout/2 {
+			t.Fatalf("%s: 等待 %v，超过宽限期", domain, elapsed)
+		}
+	}
+	// 一类不回应、另一类为空：没有可用地址，整台服务器算失败
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	if _, err := lookupHost(ctx, server.address, "a-drop.aaaa-empty.test"); err == nil {
+		t.Fatal("没有地址却成功")
+	}
+}
+
+func TestLookupHostsSilentFirstServer(t *testing.T) {
+	silent := startFamilyServer(t, true)
+	good := startFamilyServer(t, false)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	start := time.Now()
+	// 第一台两类都不回应，只吃它自己的单台超时（A 与 AAAA 并行，不是 5 + 5 秒）；
+	// 第二台仍在总预算内被尝试，并返回两类地址的并集
+	got, err := lookupHosts(ctx, silent.address+"\n"+good.address, "a-ok.aaaa-ok.test")
+	if err != nil || got != "192.0.2.1\n2001:db8::1" {
+		t.Fatalf("%q, %v", got, err)
+	}
+	if elapsed := time.Since(start); elapsed > perServerTimeout+2*time.Second {
+		t.Fatalf("耗时 %v，第一台吃掉了超过一份单台超时", elapsed)
+	}
+	if silent.a.Load() != 1 || silent.aaaa.Load() != 1 || good.a.Load() != 1 || good.aaaa.Load() != 1 {
+		t.Fatalf("每台服务器 A / AAAA 各应查一次: %d %d %d %d", silent.a.Load(), silent.aaaa.Load(), good.a.Load(), good.aaaa.Load())
+	}
 }

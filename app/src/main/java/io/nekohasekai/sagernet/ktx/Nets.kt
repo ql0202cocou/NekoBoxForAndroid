@@ -5,6 +5,7 @@ package io.nekohasekai.sagernet.ktx
 import android.net.Network
 import android.os.SystemClock
 import io.nekohasekai.sagernet.BuildConfig
+import io.nekohasekai.sagernet.IPv6Mode
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.bg.ServiceRegistry
 import io.nekohasekai.sagernet.database.DataStore
@@ -20,6 +21,7 @@ import libcore.HTTPClient
 import libcore.Libcore
 import moe.matsuri.nb4a.utils.NGUtil
 import okhttp3.HttpUrl
+import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
@@ -191,11 +193,29 @@ suspend fun lookupSystem(domain: String, network: Network?): List<InetAddress> {
     }
 }
 
+// 按 IPv6 模式过滤并排序解析结果（去重，保持各地址族内的原有顺序）：
+// 禁用只留 IPv4；启用 IPv4 在前；优先 IPv6 在前；仅 IPv6 只留 IPv6。
+// 模式值越界时与 sing-box 一致不限制地址族，按启用处理。
+// 过滤后为空表示这个模式下没有可用地址，调用方按解析失败处理，不能回退到被排除的地址族
+fun List<InetAddress>.orderByIpv6Mode(ipv6Mode: Int): List<InetAddress> {
+    val v4 = filterIsInstance<Inet4Address>().distinct()
+    val v6 = filter { it !is Inet4Address }.distinct()
+    return when (ipv6Mode) {
+        IPv6Mode.DISABLE -> v4
+        IPv6Mode.PREFER -> v6 + v4
+        IPv6Mode.ONLY -> v6
+        else -> v4 + v6
+    }
+}
+
 // 节点域名解析（订阅解析与 ping 测试共用）：分组配了节点解析 DNS 时优先使用，
-// 没配或失败时回退系统解析
+// 没配、失败或按 IPv6 模式过滤后没有可用地址时回退系统解析。结果已按 ipv6Mode
+// 过滤排序，可能为空（解析失败）
 suspend fun lookupServerAddress(
-    domain: String, groupNameserver: String?, network: Network?,
-): List<InetAddress> = lookupViaNameserver(groupNameserver, domain) ?: lookupSystem(domain, network)
+    domain: String, groupNameserver: String?, network: Network?, ipv6Mode: Int,
+): List<InetAddress> =
+    lookupViaNameserver(groupNameserver, domain)?.orderByIpv6Mode(ipv6Mode)?.takeIf { it.isNotEmpty() }
+        ?: lookupSystem(domain, network).orderByIpv6Mode(ipv6Mode)
 
 // Ports handed out but not yet bound by their consumer (external cores bind only
 // after process spawn). Keep them out of rotation so concurrent callers — e.g.

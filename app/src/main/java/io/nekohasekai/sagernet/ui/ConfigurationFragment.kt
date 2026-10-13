@@ -21,6 +21,7 @@ import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
 import io.nekohasekai.sagernet.GroupType
+import io.nekohasekai.sagernet.IPv6Mode
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
@@ -570,7 +571,10 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
                 val existing = resolvedAddresses.putIfAbsent(domain, mine)
                 if (existing != null) existing.await() else try {
                     // 组里配了节点解析 DNS（如 DoH）时优先使用，伪造域名也能解析
-                    (lookupServerAddress(domain, group.proxyServerNameserver, SagerNet.underlyingNetwork)
+                    // 测试不受 IPv6 模式限制（测速构建同样固定为启用），IPv4 优先
+                    (lookupServerAddress(
+                        domain, group.proxyServerNameserver, SagerNet.underlyingNetwork, IPv6Mode.ENABLE
+                    )
                         .firstOrNull()?.hostAddress ?: domain).also { mine.complete(it) }
                 } catch (e: Throwable) {
                     // 取消或意外异常都要让等待者拿到同一结果，否则它们会一直挂着
