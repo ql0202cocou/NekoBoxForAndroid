@@ -4,6 +4,7 @@ import io.nekohasekai.sagernet.*
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.ProxyGroup
+import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.SubscriptionBean
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.ClashImportException
@@ -156,11 +157,15 @@ abstract class GroupUpdater {
 
                         val connected = ServiceRegistry.state.connected
                         val userInterface = GroupManager.userInterface
-                        val subscription = proxyGroup.subscription
+                        // 调用方传入的可能是界面里的旧对象（或自动更新排队时读的快照）：
+                        // 订阅身份以拿到更新锁后读到的当前行为准，读不到（已删除）时沿用传入的，
+                        // 由写库事务报告分组已删除
+                        val group = SagerDatabase.groupDao.getById(proxyGroup.id) ?: proxyGroup
+                        val subscription = group.subscription
                         if (subscription == null) {
                             // a corrupted backup restore can leave a subscription group without one
                             Logs.w("Group ${proxyGroup.id} has no subscription")
-                            userInterface?.onUpdateFailure(proxyGroup, "group has no subscription", null)
+                            userInterface?.onUpdateFailure(group, "group has no subscription", null)
                             return@coroutineScope false
                         }
 
@@ -171,25 +176,31 @@ abstract class GroupUpdater {
                         }
 
                         try {
-                            RawUpdater.doUpdate(proxyGroup, subscription, userInterface, byUser)
+                            RawUpdater.doUpdate(group, subscription, userInterface, byUser)
                             true
                         } catch (e: CancellationException) {
                             // don't swallow cancellation (nor report it as a failure)
                             throw e
+                        } catch (e: SubscriptionSupersededException) {
+                            // 下载期间订阅被改了，结果已整体放弃：既不是失败也不是取消。
+                            // 只告诉手动更新的用户一声，自动更新静默跳过，下个周期按新订阅更新
+                            Logs.d(e.message ?: "subscription superseded")
+                            if (byUser) userInterface?.onUpdateSuperseded(group)
+                            false
                         } catch (e: SubscriptionFoundException) {
                             // 订阅内容本身是订阅导入链接（clash://install-config /
                             // sn://subscription），该异常没有 message，直接展示会
                             // 退化成裸类名，换成本地化提示
                             Logs.w(e)
                             userInterface?.onUpdateFailure(
-                                proxyGroup, app.getString(R.string.subscription_is_link), null
+                                group, app.getString(R.string.subscription_is_link), null
                             )
                             false
                         } catch (e: Throwable) {
                             Logs.w(e)
                             // Clash 订阅一个节点都没导入时，异常带着汇总（哪些节点因何被跳过），一并交给界面
                             userInterface?.onUpdateFailure(
-                                proxyGroup, e.readableMessage, (e as? ClashImportException)?.summary
+                                group, e.readableMessage, (e as? ClashImportException)?.summary
                             )
                             false
                         }

@@ -50,6 +50,9 @@ object RawUpdater : GroupUpdater() {
         byUser: Boolean
     ) {
 
+        // 下载开始时的订阅身份：写库事务开头与分组当前行比对，期间被改成别的订阅就放弃整次结果。
+        // 必须在下面对 proxyGroup 的任何改写之前取
+        val startedIdentity = proxyGroup.subscriptionIdentity()
         val link = subscription.link
         var proxies: List<AbstractBean>
         var clashRoot: Map<*, *>? = null
@@ -280,8 +283,13 @@ object RawUpdater : GroupUpdater() {
         // 通知 UI 的回调（finishUpdate / onUpdateSuccess）必须留在事务外
         SagerDatabase.instance.runInTransaction {
             // 下载期间分组可能已被删除，继续写入会留下指向不存在分组的孤儿节点
-            if (SagerDatabase.groupDao.getById(proxyGroup.id) == null) {
-                error("Group ${proxyGroup.id} was deleted during the update")
+            val currentGroup = SagerDatabase.groupDao.getById(proxyGroup.id)
+                ?: error("Group ${proxyGroup.id} was deleted during the update")
+            // 编辑器保存不拿更新锁，自动更新又在另一个进程里跑：只能在事务里比对。
+            // 订阅被改过就整次放弃（回滚，不写节点也不写 lastUpdated），否则旧订阅的
+            // 节点会写进已改成新订阅的分组，旧的 lastUpdated 还会推迟新订阅的首次自动更新
+            if (isSubscriptionSuperseded(startedIdentity, currentGroup)) {
+                throw SubscriptionSupersededException(proxyGroup.id)
             }
 
             SagerDatabase.proxyDao.insert(toInsert)

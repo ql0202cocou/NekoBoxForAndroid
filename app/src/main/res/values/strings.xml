@@ -38,6 +38,7 @@
     <string name="group_status_proxies">%d Proxies</string>
     <string name="group_status_proxies_subscription">%d Proxies | Updated on %s</string>
     <string name="group_no_difference">%s: No difference</string>
+    <string name="group_update_superseded">%s: the subscription was changed during the update; this result was discarded. Update again to use the new settings.</string>
     <string name="group_updated">%s: Updated %d proxies</string>
     <string name="group_diff">Diff (%s)</string>
     <string name="group_added">Added: \n%s</string>
@@ -425,6 +426,7 @@
     <string name="share_invalid_endpoint">Cannot share \"%s\": invalid server address or port</string>
     <string name="share_links_skipped">Skipped nodes that cannot be shared: %d</string>
     <string name="invalid_subscription_url">Invalid subscription URL: only http(s) links can be imported</string>
+    <string name="invalid_subscription_link_input">Invalid subscription link: enter an http(s) link, or pick a local file</string>
     <string name="backup_import">Import</string>
     <string name="backup_import_summary">Importing will overwrite the existing data.</string>
     <string name="backup_importing">Importing…</string>

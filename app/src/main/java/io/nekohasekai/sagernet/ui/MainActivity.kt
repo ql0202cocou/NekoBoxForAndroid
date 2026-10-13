@@ -5,7 +5,6 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import androidx.core.net.toUri
 import android.os.Build
 import android.os.Bundle
 import android.os.Parcelable
@@ -52,6 +51,7 @@ import io.nekohasekai.sagernet.group.IMPORT_PREVIEW_NAME_MAX
 import io.nekohasekai.sagernet.group.SubscriptionPreset
 import io.nekohasekai.sagernet.group.subscriptionPresets
 import io.nekohasekai.sagernet.group.truncateForDisplay
+import io.nekohasekai.sagernet.group.isHttpSubscriptionLink
 import io.nekohasekai.sagernet.ktx.alert
 import io.nekohasekai.sagernet.ktx.isPreview
 import io.nekohasekai.sagernet.ktx.launchCustomTab
@@ -225,8 +225,7 @@ class MainActivity : ThemedActivity(),
         // 选择的文件使用，不能由外部链接指定
         val link = group.subscription?.link
         if (!link.isNullOrBlank()) {
-            val scheme = link.toUri().scheme?.lowercase()
-            if (scheme != "http" && scheme != "https") {
+            if (!isHttpSubscriptionLink(link)) {
                 onLiveActivity {
                     alert(getString(R.string.invalid_subscription_url)).show()
                 }

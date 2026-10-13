@@ -138,6 +138,14 @@ class GroupInterfaceAdapter(val context: ThemedActivity) : GroupManager.Interfac
         }
     }
 
+    override suspend fun onUpdateSuperseded(group: ProxyGroup) {
+        onMainDispatcher {
+            if (!context.isFinishing && !context.isDestroyed) {
+                context.snackbar(context.getString(R.string.group_update_superseded, group.displayName())).show()
+            }
+        }
+    }
+
     override suspend fun alert(message: String) = showDialog(Unit) { cont ->
         setTitle(R.string.ooc_warning)
             .setMessage(message)

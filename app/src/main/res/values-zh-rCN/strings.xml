@@ -24,6 +24,7 @@
     <string name="group_status_proxies">%d 个配置</string>
     <string name="group_status_proxies_subscription">%d 个配置 | 更新于 %s</string>
     <string name="group_no_difference">%s: 没有变化</string>
+    <string name="group_update_superseded">%s：更新期间订阅设置已被修改，本次结果已放弃，请重新更新以使用新设置。</string>
     <string name="group_updated">%s: 更新了 %d 个节点</string>
     <string name="group_added">新增:
         \n%s</string>
@@ -440,6 +441,7 @@
     <string name="share_invalid_endpoint">节点「%s」的地址或端口无效，无法分享</string>
     <string name="share_links_skipped">已跳过 %d 个无法分享的节点</string>
     <string name="invalid_subscription_url">订阅地址无效：只能导入 http(s) 链接</string>
+    <string name="invalid_subscription_link_input">订阅链接无效：请填写 http(s) 链接，或选择本地文件</string>
     <string name="more_options">更多选项</string>
     <string name="redo">重做</string>
     <string name="insert_tab">插入制表符</string>

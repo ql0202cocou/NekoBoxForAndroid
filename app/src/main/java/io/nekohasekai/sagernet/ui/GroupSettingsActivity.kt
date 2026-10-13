@@ -19,6 +19,7 @@ import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.*
 import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
+import io.nekohasekai.sagernet.group.isEditableSubscriptionLink
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
@@ -89,7 +90,7 @@ class GroupSettingsActivity(
         val isSubscription = type == GroupType.SUBSCRIPTION
         if (isSubscription) {
             subscription = (subscription ?: SubscriptionBean().applyDefaultValues()).apply {
-                link = EditorCache.subscriptionLink
+                link = EditorCache.subscriptionLink.trim()
                 forceResolve = EditorCache.subscriptionForceResolve
                 deduplication = EditorCache.subscriptionDeduplication
                 updateWhenConnectedOnly = EditorCache.subscriptionUpdateWhenConnectedOnly
@@ -102,6 +103,13 @@ class GroupSettingsActivity(
     }
 
     fun needSave() = EditorCache.dirty
+
+    // 订阅分组的链接为空时保持原行为（可以先建分组再填）；非空则必须是 http(s) 或选择文件得到的 content://
+    private fun subscriptionLinkAcceptable(): Boolean {
+        if (EditorCache.groupType != GroupType.SUBSCRIPTION) return true
+        val link = EditorCache.subscriptionLink.trim()
+        return link.isEmpty() || isEditableSubscriptionLink(link)
+    }
 
     override fun PreferenceFragmentCompat.createPreferences(
         savedInstanceState: Bundle?,
@@ -266,6 +274,15 @@ class GroupSettingsActivity(
     override suspend fun save() {
 
         val editingId = EditorCache.editingId
+        // 真要写库时才校验链接：没改动就退出的旧分组不被历史遗留的值拦住
+        if ((editingId == 0L || needSave()) && !subscriptionLinkAcceptable()) {
+            onMainDispatcher {
+                Toast.makeText(
+                    this@GroupSettingsActivity, R.string.invalid_subscription_link_input, Toast.LENGTH_LONG
+                ).show()
+            }
+            return
+        }
         if (editingId == 0L) {
             GroupManager.createGroup(ProxyGroup().apply { serialize() })
         } else if (needSave()) {
@@ -276,7 +293,7 @@ class GroupSettingsActivity(
             }
             val keepUserInfo = (entity.type == GroupType.SUBSCRIPTION &&
                     EditorCache.groupType == GroupType.SUBSCRIPTION &&
-                    entity.subscription?.link == EditorCache.subscriptionLink)
+                    entity.subscription?.link == EditorCache.subscriptionLink.trim())
             if (!keepUserInfo) {
                 entity.subscription?.subscriptionUserinfo = "";
                 // 链接或类型变了就按新订阅对待：不重置 lastUpdated 的话，
