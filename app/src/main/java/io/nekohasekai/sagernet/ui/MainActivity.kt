@@ -25,7 +25,6 @@ import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.transition.MaterialFadeThrough
 import com.google.android.material.transition.MaterialSharedAxis
 import io.nekohasekai.sagernet.BuildConfig
-import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
@@ -37,32 +36,15 @@ import io.nekohasekai.sagernet.bg.SagerConnection
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.ProfileManager
-import io.nekohasekai.sagernet.database.ProxyGroup
-import io.nekohasekai.sagernet.database.SubscriptionBean
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.databinding.LayoutMainBinding
-import io.nekohasekai.sagernet.fmt.AbstractBean
-import io.nekohasekai.sagernet.fmt.KryoConverters
 import io.nekohasekai.sagernet.fmt.PluginEntry
 import io.nekohasekai.sagernet.group.GroupInterfaceAdapter
-import io.nekohasekai.sagernet.group.GroupUpdater
-import io.nekohasekai.sagernet.group.IMPORT_PREVIEW_LINK_MAX
-import io.nekohasekai.sagernet.group.IMPORT_PREVIEW_NAME_MAX
-import io.nekohasekai.sagernet.group.SubscriptionPreset
-import io.nekohasekai.sagernet.group.subscriptionPresets
-import io.nekohasekai.sagernet.group.truncateForDisplay
-import io.nekohasekai.sagernet.group.isHttpSubscriptionLink
-import io.nekohasekai.sagernet.ktx.alert
 import io.nekohasekai.sagernet.ktx.isPreview
-import io.nekohasekai.sagernet.ktx.launchCustomTab
 import io.nekohasekai.sagernet.ktx.motionDuration
-import io.nekohasekai.sagernet.ktx.onMainDispatcher
-import io.nekohasekai.sagernet.ktx.parseProxies
-import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.widget.safeDrawingTypes
 import io.nekohasekai.sagernet.widget.systemBarMargins
-import moe.matsuri.nb4a.utils.Util
 import io.nekohasekai.sagernet.bg.ServiceRegistry
 
 /**
@@ -185,140 +167,12 @@ class MainActivity : ThemedActivity(),
         return service.urlTest()
     }
 
-    // 导入链跑在 appScope（深链、配置页的剪贴板 / 文件导入都会进来），解析期间
-    // 旋转或退出后 Activity 已销毁：再弹窗会 BadTokenException，提交 Fragment 会抛
-    // "Activity has been destroyed"。这时放弃界面部分，已写库的导入不受影响
-    private suspend fun onLiveActivity(block: () -> Unit) = onMainDispatcher {
-        if (!isFinishing && !isDestroyed) block()
-    }
+    // 导入流程（深链、配置页的剪贴板 / 文件导入）在 MainImporter 里
+    private val importer = MainImporter(this)
 
-    suspend fun importSubscription(uri: Uri) {
-        val group: ProxyGroup
+    suspend fun importSubscription(uri: Uri) = importer.importSubscription(uri)
 
-        val url = uri.getQueryParameter("url")
-        if (!url.isNullOrBlank()) {
-            group = ProxyGroup(type = GroupType.SUBSCRIPTION)
-            val subscription = SubscriptionBean()
-            group.subscription = subscription
-
-            // cleartext format
-            subscription.link = url
-            group.name = uri.getQueryParameter("name")
-        } else {
-            val data = uri.encodedQuery.takeIf { !it.isNullOrBlank() } ?: return
-            try {
-                group = KryoConverters.deserialize(
-                    ProxyGroup().apply { export = true }, Util.zlibDecompress(Util.b64Decode(data))
-                ).apply {
-                    export = false
-                }
-            } catch (e: Exception) {
-                onLiveActivity {
-                    alert(e.readableMessage).show()
-                }
-                return
-            }
-        }
-
-        // 两种形态（?url= 明文与编码的分组）汇合后统一校验：深链由外部网页 / 应用
-        // 发起，订阅地址只接受 http(s)。content:// 等本地来源只供用户在应用内自己
-        // 选择的文件使用，不能由外部链接指定
-        val link = group.subscription?.link
-        if (!link.isNullOrBlank()) {
-            if (!isHttpSubscriptionLink(link)) {
-                onLiveActivity {
-                    alert(getString(R.string.invalid_subscription_url)).show()
-                }
-                return
-            }
-        }
-
-        val name = group.name.takeIf { !it.isNullOrBlank() } ?: link
-        ?: group.subscription?.token
-        if (name.isNullOrBlank()) return
-
-        group.name = group.name.takeIf { !it.isNullOrBlank() }
-            ?: ("Subscription #" + System.currentTimeMillis())
-
-        onLiveActivity {
-
-            displayFragmentWithId(R.id.nav_group)
-
-            // 深链内容来自外部且可能极长：确认框里的名称、链接与预设值先截断再显示，
-            // 导入的仍是完整值
-            val message = getString(
-                R.string.subscription_import_message, truncateForDisplay(name, IMPORT_PREVIEW_NAME_MAX)
-            )
-            val presets = subscriptionPresets(
-                group.proxyServerNameserver, group.subscription?.forceResolve, group.subscription?.customUserAgent
-            ).joinToString("\n") { (field, value) ->
-                val label = when (field) {
-                    SubscriptionPreset.PROXY_SERVER_NAMESERVER -> getString(R.string.proxy_server_nameserver)
-                    SubscriptionPreset.FORCE_RESOLVE -> getString(R.string.force_resolve)
-                    SubscriptionPreset.CUSTOM_USER_AGENT -> getString(R.string.subscription_user_agent)
-                }
-                "$label: $value"
-            }
-            val shownLink = link?.takeIf { it.isNotBlank() }?.let { truncateForDisplay(it, IMPORT_PREVIEW_LINK_MAX) }
-            val details = listOfNotNull(
-                shownLink,
-                presets.takeIf { it.isNotEmpty() }?.let { getString(R.string.subscription_import_presets) + "\n" + it },
-            ).joinToString("\n\n")
-
-            MaterialAlertDialogBuilder(this@MainActivity).setTitle(R.string.subscription_import)
-                .setMessage(if (details.isNotEmpty()) "$message\n\n$details" else message)
-                .setPositiveButton(R.string.yes) { _, _ ->
-                    runOnDefaultDispatcher {
-                        finishImportSubscription(group)
-                    }
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
-
-        }
-
-    }
-
-    private suspend fun finishImportSubscription(subscription: ProxyGroup) {
-        GroupManager.createGroup(subscription)
-        GroupUpdater.startUpdate(subscription, true)
-    }
-
-    suspend fun importProfile(uri: Uri) {
-        val profile = try {
-            parseProxies(uri.toString()).getOrNull(0) ?: error(getString(R.string.no_proxies_found))
-        } catch (e: Exception) {
-            onLiveActivity {
-                alert(e.readableMessage).show()
-            }
-            return
-        }
-
-        onLiveActivity {
-            MaterialAlertDialogBuilder(this@MainActivity).setTitle(R.string.profile_import)
-                .setMessage(getString(R.string.profile_import_message, profile.displayName()))
-                .setPositiveButton(R.string.yes) { _, _ ->
-                    runOnDefaultDispatcher {
-                        finishImportProfile(profile)
-                    }
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
-        }
-
-    }
-
-    private suspend fun finishImportProfile(profile: AbstractBean) {
-        val targetId = GroupManager.selectedGroupForImport()
-
-        ProfileManager.createProfile(targetId, profile)
-
-        onLiveActivity {
-            displayFragmentWithId(R.id.nav_configuration)
-
-            snackbar(resources.getQuantityString(R.plurals.added, 1, 1)).show()
-        }
-    }
+    suspend fun importProfile(uri: Uri) = importer.importProfile(uri)
 
     override fun missingPlugin(profileName: String, pluginName: String) {
         val pluginEntity = PluginEntry.find(pluginName)
@@ -338,38 +192,9 @@ class MainActivity : ThemedActivity(),
                 )
             )
             .setPositiveButton(R.string.action_download) { _, _ ->
-                showDownloadDialog(pluginEntity)
+                showPluginDownloadDialog(pluginEntity)
             }
             .setNeutralButton(android.R.string.cancel, null)
-            .show()
-    }
-
-    private fun showDownloadDialog(pluginEntry: PluginEntry) {
-        var index = 0
-        var playIndex = -1
-        var fdroidIndex = -1
-
-        val items = mutableListOf<String>()
-        if (pluginEntry.downloadSource.playStore) {
-            items.add(getString(R.string.install_from_play_store))
-            playIndex = index++
-        }
-        if (pluginEntry.downloadSource.fdroid) {
-            items.add(getString(R.string.install_from_fdroid))
-            fdroidIndex = index++
-        }
-
-        items.add(getString(R.string.download))
-        val downloadIndex = index
-
-        MaterialAlertDialogBuilder(this).setTitle(pluginEntry.name)
-            .setItems(items.toTypedArray()) { _, which ->
-                when (which) {
-                    playIndex -> launchCustomTab("https://play.google.com/store/apps/details?id=${pluginEntry.packageName}")
-                    fdroidIndex -> launchCustomTab("https://f-droid.org/packages/${pluginEntry.packageName}/")
-                    downloadIndex -> launchCustomTab(pluginEntry.downloadSource.downloadLink)
-                }
-            }
             .show()
     }
 
