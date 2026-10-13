@@ -4,6 +4,7 @@ import android.util.Base64
 import io.nekohasekai.sagernet.fmt.ExternalDialTarget
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.fmt.buildSingBoxOutboundTLS
+import io.nekohasekai.sagernet.fmt.shownSingBoxValue
 import io.nekohasekai.sagernet.ktx.*
 import moe.matsuri.nb4a.SingBoxOptions
 import moe.matsuri.nb4a.utils.JavaUtil.gson
@@ -277,7 +278,8 @@ fun JSONObject.parseHysteria2Json(): HysteriaBean {
             if (type == null || type == "salamander") {
                 obfuscation = obfs.getStr("password")
             } else {
-                Logs.w("unsupported hysteria2 obfs type $type, dropped")
+                // 值来自远端，只有形态合格才回显
+                Logs.w("unsupported hysteria2 obfs type ${shownSingBoxValue(type)}, dropped")
             }
         }
         optJSONObject("tls")?.apply {

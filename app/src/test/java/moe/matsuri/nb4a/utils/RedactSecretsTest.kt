@@ -507,4 +507,15 @@ class RedactSecretsTest {
         assertFalse(redacted.contains("secret-1"))
         assertFalse(redacted.contains("lorem ipsum"))
     }
+
+    // 超长的敏感值：JSON_STRING 不能按字符递归回溯（JVM 默认栈上约 1 万字符就 StackOverflowError）
+    @Test
+    fun veryLongJsonValueIsMaskedWithoutStackOverflow() {
+        val secret = "ab\\\"c".repeat(50_000)
+        val input = "{\"type\":\"trojan\",\"password\":\"$secret\",\"server\":\"example.com\"}"
+        val redacted = Util.redactSecrets(input)
+        assertFalse(redacted.contains("abc"))
+        assertFalse(redacted.contains(secret.take(100)))
+        assertTrue(redacted.contains("example.com"))
+    }
 }

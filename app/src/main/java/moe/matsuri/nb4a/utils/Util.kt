@@ -198,8 +198,9 @@ object Util {
         "short_id", "shortId", "private_key_passphrase",
     )
 
-    // 一个 JSON 字符串字面量（结尾的 ["] 就是引号：raw string 不能以 " 结尾）
-    private const val JSON_STRING = """"(?:\\.|[^"\\])*["]"""
+    // 一个 JSON 字符串字面量（结尾的 ["] 就是引号：raw string 不能以 " 结尾）。
+    // 用占有型量词：两个分支首字符互斥，本来就只有一种切分，不回溯；回溯式的 (?:a|b)* 按字符递归，长值会 StackOverflowError
+    private const val JSON_STRING = """"(?:[^"\\]++|\\.)*+["]"""
 
     // JSON 的一个标量值：字符串，或数字 / true / false / null
     private const val JSON_SCALAR = """(?:$JSON_STRING|[^\s,{}\[\]"]+)"""

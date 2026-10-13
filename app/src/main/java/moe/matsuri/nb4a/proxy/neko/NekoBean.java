@@ -48,7 +48,8 @@ public class NekoBean extends AbstractBean {
             ret = new JSONObject(input);
         } catch (Exception e) {
             ret = new JSONObject();
-            Logs.INSTANCE.e(e);
+            // JSONException 的消息带输入全文（可能含节点凭据），只记异常类型
+            Logs.INSTANCE.e("NekoBean: invalid sharedStorage JSON (" + e.getClass().getSimpleName() + ")");
         }
         return ret;
     }
