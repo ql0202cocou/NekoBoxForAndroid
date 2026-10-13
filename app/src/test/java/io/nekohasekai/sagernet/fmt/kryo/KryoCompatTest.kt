@@ -1,10 +1,8 @@
 package io.nekohasekai.sagernet.fmt.kryo
 
 import io.nekohasekai.sagernet.database.ProxyEntity
-import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.fmt.kryo.KryoSamples.Sample
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
-import io.nekohasekai.sagernet.ktx.byteBuffer
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -95,23 +93,33 @@ class KryoCompatTest {
     }
 
     @Test
-    fun `样本登记的版本号与字节开头一致`() {
-        // 防止手工改样本时把 versions 写错：从样本字节开头重新取各层版本号（叶子类在前）
+    fun `样本登记的各层版本号与字节里实际写入的一致`() {
+        // 防止手工改样本时把 versions 写错：从样本字节里重新取每一层（含 AbstractBean 的 extraVersion、
+        // 实体里嵌的 bean、分组里嵌的订阅）实际写入的版本号，与登记的逐层、逐键比对
         val failures = ArrayList<String>()
+        var nested = 0
         for (sample in KryoSamples.samples) {
-            val head = when {
-                sample.className == ProxyEntity::class.java.name -> listOf("ProxyEntity")
-                sample.className == ProxyGroup::class.java.name ->
-                    listOf(if (sample.form == "share") "ProxyGroup.export" else "ProxyGroup")
-
-                else -> KryoSamples.layersOf(sample.className).filter { it != "AbstractBean" }
-            }
-            val input = sample.bytes.byteBuffer()
-            for (layer in head) {
-                val v = input.readInt()
-                if (sample.versions[layer] != v) failures += "${sample.id}：字节里 $layer 的版本号是 $v，样本登记的是 ${sample.versions[layer]}"
+            try {
+                val nestedBean = if (sample.className == ProxyEntity::class.java.name) {
+                    (KryoSamples.read(sample) as ProxyEntity).requireBean().javaClass.name
+                } else {
+                    null
+                }
+                val actual = KryoSamples.versionsInBytes(sample.className, sample.form, sample.bytes, nestedBean)
+                for ((layer, v) in actual) {
+                    val registered = sample.versions[layer]
+                    if (registered != v) failures += "${sample.id}：字节里 $layer 的版本号是 $v，样本登记的是 $registered"
+                }
+                for (layer in sample.versions.keys - actual.keys) {
+                    failures += "${sample.id}：样本登记了 $layer 层，字节里没有这一层"
+                }
+                // 第一层之外的版本号（extraVersion、嵌套的 bean / 订阅）都参与了比对
+                nested += actual.size - 1
+            } catch (e: Exception) {
+                failures += "${sample.id}：从字节取版本号抛出 $e"
             }
         }
+        assertTrue("没有比对到任何嵌套层", nested > 100)
         check(failures)
     }
 }

@@ -1,6 +1,5 @@
 package io.nekohasekai.sagernet.fmt.kryo
 
-import com.esotericsoftware.kryo.io.ByteBufferOutput
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
@@ -12,7 +11,6 @@ import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.KryoConverters
 import io.nekohasekai.sagernet.fmt.Serializable
 import io.nekohasekai.sagernet.ktx.byteBuffer
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.lang.reflect.Modifier
 import java.util.Base64
@@ -68,52 +66,74 @@ object KryoSamples {
 
     fun write(obj: Serializable): ByteArray = KryoConverters.serialize(obj)
 
-    // ---- 从当前实现写出的字节里取各层版本号
+    // ---- 从字节里取各层实际写入的版本号
 
+    // 当前实现写出该对象后，从写出的字节里取各层版本号
     fun versionsOf(obj: Serializable): Map<String, Int> {
-        val bytes = write(obj)
-        return when (obj) {
-            is AbstractBean -> beanVersions(obj, bytes)
-            is SubscriptionBean -> mapOf("SubscriptionBean" to bytes.byteBuffer().readInt())
-            is ProxyEntity -> mapOf("ProxyEntity" to bytes.byteBuffer().readInt()) + beanVersions(obj.requireBean())
-            is ProxyGroup -> {
-                val input = bytes.byteBuffer()
-                if (obj.export) {
-                    val version = input.readInt()
-                    input.readString() // name
-                    input.readInt() // type
-                    mapOf("ProxyGroup.export" to version, "SubscriptionBean.share" to input.readInt())
-                } else {
-                    val version = input.readInt()
-                    if (obj.type != GroupType.SUBSCRIPTION) return mapOf("ProxyGroup" to version)
-                    input.readLong() // id
-                    input.readLong() // userOrder
-                    input.readBoolean() // ungrouped
-                    input.readString() // name
-                    input.readInt() // type
-                    mapOf("ProxyGroup" to version, "SubscriptionBean" to input.readInt())
-                }
+        val form = if (obj is ProxyGroup && obj.export) "share" else "storage"
+        val nested = (obj as? ProxyEntity)?.requireBean()?.javaClass?.name
+        return versionsInBytes(obj.javaClass.name, form, write(obj), nested)
+    }
+
+    // 从字节里读出每一层（含嵌套的 bean / 订阅）实际写入的版本号，键与样本的 versions 相同：
+    // - bean：每层先写自己的版本号（叶子在前，位置固定），AbstractBean 的 extraVersion 紧跟在
+    //   serialize() 写出的部分之后，位置由当前实现的 deserialize 读到的末尾给出；
+    // - ProxyEntity：版本号之后是定长 / 字符串字段，再是带 varint 长度的 bean 字节，嵌套 bean 按其类读；
+    // - ProxyGroup：版本号、基本字段之后才是订阅（存储格式只有订阅型分组才写）。
+    // nestedBeanClass 只在 className 为 ProxyEntity 时需要（实体里嵌的 bean 类）
+    fun versionsInBytes(className: String, form: String, bytes: ByteArray, nestedBeanClass: String? = null): Map<String, Int> {
+        val input = bytes.byteBuffer()
+        return when (className) {
+            SubscriptionBean::class.java.name -> mapOf("SubscriptionBean" to input.readInt())
+            ProxyEntity::class.java.name -> {
+                val version = input.readInt()
+                input.readLong() // id
+                input.readLong() // groupId
+                input.readInt() // type
+                input.readLong() // userOrder
+                input.readLong() // tx
+                input.readLong() // rx
+                input.readInt() // status
+                input.readInt() // ping
+                input.readString() // uuid
+                input.readString() // error
+                val bean = input.readBytes(input.readVarInt(true))
+                mapOf("ProxyEntity" to version) +
+                    beanVersionsInBytes(requireNotNull(nestedBeanClass) { "ProxyEntity 需要嵌套 bean 的类" }, bean)
             }
 
-            else -> error("未登记的类型 ${obj.javaClass.name}")
+            ProxyGroup::class.java.name -> if (form == "share") {
+                val version = input.readInt()
+                input.readString() // name
+                input.readInt() // type
+                mapOf("ProxyGroup.export" to version, "SubscriptionBean.share" to input.readInt())
+            } else {
+                val version = input.readInt()
+                input.readLong() // id
+                input.readLong() // userOrder
+                input.readBoolean() // ungrouped
+                input.readString() // name
+                val type = input.readInt()
+                if (type != GroupType.SUBSCRIPTION) mapOf("ProxyGroup" to version)
+                else mapOf("ProxyGroup" to version, "SubscriptionBean" to input.readInt())
+            }
+
+            else -> beanVersionsInBytes(className, bytes)
         }
     }
 
-    private fun beanVersions(bean: AbstractBean, bytes: ByteArray = write(bean)): Map<String, Int> {
+    private fun beanVersionsInBytes(className: String, bytes: ByteArray): Map<String, Int> {
         val out = LinkedHashMap<String, Int>()
-        val input = bytes.byteBuffer()
-        for (layer in layersOf(bean.javaClass.name)) {
+        val head = bytes.byteBuffer()
+        for (layer in layersOf(className)) {
             if (layer == "AbstractBean") continue
-            out[layer] = input.readInt()
+            out[layer] = head.readInt()
         }
-        // extraVersion 紧跟在 serialize() 写出的部分之后
-        val part = ByteArrayOutputStream()
-        val output = ByteBufferOutput(part)
-        bean.serialize(output)
-        output.flush()
-        val extra = bytes.byteBuffer()
-        extra.setPosition(part.size())
-        out["AbstractBean"] = extra.readInt()
+        // extraVersion 紧跟在 deserialize() 读完的位置（与 AbstractBean.deserializeFromBuffer 的顺序一致）
+        val bean = Class.forName(className).getDeclaredConstructor().newInstance() as AbstractBean
+        val body = bytes.byteBuffer()
+        bean.deserialize(body)
+        out["AbstractBean"] = body.readInt()
         return out
     }
 

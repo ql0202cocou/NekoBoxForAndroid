@@ -29,7 +29,8 @@
     读每个样本，所有字段与 `expected` 一致；
   - 读进来的对象用当前实现再写出：各层版本号都是 `registry.json` 登记的当前值，再读回来字段仍与 `expected` 一致；
   - `current` 样本读进来再写出，字节完全相同；
-  - 样本里登记的 `versions` 与字节开头的版本号一致；
+  - 样本里登记的 `versions` 与字节里实际写入的各层版本号逐层一致（含 AbstractBean 的 extraVersion、实体里嵌的 bean、
+    分组里嵌的订阅；多登记或少登记一层也失败）；
   - StandardV2Ray 层版本号 < 7 的样本读出后 bean 的 `legacyUnlabeled`（transient，不进字节、不参与字段比较）为真，
     v7 样本为假，重新写出再读回为假。
 - `KryoCoverageTest`
