@@ -33,19 +33,6 @@ fun Project.metadata(key: String): String = requireNotNull(requireMetadata().get
     "$key is missing in nb4a.properties"
 }
 
-// preview 包的版本名 pre-<VERSION_NAME>-<git 短哈希>，由构建时生成、不再手填；
-// 取不到 git（如无 .git 的源码包）时退化为 pre-<VERSION_NAME>
-fun Project.preVersionName(): String {
-    val hash = runCatching {
-        providers.exec {
-            commandLine("git", "rev-parse", "--short", "HEAD")
-            isIgnoreExitValue = true
-        }.standardOutput.asText.get().trim()
-    }.getOrDefault("")
-    val verName = metadata("VERSION_NAME")
-    return if (hash.isEmpty()) "pre-$verName" else "pre-$verName-$hash"
-}
-
 fun Project.requireLocalProperties(): Properties = Properties().apply {
     val base64 = System.getenv("LOCAL_PROPERTIES")
     if (!base64.isNullOrBlank()) {
@@ -163,13 +150,11 @@ fun Project.setupApp() {
     val pkgName = metadata("PACKAGE_NAME")
     val verName = metadata("VERSION_NAME")
     val verCode = metadata("VERSION_CODE").toInt() * 5
-    val preVerName = preVersionName()
     android.apply {
         defaultConfig {
             applicationId = pkgName
             versionCode = verCode
             versionName = verName
-            buildConfigField("String", "PRE_VERSION_NAME", "\"\"")
         }
     }
     setupAppCommon()
@@ -195,9 +180,6 @@ fun Project.setupApp() {
         flavorDimensions += "vendor"
         productFlavors {
             create("oss")
-            create("preview") {
-                buildConfigField("String", "PRE_VERSION_NAME", "\"$preVerName\"")
-            }
         }
 
         sourceSets.getByName("main").apply {
@@ -225,10 +207,7 @@ fun Project.setupApp() {
     extensions.getByName<ApplicationAndroidComponentsExtension>("androidComponents").onVariants { variant ->
         val rename = tasks.register<RenameApksTask>("rename${variant.name.replaceFirstChar { it.uppercase() }}Apks") {
             projectName.set(project.name)
-            newBaseName.set(
-                if (variant.flavorName == "preview") "NekoBox-$preVerName"
-                else "NekoBox-$verName"
-            )
+            newBaseName.set("NekoBox-$verName")
         }
         val request = variant.artifacts.use(rename)
             .wiredWithDirectories(RenameApksTask::inputDir, RenameApksTask::outputDir)
@@ -255,11 +234,10 @@ abstract class RenameApksTask : DefaultTask() {
 
     @TaskAction
     fun run() {
-        // app-oss-arm64-v8a-release.apk -> NekoBox-<ver>-arm64-v8a.apk (preview: NekoBox-<pre>-arm64-v8a.apk)
+        // app-oss-arm64-v8a-release.apk -> NekoBox-<ver>-arm64-v8a.apk
         transformationRequest.get().submit(this) { artifact ->
             val input = File(artifact.outputFile)
             val name = input.name.replace(projectName.get(), newBaseName.get())
-                .replace("-preview", "")
                 .replace("-release", "")
                 .replace("-oss", "")
             val output = File(outputDir.get().asFile, name)

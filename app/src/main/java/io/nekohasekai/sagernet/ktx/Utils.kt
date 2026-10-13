@@ -347,7 +347,6 @@ fun Context.getColorAttr(@AttrRes resId: Int): Int {
 }
 
 const val isOss = BuildConfig.FLAVOR == "oss"
-const val isPreview = BuildConfig.FLAVOR == "preview"
 
 fun <T> Continuation<T>.tryResume(value: T) {
     try {

@@ -31,7 +31,6 @@ import io.nekohasekai.sagernet.database.InstallMarker
 import io.nekohasekai.sagernet.database.RestoreJournal
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.isOss
-import io.nekohasekai.sagernet.ktx.isPreview
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.deleteSharedBackups
 import io.nekohasekai.sagernet.ui.MainActivity
@@ -367,9 +366,7 @@ class SagerNet : Application(),
 
         var appVersionNameForDisplay = {
             var n = BuildConfig.VERSION_NAME
-            if (isPreview) {
-                n += " " + BuildConfig.PRE_VERSION_NAME
-            } else if (!isOss) {
+            if (!isOss) {
                 n += " ${BuildConfig.FLAVOR}"
             }
             if (BuildConfig.DEBUG) {
