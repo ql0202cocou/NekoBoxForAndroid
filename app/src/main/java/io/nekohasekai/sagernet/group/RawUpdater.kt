@@ -294,15 +294,12 @@ object RawUpdater : GroupUpdater() {
 
             SagerDatabase.proxyDao.insert(toInsert)
 
-            // toUpdate holds snapshots read before the download/resolve; a
-            // full-row write would roll back status/ping/error/tx/rx updates
-            // (URL tests, traffic persist) that landed meanwhile. Re-read each
-            // row inside the transaction and merge only updater-owned fields
-            // (userOrder and the bean content).
+            // toUpdate 是下载 / 解析之前读的快照，整行写回会把这期间落库的 status / ping / error / tx / rx
+            //（测速、流量落库）回滚掉。所以在事务里逐行重读，只写回订阅更新负责的列：配置列（type / core /
+            // 各 bean）与 userOrder
             var updatedCount = 0
             for (entity in toUpdate) {
                 val current = SagerDatabase.proxyDao.getById(entity.id) ?: continue
-                current.userOrder = entity.userOrder
                 val currentBean = current.requireBean()
                 val updatedBean = entity.requireBean().apply {
                     // Overrides may have been edited during DNS resolution.
@@ -311,7 +308,8 @@ object RawUpdater : GroupUpdater() {
                     customConfigJson = currentBean.customConfigJson
                 }
                 current.replaceSubscriptionBean(updatedBean)
-                updatedCount += SagerDatabase.proxyDao.updateProxy(current)
+                updatedCount += SagerDatabase.proxyDao.updateEditableFields(ProxyEditableFields(current))
+                SagerDatabase.proxyDao.updateOrder(current.id, entity.userOrder)
             }
             Logs.d("Updated profiles: $updatedCount")
 

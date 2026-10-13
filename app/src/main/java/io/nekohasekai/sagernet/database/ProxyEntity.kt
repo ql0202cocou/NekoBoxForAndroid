@@ -266,9 +266,8 @@ data class ProxyEntity(
         @Delete
         fun deleteProxy(proxies: List<ProxyEntity>): Int
 
-        @Update
-        fun updateProxy(proxy: ProxyEntity): Int
-
+        // 没有整行 @Update：整行写回会把快照里的排序 / 流量 / 测试状态列覆盖掉别处刚写的值。
+        // 每一类列只走自己的写入口，归属见 ProxyEntityDaoContractTest
         @Update(entity = ProxyEntity::class)
         fun updateEditableFields(fields: ProxyEditableFields): Int
 
