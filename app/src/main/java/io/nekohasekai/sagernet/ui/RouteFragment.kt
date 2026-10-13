@@ -118,7 +118,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
                 startActivity(Intent(context, RouteSettingsActivity::class.java))
             }
             R.id.action_reset_route -> {
-                activity.confirm(R.string.clear_profiles_message) {
+                activity.confirm(R.string.reset_route_message) {
                     runOnDefaultDispatcher {
                         // 走 ProfileManager 让 RuleListener 收到 onCleared；
                         // 本 adapter 的 onCleared 只清空列表，重建默认规则

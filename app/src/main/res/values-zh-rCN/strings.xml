@@ -257,7 +257,7 @@
     <string name="connection_test">连接测试</string>
     <string name="connection_test_clear_results">清理测试结果</string>
     <string name="connection_test_domain_not_found">域名不存在</string>
-    <string name="connection_test_refused">连接重置</string>
+    <string name="connection_test_refused">连接被拒绝</string>
     <string name="connection_test_timeout">超时</string>
     <string name="connection_test_unreachable">不可达</string>
     <string name="tile_title">开关</string>
@@ -301,6 +301,7 @@
     <string name="subscription_is_link">订阅内容本身是另一个订阅链接，无法更新</string>
     <string name="action_export">导出</string>
     <string name="clear_profiles_message">您确定要清空该分组吗\?</string>
+    <string name="reset_route_message">将路由规则重置为默认规则，现有规则会被删除，是否继续？</string>
     <string name="remote_dns">远程 DNS</string>
     <string name="direct_dns">直连 DNS</string>
     <string name="enable_dns_routing">启用 DNS 路由</string>
@@ -356,7 +357,7 @@
     <string name="backup">备份</string>
     <string name="backup_groups_and_configurations">分组和配置</string>
     <string name="backup_import">导入</string>
-    <string name="backup_summary">如果路由规则与配置一起备份，则自定义出站将丢失。</string>
+    <string name="backup_summary">如果路由规则没有与配置一起备份，则自定义出站将丢失。</string>
     <string name="backup_settings">设置</string>
     <string name="backup_not_file">不是一个备份文件，预期 .json，但 %s</string>
     <string name="backup_rules">路由规则</string>

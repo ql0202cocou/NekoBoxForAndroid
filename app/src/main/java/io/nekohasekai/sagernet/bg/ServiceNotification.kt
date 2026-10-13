@@ -234,7 +234,7 @@ class ServiceNotification(
                     Toast.LENGTH_LONG
                 ).show()
                 owner.stopRunner(
-                    false, "${service.getString(R.string.service_failed)}: ${e.readableMessage}"
+                    false, service.serviceFailedMessage(e.readableMessage)
                 )
             }
         }

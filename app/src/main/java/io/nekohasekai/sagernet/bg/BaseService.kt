@@ -2,6 +2,7 @@ package io.nekohasekai.sagernet.bg
 
 import android.annotation.SuppressLint
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.*
@@ -568,7 +569,7 @@ class BaseService {
                 // 会杀死 :bg 进程，而崩溃后的重启兜底会再次走到这里，形成崩溃循环
                 Logs.w(e)
                 data.notification = createNotification("")
-                stopRunner(false, "${service.getString(R.string.service_failed)}: ${e.readableMessage}")
+                stopRunner(false, service.serviceFailedMessage(e.readableMessage))
                 return Service.START_NOT_STICKY
             }
             if (RestoreJournal.default.isPending()) {
@@ -648,7 +649,7 @@ class BaseService {
                         Logs.w(exc)
                     }
                     stopRunner(
-                        false, "${service.getString(R.string.service_failed)}: ${exc.readableMessage}"
+                        false, service.serviceFailedMessage(exc.readableMessage)
                     )
                 } finally {
                     data.connectingJob = null
@@ -658,4 +659,11 @@ class BaseService {
         }
     }
 
+}
+
+// 启动失败提示的前缀取 service_failed（各语言的值都以冒号结尾，Android 已去掉首尾空白）。
+// 全角冒号后直接接原因，半角冒号后加一个空格；按标点区分，不按语言分支
+internal fun Context.serviceFailedMessage(reason: String): String {
+    val prefix = getString(R.string.service_failed).trimEnd()
+    return if (prefix.endsWith('：')) "$prefix$reason" else "$prefix $reason"
 }
