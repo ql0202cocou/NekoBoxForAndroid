@@ -235,20 +235,14 @@ class GroupSettingsActivity(
         // the process. On a process-death restore savedInstanceState != null but
         // the cache is empty; re-initialize from the intent extras, or the blank
         // editor would save a garbage group.
-        if (savedInstanceState == null || EditorCache.profileCacheStore.getString(Key.GROUP_TYPE) == null) {
+        if (needsEditorInit(savedInstanceState, Key.GROUP_TYPE)) {
             val editingId = intent.getLongExtra(EXTRA_GROUP_ID, 0L)
             EditorCache.editingId = editingId
-            runOnDefaultDispatcher {
+            launchEditorInit({ EditorPreferenceFragment() }) {
                 if (editingId == 0L) {
                     ProxyGroup().init()
                 } else {
-                    val entity = SagerDatabase.groupDao.getById(editingId)
-                    if (entity == null) {
-                        onMainDispatcher {
-                            finish()
-                        }
-                        return@runOnDefaultDispatcher
-                    }
+                    val entity = SagerDatabase.groupDao.getById(editingId) ?: return@launchEditorInit false
                     entity.init()
                 }
 
@@ -263,23 +257,13 @@ class GroupSettingsActivity(
                     EditorCache.landingProxyTmp = 3
                 }
                 pendingSubscriptionLink?.let { EditorCache.subscriptionLink = it }
-
-                // The cache was empty (process death): re-claim the session so
-                // later recreations still match this editor's token
-                renewEditorSessionToken()
-
-                onMainDispatcher {
-                    supportFragmentManager.beginTransaction()
-                        .replace(R.id.settings, EditorPreferenceFragment())
-                        .commit()
-                }
+                true
             }
-
         }
 
     }
 
-    override suspend fun saveAndExit() {
+    override suspend fun save() {
 
         val editingId = EditorCache.editingId
         if (editingId == 0L) {
@@ -331,7 +315,8 @@ class GroupSettingsActivity(
     val selectSubscriptionFile = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
-        if (uri == null) return@registerForActivityResult
+        // 迟到的回调：页面已销毁或缓存已被别的编辑器接管时，不能再写缓存
+        if (uri == null || !holdsEditorSession()) return@registerForActivityResult
         try {
             contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
         } catch (e: SecurityException) {

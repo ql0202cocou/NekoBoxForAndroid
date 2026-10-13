@@ -204,20 +204,14 @@ class RouteSettingsActivity(
         // the process. On a process-death restore savedInstanceState != null but
         // the cache is empty; re-initialize from the intent extras, or the blank
         // editor would save a garbage rule.
-        if (savedInstanceState == null || EditorCache.profileCacheStore.getString(Key.ROUTE_OUTBOUND) == null) {
+        if (needsEditorInit(savedInstanceState, Key.ROUTE_OUTBOUND)) {
             val editingId = intent.getLongExtra(EXTRA_ROUTE_ID, 0L)
             EditorCache.editingId = editingId
-            runOnDefaultDispatcher {
+            launchEditorInit({ EditorPreferenceFragment() }) {
                 if (editingId == 0L) {
                     init(intent.getStringExtra(EXTRA_PACKAGE_NAME))
                 } else {
-                    val ruleEntity = SagerDatabase.rulesDao.getById(editingId)
-                    if (ruleEntity == null) {
-                        onMainDispatcher {
-                            finish()
-                        }
-                        return@runOnDefaultDispatcher
-                    }
+                    val ruleEntity = SagerDatabase.rulesDao.getById(editingId) ?: return@launchEditorInit false
                     ruleEntity.init()
                 }
 
@@ -227,24 +221,13 @@ class RouteSettingsActivity(
                     EditorCache.routeOutboundRule = it
                     EditorCache.routeOutbound = 3
                 }
-
-                // The cache was empty (process death): re-claim the session so
-                // later recreations still match this editor's token
-                renewEditorSessionToken()
-
-                onMainDispatcher {
-                    supportFragmentManager.beginTransaction()
-                        .replace(R.id.settings, EditorPreferenceFragment())
-                        .commit()
-                }
+                true
             }
-
-
         }
 
     }
 
-    override suspend fun saveAndExit() {
+    override suspend fun save() {
 
         val editingId = EditorCache.editingId
 

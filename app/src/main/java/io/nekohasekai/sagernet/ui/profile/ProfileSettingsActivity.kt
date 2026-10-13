@@ -121,9 +121,10 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         // the process. On a process-death restore savedInstanceState != null but
         // the cache is empty; re-initialize from the intent extras, or the blank
         // editor would save a garbage profile.
-        if (savedInstanceState == null || EditorCache.profileCacheStore.getString(Key.PROFILE_CORE) == null) {
+        if (needsEditorInit(savedInstanceState, Key.PROFILE_CORE)) {
             val editingId = EditorCache.editingId
             lifecycleScope.launch(Dispatchers.Default) {
+                if (!holdsEditorSession()) return@launch
                 if (editingId == 0L) {
                     EditorCache.editingGroup = GroupManager.selectedGroupForImport()
                     createEntity().applyDefaultValues().init()
@@ -145,14 +146,8 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                     )
                 }
 
-                // The cache was empty (process death): re-claim the session so
-                // later recreations still match this editor's token
-                renewEditorSessionToken()
-
-                onMainDispatcher {
-                    supportFragmentManager.beginTransaction()
-                        .replace(R.id.settings, MyPreferenceFragmentCompat())
-                        .commitNow()
+                // 提交前再校验会话归属，并重新认领缓存（进程死亡后缓存被初始化重写）
+                if (commitEditorFragment(MyPreferenceFragmentCompat(), now = true)) {
                     editorReady.complete(Unit)
                 }
             }.invokeOnCompletion {
@@ -192,7 +187,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
     protected fun decideEditorCore(bean: T, core: Int): CoreDecision =
         decideCore(ProxyEntity().putBean(bean).type, core, bean, DataStore.globalAllowInsecure)
 
-    override suspend fun saveAndExit() {
+    override suspend fun save() {
         awaitEditorReady()
         val canSave = onMainDispatcher {
             val screen = child?.preferenceScreen ?: return@onMainDispatcher false

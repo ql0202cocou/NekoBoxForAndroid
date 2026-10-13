@@ -43,3 +43,12 @@ fun checkEditorSession(savedToken: Long): EditorSessionState {
 fun renewEditorSession(savedToken: Long) {
     EditorCache.profileCacheStore.putLong(Key.EDITOR_SESSION, savedToken)
 }
+
+// 迟到的初始化 / 选择器回调往缓存里写：只要缓存没被别的编辑器接管就放行。
+// CACHE_LOST 也放行——进程死亡后缓存是空的，正是由这些写入（和随后的
+// renewEditorSession）重建出来的。
+fun EditorSessionState.permitsCacheWrite() = this != EditorSessionState.TAKEN_OVER
+
+// 保存要求缓存里就是本编辑器的内容：缓存丢了（还没重建）或被接管都不能存，
+// 否则会把别人的 / 空的内容写进本编辑器正在编辑的实体。
+fun EditorSessionState.permitsSave() = this == EditorSessionState.OWNER

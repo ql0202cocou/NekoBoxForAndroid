@@ -10,6 +10,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.LayoutRes
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.DialogFragment
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.withStarted
 import androidx.preference.PreferenceDataStore
 import androidx.preference.PreferenceFragmentCompat
 import com.github.shadowsocks.plugin.Empty
@@ -24,6 +28,8 @@ import io.nekohasekai.sagernet.database.STATE_EDITOR_SESSION
 import io.nekohasekai.sagernet.database.checkEditorSession
 import io.nekohasekai.sagernet.database.claimEditorSession
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
+import io.nekohasekai.sagernet.database.permitsCacheWrite
+import io.nekohasekai.sagernet.database.permitsSave
 import io.nekohasekai.sagernet.database.renewEditorSession
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
@@ -31,6 +37,8 @@ import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.widget.OutboundPreference
 import io.nekohasekai.sagernet.widget.liftAncestorAppBar
 import io.nekohasekai.sagernet.widget.padForSystemBars
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * Base of the top-level editors (profile / route / group), which own the shared
@@ -83,6 +91,80 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
     /** Re-claim after a process-death re-init rewrote the cache. */
     protected fun renewEditorSessionToken() = renewEditorSession(editorSession)
 
+    /**
+     * 会话归属的统一检查入口：初始化写缓存、提交 Fragment、选择器回调写缓存、保存，
+     * 都先过这里；不属于当前会话（页面已销毁、被别的编辑器接管、保存时缓存不是本编辑器的）
+     * 的迟到结果直接丢弃。任意线程可调用。
+     *
+     * @param forSave true 表示保存：要求缓存里就是本编辑器的内容（见 [permitsSave]）；
+     * false 表示初始化 / 回调写缓存（见 [permitsCacheWrite]）。
+     */
+    protected fun holdsEditorSession(forSave: Boolean = false): Boolean {
+        if (!ownsEditorSession) return false
+        // 保存不看页面是否销毁：缓存归属由令牌决定（旋转重建后令牌不变），保存在途中
+        // 被旋转时，写完比丢掉用户的保存更合理
+        if (!forSave && lifecycle.currentState == Lifecycle.State.DESTROYED) return false
+        val state = checkEditorSession(editorSession)
+        return if (forSave) state.permitsSave() else state.permitsCacheWrite()
+    }
+
+    /**
+     * 恢复时是否需要重新初始化缓存与 Fragment：首次创建、进程死亡后缓存被清空，
+     * 或上一个实例在 Fragment 提交前就被销毁（缓存里只有初始化写了一半的内容，
+     * 此时用户还没见过界面，重新初始化不会丢修改）。
+     */
+    protected fun needsEditorInit(savedInstanceState: Bundle?, cacheMarkerKey: String): Boolean =
+        savedInstanceState == null ||
+                EditorCache.profileCacheStore.getString(cacheMarkerKey) == null ||
+                supportFragmentManager.findFragmentById(R.id.settings) == null
+
+    /**
+     * 在 [lifecycleScope] 里做编辑器初始化：[load] 在后台把实体写进缓存，返回 false 表示
+     * 实体已不存在（直接关闭页面）。页面销毁时协程随之取消，不再写缓存也不提交 Fragment。
+     */
+    protected fun launchEditorInit(
+        createFragment: () -> Fragment,
+        load: suspend () -> Boolean,
+    ) = lifecycleScope.launch(Dispatchers.Default) {
+        if (!holdsEditorSession()) return@launch
+        if (!load()) {
+            onMainDispatcher { finish() }
+            return@launch
+        }
+        commitEditorFragment(createFragment())
+    }
+
+    /**
+     * 提交编辑器的偏好 Fragment。等到页面至少处于 STARTED 再提交（已经 onSaveInstanceState
+     * 之后提交会抛 IllegalStateException，也不用 commitAllowingStateLoss 掩盖），销毁则取消；
+     * 提交前再确认一次会话归属，并重新认领缓存（进程死亡后初始化重写了缓存）。
+     * 返回是否真的提交了。
+     */
+    protected suspend fun commitEditorFragment(fragment: Fragment, now: Boolean = false): Boolean =
+        lifecycle.withStarted {
+            if (!holdsEditorSession()) return@withStarted false
+            renewEditorSessionToken()
+            supportFragmentManager.beginTransaction().replace(R.id.settings, fragment).apply {
+                if (now) commitNow() else commit()
+            }
+            true
+        }
+
+    /**
+     * 保存入口：会话不属于本编辑器时不保存、提示并关闭，否则交给 [save]。
+     * 保存留在调用方的作用域里跑（不绑页面），页面在保存途中关闭也要写完。
+     */
+    suspend fun saveAndExit() {
+        if (!holdsEditorSession(forSave = true)) {
+            onMainDispatcher {
+                Toast.makeText(this@EditorActivity, R.string.editor_session_lost, Toast.LENGTH_LONG).show()
+                finish()
+            }
+            return
+        }
+        save()
+    }
+
     // 以下是三个编辑器共用的偏好页骨架：R.id.settings 里的 EditorPreferenceFragment、
     // profile_config_menu 菜单与脏标记监听；各编辑器只实现下面的钩子
 
@@ -100,7 +182,8 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
     open fun PreferenceFragmentCompat.viewCreated(view: View, savedInstanceState: Bundle?) {
     }
 
-    abstract suspend fun saveAndExit()
+    /** 写库并关闭页面；只经 [saveAndExit] 调用，调用时会话归属已确认。 */
+    protected abstract suspend fun save()
 
     /** 菜单「删除」已有条目时弹出的确认框，arg 与 key 已设好。 */
     abstract fun deleteConfirmationDialog(): DialogFragment
@@ -137,12 +220,14 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
         onSelected: (Long) -> Unit,
         preference: () -> OutboundPreference?,
     ) = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        if (it.resultCode == RESULT_OK) runOnDefaultDispatcher {
+        if (it.resultCode == RESULT_OK) lifecycleScope.launch(Dispatchers.Default) {
             // RESULT_OK 也可能不带 data（picker 被重建等）
-            val data = it.data ?: return@runOnDefaultDispatcher
+            val data = it.data ?: return@launch
             val profile = ProfileManager.getProfile(
                 data.getLongExtra(ProfileSelectActivity.EXTRA_PROFILE_ID, 0)
-            ) ?: return@runOnDefaultDispatcher
+            ) ?: return@launch
+            // 查库期间页面可能已销毁或缓存已被别的编辑器接管
+            if (!holdsEditorSession()) return@launch
             onSelected(profile.id)
             onMainDispatcher {
                 // 进程死亡恢复时 fragment 可能还没提交；它创建时会读 EditorCache 里的值

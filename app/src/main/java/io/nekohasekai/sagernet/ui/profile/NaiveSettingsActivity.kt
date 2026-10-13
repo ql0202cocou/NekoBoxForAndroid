@@ -50,13 +50,13 @@ class NaiveSettingsActivity : ProfileSettingsActivity<NaiveBean>() {
         findPreference<EditTextPreference>(Key.SERVER_INSECURE_CONCURRENCY)!!.bindIntegerPreference()
     }
 
-    // 只在保存（saveAndExit 走到 finish）时切换彩蛋；放弃修改、校验不过都不切换
+    // 只在保存（save 走到 finish）时切换彩蛋；放弃修改、校验不过、会话已失效都不切换
     private var saving = false
 
-    override suspend fun saveAndExit() {
+    override suspend fun save() {
         saving = true
         try {
-            super.saveAndExit()
+            super.save()
         } finally {
             saving = false
         }
