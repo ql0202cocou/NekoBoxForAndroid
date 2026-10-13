@@ -222,7 +222,7 @@ class ConfigSnapshot private constructor(
         return members.map { profiles.getValue(it)!!.newEntity() }
     }
 
-    /** 同 rulesDao.enabledRules，每次都是新拷贝。 */
+    /** 同 rulesDao.enabledRules：每次返回新列表，元素是浅拷贝（字段如 packages 与采集时共享，那些值不可变，语义安全）。 */
     fun enabledRules(): List<RuleEntity> =
         (rules ?: throw ConfigInputScopeException("rules are not in the config snapshot")).map { it.copy() }
 

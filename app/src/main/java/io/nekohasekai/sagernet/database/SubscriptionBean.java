@@ -68,9 +68,9 @@ public class SubscriptionBean extends Serializable {
         output.writeLong(bytesUsed);
         output.writeLong(bytesRemaining);
         output.writeLong(expiryDate);
-        // version 4: appended so a downgrade ignores it as trailing bytes
+        // version 4：单独存储（Room 列）时是新增列，旧版本忽略它；ProxyGroup 的存储（备份 / Parcel）里订阅写在中间，旧版本读新格式会错位，计划不支持降级
         output.writeLong(lastUpdated);
-        // version 5：同样追加在末尾；分享导入的 bean 不走默认值，可能为 null
+        // version 5：同样追加在末尾，单独存储时旧版本忽略它；ProxyGroup 的存储里旧版本读会错位（同 version 4，不支持降级）；分享导入的 bean 不走默认值，可能为 null
         output.writeBoolean(Boolean.TRUE.equals(nameserverFromSubscription));
     }
 

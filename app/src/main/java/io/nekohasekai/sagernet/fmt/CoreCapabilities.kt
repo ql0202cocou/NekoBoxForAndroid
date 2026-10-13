@@ -15,7 +15,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 // - mihomo：I1（v1.19.31 源码 S-M*、-t 实测 T-M*、回环 L-MA*）；M1（v1.19.32 复核：源码 S2-M*、-t 实测 T2-*、回环
 //   L2-*）；
 // - sing-box：I2b（vendored libcore/sing-box，1.14.2 + 1.14.2-neko-1）；现为 1.14.3-neko-1，此后的补丁（SOCKS5 出站的
-//   UDP ASSOCIATE 握手）与 1.14.3 的上游改动都不涉及本表各项；
+//   UDP ASSOCIATE 握手）与 1.14.3 的上游改动都不涉及本表各项；sing-vmess 随 1.14.3 升级，引用路径未变；
 // - 生成器：I2b 的逐字段真值表（buildSingBoxOutbound*、buildXrayOutbound、buildMihomoProxy）。
 // uTLS 指纹名单、VLESS flow、ws early data 另读了上游固定 tag 的源码，位置写在各常量上。
 //
