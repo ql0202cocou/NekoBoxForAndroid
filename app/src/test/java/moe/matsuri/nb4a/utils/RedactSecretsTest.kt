@@ -358,6 +358,49 @@ class RedactSecretsTest {
     }
 
     @Test
+    fun `JSON 里 REALITY 的 shortId 与 SSH 私钥口令被遮蔽`() {
+        val singBox = JavaUtil.gson.toJson(
+            linkedMapOf(
+                "reality" to linkedMapOf("enabled" to true, "public_key" to "pbk-keep", "short_id" to "6ba85179e30d4fc2"),
+                "private_key_passphrase" to "ssh-passphrase-1",
+            )
+        )
+        val xray = JavaUtil.gson.toJson(
+            linkedMapOf("realitySettings" to linkedMapOf("publicKey" to "pbk-keep", "shortId" to "6ba85179e30d4fc2"))
+        )
+        for (input in listOf(singBox, xray)) {
+            val redacted = Util.redactSecrets(input)
+            assertFalse(redacted, redacted.contains("6ba85179e30d4fc2"))
+            assertFalse(redacted, redacted.contains("ssh-passphrase-1"))
+            assertTrue(redacted, redacted.contains("pbk-keep"))
+        }
+    }
+
+    @Test
+    fun `JSON 里 mieru 的 user 对象中 name 被遮蔽，其它 name 不受影响`() {
+        val mieru = JavaUtil.gson.toJson(
+            linkedMapOf(
+                "profiles" to listOf(
+                    linkedMapOf(
+                        "profileName" to "default",
+                        "user" to linkedMapOf("name" to "mieru-user-1", "password" to defaultPass),
+                    )
+                ),
+            )
+        )
+        val redacted = Util.redactSecrets(mieru)
+        assertFalse(redacted.contains("mieru-user-1"))
+        assertFalse(redacted.contains(defaultPass))
+        assertTrue(redacted.contains("\"profileName\": \"default\""))
+        // name 不在 user 对象的第一位时也找得到
+        val reordered = """{"user": {"password": "x\"y", "level": 0, "name": "mieru-user-2"}}"""
+        assertFalse(Util.redactSecrets(reordered).contains("mieru-user-2"))
+        // user 对象之外的 name（mihomo listener / proxy 名靠它对应）原样保留
+        val elsewhere = """{"name": "in-0", "users": [{"name": "alice"}], "outbound": {"name": "out-0"}}"""
+        assertEquals(elsewhere, Util.redactSecrets(elsewhere))
+    }
+
+    @Test
     fun `JSON 里名字相近的键与非字符串的值不受影响`() {
         val input = JavaUtil.gson.toJson(
             linkedMapOf(

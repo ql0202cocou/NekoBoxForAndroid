@@ -30,9 +30,9 @@ class UtilTest {
     }
 
     @Test
-    fun `redactSecrets 打码 URL userinfo 里的密码`() {
+    fun `redactSecrets 打码 URL userinfo 里的用户名与密码`() {
         assertEquals(
-            "https://user:***@example.com:443",
+            "https://***:***@example.com:443",
             Util.redactSecrets("https://user:hunter2@example.com:443")
         )
     }

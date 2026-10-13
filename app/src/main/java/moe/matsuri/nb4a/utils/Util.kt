@@ -189,14 +189,27 @@ object Util {
     // 值是凭据的键：JSON 里用下划线，YAML（如 mihomo 配置）里同名换连字符。
     // obfs 是 hysteria1 的混淆密码（hysteria2 的 obfs 是对象，其中 password 已覆盖）。
     // username / user / pass：socks / http 入站与出站的用户名和密码（Xray 的 accounts 用 user / pass）
+    // short_id / shortId：REALITY 的 shortId（sing-box 出站 / Xray realitySettings），private_key_passphrase：SSH 私钥口令。
+    // 键名整词匹配，后缀不同的键（private_key_passphrase 之于 private_key）要单列；GoldenLogRedactionTest 按基线对账
     private val SENSITIVE_KEYS = listOf(
         "password", "uuid", "id", "private_key", "pre_shared_key", "auth", "auth_str",
         "token", "secret", "key", "authorization", "cookie", "obfs",
         "username", "user", "pass",
+        "short_id", "shortId", "private_key_passphrase",
     )
 
     // 一个 JSON 字符串字面量（结尾的 ["] 就是引号：raw string 不能以 " 结尾）
     private const val JSON_STRING = """"(?:\\.|[^"\\])*["]"""
+
+    // JSON 的一个标量值：字符串，或数字 / true / false / null
+    private const val JSON_SCALAR = """(?:$JSON_STRING|[^\s,{}\[\]"]+)"""
+
+    // mieru 的用户名写在 "user": {"name": …} 里（MieruFmt）。name 太常见（mihomo 的 listener / proxy 靠它对应），
+    // 不进名单，只遮 user 对象里的；name 前面有别的标量成员时也能找到
+    private val USER_OBJECT_NAME = Regex(
+        """("user"\s*:\s*\{(?:\s*$JSON_STRING\s*:\s*$JSON_SCALAR\s*,)*\s*"name"\s*:\s*)$JSON_STRING""",
+        RegexOption.IGNORE_CASE
+    )
 
     // JSON "key": "value"；值也可以是字符串数组（trojan-go 的 "password": [...]），
     // 整个数组遮蔽，第 2 组非空即数组
@@ -220,8 +233,8 @@ object Util {
         RegexOption.MULTILINE
     )
 
-    // scheme://user:password@host embedded in string values (e.g. naive "proxy" URL)
-    private val URL_USERINFO_PASSWORD = Regex("""(://[^"\s:@/]+):[^"\s@/]*@""")
+    // 字符串值里的 scheme://user:password@host（如 naive 的 "proxy"）：用户名与密码都遮，同 socks / http 的 username
+    private val URL_USERINFO_PASSWORD = Regex("""://[^"\s:@/]+:[^"\s@/]*@""")
 
     // scheme://password@host where the whole userinfo is the credential
     // (trojan/vless style, no colon); runs after URL_USERINFO_PASSWORD, whose
@@ -238,8 +251,9 @@ object Util {
         var result = SENSITIVE_JSON_VALUE.replace(text) {
             it.groupValues[1] + if (it.groupValues[2].isEmpty()) "\"***\"" else "[\"***\"]"
         }
+        result = USER_OBJECT_NAME.replace(result) { it.groupValues[1] + "\"***\"" }
         result = redactYamlValues(result)
-        result = URL_USERINFO_PASSWORD.replace(result) { it.groupValues[1] + ":***@" }
+        result = URL_USERINFO_PASSWORD.replace(result, "://***:***@")
         result = URL_USERINFO_BARE.replace(result) { it.groupValues[1] + "***@" }
         result = URL_QUERY_SECRET.replace(result) { it.groupValues[1] + "***" }
         return result
