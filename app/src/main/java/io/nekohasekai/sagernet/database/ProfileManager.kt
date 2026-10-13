@@ -99,9 +99,22 @@ object ProfileManager {
         return profiles
     }
 
-    // 返回 false：这一行已不在库里（例如编辑期间被订阅更新删掉），什么都没写
+    // 返回 false：这一行已不在库里（例如编辑期间被订阅更新删掉），什么都没写。
+    // 配置（type / core / bean 内容，见 ProxyConfigSnapshot）真的变了才把测速状态清零：旧的「可用 xx ms」
+    // 对不上新配置；没变（只改了名字等）不动。读旧行、写配置、清状态在同一个事务里，写的仍是按列的部分更新
     suspend fun updateProfile(profile: ProxyEntity): Boolean {
-        if (SagerDatabase.proxyDao.updateEditableFields(ProxyEditableFields(profile)) == 0) return false
+        val written = SagerDatabase.instance.runInTransaction(Callable {
+            val old = SagerDatabase.proxyDao.getById(profile.id) ?: return@Callable false
+            val before = ProxyConfigSnapshot(old)
+            if (SagerDatabase.proxyDao.updateEditableFields(ProxyEditableFields(profile)) == 0) {
+                return@Callable false
+            }
+            if (before.differsFrom(profile)) {
+                SagerDatabase.proxyDao.updateStatus(profile.id, 0, 0, null)
+            }
+            true
+        })
+        if (!written) return false
         val current = SagerDatabase.proxyDao.getById(profile.id) ?: return true
         iterator { onUpdated(current) }
         return true
