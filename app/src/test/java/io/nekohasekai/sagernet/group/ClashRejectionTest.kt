@@ -145,6 +145,14 @@ class ClashRejectionTest {
             "$ss, plugin-opts: {mode: websocket, TLS: true, Fingerprint: \"$fp\"}",
             CERT_PIN_NOT_SUPPORTED, "plugin-opts.Fingerprint",
         )
+        // plugin 与 plugin-opts 的写法变体：解析器与这里用同一套读法（clashSsPlugin），子键不把 _ 当作 -
+        val base = "name: s, type: ss, server: s.example.com, port: 8388, cipher: aes-128-gcm, password: pw-placeholder"
+        assertRejected(
+            "$base, Plugin: v2ray-plugin, Plugin_Opts: {mode: websocket, tls: 1, fingerprint: \"$fp\"}",
+            CERT_PIN_NOT_SUPPORTED, "Plugin_Opts.fingerprint",
+        )
+        // 插件名区分大小写：V2ray-Plugin 不是 v2ray-plugin，按不支持的插件被拒
+        assertRejected("$base, plugin: V2ray-Plugin", ClashNodeFailure.UNSUPPORTED_SS_PLUGIN, "plugin")
         assertImported("$ss, plugin-opts: {mode: websocket, tls: false, fingerprint: \"$fp\"}")
         assertImported("$ss, plugin-opts: {mode: websocket, tls: true, fingerprint: \"\"}")
     }

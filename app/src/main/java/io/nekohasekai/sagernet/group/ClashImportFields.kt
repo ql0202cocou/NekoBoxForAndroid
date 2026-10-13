@@ -163,6 +163,23 @@ internal class ClashFields(
 
     fun mihomoEntryOf(name: String): Map.Entry<*, *>? = proxy.mihomoEntry(name)
 
+    // 解析器按 mihomo 的读法读的键（ss 的 plugin、plugin-opts 及其子键、udp-over-tcp 等）：返回节点里的原始键名路径，
+    // 规则同 mihomoValueAt。其余键的记录仍用上面按解析器读法找键的 path
+    fun mihomoPathAt(names: List<String>, nestedUnderscore: Boolean = true): List<String>? {
+        var map: Map<*, *> = proxy
+        val out = ArrayList<String>(names.size)
+        for ((i, name) in names.withIndex()) {
+            val entry = map.mihomoEntry(name, underscoreAsDash = i == 0 || nestedUnderscore) ?: return null
+            out += entry.key as? String ?: return null
+            if (i < names.lastIndex) map = entry.value as? Map<*, *> ?: return null
+        }
+        return out
+    }
+
+    fun openAt(path: List<String>) {
+        if (valueAt(path) is Map<*, *>) opened += path
+    }
+
     // mihomo 不启用 REALITY 的 reality-opts（没有非空公钥）该记什么原因。public-key 显式写成空串或 null：
     // RealityOptions.Parse 不启用 REALITY，与本应用一致，无影响。缺 public-key 这个键：RealityOptions.PublicKey 的 tag
     // 没有 omitempty，结构解码器（decodeStructFromMap）报 has unset fields，整个节点在 mihomo 里解码失败，
@@ -425,43 +442,53 @@ private fun ClashFields.http(bean: HttpBean): Pair<Set<String>, ClashInactive> {
 private fun ClashFields.shadowsocks(bean: ShadowsocksBean): Pair<Set<String>, ClashInactive> {
     kept("server"); kept("port"); kept("password")
     if (text("cipher") == "dummy") converted(EQUIVALENT_VALUE, "cipher") else kept("cipher")
+    // plugin、plugin-opts、udp-over-tcp 及其子键，解析器按 mihomo 的读法读（见 clashSsPlugin），这里的记录用同样的读法找键；
+    // 子键不把 _ 当作 -
+    fun at(vararg names: String) = mihomoPathAt(names.asList(), nestedUnderscore = false)
+    fun recordMihomo(names: List<String>, result: ClashFieldResult, reason: ClashFieldReason?) =
+        mihomoPathAt(names, nestedUnderscore = false)?.let { recordAt(it, result, reason) }
     // 未支持的插件整个节点被拒，到不了这里
-    val plugin = text("plugin").blankAsNull()
+    val pluginPath = at("plugin")
+    val plugin = pluginPath?.let { valueAt(it) }?.toString().blankAsNull()
     when (plugin) {
         // 写成 sip003 的 obfs-local
-        "obfs" -> converted(EQUIVALENT_VALUE, "plugin")
-        else -> kept("plugin")
+        "obfs" -> recordMihomo(listOf("plugin"), ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
+        else -> recordMihomo(listOf("plugin"), ClashFieldResult.KEPT, null)
     }
     var table = SS_KEYS
-    val opts = value("plugin-opts")
-    if (plugin != null && opts != null) {
+    val optsPath = at("plugin-opts")
+    val opts = optsPath?.let { valueAt(it) }
+    if (plugin != null && optsPath != null && opts != null) {
         if (opts !is Map<*, *>) {
-            ignored(INVALID_DROPPED, "plugin-opts")
+            recordAt(optsPath, ClashFieldResult.IGNORED, INVALID_DROPPED)
         } else {
-            open("plugin-opts")
-            kept("plugin-opts", "mode"); kept("plugin-opts", "host")
+            openAt(optsPath)
+            fun sub(name: String) = mihomoPathAt(listOf("plugin-opts", name), nestedUnderscore = false)
+            sub("mode")?.let { recordAt(it, ClashFieldResult.KEPT, null) }
+            sub("host")?.let { recordAt(it, ClashFieldResult.KEPT, null) }
             if (plugin == "obfs") {
                 table = table + SS_OBFS_KEYS
             } else {
                 table = table + SS_V2RAY_PLUGIN_KEYS
-                kept("plugin-opts", "path"); kept("plugin-opts", "tls")
+                sub("path")?.let { recordAt(it, ClashFieldResult.KEPT, null) }
+                sub("tls")?.let { recordAt(it, ClashFieldResult.KEPT, null) }
                 // mux: true 写成 mux=8（sing-box 的插件只看是否大于 0）；false 不写，而 sing-box 的插件不写时默认开 mux
-                if (present("plugin-opts", "mux")) {
-                    if (flag("plugin-opts", "mux")) converted(EQUIVALENT_VALUE, "plugin-opts", "mux")
-                    else ignored(SEMANTICS_DIFFER, "plugin-opts", "mux")
+                sub("mux")?.let {
+                    if (valueAt(it).mihomoTrue()) recordAt(it, ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
+                    else recordAt(it, ClashFieldResult.IGNORED, SEMANTICS_DIFFER)
                 }
             }
         }
     }
     // udp-over-tcp：版本按 mihomo 的规则写进 bean（不写或 0 是 1，2 是 2，见 clashUdpOverTcpVersion），
-    // sing-box 一侧只在版本是 1 时写出来。整数 1 之类解析器不认的写法 mihomo 认，此时 UoT 没有被读进来
+    // sing-box 一侧只在版本是 1 时写出来。键与布尔值的读法同 mihomo，解析器读到的与它一致
     val uot = bean.sUoT == true
-    if (present("udp-over-tcp")) {
-        if (value("udp-over-tcp").mihomoTrue() == uot) kept("udp-over-tcp") else ignored(NOT_READ, "udp-over-tcp")
-    }
-    if (uot && present("udp-over-tcp-version")) {
-        if (text("udp-over-tcp-version") == "0") converted(EQUIVALENT_VALUE, "udp-over-tcp-version")
-        else kept("udp-over-tcp-version")
+    recordMihomo(listOf("udp-over-tcp"), ClashFieldResult.KEPT, null)
+    if (uot) {
+        mihomoPathAt(listOf("udp-over-tcp-version"))?.let {
+            if (valueAt(it)?.toString() == "0") recordAt(it, ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
+            else recordAt(it, ClashFieldResult.KEPT, null)
+        }
     }
     // 下面几处按 mihomo 的读法判断（plugin 与 udp-over-tcp 在 mihomo 里不区分键名大小写；plugin-opts 的子键用的解码器
     // 不把 _ 当作 -，见 NewShadowSocks）
@@ -470,8 +497,7 @@ private fun ClashFields.shadowsocks(bean: ShadowsocksBean): Pair<Set<String>, Cl
     return table to { path ->
         when {
             path[0] == "plugin-opts" && mihomoPlugin.isEmpty() -> INACTIVE
-            // mihomo 只在 shadow-tls / restls / jls 插件里用它；这几种插件写成 plugin 原样的键名时整个节点被拒，
-            // 写成别的键名时解析器没读到插件，mihomo 却会用上它
+            // mihomo 只在 shadow-tls / restls / jls 插件里用它；这几种插件在这里整个节点被拒（plugin 的写法变体同样），到不了这里
             path[0] == "client-fingerprint" && mihomoPlugin !in setOf("shadow-tls", "restls", "jls") -> INACTIVE
             path[0] == "udp-over-tcp-version" && !mihomoFlag("udp-over-tcp") -> INACTIVE
             path[0] == "plugin-opts" && path.size > 1 && !mihomoPluginTls &&

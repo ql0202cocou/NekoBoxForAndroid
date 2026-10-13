@@ -242,15 +242,12 @@ private fun clashRejection(type: String, proxy: Map<String, Any?>, bean: Abstrac
         }
     }
 
-    // ss 的 v2ray-plugin：插件打开 TLS 时的证书固定，本应用的插件做不到（mihomo 的插件选项解码器不把 _ 当作 -）
-    if (bean is ShadowsocksBean && proxy.mihomoEntry("plugin")?.value?.toString() == "v2ray-plugin") {
-        proxy.mihomoEntry("plugin-opts")?.let { pluginOpts ->
-            val opts = pluginOpts.value as? Map<*, *> ?: return@let
-            val pluginPin = opts.mihomoEntry("fingerprint", underscoreAsDash = false) ?: return@let
-            if (opts.mihomoEntry("tls", underscoreAsDash = false)?.value.mihomoTrue() &&
-                !pluginPin.value?.toString().isNullOrEmpty()
-            ) return rejected(ClashNodeFailure.CERT_PIN_NOT_SUPPORTED, pluginOpts.key, pluginPin.key)
-        }
+    // ss 的 v2ray-plugin：插件打开 TLS 时的证书固定，本应用的插件做不到（键的读法同解析器，见 clashSsPlugin）
+    if (bean is ShadowsocksBean && proxy.clashSsPlugin()?.value?.toString() == "v2ray-plugin") {
+        val pluginPin = proxy.clashSsPluginOpt("fingerprint")
+        if (pluginPin != null && proxy.clashSsPluginOpt("tls")?.value.mihomoTrue() &&
+            !pluginPin.value?.toString().isNullOrEmpty()
+        ) return rejected(ClashNodeFailure.CERT_PIN_NOT_SUPPORTED, proxy.clashSsPluginOpts()!!.key, pluginPin.key)
     }
 
     // hysteria2 的混淆：构建只会写 salamander，gecko 等其它类型本应用没有。只有已知的混淆类型名才显示
@@ -320,50 +317,66 @@ private fun parseClashHttp(proxy: Map<String, Any?>) = HttpBean().apply {
     if (isTLS()) proxy["fingerprint"]?.let { certificateFingerprint = parseCertificateFingerprint(it) }
 }
 
+// ss 的插件与 UoT 键按 mihomo 的读法找，解析器、clashRejection 与字段记录共用这几个函数（NewShadowSocks）：
+// - 顶层的 plugin、plugin-opts、udp-over-tcp、udp-over-tcp-version 由主解码器读，先找原样的键，没有再不区分大小写、
+//   把 _ 当作 -（common/structure 的 decodeStructFromMap，adapter/parser.go 传入 DefaultKeyReplacer）；同一个键写了几种
+//   拼法时原样的优先
+// - plugin-opts 里的子键由插件自己的解码器读（NewShadowSocks 里 TagName 为 obfs、没有 KeyReplacer）：不区分大小写，
+//   但不把 _ 当作 -
+// - 插件名 option.Plugin 的比较区分大小写；空白的 plugin 视为没有插件
+internal fun Map<*, *>.clashSsPlugin(): Map.Entry<*, *>? =
+    mihomoEntry("plugin")?.takeIf { !it.value?.toString().isNullOrBlank() }
+
+internal fun Map<*, *>.clashSsPluginOpts(): Map.Entry<*, *>? = mihomoEntry("plugin-opts")
+
+internal fun Map<*, *>.clashSsPluginOpt(name: String): Map.Entry<*, *>? =
+    (clashSsPluginOpts()?.value as? Map<*, *>)?.mihomoEntry(name, underscoreAsDash = false)
+
 private fun parseClashShadowsocks(proxy: Map<String, Any?>): ShadowsocksBean {
     val ssPlugin = mutableListOf<String>()
-    val ssPluginName = proxy["plugin"]?.toString().blankAsNull()
+    val pluginEntry = proxy.clashSsPlugin()
+    val ssPluginName = pluginEntry?.value?.toString()
     if (ssPluginName != null) {
-        // plugin-opts is optional in clash; without it the
-        // plugin still applies with its default options
-        val opts = proxy["plugin-opts"] as? Map<*, *> ?: emptyMap<Any?, Any?>()
+        // plugin-opts 在 Clash 里可以不写：没有它插件照样用默认选项
+        fun opt(name: String) = proxy.clashSsPluginOpt(name)?.value
         when (ssPluginName) {
             "obfs" -> {
                 ssPlugin.apply {
                     add("obfs-local")
-                    add("obfs=" + (opts["mode"]?.toString() ?: ""))
-                    add("obfs-host=" + (opts["host"]?.toString() ?: ""))
+                    add("obfs=" + (opt("mode")?.toString() ?: ""))
+                    add("obfs-host=" + (opt("host")?.toString() ?: ""))
                 }
             }
 
             "v2ray-plugin" -> {
                 ssPlugin.apply {
                     add("v2ray-plugin")
-                    add("mode=" + (opts["mode"]?.toString() ?: ""))
-                    if (opts["tls"].clashBoolean()) add("tls")
-                    add("host=" + (opts["host"]?.toString() ?: ""))
-                    add("path=" + (opts["path"]?.toString() ?: ""))
-                    if (opts["mux"].clashBoolean()) add("mux=8")
+                    add("mode=" + (opt("mode")?.toString() ?: ""))
+                    if (opt("tls").mihomoTrue()) add("tls")
+                    add("host=" + (opt("host")?.toString() ?: ""))
+                    add("path=" + (opt("path")?.toString() ?: ""))
+                    if (opt("mux").mihomoTrue()) add("mux=8")
                 }
             }
 
-            // shadow-tls/restls are configured through their own
-            // *-opts keys and have no sip003 plugin here; importing
-            // the node without them yields something that looks fine
-            // and can never connect, so drop it loudly instead
-            else -> throw ClashNodeRejected(ClashNodeFailure.UNSUPPORTED_SS_PLUGIN, "plugin", ssPluginName)
+            // shadow-tls / restls 等通过各自的 *-opts 键配置，这里没有对应的 sip003 插件；
+            // 导入成没有它们的节点看起来正常却永远连不上，所以明确拒绝
+            else -> throw ClashNodeRejected(
+                ClashNodeFailure.UNSUPPORTED_SS_PLUGIN, pluginEntry.key.toString(), ssPluginName
+            )
         }
     }
     return ShadowsocksBean().apply {
-    serverAddress = clashKey("server", proxy["server"]) { proxy["server"] as String }
-    serverPort = clashKey("port", proxy["port"]) { proxy["port"].toString().toInt() }
-    password = proxy["password"]?.toString()
-    method = clashKey("cipher", proxy["cipher"]) { clashCipher(proxy["cipher"] as String) }
-    plugin = ssPlugin.joinToString(";")
-    sUoT = proxy["udp-over-tcp"].clashBoolean()
-    // 版本不属于 sing-box 默认值（2）时才记下；UoT 没开时版本不起作用，留默认值
-    if (sUoT == true) sUoTVersion = clashUdpOverTcpVersion(proxy["udp-over-tcp-version"]) ?: 1
-    name = proxy["name"]?.toString()
+        serverAddress = clashKey("server", proxy["server"]) { proxy["server"] as String }
+        serverPort = clashKey("port", proxy["port"]) { proxy["port"].toString().toInt() }
+        password = proxy["password"]?.toString()
+        method = clashKey("cipher", proxy["cipher"]) { clashCipher(proxy["cipher"] as String) }
+        plugin = ssPlugin.joinToString(";")
+        // 布尔值按 mihomo 的弱类型规则：true 或非 0 的整数
+        sUoT = proxy.mihomoEntry("udp-over-tcp")?.value.mihomoTrue()
+        // 版本不属于 sing-box 默认值（2）时才记下；UoT 没开时版本不起作用，留默认值
+        if (sUoT == true) sUoTVersion = clashUdpOverTcpVersion(proxy.mihomoEntry("udp-over-tcp-version")?.value) ?: 1
+        name = proxy["name"]?.toString()
     }
 }
 

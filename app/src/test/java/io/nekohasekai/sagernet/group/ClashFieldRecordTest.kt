@@ -686,10 +686,11 @@ class ClashFieldRecordTest {
             assertTrue(node, failed.path!!.equals("udp-over-tcp-version", ignoreCase = true) || failed.path == "udp_over_tcp_version")
             assertNull(failed.shownValue)
         }
-        // 整数 1 在 mihomo 里也是真，解析器不认：UoT 没有被读进来
+        // 整数 1 在 mihomo 里也是真（decodeBool 的弱类型规则），解析器同样读成 UoT 开
         val (int, intFields) = imported("{$s, udp-over-tcp: 1}")
-        assertEquals(false, (int as ShadowsocksBean).sUoT)
-        assertField(intFields, "udp-over-tcp", IGNORED, ClashFieldReason.NOT_READ)
+        assertEquals(true, (int as ShadowsocksBean).sUoT)
+        assertEquals(1, int.sUoTVersion)
+        assertField(intFields, "udp-over-tcp", KEPT)
     }
 
     @Test
@@ -890,31 +891,23 @@ class ClashFieldRecordTest {
     }
 
     @Test
-    fun `ss 的 plugin 与 udp-over-tcp 写法不同时按 mihomo 的读法判断`() {
+    fun `ss 的 plugin 与 udp-over-tcp 的无影响判断按 mihomo 的读法`() {
         val s = "name: s, type: ss, server: s.example.com, port: 1, cipher: aes-128-gcm, password: pw-z"
-        // NewShadowSocks：Plugin 经结构解码器读到，obfs 插件会用 plugin-opts
-        assertField(fields("{$s, Plugin: obfs, plugin-opts: {mode: tls}}"), "plugin-opts", IGNORED, ClashFieldReason.NOT_READ)
+        // 写法变体（Plugin 等）解析器同样读到，导入结果与原样写法相同，见 `ss 的插件与 UoT 键写法变体与原样写法结果相同`
         assertField(fields("{$s, plugin-opts: {mode: tls}}"), "plugin-opts", IGNORED, ClashFieldReason.INACTIVE)
+        assertField(fields("{$s, Plugin-Opts: {mode: tls}}"), "Plugin-Opts", IGNORED, ClashFieldReason.INACTIVE)
         // udp-over-tcp-version 只在 udp-over-tcp 打开时用
-        assertField(
-            fields("{$s, UDP-over-TCP: true, udp-over-tcp-version: 2}"), "udp-over-tcp-version", IGNORED,
-            ClashFieldReason.NOT_READ,
-        )
+        assertField(fields("{$s, UDP-over-TCP: true, udp-over-tcp-version: 2}"), "udp-over-tcp-version", KEPT)
         assertField(
             fields("{$s, UDP-over-TCP: false, udp-over-tcp-version: 2}"), "udp-over-tcp-version", IGNORED,
             ClashFieldReason.INACTIVE,
         )
-        // client-fingerprint 在 shadow-tls / restls / jls 插件里 mihomo 会用（NewShadowSocks 传给这些插件）；插件写成解析器
-        // 读不到的键名（Plugin）时节点照常导入，指纹是 mihomo 用上而本应用没导入的，不能记无影响；别的插件才无影响
-        for (plugin in listOf("shadow-tls", "restls", "jls")) {
-            assertField(
-                fields("{$s, Plugin: $plugin, client-fingerprint: chrome}"), "client-fingerprint", IGNORED,
-                ClashFieldReason.NOT_READ,
-            )
-        }
+        // client-fingerprint 只在 shadow-tls / restls / jls 插件里用（NewShadowSocks 传给这些插件），这几种插件整个节点被拒，
+        // 其它插件（包括 obfs）和没有插件时它无影响
         assertField(
             fields("{$s, Plugin: obfs, client-fingerprint: chrome}"), "client-fingerprint", IGNORED, ClashFieldReason.INACTIVE,
         )
+        assertField(fields("{$s, client-fingerprint: chrome}"), "client-fingerprint", IGNORED, ClashFieldReason.INACTIVE)
         // v2ray-plugin 的 tls 子键用的解码器不把 _ 当作 -：skip_cert_verify 在 mihomo 里不是 skip-cert-verify
         val plugin = "$s, plugin: v2ray-plugin, plugin-opts: {mode: websocket, tls: true"
         assertField(fields("{$plugin, skip-cert-verify: true}}"), "plugin-opts.skip-cert-verify", IGNORED, ClashFieldReason.NOT_READ)
@@ -922,6 +915,103 @@ class ClashFieldRecordTest {
             fields("{$s, plugin: v2ray-plugin, plugin-opts: {mode: websocket, skip-cert-verify: true}}"),
             "plugin-opts.skip-cert-verify", IGNORED, ClashFieldReason.INACTIVE,
         )
+    }
+
+    @Test
+    fun `ss 的插件与 UoT 键写法变体与原样写法结果相同`() {
+        // 依据 mihomo adapter/parser.go（DefaultKeyReplacer）与 common/structure.decodeStructFromMap：顶层键先原样、再不区分大小写
+        // 且 _ 当作 -；NewShadowSocks 里 plugin-opts 的子键由 TagName 为 obfs、没有 KeyReplacer 的解码器读：不区分大小写，不把 _ 当作 -
+        val s = "name: s, type: ss, server: s.example.com, port: 8388, cipher: aes-128-gcm, password: pw-z"
+        fun plugin(node: String) = (imported(node).first as ShadowsocksBean).plugin
+        val obfs = "obfs-local;obfs=tls;obfs-host=obfs.example.com"
+        assertEquals(obfs, plugin("{$s, plugin: obfs, plugin-opts: {mode: tls, host: obfs.example.com}}"))
+        for (node in listOf(
+            "{$s, Plugin: obfs, plugin-opts: {mode: tls, host: obfs.example.com}}",
+            "{$s, PLUGIN: obfs, Plugin-Opts: {mode: tls, host: obfs.example.com}}",
+            "{$s, plugin: obfs, plugin_opts: {mode: tls, host: obfs.example.com}}",
+            "{$s, plugin: obfs, plugin-opts: {Mode: tls, HOST: obfs.example.com}}",
+        )) assertEquals(node, obfs, plugin(node))
+        val v2ray = "v2ray-plugin;mode=websocket;tls;host=ws.example.com;path=/ws;mux=8"
+        val opts = "mode: websocket, tls: true, host: ws.example.com, path: /ws, mux: true"
+        assertEquals(v2ray, plugin("{$s, plugin: v2ray-plugin, plugin-opts: {$opts}}"))
+        for (node in listOf(
+            "{$s, Plugin: v2ray-plugin, plugin-opts: {$opts}}",
+            "{$s, plugin: v2ray-plugin, plugin_opts: {Mode: websocket, Tls: true, Host: ws.example.com, PATH: /ws, Mux: true}}",
+            // 布尔值按 mihomo 的弱类型规则：非 0 整数为真
+            "{$s, plugin: v2ray-plugin, plugin-opts: {mode: websocket, tls: 1, host: ws.example.com, path: /ws, mux: 1}}",
+        )) assertEquals(node, v2ray, plugin(node))
+        // 插件名的比较区分大小写：Obfs 不是 obfs，同原样写法一样被拒
+        val failed = parsed("{$s, plugin: Obfs}").nodes.single() as ClashNodeResult.Failed
+        assertEquals(ClashNodeFailure.UNSUPPORTED_SS_PLUGIN, failed.failure)
+        // 写法变体的不支持插件同样被拒，路径是节点里的键名
+        for (key in listOf("plugin", "Plugin", "PLUGIN")) {
+            val rejected = parsed("{$s, $key: shadow-tls}").nodes.single() as ClashNodeResult.Failed
+            assertEquals(key, ClashNodeFailure.UNSUPPORTED_SS_PLUGIN, rejected.failure)
+            assertEquals(key, rejected.path)
+        }
+        // 原样优先：同时写了 plugin 与 Plugin，用原样的 plugin（mihomoEntry 先找原样的键）
+        assertEquals(obfs, plugin("{$s, Plugin: v2ray-plugin, plugin: obfs, plugin-opts: {mode: tls, host: obfs.example.com}}"))
+        assertEquals(obfs, plugin("{$s, plugin: obfs, plugin-opts: {mode: tls, host: obfs.example.com}, Plugin-Opts: {mode: http}}"))
+        // 子键不把 _ 当作 -：obfs_host 不是 host，只有 host 才读
+        assertEquals("obfs-local;obfs=tls;obfs-host=", plugin("{$s, plugin: obfs, plugin-opts: {mode: tls, obfs_host: x.example.com}}"))
+        // 空白的 plugin 当没有插件
+        assertEquals("", plugin("{$s, Plugin: \"\"}"))
+    }
+
+    @Test
+    fun `ss 的插件写法变体：字段记录与原样写法相同`() {
+        val s = "name: s, type: ss, server: s.example.com, port: 8388, cipher: aes-128-gcm, password: pw-z"
+        val (_, obfs) = imported("{$s, Plugin: obfs, Plugin-Opts: {Mode: tls, HOST: obfs.example.com}}")
+        assertField(obfs, "Plugin", CONVERTED, ClashFieldReason.EQUIVALENT_VALUE)
+        assertField(obfs, "Plugin-Opts.Mode", KEPT)
+        assertField(obfs, "Plugin-Opts.HOST", KEPT)
+        assertNoLoss(obfs)
+        val (_, v2ray) = imported(
+            "{$s, plugin: v2ray-plugin, plugin_opts: {Mode: websocket, TLS: 1, Host: ws.example.com, Path: /ws, MUX: true, Headers: {X-A: b}}}"
+        )
+        assertField(v2ray, "plugin", KEPT)
+        assertField(v2ray, "plugin_opts.Mode", KEPT)
+        assertField(v2ray, "plugin_opts.TLS", KEPT)
+        assertField(v2ray, "plugin_opts.Path", KEPT)
+        assertField(v2ray, "plugin_opts.MUX", CONVERTED, ClashFieldReason.EQUIVALENT_VALUE)
+        // 解析器没读的子键仍记未导入
+        assertField(v2ray, "plugin_opts.Headers", IGNORED, ClashFieldReason.NOT_READ)
+        // mux 写成假值：而 sing-box 的插件不写时默认开
+        assertField(
+            fields("{$s, plugin: v2ray-plugin, plugin-opts: {mode: websocket, Mux: 0}}"), "plugin-opts.Mux", IGNORED,
+            ClashFieldReason.SEMANTICS_DIFFER,
+        )
+        // 子键写成 obfs_host（下划线）：mihomo 不认这个键，解析器也没读它
+        val underscore = fields("{$s, plugin: obfs, plugin-opts: {mode: tls, obfs_host: x.example.com}}")
+        assertField(underscore, "plugin-opts.obfs_host", IGNORED, ClashFieldReason.UNKNOWN_KEY)
+        // plugin-opts 不是 map
+        assertField(fields("{$s, Plugin: obfs, Plugin-Opts: oops}"), "Plugin-Opts", IGNORED, ClashFieldReason.INVALID_DROPPED)
+    }
+
+    @Test
+    fun `ss 的 udp-over-tcp 写法变体与整数真值`() {
+        val s = "name: s, type: ss, server: s.example.com, port: 1, cipher: aes-128-gcm, password: pw-z"
+        // udp_over_tcp、udp_over_tcp_version（_ 当作 -）、整数 1（mihomo 的弱类型布尔）都被读到，结果与原样写法相同
+        for (node in listOf(
+            "{$s, udp-over-tcp: true, udp-over-tcp-version: 2}",
+            "{$s, udp_over_tcp: true, udp_over_tcp_version: 2}",
+            "{$s, UDP-Over-TCP: 1, Udp-Over-Tcp-Version: 2}",
+        )) {
+            val (bean, fields) = imported(node)
+            bean as ShadowsocksBean
+            assertEquals(node, true, bean.sUoT)
+            assertEquals(node, 2, bean.sUoTVersion)
+            assertTrue(node, fields.values.none { it.lossy })
+        }
+        val (variant, variantFields) = imported("{$s, udp_over_tcp: true}")
+        assertEquals(1, (variant as ShadowsocksBean).sUoTVersion)
+        assertField(variantFields, "udp_over_tcp", KEPT)
+        // 原样优先
+        assertEquals(false, (imported("{$s, UDP-over-TCP: true, udp-over-tcp: false}").first as ShadowsocksBean).sUoT)
+        // 写法变体的非法版本同样被拒，路径是节点里的键名
+        val failed = parsed("{$s, udp_over_tcp: true, udp_over_tcp_version: 3}").nodes.single() as ClashNodeResult.Failed
+        assertEquals(ClashNodeFailure.INVALID_VALUE, failed.failure)
+        assertEquals("udp_over_tcp_version", failed.path)
     }
 
     @Test
