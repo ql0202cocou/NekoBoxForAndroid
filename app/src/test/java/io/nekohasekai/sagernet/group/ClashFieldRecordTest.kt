@@ -631,6 +631,140 @@ class ClashFieldRecordTest {
         assertEquals("packet", packet.getValue("packet-encoding").shownValue)
     }
 
+    // ---------- inactive 判断按 mihomo 的读法 ----------
+
+    // 依据：mihomo 的结构解码器（common/structure.Decoder.decodeStructFromMap）找键时先找原样，再不区分大小写并把 _ 当作 -；
+    // 布尔按 WeaklyTypedInput（true 或非 0 整数）。解析器只读原样的键，没读到的键 mihomo 却读到并用上时，要记有损
+
+    @Test
+    fun `smux 的开关键写法不同：mihomo 读到而解析器没读到，记有损而不是无影响`() {
+        val v = "name: v, type: vmess, server: v.example.com, port: 80, uuid: $uuid"
+        // adapter/parser.go：smux 子选项交给结构解码器，Enabled 与 enabled 同义
+        val (bean, upper) = imported("{$v, smux: {Enabled: true, max-streams: 8}}")
+        assertEquals(false, (bean as VMessBean).enableMux)
+        assertField(upper, "smux.Enabled", IGNORED, ClashFieldReason.NOT_READ)
+        assertField(upper, "smux.max-streams", IGNORED, ClashFieldReason.NOT_READ)
+        assertTrue(upper.getValue("smux.Enabled").lossy)
+        assertTrue(upper.getValue("smux.max-streams").lossy)
+        // 整数 1 在 mihomo 里也是真
+        assertField(fields("{$v, smux: {enabled: 1, padding: true}}"), "smux.padding", IGNORED, ClashFieldReason.NOT_READ)
+        // 写法不同的 false：mihomo 不套 sing-mux，整个对象无影响
+        assertField(fields("{$v, smux: {Enabled: false, max-streams: 8}}"), "smux", IGNORED, ClashFieldReason.INACTIVE)
+        // 顶层的 smux 键 ParseProxy 只按原样取：SMUX 在 mihomo 里不起作用
+        assertField(fields("{$v, SMUX: {enabled: true, max-streams: 8}}"), "SMUX", IGNORED, ClashFieldReason.INACTIVE)
+        // 原样的键仍按已导入记
+        val (exact, kept) = imported("{$v, smux: {enabled: true, max-streams: 8}}")
+        assertEquals(true, (exact as VMessBean).enableMux)
+        assertField(kept, "smux.max-streams", KEPT)
+        // brutal-opts 的 enabled 同样按 mihomo 的读法
+        assertField(
+            fields("{$v, smux: {enabled: true, brutal-opts: {Enabled: true, up: 100}}}"), "smux.brutal-opts", IGNORED,
+            ClashFieldReason.NOT_READ,
+        )
+        assertField(
+            fields("{$v, smux: {enabled: true, brutal-opts: {Enabled: false, up: 100}}}"), "smux.brutal-opts", IGNORED,
+            ClashFieldReason.INACTIVE,
+        )
+    }
+
+    @Test
+    fun `ech-opts 的 enable 按 mihomo 的读法判断`() {
+        val tls = "name: v, type: vmess, server: v.example.com, port: 443, uuid: $uuid, tls: true"
+        assertField(fields("{$tls, ech-opts: {Enable: true, config: ZWNo}}"), "ech-opts", IGNORED, ClashFieldReason.NOT_READ)
+        assertField(fields("{$tls, ECH-Opts: {enable: 1}}"), "ECH-Opts", IGNORED, ClashFieldReason.NOT_READ)
+        assertField(fields("{$tls, ech-opts: {Enable: false, config: ZWNo}}"), "ech-opts", IGNORED, ClashFieldReason.INACTIVE)
+        // 其它类型的 ech-opts 判断相同
+        val hysteria = "name: h, type: hysteria2, server: h.example.com, port: 443, password: pw-z"
+        assertField(fields("{$hysteria, ech-opts: {Enable: true}}"), "ech-opts", IGNORED, ClashFieldReason.NOT_READ)
+        assertField(fields("{$hysteria, ech-opts: {Enable: false}}"), "ech-opts", IGNORED, ClashFieldReason.INACTIVE)
+        val tuic = "name: t, type: tuic, server: t.example.com, port: 443, uuid: $uuid"
+        assertField(fields("{$tuic, ech-opts: {Enable: true}}"), "ech-opts", IGNORED, ClashFieldReason.NOT_READ)
+        val anytls = "name: a, type: anytls, server: a.example.com, port: 443, password: pw-z"
+        assertField(fields("{$anytls, ech-opts: {Enable: true, query-server-name: q.example.com}}"), "ech-opts.Enable", IGNORED, ClashFieldReason.NOT_READ)
+        assertField(
+            fields("{$anytls, ech-opts: {Enable: false, query-server-name: q.example.com}}"),
+            "ech-opts.query-server-name", IGNORED, ClashFieldReason.INACTIVE,
+        )
+    }
+
+    @Test
+    fun `network 与 ws-opts 开关键写法不同时按 mihomo 的读法判断`() {
+        val v = "name: v, type: vmess, server: v.example.com, port: 80, uuid: $uuid"
+        // mihomo 读到 Network: ws 并用 ws-opts，解析器没读到 network
+        val (bean, fields) = imported("{$v, Network: ws, ws-opts: {path: /ws}}")
+        assertEquals("tcp", (bean as VMessBean).type)
+        assertField(fields, "Network", IGNORED, ClashFieldReason.NOT_READ)
+        assertField(fields, "ws-opts", IGNORED, ClashFieldReason.NOT_READ)
+        // v2ray-http-upgrade-fast-open 只在 v2ray-http-upgrade 打开时 mihomo 才用
+        val ws = "$v, network: ws"
+        assertField(
+            fields("{$ws, ws-opts: {V2ray-Http-Upgrade: true, v2ray-http-upgrade-fast-open: true}}"),
+            "ws-opts.v2ray-http-upgrade-fast-open", IGNORED, ClashFieldReason.NOT_READ,
+        )
+        assertField(
+            fields("{$ws, ws-opts: {V2ray-Http-Upgrade: false, v2ray-http-upgrade-fast-open: true}}"),
+            "ws-opts.v2ray-http-upgrade-fast-open", IGNORED, ClashFieldReason.INACTIVE,
+        )
+    }
+
+    @Test
+    fun `没有公钥的 reality-opts 与未生效的 TLS 变体，写法不同时仍是无影响`() {
+        val v = "name: v, type: vmess, server: v.example.com, port: 443, uuid: $uuid, tls: true"
+        assertField(fields("{$v, Reality-Opts: {public-key: \"\"}}"), "Reality-Opts", IGNORED, ClashFieldReason.INACTIVE)
+        // 缺 public-key 键：mihomo 的 RealityOptions.PublicKey 没有 omitempty，has unset fields，节点解码失败，不是「无影响」
+        assertField(fields("{$v, Reality-Opts: {short-id: ab}}"), "Reality-Opts", IGNORED, ClashFieldReason.SEMANTICS_DIFFER)
+        assertTrue(fields("{$v, reality-opts: {short-id: ab}}").getValue("reality-opts").lossy)
+        assertField(fields("{$v, reality-opts: {public-key: \"\", short-id: ab}}"), "reality-opts", IGNORED, ClashFieldReason.INACTIVE)
+        assertField(fields("{$v, Shadow-TLS-Opts: {version: 0}}"), "Shadow-TLS-Opts", IGNORED, ClashFieldReason.INACTIVE)
+    }
+
+    @Test
+    fun `ss 的 plugin 与 udp-over-tcp 写法不同时按 mihomo 的读法判断`() {
+        val s = "name: s, type: ss, server: s.example.com, port: 1, cipher: aes-128-gcm, password: pw-z"
+        // NewShadowSocks：Plugin 经结构解码器读到，obfs 插件会用 plugin-opts
+        assertField(fields("{$s, Plugin: obfs, plugin-opts: {mode: tls}}"), "plugin-opts", IGNORED, ClashFieldReason.NOT_READ)
+        assertField(fields("{$s, plugin-opts: {mode: tls}}"), "plugin-opts", IGNORED, ClashFieldReason.INACTIVE)
+        // udp-over-tcp-version 只在 udp-over-tcp 打开时用
+        assertField(
+            fields("{$s, UDP-over-TCP: true, udp-over-tcp-version: 2}"), "udp-over-tcp-version", IGNORED,
+            ClashFieldReason.NOT_READ,
+        )
+        assertField(
+            fields("{$s, UDP-over-TCP: false, udp-over-tcp-version: 2}"), "udp-over-tcp-version", IGNORED,
+            ClashFieldReason.INACTIVE,
+        )
+        // client-fingerprint 在 shadow-tls / restls / jls 插件里 mihomo 会用（NewShadowSocks 传给这些插件）；插件写成解析器
+        // 读不到的键名（Plugin）时节点照常导入，指纹是 mihomo 用上而本应用没导入的，不能记无影响；别的插件才无影响
+        for (plugin in listOf("shadow-tls", "restls", "jls")) {
+            assertField(
+                fields("{$s, Plugin: $plugin, client-fingerprint: chrome}"), "client-fingerprint", IGNORED,
+                ClashFieldReason.NOT_READ,
+            )
+        }
+        assertField(
+            fields("{$s, Plugin: obfs, client-fingerprint: chrome}"), "client-fingerprint", IGNORED, ClashFieldReason.INACTIVE,
+        )
+        // v2ray-plugin 的 tls 子键用的解码器不把 _ 当作 -：skip_cert_verify 在 mihomo 里不是 skip-cert-verify
+        val plugin = "$s, plugin: v2ray-plugin, plugin-opts: {mode: websocket, tls: true"
+        assertField(fields("{$plugin, skip-cert-verify: true}}"), "plugin-opts.skip-cert-verify", IGNORED, ClashFieldReason.NOT_READ)
+        assertField(
+            fields("{$s, plugin: v2ray-plugin, plugin-opts: {mode: websocket, skip-cert-verify: true}}"),
+            "plugin-opts.skip-cert-verify", IGNORED, ClashFieldReason.INACTIVE,
+        )
+    }
+
+    @Test
+    fun `wireguard 的 dns 与 hysteria 的 ports 按 mihomo 的读法判断`() {
+        val w = "name: w, type: wireguard, server: 198.51.100.20, port: 51820, private-key: pk-placeholder"
+        assertField(fields("{$w, remote_dns_resolve: true, dns: [192.0.2.53]}"), "dns", IGNORED, ClashFieldReason.NOT_READ)
+        assertField(fields("{$w, Remote-DNS-Resolve: 1, dns: [192.0.2.53]}"), "dns", IGNORED, ClashFieldReason.NOT_READ)
+        assertField(fields("{$w, Remote-DNS-Resolve: 0, dns: [192.0.2.53]}"), "dns", IGNORED, ClashFieldReason.INACTIVE)
+        // Ports 在 mihomo 里生效，port 退为无影响
+        val h = fields("{name: h, type: hysteria, server: h.example.com, port: 443, Ports: 1000-2000, auth-str: pw-z}")
+        assertField(h, "port", IGNORED, ClashFieldReason.INACTIVE)
+        assertField(h, "Ports", IGNORED, ClashFieldReason.NOT_READ)
+    }
+
     // ---------- 失败路径与兜底 ----------
 
     @Test

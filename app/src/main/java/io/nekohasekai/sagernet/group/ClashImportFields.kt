@@ -45,6 +45,9 @@ import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 // smux 由 adapter/parser.go 统一处理）；mihomo 解码时键名大小写不敏感、_ 当作 -，查表前同样归一化。
 // 有记录的键按记录；没记录的键：随节点而定的无影响（inactive）→ 无影响名单 → 空值 / false →
 // 键表里有的记「未导入」（有损），键表里没有的记「mihomo 不认识」（无影响）
+// 「这个键在 mihomo 里起不起作用」的判断（inactive）里读到的开关键（enabled、network、plugin 等），
+// 与字段记录查找、clashRejection 一样按 mihomo 的读法找（mihomoValue / mihomoFlag：不区分大小写、_ 当作 -），
+// 不按解析器的读法：解析器没读到、mihomo 读到并用上的键，必须记成有损，不能记成「mihomo 也不生效」
 
 // 本应用里本来就没有对应行为的顶层键，各自的理由见 ClashFieldReason。拿不准的不放进来（按有损记）
 val CLASH_NO_EFFECT_KEYS: Map<String, ClashFieldReason> = mapOf(
@@ -148,6 +151,30 @@ internal class ClashFields(
         return found
     }
 
+    // mihomo 读法的取值：逐层用 mihomoEntry 找键（先原样，再不区分大小写、把 _ 当作 -）。
+    // nestedUnderscore 为 false 时，第一层之后的键不把 _ 当作 -（ss 的 plugin-opts 的解码器不当）
+    fun mihomoValueAt(names: List<String>, nestedUnderscore: Boolean = true): Any? {
+        var value: Any? = proxy
+        for ((i, name) in names.withIndex()) {
+            value = (value as? Map<*, *>)?.mihomoEntry(name, underscoreAsDash = i == 0 || nestedUnderscore)?.value ?: return null
+        }
+        return value
+    }
+
+    fun mihomoEntryOf(name: String): Map.Entry<*, *>? = proxy.mihomoEntry(name)
+
+    // mihomo 不启用 REALITY 的 reality-opts（没有非空公钥）该记什么原因。public-key 显式写成空串或 null：
+    // RealityOptions.Parse 不启用 REALITY，与本应用一致，无影响。缺 public-key 这个键：RealityOptions.PublicKey 的 tag
+    // 没有 omitempty，结构解码器（decodeStructFromMap）报 has unset fields，整个节点在 mihomo 里解码失败，
+    // 而本应用照常导入成普通 TLS：两边结果不同，记 SEMANTICS_DIFFER（有损；不拒绝，不改导入结果）
+    fun realityWithoutKeyReason(): ClashFieldReason {
+        val opts = mihomoValue("reality-opts") as? Map<*, *>
+        return if (opts != null && opts.mihomoEntry("public-key") == null) SEMANTICS_DIFFER else INACTIVE
+    }
+
+    fun mihomoValue(vararg names: String): Any? = mihomoValueAt(names.asList())
+    fun mihomoFlag(vararg names: String): Boolean = mihomoValue(*names).mihomoTrue()
+
     fun path(vararg names: String): List<String>? {
         var map: Map<*, *> = proxy
         val out = ArrayList<String>(names.size)
@@ -199,9 +226,9 @@ internal class ClashFields(
         if (text(*names)?.toIntOrNull() != null) kept(*names) else ignored(INVALID_DROPPED, *names)
     }
 
-    // ech-opts 只在 enable 打开时 mihomo 才用
+    // ech-opts 只在 enable 打开时 mihomo 才用（ECHOptions.Parse）
     fun echOptsInactive(): (List<String>) -> ClashFieldReason? = { path ->
-        if (path[0] == "ech-opts" && !flag("ech-opts", "enable")) INACTIVE else null
+        if (path[0] == "ech-opts" && !mihomoFlag("ech-opts", "enable")) INACTIVE else null
     }
 
     // 值相同记 KEPT，不同说明被别的键改写了
@@ -217,12 +244,15 @@ internal class ClashFields(
         path(*names)?.let { if (valueAt(it) is Map<*, *>) opened += it }
     }
 
+    // mihomo 的 smux（adapter/parser.go ParseProxy）：顶层的 smux 键只按原样取（不做不区分大小写的查找），
+    // 取到 map 才交给结构解码器，里面的子键才不区分大小写、_ 当作 -；enabled 打开才套 sing-mux
     fun smuxInactive(path: List<String>): ClashFieldReason? {
         if (path[0] != "smux") return null
-        val smux = value("smux") as? Map<*, *> ?: return INACTIVE
-        if (!smux["enabled"].clashBoolean()) return INACTIVE
+        val smux = proxy["smux"] as? Map<*, *> ?: return INACTIVE
+        if (!smux.mihomoEntry("enabled")?.value.mihomoTrue()) return INACTIVE
         if (path.size > 1 && path[1] == "brutal-opts") {
-            if (!(smux["brutal-opts"] as? Map<*, *>)?.get("enabled").clashBoolean()) return INACTIVE
+            val brutal = smux.mihomoEntry("brutal-opts")?.value as? Map<*, *>
+            if (!brutal?.mihomoEntry("enabled")?.value.mihomoTrue()) return INACTIVE
         }
         return null
     }
@@ -380,8 +410,8 @@ private fun ClashFields.alpnList(final: String?) {
 
 private fun ClashFields.socks(): Pair<Set<String>, ClashInactive> {
     kept("server"); kept("port"); kept("username"); kept("password")
-    // TLS 不导入：tls: true 按键表记「未导入」，下面的证书类键随之
-    return SOCKS_KEYS to tlsOffInactive(flag("tls"))
+    // TLS 不导入：tls: true 按键表记「未导入」，下面的证书类键随之（TLS 打开的节点整个被拒，到得了这里的 TLS 都关着）
+    return SOCKS_KEYS to tlsOffInactive(mihomoFlag("tls"))
 }
 
 private fun ClashFields.http(bean: HttpBean): Pair<Set<String>, ClashInactive> {
@@ -403,7 +433,6 @@ private fun ClashFields.shadowsocks(bean: ShadowsocksBean): Pair<Set<String>, Cl
         else -> kept("plugin")
     }
     var table = SS_KEYS
-    var pluginTls = false
     val opts = value("plugin-opts")
     if (plugin != null && opts != null) {
         if (opts !is Map<*, *>) {
@@ -415,7 +444,6 @@ private fun ClashFields.shadowsocks(bean: ShadowsocksBean): Pair<Set<String>, Cl
                 table = table + SS_OBFS_KEYS
             } else {
                 table = table + SS_V2RAY_PLUGIN_KEYS
-                pluginTls = flag("plugin-opts", "tls")
                 kept("plugin-opts", "path"); kept("plugin-opts", "tls")
                 // mux: true 写成 mux=8（sing-box 的插件只看是否大于 0）；false 不写，而 sing-box 的插件不写时默认开 mux
                 if (present("plugin-opts", "mux")) {
@@ -432,13 +460,18 @@ private fun ClashFields.shadowsocks(bean: ShadowsocksBean): Pair<Set<String>, Cl
         if (uot && uotVersion != "2") ignored(SEMANTICS_DIFFER, "udp-over-tcp") else kept("udp-over-tcp")
     }
     if (uot && uotVersion == "2") ignored(MATCHES_RESULT, "udp-over-tcp-version")
+    // 下面几处按 mihomo 的读法判断（plugin 与 udp-over-tcp 在 mihomo 里不区分键名大小写；plugin-opts 的子键用的解码器
+    // 不把 _ 当作 -，见 NewShadowSocks）
+    val mihomoPlugin = mihomoValue("plugin")?.toString().orEmpty()
+    val mihomoPluginTls = mihomoValueAt(listOf("plugin-opts", "tls"), nestedUnderscore = false).mihomoTrue()
     return table to { path ->
         when {
-            path[0] == "plugin-opts" && plugin == null -> INACTIVE
-            // mihomo 只在 shadow-tls / restls / jls 插件里用它，这几种插件在这里整个节点被拒
-            path[0] == "client-fingerprint" -> INACTIVE
-            path[0] == "udp-over-tcp-version" && !uot -> INACTIVE
-            path[0] == "plugin-opts" && path.size > 1 && !pluginTls &&
+            path[0] == "plugin-opts" && mihomoPlugin.isEmpty() -> INACTIVE
+            // mihomo 只在 shadow-tls / restls / jls 插件里用它；这几种插件写成 plugin 原样的键名时整个节点被拒，
+            // 写成别的键名时解析器没读到插件，mihomo 却会用上它
+            path[0] == "client-fingerprint" && mihomoPlugin !in setOf("shadow-tls", "restls", "jls") -> INACTIVE
+            path[0] == "udp-over-tcp-version" && !mihomoFlag("udp-over-tcp") -> INACTIVE
+            path[0] == "plugin-opts" && path.size > 1 && !mihomoPluginTls &&
                     path[1] in setOf("ech-opts") + CERT_KEYS -> INACTIVE
 
             else -> null
@@ -464,22 +497,25 @@ internal fun clashTlsVariantActive(key: String, value: Any?): Boolean {
     }
 }
 
+// 键按 mihomo 的读法找（与 clashRejection 一致）：写法不同的键解析器读不到，是否生效仍按 mihomo 判断
 private fun ClashFields.tlsVariants(keys: List<String>) {
     for (key in keys) {
-        val value = value(key) ?: continue
+        val entry = mihomoEntryOf(key) ?: continue
+        val path = listOf(entry.key.toString())
+        val value = entry.value ?: continue
         when {
-            value !is Map<*, *> -> ignored(INVALID_DROPPED, key)
-            clashTlsVariantActive(key, value) -> ignored(NOT_READ, key)
-            else -> ignored(INACTIVE, key)
+            value !is Map<*, *> -> recordAt(path, ClashFieldResult.IGNORED, INVALID_DROPPED)
+            clashTlsVariantActive(key, value) -> recordAt(path, ClashFieldResult.IGNORED, NOT_READ)
+            else -> recordAt(path, ClashFieldResult.IGNORED, INACTIVE)
         }
     }
 }
 
 // mihomo 实际生效的 packet encoding（0 无、1 packetaddr、2 xudp），见 vmess.go / vless.go 的 NewVmess / NewVless
 private fun ClashFields.mihomoPacketEncoding(vless: Boolean): Int {
-    var packetAddr = flag("packet-addr")
-    var xudp = flag("xudp")
-    when (value("packet-encoding")?.toString()) {
+    var packetAddr = mihomoFlag("packet-addr")
+    var xudp = mihomoFlag("xudp")
+    when (mihomoValue("packet-encoding")?.toString()) {
         "packetaddr", "packet" -> {
             packetAddr = true
             if (vless) xudp = false
@@ -543,8 +579,8 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
     }
     when {
         reality.isFalseOrEmpty() -> Unit
-        // 没有公钥：mihomo 的 RealityOptions.Parse 不启用 REALITY，本应用同样不用，整个对象不起作用
-        !realityKey -> ignored(INACTIVE, "reality-opts")
+        // 没有公钥：mihomo 的 RealityOptions.Parse 不启用 REALITY，本应用同样不用；缺 public-key 键与写成空串不同，见 realityWithoutKeyReason
+        !realityKey -> ignored(realityWithoutKeyReason(), "reality-opts")
         else -> {
             kept("reality-opts", "public-key"); kept("reality-opts", "short-id")
             // sing-box 的 REALITY 不提供 X25519MLKEM768（libcore/sing-box/NEKO.md），false 与之相同
@@ -567,6 +603,9 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
 
     val network = text("network")
     val activeOpts = network(type, network, tlsOn)
+    // 是否生效按 mihomo 读到的 network 判断：解析器没读到 network（如 Network: ws）而 mihomo 读到时，
+    // 对应的 *-opts 在 mihomo 里是生效的，解析器却没套用
+    val mihomoActiveOpts = optsKeyOf(type, mihomoValue("network")?.toString())
     when (activeOpts) {
         "ws-opts" -> wsOpts(bean)
         "h2-opts" -> h2Opts(bean)
@@ -578,16 +617,19 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
     }
     sniAndTransport(trojan, bean, network, activeOpts, tlsOn, sniKey)
 
-    // smux：只有 enabled 时 mihomo 才套 sing-mux
+    // smux：只有 enabled 时 mihomo 才套 sing-mux（按 mihomo 的读法判断）。解析器只读原样的 enabled 等键：
+    // mihomo 读到 enabled（如 Enabled: true、enabled: 1）而节点没开 mux 时，子键都不记「已导入」，逐个走未读分类
     if (smuxInactive(listOf("smux")) == null) {
         open("smux")
-        // vision 流控不用 mux（构建时丢掉，见 ProxyEntity.singMux）
-        if (bean.isVisionFlow) ignored(SEMANTICS_DIFFER, "smux", "enabled") else kept("smux", "enabled")
-        kept("smux", "max-streams"); kept("smux", "padding")
-        when (value("smux", "protocol")?.toString()) {
-            null -> Unit
-            "", "h2mux", "smux", "yamux" -> kept("smux", "protocol")
-            else -> ignored(UNKNOWN_VALUE, "smux", "protocol")
+        if (bean.enableMux == true) {
+            // vision 流控不用 mux（构建时丢掉，见 ProxyEntity.singMux）
+            if (bean.isVisionFlow) ignored(SEMANTICS_DIFFER, "smux", "enabled") else kept("smux", "enabled")
+            kept("smux", "max-streams"); kept("smux", "padding")
+            when (value("smux", "protocol")?.toString()) {
+                null -> Unit
+                "", "h2mux", "smux", "yamux" -> kept("smux", "protocol")
+                else -> ignored(UNKNOWN_VALUE, "smux", "protocol")
+            }
         }
     }
 
@@ -620,11 +662,13 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
     return table to { path ->
         when {
             // 其它 network 的 *-opts：mihomo 不读（xhttp / mkcp / mekya 的 network 整个节点被拒）
-            path[0] in transportOpts && path[0] != activeOpts -> INACTIVE
+            path[0] in transportOpts && path[0] != mihomoActiveOpts -> INACTIVE
             path.size == 2 && path[0] == "ws-opts" && path[1] == "v2ray-http-upgrade-fast-open" &&
-                    !flag("ws-opts", "v2ray-http-upgrade") -> INACTIVE
+                    !mihomoFlag("ws-opts", "v2ray-http-upgrade") -> INACTIVE
 
-            path[0] == "ech-opts" && !flag("ech-opts", "enable") -> INACTIVE
+            // 没有公钥的 reality-opts：mihomo 的 RealityOptions.Parse 不启用 REALITY（缺键的情形见 realityWithoutKeyReason）
+            path[0] == "reality-opts" && mihomoValue("reality-opts", "public-key")?.toString().isNullOrEmpty() -> realityWithoutKeyReason()
+            path[0] == "ech-opts" && !mihomoFlag("ech-opts", "enable") -> INACTIVE
             else -> tlsOffInactive(tlsOn)(path)
         }
     }
@@ -647,13 +691,16 @@ private fun ClashFields.network(type: String, network: String?, tlsOn: Boolean):
         // mihomo 的 http 是 HTTP/1.1 伪装头（带 TLS 时在 TLS 里），本应用带 TLS 时是 h2
         "http" -> if (type == "trojan" || tlsOn) ignored(SEMANTICS_DIFFER, "network") else kept("network")
     }
-    return when (network) {
-        "ws" -> "ws-opts"
-        "grpc" -> "grpc-opts"
-        "h2" -> if (type == "trojan") null else "h2-opts"
-        "http" -> if (type == "trojan") null else "http-opts"
-        else -> null
-    }
+    return optsKeyOf(type, network)
+}
+
+// mihomo 在这个 network 下读的 *-opts 键
+private fun optsKeyOf(type: String, network: String?): String? = when (network) {
+    "ws" -> "ws-opts"
+    "grpc" -> "grpc-opts"
+    "h2" -> if (type == "trojan") null else "h2-opts"
+    "http" -> if (type == "trojan") null else "http-opts"
+    else -> null
 }
 
 // 解析器对 ws / h2 / http / grpc 四种 *-opts 一律套用（applyClashTransportOpts），mihomo 只读当前 network 的那个
@@ -889,7 +936,7 @@ private fun ClashFields.anyTLS(bean: AnyTLSBean): Pair<Set<String>, ClashInactiv
     tlsVariants(listOf("shadow-tls-opts", "restls-opts", "jls-opts"))
     // enable 没打开时 mihomo 不用 ech-opts 的其余子键（ECHOptions.Parse）；没写 enable 的 config 上面已有记录
     return ANYTLS_KEYS to { path ->
-        if (path.size == 2 && path[0] == "ech-opts" && path[1] != "enable" && !flag("ech-opts", "enable")) INACTIVE
+        if (path.size == 2 && path[0] == "ech-opts" && path[1] != "enable" && !mihomoFlag("ech-opts", "enable")) INACTIVE
         else null
     }
 }
@@ -929,7 +976,7 @@ private fun ClashFields.hysteria(bean: HysteriaBean): Pair<Set<String>, ClashIna
     kept("server"); kept("sni"); kept("skip-cert-verify"); kept("ca-str")
     fingerprint(pinSupported = false)
     // ports 在时端口跳跃用它，port 两边都不再用
-    val hopping = !text("ports").isNullOrBlank()
+    val hopping = !mihomoValue("ports")?.toString().isNullOrBlank()
     if (hopping) ignored(INACTIVE, "port") else kept("port")
     kept("ports")
     rate("up", bean.uploadMbps)
@@ -1038,7 +1085,7 @@ private fun ClashFields.wireGuard(bean: WireGuardBean): Pair<Set<String>, ClashI
         }
     }
     if (present("remote-dns-resolve")) {
-        if (flag("remote-dns-resolve")) ignored(NOT_SUPPORTED, "remote-dns-resolve")
+        if (value("remote-dns-resolve").mihomoTrue()) ignored(NOT_SUPPORTED, "remote-dns-resolve")
         else ignored(DEFAULT_VALUE, "remote-dns-resolve")
     }
     if (present("amnezia-wg-option") && !value("amnezia-wg-option").isFalseOrEmpty()) {
@@ -1048,7 +1095,7 @@ private fun ClashFields.wireGuard(bean: WireGuardBean): Pair<Set<String>, ClashI
         when {
             path.size == 1 && path[0] in CLASH_NO_EFFECT_WIREGUARD -> CLASH_NO_EFFECT_WIREGUARD[path[0]]
             // mihomo 只在 remote-dns-resolve 打开时用 dns
-            path[0] == "dns" && !flag("remote-dns-resolve") -> INACTIVE
+            path[0] == "dns" && !mihomoFlag("remote-dns-resolve") -> INACTIVE
             else -> null
         }
     }

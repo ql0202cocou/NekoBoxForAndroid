@@ -170,10 +170,11 @@ private fun clashRejection(type: String, proxy: Map<String, Any?>, bean: Abstrac
         // 带 REALITY 公钥，TLS 却被写在后面的 tls: false 关掉：导入成明文节点（mihomo 对这种配置报 REALITY requires TLS）。
         // tls: false 写在 reality-opts 前面时 REALITY 照常打开 TLS，不在此列
         if (!bean.realityPubKey.isNullOrBlank() && !bean.isTLS()) return rejected(ClashNodeFailure.REALITY_WITHOUT_TLS, "tls")
-        // reality-opts：mihomo 只在 public-key 非空时启用 REALITY（RealityOptions.Parse），空公钥或只有 short-id 的
-        // 两边都是普通 TLS，照常导入。只拒三种：不是 map（mihomo 解码失败）；mihomo 读到了公钥（含 Public-Key、
-        // reality_opts 之类的写法），解析器没拿到；vmess / vless 没有可用公钥的 reality-opts 让解析器打开了 TLS，
-        // mihomo 却是明文
+        // reality-opts：mihomo 只在 public-key 非空时启用 REALITY（RealityOptions.Parse），public-key 显式写成空串的
+        // 两边都是普通 TLS，照常导入。只有 short-id、缺 public-key 键的，mihomo 因 has unset fields 整个节点解码失败
+        // （PublicKey 的 tag 没有 omitempty），这里仍照常导入成普通 TLS，字段记录报告这处不同（SEMANTICS_DIFFER）。
+        // 只拒三种：不是 map（mihomo 解码失败）；mihomo 读到了公钥（含 Public-Key、reality_opts 之类的写法），解析器
+        // 没拿到；vmess / vless 没有可用公钥的 reality-opts 让解析器打开了 TLS，mihomo 却是明文
         proxy.mihomoEntry("reality-opts")?.let { reality ->
             val opts = reality.value
             if (opts !is Map<*, *>) {
