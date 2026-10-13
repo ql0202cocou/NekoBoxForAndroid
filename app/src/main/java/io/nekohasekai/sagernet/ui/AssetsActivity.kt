@@ -222,6 +222,8 @@ class AssetsActivity : ThemedActivity() {
             val newVersions = list.associate { it.absolutePath to localVersion(it) }
 
             layout.refreshLayout.post {
+                // 待删的文件在撤销窗口内还在盘上，重新列目录会把它读回来：先提交掉，否则撤销会按旧位置再插一份
+                undoManager.flush()
                 // 只在主线程改列表：主线程同时在读它
                 assets.clear()
                 assets.addAll(list)

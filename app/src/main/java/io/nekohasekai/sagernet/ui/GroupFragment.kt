@@ -198,6 +198,9 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             val ungrouped = groups.find { it.ungrouped }
             if (ungrouped != null && groups.size > 1 && ProfileRepository.countProfilesByGroup(ungrouped.id) == 0L) groups.removeAll { it.ungrouped }
             groupListView.post {
+                // 同节点列表的 reloadProfiles：整表重读会把撤销窗口里待删的分组读回来，先提交掉，
+                // 否则撤销会按旧位置再插一份
+                undoManager.flush()
                 groupList.clear()
                 groupList.addAll(groups)
                 notifyDataSetChanged()
