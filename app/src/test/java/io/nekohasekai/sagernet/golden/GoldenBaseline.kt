@@ -98,6 +98,10 @@ class GoldenScenarioInput(val id: String, val dir: File, private val json: JsonO
     /** 被选中运行的节点。 */
     val mainProfileId: Long get() = json.long("mainProfileId", "$id/input.json")
 
+    /** profiles 里全部节点的 id，按出现顺序。 */
+    val profileIds: List<Long>
+        get() = json.array("profiles", "$id/input.json").map { it.asJsonObject.long("id", "$id/input.json 节点") }
+
     /** 六个外核插件 id 的状态：builtin、missing 或 external:<包名>。 */
     val plugins: Map<String, String>
         get() = json.obj("plugins", "$id/input.json").entrySet().associateTo(LinkedHashMap()) { (key, value) ->
