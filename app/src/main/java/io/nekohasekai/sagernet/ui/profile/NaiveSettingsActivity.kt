@@ -50,11 +50,25 @@ class NaiveSettingsActivity : ProfileSettingsActivity<NaiveBean>() {
         findPreference<EditTextPreference>(Key.SERVER_INSECURE_CONCURRENCY)!!.bindIntegerPreference()
     }
 
+    // 只在保存（saveAndExit 走到 finish）时切换彩蛋；放弃修改、校验不过都不切换
+    private var saving = false
+
+    override suspend fun saveAndExit() {
+        saving = true
+        try {
+            super.saveAndExit()
+        } finally {
+            saving = false
+        }
+    }
+
     override fun finish() {
-        if (EditorCache.profileName == "喵要打开隐藏功能") {
-            DataStore.isExpert = true
-        } else if (EditorCache.profileName == "喵要关闭隐藏功能") {
-            DataStore.isExpert = false
+        if (saving) {
+            if (EditorCache.profileName == "喵要打开隐藏功能") {
+                DataStore.isExpert = true
+            } else if (EditorCache.profileName == "喵要关闭隐藏功能") {
+                DataStore.isExpert = false
+            }
         }
         super.finish()
     }
