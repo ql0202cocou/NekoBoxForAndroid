@@ -4,6 +4,7 @@ import io.nekohasekai.sagernet.fmt.ConfigBuildResult
 import io.nekohasekai.sagernet.fmt.TAG_BYPASS
 import io.nekohasekai.sagernet.fmt.TAG_PROXY
 import io.nekohasekai.sagernet.fmt.TrafficBindings
+import io.nekohasekai.sagernet.fmt.TrafficIncrement
 import io.nekohasekai.sagernet.fmt.TrafficTotals
 
 /**
@@ -21,9 +22,15 @@ import io.nekohasekai.sagernet.fmt.TrafficTotals
  * 每轮查询的出站：非选择器模式是全部登记的节点出站加 bypass；选择器模式是 proxy、
  * [TrafficBindings.ruleTags]（规则直接指向的出站）与 bypass。每个出站上行、下行各查一次。
  *
- * 线程：一把私有锁覆盖 [sweep]、[select]、[clear]、[snapshot]，[query] 在锁内调用。查询是取走增量，每个字节只会被
- * 取走一次；锁要防的是切换插进「扫描取走 proxy 的增量」与「把它记给选中集合」之间，那样旧成员的字节会记给新成员。
- * 另外累计数组、变化项集合与会话量本身也不是线程安全的。落库与推送由调用方在锁外做。
+ * 落库是增量：每个节点另记一份「已落库的基线」（初始等于初始累计）。[claim] 在锁内取走「累计 - 基线」并把基线
+ * 推到累计，调用方拿这份增量加到库里的值上；库写失败时 [release] 把基线退回去。界面清除流量时 [clear] 把累计与
+ * 基线一起归零。这样库里的值被界面清零后，:bg 再落库写回的只是清零之后新增（和上次落库到清零之间还没落库）的
+ * 那一点，清掉的旧累计不会回来。界面显示用的绝对值（初始值 + 本次累计）仍是 [snapshot] / [Round.changed]。
+ *
+ * 线程：一把私有锁覆盖 [sweep]、[select]、[clear]、[claim]、[release]、[snapshot]，[query] 在锁内调用。查询是取走
+ * 增量，每个字节只会被取走一次；锁要防的是切换插进「扫描取走 proxy 的增量」与「把它记给选中集合」之间，那样旧成员的
+ * 字节会记给新成员。另外累计数组、基线、变化项集合与会话量本身也不是线程安全的。库写与推送由调用方在锁外做；
+ * 增量按「取走」切分，两次 [claim] 取到的各是不相交的一段，所以停止落库与切换落库并发时不会重复计。
  *
  * @param selector 选择器模式：构建结果的 profileTagMap（节点 id → 出站 tag，含选择器成员，也含路由规则目标）；
  *   非选择器模式为 null
@@ -37,6 +44,14 @@ class TrafficAccounting(
     private val query: (tag: String, direction: String) -> Long,
     startedAt: Long,
 ) {
+
+    /**
+     * 一次 [claim] 取走的增量，[increments] 是要加到库里的值（累计有变化的节点才有）。库写失败时交回 [release]。
+     */
+    class Claim internal constructor(
+        val increments: List<TrafficIncrement>,
+        internal val epochs: Map<Long, Int>,
+    )
 
     /**
      * 一轮的结果：代理与直连的速率（字节 / 秒）、本次会话经代理出站的字节，以及上一轮之后累计有变化的节点
@@ -64,6 +79,14 @@ class TrafficAccounting(
             getOrPut(id) { bindings.initial.getValue(id).let { longArrayOf(it.rx, it.tx) } }
         }
     }
+
+    // 节点 id → 已落库的 [rx, tx]；与累计同形，初始等于初始累计（库里此刻就是这个值）
+    private val baseline = LinkedHashMap<Long, LongArray>().apply {
+        for ((id, t) in totals) put(id, t.copyOf())
+    }
+
+    // 节点 id → 清零次数。claim 记下取走时的次数，release 时次数变了说明期间清过零，基线不能再退
+    private val clearEpochs = HashMap<Long, Int>()
 
     private val queryTags: List<String> = buildList {
         if (selector != null) {
@@ -142,12 +165,48 @@ class TrafficAccounting(
         old.associateWithTo(LinkedHashMap()) { totals.getValue(it).toTotals() }
     }
 
-    /** 界面清除了这些节点的流量：累计归零，之后照常累计。不在本次运行里的 id 忽略；会话量不变。 */
+    /**
+     * 界面清除了这些节点的流量：累计与已落库基线一起归零，之后照常累计。不在本次运行里的 id 忽略；会话量不变。
+     * 界面已经把库里的值写成 0，所以基线也是 0。
+     */
     fun clear(ids: LongArray): Unit = synchronized(lock) {
         for (id in ids) {
             val t = totals[id] ?: continue
             t.fill(0)
+            baseline.getValue(id).fill(0)
+            clearEpochs[id] = (clearEpochs[id] ?: 0) + 1
             dirty += id
+        }
+    }
+
+    /**
+     * 取走 [ids] 各节点「累计 - 已落库基线」的增量（没有增量的节点不返回，不在本次运行里的 id 忽略，重复 id 取一次），
+     * 基线同时推到当前累计。调用方把 [Claim.increments] 加到库里；写失败要调 [release]，否则这一段不会再落库。
+     */
+    fun claim(ids: Collection<Long>): Claim = synchronized(lock) {
+        val increments = ArrayList<TrafficIncrement>()
+        val epochs = HashMap<Long, Int>()
+        for (id in ids.distinct()) {
+            val t = totals[id] ?: continue
+            val b = baseline.getValue(id)
+            val rx = t[0] - b[0]
+            val tx = t[1] - b[1]
+            if (rx == 0L && tx == 0L) continue
+            b[0] = t[0]
+            b[1] = t[1]
+            increments += TrafficIncrement(id, rx = rx, tx = tx)
+            epochs[id] = clearEpochs[id] ?: 0
+        }
+        Claim(increments, epochs)
+    }
+
+    /** [claim] 取走的增量没能写进库：把基线退回去，下次 [claim] 重新取到。取走之后清过零的节点不退（那段已被清掉）。 */
+    fun release(claim: Claim): Unit = synchronized(lock) {
+        for (inc in claim.increments) {
+            if ((clearEpochs[inc.id] ?: 0) != claim.epochs[inc.id]) continue
+            val b = baseline.getValue(inc.id)
+            b[0] -= inc.rx
+            b[1] -= inc.tx
         }
     }
 

@@ -77,14 +77,27 @@ class TrafficLooper(val data: BaseService.Data) {
         flushStats()
     }
 
-    // 当前累计写库，每个节点一行、一个事务。写哪些节点仍按当前 data.proxy 的统计关联取（同以前：data.proxy
+    // 当前累计的增量写库，每个节点一行、一个事务。写哪些节点仍按当前 data.proxy 的统计关联取（同以前：data.proxy
     // 已置空时不写，已换成新实例时只写两边都有的节点），值取本循环的记账
     private suspend fun flushStats(): List<TrafficData> = withContext(Dispatchers.IO) {
         val bound = data.proxy?.config?.traffic?.tags ?: return@withContext emptyList()
-        val totals = accounting?.snapshot() ?: return@withContext emptyList()
-        val updated = TrafficAccounting.rowsToPersist(bound, totals).toTrafficData()
-        ProfileManager.persistTraffic(updated)
-        updated
+        val accounting = accounting ?: return@withContext emptyList()
+        // 推给界面的是绝对值，写库的是自上次落库以来的增量（见 TrafficAccounting）
+        val rows = TrafficAccounting.rowsToPersist(bound, accounting.snapshot())
+        persistIncrements(accounting, rows.keys)
+        rows.toTrafficData()
+    }
+
+    // 取走这些节点的增量并加到库里；库写失败把基线退回去再抛出，下次落库补上
+    private suspend fun persistIncrements(accounting: TrafficAccounting, ids: Collection<Long>) {
+        val claim = accounting.claim(ids)
+        if (claim.increments.isEmpty()) return
+        try {
+            ProfileManager.persistTrafficIncrements(claim.increments)
+        } catch (e: Throwable) {
+            accounting.release(claim)
+            throw e
+        }
     }
 
     fun start() {
@@ -111,21 +124,21 @@ class TrafficLooper(val data: BaseService.Data) {
         private fun Map<Long, TrafficTotals>.toTrafficData() = map { (id, t) -> t.toTrafficData(id) }
     }
 
-    // 界面清除了这些节点在库里的流量列：本循环的累计也要清，否则下一次 persistStats / stop 会把清除前的
-    // 累计写回去。只清界面清除的那些 id（界面按分组清，本循环覆盖运行配置里的全部节点）；会话量不变
+    // 界面清除了这些节点在库里的流量列：本循环的累计与已落库基线也要清，否则清除前的累计还会按增量继续写
+    // 进库。只清界面清除的那些 id（界面按分组清，本循环覆盖运行配置里的全部节点）；会话量不变
     fun clearStats(profileIds: LongArray) {
         accounting?.clear(profileIds)
     }
 
     // NativeInterface.selector_OnProxySelected 在串行调度器的协程里按事件顺序调用。切换前先把 proxy 上的字节结算给
-    // 旧成员，旧成员所在出站的整个集合就在调用方的协程里落库（一个事务），写完才返回：前后两次切换写到同一节点
-    // （共享的前置 / 落地）时，库里留下的是后一次的累计
+    // 旧成员，旧成员所在出站的整个集合的增量就在调用方的协程里落库（一个事务），写完才返回。落库是加增量，前后
+    // 两次切换写到同一节点（共享的前置 / 落地）也各加各的一段，不会互相覆盖
     suspend fun selectMain(id: Long) {
         val accounting = accounting ?: return
         Logs.d("select traffic count $TAG_PROXY to $id")
         val old = accounting.select(id) ?: return
         if (old.isNotEmpty() && DataStore.profileTrafficStatistics) {
-            ProfileManager.persistTraffic(old.toTrafficData())
+            persistIncrements(accounting, old.keys)
         }
     }
 

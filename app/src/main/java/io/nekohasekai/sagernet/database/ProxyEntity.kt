@@ -272,9 +272,15 @@ data class ProxyEntity(
         fun updateEditableFields(fields: ProxyEditableFields): Int
 
         // tx/rx only: callers hold a snapshot read at VPN/test start, and a
-        // full-row @Update would roll back concurrent edits on the other columns
+        // full-row @Update would roll back concurrent edits on the other columns。
+        // 绝对值写入只给界面清除流量（归零）；:bg 的落库走 addTraffic 的增量
         @Query("UPDATE proxy_entities SET tx = :tx, rx = :rx WHERE id = :id")
         fun updateTraffic(id: Long, tx: Long, rx: Long)
+
+        // :bg 落库：把上次落库以来新增的字节加到库里的值上。界面清零后再落库，写回的只是清零之后
+        // 新增的那一点，不会把清掉的旧累计带回来
+        @Query("UPDATE proxy_entities SET tx = tx + :dtx, rx = rx + :drx WHERE id = :id")
+        fun addTraffic(id: Long, dtx: Long, drx: Long)
 
         @Query("UPDATE proxy_entities SET status = :status, ping = :ping, error = :error WHERE id = :id")
         fun updateStatus(id: Long, status: Int, ping: Int, error: String?)

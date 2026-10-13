@@ -11,6 +11,9 @@ import java.util.Collections
 /** 一个节点的流量累计（字节）。 */
 data class TrafficTotals(val rx: Long, val tx: Long)
 
+/** 一个节点自上次落库以来新增的流量（字节），落库时加到库里的 rx / tx 上，不是绝对值。 */
+data class TrafficIncrement(val id: Long, val rx: Long, val tx: Long)
+
 /**
  * 一次构建的流量统计关联，构造时复制传入的集合，之后不再改变。
  *

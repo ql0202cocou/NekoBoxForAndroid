@@ -4,6 +4,7 @@ import android.database.sqlite.SQLiteCantOpenDatabaseException
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.aidl.TrafficData
 import io.nekohasekai.sagernet.fmt.AbstractBean
+import io.nekohasekai.sagernet.fmt.TrafficIncrement
 import io.nekohasekai.sagernet.fmt.putBean
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
@@ -116,8 +117,8 @@ object ProfileManager {
     // Snapshot-safe partial writes: the entity may have been read at VPN/test
     // start, so only the columns this caller owns go back to the DB.
 
-    // 整批一个事务：数据库是 TRUNCATE 日志模式，逐行更新会各自提交一次。现在只有界面清除流量
-    // （ProfileRepository.clearTraffic）调用；运行中的统计按节点 id 走 persistTraffic
+    // 整批一个事务：数据库是 TRUNCATE 日志模式，逐行更新会各自提交一次。绝对值写入，现在只有界面清除流量
+    // （ProfileRepository.clearTraffic）调用；运行中的统计按节点 id 走 persistTrafficIncrements 写增量
     suspend fun updateTraffic(profiles: List<ProxyEntity>) {
         if (profiles.isEmpty()) return
         SagerDatabase.instance.runInTransaction {
@@ -127,12 +128,13 @@ object ProfileManager {
         }
     }
 
-    // 按节点 id 写流量累计（运行中的统计不持有节点实体），整批一个事务，同 updateTraffic(List)
-    suspend fun persistTraffic(traffic: Collection<TrafficData>) {
-        if (traffic.isEmpty()) return
+    // 按节点 id 把新增的流量加到库里（运行中的统计不持有节点实体），整批一个事务，同 updateTraffic(List)。
+    // 写增量而不是绝对值：界面清零与 :bg 落库互不覆盖，清掉的旧累计不会被写回来
+    suspend fun persistTrafficIncrements(increments: Collection<TrafficIncrement>) {
+        if (increments.isEmpty()) return
         SagerDatabase.instance.runInTransaction {
-            for (t in traffic) {
-                SagerDatabase.proxyDao.updateTraffic(t.id, t.tx, t.rx)
+            for (t in increments) {
+                SagerDatabase.proxyDao.addTraffic(t.id, t.tx, t.rx)
             }
         }
     }
