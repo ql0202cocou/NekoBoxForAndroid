@@ -238,6 +238,8 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
 
         override suspend fun onRemoved(ruleId: Long) {
             ruleListView.post {
+                // 同节点列表：别处删了规则先提交撤销窗口，免得 undo 按旧位置插回越界或插回幽灵行
+                undoManager.flush()
                 val index = ruleList.indexOfFirst { it.id == ruleId }
                 if (index == -1) {
                     needReload()
@@ -251,6 +253,8 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
 
         override suspend fun onCleared() {
             ruleListView.post {
+                // 「重置路由」清空了全部规则：窗口里待删的规则已不在库里，撤销只会插回幽灵行
+                undoManager.flush()
                 ruleList.clear()
                 ruleAdapter.notifyDataSetChanged()
                 needReload()

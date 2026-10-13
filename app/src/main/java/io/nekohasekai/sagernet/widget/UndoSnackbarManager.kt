@@ -51,5 +51,16 @@ class UndoSnackbarManager<in T>(
 
     fun remove(vararg items: Pair<Int, T>) = remove(items.toList())
 
-    fun flush() = last?.dismiss()
+    // 别处要改动列表时先调它：待删项立即提交，之后撤销即使还点得到也无事可做。不能只 dismiss：
+    // Snackbar 的关闭经 Handler 投递、淡出动画结束才回调 onDismissed，这段时间里点撤销会按删除时的
+    // 下标插回已经变了的列表
+    fun flush() {
+        val bar = last ?: return
+        last = null
+        if (recycleBin.isNotEmpty()) {
+            callback.commit(ArrayList(recycleBin))
+            recycleBin.clear()
+        }
+        bar.dismiss()
+    }
 }

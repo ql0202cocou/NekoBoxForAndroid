@@ -243,6 +243,11 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
         if (groupId != groupFragment.proxyGroup.id) return
 
         groupFragment.configurationListView.post {
+            // 别处删了节点（菜单批删、编辑器删除）：先提交撤销窗口。undo 按删除时的位置插回，列表变短会越界；
+            // 删的若正是窗口里待删的那个，撤销还会插回一行库里已没有的节点
+            if (groupFragment.isUndoManagerInitialized) {
+                groupFragment.undoManager.flush()
+            }
             allProfileIds.remove(profileId)
             val index = configurationIdList.indexOf(profileId)
             if (index < 0) return@post
