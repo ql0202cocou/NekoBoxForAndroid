@@ -39,9 +39,10 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.*
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.GroupManager
+import io.nekohasekai.sagernet.database.GroupRepository
 import io.nekohasekai.sagernet.database.ProfileManager
+import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.ProxyEntity
-import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
 import io.nekohasekai.sagernet.databinding.LayoutGroupItemBinding
 import io.nekohasekai.sagernet.fmt.AbstractBean
@@ -91,7 +92,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
     protected suspend fun awaitEditorReady() = editorReady.await()
 
-    val proxyEntity by lazy { SagerDatabase.proxyDao.getById(EditorCache.editingId) }
+    val proxyEntity by lazy { ProfileRepository.getProfile(EditorCache.editingId) }
 
     // action_move 的可见性要查库得出；onCreate 末尾异步预取后由
     // invalidateOptionsMenu 应用，默认值与菜单 XML 一致（隐藏）
@@ -166,8 +167,8 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             // 菜单回调（创建快捷方式/移动分组）再读就是缓存命中
             if (EditorCache.editingId != 0L) proxyEntity
             canMoveProfile = EditorCache.editingId != 0L // 非新建
-                    && SagerDatabase.groupDao.getById(EditorCache.editingGroup)?.type == GroupType.BASIC // 不在订阅组
-                    && SagerDatabase.groupDao.allGroups()
+                    && GroupRepository.getGroup(EditorCache.editingGroup)?.type == GroupType.BASIC // 不在订阅组
+                    && GroupRepository.getAllGroups()
                 .filter { it.type == GroupType.BASIC }.size > 1 // 还有其他普通分组
             onMainDispatcher { invalidateOptionsMenu() }
         }
@@ -363,7 +364,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                 // proxyEntity 是打开编辑器时读的缓存，编辑期间节点可能已被订阅更新删掉：
                 // 在后台重查一次，免得固定一个指向已删节点的快捷方式
                 lifecycleScope.launch(Dispatchers.Default) {
-                    val ent = activity.proxyEntity?.let { SagerDatabase.proxyDao.getById(it.id) }
+                    val ent = activity.proxyEntity?.let { ProfileRepository.getProfile(it.id) }
                     onMainDispatcher {
                         if (ent == null) {
                             Toast.makeText(activity, R.string.deleted_profile, Toast.LENGTH_LONG).show()
@@ -400,7 +401,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                         return
                     }
                     lifecycleScope.launch(Dispatchers.Default) {
-                        val groups = SagerDatabase.groupDao.allGroups()
+                        val groups = GroupRepository.getAllGroups()
                             .filter { it.type == GroupType.BASIC && it.id != ent.groupId }
                         onMainDispatcher {
                             val view = LinearLayout(context).apply {

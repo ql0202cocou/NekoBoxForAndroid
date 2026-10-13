@@ -14,6 +14,7 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.RuleEntity
+import io.nekohasekai.sagernet.database.RuleRepository
 import io.nekohasekai.sagernet.databinding.LayoutRouteItemBinding
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.widget.liftOnScrollOf
@@ -65,14 +66,14 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
         // onViewCreated can run again (rotation): unregister the previous
         // adapter before replacing it
         if (::ruleAdapter.isInitialized) {
-            ProfileManager.removeListener(ruleAdapter)
+            RuleRepository.removeListener(ruleAdapter)
         }
         emptyObserverAdapter?.unregisterAdapterDataObserver(emptyObserver)
         listLoaded = false
         ruleAdapter = RuleAdapter()
         emptyObserverAdapter = ruleAdapter
         ruleAdapter.registerAdapterDataObserver(emptyObserver)
-        ProfileManager.addListener(ruleAdapter)
+        RuleRepository.addListener(ruleAdapter)
         ruleListView.adapter = ruleAdapter
         updateEmptyState()
         undoManager = UndoSnackbarManager(activity, ruleAdapter)
@@ -107,7 +108,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
         emptyObserverAdapter?.unregisterAdapterDataObserver(emptyObserver)
         emptyObserverAdapter = null
         if (::ruleAdapter.isInitialized) {
-            ProfileManager.removeListener(ruleAdapter)
+            RuleRepository.removeListener(ruleAdapter)
         }
         super.onDestroy()
     }
@@ -120,10 +121,10 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
             R.id.action_reset_route -> {
                 activity.confirm(R.string.reset_route_message) {
                     runOnDefaultDispatcher {
-                        // 走 ProfileManager 让 RuleListener 收到 onCleared；
+                        // 走 RuleRepository 让 RuleListener 收到 onCleared；
                         // 本 adapter 的 onCleared 只清空列表，重建默认规则
                         // 并刷新仍由下面的手动 reload 完成（两者均幂等）
-                        ProfileManager.clearRules()
+                        RuleRepository.clearRules()
                         DataStore.rulesFirstCreate = false
                         ruleAdapter.reload()
                     }
@@ -140,7 +141,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
 
         val ruleList = ArrayList<RuleEntity>()
         suspend fun reload() {
-            val rules = ProfileManager.getRules()
+            val rules = RuleRepository.getRules()
             ruleListView.post {
                 ruleList.clear()
                 ruleList.addAll(rules)
@@ -190,7 +191,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
             this.updated.clear()
             viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
                 if (updated.isNotEmpty()) {
-                    ProfileManager.updateRuleOrders(updated)
+                    RuleRepository.updateRuleOrders(updated)
                     onMainDispatcher { needReload() }
                 }
             }
@@ -211,7 +212,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
         override fun commit(actions: List<Pair<Int, RuleEntity>>) {
             val rules = actions.map { it.second }
             runOnDefaultDispatcher {
-                ProfileManager.deleteRules(rules)
+                RuleRepository.deleteRules(rules)
             }
         }
 
@@ -285,7 +286,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
                     val ruleId = ruleEntity.id
                     ruleEntity.enabled = isChecked
                     runOnDefaultDispatcher {
-                        ProfileManager.updateRuleEnabled(ruleId, isChecked)
+                        RuleRepository.updateRuleEnabled(ruleId, isChecked)
                         onMainDispatcher {
                             if (isAdded) needReload()
                         }

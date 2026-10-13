@@ -16,9 +16,8 @@ import com.github.shadowsocks.plugin.fragment.AlertDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.RuleEntity
-import io.nekohasekai.sagernet.database.SagerDatabase
+import io.nekohasekai.sagernet.database.RuleRepository
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
@@ -169,7 +168,7 @@ class RouteSettingsActivity(
             setTitle(R.string.delete_route_prompt)
             setPositiveButton(R.string.yes) { _, _ ->
                 runOnDefaultDispatcher {
-                    ProfileManager.deleteRule(arg.ruleId)
+                    RuleRepository.deleteRule(arg.ruleId)
                 }
                 requireActivity().finish()
             }
@@ -211,7 +210,7 @@ class RouteSettingsActivity(
                 if (editingId == 0L) {
                     init(intent.getStringExtra(EXTRA_PACKAGE_NAME))
                 } else {
-                    val ruleEntity = SagerDatabase.rulesDao.getById(editingId) ?: return@launchEditorInit false
+                    val ruleEntity = RuleRepository.getRule(editingId) ?: return@launchEditorInit false
                     ruleEntity.init()
                 }
 
@@ -248,14 +247,14 @@ class RouteSettingsActivity(
                 setResult(RESULT_OK, Intent())
             }
 
-            ProfileManager.createRule(RuleEntity().apply { serialize() })
+            RuleRepository.createRule(RuleEntity().apply { serialize() })
         } else if (needSave()) {
-            val entity = SagerDatabase.rulesDao.getById(EditorCache.editingId)
+            val entity = RuleRepository.getRule(EditorCache.editingId)
             if (entity == null) {
                 finish()
                 return
             }
-            ProfileManager.updateRule(entity.apply { serialize() })
+            RuleRepository.updateRule(entity.apply { serialize() })
         }
         finish()
 

@@ -250,7 +250,7 @@ class GroupSettingsActivity(
                 if (editingId == 0L) {
                     ProxyGroup().init()
                 } else {
-                    val entity = SagerDatabase.groupDao.getById(editingId) ?: return@launchEditorInit false
+                    val entity = GroupRepository.getGroup(editingId) ?: return@launchEditorInit false
                     entity.init()
                 }
 
@@ -286,7 +286,7 @@ class GroupSettingsActivity(
         if (editingId == 0L) {
             GroupManager.createGroup(ProxyGroup().apply { serialize() })
         } else if (needSave()) {
-            val entity = SagerDatabase.groupDao.getById(EditorCache.editingId)
+            val entity = GroupRepository.getGroup(EditorCache.editingId)
             if (entity == null) {
                 finish()
                 return

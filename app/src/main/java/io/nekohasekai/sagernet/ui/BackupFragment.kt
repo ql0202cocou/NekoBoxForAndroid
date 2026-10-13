@@ -29,7 +29,6 @@ import moe.matsuri.nb4a.utils.Util
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.util.concurrent.Callable
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -146,24 +145,9 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         }
     }
 
-    // 节点、分组、规则在同一个 Room 事务里读完：导出期间别处的写入（订阅更新、编辑、删除）不会让三张表互相对不上。
-    // 设置在另一个数据库（PublicDatabase），跨库没有同一事务，也与上面三张表没有引用关系
-    private class SagerSnapshot(
-        val profiles: List<ProxyEntity>?,
-        val groups: List<ProxyGroup>?,
-        val rules: List<RuleEntity>?,
-    )
-
     fun doBackup(profile: Boolean, rule: Boolean, setting: Boolean): String {
-        val snapshot = if (profile || rule) {
-            SagerDatabase.instance.runInTransaction(Callable {
-                SagerSnapshot(
-                    if (profile) SagerDatabase.proxyDao.getAll() else null,
-                    if (profile) SagerDatabase.groupDao.allGroups() else null,
-                    if (rule) SagerDatabase.rulesDao.allRules() else null,
-                )
-            })
-        } else null
+        // 节点、分组、规则在同一个 Room 事务里读完，见 BackupRepository
+        val snapshot = BackupRepository.readSnapshot(profile, rule)
         val out = JSONObject().apply {
             put("version", 1)
             if (snapshot?.profiles != null && snapshot.groups != null) {

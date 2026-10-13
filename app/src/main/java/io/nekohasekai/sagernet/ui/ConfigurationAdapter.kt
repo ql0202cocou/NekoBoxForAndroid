@@ -8,11 +8,11 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.aidl.TrafficData
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.GroupManager
+import io.nekohasekai.sagernet.database.GroupRepository
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
-import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.fmt.displayType
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.moveUserOrder
@@ -269,7 +269,7 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
     override suspend fun groupUpdated(groupId: Long) {
         if (groupId != groupFragment.proxyGroup.id) return
         // null when the group was deleted mid-update (e.g. subscription)
-        groupFragment.proxyGroup = SagerDatabase.groupDao.getById(groupId) ?: return
+        groupFragment.proxyGroup = GroupRepository.getGroup(groupId) ?: return
         reloadProfiles()
     }
 
