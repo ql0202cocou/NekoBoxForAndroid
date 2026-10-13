@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.text.TextUtils
 import androidx.core.util.set
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.snackbar.Snackbar
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.databinding.LayoutAppsBinding
@@ -64,6 +65,11 @@ class AppManagerActivity : AppSelectActivity() {
             // 内置包名清单在 APK assets 里，放到 IO 上读；proxiedUids 只在主线程改
             lifecycleScope.launch {
                 val needProxyAppsList = withContext(Dispatchers.IO) { getAutoProxyApps("") }
+                if (needProxyAppsList == null) {
+                    // 清单读不出来时不动现有勾选，否则代理模式只剩 uid 1000，绕过模式全选
+                    Snackbar.make(binding.root, R.string.auto_select_proxy_apps_failed, Snackbar.LENGTH_LONG).show()
+                    return@launch
+                }
                 try {
                     val bypass = DataStore.bypass
                     proxiedUids.clear()
@@ -93,19 +99,18 @@ class AppManagerActivity : AppSelectActivity() {
         }
     }
 
-    private fun getAutoProxyApps(content: String): List<String> {
-        var list = listOf<String>()
-        try {
+    // 读取失败或清单为空返回 null，由调用方中止自动选择
+    private fun getAutoProxyApps(content: String): List<String>? {
+        return try {
             val proxyApps = if (TextUtils.isEmpty(content)) {
                 NGUtil.readTextFromAssets(app, "proxy_packagename.txt")
             } else {
                 content
             }
-            if (!TextUtils.isEmpty(proxyApps)) {
-                list = proxyApps.split("\n")
-            }
-        } catch (_: Exception) {
+            if (TextUtils.isEmpty(proxyApps)) null else proxyApps.split("\n")
+        } catch (e: Exception) {
+            Logs.w(e)
+            null
         }
-        return list
     }
 }

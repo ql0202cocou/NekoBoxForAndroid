@@ -477,6 +477,7 @@
     <string name="auto_select_proxy_apps">Auto select proxy apps</string>
     <string name="auto_select_proxy_apps_message">Auto select proxy apps, this will clear your
         current selection.</string>
+    <string name="auto_select_proxy_apps_failed">Could not read the built-in app list. Auto select was cancelled and your current selection is unchanged.</string>
     <string name="ech_settings">ECH Settings</string>
     <string name="ech_config">ECH Config</string>
     <string name="http_upgrade_host">HTTPUpgrade Host</string>

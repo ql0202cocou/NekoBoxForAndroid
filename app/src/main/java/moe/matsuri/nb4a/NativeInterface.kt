@@ -63,7 +63,13 @@ class NativeInterface : BoxPlatformInterface, NB4AInterface {
     }
 
     override fun packageNameByUid(uid: Int): String {
-        PackageCache.awaitLoadSync()
+        // 不能把异常抛过 gomobile 边界：加载失败按未知 uid 处理
+        try {
+            PackageCache.awaitLoadSync()
+        } catch (e: Exception) {
+            Logs.w(e)
+            return if (uid <= 1000L) "android" else ""
+        }
 
         if (uid <= 1000L) {
             return "android"

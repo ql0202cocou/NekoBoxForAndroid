@@ -172,10 +172,12 @@ class MainActivity : ThemedActivity(),
     }
 
     fun urlTest(): Int {
-        if (!ServiceRegistry.state.connected || connection.service == null) {
+        // binderDied 会在 binder 线程把 service 置空：只读一次，判空和调用用同一个引用
+        val service = connection.service
+        if (!ServiceRegistry.state.connected || service == null) {
             error("not started")
         }
-        return connection.service!!.urlTest()
+        return service.urlTest()
     }
 
     // 导入链跑在 appScope（深链、配置页的剪贴板 / 文件导入都会进来），解析期间

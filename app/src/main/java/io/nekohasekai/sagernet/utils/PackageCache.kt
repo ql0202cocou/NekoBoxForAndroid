@@ -8,8 +8,6 @@ import android.content.pm.PackageManager
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.listenForPackageChanges
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.runBlocking
 import moe.matsuri.nb4a.plugin.Plugins
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -21,30 +19,35 @@ object PackageCache {
     lateinit var installedApps: Map<String, ApplicationInfo>
     lateinit var packageMap: Map<String, Int>
     lateinit var uidMap: Map<Int, Set<String>>
-    // A one-shot latch, not a lock: awaitLoadSync() only waits on it, and
-    // complete() is idempotent, so a failed attempt followed by a retry is safe.
-    private val loaded = CompletableDeferred<Unit>()
+    // 首次加载完成的标志，写在 reload() 的最后一步（volatile 写）：读到 true 的线程
+    // 一定能看到前面所有字段的赋值。加载本身由 PackageCache 的监视器串行化
+    @Volatile
+    private var ready = false
     var registerd = AtomicBoolean(false)
 
-    // called from init (suspend)
+    // called from init (suspend)：确保已加载并注册包变更监听，只注册一次
     fun register() {
         if (registerd.getAndSet(true)) return
         try {
-            reload()
+            ensureLoaded()
             app.listenForPackageChanges(false) {
                 reload()
                 labelMap.clear()
             }
         } catch (e: Throwable) {
-            // allow a later awaitLoadSync() to retry instead of leaving
-            // registerd=true with the maps uninitialized
+            // 失败后允许下一次 register() 重试；awaitLoadSync() 自己也会重试加载
             registerd.set(false)
             Logs.w(e)
-        } finally {
-            // awaitLoadSync() blocks on this latch (including the gomobile callback
-            // path), so release it even when reload() throws — a stuck latch hangs
-            // the VPN mid-start with no error.
-            loaded.complete(Unit)
+        }
+    }
+
+    // 未加载时在监视器内加载一次：先拿到锁的线程负责加载，其他线程在锁上等它，
+    // 进锁后再次检查 ready，已加载就不重复扫描。加载抛异常时 ready 保持 false，
+    // 异常交给调用方，下一次调用会重新尝试
+    private fun ensureLoaded() {
+        if (ready) return
+        synchronized(this) {
+            if (!ready) reload()
         }
     }
 
@@ -79,8 +82,7 @@ object PackageCache {
         // swap the whole map like the fields above: packageNameByUid reads
         // this from a gomobile callback thread with no synchronization, so
         // mutating a shared HashMap in place can corrupt a concurrent read.
-        // uidMap is assigned before packageMap: awaitLoadSync early-returns on
-        // ::packageMap.isInitialized, so packageMap must be the last write.
+        // ready 必须是最后一次写入（见 ready 的注释）
         val newUidMap = HashMap<Int, HashSet<String>>()
         for (info in installed) {
             val uid = info.uid
@@ -88,6 +90,7 @@ object PackageCache {
         }
         uidMap = newUidMap
         packageMap = installed.associate { it.packageName to it.uid }
+        ready = true
     }
 
     operator fun get(uid: Int) = uidMap[uid]
@@ -96,17 +99,14 @@ object PackageCache {
     // 非阻塞就绪状态：主线程调用方（AppListPreference.getSummary 等）先用它
     // 判断，未就绪时返占位并后台等待，不能在主线程 awaitLoadSync
     val isLoaded
-        get() = ::packageMap.isInitialized && ::uidMap.isInitialized
+        get() = ready
 
+    // 正常返回时各 map 一定已初始化；加载失败（如读取包列表被拒）抛出原异常，
+    // 调用方自行处理，缓存保持未加载，下次调用重试。启动时的 register() 失败过
+    // 就在这里补注册，否则本进程再也收不到应用安装 / 卸载的通知
     fun awaitLoadSync() {
-        if (isLoaded) {
-            return
-        }
-        if (!registerd.get()) {
-            register()
-            return
-        }
-        runBlocking { loaded.await() }
+        if (!registerd.get()) register()
+        ensureLoaded()
     }
 
     // written from background threads, cleared from the package-change receiver

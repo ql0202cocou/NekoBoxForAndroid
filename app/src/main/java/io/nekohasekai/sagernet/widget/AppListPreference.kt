@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.AttributeSet
 import androidx.preference.Preference
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
@@ -32,7 +33,12 @@ class AppListPreference : Preference {
             if (!waitingForCache) {
                 waitingForCache = true
                 runOnDefaultDispatcher {
-                    PackageCache.awaitLoadSync()
+                    // 失败也要复位标志，否则之后永远不再等待
+                    try {
+                        PackageCache.awaitLoadSync()
+                    } catch (e: Exception) {
+                        Logs.w(e)
+                    }
                     waitingForCache = false
                     // 加载失败（如包读取权限被拒）时不再刷新，下次绑定自然重试，
                     // 避免「刷新-重试」自激循环

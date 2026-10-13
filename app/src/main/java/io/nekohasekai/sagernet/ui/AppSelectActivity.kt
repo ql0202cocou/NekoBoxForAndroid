@@ -37,11 +37,13 @@ import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.databinding.LayoutAppPlaceholderBinding
 import io.nekohasekai.sagernet.databinding.LayoutAppsItemBinding
 import io.nekohasekai.sagernet.ktx.crossFadeFrom
+import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.exportToClipboard
 import io.nekohasekai.sagernet.ktx.setPlaceholderVisible
 import io.nekohasekai.sagernet.ktx.shortAnimTime
 import io.nekohasekai.sagernet.utils.PackageCache
 import io.nekohasekai.sagernet.widget.padForSystemBars
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
@@ -238,9 +240,17 @@ abstract class AppSelectActivity : ThemedActivity() {
             loading.crossFadeFrom(views.list)
             // 冷恢复直接进这个页面时 PackageCache 可能还没加载完：先在 IO 上等它，
             // 再回主线程载入勾选状态（proxiedUids 只在主线程改），免得卡主线程
-            withContext(Dispatchers.IO) { PackageCache.awaitLoadSync() }
-            initProxiedUids()
-            withContext(Dispatchers.IO) { appsAdapter.reload() }
+            // 包列表读取失败（如权限被拒）时不能让异常冲出协程闪退：记日志，
+            // 保持现有列表，走下面的空列表占位
+            try {
+                withContext(Dispatchers.IO) { PackageCache.awaitLoadSync() }
+                initProxiedUids()
+                withContext(Dispatchers.IO) { appsAdapter.reload() }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Logs.w(e)
+            }
             appsAdapter.filter.filter(views.search.text?.toString() ?: "")
             if (apps.isEmpty()) {
                 views.list.visibility = View.GONE
