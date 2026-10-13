@@ -38,10 +38,10 @@ import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.databinding.LayoutAppPlaceholderBinding
 import io.nekohasekai.sagernet.databinding.LayoutAppsItemBinding
 import io.nekohasekai.sagernet.ktx.crossFadeFrom
+import io.nekohasekai.sagernet.ktx.fadeDuration
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.exportToClipboard
 import io.nekohasekai.sagernet.ktx.setPlaceholderVisible
-import io.nekohasekai.sagernet.ktx.shortAnimTime
 import io.nekohasekai.sagernet.utils.PackageCache
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import kotlinx.coroutines.CancellationException
@@ -279,7 +279,7 @@ abstract class AppSelectActivity : ThemedActivity() {
                     override fun onAnimationEnd(animation: Animator) {
                         loading.visibility = View.GONE
                     }
-                }).duration = shortAnimTime
+                }).duration = loading.fadeDuration()
             } else {
                 views.list.crossFadeFrom(loading)
             }

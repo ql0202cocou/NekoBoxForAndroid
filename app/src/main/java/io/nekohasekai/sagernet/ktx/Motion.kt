@@ -24,6 +24,15 @@ fun Context.animatorsEnabled(): Boolean =
 fun Context.motionDuration(@AttrRes attr: Int, default: Int): Long =
     MotionUtils.resolveThemeDuration(this, attr, default).toLong()
 
+/** 主题里的自定义整数属性（如时长，ms）；未定义时取 [default] */
+fun Context.themeInteger(@AttrRes attr: Int, default: Int): Int {
+    val value = android.util.TypedValue()
+    return if (theme.resolveAttribute(attr, value, true) &&
+        value.type >= android.util.TypedValue.TYPE_FIRST_INT &&
+        value.type <= android.util.TypedValue.TYPE_LAST_INT
+    ) value.data else default
+}
+
 /**
  * 空状态占位的出现 / 消失。出现：透明度 0 到 1 加缩放 0.92 到 1，300ms（motionDurationMedium2），
  * 插值器取主题的 emphasized decelerate；消失：透明度到 0，150ms（motionDurationShort3）后 GONE。

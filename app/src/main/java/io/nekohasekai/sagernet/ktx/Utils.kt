@@ -169,9 +169,9 @@ inline fun <T : Any> moveUserOrder(
 
 val app get() = SagerNet.application
 
-val shortAnimTime by lazy {
-    app.resources.getInteger(android.R.integer.config_shortAnimTime).toLong()
-}
+/** 淡入淡出的时长：主题的 motionDurationShort4（200ms） */
+fun View.fadeDuration(): Long =
+    context.motionDuration(com.google.android.material.R.attr.motionDurationShort4, 200)
 
 fun View.crossFadeFrom(other: View) {
     clearAnimation()
@@ -179,12 +179,12 @@ fun View.crossFadeFrom(other: View) {
     if (isVisible && other.isGone) return
     alpha = 0F
     visibility = View.VISIBLE
-    animate().alpha(1F).duration = shortAnimTime
+    animate().alpha(1F).duration = fadeDuration()
     other.animate().alpha(0F).setListener(object : AnimatorListenerAdapter() {
         override fun onAnimationEnd(animation: Animator) {
             other.visibility = View.GONE
         }
-    }).duration = shortAnimTime
+    }).duration = fadeDuration()
 }
 
 

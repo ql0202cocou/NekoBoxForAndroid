@@ -6,4 +6,8 @@
     <attr name="selectedColorPrimary" format="color" />
     <!-- 顶部栏（含其下的 TabLayout）的底色；状态栏图标颜色与 Custom Tabs 工具栏色也按它取 -->
     <attr name="appBarColor" format="color" />
+    <!-- 连接按钮呼吸叠层：一个周期、重绘间隔、进出淡入淡出的时长（ms），M3 无对应档位 -->
+    <attr name="serviceBreathPeriod" format="integer" />
+    <attr name="serviceBreathStep" format="integer" />
+    <attr name="serviceBreathFade" format="integer" />
 </resources>

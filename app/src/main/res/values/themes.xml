@@ -13,6 +13,10 @@
         <!-- 顶部栏按 M3：surface 底，标题与图标 onSurface，主题色只做点缀；
              Tab 用 Widget.Material3.TabLayout 的默认文字色与 primary 指示条 -->
         <item name="appBarColor">?attr/colorSurface</item>
+        <!-- 连接按钮呼吸叠层的时长（ms）：M3 没有对应档位，两个基础主题取同一值 -->
+        <item name="serviceBreathPeriod">1400</item>
+        <item name="serviceBreathStep">66</item>
+        <item name="serviceBreathFade">300</item>
         <item name="actionBarTheme">@style/ThemeOverlay.Material3.Toolbar.Surface</item>
         <!-- 文字与控件默认色走主题角色（res/color/theme_text_*）：M3 主题把它们指向固定的基线中性色，
              不随六套主题变；这里改成 onSurface / onSurfaceVariant 的状态列表，禁用态 alpha 照 M3 -->
@@ -55,6 +59,10 @@
         <!-- 顶部栏按 M3：surface 底，标题与图标 onSurface，主题色只做点缀；
              Tab 用 Widget.Material3.TabLayout 的默认文字色与 primary 指示条 -->
         <item name="appBarColor">?attr/colorSurface</item>
+        <!-- 连接按钮呼吸叠层的时长（ms）：M3 没有对应档位，两个基础主题取同一值 -->
+        <item name="serviceBreathPeriod">1400</item>
+        <item name="serviceBreathStep">66</item>
+        <item name="serviceBreathFade">300</item>
         <item name="actionBarTheme">@style/ThemeOverlay.Material3.Toolbar.Surface</item>
         <!-- 文字与控件默认色走主题角色（res/color/theme_text_*）：M3 主题把它们指向固定的基线中性色，
              不随六套主题变；这里改成 onSurface / onSurfaceVariant 的状态列表，禁用态 alpha 照 M3 -->

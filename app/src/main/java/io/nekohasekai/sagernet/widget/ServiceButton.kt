@@ -23,6 +23,7 @@ import com.google.android.material.progressindicator.BaseProgressIndicator
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.ktx.animatorsEnabled
+import io.nekohasekai.sagernet.ktx.themeInteger
 import io.nekohasekai.sagernet.ktx.unwrapTo
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -165,6 +166,11 @@ class ServiceButton @JvmOverloads constructor(
     // 进出已连接态时整体 300ms 淡入淡出。
     // 离开已连接态、脱离窗口、窗口或视图不可见、系统动画被关闭（动画时长缩放为 0）时都停，不留叠层
 
+    // 三个时长取自主题（serviceBreath*），回退值与主题定义一致
+    private val breathPeriodMs = context.themeInteger(R.attr.serviceBreathPeriod, 1400).toLong()
+    private val breathStepMs = context.themeInteger(R.attr.serviceBreathStep, 66).toLong()
+    private val breathFadeMs = context.themeInteger(R.attr.serviceBreathFade, 300).toLong()
+
     private val breathHandler = Handler(Looper.getMainLooper())
     private val breathTick = Runnable { stepBreath() }
     private var breathOverlay: GradientDrawable? = null
@@ -211,11 +217,11 @@ class ServiceButton @JvmOverloads constructor(
         val now = SystemClock.uptimeMillis()
         val delta = (now - breathLastTime).coerceAtLeast(0L)
         breathLastTime = now
-        val step = delta / BREATH_FADE_MS.toFloat()
+        val step = delta / breathFadeMs.toFloat()
         breathEnvelope = if (breathWanted) (breathEnvelope + step).coerceAtMost(1f)
         else (breathEnvelope - step).coerceAtLeast(0f)
         // 余弦曲线：从 0 缓入到峰值再缓出回 0
-        val phase = ((now - breathPhaseStart) % BREATH_PERIOD_MS) / BREATH_PERIOD_MS.toFloat()
+        val phase = ((now - breathPhaseStart) % breathPeriodMs) / breathPeriodMs.toFloat()
         val wave = (1f - cos(2.0 * PI * phase).toFloat()) / 2f
         val alpha = (BREATH_MAX_ALPHA * breathEnvelope * wave * 255f).toInt().coerceIn(0, 255)
         val base = MaterialColors.getColor(
@@ -225,7 +231,7 @@ class ServiceButton @JvmOverloads constructor(
         if (!breathWanted && breathEnvelope <= 0f) {
             clearBreath()
         } else {
-            breathHandler.postDelayed(breathTick, BREATH_STEP_MS)
+            breathHandler.postDelayed(breathTick, breathStepMs)
         }
     }
 
@@ -259,9 +265,6 @@ class ServiceButton @JvmOverloads constructor(
     }
 
     private companion object {
-        const val BREATH_PERIOD_MS = 1400L
-        const val BREATH_STEP_MS = 66L
-        const val BREATH_FADE_MS = 300L
         const val BREATH_MAX_ALPHA = 0.14f
     }
 }
