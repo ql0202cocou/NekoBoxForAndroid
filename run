@@ -11,9 +11,14 @@ for e in "$@"; do
     PARAMS+=("$e")
     continue
   fi
+  # 脚本名段只接受 [A-Za-z0-9_-]+，拒绝空串、/、..，防止拼出 buildScript/ 之外的路径
+  if [[ ! "$e" =~ ^[A-Za-z0-9_-]+$ ]]; then
+    echo "invalid script name segment: '$e'" >&2
+    exit 1
+  fi
   TARGET="$TARGET/$e"
   PARAMS+=("$e")
-  if [ -x "${TARGET}.sh" ]; then
+  if [ -f "${TARGET}.sh" ] && [ -x "${TARGET}.sh" ]; then
     EXEC="${TARGET}.sh"
     PARAMS=()
   fi
