@@ -369,6 +369,13 @@
     <string name="backup_import_summary">导入将覆盖现有的数据。</string>
     <string name="backup_importing">正导入…</string>
     <string name="backup_import_skipped">已跳过 %d 条无效记录</string>
+    <string name="backup_import_service_timeout">代理服务未能及时停止，未导入任何内容，现有数据保持不变。请先停止服务再重试。</string>
+    <string name="backup_broken_title">备份文件已损坏，未导入任何内容，现有数据保持不变。</string>
+    <string name="backup_broken_profile_group">所属分组缺失的节点：%d</string>
+    <string name="backup_broken_group_front">前置节点缺失的分组：%d</string>
+    <string name="backup_broken_group_landing">落地节点缺失的分组：%d</string>
+    <string name="backup_broken_chain_member">缺失的链成员：%d</string>
+    <string name="backup_broken_rule_outbound">出站节点缺失的规则：%d</string>
     <string name="connection_test_delete_unavailable">清理不可用配置</string>
     <string name="packet_encoding">包编码</string>
     <string name="action_switch">切换</string>

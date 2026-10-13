@@ -431,6 +431,13 @@
     <string name="backup_import_summary">Importing will overwrite the existing data.</string>
     <string name="backup_importing">Importing…</string>
     <string name="backup_import_skipped">%d invalid records were skipped</string>
+    <string name="backup_import_service_timeout">The proxy service did not stop in time. Nothing was imported and your current data is unchanged. Stop the service and try again.</string>
+    <string name="backup_broken_title">The backup file is damaged. Nothing was imported and your current data is unchanged.</string>
+    <string name="backup_broken_profile_group">Nodes whose group is missing: %d</string>
+    <string name="backup_broken_group_front">Groups whose front proxy is missing: %d</string>
+    <string name="backup_broken_group_landing">Groups whose landing proxy is missing: %d</string>
+    <string name="backup_broken_chain_member">Missing chain members: %d</string>
+    <string name="backup_broken_rule_outbound">Rules whose outbound node is missing: %d</string>
 
     <string name="packet_encoding">Packet Encoding</string>
     <string name="acquire_wake_lock">Acquire WakeLock</string>

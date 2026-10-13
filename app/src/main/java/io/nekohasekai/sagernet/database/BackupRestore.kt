@@ -58,8 +58,10 @@ object BackupRestore {
 
     // Decode and validate every selected section before touching either database:
     // a malformed later section must not erase earlier data.
+    // 引用断链（BackupIntegrity）抛 BackupIntegrityException，同样发生在写库之前
     fun decode(content: JSONObject, profile: Boolean, rule: Boolean, setting: Boolean): Decoded {
         var skipped = 0
+        var profilesSkipped = 0
 
         fun <T> decodeArray(key: String, decode: (String) -> T?): List<T> {
             val result = mutableListOf<T>()
@@ -69,6 +71,7 @@ object BackupRestore {
                 val item = if (encoded is String) decode(encoded) else null
                 if (item == null) {
                     skipped++
+                    if (key == "profiles") profilesSkipped++
                 } else {
                     result.add(item)
                 }
@@ -108,6 +111,9 @@ object BackupRestore {
                 }
             }
         } else null
+        // 被跳过的损坏记录若被别处引用，恢复出来就是断链（节点成了孤儿、链缺成员等）：整体拒绝，不写库
+        val breaks = BackupIntegrity.check(profiles, groups, rules, profilesSkipped)
+        if (breaks.isNotEmpty()) throw BackupIntegrityException(breaks)
         // profiles 与 settings 都解出来之后才标注：全局「允许不安全」取哪一份要看这次会不会导入设置。
         // 启动时重放中断的恢复也走这里，结果相同
         profiles?.let { upgradeLegacyProfiles(it) { restoredGlobalAllowInsecure(settings) { DataStore.globalAllowInsecure } } }

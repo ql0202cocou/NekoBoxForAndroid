@@ -1,5 +1,8 @@
 package io.nekohasekai.sagernet.bg
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+
 // Per-process handles on the proxy service, kept out of DataStore (the
 // settings store). state caches the last known service state in whichever
 // process reads it (:bg writes it from changeState, the main process from the
@@ -14,8 +17,16 @@ package io.nekohasekai.sagernet.bg
 // 主进程里的 state 由 MainActivity / SagerConnection 按 binder 回调直接写，不经过属主入口。
 object ServiceRegistry {
 
-    @Volatile
-    var state = BaseService.State.Idle
+    // 状态放在 StateFlow 里：既有的读写点照旧用 state，需要等状态变化的（备份恢复等服务停止）订阅 stateFlow
+    private val flow = MutableStateFlow(BaseService.State.Idle)
+
+    var state: BaseService.State
+        get() = flow.value
+        set(value) {
+            flow.value = value
+        }
+
+    val stateFlow: StateFlow<BaseService.State> get() = flow
 
     @Volatile
     var vpnService: VpnService? = null
