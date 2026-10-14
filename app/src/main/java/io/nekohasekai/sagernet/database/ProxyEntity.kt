@@ -271,8 +271,7 @@ data class ProxyEntity(
         @Update(entity = ProxyEntity::class)
         fun updateEditableFields(fields: ProxyEditableFields): Int
 
-        // tx/rx only: callers hold a snapshot read at VPN/test start, and a
-        // full-row @Update would roll back concurrent edits on the other columns。
+        // 只写 tx / rx：调用方持有 VPN / 测试开始时读的快照，整行 @Update 会把其它列上并发的修改回滚。
         // 绝对值写入只给界面清除流量（归零）；:bg 的落库走 addTraffic 的增量
         @Query("UPDATE proxy_entities SET tx = :tx, rx = :rx WHERE id = :id")
         fun updateTraffic(id: Long, tx: Long, rx: Long)

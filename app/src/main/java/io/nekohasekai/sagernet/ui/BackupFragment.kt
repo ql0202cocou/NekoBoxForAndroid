@@ -240,7 +240,9 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                         .setView(binding.root)
                         .setCancelable(false)
                         .show()
-                    viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
+                    // 放在进程级的作用域里：下面要先停服务再等它停稳，等待期间页面被重建（旋转等）
+                    // 不能取消这次恢复，否则服务已停、备份却没导入，也没有任何提示
+                    runOnDefaultDispatcher {
                         runCatching {
                             val profile = import.backupConfigurations.isChecked
                             val rule = import.backupRules.isChecked
@@ -268,7 +270,8 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                         }
 
                         onMainDispatcher {
-                            dialog.dismiss()
+                            // 页面期间被重建过时，旧窗口已随旧 Activity 移除，dismiss 会抛 IllegalArgumentException
+                            runCatching { dialog.dismiss() }
                         }
                     }
                 }
@@ -314,8 +317,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         // 读日志、提交、清日志。不持锁时，重放能在日志刚暂存就读到它，与这里并行提交同一份备份，
         // 或在这里提交失败回滚之后把备份又写一遍，清日志也会互相抢先
         return journal.withLock {
-            // Staged before the first commit: a process killed between the two database
-            // commits replays this backup on the next start (RestoreJournal).
+            // 第一次提交之前先暂存：两次数据库提交之间进程被杀时，下次启动会重放这份备份（RestoreJournal）
             journal.stage(content, profile, rule, setting)
             BackupRestore.commit(decoded, journal)
             decoded.skipped

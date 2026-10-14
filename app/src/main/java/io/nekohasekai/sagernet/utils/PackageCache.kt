@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import android.os.SystemClock
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.listenForPackageChanges
@@ -25,6 +26,12 @@ object PackageCache {
     private var ready = false
     var registerd = AtomicBoolean(false)
 
+    // 最近一次加载失败（只在监视器内读写）：失败后 RETRY_AFTER_MS 内不再重新扫描，直接报失败。
+    // packageNameByUid 每个新连接都会进来，读取包列表持续失败时不能每次都全量扫描、写日志
+    private var lastFailure: Exception? = null
+    private var lastFailureAt = 0L
+    private const val RETRY_AFTER_MS = 10_000L
+
     // called from init (suspend)：确保已加载并注册包变更监听，只注册一次
     fun register() {
         if (registerd.getAndSet(true)) return
@@ -35,7 +42,7 @@ object PackageCache {
                 labelMap.clear()
             }
         } catch (e: Throwable) {
-            // 失败后允许下一次 register() 重试；awaitLoadSync() 自己也会重试加载
+            // 失败后允许下一次 register() 重试；awaitLoadSync() 也会按间隔重试加载
             registerd.set(false)
             Logs.w(e)
         }
@@ -43,11 +50,24 @@ object PackageCache {
 
     // 未加载时在监视器内加载一次：先拿到锁的线程负责加载，其他线程在锁上等它，
     // 进锁后再次检查 ready，已加载就不重复扫描。加载抛异常时 ready 保持 false，
-    // 异常交给调用方，下一次调用会重新尝试
+    // 记一次日志并把异常交给调用方；RETRY_AFTER_MS 之后的调用才重新扫描，在此之前直接报失败
     private fun ensureLoaded() {
         if (ready) return
         synchronized(this) {
-            if (!ready) reload()
+            if (ready) return
+            val failure = lastFailure
+            if (failure != null && SystemClock.elapsedRealtime() - lastFailureAt < RETRY_AFTER_MS) {
+                throw IllegalStateException("package list unavailable", failure)
+            }
+            try {
+                reload()
+                lastFailure = null
+            } catch (e: Exception) {
+                lastFailure = e
+                lastFailureAt = SystemClock.elapsedRealtime()
+                Logs.w(e)
+                throw e
+            }
         }
     }
 
@@ -101,12 +121,13 @@ object PackageCache {
     val isLoaded
         get() = ready
 
-    // 正常返回时各 map 一定已初始化；加载失败（如读取包列表被拒）抛出原异常，
-    // 调用方自行处理，缓存保持未加载，下次调用重试。启动时的 register() 失败过
-    // 就在这里补注册，否则本进程再也收不到应用安装 / 卸载的通知
+    // 正常返回时各 map 一定已初始化；加载失败（如读取包列表被拒）抛出异常，
+    // 调用方自行处理，缓存保持未加载，按间隔重试（见 ensureLoaded）。先加载再补注册：
+    // 启动时的 register() 失败过就在这里补上（此时已加载，不会再扫描一遍），否则本进程
+    // 再也收不到应用安装 / 卸载的通知
     fun awaitLoadSync() {
-        if (!registerd.get()) register()
         ensureLoaded()
+        if (!registerd.get()) register()
     }
 
     // written from background threads, cleared from the package-change receiver

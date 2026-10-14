@@ -426,7 +426,10 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                                                 activity.proxyEntity?.groupId = moved.groupId
                                                 GroupManager.postUpdate(oldGroupId) // reload
                                                 GroupManager.postUpdate(newGroupId)
-                                                EditorCache.editingGroup = newGroupId // post switch animation
+                                                // 移动期间缓存可能已被别的编辑器接管：节点照样移动，只是不再往缓存里写
+                                                if (activity.holdsEditorSession()) {
+                                                    EditorCache.editingGroup = newGroupId // post switch animation
+                                                }
                                                 runOnMainDispatcher {
                                                     activity.finish()
                                                 }

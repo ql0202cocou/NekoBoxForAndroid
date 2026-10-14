@@ -36,6 +36,12 @@ class SubscriptionIdentityTest {
     }
 
     @Test
+    fun `链接只差首尾空白不算换了订阅`() {
+        // 旧版本保存时不去空白，编辑器现在保存的是去空白后的链接
+        assertFalse(superseded(group(link = "https://a.example/sub \n"), group(link = "https://a.example/sub")))
+    }
+
+    @Test
     fun `分组类型改变后结果过期`() {
         assertTrue(superseded(group(), group(type = GroupType.BASIC)))
     }

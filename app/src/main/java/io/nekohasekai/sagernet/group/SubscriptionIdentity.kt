@@ -27,7 +27,8 @@ fun ProxyGroup.subscriptionIdentity(): SubscriptionIdentity {
     return SubscriptionIdentity(
         groupType = type,
         subscriptionType = subscription?.type,
-        link = subscription?.link,
+        // 编辑器保存时去掉首尾空白：只差空白的链接是同一个订阅，不让进行中的更新因此作废
+        link = subscription?.link?.trim(),
         customUserAgent = subscription?.customUserAgent,
         forceResolve = subscription?.forceResolve,
         deduplication = subscription?.deduplication,

@@ -293,7 +293,8 @@ class GroupSettingsActivity(
             }
             val keepUserInfo = (entity.type == GroupType.SUBSCRIPTION &&
                     EditorCache.groupType == GroupType.SUBSCRIPTION &&
-                    entity.subscription?.link == EditorCache.subscriptionLink.trim())
+                    // 旧版本保存时不去首尾空白：库里的链接也按去空白后比，只改名之类的保存不当作换了订阅
+                    entity.subscription?.link?.trim() == EditorCache.subscriptionLink.trim())
             if (!keepUserInfo) {
                 entity.subscription?.subscriptionUserinfo = "";
                 // 链接或类型变了就按新订阅对待：不重置 lastUpdated 的话，

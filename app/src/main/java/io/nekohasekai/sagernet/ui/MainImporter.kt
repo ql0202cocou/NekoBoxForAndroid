@@ -142,8 +142,10 @@ class MainImporter(private val activity: MainActivity) {
         }
 
         onLiveActivity {
+            // 节点名同样来自外部链接、可能极长：确认框里截断显示，导入的仍是完整值
+            val shownName = truncateForDisplay(profile.displayName(), IMPORT_PREVIEW_NAME_MAX)
             MaterialAlertDialogBuilder(activity).setTitle(R.string.profile_import)
-                .setMessage(activity.getString(R.string.profile_import_message, profile.displayName()))
+                .setMessage(activity.getString(R.string.profile_import_message, shownName))
                 .setPositiveButton(R.string.yes) { _, _ ->
                     runOnDefaultDispatcher {
                         finishImportProfile(profile)
