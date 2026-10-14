@@ -2,7 +2,6 @@ package io.nekohasekai.sagernet.database
 
 import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.Key
-import io.nekohasekai.sagernet.fmt.ClashImportSummary
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import kotlinx.coroutines.CancellationException
@@ -33,12 +32,9 @@ object GroupManager {
             deleted: List<String>,
             duplicate: List<String>,
             byUser: Boolean,
-            // Clash 订阅的导入汇总，其它格式为 null
-            importSummary: ClashImportSummary?,
         )
 
-        // importSummary：Clash 订阅一个节点都没导入时的汇总（ClashImportException），其它失败为 null
-        suspend fun onUpdateFailure(group: ProxyGroup, message: String, importSummary: ClashImportSummary?)
+        suspend fun onUpdateFailure(group: ProxyGroup, message: String)
 
         // 下载期间订阅被改（链接 / 类型等），这次结果已整体放弃；不是失败，也不是取消
         suspend fun onUpdateSuperseded(group: ProxyGroup)

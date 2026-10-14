@@ -273,14 +273,14 @@ class ClashRejectionTest {
         val hy2 = "name: h, type: hysteria2, server: h.example.com, port: 443, password: pw-placeholder"
         val gecko = node("$hy2, obfs: gecko, obfs-password: op-placeholder") as ClashNodeResult.Failed
         assertTrue(gecko.description, gecko.description.contains("gecko"))
-        // 与 hysteria v1 混淆，把口令写进了 obfs：照样拒绝，值不进描述、日志与界面文本
+        // 与 hysteria v1 混淆，把口令写进了 obfs：照样拒绝，值不进描述与日志
         for (type in listOf("hysteria2", "hy2")) {
             val nodes = parsed("name: h, type: $type, server: h.example.com, port: 443, password: pw-placeholder, obfs: zq-secret-01").nodes
             val failed = nodes.single() as ClashNodeResult.Failed
             assertEquals(OBFS_NOT_SUPPORTED, failed.failure)
             assertEquals(CLASH_VALUE_NOT_SHOWN, failed.shownValue)
             val summary = ClashImportSummary.of(nodes)
-            for (text in listOf(failed.description, summary.logText(), summary.uiText { _, arg -> arg.toString() })) {
+            for (text in listOf(failed.description, summary.logText())) {
                 assertFalse(text, text.contains("zq-secret-01"))
                 assertTrue(text, text.contains(CLASH_VALUE_NOT_SHOWN))
             }

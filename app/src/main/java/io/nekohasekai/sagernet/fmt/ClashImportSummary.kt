@@ -1,15 +1,7 @@
 package io.nekohasekai.sagernet.fmt
 
-import io.nekohasekai.sagernet.R
-
-// 名单块（订阅更新的 Diff 对话框与导入汇总共用）：shown 之外还有的折成一行剩余条数，块尾空一行
-internal fun foldedLines(total: Int, shown: List<String>, getString: (resId: Int, arg: Any) -> String): String {
-    val lines = if (total > shown.size) shown + getString(R.string.group_diff_more, total - shown.size) else shown
-    return lines.joinToString("\n", postfix = "\n\n")
-}
-
-// 一次 Clash 导入的汇总：从各条目的结果算出计数，生成一段英文日志与给界面的文本块。纯数据，
-// 不碰界面；文案由调用方传入的 getString 取（与 configBuildNotices 同一做法）。
+// 一次 Clash 导入的汇总：从各条目的结果算出计数，生成一段英文日志。纯数据，不碰界面
+// （界面只显示订阅更新的节点变化，不显示导入汇总）。
 // 各条目的结果按四类计数：完整导入、有损导入、类型不支持、解析失败（后三类分组计数，见下）。
 // 字段在本应用里本来就没有对应行为的（无影响忽略）只单列，不算「有损」，也不让汇总变成非空。
 // 统计只说明订阅里出现了哪些没保留的字段，不代表用户需要它们
@@ -24,10 +16,6 @@ class ClashImportSummary private constructor(
     val failures: Map<String, Int>,
     val lossyFields: Map<String, Int>,
     val noEffectFields: Map<String, Int>,
-    // 给界面的逐条明细，每类只留前 UI_LINES 条；带节点名，不进日志
-    private val unknownTypeLines: List<String>,
-    private val failedLines: List<String>,
-    private val lossyLines: List<String>,
 ) {
     // 没有被跳过或有损导入的节点时为真：只有无影响的忽略不用提示
     val isEmpty: Boolean get() = unknownType == 0 && failed == 0 && lossy == 0
@@ -58,38 +46,12 @@ class ClashImportSummary private constructor(
         "No proxies imported from the Clash subscription: $total entries, " +
                 "$unknownType unsupported type, $failed failed to parse"
 
-    // 界面文本块：分节，每节最多 UI_LINES 行，超出的折成一行剩余条数（同订阅更新的 Diff 对话框）。
-    // getString 按资源 id 取带一个参数的字符串（运行时即 Context.getString(id, arg)）
-    fun uiText(getString: (resId: Int, arg: Any) -> String): String {
-        if (isEmpty) return ""
-        fun section(resId: Int, total: Int, lines: List<String>): String =
-            if (total == 0) "" else getString(resId, foldedLines(total, lines, getString))
-        val noEffect = noEffectFields.sorted()
-        return section(R.string.clash_import_unsupported_type, unknownType, unknownTypeLines) +
-                section(R.string.clash_import_failed, failed, failedLines) +
-                section(R.string.clash_import_lossy, lossy, lossyLines) +
-                section(
-                    R.string.clash_import_no_effect, noEffect.size,
-                    noEffect.take(UI_LINES).map { (key, count) -> "$key ($count)" },
-                )
-    }
-
     companion object {
         const val LOG_ITEMS = 20
-        const val UI_LINES = 50
-        const val UI_FIELDS = 5
 
         private fun Map<String, Int>.sorted() =
             entries.sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
                 .map { it.key to it.value }
-
-        private fun ClashFieldRecord.describe() = buildString {
-            append(path)
-            if (shownValue != null) append(" = ").append(shownValue)
-            reason?.let { append(": ").append(it.text) }
-        }
-
-        private fun ClashNodeResult.label() = "${name?.takeIf { it.isNotBlank() } ?: "#${index + 1}"} ($type)"
 
         fun of(nodes: List<ClashNodeResult>): ClashImportSummary {
             var complete = 0
@@ -100,22 +62,17 @@ class ClashImportSummary private constructor(
             val failures = LinkedHashMap<String, Int>()
             val lossyFields = LinkedHashMap<String, Int>()
             val noEffectFields = LinkedHashMap<String, Int>()
-            val unknownTypeLines = ArrayList<String>()
-            val failedLines = ArrayList<String>()
-            val lossyLines = ArrayList<String>()
             fun MutableMap<String, Int>.count(key: String) = merge(key, 1, Int::plus)
 
             for (node in nodes) when (node) {
                 is ClashNodeResult.UnknownType -> {
                     unknownType++
                     unknownTypes.count(node.type)
-                    if (unknownTypeLines.size < UI_LINES) unknownTypeLines += node.label()
                 }
 
                 is ClashNodeResult.Failed -> {
                     failed++
                     failures.count("${node.type}: ${node.description}")
-                    if (failedLines.size < UI_LINES) failedLines += "${node.label()}: ${node.description}"
                 }
 
                 is ClashNodeResult.Imported -> {
@@ -124,29 +81,18 @@ class ClashImportSummary private constructor(
                     lossyRecords.map { "${node.type}.${it.path}: ${it.reason?.text}" }.toSet().forEach { lossyFields.count(it) }
                     node.fields.filter { it.result == ClashFieldResult.IGNORED && !it.lossy }
                         .map { "${node.type}.${it.path}: ${it.reason?.text}" }.toSet().forEach { noEffectFields.count(it) }
-                    if (lossyRecords.isEmpty()) {
-                        complete++
-                    } else {
-                        lossy++
-                        if (lossyLines.size < UI_LINES) {
-                            // 每个节点最多列 UI_FIELDS 个字段，其余折成一个计数（英文，与行内的原因一致），单行不会无限长
-                            val more = lossyRecords.size - UI_FIELDS
-                            lossyLines += "${node.label()}: " +
-                                    lossyRecords.take(UI_FIELDS).joinToString("; ") { it.describe() } +
-                                    if (more > 0) "; … and $more more" else ""
-                        }
-                    }
+                    if (lossyRecords.isEmpty()) complete++ else lossy++
                 }
             }
             return ClashImportSummary(
                 nodes.size, complete, lossy, unknownType, failed,
                 unknownTypes, failures, lossyFields, noEffectFields,
-                unknownTypeLines, failedLines, lossyLines,
             )
         }
     }
 }
 
 // Clash 订阅认准了，但一个节点都没导入（全部类型不支持或解析失败，或 proxies 为空）：带着汇总穿过
-// parseRaw 的各层（不当成「这一策略没认出东西」吞掉）与 ImportBatch，交给更新失败的提示
+// parseRaw 的各层（不当成「这一策略没认出东西」吞掉）与 ImportBatch，交给调用方。
+// 消息只有计数，订阅更新失败时由 snackbar 显示
 class ClashImportException(val summary: ClashImportSummary) : IllegalStateException(summary.failureMessage())

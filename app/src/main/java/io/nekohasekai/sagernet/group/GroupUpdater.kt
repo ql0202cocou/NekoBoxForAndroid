@@ -7,7 +7,6 @@ import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.SubscriptionBean
 import io.nekohasekai.sagernet.fmt.AbstractBean
-import io.nekohasekai.sagernet.fmt.ClashImportException
 import io.nekohasekai.sagernet.fmt.fillSniFromServerAddress
 import io.nekohasekai.sagernet.fmt.supportsAddressRewrite
 import io.nekohasekai.sagernet.ktx.*
@@ -162,7 +161,7 @@ abstract class GroupUpdater {
                         if (subscription == null) {
                             // a corrupted backup restore can leave a subscription group without one
                             Logs.w("Group ${proxyGroup.id} has no subscription")
-                            userInterface?.onUpdateFailure(group, "group has no subscription", null)
+                            userInterface?.onUpdateFailure(group, "group has no subscription")
                             return@coroutineScope false
                         }
 
@@ -189,16 +188,11 @@ abstract class GroupUpdater {
                             // sn://subscription），该异常没有 message，直接展示会
                             // 退化成裸类名，换成本地化提示
                             Logs.w(e)
-                            userInterface?.onUpdateFailure(
-                                group, app.getString(R.string.subscription_is_link), null
-                            )
+                            userInterface?.onUpdateFailure(group, app.getString(R.string.subscription_is_link))
                             false
                         } catch (e: Throwable) {
                             Logs.w(e)
-                            // Clash 订阅一个节点都没导入时，异常带着汇总（哪些节点因何被跳过），一并交给界面
-                            userInterface?.onUpdateFailure(
-                                group, e.readableMessage, (e as? ClashImportException)?.summary
-                            )
+                            userInterface?.onUpdateFailure(group, e.readableMessage)
                             false
                         }
                     } finally {

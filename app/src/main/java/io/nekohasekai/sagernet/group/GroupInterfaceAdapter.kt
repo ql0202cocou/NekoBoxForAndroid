@@ -6,7 +6,6 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.ProxyGroup
-import io.nekohasekai.sagernet.fmt.ClashImportSummary
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
@@ -73,31 +72,21 @@ class GroupInterfaceAdapter(val context: ThemedActivity) : GroupManager.Interfac
         deleted: List<String>,
         duplicate: List<String>,
         byUser: Boolean,
-        importSummary: ClashImportSummary?,
     ) {
-        val getString = { id: Int, arg: Any -> context.getString(id, arg) }
         if (changed == 0 && duplicate.isEmpty()) {
-            if (byUser) {
-                onMainDispatcher {
-                    if (!context.isFinishing && !context.isDestroyed) {
-                        context.snackbar(
-                            context.getString(R.string.group_no_difference, group.displayName())
-                        ).show()
-                    }
-                }
-                // 节点没有变化，但订阅里有被跳过或有损导入的节点：只弹汇总，标题是导入结果而不是 Diff
-                val summary = groupUpdateDialogText(
-                    emptyList(), emptyMap(), emptyList(), emptyList(), importSummary, getString
-                )
-                if (summary.isNotEmpty()) runOnMainDispatcher {
-                    delay(1000L)
-                    showDiffDialog(group, summary, R.string.clash_import_title)
+            if (byUser) onMainDispatcher {
+                if (!context.isFinishing && !context.isDestroyed) {
+                    context.snackbar(
+                        context.getString(R.string.group_no_difference, group.displayName())
+                    ).show()
                 }
             }
             return
         }
 
-        val status = groupUpdateDialogText(added, updated, deleted, duplicate, importSummary, getString)
+        val status = groupUpdateDialogText(added, updated, deleted, duplicate) { id, arg ->
+            context.getString(id, arg)
+        }
 
         // 用 launch 而不是挂起调用方：snackbar 后的 1 秒延迟和弹窗不该占用
         // 订阅更新的分组锁（executeUpdate 的 finally 要等本回调返回才释放）
@@ -112,29 +101,21 @@ class GroupInterfaceAdapter(val context: ThemedActivity) : GroupManager.Interfac
     }
 
     // 在主线程调用。activity 已销毁时弹窗会抛 BadTokenException：不让它冒出去，
-    // 把成功的更新误报成失败。title 是带一个参数（分组名）的字符串
-    private fun showDiffDialog(group: ProxyGroup, text: String, title: Int = R.string.group_diff) {
+    // 把成功的更新误报成失败
+    private fun showDiffDialog(group: ProxyGroup, text: String) {
         if (context.isFinishing || context.isDestroyed) return
         runCatching {
             MaterialAlertDialogBuilder(context).setTitle(
-                context.getString(title, group.displayName())
+                context.getString(R.string.group_diff, group.displayName())
             ).setMessage(text).setPositiveButton(android.R.string.ok, null).show()
         }.onFailure { Logs.w(it) }
     }
 
-    override suspend fun onUpdateFailure(group: ProxyGroup, message: String, importSummary: ClashImportSummary?) {
+    override suspend fun onUpdateFailure(group: ProxyGroup, message: String) {
         onMainDispatcher {
             if (!context.isFinishing && !context.isDestroyed) {
                 context.snackbar(message).show()
             }
-        }
-        // Clash 订阅一个节点都没导入：snackbar 只有计数，被跳过的节点与原因另弹一个导入结果对话框
-        val summary = groupUpdateDialogText(
-            emptyList(), emptyMap(), emptyList(), emptyList(), importSummary,
-        ) { id, arg -> context.getString(id, arg) }
-        if (summary.isNotEmpty()) runOnMainDispatcher {
-            delay(1000L)
-            showDiffDialog(group, summary, R.string.clash_import_title)
         }
     }
 
