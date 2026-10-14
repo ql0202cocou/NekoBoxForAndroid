@@ -1,11 +1,11 @@
 package io.nekohasekai.sagernet.fmt
 
+import io.nekohasekai.sagernet.SilencedLogs
+import io.nekohasekai.sagernet.assertNoFailures
 import io.nekohasekai.sagernet.fmt.ProtocolInventory.fieldsOf
-import io.nekohasekai.sagernet.ktx.Logs
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 
 // QUALITY-004：有专属分享链接的协议，字段齐全的 bean 导出链接再解析回来，字段逐个相等。
@@ -15,19 +15,8 @@ import org.junit.Test
 class ProtocolLinkTest {
 
     // 解析失败的回退链会写日志，JVM 里没有 libcore
-    @Before
-    fun silenceLogs() {
-        Logs.enabled = false
-    }
-
-    @After
-    fun restoreLogs() {
-        Logs.enabled = true
-    }
-
-    private fun check(failures: List<String>) {
-        assertTrue("${failures.size} 处问题：\n" + failures.joinToString("\n"), failures.isEmpty())
-    }
+    @get:Rule
+    val logs = SilencedLogs()
 
     @Test
     fun `每个变体导出再解析，除清单里的字段外逐字段相等`() {
@@ -45,7 +34,7 @@ class ProtocolLinkTest {
                 }
             }
         }
-        check(failures)
+        assertNoFailures(failures)
     }
 
     @Test
@@ -59,7 +48,7 @@ class ProtocolLinkTest {
                 if (!link.startsWith(spec.prefix)) failures += "${spec.protocol}/${case.id}：链接 ${link.take(24)}… 不以 ${spec.prefix} 开头"
             }
         }
-        check(failures)
+        assertNoFailures(failures)
     }
 
     @Test
@@ -81,7 +70,7 @@ class ProtocolLinkTest {
                 if (fieldsOf(spec.beanClass).none { it.name == name }) failures += "${spec.protocol}：neverInLink 里的 $name 不是 ${spec.beanClass.simpleName} 的字段"
             }
         }
-        check(failures)
+        assertNoFailures(failures)
     }
 
     @Test
@@ -105,7 +94,7 @@ class ProtocolLinkTest {
                 }
             }
         }
-        check(failures)
+        assertNoFailures(failures)
     }
 
     @Test

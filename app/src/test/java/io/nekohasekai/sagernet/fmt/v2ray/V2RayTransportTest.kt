@@ -1,25 +1,20 @@
 package io.nekohasekai.sagernet.fmt.v2ray
 
+import io.nekohasekai.sagernet.SilencedLogs
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 
 class V2RayTransportTest {
 
     // 解析失败的回退链会写日志，JVM 里没有 libcore
-    @org.junit.Before
-    fun silenceLogs() {
-        io.nekohasekai.sagernet.ktx.Logs.enabled = false
-    }
-
-    @org.junit.After
-    fun restoreLogs() {
-        io.nekohasekai.sagernet.ktx.Logs.enabled = true
-    }
+    @get:Rule
+    val logs = SilencedLogs()
 
     @Test
     fun `已知传输方式原样返回`() {

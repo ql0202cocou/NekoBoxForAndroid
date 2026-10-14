@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.database
 
 import androidx.room.migration.Migration
+import io.nekohasekai.sagernet.SilencedLogs
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_AUTO
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_MIHOMO
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_SING_BOX
@@ -15,10 +16,9 @@ import io.nekohasekai.sagernet.fmt.kryo.KryoSamples
 import io.nekohasekai.sagernet.ktx.Logs
 import java.io.File
 import java.lang.reflect.Modifier
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 
 // SagerDatabase 的迁移：用 app/schemas 里 Room 导出的 JSON 在 JVM 内存库里建出旧版本的库、插入有代表性的旧数据，
@@ -28,19 +28,9 @@ import org.junit.Test
 // 迁移特有的数据断言；逐级升级、登记检查与 schema 比对不用改
 class SagerDatabaseMigrationTest {
 
-    private var logsWereEnabled = true
-
     // MIGRATION_8_9 会写日志；Logs 开着就走 JNI（Libcore），JVM 上没有
-    @Before
-    fun silenceLogs() {
-        logsWereEnabled = Logs.enabled
-        Logs.enabled = false
-    }
-
-    @After
-    fun restoreLogs() {
-        Logs.enabled = logsWereEnabled
-    }
+    @get:Rule
+    val logs = SilencedLogs()
 
     // ---- 迁移登记：全部手写迁移（SagerDatabase 里 private 的 MIGRATION_*）与 Room 生成的 AutoMigration
 

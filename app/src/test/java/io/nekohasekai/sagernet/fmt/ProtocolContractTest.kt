@@ -1,6 +1,8 @@
 package io.nekohasekai.sagernet.fmt
 
 import com.google.gson.JsonParser
+import io.nekohasekai.sagernet.SilencedLogs
+import io.nekohasekai.sagernet.assertNoFailures
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_AUTO
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_CHAIN
@@ -15,18 +17,16 @@ import io.nekohasekai.sagernet.golden.GoldenAddressCorpus
 import io.nekohasekai.sagernet.golden.GoldenBaseline
 import io.nekohasekai.sagernet.golden.GoldenJvmScenario
 import io.nekohasekai.sagernet.golden.dir
-import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ui.profile.settingActivityOf
+import java.io.File
 import moe.matsuri.nb4a.proxy.config.ConfigBean
 import moe.matsuri.nb4a.proxy.shadowtls.ShadowTLSBean
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.ClassRule
+import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
-import java.io.File
 
 // QUALITY-004：协议类型 × 转换入口的契约测试。ProtocolInventory.PROTOCOLS 列出全部协议，下面的 EXPECTED 登记表
 // 对每个类型写明它在各入口的状态；测试把登记表和生产代码的真实分派逐项对账，并核对登记表覆盖了 ProxyEntity 里的
@@ -44,19 +44,8 @@ class ProtocolContractTest {
         private fun nekoNote() = "NekoBean 的字段初始化用 org.json（mockable android.jar 在 JVM 上抛异常），JVM 上构造不出来"
     }
 
-    @Before
-    fun silenceLogs() {
-        Logs.enabled = false
-    }
-
-    @After
-    fun restoreLogs() {
-        Logs.enabled = true
-    }
-
-    private fun check(failures: List<String>) {
-        assertTrue("${failures.size} 处问题：\n" + failures.joinToString("\n"), failures.isEmpty())
-    }
+    @get:Rule
+    val logs = SilencedLogs()
 
     /** 分享入口：有专属格式的链接 / 没有专属格式，standardLink 回落到通用链接 / 不分享。 */
     private enum class Share { DEDICATED, UNIVERSAL, NONE }
@@ -129,7 +118,7 @@ class ProtocolContractTest {
         assertEquals("类型值重复", declared.size, declared.values.toSet().size)
         assertEquals("PROTOCOLS 里有重复的类型", ProtocolInventory.PROTOCOLS.size, ProtocolInventory.PROTOCOLS.map { it.type }.toSet().size)
         assertEquals("PROTOCOLS 里有重复的 bean 类", ProtocolInventory.PROTOCOLS.size, ProtocolInventory.PROTOCOLS.map { it.beanClass }.toSet().size)
-        check(failures)
+        assertNoFailures(failures)
     }
 
     // ---- 每个类型的 fixture：有专属链接的取链接变体里的 bean，其余手写
@@ -185,7 +174,7 @@ class ProtocolContractTest {
                 else failures += ProtocolInventory.diff("$where（putByteArray）", bean, loadedBean)
             }
         }
-        check(failures)
+        assertNoFailures(failures)
     }
 
     @Test
@@ -207,7 +196,7 @@ class ProtocolContractTest {
             val text = runCatching { entity.displayType() }.getOrNull()
             if (text != null && text.startsWith("Undefined type")) failures += "${proto.name}：displayType 没有分支（$text）"
         }
-        check(failures)
+        assertNoFailures(failures)
     }
 
     @Test
@@ -226,7 +215,7 @@ class ProtocolContractTest {
                 }
             }
         }
-        check(failures)
+        assertNoFailures(failures)
     }
 
     @Test
@@ -246,7 +235,7 @@ class ProtocolContractTest {
                 failures += "${proto.name}：预期表的说明已经过期：${expect.note}"
             }
         }
-        check(failures)
+        assertNoFailures(failures)
     }
 
     @Test
@@ -258,7 +247,7 @@ class ProtocolContractTest {
             if (expect.editor && result.isFailure) failures += "${proto.name}：settingActivityOf 没有分支（${result.exceptionOrNull()}）"
             if (!expect.editor && result.isSuccess) failures += "${proto.name}：预期没有编辑器，却有 ${result.getOrNull()}"
         }
-        check(failures)
+        assertNoFailures(failures)
     }
 
     @Test
@@ -272,7 +261,7 @@ class ProtocolContractTest {
             if (name != null && TypeMap[name] != proto.type) failures += "${proto.name}：TypeMap[$name] 取回 ${TypeMap[name]}"
         }
         assertEquals("TypeMap 里有不在 PROTOCOLS 的类型", TypeMap.reversed.keys - ProtocolInventory.PROTOCOLS.map { it.type }.toSet(), emptySet<Int>())
-        check(failures)
+        assertNoFailures(failures)
     }
 
     @Test
@@ -288,7 +277,7 @@ class ProtocolContractTest {
                 failures += ProtocolInventory.diff("${proto.name}/${bean.javaClass.simpleName}（通用链接）", bean, back)
             }
         }
-        check(failures)
+        assertNoFailures(failures)
     }
 
     @Test
@@ -310,7 +299,7 @@ class ProtocolContractTest {
                 failures += "${proto.name}：既没有 sing-box 出站也没有外核条目，构建不出来"
             }
         }
-        check(failures)
+        assertNoFailures(failures)
     }
 
     @Test
@@ -327,7 +316,7 @@ class ProtocolContractTest {
                 }
             }
         }
-        check(failures)
+        assertNoFailures(failures)
     }
 
     @Test
@@ -341,7 +330,7 @@ class ProtocolContractTest {
             val expect = proto.type == ProxyEntity.TYPE_VMESS || proto.type == ProxyEntity.TYPE_TROJAN
             if ((mux != null) != expect) failures += "${proto.name}：singMux 是 $mux，预期${if (expect) "有" else "没有"}选项"
         }
-        check(failures)
+        assertNoFailures(failures)
     }
 
     // ---- Kryo
@@ -360,7 +349,7 @@ class ProtocolContractTest {
             if (cls !in converters) failures += "${proto.name}：KryoConverters 没有返回 ${cls.simpleName} 的转换器（Room 列读不出来）"
             if (cls.name !in registered && cls.name !in skipped) failures += "${proto.name}：${cls.name} 没有登记在 kryo/registry.json"
         }
-        check(failures)
+        assertNoFailures(failures)
     }
 
     // Kryo 布局里有些字段只在判别字段取特定值时才写（传输方式决定 host / path，security 决定 TLS 字段，
@@ -429,7 +418,7 @@ class ProtocolContractTest {
                 if (kept && field.name in exempt) failures += "${proto.name}.${field.name}：写在 KRYO_NOT_PERSISTED 里，但其实会持久化，该从清单删掉"
             }
         }
-        check(failures)
+        assertNoFailures(failures)
     }
 
     // ---- 构建入口：黄金场景
@@ -474,6 +463,6 @@ class ProtocolContractTest {
                 }
             }
         }
-        check(failures)
+        assertNoFailures(failures)
     }
 }

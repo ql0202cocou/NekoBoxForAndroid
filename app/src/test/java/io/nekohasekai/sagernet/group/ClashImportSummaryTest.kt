@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.group
 
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.SilencedLogs
 import io.nekohasekai.sagernet.fmt.ClashFieldReason
 import io.nekohasekai.sagernet.fmt.ClashFieldRecord
 import io.nekohasekai.sagernet.fmt.ClashFieldResult
@@ -14,9 +15,14 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 
 class ClashImportSummaryTest {
+
+    // parseRaw 会写日志：Logs 开着就走 JNI（Libcore），JVM 上没有
+    @get:Rule
+    val logs = SilencedLogs()
 
     // 代替 Context.getString：资源名加参数，便于断言结构
     private fun getString(id: Int, arg: Any): String = when (id) {
@@ -232,7 +238,6 @@ class ClashImportSummaryTest {
 
     @Test
     fun `parseRaw 把导入汇总交给调用方`() {
-        Logs.enabled = false
         var summary: ClashImportSummary? = null
         val beans = runBlocking {
             RawUpdater.parseRaw(
@@ -248,7 +253,6 @@ class ClashImportSummaryTest {
 
     @Test
     fun `全部节点被跳过时 parseRaw 抛出带汇总的异常，消息不含值`() {
-        Logs.enabled = false
         var called = false
         val e = assertThrows(ClashImportException::class.java) {
             runBlocking {
@@ -281,7 +285,6 @@ class ClashImportSummaryTest {
 
     @Test
     fun `proxies 为空列表时同样抛出，汇总为空不弹对话框`() {
-        Logs.enabled = false
         val e = assertThrows(ClashImportException::class.java) {
             runBlocking { RawUpdater.parseRaw("proxies: []") }
         }
