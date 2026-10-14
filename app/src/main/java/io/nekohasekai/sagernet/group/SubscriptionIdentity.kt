@@ -1,6 +1,8 @@
 package io.nekohasekai.sagernet.group
 
 import io.nekohasekai.sagernet.database.ProxyGroup
+import io.nekohasekai.sagernet.ktx.readableMessage
+import okhttp3.HttpUrl.Companion.toHttpUrl
 
 /**
  * 订阅更新「下载什么、怎么解析」的身份：下载开始时记下，写库事务开头与分组当前行比对，
@@ -52,8 +54,19 @@ fun isHttpSubscriptionLink(link: String): Boolean {
 }
 
 /**
- * 编辑器里填的订阅链接：http(s)，或经「选择文件」得到的 content://（更新时按 content:// 前缀读本地文件）。
- * 深链导入不接受 content://，仍用 [isHttpSubscriptionLink]。空链接由调用方另行处理。
+ * 编辑器里订阅链接的唯一规则（输入框 LinkOrContentPreference 与保存前的检查共用）：空值放行（可以先建分组再填）；
+ * 经「选择文件」得到的 content:// 放行（更新时按这个前缀读本地文件）；其余必须是单行的合法 http(s) 链接。
+ * 返回不能保存的原因，null 表示可以保存。深链导入不接受 content://，仍用 [isHttpSubscriptionLink]
  */
-fun isEditableSubscriptionLink(link: String): Boolean =
-    isHttpSubscriptionLink(link) || link.startsWith("content://")
+fun subscriptionLinkError(link: String): String? {
+    if (link.isBlank() || link.startsWith("content://")) return null
+    if (link.contains("\n")) return "Unexpected new line"
+    return try {
+        link.toHttpUrl()
+        null
+    } catch (e: Exception) {
+        e.readableMessage
+    }
+}
+
+fun isEditableSubscriptionLink(link: String): Boolean = subscriptionLinkError(link) == null

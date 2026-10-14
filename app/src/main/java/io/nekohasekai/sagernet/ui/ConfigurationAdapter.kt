@@ -121,9 +121,7 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
         }
         // 与 onAdd / reloadProfiles 一样先提交撤销窗口：undo 按删除时的可见位置
         // 插回，过滤后列表变短就会越界崩溃
-        if (groupFragment.isUndoManagerInitialized) {
-            groupFragment.undoManager.flush()
-        }
+        groupFragment.flushUndo()
         configurationIdList.clear()
         configurationIdList.addAll(visibleIds())
         notifyDataSetChanged()
@@ -189,9 +187,7 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
         if (profile.groupId != groupFragment.proxyGroup.id) return
 
         groupFragment.configurationListView.post {
-            if (groupFragment.isUndoManagerInitialized) {
-                groupFragment.undoManager.flush()
-            }
+            groupFragment.flushUndo()
             configurationList[profile.id] = profile
             allProfileIds.add(profile.id)
             // 搜索中只把命中的新节点放进可见列表，与 visibleIds() 的过滤一致
@@ -209,9 +205,7 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
             // dispatcher while the main thread mutates the list
             val index = configurationIdList.indexOf(profile.id)
             if (index < 0) return@post
-            if (groupFragment.isUndoManagerInitialized) {
-                groupFragment.undoManager.flush()
-            }
+            groupFragment.flushUndo()
             // 库里的 tx/rx 可能落后于实时流量，重绑时 bind 会优先取
             // ProfileManager.liveTraffic
             configurationList[profile.id] = profile
@@ -245,9 +239,7 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
         groupFragment.configurationListView.post {
             // 别处删了节点（菜单批删、编辑器删除）：先提交撤销窗口。undo 按删除时的位置插回，列表变短会越界；
             // 删的若正是窗口里待删的那个，撤销还会插回一行库里已没有的节点
-            if (groupFragment.isUndoManagerInitialized) {
-                groupFragment.undoManager.flush()
-            }
+            groupFragment.flushUndo()
             allProfileIds.remove(profileId)
             val index = configurationIdList.indexOf(profileId)
             if (index < 0) return@post
@@ -295,9 +287,7 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
 
         groupFragment.configurationListView.post {
             // 整组重读会把撤销窗口里待删的行重新放回列表，先把它提交掉
-            if (groupFragment.isUndoManagerInitialized) {
-                groupFragment.undoManager.flush()
-            }
+            groupFragment.flushUndo()
             // mutate the lists on the main thread: this runs on a
             // background dispatcher while the main thread reads them
             configurationList.clear()

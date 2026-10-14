@@ -524,13 +524,7 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>): StandardV2RayBean {
     }
     bean.type = clashV2RayTransport(bean is TrojanBean, network)
     checkClashTransportTls(bean.type, network, bean.isTLS())
-    val optsKey = when (network) {
-        "ws" -> "ws-opts"
-        "grpc" -> "grpc-opts"
-        "h2" -> if (bean is TrojanBean) null else "h2-opts"
-        "http" -> if (bean is TrojanBean) null else "http-opts"
-        else -> null
-    }
+    val optsKey = optsKeyOf(if (bean is TrojanBean) "trojan" else "", network)
     // mihomo 只读当前 network 的 *-opts（含 ws-opts 的升级标记，它只在 network 为 ws 时出现）
     // 仍放在 clashKey 里：读 opts 时的意外异常按带键路径的 INVALID_VALUE 报，不变成 OTHER
     if (optsKey != null && clashKey(optsKey, transportOpts[optsKey]) {

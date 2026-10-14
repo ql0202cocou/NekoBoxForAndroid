@@ -42,8 +42,9 @@ class ConfigEditActivity : ThemedActivity() {
     // 载入时的文本；未保存与否只看当前文本是否与它相同。
     // 存储内容在本页存活期间不变，所以重建时重新载入即可得到同一份，不必进 savedInstanceState
     private var loadedText = ""
+    // 每次按键都会读：先比长度，相同再逐字比，不整篇复制成 String
     private val dirty: Boolean
-        get() = binding.editor.text.toString() != loadedText
+        get() = binding.editor.text.let { it.length != loadedText.length || !it.contentEquals(loadedText) }
     var key = Key.SERVER_CONFIG
     var useConfigStore = false
 
@@ -114,7 +115,7 @@ class ConfigEditActivity : ThemedActivity() {
             // 系统在重建时恢复文本也会触发监听，所以每次都按「与载入文本是否相同」重算，
             // 改回原样即视为未修改
             addTextChangedListener {
-                EditorCache.dirty = if (dirty) true else parentDirty
+                EditorCache.dirty = dirty || parentDirty
             }
         }
 

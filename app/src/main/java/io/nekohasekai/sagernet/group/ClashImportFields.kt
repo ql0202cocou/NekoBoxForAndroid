@@ -135,7 +135,8 @@ internal fun clashInt(text: String): Long? {
 // 一个节点的字段记录。路径在内部是原始键的序列，写进记录时才按显示规则处理；type 只用于判断哪些值可以显示
 internal class ClashFields(
     private val type: String,
-    private val proxy: Map<String, Any?>,
+    // 节点原始的 map：各类型的记录（本文件里的扩展函数）按 mihomo 的读法直接在上面找键（mihomoEntry、clashSsPlugin*）
+    val proxy: Map<String, Any?>,
     private val normalizeKeys: Boolean,
 ) {
     private val records = HashMap<List<String>, ClashFieldRecord>()
@@ -151,30 +152,14 @@ internal class ClashFields(
         return found
     }
 
-    // mihomo 读法的取值：逐层用 mihomoEntry 找键（先原样，再不区分大小写、把 _ 当作 -）。
-    // nestedUnderscore 为 false 时，第一层之后的键不把 _ 当作 -（ss 的 plugin-opts 的解码器不当）
-    fun mihomoValueAt(names: List<String>, nestedUnderscore: Boolean = true): Any? {
+    // mihomo 读法的取值：逐层用 mihomoEntry 找键（先原样，再不区分大小写、把 _ 当作 -）
+    fun mihomoValue(vararg names: String): Any? {
         var value: Any? = proxy
-        for ((i, name) in names.withIndex()) {
-            value = (value as? Map<*, *>)?.mihomoEntry(name, underscoreAsDash = i == 0 || nestedUnderscore)?.value ?: return null
-        }
+        for (name in names) value = (value as? Map<*, *>)?.mihomoEntry(name)?.value ?: return null
         return value
     }
 
-    fun mihomoEntryOf(name: String): Map.Entry<*, *>? = proxy.mihomoEntry(name)
-
-    // 解析器按 mihomo 的读法读的键（ss 的 plugin、plugin-opts 及其子键、udp-over-tcp 等）：返回节点里的原始键名路径，
-    // 规则同 mihomoValueAt。其余键的记录仍用上面按解析器读法找键的 path
-    fun mihomoPathAt(names: List<String>, nestedUnderscore: Boolean = true): List<String>? {
-        var map: Map<*, *> = proxy
-        val out = ArrayList<String>(names.size)
-        for ((i, name) in names.withIndex()) {
-            val entry = map.mihomoEntry(name, underscoreAsDash = i == 0 || nestedUnderscore) ?: return null
-            out += entry.key as? String ?: return null
-            if (i < names.lastIndex) map = entry.value as? Map<*, *> ?: return null
-        }
-        return out
-    }
+    fun mihomoFlag(vararg names: String): Boolean = mihomoValue(*names).mihomoTrue()
 
     fun openAt(path: List<String>) {
         if (valueAt(path) is Map<*, *>) opened += path
@@ -188,9 +173,6 @@ internal class ClashFields(
         val opts = mihomoValue("reality-opts") as? Map<*, *>
         return if (opts != null && opts.mihomoEntry("public-key") == null) SEMANTICS_DIFFER else INACTIVE
     }
-
-    fun mihomoValue(vararg names: String): Any? = mihomoValueAt(names.asList())
-    fun mihomoFlag(vararg names: String): Boolean = mihomoValue(*names).mihomoTrue()
 
     fun path(vararg names: String): List<String>? {
         var map: Map<*, *> = proxy
@@ -442,40 +424,43 @@ private fun ClashFields.http(bean: HttpBean): Pair<Set<String>, ClashInactive> {
 private fun ClashFields.shadowsocks(bean: ShadowsocksBean): Pair<Set<String>, ClashInactive> {
     kept("server"); kept("port"); kept("password")
     if (text("cipher") == "dummy") converted(EQUIVALENT_VALUE, "cipher") else kept("cipher")
-    // plugin、plugin-opts、udp-over-tcp 及其子键，解析器按 mihomo 的读法读（见 clashSsPlugin），这里的记录用同样的读法找键；
-    // 子键不把 _ 当作 -
-    fun at(vararg names: String) = mihomoPathAt(names.asList(), nestedUnderscore = false)
-    fun recordMihomo(names: List<String>, result: ClashFieldResult, reason: ClashFieldReason?) =
-        mihomoPathAt(names, nestedUnderscore = false)?.let { recordAt(it, result, reason) }
+    // plugin、plugin-opts 及其子键、udp-over-tcp：读键规则与解析器、clashRejection 共用（clashSsPlugin*，mihomo 的读法，
+    // plugin-opts 的子键不把 _ 当作 -），记录用节点里的原始键名；不是字符串的键不记
+    fun pathOf(vararg entries: Map.Entry<*, *>?): List<String>? = entries.map { it?.key as? String ?: return null }
+    fun record(path: List<String>?, result: ClashFieldResult, reason: ClashFieldReason? = null) {
+        if (path != null) recordAt(path, result, reason)
+    }
     // 未支持的插件整个节点被拒，到不了这里
-    val pluginPath = at("plugin")
-    val plugin = pluginPath?.let { valueAt(it) }?.toString().blankAsNull()
+    val pluginPath = pathOf(proxy.mihomoEntry("plugin"))
+    val plugin = proxy.clashSsPlugin()?.value?.toString()
     when (plugin) {
         // 写成 sip003 的 obfs-local
-        "obfs" -> recordMihomo(listOf("plugin"), ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
-        else -> recordMihomo(listOf("plugin"), ClashFieldResult.KEPT, null)
+        "obfs" -> record(pluginPath, ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
+        else -> record(pluginPath, ClashFieldResult.KEPT)
     }
     var table = SS_KEYS
-    val optsPath = at("plugin-opts")
-    val opts = optsPath?.let { valueAt(it) }
+    val optsEntry = proxy.clashSsPluginOpts()
+    val optsPath = pathOf(optsEntry)
+    val opts = optsEntry?.value
     if (plugin != null && optsPath != null && opts != null) {
         if (opts !is Map<*, *>) {
-            recordAt(optsPath, ClashFieldResult.IGNORED, INVALID_DROPPED)
+            record(optsPath, ClashFieldResult.IGNORED, INVALID_DROPPED)
         } else {
             openAt(optsPath)
-            fun sub(name: String) = mihomoPathAt(listOf("plugin-opts", name), nestedUnderscore = false)
-            sub("mode")?.let { recordAt(it, ClashFieldResult.KEPT, null) }
-            sub("host")?.let { recordAt(it, ClashFieldResult.KEPT, null) }
+            fun sub(name: String) = proxy.clashSsPluginOpt(name)?.let { pathOf(optsEntry, it) }
+            record(sub("mode"), ClashFieldResult.KEPT)
+            record(sub("host"), ClashFieldResult.KEPT)
             if (plugin == "obfs") {
                 table = table + SS_OBFS_KEYS
             } else {
                 table = table + SS_V2RAY_PLUGIN_KEYS
-                sub("path")?.let { recordAt(it, ClashFieldResult.KEPT, null) }
-                sub("tls")?.let { recordAt(it, ClashFieldResult.KEPT, null) }
+                record(sub("path"), ClashFieldResult.KEPT)
+                record(sub("tls"), ClashFieldResult.KEPT)
                 // mux: true 写成 mux=8（sing-box 的插件只看是否大于 0）；false 不写，而 sing-box 的插件不写时默认开 mux
-                sub("mux")?.let {
-                    if (valueAt(it).mihomoTrue()) recordAt(it, ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
-                    else recordAt(it, ClashFieldResult.IGNORED, SEMANTICS_DIFFER)
+                if (proxy.clashSsPluginOpt("mux")?.value.mihomoTrue()) {
+                    record(sub("mux"), ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
+                } else {
+                    record(sub("mux"), ClashFieldResult.IGNORED, SEMANTICS_DIFFER)
                 }
             }
         }
@@ -483,17 +468,16 @@ private fun ClashFields.shadowsocks(bean: ShadowsocksBean): Pair<Set<String>, Cl
     // udp-over-tcp：版本按 mihomo 的规则写进 bean（不写或 0 是 1，2 是 2，见 clashUdpOverTcpVersion），
     // sing-box 一侧只在版本是 1 时写出来。键与布尔值的读法同 mihomo，解析器读到的与它一致
     val uot = bean.sUoT == true
-    recordMihomo(listOf("udp-over-tcp"), ClashFieldResult.KEPT, null)
+    record(pathOf(proxy.mihomoEntry("udp-over-tcp")), ClashFieldResult.KEPT)
     if (uot) {
-        mihomoPathAt(listOf("udp-over-tcp-version"))?.let {
-            if (valueAt(it)?.toString() == "0") recordAt(it, ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
-            else recordAt(it, ClashFieldResult.KEPT, null)
+        proxy.mihomoEntry("udp-over-tcp-version")?.let { version ->
+            if (version.value?.toString() == "0") record(pathOf(version), ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
+            else record(pathOf(version), ClashFieldResult.KEPT)
         }
     }
-    // 下面几处按 mihomo 的读法判断（plugin 与 udp-over-tcp 在 mihomo 里不区分键名大小写；plugin-opts 的子键用的解码器
-    // 不把 _ 当作 -，见 NewShadowSocks）
-    val mihomoPlugin = mihomoValue("plugin")?.toString().orEmpty()
-    val mihomoPluginTls = mihomoValueAt(listOf("plugin-opts", "tls"), nestedUnderscore = false).mihomoTrue()
+    // 下面几处同样按解析器的读法判断（plugin 与 udp-over-tcp 在 mihomo 里不区分键名大小写；空白的 plugin 视为没有插件）
+    val mihomoPlugin = plugin.orEmpty()
+    val mihomoPluginTls = proxy.clashSsPluginOpt("tls")?.value.mihomoTrue()
     return table to { path ->
         when {
             path[0] == "plugin-opts" && mihomoPlugin.isEmpty() -> INACTIVE
@@ -529,7 +513,7 @@ internal fun clashTlsVariantActive(key: String, value: Any?): Boolean {
 // 键按 mihomo 的读法找（与 clashRejection 一致）：写法不同的键解析器读不到，是否生效仍按 mihomo 判断
 private fun ClashFields.tlsVariants(keys: List<String>) {
     for (key in keys) {
-        val entry = mihomoEntryOf(key) ?: continue
+        val entry = proxy.mihomoEntry(key) ?: continue
         val path = listOf(entry.key.toString())
         val value = entry.value ?: continue
         when {
@@ -726,7 +710,9 @@ private fun ClashFields.network(type: String, network: String?): String? {
 }
 
 // mihomo 在这个 network 下读的 *-opts 键
-private fun optsKeyOf(type: String, network: String?): String? = when (network) {
+// network -> 生效的 *-opts 键（mihomo 只读当前 network 的那个）；解析器（parseClashV2Ray）与字段记录共用。
+// Trojan 只认 ws 与 grpc
+internal fun optsKeyOf(type: String, network: String?): String? = when (network) {
     "ws" -> "ws-opts"
     "grpc" -> "grpc-opts"
     "h2" -> if (type == "trojan") null else "h2-opts"

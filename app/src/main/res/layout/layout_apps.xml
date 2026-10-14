@@ -152,20 +152,8 @@
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
         tools:listitem="@layout/layout_apps_item" />
 
-    <!-- 列表为空（没有用户应用、或搜索无结果）时的提示，靠上放免得被键盘盖住；无权限的占位另见 layout_app_placeholder -->
-    <TextView
-        android:id="@+id/app_empty"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|center_horizontal"
-        android:clickable="false"
-        android:focusable="false"
-        android:gravity="center"
-        android:padding="32dp"
-        android:textAppearance="?attr/textAppearanceBodyLarge"
-        android:textColor="?attr/colorOnSurface"
-        android:visibility="gone"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+    <!-- 列表为空（没有用户应用、或搜索无结果）时的提示；无权限的占位另见 layout_app_placeholder -->
+    <include layout="@layout/layout_app_empty" />
 
     <include
         android:id="@+id/app_placeholder"

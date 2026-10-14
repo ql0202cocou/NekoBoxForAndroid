@@ -12,7 +12,11 @@ import io.nekohasekai.sagernet.fmt.beanForType
  * 用法：写入前取快照，写入后（或要写入的新值）调用 [differsFrom]；配置变了，之前的测速结果（status / ping / error）
  * 就不再对应现在的配置，调用方在同一事务里把它们清零（见 [ProfileManager.updateProfile]、订阅更新）。
  */
-class ProxyConfigSnapshot(private val type: Int, private val core: Int, private val bean: AbstractBean?) {
+class ProxyConfigSnapshot private constructor(
+    private val type: Int,
+    private val core: Int,
+    private val bean: AbstractBean?,
+) {
 
     constructor(entity: ProxyEntity) : this(
         entity.type,
@@ -27,4 +31,15 @@ class ProxyConfigSnapshot(private val type: Int, private val core: Int, private 
         val otherBean = runCatching { other.beanForType() }.getOrNull()
         return bean != otherBean
     }
+}
+
+/**
+ * 写配置的唯一入口（编辑器保存、订阅更新）：按列写回 [entity] 的配置（[ProxyEditableFields]），配置相对写入前的
+ * [before] 变了就在同一事务里把测速状态（status / ping / error）清零。必须在调用方已开的事务里调用。
+ * 返回写到的行数：0 表示这一行已不在库里，什么都没写。
+ */
+fun ProxyEntity.Dao.updateConfigResettingStatus(before: ProxyConfigSnapshot, entity: ProxyEntity): Int {
+    val written = updateEditableFields(ProxyEditableFields(entity))
+    if (written > 0 && before.differsFrom(entity)) updateStatus(entity.id, 0, 0, null)
+    return written
 }

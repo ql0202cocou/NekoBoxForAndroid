@@ -21,9 +21,12 @@ object PackageCache {
     lateinit var packageMap: Map<String, Int>
     lateinit var uidMap: Map<Int, Set<String>>
     // 首次加载完成的标志，写在 reload() 的最后一步（volatile 写）：读到 true 的线程
-    // 一定能看到前面所有字段的赋值。加载本身由 PackageCache 的监视器串行化
+    // 一定能看到前面所有字段的赋值。加载本身由 PackageCache 的监视器串行化。
+    // 也是非阻塞的就绪状态：主线程调用方（AppListPreference.getSummary 等）先用它判断，
+    // 未就绪时返占位并后台等待，不能在主线程 awaitLoadSync
     @Volatile
-    private var ready = false
+    var isLoaded = false
+        private set
     var registerd = AtomicBoolean(false)
 
     // 最近一次加载失败（只在监视器内读写）：失败后 RETRY_AFTER_MS 内不再重新扫描，直接报失败。
@@ -52,9 +55,9 @@ object PackageCache {
     // 进锁后再次检查 ready，已加载就不重复扫描。加载抛异常时 ready 保持 false，
     // 记一次日志并把异常交给调用方；RETRY_AFTER_MS 之后的调用才重新扫描，在此之前直接报失败
     private fun ensureLoaded() {
-        if (ready) return
+        if (isLoaded) return
         synchronized(this) {
-            if (ready) return
+            if (isLoaded) return
             val failure = lastFailure
             if (failure != null && SystemClock.elapsedRealtime() - lastFailureAt < RETRY_AFTER_MS) {
                 throw IllegalStateException("package list unavailable", failure)
@@ -102,7 +105,7 @@ object PackageCache {
         // swap the whole map like the fields above: packageNameByUid reads
         // this from a gomobile callback thread with no synchronization, so
         // mutating a shared HashMap in place can corrupt a concurrent read.
-        // ready 必须是最后一次写入（见 ready 的注释）
+        // isLoaded 必须是最后一次写入（见 isLoaded 的注释）
         val newUidMap = HashMap<Int, HashSet<String>>()
         for (info in installed) {
             val uid = info.uid
@@ -110,16 +113,11 @@ object PackageCache {
         }
         uidMap = newUidMap
         packageMap = installed.associate { it.packageName to it.uid }
-        ready = true
+        isLoaded = true
     }
 
     operator fun get(uid: Int) = uidMap[uid]
     operator fun get(packageName: String) = packageMap[packageName]
-
-    // 非阻塞就绪状态：主线程调用方（AppListPreference.getSummary 等）先用它
-    // 判断，未就绪时返占位并后台等待，不能在主线程 awaitLoadSync
-    val isLoaded
-        get() = ready
 
     // 正常返回时各 map 一定已初始化；加载失败（如读取包列表被拒）抛出异常，
     // 调用方自行处理，缓存保持未加载，按间隔重试（见 ensureLoaded）。先加载再补注册：
@@ -128,6 +126,15 @@ object PackageCache {
     fun awaitLoadSync() {
         ensureLoaded()
         if (!registerd.get()) register()
+    }
+
+    // 不抛异常的版本：加载失败返回 false，调用方按未加载降级。失败已在 ensureLoaded 里按真正扫描记过日志，
+    // 调用方不再记（packageNameByUid 每个新连接都会进来）
+    fun tryAwaitLoad(): Boolean = try {
+        awaitLoadSync()
+        true
+    } catch (_: Exception) {
+        false
     }
 
     // written from background threads, cleared from the package-change receiver

@@ -309,10 +309,9 @@ object RawUpdater : GroupUpdater() {
                 }
                 val before = ProxyConfigSnapshot(current)
                 current.replaceSubscriptionBean(updatedBean)
-                updatedCount += SagerDatabase.proxyDao.updateEditableFields(ProxyEditableFields(current))
-                SagerDatabase.proxyDao.updateOrder(current.id, entity.userOrder)
                 // 合并了自定义覆写之后配置仍不同才清测速状态：旧结果对不上新配置，没变的节点保留
-                if (before.differsFrom(current)) SagerDatabase.proxyDao.updateStatus(current.id, 0, 0, null)
+                updatedCount += SagerDatabase.proxyDao.updateConfigResettingStatus(before, current)
+                SagerDatabase.proxyDao.updateOrder(current.id, entity.userOrder)
             }
             Logs.d("Updated profiles: $updatedCount")
 

@@ -104,12 +104,9 @@ class GroupSettingsActivity(
 
     fun needSave() = EditorCache.dirty
 
-    // 订阅分组的链接为空时保持原行为（可以先建分组再填）；非空则必须是 http(s) 或选择文件得到的 content://
-    private fun subscriptionLinkAcceptable(): Boolean {
-        if (EditorCache.groupType != GroupType.SUBSCRIPTION) return true
-        val link = EditorCache.subscriptionLink.trim()
-        return link.isEmpty() || isEditableSubscriptionLink(link)
-    }
+    // 订阅分组的链接按编辑器的同一条规则检查（见 subscriptionLinkError；空链接可以先建分组再填）
+    private fun subscriptionLinkAcceptable(): Boolean =
+        EditorCache.groupType != GroupType.SUBSCRIPTION || isEditableSubscriptionLink(EditorCache.subscriptionLink.trim())
 
     override fun PreferenceFragmentCompat.createPreferences(
         savedInstanceState: Bundle?,

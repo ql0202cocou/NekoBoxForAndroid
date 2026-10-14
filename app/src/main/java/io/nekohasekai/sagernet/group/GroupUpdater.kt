@@ -14,7 +14,6 @@ import io.nekohasekai.sagernet.ktx.*
 import kotlinx.coroutines.*
 import java.io.File
 import java.io.RandomAccessFile
-import java.net.Inet4Address
 import java.net.InetAddress
 import java.nio.channels.FileLock
 import java.util.*
@@ -70,16 +69,17 @@ abstract class GroupUpdater {
                             ) {
                                 // FakeDNS：app 自身流量也走 VPN，默认网络上的系统解析会拿到
                                 // fakeip 段的假 IP 并被写进库。没有底层网络（如切换网络途中）
-                                // 就判这个域名解析失败，不回退默认解析器
-                                lookupSystem(domain, SagerNet.underlyingNetwork ?: error("no underlying network"))
-                                    .orderByIpv6Mode(ipv6Mode)
+                                // 就判这个域名解析失败，不回退默认解析器；不用分组的节点解析 DNS
+                                lookupServerAddress(
+                                    domain, null, SagerNet.underlyingNetwork ?: error("no underlying network"), ipv6Mode
+                                )
                             } else {
                                 // 分组配了节点解析 DNS 时优先用它，没配或失败时回退系统 DNS
                                 //（VPN 连着时系统 DNS 由内核解析）
                                 lookupServerAddress(domain, groupNameserver, null, ipv6Mode)
                             }
                             if (results.isEmpty()) error("empty response")
-                            for (profile in sameDomain) rewriteAddress(profile, results, ipv6Mode)
+                            for (profile in sameDomain) rewriteAddress(profile, results)
                         } catch (e: CancellationException) {
                             throw e
                         } catch (e: Exception) {
@@ -95,12 +95,9 @@ abstract class GroupUpdater {
         }
     }
 
-    // 按 IPv6 模式过滤排序后取第一个；被模式排除的地址族不会写入（过滤后为空即解析失败）
-    protected fun rewriteAddress(
-        bean: AbstractBean, addresses: List<InetAddress>, ipv6Mode: Int
-    ) {
-        val address = addresses.orderByIpv6Mode(ipv6Mode).firstOrNull()?.hostAddress
-            ?: error("no address allowed by IPv6 mode")
+    // addresses 已按 IPv6 模式过滤排序且非空（lookupServerAddress 的结果，空的按解析失败在调用方处理）：取第一个
+    protected fun rewriteAddress(bean: AbstractBean, addresses: List<InetAddress>) {
+        val address = addresses.first().hostAddress
         fillSniFromServerAddress(bean)
         bean.serverAddress = address
     }

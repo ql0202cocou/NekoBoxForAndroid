@@ -100,6 +100,11 @@ class SubscriptionIdentityTest {
         assertFalse(isEditableSubscriptionLink("ftp://a.example/sub"))
         assertFalse(isEditableSubscriptionLink("javascript:alert(1)"))
         assertFalse(isEditableSubscriptionLink("not a link"))
+        // 与输入框同一条规则：空值放行，http(s) 要单行且能解析，前缀对了不够
+        assertTrue(isEditableSubscriptionLink(""))
+        assertFalse(isEditableSubscriptionLink("https://a.example/sub\nhttps://b.example/sub"))
+        assertFalse(isEditableSubscriptionLink("https://"))
+        assertEquals("Unexpected new line", subscriptionLinkError("https://a\nb"))
         assertFalse(isHttpSubscriptionLink("content://docs/x"))
     }
 }

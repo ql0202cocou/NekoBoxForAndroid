@@ -339,6 +339,9 @@ class ProfileListFragment : Fragment() {
 
     val profileAccess = Mutex()
     val reloadAccess = Mutex()
-    val isUndoManagerInitialized get() = ::undoManager.isInitialized
+    // 提交撤销窗口里的待删项（视图还没建好、undoManager 未初始化时什么也不做）：别处改动列表前先调它
+    fun flushUndo() {
+        if (::undoManager.isInitialized) undoManager.flush()
+    }
 
 }

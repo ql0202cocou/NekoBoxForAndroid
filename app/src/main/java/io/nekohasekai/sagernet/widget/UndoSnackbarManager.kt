@@ -25,8 +25,7 @@ class UndoSnackbarManager<in T>(
     private val removedCallback = object : Snackbar.Callback() {
         override fun onDismissed(transientBottomBar: Snackbar?, event: Int) {
             if (last === transientBottomBar && event != DISMISS_EVENT_ACTION) {
-                callback.commit(recycleBin)
-                recycleBin.clear()
+                commitPending()
                 last = null
             }
         }
@@ -57,10 +56,14 @@ class UndoSnackbarManager<in T>(
     fun flush() {
         val bar = last ?: return
         last = null
-        if (recycleBin.isNotEmpty()) {
-            callback.commit(ArrayList(recycleBin))
-            recycleBin.clear()
-        }
+        commitPending()
         bar.dismiss()
+    }
+
+    // 待删项交给 commit 并清空；传副本，commit 的实现可以放心异步使用
+    private fun commitPending() {
+        if (recycleBin.isEmpty()) return
+        callback.commit(ArrayList(recycleBin))
+        recycleBin.clear()
     }
 }

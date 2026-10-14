@@ -257,8 +257,13 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                 Toast.makeText(this@ProfileSettingsActivity, R.string.deleted_profile, Toast.LENGTH_LONG).show()
             }
         }
+        onSaved()
         finish()
 
+    }
+
+    /** 保存写完库、关闭页面之前调用一次；放弃修改、校验不过、会话已失效都不会走到这里。 */
+    protected open fun onSaved() {
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {

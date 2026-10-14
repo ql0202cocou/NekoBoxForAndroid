@@ -105,14 +105,7 @@ object ProfileManager {
     suspend fun updateProfile(profile: ProxyEntity): Boolean {
         val written = SagerDatabase.instance.runInTransaction(Callable {
             val old = SagerDatabase.proxyDao.getById(profile.id) ?: return@Callable false
-            val before = ProxyConfigSnapshot(old)
-            if (SagerDatabase.proxyDao.updateEditableFields(ProxyEditableFields(profile)) == 0) {
-                return@Callable false
-            }
-            if (before.differsFrom(profile)) {
-                SagerDatabase.proxyDao.updateStatus(profile.id, 0, 0, null)
-            }
-            true
+            SagerDatabase.proxyDao.updateConfigResettingStatus(ProxyConfigSnapshot(old), profile) > 0
         })
         if (!written) return false
         val current = SagerDatabase.proxyDao.getById(profile.id) ?: return true

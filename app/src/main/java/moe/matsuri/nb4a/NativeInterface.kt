@@ -63,13 +63,8 @@ class NativeInterface : BoxPlatformInterface, NB4AInterface {
     }
 
     override fun packageNameByUid(uid: Int): String {
-        // 不能把异常抛过 gomobile 边界：加载失败按未知 uid 处理。每个新连接都会进来，
-        // 失败已由 PackageCache 在真正扫描时记过日志，这里不再逐次记
-        try {
-            PackageCache.awaitLoadSync()
-        } catch (_: Exception) {
-            return if (uid <= 1000L) "android" else ""
-        }
+        // 不能把异常抛过 gomobile 边界：加载失败按未知 uid 处理
+        if (!PackageCache.tryAwaitLoad()) return if (uid <= 1000L) "android" else ""
 
         if (uid <= 1000L) {
             return "android"

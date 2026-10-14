@@ -4,14 +4,12 @@ import android.content.Context
 import android.util.AttributeSet
 import android.widget.Toast
 import androidx.core.content.res.TypedArrayUtils
-import androidx.core.net.toUri
 import androidx.core.widget.addTextChangedListener
 import androidx.preference.EditTextPreference
 import com.google.android.material.textfield.TextInputLayout
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.group.subscriptionLinkError
 import io.nekohasekai.sagernet.ktx.app
-import io.nekohasekai.sagernet.ktx.readableMessage
-import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 class LinkOrContentPreference
@@ -57,16 +55,7 @@ constructor(
         return super.callChangeListener(newValue)
     }
 
-    // 空值与 content:// 放行；其余必须是单行的合法 http(s) 链接。null 表示可以保存
-    private fun blockingError(link: String): String? {
-        if (link.isBlank() || link.toUri().scheme == "content") return null
-        if (link.contains("\n")) return "Unexpected new line"
-        return try {
-            link.toHttpUrl()
-            null
-        } catch (e: Exception) {
-            e.readableMessage
-        }
-    }
+    // 规则与保存前的检查共用，见 subscriptionLinkError。null 表示可以保存
+    private fun blockingError(link: String): String? = subscriptionLinkError(link)
 
 }

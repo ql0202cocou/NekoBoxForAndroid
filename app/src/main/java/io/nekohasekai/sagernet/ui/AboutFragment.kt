@@ -104,13 +104,8 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                                 .build())
                         .apply {
                             // 包列表读取失败时只是不列出插件，不影响关于页
-                            val pluginPackages = try {
-                                PackageCache.awaitLoadSync()
-                                PackageCache.installedPluginPackages
-                            } catch (e: Exception) {
-                                Logs.w(e)
-                                emptyMap()
-                            }
+                            val pluginPackages =
+                                if (PackageCache.tryAwaitLoad()) PackageCache.installedPluginPackages else emptyMap()
                             for ((_, pkg) in pluginPackages) {
                                 try {
                                     val pluginId =

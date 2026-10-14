@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 应用勾选页（layout_app_list、layout_apps）列表为空时的提示：没有用户应用、或搜索无结果。
+     靠上放免得被键盘盖住；父布局是 CoordinatorLayout，随列表一起排在顶栏下方 -->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/app_empty"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_gravity="top|center_horizontal"
+    android:clickable="false"
+    android:focusable="false"
+    android:gravity="center"
+    android:padding="32dp"
+    android:textAppearance="?attr/textAppearanceBodyLarge"
+    android:textColor="?attr/colorOnSurface"
+    android:visibility="gone"
+    app:layout_behavior="@string/appbar_scrolling_view_behavior" />

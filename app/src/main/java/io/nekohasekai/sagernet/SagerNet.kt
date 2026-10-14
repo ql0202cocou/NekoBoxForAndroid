@@ -30,7 +30,6 @@ import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.InstallMarker
 import io.nekohasekai.sagernet.database.RestoreJournal
 import io.nekohasekai.sagernet.ktx.Logs
-import io.nekohasekai.sagernet.ktx.isOss
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.deleteSharedBackups
 import io.nekohasekai.sagernet.ui.MainActivity
@@ -365,10 +364,8 @@ class SagerNet : Application(),
         var underlyingNetwork: Network? = null
 
         var appVersionNameForDisplay = {
+            // 只有 oss 一个 flavor，不再拼 flavor 名
             var n = BuildConfig.VERSION_NAME
-            if (!isOss) {
-                n += " ${BuildConfig.FLAVOR}"
-            }
             if (BuildConfig.DEBUG) {
                 n += " DEBUG"
             }
