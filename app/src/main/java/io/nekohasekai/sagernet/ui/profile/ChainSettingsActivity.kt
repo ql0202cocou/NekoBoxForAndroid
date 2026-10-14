@@ -318,6 +318,9 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
                     }
                 } else {
                     onMainDispatcher {
+                        // 查库与环路检查期间缓存可能已被别的编辑器接管，与其它选择器回调一样丢弃迟到的结果；
+                        // 放在主线程写入之前查，查完到写完之间没有挂起点
+                        if (!holdsEditorSession()) return@onMainDispatcher
                         // reload() rebuilds proxyList from EditorCache.serverProtocol
                         // asynchronously, so after a process-death restore the
                         // list may still be empty here. Write the selection
