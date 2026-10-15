@@ -13,10 +13,17 @@ Expected behavior:
 
 Actual behavior:
 
+## Environment
+
+- App version:
+- Android version and ABI (e.g. Android 15, arm64-v8a):
+- Protocol and core (auto / sing-box / Xray / mihomo):
+
 ## How to reproduce
 
-Provide helpful screenshots, videos, text descriptions, subscription links, etc.
+Provide helpful screenshots, videos, text descriptions, etc. This repository is public: remove subscription links,
+server addresses, UUIDs and passwords before posting.
 
-## log
+## Log
 
-If you have logs, please upload them. Please see the detailed steps for exporting logs in the documentation.
+If you have logs, please upload them: Logs page, top-right menu → "Export debug information".

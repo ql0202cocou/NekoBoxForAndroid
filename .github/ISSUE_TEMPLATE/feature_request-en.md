@@ -7,6 +7,6 @@ assignees: ''
 
 ---
 
-## Description suggestions
+## Suggestion
 
-## Necessity of recommendations
+## Why it is needed
