@@ -40,9 +40,13 @@ import org.yaml.snakeyaml.error.YAMLException
 // （CVE-2022-1471）；它不支持 loadAs(Map)，但 load() 得到的是同样的
 // LinkedHashMap 结构。合法 YAML 但根节点不是 map 时同样抛 YAMLException
 // （直接强转会抛 ClassCastException，漏过 parseRaw 的 YAMLException 捕获），
-// 让它像其他非 clash 内容一样回退到 base64 / 分享链接解析
-fun loadClashYaml(text: String): Map<*, *> =
-    clashYaml().load(text) as? Map<*, *> ?: throw YAMLException("Root node is not a map")
+// 让它像其他非 clash 内容一样回退到 base64 / 分享链接解析。成环或别名展开过大的结构同样按无效 YAML
+// 处理（checkClashYamlGraph）：之后 parseClash 与 dns 段的读取都能放心地对值 toString
+fun loadClashYaml(text: String): Map<*, *> {
+    val root = clashYaml().load<Any?>(text) as? Map<*, *> ?: throw YAMLException("Root node is not a map")
+    checkClashYamlGraph(root, text.length)
+    return root
+}
 
 // 整份订阅没有 proxies 列表（或它不是列表）。parseRaw 换成本地化的「文件里没有节点」
 class ClashNoProxiesException : IllegalStateException("No proxies list in the Clash YAML")
