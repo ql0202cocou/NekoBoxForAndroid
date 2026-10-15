@@ -7,8 +7,8 @@
 #      bumps only one side); modules replaced with a local path are skipped
 #   b. the NDK version in buildScript/init/env_ndk.sh, libcore.yml and
 #      build-apk.yml must be identical
-#   c. the go-version in libcore.yml must match the major.minor of the go
-#      directive in libcore/go.mod
+#   c. libcore.yml 里两处 go-version 必须是同一个完整版本（x.y.z），且等于 libcore 缓存 key 里的
+#      Go 版本；它的主次版本必须等于 libcore/go.mod 的 go 指令
 #   d. compileSdk / buildToolsVersion in buildSrc Helpers.kt must match the SDK
 #      platform / build-tools installed in build-apk.yml
 #   e. libcore/sing-box/ 必须等于上游 tag + libcore/patches/ 里的补丁：
@@ -86,12 +86,19 @@ if [ -z "$NDK_ENV" ] || [ "$NDK_ENV" != "$NDK_LIBCORE" ] || [ "$NDK_ENV" != "$ND
   fail "NDK version: env_ndk.sh has ${NDK_ENV:-none}, libcore.yml has ${NDK_LIBCORE:-none}, build-apk.yml has ${NDK_APK:-none}"
 fi
 
-#### c. Go version (workflow go-version vs go.mod go directive, major.minor)
+#### c. Go 版本（libcore.yml 的 go-version 与缓存 key、go.mod 的 go 指令）
 
-GO_CI=$(grep -oE "go-version: '?[0-9]+\.[0-9]+" .github/workflows/libcore.yml | grep -oE '[0-9]+\.[0-9]+' | sort -u)
+LIBCORE_YML=.github/workflows/libcore.yml
+# go-version 写的是完整补丁版本：只写 x.y 时 setup-go 用 runner 镜像预装的补丁版本，不取最新
+GO_CI=$(grep -oE "go-version: '?[0-9.]+" "$LIBCORE_YML" | grep -oE '[0-9][0-9.]*' | sort -u)
+GO_KEY=$(grep -oE 'key: libcore-go[0-9.]+-' "$LIBCORE_YML" | sed -E 's/key: libcore-go([0-9.]+)-/\1/' | sort -u)
 GO_MOD_MM=$(awk '$1 == "go" { print $2 }' "$GO_MOD" | cut -d. -f1-2)
-if [ -z "$GO_CI" ] || [ "$GO_CI" != "$GO_MOD_MM" ]; then
-  fail "Go version: libcore.yml go-version is ${GO_CI:-none} but $GO_MOD says go $GO_MOD_MM"
+if [ "$(echo "$GO_CI" | grep -c .)" != 1 ] || ! [[ "$GO_CI" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  fail "Go version: libcore.yml go-version must be one full x.y.z version, found: $(echo ${GO_CI:-none})"
+elif [ "$GO_KEY" != "$GO_CI" ]; then
+  fail "Go version: libcore.yml cache key has go${GO_KEY:-none} but go-version is $GO_CI"
+elif [ "$(echo "$GO_CI" | cut -d. -f1-2)" != "$GO_MOD_MM" ]; then
+  fail "Go version: libcore.yml go-version is $GO_CI but $GO_MOD says go $GO_MOD_MM"
 fi
 
 #### d. compileSdk / buildToolsVersion (Helpers.kt vs build-apk.yml)
