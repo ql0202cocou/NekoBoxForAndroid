@@ -215,11 +215,12 @@ class GroupTestRunner(private val fragment: ConfigurationFragment) {
                 mainJob.cancel()
                 testJobs.forEach { it.cancel() }
                 // 只写状态：快照是测试开始时读的，整行更新会把 :bg 之后
-                // 写入的 tx/rx 回滚。整批一个事务，随后整组重读一次刷新列表。
+                // 写入的 tx/rx 回滚；测试期间配置已变的行不写（旧结果对不上新配置）。
+                // 整批一个事务，随后整组重读一次刷新列表。
                 // 重读被测的分组而不是当前分组：最小化后用户可能已翻到别的组，
                 // 批量写不像逐行写那样发 onUpdated，读错组被测组就停在旧结果
                 try {
-                    ProfileRepository.updateStatus(test.results.toList())
+                    ProfileRepository.updateTestResults(test.results.toList())
                 } catch (e: Exception) {
                     Logs.w(e)
                 }

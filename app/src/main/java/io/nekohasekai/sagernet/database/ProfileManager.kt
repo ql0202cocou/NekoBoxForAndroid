@@ -145,8 +145,17 @@ object ProfileManager {
         }
     }
 
-    // 只写测试状态列，整批一个事务（同 updateTraffic(List)）。不发逐行更新：
-    // 调用方扫完整组后自己整组刷新一次
+    // 测速结果落库：逐行核对配置仍是被测时的才写（见 updateTestResult），整批一个事务（同 updateTraffic(List)）。
+    // 不发逐行更新：调用方测完整组后自己整组刷新一次
+    suspend fun updateTestResults(results: List<ProxyEntity>) {
+        if (results.isEmpty()) return
+        SagerDatabase.instance.runInTransaction {
+            for (result in results) SagerDatabase.proxyDao.updateTestResult(result)
+        }
+    }
+
+    // 只写测试状态列，不核对配置，整批一个事务。现在只有界面清除测速结果（ProfileRepository.clearTestResults）调用；
+    // 测速结果走 updateTestResults。不发逐行更新：调用方自己刷新
     suspend fun updateStatus(profiles: List<ProxyEntity>) {
         if (profiles.isEmpty()) return
         SagerDatabase.instance.runInTransaction {

@@ -10,12 +10,12 @@ import io.nekohasekai.sagernet.fmt.AbstractBean
 // - suspend 方法不自行换调度器，在调用方协程里完成写库，随后在同一协程里逐个通知监听器。
 // - 非 suspend 的写入（updateUserOrders）同样是阻塞调用，应在后台线程调用。
 //
-// 事务：批量写入（createProfiles、updateUserOrders、updateStatus、clearTraffic、clearTestResults、
+// 事务：批量写入（createProfiles、updateUserOrders、updateTestResults、clearTraffic、clearTestResults、
 // deleteProfiles）整批在一个 Room 事务里；监听器通知一律在事务提交之后。
 //
 // 通知（写操作是否通知监听器）：
 // - 通知：createProfiles 逐个 onAdd，deleteProfiles 逐个 onRemoved，postUpdate 发 onUpdated。
-// - 不通知：updateUserOrders、updateStatus、clearTraffic、clearTestResults 只写列，由调用方
+// - 不通知：updateUserOrders、updateTestResults、clearTraffic、clearTestResults 只写列，由调用方
 //   自己整组刷新（例如 GroupManager.postReload）。
 // - getProfile 只读；与 ProfileManager.getProfile 不同，它不吞 SQLException，调用方沿用原来直接
 //   查 DAO 的异常行为。
@@ -42,7 +42,7 @@ object ProfileRepository {
     suspend fun deleteProfiles(profiles: List<ProxyEntity>) =
         ProfileManager.deleteProfiles(profiles)
 
-    suspend fun updateStatus(profiles: List<ProxyEntity>) = ProfileManager.updateStatus(profiles)
+    suspend fun updateTestResults(results: List<ProxyEntity>) = ProfileManager.updateTestResults(results)
 
     suspend fun postUpdate(profile: ProxyEntity) = ProfileManager.postUpdate(profile)
 

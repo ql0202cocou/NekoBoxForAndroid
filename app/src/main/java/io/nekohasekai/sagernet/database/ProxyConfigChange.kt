@@ -43,3 +43,16 @@ fun ProxyEntity.Dao.updateConfigResettingStatus(before: ProxyConfigSnapshot, ent
     if (written > 0 && before.differsFrom(entity)) updateStatus(entity.id, 0, 0, null)
     return written
 }
+
+/**
+ * 测速结果落库：[result] 是测速开始时读的那一行，测试只填了 status / ping / error，配置还是被测时的。
+ * 测试期间库里这一行可能已经变了：编辑器保存或订阅更新改了配置（并已清零状态），恢复备份后同一 id 还可能换成别的节点。
+ * 所以重读这一行，配置（[ProxyConfigSnapshot] 的口径）与被测时相同才写，否则旧配置的「可用 xx ms」会盖到新配置上。
+ * 必须在调用方已开的事务里调用。返回是否写入：false 表示这一行已不在库里或配置已变，什么都没写。
+ */
+fun ProxyEntity.Dao.updateTestResult(result: ProxyEntity): Boolean {
+    val current = getById(result.id) ?: return false
+    if (ProxyConfigSnapshot(result).differsFrom(current)) return false
+    updateStatus(result.id, result.status, result.ping, result.error)
+    return true
+}
