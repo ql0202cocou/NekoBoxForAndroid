@@ -5,6 +5,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_AUTO
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_SING_BOX
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 import io.nekohasekai.sagernet.fmt.AbstractBean
+import io.nekohasekai.sagernet.fmt.CONFLICT_VALUE_NOT_SHOWN
 import io.nekohasekai.sagernet.fmt.CoreConflict
 import io.nekohasekai.sagernet.fmt.CoreDecision
 import io.nekohasekai.sagernet.fmt.CoreTestNodes
@@ -76,7 +77,7 @@ class CoreConflictTextTest {
         }
         for (lead in listOf(
             R.string.core_rejected_manual, R.string.core_rejected_auto, R.string.core_rejected_fixed,
-            R.string.core_conflict_line, R.string.core_conflict_field_value,
+            R.string.core_conflict_line, R.string.core_conflict_field_value, R.string.core_conflict_value_not_shown,
         )) {
             assertTrue(name(lead), name(lead) in en && name(lead) in zh)
         }
@@ -143,6 +144,17 @@ class CoreConflictTextTest {
                 CoreConflictLine(listOf(R.string.utls_fingerprint), "netscape", R.string.core_conflict_sing_box_utls_fingerprint),
             ),
             groups.single().lines.toSet(),
+        )
+    }
+
+    @Test
+    fun `形态不合格的取值在对话框里不回显`() {
+        val bean = vless { utlsFingerprint = "chrome\nfake line" }
+        val line = coreConflictGroups(rejected(bean, CORE_SING_BOX), bean).single().lines.single()
+        // 对话框正文里这个占位值换成 core_conflict_value_not_shown 的本地化说法
+        assertEquals(
+            CoreConflictLine(listOf(R.string.utls_fingerprint), CONFLICT_VALUE_NOT_SHOWN, R.string.core_conflict_sing_box_utls_fingerprint),
+            line,
         )
     }
 

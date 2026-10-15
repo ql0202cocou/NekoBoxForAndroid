@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.annotation.StringRes
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.fmt.AbstractBean
+import io.nekohasekai.sagernet.fmt.CONFLICT_VALUE_NOT_SHOWN
 import io.nekohasekai.sagernet.fmt.Conflict
 import io.nekohasekai.sagernet.fmt.CoreConflict
 import io.nekohasekai.sagernet.fmt.CoreDecision
@@ -132,7 +133,11 @@ fun Context.coreRejectionMessage(rejected: CoreDecision.Rejected, bean: Abstract
         group.core?.let { append(it.displayName).append('\n') }
         group.lines.joinTo(this, "\n") { line ->
             var field = line.fields.joinToString(" / ") { getString(it) }
-            line.value?.let { field = getString(R.string.core_conflict_field_value, field, it) }
+            line.value?.let { value ->
+                // 形态不合格、没有回显的取值（见 shownConflictValue）换成本地化的说法
+                val shown = if (value == CONFLICT_VALUE_NOT_SHOWN) getString(R.string.core_conflict_value_not_shown) else value
+                field = getString(R.string.core_conflict_field_value, field, shown)
+            }
             "• " + getString(R.string.core_conflict_line, field, getString(line.reason))
         }
     }

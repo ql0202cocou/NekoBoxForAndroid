@@ -518,6 +518,7 @@
     <string name="core_rejected_fixed">This profile cannot run as configured:</string>
     <string name="core_conflict_line">%1$s: %2$s</string>
     <string name="core_conflict_field_value">%1$s (%2$s)</string>
+    <string name="core_conflict_value_not_shown">value not shown</string>
     <string name="core_conflict_field_global_allow_insecure">Always allow insecure (global setting)</string>
     <string name="enable_ech">Enable ECH</string>
     <string name="reality_public_key" translatable="false">Reality Public Key</string>

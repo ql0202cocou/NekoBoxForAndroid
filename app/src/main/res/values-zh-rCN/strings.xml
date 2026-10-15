@@ -457,6 +457,7 @@
     <string name="core_rejected_fixed">这个节点按当前配置无法运行：</string>
     <string name="core_conflict_line">%1$s：%2$s</string>
     <string name="core_conflict_field_value">%1$s（%2$s）</string>
+    <string name="core_conflict_value_not_shown">取值不显示</string>
     <string name="core_conflict_field_global_allow_insecure">全局设置里的「总是跳过 TLS 证书验证」</string>
     <string name="enable_ech">启用 ECH</string>
     <string name="core_conflict_xray_anytls">Xray 没有 AnyTLS 出站</string>

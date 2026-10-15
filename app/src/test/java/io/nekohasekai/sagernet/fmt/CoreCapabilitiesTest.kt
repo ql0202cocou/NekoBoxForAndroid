@@ -435,4 +435,44 @@ class CoreCapabilitiesTest {
         assertEquals(listOf(ProfileField.UTLS_FINGERPRINT), conflict.fields)
         assertEquals("This app does not support the transport", Conflict(null, CoreConflict.TRANSPORT_UNKNOWN).message())
     }
+
+    // 冲突的取值与 UnsupportedSingBoxValueException 同一条回显规则：形态合格的原样带上，含换行、名单外字符或超过 64 个
+    // 字符的换成占位串，说明与构建失败诊断里读出来都是 (value not shown)，原值和它的长度都不出现
+    @Test
+    fun `冲突的取值按 SHOWABLE_VALUE 回显`() {
+        fun conflicts(bean: AbstractBean, core: Int): List<Conflict> {
+            val node = CoreTestNodes.node(bean, core)
+            return (decideCore(node.type, node.core, node.bean, node.global) as CoreDecision.Rejected).conflicts
+        }
+
+        val plain = conflicts(CoreTestNodes.vless { utlsFingerprint = "netscape" }, ProxyEntity.CORE_SING_BOX).single()
+        assertEquals("netscape", plain.value)
+
+        val hidden = listOf(
+            "chrome\n[sing-box] injected line",
+            "pass@word:secret!",
+            "a".repeat(65),
+        )
+        for (fingerprint in hidden) {
+            val conflict = conflicts(CoreTestNodes.vless { utlsFingerprint = fingerprint }, ProxyEntity.CORE_SING_BOX).single()
+            assertEquals(CoreConflict.SING_BOX_UTLS_FINGERPRINT, conflict.id)
+            assertEquals(CONFLICT_VALUE_NOT_SHOWN, conflict.value)
+            assertEquals(
+                "sing-box: sing-box does not know this uTLS fingerprint $VALUE_NOT_SHOWN",
+                conflict.message(),
+            )
+            assertEquals(
+                "[${ProfileField.UTLS_FINGERPRINT.key}] sing-box does not know this uTLS fingerprint $VALUE_NOT_SHOWN",
+                conflict.fieldText(),
+            )
+        }
+
+        // early data 头名：Xray 只认 Sec-WebSocket-Protocol，别的头名报冲突，取值同样过回显规则
+        fun ws(header: String) = CoreTestNodes.vmess { type = "ws"; wsMaxEarlyData = 2048; earlyDataHeaderName = header }
+        assertEquals("X-Early-Data", conflicts(ws("X-Early-Data"), ProxyEntity.CORE_XRAY).single().value)
+        val header = conflicts(ws("X-Early\r\nInjected: 1"), ProxyEntity.CORE_XRAY).single()
+        assertEquals(CoreConflict.XRAY_WS_EARLY_DATA_HEADER, header.id)
+        assertEquals(CONFLICT_VALUE_NOT_SHOWN, header.value)
+        assertFalse(header.message().contains('\n'))
+    }
 }

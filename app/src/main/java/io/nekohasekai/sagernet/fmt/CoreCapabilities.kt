@@ -219,16 +219,18 @@ fun coreConflicts(core: DialCore, requirements: CoreRequirements): List<Conflict
         if (core == DialCore.XRAY && requirements.tls == TlsMode.REALITY && item.requirement in XRAY_REALITY_IGNORED) {
             continue
         }
+        // 按名单判断用原值，记进冲突的取值先过 shownConflictValue
+        val shown = shownConflictValue(item.value)
         when (val cell = CAPABILITY_TABLE.getValue(item.requirement).getValue(core)) {
             is CapabilityCell.Supported -> Unit
             is CapabilityCell.SupportedValues -> when {
                 cell.rejected?.names?.accepts(item.value) == true ->
-                    conflicts += Conflict(core, cell.rejected.conflict, item.value)
+                    conflicts += Conflict(core, cell.rejected.conflict, shown)
 
-                !cell.names.accepts(item.value) -> conflicts += Conflict(core, cell.outside, item.value)
+                !cell.names.accepts(item.value) -> conflicts += Conflict(core, cell.outside, shown)
             }
 
-            is CapabilityCell.Unsupported -> conflicts += Conflict(core, cell.conflict, item.value)
+            is CapabilityCell.Unsupported -> conflicts += Conflict(core, cell.conflict, shown)
             CapabilityCell.NotApplicable -> error("能力表缺少 ${item.requirement} 在 $core 上的声明")
         }
     }
@@ -238,7 +240,18 @@ fun coreConflicts(core: DialCore, requirements: CoreRequirements): List<Conflict
     return conflicts
 }
 
-// 一条冲突：哪个核心（null 表示与核心无关）、哪一种、触发它的取值
+// 冲突里的取值会进编辑器对话框、构建失败诊断与可导出的日志。uTLS 指纹、early data 头名等可由导入链接、订阅原样
+// 写成任意字符串（含换行，畸形链接还可能把密码错放进来），所以规则同 shownSingBoxValue：形态合格的原样保留，其余
+// 换成占位串，不暴露长度。显示时取值外面会再套一层括号，占位串就是去掉括号的 VALUE_NOT_SHOWN
+internal val CONFLICT_VALUE_NOT_SHOWN = VALUE_NOT_SHOWN.removeSurrounding("(", ")")
+
+internal fun shownConflictValue(value: String?): String? = when {
+    value == null -> null
+    SHOWABLE_VALUE.matches(value) -> value
+    else -> CONFLICT_VALUE_NOT_SHOWN
+}
+
+// 一条冲突：哪个核心（null 表示与核心无关）、哪一种、触发它的取值（已按 shownConflictValue 处理）
 data class Conflict(val core: DialCore?, val id: CoreConflict, val value: String? = null) {
     val fields: List<ProfileField> get() = id.fields
 
