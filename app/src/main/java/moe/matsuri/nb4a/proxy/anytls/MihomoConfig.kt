@@ -16,7 +16,7 @@ import java.security.cert.CertificateFactory
 // mihomo 的内置代理名，listener 与代理都不能用
 private val MIHOMO_RESERVED_NAMES = setOf("DIRECT", "REJECT", "REJECT-DROP", "PASS", "PASS-RULE", "COMPATIBLE", "GLOBAL")
 
-// 一组跳实例的 mihomo 配置（plan.md K0 做法 2）：每个跳实例一个本机 socks listener，用 proxy 字段固定走它自己的
+// 一组跳实例的 mihomo 配置：每个跳实例一个本机 socks listener，用 proxy 字段固定走它自己的
 // 代理，不经过 rules。rules 只留 MATCH,REJECT 兜底：不写 rules 时没绑定代理的 listener 会走直连。
 // proxies 与 hops 一一对应，是 buildMihomoProxy 的结果。端口重复时 mihomo 只记一行错误、不退出，由这里先保证。
 // 每个 listener 用自己的 users 要求跳实例的本机 socks 凭据（ExternalHop.localAuth），拿不到就报错；不写全局的

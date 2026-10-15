@@ -10,7 +10,7 @@ import org.yaml.snakeyaml.Yaml
 import java.io.File
 import java.net.URI
 
-// 直接在基线上核对 sing-box 与外核两端接得上（plan.md K0 验收第二层）：每个场景每种模式里，sing-box 配置中
+// 直接在基线上核对 sing-box 与外核两端接得上（手工构造的计划见 ExternalRunPlanTest）：每个场景每种模式里，sing-box 配置中
 // 每个指向本机的 socks 出站端口，都恰好是某份外核配置里一个入站的端口（反过来每个外核入站也恰好被一个 socks 出站用到）；
 // 该入站绑定的出站拨向的地址端口等于这个跳实例的映射目标；映射目标是本机时，sing-box 配置里有监听这个端口的映射入站。
 // 认证上也要一致（K0b）：入站支持认证的合并核心（Xray、mihomo）的跳实例两端都有凭据且相同、非空，Xray 入站的 auth 是

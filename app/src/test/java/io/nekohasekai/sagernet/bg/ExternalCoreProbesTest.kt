@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
-// 启动前校验进程与启动就绪等待（plan.md K0 做法 3、5，K0b 带认证的握手）：/bin/sh 当校验进程，本机 ServerSocket 当外核入站
+// 启动前校验进程与启动就绪等待（含带认证的握手）：/bin/sh 当校验进程，本机 ServerSocket 当外核入站
 class ExternalCoreProbesTest {
 
     @get:Rule

@@ -10,7 +10,7 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-// 启动前校验的报错解析、结论与就绪等待的报错文案（plan.md K0 做法 3、5）。报错样例取自模拟器上内置的
+// 启动前校验的报错解析、结论与就绪等待的报错文案。报错样例取自模拟器上内置的
 // Xray v26.3.27（run -test）与 mihomo v1.19.31 / v1.19.32（-t）对坏配置的真实输出。升级后的格式与这些样例逐字相同
 // （Xray v26.9.30 见 K1b X2 §4.1，mihomo v1.19.32 见 K1b M1 §3.6）
 class ExternalCoreStartupTest {

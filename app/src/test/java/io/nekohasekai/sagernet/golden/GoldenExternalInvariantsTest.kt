@@ -10,14 +10,14 @@ import org.junit.Test
 import org.yaml.snakeyaml.Yaml
 import java.io.File
 
-// 基线里全部 Xray / mihomo 合并配置都满足外核「哑管道」不变量（ExternalCoreInvariants，plan.md K1）：每个场景的
+// 基线里全部 Xray / mihomo 合并配置都满足外核「哑管道」不变量（ExternalCoreInvariants）：每个场景的
 // run、test 两种模式的 ext-* 配置，加 export.txt 里导出的外核段。基线是回归钉，重新采集时新增的键会被一起接受；
 // 这里的白名单与取值约束是独立的一层，重采基线也带不进新键。
 // mihomo 的测速控制器按 result.json 的记录断言：测速且开了控制器的配置必须有，且端口与 secret 对得上；
 // 运行与导出不许有。
 class GoldenExternalInvariantsTest {
 
-    // 命中表里显式列出的例外的配置：key 是「场景 / 模式 配置文件或导出段」，值是例外。ECH 的 DNS 例外（plan.md K1）：
+    // 命中表里显式列出的例外的配置：key 是「场景 / 模式 配置文件或导出段」，值是例外。ECH 的 DNS 例外：
     // mihomo 只开 ECH 没有内联配置时自己查 DNS。这一项只有 mihomo-anytls-ech-enable 一个场景；
     // 新增场景命中例外时测试失败，要先核对它是有意的，再把它写进名单
     private val expectedExceptions: Map<String, List<String>> = mapOf(

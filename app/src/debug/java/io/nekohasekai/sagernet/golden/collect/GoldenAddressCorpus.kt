@@ -14,7 +14,7 @@ import java.net.Inet6Address
 
 // 地址判断 / 解析函数在 Android 上的旧结果。parseNumericAddress 走 Os.inet_pton，
 // isWireGuardLocalAddressList 走 InetAddress.getByName，都不能在普通 JVM 上当对照；
-// 以后换纯 Kotlin 实现时拿这份结果在 JVM 上逐条比对（plan.md D1）
+// 以后换纯 Kotlin 实现时拿这份结果在 JVM 上逐条比对
 object GoldenAddressCorpus {
 
     // 函数名 → 用在哪里（只收配置生成与其输入校验会走到的）

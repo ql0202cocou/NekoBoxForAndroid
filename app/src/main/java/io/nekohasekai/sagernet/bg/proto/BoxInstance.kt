@@ -134,7 +134,7 @@ abstract class BoxInstance(
     private fun verifiedCheck(process: ExternalCoreProcess): ExternalCoreCheck? =
         process.group.core.check?.takeIf { initPlugin(process.group.pluginId).builtin }
 
-    // 启动前校验（plan.md K0 做法 3、5）：起任何外核进程之前，用核心的校验入口把每组合并配置加载一遍，
+    // 启动前校验：起任何外核进程之前，用核心的校验入口把每组合并配置加载一遍，
     // 没过就不启动，报错经运行计划对回节点。这一轮不剔除坏节点：选中的节点与未选中的成员都是整体失败。
     // 校验用的配置文件校验完即删；实例被关闭或协程被取消时校验进程立即被杀
     private suspend fun checkExternalCores() {
@@ -211,7 +211,7 @@ abstract class BoxInstance(
         }
     }
 
-    // 启动就绪（plan.md K0 做法 5）：外核进程起来之后、box.start() 之前，等计划里每个跳实例的本机入站就绪。
+    // 启动就绪：外核进程起来之后、box.start() 之前，等计划里每个跳实例的本机入站就绪。
     // 内置 Xray / mihomo 逐个端口用跳实例的本机 socks 凭据完成 SOCKS5 用户名 / 密码握手，等不到或守护放弃
     // 进程就失败（进程退出后被守护重启不算失败，等监听回来）；其余核心只等端口能连上，等不到记警告照常启动。
     // 实例被关闭或协程被取消时立即停止等待（抛 CancellationException）

@@ -20,7 +20,7 @@ import java.net.Socket
 import java.net.SocketTimeoutException
 import kotlin.concurrent.thread
 
-// 外核启动前校验、启动就绪与认证检查里碰进程、套接字的部分（plan.md K0 做法 3、5，K0b），由 BoxInstance 调用；
+// 外核启动前校验、启动就绪与认证检查里碰进程、套接字的部分，由 BoxInstance 调用；
 // 结论与报错文案在 fmt/ExternalCoreStartup.kt。只用 JDK 与协程：JVM 单测可以拿 /bin/sh 当校验进程、
 // 本机 ServerSocket 当外核入站直接跑。三处等待都按 isCancelled（实例已关闭）与协程取消立即结束
 

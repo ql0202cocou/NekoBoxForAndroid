@@ -18,7 +18,7 @@ import org.junit.Test
 import java.io.File
 import java.util.Random
 
-// K1 选核变更对照表（plan.md K1 的交付物，发布说明照它写）与差分测试。
+// K1 选核变更对照表（发布说明照它写）与差分测试。
 //
 // 「之前」：冻结的 1.8.0-a3 规则（LegacyCoreSelection.outcome）的结果，含旧代码报错的情形；核心自己加载配置时才报的错
 // （sing-box 加载期校验、Xray run -test）冻结规则看不到，记作由该核心承载，在「之前」一栏的文字里写明。

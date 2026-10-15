@@ -11,7 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Random
 
-// 本机 socks 凭据（plan.md K0b）：格式、校验、不经 toString 泄露，以及写日志前的按值遮蔽
+// 本机 socks 凭据：格式、校验、不经 toString 泄露，以及写日志前的按值遮蔽
 class LocalSocksAuthTest {
 
     private val usernameShape = Regex("u[0-9a-f]{16}")

@@ -32,7 +32,7 @@ fun StandardV2RayBean.xrayLacksAllowInsecure(globalAllowInsecure: Boolean): Bool
 // 不会串到某个节点
 const val XRAY_BLOCK_TAG = "block"
 
-// 一组跳实例的 Xray 配置（plan.md K0 做法 2）：每个跳实例一个本机 socks 入站，routing 按入站 tag 把它的
+// 一组跳实例的 Xray 配置：每个跳实例一个本机 socks 入站，routing 按入站 tag 把它的
 // TCP 与 UDP 都指到它自己的出站。outbounds 与 hops 一一对应，是 buildXrayOutbound 的结果。
 // 规则指向不存在的出站、端口重复时 Xray 都不报错，tag 重复则整份配置启动失败：都在这里先保证。
 // 每个入站都要求跳实例的本机 socks 凭据（ExternalHop.localAuth），拿不到就报错，不生成不认证的入站

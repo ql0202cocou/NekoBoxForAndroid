@@ -4,7 +4,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
 import java.io.File
 
-// 外核运行计划（plan.md K0 做法 1）：一次构建里全部的外核跳实例，以及它们按核心分成的组。
+// 外核运行计划：一次构建里全部的外核跳实例，以及它们按核心分成的组。
 // 计划只从构建结果里登记的外核跳数据（ConfigBuildResult.externalChains）得到，不读 bean 上的任何可变状态。
 // 运行（BoxInstance）、测速（TestInstance）、导出（ProxyEntity.exportConfig）都经 assemble 从计划生成
 // 外核配置，规划选择器成员 / 路由规则目标时也经它试生成单个节点（probeExternalHop）。只用纯 Kotlin 类型，JVM 单测

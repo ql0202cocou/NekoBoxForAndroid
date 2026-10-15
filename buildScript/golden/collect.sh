@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 在设备 / 模拟器上采集旧配置输出的基线（plan.md R1a 第 1 步）：构建并安装 oss debug 包 →
+# 在设备 / 模拟器上采集旧配置输出的基线：构建并安装 oss debug 包 →
 # 经 content call 触发 debug 包里的采集入口 → 等它跑完 → 用 run-as 取回产物。
 # 产物格式见 app/src/test/resources/golden/README.md。
 #

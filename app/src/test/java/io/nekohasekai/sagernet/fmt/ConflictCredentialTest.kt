@@ -9,7 +9,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Random
 
-// AGENTS.md「Security」：选核被拒的冲突只带字段 key、原因与少数几类取值（uTLS 指纹、VLESS flow、传输、early data
+// 安全约束：选核被拒的冲突只带字段 key、原因与少数几类取值（uTLS 指纹、VLESS flow、传输、early data
 // 头名、mux 名、packet encoding / mux 类型 / 核心编号），凭据字段（uuid、password、密钥、shortId）永远不能作为
 // Conflict 的值。ProfileField.UUID 只为已知差异而设（K1b），这里钉住它不会混进冲突
 class ConflictCredentialTest {

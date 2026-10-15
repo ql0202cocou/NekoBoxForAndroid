@@ -3,7 +3,7 @@ package io.nekohasekai.sagernet.fmt
 import java.io.File
 import java.io.IOException
 
-// 外核启动前校验与启动就绪的纯逻辑（plan.md K0 做法 3、5）：校验报错怎样对回节点、校验与就绪等待的结论、
+// 外核启动前校验与启动就绪的纯逻辑：校验报错怎样对回节点、校验与就绪等待的结论、
 // 给用户的报错文案。跑进程、连端口的部分在 bg/ExternalCoreProbes.kt，由 BoxInstance 串起来。
 // 校验入口、退出码与报错格式只对固定版本的内置 Xray（run -test）、mihomo（-t）核实过：外部插件 app
 // 提供的版本与要装插件 app 的核心不校验，就绪也只等端口能连上

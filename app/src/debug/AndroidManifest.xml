@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 只编进 debug 包：旧配置输出的采集入口（plan.md R1a 第 1 步）。JVM 黄金测试不覆盖 Android 一侧的外壳与
+<!-- 只编进 debug 包：旧配置输出的采集入口。JVM 黄金测试不覆盖 Android 一侧的外壳与
      内置核心校验，这两样只能靠模拟器重新采集对照，所以保留（维护者 2026-10-05 决定，见 golden/README.md）；
      同一个 provider 上还有 K0 实测入口（measure* 方法，见 GoldenMeasure）。
      exported 只为让 adb shell 的 content call 能调到；GoldenCollectProvider 内只放行

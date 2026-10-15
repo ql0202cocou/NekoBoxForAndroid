@@ -17,7 +17,7 @@ import io.nekohasekai.sagernet.fmt.v2ray.v2rayTransportOrNull
 // K1 之前写下的节点（数据库、旧备份、旧通用链接）的一次性升级标注。只看节点本身与全局「允许不安全」，
 // 判断「当时实际由哪个核心承载」一律用冻结的 LegacyCoreSelection，标注之后在 K1 的能力表下照原样运行：
 //
-// a. mux 协议族（plan.md D15）：VMess / VLESS 开了 mux、当时走 Xray 的，实际跑的是 Mux.Cool，muxType 标为 MUX_COOL。
+// a. mux 协议族：VMess / VLESS 开了 mux、当时走 Xray 的，实际跑的是 Mux.Cool，muxType 标为 MUX_COOL。
 //    没开 mux 的、Trojan（当时一律 sing-box）、core 为 mihomo 或非法值的 VMess（当时实际走 sing-box）都不动。
 // b. WebSocket early data 的携带方式：当时走 Xray、开了 early data、没有填头名、路径里也没有内嵌 ed= 的 ws 节点，
 //    Xray 把 early data 放在 Sec-WebSocket-Protocol 头里，sing-box 对同样的字段却拼在路径后面。

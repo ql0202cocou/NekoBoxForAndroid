@@ -7,7 +7,7 @@ import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.fmt.v2ray.XRAY_BLOCK_TAG
 import org.yaml.snakeyaml.Yaml
 
-// 外核「哑管道」不变量（plan.md K1）：Xray 与 mihomo 在本应用里只是 sing-box 的出站插件，只承担节点拨号与本机端口
+// 外核「哑管道」不变量：Xray 与 mihomo 在本应用里只是 sing-box 的出站插件，只承担节点拨号与本机端口
 // 绑定，不启用 tun、sniffing、DNS 或用户分流规则。这里把它写成两张白名单加取值约束，同一套检查用在生成器的单测
 // （ExternalCoreInvariantsTest）与基线里全部合并配置（GoldenExternalInvariantsTest）。
 //
@@ -181,7 +181,7 @@ object ExternalCoreInvariants {
         ),
     )
 
-    // ech-opts：带 config 是内联配置；只有 enable 时 mihomo 自己去查 DNS，是计划里说明的 ECH 的 DNS 例外，
+    // ech-opts：带 config 是内联配置；只有 enable 时 mihomo 自己去查 DNS，是有意放行的 ECH 的 DNS 例外，
     // 命中时记进 InvariantReport.exceptions，由调用方核对是哪些场景
     val MIHOMO_ECH_OPTS = keys("enable", optional = setOf("config"))
     const val ECH_DNS_EXCEPTION = "mihomo ech-opts 只有 enable、没有内联 config：mihomo 自己查 DNS 取 ECH 配置"

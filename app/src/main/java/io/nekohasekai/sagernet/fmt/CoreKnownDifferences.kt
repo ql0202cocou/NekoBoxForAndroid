@@ -190,8 +190,8 @@ enum class KnownDifference(
             DialCore.MIHOMO to "mihomo 进程自己发 DNS 查询：本应用不写 dns 段，发布版没有 cmfa 构建标签，读 " +
                 "/etc/resolv.conf；Android 上没有这个文件（模拟器实测），退到内置的 114.114.114.114 / 8.8.8.8（UDP 53）",
         ),
-        "两边都能自动查询；mihomo 一侧只有源码依据（K1b M1 S2-M3、S2-M12），查询的实际走向没有实测（plan.md K1 的 " +
-            "ECH DNS 例外），待维护者定",
+        "两边都能自动查询；mihomo 一侧只有源码依据（K1b M1 S2-M3、S2-M12），查询的实际走向没有实测（即外核「哑管道」" +
+            "不变量里 ECH 的 DNS 例外），待维护者定",
         DifferenceDecision.OPEN,
     ),
     WS_EARLY_DATA_SIZE(

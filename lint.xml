@@ -34,7 +34,7 @@
 
     <issue id="InvalidPackage" severity="ignore" />
 
-    <!-- 依赖刻意钉版（见 AGENTS.md 依赖封顶说明），不报新版本提醒 -->
+    <!-- 依赖版本刻意钉死（gradle/libs.versions.toml），按需手动升级，不报新版本提醒 -->
     <issue id="NewerVersionAvailable" severity="ignore" />
     <issue id="GradleDependency" severity="ignore" />
     <!-- Gradle/AGP 版本同属刻意钉版，不报新版本提醒 -->
@@ -43,7 +43,7 @@
     <issue id="QueryAllPackagesPermission" severity="ignore" />
     <!-- 不经 Play 分发；VPN 前台服务申请免电池优化是正当用例，Play 政策检查不适用 -->
     <issue id="BatteryLife" severity="ignore" />
-    <!-- 应用级签名权限是有意为之，勿改命名（AGENTS.md 安全节） -->
+    <!-- 签名级权限 ${applicationId}.SERVICE 保护应用自己的 IPC 接口，命名是有意为之，勿改 -->
     <issue id="PermissionNamingConvention" severity="ignore" />
     <!-- 图标/矢量资源不重绘 -->
     <issue id="VectorPath" severity="ignore" />

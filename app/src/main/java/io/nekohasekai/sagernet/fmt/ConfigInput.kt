@@ -8,7 +8,7 @@ import java.io.File
 import java.net.InetAddress
 import java.util.Collections
 
-// 一次配置构建的全部输入（plan.md R1b）：设置、数据快照与平台能力。只用纯 Kotlin 类型，JVM 单测可以直接构造。
+// 一次配置构建的全部输入：设置、数据快照与平台能力。只用纯 Kotlin 类型，JVM 单测可以直接构造。
 // Android 上由外壳采集（ConfigInputAndroid.kt）；四类输入在不同时刻取得，不是跨数据源的原子快照（见 ConfigInput）
 
 /** 构建模式，对应外壳 buildConfig 的 forTest / forExport。 */

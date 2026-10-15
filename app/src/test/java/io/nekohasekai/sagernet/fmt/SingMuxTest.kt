@@ -13,7 +13,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-// sing-box 一侧的 mux 防线（plan.md D15）：没开 mux、vision 流控时不构造多路复用选项；Mux.Cool 与不认识的
+// sing-box 一侧的 mux 防线：没开 mux、vision 流控时不构造多路复用选项；Mux.Cool 与不认识的
 // muxType 走到 sing-box 时抛异常，不再悄悄当作 h2mux
 class SingMuxTest {
 

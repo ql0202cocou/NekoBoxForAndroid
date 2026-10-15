@@ -10,7 +10,7 @@ import moe.matsuri.nb4a.plugin.Plugins
 import moe.matsuri.nb4a.utils.Util
 import java.io.File
 
-// 配置构建里链的展开、逐跳检查与单跳规划（plan.md R2）。都是顶层函数，输入全部显式传入：数据快照、主节点所在分组、
+// 配置构建里链的展开、逐跳检查与单跳规划。都是顶层函数，输入全部显式传入：数据快照、主节点所在分组、
 // 设置里的全局「允许不安全」、警告回调与插件查询；不读也不写 ConfigBuild 的状态，JVM 单测可以直接调用。
 // 数据快照每次查询都给新对象，所以同一节点在不同链里（或同一条链展开两次）是不同的对象
 
@@ -249,7 +249,7 @@ internal fun planHop(
     return HopPlan(entity, bean, choice, core, udpOverTcp(bean))
 }
 
-// 两段式构建（plan.md R2）：每条链先规划（planChain，下面），通过之后才提交（ConfigBuild.commitChain：先按跳的顺序要齐
+// 两段式构建：每条链先规划（planChain，下面），通过之后才提交（ConfigBuild.commitChain：先按跳的顺序要齐
 // 端口与凭据，再定 tag、接线，写出站 / 入站 / 路由规则，登记外核跳数据与 trafficMap）。会失败的计算都在规划里，
 // 规划失败的链不留下任何输出；选择器成员与路由规则目标规划失败时整条跳过，提交用的就是通过的那份规划
 

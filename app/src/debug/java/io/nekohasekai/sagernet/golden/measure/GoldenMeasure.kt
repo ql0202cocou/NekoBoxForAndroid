@@ -40,8 +40,8 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
-// K0 实测入口（plan.md K0「实测」）：只编进 debug 包，由 buildScript/golden/measure.sh 经
-// GoldenCollectProvider 的 measure* 方法分步触发：
+// K0 实测入口（用法与结果格式见 app/src/test/resources/golden/README.md「K0 实测」）：只编进 debug 包，
+// 由 buildScript/golden/measure.sh 经 GoldenCollectProvider 的 measure* 方法分步触发：
 //   measurePrepare  防误伤检查 → 记下原有设置 → 写入选择器分组夹具与实测用设置
 //   measureStart    走应用正常的启动路径（VpnService.prepare + SagerNet.startService）发出启动，立即返回
 //   measureStatus   服务当前状态，以及发出启动以来收到的状态变化（相对启动请求的毫秒数）

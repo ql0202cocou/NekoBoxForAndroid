@@ -6,7 +6,7 @@ import java.util.Locale
 // StandardV2RayBean.type 认哪些值、别名怎么映射，只在这个文件里定义。
 // 导入（分享链接、Clash 订阅、通用链接）与构建（sing-box、Xray）都经这里归一化：
 // 不认识的值抛 UnsupportedTransportException，不再静默按 TCP 运行。
-// XHTTP / SplitHTTP 尚未支持（plan.md K2），按未知值拒绝。
+// XHTTP / SplitHTTP 尚未支持（vendored sing-box 没有这种传输），按未知值拒绝。
 
 // 值来自远端订阅，消息会进界面与可导出的日志：只有形态合格的才回显（规则同 shownSingBoxValue）
 open class UnsupportedTransportException(

@@ -29,7 +29,8 @@ import org.yaml.snakeyaml.Yaml
 import java.io.File
 import java.util.Random
 
-// 外核运行计划与合并配置（plan.md K0 验收第一层）：输入是手工构造的计划，不经过 ConfigBuild
+// 外核运行计划与合并配置：输入是手工构造的计划，不经过 ConfigBuild；在基线上核对两端接线的是
+// GoldenExternalWiringTest
 class ExternalRunPlanTest {
 
     @get:Rule
@@ -397,7 +398,7 @@ class ExternalRunPlanTest {
         assertThrows(IllegalStateException::class.java) { buildXrayConfig(samePort, listOf(entry, entry), settings) }
     }
 
-    // ---- 本机 socks 认证（plan.md K0b）
+    // ---- 本机 socks 认证
 
     // 构建登记的一个外核节点：凭据按核心的声明取 localAuth（与构建一样，入站不认证的核心不带）
     private fun record(id: Long, bean: AbstractBean, localPort: Int, mappingPort: Int, localAuth: LocalSocksAuth?): ExternalHopRecord {
@@ -595,7 +596,7 @@ class ExternalRunPlanTest {
         assertEquals("出错的跳实例之后不再继续", listOf(0, 1, 2), seen)
     }
 
-    // ---- 共用组装入口（plan.md K0 验收：运行 / 测速 / 导出三种模式对同一计划产出相同的外核配置）
+    // ---- 共用组装入口：运行 / 测速 / 导出三种模式对同一计划产出相同的外核配置
 
     @Test
     fun `运行、测速、导出三种调用方对同一个计划得到相同的外核配置`() {

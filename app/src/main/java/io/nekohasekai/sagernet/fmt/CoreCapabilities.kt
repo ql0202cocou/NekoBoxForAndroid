@@ -4,7 +4,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_MIHOMO
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_SING_BOX
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 
-// K1 能力表（plan.md「选核策略（完整能力匹配）」）：三个能替节点拨号的核心，各自对节点每项要求的声明，以及组合规则。
+// K1 能力表：三个能替节点拨号的核心，各自对节点每项要求的声明，以及组合规则。
 // 选核（CoreSelection.kt）只读这里；节点的要求由 CoreRequirements.kt 提取。
 //
 // 依据（证据编号沿用报告；K1 的调查报告存于维护者本地 doc/agent/k1b-wip/k1-reports/，K1b 的 M1 / X1 / X2 存于维护者

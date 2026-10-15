@@ -54,7 +54,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Random
 
-// 能力表的组合用例（plan.md K1）：每个用例断言选中的核心，或被拒绝时列出的冲突与字段
+// 能力表的组合用例：每个用例断言选中的核心，或被拒绝时列出的冲突与字段
 class CoreSelectionTest {
 
     private fun decide(bean: AbstractBean, core: Int = CORE_AUTO, global: Boolean = false): CoreDecision {
