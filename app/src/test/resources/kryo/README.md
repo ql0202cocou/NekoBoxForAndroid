@@ -1,7 +1,7 @@
 # Kryo 兼容样本
 
 节点、分组、订阅和备份都用同一套 Kryo 格式存储：每一层类先写自己的版本号（int），再调用
-`super.serialize`，最后写自己的字段；读取时按版本号走分支（AGENTS.md「Code contracts」里 Kryo bean format 一条）。
+`super.serialize`，最后写自己的字段；读取时按版本号走分支（AGENTS.md「Code contracts」里 Kryo 一条）。
 本目录存放**历史提交的实现写出的真实字节**，`app/src/test/java/io/nekohasekai/sagernet/fmt/kryo/` 下的测试
 用当前实现读取它们，逐字段核对。样本不是当前实现自己写出再读回的。
 
@@ -9,7 +9,8 @@
   - `id`：`<类名>/<来源提交前 8 位>/<变体>`；
   - `class`：完整类名；`form`：`storage`（Room 列、备份里的格式）或 `share`（`ProxyGroup` 的分享链接格式，`export = true`）；
   - `source`：来源提交的完整哈希、所属版本 tag（该提交没有 tag 时是包含它的最早一个 tag；HEAD 尚未发版，为 `null`）、
-    该提交 `nb4a.properties`（早期为 `sager.properties`）里的 `VERSION_NAME`；
+    该提交 `nb4a.properties`（早期为 `sager.properties`）里的 `VERSION_NAME`。整理历史后，部分来源提交可能已在
+    仓库里查不到，tag 记的是生成样本时的状态；样本字节不受影响；
   - `versions`：字节里各层写出的版本号（`AbstractBean` 指 `serialize` 之后的 extraVersion；嵌套的 bean / 订阅也列在内）；
   - `assigned`：生成时旧对象持有的全部字段值（`initializeDefaultValues` 之后再赋样例值；`default` 变体只做前者）；
   - `expected`：当前实现读出后**每个字段**应有的值，嵌套对象写成 `{"class", "fields"}`；
@@ -60,7 +61,7 @@
      `nameserverFromSubscription`、ProxyEntity 的 `core`、ProxyGroup 的 nameserver / 选择器 / 前置落地等）取默认值。
 3. 已经不存在的旧字段（StandardV2Ray v0–v2 的 `enablePqSignature`、`disabledDRS`）被读取分支跳过，不出现在 `expected`。
 
-StandardV2Ray 从 6 升到 7（K1，plan.md D15）时字节布局只有版本号变，读取分支也只多了一句「版本号 < 7 时置
+StandardV2Ray 从 6 升到 7（K1）时字节布局只有版本号变，读取分支也只多了一句「版本号 < 7 时置
 `legacyUnlabeled`」：这是 transient 标记，表示 K1 之前写下、mux 协议族等还没标注的数据。标注（`LegacyProfileUpgrade.kt`）
 在 bean 之外进行（数据库迁移、备份恢复、通用链接导入），bean 层读 v6 及以前的字节时不改任何公开字段，所以 v0–v6 样本的
 `expected` 照旧，不需要改写。

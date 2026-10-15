@@ -1,59 +1,22 @@
 # 配置输出基线（golden）
 
-这里存的是在 Android 模拟器上采集的配置输出基线（plan.md R1a 第 1 步）。之后的每次改动（设置注入、外核生成器
-改写序列化等）都重跑采集，用比较工具与这份基线对照；R1b 的 JVM 黄金测试也以这里的 `input.json` 为输入。产物里的
-地址、凭据、密钥全部是虚构的（见「夹具」一节）。
+这里存的是在 Android 模拟器上采集的配置输出基线。之后的每次改动（设置注入、外核生成器改写序列化等）都重跑采集，
+用比较工具与这份基线对照；JVM 黄金测试也以这里的 `input.json` 为输入。产物里的地址、凭据、密钥全部是虚构的
+（见「夹具」一节）。
 
-K0（每种核心一个进程）有意改变了外核一侧：Xray、mihomo 的配置按「组」合并，产物格式升到 v2。当时的做法是先用
-`./run golden compare --sing-box-only` 证明 sing-box 一侧与 R1a 的 v1 基线逐场景一致，再整体换成新采集的结果；
-插件核心（Trojan-Go、Naive、Mieru、Hysteria 1）的配置原文与 v1 相同，Xray / mihomo 合并配置里每个跳实例的出站 /
-代理与 v1 对应的单节点配置相同，只多了标识。
+基线现状与沿用的约定：
 
-K0b（本机 socks 认证）又有意改变了两侧：sing-box 里接 Xray / mihomo 的本机 socks 出站带上本次构建的用户名 / 密码，
-Xray 的各入站要求同一组凭据（`auth` / `accounts`，并关掉访问日志 `log.access`），mihomo 的各 listener 用 `users`
-要求同一组凭据；产物格式升到 v3（`result.json` 的跳实例记录凭据，凭据登记进 `dynamic.secrets`）。做法是先用
-`./run golden compare --ignore-local-auth` 证明去掉认证之后 293 个场景与 K0 的 v2 基线逐场景一致，再整体换成新采集
-的结果，并再采集一次做完整比较。四种插件核心的入站认证没有核实过，配置与 v2 逐字节相同，sing-box 一侧接它们的
-socks 出站也不带凭据。
+- `manifest.json` 是 K1b 那次整体采集（sing-box 1.14.2-neko-2、Xray v26.9.30、mihomo v1.19.32），早于当前固定的核心
+  版本：之后升级核心只做对照、没有整体重采。
+- 格式 v3：接 Xray / mihomo 的本机 socks 出站带本次构建的凭据，Xray 各入站（`auth` / `accounts`，关掉 `log.access`）与
+  mihomo 各 listener（`users`）要求同一组凭据；跳实例记录 `localAuth`，凭据登记进 `dynamic.secrets`。四种插件核心的
+  入站不认证，sing-box 接它们的 socks 出站也不带凭据。
+- 测某个核心上的特性或合并配置的场景，夹具手动指定原来的核心（自动选核会换核时只改 `input.json` 的 `core`）。
+- 局部的有意变化：按审查过的差异修改受影响的文件，再在模拟器上重采集、对照一致；不整体替换基线，`manifest.json`
+  保持上一次整体采集。逐次的经过见 git 历史。
 
-K1（能力表选核）改了选核本身，格式仍是 v3。已有场景一个都没改名、没删：测「某个核心上的某个特性」或合并配置的场景，
-凡自动选核会换核的，夹具改为手动指定原来的核心（只有 `input.json` 的 `core` 变，产物逐字节不变）；手动指定原核心后
-在能力表下成为冲突、而意图可以用 K1 的写法表达的（Xray 上开 mux 改成 Mux.Cool、ws early data 写明
-Sec-WebSocket-Protocol 头名），夹具改成 K1 的写法，产物同样不变；意图就是那个冲突字段本身的（Xray 上的 packetaddr、
-ECH 自动查询），保留夹具，产物变成「拒绝并列出冲突字段」。测自动选核本身的场景（全局 allowInsecure 下的 REALITY）保留
-自动，接受新输出；选核相关的报错文本统一换成能力表的写法。另加 31 个 `k1-` 场景钉住选核变更对照表的每一行与
-手动值、mux 协议族、Trojan 走 Xray 等组合。换基线时 81 个已有场景有变化：60 个只改 `core`、4 个改成 K1 的写法（这 64 个
-产物不变）、2 个自动选核变化（全局 allowInsecure 下的 REALITY 改走 Xray，其中一个另把 AnyTLS 改为手动 mihomo）、13 个
-报错文本变化（其中 2 个同时改为手动 sing-box）、2 个变为拒绝；内置核心对全部 281 份合并配置的校验通过。
-`manifest.json` 的 `commit` 记录的是采集时工作副本的提交，整理历史后可能在 main 里查不到，核对以树哈希为准
-（对照工具只把它拼进显示文字）。
-
-K1b（内置 Xray 升到 v26.9.30、mihomo 升到 v1.19.32，vendored sing-box 升到 1.14.2-neko-2）格式仍是 v3，已有场景
-没有改名、没有改夹具。换基线时 69 个已有场景的产物有变化，全部是有意的，分三类（有场景同时属于两类）：60 个以带
-TLS 的 VMess 为 sing-box 出站的场景，`security` 由 `auto` 写成 `aes-128-gcm`；9 个场景的 Xray ws 出站把 Host 从
-`wsSettings.headers` 移到独立的 `wsSettings.host` 键（其中 3 个 `multi-selector-main-` 场景同时属于 VMess 一类）；4 个
-开了 Mux.Cool 的 Xray 场景，mux 块多出 `xudpProxyUDP443: allow`（其中 `k1-trojan-xray-mux-cool` 同时属于 ws 一类）。
-另加 2 个 `k1-` 场景钉住选核变更对照表第 14 行，2 个 `bug001-` 场景钉住 BUG-001 短期预检的跳过 / 失败语义（见「场景与
-夹具」）。`manifest.json` 记下新的核心版本与哈希；内置核心对全部 281 份合并配置的校验通过。
-
-2026-10-14 全局「允许不安全」改为对 Hysteria 1 与 Trojan-Go 插件节点也生效：只有 `settings-ext-global-insecure`
-的外核一侧有意变化（Hysteria 1 配置加 `insecure`，Trojan-Go 的 `ssl` 加 `verify: false`，run / test / export 共 6 个
-文件），按审查过的差异修改，随后在模拟器上重采集，这 6 个文件与采集结果一致。没有整体替换基线，`manifest.json`
-仍是 K1b 那次采集。
-
-2026-10-14 Shadowsocks 的存储格式升到 v3（加 UDP over TCP 版本字段，默认 2）：含 Shadowsocks 节点的 44 个场景
-（48 个节点）只有 `input.json` 里这些节点的 `beanKryoBase64` 变化（版本号 2 → 3，多写一个整数 2），产物逐字节不变
-（sing-box 只在版本为 1 时把 `udp_over_tcp` 写成对象）。这 44 份 `input.json` 取自模拟器重采集的结果，对照工具
-除这 48 处外没有差异；其余文件没有替换，`manifest.json` 仍是 K1b 那次采集。
-
-2026-10-15 经映射的外核跳的服务器域名改经分组 DNS 解析：只有 sing-box 一侧有意变化，3 个场景的 4 份 `sing-box.json`
-（`group-dns` 的 run、`group-dns-chain` 的 run / test、`group-dns-selector` 的 run）。本组域名节点的映射入站在把它交出去的
-规则之前多一条 `resolve` 规则（`server` 为 `dns-node-1`，运行模式另带 `strategy`），接外核的本机 socks 出站去掉用不上的
-`domain_resolver`。按审查过的差异修改，随后在模拟器上重采集，对照工具判为一致（这 4 份的路由规则与出站的解析器逐字节相同）。
-没有整体替换基线，`manifest.json` 仍是 K1b 那次采集。
-
-采集入口只编进 debug 包（`app/src/debug/`）。采集入口与实测入口保留到 K1 阶段完成之后（维护者 2026-10-05 决定）：
-R1b 的 JVM 黄金测试（见「JVM 黄金测试」一节）不覆盖 Android 一侧的外壳（DataStore 的默认值、Room 读取事务、
+采集入口只编进 debug 包（`app/src/debug/`）。采集入口与实测入口长期保留：
+JVM 黄金测试（见「JVM 黄金测试」一节）不覆盖 Android 一侧的外壳（DataStore 的默认值、Room 读取事务、
 PackageCache、插件探测）与内置核心对合并配置的校验，这两样只有模拟器重新采集能对照。这份基线不随入口删除。
 
 ## 重新采集
@@ -243,7 +206,7 @@ address/corpus.json                                        地址解析语料与
 | 字段 | 内容 |
 | --- | --- |
 | `formatVersion` | 3（K0b 起；v1、v2 见「目录结构」一节末尾） |
-| `commit` | 采集所基于的提交 |
+| `commit` | 采集所基于的提交（采集时工作副本的提交，整理历史后可能在 main 里查不到，核对以树哈希为准；对照工具只把它拼进显示文字） |
 | `dirty` | 工作区的改动：`count` 是有改动的路径总数（含未跟踪文件，0 即干净），`top` 是排序后的前 50 条；`codeCount` / `codeTop` 是其中不在 `app/src/debug/`、`app/src/test/`、`buildScript/golden/`、`doc/` 之下的路径，`codeCount` 非 0 说明有可能影响配置输出的代码改动。（旧格式的 manifest 没有 `dirty`，只有全部路径的数组 `dirtyPaths`） |
 | `app` | applicationId、versionName、versionCode、flavor、buildType |
 | `cores.sing-box` | `Libcore.versionBox()` 的原文（逐行）与其中的版本号 |
@@ -290,7 +253,7 @@ address/corpus.json                                        地址解析语料与
 socks 出站与入站都没有；同一份 sing-box 配置里本机凭据只有一组；运行 / 测速另核对跳实例记录的 `localAuth` 就是入站要求
 的。导出模式没有 `external` 记录，外核配置从 `export.txt` 的各段里取，并核对 Xray、mihomo 各最多一段。
 
-`GoldenExternalInvariantsTest` 在同一批合并配置上核对外核的「哑管道」不变量（plan.md K1）：Xray 与 mihomo 只承担节点拨号
+`GoldenExternalInvariantsTest` 在同一批合并配置上核对外核的「哑管道」不变量：Xray 与 mihomo 只承担节点拨号
 与本机端口绑定，不启用 tun、sniffing、DNS 或用户分流规则。检查在测试源集的 `ExternalCoreInvariants`：Xray 与 mihomo
 各一张键集白名单加取值约束（各级键的必填 / 可选 / 点名禁用，出站按协议、代理按类型），两张表互不套用，以后加协议只改
 表。范围是全部场景 run / test 的 `ext-*` 配置与 `export.txt` 里的 Xray / mihomo 段；测速控制器（`external-controller`

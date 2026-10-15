@@ -18,7 +18,7 @@ Local patches (in commit order):
 | `25b7aa3` | neko_log: drop a failed log file from writers | `neko_log/log.go`: when the log file open fails, `f` is a nil `*os.File`; installing it into `writers` produced a typed-nil that the `w == nil` guard in `Write` cannot catch (the interface is non-nil), so file logging was silently lost. `f` is now appended to `writers` only when non-nil. |
 | `25b7aa3` | protect_server: close rights fds on bad message count | `protect_server/protect_server_linux.go`: `getOneFd` returned immediately when the control-message count was not 1, leaking any SCM_RIGHTS fds those messages already carried; it now collects the rights of every control message and closes them all (`closeFds`) unless exactly one fd arrived, which folds the former `len(msgs) != 1` and `len(fds) != 1` branches into one check (final form from `dd075c9`). |
 
-The four `protect_server` patches stack on top of each other; rebase them as a
+The five `protect_server` patches stack on top of each other; rebase them as a
 unit (or diff this directory against upstream and re-apply the result).
 Upstream libneko has had no commits since the vendoring, so a plain file
 comparison against the upstream repo is the easiest way to recover the patch
