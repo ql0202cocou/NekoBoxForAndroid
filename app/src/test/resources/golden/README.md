@@ -46,6 +46,12 @@ TLS 的 VMess 为 sing-box 出站的场景，`security` 由 `auto` 写成 `aes-1
 （sing-box 只在版本为 1 时把 `udp_over_tcp` 写成对象）。这 44 份 `input.json` 取自模拟器重采集的结果，对照工具
 除这 48 处外没有差异；其余文件没有替换，`manifest.json` 仍是 K1b 那次采集。
 
+2026-10-15 经映射的外核跳的服务器域名改经分组 DNS 解析：只有 sing-box 一侧有意变化，3 个场景的 4 份 `sing-box.json`
+（`group-dns` 的 run、`group-dns-chain` 的 run / test、`group-dns-selector` 的 run）。本组域名节点的映射入站在把它交出去的
+规则之前多一条 `resolve` 规则（`server` 为 `dns-node-1`，运行模式另带 `strategy`），接外核的本机 socks 出站去掉用不上的
+`domain_resolver`。按审查过的差异修改，随后在模拟器上重采集，对照工具判为一致（这 4 份的路由规则与出站的解析器逐字节相同）。
+没有整体替换基线，`manifest.json` 仍是 K1b 那次采集。
+
 采集入口只编进 debug 包（`app/src/debug/`）。采集入口与实测入口保留到 K1 阶段完成之后（维护者 2026-10-05 决定）：
 R1b 的 JVM 黄金测试（见「JVM 黄金测试」一节）不覆盖 Android 一侧的外壳（DataStore 的默认值、Room 读取事务、
 PackageCache、插件探测）与内置核心对合并配置的校验，这两样只有模拟器重新采集能对照。这份基线不随入口删除。

@@ -626,19 +626,16 @@ private class ConfigBuild(
                 _hack_config_map["udp_over_tcp"] = udpOverTcpOption(hop.bean)
             }
 
-            // 域名解析：本组自己的域名节点经分组 DNS 的有序链（neko-sequential 传输）解析，其余拨号器都回落到
-            // route.default_domain_resolver。导出不绑定：neko-sequential 只有 libcore 有，原版 sing-box 1.14
-            // 仍经保留下来的 dns-group-N 规则解析出站。用户的自定义 JSON 在这之后合并，自带 domain_resolver 时以它为准
             chain.pastEntity?.requireBean()?.apply {
                 // 上一跳的服务器域名直连解析，免得解析请求经它自己绕回来
                 if (defaultServerDomainStrategy != "" && !serverAddress.isIpAddress()) {
                     domainListDNSDirectForce.add("full:$serverAddress")
                 }
             }
-            if (!forExport && groupDnsServers.isNotEmpty() &&
-                proxyEntity.groupId == proxy.groupId &&
-                bean.serverAddress.isNotBlank() && !bean.serverAddress.isIpAddress()
-            ) {
+            // 内部核心跳在自己的出站上绑分组 DNS（resolvesThroughGroupDns）。外核跳的本机 socks 出站拨的是
+            // 127.0.0.1，服务器域名在映射入站上解析（addMappingInbound）。用户的自定义 JSON 在这之后合并，
+            // 自带 domain_resolver 时以它为准
+            if (core is HopCore.Internal && resolvesThroughGroupDns(proxyEntity, bean)) {
                 _hack_config_map["domain_resolver"] = DomainResolveOptions().apply {
                     server = groupSequentialTag
                     if (!forTest) strategy = defaultServerDomainStrategy
@@ -655,7 +652,7 @@ private class ConfigBuild(
             val socks = checkNotNull(sockets)
             // 拨号目标：经映射的加映射入站；不映射的（不能映射的节点、hysteria 1 免映射的最先拨号的一跳）外核自己拨服务器
             val target = socks.mapped?.let {
-                mappingInbound = addMappingInbound(chain, index, proxyEntity, it)
+                mappingInbound = addMappingInbound(chain, index, proxyEntity, bean, it)
                 ExternalDialTarget.Mapped(it.port)
             } ?: ExternalDialTarget.Direct
             chain.externalHops += ExternalHopRecord(proxyEntity.id, bean, core.core, socks.localPort, target, socks.localAuth)
@@ -684,9 +681,16 @@ private class ConfigBuild(
         }
     }
 
+    // 域名解析：本组自己的域名节点经分组 DNS 的有序链（neko-sequential 传输）解析，其余拨号器都回落到
+    // route.default_domain_resolver。导出不用：neko-sequential 只有 libcore 有，原版 sing-box 1.14
+    // 仍经保留下来的 dns-group-N 规则解析出站与映射入站的目标
+    private fun resolvesThroughGroupDns(proxyEntity: ProxyEntity, bean: AbstractBean) =
+        !forExport && groupDnsServers.isNotEmpty() && proxyEntity.groupId == proxy.groupId &&
+            bean.serverAddress.isNotBlank() && !bean.serverAddress.isIpAddress()
+
     // 经映射的外核跳的映射入站：外核的流量要经它出去，才能用已 protect 的 socket。返回入站的 tag
     private fun MyOptions.addMappingInbound(
-        chain: ChainState, index: Int, proxyEntity: ProxyEntity, mapped: MappedPort,
+        chain: ChainState, index: Int, proxyEntity: ProxyEntity, bean: AbstractBean, mapped: MappedPort,
     ): String {
         val inboundTag = "${chain.chainTag}-mapping-${proxyEntity.id}"
         inbounds.add(Inbound_DirectOptions().apply {
@@ -697,6 +701,18 @@ private class ConfigBuild(
 
             override_address = mapped.mapping.address
             override_port = mapped.mapping.port
+
+            // 本组域名节点的服务器域名在这里经分组 DNS 解析。resolve 不终止匹配，必须排在把入站交出去的规则之前
+            //（下面的 direct 规则，或下一跳 linkHop 加的链规则）；之后交给 direct 还是链上的下一跳都按解析出的
+            // IP 拨号，与内部核心跳绑 domain_resolver 一致（有 detour 也先在本机解析）
+            if (resolvesThroughGroupDns(proxyEntity, bean)) {
+                route.rules.add(Rule_DefaultOptions().apply {
+                    inbound = listOf(tag)
+                    action = "resolve"
+                    _hack_config_map["server"] = groupSequentialTag
+                    if (!forTest) _hack_config_map["strategy"] = defaultServerDomainStrategy
+                })
+            }
 
             // 最先拨号的一跳没有链规则接到它、它也不是出站，入站要显式路由到 direct
             if (index == chain.profileList.lastIndex) {

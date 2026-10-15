@@ -185,11 +185,7 @@
       "server_port": 42615,
       "username": "ucfb494986aee7592",
       "tag": "g-4",
-      "type": "socks",
-      "domain_resolver": {
-        "server": "dns-node-1",
-        "strategy": "prefer_ipv4"
-      }
+      "type": "socks"
     },
     {
       "tag": "direct",
@@ -222,6 +218,14 @@
         "protocol": [
           "dns"
         ]
+      },
+      {
+        "action": "resolve",
+        "inbound": [
+          "c-4-mapping-4"
+        ],
+        "server": "dns-node-1",
+        "strategy": "prefer_ipv4"
       },
       {
         "inbound": [

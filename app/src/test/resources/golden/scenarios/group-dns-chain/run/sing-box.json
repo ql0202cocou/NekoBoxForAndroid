@@ -144,11 +144,7 @@
       "server_port": 37601,
       "username": "uea22af3dd8bd9f00",
       "tag": "proxy",
-      "type": "socks",
-      "domain_resolver": {
-        "server": "dns-node-1",
-        "strategy": "prefer_ipv4"
-      }
+      "type": "socks"
     },
     {
       "detour": "g-2",
@@ -204,6 +200,14 @@
         "protocol": [
           "dns"
         ]
+      },
+      {
+        "action": "resolve",
+        "inbound": [
+          "c-0-mapping-4"
+        ],
+        "server": "dns-node-1",
+        "strategy": "prefer_ipv4"
       },
       {
         "inbound": [

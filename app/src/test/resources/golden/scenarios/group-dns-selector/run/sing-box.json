@@ -186,11 +186,7 @@
       "server_port": 40167,
       "username": "uc6228b371283a322",
       "tag": "golden-gdnss-xray",
-      "type": "socks",
-      "domain_resolver": {
-        "server": "dns-node-1",
-        "strategy": "prefer_ipv4"
-      }
+      "type": "socks"
     },
     {
       "password": "p9ba263766f498b836fdf45c2b0cc799f",
@@ -198,11 +194,7 @@
       "server_port": 36121,
       "username": "uc6228b371283a322",
       "tag": "golden-gdnss-anytls",
-      "type": "socks",
-      "domain_resolver": {
-        "server": "dns-node-1",
-        "strategy": "prefer_ipv4"
-      }
+      "type": "socks"
     },
     {
       "tag": "direct",
@@ -237,10 +229,26 @@
         ]
       },
       {
+        "action": "resolve",
+        "inbound": [
+          "c-2-mapping-2"
+        ],
+        "server": "dns-node-1",
+        "strategy": "prefer_ipv4"
+      },
+      {
         "inbound": [
           "c-2-mapping-2"
         ],
         "outbound": "direct"
+      },
+      {
+        "action": "resolve",
+        "inbound": [
+          "c-3-mapping-3"
+        ],
+        "server": "dns-node-1",
+        "strategy": "prefer_ipv4"
       },
       {
         "inbound": [

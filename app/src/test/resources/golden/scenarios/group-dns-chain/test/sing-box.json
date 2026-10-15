@@ -96,10 +96,7 @@
       "server_port": 34661,
       "username": "ue9916c0c48f993a8",
       "tag": "proxy",
-      "type": "socks",
-      "domain_resolver": {
-        "server": "dns-node-1"
-      }
+      "type": "socks"
     },
     {
       "detour": "g-2",
@@ -139,6 +136,13 @@
     },
     "rule_set": [],
     "rules": [
+      {
+        "action": "resolve",
+        "inbound": [
+          "c-0-mapping-4"
+        ],
+        "server": "dns-node-1"
+      },
       {
         "inbound": [
           "c-0-mapping-4"
