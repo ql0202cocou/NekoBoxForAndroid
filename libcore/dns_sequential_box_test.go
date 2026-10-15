@@ -1,11 +1,17 @@
 package libcore
 
 import (
+	"fmt"
+	"io"
+	"net"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/matsuridayo/libneko/neko_log"
+	mDNS "github.com/miekg/dns"
 )
 
 // neko_log.SetupLog only runs on Android; without it the platform log writer
@@ -47,6 +53,7 @@ const sequentialBoxConfig = `{
 	"route": {
 		"default_domain_resolver": {"server": "dns-direct", "strategy": "prefer_ipv4"},
 		"rules": [
+			{"inbound": ["c-0-mapping-1"], "action": "resolve", "server": "dns-node-1", "strategy": "prefer_ipv4"},
 			{"inbound": ["c-0-mapping-1"], "outbound": "direct"}
 		],
 		"final": "proxy"
@@ -102,4 +109,137 @@ func TestSequentialBoxConfigMissingResolver(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "dns-gone") {
 		t.Fatalf("expected domain resolver not found, got: %v", err)
 	}
+}
+
+// 映射入站（外核跳经 sing-box 拨服务器的入口）上的 resolve 规则：服务器域名经分组 DNS 的有序链解析，
+// 与内部核心跳绑 domain_resolver 的语义一致。直连 DNS 一律回 NXDOMAIN、分组 DNS 回 127.0.0.1，
+// 连通且直连 DNS 没被查过才算用了分组 DNS。chained：映射入站交给下一跳出站，下一跳由同一实例里的
+// socks 入站扮演，它自己解析只能走 dns-direct（会失败），拿到的已是 IP 才连得通
+func TestMappingInboundResolvesThroughGroupDNS(t *testing.T) {
+	for _, chained := range []bool{false, true} {
+		t.Run(fmt.Sprintf("chained_%v", chained), func(t *testing.T) {
+			var directCalls, groupCalls atomic.Int32
+			directPort := startTestDNSServer(t, &directCalls, false)
+			groupPort := startTestDNSServer(t, &groupCalls, true)
+			echoPort := startTestEchoServer(t)
+			mappingPort, nextHopPort := freeTCPPort(t), freeTCPPort(t)
+			target := "direct"
+			if chained {
+				target = "next-hop"
+			}
+			config := fmt.Sprintf(`{
+				"log": {"level": "panic"},
+				"dns": {
+					"servers": [
+						{"type": "udp", "tag": "dns-direct", "server": "127.0.0.1", "server_port": %d},
+						{"type": "udp", "tag": "dns-group-0", "server": "127.0.0.1", "server_port": %d},
+						{"type": "neko-sequential", "tag": "dns-node-1", "servers": ["dns-group-0", "dns-direct"]}
+					],
+					"final": "dns-direct"
+				},
+				"inbounds": [
+					{"type": "direct", "tag": "c-0-mapping-1", "listen": "127.0.0.1", "listen_port": %d,
+					 "override_address": "node.example.invalid", "override_port": %d},
+					{"type": "socks", "tag": "next-hop-in", "listen": "127.0.0.1", "listen_port": %d}
+				],
+				"outbounds": [
+					{"type": "direct", "tag": "direct"},
+					{"type": "socks", "tag": "next-hop", "server": "127.0.0.1", "server_port": %d}
+				],
+				"route": {
+					"default_domain_resolver": {"server": "dns-direct", "strategy": "ipv4_only"},
+					"rules": [
+						{"inbound": ["c-0-mapping-1"], "action": "resolve", "server": "dns-node-1", "strategy": "ipv4_only"},
+						{"inbound": ["c-0-mapping-1"], "outbound": %q},
+						{"inbound": ["next-hop-in"], "outbound": "direct"}
+					],
+					"final": "direct"
+				}
+			}`, directPort, groupPort, mappingPort, echoPort, nextHopPort, nextHopPort, target)
+			instance, err := NewSingBoxInstance(config, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer instance.Close()
+			if err := instance.Start(); err != nil {
+				t.Fatal(err)
+			}
+
+			connection, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", mappingPort), time.Second)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer connection.Close()
+			_ = connection.SetDeadline(time.Now().Add(3 * time.Second))
+			if _, err := connection.Write([]byte("x")); err != nil {
+				t.Fatal(err)
+			}
+			var response [2]byte
+			_, readErr := io.ReadFull(connection, response[:])
+			if readErr != nil || string(response[:]) != "OK" || groupCalls.Load() == 0 || directCalls.Load() != 0 {
+				t.Fatalf("group DNS not used: read error=%v, response=%q, group queries=%d, direct queries=%d",
+					readErr, response, groupCalls.Load(), directCalls.Load())
+			}
+		})
+	}
+}
+
+// 本机 UDP DNS 服务：answer 时 A 查询一律回 127.0.0.1，否则回 NXDOMAIN；calls 记查询次数
+func startTestDNSServer(t *testing.T, calls *atomic.Int32, answer bool) int {
+	packet, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := &mDNS.Server{PacketConn: packet, Handler: mDNS.HandlerFunc(func(w mDNS.ResponseWriter, q *mDNS.Msg) {
+		calls.Add(1)
+		response := new(mDNS.Msg).SetReply(q)
+		if answer && len(q.Question) > 0 && q.Question[0].Qtype == mDNS.TypeA {
+			response.Answer = []mDNS.RR{&mDNS.A{
+				Hdr: mDNS.RR_Header{Name: q.Question[0].Name, Rrtype: mDNS.TypeA, Class: mDNS.ClassINET, Ttl: 1},
+				A:   net.ParseIP("127.0.0.1"),
+			}}
+		} else {
+			response.Rcode = mDNS.RcodeNameError
+		}
+		_ = w.WriteMsg(response)
+	})}
+	go func() { _ = server.ActivateAndServe() }()
+	t.Cleanup(func() { _ = server.Shutdown() })
+	return packet.LocalAddr().(*net.UDPAddr).Port
+}
+
+// 本机 TCP 服务：每个连接读到 1 字节后回 "OK"
+func startTestEchoServer(t *testing.T) int {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = listener.Close() })
+	go func() {
+		for {
+			connection, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			go func() {
+				defer connection.Close()
+				_ = connection.SetDeadline(time.Now().Add(3 * time.Second))
+				var request [1]byte
+				if _, err := io.ReadFull(connection, request[:]); err == nil {
+					_, _ = connection.Write([]byte("OK"))
+				}
+			}()
+		}
+	}()
+	return listener.Addr().(*net.TCPAddr).Port
+}
+
+// 取一个当前空闲的 TCP 端口（关掉后交给 sing-box 监听）
+func freeTCPPort(t *testing.T) int {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	return listener.Addr().(*net.TCPAddr).Port
 }
