@@ -223,7 +223,8 @@ object RawUpdater : GroupUpdater() {
         val toReorder = ArrayList<ProxyEntity>()
         val added = mutableListOf<String>()
         val updated = mutableMapOf<String, String>()
-        val deleted = toDelete.map { it.displayName() }
+        // 事务里会去掉期间已不在本组的节点，报告以那时为准
+        var deleted = toDelete.map { it.displayName() }
 
         var userOrder = 1L
         var changed = toDelete.size
@@ -287,6 +288,13 @@ object RawUpdater : GroupUpdater() {
             if (isSubscriptionSuperseded(startedIdentity, currentGroup)) {
                 throw SubscriptionSupersededException(proxyGroup.id)
             }
+            // toDelete / toUpdate / toReorder 按更新开始时的快照算出，提交时只处理此刻仍在本组的节点。
+            // 界面不提供把订阅组节点移出的入口，这里是兜底：期间被删的节点不再报成本次删除；
+            // 恢复备份后同一 id 落到别组的行，不会被按 id 删除、覆写或改序号
+            val inGroup = SagerDatabase.proxyDao.getIdsByGroup(proxyGroup.id).toHashSet()
+            val deletable = toDelete.filter { it.id in inGroup }
+            deleted = deletable.map { it.displayName() }
+            changed -= toDelete.size - deletable.size
 
             SagerDatabase.proxyDao.insert(toInsert)
 
@@ -295,6 +303,7 @@ object RawUpdater : GroupUpdater() {
             // 各 bean）与 userOrder
             var updatedCount = 0
             for (entity in toUpdate) {
+                if (entity.id !in inGroup) continue
                 val current = SagerDatabase.proxyDao.getById(entity.id) ?: continue
                 val currentBean = current.requireBean()
                 val updatedBean = entity.requireBean().apply {
@@ -312,14 +321,14 @@ object RawUpdater : GroupUpdater() {
             Logs.d("Updated profiles: $updatedCount")
 
             for (entity in toReorder) {
-                SagerDatabase.proxyDao.updateOrder(entity.id, entity.userOrder)
+                if (entity.id in inGroup) SagerDatabase.proxyDao.updateOrder(entity.id, entity.userOrder)
             }
 
-            SagerDatabase.proxyDao.deleteProxy(toDelete).also {
+            SagerDatabase.proxyDao.deleteProxy(deletable).also {
                 Logs.d("Deleted profiles: $it")
             }
             // 被删节点可能是其他分组的 frontProxy/landingProxy，清理悬挂引用
-            if (toDelete.isNotEmpty()) GroupManager.resetDanglingGroupProxies()
+            if (deletable.isNotEmpty()) GroupManager.resetDanglingGroupProxies()
 
             val existCount = SagerDatabase.proxyDao.countByGroup(proxyGroup.id).toInt()
 
