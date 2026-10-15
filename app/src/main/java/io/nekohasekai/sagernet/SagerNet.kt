@@ -344,8 +344,12 @@ class SagerNet : Application(),
             }
         }
 
-        fun reloadService() =
-            application.sendBroadcast(Intent(Action.RELOAD).setPackage(application.packageName))
+        // fullRestart 见 Action.EXTRA_FULL_RESTART：设置改动要用它，切换节点不用
+        fun reloadService(fullRestart: Boolean = false) =
+            application.sendBroadcast(
+                Intent(Action.RELOAD).setPackage(application.packageName)
+                    .putExtra(Action.EXTRA_FULL_RESTART, fullRestart)
+            )
 
         fun stopService() =
             application.sendBroadcast(Intent(Action.CLOSE).setPackage(application.packageName))

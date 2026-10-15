@@ -190,6 +190,10 @@ object Action {
     const val CLOSE = "io.nekohasekai.sagernet.CLOSE"
     const val RELOAD = "io.nekohasekai.sagernet.RELOAD"
 
+    // RELOAD 的布尔 extra：为 true 时整个重启服务、按当前设置重新生成配置，不走选择器只切出站的快速路径
+    //（那条路径不重建配置，设置的改动不会生效），见 BaseService.reload
+    const val EXTRA_FULL_RESTART = "moe.nb4a.FULL_RESTART"
+
     // const val SWITCH_WAKE_LOCK = "io.nekohasekai.sagernet.SWITCH_WAKELOCK"
     const val RESET_UPSTREAM_CONNECTIONS = "moe.nb4a.RESET_UPSTREAM_CONNECTIONS"
 

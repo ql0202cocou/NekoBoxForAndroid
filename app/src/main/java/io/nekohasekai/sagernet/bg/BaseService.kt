@@ -76,7 +76,7 @@ class BaseService {
         val receiver = broadcastReceiver { ctx, intent ->
             when (intent.action) {
                 Intent.ACTION_SHUTDOWN -> service.persistStats()
-                Action.RELOAD -> service.reload()
+                Action.RELOAD -> service.reload(intent.getBooleanExtra(Action.EXTRA_FULL_RESTART, false))
                 // Action.SWITCH_WAKE_LOCK -> runOnDefaultDispatcher { service.switchWakeLock() }
                 PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED -> {
                     // box is lateinit: during Connecting data.proxy is
@@ -254,7 +254,8 @@ class BaseService {
         fun onBind(intent: Intent): IBinder? =
             if (intent.action == Action.SERVICE) data.binder else null
 
-        fun reload() {
+        // fullRestart：设置改了，要按新设置重新生成配置，跳过下面选择器只切出站的快速路径
+        fun reload(fullRestart: Boolean = false) {
             if (DataStore.selectedProxy == 0L) {
                 stopRunner(false, service.getString(R.string.profile_empty))
                 return
@@ -263,7 +264,7 @@ class BaseService {
             // onReceive 里被调用，所以放到后台执行。放到后台后 data.proxy 可能被
             // 并发的停止置空，要防御性地读
             runOnDefaultDispatcher {
-                try {
+                if (!fullRestart) try {
                     val ent = ProfileManager.getProfile(DataStore.selectedProxy)
                     if (ent != null && canReloadSelector(ent)) {
                         val tag = data.proxy?.config?.profileTagMap?.get(ent.id) ?: ""

@@ -174,7 +174,29 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
                 true
             }
         }
-        reloadOn(Key.APPEND_HTTP_PROXY, Key.ALLOW_ACCESS)
+        reloadOn(Key.APPEND_HTTP_PROXY)
+
+        // 开了以后 mixed 入站绑 0.0.0.0、没有认证，同一网络里谁都能用本机代理：打开前先确认。
+        // 改动在服务运行时直接整个重启生效，不靠几秒就消失的 snackbar——没点到 Apply 时开关显示关，端口却还开着。
+        // 返回 false、由这里自己 setChecked：先写入设置再发重载，:bg 重新生成配置时读到的一定是新值
+        val allowAccess = findPreference<SwitchPreferenceCompat>(Key.ALLOW_ACCESS)!!
+        fun applyAllowAccess(enabled: Boolean) {
+            allowAccess.isChecked = enabled
+            if (ServiceRegistry.state.started) SagerNet.reloadService(fullRestart = true)
+        }
+        allowAccess.setOnPreferenceChangeListener { _, newValue ->
+            if (newValue as Boolean) {
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle(R.string.allow_access)
+                    .setMessage(R.string.allow_access_warning)
+                    .setPositiveButton(R.string.enable) { _, _ -> applyAllowAccess(true) }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
+            } else {
+                applyAllowAccess(false)
+            }
+            false
+        }
     }
 
     private fun setupAdvanced() {

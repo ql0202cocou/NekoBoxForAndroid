@@ -38,6 +38,7 @@
     <string name="port_proxy">代理端口</string>
     <string name="allow_access">允许来自局域网的连接</string>
     <string name="allow_access_sum">将入站绑定至 0.0.0.0</string>
+    <string name="allow_access_warning">代理端口没有密码。开启后，同一网络里（例如公共 Wi-Fi）的任何设备都能使用本机的代理。只在信任的网络里开启。</string>
     <string name="cag_route">路由设置</string>
     <string name="cag_ws">WebSocket 设置</string>
     <string name="speed_interval">速度通知更新间隔</string>
