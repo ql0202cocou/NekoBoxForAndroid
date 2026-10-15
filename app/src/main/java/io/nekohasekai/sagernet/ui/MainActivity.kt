@@ -406,8 +406,9 @@ class MainActivity : ThemedActivity(),
             Key.SERVICE_MODE -> onBinderDied()
             Key.PROXY_APPS, Key.BYPASS_MODE, Key.INDIVIDUAL -> {
                 if (ServiceRegistry.state.canStop) {
+                    // 分应用代理的设置改动，同 needReload 要整个重启
                     snackbar(getString(R.string.need_reload)).setAction(R.string.apply) {
-                        SagerNet.reloadService()
+                        SagerNet.reloadService(fullRestart = true)
                     }.show()
                 }
             }

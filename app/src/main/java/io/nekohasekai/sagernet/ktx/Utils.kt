@@ -297,10 +297,11 @@ fun Context.shareFile(file: File, mimeType: String) {
     )
 }
 
+// 设置改了要按新设置重新生成配置，所以整个重启：选择器分组下普通重载只切出站、不重建配置，点了也不生效
 fun Fragment.needReload() {
     if (ServiceRegistry.state.started) {
         snackbar(getString(R.string.need_reload)).setAction(R.string.apply) {
-            SagerNet.reloadService()
+            SagerNet.reloadService(fullRestart = true)
         }.show()
     }
 }

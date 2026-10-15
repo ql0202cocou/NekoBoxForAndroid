@@ -107,8 +107,9 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
     private fun setupInterface() {
         val appTheme = findPreference<ColorPickerPreference>(Key.APP_THEME)!!
         appTheme.setOnPreferenceChangeListener { _, newTheme ->
+            // 服务通知的强调色取自主题、在通知创建时设定，要整个重启才换
             if (ServiceRegistry.state.started) {
-                SagerNet.reloadService()
+                SagerNet.reloadService(fullRestart = true)
             }
             val theme = Theme.getTheme(newTheme as Int)
             app.setTheme(theme)
