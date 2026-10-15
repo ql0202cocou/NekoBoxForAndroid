@@ -76,11 +76,12 @@ import moe.matsuri.nb4a.proxy.shadowtls.ShadowTLSBean
 import moe.matsuri.nb4a.proxy.shadowtls.buildSingBoxOutboundShadowTLSBean
 import java.io.File
 
-// Central per-protocol dispatch. Every `when (type)` on ProxyEntity.TYPE_* and
-// every per-bean-class `when (bean)` moved from ProxyEntity / ConfigBuilder /
-// Protocols lives here, so adding a protocol touches one file. All mappings
-// were moved verbatim from their call sites; a missing branch is intentional
-// unless proven otherwise — do not "complete" a table on sight.
+// 按协议的集中分派：ProxyEntity.TYPE_* 上的 when (type) 与按 bean 类的 when (bean)（原来散在 ProxyEntity /
+// ConfigBuilder / Protocols）都在这个文件。例外有两类：编辑器映射在 ui/profile/SettingIntents.kt（fmt 不依赖 ui）；
+// 旧数据的一次性升级（LegacyCoreSelection、LegacyProfileUpgrade、LegacyRowMigration）只管 K1 之前已有的协议。
+// 新增协议时，分派表除了本文件还要登记：SettingIntents 的编辑器、ConfigurationFragment 的「新建节点」菜单表
+// （与菜单资源）、TypeMap 的通用链接类型名；分享链接的解析与导出按协议各自实现。
+// 各表是从原调用处原样搬来的，缺分支默认是有意的，没有证据不要顺手补全。
 
 // type -> bean 字段，从 kryo 字节反序列化。分享链接与备份记录走这里，
 // 严格解析：字节损坏直接抛异常，不导入半截 bean（Room 列转换器仍是宽松的）。

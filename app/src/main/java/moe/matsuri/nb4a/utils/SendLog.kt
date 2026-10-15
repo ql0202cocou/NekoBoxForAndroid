@@ -67,10 +67,11 @@ object SendLog {
             )
             val len = file.length()
             FileInputStream(file).use { stream ->
-                // seek inside use(): a throwing seek used to leak the fd, and
-                // position() lands exactly where skip() may move less than asked
+                // 在 use() 里定位：定位抛异常时 fd 也会关掉；position() 准确落点，skip() 可能少跳。
+                // 从中间读时起点可能落在一行或一个多字节字符的中间，日志页解码后首行不完整、首字符可能是替换符，
+                // 只影响第一行，不处理
                 if (max in 1 until len) {
-                    stream.channel.position(len - max) // TODO string?
+                    stream.channel.position(len - max)
                 }
                 stream.readBytes()
             }
