@@ -36,6 +36,7 @@ fun goldenScenarios(): List<Scenario> = scenarioTable {
     multiExternal()
     k1Selection()
     bug001Precheck()
+    bug001Trial()
 }
 
 private fun ScenarioTable.single(
@@ -1458,5 +1459,199 @@ private fun ScenarioTable.bug001Precheck() {
     }
     single("bug001-main-bad-ss", "主节点是 method 不在 sing-box 名单里的 Shadowsocks：应报错") {
         shadowsocks("golden-bug001-main-bad-ss", method = "not-a-cipher")
+    }
+}
+
+// BUG-001 彻底方案（逐出站试建，SingBoxTrial.kt）：夹具都过得了 Kotlin 一侧的预检，只在 sing-box 加载期才被拒。
+// 钉住三件事：选择器成员 / 规则目标试建失败被跳过（类别写在 golden-jvm/expected-diagnostics.json）、选中的节点或它链上
+// 的共享跳试建失败整次构建失败、libcore 对 domain_resolver 的占位改写不误杀。每个坏节点用独立、唯一的服务器域名，
+// golden-jvm/singbox-trial-corpus.json 靠它找到这个节点的试建 JSON。VMess / Trojan 的坏节点手动指定 sing-box，免得自动选核换到外核（试建只管内部核心跳）；其余协议只有 sing-box 能跑
+private fun ScenarioTable.bug001Trial() {
+    scenario(
+        "bug001-selector-bad-ss2022-key",
+        "选择器：选中合法的 Shadowsocks；成员 2 的 SS2022 密钥不是 base64、成员 3 的 2022-blake3-aes-256-gcm 配 16 字节密钥，" +
+            "运行模式下都被跳过（SS_KEY_BASE64、SS_KEY_LENGTH），测速与导出只建主节点",
+    ) {
+        group(1, selector = true)
+        node(1, shadowsocks("golden-bug001-ss2022-good"))
+        node(
+            2,
+            shadowsocks(
+                "golden-bug001-ss2022-b64", server = "bug001-ss2022-b64.example.com",
+                method = "2022-blake3-aes-128-gcm", password = Fx.SS2022_KEY_NOT_BASE64,
+            ),
+        )
+        node(
+            3,
+            shadowsocks(
+                "golden-bug001-ss2022-length", server = "bug001-ss2022-length.example.com",
+                method = "2022-blake3-aes-256-gcm", password = Fx.SS2022_KEY,
+            ),
+        )
+    }
+    scenario(
+        "bug001-selector-bad-certificate",
+        "选择器：成员 2 的 Trojan 自定义证书、成员 3 的 Hysteria 2 自定义 CA 都是读不出证书的 PEM，运行模式下都被跳过" +
+            "（TLS_CERTIFICATE），消息里没有证书原文",
+    ) {
+        group(1, selector = true)
+        node(1, shadowsocks("golden-bug001-cert-good"))
+        node(
+            2,
+            trojan("golden-bug001-cert-trojan", server = "bug001-cert-trojan.example.com")
+                .tls(sni = "bug001-cert-trojan.example.com", certificates = Fx.CERT_PEM_BAD),
+            core = CORE_SING_BOX,
+        )
+        node(
+            3,
+            hysteria2(
+                "golden-bug001-cert-hy2", server = "bug001-cert-hy2.example.com", sni = "bug001-cert-hy2.example.com",
+                ca = Fx.CERT_PEM_BAD,
+            ),
+        )
+    }
+    scenario(
+        "bug001-selector-bad-ech",
+        "选择器：成员 2 的 VMess ECH 内联配置含非 base64 字符，运行模式下被跳过（TLS_ECH_CONFIG）",
+    ) {
+        group(1, selector = true)
+        node(1, shadowsocks("golden-bug001-ech-good"))
+        node(
+            2,
+            vmess("golden-bug001-ech-vmess", server = "bug001-ech-vmess.example.com")
+                .tls(sni = "bug001-ech-vmess.example.com").ech(Fx.ECH_CONFIG_BAD),
+            core = CORE_SING_BOX,
+        )
+    }
+    scenario(
+        "bug001-selector-bad-ssh",
+        "选择器：三个 SSH 成员，私钥读不出来 / 加密私钥没填口令 / host key 读不出来，运行模式下都被跳过" +
+            "（SSH_PRIVATE_KEY、SSH_PRIVATE_KEY_PASSPHRASE、SSH_HOST_KEY）",
+    ) {
+        // 用户名不用默认的 golden：选择器里节点名就是 tag，golden 成了名字的子串，日志脱敏对账（GoldenLogRedactionTest）会误判
+        group(1, selector = true)
+        node(1, shadowsocks("golden-bug001-ssh-good"))
+        node(
+            2,
+            ssh(
+                "golden-bug001-ssh-key", server = "bug001-ssh-key.example.com", username = "golden-user",
+                authType = SSHBean.AUTH_TYPE_PRIVATE_KEY, privateKey = Fx.SSH_PRIVATE_KEY_BAD,
+            ),
+        )
+        node(
+            3,
+            ssh(
+                "golden-bug001-ssh-passphrase", server = "bug001-ssh-passphrase.example.com", username = "golden-user",
+                authType = SSHBean.AUTH_TYPE_PRIVATE_KEY, privateKey = Fx.SSH_PRIVATE_KEY, passphrase = "",
+            ),
+        )
+        node(
+            4,
+            ssh(
+                "golden-bug001-ssh-hostkey", server = "bug001-ssh-hostkey.example.com", username = "golden-user",
+                hostKey = Fx.SSH_HOST_KEY_BAD,
+            ),
+        )
+    }
+    scenario(
+        "bug001-selector-bad-wireguard",
+        "选择器：成员 2 的 WireGuard 私钥只有 31 字节、成员 3 的对端公钥不是 base64，运行模式下都被跳过" +
+            "（WG_PRIVATE_KEY、WG_PEER_PUBLIC_KEY）",
+    ) {
+        group(1, selector = true)
+        node(1, shadowsocks("golden-bug001-wg-good"))
+        node(
+            2,
+            wireguard(
+                "golden-bug001-wg-private", server = "bug001-wg-private.example.com", privateKey = Fx.WG_PRIVATE_KEY_SHORT,
+            ),
+        )
+        node(
+            3,
+            wireguard(
+                "golden-bug001-wg-peer", server = "bug001-wg-peer.example.com",
+                peerPublicKey = Fx.WG_PEER_PUBLIC_KEY_NOT_BASE64,
+            ),
+        )
+    }
+    scenario(
+        "bug001-selector-bad-custom-json",
+        "选择器：成员 2 的自定义出站 JSON 多一个 sing-box 不认识的键，运行模式下被跳过（DECODE，带字段路径）",
+    ) {
+        group(1, selector = true)
+        node(1, shadowsocks("golden-bug001-json-good"))
+        node(
+            2,
+            shadowsocks("golden-bug001-json-unknown-key", server = "bug001-json-unknown-key.example.com")
+                .customOutbound("""{"golden_unknown_key":1}"""),
+        )
+    }
+    scenario(
+        "bug001-selector-custom-resolver",
+        "选择器：成员 2 的自定义出站 JSON 写 domain_resolver 指向配置里的 dns-remote，不被跳过（libcore 把它改指占位 DNS 再试建，" +
+            "防止误杀），运行模式下留在选择器里",
+    ) {
+        group(1, selector = true)
+        node(1, shadowsocks("golden-bug001-resolver-good"))
+        node(
+            2,
+            shadowsocks("golden-bug001-resolver-custom", server = "bug001-resolver-custom.example.com")
+                .customOutbound("""{"domain_resolver":"dns-remote"}"""),
+        )
+    }
+    scenario(
+        "bug001-chain-member-bad",
+        "选择器：成员 4 是链 [合法 Shadowsocks → 证书读不出来的 Trojan]，出口那一跳试建失败，整条链作为成员被跳过" +
+            "（TLS_CERTIFICATE，诊断的原因不以成员名开头）",
+    ) {
+        group(1, selector = true)
+        group(2)
+        node(1, shadowsocks("golden-bug001-chain-good"))
+        node(2, shadowsocks("golden-bug001-chain-first", server = "bug001-chain-first.example.com"), group = 2)
+        node(
+            3,
+            trojan("golden-bug001-chain-trojan", server = "bug001-chain-trojan.example.com")
+                .tls(sni = "bug001-chain-trojan.example.com", certificates = Fx.CERT_PEM_BAD),
+            group = 2, core = CORE_SING_BOX,
+        )
+        chain(4, 2, 3, name = "golden-bug001-chain")
+    }
+    scenario(
+        "bug001-rule-target-bad",
+        "路由规则的目标节点证书读不出来（TLS_CERTIFICATE）：运行与导出模式下目标被跳过、规则按出站不存在处理，测速不带规则",
+    ) {
+        node(1, shadowsocks("golden-bug001-rule-main"))
+        node(
+            2,
+            trojan("golden-bug001-rule-trojan", server = "bug001-rule-trojan.example.com")
+                .tls(sni = "bug001-rule-trojan.example.com", certificates = Fx.CERT_PEM_BAD),
+            core = CORE_SING_BOX,
+        )
+        rule(1, outbound = 2) { domains = "domain:bug001-rule.example.org" }
+    }
+    scenario(
+        "bug001-front-proxy-bad",
+        "选择器分组的前置代理是 SS2022 密钥不是 base64 的节点（SS_KEY_BASE64）：前置在每个成员的链里，选中的节点也起不来，" +
+            "三种模式都整次失败",
+    ) {
+        group(1, selector = true, front = 10)
+        group(2)
+        node(1, shadowsocks("golden-bug001-front-main"))
+        node(2, shadowsocks("golden-bug001-front-member", server = "bug001-front-member.example.com"))
+        node(
+            10,
+            shadowsocks(
+                "golden-bug001-front-bad", server = "bug001-front-bad.example.com",
+                method = "2022-blake3-aes-128-gcm", password = Fx.SS2022_KEY_NOT_BASE64,
+            ),
+            group = 2,
+        )
+    }
+    single("bug001-main-bad-certificate", "主节点的 Trojan 自定义证书读不出来：三种模式都整次失败", core = CORE_SING_BOX) {
+        trojan("golden-bug001-main-bad-cert", server = "bug001-main-cert.example.com")
+            .tls(sni = "bug001-main-cert.example.com", certificates = Fx.CERT_PEM_BAD)
+    }
+    single("bug001-main-bad-wireguard", "主节点的 WireGuard 私钥只有 31 字节：三种模式都在启动前整次失败") {
+        wireguard("golden-bug001-main-bad-wg", server = "bug001-main-wg.example.com", privateKey = Fx.WG_PRIVATE_KEY_SHORT)
     }
 }

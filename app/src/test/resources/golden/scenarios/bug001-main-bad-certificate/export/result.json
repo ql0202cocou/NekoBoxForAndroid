@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-bug001-main-bad-cert: sing-box rejected the outbound options: certificate is not a valid PEM certificate",
+    "causes": [
+      {
+        "class": "io.nekohasekai.sagernet.fmt.SingBoxTrialException",
+        "message": "sing-box rejected the outbound options: certificate is not a valid PEM certificate"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

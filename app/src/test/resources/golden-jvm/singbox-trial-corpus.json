@@ -1,0 +1,342 @@
+{
+  "formatVersion": 1,
+  "note": "sing-box 逐出站试建语料：只记会失败的输入。category / path / note 手写（依据设计稿与 sing-box 的行为），由 libcore 的 TestTrialCorpus 用真实的 vendored sing-box 逐条核对，不从 JVM 输出回填；kind / json 由 GoldenTrialCorpusRegenerateTest 按 server 从构建实际发出的试建 JSON 回填。JVM 侧按 JSON 结构查表，查不到即通过；GoldenJvmBuildTest 核对每条都被查中过。",
+  "entries": [
+    {
+      "scenario": "bug001-selector-bad-ss2022-key",
+      "server": "bug001-ss2022-b64.example.com",
+      "kind": "outbound",
+      "json": {
+        "server": "bug001-ss2022-b64.example.com",
+        "server_port": 8388,
+        "method": "2022-blake3-aes-128-gcm",
+        "password": "golden*ss2022*not*base64",
+        "type": "shadowsocks",
+        "tag": "neko-trial"
+      },
+      "category": "SS_KEY_BASE64",
+      "note": "Shadowsocks 2022 的密钥要是 base64；'*' 不在 base64 字母表里，sing-shadowsocks 解 PSK 时报 decode key"
+    },
+    {
+      "scenario": "bug001-selector-bad-ss2022-key",
+      "server": "bug001-ss2022-length.example.com",
+      "kind": "outbound",
+      "json": {
+        "server": "bug001-ss2022-length.example.com",
+        "server_port": 8388,
+        "method": "2022-blake3-aes-256-gcm",
+        "password": "Z29sZGVuLXNzMjAyMi0xNg==",
+        "type": "shadowsocks",
+        "tag": "neko-trial"
+      },
+      "category": "SS_KEY_LENGTH",
+      "note": "2022-blake3-aes-256-gcm 要 32 字节密钥，夹具 SS2022_KEY 是合法 base64 但只有 16 字节，sing-shadowsocks 报 bad key length"
+    },
+    {
+      "scenario": "bug001-selector-bad-certificate",
+      "server": "bug001-cert-trojan.example.com",
+      "kind": "outbound",
+      "json": {
+        "server": "bug001-cert-trojan.example.com",
+        "server_port": 443,
+        "password": "golden-pass-trojan",
+        "tls": {
+          "enabled": true,
+          "server_name": "bug001-cert-trojan.example.com",
+          "insecure": false,
+          "certificate": "-----BEGIN CERTIFICATE-----\nZ29sZGVuLW5vdC1hLWRlci1jZXJ0aWZpY2F0ZQ==\n-----END CERTIFICATE-----"
+        },
+        "type": "trojan",
+        "tag": "neko-trial"
+      },
+      "category": "TLS_CERTIFICATE",
+      "note": "certificate 是 PEM 外壳、内容不是 DER，证书池读不出任何证书，sing-box 报 failed to parse certificate"
+    },
+    {
+      "scenario": "bug001-selector-bad-certificate",
+      "server": "bug001-cert-hy2.example.com",
+      "kind": "outbound",
+      "json": {
+        "server": "bug001-cert-hy2.example.com",
+        "server_port": 8443,
+        "up_mbps": 0,
+        "down_mbps": 0,
+        "password": "golden-pass-hy2",
+        "tls": {
+          "enabled": true,
+          "server_name": "bug001-cert-hy2.example.com",
+          "insecure": false,
+          "alpn": [
+            "h3"
+          ],
+          "certificate": "-----BEGIN CERTIFICATE-----\nZ29sZGVuLW5vdC1hLWRlci1jZXJ0aWZpY2F0ZQ==\n-----END CERTIFICATE-----"
+        },
+        "hop_interval": "10s",
+        "type": "hysteria2",
+        "tag": "neko-trial"
+      },
+      "category": "TLS_CERTIFICATE",
+      "note": "Hysteria 2 的自定义 CA 同样走 tls.certificate，同一处报错"
+    },
+    {
+      "scenario": "bug001-selector-bad-ech",
+      "server": "bug001-ech-vmess.example.com",
+      "kind": "outbound",
+      "json": {
+        "server": "bug001-ech-vmess.example.com",
+        "server_port": 443,
+        "uuid": "5a0c1e2f-3b4d-4e6f-8a9b-0c1d2e3f4a5b",
+        "security": "aes-128-gcm",
+        "alter_id": 0,
+        "tls": {
+          "enabled": true,
+          "server_name": "bug001-ech-vmess.example.com",
+          "insecure": false,
+          "ech": {
+            "enabled": true,
+            "config": [
+              "-----BEGIN ECH CONFIGS-----",
+              "goldenechconfig!!notbase64",
+              "-----END ECH CONFIGS-----"
+            ]
+          }
+        },
+        "packet_encoding": "",
+        "type": "vmess",
+        "tag": "neko-trial"
+      },
+      "category": "TLS_ECH_CONFIG",
+      "note": "ECH 配置含 '!' 等非 base64 字符，echAsPem 包成一个块后 pem.Decode 取不出块，sing-box 报 invalid ECH configs pem"
+    },
+    {
+      "scenario": "bug001-selector-bad-ssh",
+      "server": "bug001-ssh-key.example.com",
+      "kind": "outbound",
+      "json": {
+        "server": "bug001-ssh-key.example.com",
+        "server_port": 22,
+        "user": "golden-user",
+        "private_key": "-----BEGIN OPENSSH PRIVATE KEY-----\nZ29sZGVuLW5vdC1hbi1zc2gtcHJpdmF0ZS1rZXktYnl0ZXM=\n-----END OPENSSH PRIVATE KEY-----",
+        "private_key_passphrase": "",
+        "type": "ssh",
+        "tag": "neko-trial"
+      },
+      "category": "SSH_PRIVATE_KEY",
+      "note": "OPENSSH 外壳里是 ASCII 文本，ssh.ParsePrivateKey 报 invalid openssh private key format，sing-box 包成 parse private key"
+    },
+    {
+      "scenario": "bug001-selector-bad-ssh",
+      "server": "bug001-ssh-passphrase.example.com",
+      "kind": "outbound",
+      "json": {
+        "server": "bug001-ssh-passphrase.example.com",
+        "server_port": 22,
+        "user": "golden-user",
+        "private_key": "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABDxoz3gMc\nuebeGqFD6xUhzeAAAAGAAAAAEAAAAzAAAAC3NzaC1lZDI1NTE5AAAAINS1OkAW9cuKOebN\nsFpCyJILRcpumA62gbmkufesHRfjAAAAkNlfweBDuPDJRiPOaWz/YPhKNi7QPvkktxfNdW\nMRYSLuL4MJm4aPZW2FU4Uk2Q3o8S7YCuVukEB5lBK6g7cMUZcQIA7M0MGIQQfAdpcxutKI\nF1owLNJHdm70RjUeWU646pB5sebecTR7zltB47DWhpzEVGv7I9McdZWqAHVdvI+GzV8EWO\nxC+nQIkHMKsW6yiA==\n-----END OPENSSH PRIVATE KEY-----",
+        "private_key_passphrase": "",
+        "type": "ssh",
+        "tag": "neko-trial"
+      },
+      "category": "SSH_PRIVATE_KEY_PASSPHRASE",
+      "note": "私钥是用口令加密的，节点没填口令，ssh 报 this private key is passphrase protected；规则里口令类排在一般私钥错误之前"
+    },
+    {
+      "scenario": "bug001-selector-bad-ssh",
+      "server": "bug001-ssh-hostkey.example.com",
+      "kind": "outbound",
+      "json": {
+        "server": "bug001-ssh-hostkey.example.com",
+        "server_port": 22,
+        "user": "golden-user",
+        "password": "golden-pass-ssh",
+        "host_key": [
+          "ssh-ed25519 Z29sZGVuLW5vdC1hbi1zc2gtaG9zdC1rZXktYnl0ZXM="
+        ],
+        "type": "ssh",
+        "tag": "neko-trial"
+      },
+      "category": "SSH_HOST_KEY",
+      "note": "host_key 以 ssh-ed25519 开头但 base64 内容不是公钥结构，ssh.ParseAuthorizedKey 失败，sing-box 报 parse host key；用密码认证，私钥一侧无错"
+    },
+    {
+      "scenario": "bug001-selector-bad-wireguard",
+      "server": "bug001-wg-private.example.com",
+      "kind": "endpoint",
+      "json": {
+        "address": [
+          "10.66.0.2/32",
+          "fd00:66::2/128"
+        ],
+        "private_key": "Z29sZGVuLXdpcmVndWFyZC1wcml2YXRlLWtleS0wMQ==",
+        "peers": [
+          {
+            "address": "bug001-wg-private.example.com",
+            "port": 21820,
+            "public_key": "Z29sZGVuLXdpcmVndWFyZC1wZWVyLXB1YmtleS0wMDE=",
+            "pre_shared_key": "",
+            "allowed_ips": [
+              "0.0.0.0/0",
+              "::/0"
+            ]
+          }
+        ],
+        "mtu": 1408,
+        "type": "wireguard",
+        "tag": "neko-trial"
+      },
+      "category": "WG_PRIVATE_KEY",
+      "note": "私钥 base64 合法但只有 31 字节：sing-box 构造时不查长度，试建补查（等价于 wireguard-go 启动时的 loadExactHex）"
+    },
+    {
+      "scenario": "bug001-selector-bad-wireguard",
+      "server": "bug001-wg-peer.example.com",
+      "kind": "endpoint",
+      "json": {
+        "address": [
+          "10.66.0.2/32",
+          "fd00:66::2/128"
+        ],
+        "private_key": "Z29sZGVuLXdpcmVndWFyZC1wcml2YXRlLWtleS0wMDE=",
+        "peers": [
+          {
+            "address": "bug001-wg-peer.example.com",
+            "port": 21820,
+            "public_key": "golden*wireguard*peer*pubkey*bad",
+            "pre_shared_key": "",
+            "allowed_ips": [
+              "0.0.0.0/0",
+              "::/0"
+            ]
+          }
+        ],
+        "mtu": 1408,
+        "type": "wireguard",
+        "tag": "neko-trial"
+      },
+      "category": "WG_PEER_PUBLIC_KEY",
+      "note": "对端公钥含 '*'，不是 base64，补查报公钥错误（私钥合法，先查私钥再查公钥）"
+    },
+    {
+      "scenario": "bug001-selector-bad-custom-json",
+      "server": "bug001-json-unknown-key.example.com",
+      "kind": "outbound",
+      "json": {
+        "server": "bug001-json-unknown-key.example.com",
+        "server_port": 8388,
+        "method": "aes-256-gcm",
+        "password": "golden-pass-ss",
+        "type": "shadowsocks",
+        "tag": "neko-trial",
+        "golden_unknown_key": 1
+      },
+      "category": "DECODE",
+      "path": "golden_unknown_key",
+      "note": "自定义出站 JSON 的键合并进出站选项，sing-box 严格解码拒绝未知字段，报错开头是字段路径 golden_unknown_key"
+    },
+    {
+      "scenario": "bug001-chain-member-bad",
+      "server": "bug001-chain-trojan.example.com",
+      "kind": "outbound",
+      "json": {
+        "server": "bug001-chain-trojan.example.com",
+        "server_port": 443,
+        "password": "golden-pass-trojan",
+        "tls": {
+          "enabled": true,
+          "server_name": "bug001-chain-trojan.example.com",
+          "insecure": false,
+          "certificate": "-----BEGIN CERTIFICATE-----\nZ29sZGVuLW5vdC1hLWRlci1jZXJ0aWZpY2F0ZQ==\n-----END CERTIFICATE-----"
+        },
+        "type": "trojan",
+        "tag": "neko-trial",
+        "detour": "neko-trial-next"
+      },
+      "category": "TLS_CERTIFICATE",
+      "note": "链的出口跳（带 detour）的 Trojan 自定义证书读不出来；detour 的有无不影响证书校验"
+    },
+    {
+      "scenario": "bug001-rule-target-bad",
+      "server": "bug001-rule-trojan.example.com",
+      "kind": "outbound",
+      "json": {
+        "server": "bug001-rule-trojan.example.com",
+        "server_port": 443,
+        "password": "golden-pass-trojan",
+        "tls": {
+          "enabled": true,
+          "server_name": "bug001-rule-trojan.example.com",
+          "insecure": false,
+          "certificate": "-----BEGIN CERTIFICATE-----\nZ29sZGVuLW5vdC1hLWRlci1jZXJ0aWZpY2F0ZQ==\n-----END CERTIFICATE-----"
+        },
+        "type": "trojan",
+        "tag": "neko-trial"
+      },
+      "category": "TLS_CERTIFICATE",
+      "note": "规则目标节点的 Trojan 自定义证书读不出来"
+    },
+    {
+      "scenario": "bug001-front-proxy-bad",
+      "server": "bug001-front-bad.example.com",
+      "kind": "outbound",
+      "json": {
+        "server": "bug001-front-bad.example.com",
+        "server_port": 8388,
+        "method": "2022-blake3-aes-128-gcm",
+        "password": "golden*ss2022*not*base64",
+        "type": "shadowsocks",
+        "tag": "neko-trial"
+      },
+      "category": "SS_KEY_BASE64",
+      "note": "分组前置节点是 2022-blake3-aes-128-gcm、密钥含 '*'，不是 base64"
+    },
+    {
+      "scenario": "bug001-main-bad-certificate",
+      "server": "bug001-main-cert.example.com",
+      "kind": "outbound",
+      "json": {
+        "server": "bug001-main-cert.example.com",
+        "server_port": 443,
+        "password": "golden-pass-trojan",
+        "tls": {
+          "enabled": true,
+          "server_name": "bug001-main-cert.example.com",
+          "insecure": false,
+          "certificate": "-----BEGIN CERTIFICATE-----\nZ29sZGVuLW5vdC1hLWRlci1jZXJ0aWZpY2F0ZQ==\n-----END CERTIFICATE-----"
+        },
+        "type": "trojan",
+        "tag": "neko-trial"
+      },
+      "category": "TLS_CERTIFICATE",
+      "note": "主节点的 Trojan 自定义证书读不出来"
+    },
+    {
+      "scenario": "bug001-main-bad-wireguard",
+      "server": "bug001-main-wg.example.com",
+      "kind": "endpoint",
+      "json": {
+        "address": [
+          "10.66.0.2/32",
+          "fd00:66::2/128"
+        ],
+        "private_key": "Z29sZGVuLXdpcmVndWFyZC1wcml2YXRlLWtleS0wMQ==",
+        "peers": [
+          {
+            "address": "bug001-main-wg.example.com",
+            "port": 21820,
+            "public_key": "Z29sZGVuLXdpcmVndWFyZC1wZWVyLXB1YmtleS0wMDE=",
+            "pre_shared_key": "",
+            "allowed_ips": [
+              "0.0.0.0/0",
+              "::/0"
+            ]
+          }
+        ],
+        "mtu": 1408,
+        "type": "wireguard",
+        "tag": "neko-trial"
+      },
+      "category": "WG_PRIVATE_KEY",
+      "note": "主节点的 WireGuard 私钥只有 31 字节，试建补查"
+    }
+  ]
+}

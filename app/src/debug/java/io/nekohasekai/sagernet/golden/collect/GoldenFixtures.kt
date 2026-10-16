@@ -73,6 +73,30 @@ taGTp3i+MsV/Dm9ZoX08QkQTOVZRnkIJs7xSOM98agY=
     const val SSH_HOST_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHvvSBuDZaZcLbmZpU6HKySQRvE8vTOGNZG4FeIE+XBJ"
     const val SSH_PRIVATE_KEY = "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABDxoz3gMc\nuebeGqFD6xUhzeAAAAGAAAAAEAAAAzAAAAC3NzaC1lZDI1NTE5AAAAINS1OkAW9cuKOebN\nsFpCyJILRcpumA62gbmkufesHRfjAAAAkNlfweBDuPDJRiPOaWz/YPhKNi7QPvkktxfNdW\nMRYSLuL4MJm4aPZW2FU4Uk2Q3o8S7YCuVukEB5lBK6g7cMUZcQIA7M0MGIQQfAdpcxutKI\nF1owLNJHdm70RjUeWU646pB5sebecTR7zltB47DWhpzEVGv7I9McdZWqAHVdvI+GzV8EWO\nxC+nQIkHMKsW6yiA==\n-----END OPENSSH PRIVATE KEY-----"
 
+    // 以下是 bug001- 试建场景用的坏夹具：每一个都过得了 Kotlin 一侧的预检，只在 sing-box 加载期（逐出站试建）被拒。
+    // 用固定文本编码而来，不含任何真实密钥
+
+    // 外壳是 PEM 证书、内容不是 DER：sing-box 的证书池读不出任何证书（TLS_CERTIFICATE）
+    val CERT_PEM_BAD = "-----BEGIN CERTIFICATE-----\n" + base64("golden-not-a-der-certificate") +
+        "\n-----END CERTIFICATE-----"
+
+    // 含非 base64 字符，ECH CONFIGS 的 PEM 外壳解析不出块（TLS_ECH_CONFIG）
+    const val ECH_CONFIG_BAD = "golden ech config!! not base64"
+
+    // Shadowsocks 2022 密钥：不是 base64（SS_KEY_BASE64）
+    const val SS2022_KEY_NOT_BASE64 = "golden*ss2022*not*base64"
+
+    // WireGuard 私钥 31 字节（只有启动期才报，试建补查，WG_PRIVATE_KEY）；对端公钥不是 base64（WG_PEER_PUBLIC_KEY）
+    val WG_PRIVATE_KEY_SHORT = base64("golden-wireguard-private-key-01")
+    const val WG_PEER_PUBLIC_KEY_NOT_BASE64 = "golden*wireguard*peer*pubkey*bad"
+
+    // OPENSSH 私钥外壳里装的是 ASCII 文本，不是私钥的二进制结构（SSH_PRIVATE_KEY）
+    val SSH_PRIVATE_KEY_BAD = "-----BEGIN OPENSSH PRIVATE KEY-----\n" + base64("golden-not-an-ssh-private-key-bytes") +
+        "\n-----END OPENSSH PRIVATE KEY-----"
+
+    // 以 ssh-ed25519 开头，但后面不是公钥的二进制结构（SSH_HOST_KEY）
+    val SSH_HOST_KEY_BAD = "ssh-ed25519 " + base64("golden-not-an-ssh-host-key-bytes")
+
     private fun base64(text: String): String = Base64.getEncoder().encodeToString(text.toByteArray())
 
     private fun rawUrlBase64(bytes: ByteArray): String =
@@ -259,13 +283,15 @@ fun wireguard(
     keepalive: Int = 0,
     allowedIps: String = "",
     preSharedKey: String = "",
+    privateKey: String = Fx.WG_PRIVATE_KEY,
+    peerPublicKey: String = Fx.WG_PEER_PUBLIC_KEY,
 ) = WireGuardBean().apply {
     this.name = name
     serverAddress = server
     serverPort = port
     this.localAddress = localAddress
-    privateKey = Fx.WG_PRIVATE_KEY
-    peerPublicKey = Fx.WG_PEER_PUBLIC_KEY
+    this.privateKey = privateKey
+    this.peerPublicKey = peerPublicKey
     peerPreSharedKey = preSharedKey
     this.mtu = mtu
     this.reserved = reserved

@@ -83,6 +83,17 @@ class GoldenJvmBuildTest {
     }
 
     @Test
+    fun `试建语料的每一条都被全部场景的构建查中过`() {
+        val corpus = tree.trialCorpus
+        val unused = corpus.entries - corpus.hits
+        assertTrue(
+            "试建语料里这些条目从不被查中（场景不再发出这份试建 JSON、或场景删了）：$unused。试建 JSON 变了的话，" +
+                "按 GoldenTrialCorpusRegenerateTest 的说明重新回填 kind / json 并重新核对 category；条目多余就删掉",
+            unused.isEmpty(),
+        )
+    }
+
+    @Test
     fun `每个场景每种模式的诊断与警告与预期一致`() {
         val baseline = GoldenBaseline.load()
         val expected = GoldenJvmExpectations.load()
@@ -119,12 +130,13 @@ class GoldenJvmRelaxation(
 
 /**
  * JVM 上的产物树：目录结构同采集入口（manifest.json 只记来源），outputs 按（场景，模式）；outsideCorpus 是全部场景
- * 交给回退实现（StrictNumericAddress）的地址输入。
+ * 交给回退实现（StrictNumericAddress）的地址输入；trialCorpus 是全部场景共用的 sing-box 试建语料，hits 记查中过的条目。
  */
 class GoldenJvmTree(
     val root: File,
     val outputs: Map<Pair<String, ConfigBuildMode>, GoldenJvmOutput>,
     val outsideCorpus: Set<String>,
+    val trialCorpus: GoldenTrialCorpus,
 ) {
 
     companion object {
@@ -132,12 +144,13 @@ class GoldenJvmTree(
             val root = File(dir, "tree").apply { mkdirs() }
             val tempRoot = File(dir, "cache").apply { mkdirs() }
             val corpus = GoldenAddressCorpus.of(baseline)
+            val trialCorpus = GoldenTrialCorpus.load()
             val outputs = LinkedHashMap<Pair<String, ConfigBuildMode>, GoldenJvmOutput>()
             for (id in baseline.scenarioIds) {
                 val input = baseline.input(id)
                 val scenarioDir = File(root, "scenarios/$id").apply { mkdirs() }
                 File(input.dir, "input.json").copyTo(File(scenarioDir, "input.json"))
-                val scenario = GoldenJvmScenario(input, corpus, tempRoot)
+                val scenario = GoldenJvmScenario(input, corpus, tempRoot, trialCorpus)
                 for (mode in ConfigBuildMode.entries) {
                     val output = scenario.run(mode)
                     GoldenJvmScenario.write(File(scenarioDir, mode.dir), output)
@@ -146,7 +159,7 @@ class GoldenJvmTree(
             }
             baseline.root.resolve("address").copyRecursively(File(root, "address"))
             File(root, "manifest.json").writeText("{\"formatVersion\": 3, \"commit\": \"jvm-golden-test\"}\n")
-            return GoldenJvmTree(root, outputs, corpus.outsideCorpus.toSet())
+            return GoldenJvmTree(root, outputs, corpus.outsideCorpus.toSet(), trialCorpus)
         }
     }
 }

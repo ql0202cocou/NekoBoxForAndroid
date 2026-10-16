@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-bug001-front-bad: sing-box rejected the outbound options: Shadowsocks 2022 key is not valid base64",
+    "causes": [
+      {
+        "class": "io.nekohasekai.sagernet.fmt.SingBoxTrialException",
+        "message": "sing-box rejected the outbound options: Shadowsocks 2022 key is not valid base64"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

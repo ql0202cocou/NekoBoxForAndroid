@@ -1,0 +1,217 @@
+{
+  "formatVersion": 3,
+  "id": "bug001-selector-bad-wireguard",
+  "description": "选择器：成员 2 的 WireGuard 私钥只有 31 字节、成员 3 的对端公钥不是 base64，运行模式下都被跳过（WG_PRIVATE_KEY、WG_PEER_PUBLIC_KEY）",
+  "mainProfileId": 1,
+  "settings": [
+    {
+      "key": "allowAccess",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "bypassLanInCore",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "clashApiSecret",
+      "type": "string",
+      "value": "c1a5ba9e5ec4e7ab0de0f0ab1ec7a5e0"
+    },
+    {
+      "key": "directDns",
+      "type": "string",
+      "value": "https://192.0.2.53/dns-query"
+    },
+    {
+      "key": "domain_strategy_for_direct",
+      "type": "string",
+      "value": "auto"
+    },
+    {
+      "key": "domain_strategy_for_remote",
+      "type": "string",
+      "value": "auto"
+    },
+    {
+      "key": "domain_strategy_for_server",
+      "type": "string",
+      "value": "auto"
+    },
+    {
+      "key": "enableClashAPI",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "enableDnsRouting",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "key": "enableFakeDns",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "key": "globalAllowInsecure",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "globalCustomConfig",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "ipv6Mode",
+      "type": "string",
+      "value": "0"
+    },
+    {
+      "key": "legacyAssetsMigrated",
+      "type": "boolean",
+      "value": true
+    },
+    {
+      "key": "logLevel",
+      "type": "string",
+      "value": "0"
+    },
+    {
+      "key": "mixedPort",
+      "type": "string",
+      "value": "2080"
+    },
+    {
+      "key": "mtu",
+      "type": "string",
+      "value": "9000"
+    },
+    {
+      "key": "remoteDns",
+      "type": "string",
+      "value": "https://dns.example.net/dns-query"
+    },
+    {
+      "key": "resolveDestination",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "serviceMode",
+      "type": "string",
+      "value": "vpn"
+    },
+    {
+      "key": "trafficSniffing",
+      "type": "string",
+      "value": "1"
+    },
+    {
+      "key": "tunImplementation",
+      "type": "string",
+      "value": "0"
+    }
+  ],
+  "effectiveSettings": {
+    "serviceMode": "vpn",
+    "allowAccess": false,
+    "bypassLanInCore": false,
+    "remoteDns": "https://dns.example.net/dns-query",
+    "directDns": "https://192.0.2.53/dns-query",
+    "enableDnsRouting": true,
+    "enableFakeDns": true,
+    "trafficSniffing": 1,
+    "resolveDestination": false,
+    "ipv6Mode": 0,
+    "logLevel": 0,
+    "mixedPort": 2080,
+    "mtu": 9000,
+    "tunImplementation": 0,
+    "globalCustomConfig": "",
+    "enableClashAPI": false,
+    "clashApiSecret": "c1a5ba9e5ec4e7ab0de0f0ab1ec7a5e0",
+    "globalAllowInsecure": false,
+    "domainStrategy": {
+      "dns-remote": "",
+      "dns-direct": "",
+      "server": "prefer_ipv4"
+    }
+  },
+  "groups": [
+    {
+      "id": 1,
+      "userOrder": 1,
+      "ungrouped": false,
+      "name": "golden-group-1",
+      "type": 0,
+      "order": 0,
+      "isSelector": true,
+      "frontProxy": -1,
+      "landingProxy": -1,
+      "proxyServerNameserver": ""
+    }
+  ],
+  "profiles": [
+    {
+      "id": 1,
+      "groupId": 1,
+      "type": 2,
+      "userOrder": 1,
+      "tx": 0,
+      "rx": 0,
+      "status": 0,
+      "ping": 0,
+      "uuid": "",
+      "error": null,
+      "core": 0,
+      "beanColumn": "ssBean",
+      "beanClass": "io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean",
+      "beanKryoBase64": "AwAAAHNzLmV4YW1wbGUuY2/txCAAAGFlcy0yNTYtZ2PtZ29sZGVuLXBhc3Mtc/OBAAIAAAABAAAAZ29sZGVuLWJ1ZzAwMS13Zy1nb2/kgYE="
+    },
+    {
+      "id": 2,
+      "groupId": 1,
+      "type": 18,
+      "userOrder": 2,
+      "tx": 0,
+      "rx": 0,
+      "status": 0,
+      "ping": 0,
+      "uuid": "",
+      "error": null,
+      "core": 0,
+      "beanColumn": "wgBean",
+      "beanClass": "io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean",
+      "beanKryoBase64": "AwAAAGJ1ZzAwMS13Zy1wcml2YXRlLmV4YW1wbGUuY2/tPFUAADEwLjY2LjAuMi8zMgpmZDAwOjY2OjoyLzEyuK1aMjlzWkdWdUxYZHBjbVZuZFdGeVpDMXdjbWwyWVhSbExXdGxlUzB3TVE9Pa1aMjlzWkdWdUxYZHBjbVZuZFdGeVpDMXdaV1Z5TFhCMVltdGxlUzB3TURFPYGABQAAgQAAAACBAQAAAGdvbGRlbi1idWcwMDEtd2ctcHJpdmF05YGB"
+    },
+    {
+      "id": 3,
+      "groupId": 1,
+      "type": 18,
+      "userOrder": 3,
+      "tx": 0,
+      "rx": 0,
+      "status": 0,
+      "ping": 0,
+      "uuid": "",
+      "error": null,
+      "core": 0,
+      "beanColumn": "wgBean",
+      "beanClass": "io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean",
+      "beanKryoBase64": "AwAAAGJ1ZzAwMS13Zy1wZWVyLmV4YW1wbGUuY2/tPFUAADEwLjY2LjAuMi8zMgpmZDAwOjY2OjoyLzEyuK1aMjlzWkdWdUxYZHBjbVZuZFdGeVpDMXdjbWwyWVhSbExXdGxlUzB3TURFPWdvbGRlbip3aXJlZ3VhcmQqcGVlcipwdWJrZXkqYmHkgYAFAACBAAAAAIEBAAAAZ29sZGVuLWJ1ZzAwMS13Zy1wZWXygYE="
+    }
+  ],
+  "rules": [],
+  "packageUids": {},
+  "plugins": {
+    "xray-plugin": "builtin",
+    "mihomo-plugin": "builtin",
+    "trojan-go-plugin": "missing",
+    "naive-plugin": "missing",
+    "mieru-plugin": "missing",
+    "hysteria-plugin": "missing"
+  }
+}

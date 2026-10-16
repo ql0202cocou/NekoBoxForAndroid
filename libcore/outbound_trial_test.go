@@ -528,6 +528,49 @@ func TestTrialGoldenOutbounds(t *testing.T) {
 	t.Logf("%d 份 sing-box.json，%d 个不同的出站 / 端点：%s", len(files), len(seen), strings.Join(summary, " "))
 }
 
+// ---- 试建语料 ----
+
+// JVM 黄金测试的试建语料（只记失败的输入）：category / path 是手写的，这里用真实的 vendored sing-box 逐条核对，
+// 语料里的类别不是从 JVM 输出回填的。语料之外的出站一律通过，由 TestTrialGoldenOutbounds 在主机上核对
+func TestTrialCorpus(t *testing.T) {
+	file := filepath.Join("..", "app", "src", "test", "resources", "golden-jvm", "singbox-trial-corpus.json")
+	content, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var corpus struct {
+		Entries []struct {
+			Scenario string          `json:"scenario"`
+			Server   string          `json:"server"`
+			Kind     string          `json:"kind"`
+			JSON     json.RawMessage `json:"json"`
+			Category string          `json:"category"`
+			Path     string          `json:"path"`
+		} `json:"entries"`
+	}
+	if err := json.Unmarshal(content, &corpus); err != nil {
+		t.Fatalf("%s: %v", file, err)
+	}
+	if len(corpus.Entries) == 0 {
+		t.Fatalf("%s 里没有条目（文件丢了或被清空？），语料核对不能空转", file)
+	}
+	for _, entry := range corpus.Entries {
+		name := entry.Scenario + " / " + entry.Server
+		if entry.Kind == "" || len(entry.JSON) == 0 || entry.Category == "" {
+			t.Errorf("%s: 条目缺 kind / json / category", name)
+			continue
+		}
+		want := entry.Category
+		if entry.Path != "" {
+			want += "\t" + entry.Path
+		}
+		if got := TrialSingBoxOutbound(entry.Kind, string(entry.JSON)); got != want {
+			t.Errorf("%s: 得到 %q，期望 %q", name, got, want)
+		}
+	}
+	t.Logf("%d 条语料", len(corpus.Entries))
+}
+
 // ---- 耗时（设计稿 4.1 的方法；不在 ./run lib test 里跑，用 -bench 手动跑） ----
 
 func BenchmarkTrialBaseInstance(b *testing.B) {

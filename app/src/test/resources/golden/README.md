@@ -93,7 +93,7 @@ socks 出站的凭据）。`input.json` 与 `address/corpus.json` 顶层的 `for
 ```
 
 配置构建只消费注入的输入（`fmt/ConfigInput.kt`）之后，整条构建能在普通 JVM 上跑。`GoldenJvmBuildTest` 对本目录
-每个场景的每种模式（330 × 3）：用 `input.json` 的 `groups` / `profiles` / `rules` 建内存数据源（查询语义同 DAO），
+每个场景的每种模式（342 × 3）：用 `input.json` 的 `groups` / `profiles` / `rules` 建内存数据源（查询语义同 DAO），
 设置取 `effectiveSettings`（Clash API secret 只在运行模式且开了 Clash API 时取，同生产外壳），包名 UID 取
 `packageUids`，插件状态按 `plugins` 回答（`missing` 即「plugin X is not installed」）；再走
 「采集引用闭包（`ConfigSnapshot.collect`）→ 纯构建入口 `buildConfig(input)` → `ExternalRunPlan.from` →
@@ -124,7 +124,7 @@ socks 出站的凭据）。`input.json` 与 `address/corpus.json` 顶层的 `for
 后要删掉。不许为放宽改生产代码或整场景跳过。
 
 诊断与警告基线里没有，另按 `app/src/test/resources/golden-jvm/expected-diagnostics.json` 断言（放在本目录之外：
-`./run golden collect --golden` 会整体替换本目录）：只列有诊断（`ConfigBuildDiagnostic`，类型与字段）或警告
+`./run golden collect --golden` 会整体替换本目录；同目录的 `singbox-trial-corpus.json` 是 sing-box 逐出站试建的语料，见「场景与夹具」）：只列有诊断（`ConfigBuildDiagnostic`，类型与字段）或警告
 （`ConfigPlatform.warn` 的文本，带异常时接「: 异常类全名: 消息」）的场景与模式，每个场景的 `note` 写明依据；其余
 场景与模式都断言为空。新增或改动场景后，期望要按代码逻辑逐条写，不能拿测试的实际输出回填。
 
@@ -175,11 +175,11 @@ address/corpus.json                                        地址解析语料与
 
 | mode | 走的路径 | 说明 |
 | --- | --- | --- |
-| `run` | 真实的 `BoxInstance.init()` | `buildConfig(profile)`，再由构建结果建外核运行计划，经运行 / 测速 / 导出共用的组装入口 `ExternalRunPlan.assemble` 逐个跳实例 `initPlugin`、生成每组的配置，最后做启动前校验：用内置 Xray / mihomo 的校验入口把每组合并配置加载一遍（与真实启动同一段代码；插件核心不校验）。只把 `loadConfig` 换成空操作（不建 libcore box），不调 `launch` |
+| `run` | 真实的 `BoxInstance.init()` | `buildConfig(profile)`，再由构建结果建外核运行计划，经运行 / 测速 / 导出共用的组装入口 `ExternalRunPlan.assemble` 逐个跳实例 `initPlugin`、生成每组的配置，最后做启动前校验：用内置 Xray / mihomo 的校验入口把每组合并配置加载一遍（与真实启动同一段代码；插件核心不校验）。只把 `loadConfig` 换成空操作（不建会启动的 libcore box），不调 `launch` |
 | `test` | 同上，`buildConfig` 与 `mihomoTestController` 经反射调用一个真实 `TestInstance` 的实现 | 即 `buildConfig(profile, true)`；单节点 AnyTLS 走 mihomo 且分组没有前置 / 落地时，mihomo 配置带 Clash API 端口与随机 secret |
 | `export` | 直接调 `ProxyEntity.exportConfig()` | sing-box 配置后接每组一段外核配置（同一个组装入口），段间一个空行 |
 
-与真实运行的差别只有两处：不建 libcore box；Trojan-Go / Naive / Mieru / Hysteria 插件在模拟器上都没装，
+与真实运行的差别只有两处：不建会启动的 libcore box（构建里的逐出站试建会在进程里建一个从不启动的 sing-box 实例，只解析与构造，不监听、不拨号）；Trojan-Go / Naive / Mieru / Hysteria 插件在模拟器上都没装，
 `initPlugin` 会对它们抛「插件未安装」，run / test 预先往 `pluginPath` 填占位结果绕过（生成配置本身
 用不到插件路径；占位结果不算内置二进制，与真实运行一样不校验）。每种模式都从数据库重新取实体，互不影响。
 
@@ -317,8 +317,8 @@ socks 出站与入站都没有；同一份 sing-box 配置里本机凭据只有�
 场景表在 `app/src/debug/java/io/nekohasekai/sagernet/golden/collect/GoldenScenarios.kt`，按类别分组：
 单节点（sing-box、Xray、mihomo、插件核心）、自定义配置、链、分组前置 / 落地、选择器、路由规则、设置变体、
 分组 DNS、同核心多节点（`multi-` 前缀）、K1 选核（`k1-` 前缀）、BUG-001 短期预检（`bug001-` 前缀）。新增场景只往
-表里加；场景 id 入库后不要改名。目前 330 个场景（281 个按单项特性分类的，加 14 个 `multi-` 场景、33 个 `k1-` 场景、
-2 个 `bug001-` 场景）。
+表里加；场景 id 入库后不要改名。目前 342 个场景（281 个按单项特性分类的，加 14 个 `multi-` 场景、33 个 `k1-` 场景、
+14 个 `bug001-` 场景）。
 
 `k1-` 场景的描述写明预期（选中的核心或拒绝），「对照表 N」指 K1 选核变更对照表的第 N 行（第 14 行「mihomo 握手必败的
 uTLS 指纹」是 K1b 加的，对应 `k1-anytls-psk-fingerprint-certificates` 与 `k1-anytls-randomized-mihomo-manual` 两个场景）；
@@ -328,6 +328,24 @@ uTLS 指纹」是 K1b 加的，对应 `k1-anytls-psk-fingerprint-certificates` �
 报错）的两种语义：`bug001-selector-bad-ss-member` 的选择器里没选中的 Shadowsocks 成员 method 是 `not-a-cipher`，
 运行模式下被 `planOrSkip` 跳过、留一条 `ProfileSkipped` 诊断（期望见 `golden-jvm/expected-diagnostics.json`），
 测速与导出只构建选中的节点；`bug001-main-bad-ss` 的主节点本身是这样的节点，三种模式都整次失败。
+
+另外 12 个 `bug001-` 场景钉住逐出站试建（`fmt/SingBoxTrial.kt`、`libcore/outbound_trial.go`：内部核心跳的出站 / 端点在规划
+时交给 sing-box 只解析与构造一次，把证书 PEM、ECH 配置、SSH 密钥、SS2022 与 WireGuard 密钥、未知选项这类加载期才报的格式错误
+提前到规划）。夹具都过得了 Kotlin 一侧的预检，每个坏节点用独立、唯一的服务器域名：`bug001-selector-bad-*`
+（ss2022-key、certificate、ech、ssh、wireguard、custom-json）的选择器里没选中的坏成员在运行模式下被跳过，诊断带类别说明
+（期望与理由见 `golden-jvm/expected-diagnostics.json`），测速与导出只构建选中的节点；`bug001-selector-custom-resolver`
+的成员自定义出站 JSON 写了 `domain_resolver`，不被跳过（libcore 把它改指占位 DNS 再试建，防误杀）；`bug001-chain-member-bad`
+的成员是链，出口那一跳坏，整条链被跳过（`reasonNamesProfile` 为 false）；`bug001-rule-target-bad` 的规则目标坏，运行与导出模式
+跳过目标、规则按出站不存在处理；`bug001-front-proxy-bad` 的分组前置坏，前置在每个成员的链里，选中的节点也起不来，三种模式都整次
+失败；`bug001-main-bad-certificate`、`bug001-main-bad-wireguard` 的主节点本身坏，三种模式都整次失败。整次失败的场景
+（含 `bug001-main-bad-ss`）没有诊断与警告，不在 `expected-diagnostics.json` 里。
+
+JVM 黄金测试靠试建语料 `golden-jvm/singbox-trial-corpus.json` 让这些节点失败：语料只记失败的输入，每条是（种类，构建实际发出的
+试建 JSON）→（类别，字段路径），`GoldenJvmModes` 的平台假实现按 JSON 结构查表，查不到的一律通过。类别与路径是手写的，由 libcore 的
+Go 测试 `TestTrialCorpus` 用真实的 vendored sing-box 逐条核对，不从 JVM 输出回填；`kind` / `json` 由
+`GoldenTrialCorpusRegenerateTest`（设了环境变量才跑）按 `server` 从构建发出的试建 JSON 里回填，生成器改了试建 JSON 时重新回填。
+`GoldenJvmBuildTest` 跑完全部场景后核对语料的每一条都被查中过（「正好是这些」）；`TestTrialGoldenOutbounds` 另在主机上核对基线里
+每个出站 / 端点都能通过试建，等于验证「语料之外一律通过」的回退。这 12 个场景的产物取自 JVM 黄金管线，待模拟器重采确认。
 
 `multi-` 场景专门覆盖「一次构建里同一种外核（Xray 或 mihomo）有多个节点」，也就是 K0 把同核心节点合进一份配置、
 一个进程时要改变的情形；在 K0 之前采集，记下每个节点各占一个进程、各有一份配置的旧输出。来路包括：选择器分组里

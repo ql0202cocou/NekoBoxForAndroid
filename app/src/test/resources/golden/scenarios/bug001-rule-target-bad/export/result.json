@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "exportName": "golden-bug001-rule-main.json",
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

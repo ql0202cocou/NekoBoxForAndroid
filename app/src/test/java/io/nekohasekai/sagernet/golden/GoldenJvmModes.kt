@@ -37,7 +37,7 @@ import java.util.Random
 // - 不经过 Android 外壳（captureConfigInput 的 DataStore、Room 读取事务、PackageCache），输入由下面的 configInput
 //   按 input.json 拼出，与外壳共用的只有两处模式判断（packagesToResolve、needsClashApiSecret）；
 // - 平台换成假实现：地址解析查语料、端口从 50001 起递增、本机 socks 凭据用固定种子、测速控制 secret 是固定值，
-//   这些都是比较工具按 dynamic 替换的动态值；
+//   这些都是比较工具按 dynamic 替换的动态值；sing-box 逐出站试建查试建语料（GoldenTrialCorpus），语料里没有的一律通过；
 // - 组装时不做插件安装确认（BoxInstance 传给 assemble 的 beforeHop），也没有内置核心的启动前校验（只进 manifest）
 
 /** 一种模式的产物（同采集入口的 result.json 与原文文件），以及构建产生的诊断与警告（基线里没有，另行断言）。 */
@@ -59,6 +59,8 @@ class GoldenJvmScenario(
     private val input: GoldenScenarioInput,
     private val corpus: GoldenAddressCorpus,
     private val tempRoot: File,
+    // 试建语料：默认每个实例各读一份；GoldenJvmTree 让全部场景共用一份，才能核对每条都被查到过
+    private val trialCorpus: GoldenTrialCorpus = GoldenTrialCorpus.load(),
 ) {
     val id get() = input.id
 
@@ -71,8 +73,10 @@ class GoldenJvmScenario(
         }
     }.toMap()
 
-    /** 按基线条件（input.json 的 plugins、地址语料）新建的平台假实现，临时文件建在 tempDir。 */
-    fun platform(tempDir: File) = FakeConfigPlatform(parse = corpus::parse, pluginErrors = pluginErrors, tempDir = tempDir)
+    /** 按基线条件（input.json 的 plugins、地址语料、试建语料）新建的平台假实现，临时文件建在 tempDir。 */
+    fun platform(tempDir: File) = FakeConfigPlatform(
+        parse = corpus::parse, pluginErrors = pluginErrors, tempDir = tempDir, trials = trialCorpus::lookup,
+    )
 
     /**
      * 按外壳 captureConfigInput 的步骤拼输入：主节点的记录取自 main（调用方的对象），引用闭包从 source 采集，

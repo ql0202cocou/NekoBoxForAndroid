@@ -18,6 +18,208 @@
         ]
       }
     },
+    "bug001-selector-bad-ss2022-key": {
+      "note": "只有运行模式按选择器构建：主节点 1（合法的 Shadowsocks）是选中项，成员 2、3 经 planOrSkip 规划。两个成员的取值形态都过得了 Kotlin 一侧的预检（method 在名单里），到 planHop 内部核心分支最后一步的逐出站试建才被 sing-box 拒绝：成员 2 的 2022-blake3-aes-128-gcm 密钥含 '*'，不是 base64，类别 SS_KEY_BASE64；成员 3 的 2022-blake3-aes-256-gcm 要 32 字节密钥、夹具只有 16 字节，类别 SS_KEY_LENGTH。试建异常经 withProfileName 包上成员名，出错的就是成员自己，reasonNamesProfile 为 true；原因里只有类别说明，没有密钥。测速与导出只构建主节点，不碰成员，没有诊断。类别由 libcore 的 TestTrialCorpus 用真实 sing-box 核对",
+      "run": {
+        "diagnostics": [
+          {
+            "type": "ProfileSkipped",
+            "profileId": 2,
+            "profileName": "golden-bug001-ss2022-b64",
+            "reason": "golden-bug001-ss2022-b64: sing-box rejected the outbound options: Shadowsocks 2022 key is not valid base64",
+            "reasonNamesProfile": true
+          },
+          {
+            "type": "ProfileSkipped",
+            "profileId": 3,
+            "profileName": "golden-bug001-ss2022-length",
+            "reason": "golden-bug001-ss2022-length: sing-box rejected the outbound options: Shadowsocks 2022 key length does not match the method",
+            "reasonNamesProfile": true
+          }
+        ],
+        "warnings": [
+          "profile 2 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-bug001-ss2022-b64: sing-box rejected the outbound options: Shadowsocks 2022 key is not valid base64",
+          "profile 3 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-bug001-ss2022-length: sing-box rejected the outbound options: Shadowsocks 2022 key length does not match the method"
+        ]
+      }
+    },
+    "bug001-selector-bad-certificate": {
+      "note": "只有运行模式按选择器构建：成员 2（Trojan，certificate）与成员 3（Hysteria 2，ca）的 PEM 外壳里不是 DER 证书，sing-box 的证书池读不出任何证书，两个都是 TLS_CERTIFICATE；同一个类别说明，原因里没有证书原文（只有固定的类别文字）。成员各自出错，reasonNamesProfile 为 true。测速与导出只建主节点，没有诊断",
+      "run": {
+        "diagnostics": [
+          {
+            "type": "ProfileSkipped",
+            "profileId": 2,
+            "profileName": "golden-bug001-cert-trojan",
+            "reason": "golden-bug001-cert-trojan: sing-box rejected the outbound options: certificate is not a valid PEM certificate",
+            "reasonNamesProfile": true
+          },
+          {
+            "type": "ProfileSkipped",
+            "profileId": 3,
+            "profileName": "golden-bug001-cert-hy2",
+            "reason": "golden-bug001-cert-hy2: sing-box rejected the outbound options: certificate is not a valid PEM certificate",
+            "reasonNamesProfile": true
+          }
+        ],
+        "warnings": [
+          "profile 2 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-bug001-cert-trojan: sing-box rejected the outbound options: certificate is not a valid PEM certificate",
+          "profile 3 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-bug001-cert-hy2: sing-box rejected the outbound options: certificate is not a valid PEM certificate"
+        ]
+      }
+    },
+    "bug001-selector-bad-ech": {
+      "note": "只有运行模式按选择器构建：成员 2（VMess，TLS + ECH 内联配置）的配置含 '!' 等非 base64 字符，echAsPem 照原样包进 ECH CONFIGS 外壳，sing-box 的 pem.Decode 取不出块，类别 TLS_ECH_CONFIG。Kotlin 一侧不校验 ECH 内容，所以是试建抛的。测速与导出只建主节点，没有诊断",
+      "run": {
+        "diagnostics": [
+          {
+            "type": "ProfileSkipped",
+            "profileId": 2,
+            "profileName": "golden-bug001-ech-vmess",
+            "reason": "golden-bug001-ech-vmess: sing-box rejected the outbound options: ECH config is not a valid ECH CONFIGS PEM block",
+            "reasonNamesProfile": true
+          }
+        ],
+        "warnings": [
+          "profile 2 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-bug001-ech-vmess: sing-box rejected the outbound options: ECH config is not a valid ECH CONFIGS PEM block"
+        ]
+      }
+    },
+    "bug001-selector-bad-ssh": {
+      "note": "只有运行模式按选择器构建：三个 SSH 成员各坏一处，到试建才被 sing-box 拒绝。成员 2 的私钥外壳里是 ASCII 文本，ssh 解析失败，SSH_PRIVATE_KEY；成员 3 的私钥是口令加密的、节点没填口令，ssh 报需要口令，SSH_PRIVATE_KEY_PASSPHRASE（分类里口令类排在一般私钥错误之前）；成员 4 用密码认证、host key 以 ssh-ed25519 开头但内容不是公钥结构，SSH_HOST_KEY。各自出错，reasonNamesProfile 为 true。测速与导出只建主节点，没有诊断",
+      "run": {
+        "diagnostics": [
+          {
+            "type": "ProfileSkipped",
+            "profileId": 2,
+            "profileName": "golden-bug001-ssh-key",
+            "reason": "golden-bug001-ssh-key: sing-box rejected the outbound options: SSH private key cannot be parsed",
+            "reasonNamesProfile": true
+          },
+          {
+            "type": "ProfileSkipped",
+            "profileId": 3,
+            "profileName": "golden-bug001-ssh-passphrase",
+            "reason": "golden-bug001-ssh-passphrase: sing-box rejected the outbound options: SSH private key passphrase is missing or wrong",
+            "reasonNamesProfile": true
+          },
+          {
+            "type": "ProfileSkipped",
+            "profileId": 4,
+            "profileName": "golden-bug001-ssh-hostkey",
+            "reason": "golden-bug001-ssh-hostkey: sing-box rejected the outbound options: SSH host key cannot be parsed",
+            "reasonNamesProfile": true
+          }
+        ],
+        "warnings": [
+          "profile 2 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-bug001-ssh-key: sing-box rejected the outbound options: SSH private key cannot be parsed",
+          "profile 3 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-bug001-ssh-passphrase: sing-box rejected the outbound options: SSH private key passphrase is missing or wrong",
+          "profile 4 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-bug001-ssh-hostkey: sing-box rejected the outbound options: SSH host key cannot be parsed"
+        ]
+      }
+    },
+    "bug001-selector-bad-wireguard": {
+      "note": "只有运行模式按选择器构建：WireGuard 成员建成 endpoint，试建对它补查密钥（sing-box 构造时不查长度，要到启动才报，且那条启动报错带密钥原文）。成员 2 的私钥 base64 合法但只有 31 字节，WG_PRIVATE_KEY；成员 3 的对端公钥含 '*'，不是 base64，WG_PEER_PUBLIC_KEY（先查私钥再查公钥，成员 3 的私钥合法）。各自出错，reasonNamesProfile 为 true。测速与导出只建主节点，没有诊断",
+      "run": {
+        "diagnostics": [
+          {
+            "type": "ProfileSkipped",
+            "profileId": 2,
+            "profileName": "golden-bug001-wg-private",
+            "reason": "golden-bug001-wg-private: sing-box rejected the outbound options: WireGuard private key must be 32 bytes of base64",
+            "reasonNamesProfile": true
+          },
+          {
+            "type": "ProfileSkipped",
+            "profileId": 3,
+            "profileName": "golden-bug001-wg-peer",
+            "reason": "golden-bug001-wg-peer: sing-box rejected the outbound options: WireGuard peer public key must be 32 bytes of base64",
+            "reasonNamesProfile": true
+          }
+        ],
+        "warnings": [
+          "profile 2 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-bug001-wg-private: sing-box rejected the outbound options: WireGuard private key must be 32 bytes of base64",
+          "profile 3 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-bug001-wg-peer: sing-box rejected the outbound options: WireGuard peer public key must be 32 bytes of base64"
+        ]
+      }
+    },
+    "bug001-selector-bad-custom-json": {
+      "note": "只有运行模式按选择器构建：成员 2 的自定义出站 JSON 多了 sing-box 不认识的键 golden_unknown_key，合并进出站后 sing-box 严格解码报未知字段，类别 DECODE，报错开头的字段路径就是这个键（snake_case，合格，进消息；取值 1 不进）。reasonNamesProfile 为 true。测速与导出只建主节点，没有诊断。bug001-selector-custom-resolver 是同形态的对照：自定义 JSON 写 domain_resolver 不被误杀",
+      "run": {
+        "diagnostics": [
+          {
+            "type": "ProfileSkipped",
+            "profileId": 2,
+            "profileName": "golden-bug001-json-unknown-key",
+            "reason": "golden-bug001-json-unknown-key: sing-box rejected the outbound options: invalid option at golden_unknown_key",
+            "reasonNamesProfile": true
+          }
+        ],
+        "warnings": [
+          "profile 2 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-bug001-json-unknown-key: sing-box rejected the outbound options: invalid option at golden_unknown_key"
+        ]
+      }
+    },
+    "bug001-chain-member-bad": {
+      "note": "只有运行模式按选择器构建：成员 4 是链 [节点 2（合法 Shadowsocks，最先拨号）→ 节点 3（Trojan，证书读不出来，出口）]，节点 2、3 在分组 2、不是选择器成员。planChain 逐跳规划，出口那一跳（带 detour）试建抛 TLS_CERTIFICATE，withProfileName 包上的是出错的节点 3 的名字 golden-bug001-chain-trojan；planOrSkip 对成员 4 记 ProfileSkipped，诊断的 profileName 是链自己的名字 golden-bug001-chain，与原因开头的名字不同，所以 reasonNamesProfile 为 false。整条链被跳过，选择器里只剩主节点 1。测速与导出只构建主节点，没有诊断",
+      "run": {
+        "diagnostics": [
+          {
+            "type": "ProfileSkipped",
+            "profileId": 4,
+            "profileName": "golden-bug001-chain",
+            "reason": "golden-bug001-chain-trojan: sing-box rejected the outbound options: certificate is not a valid PEM certificate",
+            "reasonNamesProfile": false
+          }
+        ],
+        "warnings": [
+          "profile 4 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-bug001-chain-trojan: sing-box rejected the outbound options: certificate is not a valid PEM certificate"
+        ]
+      }
+    },
+    "bug001-rule-target-bad": {
+      "note": "规则 1 指向 Trojan 节点 2，节点 2 的证书读不出来：运行与导出模式下 buildOutbounds 里规则目标经 planOrSkip 规划，试建抛 TLS_CERTIFICATE，withProfileName 包上节点名，记 ProfileSkipped（出错的就是目标自己，reasonNamesProfile 为 true）并告警；applyUserRules 时 tagMap 没有 2，规则出站为空，记 RuleOutboundMissing（形态同 rules-to-broken-node）。测速不带规则，不规划目标，没有诊断",
+      "run": {
+        "diagnostics": [
+          {
+            "type": "ProfileSkipped",
+            "profileId": 2,
+            "profileName": "golden-bug001-rule-trojan",
+            "reason": "golden-bug001-rule-trojan: sing-box rejected the outbound options: certificate is not a valid PEM certificate",
+            "reasonNamesProfile": true
+          },
+          {
+            "type": "RuleOutboundMissing",
+            "ruleId": 1,
+            "ruleName": "golden-rule-1",
+            "outboundId": 2
+          }
+        ],
+        "warnings": [
+          "profile 2 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-bug001-rule-trojan: sing-box rejected the outbound options: certificate is not a valid PEM certificate"
+        ]
+      },
+      "export": {
+        "diagnostics": [
+          {
+            "type": "ProfileSkipped",
+            "profileId": 2,
+            "profileName": "golden-bug001-rule-trojan",
+            "reason": "golden-bug001-rule-trojan: sing-box rejected the outbound options: certificate is not a valid PEM certificate",
+            "reasonNamesProfile": true
+          },
+          {
+            "type": "RuleOutboundMissing",
+            "ruleId": 1,
+            "ruleName": "golden-rule-1",
+            "outboundId": 2
+          }
+        ],
+        "warnings": [
+          "profile 2 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-bug001-rule-trojan: sing-box rejected the outbound options: certificate is not a valid PEM certificate"
+        ]
+      }
+    },
     "chain-all-missing": {
       "note": "主节点是链 1，成员 98、99 都不存在：resolveChainInternal 的 onMissing 按成员顺序各告一次警，随后 requireBuildableChain 因链为空报错。三种模式都只建这一条链，没有诊断",
       "run": {

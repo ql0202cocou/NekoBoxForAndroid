@@ -1,0 +1,131 @@
+{
+  "dns": {
+    "final": "dns-remote",
+    "rules": [
+      {
+        "domain": [
+          "ss.example.com",
+          "dns.example.net"
+        ],
+        "server": "dns-direct",
+        "strategy": "ipv4_only"
+      },
+      {
+        "disable_cache": true,
+        "inbound": [
+          "tun-in"
+        ],
+        "server": "dns-fake",
+        "strategy": "ipv4_only"
+      }
+    ],
+    "servers": [
+      {
+        "detour": "direct",
+        "tag": "dns-local",
+        "type": "local"
+      },
+      {
+        "domain_resolver": "dns-local",
+        "path": "/dns-query",
+        "server": "192.0.2.53",
+        "tag": "dns-direct",
+        "type": "https"
+      },
+      {
+        "detour": "proxy",
+        "domain_resolver": "dns-direct",
+        "path": "/dns-query",
+        "server": "dns.example.net",
+        "tag": "dns-remote",
+        "type": "https"
+      },
+      {
+        "inet4_range": "198.18.0.0/15",
+        "inet6_range": "fc00::/18",
+        "tag": "dns-fake",
+        "type": "fakeip"
+      }
+    ],
+    "strategy": "ipv4_only"
+  },
+  "endpoints": [],
+  "inbounds": [
+    {
+      "address": [
+        "172.19.0.1/28"
+      ],
+      "endpoint_independent_nat": true,
+      "mtu": 9000,
+      "stack": "gvisor",
+      "tag": "tun-in",
+      "type": "tun"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 2080,
+      "tag": "mixed-in",
+      "type": "mixed"
+    }
+  ],
+  "log": {
+    "level": "panic"
+  },
+  "outbounds": [
+    {
+      "method": "aes-256-gcm",
+      "password": "golden-pass-ss",
+      "server": "ss.example.com",
+      "server_port": 8388,
+      "tag": "proxy",
+      "type": "shadowsocks"
+    },
+    {
+      "tag": "direct",
+      "type": "direct"
+    },
+    {
+      "tag": "bypass",
+      "type": "direct"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "default_domain_resolver": {
+      "server": "dns-direct",
+      "strategy": "prefer_ipv4"
+    },
+    "rule_set": [],
+    "rules": [
+      {
+        "action": "sniff"
+      },
+      {
+        "action": "hijack-dns",
+        "port": [
+          53
+        ]
+      },
+      {
+        "action": "hijack-dns",
+        "protocol": [
+          "dns"
+        ]
+      },
+      {
+        "action": "reject",
+        "ip_cidr": [
+          "224.0.0.0/3",
+          "ff00::/8"
+        ]
+      },
+      {
+        "action": "reject",
+        "source_ip_cidr": [
+          "224.0.0.0/3",
+          "ff00::/8"
+        ]
+      }
+    ]
+  }
+}
