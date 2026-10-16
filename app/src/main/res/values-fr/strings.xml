@@ -156,7 +156,6 @@
         <item quantity="other">%d éléments supprimés</item>
     </plurals>
     <string name="ooc_warning">Notice</string>
-    <string name="install_from_fdroid">Installer depuis F-Droid</string>
     <string name="subscription_update_message">Mise à jour de %s…</string>
     <string name="group_order">Ordre</string>
     <string name="group_order_origin">Origine</string>
@@ -182,7 +181,6 @@
     <string name="append_http_proxy">Ajouter un proxy HTTP au VPN</string>
     <string name="subscription_settings">Préférences de souscription</string>
     <string name="group_type">Type du groupe</string>
-    <string name="install_from_play_store">Installer depuis le Play Store</string>
     <string name="subscription_used">%s utilisé</string>
     <string name="group_order_by_delay">Par délai</string>
     <string name="route_bypass_ip">Règle IP pour %s</string>

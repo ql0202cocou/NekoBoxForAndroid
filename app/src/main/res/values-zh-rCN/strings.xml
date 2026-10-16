@@ -282,8 +282,7 @@
     <string name="missing_plugin">缺少插件</string>
     <string name="profile_requiring_plugin">配置 %s 需要插件 %s, 但找不到.</string>
     <string name="action_download">下载</string>
-    <string name="install_from_play_store">从 Play Store 安装</string>
-    <string name="install_from_fdroid">从 F-Droid 安装</string>
+    <string name="plugin_download_page">需要安装 %1$s 插件，前往下载页面？</string>
     <string name="download">下载</string>
     <string name="ooc_warning">警告</string>
     <string name="service_subscription">订阅更新服务</string>

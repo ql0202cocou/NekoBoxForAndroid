@@ -5,8 +5,6 @@
     <string name="apps">Programmer</string>
     <string name="ooc_warning">Advarsel</string>
     <string name="download">Last ned</string>
-    <string name="install_from_fdroid">Installer fra F-Droid</string>
-    <string name="install_from_play_store">Installer fra Play-butikken</string>
     <string name="action_download">Last ned</string>
     <string name="confirm">Bekreft</string>
     <string name="connection_test_timeout">Tidsavbrudd</string>

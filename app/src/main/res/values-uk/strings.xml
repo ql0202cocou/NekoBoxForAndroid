@@ -284,8 +284,6 @@
     <string name="missing_plugin">Відсутній плагін</string>
     <string name="profile_requiring_plugin">Профіль %s вимагає встановлення плагіна %s, але його не знайдено.</string>
     <string name="action_download">ЗАВАНТАЖИТИ</string>
-    <string name="install_from_play_store">Встановити з Play Store</string>
-    <string name="install_from_fdroid">Встановити з F-Droid</string>
     <string name="download">Завантажити</string>
     <string name="update_subscription_warning">Проксі не підключено, ви впевнені, що хочете продовжити оновлення?</string>
     <string name="ooc_warning">Попередження</string>

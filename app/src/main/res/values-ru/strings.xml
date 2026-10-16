@@ -191,8 +191,6 @@
 <string name="icon_content_description">Значок диалогового окна</string>
 <string name="ignore_battery_optimizations">Игнорировать оптимизации батареи</string>
 <string name="ignore_battery_optimizations_sum">Снять некоторые ограничения</string>
-<string name="install_from_fdroid">Установить с F-Droid</string>
-<string name="install_from_play_store">Установить из Play Store</string>
 <string name="invalid_backup_file">Недействительный файл резервной копии</string>
 <string name="invalid_server">Неверное имя сервера</string>
 <string name="invert_selections">Инвертировать выбранное</string>

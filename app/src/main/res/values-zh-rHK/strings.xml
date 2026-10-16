@@ -33,7 +33,6 @@
     <string name="share_qr_nfc">二維碼</string>
     <string name="plugin">插件</string>
     <string name="action_download">下載</string>
-    <string name="install_from_fdroid">從 F-Droid 安裝</string>
     <string name="menu_tools">工具</string>
     <string name="tools_network">網絡</string>
     <string name="backup">備份</string>
@@ -43,7 +42,6 @@
     <string name="route_bypass">繞過</string>
     <string name="route_block">封鎖</string>
     <string name="add_profile_methods_scan_qr_code">掃描二維碼</string>
-    <string name="install_from_play_store">從 Play Store 安裝</string>
     <string name="auto_update">自動更新</string>
     <string name="auto_connect">自動連接</string>
     <string name="disable">禁用</string>

@@ -6,32 +6,13 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.fmt.PluginEntry
 import io.nekohasekai.sagernet.ktx.launchCustomTab
 
-/** 缺插件时的下载来源选择对话框（从 MainActivity 拆出，逻辑不变） */
+/** 缺插件时的下载确认对话框：说明缺哪个插件，确认后打开插件的下载页面 */
 fun Context.showPluginDownloadDialog(pluginEntry: PluginEntry) {
-    var index = 0
-    var playIndex = -1
-    var fdroidIndex = -1
-
-    val items = mutableListOf<String>()
-    if (pluginEntry.downloadSource.playStore) {
-        items.add(getString(R.string.install_from_play_store))
-        playIndex = index++
-    }
-    if (pluginEntry.downloadSource.fdroid) {
-        items.add(getString(R.string.install_from_fdroid))
-        fdroidIndex = index++
-    }
-
-    items.add(getString(R.string.download))
-    val downloadIndex = index
-
-    MaterialAlertDialogBuilder(this).setTitle(pluginEntry.name)
-        .setItems(items.toTypedArray()) { _, which ->
-            when (which) {
-                playIndex -> launchCustomTab("https://play.google.com/store/apps/details?id=${pluginEntry.packageName}")
-                fdroidIndex -> launchCustomTab("https://f-droid.org/packages/${pluginEntry.packageName}/")
-                downloadIndex -> launchCustomTab(pluginEntry.downloadSource.downloadLink)
-            }
+    MaterialAlertDialogBuilder(this).setTitle(pluginEntry.displayName)
+        .setMessage(getString(R.string.plugin_download_page, pluginEntry.displayName))
+        .setPositiveButton(R.string.download) { _, _ ->
+            launchCustomTab(pluginEntry.downloadSource.downloadLink)
         }
+        .setNegativeButton(android.R.string.cancel, null)
         .show()
 }

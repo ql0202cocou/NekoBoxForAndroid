@@ -327,8 +327,7 @@
     <string name="profile_requiring_plugin">Profile %s requires the %s plugin to be installed, but
         it was not found.</string>
     <string name="action_download">DOWNLOAD</string>
-    <string name="install_from_play_store">Install from Play Store</string>
-    <string name="install_from_fdroid">Install from F-Droid</string>
+    <string name="plugin_download_page">Please install the %1$s plugin. Go to the download page?</string>
     <string name="download">Download</string>
     <string name="update_subscription_warning">Proxy is not connected, are you sure you want to
         continue updating?</string>
