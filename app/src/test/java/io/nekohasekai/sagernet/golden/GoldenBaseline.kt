@@ -14,6 +14,7 @@ import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
 import io.nekohasekai.sagernet.fmt.ExternalDialTarget
 import io.nekohasekai.sagernet.fmt.ExternalHop
 import io.nekohasekai.sagernet.fmt.ExternalRunPlan
+import io.nekohasekai.sagernet.fmt.ExternalServerResolver
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.fmt.LocalSocksAuth
 import io.nekohasekai.sagernet.fmt.MemoryConfigDataSource
@@ -69,7 +70,10 @@ class GoldenExternalGroup(
     val hops: List<GoldenExternalHop>,
 )
 
-/** 一组里一个跳实例的记录；插件核心的配置不带标识，两个 tag 为 null；入站不认证的 localAuth 为 null。 */
+/**
+ * 一组里一个跳实例的记录；插件核心的配置不带标识，两个 tag 为 null；入站不认证的 localAuth 为 null；不映射时外核
+ * 自己解析服务器域名用的 DNS 记在 resolver（没有时记录里没有这个键）。
+ */
 class GoldenExternalHop(
     val index: Int,
     val chainIndex: Int,
@@ -80,6 +84,7 @@ class GoldenExternalHop(
     val inboundTag: String?,
     val outboundTag: String?,
     val localAuth: LocalSocksAuth?,
+    val resolver: ExternalServerResolver?,
 )
 
 /** 一个场景的 input.json。 */
@@ -293,6 +298,7 @@ class GoldenBaseline private constructor(val root: File) {
                         inboundTag = hop.optString("inboundTag", at),
                         outboundTag = hop.optString("outboundTag", at),
                         localAuth = hop.localAuth(at),
+                        resolver = hop.resolver(at),
                     )
                 }.also { check(it.isNotEmpty()) { "$at：第 $n 组没有跳实例" } },
             )
@@ -317,7 +323,10 @@ class GoldenBaseline private constructor(val root: File) {
                 }
                 ExternalDialTarget.Direct
             }
-            ExternalHop(hop.index, hop.chainIndex, hop.profileId, bean, hop.port, target, localAuth = hop.localAuth)
+            ExternalHop(
+                hop.index, hop.chainIndex, hop.profileId, bean, hop.port, target,
+                localAuth = hop.localAuth, serverResolver = hop.resolver,
+            )
         })
         val planned = plan.groups.map { group -> group.pluginId to group.hops.map { it.index } }
         val recorded = groups.map { group -> group.pluginId to group.hops.map { it.index } }
@@ -426,6 +435,17 @@ private fun JsonObject.localAuth(where: String): LocalSocksAuth? {
     if (value.isJsonNull) return null
     val auth = value.takeIf { it.isJsonObject }?.asJsonObject ?: error("$where：localAuth 不是对象")
     return LocalSocksAuth(auth.string("username", "$where localAuth"), auth.string("password", "$where localAuth"))
+}
+
+// 不映射时外核的解析服务器：{network, address, port}，没有时记录里没有这个键
+private fun JsonObject.resolver(where: String): ExternalServerResolver? {
+    val value = get("resolver") ?: return null
+    val resolver = value.takeIf { it.isJsonObject }?.asJsonObject ?: error("$where：resolver 不是对象")
+    return ExternalServerResolver(
+        resolver.string("network", "$where resolver"),
+        resolver.string("address", "$where resolver"),
+        resolver.int("port", "$where resolver"),
+    )
 }
 
 private fun JsonObject.optString(key: String, where: String): String? =

@@ -44,9 +44,22 @@ fun ExternalDialTarget.dialPort(bean: AbstractBean): Int = when (this) {
 }
 
 /**
+ * 外核不映射、自己拨服务器时解析服务器域名用的 DNS 服务器：明文 DNS（network 是 udp 或 tcp），address 是不带方括号的
+ * IP 字面量。取自主节点所在分组的「节点解析 DNS」（构建按 [externalServerResolverOf] 选），只给本组域名节点的不映射跳；
+ * 目前只有 hysteria 1 插件的生成器写进配置（resolver）。
+ */
+data class ExternalServerResolver(val network: String, val address: String, val port: Int) {
+    init {
+        require(network == "udp" || network == "tcp") { "external server resolver network must be udp or tcp" }
+        require(port in 1..65535) { "external server resolver port $port" }
+    }
+}
+
+/**
  * 构建登记的一个走外核（needExternal）的节点：sing-box 一侧的 socks 出站连 localPort，带 localAuth（核心的入站
  * 不认证时为 null）；target 是外核自己的拨号目标。core 为 null 的节点（NekoBean）没有外核条目，计划跳过它，
  * 但它照样让导出的文件名成为 profiles.txt（见 [exportConfigText]）。bean 是构建自己的拷贝，构建不改写它。
+ * serverResolver 是不映射时外核解析服务器域名用的 DNS（见 [ExternalServerResolver]），经映射或没有分组 DNS 时为 null。
  */
 class ExternalHopRecord(
     val profileId: Long,
@@ -55,6 +68,7 @@ class ExternalHopRecord(
     val localPort: Int,
     val target: ExternalDialTarget,
     val localAuth: LocalSocksAuth?,
+    val serverResolver: ExternalServerResolver? = null,
 )
 
 /**
@@ -86,6 +100,11 @@ class ExternalHop(
      * 时必须有，否则必须没有，由 [ExternalRunPlan] 检查；sing-box 一侧的 socks 出站带的是同一个值。
      */
     val localAuth: LocalSocksAuth? = null,
+    /**
+     * 不映射时外核解析服务器域名用的 DNS（见 [ExternalServerResolver]），null 表示用外核自己的默认解析。只有拨号目标
+     * 是 [ExternalDialTarget.Direct] 的跳实例可以有，由 [ExternalRunPlan] 检查。
+     */
+    val serverResolver: ExternalServerResolver? = null,
 ) {
     val pluginId get() = core.pluginId
 
@@ -133,6 +152,12 @@ class ExternalRunPlan(val hops: List<ExternalHop>) {
         check(hops.mapNotNull { it.localAuth }.distinct().size <= 1) {
             "external hops of one plan carry different local socks credentials"
         }
+        // 经映射的跳实例拨本机，服务器域名在 sing-box 的映射入站上解析，不能再带外核自己的解析服务器
+        for (hop in hops) {
+            check(hop.serverResolver == null || hop.target is ExternalDialTarget.Direct) {
+                "external hop ${hop.index} (${hop.pluginId}) dials through a mapping inbound but carries a server resolver"
+            }
+        }
     }
 
     /** 按核心分组；组的顺序按各组第一个跳实例在计划里的顺序，组内按计划顺序。 */
@@ -142,8 +167,8 @@ class ExternalRunPlan(val hops: List<ExternalHop>) {
 
     companion object {
         /**
-         * 从构建结果得到计划：按 externalChains 的顺序（链的顺序，链内按跳的顺序），本机端口、拨号目标与
-         * 本机 socks 凭据都取构建登记的值（凭据与 sing-box 一侧的 socks 出站同一个；核心要认证而登记里没有时
+         * 从构建结果得到计划：按 externalChains 的顺序（链的顺序，链内按跳的顺序），本机端口、拨号目标、
+         * 本机 socks 凭据与解析服务器都取构建登记的值（凭据与 sing-box 一侧的 socks 出站同一个；核心要认证而登记里没有时
          * 建计划即抛错）。没有外核条目的节点（NekoBean）跳过、不占序号，与以前一致。
          */
         fun from(result: ConfigBuildResult): ExternalRunPlan {
@@ -153,7 +178,7 @@ class ExternalRunPlan(val hops: List<ExternalHop>) {
                     val core = record.core ?: continue
                     hops += ExternalHop(
                         hops.size, chainIndex, record.profileId, record.bean, record.localPort, record.target, core,
-                        record.localAuth,
+                        record.localAuth, record.serverResolver,
                     )
                 }
             }

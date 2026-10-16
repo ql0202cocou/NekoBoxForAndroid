@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.fmt.hysteria
 import android.util.Base64
 import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
 import io.nekohasekai.sagernet.fmt.ExternalDialTarget
+import io.nekohasekai.sagernet.fmt.ExternalServerResolver
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.fmt.buildSingBoxOutboundTLS
 import io.nekohasekai.sagernet.fmt.effectiveAllowInsecure
@@ -314,11 +315,13 @@ fun isHysteria1PluginWindow(value: Int): Boolean = value == 0 || value >= 65536
 
 fun isHysteria1PluginHopInterval(value: Int): Boolean = value == 0 || value >= 8
 
-// port 是本机 socks 入站的端口，target 是跳实例的拨号目标
+// port 是本机 socks 入站的端口，target 是跳实例的拨号目标，resolver 是不映射时解析服务器域名用的 DNS（跳实例的
+// serverResolver）
 fun HysteriaBean.buildHysteria1Config(
     port: Int,
     target: ExternalDialTarget,
     settings: ExternalCoreSettings,
+    resolver: ExternalServerResolver?,
     cacheFile: (() -> File)?,
 ): String {
     // hysteria v1 插件没有证书固定选项：判断与报错在 requireBuildableHop（ChainPlan.kt），
@@ -351,6 +354,12 @@ fun HysteriaBean.buildHysteria1Config(
             HysteriaBean.PROTOCOL_WECHAT_VIDEO -> {
                 put("protocol", "wechat-video")
             }
+        }
+        // 不映射时插件自己解析服务器域名：resolver 换掉整个进程的默认解析（v1.3.5 app/cmd/resolver.go，一个地址、
+        // 失败不回退）。经映射时拨的是本机，解析在映射入站上做，不写。不写 resolve_preference：客户端只在 ACL 里用它，
+        // 拨服务器的解析不看它（core/pktconns/funcs.go，Go 默认先取 IPv4）
+        if (target is ExternalDialTarget.Direct && resolver != null) {
+            put("resolver", "${resolver.network}://${resolver.address.wrapIPV6Host()}:${resolver.port}")
         }
         put("up_mbps", uploadMbps)
         put("down_mbps", downloadMbps)

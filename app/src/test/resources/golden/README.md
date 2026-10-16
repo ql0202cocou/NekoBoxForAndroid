@@ -93,7 +93,7 @@ socks 出站的凭据）。`input.json` 与 `address/corpus.json` 顶层的 `for
 ```
 
 配置构建只消费注入的输入（`fmt/ConfigInput.kt`）之后，整条构建能在普通 JVM 上跑。`GoldenJvmBuildTest` 对本目录
-每个场景的每种模式（328 × 3）：用 `input.json` 的 `groups` / `profiles` / `rules` 建内存数据源（查询语义同 DAO），
+每个场景的每种模式（330 × 3）：用 `input.json` 的 `groups` / `profiles` / `rules` 建内存数据源（查询语义同 DAO），
 设置取 `effectiveSettings`（Clash API secret 只在运行模式且开了 Clash API 时取，同生产外壳），包名 UID 取
 `packageUids`，插件状态按 `plugins` 回答（`missing` 即「plugin X is not installed」）；再走
 「采集引用闭包（`ConfigSnapshot.collect`）→ 纯构建入口 `buildConfig(input)` → `ExternalRunPlan.from` →
@@ -238,7 +238,7 @@ address/corpus.json                                        地址解析语料与
 用例），每个用例按 `result.json` 的 `external` 重建这个模式的完整运行计划（bean 每个用例新建一份；拨号目标按记录的
 `finalAddress` / `finalPort` 还原：本机地址是经映射、端口即映射端口，其余是不映射，记录的必须正是节点的
 `serverAddress` / `serverPort`，服务器地址本身是本机的节点分不清两者，重建时直接报错；本机 socks 凭据用跳实例记录的 `localAuth`，计划自己检查 Xray / mihomo 的跳实例必须有、
-插件核心的不能有；核对计划分出的组与标识和记录的一致；设置取 `effectiveSettings` 的 `logLevel`、
+插件核心的不能有；解析服务器用记录的 `resolver`；核对计划分出的组与标识和记录的一致；设置取 `effectiveSettings` 的 `logLevel`、
 `ipv6Mode`、`globalAllowInsecure`），`GoldenExternalCoreCheck.assertMatchesBaseline(pluginId)` 经组装入口
 `assemble` 重新生成，取这一组的配置与原文做结构比较。端口直接用记录的值；`tempFiles` 与本次 `cacheFile` 分到的路径
 按动态路径比较。每个核心一个测试类（如 `GoldenMihomoTest`）。
@@ -273,7 +273,8 @@ socks 出站与入站都没有；同一份 sing-box 配置里本机凭据只有�
   "external": [ { "file", "pluginId", "controller": { "port", "secret" } | null, "tempFiles": [],
                   "hops": [ { "index", "chainIndex", "profileId", "port", "finalAddress", "finalPort",
                               "inboundTag", "outboundTag",
-                              "localAuth": { "username", "password" } | null } ] } ],    仅 run / test 且 ok，一组一项，按组的顺序
+                              "localAuth": { "username", "password" } | null,
+                              "resolver": { "network", "address", "port" } } ] } ],    仅 run / test 且 ok，一组一项，按组的顺序；resolver 只在有时出现
   "dynamic": { "ports": [], "paths": [], "secrets": [] }
 }
 ```
@@ -288,6 +289,9 @@ socks 出站与入站都没有；同一份 sing-box 配置里本机凭据只有�
   `inboundTag` / `outboundTag` 是跳实例在 Xray 配置里的入站 / 出站 tag、在 mihomo 配置里的 listener / 代理名
   （`in-<index>` / `out-<index>`）；插件核心的配置沿用单节点格式，不带标识，记为 null。`localAuth` 是这个跳实例的
   外核入站要求的本机 socks 凭据（与 sing-box 里接它的 socks 出站带的是同一组），入站不认证的（插件核心）记为 null。
+  `resolver` 是不映射的跳实例自己解析服务器域名用的 DNS（`ExternalServerResolver`：主节点所在分组的「节点解析 DNS」
+  里第一台明文 DNS、IP 字面量、端口 53 的服务器，只给本组域名节点，导出不带；目前只有 hysteria 1 插件写进配置的
+  `resolver`）；没有时不写这个键，加它之前采集的记录都没有（`group-dns-hy1-` 两个场景有）。
 - `external[].controller` 是写进这份 mihomo 配置的测速控制端口与 secret（其余组为 null）；`tempFiles` 是组装期间经
   `cacheFile` 领到、且出现在这份外核配置里的文件（hysteria 1 的 CA），采集结束即删除。
 - `dynamic` 列出本模式这一次构建里每次运行都可能不同的全部取值，比较工具只按它替换：
@@ -313,7 +317,7 @@ socks 出站与入站都没有；同一份 sing-box 配置里本机凭据只有�
 场景表在 `app/src/debug/java/io/nekohasekai/sagernet/golden/collect/GoldenScenarios.kt`，按类别分组：
 单节点（sing-box、Xray、mihomo、插件核心）、自定义配置、链、分组前置 / 落地、选择器、路由规则、设置变体、
 分组 DNS、同核心多节点（`multi-` 前缀）、K1 选核（`k1-` 前缀）、BUG-001 短期预检（`bug001-` 前缀）。新增场景只往
-表里加；场景 id 入库后不要改名。目前 328 个场景（279 个按单项特性分类的，加 14 个 `multi-` 场景、33 个 `k1-` 场景、
+表里加；场景 id 入库后不要改名。目前 330 个场景（281 个按单项特性分类的，加 14 个 `multi-` 场景、33 个 `k1-` 场景、
 2 个 `bug001-` 场景）。
 
 `k1-` 场景的描述写明预期（选中的核心或拒绝），「对照表 N」指 K1 选核变更对照表的第 N 行（第 14 行「mihomo 握手必败的

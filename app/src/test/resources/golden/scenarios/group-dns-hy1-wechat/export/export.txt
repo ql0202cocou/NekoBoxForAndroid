@@ -1,0 +1,176 @@
+{
+  "log": {
+    "level": "panic"
+  },
+  "dns": {
+    "servers": [
+      {
+        "type": "local",
+        "tag": "dns-local",
+        "detour": "direct"
+      },
+      {
+        "type": "https",
+        "tag": "dns-direct",
+        "server": "192.0.2.53",
+        "path": "/dns-query",
+        "domain_resolver": "dns-local"
+      },
+      {
+        "type": "https",
+        "tag": "dns-remote",
+        "server": "dns.example.net",
+        "path": "/dns-query",
+        "domain_resolver": "dns-direct",
+        "detour": "proxy"
+      },
+      {
+        "type": "fakeip",
+        "tag": "dns-fake",
+        "inet4_range": "198.18.0.0/15",
+        "inet6_range": "fc00::/18"
+      },
+      {
+        "type": "https",
+        "tag": "dns-group-0",
+        "server": "dns.example.org",
+        "path": "/dns-query",
+        "domain_resolver": "dns-local"
+      },
+      {
+        "type": "udp",
+        "tag": "dns-group-1",
+        "server": "192.0.2.1",
+        "domain_resolver": "dns-local"
+      }
+    ],
+    "rules": [
+      {
+        "domain": [
+          "hy1.example.com"
+        ],
+        "server": "dns-group-0",
+        "strategy": "prefer_ipv4"
+      },
+      {
+        "domain": [
+          "hy1.example.com"
+        ],
+        "server": "dns-group-1",
+        "strategy": "prefer_ipv4"
+      },
+      {
+        "domain": [
+          "hy1.example.com",
+          "dns.example.net"
+        ],
+        "server": "dns-direct",
+        "strategy": "ipv4_only"
+      },
+      {
+        "outbound": [
+          "any"
+        ],
+        "server": "dns-direct",
+        "strategy": "ipv4_only"
+      },
+      {
+        "inbound": [
+          "tun-in"
+        ],
+        "server": "dns-fake",
+        "strategy": "ipv4_only",
+        "disable_cache": true
+      }
+    ],
+    "final": "dns-remote",
+    "strategy": "ipv4_only"
+  },
+  "inbounds": [
+    {
+      "mtu": 9000,
+      "address": [
+        "172.19.0.1/28"
+      ],
+      "endpoint_independent_nat": true,
+      "stack": "gvisor",
+      "type": "tun",
+      "tag": "tun-in"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 2080,
+      "type": "mixed",
+      "tag": "mixed-in"
+    }
+  ],
+  "outbounds": [
+    {
+      "server": "127.0.0.1",
+      "server_port": 50001,
+      "type": "socks",
+      "tag": "proxy"
+    },
+    {
+      "type": "direct",
+      "tag": "direct"
+    },
+    {
+      "type": "direct",
+      "tag": "bypass"
+    }
+  ],
+  "endpoints": [],
+  "route": {
+    "rules": [
+      {
+        "action": "sniff"
+      },
+      {
+        "port": [
+          53
+        ],
+        "action": "hijack-dns"
+      },
+      {
+        "protocol": [
+          "dns"
+        ],
+        "action": "hijack-dns"
+      },
+      {
+        "ip_cidr": [
+          "224.0.0.0/3",
+          "ff00::/8"
+        ],
+        "action": "reject"
+      },
+      {
+        "source_ip_cidr": [
+          "224.0.0.0/3",
+          "ff00::/8"
+        ],
+        "action": "reject"
+      }
+    ],
+    "rule_set": [],
+    "auto_detect_interface": true
+  }
+}
+
+{
+  "server": "hy1.example.com:8443",
+  "protocol": "wechat-video",
+  "up_mbps": 10,
+  "down_mbps": 50,
+  "socks5": {
+    "listen": "127.0.0.1:50001"
+  },
+  "retry": 5,
+  "fast_open": true,
+  "lazy_start": true,
+  "obfs": "",
+  "auth_str": "golden-pass-hy1",
+  "alpn": "hysteria",
+  "hop_interval": 10
+}

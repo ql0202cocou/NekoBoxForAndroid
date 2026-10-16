@@ -577,7 +577,7 @@ sealed class ExternalCore(
     }
 
     // 要装插件 app 的核心：每个跳实例一份配置、一个进程，配置与 K0 之前相同。入站认证能力没有核实过，不声明。
-    // 配置只取跳实例的本机端口与拨号目标（及它自己的 bean）
+    // 配置只取跳实例的本机端口、拨号目标与解析服务器（及它自己的 bean）
     class PerHop(
         pluginId: String,
         private val buildConfig: (
@@ -636,9 +636,11 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
 
     is HysteriaBean -> ExternalCore.PerHop(
         "hysteria-plugin",
-        // 配置读全局「允许不安全」，启动参数读 logLevel
+        // 配置读全局「允许不安全」与跳实例的解析服务器，启动参数读 logLevel
         buildConfig = { settings, hop, cacheFile ->
-            bean.buildHysteria1Config(hop.localPort, hop.target, settings) { cacheFile("hysteria", "ca") }
+            bean.buildHysteria1Config(hop.localPort, hop.target, settings, hop.serverResolver) {
+                cacheFile("hysteria", "ca")
+            }
         },
         buildLaunch = { settings, pluginPath, config, writeCacheFile ->
             val configFile = writeCacheFile("hysteria", "json", config)

@@ -1,0 +1,127 @@
+{
+  "log": {
+    "level": "panic"
+  },
+  "dns": {
+    "servers": [
+      {
+        "type": "local",
+        "tag": "dns-local",
+        "detour": "direct"
+      },
+      {
+        "type": "https",
+        "tag": "dns-direct",
+        "server": "192.0.2.53",
+        "path": "/dns-query",
+        "domain_resolver": "dns-local"
+      },
+      {
+        "type": "https",
+        "tag": "dns-group-0",
+        "server": "dns.example.org",
+        "path": "/dns-query",
+        "domain_resolver": "dns-local"
+      },
+      {
+        "type": "udp",
+        "tag": "dns-group-1",
+        "server": "192.0.2.1",
+        "domain_resolver": "dns-local"
+      },
+      {
+        "type": "neko-sequential",
+        "tag": "dns-node-1",
+        "servers": [
+          "dns-group-0",
+          "dns-group-1",
+          "dns-direct"
+        ]
+      }
+    ],
+    "rules": [
+      {
+        "domain": [
+          "hy1-exit.example.org",
+          "hy1-first.example.com"
+        ],
+        "server": "dns-group-0",
+        "strategy": "prefer_ipv4",
+        "fallback": true
+      },
+      {
+        "domain": [
+          "hy1-exit.example.org",
+          "hy1-first.example.com"
+        ],
+        "server": "dns-group-1",
+        "strategy": "prefer_ipv4",
+        "fallback": true
+      }
+    ],
+    "final": "dns-direct",
+    "strategy": "prefer_ipv4"
+  },
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 50002,
+      "override_address": "hy1-exit.example.org",
+      "override_port": 8443,
+      "type": "direct",
+      "tag": "c-0-mapping-4"
+    }
+  ],
+  "outbounds": [
+    {
+      "server": "127.0.0.1",
+      "server_port": 50001,
+      "type": "socks",
+      "tag": "proxy"
+    },
+    {
+      "detour": "g-2",
+      "server": "127.0.0.1",
+      "server_port": 50003,
+      "type": "socks",
+      "tag": "c-0-3"
+    },
+    {
+      "server": "127.0.0.1",
+      "server_port": 50004,
+      "type": "socks",
+      "tag": "g-2"
+    },
+    {
+      "type": "direct",
+      "tag": "direct"
+    },
+    {
+      "type": "direct",
+      "tag": "bypass"
+    }
+  ],
+  "endpoints": [],
+  "route": {
+    "rules": [
+      {
+        "inbound": [
+          "c-0-mapping-4"
+        ],
+        "action": "resolve",
+        "server": "dns-node-1"
+      },
+      {
+        "inbound": [
+          "c-0-mapping-4"
+        ],
+        "outbound": "c-0-3"
+      }
+    ],
+    "rule_set": [],
+    "auto_detect_interface": true,
+    "default_domain_resolver": {
+      "server": "dns-direct"
+    }
+  }
+}

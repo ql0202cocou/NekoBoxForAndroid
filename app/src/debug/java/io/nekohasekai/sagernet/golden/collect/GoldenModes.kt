@@ -160,7 +160,12 @@ fun runBoxMode(profile: ProxyEntity, forTest: Boolean): ModeOutput {
                         "localAuth" to hop.localAuth?.let {
                             linkedMapOf("username" to it.username, "password" to it.password)
                         },
-                    )
+                    ).apply {
+                        // 不映射时外核解析服务器域名用的 DNS；没有时不写这个键（加它之前采集的基线都没有）
+                        hop.serverResolver?.let {
+                            put("resolver", linkedMapOf("network" to it.network, "address" to it.address, "port" to it.port))
+                        }
+                    }
                 },
             )
         }

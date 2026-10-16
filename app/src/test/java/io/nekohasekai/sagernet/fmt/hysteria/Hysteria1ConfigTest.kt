@@ -6,6 +6,7 @@ import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
 import io.nekohasekai.sagernet.fmt.ExternalDialTarget
 import io.nekohasekai.sagernet.fmt.ExternalDialTarget.Direct
 import io.nekohasekai.sagernet.fmt.ExternalDialTarget.Mapped
+import io.nekohasekai.sagernet.fmt.ExternalServerResolver
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -29,14 +30,16 @@ class Hysteria1ConfigTest {
         block()
     }
 
-    // 拨号目标默认不映射（最先拨号的一跳免映射）；链成员经映射，拨本机的映射端口
+    // 拨号目标默认不映射（最先拨号的一跳免映射）；链成员经映射，拨本机的映射端口。resolver 是跳实例的解析服务器
     private fun HysteriaBean.build(
         port: Int = 2080,
         target: ExternalDialTarget = Direct,
         globalAllowInsecure: Boolean = false,
+        resolver: ExternalServerResolver? = null,
+        ipv6Mode: Int = 0,
         cacheFile: (() -> File)? = null,
     ): JsonObject = JsonParser.parseString(
-        buildHysteria1Config(port, target, ExternalCoreSettings(2, 0, globalAllowInsecure), cacheFile)
+        buildHysteria1Config(port, target, ExternalCoreSettings(2, ipv6Mode, globalAllowInsecure), resolver, cacheFile)
     ).asJsonObject
 
     private fun JsonObject.str(key: String) = get(key).asString
@@ -255,6 +258,55 @@ class Hysteria1ConfigTest {
     }
 
     @Test
+    fun `不映射时写 resolver：明文 DNS 的 scheme、地址与端口`() {
+        assertEquals(
+            "udp://192.0.2.1:53",
+            bean().build(resolver = ExternalServerResolver("udp", "192.0.2.1", 53)).str("resolver"),
+        )
+        assertEquals(
+            "tcp://198.51.100.53:53",
+            bean().build(resolver = ExternalServerResolver("tcp", "198.51.100.53", 53)).str("resolver"),
+        )
+        // IPv6 加方括号（hysteria 用 net.SplitHostPort 拆）
+        assertEquals(
+            "udp://[2001:db8::53]:53",
+            bean().build(resolver = ExternalServerResolver("udp", "2001:db8::53", 53)).str("resolver"),
+        )
+    }
+
+    @Test
+    fun `resolver 紧跟在 server 与 protocol 之后`() {
+        val keys = bean { protocol = HysteriaBean.PROTOCOL_WECHAT_VIDEO }
+            .build(resolver = ExternalServerResolver("udp", "192.0.2.1", 53)).keySet().toList()
+        assertEquals(listOf("server", "protocol", "resolver", "up_mbps"), keys.take(4))
+    }
+
+    @Test
+    fun `没有解析服务器时不写 resolver`() {
+        assertFalse(bean().build().has("resolver"))
+        assertFalse(bean { protocol = HysteriaBean.PROTOCOL_FAKETCP }.build().has("resolver"))
+    }
+
+    @Test
+    fun `经映射时即使带了解析服务器也不写 resolver`() {
+        // 计划不允许经映射的跳实例带解析服务器（ExternalRunPlan 检查）；生成器按拨号目标再挡一次
+        val resolver = ExternalServerResolver("udp", "192.0.2.1", 53)
+        assertFalse(bean().build(target = Mapped(41234), resolver = resolver).has("resolver"))
+        assertFalse(bean { serverAddress = "127.0.0.1" }.build(target = Mapped(41234), resolver = resolver).has("resolver"))
+    }
+
+    @Test
+    fun `任何 IPv6 模式都不写 resolve_preference`() {
+        // 客户端的 resolve_preference 只给 ACL 用，拨服务器的解析不看它（见生成器注释）
+        val resolver = ExternalServerResolver("udp", "192.0.2.1", 53)
+        for (mode in 0..3) {
+            assertFalse("$mode", bean().build(resolver = resolver, ipv6Mode = mode).has("resolve_preference"))
+            assertFalse("$mode", bean().build(ipv6Mode = mode).has("resolve_preference"))
+            assertFalse("$mode", bean().build(target = Mapped(40000), ipv6Mode = mode).has("resolve_preference"))
+        }
+    }
+
+    @Test
     fun `全部可选字段齐全时的顺序`() {
         val file = tmp.newFile("hy.ca")
         val json = bean {
@@ -269,10 +321,10 @@ class Hysteria1ConfigTest {
             streamReceiveWindow = 65536
             connectionReceiveWindow = 131072
             disableMtuDiscovery = true
-        }.build { file }
+        }.build(resolver = ExternalServerResolver("udp", "192.0.2.1", 53)) { file }
         assertEquals(
             listOf(
-                "server", "protocol", "up_mbps", "down_mbps", "socks5", "retry", "fast_open", "lazy_start",
+                "server", "protocol", "resolver", "up_mbps", "down_mbps", "socks5", "retry", "fast_open", "lazy_start",
                 "obfs", "auth_str", "server_name", "alpn", "ca", "insecure", "recv_window_conn", "recv_window",
                 "disable_mtu_discovery", "hop_interval",
             ),

@@ -1,0 +1,89 @@
+{
+  "log": {
+    "level": "panic"
+  },
+  "dns": {
+    "servers": [
+      {
+        "type": "local",
+        "tag": "dns-local",
+        "detour": "direct"
+      },
+      {
+        "type": "https",
+        "tag": "dns-direct",
+        "server": "192.0.2.53",
+        "path": "/dns-query",
+        "domain_resolver": "dns-local"
+      },
+      {
+        "type": "https",
+        "tag": "dns-group-0",
+        "server": "dns.example.org",
+        "path": "/dns-query",
+        "domain_resolver": "dns-local"
+      },
+      {
+        "type": "udp",
+        "tag": "dns-group-1",
+        "server": "192.0.2.1",
+        "domain_resolver": "dns-local"
+      },
+      {
+        "type": "neko-sequential",
+        "tag": "dns-node-1",
+        "servers": [
+          "dns-group-0",
+          "dns-group-1",
+          "dns-direct"
+        ]
+      }
+    ],
+    "rules": [
+      {
+        "domain": [
+          "hy1.example.com"
+        ],
+        "server": "dns-group-0",
+        "strategy": "prefer_ipv4",
+        "fallback": true
+      },
+      {
+        "domain": [
+          "hy1.example.com"
+        ],
+        "server": "dns-group-1",
+        "strategy": "prefer_ipv4",
+        "fallback": true
+      }
+    ],
+    "final": "dns-direct",
+    "strategy": "prefer_ipv4"
+  },
+  "inbounds": [],
+  "outbounds": [
+    {
+      "server": "127.0.0.1",
+      "server_port": 50001,
+      "type": "socks",
+      "tag": "proxy"
+    },
+    {
+      "type": "direct",
+      "tag": "direct"
+    },
+    {
+      "type": "direct",
+      "tag": "bypass"
+    }
+  ],
+  "endpoints": [],
+  "route": {
+    "rules": [],
+    "rule_set": [],
+    "auto_detect_interface": true,
+    "default_domain_resolver": {
+      "server": "dns-direct"
+    }
+  }
+}

@@ -15,6 +15,7 @@ import moe.matsuri.nb4a.*
 import moe.matsuri.nb4a.SingBoxOptions.*
 import moe.matsuri.nb4a.proxy.config.ConfigBean
 import moe.matsuri.nb4a.utils.JavaUtil.gson
+import moe.matsuri.nb4a.utils.NGUtil
 import moe.matsuri.nb4a.utils.Util
 import moe.matsuri.nb4a.utils.listByLineOrComma
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -92,6 +93,29 @@ private fun makeDnsServer(address: String, tag: String, parseNumeric: (String) -
         }
     }
 }
+
+// 分组 DNS 里外核不映射、自己拨服务器时用的第一台（ExternalServerResolver）：明文 DNS（udp / tcp）、地址是 IP 字面量、
+// 端口 53，其余跳过。servers 是 makeDnsServer 换好的分组 DNS（解析不了的已跳过），按分组里的顺序。只收这一种，依据是
+// hysteria 1 插件（apernet/hysteria v1.3.5 + Matsuri 的 protect 补丁）：插件自己发的解析请求不经 protect，VPN 模式下
+// （以本应用 uid 运行时）进 tun，只有发往 53 端口的会被 hijack-dns 接住、按分组 DNS 规则解析，DoH / DoT / DoQ 或别的
+// 端口会被路由进代理、绕回插件自己；DNS 服务器写成域名时插件要先用 Go 的默认解析解它，Android 上没有
+// /etc/resolv.conf，解不了（加密 DNS 时插件启动即退出）。Go 的 net.ParseIP 不认带前导零的 IPv4（会当成域名），也跳过
+internal fun externalServerResolverOf(servers: List<DNSServerOptions>): ExternalServerResolver? =
+    servers.firstNotNullOfOrNull { server ->
+        val host = server.server ?: return@firstNotNullOfOrNull null
+        val port = server.server_port ?: 53
+        val literal = if (NGUtil.isIpv4Address(host)) {
+            host.split('.').none { it.length > 1 && it.startsWith('0') }
+        } else {
+            NGUtil.isIpv6Address(host)
+        }
+        val network = server.type
+        if ((network == "udp" || network == "tcp") && literal && port == 53) {
+            ExternalServerResolver(network, host, port)
+        } else {
+            null
+        }
+    }
 
 class ConfigBuildResult(
     var config: String,
@@ -343,6 +367,8 @@ private class ConfigBuild(
             null
         }
     }
+    // 本组域名节点不映射的外核跳自己解析服务器域名时用的 DNS（见 externalServerResolverOf），commitHop 登记给它
+    private val groupServerResolver = externalServerResolverOf(groupDnsServers)
     // 仅 libcore 有的 neko-sequential 传输：把分组 nameserver 按顺序串起来，
     // 以 dns-direct 作最后兜底
     val groupSequentialTag = "dns-node-${proxy.groupId}"
@@ -628,8 +654,8 @@ private class ConfigBuild(
                 }
             }
             // 内部核心跳在自己的出站上绑分组 DNS（resolvesThroughGroupDns）。外核跳的本机 socks 出站拨的是
-            // 127.0.0.1，服务器域名在映射入站上解析（addMappingInbound）。用户的自定义 JSON 在这之后合并，
-            // 自带 domain_resolver 时以它为准
+            // 127.0.0.1，服务器域名经映射时在映射入站上解析（addMappingInbound），不映射时交给外核自己（下面登记的
+            // serverResolver）。用户的自定义 JSON 在这之后合并，自带 domain_resolver 时以它为准
             if (core is HopCore.Internal && resolvesThroughGroupDns(proxyEntity, bean)) {
                 _hack_config_map["domain_resolver"] = DomainResolveOptions().apply {
                     server = groupSequentialTag
@@ -650,7 +676,13 @@ private class ConfigBuild(
                 mappingInbound = addMappingInbound(chain, index, proxyEntity, bean, it)
                 ExternalDialTarget.Mapped(it.port)
             } ?: ExternalDialTarget.Direct
-            chain.externalHops += ExternalHopRecord(proxyEntity.id, bean, core.core, socks.localPort, target, socks.localAuth)
+            // 不映射的跳由外核自己解析服务器域名：本组域名节点把分组 DNS 里外核能用的那台交给它
+            val resolver = groupServerResolver.takeIf {
+                target is ExternalDialTarget.Direct && resolvesThroughGroupDns(proxyEntity, bean)
+            }
+            chain.externalHops += ExternalHopRecord(
+                proxyEntity.id, bean, core.core, socks.localPort, target, socks.localAuth, resolver,
+            )
         }
 
         hopNames[tagOut] = bean.displayName()

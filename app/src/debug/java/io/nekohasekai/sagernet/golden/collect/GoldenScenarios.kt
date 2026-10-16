@@ -1145,6 +1145,24 @@ private fun ScenarioTable.groupNameservers() {
         node(1, vmess("golden-gdnsds-main").ws())
         settings { copy(domainStrategyServer = "ipv4_only", ipv6Mode = IPv6Mode.ENABLE) }
     }
+    // 不映射的 Hysteria 1 插件跳自己解析服务器域名：插件配置的 resolver 取分组 DNS 里第一台明文 DNS、IP、端口 53 的
+    // 服务器（这里跳过 DoH，取 192.0.2.1）；经映射的跳、别组节点与导出都不带
+    val hy1Nameservers = "https://dns.example.org/dns-query\n192.0.2.1"
+    scenario("group-dns-hy1-wechat", "分组 DNS + 免映射的 Hysteria 1 插件节点：插件配置带 resolver（导出不带）") {
+        group(1, nameserver = hy1Nameservers)
+        node(1, hysteria1("golden-gdnshy-wechat", protocol = HysteriaBean.PROTOCOL_WECHAT_VIDEO))
+    }
+    scenario("group-dns-hy1-chain", "分组 DNS + Hysteria 1 插件链：最先拨号的本组节点带 resolver，别组与经映射的出口不带") {
+        group(1, nameserver = hy1Nameservers)
+        group(2)
+        node(2, hysteria1("golden-gdnshy-first", server = "hy1-first.example.com", protocol = HysteriaBean.PROTOCOL_WECHAT_VIDEO))
+        node(
+            3, hysteria1("golden-gdnshy-faketcp", server = "hy1-faketcp.example.net", protocol = HysteriaBean.PROTOCOL_FAKETCP),
+            group = 2,
+        )
+        node(4, hysteria1("golden-gdnshy-exit", server = "hy1-exit.example.org", protocol = HysteriaBean.PROTOCOL_WECHAT_VIDEO))
+        chain(1, 2, 3, 4)
+    }
 }
 
 // 同一次构建里同一种外核（Xray / mihomo）有多个节点的各种来路（K0 合并外核进程前的旧输出）。

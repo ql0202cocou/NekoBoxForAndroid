@@ -1,0 +1,100 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        4,
+        3,
+        2,
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-gdnshy-exit",
+      "outbound[1]": "golden-gdnshy-faketcp",
+      "outbound[2]": "golden-gdnshy-first"
+    },
+    "boxTagNames": {
+      "c-0-3": "golden-gdnshy-faketcp",
+      "g-2": "golden-gdnshy-first",
+      "proxy": "golden-gdnshy-exit"
+    }
+  },
+  "external": [
+    {
+      "file": "ext-0.hysteria-plugin.json",
+      "pluginId": "hysteria-plugin",
+      "controller": null,
+      "tempFiles": [],
+      "hops": [
+        {
+          "index": 0,
+          "chainIndex": 0,
+          "profileId": 4,
+          "port": 50001,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 50002,
+          "inboundTag": null,
+          "outboundTag": null,
+          "localAuth": null
+        }
+      ]
+    },
+    {
+      "file": "ext-1.hysteria-plugin.json",
+      "pluginId": "hysteria-plugin",
+      "controller": null,
+      "tempFiles": [],
+      "hops": [
+        {
+          "index": 1,
+          "chainIndex": 0,
+          "profileId": 3,
+          "port": 50003,
+          "finalAddress": "hy1-faketcp.example.net",
+          "finalPort": 1080,
+          "inboundTag": null,
+          "outboundTag": null,
+          "localAuth": null
+        }
+      ]
+    },
+    {
+      "file": "ext-2.hysteria-plugin.json",
+      "pluginId": "hysteria-plugin",
+      "controller": null,
+      "tempFiles": [],
+      "hops": [
+        {
+          "index": 2,
+          "chainIndex": 0,
+          "profileId": 2,
+          "port": 50004,
+          "finalAddress": "hy1-first.example.com",
+          "finalPort": 1080,
+          "inboundTag": null,
+          "outboundTag": null,
+          "localAuth": null,
+          "resolver": {
+            "network": "udp",
+            "address": "192.0.2.1",
+            "port": 53
+          }
+        }
+      ]
+    }
+  ],
+  "dynamic": {
+    "ports": [
+      50001,
+      50003,
+      50004,
+      50002
+    ],
+    "paths": [],
+    "secrets": []
+  }
+}
