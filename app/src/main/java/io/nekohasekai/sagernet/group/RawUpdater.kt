@@ -47,7 +47,8 @@ object RawUpdater : GroupUpdater() {
         proxyGroup: ProxyGroup,
         subscription: SubscriptionBean,
         userInterface: GroupManager.Interface?,
-        byUser: Boolean
+        byUser: Boolean,
+        startedGeneration: Long,
     ) {
 
         // 下载开始时的订阅身份：写库事务开头与分组当前行比对，期间被改成别的订阅就放弃整次结果。
@@ -279,6 +280,11 @@ object RawUpdater : GroupUpdater() {
         // 写入整体放在一个事务里：进程在写入中途死亡不会留下新旧两套节点并存。
         // 通知 UI 的回调（finishUpdate / onUpdateSuccess）必须留在事务外
         SagerDatabase.instance.runInTransaction {
+            // 期间恢复过备份就整次放弃（回滚，不写节点也不写 lastUpdated）：恢复按备份原 id 插回，下面按 id 的
+            // 删除 / 覆写 / 改序号会落到恢复出的行上。先于分组存在与订阅身份的检查：恢复后这两项的结果都不再有意义
+            if (isDataRestoredSince(startedGeneration, SagerDatabase.dataGeneration())) {
+                throw DataRestoredDuringUpdateException(proxyGroup.id)
+            }
             // 下载期间分组可能已被删除，继续写入会留下指向不存在分组的孤儿节点
             val currentGroup = SagerDatabase.groupDao.getById(proxyGroup.id)
                 ?: error("Group ${proxyGroup.id} was deleted during the update")

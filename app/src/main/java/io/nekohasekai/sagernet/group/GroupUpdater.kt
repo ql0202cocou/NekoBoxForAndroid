@@ -22,11 +22,13 @@ import io.nekohasekai.sagernet.bg.ServiceRegistry
 @Suppress("EXPERIMENTAL_API_USAGE")
 abstract class GroupUpdater {
 
+    // startedGeneration：拿到更新锁后、读分组行之前记下的数据世代号，写库事务里比对（DataGenerationCheck.kt）
     abstract suspend fun doUpdate(
         proxyGroup: ProxyGroup,
         subscription: SubscriptionBean,
         userInterface: GroupManager.Interface?,
-        byUser: Boolean
+        byUser: Boolean,
+        startedGeneration: Long,
     )
 
     data class Progress(
@@ -140,6 +142,9 @@ abstract class GroupUpdater {
 
                         val connected = ServiceRegistry.state.connected
                         val userInterface = GroupManager.userInterface
+                        // 世代号必须先于下面的分组行与 doUpdate 里的节点快照读取：在两次读取之间发生的恢复
+                        // 也要让写库时的比对发现，反过来先读快照再读世代号就会漏掉
+                        val startedGeneration = SagerDatabase.dataGeneration()
                         // 调用方传入的可能是界面里的旧对象（或自动更新排队时读的快照）：
                         // 订阅身份以拿到更新锁后读到的当前行为准，读不到（已删除）时沿用传入的，
                         // 由写库事务报告分组已删除
@@ -159,7 +164,7 @@ abstract class GroupUpdater {
                         }
 
                         try {
-                            RawUpdater.doUpdate(group, subscription, userInterface, byUser)
+                            RawUpdater.doUpdate(group, subscription, userInterface, byUser, startedGeneration)
                             true
                         } catch (e: CancellationException) {
                             // don't swallow cancellation (nor report it as a failure)
@@ -169,6 +174,11 @@ abstract class GroupUpdater {
                             // 只告诉手动更新的用户一声，自动更新静默跳过，下个周期按新订阅更新
                             Logs.d(e.message ?: "subscription superseded")
                             if (byUser) userInterface?.onUpdateSuperseded(group)
+                            false
+                        } catch (e: DataRestoredDuringUpdateException) {
+                            // 期间恢复了备份，结果已整体放弃。不提示：恢复成功后两个进程马上重启，提示也看不到；
+                            // 自动更新下个周期按恢复后的数据重跑
+                            Logs.i(e.message ?: "data restored during the update")
                             false
                         } catch (e: SubscriptionFoundException) {
                             // 订阅内容本身是订阅导入链接（clash://install-config /

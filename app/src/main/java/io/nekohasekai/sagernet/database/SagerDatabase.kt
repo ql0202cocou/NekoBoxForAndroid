@@ -15,14 +15,16 @@ import io.nekohasekai.sagernet.ktx.Logs
 import java.util.concurrent.Executors
 
 @Database(
-    entities = [ProxyGroup::class, ProxyEntity::class, RuleEntity::class],
-    version = 9,
+    entities = [ProxyGroup::class, ProxyEntity::class, RuleEntity::class, DataGeneration::class],
+    version = 10,
     autoMigrations = [
         AutoMigration(from = 3, to = 4),
         AutoMigration(from = 4, to = 5),
         AutoMigration(from = 5, to = 6),
         AutoMigration(from = 6, to = 7),
-        AutoMigration(from = 7, to = 8)
+        AutoMigration(from = 7, to = 8),
+        // 只新建 data_generation 表，不插行（读不到行按 0，见 DataGeneration）
+        AutoMigration(from = 9, to = 10)
     ]
 )
 @TypeConverters(value = [KryoConverters::class, GsonConverters::class])
@@ -132,11 +134,22 @@ abstract class SagerDatabase : RoomDatabase() {
         val groupDao get() = instance.groupDao()
         val proxyDao get() = instance.proxyDao()
         val rulesDao get() = instance.rulesDao()
+        val dataGenerationDao get() = instance.dataGenerationDao()
+
+        // 当前数据世代号，没有行时为 0（见 DataGeneration）
+        fun dataGeneration(): Long = dataGenerationDao.get() ?: 0L
+
+        // 世代号 +1，只在恢复备份整表替换的事务里调用（BackupRestore.commit）
+        fun bumpDataGeneration() {
+            dataGenerationDao.ensureRow()
+            dataGenerationDao.increment()
+        }
 
     }
 
     abstract fun groupDao(): ProxyGroup.Dao
     abstract fun proxyDao(): ProxyEntity.Dao
     abstract fun rulesDao(): RuleEntity.Dao
+    abstract fun dataGenerationDao(): DataGeneration.Dao
 
 }

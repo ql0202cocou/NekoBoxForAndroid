@@ -260,7 +260,42 @@ class SagerDatabaseMigrationTest {
         }
     }
 
-    // ---- 从每个旧版本一路升到最新版：每一级之后都比对 schema，旧数据不丢，新增列取默认值。
+    // ---- 9 → 10：AutoMigration 只新建 data_generation（数据世代号，见 DataGeneration.kt），不插行，旧表原样
+
+    @Test
+    fun `9 到 10 新建世代号表，旧数据原样保留，世代号读作 0`() {
+        val v9 = Schema.load(9)
+        val entities = listOf(
+            v9.row("proxy_entities", "id" to 1, "groupId" to 1, "type" to TYPE_SOCKS, "userOrder" to 1, "tx" to 5, "rx" to 6, "uuid" to "a", "socksBean" to blobOf(1, 2)),
+            v9.row("proxy_entities", "id" to 4, "groupId" to 2, "type" to TYPE_VMESS, "core" to CORE_XRAY, "error" to "e", "vmessBean" to blobOf(3)),
+        )
+        val groups = listOf(
+            v9.row("proxy_groups", "id" to 1, "name" to "g", "ungrouped" to 1),
+            v9.row("proxy_groups", "id" to 2, "type" to 1, "subscription" to blobOf(9, 9), "proxyServerNameserver" to "1.1.1.1"),
+        )
+        val rules = listOf(v9.row("rules", "id" to 3, "name" to "r", "config" to "{}", "outbound" to 4, "packages" to "a.b"))
+        open(9).use { db ->
+            entities.forEach { db.insert("proxy_entities", it) }
+            groups.forEach { db.insert("proxy_groups", it) }
+            rules.forEach { db.insert("rules", it) }
+
+            db.migrate(migrationFrom(9))
+
+            db.assertSchema(10)
+            assertEquals(entities, db.table("proxy_entities"))
+            assertEquals(groups, db.table("proxy_groups"))
+            assertEquals(rules, db.table("rules"))
+            assertEquals(emptyList<Map<String, Any?>>(), db.table("data_generation"))
+            // 没有行：DAO 的 get() 返回 null，SagerDatabase.dataGeneration() 按 0 算
+            assertEquals(emptyList<List<Any?>>(), db.query(DataGeneration.SQL_GET))
+            // 升级后的库上第一次恢复：补行再 +1 得 1
+            db.execute(DataGeneration.SQL_ENSURE_ROW)
+            db.execute(DataGeneration.SQL_INCREMENT)
+            assertEquals(1L, db.scalar(DataGeneration.SQL_GET))
+        }
+    }
+
+    // ---- 从每个旧版本一路升到最新版：每一级之后都比对 schema，旧数据不丢，新增列取默认值，新增的表为空。
     // 3 → 8 是 Room 生成的 AutoMigration（实现类只在 SQLiteConnection 入口上执行 ALTER TABLE），8 → 9 因取不到
     // DataStore 只能带读不出 / 为空的 bean，这里种的行都是 SOCKS 类型、core = 自动，不受 8 → 9 的规范化影响
 
@@ -305,7 +340,12 @@ class SagerDatabaseMigrationTest {
                 }
                 val finalSchema = Schema.load(latest)
                 for (table in finalSchema.tables) {
-                    val startTable = startSchema.table(table.name)
+                    // 起始版本还没有的表（如 10 版的 data_generation）由迁移新建，不带任何行
+                    val startTable = startSchema.tables.firstOrNull { it.name == table.name }
+                    if (startTable == null) {
+                        assertEquals("$start 版出发，新增的表 ${table.name} 应为空", emptyList<Map<String, Any?>>(), db.table(table.name))
+                        continue
+                    }
                     val added = table.fields.filter { f -> startTable.fields.none { it.name == f.name } }
                     val expected = before.getValue(table.name).map { row -> row + added.associate { it.name to addedColumnValue(table, it) } }
                     assertEquals("$start 版出发，${table.name} 的数据", expected, db.table(table.name))

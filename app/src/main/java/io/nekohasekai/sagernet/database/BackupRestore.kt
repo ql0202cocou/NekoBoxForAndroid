@@ -181,6 +181,11 @@ object BackupRestore {
         ) {
             SagerDatabase.instance.runInTransaction {
                 if (newProfiles != null && newGroups != null) {
+                    // 整表替换会按备份原 id 插回，世代号 +1 让跨过这次替换的订阅更新在提交时整次放弃
+                    // （DataGeneration）。恢复（界面导入）、启动重放（RestoreJournal.completePending）、第二次提交
+                    // 失败后的补偿回写都经过这里，每次替换节点与分组都 +1：补偿把 id 换回恢复前，期间按恢复后数据
+                    // 开始的更新同样作废。只恢复规则不换节点 id，不 +1
+                    SagerDatabase.bumpDataGeneration()
                     SagerDatabase.proxyDao.reset()
                     SagerDatabase.proxyDao.insert(newProfiles)
                     SagerDatabase.groupDao.reset()
