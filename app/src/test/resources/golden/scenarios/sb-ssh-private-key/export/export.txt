@@ -80,9 +80,9 @@
   "outbounds": [
     {
       "host_key": [
-        "ssh-ed25519 Z29sZGVuLXNzaC1ob3N0LWtleS1maXh0dXJlLTAwMDE="
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHvvSBuDZaZcLbmZpU6HKySQRvE8vTOGNZG4FeIE+XBJ"
       ],
-      "private_key": "-----BEGIN OPENSSH PRIVATE KEY-----\nZ29sZGVuLXNzaC1wcml2YXRlLWtleS1maXh0dXJlLW5vdC1hLXJlYWwta2V5\n-----END OPENSSH PRIVATE KEY-----",
+      "private_key": "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABDxoz3gMc\nuebeGqFD6xUhzeAAAAGAAAAAEAAAAzAAAAC3NzaC1lZDI1NTE5AAAAINS1OkAW9cuKOebN\nsFpCyJILRcpumA62gbmkufesHRfjAAAAkNlfweBDuPDJRiPOaWz/YPhKNi7QPvkktxfNdW\nMRYSLuL4MJm4aPZW2FU4Uk2Q3o8S7YCuVukEB5lBK6g7cMUZcQIA7M0MGIQQfAdpcxutKI\nF1owLNJHdm70RjUeWU646pB5sebecTR7zltB47DWhpzEVGv7I9McdZWqAHVdvI+GzV8EWO\nxC+nQIkHMKsW6yiA==\n-----END OPENSSH PRIVATE KEY-----",
       "private_key_passphrase": "golden-passphrase",
       "server": "203.0.113.25",
       "server_port": 22,

@@ -65,10 +65,13 @@ taGTp3i+MsV/Dm9ZoX08QkQTOVZRnkIJs7xSOM98agY=
     // ECH 配置：编造的字节，只经过 Base64 / PEM 互转，不做内容校验
     val ECH_CONFIG = base64("golden-ech-config-list-fixture-bytes-for-tests-only")
 
-    val SSH_HOST_KEY = "ssh-ed25519 " + base64("golden-ssh-host-key-fixture-0001")
-    val SSH_PRIVATE_KEY = "-----BEGIN OPENSSH PRIVATE KEY-----\n" +
-        base64("golden-ssh-private-key-fixture-not-a-real-key").chunked(64).joinToString("\n") +
-        "\n-----END OPENSSH PRIVATE KEY-----"
+    // SSH 夹具：编造的、只用于测试的 ed25519 密钥对，从未用于任何真实主机。
+    // 必须是 sing-box 的 ssh 出站在加载期能解析的真内容（私钥可用口令解密、host key 是 authorized_keys 格式），
+    // 否则逐出站试建会把 sb-ssh-private-key 场景当成坏成员。重新生成：
+    //   ssh-keygen -t ed25519 -N golden-passphrase -C golden-test -f key   （私钥，口令 golden-passphrase 写在场景里）
+    //   ssh-keygen -t ed25519 -N '' -f host                                （取 host.pub 的前两段）
+    const val SSH_HOST_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHvvSBuDZaZcLbmZpU6HKySQRvE8vTOGNZG4FeIE+XBJ"
+    const val SSH_PRIVATE_KEY = "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABDxoz3gMc\nuebeGqFD6xUhzeAAAAGAAAAAEAAAAzAAAAC3NzaC1lZDI1NTE5AAAAINS1OkAW9cuKOebN\nsFpCyJILRcpumA62gbmkufesHRfjAAAAkNlfweBDuPDJRiPOaWz/YPhKNi7QPvkktxfNdW\nMRYSLuL4MJm4aPZW2FU4Uk2Q3o8S7YCuVukEB5lBK6g7cMUZcQIA7M0MGIQQfAdpcxutKI\nF1owLNJHdm70RjUeWU646pB5sebecTR7zltB47DWhpzEVGv7I9McdZWqAHVdvI+GzV8EWO\nxC+nQIkHMKsW6yiA==\n-----END OPENSSH PRIVATE KEY-----"
 
     private fun base64(text: String): String = Base64.getEncoder().encodeToString(text.toByteArray())
 
