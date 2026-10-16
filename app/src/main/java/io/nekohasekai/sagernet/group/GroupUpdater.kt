@@ -16,7 +16,6 @@ import java.io.RandomAccessFile
 import java.net.InetAddress
 import java.nio.channels.FileLock
 import java.util.*
-import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import io.nekohasekai.sagernet.bg.ServiceRegistry
 
@@ -43,10 +42,6 @@ abstract class GroupUpdater {
         profiles: List<AbstractBean>, groupId: Long, groupNameserver: String
     ) {
         val ipv6Mode = DataStore.ipv6Mode
-        val lookupThreadIndex = AtomicInteger()
-        val lookupPool = Executors.newFixedThreadPool(5) { runnable ->
-            Thread(runnable, "DNS Lookup-${lookupThreadIndex.incrementAndGet()}")
-        }.asCoroutineDispatcher()
         val progress = Progress(profiles.size)
         GroupUpdater.progress[groupId] = progress
         GroupManager.postProgress(groupId)
@@ -56,42 +51,34 @@ abstract class GroupUpdater {
             supportsAddressRewrite(it) && !it.serverAddress.isIpAddress()
         }.groupBy { it.serverAddress }
 
-        try {
-            coroutineScope {
-                for ((domain, sameDomain) in byDomain) {
-                    launch(lookupPool) {
-                        try {
-                            val results = if (
-                                DataStore.enableFakeDns &&
-                                ServiceRegistry.state.started &&
-                                DataStore.serviceMode == Key.MODE_VPN
-                            ) {
-                                // FakeDNS：app 自身流量也走 VPN，默认网络上的系统解析会拿到
-                                // fakeip 段的假 IP 并被写进库。没有底层网络（如切换网络途中）
-                                // 就判这个域名解析失败，不回退默认解析器；不用分组的节点解析 DNS
-                                lookupServerAddress(
-                                    domain, null, SagerNet.underlyingNetwork ?: error("no underlying network"), ipv6Mode
-                                )
-                            } else {
-                                // 分组配了节点解析 DNS 时优先用它，没配或失败时回退系统 DNS
-                                //（VPN 连着时系统 DNS 由内核解析）
-                                lookupServerAddress(domain, groupNameserver, null, ipv6Mode)
-                            }
-                            if (results.isEmpty()) error("empty response")
-                            for (profile in sameDomain) rewriteAddress(profile, results)
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            Logs.d("Lookup $domain failed: ${e.readableMessage}", e)
-                        }
-                        progress.progressAtomic.addAndGet(sameDomain.size)
-                        GroupManager.postProgress(groupId)
-                    }
+        resolveDomains(
+            byDomain = byDomain,
+            maxConcurrent = FORCE_RESOLVE_CONCURRENCY,
+            lookup = { domain ->
+                if (
+                    DataStore.enableFakeDns &&
+                    ServiceRegistry.state.started &&
+                    DataStore.serviceMode == Key.MODE_VPN
+                ) {
+                    // FakeDNS：app 自身流量也走 VPN，默认网络上的系统解析会拿到
+                    // fakeip 段的假 IP 并被写进库。没有底层网络（如切换网络途中）
+                    // 就判这个域名解析失败，不回退默认解析器；不用分组的节点解析 DNS
+                    lookupServerAddress(
+                        domain, null, SagerNet.underlyingNetwork ?: error("no underlying network"), ipv6Mode
+                    )
+                } else {
+                    // 分组配了节点解析 DNS 时优先用它，没配或失败时回退系统 DNS
+                    //（VPN 连着时系统 DNS 由内核解析）
+                    lookupServerAddress(domain, groupNameserver, null, ipv6Mode)
                 }
-            }
-        } finally {
-            lookupPool.close()
-        }
+            },
+            apply = { profile, results -> rewriteAddress(profile, results) },
+            onFailure = { domain, e -> Logs.d("Lookup $domain failed: ${e.readableMessage}", e) },
+            onDone = { count ->
+                progress.progressAtomic.addAndGet(count)
+                GroupManager.postProgress(groupId)
+            },
+        )
     }
 
     // addresses 已按 IPv6 模式过滤排序且非空（lookupServerAddress 的结果，空的按解析失败在调用方处理）：取第一个
