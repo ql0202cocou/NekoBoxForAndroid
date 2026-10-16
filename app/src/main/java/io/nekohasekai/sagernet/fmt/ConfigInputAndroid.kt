@@ -11,6 +11,7 @@ import io.nekohasekai.sagernet.ktx.mkPort
 import io.nekohasekai.sagernet.ktx.parseNumericAddress
 import io.nekohasekai.sagernet.plugin.PluginManager
 import io.nekohasekai.sagernet.utils.PackageCache
+import libcore.Libcore
 import moe.matsuri.nb4a.SingBoxOptionsUtil
 import moe.matsuri.nb4a.plugin.Plugins
 import java.io.File
@@ -110,4 +111,10 @@ private class AndroidConfigPlatform : ConfigPlatform {
     override fun warn(message: String, error: Throwable?) {
         if (error == null) Logs.w(message) else Logs.w(message, error)
     }
+
+    // 试建的返回值读法与「没有结论只告警一次」都在 reader 里；平台每次构建新建，所以每次构建最多告警一次
+    private val trialReader = SingBoxTrialResultReader { warn(it) }
+
+    override fun trialSingBoxOutbound(kind: SingBoxTrialKind, json: String): SingBoxTrialFailure? =
+        trialReader.read(Libcore.trialSingBoxOutbound(kind.wire, json))
 }

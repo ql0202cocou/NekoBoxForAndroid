@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.fmt
 
+import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
@@ -21,7 +22,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 // 单跳规划（planHop，ChainPlan.kt）：直接调用，不经过 ConfigBuild。规划不分配端口、不生成凭据、不查插件可用性，
-// 只有最先拨号的、能映射的 hysteria 查一次外部插件 app；出错时抛出的异常不带节点名（由调用方包上）
+// 只有最先拨号的、能映射的 hysteria 查一次外部插件 app；内部核心跳最后交给 sing-box 试建，外核跳不试建；
+// 出错时抛出的异常不带节点名（由调用方包上）
 class HopPlanTest {
 
     private val platform = FakeConfigPlatform()
@@ -32,9 +34,10 @@ class HopPlanTest {
         muxApplied: Boolean = false,
         globalAllowInsecure: Boolean = false,
         plugins: PluginQueries = PluginQueries(platform),
+        trials: SingBoxTrials = SingBoxTrials(platform),
     ) = planHop(
         entity, entity.requireBean(), HopCoreChoice.of(entity, globalAllowInsecure), firstDialing, muxApplied,
-        globalAllowInsecure, plugins,
+        globalAllowInsecure, plugins, trials,
     )
 
     private fun entity(bean: AbstractBean, core: Int? = null) = ProxyEntity(id = 1, groupId = 1, userOrder = 1)
@@ -375,6 +378,72 @@ class HopPlanTest {
             e.message,
         )
         assertTrue(other.pluginQueries.isEmpty())
+    }
+
+    // ---- sing-box 试建（SingBoxTrial.kt）
+
+    @Test
+    fun `内部核心跳在规划时试建，最先拨号的一跳不带 detour、其余带；外核跳不试建`() {
+        val first = plan(socks(), firstDialing = true).core as HopCore.Internal
+        val middle = plan(vmess(mux = true), firstDialing = false).core as HopCore.Internal
+        // 试建的就是规划结果（含多路复用）生成的那份 JSON，种类按出站 / 端点定
+        val socksBean = socks().requireBean()
+        assertEquals(
+            listOf(
+                SingBoxTrialKind.OUTBOUND to singBoxTrialJson(first.outbound, first.multiplex, socksBean, firstDialing = true),
+                SingBoxTrialKind.OUTBOUND to singBoxTrialJson(
+                    middle.outbound, middle.multiplex, vmess(mux = true).requireBean(), firstDialing = false,
+                ),
+            ),
+            platform.trialQueries,
+        )
+        val (firstJson, middleJson) = platform.trialQueries.map { JsonParser.parseString(it.second).asJsonObject }
+        assertFalse(firstJson.has("detour"))
+        assertEquals(SING_BOX_TRIAL_DETOUR, middleJson["detour"].asString)
+        assertTrue(middleJson.has("multiplex"))
+        // 外核跳（Xray、插件核心）不试建
+        plan(anytls())
+        plan(trojanGo())
+        plan(hysteria(HysteriaBean.PROTOCOL_WECHAT_VIDEO), firstDialing = true)
+        assertEquals(2, platform.trialQueries.size)
+    }
+
+    @Test
+    fun `试建不通过时规划抛 SingBoxTrialException，消息只有类别说明与字段路径`() {
+        val failing = FakeConfigPlatform(trials = { _, json ->
+            if ("v.example.com" in json) SingBoxTrialFailure(SingBoxTrialCategory.DECODE, "tls.certificate_path") else null
+        })
+        val e = assertThrows(SingBoxTrialException::class.java) {
+            plan(vmess(mux = false), trials = SingBoxTrials(failing))
+        }
+        assertEquals(SingBoxTrialCategory.DECODE, e.category)
+        assertEquals("sing-box rejected the outbound options: invalid option at tls.certificate_path", e.message)
+        // 别的节点照常
+        assertTrue(plan(socks(), trials = SingBoxTrials(failing)).core is HopCore.Internal)
+        assertEquals(2, failing.trialQueries.size)
+    }
+
+    @Test
+    fun `同一次构建里同一份试建 JSON 只问一次平台，失败每次都抛`() {
+        val failing = FakeConfigPlatform(trials = { _, _ -> SingBoxTrialFailure(SingBoxTrialCategory.PASSWORD_MISSING, null) })
+        val trials = SingBoxTrials(failing)
+        repeat(3) {
+            val e = assertThrows(SingBoxTrialException::class.java) { plan(socks(), firstDialing = true, trials = trials) }
+            assertEquals("sing-box rejected the outbound options: password is empty", e.message)
+        }
+        assertEquals(1, failing.trialQueries.size)
+        // detour 的有无让 JSON 不同：另问一次
+        assertThrows(SingBoxTrialException::class.java) { plan(socks(), firstDialing = false, trials = trials) }
+        assertEquals(2, failing.trialQueries.size)
+    }
+
+    @Test
+    fun `试建排在单跳检查与建出站之后：前面的检查不过时不试建`() {
+        // 自定义出站 JSON 损坏（单跳检查）、TUIC v4（建出站）都先报，平台没被问到
+        assertThrows(Exception::class.java) { plan(tuicV4(customOutboundJson = "{")) }
+        assertThrows(Exception::class.java) { plan(tuicV4()) }
+        assertThrows(IllegalStateException::class.java) { plan(trojanPinned()) }
+        assertTrue(platform.trialQueries.isEmpty())
     }
 
     private companion object {

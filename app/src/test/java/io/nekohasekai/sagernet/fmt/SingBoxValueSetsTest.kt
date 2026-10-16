@@ -154,6 +154,7 @@ class SingBoxValueSetsTest {
         val hop = planHop(
             onXray, onXray.requireBean(), HopCoreChoice.of(onXray, false), firstDialing = false, muxApplied = false,
             globalAllowInsecure = false, plugins = PluginQueries(FakeConfigPlatform()),
+            trials = SingBoxTrials(FakeConfigPlatform()),
         )
         assertTrue(hop.core is HopCore.External)
         // 同一个节点自动选核走 sing-box：规划时就被拒
@@ -162,6 +163,7 @@ class SingBoxValueSetsTest {
             planHop(
                 onSingBox, onSingBox.requireBean(), HopCoreChoice.of(onSingBox, false), firstDialing = false,
                 muxApplied = false, globalAllowInsecure = false, plugins = PluginQueries(FakeConfigPlatform()),
+                trials = SingBoxTrials(FakeConfigPlatform()),
             )
         }
     }

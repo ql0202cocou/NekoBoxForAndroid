@@ -346,6 +346,12 @@ interface ConfigPlatform {
 
     /** 构建中的警告（跳过的成员、缺失的引用等），只记日志。 */
     fun warn(message: String, error: Throwable? = null)
+
+    /**
+     * 试建一个内部核心的 sing-box 出站 / 端点（SingBoxTrial.kt）：只解析与构造，不监听、不拨号。通过或没有结论时
+     * 返回 null。同一次构建里同一份（种类，JSON）只问一次（ConfigBuild 经 SingBoxTrials 记住结论）。
+     */
+    fun trialSingBoxOutbound(kind: SingBoxTrialKind, json: String): SingBoxTrialFailure?
 }
 
 /**

@@ -317,6 +317,9 @@ private class ConfigBuild(
     // 一次构建的插件查询，按插件记住结果（见 PluginQueries）
     private val plugins = PluginQueries(platform)
 
+    // 一次构建的 sing-box 试建，按（种类，JSON）记住结论（见 SingBoxTrials）
+    private val trials = SingBoxTrials(platform)
+
     fun selectorName(name_: String): String {
         // 配置名若和自动生成的标签（g-<entryId>、c-<chainId>-…）同名，就会撞名；
         // 要先破坏这个形状——只追加 "-N" 的话，"c-<数字>" 前缀永远还在
@@ -331,8 +334,8 @@ private class ConfigBuild(
         return name
     }
 
-    // 规划链用的输入（见 planChain）：快照、主分组、设置里的全局「允许不安全」、本次构建的插件查询与警告
-    private val planContext = ChainPlanContext(data, proxy.groupId, group, globalAllowInsecure, plugins, warn)
+    // 规划链用的输入（见 planChain）：快照、主分组、设置里的全局「允许不安全」、本次构建的插件查询、sing-box 试建与警告
+    private val planContext = ChainPlanContext(data, proxy.groupId, group, globalAllowInsecure, plugins, trials, warn)
 
     val extraRules = if (forTest) listOf() else data.enabledRules()
 

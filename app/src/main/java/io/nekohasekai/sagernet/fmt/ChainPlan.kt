@@ -11,7 +11,7 @@ import moe.matsuri.nb4a.utils.Util
 import java.io.File
 
 // 配置构建里链的展开、逐跳检查与单跳规划。都是顶层函数，输入全部显式传入：数据快照、主节点所在分组、
-// 设置里的全局「允许不安全」、警告回调与插件查询；不读也不写 ConfigBuild 的状态，JVM 单测可以直接调用。
+// 设置里的全局「允许不安全」、警告回调、插件查询与 sing-box 试建；不读也不写 ConfigBuild 的状态，JVM 单测可以直接调用。
 // 数据快照每次查询都给新对象，所以同一节点在不同链里（或同一条链展开两次）是不同的对象
 
 // 按用户填写的顺序展开链（含任意层嵌套），结果首项是第一跳；不是链的节点展开成它自己。
@@ -218,13 +218,15 @@ internal class HopPlan(
 
 /**
  * 规划一跳：choice 是这一跳已算好的选核要求与判定（[HopCoreChoice]）。先做单跳检查（[requireBuildableHop]），再按核心分两支——内部核心建好 sing-box 出站并按 muxApplied
- * 定多路复用；外核定是否经映射。firstDialing 表示这一跳是链上最先拨号的一跳（倒序列表的末项）：只有它可能免映射，
- * 免映射的判断要查外部插件 app（经 plugins，按插件记住结果）。muxApplied 表示链上在它之前的内部核心跳已带了多路复用。
+ * 定多路复用，最后交给 sing-box 试建（经 trials，同一份 JSON 一次构建只试一次）；外核定是否经映射。firstDialing
+ * 表示这一跳是链上最先拨号的一跳（倒序列表的末项）：只有它可能免映射，免映射的判断要查外部插件 app（经 plugins，
+ * 按插件记住结果）；也只有它的试建 JSON 不带 detour。muxApplied 表示链上在它之前的内部核心跳已带了多路复用。
  *
- * 不分配端口、不生成凭据、不定 tag，不写任何构建状态（插件查询的记忆表与 ConfigBuilder.probedHops 除外，两者只做记忆、不进输出）；出错时抛出的异常不带节点名，调用方
+ * 不分配端口、不生成凭据、不定 tag，不写任何构建状态（插件查询与 sing-box 试建的记忆表、ConfigBuilder.probedHops 除外，三者只做记忆、不进输出；试建只解析与构造，不监听、不拨号）；出错时抛出的异常不带节点名，调用方
  * 经 withProfileName 包上。会抛出的检查依次是：选核判定的拒绝、完整配置节点、自定义出站 JSON（以上见
- * [requireBuildableHop]），然后内部核心建出站（[buildInternalOutbound] 的各种拒绝），或外核最先拨号的 hysteria
- * 装的不是 Matsuri exe 的插件。内核还是外核由选核判定决定（needExternal），外核用哪个由 bean 的类决定（externalCore）。
+ * [requireBuildableHop]），然后内部核心建出站（[buildInternalOutbound] 的各种拒绝）、内部核心出站的 sing-box 试建
+ * （[SingBoxTrials]，抛 [SingBoxTrialException]），或外核最先拨号的 hysteria 装的不是 Matsuri exe 的插件。外核跳不试建。
+ * 内核还是外核由选核判定决定（needExternal），外核用哪个由 bean 的类决定（externalCore）。
  */
 internal fun planHop(
     entity: ProxyEntity,
@@ -234,6 +236,7 @@ internal fun planHop(
     muxApplied: Boolean,
     globalAllowInsecure: Boolean,
     plugins: PluginQueries,
+    trials: SingBoxTrials,
 ): HopPlan {
     requireBuildableHop(entity, bean, choice.decision)
     val core = if (entity.needExternal(choice.decision)) {
@@ -243,8 +246,11 @@ internal fun planHop(
     } else {
         val outbound = buildInternalOutbound(bean, globalAllowInsecure)
         // 链上已有内部核心跳带了多路复用时不再取这一跳的选项；singMux 只在这一跳开了 mux 时才不为 null
-        val mux = if (muxApplied) null else entity.singMux()
-        HopCore.Internal(outbound, mux?.asMap())
+        val multiplex = (if (muxApplied) null else entity.singMux())?.asMap()
+        // sing-box 加载期才做的格式类校验（BUG-001）：试建与提交后写进配置的同一份出站（只差占位的 tag / detour 与
+        // 构建绑的 domain_resolver，见 singBoxTrialJson），不过就抛 SingBoxTrialException
+        trials.require(SingBoxTrialKind.of(outbound), singBoxTrialJson(outbound, multiplex, bean, firstDialing))
+        HopCore.Internal(outbound, multiplex)
     }
     return HopPlan(entity, bean, choice, core, udpOverTcp(bean))
 }
@@ -253,7 +259,7 @@ internal fun planHop(
 // 端口与凭据，再定 tag、接线，写出站 / 入站 / 路由规则，登记外核跳数据与 trafficMap）。会失败的计算都在规划里，
 // 规划失败的链不留下任何输出；选择器成员与路由规则目标规划失败时整条跳过，提交用的就是通过的那份规划
 
-/** 规划一条链用的输入：都取自本次构建，规划只读它们（插件查询的记忆表与 probedHops 除外，两者只做记忆、不进输出）。 */
+/** 规划一条链用的输入：都取自本次构建，规划只读它们（插件查询与 sing-box 试建的记忆表、probedHops 除外，三者只做记忆、不进输出）。 */
 internal class ChainPlanContext(
     val data: ConfigSnapshot,
     /** 主节点所在分组的 id 与构建开头从快照读到的那一行（库里没有时为 null），见 [resolveChain]。 */
@@ -262,6 +268,8 @@ internal class ChainPlanContext(
     /** 设置里的全局「允许不安全」：影响选核、sing-box 出站的 TLS 与单跳检查。 */
     val globalAllowInsecure: Boolean,
     val plugins: PluginQueries,
+    /** 内部核心出站的 sing-box 试建，按（种类，JSON）记住结论（见 [SingBoxTrials]）。 */
+    val trials: SingBoxTrials,
     /** 展开链时的警告（缺失的成员、失效的前置 / 落地），只记日志。 */
     val warn: (String) -> Unit,
 )
@@ -271,7 +279,7 @@ internal class ChainPlan(val entity: ProxyEntity, val hops: List<HopPlan>)
 
 /**
  * 规划一条链：只展开一次链（[resolveChain]），做整链检查（[requireBuildableChain]），再按跳的顺序（从出口起）逐跳
- * 规划（[planHop]）。对构建状态是纯的：不分配端口、不生成凭据、不定 tag，不写任何输出（插件查询的记忆表与 probedHops 除外，两者只做记忆、不进输出）。
+ * 规划（[planHop]，内部核心跳在其中试建）。对构建状态是纯的：不分配端口、不生成凭据、不定 tag，不写任何输出（插件查询与 sing-box 试建的记忆表、probedHops 除外，三者只做记忆、不进输出）。
  *
  * 检查类报错的次序与以前相同：展开链（含前置 / 落地）、整链检查，然后逐跳，每跳先 planHop、再 checkHop；逐跳的
  * 报错经 withProfileName 包上该跳的节点名。分端口与生成凭据不在此列：它们在提交里，整条链规划通过之后才做，所以
@@ -280,7 +288,7 @@ internal class ChainPlan(val entity: ProxyEntity, val hops: List<HopPlan>)
  *
  * 最后一跳（最先拨号）已作为全局出站建过时，提交会复用它、不再写它，这里照样规划与检查。选择器成员与路由规则目标
  * 以前的预检也检查它；主节点的链复用的那一跳与第一次建它时出自快照里同一条记录，检查只取决于节点内容、设置与记住的
- * 插件查询结果，第一次已经通过，结果相同。
+ * 插件查询、试建结论，第一次已经通过，结果相同。
  */
 internal fun planChain(entity: ProxyEntity, context: ChainPlanContext, checkHop: (HopPlan) -> Unit = {}): ChainPlan {
     val globalAllowInsecure = context.globalAllowInsecure
@@ -295,7 +303,7 @@ internal fun planChain(entity: ProxyEntity, context: ChainPlanContext, checkHop:
         withProfileName(bean) {
             val hop = planHop(
                 hopEntity, bean, choices[index], index == profileList.lastIndex, muxApplied, globalAllowInsecure,
-                context.plugins,
+                context.plugins, context.trials,
             )
             if ((hop.core as? HopCore.Internal)?.multiplex != null) muxApplied = true
             checkHop(hop)

@@ -9,6 +9,11 @@ package io.nekohasekai.sagernet.fmt
 // CoreCapabilities.kt（SING_BOX_UTLS_FINGERPRINTS，选核阶段也用），这里只是预检的入口之一：TlsFields.kt 的
 // buildSingBoxOutboundTLS 按它预检后同样抛 UnsupportedSingBoxValueException。
 //
+// 与 sing-box 试建（SingBoxTrial.kt）的分工：两者都在 planHop 的内部核心分支里，名单预检先跑（建出站时），试建是
+// 最后一步、兜底。名单知道出错的是哪个字段，能回显形态合格的取值，报错更具体，而且 JVM 上也生效；试建覆盖名单
+// 管不到的加载期校验（证书、密钥等格式类错误），但只回传类别（DECODE 另附字段路径），从不回显取值。名单拦下的
+// 节点到不了试建；名单放过了 sing-box 不认的取值时（名单过期）由试建兜住，归 VALUE_SET 类别。
+//
 // 本文件的四份名单逐项抄自 vendored sing-box（SING_BOX_VALUE_SETS_VERSION）与它依赖的上游模块源码，模块版本取自
 // libcore/sing-box/go.mod（SING_BOX_VALUE_SET_MODULES）；CoreCapabilitiesTest 把两者与仓库里的版本绑定，升级
 // sing-box 或这些模块时测试先红，要回来逐项复核。名单都区分大小写（上游按字符串原样比较）。

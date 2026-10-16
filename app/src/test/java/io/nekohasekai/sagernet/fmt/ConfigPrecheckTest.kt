@@ -6,9 +6,11 @@ import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.database.RuleEntity
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
+import io.nekohasekai.sagernet.fmt.internal.ChainBean
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -17,7 +19,8 @@ import org.junit.rules.TemporaryFolder
 // 选择器成员 / 路由规则目标的规划检查（planChain 每跳之后的 ConfigBuild.checkMemberHop）的几条不变式，用
 // FakeConfigPlatform 的记录核对：
 // 试生成外核配置时建的临时文件构建结束时都已删除；预检不分配端口；选核判定与试生成用的是构建自己的设置；
-// 先试生成、后确认插件可用
+// 先试生成、后确认插件可用。另有内部核心跳的 sing-box 试建（planHop 里，三种根都做）：成员 / 规则目标不过时跳过、
+// 选中的节点不过时整次构建失败、同一份 JSON 一次构建只问一次、没有结论时放行且只告警一次
 class ConfigPrecheckTest {
 
     @get:Rule
@@ -69,13 +72,14 @@ class ConfigPrecheckTest {
     private fun build(
         main: ProxyEntity,
         source: MemoryConfigDataSource,
-        platform: FakeConfigPlatform,
+        platform: ConfigPlatform,
         settings: ConfigSettings = testConfigSettings(),
         diagnostics: MutableList<ConfigBuildDiagnostic> = ArrayList(),
+        mode: ConfigBuildMode = ConfigBuildMode.RUN,
     ): ConfigBuildResult {
         val record = ProfileRecord.of(main)
-        val snapshot = ConfigSnapshot.collect(source, record, ConfigBuildMode.RUN)
-        return buildConfig(ConfigInput(ConfigBuildMode.RUN, record, settings, snapshot, emptyMap(), platform), diagnostics)
+        val snapshot = ConfigSnapshot.collect(source, record, mode)
+        return buildConfig(ConfigInput(mode, record, settings, snapshot, emptyMap(), platform), diagnostics)
     }
 
     // 选择器分组 1：主节点 1（sing-box）、hysteria 1 成员 2、Xray 成员 3；分组 2 里的 hysteria 1 节点 7、
@@ -203,6 +207,144 @@ class ConfigPrecheckTest {
         assertEquals(2L, skipped.profileId)
         assertEquals("profile 2", skipped.profileName)
         assertEquals(setOf(1L), result.profileTagMap.keys)
+    }
+
+    // ---- sing-box 试建
+
+    // members 按用户填写的顺序：首个是最先拨号的一跳
+    private fun chain(id: Long, groupId: Long, vararg members: Long) =
+        ProxyEntity(id = id, groupId = groupId, userOrder = id).putBean(ChainBean().apply {
+            name = "chain-$id"
+            proxies = members.toList()
+            initializeDefaultValues()
+        })
+
+    // 选择器分组 1：主节点 1、socks 成员 2、链成员 4（分组 3 里的 REALITY 节点 8 最先拨号，走 Xray 经映射；socks 5 是出口）；
+    // 分组 2 里的 socks 7 是路由规则目标。只有 1、2、5、7 是内部核心跳
+    private fun trialSource() = MemoryConfigDataSource(
+        groups = listOf(ProxyGroup(id = 1, isSelector = true), ProxyGroup(id = 2), ProxyGroup(id = 3)),
+        profiles = listOf(main, socks(2, 1), chain(4, 1, 8, 5), socks(5, 3), socks(7, 2), vless(8, 3)),
+        rules = listOf(rule(1, outbound = 7)),
+    )
+
+    // 一次全部通过的构建实际发出的试建，按 server 找到某个节点的那一份（种类，JSON）
+    private fun trialOf(server: String): Pair<SingBoxTrialKind, String> {
+        val platform = FakeConfigPlatform()
+        build(main, trialSource(), platform)
+        return platform.trialQueries.single { JsonParser.parseString(it.second).asJsonObject.string("server") == server }
+    }
+
+    @Test
+    fun `成员与规则目标试建不过时跳过并记诊断，原因只有类别说明与字段路径；整条链规划失败不分端口`() {
+        // 链 4 的出口 socks 5 不是最先拨号的一跳，试建 JSON 带 detour 占位；表按实际发出的那份 JSON 匹配
+        val chainExit = trialOf("192.0.2.5")
+        assertEquals(SING_BOX_TRIAL_DETOUR, JsonParser.parseString(chainExit.second).asJsonObject.string("detour"))
+        val platform = FakeConfigPlatform(
+            trials = FakeConfigPlatform.trialTable(
+                mapOf(
+                    trialOf("192.0.2.2") to SingBoxTrialFailure(SingBoxTrialCategory.TLS_CERTIFICATE, null),
+                    chainExit to SingBoxTrialFailure(SingBoxTrialCategory.PASSWORD_MISSING, null),
+                    trialOf("192.0.2.7") to SingBoxTrialFailure(SingBoxTrialCategory.DECODE, "tls.certificate_path"),
+                ),
+            ),
+        )
+        val diagnostics = ArrayList<ConfigBuildDiagnostic>()
+        val result = build(main, trialSource(), platform, diagnostics = diagnostics)
+
+        val prefix = "sing-box rejected the outbound options: "
+        assertEquals(
+            listOf(
+                ConfigBuildDiagnostic.ProfileSkipped(2, "socks-2", "socks-2: ${prefix}certificate is not a valid PEM certificate", true),
+                // 出错的是链里的 socks 5，原因以它的名字开头，不是成员自己的名字
+                ConfigBuildDiagnostic.ProfileSkipped(4, "chain-4", "socks-5: ${prefix}password is empty", false),
+                ConfigBuildDiagnostic.ProfileSkipped(7, "socks-7", "socks-7: ${prefix}invalid option at tls.certificate_path", true),
+                // 规则目标被跳过，规则照旧记「目标缺失」
+                ConfigBuildDiagnostic.RuleOutboundMissing(1, "rule-1", 7),
+            ),
+            diagnostics,
+        )
+        assertEquals(
+            listOf(
+                "profile 2 skipped: ${ProfileBuildException::class.java.name}: socks-2: ${prefix}certificate is not a valid PEM certificate",
+                "profile 4 skipped: ${ProfileBuildException::class.java.name}: socks-5: ${prefix}password is empty",
+                "profile 7 skipped: ${ProfileBuildException::class.java.name}: socks-7: ${prefix}invalid option at tls.certificate_path",
+            ),
+            platform.warnings,
+        )
+        // 主节点照常；跳过的成员不进选择器，规则目标不建；链 4 的 Xray 跳没有分端口、没有外核条目
+        assertEquals(setOf(1L), result.profileTagMap.keys)
+        assertTrue(platform.ports.isEmpty())
+        assertTrue(ExternalRunPlan.from(result).hops.isEmpty())
+        val selector = JsonParser.parseString(result.config).asJsonObject.getAsJsonArray("outbounds")
+            .map { it.asJsonObject }.single { it.string("type") == "selector" }
+        assertEquals(listOf(result.profileTagMap.getValue(1)), selector.getAsJsonArray("outbounds").map { it.asString })
+    }
+
+    @Test
+    fun `选中的节点试建不过时运行、测试、导出三种模式都整次构建失败，不记诊断`() {
+        for (mode in ConfigBuildMode.entries) {
+            // 按 server 认主节点：三种模式下主节点的试建 JSON 未必逐字相同，这里只关心它被拦下
+            val platform = FakeConfigPlatform(trials = { _, json ->
+                if (JsonParser.parseString(json).asJsonObject.string("server") == "192.0.2.1") {
+                    SingBoxTrialFailure(SingBoxTrialCategory.SS_KEY_LENGTH, null)
+                } else {
+                    null
+                }
+            })
+            val diagnostics = ArrayList<ConfigBuildDiagnostic>()
+            val e = assertThrows(ProfileBuildException::class.java) {
+                build(main, trialSource(), platform, diagnostics = diagnostics, mode = mode)
+            }
+            assertEquals(
+                "$mode",
+                "socks-1: sing-box rejected the outbound options: Shadowsocks 2022 key length does not match the method",
+                e.message,
+            )
+            assertTrue("$mode", e.cause is SingBoxTrialException)
+            assertTrue("$mode", diagnostics.isEmpty())
+            assertTrue("$mode", platform.ports.isEmpty())
+        }
+    }
+
+    @Test
+    fun `同一份试建 JSON 一次构建只问一次平台`() {
+        // 选择器分组 1 带前置 socks 9（分组 2）：主节点与两个成员的链都以它最先拨号，三次规划出同一份 JSON
+        val source = MemoryConfigDataSource(
+            groups = listOf(ProxyGroup(id = 1, isSelector = true, frontProxy = 9), ProxyGroup(id = 2)),
+            profiles = listOf(main, socks(2, 1), socks(3, 1), socks(9, 2)),
+            rules = emptyList(),
+        )
+        val platform = FakeConfigPlatform()
+        val diagnostics = ArrayList<ConfigBuildDiagnostic>()
+        val result = build(main, source, platform, diagnostics = diagnostics)
+        assertTrue(diagnostics.isEmpty())
+        assertEquals(setOf(1L, 2L, 3L), result.profileTagMap.keys)
+        val servers = platform.trialQueries.map { JsonParser.parseString(it.second).asJsonObject.string("server") }
+        assertEquals(listOf("192.0.2.1", "192.0.2.9", "192.0.2.2", "192.0.2.3"), servers)
+        assertEquals(platform.trialQueries.size, platform.trialQueries.toSet().size)
+    }
+
+    @Test
+    fun `试建没有结论时放行，每种只告警一次`() {
+        // 平台照 Android 实现的样子经 SingBoxTrialResultReader 读 libcore 的返回值：成员 2 的构造 panic，其余基础实例建不起来
+        val fake = FakeConfigPlatform()
+        val platform = object : ConfigPlatform by fake {
+            private val reader = SingBoxTrialResultReader { fake.warn(it) }
+            override fun trialSingBoxOutbound(kind: SingBoxTrialKind, json: String): SingBoxTrialFailure? {
+                fake.trialQueries += kind to json
+                val server = JsonParser.parseString(json).asJsonObject.string("server")
+                return reader.read(if (server == "192.0.2.2") "PANIC" else "UNAVAILABLE")
+            }
+        }
+        val diagnostics = ArrayList<ConfigBuildDiagnostic>()
+        val result = build(main, trialSource(), platform, diagnostics = diagnostics)
+        assertTrue(diagnostics.isEmpty())
+        assertEquals(setOf(1L, 2L, 4L, 7L), result.profileTagMap.keys)
+        assertEquals(4, fake.trialQueries.size)
+        assertEquals(
+            listOf("sing-box outbound trial gave no verdict: UNAVAILABLE", "sing-box outbound trial gave no verdict: PANIC"),
+            fake.warnings,
+        )
     }
 
     private fun JsonObject.string(key: String): String? = get(key)?.takeIf { it.isJsonPrimitive }?.asString
