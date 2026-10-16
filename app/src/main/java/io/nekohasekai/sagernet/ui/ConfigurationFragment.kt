@@ -41,7 +41,6 @@ import io.nekohasekai.sagernet.ktx.snackbar
 import io.nekohasekai.sagernet.ktx.startFilesForResult
 import io.nekohasekai.sagernet.ktx.writeToDocument
 import io.nekohasekai.sagernet.ui.profile.settingActivityOf
-import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.EditorCache
 
 class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
@@ -283,7 +282,7 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
         }
 
     suspend fun import(proxies: List<AbstractBean>) {
-        val targetId = GroupManager.selectedGroupForImport()
+        val targetId = GroupRepository.selectedGroupForImport()
         ProfileRepository.createProfiles(targetId, proxies)
         onMainDispatcher {
             // Same tab switch the PROFILE_GROUP cache listener performs; the
@@ -345,7 +344,7 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
             R.id.action_update_subscription -> {
                 // currentGroup 有读库兜底，不能留在主线程
                 runOnDefaultDispatcher {
-                    val group = GroupManager.currentGroup()
+                    val group = GroupRepository.currentGroup()
                     if (group.type != GroupType.SUBSCRIPTION) {
                         Logs.e("onMenuItemClick: Group(${group.displayName()}) is not subscription")
                         showSnackbar(R.string.group_not_subscription)

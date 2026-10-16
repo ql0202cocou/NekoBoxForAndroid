@@ -53,9 +53,8 @@ class PreferenceProxy<T>(
 
     operator fun setValue(thisObj: Any?, property: KProperty<*>, value: T) = setter(name, value)
 
-    // 惰性默认值：getter 只探测已存的值（null = 缺失），命中时不再求值
-    // defaultValue —— selectedGroup 的默认值带锁 + DAO 查询，key 已存在时
-    // 白跑一次的代价远高于一次空读
+    // 惰性默认值：getter 只探测已存的值（null = 缺失），命中时不再求值 defaultValue。
+    // 默认值不要读节点库：委托属性在主线程上也会被读
     operator fun getValue(thisObj: Any?, property: KProperty<*>) = getter(name) ?: defaultValue()
 
 }

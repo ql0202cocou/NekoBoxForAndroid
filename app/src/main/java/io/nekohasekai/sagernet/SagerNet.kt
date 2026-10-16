@@ -36,6 +36,8 @@ import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.utils.*
 import kotlinx.coroutines.DEBUG_PROPERTY_NAME
 import kotlinx.coroutines.DEBUG_PROPERTY_VALUE_ON
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import libcore.Libcore
 import moe.matsuri.nb4a.NativeInterface
 import moe.matsuri.nb4a.net.LocalResolverImpl
@@ -82,15 +84,22 @@ class SagerNet : Application(),
             // Finish a restore interrupted between its two database commits before
             // anything reads either database; the same lock then settles the
             // per-install marker so both processes agree on the Clash secret.
+            // 重放与安装标记都要读写节点库，而节点库不许在主线程查（SagerDatabase 不开 allowMainThreadQueries）：
+            // 确实要做时交给 IO 线程，主线程在这里等它做完——两个库在此之前本来就不能被读，等待照旧。
+            // 平常两项都只是一次文件检查，不切线程
             val restoreReplayed = try {
                 val journal = RestoreJournal.default
-                val result = journal.completePending { content, profile, rule, setting ->
-                    BackupRestore.commit(BackupRestore.decode(content, profile, rule, setting), null)
+                val result = if (!journal.isPending()) RestoreJournal.Result.NONE else runBlocking(Dispatchers.IO) {
+                    journal.completePending { content, profile, rule, setting ->
+                        BackupRestore.commit(BackupRestore.decode(content, profile, rule, setting), null)
+                    }
                 }
                 if (result == RestoreJournal.Result.GAVE_UP && isMainProcess) {
                     Toast.makeText(this, R.string.restore_replay_failed, Toast.LENGTH_LONG).show()
                 }
-                if (InstallMarker.isMissing()) journal.withLock { InstallMarker.ensure() }
+                if (InstallMarker.isMissing()) runBlocking(Dispatchers.IO) {
+                    journal.withLock { InstallMarker.ensure() }
+                }
                 result == RestoreJournal.Result.REPLAYED
             } catch (e: Exception) {
                 Logs.w(e)

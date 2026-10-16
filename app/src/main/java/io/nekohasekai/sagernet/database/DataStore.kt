@@ -24,7 +24,9 @@ object DataStore {
     var currentProfile by configurationStore.long(Key.PROFILE_CURRENT)
 
     var selectedProxy by configurationStore.long(Key.PROFILE_ID)
-    var selectedGroup by configurationStore.long(Key.PROFILE_GROUP) { GroupManager.currentGroupId() } // "ungrouped" group id = 1
+    // 缺值时是 -1（还没选过分组），读它不查节点库：主线程（配置页）也在读。真正的当前分组由
+    // GroupRepository.currentGroup / currentGroupId 在后台算出并写回这里（配置页首次载入分组列表时就会写）
+    var selectedGroup by configurationStore.long(Key.PROFILE_GROUP) { -1L }
 
     // main
 

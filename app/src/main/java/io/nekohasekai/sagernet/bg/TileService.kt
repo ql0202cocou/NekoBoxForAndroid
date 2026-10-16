@@ -6,6 +6,8 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.ISagerNetService
 import io.nekohasekai.sagernet.database.ProfileManager
+import io.nekohasekai.sagernet.ktx.onMainDispatcher
+import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import android.service.quicksettings.TileService as BaseTileService
 
 class TileService : BaseTileService(), SagerConnection.Callback {
@@ -28,9 +30,21 @@ class TileService : BaseTileService(), SagerConnection.Callback {
         }
     }
 
+    // 只在主线程读写：磁贴当前显示的状态，与最近一次选择器切换的序号
+    private var shownState = BaseService.State.Idle
+    private var selectorUpdates = 0
+
     override fun cbSelectorUpdate(id: Long) {
-        val profile = ProfileManager.getProfile(id) ?: return
-        updateTile(BaseService.State.Connected, profile.displayName())
+        // 节点名要查库，:bg 的主线程不能查：后台读完再回主线程更新。读库期间又切了节点、或服务已不在
+        // Connected（停止的回调先到了），这次结果作废，不把旧名字或「已连接」盖回去
+        val update = ++selectorUpdates
+        runOnDefaultDispatcher {
+            val name = ProfileManager.getProfile(id)?.displayName() ?: return@runOnDefaultDispatcher
+            onMainDispatcher {
+                if (update != selectorUpdates || shownState != BaseService.State.Connected) return@onMainDispatcher
+                updateTile(BaseService.State.Connected, name)
+            }
+        }
     }
 
     override fun onStartListening() {
@@ -51,6 +65,7 @@ class TileService : BaseTileService(), SagerConnection.Callback {
     }
 
     private fun updateTile(serviceState: BaseService.State, profileName: String?) {
+        shownState = serviceState
         qsTile?.apply {
             label = null
             when (serviceState) {

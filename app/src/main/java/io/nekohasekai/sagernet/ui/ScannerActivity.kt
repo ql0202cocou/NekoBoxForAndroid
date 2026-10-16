@@ -26,7 +26,7 @@ import com.king.zxing.analyze.QRCodeAnalyzer
 import com.king.zxing.util.CodeUtils
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.database.ProfileManager
+import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.databinding.LayoutScannerBinding
 import io.nekohasekai.sagernet.group.RawUpdater
 import io.nekohasekai.sagernet.ktx.*
@@ -37,7 +37,7 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.max
 import kotlin.math.roundToInt
-import io.nekohasekai.sagernet.database.GroupManager
+import io.nekohasekai.sagernet.database.GroupRepository
 
 
 class ScannerActivity : ThemedActivity(),
@@ -142,11 +142,11 @@ class ScannerActivity : ThemedActivity(),
         val results = RawUpdater.parseRaw(text)
             ?.takeIf { it.isNotEmpty() }
             ?: error(app.getString(R.string.action_import_err))
-        val currentGroupId = GroupManager.selectedGroupForImport()
+        val currentGroupId = GroupRepository.selectedGroupForImport()
         if (DataStore.selectedGroup != currentGroupId) {
             DataStore.selectedGroup = currentGroupId
         }
-        ProfileManager.createProfiles(currentGroupId, results)
+        ProfileRepository.createProfiles(currentGroupId, results)
         return results.size
     }
 

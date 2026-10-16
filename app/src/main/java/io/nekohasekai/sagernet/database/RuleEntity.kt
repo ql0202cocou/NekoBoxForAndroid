@@ -52,13 +52,14 @@ data class RuleEntity(
         }
     }
 
-    fun displayOutbound(): String {
+    // profileName：出站指定节点时那个节点的名字（RuleRepository.outboundProfileNames 在后台查好），
+    // 节点已不存在时为 null。本函数不查库，可在主线程绑定视图时调用
+    fun displayOutbound(profileName: String?): String {
         return when (outbound) {
             0L -> app.getString(R.string.route_proxy)
             -1L -> app.getString(R.string.route_bypass)
             -2L -> app.getString(R.string.route_block)
-            else -> ProfileManager.getProfile(outbound)?.displayName()
-                ?: app.getString(R.string.error_title)
+            else -> profileName ?: app.getString(R.string.error_title)
         }
     }
 
@@ -105,3 +106,7 @@ data class RuleEntity(
 
 
 }
+
+// 规则出站里指定的节点 id（outbound > 0，0 / -1 / -2 是代理 / 直连 / 阻断），去重、保持出现顺序
+internal fun profileOutboundIds(rules: Collection<RuleEntity>): List<Long> =
+    rules.asSequence().map { it.outbound }.filter { it > 0L }.distinct().toList()

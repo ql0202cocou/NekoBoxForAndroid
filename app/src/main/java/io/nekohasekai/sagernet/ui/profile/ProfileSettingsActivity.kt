@@ -9,10 +9,10 @@ import android.os.Bundle
 import android.os.Parcelable
 import android.view.Menu
 import android.view.MenuItem
-import android.view.View
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.component1
 import androidx.activity.result.component2
 import androidx.activity.result.contract.ActivityResultContracts
@@ -38,9 +38,7 @@ import com.github.shadowsocks.plugin.fragment.AlertDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.*
 import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.GroupRepository
-import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
@@ -67,7 +65,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             setTitle(R.string.delete_confirm_prompt)
             setPositiveButton(R.string.yes) { _, _ ->
                 runOnDefaultDispatcher {
-                    ProfileManager.deleteProfile(arg.groupId, arg.profileId)
+                    ProfileRepository.deleteProfile(arg.groupId, arg.profileId)
                 }
                 requireActivity().finish()
             }
@@ -92,7 +90,32 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
     protected suspend fun awaitEditorReady() = editorReady.await()
 
-    val proxyEntity by lazy { ProfileRepository.getProfile(EditorCache.editingId) }
+    // 正在编辑的那一行，新建节点时为 null。onCreate 里在后台载入一次，主线程不查库：载入完成前这里是 null，
+    // 要用它的地方先 awaitProxyEntity()
+    @Volatile
+    var proxyEntity: ProxyEntity? = null
+        private set
+    private val proxyEntityLoad = CompletableDeferred<ProxyEntity?>()
+
+    suspend fun awaitProxyEntity(): ProxyEntity? = proxyEntityLoad.await()
+
+    // 不挂在页面生命周期上：保存跑在 appScope 里等这个结果，页面在载入途中被销毁也不能让它一直等。
+    // 读库抛出的异常交给每个等待方（与原先 lazy 求值时抛给读取方相同）
+    private fun startProxyEntityLoad(editingId: Long) {
+        if (editingId == 0L) {
+            proxyEntityLoad.complete(null)
+            return
+        }
+        runOnDefaultDispatcher {
+            try {
+                val entity = ProfileRepository.getProfile(editingId)
+                proxyEntity = entity
+                proxyEntityLoad.complete(entity)
+            } catch (e: Throwable) {
+                proxyEntityLoad.completeExceptionally(e)
+            }
+        }
+    }
 
     // action_move 的可见性要查库得出；onCreate 末尾异步预取后由
     // invalidateOptionsMenu 应用，默认值与菜单 XML 一致（隐藏）
@@ -100,15 +123,17 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
     override fun onCreate(savedInstanceState: Bundle?) {
         beginEditorSession(savedInstanceState)
-        // Before super.onCreate(): a restored MyPreferenceFragmentCompat runs
-        // createPreferences() from there, and the StandardV2Ray editor reads the
-        // lazy proxyEntity in it — with the in-memory cache gone after process
-        // death editingId would still be 0 and null would be cached for good.
+        // 在 super.onCreate() 之前写：恢复的 MyPreferenceFragmentCompat 从那里执行 createPreferences()，
+        // 进程死亡后内存里的缓存已清空，不先写的话 editingId 仍是 0
         if (ownsEditorSession) {
             EditorCache.editingId = intent.getLongExtra(EXTRA_PROFILE_ID, 0L)
         }
         super.onCreate(savedInstanceState)
-        if (finishIfEditorSessionLost()) return
+        if (finishIfEditorSessionLost()) {
+            proxyEntityLoad.complete(null)
+            return
+        }
+        startProxyEntityLoad(EditorCache.editingId)
         setSupportActionBar(findViewById(R.id.toolbar))
         supportActionBar?.apply {
             setTitle(R.string.profile_config)
@@ -127,23 +152,24 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             lifecycleScope.launch(Dispatchers.Default) {
                 if (!holdsEditorSession()) return@launch
                 if (editingId == 0L) {
-                    EditorCache.editingGroup = GroupManager.selectedGroupForImport()
+                    EditorCache.editingGroup = GroupRepository.selectedGroupForImport()
                     createEntity().applyDefaultValues().init()
                     EditorCache.profileCacheStore.putString(
                         Key.PROFILE_CORE, ProxyEntity.CORE_AUTO.toString()
                     )
                 } else {
-                    if (proxyEntity == null) {
+                    val entity = awaitProxyEntity()
+                    if (entity == null) {
                         onMainDispatcher {
                             finish()
                         }
                         editorReady.cancel()
                         return@launch
                     }
-                    EditorCache.editingGroup = proxyEntity!!.groupId
-                    (proxyEntity!!.requireBean() as T).init()
+                    EditorCache.editingGroup = entity.groupId
+                    (entity.requireBean() as T).init()
                     EditorCache.profileCacheStore.putString(
-                        Key.PROFILE_CORE, proxyEntity!!.core.toString()
+                        Key.PROFILE_CORE, entity.core.toString()
                     )
                 }
 
@@ -163,9 +189,6 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         // （会话被接管时 onCreate 早已返回，走不到这里）
         lifecycleScope.launch(Dispatchers.Default) {
             awaitEditorReady()
-            // proxyEntity 是 lazy，首次求值要查库；先在后台算好，
-            // 菜单回调（创建快捷方式/移动分组）再读就是缓存命中
-            if (EditorCache.editingId != 0L) proxyEntity
             canMoveProfile = EditorCache.editingId != 0L // 非新建
                     && GroupRepository.getGroup(EditorCache.editingGroup)?.type == GroupType.BASIC // 不在订阅组
                     && GroupRepository.getAllGroups()
@@ -236,18 +259,19 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         val editingId = EditorCache.editingId
         if (editingId == 0L) {
             val editingGroup = EditorCache.editingGroup
-            ProfileManager.createProfile(
+            ProfileRepository.createProfile(
                 editingGroup, createEntity().apply { serialize() }, profileCore
             )
         } else {
-            if (proxyEntity == null) {
+            val entity = awaitProxyEntity()
+            if (entity == null) {
                 finish()
                 return
             }
-            if (proxyEntity!!.id == DataStore.selectedProxy) {
+            if (entity.id == DataStore.selectedProxy) {
                 SagerNet.stopService()
             }
-            val saved = ProfileManager.updateProfile(proxyEntity!!.apply {
+            val saved = ProfileRepository.updateProfile(entity.apply {
                 core = profileCore
                 (requireBean() as T).serialize()
             })
@@ -300,67 +324,59 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             findPreference<EditTextPreference>(Key.SERVER_PORT)?.bindPortPreference()
         }
 
-        override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-            super.onViewCreated(view, savedInstanceState)
-            // 重新挂上自定义 JSON 回调：重建后 ConfigEditActivity 的结果会送到这个新实例，
-            // 而菜单处理里设的回调随旧实例一起没了
-            profileActivity?.proxyEntity?.requireBean()?.let { bean ->
-                callbackCustom = { bean.customConfigJson = it }
-                callbackCustomOutbound = { bean.customOutboundJson = it }
+        // ConfigEditActivity 改完的 JSON 写回正在编辑的那一行的 bean，保存时随它一起写库。重建（旋转、进程死亡）后
+        // 结果会送到新实例，这时节点可能还在后台载入，等载入完成再写；新建节点没有这两项菜单，结果直接丢弃
+        private fun applyEditedJson(json: String, apply: (AbstractBean, String) -> Unit) {
+            val activity = profileActivity ?: return
+            lifecycleScope.launch {
+                activity.awaitProxyEntity()?.requireBean()?.let { apply(it, json) }
             }
         }
-
-        var callbackCustom: ((String) -> Unit)? = null
-        var callbackCustomOutbound: ((String) -> Unit)? = null
 
         val resultCallbackCustom = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { (_, _) ->
-            callbackCustom?.let { it(EditorCache.serverCustom) }
+            applyEditedJson(EditorCache.serverCustom) { bean, json -> bean.customConfigJson = json }
         }
 
         val resultCallbackCustomOutbound = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { (_, _) ->
-            callbackCustomOutbound?.let { it(EditorCache.serverCustomOutbound) }
+            applyEditedJson(EditorCache.serverCustomOutbound) { bean, json -> bean.customOutboundJson = json }
+        }
+
+        // 用正在编辑的那一行的 bean 打开 JSON 编辑页；节点还在后台载入时等它（菜单回调在主线程，不能查库）
+        private fun launchJsonEditor(
+            key: String,
+            seed: (AbstractBean) -> Unit,
+            launcher: ActivityResultLauncher<Intent>,
+        ) {
+            val activity = profileActivity ?: return
+            lifecycleScope.launch {
+                val bean = activity.awaitProxyEntity()?.requireBean() ?: return@launch
+                // seeding the editor is not an edit: keep dirty as it was
+                val dirty = EditorCache.dirty
+                seed(bean)
+                EditorCache.dirty = dirty
+                launcher.launch(Intent(requireContext(), ConfigEditActivity::class.java).apply {
+                    putExtra("key", key)
+                })
+            }
         }
 
         @SuppressLint("CheckResult")
         override fun onMenuItemSelected(item: MenuItem) = when (item.itemId) {
             R.id.action_custom_outbound_json -> {
-                profileActivity?.proxyEntity?.apply {
-                    val bean = requireBean()
-                    // seeding the editor is not an edit: keep dirty as it was
-                    val dirty = EditorCache.dirty
-                    EditorCache.serverCustomOutbound = bean.customOutboundJson
-                    EditorCache.dirty = dirty
-                    callbackCustomOutbound = { bean.customOutboundJson = it }
-                    resultCallbackCustomOutbound.launch(
-                        Intent(
-                            requireContext(),
-                            ConfigEditActivity::class.java
-                        ).apply {
-                            putExtra("key", Key.SERVER_CUSTOM_OUTBOUND)
-                        })
-                }
+                launchJsonEditor(Key.SERVER_CUSTOM_OUTBOUND, {
+                    EditorCache.serverCustomOutbound = it.customOutboundJson
+                }, resultCallbackCustomOutbound)
                 true
             }
 
             R.id.action_custom_config_json -> {
-                profileActivity?.proxyEntity?.apply {
-                    val bean = requireBean()
-                    val dirty = EditorCache.dirty
-                    EditorCache.serverCustom = bean.customConfigJson
-                    EditorCache.dirty = dirty
-                    callbackCustom = { bean.customConfigJson = it }
-                    resultCallbackCustom.launch(
-                        Intent(
-                            requireContext(),
-                            ConfigEditActivity::class.java
-                        ).apply {
-                            putExtra("key", Key.SERVER_CUSTOM)
-                        })
-                }
+                launchJsonEditor(Key.SERVER_CUSTOM, {
+                    EditorCache.serverCustom = it.customConfigJson
+                }, resultCallbackCustom)
                 true
             }
 
@@ -369,7 +385,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                 // proxyEntity 是打开编辑器时读的缓存，编辑期间节点可能已被订阅更新删掉：
                 // 在后台重查一次，免得固定一个指向已删节点的快捷方式
                 lifecycleScope.launch(Dispatchers.Default) {
-                    val ent = activity.proxyEntity?.let { ProfileRepository.getProfile(it.id) }
+                    val ent = activity.awaitProxyEntity()?.let { ProfileRepository.getProfile(it.id) }
                     onMainDispatcher {
                         if (ent == null) {
                             Toast.makeText(activity, R.string.deleted_profile, Toast.LENGTH_LONG).show()
@@ -399,13 +415,15 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                 val activity = requireActivity() as ProfileSettingsActivity<*>
 
                 fun showMoveDialog() {
-                    // 编辑期间节点可能被订阅更新删掉；与 saveAndExit 的判空同理
-                    val ent = activity.proxyEntity
-                    if (ent == null) {
-                        Toast.makeText(activity, R.string.deleted_profile, Toast.LENGTH_LONG).show()
-                        return
-                    }
                     lifecycleScope.launch(Dispatchers.Default) {
+                        // 编辑期间节点可能被订阅更新删掉；与 saveAndExit 的判空同理。节点在后台载入，还没载完时等它
+                        val ent = activity.awaitProxyEntity()
+                        if (ent == null) {
+                            onMainDispatcher {
+                                Toast.makeText(activity, R.string.deleted_profile, Toast.LENGTH_LONG).show()
+                            }
+                            return@launch
+                        }
                         val groups = GroupRepository.getAllGroups()
                             .filter { it.type == GroupType.BASIC && it.id != ent.groupId }
                         onMainDispatcher {
@@ -426,11 +444,11 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                                             runOnDefaultDispatcher {
                                                 val oldGroupId = ent.groupId
                                                 val newGroupId = group.id
-                                                val moved = ProfileManager.moveProfile(ent.id, newGroupId)
+                                                val moved = ProfileRepository.moveProfile(ent.id, newGroupId)
                                                     ?: return@runOnDefaultDispatcher
                                                 activity.proxyEntity?.groupId = moved.groupId
-                                                GroupManager.postUpdate(oldGroupId) // reload
-                                                GroupManager.postUpdate(newGroupId)
+                                                GroupRepository.postUpdate(oldGroupId) // reload
+                                                GroupRepository.postUpdate(newGroupId)
                                                 // 移动期间缓存可能已被别的编辑器接管：节点照样移动，只是不再往缓存里写
                                                 if (activity.holdsEditorSession()) {
                                                     EditorCache.editingGroup = newGroupId // post switch animation

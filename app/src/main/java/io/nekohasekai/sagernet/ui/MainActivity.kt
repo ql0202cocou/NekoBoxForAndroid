@@ -33,8 +33,8 @@ import io.nekohasekai.sagernet.aidl.TrafficData
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.bg.SagerConnection
 import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.database.GroupManager
-import io.nekohasekai.sagernet.database.ProfileManager
+import io.nekohasekai.sagernet.database.GroupRepository
+import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.databinding.LayoutMainBinding
 import io.nekohasekai.sagernet.fmt.PluginEntry
@@ -113,7 +113,7 @@ class MainActivity : ThemedActivity(),
         changeState(BaseService.State.Idle)
         connection.connect(this, this)
         DataStore.configurationStore.registerChangeListener(this)
-        GroupManager.userInterface = GroupInterfaceAdapter(this)
+        GroupRepository.userInterface = GroupInterfaceAdapter(this)
 
         if (savedInstanceState == null && intent?.action == Intent.ACTION_VIEW) {
             onNewIntent(intent)
@@ -336,7 +336,7 @@ class MainActivity : ThemedActivity(),
     ) {
         ServiceRegistry.state = state
         // 停止时终值已随 postFinalTraffic 落库，缓存的实时流量不再需要
-        if (state == BaseService.State.Stopped) ProfileManager.liveTraffic.clear()
+        if (state == BaseService.State.Stopped) ProfileRepository.liveTraffic.clear()
 
         binding.fab.changeState(state, animate)
         val statsAllowed = binding.stats.allowShow
@@ -387,7 +387,7 @@ class MainActivity : ThemedActivity(),
 
     override fun cbTrafficUpdate(data: TrafficData) {
         runOnDefaultDispatcher {
-            ProfileManager.postUpdate(data)
+            ProfileRepository.postUpdate(data)
         }
     }
 
@@ -396,8 +396,8 @@ class MainActivity : ThemedActivity(),
         DataStore.selectedProxy = id
         DataStore.currentProfile = id
         runOnDefaultDispatcher {
-            ProfileManager.postUpdate(old)
-            ProfileManager.postUpdate(id)
+            ProfileRepository.postUpdate(old)
+            ProfileRepository.postUpdate(id)
         }
     }
 
@@ -427,7 +427,7 @@ class MainActivity : ThemedActivity(),
 
     override fun onDestroy() {
         super.onDestroy()
-        GroupManager.userInterface = null
+        GroupRepository.userInterface = null
         DataStore.configurationStore.unregisterChangeListener(this)
         connection.disconnect(this)
     }

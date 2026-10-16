@@ -140,11 +140,18 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
     inner class RuleAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>(), ProfileManager.RuleListener, UndoSnackbarManager.Interface<RuleEntity> {
 
         val ruleList = ArrayList<RuleEntity>()
+
+        // 出站指定节点的规则要显示的节点名，键是节点 id；只在主线程读写，名字在后台查好再放进来，绑定时不查库
+        private val outboundNames = HashMap<Long, String>()
+
         suspend fun reload() {
             val rules = RuleRepository.getRules()
+            val names = RuleRepository.outboundProfileNames(rules)
             ruleListView.post {
                 ruleList.clear()
                 ruleList.addAll(rules)
+                outboundNames.clear()
+                outboundNames.putAll(names)
                 ruleAdapter.notifyDataSetChanged()
             }
         }
@@ -217,7 +224,10 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
         }
 
         override suspend fun onAdd(rule: RuleEntity) {
+            // 监听器跑在调用方的后台线程上，节点名在这里查
+            val names = RuleRepository.outboundProfileNames(listOf(rule))
             ruleListView.post {
+                outboundNames.putAll(names)
                 ruleList.add(rule)
                 ruleAdapter.notifyItemInserted(ruleList.size - 1)
                 needReload()
@@ -228,7 +238,9 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
             // These callbacks run on the caller's (background) dispatcher while
             // drag-sorting mutates ruleList on the main thread; only touch the
             // list in post.
+            val names = RuleRepository.outboundProfileNames(listOf(rule))
             ruleListView.post {
+                outboundNames.putAll(names)
                 val index = ruleList.indexOfFirst { it.id == rule.id }
                 if (index == -1) return@post
                 ruleList[index] = rule
@@ -276,7 +288,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
                 rule = ruleEntity
                 profileName.text = ruleEntity.displayName()
                 profileType.text = ruleEntity.mkSummary()
-                routeOutbound.text = ruleEntity.displayOutbound()
+                routeOutbound.text = ruleEntity.displayOutbound(outboundNames[ruleEntity.outbound])
                 itemView.setOnClickListener {
                     enableSwitch.performClick()
                 }

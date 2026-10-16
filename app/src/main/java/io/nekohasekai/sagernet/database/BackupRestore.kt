@@ -245,9 +245,8 @@ object BackupRestore {
     // settings-only or profiles-only import): currentGroupId() trusts any
     // positive value and the configuration page would stay blank; the service
     // would try to start a missing profile.
-    // 两个清理函数都不带惰性默认值副作用，可以在 RestoreJournal 文件锁持有
-    // 期间（completePending 重放）和 PublicDatabase 事务内安全调用；
-    // selectedGroup 为何不能走委托属性，见 GroupManager.resetSelectedGroupIfGone
+    // 两个清理函数都只读选择、不建分组，可以在 RestoreJournal 文件锁持有
+    // 期间（completePending 重放）和 PublicDatabase 事务内安全调用
     private fun fixDanglingSelections() {
         GroupManager.resetSelectedGroupIfGone()
         ProfileManager.clearSelectedProxyIfGone()

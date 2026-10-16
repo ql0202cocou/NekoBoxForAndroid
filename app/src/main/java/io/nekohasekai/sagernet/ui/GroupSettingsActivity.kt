@@ -205,7 +205,7 @@ class GroupSettingsActivity(
             setTitle(R.string.delete_group_prompt)
             setPositiveButton(R.string.yes) { _, _ ->
                 runOnDefaultDispatcher {
-                    GroupManager.deleteGroup(arg.groupId)
+                    GroupRepository.deleteGroup(arg.groupId)
                 }
                 requireActivity().finish()
             }
@@ -281,7 +281,7 @@ class GroupSettingsActivity(
             return
         }
         if (editingId == 0L) {
-            GroupManager.createGroup(ProxyGroup().apply { serialize() })
+            GroupRepository.createGroup(ProxyGroup().apply { serialize() })
         } else if (needSave()) {
             val entity = GroupRepository.getGroup(EditorCache.editingId)
             if (entity == null) {
@@ -302,7 +302,7 @@ class GroupSettingsActivity(
                 entity.subscription?.bytesRemaining = 0L
                 entity.subscription?.expiryDate = 0L
             }
-            GroupManager.updateGroup(
+            GroupRepository.updateGroup(
                 entity.apply { serialize() }, preserveSubscriptionRuntime = keepUserInfo
             )
         }

@@ -15,7 +15,7 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.TrafficData
 import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.database.ProfileManager
+import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.displayType
 import io.nekohasekai.sagernet.fmt.toUniversalLink
@@ -97,7 +97,7 @@ class ConfigurationHolder(
                     }
 
                     if (update) {
-                        ProfileManager.postUpdate(lastSelected)
+                        ProfileRepository.postUpdate(lastSelected)
                         if (ServiceRegistry.state.canStop && groupFragment.reloadAccess.tryLock()) {
                             // reloadService 抛异常时也要还锁，否则锁永远挂着，
                             // 之后点选节点都不再触发 reload
@@ -123,7 +123,7 @@ class ConfigurationHolder(
         profileType.text = proxyEntity.displayType()
         profileType.setTextColor(groupFragment.requireContext().getProtocolColor())
 
-        bindTraffic(ProfileManager.liveTraffic[proxyEntity.id])
+        bindTraffic(ProfileRepository.liveTraffic[proxyEntity.id])
         fadeStatus = false
 
         editButton.setOnClickListener {
@@ -284,6 +284,36 @@ class ConfigurationHolder(
         (groupFragment.activity as MainActivity).snackbar(exportToClipboard(link)).show()
     }
 
+    // 导出配置走构建流程，要读节点库（buildConfig），不能在主线程做：后台生成，回主线程复制或选文件。
+    // 失败的提示与菜单里其它导出项相同
+    private fun exportConfig(toFile: Boolean) {
+        val entity = entity
+        runOnDefaultDispatcher {
+            val cfg = try {
+                entity.exportConfig()
+            } catch (e: Exception) {
+                Logs.w(e)
+                onMainDispatcher {
+                    if (groupFragment.isAdded) {
+                        (groupFragment.activity as MainActivity).snackbar(e.readableMessage).show()
+                    }
+                }
+                return@runOnDefaultDispatcher
+            }
+            onMainDispatcher {
+                // 生成期间页面可能已离开
+                if (!groupFragment.isAdded) return@onMainDispatcher
+                if (toFile) {
+                    val configuration = groupFragment.parentFragment as ConfigurationFragment
+                    configuration.pendingExportConfig = cfg.first
+                    groupFragment.startFilesForResult(configuration.exportConfig, cfg.second)
+                } else {
+                    export(cfg.first)
+                }
+            }
+        }
+    }
+
     override fun onMenuItemClick(item: MenuItem): Boolean {
         try {
             currentName = entity.displayName()!!
@@ -295,15 +325,8 @@ class ConfigurationHolder(
                     entity.requireBean().toUniversalLink()
                 )
 
-                R.id.action_config_export_clipboard -> export(entity.exportConfig().first)
-                R.id.action_config_export_file -> {
-                    val cfg = entity.exportConfig()
-                    (groupFragment.parentFragment as ConfigurationFragment).pendingExportConfig =
-                        cfg.first
-                    groupFragment.startFilesForResult(
-                        (groupFragment.parentFragment as ConfigurationFragment).exportConfig, cfg.second
-                    )
-                }
+                R.id.action_config_export_clipboard -> exportConfig(toFile = false)
+                R.id.action_config_export_file -> exportConfig(toFile = true)
             }
         } catch (e: Exception) {
             Logs.w(e)

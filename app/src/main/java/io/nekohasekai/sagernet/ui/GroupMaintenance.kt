@@ -2,7 +2,7 @@ package io.nekohasekai.sagernet.ui
 
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
-import io.nekohasekai.sagernet.database.GroupManager
+import io.nekohasekai.sagernet.database.GroupRepository
 import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.displayType
@@ -22,7 +22,7 @@ class GroupMaintenance(private val fragment: ConfigurationFragment) {
 
     fun clearTraffic() {
         runOnDefaultDispatcher {
-            val toClear = ProfileRepository.getProfilesByGroup(GroupManager.currentGroupId())
+            val toClear = ProfileRepository.getProfilesByGroup(GroupRepository.currentGroupId())
                 .filter { it.tx != 0L || it.rx != 0L }
             if (toClear.isNotEmpty()) {
                 ProfileRepository.clearTraffic(toClear)
@@ -36,7 +36,7 @@ class GroupMaintenance(private val fragment: ConfigurationFragment) {
 
     fun clearTestResults() {
         runOnDefaultDispatcher {
-            val toClear = ProfileRepository.getProfilesByGroup(GroupManager.currentGroupId())
+            val toClear = ProfileRepository.getProfilesByGroup(GroupRepository.currentGroupId())
                 .filter { it.status != 0 }
             ProfileRepository.clearTestResults(toClear)
             // 单列写库不会发通知，这里手动刷新列表
@@ -46,7 +46,7 @@ class GroupMaintenance(private val fragment: ConfigurationFragment) {
 
     fun deleteUnavailable() {
         runOnDefaultDispatcher {
-            val toClear = ProfileRepository.getProfilesByGroup(GroupManager.currentGroupId())
+            val toClear = ProfileRepository.getProfilesByGroup(GroupRepository.currentGroupId())
                 .filter { it.status != 0 && it.status != 1 }
             if (toClear.isNotEmpty()) {
                 onMainDispatcher {
@@ -64,7 +64,7 @@ class GroupMaintenance(private val fragment: ConfigurationFragment) {
 
     fun removeDuplicates() {
         runOnDefaultDispatcher {
-            val profiles = ProfileRepository.getProfilesByGroup(GroupManager.currentGroupId())
+            val profiles = ProfileRepository.getProfilesByGroup(GroupRepository.currentGroupId())
             val toClear = mutableListOf<ProxyEntity>()
             val uniqueProxies = LinkedHashSet<Protocols.Deduplication>()
             for (pf in profiles) {

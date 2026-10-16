@@ -33,7 +33,7 @@ class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentS
             if (newGroupList.isEmpty()) {
                 // 走 GroupManager 的锁内双检创建：直接写 DAO 时，并发 reload 或与
                 // :bg 的 currentGroup() 竞争会落出两个 ungrouped 分组
-                GroupManager.currentGroup()
+                GroupRepository.currentGroup()
                 newGroupList = ArrayList(GroupRepository.getAllGroups())
             }
             newGroupList.find { it.ungrouped }?.let {
@@ -44,7 +44,7 @@ class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentS
 
             // 这里在后台：groupList / selectedGroupIndex 归主线程（增删回调与 createFragment
             // 都在主线程），只读写本地的新列表，两个字段到下面的主线程块里一起换
-            val selectedGroup = fragment.selectedItem?.groupId ?: GroupManager.currentGroupId()
+            val selectedGroup = fragment.selectedItem?.groupId ?: GroupRepository.currentGroupId()
             val set = selectedGroup > 0L
             val newSelectedIndex = if (set) newGroupList.indexOfFirst { it.id == selectedGroup } else -1
             if (!set && newGroupList.size == 1) {

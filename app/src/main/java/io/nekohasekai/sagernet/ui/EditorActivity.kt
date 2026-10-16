@@ -23,7 +23,7 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.EditorCache
 import io.nekohasekai.sagernet.database.EditorSessionState
-import io.nekohasekai.sagernet.database.ProfileManager
+import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.STATE_EDITOR_SESSION
 import io.nekohasekai.sagernet.database.checkEditorSession
 import io.nekohasekai.sagernet.database.claimEditorSession
@@ -223,7 +223,7 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
         if (it.resultCode == RESULT_OK) lifecycleScope.launch(Dispatchers.Default) {
             // RESULT_OK 也可能不带 data（picker 被重建等）
             val data = it.data ?: return@launch
-            val profile = ProfileManager.getProfile(
+            val profile = ProfileRepository.getProfile(
                 data.getLongExtra(ProfileSelectActivity.EXTRA_PROFILE_ID, 0)
             ) ?: return@launch
             // 查库期间页面可能已销毁或缓存已被别的编辑器接管

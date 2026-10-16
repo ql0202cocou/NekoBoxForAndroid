@@ -122,7 +122,6 @@ abstract class SagerDatabase : RoomDatabase() {
             Room.databaseBuilder(SagerNet.application, SagerDatabase::class.java, Key.DB_PROFILE)
                 .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_8_9)
                 .setJournalMode(JournalMode.TRUNCATE)
-                .allowMainThreadQueries()
                 .enableMultiInstanceInvalidation()
                 // 不用 destructive fallback：缺迁移时它会静默丢掉所有配置、分组和规则——
                 // 而降级到旧版 APK 必然缺迁移。打开失败至少能让数据保持可恢复。

@@ -175,10 +175,8 @@ object GroupManager {
         SagerDatabase.groupDao.resetDanglingLandingProxies()
     }
 
-    // 必须裸读 configurationStore 而不是 DataStore.selectedGroup 委托属性：
-    // 属性的惰性默认值会走 currentGroupId() → createInitialGroup() →
-    // RestoreJournal 文件锁，在 completePending 持锁重放或 PublicDatabase
-    // 事务内调用会重入 / 死等
+    // 选中的分组 id，缺值为 -1；与 DataStore.selectedGroup 相同（那个属性的默认值不再回调这里查库），
+    // 只读设置、不建分组，在 completePending 持锁重放或 PublicDatabase 事务内调用也安全
     private fun rawSelectedGroup() = DataStore.configurationStore.getLong(Key.PROFILE_GROUP, -1)
 
     // Trusts any positive selection without a lookup (callers that need the

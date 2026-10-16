@@ -54,6 +54,7 @@ class ServiceNotification(
         const val notificationId = 1
         val flags = PendingIntent.FLAG_IMMUTABLE
 
+        // 开了「通知里显示分组」时要读分组名（查库），只在后台线程调用
         fun genTitle(ent: ProxyEntity): String {
             val gn = if (DataStore.showGroupInNotification)
                 GroupManager.getGroup(ent.groupId)?.displayName() else null

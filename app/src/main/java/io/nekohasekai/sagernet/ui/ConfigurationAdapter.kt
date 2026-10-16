@@ -207,7 +207,7 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
             if (index < 0) return@post
             groupFragment.flushUndo()
             // 库里的 tx/rx 可能落后于实时流量，重绑时 bind 会优先取
-            // ProfileManager.liveTraffic
+            // ProfileRepository.liveTraffic
             configurationList[profile.id] = profile
             notifyItemChanged(index, PAYLOAD_UPDATED)
         }

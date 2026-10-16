@@ -18,8 +18,8 @@ import androidx.recyclerview.widget.RecyclerView
 import io.nekohasekai.sagernet.GroupOrder
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.bg.BaseService
-import io.nekohasekai.sagernet.database.GroupManager
-import io.nekohasekai.sagernet.database.ProfileManager
+import io.nekohasekai.sagernet.database.GroupRepository
+import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.databinding.LayoutProfileListBinding
@@ -210,7 +210,7 @@ class ProfileListFragment : Fragment() {
             if (proxyGroup.order == order) return
             runOnDefaultDispatcher {
                 proxyGroup.order = order
-                GroupManager.updateSortOrder(proxyGroup.id, order)
+                GroupRepository.updateSortOrder(proxyGroup.id, order)
             }
         }
 
@@ -237,8 +237,8 @@ class ProfileListFragment : Fragment() {
         // onViewCreated can run again (onViewStateRestored / onResume):
         // unregister the previous adapter before replacing it
         adapter?.let {
-            ProfileManager.removeListener(it)
-            GroupManager.removeListener(it)
+            ProfileRepository.removeListener(it)
+            GroupRepository.removeListener(it)
         }
 
         configurationListView = view.findViewById(R.id.configuration_list)
@@ -263,8 +263,8 @@ class ProfileListFragment : Fragment() {
         adapter = ConfigurationAdapter(this)
         emptyObserverAdapter = adapter
         adapter!!.registerAdapterDataObserver(emptyObserver)
-        ProfileManager.addListener(adapter!!)
-        GroupManager.addListener(adapter!!)
+        ProfileRepository.addListener(adapter!!)
+        GroupRepository.addListener(adapter!!)
         configurationListView.adapter = adapter
         configurationListView.setItemViewCacheSize(20)
         updateEmptyState()
@@ -327,8 +327,8 @@ class ProfileListFragment : Fragment() {
         emptyObserverAdapter?.unregisterAdapterDataObserver(emptyObserver)
         emptyObserverAdapter = null
         adapter?.let {
-            ProfileManager.removeListener(it)
-            GroupManager.removeListener(it)
+            ProfileRepository.removeListener(it)
+            GroupRepository.removeListener(it)
         }
 
         super.onDestroy()

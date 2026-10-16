@@ -111,10 +111,13 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
         echCategory = findPreference(Key.SERVER_ECH_CATEORY)!!
         wsCategory = findPreference(Key.SERVER_WS_CATEGORY)!!
 
-        // init() only runs on first creation; after a rotation the bean must
-        // be resolved again here (stored entity, or a fresh one for a new
-        // profile - the launching intent survives the rotation).
-        val bean = (proxyEntity?.requireBean() ?: createEntity()) as StandardV2RayBean
+        // init() 只在首次创建时运行，重建（旋转、进程死亡）后要在这里重新定出 bean：这里只用它区分协议（类与
+        // isVLESS）。首次创建时 fragment 在节点载入后才提交，用库里那一行；重建时 fragment 由 super.onCreate 恢复，
+        // 节点还在后台载入、主线程不能查库，改用新 bean：类由编辑器决定，VLESS 看 init 写进缓存的 alterId
+        // （VLESS 的 alterId 输入框隐藏，编辑期间不会变；进程死亡后缓存为空，恢复的 fragment 随即被重新初始化替换）
+        val bean = (proxyEntity?.requireBean() ?: createEntity().also {
+            if (it is VMessBean && alterId.readStringToIntFromCache() == -1) it.alterId = -1
+        }) as StandardV2RayBean
         if (bean is TrojanBean) {
             // Same binding remap as init() (needed there before
             // writeToCacheAll, needed here for saves after a rotation).

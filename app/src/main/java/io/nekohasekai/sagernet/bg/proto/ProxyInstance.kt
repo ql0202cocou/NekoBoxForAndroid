@@ -3,7 +3,6 @@ package io.nekohasekai.sagernet.bg.proto
 import android.widget.Toast
 import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.bg.BaseService
-import io.nekohasekai.sagernet.bg.ServiceNotification
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.configBuildNotices
 import io.nekohasekai.sagernet.ktx.Logs
@@ -12,13 +11,15 @@ import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
 import moe.matsuri.nb4a.utils.JavaUtil
 
-class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Interface) :
+// title：ServiceNotification.genTitle(profile) 的结果。它可能查分组名（读库），由调用方在后台算好传进来，
+// 构造本身不查库（BaseService 在 :bg 主线程上构造）
+class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Interface, title: String) :
     BoxInstance(profile) {
 
     // written on the serial dispatcher (NativeInterface selector callback),
     // read on binder threads (Binder.getProfileName)
     @Volatile
-    var displayProfileName = ServiceNotification.genTitle(profile)
+    var displayProfileName = title
 
     // TrafficLooper：launch() 在 Default 上写入；BaseService.persistStats 在主线程、
     // close() 在 IO / Default（killProcesses / destroyRunner）上读取

@@ -35,7 +35,6 @@ import java.net.Socket
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean
-import io.nekohasekai.sagernet.database.GroupManager
 
 // runGroupTest 在主线程置位；测试结束、读库失败或 fragment 已销毁时清除（主线程
 // 与后台都有）。CAS 防止连点两下起两个测试。放在进程级而不是 fragment 字段：
@@ -150,7 +149,7 @@ class GroupTestRunner(private val fragment: ConfigurationFragment) {
         if (!runningTest.compareAndSet(false, true)) return
         runOnDefaultDispatcher {
             val group = try {
-                GroupManager.currentGroup()
+                GroupRepository.currentGroup()
             } catch (e: Exception) {
                 Logs.w(e)
                 runningTest.set(false)

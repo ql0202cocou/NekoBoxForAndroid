@@ -23,7 +23,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.ProfileManager
+import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.databinding.LayoutAddEntityBinding
 import io.nekohasekai.sagernet.databinding.LayoutProfileBinding
@@ -164,7 +164,7 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
             awaitEditorReady()
             val idList = cachedProxyIds()
             val profiles = if (idList.isNotEmpty()) {
-                ProfileManager.getProfiles(idList).map { it.id to it }.toMap()
+                ProfileRepository.getProfiles(idList).map { it.id to it }.toMap()
             } else emptyMap()
             // A process-death restore fires this twice (the restored fragment
             // and the re-init replacement), so rebuild the list instead of
@@ -257,7 +257,7 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
         // reverse check: the candidate's own subtree must not contain the chain
         // being edited, or adding it would close a loop (chain A holds chain B
         // while B is being edited to add A)
-        val editing = ProfileManager.getProfile(EditorCache.editingId)
+        val editing = ProfileRepository.getProfile(EditorCache.editingId)
         if (editing != null && testProfileContains(profile, editing)) return false
 
         return true
@@ -277,7 +277,7 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
             val proxies = profile.chainBean!!.proxies
             if (proxies.contains(anotherProfile.id)) return true
             if (proxies.isNotEmpty()) {
-                for (entity in ProfileManager.getProfiles(proxies)) {
+                for (entity in ProfileRepository.getProfiles(proxies)) {
                     if (testProfileContains(entity, anotherProfile, visiting)) {
                         return true
                     }
@@ -302,7 +302,7 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
             if (resultCode == Activity.RESULT_OK) lifecycleScope.launch(Dispatchers.Default) {
                 awaitEditorReady()
 
-                val profile = ProfileManager.getProfile(
+                val profile = ProfileRepository.getProfile(
                     data?.getLongExtra(
                         ProfileSelectActivity.EXTRA_PROFILE_ID, 0
                     ) ?: return@launch

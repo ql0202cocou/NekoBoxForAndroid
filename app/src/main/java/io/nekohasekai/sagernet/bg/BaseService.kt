@@ -557,36 +557,55 @@ class BaseService {
             ServiceRegistry.claimBase(this)
 
             val data = data
-            if (data.state != State.Stopped) {
+            // connectingJob 非空而状态仍是 Stopped：上一次启动还在后台读节点，同 Connecting 不重复启动
+            if (data.state != State.Stopped || data.connectingJob != null) {
                 // Stopping 期间的启动意图记下来，由 stopRunner 尾部重放
                 if (data.state == State.Stopping) data.pendingStart = true
                 return Service.START_NOT_STICKY
             }
-            val profile = try {
-                ProfileManager.getProfile(DataStore.selectedProxy)
-            } catch (e: IOException) {
-                // 数据库打不开时 getProfile 抛 IOException（见 ProfileManager 的
-                // guardedRead 契约）。与下方空 profile 路径一样优雅停止：未捕获异常
-                // 会杀死 :bg 进程，而崩溃后的重启兜底会再次走到这里，形成崩溃循环
-                Logs.w(e)
-                data.notification = createNotification("")
-                stopRunner(false, service.serviceFailedMessage(e.readableMessage))
-                return Service.START_NOT_STICKY
+            // 要启动的节点与通知标题（可能带分组名）都要查库，:bg 的主线程同样不能查：整个启动放进 connectingJob，
+            // 先到 IO 上读完再回主线程接着走。读库期间的停止 / 销毁照常经 connectingJob 取消（stopRunner、destroyRunner）
+            data.connectingJob = runOnMainDispatcher {
+                try {
+                    val loaded = try {
+                        onIoDispatcher {
+                            ProfileManager.getProfile(DataStore.selectedProxy)?.let {
+                                it to ServiceNotification.genTitle(it)
+                            }
+                        }
+                    } catch (e: IOException) {
+                        // 数据库打不开时 getProfile 抛 IOException（见 ProfileManager 的
+                        // guardedRead 契约）。与下方空 profile 路径一样优雅停止：未捕获异常
+                        // 会杀死 :bg 进程，而崩溃后的重启兜底会再次走到这里，形成崩溃循环
+                        Logs.w(e)
+                        data.notification = createNotification("")
+                        stopRunner(false, service.serviceFailedMessage(e.readableMessage))
+                        return@runOnMainDispatcher
+                    }
+                    if (RestoreJournal.default.isPending()) {
+                        // a restore interrupted between its two commits could not be replayed at
+                        // startup: profiles and settings do not match yet
+                        data.notification = createNotification("")
+                        stopRunner(false, service.getString(R.string.restore_pending))
+                        return@runOnMainDispatcher
+                    }
+                    if (loaded == null) { // gracefully shutdown: https://stackoverflow.com/q/47337857/2245107
+                        data.notification = createNotification("")
+                        stopRunner(false, service.getString(R.string.profile_empty))
+                        return@runOnMainDispatcher
+                    }
+                    val (profile, title) = loaded
+                    startConnecting(data, profile, title)
+                } finally {
+                    data.connectingJob = null
+                }
             }
-            if (RestoreJournal.default.isPending()) {
-                // a restore interrupted between its two commits could not be replayed at
-                // startup: profiles and settings do not match yet
-                data.notification = createNotification("")
-                stopRunner(false, service.getString(R.string.restore_pending))
-                return Service.START_NOT_STICKY
-            }
-            if (profile == null) { // gracefully shutdown: https://stackoverflow.com/q/47337857/2245107
-                data.notification = createNotification("")
-                stopRunner(false, service.getString(R.string.profile_empty))
-                return Service.START_NOT_STICKY
-            }
+            return Service.START_NOT_STICKY
+        }
 
-            val proxy = ProxyInstance(profile, this)
+        // onStartCommand 读到节点之后的启动流程，在 connectingJob 里（主线程）运行
+        private suspend fun startConnecting(data: Data, profile: ProxyEntity, title: String) {
+            val proxy = ProxyInstance(profile, this, title)
             data.proxy = proxy
             BootReceiver.enabled = DataStore.persistAcrossReboot
             if (!data.closeReceiverRegistered) {
@@ -611,52 +630,47 @@ class BaseService {
             }
 
             data.changeState(State.Connecting)
-            data.connectingJob = runOnMainDispatcher {
-                try {
-                    data.notification = createNotification(ServiceNotification.genTitle(profile))
+            try {
+                data.notification = createNotification(title)
 
-                    onIoDispatcher { Executable.killAll() }    // clean up old processes (/proc IO off the main thread)
-                    preInit()
-                    // 建配置、newSingBoxInstance（首启还要等资产解压）和 box.start()
-                    // （startProcesses）都是长时间阻塞调用，放到 IO 上免得卡住 :bg
-                    // 主线程（ANR）。stopRunner 先 cancelAndJoin 本协程，会等它们跑完
-                    // 再 close；destroyRunner 不等，init 期间的 close 由
-                    // ProxyInstance.init 补收，Go 侧 Start / Close 互斥
-                    onIoDispatcher { proxy.init() }
-                    DataStore.currentProfile = profile.id
+                onIoDispatcher { Executable.killAll() }    // clean up old processes (/proc IO off the main thread)
+                preInit()
+                // 建配置、newSingBoxInstance（首启还要等资产解压）和 box.start()
+                // （startProcesses）都是长时间阻塞调用，放到 IO 上免得卡住 :bg
+                // 主线程（ANR）。stopRunner 先 cancelAndJoin 本协程，会等它们跑完
+                // 再 close；destroyRunner 不等，init 期间的 close 由
+                // ProxyInstance.init 补收，Go 侧 Start / Close 互斥
+                onIoDispatcher { proxy.init() }
+                DataStore.currentProfile = profile.id
 
-                    proxy.processes = GuardedProcessPool {
-                        Logs.w(it)
-                        stopRunner(false, it.readableMessage)
-                    }
-
-                    startProcesses()
-                    data.changeState(State.Connected)
-
-                    lateInit()
-                } catch (_: CancellationException) { // if the job was cancelled, it is canceller's responsibility to call stopRunner
-                } catch (_: UnknownHostException) {
-                    stopRunner(false, service.getString(R.string.invalid_server))
-                } catch (e: PluginManager.PluginNotFoundException) {
-                    Toast.makeText(service, e.readableMessage, Toast.LENGTH_SHORT).show()
-                    Logs.w(e)
-                    data.binder.missingPlugin(e.plugin)
-                    stopRunner(false, null)
-                } catch (exc: Throwable) {
-                    if (exc.javaClass.name.endsWith("proxyerror")) {
-                        // error from golang
-                        Logs.w(exc.readableMessage)
-                    } else {
-                        Logs.w(exc)
-                    }
-                    stopRunner(
-                        false, service.serviceFailedMessage(exc.readableMessage)
-                    )
-                } finally {
-                    data.connectingJob = null
+                proxy.processes = GuardedProcessPool {
+                    Logs.w(it)
+                    stopRunner(false, it.readableMessage)
                 }
+
+                startProcesses()
+                data.changeState(State.Connected)
+
+                lateInit()
+            } catch (_: CancellationException) { // if the job was cancelled, it is canceller's responsibility to call stopRunner
+            } catch (_: UnknownHostException) {
+                stopRunner(false, service.getString(R.string.invalid_server))
+            } catch (e: PluginManager.PluginNotFoundException) {
+                Toast.makeText(service, e.readableMessage, Toast.LENGTH_SHORT).show()
+                Logs.w(e)
+                data.binder.missingPlugin(e.plugin)
+                stopRunner(false, null)
+            } catch (exc: Throwable) {
+                if (exc.javaClass.name.endsWith("proxyerror")) {
+                    // error from golang
+                    Logs.w(exc.readableMessage)
+                } else {
+                    Logs.w(exc)
+                }
+                stopRunner(
+                    false, service.serviceFailedMessage(exc.readableMessage)
+                )
             }
-            return Service.START_NOT_STICKY
         }
     }
 

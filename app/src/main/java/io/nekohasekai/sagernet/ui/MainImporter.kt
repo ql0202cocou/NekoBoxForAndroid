@@ -5,8 +5,8 @@ import androidx.fragment.app.Fragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.GroupManager
-import io.nekohasekai.sagernet.database.ProfileManager
+import io.nekohasekai.sagernet.database.GroupRepository
+import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.database.SubscriptionBean
 import io.nekohasekai.sagernet.fmt.AbstractBean
@@ -127,7 +127,7 @@ class MainImporter(private val activity: MainActivity) {
     }
 
     private suspend fun finishImportSubscription(subscription: ProxyGroup) {
-        GroupManager.createGroup(subscription)
+        GroupRepository.createGroup(subscription)
         GroupUpdater.startUpdate(subscription, true)
     }
 
@@ -158,9 +158,9 @@ class MainImporter(private val activity: MainActivity) {
     }
 
     private suspend fun finishImportProfile(profile: AbstractBean) {
-        val targetId = GroupManager.selectedGroupForImport()
+        val targetId = GroupRepository.selectedGroupForImport()
 
-        ProfileManager.createProfile(targetId, profile)
+        ProfileRepository.createProfile(targetId, profile)
 
         onLiveActivity {
             activity.displayFragmentWithId(R.id.nav_configuration)
