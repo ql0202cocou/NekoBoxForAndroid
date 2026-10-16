@@ -135,9 +135,12 @@ class DomainResolverTest {
         deferred.cancelAndJoin()
 
         assertTrue(deferred.isCancelled)
-        assertEquals(FORCE_RESOLVE_CONCURRENCY, cancelled.get())
-        // 取消不当作解析失败，排队中的域名也不会再开始
+        // 取消不当作解析失败
         assertEquals(0, failures.get())
-        assertEquals(FORCE_RESOLVE_CONCURRENCY, started.get())
+        // 取消前至少有并发上限个域名在解析。不断言正好这么多：取消是逐个协程传播的，先被取消的协程释放 permit 时，
+        // 排队中还没收到取消的域名可能刚好开始解析、随即被取消（CI 的双核 runner 上出现过），这不影响语义——
+        // 开始过的解析每一个都观察到了取消，没有一个被当成失败
+        assertTrue("started=${started.get()}", started.get() >= FORCE_RESOLVE_CONCURRENCY)
+        assertEquals(started.get(), cancelled.get())
     }
 }
