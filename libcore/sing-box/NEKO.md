@@ -101,6 +101,11 @@ Accepted upstream behavior (no patch):
   client and server in separate processes): with the chrome fingerprint the
   ClientHello offers only `X25519 P256 P384` (plus GREASE), and the chrome,
   firefox and safari fingerprints all fail against a v26.9.30 server.
+  Re-measured the same way on 2026-10-16 against a v26.10.10 server (the
+  vendored 1.14.3-neko-1 command line, built from libcore's module graph): same
+  ClientHello, same result for all three fingerprints, with or without the
+  server's `minClientVer` at 1.8.0; Xray clients with chrome, firefox or safari
+  connect to the same server.
   Effects on Xray's REALITY server:
   - Xray v26.3.27 accepts it by default and rejects it once the operator sets
     `minClientVer` to 26.3.27 or higher. Xray v26.7.11 to v26.7.28 defaulted
