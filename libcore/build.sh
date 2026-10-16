@@ -12,6 +12,8 @@ rm -rf $BUILD/android \
   $BUILD/src
 
 source ../buildScript/init/env_gobin.sh
+# 构建标签与 go test 共用一份（buildScript/lib/test.sh 也 source 它）
+source ./build_tags.sh
 export PATH="$GOBIN_DIR:$PATH"
 mkdir -p "$BUILD"
 
@@ -22,7 +24,7 @@ mkdir -p "$BUILD"
 # linkname-able upstream) to lock writes to systemRoots; drop this if the Go
 # upgrade ever removes the escape hatch and rework certs.go instead.
 export GOBIND=gobind-matsuri
-"$GOBIN_DIR"/gomobile-matsuri bind -v -androidapi 21 -target android/arm64,android/amd64 -cache "$(realpath $BUILD)" -trimpath -ldflags='-s -w -checklinkname=0 -extldflags=-Wl,-z,max-page-size=16384' -tags='with_conntrack,with_gvisor,with_quic,with_wireguard,with_utls,with_clash_api' . || exit 1
+"$GOBIN_DIR"/gomobile-matsuri bind -v -androidapi 21 -target android/arm64,android/amd64 -cache "$(realpath $BUILD)" -trimpath -ldflags='-s -w -checklinkname=0 -extldflags=-Wl,-z,max-page-size=16384' -tags="$LIBCORE_BUILD_TAGS" . || exit 1
 rm -r libcore-sources.jar
 
 proj=../app/libs
