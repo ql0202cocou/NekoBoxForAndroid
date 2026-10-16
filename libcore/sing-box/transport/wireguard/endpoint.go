@@ -251,7 +251,9 @@ func (e *Endpoint) Start(postStart bool) error {
 	err = wgDevice.IpcSet(ipcConf.String())
 	if err != nil {
 		wgDevice.Close()
-		return E.Cause(err, "setup wireguard: \n", ipcConf.String())
+		// neko：ipcConf 里有私钥、公钥、预共享密钥的十六进制，不能带进报错（会进日志和界面）；
+		// IpcSet 自己的报错只说哪个字段失败，不回显密钥
+		return E.Cause(err, "setup wireguard")
 	}
 	e.device = wgDevice
 	e.pause = service.FromContext[pause.Manager](e.options.Context)
