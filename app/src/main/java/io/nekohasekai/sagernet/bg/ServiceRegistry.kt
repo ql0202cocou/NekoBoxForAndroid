@@ -3,10 +3,9 @@ package io.nekohasekai.sagernet.bg
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-// Per-process handles on the proxy service, kept out of DataStore (the
-// settings store). state caches the last known service state in whichever
-// process reads it (:bg writes it from changeState, the main process from the
-// binder callback); the two instance references only ever exist in :bg.
+// 每个进程各自持有的代理服务句柄，不放进 DataStore（设置存储）。
+// state 在读取它的那个进程里缓存最近一次已知的服务状态（:bg 在 changeState 里写，
+// 主进程在 binder 回调里写）；两个服务实例引用只存在于 :bg。
 //
 // 属主规则（:bg 里的三份）：两个服务实例可以短暂并存——VpnService 在 Stopping 拆卸时，用户已切到别的模式，
 // 新起的 ProxyService 看到的是自己的 Stopped 状态，会正常启动（Data 每个实例一份）。旧实例随后的清理

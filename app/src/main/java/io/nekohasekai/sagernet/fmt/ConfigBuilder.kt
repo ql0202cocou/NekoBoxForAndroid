@@ -29,12 +29,12 @@ const val TAG_BLOCK = "block"
 
 const val LOCALHOST = "127.0.0.1"
 
-// The Clash API endpoint this build serves. The dashboard hands the API secret to this
-// exact host:port and to nothing else, so both sides have to read the same constant.
+// 本构建对外提供的 Clash API 地址。面板只会把 API 密钥交给这个确切的 host:port，
+// 不会交给别处，所以两边必须读同一个常量。
 const val CLASH_API_LISTEN = "$LOCALHOST:9090"
 
-// Shape of the tags buildConfig generates itself (g-<entryId>, c-<chainId>-…);
-// a user-chosen profile name matching it would collide with one.
+// buildConfig 自己生成的标签的形状（g-<entryId>、c-<chainId>-…）；
+// 用户起的配置名若匹配这个形状，就会和生成的标签撞名。
 private val GENERATED_TAG_SHAPE = Regex("g-\\d+|c-\\d+.*")
 
 // sing-box 1.14 去掉了旧的 DNS 服务器地址格式：按 sing-box 1.13 内部升级的同样方式换成带类型的服务器。
@@ -45,7 +45,7 @@ private fun makeDnsServer(address: String, tag: String, parseNumeric: (String) -
         require(authority.isNotBlank() && authority.none { it.isWhitespace() || it in "/?#@" }) { invalid }
         val (host, portText) = authority.splitHostPort()
             ?: throw IllegalArgumentException(invalid)
-        // Brackets promise an IPv6 literal, and only a bare one may keep its colons.
+        // 带方括号表示这是 IPv6 字面量；只有不带方括号的才允许 host 里保留冒号。
         if (authority.startsWith("[")) {
             require(':' in host && parseNumeric(host) != null) { invalid }
         } else {
@@ -86,9 +86,8 @@ private fun makeDnsServer(address: String, tag: String, parseNumeric: (String) -
                 }
             }
 
-            // dhcp is deliberately absent: libcore registers no dhcp transport (no
-            // with_dhcp tag, see box_include.go), so mapping it would only turn a
-            // clear build error into an opaque box start failure
+            // 这里特意没有 dhcp：libcore 没注册 dhcp 传输（没有 with_dhcp 标签，
+            // 见 box_include.go），映射它只会把清楚的构建错误变成看不出原因的 box 启动失败
             else -> throw Exception("unsupported DNS server address: $address")
         }
     }
@@ -282,7 +281,7 @@ private class ConfigBuild(
     val tagMap = HashMap<Long, String>()
     val globalOutbounds = HashMap<Long, String>()
     val selectorNames = HashSet<String>()
-    // a profile named like a built-in outbound tag would collide with it
+    // 配置名若和内置出站标签同名，就会撞名
     val reservedSelectorTags = setOf(TAG_PROXY, TAG_DIRECT, TAG_BYPASS, TAG_BLOCK)
     // 全局「允许不安全」：影响 sing-box 出站的 TLS 与选核（needExternal 等）
     val globalAllowInsecure = settings.globalAllowInsecure
@@ -295,9 +294,8 @@ private class ConfigBuild(
     private val plugins = PluginQueries(platform)
 
     fun selectorName(name_: String): String {
-        // a profile named like an auto-generated tag (g-<entryId>,
-        // c-<chainId>-…) would collide with it; break the pattern up front —
-        // appending "-N" alone keeps the "c-<digits>" prefix forever
+        // 配置名若和自动生成的标签（g-<entryId>、c-<chainId>-…）同名，就会撞名；
+        // 要先破坏这个形状——只追加 "-N" 的话，"c-<数字>" 前缀永远还在
         val base = if (name_.matches(GENERATED_TAG_SHAPE)) "p-$name_" else name_
         var name = base
         var count = 0
@@ -323,9 +321,9 @@ private class ConfigBuild(
     val userDNSRuleList = mutableListOf<DNSRule_DefaultOptions>()
     val domainListDNSDirectForce = mutableListOf<String>()
     val bypassDNSBeans = hashSetOf<AbstractBean>()
-    // per-group nameserver: resolve this group's node server domains with it,
-    // multiple addresses (one per line) are used in order with fallback.
-    // forTest honors it too: a fake node domain may only resolve through it.
+    // 分组级 nameserver：用它解析本分组节点的服务器域名，
+    // 多个地址（一行一个）按顺序使用，前一个失败才退到下一个。
+    // forTest 也遵从它：伪造的节点域名可能只能通过它解析。
     val groupNameservers = group?.proxyServerNameserver.usableNameservers(platform::parseNumericAddress)
     val groupNsDomains = LinkedHashSet<String>()
     // 一开始就解析一次：下面的 DNS 服务器 / 规则与提交各跳时绑定的出站 domain_resolver（commitHop）都只能
@@ -334,9 +332,8 @@ private class ConfigBuild(
     val groupDnsServers = groupNameservers.mapIndexedNotNull { index, address ->
         runCatching {
             makeDnsServer(address, "dns-group-$index", platform::parseNumericAddress).apply {
-                // no detour either (see dns-direct): 1.14 dials directly
-                // by default and detouring to the empty direct outbound
-                // kills the box at start
+                // 同样不设 detour（见 dns-direct）：1.14 默认直接拨号，
+                // 而绕到空的 direct 出站会让 box 启动时就挂掉
                 domain_resolver = "dns-local"
             }
         }.getOrElse {
@@ -346,8 +343,8 @@ private class ConfigBuild(
             null
         }
     }
-    // libcore-only neko-sequential transport chaining the group nameservers
-    // in order with dns-direct as the last resort
+    // 仅 libcore 有的 neko-sequential 传输：把分组 nameserver 按顺序串起来，
+    // 以 dns-direct 作最后兜底
     val groupSequentialTag = "dns-node-${proxy.groupId}"
     val isVPN = settings.serviceMode == Key.MODE_VPN
     val bind = if (!forTest && settings.allowAccess) "0.0.0.0" else LOCALHOST
@@ -380,9 +377,9 @@ private class ConfigBuild(
     // DNS 服务器没单独设置 strategy 时按 IPv6 模式取
     fun autoDnsDomainStrategy(s: String): String? = s.ifEmpty { null } ?: ipv6Strategy
 
-    // sing-box 1.14 has no server-level strategy (legacy DNS format removed):
-    // the final server's strategy becomes the DNS default (below), the rest
-    // are carried by the rule actions routing to each server.
+    // sing-box 1.14 没有服务器级别的 strategy（旧 DNS 格式已移除）：
+    // final 服务器的 strategy 成为 DNS 默认值（见下文），其余的
+    // 由路由到各服务器的规则动作携带。
     val directStrategy = autoDnsDomainStrategy(settings.domainStrategy("dns-direct"))
     val remoteStrategy = autoDnsDomainStrategy(settings.domainStrategy("dns-remote"))
     val defaultServerDomainStrategy = settings.domainStrategy("server")
@@ -496,17 +493,15 @@ private class ConfigBuild(
         outbounds = mutableListOf()
         endpoints = mutableListOf()
 
-        // init routing object
+        // 初始化路由对象
         route = RouteOptions().apply {
             auto_detect_interface = true
             rules = mutableListOf()
             rule_set = mutableListOf()
-            // Safety net for every dialer without an explicit resolver
-            // (cross-group chain members, endpoints, custom JSON outbounds),
-            // replacing the deprecated resolve-through-DNS-rules path
-            // sing-box may remove. Exports skip it on purpose: vanilla
-            // sing-box 1.14 still walks the kept DNS rules for outbounds
-            // without a resolver, which preserves group nameserver fallback.
+            // 给所有没有显式解析器的拨号方（跨分组的链成员、endpoint、自定义 JSON 出站）兜底，
+            // 取代 sing-box 以后可能移除的、已弃用的「经 DNS 规则解析」路径。
+            // 导出时特意不加：原版 sing-box 1.14 对没有解析器的出站仍会走保留下来的
+            // DNS 规则，这样分组 nameserver 的回退得以保留。
             if (!forExport) default_domain_resolver = DomainResolveOptions().apply {
                 server = "dns-direct"
                 if (!forTest) strategy = defaultServerDomainStrategy
@@ -725,15 +720,15 @@ private class ConfigBuild(
         return inboundTag
     }
 
-    // Settles the hop's outbound tag and wires the previous hop to it; null
-    // when the hop is a global outbound built earlier, so there is nothing to build.
+    // 确定这一跳的出站标签，并把上一跳接到它上面；若这一跳是更早已构建的
+    // 全局出站则返回 null，没有东西需要再构建。
     private fun MyOptions.linkHop(chain: ChainState, index: Int, proxyEntity: ProxyEntity): String? {
         val profileList = chain.profileList
         val chainTag = chain.chainTag
-        // tagOut: v2ray outbound tag for a profile
-        // profile2 (in) (global)   tag g-(id)
-        // profile1                 tag (chainTag)-(id)
-        // profile0 (out)           tag (chainTag)-(id) / single: "proxy"
+        // tagOut：某个配置对应的 v2ray 出站标签
+        // profile2（入口）（全局）  标签 g-(id)
+        // profile1                  标签 (chainTag)-(id)
+        // profile0（出口）          标签 (chainTag)-(id) / 单节点："proxy"
         var tagOut = "$chainTag-${proxyEntity.id}"
 
         // 同一节点在链中出现两次时，保留基础名的两跳会生成同名 outbound，
@@ -743,36 +738,35 @@ private class ConfigBuild(
             tagOut += "-$index"
         }
 
-        // needGlobal: can only contain one?
+        // needGlobal：是否只能有一个（全局出站）？
         var needGlobal = false
 
-        // first profile set as global
+        // 第一个配置（链的入口）设为全局
         if (index == profileList.lastIndex) {
             needGlobal = true
             tagOut = "g-" + proxyEntity.id
             bypassDNSBeans += proxyEntity.requireBean()
         }
 
-        // last profile set as "proxy"
+        // 最后一个配置（链的出口）设为 "proxy"
         if (chain.chainId == 0L && index == 0) {
             tagOut = TAG_PROXY
         }
 
-        // selector human readable name: use the profile being built,
-        // not profileList[0] (which is the group's landing proxy when set)
+        // selector 的可读名称：用正在构建的那个配置，
+        // 而不是 profileList[0]（设了落地代理时它是分组的落地代理）
         if (buildSelector && index == 0) {
             tagOut = selectorName(chain.entity.requireBean().displayName())
         }
 
-        // an entry hop built earlier keeps its existing global tag ("proxy"
-        // for the main profile, the display name for a selector member):
-        // resolve it BEFORE the chain rule below, or the previous hop detours
-        // to a g-<id> that is never emitted and sing-box refuses to start
-        // with "dependency[g-N] not found"
+        // 更早构建过的入口跳保留它已有的全局标签（主配置是 "proxy"，
+        // selector 成员是显示名）：必须在下面的链规则之前先解析出来，
+        // 否则上一跳会 detour 到一个永远不会输出的 g-<id>，
+        // sing-box 因 "dependency[g-N] not found" 拒绝启动
         val existing = if (needGlobal) globalOutbounds[proxyEntity.id] else null
         if (existing != null) tagOut = existing
 
-        // chain rules
+        // 链规则
         if (index > 0) {
             // 上一跳有映射入站的经路由规则接过来，其余（内部核心、不能映射的外核）经 detour
             val pastMappingInbound = chain.pastMappingInbound
@@ -782,18 +776,17 @@ private class ConfigBuild(
                     outbound = tagOut
                 })
             } else {
-                // wireguard is an endpoint since sing-box 1.13, but the
-                // endpoint options embed DialerOptions, so detour works
-                // the same as for outbounds (the builder never sets
-                // listen_port, which sing-box would reject with detour)
+                // 自 sing-box 1.13 起 wireguard 是 endpoint，但 endpoint 选项内嵌了
+                // DialerOptions，所以 detour 的用法和出站一样
+                // （构建器从不设置 listen_port，设了的话 sing-box 会拒绝带 detour 的配置）
                 chain.pastOutbound._hack_config_map["detour"] = tagOut
             }
         } else {
-            // index == 0 means last profile in chain / not chain
+            // index == 0 表示链里最后一个配置 / 不是链
             chain.chainTagOut = tagOut
         }
 
-        // now tagOut is determined; a hop built earlier is not emitted again
+        // 到这里 tagOut 已确定；更早构建过的跳不会再输出一次
         if (existing != null) return null
         if (needGlobal) globalOutbounds[proxyEntity.id] = tagOut
         return tagOut
@@ -850,7 +843,7 @@ private class ConfigBuild(
         globalOutbounds[id]?.takeIf { plan.hops.size == 1 } ?: commitChain(id, plan)
 
     private fun MyOptions.buildOutbounds() {
-        // build outbounds
+        // 构建出站
         val selectorGroup = selectorGroup
         if (selectorGroup != null) {
             val list = data.profilesByGroup(selectorGroup.id)
@@ -868,8 +861,8 @@ private class ConfigBuild(
                 type = "selector"
                 tag = TAG_PROXY
                 default_ = tagMap[proxy.id]
-                // a chain whose exit node is also a group member maps to that
-                // member's tag via the globalOutbounds dedup — list it once
+                // 出口节点同时也是分组成员的链，经 globalOutbounds 去重后映射到
+                // 该成员的标签——只列一次
                 outbounds = tagMap.values.distinct()
             })
         } else {
@@ -935,9 +928,8 @@ private class ConfigBuild(
 
             if (rule_set != null) generateRuleSet(rule_set, ruleSets)
 
-            // A malformed range already fails box start ("bad port range");
-            // a malformed single port must not be dropped silently, which
-            // would widen the rule to every port.
+            // 格式错误的范围本来就会让 box 启动失败（"bad port range"）；
+            // 格式错误的单个端口不能被静默丢弃，否则规则会放宽到所有端口。
             // 含 ":" 的是端口范围，其余必须是单个端口；返回 (单个端口, 范围)
             fun parsePorts(text: String, what: String): Pair<List<Int>, List<String>> {
                 val (ranges, singles) = text.listByLineOrComma().partition { it.contains(":") }
@@ -1022,7 +1014,7 @@ private class ConfigBuild(
     }
 
     private fun MyOptions.buildDns() {
-        // Bypass Lookup for the first profile
+        // 为链入口的配置做绕过查找（Bypass Lookup）
         bypassDNSBeans.forEach {
             var serverAddr = it.serverAddress
 
@@ -1067,7 +1059,7 @@ private class ConfigBuild(
             domain_resolver = "dns-local"
         })
 
-        // Always use direct DNS for urlTest
+        // urlTest 一律使用直连 DNS
         if (!forTest) dns.servers.add(makeDnsServer(
             remoteDns.firstOrNull() ?: throw Exception("No remote DNS, check your settings!"),
             "dns-remote", platform::parseNumericAddress
@@ -1080,10 +1072,10 @@ private class ConfigBuild(
         })
 
         dns.final_ = if (forTest) "dns-direct" else "dns-remote"
-        // the final server's strategy becomes the DNS default (see directStrategy)
+        // final 服务器的 strategy 成为 DNS 默认值（见 directStrategy）
         dns.strategy = if (forTest) directStrategy else remoteStrategy
 
-        // dns object user rules
+        // dns 对象里的用户规则
         if (enableDnsRouting) {
             userDNSRuleList.forEach {
                 if (!it.checkEmpty()) dns.rules.add(it)
@@ -1095,7 +1087,7 @@ private class ConfigBuild(
         if (forTest) {
             dns.rules = mutableListOf()
         } else {
-            // built-in DNS rules
+            // 内置 DNS 规则
             route.rules.add(0, Rule_DefaultOptions().apply {
                 protocol = listOf("dns")
                 action = "hijack-dns"
@@ -1104,8 +1096,8 @@ private class ConfigBuild(
                 port = listOf(53)
                 action = "hijack-dns"
             })
-            // legacy inbound fields were removed in sing-box 1.13:
-            // sniff / domain_strategy migrate to rule actions at the top
+            // 旧的入站字段在 sing-box 1.13 已移除：
+            // sniff / domain_strategy 迁移成置顶的规则动作
             if (settings.resolveDestination) route.rules.add(0, Rule_DefaultOptions().apply {
                 action = "resolve"
                 // 越界的 IPv6 模式按默认的 prefer_ipv4
@@ -1120,8 +1112,8 @@ private class ConfigBuild(
                     ip_is_private = true
                 })
             }
-            // Source and destination conditions in one default rule are ANDed.
-            // Separate rules reject multicast/reserved traffic in either direction.
+            // 同一条 default 规则里的源地址与目的地址条件是「且」的关系。
+            // 所以拆成独立的规则，才能拒绝任一方向的组播 / 保留地址流量。
             route.rules.add(Rule_DefaultOptions().apply {
                 ip_cidr = listOf("224.0.0.0/3", "ff00::/8")
                 action = "reject"
@@ -1130,7 +1122,7 @@ private class ConfigBuild(
                 source_ip_cidr = listOf("224.0.0.0/3", "ff00::/8")
                 action = "reject"
             })
-            // FakeDNS obj
+            // FakeDNS 对象
             if (useFakeDns) {
                 dns.servers.add(DNSServerOptions().apply {
                     type = "fakeip"
@@ -1145,16 +1137,15 @@ private class ConfigBuild(
                     disable_cache = true
                 })
             }
-            // avoid loopback: with route.default_domain_resolver in place,
-            // dialer resolution no longer walks DNS rules, so this rule is
-            // dead in-app. Exports keep it: vanilla sing-box 1.14 still
-            // resolves outbounds through DNS rules.
+            // 避免回环：有了 route.default_domain_resolver 之后，拨号方的解析
+            // 不再走 DNS 规则，所以这条规则在应用内已经是死规则。
+            // 导出时保留它：原版 sing-box 1.14 仍通过 DNS 规则解析出站。
             if (forExport) dns.rules.add(0, DNSRule_DefaultOptions().apply {
                 outbound = mutableListOf("any")
                 server = "dns-direct"
                 strategy = directStrategy
             })
-            // force bypass (always top DNS rule)
+            // 强制绕过（始终是最靠前的 DNS 规则）
             if (domainListDNSDirectForce.isNotEmpty()) {
                 dns.rules.add(0, DNSRule_DefaultOptions().apply {
                     makeSingBoxRule(domainListDNSDirectForce.toHashSet().toList())
@@ -1187,7 +1178,7 @@ private class ConfigBuild(
                     if (!forExport) fallback = true
                 }
             }
-            // top priority DNS rules, in server order
+            // 最高优先级的 DNS 规则，按服务器顺序
             dns.rules.addAll(0, groupRules)
         }
     }

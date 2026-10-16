@@ -34,9 +34,8 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
     ) {
         private lateinit var process: Process
 
-        // set on the looper coroutine's first dispatch; close() destroys only
-        // guards whose looper never started, started loopers clean up in their
-        // own finally (with the SIGTERM grace period on API < 24)
+        // 在 looper 协程第一次被调度时置位；close() 只销毁 looper 从未启动的守护，
+        // 已启动的 looper 在自己的 finally 里清理（API < 24 时带 SIGTERM 的宽限期）
         @Volatile
         var looperStarted = false
 
@@ -47,7 +46,7 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
         private fun streamLogger(input: InputStream, logger: (String) -> Unit) = try {
             input.bufferedReader().use { it.forEachLine(logger) }
         } catch (_: IOException) {
-        }    // ignore
+        }    // 忽略
 
         private val cmdName = File(cmd.first()).nameWithoutExtension
 
@@ -79,10 +78,9 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
         suspend fun looper() {
             looperStarted = true
             var running = true
-            val exitChannel = Channel<Int>(1) // buffered: cleanup may give up receiving, and a blocked send would leak the daemon thread
-            // called for every process right after it starts, never across a
-            // suspension point, so a live process always has a thread parked in
-            // waitFor and the cleanup below can always receive its exit code
+            val exitChannel = Channel<Int>(1) // 带缓冲：清理处可能放弃接收，而被阻塞的 send 会泄漏守护线程
+            // 每个进程一启动就调用，中间不跨挂起点，所以活着的进程总有一个线程
+            // 停在 waitFor 上，下面的清理也就总能收到它的退出码
             fun spawnLoggers() {
                 val child = process
                 thread(name = "stderr-$cmdName", isDaemon = true) {
@@ -91,8 +89,8 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
                 thread(name = "stdout-$cmdName", isDaemon = true) {
                     streamLogger(child.inputStream) { Libcore.nekoLogPrintln("[$cmdName] $it") }
                 }
-                // Descendants can inherit stdout/stderr after this child exits.
-                // Reaping must not wait for those pipes to reach EOF.
+                // 子进程退出后，它的后代进程可能仍继承着 stdout/stderr。
+                // 回收（reap）不能等这些管道到达 EOF。
                 thread(name = "wait-$cmdName", isDaemon = true) {
                     val exitCode = child.waitFor()
                     // 先更新状态再通知 looper：looper 重启进程后才会置 running，不会被这里晚到的写覆盖
@@ -139,23 +137,23 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
             } finally {
                 // 先标记放弃再清理（清理最长要等几秒）：就绪等待据此知道不会再重启
                 state.onAbandoned()
-                if (running) withContext(NonCancellable) {  // clean-up cannot be cancelled
-                    process.destroy()                       // kill the process
+                if (running) withContext(NonCancellable) {  // 清理不可取消
+                    process.destroy()                       // 杀掉进程
                     if (Build.VERSION.SDK_INT >= 26) {
                         if (withTimeoutOrNull(1000) { exitChannel.receive() } != null) return@withContext
-                        process.destroyForcibly()           // Force to kill the process if it's still alive
+                        process.destroyForcibly()           // 进程还活着就强杀
                     }
-                    // don't hang forever if the process ignores destroy()
+                    // 进程不理会 destroy() 时不能永远挂着
                     withTimeoutOrNull(5000) { exitChannel.receive() }
-                }                                           // otherwise process already exited, nothing to be done
+                }                                           // 否则进程已经退出，无事可做
             }
         }
     }
 
     override val coroutineContext = Dispatchers.Main.immediate + Job()
 
-    // every successfully started guard, so close() can reap processes whose
-    // looper coroutine never ran (pool cancelled after the isActive check)
+    // 每个成功启动的守护都登记在这里，这样 close() 能回收那些 looper 协程
+    // 从未运行的进程（进程池在 isActive 检查之后被取消）
     private val guards = CopyOnWriteArrayList<Guard>()
 
     // 返回值：这个进程的运行状态（退出码、是否在跑、守护是否放弃、退出代次）。启动就绪等待据它区分
@@ -166,11 +164,11 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
     ): ProcessState {
         Logs.i("start process: ${Commandline.toString(cmd)}")
         val guard = Guard(cmd, env).apply {
-            start() // if start fails, IOException will be thrown directly
+            start() // 启动失败会直接抛出 IOException
             guards.add(this)
             if (!coroutineContext.isActive) {
-                // close() already cancelled this pool: the looper launch below
-                // would never run and nothing else would kill this process
+                // close() 已经取消了这个进程池：下面的 looper 启动不会运行，
+                // 也没有别的地方会杀掉这个进程
                 destroy()
                 state.onAbandoned()
                 return state
@@ -189,10 +187,9 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
     // 跑完后完成，供能安全等待的调用方（测试）join
     fun close(scope: CoroutineScope, onClosed: () -> Unit = {}): Job {
         cancel()
-        // reap processes whose looper coroutine was cancelled before its
-        // first dispatch; guards with a started looper clean up in their own
-        // finally, so an unconditional destroy here would cut the graceful
-        // shutdown short
+        // 回收 looper 协程在第一次被调度前就被取消的进程；
+        // looper 已启动的守护会在自己的 finally 里清理，
+        // 所以这里无条件 destroy 会把它的优雅退出截断
         // 没跑起来的 looper 没有 finally 可标记放弃，这里一并标记
         guards.forEach {
             it.state.onAbandoned()

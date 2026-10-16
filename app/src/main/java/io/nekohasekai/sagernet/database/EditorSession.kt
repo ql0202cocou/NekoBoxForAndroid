@@ -3,21 +3,19 @@ package io.nekohasekai.sagernet.database
 import android.os.SystemClock
 import io.nekohasekai.sagernet.Key
 
-// Ownership of the shared in-memory profileCacheStore: at most one top-level
-// editor (profile / route / group) uses it at a time, child editors
-// (ConfigEditActivity, AppListActivity, ProfileSelectActivity) share their
-// parent's keys by design and never claim a session. The token turns a silent
-// cache takeover into an explicit failure instead of a save into the wrong
-// entity.
+// 共享的内存缓存 profileCacheStore 的归属：同一时刻最多只有一个顶层编辑器
+// （配置 / 路由 / 分组）在用它；子编辑器（ConfigEditActivity、AppListActivity、
+// ProfileSelectActivity）按设计共用父编辑器的键，从不认领编辑器会话。
+// 令牌（token）把「缓存被悄悄接管」变成明确的失败，
+// 而不是存进错误的实体。
 
-// Bundle key under which each editor persists its token.
+// 每个编辑器把自己的令牌存进 Bundle 时用的键。
 const val STATE_EDITOR_SESSION = "editorSessionState"
 
 enum class EditorSessionState { OWNER, CACHE_LOST, TAKEN_OVER }
 
-// First creation: drop whatever the previous editor left, then claim the
-// cache. Must run before the editor writes any of its own keys (editingId
-// included).
+// 首次创建：丢掉上一个编辑器留下的所有内容，再认领缓存。
+// 必须在编辑器写入自己的任何键（包括 editingId）之前运行。
 fun claimEditorSession(): Long {
     EditorCache.profileCacheStore.reset()
     val token = SystemClock.elapsedRealtimeNanos()
@@ -25,10 +23,9 @@ fun claimEditorSession(): Long {
     return token
 }
 
-// Restore: compare the token kept in the editor's instance state against the
-// cache. CACHE_LOST means the process died and the in-memory cache is empty
-// (the caller re-initializes as before); TAKEN_OVER means another top-level
-// editor claimed the cache meanwhile.
+// 恢复：把编辑器实例状态里保存的令牌和缓存里的比对。
+// CACHE_LOST 表示进程死过、内存缓存是空的（调用方照旧重新初始化）；
+// TAKEN_OVER 表示这期间别的顶层编辑器认领了缓存。
 fun checkEditorSession(savedToken: Long): EditorSessionState {
     val cached = EditorCache.profileCacheStore.getLong(Key.EDITOR_SESSION)
     return when {
@@ -38,8 +35,8 @@ fun checkEditorSession(savedToken: Long): EditorSessionState {
     }
 }
 
-// Re-claim with the same token after a process-death re-init rewrote the
-// cache, so later recreations still match.
+// 进程死亡后的重新初始化重写了缓存，这里用同一个令牌重新认领，
+// 这样之后再次重建时仍能对得上。
 fun renewEditorSession(savedToken: Long) {
     EditorCache.profileCacheStore.putLong(Key.EDITOR_SESSION, savedToken)
 }

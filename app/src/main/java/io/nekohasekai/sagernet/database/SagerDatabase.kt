@@ -30,8 +30,8 @@ abstract class SagerDatabase : RoomDatabase() {
 
     companion object {
 
-        // proxy_groups gains isSelector/frontProxy/landingProxy (NOT NULL, no SQL default):
-        // recreate the table; proxy_entities only gains the nullable shadowTLSBean
+        // proxy_groups 新增 isSelector / frontProxy / landingProxy（NOT NULL，没有 SQL 默认值）：
+        // 所以要重建这张表；proxy_entities 只新增了可空的 shadowTLSBean
         private val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
@@ -65,7 +65,7 @@ abstract class SagerDatabase : RoomDatabase() {
             }
         }
 
-        // proxy_entities gains the nullable mieruBean
+        // proxy_entities 新增了可空的 mieruBean
         private val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE `proxy_entities` ADD COLUMN `mieruBean` BLOB")
@@ -122,10 +122,9 @@ abstract class SagerDatabase : RoomDatabase() {
                 .setJournalMode(JournalMode.TRUNCATE)
                 .allowMainThreadQueries()
                 .enableMultiInstanceInvalidation()
-                // No destructive fallback: it silently drops every profile, group and
-                // rule whenever a migration is missing — which a downgrade to an older
-                // APK always is. Failing to open keeps the data recoverable.
-                // single thread keeps the submitted runnables in order, off the main thread
+                // 不用 destructive fallback：缺迁移时它会静默丢掉所有配置、分组和规则——
+                // 而降级到旧版 APK 必然缺迁移。打开失败至少能让数据保持可恢复。
+                // 单线程执行器让提交的任务保持顺序，并且不占主线程
                 .setQueryExecutor(Executors.newSingleThreadExecutor())
                 .build()
         }

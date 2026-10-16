@@ -54,13 +54,13 @@ abstract class BoxInstance(
         private set
     open lateinit var processes: GuardedProcessPool
 
-    // Written by init/launch on one thread while close() may purge it from
-    // another (TestInstance cancellation); a plain ArrayList can CME there and
-    // the runCatching in close() would silently skip box.close().
+    // init / launch 在一个线程里写它，而 close() 可能在另一个线程清空它
+    // （TestInstance 被取消时）；普通 ArrayList 在这里可能抛 ConcurrentModificationException，
+    // close() 里的 runCatching 就会把 box.close() 静默跳过。
     private val cacheFiles = CopyOnWriteArrayList<File>()
 
-    // Concurrent TestInstances share these directories, so let the filesystem
-    // pick the name — a timestamp only makes collisions rarer, not impossible.
+    // 并发的 TestInstance 共用这些目录，所以文件名交给文件系统来取——
+    // 用时间戳只能让撞名变少，不能杜绝。
     private fun newCacheFile(prefix: String, ext: String, dir: File): File {
         dir.mkdirs()
         return File.createTempFile(prefix + "_", ".$ext", dir).also { cacheFiles.add(it) }
@@ -71,8 +71,8 @@ abstract class BoxInstance(
         cacheFiles.clear()
     }
 
-    // Plugin configs get their own directory; the files init() hands out via
-    // newCacheFile (the hysteria CA) land in cacheDir itself.
+    // 插件配置单独放一个目录；init() 经 newCacheFile 发出去的文件
+    // （hysteria 的 CA）则直接落在 cacheDir 里。
     private val pluginConfigDir = File(app.cacheDir, "tmpcfg")
 
     private fun writeCacheFile(prefix: String, ext: String, content: String): File =
@@ -86,7 +86,7 @@ abstract class BoxInstance(
         return pluginPath.getOrPut(name) { PluginManager.init(name)!! }
     }
 
-    // TestInstance overrides this to enable mihomo's Clash API for delay self-test.
+    // TestInstance 覆盖它，为延迟自测开启 mihomo 的 Clash API。
     protected open fun mihomoTestController(): Pair<Int, String>? = null
 
     // 构建诊断的收集器：构建抛异常时这里仍有已收集的部分。只有运行路径
@@ -174,8 +174,8 @@ abstract class BoxInstance(
     }
 
     override suspend fun launch() {
-        // A cancelled TestInstance may reach here after close(): starting the
-        // box and plugins now would leak them, so bail out instead.
+        // 已被取消的 TestInstance 可能在 close() 之后才走到这里：
+        // 此时再启动 box 和插件会泄漏它们，所以直接返回。
         if (isClosed()) return
 
         try {
@@ -262,7 +262,7 @@ abstract class BoxInstance(
         if (::box.isInitialized) runCatching { box.close() }
     }
 
-    // Called after close(): joining suspends Main while guard finalizers run.
+    // 在 close() 之后调用：join 会在守护的收尾逻辑运行期间挂起 Main。
     suspend fun awaitProcessesClosed() {
         if (::processes.isInitialized) processes.coroutineContext[Job]?.join()
     }
