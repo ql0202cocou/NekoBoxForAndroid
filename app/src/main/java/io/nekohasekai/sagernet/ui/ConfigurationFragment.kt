@@ -6,7 +6,6 @@ import android.os.Bundle
 import android.view.KeyEvent
 import android.view.MenuItem
 import android.view.View
-import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.PopupMenu
 import androidx.appcompat.widget.SearchView
@@ -29,11 +28,9 @@ import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.fmt.AbstractBean
-import io.nekohasekai.sagernet.fmt.displayType
 import io.nekohasekai.sagernet.group.GroupUpdater
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
-import io.nekohasekai.sagernet.ktx.confirm
 import io.nekohasekai.sagernet.ktx.displayName
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
@@ -44,14 +41,12 @@ import io.nekohasekai.sagernet.ktx.snackbar
 import io.nekohasekai.sagernet.ktx.startFilesForResult
 import io.nekohasekai.sagernet.ktx.writeToDocument
 import io.nekohasekai.sagernet.ui.profile.settingActivityOf
-import moe.matsuri.nb4a.Protocols
 import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.EditorCache
 
 class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
     PopupMenu.OnMenuItemClickListener,
     Toolbar.OnMenuItemClickListener,
-    SearchView.OnQueryTextListener,
     OnPreferenceDataStoreChangeListener {
 
     companion object {
@@ -139,21 +134,8 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
         }
     }
 
-    override fun onQueryTextChange(query: String): Boolean {
-        if (query.isEmpty()) {
-            // 清空作用到每个分组页：滑到别的页时搜索框失焦收起才发出这次清空，
-            // selectedGroup 此时已是新页，只清当前页的话原页留着搜索词，之后每次
-            // 整组重读都按它过滤
-            for (page in childFragmentManager.fragments) {
-                (page as? ProfileListFragment)?.adapter?.filter("")
-            }
-        } else {
-            getCurrentGroupFragment()?.adapter?.filter(query)
-        }
-        return false
-    }
-
-    override fun onQueryTextSubmit(query: String): Boolean = false
+    // 搜索框的接线与过滤在 ConfigurationSearch 里
+    private val search = ConfigurationSearch(this)
 
     @SuppressLint("DetachAndAttachSameFragment")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -182,30 +164,7 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
             }
         }
 
-        val searchView = toolbar.findViewById<SearchView>(R.id.action_search)
-        if (searchView != null) {
-            searchView.setOnQueryTextListener(this)
-            searchView.maxWidth = Int.MAX_VALUE
-
-            searchView.setOnQueryTextFocusChangeListener { _, hasFocus ->
-                if (!hasFocus) {
-                    cancelSearch(searchView)
-                }
-            }
-
-            // 搜索框展开时返回键先收起它，而不是直接退出；收起后回调停用，
-            // 返回交还给 MainActivity 的页面级处理
-            val closeSearchOnBack = object : OnBackPressedCallback(false) {
-                override fun handleOnBackPressed() = cancelSearch(searchView)
-            }
-            requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, closeSearchOnBack)
-            searchView.setOnSearchClickListener { closeSearchOnBack.isEnabled = true }
-            searchView.setOnCloseListener {
-                closeSearchOnBack.isEnabled = false
-                false
-            }
-            searchViewBackCallback = closeSearchOnBack
-        }
+        search.setup(toolbar.findViewById<SearchView>(R.id.action_search))
 
         groupPager = view.findViewById(R.id.group_pager)
         tabLayout = view.findViewById(R.id.group_tab)
@@ -357,6 +316,9 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
         R.id.action_new_chain to ProxyEntity.TYPE_CHAIN,
     )
 
+    // 清除流量 / 清除测试结果 / 删除不可用 / 去重在 GroupMaintenance 里
+    private val maintenance = GroupMaintenance(this)
+
     override fun onMenuItemClick(item: MenuItem): Boolean {
         newProfileTypes[item.itemId]?.let { type ->
             startActivity(Intent(requireActivity(), settingActivityOf(type)).apply {
@@ -394,76 +356,19 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
             }
 
             R.id.action_clear_traffic_statistics -> {
-                runOnDefaultDispatcher {
-                    val toClear = ProfileRepository.getProfilesByGroup(GroupManager.currentGroupId())
-                        .filter { it.tx != 0L || it.rx != 0L }
-                    if (toClear.isNotEmpty()) {
-                        ProfileRepository.clearTraffic(toClear)
-                        // :bg keeps its own counters; without this the running
-                        // looper persists the pre-clear totals right back
-                        SagerNet.clearTrafficStatistics(toClear.map { it.id }.toLongArray())
-                        // the bare column write posts nothing, so refresh the list here
-                        for (profile in toClear) ProfileRepository.postUpdate(profile)
-                    }
-                }
+                maintenance.clearTraffic()
             }
 
             R.id.action_connection_test_clear_results -> {
-                runOnDefaultDispatcher {
-                    val toClear = ProfileRepository.getProfilesByGroup(GroupManager.currentGroupId())
-                        .filter { it.status != 0 }
-                    ProfileRepository.clearTestResults(toClear)
-                    // the bare column write posts nothing, so refresh the list here
-                    for (profile in toClear) ProfileRepository.postUpdate(profile)
-                }
+                maintenance.clearTestResults()
             }
 
             R.id.action_connection_test_delete_unavailable -> {
-                runOnDefaultDispatcher {
-                    val toClear = ProfileRepository.getProfilesByGroup(GroupManager.currentGroupId())
-                        .filter { it.status != 0 && it.status != 1 }
-                    if (toClear.isNotEmpty()) {
-                        onMainDispatcher {
-                            // 读库期间 fragment 可能已销毁，requireContext 会在 appScope 上抛异常崩溃
-                            if (!isAdded) return@onMainDispatcher
-                            requireContext().confirm(R.string.delete_confirm_prompt) {
-                                runOnDefaultDispatcher {
-                                    ProfileRepository.deleteProfiles(toClear)
-                                }
-                            }
-                        }
-                    }
-                }
+                maintenance.deleteUnavailable()
             }
 
             R.id.action_remove_duplicate -> {
-                runOnDefaultDispatcher {
-                    val profiles = ProfileRepository.getProfilesByGroup(GroupManager.currentGroupId())
-                    val toClear = mutableListOf<ProxyEntity>()
-                    val uniqueProxies = LinkedHashSet<Protocols.Deduplication>()
-                    for (pf in profiles) {
-                        val proxy = Protocols.Deduplication(pf.requireBean(), pf.displayType())
-                        if (!uniqueProxies.add(proxy)) {
-                            toClear += pf
-                        }
-                    }
-                    if (toClear.isNotEmpty()) {
-                        onMainDispatcher {
-                            if (!isAdded) return@onMainDispatcher
-                            // 最多列出 20 个，再多的用省略号代替
-                            val names = toClear.take(21).mapIndexed { index, proxyEntity ->
-                                if (index < 20) proxyEntity.displayName() else "......"
-                            }
-                            requireContext().confirm(
-                                getString(R.string.delete_confirm_prompt) + "\n" + names.joinToString("\n")
-                            ) {
-                                runOnDefaultDispatcher {
-                                    ProfileRepository.deleteProfiles(toClear)
-                                }
-                            }
-                        }
-                    }
-                }
+                maintenance.removeDuplicates()
             }
 
             R.id.action_connection_tcp_ping -> {
@@ -497,13 +402,4 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
                 runOnDefaultDispatcher { writeToDocument(data, pendingExportConfig) }
             }
         }
-
-    private var searchViewBackCallback: OnBackPressedCallback? = null
-
-    private fun cancelSearch(searchView: SearchView) {
-        searchView.onActionViewCollapsed()
-        searchView.clearFocus()
-        searchViewBackCallback?.isEnabled = false
-    }
-
 }
