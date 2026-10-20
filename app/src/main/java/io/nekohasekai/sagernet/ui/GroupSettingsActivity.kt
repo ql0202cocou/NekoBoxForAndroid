@@ -247,7 +247,8 @@ class GroupSettingsActivity(
                 if (editingId == 0L) {
                     ProxyGroup().init()
                 } else {
-                    val entity = GroupRepository.getGroup(editingId) ?: return@launchEditorInit false
+                    // 读库之后才写缓存：checked 在读完后复查会话
+                    val entity = checked { GroupRepository.getGroup(editingId) } ?: return@launchEditorInit false
                     entity.init()
                 }
 

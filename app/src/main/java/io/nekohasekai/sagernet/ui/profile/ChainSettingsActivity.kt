@@ -13,10 +13,7 @@ import androidx.activity.result.component1
 import androidx.activity.result.component2
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.isVisible
-import androidx.lifecycle.lifecycleScope
 import io.nekohasekai.sagernet.fmt.displayType
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import androidx.preference.PreferenceFragmentCompat
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -142,13 +139,13 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
             }
         }
 
-        lifecycleScope.launch(Dispatchers.Default) {
-            awaitEditorReady()
+        launchInSession {
             // Restored fragments can create their view inside super.onCreate,
             // before this Activity has installed its adapter. Queue on Main
             // before accessing it so Activity.onCreate can finish first.
-            val adapter = onMainDispatcher { configurationAdapter }
-            adapter.reload()
+            checked { awaitEditorReady() }
+            val adapter = onMain { configurationAdapter }
+            adapter.reload(this)
         }
     }
 
@@ -160,24 +157,25 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
         // and the existing cache-rewrite semantics.
         private val missingIds = ArrayList<Long>()
 
-        suspend fun reload() {
-            awaitEditorReady()
+        // session 是调用方所在的 launchInSession 协程：每个挂起点之后先复查会话，再碰缓存与 proxyList
+        suspend fun reload(session: EditorScope) {
+            session.checked { awaitEditorReady() }
             val idList = cachedProxyIds()
             val profiles = if (idList.isNotEmpty()) {
-                ProfileRepository.getProfiles(idList).map { it.id to it }.toMap()
+                session.checked { ProfileRepository.getProfiles(idList) }.map { it.id to it }.toMap()
             } else emptyMap()
             // A process-death restore fires this twice (the restored fragment
             // and the re-init replacement), so rebuild the list instead of
             // appending; mutate it on the main thread where the RecyclerView
             // reads it.
-            onMainDispatcher {
+            session.onMain {
                 // A select-profile callback may have written the cache while
                 // the profiles were loading; retry instead of rebuilding the
                 // list from stale ids and wiping that selection.
                 val currentIds = cachedProxyIds()
                 if (currentIds != idList) {
-                    lifecycleScope.launch(Dispatchers.Default) { reload() }
-                    return@onMainDispatcher
+                    launchInSession { reload(this) }
+                    return@onMain
                 }
                 proxyList.clear()
                 missingIds.clear()
@@ -299,28 +297,25 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
 
     val selectProfileForAdd =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { (resultCode, data) ->
-            if (resultCode == Activity.RESULT_OK) lifecycleScope.launch(Dispatchers.Default) {
-                awaitEditorReady()
+            if (resultCode == Activity.RESULT_OK) launchInSession {
+                checked { awaitEditorReady() }
 
-                val profile = ProfileRepository.getProfile(
-                    data?.getLongExtra(
-                        ProfileSelectActivity.EXTRA_PROFILE_ID, 0
-                    ) ?: return@launch
-                ) ?: return@launch
+                val profileId = data?.getLongExtra(ProfileSelectActivity.EXTRA_PROFILE_ID, 0)
+                    ?: return@launchInSession
+                val profile = checked { ProfileRepository.getProfile(profileId) } ?: return@launchInSession
 
                 // proxyList 只由主线程改写（拖拽/删除/重载），快照必须在主线程取
-                val members = onMainDispatcher { proxyList.toList() }
-                if (!testProfileAllowed(profile, members)) {
-                    onMainDispatcher {
+                val members = onMain { proxyList.toList() }
+                if (!checked { testProfileAllowed(profile, members) }) {
+                    onMain {
                         MaterialAlertDialogBuilder(this@ChainSettingsActivity).setTitle(R.string.circular_reference)
                             .setMessage(R.string.circular_reference_sum)
                             .setPositiveButton(android.R.string.ok, null).show()
                     }
                 } else {
-                    onMainDispatcher {
-                        // 查库与环路检查期间缓存可能已被别的编辑器接管，与其它选择器回调一样丢弃迟到的结果；
-                        // 放在主线程写入之前查，查完到写完之间没有挂起点
-                        if (!holdsEditorSession()) return@onMainDispatcher
+                    // onMain 先复查会话再写：查库与环路检查期间缓存可能已被别的编辑器接管，迟到的结果丢弃；
+                    // 查完到写完之间没有挂起点
+                    onMain {
                         // reload() rebuilds proxyList from EditorCache.serverProtocol
                         // asynchronously, so after a process-death restore the
                         // list may still be empty here. Write the selection
@@ -335,7 +330,7 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
                         }
                         EditorCache.serverProtocol = ids.joinToString(",")
                         EditorCache.dirty = true
-                        lifecycleScope.launch(Dispatchers.Default) { configurationAdapter.reload() }
+                        launchInSession { configurationAdapter.reload(this) }
                     }
                 }
             }

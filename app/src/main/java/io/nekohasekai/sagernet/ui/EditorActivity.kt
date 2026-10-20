@@ -37,8 +37,12 @@ import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.widget.OutboundPreference
 import io.nekohasekai.sagernet.widget.liftAncestorAppBar
 import io.nekohasekai.sagernet.widget.padForSystemBars
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlin.coroutines.CoroutineContext
 
 /**
  * Base of the top-level editors (profile / route / group), which own the shared
@@ -119,19 +123,65 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
                 supportFragmentManager.findFragmentById(R.id.settings) == null
 
     /**
-     * 在 [lifecycleScope] 里做编辑器初始化：[load] 在后台把实体写进缓存，返回 false 表示
-     * 实体已不存在（直接关闭页面）。页面销毁时协程随之取消，不再写缓存也不提交 Fragment。
+     * 编辑器协程的统一入口（初始化、选择器回调、子编辑器结果回写都经这里）。在 [scope]（默认页面的
+     * [lifecycleScope]，Fragment 里的调用传自己的）里的 [context] 上启动 [block]：
+     * - 启动时先查一次会话归属，不属于本编辑器（页面已销毁、缓存被别的编辑器接管）就不跑；
+     * - [block] 里每个挂起点（含阻塞读库）之后、碰缓存或 View 之前，必须再查一次：读库用
+     *   [EditorScope.checked]，切主线程用 [EditorScope.onMain]，两者检查失败都抛 [CancellationException]，
+     *   协程静默结束，迟到的结果被丢弃（不弹提示，被接管的编辑器此时已不可见或已提示过）；
+     * - 页面销毁时协程随 [scope] 取消。
+     * 必须在页面关闭后仍写完的保存不走这里（见 [saveAndExit]）。
+     */
+    protected fun launchInSession(
+        scope: CoroutineScope = lifecycleScope,
+        context: CoroutineContext = Dispatchers.Default,
+        block: suspend EditorScope.() -> Unit,
+    ): Job = scope.launch(context) {
+        val session = EditorScope(this)
+        session.ensureHeld()
+        session.block()
+    }
+
+    /** [launchInSession] 里 [block] 的接收者：会话检查只能在入口内部用。 */
+    inner class EditorScope internal constructor(scope: CoroutineScope) : CoroutineScope by scope {
+        /** 会话已失效就抛 [CancellationException]，结束当前协程。 */
+        fun ensureHeld() {
+            if (!holdsEditorSession()) throw CancellationException("编辑器会话已失效")
+        }
+
+        /** 运行 [block]（可挂起或阻塞读库），返回前再查一次会话；调用方只在这之后才可以碰缓存与 View。 */
+        suspend fun <T> checked(block: suspend () -> T): T {
+            val result = block()
+            ensureHeld()
+            return result
+        }
+
+        /**
+         * 切到主线程，先查会话再运行 [block]；[block] 本身不再挂起，所以查完到写完之间没有间隙。
+         * 写缓存、改 View 都放在这里面。
+         */
+        suspend fun <T> onMain(block: () -> T): T = onMainDispatcher {
+            ensureHeld()
+            block()
+        }
+    }
+
+    /**
+     * 编辑器初始化：[load] 在后台把实体写进缓存，返回 false 表示实体已不存在（直接关闭页面）；
+     * 随后提交偏好 Fragment（[now] 为真时同步提交），提交成功后调 [onCommitted]。
+     * [load] 里读库要用 [EditorScope.checked] 包起来，再写缓存。会话失效时静默结束，不提交、不关闭页面。
      */
     protected fun launchEditorInit(
         createFragment: () -> Fragment,
-        load: suspend () -> Boolean,
-    ) = lifecycleScope.launch(Dispatchers.Default) {
-        if (!holdsEditorSession()) return@launch
+        now: Boolean = false,
+        onCommitted: () -> Unit = {},
+        load: suspend EditorScope.() -> Boolean,
+    ) = launchInSession {
         if (!load()) {
             onMainDispatcher { finish() }
-            return@launch
+            return@launchInSession
         }
-        commitEditorFragment(createFragment())
+        if (commitEditorFragment(createFragment(), now)) onCommitted()
     }
 
     /**
@@ -220,19 +270,18 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
         onSelected: (Long) -> Unit,
         preference: () -> OutboundPreference?,
     ) = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        if (it.resultCode == RESULT_OK) lifecycleScope.launch(Dispatchers.Default) {
+        if (it.resultCode == RESULT_OK) launchInSession {
             // RESULT_OK 也可能不带 data（picker 被重建等）
-            val data = it.data ?: return@launch
-            val profile = ProfileRepository.getProfile(
-                data.getLongExtra(ProfileSelectActivity.EXTRA_PROFILE_ID, 0)
-            ) ?: return@launch
+            val data = it.data ?: return@launchInSession
             // 查库期间页面可能已销毁或缓存已被别的编辑器接管
-            if (!holdsEditorSession()) return@launch
+            val profile = checked {
+                ProfileRepository.getProfile(
+                    data.getLongExtra(ProfileSelectActivity.EXTRA_PROFILE_ID, 0)
+                )
+            } ?: return@launchInSession
             onSelected(profile.id)
-            onMainDispatcher {
-                // 进程死亡恢复时 fragment 可能还没提交；它创建时会读 EditorCache 里的值
-                preference()?.value = "3"
-            }
+            // 进程死亡恢复时 fragment 可能还没提交；它创建时会读 EditorCache 里的值
+            onMain { preference()?.value = "3" }
         }
     }
 

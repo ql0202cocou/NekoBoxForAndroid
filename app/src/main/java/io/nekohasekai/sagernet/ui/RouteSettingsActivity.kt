@@ -39,13 +39,12 @@ class RouteSettingsActivity(
     @Volatile
     private var pendingRouteOutbound: Long? = null
 
-    fun init(packageName: String?) {
-        RuleEntity().apply {
-            if (!packageName.isNullOrBlank()) {
-                packages = setOf(packageName)
-                name = app.getString(R.string.route_for, PackageCache.loadLabel(packageName))
-            }
-        }.init()
+    // 新建规则的初始内容；读应用名可能阻塞，调用方要用 checked 包起来，读完再写缓存
+    fun newRule(packageName: String?) = RuleEntity().apply {
+        if (!packageName.isNullOrBlank()) {
+            packages = setOf(packageName)
+            name = app.getString(R.string.route_for, PackageCache.loadLabel(packageName))
+        }
     }
 
     fun RuleEntity.init() {
@@ -208,9 +207,10 @@ class RouteSettingsActivity(
             EditorCache.editingId = editingId
             launchEditorInit({ EditorPreferenceFragment() }) {
                 if (editingId == 0L) {
-                    init(intent.getStringExtra(EXTRA_PACKAGE_NAME))
+                    checked { newRule(intent.getStringExtra(EXTRA_PACKAGE_NAME)) }.init()
                 } else {
-                    val ruleEntity = RuleRepository.getRule(editingId) ?: return@launchEditorInit false
+                    // 读库之后才写缓存：checked 在读完后复查会话
+                    val ruleEntity = checked { RuleRepository.getRule(editingId) } ?: return@launchEditorInit false
                     ruleEntity.init()
                 }
 

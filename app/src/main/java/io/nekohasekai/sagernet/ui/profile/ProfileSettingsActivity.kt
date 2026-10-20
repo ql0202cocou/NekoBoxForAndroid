@@ -149,34 +149,26 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         // editor would save a garbage profile.
         if (needsEditorInit(savedInstanceState, Key.PROFILE_CORE)) {
             val editingId = EditorCache.editingId
-            lifecycleScope.launch(Dispatchers.Default) {
-                if (!holdsEditorSession()) return@launch
+            // 提交成功才算就绪；节点不存在（load 返回 false）、会话失效、页面销毁都不会提交，
+            // 协程结束时取消 editorReady，等它的协程随之结束
+            launchEditorInit(
+                { MyPreferenceFragmentCompat() }, now = true, onCommitted = { editorReady.complete(Unit) },
+            ) {
                 if (editingId == 0L) {
-                    EditorCache.editingGroup = GroupRepository.selectedGroupForImport()
+                    EditorCache.editingGroup = checked { GroupRepository.selectedGroupForImport() }
                     createEntity().applyDefaultValues().init()
                     EditorCache.profileCacheStore.putString(
                         Key.PROFILE_CORE, ProxyEntity.CORE_AUTO.toString()
                     )
                 } else {
-                    val entity = awaitProxyEntity()
-                    if (entity == null) {
-                        onMainDispatcher {
-                            finish()
-                        }
-                        editorReady.cancel()
-                        return@launch
-                    }
+                    val entity = checked { awaitProxyEntity() } ?: return@launchEditorInit false
                     EditorCache.editingGroup = entity.groupId
                     (entity.requireBean() as T).init()
                     EditorCache.profileCacheStore.putString(
                         Key.PROFILE_CORE, entity.core.toString()
                     )
                 }
-
-                // 提交前再校验会话归属，并重新认领缓存（进程死亡后缓存被初始化重写）
-                if (commitEditorFragment(MyPreferenceFragmentCompat(), now = true)) {
-                    editorReady.complete(Unit)
-                }
+                true
             }.invokeOnCompletion {
                 if (!editorReady.isCompleted) editorReady.cancel()
             }
@@ -187,13 +179,14 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         // action_move 可见性条件要查库，等初始化写好 editingGroup 后异步预取
         // 再刷新菜单；节点已不存在或初始化失败时 editorReady 被取消，这里随之结束
         // （会话被接管时 onCreate 早已返回，走不到这里）
-        lifecycleScope.launch(Dispatchers.Default) {
-            awaitEditorReady()
+        launchInSession {
+            checked { awaitEditorReady() }
+            // 读 editingGroup 与查库都在会话内：被接管后缓存里是别人的内容，不能拿来算菜单
             canMoveProfile = EditorCache.editingId != 0L // 非新建
                     && GroupRepository.getGroup(EditorCache.editingGroup)?.type == GroupType.BASIC // 不在订阅组
                     && GroupRepository.getAllGroups()
                 .filter { it.type == GroupType.BASIC }.size > 1 // 还有其他普通分组
-            onMainDispatcher { invalidateOptionsMenu() }
+            onMain { invalidateOptionsMenu() }
         }
 
     }
@@ -325,35 +318,38 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         }
 
         // ConfigEditActivity 改完的 JSON 写回正在编辑的那一行的 bean，保存时随它一起写库。重建（旋转、进程死亡）后
-        // 结果会送到新实例，这时节点可能还在后台载入，等载入完成再写；新建节点没有这两项菜单，结果直接丢弃
-        private fun applyEditedJson(json: String, apply: (AbstractBean, String) -> Unit) {
+        // 结果会送到新实例，这时节点可能还在后台载入，等载入完成再写；新建节点没有这两项菜单，结果直接丢弃。
+        // 缓存里的 JSON 要等会话复查通过后再读：等待期间缓存可能已被别的编辑器接管，那时读到的是别人的内容
+        private fun applyEditedJson(readJson: () -> String, apply: (AbstractBean, String) -> Unit) {
             val activity = profileActivity ?: return
-            lifecycleScope.launch {
-                activity.awaitProxyEntity()?.requireBean()?.let { apply(it, json) }
+            activity.launchInSession(lifecycleScope, Dispatchers.Main.immediate) {
+                val bean = checked { activity.awaitProxyEntity() }?.requireBean() ?: return@launchInSession
+                apply(bean, readJson())
             }
         }
 
         val resultCallbackCustom = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { (_, _) ->
-            applyEditedJson(EditorCache.serverCustom) { bean, json -> bean.customConfigJson = json }
+            applyEditedJson({ EditorCache.serverCustom }) { bean, json -> bean.customConfigJson = json }
         }
 
         val resultCallbackCustomOutbound = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { (_, _) ->
-            applyEditedJson(EditorCache.serverCustomOutbound) { bean, json -> bean.customOutboundJson = json }
+            applyEditedJson({ EditorCache.serverCustomOutbound }) { bean, json -> bean.customOutboundJson = json }
         }
 
-        // 用正在编辑的那一行的 bean 打开 JSON 编辑页；节点还在后台载入时等它（菜单回调在主线程，不能查库）
+        // 用正在编辑的那一行的 bean 打开 JSON 编辑页；节点还在后台载入时等它（菜单回调在主线程，不能查库）。
+        // 等待之后写缓存前复查会话，被接管就不再往别人的缓存里写种子内容
         private fun launchJsonEditor(
             key: String,
             seed: (AbstractBean) -> Unit,
             launcher: ActivityResultLauncher<Intent>,
         ) {
             val activity = profileActivity ?: return
-            lifecycleScope.launch {
-                val bean = activity.awaitProxyEntity()?.requireBean() ?: return@launch
+            activity.launchInSession(lifecycleScope, Dispatchers.Main.immediate) {
+                val bean = checked { activity.awaitProxyEntity() }?.requireBean() ?: return@launchInSession
                 // seeding the editor is not an edit: keep dirty as it was
                 val dirty = EditorCache.dirty
                 seed(bean)
