@@ -82,6 +82,9 @@ class AssetsActivity : ThemedActivity() {
         binding.refreshLayout.setColorSchemeColors(getColorAttr(R.attr.primaryOrTextPrimary))
 
         undoManager = UndoSnackbarManager(this, adapter)
+        // 首次列目录放在 undoManager 建好之后：回填时要先 flush 撤销窗口。不放进适配器的 init：
+        // 那里早于 reloadJob 等属性的初始化，也早于 undoManager 赋值
+        adapter.reloadAssets()
 
         ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
             0, ItemTouchHelper.START
@@ -206,10 +209,6 @@ class AssetsActivity : ThemedActivity() {
         UndoSnackbarManager.Interface<File> {
 
         val assets = ArrayList<File>()
-
-        init {
-            reloadAssets()
-        }
 
         // 各文件的本地版本，reloadAssets 在后台读好，bind 直接取，免得主线程读文件
         var versions = emptyMap<String, String>()
