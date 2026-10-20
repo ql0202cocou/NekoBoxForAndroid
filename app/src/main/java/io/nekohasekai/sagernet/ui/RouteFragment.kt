@@ -7,7 +7,10 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.widget.Toolbar
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.AsyncDifferConfig
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.AppBarLayout
 import io.nekohasekai.sagernet.R
@@ -24,6 +27,10 @@ import io.nekohasekai.sagernet.widget.insertClamped
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.Executor
+
+// removedIds 里「删除落库尚未确认」的标记：大于任何重读序号，永不被清掉
+private const val UNCONFIRMED = Long.MAX_VALUE
 
 class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItemClickListener {
 
@@ -140,8 +147,53 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
         return true
     }
 
-    inner class RuleAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>(), ProfileManager.RuleListener, UndoSnackbarManager.Interface<RuleEntity> {
+    /**
+     * 路由行的显示快照：列表项的内容由这几个字段决定，DiffUtil 只比较它们。
+     * 文字在建行时就算好（出站节点名也合在里面，节点改名即内容变化），绑定时不再查别处；
+     * 拖动排序与开关会就地改 [rule]（同一个对象），所以不能拿实体本身做比较。
+     */
+    class RuleRow(
+        val id: Long,
+        val name: String,
+        val summary: String,
+        val outbound: String,
+        val enabled: Boolean,
+        // 绑定、滑动删除与撤销要用的实体；不参与差量比较
+        val rule: RuleEntity,
+    )
 
+    private object RuleDiff : DiffUtil.ItemCallback<RuleRow>() {
+        // 仅开关状态变化时带这个 payload：就地重绑，不触发整张卡片的交叉淡变（与点开关时一致）
+        const val PAYLOAD_ENABLED = "enabled"
+
+        override fun areItemsTheSame(oldItem: RuleRow, newItem: RuleRow) = oldItem.id == newItem.id
+
+        override fun areContentsTheSame(oldItem: RuleRow, newItem: RuleRow) =
+            oldItem.name == newItem.name && oldItem.summary == newItem.summary &&
+                oldItem.outbound == newItem.outbound && oldItem.enabled == newItem.enabled
+
+        override fun getChangePayload(oldItem: RuleRow, newItem: RuleRow): Any? =
+            if (oldItem.name == newItem.name && oldItem.summary == newItem.summary &&
+                oldItem.outbound == newItem.outbound
+            ) PAYLOAD_ENABLED else null
+    }
+
+    /**
+     * 列表只有几十行，差量计算就在调用线程（主线程）上同步做：提交后 [currentList] 立刻是新内容，
+     * 滑动、拖动、撤销用的位置与 [ruleList] 始终一致，不会有「后台算完才换」的空档。
+     */
+    private val syncExecutor = Executor { it.run() }
+
+    inner class RuleAdapter : ListAdapter<RuleRow, RuleAdapter.RuleHolder>(
+        AsyncDifferConfig.Builder(RuleDiff)
+            .setBackgroundThreadExecutor(syncExecutor)
+            .setMainThreadExecutor(syncExecutor)
+            .build()
+    ), ProfileManager.RuleListener, UndoSnackbarManager.Interface<RuleEntity> {
+
+        // 主线程上的工作副本，是列表内容的唯一来源；ListAdapter 的 currentList 不可变，
+        // 每次改动后由 submit() 按它重新生成行提交，差量事件由 DiffUtil 发出。
+        // 拖动期间的换位也直接改它，随后同样 submit()（见 move）
         val ruleList = ArrayList<RuleEntity>()
 
         // 出站指定节点的规则要显示的节点名，键是节点 id；只在主线程读写，名字在后台查好再放进来，绑定时不查库
@@ -151,17 +203,46 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
         // 读库结果与列表刷新一并作废。reload 可从任意线程调用（含「重置路由」的进程级协程）
         private val viewScope = viewLifecycleOwner.lifecycleScope
 
+        private fun rowOf(rule: RuleEntity) = RuleRow(
+            id = rule.id,
+            name = rule.displayName(),
+            summary = rule.mkSummary(),
+            outbound = rule.displayOutbound(outboundNames[rule.outbound]),
+            enabled = rule.enabled,
+            rule = rule,
+        )
+
+        // 把工作副本提交给 DiffUtil；只在主线程调用
+        private fun submit() {
+            submitList(ruleList.map(::rowOf))
+        }
+
+        // 滑掉的规则：id → 「落库已确认」时的 reloadGen，未确认为 UNCONFIRMED。整表重读开始得早于删除落库时，
+        // 读到的结果里仍有这些规则，应用结果时按它过滤，滑掉的行才不会回来、撤销也不会插出重复项。
+        // id 是自增主键、不复用，过滤在确认之后也不会误伤别的规则
+        private val removedIds = HashMap<Long, Long>()
+
+        // 整表重读的序号，每次在主线程上、读库之前递增
+        private var reloadGen = 0L
+
         fun reload() {
             viewScope.launch {
+                val gen = ++reloadGen
                 val (rules, names) = withContext(Dispatchers.IO) {
                     val rules = RuleRepository.getRules()
                     rules to RuleRepository.outboundProfileNames(rules)
                 }
-                ruleList.clear()
-                ruleList.addAll(rules)
-                outboundNames.clear()
-                outboundNames.putAll(names)
-                notifyDataSetChanged()
+                // 列表变更的统一入口：先提交撤销窗口，再换列表（撤销下标只对删除当时的列表有效）
+                undoManager.mutate {
+                    // 提交只是把删除交给后台，读库可能早于它，所以过滤不能省
+                    ruleList.clear()
+                    rules.filterTo(ruleList) { it.id !in removedIds }
+                    outboundNames.clear()
+                    outboundNames.putAll(names)
+                    // 删除确认于本次读库之前（gen 大于确认时的序号），读到的结果已不含它们，可以不再过滤
+                    removedIds.values.removeAll { it < gen }
+                    submit()
+                }
             }
         }
 
@@ -172,20 +253,12 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
         override fun onCreateViewHolder(
             parent: ViewGroup,
             viewType: Int,
-        ): RecyclerView.ViewHolder {
+        ): RuleHolder {
             return RuleHolder(LayoutRouteItemBinding.inflate(layoutInflater, parent, false))
         }
 
-        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-            (holder as RuleHolder).bind(ruleList[position])
-        }
-
-        override fun getItemCount(): Int {
-            return ruleList.size
-        }
-
-        override fun getItemId(position: Int): Long {
-            return ruleList[position].id
+        override fun onBindViewHolder(holder: RuleHolder, position: Int) {
+            holder.bind(getItem(position))
         }
 
         private val updated = HashSet<RuleEntity>()
@@ -194,7 +267,8 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
                 ruleList[i] = rule
                 updated.add(rule)
             }
-            if (moved) notifyItemMoved(from, to)
+            // 拖动中的换位也走 DiffUtil：同一批行只是顺序变了，差量只会是一次移动事件
+            if (moved) submit()
             return moved
         }
 
@@ -212,14 +286,16 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
         }
 
         fun remove(index: Int) {
-            ruleList.removeAt(index)
-            notifyItemRemoved(index)
+            removedIds[ruleList.removeAt(index).id] = UNCONFIRMED
+            submit()
         }
 
         override fun undo(actions: List<Pair<Int, RuleEntity>>) {
             for ((index, item) in actions) {
-                notifyItemInserted(ruleList.insertClamped(index, item))
+                removedIds.remove(item.id)
+                ruleList.insertClamped(index, item)
             }
+            submit()
         }
 
         override fun commit(actions: List<Pair<Int, RuleEntity>>) {
@@ -227,6 +303,12 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
             // 进程级：撤销窗口到期的规则删除落库，页面已关闭也要删完
             runOnDefaultDispatcher {
                 RuleRepository.deleteRules(rules)
+                // 落库之后在主线程记下确认时的序号：此后才开始的重读一定读不到这些规则
+                onMainDispatcher {
+                    for (rule in rules) {
+                        if (removedIds.containsKey(rule.id)) removedIds[rule.id] = reloadGen
+                    }
+                }
             }
         }
 
@@ -237,7 +319,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
                 undoManager.mutate {
                     outboundNames.putAll(names)
                     ruleList.add(rule)
-                    ruleAdapter.notifyItemInserted(ruleList.size - 1)
+                    submit()
                 }
                 needReload()
             }
@@ -254,7 +336,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
                     val index = ruleList.indexOfFirst { it.id == rule.id }
                     if (index == -1) return@post
                     ruleList[index] = rule
-                    ruleAdapter.notifyItemChanged(index)
+                    submit()
                 }
                 needReload()
             }
@@ -267,7 +349,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
                     val index = ruleList.indexOfFirst { it.id == ruleId }
                     if (index != -1) {
                         ruleList.removeAt(index)
-                        ruleAdapter.notifyItemRemoved(index)
+                        submit()
                     }
                 }
                 needReload()
@@ -279,7 +361,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
                 // 「重置路由」清空了全部规则：窗口里待删的规则已不在库里，撤销只会插回幽灵行
                 undoManager.mutate {
                     ruleList.clear()
-                    ruleAdapter.notifyDataSetChanged()
+                    submit()
                 }
                 needReload()
             }
@@ -295,19 +377,22 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
             val shareLayout = binding.share
             val enableSwitch = binding.enable
 
-            fun bind(ruleEntity: RuleEntity) {
+            fun bind(row: RuleRow) {
+                val ruleEntity = row.rule
                 rule = ruleEntity
-                profileName.text = ruleEntity.displayName()
-                profileType.text = ruleEntity.mkSummary()
-                routeOutbound.text = ruleEntity.displayOutbound(outboundNames[ruleEntity.outbound])
+                profileName.text = row.name
+                profileType.text = row.summary
+                routeOutbound.text = row.outbound
                 itemView.setOnClickListener {
                     enableSwitch.performClick()
                 }
                 enableSwitch.setOnCheckedChangeListener(null)
-                enableSwitch.isChecked = ruleEntity.enabled
+                enableSwitch.isChecked = row.enabled
                 enableSwitch.setOnCheckedChangeListener { _, isChecked ->
                     val ruleId = ruleEntity.id
                     ruleEntity.enabled = isChecked
+                    // 同步快照：之后的提交不再把这一行当作变化（开关本身已是新状态）
+                    submit()
                     // 进程级：规则开关的落库，页面随后离开也要写完；提示只在页面还在时弹
                     runOnDefaultDispatcher {
                         RuleRepository.updateRuleEnabled(ruleId, isChecked)
