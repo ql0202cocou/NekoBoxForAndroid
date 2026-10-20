@@ -33,7 +33,13 @@ import io.nekohasekai.sagernet.ui.profile.ProfileSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.ShadowsocksSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.VMessSettingsActivity
 import moe.matsuri.nb4a.TempDatabase
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.android.controller.ActivityController
 import org.robolectric.shadows.ShadowDialog
@@ -236,9 +242,47 @@ class UiScenarios(private val ui: UiTestRule) {
     private fun Job?.running() = this?.isActive == true
 
     /**
+     * 占满 Dispatchers.IO 的并行度：门开着的时候，页面代码提交到 IO 的读库任务只能排队，不会运行，
+     * 「读库在途时销毁页面」因此是确定的，不取决于读库和销毁谁先到。
+     * 关闭（[close]）后排队的任务照常跑完。门开着时不能 settle（占着的线程在等门闩，settle 会超时），
+     * 所以一律用 `IoGate().use { ... }` 包住「触发读库 → 销毁页面」，出了块再 settle。
+     * Robolectric 的 ActivityController.pause()/stop()/destroy() 每一步都会把主 looper 空转一遍，
+     * 没有这道门时，已读完的结果会在销毁前的空转里被应用——那是正常行为，不是缺陷。
+     */
+    @OptIn(DelicateCoroutinesApi::class)
+    private class IoGate : AutoCloseable {
+        private val release = CountDownLatch(1)
+
+        init {
+            // kotlinx.coroutines 的 IO 并行度：系统属性，缺省 max(64, CPU 数)
+            val slots = System.getProperty("kotlinx.coroutines.io.parallelism")?.toIntOrNull()
+                ?: maxOf(64, Runtime.getRuntime().availableProcessors())
+            val occupied = CountDownLatch(slots)
+            repeat(slots) {
+                GlobalScope.launch(Dispatchers.IO) {
+                    occupied.countDown()
+                    release.await()
+                }
+            }
+            try {
+                check(occupied.await(10, TimeUnit.SECONDS)) { "IO 调度器没能在 10 s 内被占满" }
+                // 自检：门关上后再提交的 IO 任务必须跑不起来，否则下面的「在途」不成立
+                val probe = CountDownLatch(1)
+                GlobalScope.launch(Dispatchers.IO) { probe.countDown() }
+                check(!probe.await(100, TimeUnit.MILLISECONDS)) { "IO 门没有挡住后续的 IO 任务" }
+            } catch (t: Throwable) {
+                release.countDown()
+                throw t
+            }
+        }
+
+        override fun close() = release.countDown()
+    }
+
+    /**
      * 配置页：行内的选中态查询在途时销毁页面——查询随视图作用域取消，销毁之后不再回填这一行。
      * 回填只会把 selectedView 设成 VISIBLE / INVISIBLE，所以先把它设成 GONE 当哨兵。
-     * 重绑发生在主线程、此时主 looper 不空转，在途的查询不可能先于销毁完成回填。
+     * 读库被 [IoGate] 挡在门外，销毁时查询一定还在途。
      */
     fun configRowLoadCancelledOnDestroy(): Check {
         UiFixtures.install()
@@ -246,12 +290,14 @@ class UiScenarios(private val ui: UiTestRule) {
         val list = (main.get().fragment() as ConfigurationFragment).currentList()
         val holders = (0 until list.childCount).map { list.getChildViewHolder(list.getChildAt(it)) as ConfigurationHolder }
         if (holders.isEmpty()) error("前置条件：配置页没有可见行")
-        holders.forEach {
-            it.selectedView.visibility = View.GONE
-            it.bind(it.entity)
+        IoGate().use {
+            holders.forEach {
+                it.selectedView.visibility = View.GONE
+                it.bind(it.entity)
+            }
+            if (holders.none { it.jobField("bindJob").running() }) error("前置条件：重绑后没有在途的行内查询")
+            ui.destroyNow(main)
         }
-        if (holders.none { it.jobField("bindJob").running() }) error("前置条件：重绑后没有在途的行内查询")
-        ui.destroyNow(main)
         UiSettle.settle()
         val stray = holders.count { it.selectedView.visibility != View.GONE }
         val alive = holders.count { it.jobField("bindJob").running() }
@@ -269,12 +315,14 @@ class UiScenarios(private val ui: UiTestRule) {
         val holders = (0 until list.childCount).map { list.getChildViewHolder(list.getChildAt(it)) as GroupFragment.GroupHolder }
         if (holders.isEmpty()) error("前置条件：分组页没有可见行")
         val sentinel = "sentinel"
-        holders.forEach {
-            it.groupStatus.text = sentinel
-            it.bind(it.proxyGroup)
+        IoGate().use {
+            holders.forEach {
+                it.groupStatus.text = sentinel
+                it.bind(it.proxyGroup)
+            }
+            if (holders.none { it.jobField("countJob").running() }) error("前置条件：重绑后没有在途的节点数查询")
+            ui.destroyNow(main)
         }
-        if (holders.none { it.jobField("countJob").running() }) error("前置条件：重绑后没有在途的节点数查询")
-        ui.destroyNow(main)
         UiSettle.settle()
         val stray = holders.count { it.groupStatus.text.toString() != sentinel }
         val alive = holders.count { it.jobField("countJob").running() }
@@ -289,9 +337,11 @@ class UiScenarios(private val ui: UiTestRule) {
         main.go(Page.ROUTES)
         val adapter = (main.get().fragment() as RouteFragment).ruleAdapter
         if (adapter.ruleList.isEmpty()) error("前置条件：路由页没有规则")
-        adapter.ruleList.clear()
-        adapter.reload()
-        ui.destroyNow(main)
+        IoGate().use {
+            adapter.ruleList.clear()
+            adapter.reload()
+            ui.destroyNow(main)
+        }
         UiSettle.settle()
         return if (adapter.ruleList.isEmpty()) Check(true) else Check(false, "销毁后路由列表又被刷新了（${adapter.ruleList.size} 条）")
     }
@@ -305,8 +355,10 @@ class UiScenarios(private val ui: UiTestRule) {
         val main = ui.launch<MainActivity>()
         val adapter = (main.get().fragment() as ConfigurationFragment).adapter
         val before = adapter.groupList
-        adapter.reload()
-        ui.destroyNow(main)
+        IoGate().use {
+            adapter.reload()
+            ui.destroyNow(main)
+        }
         UiSettle.settle()
         ui.offMain { adapter.reload() }
         UiSettle.settle()
@@ -342,8 +394,15 @@ class UiScenarios(private val ui: UiTestRule) {
         val item = config.toolbar.menu.findItem(R.id.action_connection_test_delete_unavailable)
             ?: error("前置条件：菜单里没有「删除不可用」")
         ShadowDialog.reset()
-        config.onMenuItemClick(item)
-        if (destroyFirst) ui.destroyNow(main)
+        if (destroyFirst) {
+            // 读库挡在门外，销毁时一定还在途
+            IoGate().use {
+                config.onMenuItemClick(item)
+                ui.destroyNow(main)
+            }
+        } else {
+            config.onMenuItemClick(item)
+        }
         UiSettle.settle()
         val shown = ShadowDialog.getLatestDialog() != null
         return when {
@@ -353,19 +412,30 @@ class UiScenarios(private val ui: UiTestRule) {
         }
     }
 
-    /** 点测试后读当前分组在途时销毁页面：不起测试，进程级的「测试中」标记复位，之后还能再测 */
+    /**
+     * 点测试后读当前分组在途时销毁页面：不起测试，进程级的「测试中」标记复位，之后还能再测。
+     * 读库不挡住的话，读完的结果会在销毁前的空转里真的起测试（对文档保留地址发 TCP 连接）。
+     */
     fun groupTestEntryResetsOnDestroy(): Check {
         UiFixtures.install()
         val main = ui.launch<MainActivity>()
         val config = main.get().fragment() as ConfigurationFragment
         val item = config.toolbar.menu.findItem(R.id.action_connection_tcp_ping) ?: error("前置条件：菜单里没有「TCP Ping」")
-        config.onMenuItemClick(item)
+        // 进程级的静态标记在同一沙箱的用例之间共享：开始前清零，结束后也清零，不连累别的用例
         val flag = Class.forName("io.nekohasekai.sagernet.ui.GroupTestRunnerKt").getDeclaredField("runningTest")
             .apply { isAccessible = true }.get(null) as java.util.concurrent.atomic.AtomicBoolean
-        if (!flag.get()) error("前置条件：点测试后没有置位")
-        ui.destroyNow(main)
-        UiSettle.settle()
-        return if (!flag.get()) Check(true) else Check(false, "页面销毁后「测试中」标记仍然置位，之后所有测试都会被静默拒绝")
+        flag.set(false)
+        try {
+            IoGate().use {
+                config.onMenuItemClick(item)
+                if (!flag.get()) error("前置条件：点测试后没有置位")
+                ui.destroyNow(main)
+            }
+            UiSettle.settle()
+            return if (!flag.get()) Check(true) else Check(false, "页面销毁后「测试中」标记仍然置位，之后所有测试都会被静默拒绝")
+        } finally {
+            flag.set(false)
+        }
     }
 
     // ------------------------------------------------------ 编辑器重建与会话
