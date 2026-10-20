@@ -6,6 +6,7 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.widget.Toolbar
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.AsyncDifferConfig
 import androidx.recyclerview.widget.DiffUtil
@@ -14,7 +15,6 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.RuleEntity
 import io.nekohasekai.sagernet.database.RuleRepository
 import io.nekohasekai.sagernet.databinding.LayoutRouteBinding
@@ -23,14 +23,9 @@ import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.widget.liftOnScrollOf
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
-import io.nekohasekai.sagernet.widget.insertClamped
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.util.concurrent.Executor
-
-// removedIds 里「删除落库尚未确认」的标记：大于任何重读序号，永不被清掉
-private const val UNCONFIRMED = Long.MAX_VALUE
 
 class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItemClickListener {
 
@@ -41,6 +36,9 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
     private var _binding: LayoutRouteBinding? = null
     private val binding get() = _binding!!
     val ruleListView: RecyclerView get() = binding.routeList
+
+    // 列表数据、出站节点名与仓库监听在 ViewModel 里：旋转后不重读库，滚动位置随之恢复
+    val routeModel: RouteViewModel by viewModels()
 
     // 适配器和撤销管理器每次建视图都重建，onDestroy 还要据此判断是否建过，所以保留 lateinit
     lateinit var ruleAdapter: RuleAdapter
@@ -78,20 +76,18 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
         binding.appbar.root.liftOnScrollOf(ruleListView)
         ruleListView.layoutManager = FixedLinearLayoutManager(ruleListView)
 
-        // onViewCreated can run again (rotation): unregister the previous
-        // adapter before replacing it
-        if (::ruleAdapter.isInitialized) {
-            RuleRepository.removeListener(ruleAdapter)
-        }
+        // onViewCreated can run again: 摘掉上一个适配器的观察者，数据留在 ViewModel 里
         emptyObserverAdapter?.unregisterAdapterDataObserver(emptyObserver)
-        listLoaded = false
+        // ViewModel 已读过库（旋转）时列表是现成的，空列表也可以直接显示占位
+        listLoaded = routeModel.loaded
         ruleAdapter = RuleAdapter()
         emptyObserverAdapter = ruleAdapter
         ruleAdapter.registerAdapterDataObserver(emptyObserver)
-        RuleRepository.addListener(ruleAdapter)
         ruleListView.adapter = ruleAdapter
         updateEmptyState()
         undoManager = UndoSnackbarManager(activity, ruleAdapter)
+        // 撤销管理器建好之后再接上：ViewModel 的通知经适配器的 mutate 用到它
+        routeModel.attach(ruleAdapter)
 
         ItemTouchHelper(object : DragScaleCallback(ItemTouchHelper.UP or ItemTouchHelper.DOWN, ItemTouchHelper.START) {
 
@@ -120,6 +116,10 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
     }
 
     override fun onDestroyView() {
+        if (::ruleAdapter.isInitialized) {
+            ruleAdapter.discardPendingMoves()
+            routeModel.detach(ruleAdapter)
+        }
         _binding = null
         super.onDestroyView()
     }
@@ -127,9 +127,6 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
     override fun onDestroy() {
         emptyObserverAdapter?.unregisterAdapterDataObserver(emptyObserver)
         emptyObserverAdapter = null
-        if (::ruleAdapter.isInitialized) {
-            RuleRepository.removeListener(ruleAdapter)
-        }
         super.onDestroy()
     }
 
@@ -139,6 +136,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
                 startActivity(Intent(context, RouteSettingsActivity::class.java))
             }
             R.id.action_reset_route -> {
+                val model = routeModel
                 activity.confirm(R.string.reset_route_message) {
                     // 进程级：重置路由先清空再重建默认规则，确认后不随页面取消
                     runOnDefaultDispatcher {
@@ -147,7 +145,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
                         // 并刷新仍由下面的手动 reload 完成（两者均幂等）
                         RuleRepository.clearRules()
                         DataStore.rulesFirstCreate = false
-                        ruleAdapter.reload()
+                        model.reload()
                     }
                 }
             }
@@ -200,28 +198,22 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
             .setBackgroundThreadExecutor(syncExecutor)
             .setMainThreadExecutor(syncExecutor)
             .build()
-    ), ProfileManager.RuleListener, UndoSnackbarManager.Interface<RuleEntity> {
+    ), RouteViewModel.Host, UndoSnackbarManager.Interface<RuleEntity> {
 
-        // 监听器在后台线程回调，视图销毁后也可能到达：构造时（视图存活）取一次，之后不再经过 binding
-        private val listView = ruleListView
+        // 数据在 ViewModel 里，适配器只管显示。ViewModel 在适配器构造时取一次存着：
+        // 撤销提交等后台回调晚于视图销毁时也不必再经 Fragment 去找它
+        private val model = routeModel
 
-        // 主线程上的工作副本，是列表内容的唯一来源；ListAdapter 的 currentList 不可变，
-        // 每次改动后由 submit() 按它重新生成行提交，差量事件由 DiffUtil 发出。
+        // 主线程上的工作副本，是列表内容的唯一来源（ViewModel 持有，旋转后新的适配器接着用）；ListAdapter 的
+        // currentList 不可变，每次改动后由 submit() 按它重新生成行提交，差量事件由 DiffUtil 发出。
         // 拖动期间的换位也直接改它，随后同样 submit()（见 move）
-        val ruleList = ArrayList<RuleEntity>()
-
-        // 出站指定节点的规则要显示的节点名，键是节点 id；只在主线程读写，名字在后台查好再放进来，绑定时不查库
-        private val outboundNames = HashMap<Long, String>()
-
-        // 页面作用域：适配器在 onViewCreated 里建，此刻视图已存在；视图销毁时取消，
-        // 读库结果与列表刷新一并作废。reload 可从任意线程调用（含「重置路由」的进程级协程）
-        private val viewScope = viewLifecycleOwner.lifecycleScope
+        val ruleList: ArrayList<RuleEntity> get() = model.ruleList
 
         private fun rowOf(rule: RuleEntity) = RuleRow(
             id = rule.id,
             name = rule.displayName(),
             summary = rule.mkSummary(),
-            outbound = rule.displayOutbound(outboundNames[rule.outbound]),
+            outbound = rule.displayOutbound(model.outboundNames[rule.outbound]),
             enabled = rule.enabled,
             rule = rule,
         )
@@ -231,38 +223,22 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
             submitList(ruleList.map(::rowOf))
         }
 
-        // 滑掉的规则：id → 「落库已确认」时的 reloadGen，未确认为 UNCONFIRMED。整表重读开始得早于删除落库时，
-        // 读到的结果里仍有这些规则，应用结果时按它过滤，滑掉的行才不会回来、撤销也不会插出重复项。
-        // id 是自增主键、不复用，过滤在确认之后也不会误伤别的规则
-        private val removedIds = HashMap<Long, Long>()
-
-        // 整表重读的序号，每次在主线程上、读库之前递增
-        private var reloadGen = 0L
-
-        fun reload() {
-            viewScope.launch {
-                val gen = ++reloadGen
-                val (rules, names) = withContext(Dispatchers.IO) {
-                    val rules = RuleRepository.getRules()
-                    rules to RuleRepository.outboundProfileNames(rules)
-                }
-                // 列表变更的统一入口：先提交撤销窗口，再换列表（撤销下标只对删除当时的列表有效）
-                undoManager.mutate {
-                    // 提交只是把删除交给后台，读库可能早于它，所以过滤不能省
-                    ruleList.clear()
-                    rules.filterTo(ruleList) { it.id !in removedIds }
-                    outboundNames.clear()
-                    outboundNames.putAll(names)
-                    // 删除确认于本次读库之前（gen 大于确认时的序号），读到的结果已不含它们，可以不再过滤
-                    removedIds.values.removeAll { it < gen }
-                    submit()
-                }
-            }
-        }
+        fun reload() = model.reload()
 
         init {
-            reload()
+            // 旋转后 ViewModel 里已有现成的列表，直接显示；还没读过库就等 ViewModel 的读库结果
+            if (model.loaded) submit()
+            // 进程重建后第一批规则到达时才有内容可恢复：滚动位置等布局状态等到列表非空再恢复，
+            // 免得在空列表上布局时把已保存的位置丢掉
+            stateRestorationPolicy = StateRestorationPolicy.PREVENT_WHEN_EMPTY
         }
+
+        // RouteViewModel.Host
+        override fun mutate(block: () -> Unit) = undoManager.mutate(block)
+
+        override fun refresh() = submit()
+
+        override fun needReload() = this@RouteFragment.needReload()
 
         override fun onCreateViewHolder(
             parent: ViewGroup,
@@ -299,17 +275,23 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
             }
         }
 
+        /**
+         * 视图销毁时还有没落库的换位（拖动中途旋转 / 离开，ItemTouchHelper 不会再回调 clearView）：
+         * 放弃它们并按库重读，免得 ViewModel 里的顺序与库不一致
+         */
+        fun discardPendingMoves() {
+            if (updated.isEmpty()) return
+            updated.clear()
+            model.reload()
+        }
+
         fun remove(index: Int) {
-            removedIds[ruleList.removeAt(index).id] = UNCONFIRMED
+            model.removeAt(index)
             submit()
         }
 
         override fun undo(actions: List<Pair<Int, RuleEntity>>) {
-            for ((index, item) in actions) {
-                removedIds.remove(item.id)
-                ruleList.insertClamped(index, item)
-            }
-            submit()
+            model.restore(actions)
         }
 
         override fun commit(actions: List<Pair<Int, RuleEntity>>) {
@@ -318,66 +300,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
             runOnDefaultDispatcher {
                 RuleRepository.deleteRules(rules)
                 // 落库之后在主线程记下确认时的序号：此后才开始的重读一定读不到这些规则
-                onMainDispatcher {
-                    for (rule in rules) {
-                        if (removedIds.containsKey(rule.id)) removedIds[rule.id] = reloadGen
-                    }
-                }
-            }
-        }
-
-        override suspend fun onAdd(rule: RuleEntity) {
-            // 监听器跑在调用方的后台线程上，节点名在这里查
-            val names = RuleRepository.outboundProfileNames(listOf(rule))
-            listView.post {
-                undoManager.mutate {
-                    outboundNames.putAll(names)
-                    ruleList.add(rule)
-                    submit()
-                }
-                needReload()
-            }
-        }
-
-        override suspend fun onUpdated(rule: RuleEntity) {
-            // These callbacks run on the caller's (background) dispatcher while
-            // drag-sorting mutates ruleList on the main thread; only touch the
-            // list in post.
-            val names = RuleRepository.outboundProfileNames(listOf(rule))
-            listView.post {
-                undoManager.mutate {
-                    outboundNames.putAll(names)
-                    val index = ruleList.indexOfFirst { it.id == rule.id }
-                    if (index == -1) return@post
-                    ruleList[index] = rule
-                    submit()
-                }
-                needReload()
-            }
-        }
-
-        override suspend fun onRemoved(ruleId: Long) {
-            listView.post {
-                // 同节点列表：别处删了规则先提交撤销窗口，免得 undo 按旧位置插回越界或插回幽灵行
-                undoManager.mutate {
-                    val index = ruleList.indexOfFirst { it.id == ruleId }
-                    if (index != -1) {
-                        ruleList.removeAt(index)
-                        submit()
-                    }
-                }
-                needReload()
-            }
-        }
-
-        override suspend fun onCleared() {
-            listView.post {
-                // 「重置路由」清空了全部规则：窗口里待删的规则已不在库里，撤销只会插回幽灵行
-                undoManager.mutate {
-                    ruleList.clear()
-                    submit()
-                }
-                needReload()
+                onMainDispatcher { model.confirmRemoved(rules) }
             }
         }
 

@@ -279,7 +279,7 @@ class GroupListDiffTest : UiTestBase() {
             group
         }
         // 主线程协程上的 delay 走 looper 的虚拟时钟，可以推进
-        CoroutineScope(Dispatchers.Main).launch { adapter.groupAdd(created) }
+        CoroutineScope(Dispatchers.Main).launch { fragment.groupModel.groupAdd(created) }
         UiSettle.settle()
         assertFalse("前置条件：延迟期间新分组还没进列表", created.id in fragment.ids())
 

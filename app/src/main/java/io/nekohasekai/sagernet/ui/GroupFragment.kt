@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.PopupMenu
 import androidx.appcompat.widget.Toolbar
 import androidx.core.view.*
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.AsyncDifferConfig
 import androidx.recyclerview.widget.DiffUtil
@@ -33,7 +34,6 @@ import io.nekohasekai.sagernet.widget.UndoSnackbarManager
 import io.nekohasekai.sagernet.widget.insertClamped
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import moe.matsuri.nb4a.utils.Util
@@ -41,10 +41,8 @@ import moe.matsuri.nb4a.utils.toBytesString
 import java.util.*
 import java.util.concurrent.Executor
 
-private const val KEY_SELECTED_GROUP = "selectedGroupId"
-
 // 只刷新订阅更新进度条的局部 bind 标记
-private const val PAYLOAD_PROGRESS = "progress"
+private const val PAYLOAD_PROGRESS = GroupViewModel.PAYLOAD_PROGRESS
 
 // 分组卡片显示的字段：差量比较只看这些，别的字段变了不重绑。进度条不在其中——
 // 它的状态在 GroupUpdater.progress / updating，不在 ProxyGroup 上，走 PAYLOAD_PROGRESS 专用通知
@@ -99,6 +97,9 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
     private val binding get() = _binding!!
     val groupListView: RecyclerView get() = binding.groupList
 
+    // 列表数据、选中分组 id 与仓库监听在 ViewModel 里：旋转后不重读库，滚动位置随之恢复
+    val groupModel: GroupViewModel by viewModels()
+
     // 适配器和撤销管理器每次建视图都重建，onDestroy 还要据此判断是否建过，所以保留 lateinit
     lateinit var groupAdapter: GroupAdapter
     lateinit var undoManager: UndoSnackbarManager<ProxyGroup>
@@ -106,7 +107,6 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         _binding = LayoutGroupBinding.bind(view)
-        savedInstanceState?.let { selectedGroupId = it.getLong(KEY_SELECTED_GROUP) }
 
         toolbar.setTitle(R.string.menu_group)
         toolbar.inflateMenu(R.menu.add_group_menu)
@@ -116,16 +116,13 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         binding.appbar.root.liftOnScrollOf(groupListView)
         groupListView.layoutManager = FixedLinearLayoutManager(groupListView)
 
-        // onViewCreated can run again (rotation): unregister the previous
-        // adapter before replacing it
-        if (::groupAdapter.isInitialized) {
-            GroupRepository.removeListener(groupAdapter)
-        }
+        // onViewCreated can run again: 数据留在 ViewModel 里，新适配器直接取现成的列表
         groupAdapter = GroupAdapter()
-        GroupRepository.addListener(groupAdapter)
         groupListView.adapter = groupAdapter
 
         undoManager = UndoSnackbarManager(activity, groupAdapter)
+        // 撤销管理器建好之后再接上：ViewModel 的通知经适配器的 mutate 用到它
+        groupModel.attach(groupAdapter)
 
         ItemTouchHelper(object : DragScaleCallback(
             ItemTouchHelper.UP or ItemTouchHelper.DOWN, ItemTouchHelper.START
@@ -200,16 +197,6 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         return true
     }
 
-    // The picker outlives this fragment: after process death the result is
-    // redelivered to a fresh instance whose menu click never ran, so the id has to
-    // come from the saved state rather than a field set by that click.
-    private var selectedGroupId = 0L
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        outState.putLong(KEY_SELECTED_GROUP, selectedGroupId)
-    }
-
     // 逐个节点生成链接。库里可能还留着入口加固前导入、或从备份恢复的坏节点：
     // 生成失败的跳过，不让一个坏节点拖垮整组导出。返回链接与给导出结果追加的
     // 跳过提示（没跳过为 null）；整体返回 null 表示读库失败、已经提示过
@@ -235,7 +222,9 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
     private val exportProfiles =
         registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { data ->
             if (data != null) {
-                val groupId = selectedGroupId
+                // 选择器比本页面活得久：进程重建后结果送达一个全新的页面实例，点菜单的那次点击已不存在，
+                // 分组 id 只能取 ViewModel 里（SavedStateHandle）保存的那份
+                val groupId = groupModel.selectedGroupId
                 // 进程级：把分组链接写进用户选的文件，页面重建或离开后也要写完（writeToDocument 自己判界面是否还在）
                 runOnDefaultDispatcher {
                     val (links, note) = stdLinksOfGroup(groupId) ?: return@runOnDefaultDispatcher
@@ -252,62 +241,36 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             .setMainThreadExecutor(SYNC_EXECUTOR)
             .build()
     ),
-        GroupManager.Listener,
+        GroupViewModel.Host,
         UndoSnackbarManager.Interface<ProxyGroup> {
 
-        // 当前列表的可变工作副本，同时就是 differ 持有的那一个实例（ListAdapter 的 currentList 是它的只读视图）。
-        // 整表变化（重读、新增、库里删除、编辑器改动）一律经 submitGroups 提交一份新副本，由 DiffUtil 发通知；
+        // 数据在 ViewModel 里，适配器只管显示。ViewModel 在适配器构造时取一次存着：
+        // 撤销提交等后台回调晚于视图销毁时也不必再经 Fragment 去找它
+        private val model = groupModel
+
+        // 当前列表的可变工作副本（ViewModel 持有），同时就是 differ 持有的那一个实例（ListAdapter 的 currentList 是它的只读视图）。
+        // 整表变化（重读、新增、库里删除、编辑器改动）一律由 ViewModel 经 submit 提交一份新副本，由 DiffUtil 发通知；
         // 只有三条主线程同步路径就地改它并紧跟精确的 notify：滑动删除、撤销插回、拖动换位
         // （ItemTouchHelper 要求当场可见，撤销下标只对删除当时的列表有效）。主线程之外不碰
-        var groupList = ArrayList<ProxyGroup>()
-            private set
+        val groupList: ArrayList<ProxyGroup> get() = model.groupList
 
-        // 页面作用域：适配器在 onViewCreated 里建，此刻视图已存在；视图销毁时取消，
-        // 读库结果与列表刷新一并作废。reload 可从任意线程调用（监听回调、撤销提交）
-        private val viewScope = viewLifecycleOwner.lifecycleScope
-
-        // 拖动进行中（已有换位、尚未落下）；这期间不应用整表重读：库里还是拖动前的顺序，
-        // 会把正在拖的列表拽回去。落下后补读一次
-        private var dragging = false
-        private var reloadAfterDrag = false
-
-        /**
-         * 提交一份新列表：传副本，differ 对同一实例直接返回、不做比对；此后的就地改动落在这份副本上。
-         * 同步比对（见 SYNC_EXECUTOR），返回时 RecyclerView 已收到全部通知
-         */
-        private fun submitGroups(groups: List<ProxyGroup>) {
-            val next = ArrayList(groups)
-            groupList = next
-            submitList(next)
-        }
-
-        fun reload() {
-            viewScope.launch {
-                val groups = withContext(Dispatchers.IO) {
-                    val groups = GroupRepository.getAllGroups().toMutableList()
-                    val ungrouped = groups.find { it.ungrouped }
-                    if (ungrouped != null && groups.size > 1 && ProfileRepository.countProfilesByGroup(ungrouped.id) == 0L) groups.removeAll { it.ungrouped }
-                    groups
-                }
-                if (dragging) {
-                    reloadAfterDrag = true
-                    return@launch
-                }
-                // 同节点列表的 reloadProfiles：整表重读会把撤销窗口里待删的分组读回来，先提交掉，
-                // 否则撤销会按旧位置再插一份
-                undoManager.mutate {
-                    submitGroups(groups)
-                }
-            }
-        }
+        fun reload() = model.reload()
 
         init {
             setHasStableIds(true)
-            // 先把空的工作副本交给 differ，之后它们始终是同一个实例
+            // 把 ViewModel 的工作副本交给 differ（旋转后是现成的列表，行直接出现），之后它们始终是同一个实例
             submitList(groupList)
-
-            reload()
+            // 进程重建后第一批分组到达时才有内容可恢复：滚动位置等布局状态等到列表非空再恢复，
+            // 免得在空列表上布局时把已保存的位置丢掉
+            stateRestorationPolicy = StateRestorationPolicy.PREVENT_WHEN_EMPTY
         }
+
+        // GroupViewModel.Host
+        override fun mutate(block: () -> Unit) = undoManager.mutate(block)
+
+        override fun submit(groups: ArrayList<ProxyGroup>) = submitList(groups)
+
+        override fun notifyChanged(index: Int, payload: Any?) = notifyItemChanged(index, payload)
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): GroupHolder {
             return GroupHolder(LayoutGroupItemBinding.inflate(layoutInflater, parent, false))
@@ -343,7 +306,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                 updated.add(group)
             }
             if (moved) {
-                dragging = true
+                model.beginDrag()
                 notifyItemMoved(from, to)
             }
             return moved
@@ -354,9 +317,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             // to `updated` there while the write below iterates it
             val updated = HashSet(updated)
             this.updated.clear()
-            dragging = false
-            val deferredReload = reloadAfterDrag
-            reloadAfterDrag = false
+            val deferredReload = model.endDrag()
             // 进程级：分组拖动排序的落库，页面随后离开也要写完
             runOnDefaultDispatcher {
                 GroupRepository.updateUserOrders(updated)
@@ -380,99 +341,26 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
 
         override fun commit(actions: List<Pair<Int, ProxyGroup>>) {
             val groups = actions.map { it.second }
-            // 进程级：撤销窗口到期的分组删除落库；其后的 reload 自带页面作用域，页面已销毁时什么也不做
+            // 进程级：撤销窗口到期的分组删除落库；其后的 reload 在 ViewModel 作用域里，页面真正关闭时什么也不做
             runOnDefaultDispatcher {
                 GroupRepository.deleteGroups(groups)
-                // 删完刷新列表：页面作用域内的读取，页面已销毁时什么也不做
+                // 删完刷新列表
                 reload()
-            }
-        }
-
-        override suspend fun groupAdd(group: ProxyGroup) {
-            // 这 300 ms 并不等任何动画：回调跑在保存方（分组编辑器）的协程里，延迟的实际效果是
-            // 把编辑器的 finish() 与后面的监听器各推迟 300 ms，保留原样（去掉会改编辑器的关闭时机）
-            delay(300L)
-
-            onMainDispatcher {
-                undoManager.mutate {
-                    // 延迟期间另一次整表重读可能已经把这个分组读进列表：按 id 去重，在就不再追加
-                    if (groupList.none { it.id == group.id }) {
-                        submitGroups(groupList + group)
-                    }
-                }
-
-                if (group.type == GroupType.SUBSCRIPTION) {
-                    GroupUpdater.startUpdate(group, true)
-                }
-            }
-        }
-
-        override suspend fun groupRemoved(groupId: Long) {
-            // 该回调跑在调用方的后台线程，读库在这里做，主线程只动视图
-            val groupCount = GroupRepository.getAllGroups().size
-            onMainDispatcher {
-                if (groupList.none { it.id == groupId }) return@onMainDispatcher
-                undoManager.mutate {
-                    if (groupCount <= 2) {
-                        reload()
-                    } else {
-                        submitGroups(groupList.filter { it.id != groupId })
-                    }
-                }
-            }
-        }
-
-        override suspend fun groupUpdated(group: ProxyGroup) {
-            // This callback runs on the caller's (background) dispatcher while
-            // drag-sorting mutates groupList on the main thread; only touch the
-            // list on the main thread.
-            onMainDispatcher {
-                val index = groupList.indexOfFirst { it.id == group.id }
-                if (index == -1) {
-                    reload()
-                    return@onMainDispatcher
-                }
-                undoManager.mutate {
-                    if (groupList[index] === group) {
-                        // 同一个实例被就地改过：差量比不出变化，按原来的做法整卡重绑
-                        notifyItemChanged(index)
-                    } else {
-                        submitGroups(groupList.map { if (it.id == group.id) group else it })
-                    }
-                }
-            }
-        }
-
-        // 节点数变了（清空分组、节点增删）：分组本身没变，差量看不出，整卡重绑重查节点数
-        override suspend fun groupUpdated(groupId: Long) = notifyGroupChanged(groupId, null)
-
-        // 解析进度每前进一步都会到这里：进度不在 ProxyGroup 上，差量看不到，也不该为它整卡重绑、重查节点数，
-        // 所以保留带 payload 的定点通知，由 onBindViewHolder 只刷新进度条
-        override suspend fun groupProgress(groupId: Long) = notifyGroupChanged(groupId, PAYLOAD_PROGRESS)
-
-        private suspend fun notifyGroupChanged(groupId: Long, payload: Any?) {
-            onMainDispatcher {
-                val index = groupList.indexOfFirst { it.id == groupId }
-                if (index == -1) {
-                    reload()
-                    return@onMainDispatcher
-                }
-                notifyItemChanged(index, payload)
             }
         }
 
     }
 
     override fun onDestroyView() {
+        if (::groupAdapter.isInitialized) {
+            // 拖动中途销毁时由 ViewModel 放弃这次拖动并按库重读，摘掉的适配器不再收通知
+            groupModel.detach(groupAdapter)
+        }
         _binding = null
         super.onDestroyView()
     }
 
     override fun onDestroy() {
-        if (::groupAdapter.isInitialized) {
-            GroupRepository.removeListener(groupAdapter)
-        }
-
         super.onDestroy()
 
         if (!::undoManager.isInitialized) return
@@ -603,7 +491,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             }
 
             optionsButton.setOnClickListener {
-                selectedGroupId = group.id
+                groupModel.selectedGroupId = group.id
 
                 val popup = PopupMenu(requireContext(), it)
                 popup.menuInflater.inflate(R.menu.group_action_menu, popup.menu)
