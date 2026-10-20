@@ -56,11 +56,27 @@ Accepted upstream behavior (no patch):
   libcore's `interfaceMonitorStub` always reports nil and drops callbacks
   (the default network is tracked on the Kotlin side), so the pause would
   latch: the WireGuard endpoint goes `Down()` and every wireguard-go timer
-  blocks in `WaitActive`. Kept upstream unpatched; libcore's
-  `BoxInstance.Start()` sends `NetworkWake` right after `Box.Start()`
-  returns (regression test `TestBoxInstanceStartLeavesNetworkAwake`). The
-  one error line per start remains. Anything new in sing-box that calls
-  `NetworkPause` must be checked against this.
+  blocks in `WaitActive`. Kept upstream unpatched; since 2026-10-20 libcore
+  registers `noNetworkPauseManager` (`libcore/pause.go`) before `box.New`
+  (`pause.WithDefaultManager` keeps an already registered manager): its
+  `NetworkPause` / `NetworkWake` are no-ops, device pause passes through to
+  the default manager. libcore has no other source of network pause, so this
+  only drops the stub's spurious one. Before, `BoxInstance.Start()` sent
+  `NetworkWake` after `Box.Start()` returned, which left the pause in effect
+  during `Start`: the pause callbacks run synchronously, so the WireGuard
+  endpoint went `Down()` inside `Start` and waited for wireguard-go timers
+  and `ClientBind`'s back-off / `Send` parked in `WaitActive` (one `Send` even
+  holding the device state lock), which only the wake after `Start` could
+  release — `Start` never returned whenever a WireGuard endpoint could not
+  connect at start, e.g. a chain hop behind an unreachable detour (reproduced
+  on the host with one endpoint). Regression tests
+  `TestBoxInstanceStartSwallowsNetworkPause` /
+  `TestBoxInstanceStartLeavesNetworkAwake` (`libcore/box_test.go`) and
+  `TestBoxInstanceWireGuardBehindDeadDetour` (`libcore/box_wireguard_test.go`;
+  both new tests fail on the old code, the latter by `Start` not returning
+  within 10 s). The one error line per start remains. Anything new in
+  sing-box that calls `NetworkPause` must be checked against this: it is now
+  swallowed too.
 - Idle connections of unreferenced outbounds and DNS servers (new in 1.14.3,
   `route/reference.go`, fd9a076d / 07130365). After start and on every
   URL-test-history or clash-mode update (a selector switch notifies the

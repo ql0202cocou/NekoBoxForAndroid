@@ -11,6 +11,7 @@ import (
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/trafficcontrol"
 	"github.com/sagernet/sing/service"
+	"github.com/sagernet/sing/service/pause"
 )
 
 // Minimal config that starts on desktop: no inbounds (nothing to bind), a
@@ -86,6 +87,31 @@ func TestBoxInstanceStartLeavesNetworkAwake(t *testing.T) {
 	}
 	if instance.pauseManager.IsNetworkPaused() {
 		t.Fatal("network still paused after Start")
+	}
+}
+
+// 那次 NetworkPause 在 Start 里就不能生效（见 pause.go）：暂停回调同步执行，WireGuard 端点会在
+// Start 里 Down，与在 WaitActive 里等网络恢复的定时器、重连退避互相卡死。只看 Start 之后的状态
+// 测不出来（上面的测试），这里在 Start 之前登记回调，断言整个 Start 期间没有发出网络暂停
+func TestBoxInstanceStartSwallowsNetworkPause(t *testing.T) {
+	instance := newTestBox(t)
+	defer instance.Close()
+	var access sync.Mutex
+	var events []int
+	instance.pauseManager.RegisterCallback(func(event int) {
+		access.Lock()
+		events = append(events, event)
+		access.Unlock()
+	})
+	if err := instance.Start(); err != nil {
+		t.Fatal(err)
+	}
+	access.Lock()
+	defer access.Unlock()
+	for _, event := range events {
+		if event == pause.EventNetworkPause {
+			t.Fatal("NetworkPause reached the pause callbacks during Start")
+		}
 	}
 }
 

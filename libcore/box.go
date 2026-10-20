@@ -95,6 +95,7 @@ func NewSingBoxInstance(config string, localTransport LocalDNSTransport) (b *Box
 	)
 	ctx = service.ContextWithDefaultRegistry(ctx)
 	service.MustRegister[adapter.PlatformInterface](ctx, boxPlatformInterfaceInstance)
+	registerNoNetworkPauseManager(ctx)
 
 	// parse options
 	var options option.Options
@@ -155,18 +156,9 @@ func (b *BoxInstance) Start() (err error) {
 		// instance is pointless; the state stays boxStarted on purpose so that
 		// Close()
 		// still cancels the context and drops the main-instance reference.
-		if err = b.Box.Start(); err != nil {
-			return err
-		}
-		// interfaceMonitorStub 的 DefaultInterface 恒为 nil，sing-box 在 PostStart
-		// 会 NetworkPause 并报 "missing default interface"，而唯一的 NetworkWake
-		// 只在拿到默认接口时发出（stub 丢弃回调，永远不会）。不唤醒的话 WireGuard
-		// 启动即 Down、其定时器全部卡在 WaitActive。默认网络由 Kotlin 侧跟踪，
-		// 这里直接恢复
-		if b.pauseManager != nil {
-			b.pauseManager.NetworkWake()
-		}
-		return nil
+		// PostStart 那次因 interfaceMonitorStub 而起的 NetworkPause 已被
+		// noNetworkPauseManager 吞掉（见 pause.go），不需要再补发 NetworkWake
+		return b.Box.Start()
 	}
 	return errors.New("already started")
 }
