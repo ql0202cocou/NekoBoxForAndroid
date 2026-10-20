@@ -78,6 +78,8 @@ abstract class AppSelectActivity : ThemedActivity() {
         val search: EditText,
         val showSystemApps: CompoundButton,
         val placeholder: LayoutAppPlaceholderBinding,
+        val loading: View,
+        val empty: TextView,
     )
 
     protected abstract fun inflateViews(): Views
@@ -116,7 +118,8 @@ abstract class AppSelectActivity : ThemedActivity() {
         binding.root
     ),
         View.OnClickListener {
-        private lateinit var item: ProxiedApp
+        // bind 之前没有当前项
+        private var item: ProxiedApp? = null
 
         init {
             binding.root.setOnClickListener(this)
@@ -131,11 +134,13 @@ abstract class AppSelectActivity : ThemedActivity() {
         }
 
         fun handlePayload(payloads: List<String>) {
-            if (payloads.contains(SWITCH)) binding.itemcheck.isChecked = isProxiedApp(item)
+            val app = item ?: return
+            if (payloads.contains(SWITCH)) binding.itemcheck.isChecked = isProxiedApp(app)
         }
 
         override fun onClick(v: View?) {
-            if (isProxiedApp(item)) proxiedUids.delete(item.uid) else proxiedUids[item.uid] = true
+            val app = item ?: return
+            if (isProxiedApp(app)) proxiedUids.delete(app.uid) else proxiedUids[app.uid] = true
             selectedPackages = apps.filter { isProxiedApp(it) }
                 .joinToString("\n") { it.packageName }
             appsAdapter.notifyItemRangeChanged(0, appsAdapter.itemCount, SWITCH)
@@ -202,9 +207,9 @@ abstract class AppSelectActivity : ThemedActivity() {
 
     }
 
-    private val loading by lazy { findViewById<View>(R.id.loading) }
-
-    private lateinit var views: Views
+    // 第一次用到在 onCreate 里；两份布局的控件由子类的 inflateViews 取出
+    private val views: Views by lazy(LazyThreadSafetyMode.NONE) { inflateViews() }
+    private val loading get() = views.loading
 
     // 应用列表首次载入完成之前不显示「列表为空」的提示，免得载入中或首次过滤前闪一下
     private var appsReady = false
@@ -212,7 +217,7 @@ abstract class AppSelectActivity : ThemedActivity() {
     // 应用已载入但过滤后没有可显示的项：没有用户应用且没开「显示系统应用」，或搜索无结果。
     // 一个应用都没有（多半是没有读取应用列表的权限）走 layout_app_placeholder，不在这里处理
     private fun updateEmptyHint() {
-        val hint = findViewById<TextView>(R.id.app_empty)
+        val hint = views.empty
         val show = appsReady && apps.isNotEmpty() && appsAdapter.filteredApps.isEmpty()
         if (show) {
             hint.setText(
@@ -291,7 +296,6 @@ abstract class AppSelectActivity : ThemedActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        views = inflateViews()
         setContentView(views.root)
         if (!onViewsCreated(savedInstanceState)) {
             finish()

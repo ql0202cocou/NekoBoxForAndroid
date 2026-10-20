@@ -14,14 +14,13 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.AsyncDifferConfig
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ItemTouchHelper
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.*
+import io.nekohasekai.sagernet.databinding.LayoutGroupBinding
 import io.nekohasekai.sagernet.databinding.LayoutGroupItemBinding
 import io.nekohasekai.sagernet.fmt.haveLink
 import io.nekohasekai.sagernet.fmt.toUniversalLink
@@ -92,26 +91,30 @@ private val SYNC_EXECUTOR = Executor { it.run() }
 class GroupFragment : ToolbarFragment(R.layout.layout_group),
     Toolbar.OnMenuItemClickListener {
 
-    lateinit var activity: MainActivity
-    lateinit var groupListView: RecyclerView
-    lateinit var layoutManager: LinearLayoutManager
+    // 首次访问在 onViewCreated 里（已附着），之后沿用同一个宿主 Activity
+    val activity: MainActivity by lazy(LazyThreadSafetyMode.NONE) { requireActivity() as MainActivity }
+
+    // 只在 onViewCreated 到 onDestroyView 之间有效
+    private var _binding: LayoutGroupBinding? = null
+    private val binding get() = _binding!!
+    val groupListView: RecyclerView get() = binding.groupList
+
+    // 适配器和撤销管理器每次建视图都重建，onDestroy 还要据此判断是否建过，所以保留 lateinit
     lateinit var groupAdapter: GroupAdapter
     lateinit var undoManager: UndoSnackbarManager<ProxyGroup>
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        activity = requireActivity() as MainActivity
+        _binding = LayoutGroupBinding.bind(view)
         savedInstanceState?.let { selectedGroupId = it.getLong(KEY_SELECTED_GROUP) }
 
         toolbar.setTitle(R.string.menu_group)
         toolbar.inflateMenu(R.menu.add_group_menu)
         toolbar.setOnMenuItemClickListener(this)
 
-        groupListView = view.findViewById(R.id.group_list)
         groupListView.padForSystemBars(bottomExtra = mainBottomClearance())
-        view.findViewById<AppBarLayout>(R.id.appbar).liftOnScrollOf(groupListView)
-        layoutManager = FixedLinearLayoutManager(groupListView)
-        groupListView.layoutManager = layoutManager
+        binding.appbar.root.liftOnScrollOf(groupListView)
+        groupListView.layoutManager = FixedLinearLayoutManager(groupListView)
 
         // onViewCreated can run again (rotation): unregister the previous
         // adapter before replacing it
@@ -458,6 +461,11 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             }
         }
 
+    }
+
+    override fun onDestroyView() {
+        _binding = null
+        super.onDestroyView()
     }
 
     override fun onDestroy() {

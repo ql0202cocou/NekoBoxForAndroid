@@ -33,9 +33,10 @@ import kotlinx.coroutines.withContext
 class StatsBar @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null,
 ) : MaterialCardView(context, attrs), CoordinatorLayout.AttachedBehavior {
-    private lateinit var statusText: TextView
-    private lateinit var txText: TextView
-    private lateinit var rxText: TextView
+    // 子视图随 layout_main 一起膨胀，首次使用时才查（此时子视图早已就位）
+    private val statusText by lazy(LazyThreadSafetyMode.NONE) { findViewById<TextView>(R.id.status) }
+    private val txText by lazy(LazyThreadSafetyMode.NONE) { findViewById<TextView>(R.id.tx) }
+    private val rxText by lazy(LazyThreadSafetyMode.NONE) { findViewById<TextView>(R.id.rx) }
     private val behavior = Behavior { allowShow }
 
     /** 只有已连接时为真，由 [changeState] 维护；为假时卡片保持收起 */
@@ -100,13 +101,6 @@ class StatsBar @JvmOverloads constructor(
         behavior.disableOnTouchExploration(false)
         behavior.slideDown(this, animate)
         behavior.disableOnTouchExploration(true)
-    }
-
-    override fun setOnClickListener(l: OnClickListener?) {
-        statusText = findViewById(R.id.status)
-        txText = findViewById(R.id.tx)
-        rxText = findViewById(R.id.rx)
-        super.setOnClickListener(l)
     }
 
     private fun setStatus(text: CharSequence) {

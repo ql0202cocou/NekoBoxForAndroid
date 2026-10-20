@@ -54,8 +54,7 @@ class TrojanGoSettingsActivity : ProfileSettingsActivity<TrojanGoBean>() {
         }
     }
 
-    lateinit var network: SimpleMenuPreference
-    lateinit var encryprtion: SimpleMenuPreference
+    // 偏好对象随每次新建的偏好 Fragment 重新取得（createPreferences），不能缓存成 lazy，保留 lateinit
     lateinit var wsCategory: PreferenceCategory
     lateinit var ssCategory: PreferenceCategory
     lateinit var method: SimpleMenuPreference
@@ -74,7 +73,7 @@ class TrojanGoSettingsActivity : ProfileSettingsActivity<TrojanGoBean>() {
         ssCategory = findPreference(Key.SERVER_SS_CATEGORY)!!
         method = findPreference(Key.SERVER_METHOD)!!
 
-        network = findPreference(Key.SERVER_NETWORK)!!
+        val network = findPreference<SimpleMenuPreference>(Key.SERVER_NETWORK)!!
 
         if (network.value !in trojanGoNetworks) {
             network.value = trojanGoNetworks[0]
@@ -85,7 +84,7 @@ class TrojanGoSettingsActivity : ProfileSettingsActivity<TrojanGoBean>() {
             updateNetwork(newValue as String)
             true
         }
-        encryprtion = findPreference(Key.SERVER_ENCRYPTION)!!
+        val encryprtion = findPreference<SimpleMenuPreference>(Key.SERVER_ENCRYPTION)!!
         updateEncryption(encryprtion.value)
         encryprtion.setOnPreferenceChangeListener { _, newValue ->
             updateEncryption(newValue as String)

@@ -10,7 +10,7 @@ import io.nekohasekai.sagernet.databinding.LayoutAppListBinding
 class AppListActivity : AppSelectActivity() {
 
     override fun inflateViews() = LayoutAppListBinding.inflate(layoutInflater).run {
-        Views(root, toolbar, list, search, showSystemApps, appPlaceholder)
+        Views(root, toolbar, list, search, showSystemApps, appPlaceholder, loading, appEmpty.root)
     }
 
     override var selectedPackages by EditorCache::routePackages

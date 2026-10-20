@@ -5,7 +5,6 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.view.isVisible
 import androidx.core.widget.addTextChangedListener
 import androidx.lifecycle.lifecycleScope
-import com.google.android.material.appbar.AppBarLayout
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.databinding.LayoutStunBinding
 import io.nekohasekai.sagernet.ktx.readableMessage
@@ -20,15 +19,14 @@ import libcore.Libcore
 
 class StunActivity : ThemedActivity() {
 
-    private lateinit var binding: LayoutStunBinding
+    private val binding by lazy(LazyThreadSafetyMode.NONE) { LayoutStunBinding.inflate(layoutInflater) }
     private var testJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        binding = LayoutStunBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        setSupportActionBar(findViewById(R.id.toolbar))
+        setSupportActionBar(binding.appbar.toolbar)
         supportActionBar?.apply {
             setTitle(R.string.stun_test)
             setDisplayHomeAsUpEnabled(true)
@@ -42,7 +40,7 @@ class StunActivity : ThemedActivity() {
             binding.natStunServerLayout.error = null
         }
         binding.mainLayout.padForSystemBars()
-        findViewById<AppBarLayout>(R.id.appbar).liftOnScrollOf(binding.mainLayout)
+        binding.appbar.root.liftOnScrollOf(binding.mainLayout)
     }
 
     private fun doTest() {

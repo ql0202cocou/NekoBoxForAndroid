@@ -13,7 +13,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.snackbar.Snackbar
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
@@ -41,8 +40,10 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class AssetsActivity : ThemedActivity() {
 
+    // 适配器与撤销管理器在 onCreate 里按固定顺序建（见下，先适配器、后撤销管理器、再首次列目录），
+    // onResume 还靠 isInitialized 判断：保留 lateinit
     lateinit var adapter: AssetAdapter
-    lateinit var layout: LayoutAssetsBinding
+    val layout by lazy(LazyThreadSafetyMode.NONE) { LayoutAssetsBinding.inflate(layoutInflater) }
     lateinit var undoManager: UndoSnackbarManager<File>
 
     // same file libcore locks around its extraction (assets_lock.go)
@@ -60,11 +61,10 @@ class AssetsActivity : ThemedActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val binding = LayoutAssetsBinding.inflate(layoutInflater)
-        layout = binding
+        val binding = layout
         setContentView(binding.root)
 
-        setSupportActionBar(findViewById(R.id.toolbar))
+        setSupportActionBar(binding.appbar.toolbar)
         supportActionBar?.apply {
             setTitle(R.string.route_assets)
             setDisplayHomeAsUpEnabled(true)
@@ -73,7 +73,7 @@ class AssetsActivity : ThemedActivity() {
 
         binding.recyclerView.layoutManager = FixedLinearLayoutManager(binding.recyclerView)
         binding.recyclerView.padForSystemBars()
-        findViewById<AppBarLayout>(R.id.appbar).liftOnScrollOf(binding.recyclerView)
+        binding.appbar.root.liftOnScrollOf(binding.recyclerView)
         adapter = AssetAdapter()
         binding.recyclerView.adapter = adapter
 

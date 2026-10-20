@@ -12,12 +12,12 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.appbar.AppBarLayout
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.RuleEntity
 import io.nekohasekai.sagernet.database.RuleRepository
+import io.nekohasekai.sagernet.databinding.LayoutRouteBinding
 import io.nekohasekai.sagernet.databinding.LayoutRouteItemBinding
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.widget.liftOnScrollOf
@@ -34,8 +34,15 @@ private const val UNCONFIRMED = Long.MAX_VALUE
 
 class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItemClickListener {
 
-    lateinit var activity: MainActivity
-    lateinit var ruleListView: RecyclerView
+    // 首次访问在 onViewCreated 里（已附着），之后沿用同一个宿主 Activity
+    val activity: MainActivity by lazy(LazyThreadSafetyMode.NONE) { requireActivity() as MainActivity }
+
+    // 只在 onViewCreated 到 onDestroyView 之间有效
+    private var _binding: LayoutRouteBinding? = null
+    private val binding get() = _binding!!
+    val ruleListView: RecyclerView get() = binding.routeList
+
+    // 适配器和撤销管理器每次建视图都重建，onDestroy 还要据此判断是否建过，所以保留 lateinit
     lateinit var ruleAdapter: RuleAdapter
     lateinit var undoManager: UndoSnackbarManager<RuleEntity>
 
@@ -54,22 +61,21 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
     }
 
     private fun updateEmptyState() {
-        val holder = view?.findViewById<View>(R.id.route_list_empty) ?: return
+        val holder = _binding?.routeListEmpty ?: return
         holder.setPlaceholderVisible(listLoaded && ::ruleAdapter.isInitialized && ruleAdapter.itemCount == 0)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        activity = requireActivity() as MainActivity
+        _binding = LayoutRouteBinding.bind(view)
 
         toolbar.setTitle(R.string.menu_route)
         toolbar.inflateMenu(R.menu.add_route_menu)
         toolbar.setOnMenuItemClickListener(this)
 
-        ruleListView = view.findViewById(R.id.route_list)
         ruleListView.padForSystemBars(bottomExtra = mainBottomClearance())
-        view.findViewById<AppBarLayout>(R.id.appbar).liftOnScrollOf(ruleListView)
+        binding.appbar.root.liftOnScrollOf(ruleListView)
         ruleListView.layoutManager = FixedLinearLayoutManager(ruleListView)
 
         // onViewCreated can run again (rotation): unregister the previous
@@ -111,6 +117,11 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
                 ruleAdapter.commitMove()
             }
         }).attachToRecyclerView(ruleListView)
+    }
+
+    override fun onDestroyView() {
+        _binding = null
+        super.onDestroyView()
     }
 
     override fun onDestroy() {
@@ -190,6 +201,9 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
             .setMainThreadExecutor(syncExecutor)
             .build()
     ), ProfileManager.RuleListener, UndoSnackbarManager.Interface<RuleEntity> {
+
+        // 监听器在后台线程回调，视图销毁后也可能到达：构造时（视图存活）取一次，之后不再经过 binding
+        private val listView = ruleListView
 
         // 主线程上的工作副本，是列表内容的唯一来源；ListAdapter 的 currentList 不可变，
         // 每次改动后由 submit() 按它重新生成行提交，差量事件由 DiffUtil 发出。
@@ -315,7 +329,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
         override suspend fun onAdd(rule: RuleEntity) {
             // 监听器跑在调用方的后台线程上，节点名在这里查
             val names = RuleRepository.outboundProfileNames(listOf(rule))
-            ruleListView.post {
+            listView.post {
                 undoManager.mutate {
                     outboundNames.putAll(names)
                     ruleList.add(rule)
@@ -330,7 +344,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
             // drag-sorting mutates ruleList on the main thread; only touch the
             // list in post.
             val names = RuleRepository.outboundProfileNames(listOf(rule))
-            ruleListView.post {
+            listView.post {
                 undoManager.mutate {
                     outboundNames.putAll(names)
                     val index = ruleList.indexOfFirst { it.id == rule.id }
@@ -343,7 +357,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
         }
 
         override suspend fun onRemoved(ruleId: Long) {
-            ruleListView.post {
+            listView.post {
                 // 同节点列表：别处删了规则先提交撤销窗口，免得 undo 按旧位置插回越界或插回幽灵行
                 undoManager.mutate {
                     val index = ruleList.indexOfFirst { it.id == ruleId }
@@ -357,7 +371,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
         }
 
         override suspend fun onCleared() {
-            ruleListView.post {
+            listView.post {
                 // 「重置路由」清空了全部规则：窗口里待删的规则已不在库里，撤销只会插回幽灵行
                 undoManager.mutate {
                     ruleList.clear()

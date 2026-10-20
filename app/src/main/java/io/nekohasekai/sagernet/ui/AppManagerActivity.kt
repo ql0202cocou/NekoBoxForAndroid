@@ -19,11 +19,10 @@ import moe.matsuri.nb4a.utils.NGUtil
 // 设置里的分应用代理，勾选结果写回 DataStore.individual
 class AppManagerActivity : AppSelectActivity() {
 
-    private lateinit var binding: LayoutAppsBinding
+    private val binding by lazy(LazyThreadSafetyMode.NONE) { LayoutAppsBinding.inflate(layoutInflater) }
 
-    override fun inflateViews() = LayoutAppsBinding.inflate(layoutInflater).run {
-        binding = this
-        Views(root, toolbar, list, search, showSystemApps, appPlaceholder)
+    override fun inflateViews() = binding.run {
+        Views(root, toolbar, list, search, showSystemApps, appPlaceholder, loading, appEmpty.root)
     }
 
     override var selectedPackages by DataStore::individual

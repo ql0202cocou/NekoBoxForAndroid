@@ -19,7 +19,6 @@ import com.danielstone.materialaboutlibrary.MaterialAboutFragment
 import com.danielstone.materialaboutlibrary.items.MaterialAboutActionItem
 import com.danielstone.materialaboutlibrary.model.MaterialAboutCard
 import com.danielstone.materialaboutlibrary.model.MaterialAboutList
-import com.google.android.material.appbar.AppBarLayout
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.databinding.LayoutAboutBinding
@@ -49,7 +48,7 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
         val binding = LayoutAboutBinding.bind(view)
 
         binding.aboutScroll.padForSystemBars(bottomExtra = mainBottomClearance())
-        view.findViewById<AppBarLayout>(R.id.appbar).liftOnScrollOf(binding.aboutScroll)
+        binding.appbar.root.liftOnScrollOf(binding.aboutScroll)
         toolbar.setTitle(R.string.menu_about)
 
         if (savedInstanceState == null) {

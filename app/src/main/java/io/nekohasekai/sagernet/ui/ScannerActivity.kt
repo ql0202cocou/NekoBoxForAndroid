@@ -43,16 +43,17 @@ import io.nekohasekai.sagernet.database.GroupRepository
 class ScannerActivity : ThemedActivity(),
     CameraScan.OnScanResultCallback<Result> {
 
-    lateinit var binding: LayoutScannerBinding
-    lateinit var cameraScan: CameraScan<Result>
+    private val binding by lazy(LazyThreadSafetyMode.NONE) { LayoutScannerBinding.inflate(layoutInflater) }
+
+    // onCreate 里无条件创建、onDestroy 释放（相机权限被拒时也要创建）：真实的生命周期字段，保留 lateinit
+    private lateinit var cameraScan: CameraScan<Result>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         if (Build.VERSION.SDK_INT >= 25) getSystemService<ShortcutManager>()!!.reportShortcutUsed("scan")
-        binding = LayoutScannerBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        setSupportActionBar(findViewById(R.id.toolbar))
+        setSupportActionBar(binding.appbar.toolbar)
         supportActionBar?.apply {
             setDisplayHomeAsUpEnabled(true)
             setHomeAsUpIndicator(R.drawable.ic_navigation_close)
@@ -214,7 +215,7 @@ class ScannerActivity : ThemedActivity(),
     /**
      * 初始化CameraScan
      */
-    fun initCameraScan() {
+    private fun initCameraScan() {
         cameraScan = BaseCameraScan(this, binding.previewView)
         cameraScan.setAnalyzer(QRCodeAnalyzer())
         cameraScan.setOnScanResultCallback(this)

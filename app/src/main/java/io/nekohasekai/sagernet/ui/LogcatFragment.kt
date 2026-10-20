@@ -11,7 +11,6 @@ import android.view.ViewGroup
 import androidx.appcompat.widget.Toolbar
 import androidx.core.view.doOnLayout
 import androidx.lifecycle.lifecycleScope
-import com.google.android.material.appbar.AppBarLayout
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.databinding.LayoutLogcatBinding
 import io.nekohasekai.sagernet.ktx.*
@@ -29,7 +28,9 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
 
     override val opensFromSettings = true
 
-    lateinit var binding: LayoutLogcatBinding
+    // 只在 onViewCreated 到 onDestroyView 之间有效；协程都挂在 viewLifecycleOwner 上，销毁时已取消
+    private var _binding: LayoutLogcatBinding? = null
+    private val binding get() = _binding!!
 
     @SuppressLint("RestrictedApi", "WrongConstant")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -39,12 +40,12 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
         toolbar.inflateMenu(R.menu.logcat_menu)
         toolbar.setOnMenuItemClickListener(this)
 
-        binding = LayoutLogcatBinding.bind(view)
+        _binding = LayoutLogcatBinding.bind(view)
 
         binding.textview.breakStrategy = 0 // simple
 
         binding.scroolview.padForSystemBars(bottomExtra = mainBottomClearance())
-        view.findViewById<AppBarLayout>(R.id.appbar).liftOnScrollOf(binding.scroolview)
+        binding.appbar.root.liftOnScrollOf(binding.scroolview)
 
         reloadSession()
     }
@@ -86,9 +87,15 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
         binding.logEmpty.setPlaceholderVisible(span.isBlank())
         binding.textview.clearFocus()
         // 等 textview 完成最终 layout 再滚动到底部
-        binding.textview.doOnLayout {
-            binding.scroolview.scrollTo(0, binding.textview.height)
+        val b = binding
+        b.textview.doOnLayout {
+            b.scroolview.scrollTo(0, b.textview.height)
         }
+    }
+
+    override fun onDestroyView() {
+        _binding = null
+        super.onDestroyView()
     }
 
     override fun onMenuItemClick(item: MenuItem): Boolean {
