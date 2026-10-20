@@ -31,26 +31,7 @@ data class RuleEntity(
         return name.takeIf { it.isNotBlank() } ?: "Rule $id"
     }
 
-    fun mkSummary(): String {
-        var summary = ""
-        if (config.isNotBlank()) summary += "[config]\n"
-        if (domains.isNotBlank()) summary += "$domains\n"
-        if (ip.isNotBlank()) summary += "$ip\n"
-        if (source.isNotBlank()) summary += "src ip: $source\n"
-        if (sourcePort.isNotBlank()) summary += "src port: $sourcePort\n"
-        if (port.isNotBlank()) summary += "dst port: $port\n"
-        if (network.isNotBlank()) summary += "network: $network\n"
-        if (protocol.isNotBlank()) summary += "protocol: $protocol\n"
-        if (packages.isNotEmpty()) summary += app.getString(
-            R.string.apps_message, packages.size
-        ) + "\n"
-        val lines = summary.trim().split("\n")
-        return if (lines.size > 3) {
-            lines.subList(0, 3).joinToString("\n", postfix = "\n...")
-        } else {
-            summary.trim()
-        }
-    }
+    fun mkSummary(): RuleSummary = RuleSummary.of(this)
 
     // profileName：出站指定节点时那个节点的名字（RuleRepository.outboundProfileNames 在后台查好），
     // 节点已不存在时为 null。本函数不查库，可在主线程绑定视图时调用

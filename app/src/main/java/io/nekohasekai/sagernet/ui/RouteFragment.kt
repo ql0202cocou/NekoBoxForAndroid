@@ -1,7 +1,13 @@
 package io.nekohasekai.sagernet.ui
 
 import android.content.Intent
+import android.content.Context
 import android.os.Bundle
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.text.style.TextAppearanceSpan
+import android.util.TypedValue
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
@@ -17,6 +23,7 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.RuleEntity
 import io.nekohasekai.sagernet.database.RuleRepository
+import io.nekohasekai.sagernet.database.RuleSummary
 import io.nekohasekai.sagernet.databinding.LayoutRouteBinding
 import io.nekohasekai.sagernet.databinding.LayoutRouteItemBinding
 import io.nekohasekai.sagernet.ktx.*
@@ -162,7 +169,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
     class RuleRow(
         val id: Long,
         val name: String,
-        val summary: String,
+        val summary: RuleSummary,
         val outbound: String,
         val enabled: Boolean,
         // 绑定、滑动删除与撤销要用的实体；不参与差量比较
@@ -316,7 +323,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
                 val ruleEntity = row.rule
                 rule = ruleEntity
                 profileName.text = row.name
-                profileType.text = row.summary
+                profileType.text = summaryText(profileType.context, row.summary)
                 routeOutbound.text = row.outbound
                 itemView.setOnClickListener {
                     enableSwitch.performClick()
@@ -344,6 +351,48 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
             }
         }
 
+    }
+
+
+    /**
+     * 把摘要绑成一段文字（仍是同一个 TextView，TalkBack 按「标签 值」顺序整段朗读）：
+     * 标签 Label medium + onSurfaceVariant，值 Body medium + onSurface，一项字段一行；
+     * 超出的项数在末尾以「+N」收尾。
+     */
+    private fun summaryText(context: Context, summary: RuleSummary): CharSequence {
+        val labelAppearance = textAppearanceRes(context, com.google.android.material.R.attr.textAppearanceLabelMedium)
+        val valueAppearance = textAppearanceRes(context, com.google.android.material.R.attr.textAppearanceBodyMedium)
+        val variant = context.getColorAttr(com.google.android.material.R.attr.colorOnSurfaceVariant)
+        val onSurface = context.getColorAttr(com.google.android.material.R.attr.colorOnSurface)
+        val sb = SpannableStringBuilder()
+        fun append(text: String, appearance: Int, color: Int) {
+            val start = sb.length
+            sb.append(text)
+            sb.setSpan(TextAppearanceSpan(context, appearance), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            sb.setSpan(ForegroundColorSpan(color), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        for (field in summary.fields) {
+            if (sb.isNotEmpty()) sb.append('\n')
+            append(context.getString(field.label), labelAppearance, variant)
+            if (field.value.isNotEmpty()) {
+                sb.append(' ')
+                append(field.value, valueAppearance, onSurface)
+                if (field.more > 0) {
+                    append(", " + context.getString(R.string.route_summary_more, field.more), labelAppearance, variant)
+                }
+            }
+        }
+        if (summary.overflow > 0) {
+            if (sb.isNotEmpty()) sb.append('\n')
+            append(context.getString(R.string.route_summary_more, summary.overflow), labelAppearance, variant)
+        }
+        return sb
+    }
+
+    private fun textAppearanceRes(context: Context, attr: Int): Int {
+        val tv = TypedValue()
+        context.theme.resolveAttribute(attr, tv, true)
+        return tv.resourceId
     }
 
 }
