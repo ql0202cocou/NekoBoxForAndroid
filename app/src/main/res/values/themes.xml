@@ -136,13 +136,11 @@
         </item>
     </style>
 
-    <style name="Widget.SagerNet.Button.TextButton.Dialog" parent="Widget.Material3.Button.TextButton.Dialog">
-        <item name="android:textColor">?primaryOrTextPrimary</item>
-    </style>
+    <!-- 对话框按钮沿用 M3 文字按钮的样式：文字色是 primary 的状态列表（禁用态 onSurface 38%）。
+         不要再写固定的 android:textColor：单色会盖掉禁用态，之后「输入非法时禁用确定」就看不出按钮被禁用 -->
+    <style name="Widget.SagerNet.Button.TextButton.Dialog" parent="Widget.Material3.Button.TextButton.Dialog" />
 
-    <style name="Widget.SagerNet.Button.TextButton.Dialog.Flush" parent="Widget.Material3.Button.TextButton.Dialog.Flush">
-        <item name="android:textColor">?primaryOrTextPrimary</item>
-    </style>
+    <style name="Widget.SagerNet.Button.TextButton.Dialog.Flush" parent="Widget.Material3.Button.TextButton.Dialog.Flush" />
 
     <!-- 状态卡片滑入 / 滑出的时长。HideBottomViewOnScrollBehavior 在 onLayoutChild 里用 child 的 context
          解析 motionDurationLong2（进，默认 500ms）与 motionDurationMedium4（出，默认 400ms），

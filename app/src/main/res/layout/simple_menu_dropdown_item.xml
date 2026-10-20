@@ -13,13 +13,15 @@
      limitations under the License.
 -->
 
+<!-- 下拉菜单项按 M3 菜单：行高 48dp、文字靠起始侧并垂直居中、Body large、左右内边距 12dp、最小宽 112dp -->
 <CheckedTextView xmlns:android="http://schemas.android.com/apk/res/android"
     style="?android:attr/spinnerDropDownItemStyle"
     android:layout_width="match_parent"
     android:layout_height="48dp"
     android:ellipsize="marquee"
-    android:gravity="center"
+    android:gravity="center_vertical|start"
     android:minWidth="112dp"
-    android:paddingEnd="16dp"
-    android:paddingStart="16dp"
-    android:singleLine="true" />
+    android:paddingEnd="12dp"
+    android:paddingStart="12dp"
+    android:singleLine="true"
+    android:textAppearance="?attr/textAppearanceBodyLarge" />
