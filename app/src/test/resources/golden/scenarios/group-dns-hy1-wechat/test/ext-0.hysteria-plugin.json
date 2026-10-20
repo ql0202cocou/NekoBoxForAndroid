@@ -1,11 +1,11 @@
 {
   "server": "hy1.example.com:8443",
   "protocol": "wechat-video",
-  "resolver": "udp://192.0.2.1:53",
+  "resolver": "udp://127.0.0.1:40223",
   "up_mbps": 10,
   "down_mbps": 50,
   "socks5": {
-    "listen": "127.0.0.1:50001"
+    "listen": "127.0.0.1:35557"
   },
   "retry": 5,
   "fast_open": true,

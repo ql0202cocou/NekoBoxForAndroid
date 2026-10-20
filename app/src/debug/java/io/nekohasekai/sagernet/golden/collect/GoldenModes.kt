@@ -14,6 +14,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.ExternalCheckResult
 import io.nekohasekai.sagernet.fmt.ExternalCoreGroup
 import io.nekohasekai.sagernet.fmt.LOCALHOST
+import io.nekohasekai.sagernet.fmt.TAG_PLUGIN_DNS
 import io.nekohasekai.sagernet.fmt.dialAddress
 import io.nekohasekai.sagernet.fmt.dialPort
 import io.nekohasekai.sagernet.ktx.app
@@ -273,15 +274,16 @@ private fun localSocksOutbounds(config: JsonObject): List<JsonElement> =
     (config.get("outbounds") as? JsonArray)?.filter { it.string("type") == "socks" && it.string("server") == LOCALHOST }
         .orEmpty()
 
-// mkPort() 分到的端口在 sing-box 配置里的位置：连本机的 socks 出站与映射入站（tag 形如
-// <链 tag>-mapping-<节点 id>）。先出站后入站，各按数组顺序
+// mkPort() 分到的端口在 sing-box 配置里的位置：连本机的 socks 出站，映射入站（tag 形如 <链 tag>-mapping-<节点 id>）
+// 与本机 DNS 入站（TAG_PLUGIN_DNS）。先出站后入站，各按数组顺序
 private fun structuralPorts(config: JsonObject?): List<Int> {
     if (config == null) return emptyList()
     val ports = ArrayList<Int>()
     localSocksOutbounds(config).forEach { it.int("server_port")?.let(ports::add) }
     (config.get("inbounds") as? JsonArray)?.forEach {
+        val tag = it.string("tag")
         if (it.string("type") == "direct" && it.string("listen") == LOCALHOST &&
-            it.string("tag")?.contains("-mapping-") == true
+            (tag?.contains("-mapping-") == true || tag == TAG_PLUGIN_DNS)
         ) it.int("listen_port")?.let(ports::add)
     }
     return ports.distinct()

@@ -18,6 +18,7 @@ import io.nekohasekai.sagernet.fmt.ConfigSnapshot
 import io.nekohasekai.sagernet.fmt.ExternalRunPlan
 import io.nekohasekai.sagernet.fmt.FakeConfigPlatform
 import io.nekohasekai.sagernet.fmt.LOCALHOST
+import io.nekohasekai.sagernet.fmt.TAG_PLUGIN_DNS
 import io.nekohasekai.sagernet.fmt.LocalSocksAuth
 import io.nekohasekai.sagernet.fmt.ProfileRecord
 import io.nekohasekai.sagernet.fmt.assemble
@@ -290,8 +291,9 @@ class GoldenJvmScenario(
             val ports = ArrayList<Int>()
             localSocksOutbounds(config).forEach { it.int("server_port")?.let(ports::add) }
             (config.get("inbounds") as? JsonArray)?.forEach {
+                val tag = it.string("tag")
                 if (it.string("type") == "direct" && it.string("listen") == LOCALHOST &&
-                    it.string("tag")?.contains("-mapping-") == true
+                    (tag?.contains("-mapping-") == true || tag == TAG_PLUGIN_DNS)
                 ) it.int("listen_port")?.let(ports::add)
             }
             return ports.distinct()

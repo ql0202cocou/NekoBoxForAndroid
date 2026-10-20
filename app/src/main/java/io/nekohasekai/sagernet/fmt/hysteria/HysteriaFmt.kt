@@ -356,8 +356,9 @@ fun HysteriaBean.buildHysteria1Config(
             }
         }
         // 不映射时插件自己解析服务器域名：resolver 换掉整个进程的默认解析（v1.3.5 app/cmd/resolver.go，一个地址、
-        // 失败不回退）。经映射时拨的是本机，解析在映射入站上做，不写。不写 resolve_preference：客户端只在 ACL 里用它，
-        // 拨服务器的解析不看它（core/pktconns/funcs.go，Go 默认先取 IPv4）
+        // 失败不回退），构建给的是 sing-box 的本机 DNS 入站，分组 DNS 的回退由 sing-box 做。经映射时拨的是本机，
+        // 解析在映射入站上做，不写。不写 resolve_preference：客户端只在 ACL 里用它，拨服务器的解析不看它
+        //（core/pktconns/funcs.go，Go 默认先取 IPv4）
         if (target is ExternalDialTarget.Direct && resolver != null) {
             put("resolver", "${resolver.network}://${resolver.address.wrapIPV6Host()}:${resolver.port}")
         }

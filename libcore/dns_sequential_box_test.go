@@ -184,6 +184,88 @@ func TestMappingInboundResolvesThroughGroupDNS(t *testing.T) {
 	}
 }
 
+// 不映射的外核跳（hysteria 1 插件）的本机 DNS 入站（ConfigBuild.applyPluginDns 的形状）：插件把它当 resolver，
+// 查询经置顶的 hijack-dns 交给 DNS 模块，置顶的 DNS 规则按入站匹配：本组域名走分组 DNS 的有序链，其余走 dns-direct。
+// 后面另有一条兜底规则把一切交给 dns-trap（扮演经代理的 dns-remote），它被查到就说明入站规则没排在最前
+func TestPluginDNSInboundRoutesByInbound(t *testing.T) {
+	var directCalls, groupCalls, trapCalls atomic.Int32
+	directPort := startTestDNSServer(t, &directCalls, true)
+	groupPort := startTestDNSServer(t, &groupCalls, true)
+	trapPort := startTestDNSServer(t, &trapCalls, true)
+	dnsPort := freeUDPPort(t)
+	config := fmt.Sprintf(`{
+		"log": {"level": "panic"},
+		"dns": {
+			"servers": [
+				{"type": "udp", "tag": "dns-direct", "server": "127.0.0.1", "server_port": %d},
+				{"type": "udp", "tag": "dns-group-0", "server": "127.0.0.1", "server_port": %d},
+				{"type": "udp", "tag": "dns-trap", "server": "127.0.0.1", "server_port": %d},
+				{"type": "neko-sequential", "tag": "dns-node-1", "servers": ["dns-group-0", "dns-direct"]}
+			],
+			"rules": [
+				{"inbound": ["plugin-dns-in"], "domain": ["node.example.invalid"], "server": "dns-node-1", "strategy": "ipv4_only"},
+				{"inbound": ["plugin-dns-in"], "server": "dns-direct", "strategy": "ipv4_only"},
+				{"domain_suffix": ["invalid"], "server": "dns-trap"}
+			],
+			"final": "dns-trap"
+		},
+		"inbounds": [
+			{"type": "direct", "tag": "plugin-dns-in", "listen": "127.0.0.1", "listen_port": %d, "network": "udp"}
+		],
+		"outbounds": [{"type": "direct", "tag": "direct"}],
+		"route": {
+			"default_domain_resolver": {"server": "dns-direct", "strategy": "ipv4_only"},
+			"rules": [
+				{"inbound": ["plugin-dns-in"], "action": "hijack-dns"},
+				{"action": "sniff"}
+			],
+			"final": "direct"
+		}
+	}`, directPort, groupPort, trapPort, dnsPort)
+	instance, err := NewSingBoxInstance(config, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer instance.Close()
+	if err := instance.Start(); err != nil {
+		t.Fatal(err)
+	}
+
+	query := func(name string) {
+		t.Helper()
+		message := new(mDNS.Msg).SetQuestion(mDNS.Fqdn(name), mDNS.TypeA)
+		client := &mDNS.Client{Net: "udp", Timeout: 3 * time.Second}
+		response, _, err := client.Exchange(message, fmt.Sprintf("127.0.0.1:%d", dnsPort))
+		if err != nil {
+			t.Fatalf("query %s: %v", name, err)
+		}
+		if len(response.Answer) != 1 {
+			t.Fatalf("query %s: answer %v", name, response.Answer)
+		}
+	}
+	query("node.example.invalid")
+	if groupCalls.Load() == 0 || directCalls.Load() != 0 {
+		t.Fatalf("group domain not resolved via the group DNS: group=%d direct=%d", groupCalls.Load(), directCalls.Load())
+	}
+	query("other.example.invalid")
+	if directCalls.Load() == 0 {
+		t.Fatalf("other domain not resolved via dns-direct: direct=%d", directCalls.Load())
+	}
+	if trapCalls.Load() != 0 {
+		t.Fatalf("a later DNS rule caught a query from the plugin DNS inbound: trap=%d", trapCalls.Load())
+	}
+}
+
+// 取一个当前空闲的 UDP 端口（关掉后交给 sing-box 监听）
+func freeUDPPort(t *testing.T) int {
+	packet, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer packet.Close()
+	return packet.LocalAddr().(*net.UDPAddr).Port
+}
+
 // 本机 UDP DNS 服务：answer 时 A 查询一律回 127.0.0.1，否则回 NXDOMAIN；calls 记查询次数
 func startTestDNSServer(t *testing.T, calls *atomic.Int32, answer bool) int {
 	packet, err := net.ListenPacket("udp", "127.0.0.1:0")

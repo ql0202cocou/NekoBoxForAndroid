@@ -1,10 +1,11 @@
 {
   "server": "hy1.example.com:8443",
   "protocol": "faketcp",
+  "resolver": "udp://127.0.0.1:41185",
   "up_mbps": 10,
   "down_mbps": 50,
   "socks5": {
-    "listen": "127.0.0.1:34453"
+    "listen": "127.0.0.1:33869"
   },
   "retry": 5,
   "fast_open": true,

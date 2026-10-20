@@ -111,9 +111,10 @@ class ConfigPrecheckTest {
         val result = build(main, source(), platform, diagnostics = diagnostics)
         assertTrue("四个都通过预检：$diagnostics", diagnostics.isEmpty())
         // 实际构建的分配：每个外核跳实例一个 socks 端口；Xray 节点经映射，再加一个映射端口；hysteria 1 在
-        // 没有外部插件 app 时免映射。成员 2、3 与规则目标 7、8 各成一条链：1 + 2 + 1 + 2 = 6
-        assertEquals(6, platform.ports.size)
-        // 分到的每个端口都用在了配置里：本机 socks 出站的 server_port 与映射入站的 listen_port
+        // 没有外部插件 app 时免映射，服务器写域名，两个共用一个本机 DNS 入站的端口。成员 2、3 与规则目标 7、8
+        // 各成一条链：1 + 2 + 1 + 2 = 6，加 DNS 入站 1 个 = 7
+        assertEquals(7, platform.ports.size)
+        // 分到的每个端口都用在了配置里：本机 socks 出站的 server_port、映射入站与 DNS 入站的 listen_port
         val config = JsonParser.parseString(result.config).asJsonObject
         val socksPorts = config.getAsJsonArray("outbounds").map { it.asJsonObject }
             .filter { it.string("type") == "socks" && it.string("server") == LOCALHOST }
@@ -121,10 +122,17 @@ class ConfigPrecheckTest {
         val mappingPorts = config.getAsJsonArray("inbounds").map { it.asJsonObject }
             .filter { it.string("tag")?.contains("-mapping-") == true }
             .map { it["listen_port"].asInt }
+        val dnsPorts = config.getAsJsonArray("inbounds").map { it.asJsonObject }
+            .filter { it.string("tag") == TAG_PLUGIN_DNS }
+            .map { it["listen_port"].asInt }
         assertEquals(4, socksPorts.size)
         assertEquals(2, mappingPorts.size)
-        assertEquals(platform.ports.sorted(), (socksPorts + mappingPorts).sorted())
-        assertEquals(platform.ports.sorted(), ExternalRunPlan.from(result).hops.map { it.localPort }.plus(mappingPorts).sorted())
+        assertEquals(1, dnsPorts.size)
+        assertEquals(platform.ports.sorted(), (socksPorts + mappingPorts + dnsPorts).sorted())
+        assertEquals(
+            platform.ports.sorted(),
+            ExternalRunPlan.from(result).hops.map { it.localPort }.plus(mappingPorts).plus(dnsPorts).sorted(),
+        )
     }
 
     @Test

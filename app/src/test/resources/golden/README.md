@@ -289,15 +289,17 @@ socks 出站与入站都没有；同一份 sing-box 配置里本机凭据只有�
   `inboundTag` / `outboundTag` 是跳实例在 Xray 配置里的入站 / 出站 tag、在 mihomo 配置里的 listener / 代理名
   （`in-<index>` / `out-<index>`）；插件核心的配置沿用单节点格式，不带标识，记为 null。`localAuth` 是这个跳实例的
   外核入站要求的本机 socks 凭据（与 sing-box 里接它的 socks 出站带的是同一组），入站不认证的（插件核心）记为 null。
-  `resolver` 是不映射的跳实例自己解析服务器域名用的 DNS（`ExternalServerResolver`：主节点所在分组的「节点解析 DNS」
-  里第一台明文 DNS、IP 字面量、端口 53 的服务器，只给本组域名节点，导出不带；目前只有 hysteria 1 插件写进配置的
-  `resolver`）；没有时不写这个键，加它之前采集的记录都没有（`group-dns-hy1-` 两个场景有）。
+  `resolver` 是不映射的跳实例自己解析服务器域名用的 DNS（`ExternalServerResolver`：sing-box 的本机 DNS 入站
+  `plugin-dns-in`，udp、127.0.0.1、本次构建分的端口；只给服务器写域名、核心接受它的跳实例，导出不带；目前只有
+  hysteria 1 插件写进配置的 `resolver`）；没有时不写这个键，加它之前采集的记录都没有（7 个 hysteria 1 场景有：
+  `ext-hy1-`、`chain-hy1-`、`group-dns-hy1-` 开头且有不映射的域名节点的）。
 - `external[].controller` 是写进这份 mihomo 配置的测速控制端口与 secret（其余组为 null）；`tempFiles` 是组装期间经
   `cacheFile` 领到、且出现在这份外核配置里的文件（hysteria 1 的 CA），采集结束即删除。
 - `dynamic` 列出本模式这一次构建里每次运行都可能不同的全部取值，比较工具只按它替换：
   - `ports`：`mkPort()` 分到的端口。先按 sing-box 配置的结构找——指向 127.0.0.1 的 socks 出站的
-    `server_port`（按 outbounds 顺序），再是 tag 含 `-mapping-` 的映射入站的 `listen_port`（按 inbounds
-    顺序）；run / test 再补上运行计划里各跳实例的本机端口与测速控制端口。两次采集同一位置一一对应。
+    `server_port`（按 outbounds 顺序），再是 tag 含 `-mapping-` 的映射入站与 tag 为 `plugin-dns-in` 的本机 DNS
+    入站的 `listen_port`（按 inbounds 顺序）；run / test 再补上运行计划里各跳实例的本机端口与测速控制端口。
+    两次采集同一位置一一对应。
   - `paths`：临时文件的绝对路径（run / test 来自 `tempFiles`，export 按 cacheDir 前缀从原文里找）。
   - `secrets`：测速时随机生成的 mihomo Clash API secret；本次构建随机生成的本机 socks 凭据（用户名、密码各一项）。
     run / test 取自构建结果与运行计划，export 按 sing-box 配置的结构找（指向 127.0.0.1 的 socks 出站的 `username` /

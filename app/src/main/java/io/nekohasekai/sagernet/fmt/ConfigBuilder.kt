@@ -15,13 +15,15 @@ import moe.matsuri.nb4a.*
 import moe.matsuri.nb4a.SingBoxOptions.*
 import moe.matsuri.nb4a.proxy.config.ConfigBean
 import moe.matsuri.nb4a.utils.JavaUtil.gson
-import moe.matsuri.nb4a.utils.NGUtil
 import moe.matsuri.nb4a.utils.Util
 import moe.matsuri.nb4a.utils.listByLineOrComma
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.net.InetAddress
 
 const val TAG_MIXED = "mixed-in"
+
+// 不映射的外核跳（hysteria 1 插件）解析服务器域名用的本机 DNS 入站，见 ConfigBuild.applyPluginDns
+const val TAG_PLUGIN_DNS = "plugin-dns-in"
 
 const val TAG_PROXY = "proxy"
 const val TAG_DIRECT = "direct"
@@ -93,29 +95,6 @@ private fun makeDnsServer(address: String, tag: String, parseNumeric: (String) -
         }
     }
 }
-
-// 分组 DNS 里外核不映射、自己拨服务器时用的第一台（ExternalServerResolver）：明文 DNS（udp / tcp）、地址是 IP 字面量、
-// 端口 53，其余跳过。servers 是 makeDnsServer 换好的分组 DNS（解析不了的已跳过），按分组里的顺序。只收这一种，依据是
-// hysteria 1 插件（apernet/hysteria v1.3.5 + Matsuri 的 protect 补丁）：插件自己发的解析请求不经 protect，VPN 模式下
-// （以本应用 uid 运行时）进 tun，只有发往 53 端口的会被 hijack-dns 接住、按分组 DNS 规则解析，DoH / DoT / DoQ 或别的
-// 端口会被路由进代理、绕回插件自己；DNS 服务器写成域名时插件要先用 Go 的默认解析解它，Android 上没有
-// /etc/resolv.conf，解不了（加密 DNS 时插件启动即退出）。Go 的 net.ParseIP 不认带前导零的 IPv4（会当成域名），也跳过
-internal fun externalServerResolverOf(servers: List<DNSServerOptions>): ExternalServerResolver? =
-    servers.firstNotNullOfOrNull { server ->
-        val host = server.server ?: return@firstNotNullOfOrNull null
-        val port = server.server_port ?: 53
-        val literal = if (NGUtil.isIpv4Address(host)) {
-            host.split('.').none { it.length > 1 && it.startsWith('0') }
-        } else {
-            NGUtil.isIpv6Address(host)
-        }
-        val network = server.type
-        if ((network == "udp" || network == "tcp") && literal && port == 53) {
-            ExternalServerResolver(network, host, port)
-        } else {
-            null
-        }
-    }
 
 class ConfigBuildResult(
     var config: String,
@@ -375,8 +354,6 @@ private class ConfigBuild(
             null
         }
     }
-    // 本组域名节点不映射的外核跳自己解析服务器域名时用的 DNS（见 externalServerResolverOf），commitHop 登记给它
-    private val groupServerResolver = externalServerResolverOf(groupDnsServers)
     // 仅 libcore 有的 neko-sequential 传输：把分组 nameserver 按顺序串起来，
     // 以 dns-direct 作最后兜底
     val groupSequentialTag = "dns-node-${proxy.groupId}"
@@ -393,6 +370,10 @@ private class ConfigBuild(
     val externalChains = ArrayList<ExternalChainRecord>()
     // 本次构建的本机 socks 凭据，第一个需要它的跳实例处生成，之后共用；见 ConfigBuildResult.localAuth
     var localAuth: LocalSocksAuth? = null
+    // 本机 DNS 入站（applyPluginDns）的端口，第一个需要它的跳实例处分配，之后共用；没有这样的跳实例时为 null
+    var pluginDnsPort: Int? = null
+    // 经本机 DNS 入站解析、且该走分组 DNS 的服务器域名（本组的域名节点，见 resolvesThroughGroupDns）
+    val pluginDnsGroupDomains = LinkedHashSet<String>()
     // 每个节点出站 / 端点的 tag -> 节点名，build() 末尾按最终配置换算成 boxIndexNames
     val hopNames = HashMap<String, String>()
     // 节点 id -> REALITY 且跑在 sing-box 上的节点，提交链时从各跳的选核判定登记；见 ConfigBuildResult.realityOnSingBox
@@ -432,6 +413,7 @@ private class ConfigBuild(
             buildDns()
             applyBuiltinRules()
             applyGroupNameserver()
+            applyPluginDns()
             // 与 applyLogAndClashApi 排除 secret 同理：导出配置会被分享，
             // 不能混入本机全局自定义配置
             if (!forTest && !forExport) _hack_custom_config = settings.globalCustomConfig
@@ -567,14 +549,20 @@ private class ConfigBuild(
     // 经映射的外核跳：映射入站的端口与它转去的服务器
     private class MappedPort(val mapping: HopMapping, val port: Int)
 
-    // 外核跳在提交开头分到的本机 socks 端口与凭据（核心的入站不认证时为 null），经映射的另有映射端口
-    private class HopSockets(val localPort: Int, val localAuth: LocalSocksAuth?, val mapped: MappedPort?)
+    // 外核跳在提交开头分到的本机 socks 端口与凭据（核心的入站不认证时为 null），经映射的另有映射端口，
+    // 不映射、自己解析服务器域名的另有解析服务器（本机 DNS 入站，见 needsPluginDns）
+    private class HopSockets(
+        val localPort: Int,
+        val localAuth: LocalSocksAuth?,
+        val mapped: MappedPort?,
+        val serverResolver: ExternalServerResolver?,
+    )
 
     // 提交一条规划好的链（两段式的第二段，见 planChain）。先按跳的顺序把端口与凭据要齐：每跳先本机 socks 端口、
-    // 后映射端口，复用已建全局出站的那一跳（只可能是最后一跳）不要；之后才写：定 tag、接线（linkHop），写出站 /
-    // 入站 / 路由规则，登记外核跳数据与 trafficMap。分端口（platform.newPort）与生成凭据是这里仅有的会失败的调用，
-    // 都在第一处写入之前：失败时这条链什么都没写。例外是本次构建共用的凭据：同一条链里前面的跳已经生成并记下它、
-    // 后面的跳才分端口失败时，它留在构建状态里（整次构建随即失败，没有后果）
+    // 后本机 DNS 入站端口或映射端口（见 allocateSockets），复用已建全局出站的那一跳（只可能是最后一跳）不要；之后才写：
+    // 定 tag、接线（linkHop），写出站 / 入站 / 路由规则，登记外核跳数据与 trafficMap。分端口（platform.newPort）与生成
+    // 凭据是这里仅有的会失败的调用，都在第一处写入之前：失败时这条链什么都没写。例外是本次构建共用的凭据与本机 DNS
+    // 入站端口：同一条链里前面的跳已经要到并记下它、后面的跳才分端口失败时，它留在构建状态里（整次构建随即失败，没有后果）
     private fun MyOptions.commitChain(chainId: Long, plan: ChainPlan): String {
         val entity = plan.entity
         val profileList = plan.hops.map { it.entity }
@@ -609,8 +597,9 @@ private class ConfigBuild(
         }
     }
 
-    // 外核跳的端口与凭据，内部核心跳为 null。凭据整次构建只生成一次，在第一个需要它的跳实例处；
-    // 出错时同以前一样包上这一跳的节点名。一跳之内的次序也与以前相同：本机 socks 端口 → 凭据 → 映射端口
+    // 外核跳的端口与凭据，内部核心跳为 null。凭据与本机 DNS 入站的端口整次构建只各要一次，在第一个需要它的跳实例处；
+    // 出错时同以前一样包上这一跳的节点名。一跳之内的次序：本机 socks 端口 → 凭据 → 本机 DNS 入站端口 → 映射端口
+    //（后两者不会同在一跳）
     private fun allocateSockets(hop: HopPlan): HopSockets? {
         val core = hop.core as? HopCore.External ?: return null
         return withProfileName(hop.bean) {
@@ -619,9 +608,17 @@ private class ConfigBuild(
             val auth = if (core.needsLocalAuth) {
                 localAuth ?: newLocalAuth().also { localAuth = it }
             } else null
-            HopSockets(localPort, auth, core.mapping?.let { MappedPort(it, platform.newPort()) })
+            val resolver = if (needsPluginDns(hop.bean, core)) {
+                ExternalServerResolver("udp", LOCALHOST, pluginDnsPort ?: platform.newPort().also { pluginDnsPort = it })
+            } else null
+            HopSockets(localPort, auth, core.mapping?.let { MappedPort(it, platform.newPort()) }, resolver)
         }
     }
+
+    // 不映射、服务器写域名的外核跳，核心声明配置里写构建给的解析服务器（hysteria 1 插件）：插件自己的默认解析在 Android 上
+    // 解析不了，改经 sing-box 的本机 DNS 入站（applyPluginDns）。导出不用：导出的插件配置拿到别处运行，用那里的系统解析
+    private fun needsPluginDns(bean: AbstractBean, core: HopCore.External) =
+        !forExport && core.takesServerResolver && bean.serverAddress.isNotBlank() && !bean.serverAddress.isIpAddress()
 
     // 写一跳：只有写入与不会失败的计算，会失败的都已在规划里做过，端口与凭据在 sockets 里
     private fun MyOptions.commitHop(chain: ChainState, index: Int, hop: HopPlan, sockets: HopSockets?) {
@@ -662,8 +659,8 @@ private class ConfigBuild(
                 }
             }
             // 内部核心跳在自己的出站上绑分组 DNS（resolvesThroughGroupDns）。外核跳的本机 socks 出站拨的是
-            // 127.0.0.1，服务器域名经映射时在映射入站上解析（addMappingInbound），不映射时交给外核自己（下面登记的
-            // serverResolver）。用户的自定义 JSON 在这之后合并，自带 domain_resolver 时以它为准
+            // 127.0.0.1，服务器域名经映射时在映射入站上解析（addMappingInbound），不映射时由外核经本机 DNS 入站解析
+            //（下面登记的 serverResolver）。用户的自定义 JSON 在这之后合并，自带 domain_resolver 时以它为准
             if (core is HopCore.Internal && resolvesThroughGroupDns(proxyEntity, bean)) {
                 _hack_config_map["domain_resolver"] = DomainResolveOptions().apply {
                     server = groupSequentialTag
@@ -684,12 +681,12 @@ private class ConfigBuild(
                 mappingInbound = addMappingInbound(chain, index, proxyEntity, bean, it)
                 ExternalDialTarget.Mapped(it.port)
             } ?: ExternalDialTarget.Direct
-            // 不映射的跳由外核自己解析服务器域名：本组域名节点把分组 DNS 里外核能用的那台交给它
-            val resolver = groupServerResolver.takeIf {
-                target is ExternalDialTarget.Direct && resolvesThroughGroupDns(proxyEntity, bean)
+            // 不映射的跳由外核经本机 DNS 入站解析服务器域名，本组域名节点的查询在那里走分组 DNS（applyPluginDns）
+            if (socks.serverResolver != null && resolvesThroughGroupDns(proxyEntity, bean)) {
+                pluginDnsGroupDomains += bean.serverAddress
             }
             chain.externalHops += ExternalHopRecord(
-                proxyEntity.id, bean, core.core, socks.localPort, target, socks.localAuth, resolver,
+                proxyEntity.id, bean, core.core, socks.localPort, target, socks.localAuth, socks.serverResolver,
             )
         }
 
@@ -1221,5 +1218,37 @@ private class ConfigBuild(
             // 最高优先级的 DNS 规则，按服务器顺序
             dns.rules.addAll(0, groupRules)
         }
+    }
+
+    // 不映射的外核跳（hysteria 1 插件）解析服务器域名用的本机 DNS 入站：插件配置的 resolver 指向它（needsPluginDns），
+    // 查询交给 sing-box 的 DNS。本组域名节点走分组 DNS 的有序链（同内部核心跳绑的 domain_resolver），其余走 dns-direct
+    //（同 route.default_domain_resolver）；分组 DNS 的各种格式、顺序回退都由 sing-box 做，插件本身只认一个地址。
+    // 路由规则与 DNS 规则都插在最前面：不能让别的规则先接住这些查询（用户 DNS 规则把域名交给经代理的 dns-remote，
+    // 查询就绕回插件自己）。只听 127.0.0.1、只收 UDP（resolver 写的是 udp://）。测速同样要：测速没有 tun，插件的查询
+    // 到不了 sing-box 的 DNS 劫持
+    private fun MyOptions.applyPluginDns() {
+        val port = pluginDnsPort ?: return
+        inbounds.add(Inbound_DirectOptions().apply {
+            type = "direct"
+            tag = TAG_PLUGIN_DNS
+            listen = LOCALHOST
+            listen_port = port
+            network = "udp"
+        })
+        route.rules.add(0, Rule_DefaultOptions().apply {
+            inbound = listOf(TAG_PLUGIN_DNS)
+            action = "hijack-dns"
+        })
+        dns.rules.add(0, DNSRule_DefaultOptions().apply {
+            inbound = listOf(TAG_PLUGIN_DNS)
+            server = "dns-direct"
+            if (!forTest) strategy = defaultServerDomainStrategy
+        })
+        if (pluginDnsGroupDomains.isNotEmpty()) dns.rules.add(0, DNSRule_DefaultOptions().apply {
+            inbound = listOf(TAG_PLUGIN_DNS)
+            domain = pluginDnsGroupDomains.toList()
+            server = groupSequentialTag
+            if (!forTest) strategy = defaultServerDomainStrategy
+        })
     }
 }

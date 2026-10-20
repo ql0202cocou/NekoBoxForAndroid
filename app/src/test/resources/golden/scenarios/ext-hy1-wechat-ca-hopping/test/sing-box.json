@@ -1,7 +1,14 @@
 {
   "dns": {
     "final": "dns-direct",
-    "rules": [],
+    "rules": [
+      {
+        "inbound": [
+          "plugin-dns-in"
+        ],
+        "server": "dns-direct"
+      }
+    ],
     "servers": [
       {
         "detour": "direct",
@@ -19,14 +26,22 @@
     "strategy": "prefer_ipv4"
   },
   "endpoints": [],
-  "inbounds": [],
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 40549,
+      "network": "udp",
+      "tag": "plugin-dns-in",
+      "type": "direct"
+    }
+  ],
   "log": {
     "level": "panic"
   },
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 40045,
+      "server_port": 35141,
       "tag": "proxy",
       "type": "socks"
     },
@@ -45,6 +60,13 @@
       "server": "dns-direct"
     },
     "rule_set": [],
-    "rules": []
+    "rules": [
+      {
+        "action": "hijack-dns",
+        "inbound": [
+          "plugin-dns-in"
+        ]
+      }
+    ]
   }
 }

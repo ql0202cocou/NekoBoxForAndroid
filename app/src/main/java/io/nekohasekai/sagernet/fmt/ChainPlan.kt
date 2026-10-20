@@ -202,6 +202,9 @@ internal sealed interface HopCore {
     class External(val core: ExternalCore?, val mapping: HopMapping?) : HopCore {
         /** 本机 socks 入站要求本次构建的凭据（核心声明的，见 [ExternalCore.inboundAuth]）。 */
         val needsLocalAuth: Boolean get() = core?.inboundAuth == true
+
+        /** 不映射、自己拨服务器，配置里写构建给的解析服务器（核心声明的，见 [ExternalCore.acceptsServerResolver]）。 */
+        val takesServerResolver: Boolean get() = mapping == null && core?.acceptsServerResolver == true
     }
 }
 

@@ -3,6 +3,13 @@
     "final": "dns-remote",
     "rules": [
       {
+        "inbound": [
+          "plugin-dns-in"
+        ],
+        "server": "dns-direct",
+        "strategy": "prefer_ipv4"
+      },
+      {
         "domain": [
           "vmess.example.com",
           "hy1.example.com",
@@ -67,6 +74,13 @@
       "listen_port": 2080,
       "tag": "mixed-in",
       "type": "mixed"
+    },
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 34331,
+      "network": "udp",
+      "tag": "plugin-dns-in",
+      "type": "direct"
     }
   ],
   "log": {
@@ -86,7 +100,7 @@
     },
     {
       "server": "127.0.0.1",
-      "server_port": 42081,
+      "server_port": 33759,
       "tag": "g-3",
       "type": "socks"
     },
@@ -107,6 +121,12 @@
     },
     "rule_set": [],
     "rules": [
+      {
+        "action": "hijack-dns",
+        "inbound": [
+          "plugin-dns-in"
+        ]
+      },
       {
         "action": "sniff"
       },

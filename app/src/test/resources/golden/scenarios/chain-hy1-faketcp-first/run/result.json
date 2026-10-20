@@ -31,19 +31,25 @@
           "index": 0,
           "chainIndex": 0,
           "profileId": 3,
-          "port": 42097,
+          "port": 46309,
           "finalAddress": "hy1.example.com",
           "finalPort": 1080,
           "inboundTag": null,
           "outboundTag": null,
-          "localAuth": null
+          "localAuth": null,
+          "resolver": {
+            "network": "udp",
+            "address": "127.0.0.1",
+            "port": 39441
+          }
         }
       ]
     }
   ],
   "dynamic": {
     "ports": [
-      42097
+      46309,
+      39441
     ],
     "paths": [],
     "secrets": []

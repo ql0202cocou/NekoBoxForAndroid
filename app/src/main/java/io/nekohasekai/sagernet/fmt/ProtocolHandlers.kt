@@ -538,6 +538,9 @@ sealed class ExternalCore(
     // 本机 socks 入站是否要求用户名 / 密码认证（LocalSocksAuth）。构建（sing-box 的 socks 出站带不带凭据）与
     // 运行计划（跳实例有没有凭据）都只看这项声明。只有核实过的核心声明为真，其配置生成器拿不到凭据时直接报错
     val inboundAuth: Boolean = false,
+    // 不映射、自己拨服务器时，配置生成器把构建给的 DNS（ExternalServerResolver，sing-box 的本机 DNS 入站）写进配置，
+    // 用它解析服务器域名。构建（分不分 DNS 入站的端口）与运行计划（跳实例能不能带解析服务器）都只看这项声明
+    val acceptsServerResolver: Boolean = false,
 ) {
     // 合并核心：同一个计划里这个插件的全部跳实例共用一份配置、一个进程
     val merged get() = this is Merged
@@ -586,7 +589,8 @@ sealed class ExternalCore(
             cacheFile: (String, String) -> File,
         ) -> String,
         buildLaunch: (ExternalCoreSettings, String, String, (String, String, String) -> File) -> ExternalCoreLaunch,
-    ) : ExternalCore(pluginId, buildLaunch) {
+        acceptsServerResolver: Boolean = false,
+    ) : ExternalCore(pluginId, buildLaunch, acceptsServerResolver = acceptsServerResolver) {
 
         // cacheFile(prefix, ext) 分配配置可能引用的临时文件（hysteria 的 CA）
         fun config(hop: ExternalHop, cacheFile: (String, String) -> File, settings: ExternalCoreSettings): String =
@@ -664,6 +668,9 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
             }
             ExternalCoreLaunch(commands)
         },
+        // 插件是静态编译的 Go 程序，Android 上没有 /etc/resolv.conf，默认解析退到 127.0.0.1:53 / [::1]:53，
+        // 解析不了服务器域名；不映射时配置的 resolver 指向构建给的本机 DNS 入站
+        acceptsServerResolver = true,
     )
 
     // 合并核心的 buildEntry 用的就是这个跳实例自己的 bean（ExternalHop.core 由它的 bean 取得），

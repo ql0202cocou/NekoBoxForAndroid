@@ -45,8 +45,8 @@ fun ExternalDialTarget.dialPort(bean: AbstractBean): Int = when (this) {
 
 /**
  * 外核不映射、自己拨服务器时解析服务器域名用的 DNS 服务器：明文 DNS（network 是 udp 或 tcp），address 是不带方括号的
- * IP 字面量。取自主节点所在分组的「节点解析 DNS」（构建按 [externalServerResolverOf] 选），只给本组域名节点的不映射跳；
- * 目前只有 hysteria 1 插件的生成器写进配置（resolver）。
+ * IP 字面量。构建给的是 sing-box 的本机 DNS 入站（udp、127.0.0.1、本次构建分的端口，见 ConfigBuild.applyPluginDns），
+ * 只给服务器写域名、核心声明接受它（[ExternalCore.acceptsServerResolver]，目前只有 hysteria 1 插件）的不映射跳；导出不带。
  */
 data class ExternalServerResolver(val network: String, val address: String, val port: Int) {
     init {
@@ -59,7 +59,7 @@ data class ExternalServerResolver(val network: String, val address: String, val 
  * 构建登记的一个走外核（needExternal）的节点：sing-box 一侧的 socks 出站连 localPort，带 localAuth（核心的入站
  * 不认证时为 null）；target 是外核自己的拨号目标。core 为 null 的节点（NekoBean）没有外核条目，计划跳过它，
  * 但它照样让导出的文件名成为 profiles.txt（见 [exportConfigText]）。bean 是构建自己的拷贝，构建不改写它。
- * serverResolver 是不映射时外核解析服务器域名用的 DNS（见 [ExternalServerResolver]），经映射或没有分组 DNS 时为 null。
+ * serverResolver 是不映射时外核解析服务器域名用的 DNS（见 [ExternalServerResolver]），经映射、服务器是 IP 或核心不接受时为 null。
  */
 class ExternalHopRecord(
     val profileId: Long,
@@ -102,7 +102,7 @@ class ExternalHop(
     val localAuth: LocalSocksAuth? = null,
     /**
      * 不映射时外核解析服务器域名用的 DNS（见 [ExternalServerResolver]），null 表示用外核自己的默认解析。只有拨号目标
-     * 是 [ExternalDialTarget.Direct] 的跳实例可以有，由 [ExternalRunPlan] 检查。
+     * 是 [ExternalDialTarget.Direct]、核心接受它的跳实例可以有，由 [ExternalRunPlan] 检查。
      */
     val serverResolver: ExternalServerResolver? = null,
 ) {
@@ -152,10 +152,14 @@ class ExternalRunPlan(val hops: List<ExternalHop>) {
         check(hops.mapNotNull { it.localAuth }.distinct().size <= 1) {
             "external hops of one plan carry different local socks credentials"
         }
-        // 经映射的跳实例拨本机，服务器域名在 sing-box 的映射入站上解析，不能再带外核自己的解析服务器
+        // 经映射的跳实例拨本机，服务器域名在 sing-box 的映射入站上解析，不能再带外核自己的解析服务器；
+        // 核心没声明配置里写解析服务器的（ExternalCore.acceptsServerResolver）也不能带，带了只会被静默丢掉
         for (hop in hops) {
             check(hop.serverResolver == null || hop.target is ExternalDialTarget.Direct) {
                 "external hop ${hop.index} (${hop.pluginId}) dials through a mapping inbound but carries a server resolver"
+            }
+            check(hop.serverResolver == null || hop.core.acceptsServerResolver) {
+                "external hop ${hop.index} (${hop.pluginId}) does not take a server resolver"
             }
         }
     }

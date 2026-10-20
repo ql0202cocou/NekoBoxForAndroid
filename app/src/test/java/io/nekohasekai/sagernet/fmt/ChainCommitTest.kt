@@ -219,8 +219,8 @@ class ChainCommitTest {
     }
 
     @Test
-    fun `端口按跳的顺序分配：每跳先本机 socks 端口、后映射端口`() {
-        // 主节点是链 1：5 hysteria 1（最先拨号，免映射）→ 4 AnyTLS → 3 socks → 2 vless（出口）
+    fun `端口按跳的顺序分配：每跳先本机 socks 端口、后本机 DNS 入站或映射端口`() {
+        // 主节点是链 1：5 hysteria 1（最先拨号，免映射，服务器写域名）→ 4 AnyTLS → 3 socks → 2 vless（出口）
         val platform = FakeConfigPlatform()
         val auths = Auths()
         val main = chain(1, 5, 4, 3, 2)
@@ -229,7 +229,7 @@ class ChainCommitTest {
             MemoryConfigDataSource(listOf(ProxyGroup(id = 1)), listOf(main, vless(2), socks(3), anytls(4), hysteria(5)), emptyList()),
             platform, auths = auths,
         )
-        assertEquals(listOf(50001, 50002, 50003, 50004, 50005), platform.ports)
+        assertEquals(listOf(50001, 50002, 50003, 50004, 50005, 50006), platform.ports)
         assertEquals(
             listOf(
                 "2@50001->Mapped(port=50002)",
@@ -237,6 +237,11 @@ class ChainCommitTest {
                 "5@50005->Direct",
             ),
             ExternalRunPlan.from(result).hops.map { "${it.profileId}@${it.localPort}->${it.target}" },
+        )
+        // 免映射的 hysteria 1 在本机 socks 端口之后要本机 DNS 入站的端口，经它解析服务器域名
+        assertEquals(
+            listOf(null, null, ExternalServerResolver("udp", LOCALHOST, 50006)),
+            ExternalRunPlan.from(result).hops.map { it.serverResolver },
         )
         // 凭据只在第一个需要它的跳实例（vless）处生成一次，AnyTLS 共用；hysteria 1 不要
         assertEquals(1, auths.calls)
@@ -247,6 +252,11 @@ class ChainCommitTest {
             .filter { it.string("tag")?.contains("-mapping-") == true }
             .map { "${it.string("tag")}:${it["listen_port"].asInt}" }
         assertEquals(listOf("c-0-mapping-2:50002", "c-0-mapping-4:50004"), mapping)
+        assertEquals(
+            listOf(50006),
+            config(result).getAsJsonArray("inbounds").map { it.asJsonObject }
+                .filter { it.string("tag") == TAG_PLUGIN_DNS }.map { it["listen_port"].asInt },
+        )
         assertEquals(listOf("pluginExternalAuthority(hysteria-plugin)"), platform.pluginQueries)
     }
 
