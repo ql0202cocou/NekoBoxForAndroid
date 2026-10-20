@@ -4,6 +4,7 @@ import android.view.View
 import androidx.core.view.isGone
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.DiffUtil
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import io.nekohasekai.sagernet.aidl.TrafficData
 import io.nekohasekai.sagernet.database.DataStore
@@ -100,15 +101,44 @@ class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentS
             fragment.groupPager.unregisterOnPageChangeCallback(fragment.updateSelectedCallback)
         }
         if (loaded.set) selectedGroupIndex = loaded.selectedIndex
+        // 按分组 id 差量刷新：没变的页（及其 Fragment 与滚动位置）原样保留，
+        // 新增 / 删除 / 挪动只发对应的细粒度通知。getItemId / containsItem 按 id 回答，
+        // FragmentStateAdapter 靠它们认出哪些 Fragment 还在、哪些该回收。
+        // 先换 groupList 再分发：分发期间 getItemCount / getItemId 读的是新列表
+        val pager = fragment.groupPager
+        val old = groupList
+        val shownId = old.getOrNull(pager.currentItem)?.id
         groupList = loaded.groups
-        notifyDataSetChanged()
-        if (loaded.set) fragment.groupPager.setCurrentItem(selectedGroupIndex, false)
+        DiffUtil.calculateDiff(GroupDiff(old, loaded.groups)).dispatchUpdatesTo(this)
+        // 差量下 RecyclerView 让原来那一页跟着挪到新下标，ViewPager2 的 currentItem 却要等下一次布局才更新；
+        // 此刻直接 setCurrentItem(目标) 会因为「目标 == 旧 currentItem」被当成已在该页而什么也不做
+        // （比如导入落到排在最前的新分组）。所以先让页码对上正在显示的那一页，再去目标页
+        val shownIndex = groupList.indexOfFirst { it.id == shownId }
+        if (shownIndex >= 0) pager.setCurrentItem(shownIndex, false)
+        if (loaded.set) pager.setCurrentItem(selectedGroupIndex, false)
         // 换页后新页的滚动位置不同，等页面挂上再取一次抬升状态
         fragment.groupPager.post { fragment.updateAppBarLift() }
         val hideTab = groupList.size < 2
         fragment.tabLayout.isGone = hideTab
         if (!fragment.select) {
             fragment.groupPager.registerOnPageChangeCallback(fragment.updateSelectedCallback)
+        }
+    }
+
+    // 分组的身份是 id；tab 上显示的只有名字（displayName），名字或是否为 ungrouped 变了才算内容变化
+    private class GroupDiff(
+        private val old: List<ProxyGroup>,
+        private val new: List<ProxyGroup>,
+    ) : DiffUtil.Callback() {
+        override fun getOldListSize() = old.size
+        override fun getNewListSize() = new.size
+        override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int) =
+            old[oldItemPosition].id == new[newItemPosition].id
+
+        override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+            val a = old[oldItemPosition]
+            val b = new[newItemPosition]
+            return a.name == b.name && a.ungrouped == b.ungrouped && a.type == b.type
         }
     }
 

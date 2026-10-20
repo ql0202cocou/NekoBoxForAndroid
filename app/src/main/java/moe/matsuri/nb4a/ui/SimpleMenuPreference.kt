@@ -68,6 +68,8 @@ open class SimpleMenuPreference
         super.setValue(value)
         if (::mAdapter.isInitialized) {
             mAdapter.currentPosition = entryValues.indexOf(value)
+            // 保留整表刷新：这是 Spinner 的 ArrayAdapter（BaseAdapter），没有按行通知与差量机制；
+            // 只有「选中行高亮」变了，列表也就几项
             mAdapter.notifyDataSetChanged()
         }
     }
