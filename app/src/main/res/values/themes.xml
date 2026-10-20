@@ -14,8 +14,8 @@
              Tab 用 Widget.Material3.TabLayout 的默认文字色与 primary 指示条 -->
         <item name="appBarColor">?attr/colorSurface</item>
         <!-- 连接按钮呼吸叠层的时长（ms）：M3 没有对应档位，两个基础主题取同一值 -->
-        <item name="serviceBreathPeriod">1400</item>
-        <item name="serviceBreathStep">66</item>
+        <item name="serviceBreathPeriod">3000</item>
+        <item name="serviceBreathStep">100</item>
         <item name="serviceBreathFade">300</item>
         <!-- 弹簧：Theme.Material3 不定义 motionSpring*（只有 Expressive 主题有），两个基础主题自己补，
              指向本项目的 Motion.SagerNet.Spring.* -->
@@ -63,8 +63,8 @@
              Tab 用 Widget.Material3.TabLayout 的默认文字色与 primary 指示条 -->
         <item name="appBarColor">?attr/colorSurface</item>
         <!-- 连接按钮呼吸叠层的时长（ms）：M3 没有对应档位，两个基础主题取同一值 -->
-        <item name="serviceBreathPeriod">1400</item>
-        <item name="serviceBreathStep">66</item>
+        <item name="serviceBreathPeriod">3000</item>
+        <item name="serviceBreathStep">100</item>
         <item name="serviceBreathFade">300</item>
         <!-- 弹簧：Theme.Material3 不定义 motionSpring*（只有 Expressive 主题有），两个基础主题自己补，
              指向本项目的 Motion.SagerNet.Spring.* -->
@@ -142,6 +142,12 @@
 
     <style name="Widget.SagerNet.Button.TextButton.Dialog.Flush" parent="Widget.Material3.Button.TextButton.Dialog.Flush">
         <item name="android:textColor">?primaryOrTextPrimary</item>
+    </style>
+
+    <!-- 连接按钮保持圆形：M3 FAB 样式的形状是 Large（16dp 圆角），用 50% 圆角盖回去 -->
+    <style name="ShapeAppearanceOverlay.SagerNet.Circle" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
     </style>
 
     <!-- Dock 选中胶囊的弹簧：M3 Expressive 的快速空间弹簧（刚度 800、阻尼比 0.6）。

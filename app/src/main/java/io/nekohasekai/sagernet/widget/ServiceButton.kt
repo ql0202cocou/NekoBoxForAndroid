@@ -13,16 +13,19 @@ import androidx.annotation.DrawableRes
 import androidx.appcompat.widget.TooltipCompat
 import androidx.core.graphics.ColorUtils
 import androidx.dynamicanimation.animation.DynamicAnimation
+import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.vectordrawable.graphics.drawable.Animatable2Compat
 import androidx.vectordrawable.graphics.drawable.AnimatedVectorDrawableCompat
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.android.material.motion.MotionUtils
 import com.google.android.material.progressindicator.BaseProgressIndicator
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.ktx.animatorsEnabled
+import io.nekohasekai.sagernet.ktx.motionDuration
 import io.nekohasekai.sagernet.ktx.themeInteger
 import io.nekohasekai.sagernet.ktx.unwrapTo
 import kotlinx.coroutines.Job
@@ -161,14 +164,15 @@ class ServiceButton @JvmOverloads constructor(
     }
 
     // ---- 已连接时的「呼吸」叠层 ----
-    // 叠层是与按钮同形（圆）的前景，颜色 colorOnPrimaryContainer，不透明度在 0 与 14% 之间往返，
-    // 周期 1400ms。为免整屏每帧重绘，用 Handler 按 66ms 步进（约 15fps），不用无限循环的 ValueAnimator；
+    // 叠层是与按钮同形（圆）的前景，颜色 colorOnPrimaryContainer，不透明度在 0 与 8% 之间往返，
+    // 周期 3000ms。为免整屏每帧重绘，用 Handler 按 100ms 步进（10fps，8% 只有约 20 级，够用），
+    // 不用无限循环的 ValueAnimator；
     // 进出已连接态时整体 300ms 淡入淡出。
     // 离开已连接态、脱离窗口、窗口或视图不可见、系统动画被关闭（动画时长缩放为 0）时都停，不留叠层
 
     // 三个时长取自主题（serviceBreath*），回退值与主题定义一致
-    private val breathPeriodMs = context.themeInteger(R.attr.serviceBreathPeriod, 1400).toLong()
-    private val breathStepMs = context.themeInteger(R.attr.serviceBreathStep, 66).toLong()
+    private val breathPeriodMs = context.themeInteger(R.attr.serviceBreathPeriod, 3000).toLong()
+    private val breathStepMs = context.themeInteger(R.attr.serviceBreathStep, 100).toLong()
     private val breathFadeMs = context.themeInteger(R.attr.serviceBreathFade, 300).toLong()
 
     private val breathHandler = Handler(Looper.getMainLooper())
@@ -244,12 +248,37 @@ class ServiceButton @JvmOverloads constructor(
         foreground = null
     }
 
+    /** 按下压缩到 [PRESSED_SCALE]、松开恢复，时长取主题的 motionDurationShort2；系统动画关闭时直接到位 */
+    override fun setPressed(pressed: Boolean) {
+        val changed = isPressed != pressed
+        super.setPressed(pressed)
+        if (!changed) return
+        val target = if (pressed) PRESSED_SCALE else 1f
+        animate().cancel()
+        if (!context.animatorsEnabled()) {
+            scaleX = target
+            scaleY = target
+            return
+        }
+        animate().scaleX(target).scaleY(target)
+            .setDuration(context.motionDuration(com.google.android.material.R.attr.motionDurationShort2, 100))
+            .setInterpolator(
+                MotionUtils.resolveThemeInterpolator(
+                    context, com.google.android.material.R.attr.motionEasingStandardInterpolator,
+                    FastOutSlowInInterpolator()
+                )
+            ).start()
+    }
+
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         updateBreathing()
     }
 
     override fun onDetachedFromWindow() {
+        animate().cancel()
+        scaleX = 1f
+        scaleY = 1f
         clearBreath()
         super.onDetachedFromWindow()
     }
@@ -265,6 +294,9 @@ class ServiceButton @JvmOverloads constructor(
     }
 
     private companion object {
-        const val BREATH_MAX_ALPHA = 0.14f
+        const val BREATH_MAX_ALPHA = 0.08f
+
+        // 按下时整体缩放到 98%（M3 FAB 按下不抬升，用轻微压缩给反馈）
+        const val PRESSED_SCALE = 0.98f
     }
 }

@@ -26,19 +26,20 @@
         app:trackCornerRadius="@dimen/mtrl_progress_track_thickness"
         app:trackThickness="8dp" />
 
-    <!-- 连接按钮：固定在右下角，与 Dock 垂直居中（底边距 2 + (64 − 56) / 2）。
+    <!-- 连接按钮：M3 FAB（Primary）样式，56dp，用 50% 圆角的 overlay 保持圆形；静止阴影取样式的 6dp，
+         按下不抬升（样式的 translationZ 为 0）。固定在右下角，与 Dock 垂直居中（底边距 2 + (64 − 56) / 2）。
          外边距在 MainActivity 里再加上系统栏与刘海的插入区 -->
     <io.nekohasekai.sagernet.widget.ServiceButton
         android:id="@+id/fab"
+        style="@style/Widget.Material3.FloatingActionButton.Primary"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
         android:layout_marginEnd="12dp"
         android:layout_marginBottom="@dimen/fab_margin_bottom"
-        android:elevation="6dp"
         android:nextFocusDown="@+id/stats"
         app:backgroundTint="?fabColorBackground"
-        app:pressedTranslationZ="6dp"
+        app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.SagerNet.Circle"
         app:srcCompat="@drawable/ic_service_idle"
         app:tint="?attr/colorOnPrimaryContainer" />
 
