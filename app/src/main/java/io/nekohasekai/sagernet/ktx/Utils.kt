@@ -5,6 +5,7 @@ package io.nekohasekai.sagernet.ktx
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
 import android.content.ContentResolver
@@ -198,6 +199,20 @@ suspend fun Fragment.showSnackbar(@StringRes textId: Int) =
 
 suspend fun Fragment.showSnackbar(text: CharSequence) =
     onMainDispatcher { (activity as? MainActivity)?.snackbar(text)?.show() }
+
+// 进程级协程（appScope）写完之后的界面收尾，统一走下面两个入口：切回主线程，页面还活着才执行 block，
+// 否则整段丢弃。写入本身不受影响；已经销毁的页面上不会再有 View 访问、弹窗或 Fragment 事务。
+// Fragment：已 attach 且视图还在（onDestroyView 之后 view 为 null，持有的 lateinit 控件都是旧视图）
+fun Fragment.ifViewAlive(block: () -> Unit) {
+    if (isAdded && view != null) block()
+}
+
+suspend fun Fragment.onLiveView(block: () -> Unit) = onMainDispatcher { ifViewAlive(block) }
+
+// Activity：未在结束、未销毁
+suspend fun Activity.onLiveActivity(block: () -> Unit) = onMainDispatcher {
+    if (!isFinishing && !isDestroyed) block()
+}
 
 // 复制到剪贴板，返回给 snackbar 用的导出结果提示
 @StringRes

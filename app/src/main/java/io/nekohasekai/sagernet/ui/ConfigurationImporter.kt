@@ -27,6 +27,7 @@ import java.util.zip.ZipInputStream
  */
 class ConfigurationImporter(private val fragment: ConfigurationFragment) {
 
+    // 进程级：解析文件并建节点，页面销毁后导入仍要完成；界面提示只在页面存活时做（fragment.import / showSnackbar）
     fun importFile(file: Uri) = runOnDefaultDispatcher {
         try {
             val fileName = app.contentResolver.displayName(file)
@@ -79,6 +80,7 @@ class ConfigurationImporter(private val fragment: ConfigurationFragment) {
         }
     }
 
+    // 进程级：解析剪贴板并建节点，页面销毁后导入仍要完成；界面提示只在页面存活时做
     fun importClipboard(text: String) = runOnDefaultDispatcher {
         try {
             val proxies = RawUpdater.parseRaw(text)

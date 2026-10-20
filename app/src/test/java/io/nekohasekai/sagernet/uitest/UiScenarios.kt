@@ -1,8 +1,22 @@
 package io.nekohasekai.sagernet.uitest
 
 import android.app.Activity
+import android.net.Uri
+import android.widget.CheckBox
+import androidx.appcompat.app.AlertDialog
+import androidx.lifecycle.lifecycleScope
+import io.nekohasekai.sagernet.bg.BaseService
+import io.nekohasekai.sagernet.bg.SagerConnection
+import io.nekohasekai.sagernet.bg.ServiceRegistry
+import io.nekohasekai.sagernet.database.SagerDatabase
+import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
+import io.nekohasekai.sagernet.ktx.app
+import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
+import io.nekohasekai.sagernet.ui.BackupFragment
+import java.io.File
 import android.content.Intent
 import android.os.Bundle
+import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
@@ -45,6 +59,7 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.android.controller.ActivityController
 import org.robolectric.shadows.ShadowDialog
 
@@ -647,6 +662,101 @@ class UiScenarios(private val ui: UiTestRule) {
         if (!main.get().listEntering()) error("前置条件：冷启动没有播入场动画")
         main.change(Change.ROTATE)
         return if (!main.get().listEntering()) Check(true) else Check(false, "旋转后又播了一次入场动画")
+    }
+
+    // ------------------------------------------------------ 进程级写入不碰已销毁的页面（U4b b4）
+
+    /**
+     * 备份导入：点「导入」之后页面销毁，恢复仍要写完，且全程不碰 View。
+     * 服务状态置为「在跑」，恢复协程必然卡在「等服务停稳」，销毁页面时它一定还在途；销毁之后放行。
+     * 监听器执行（点击）之后把三个勾选框全取消：恢复用的是点击时在主线程读到的值，不再回头读 CheckBox。
+     * 判定：路由规则被备份内容（空规则表）整表替换，即写库完成；未捕获异常由 UiTestRule 收集。
+     */
+    fun backupImportOutlivesPage(): Check {
+        UiFixtures.install()
+        val main = ui.launch<MainActivity>()
+        val fragment = BackupFragment()
+        main.get().supportFragmentManager.beginTransaction().add(R.id.fragment_holder, fragment).commitNow()
+        UiSettle.settle()
+        val before = ui.offMain { SagerDatabase.rulesDao.allRules().size }
+        if (before == 0) error("前置条件：夹具里没有路由规则")
+        val backup = File(app.cacheDir, "b4_backup.json").apply { writeText("{\"version\":1,\"rules\":[]}") }
+        ServiceRegistry.state = BaseService.State.Connected
+        try {
+            fragment.viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Default) { fragment.startImport(Uri.fromFile(backup)) }
+            UiSettle.settle()
+            val dialog = ShadowDialog.getLatestDialog() as? AlertDialog ?: error("前置条件：没有弹出导入确认框")
+            val boxes = listOf(R.id.backup_configurations, R.id.backup_rules, R.id.backup_settings)
+                .map { dialog.findViewById<CheckBox>(it) ?: error("前置条件：确认框里没有勾选项") }
+            if (!boxes[1].isChecked) error("前置条件：规则勾选项默认应勾选")
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+            // AlertController 把按钮点击转成消息投给主 looper：空转一次，确认框的监听器（读勾选项）才真正执行
+            shadowOf(Looper.getMainLooper()).idle()
+            boxes.forEach { it.isChecked = false }
+            UiSettle.settle()
+            val waiting = ui.offMain { SagerDatabase.rulesDao.allRules().size }
+            if (waiting != before) error("前置条件：恢复没有卡在等服务停稳（规则已变成 $waiting 条）")
+            ui.destroyNow(main)
+            ServiceRegistry.state = BaseService.State.Idle
+            UiSettle.settle()
+            drainRestart()
+        } finally {
+            ServiceRegistry.state = BaseService.State.Idle
+            backup.delete()
+        }
+        val after = ui.offMain { SagerDatabase.rulesDao.allRules().size }
+        return if (after == 0) Check(true) else Check(false, "页面销毁后备份没有导入完（规则表还有 $after 条）")
+    }
+
+    // triggerFullRestart 在 appScope 里 delay(500) 之后才去连 :bg：等它走完，并把它置的进程级标志还原，不连累别的用例
+    private fun drainRestart() {
+        Thread.sleep(800)
+        UiSettle.settle()
+        SagerConnection.restartingApp = false
+    }
+
+    /**
+     * 配置页的导入链跑在 appScope，写库之后页面已销毁：节点照常写入，选中的分组照常记下（下次建视图按它选 tab），
+     * 但不去动旧视图的 pager。先选中订阅分组，使导入目标（第一个普通分组）与当前分组不同，切 tab 的分支才会被走到。
+     */
+    fun importAfterPageDestroyedLeavesViewAlone(): Check {
+        val fixtures = UiFixtures.install()
+        DataStore.selectedGroup = fixtures.subscriptionGroup.id
+        val main = ui.launch<MainActivity>()
+        val fragment = main.get().fragment() as ConfigurationFragment
+        val pager = fragment.groupPager
+        val pagerBefore = pager.currentItem
+        val count = { ui.offMain { SagerDatabase.proxyDao.countByGroup(fixtures.normalGroup.id) } }
+        val before = count()
+        ui.destroyNow(main)
+        runOnDefaultDispatcher {
+            fragment.import(listOf(SOCKSBean().apply {
+                name = "Imported after destroy"
+                serverAddress = "192.0.2.99"
+                serverPort = 1080
+            }))
+        }
+        UiSettle.settle()
+        return when {
+            count() != before + 1 -> Check(false, "页面销毁后导入的节点没有写库")
+            DataStore.selectedGroup != fixtures.normalGroup.id -> Check(false, "导入目标分组没有记进 DataStore.selectedGroup")
+            pager.currentItem != pagerBefore -> Check(false, "页面销毁后旧视图的 pager 被切换了（$pagerBefore -> ${pager.currentItem}）")
+            else -> Check(true)
+        }
+    }
+
+    /** 规则资源页：撤销窗口到期删 ca.pem 之后的「需要重启」提示，页面已销毁时直接丢弃，文件照常删掉 */
+    fun assetsCommitAfterPageDestroyed(): Check {
+        UiFixtures.install()
+        val assets = ui.launch<AssetsActivity>()
+        val adapter = assets.get().adapter
+        val ca = File(app.assetsDir.apply { mkdirs() }, "ca.pem").apply { writeText("x") }
+        ui.destroyNow(assets)
+        adapter.commit(listOf(0 to ca))
+        UiSettle.settle()
+        val deleted = !ca.exists()
+        ca.delete()
+        return if (deleted) Check(true) else Check(false, "页面销毁后 ca.pem 没有删掉")
     }
 
     companion object {

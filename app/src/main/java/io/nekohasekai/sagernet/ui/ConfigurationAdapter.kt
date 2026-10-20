@@ -157,6 +157,7 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
         // to `updated` there while the write below iterates it
         val updated = HashSet(updated)
         this.updated.clear()
+        // 进程级：拖动排序的落库，页面随后离开也要写完
         runOnDefaultDispatcher {
             ProfileRepository.updateUserOrders(updated)
         }
@@ -193,6 +194,7 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
     override fun commit(actions: List<Pair<Int, ProxyEntity>>) {
         val profiles = actions.map { it.second }
         // 同一分组的批量删除：一个事务，整组 rearrange 只做一次
+        // 进程级：撤销窗口到期的批量删除落库，页面已关闭也要删完
         runOnDefaultDispatcher { ProfileRepository.deleteProfiles(profiles) }
     }
 

@@ -218,6 +218,7 @@ class ProfileListFragment : Fragment() {
 
         fun updateTo(order: Int) {
             if (proxyGroup.order == order) return
+            // 进程级：分组排序方式的落库，页面随后离开也要写完
             runOnDefaultDispatcher {
                 proxyGroup.order = order
                 GroupRepository.updateSortOrder(proxyGroup.id, order)

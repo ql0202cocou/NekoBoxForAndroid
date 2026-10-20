@@ -121,6 +121,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
             }
             R.id.action_reset_route -> {
                 activity.confirm(R.string.reset_route_message) {
+                    // 进程级：重置路由先清空再重建默认规则，确认后不随页面取消
                     runOnDefaultDispatcher {
                         // 走 RuleRepository 让 RuleListener 收到 onCleared；
                         // 本 adapter 的 onCleared 只清空列表，重建默认规则
@@ -223,6 +224,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
 
         override fun commit(actions: List<Pair<Int, RuleEntity>>) {
             val rules = actions.map { it.second }
+            // 进程级：撤销窗口到期的规则删除落库，页面已关闭也要删完
             runOnDefaultDispatcher {
                 RuleRepository.deleteRules(rules)
             }
@@ -302,6 +304,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
                 enableSwitch.setOnCheckedChangeListener { _, isChecked ->
                     val ruleId = ruleEntity.id
                     ruleEntity.enabled = isChecked
+                    // 进程级：规则开关的落库，页面随后离开也要写完；提示只在页面还在时弹
                     runOnDefaultDispatcher {
                         RuleRepository.updateRuleEnabled(ruleId, isChecked)
                         onMainDispatcher {

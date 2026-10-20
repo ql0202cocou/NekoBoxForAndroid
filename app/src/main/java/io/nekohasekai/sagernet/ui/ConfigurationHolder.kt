@@ -26,7 +26,7 @@ import io.nekohasekai.sagernet.ktx.exportToClipboard
 import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.ktx.getColour
 import io.nekohasekai.sagernet.ktx.motionDuration
-import io.nekohasekai.sagernet.ktx.onMainDispatcher
+import io.nekohasekai.sagernet.ktx.onLiveView
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.showAllowingStateLoss
@@ -99,6 +99,7 @@ class ConfigurationHolder(
             }
         } else {
             view.setOnClickListener {
+                // 进程级：点选节点要写 selectedProxy 并按需重载服务，页面离开也必须完成；界面回填只在页面存活时做
                 runOnDefaultDispatcher {
                     var update: Boolean
                     var lastSelected: Long
@@ -106,9 +107,9 @@ class ConfigurationHolder(
                         update = DataStore.selectedProxy != proxyEntity.id
                         lastSelected = DataStore.selectedProxy
                         DataStore.selectedProxy = proxyEntity.id
-                        onMainDispatcher {
-                            // 与 bind 末尾同一防护：协程返回时 holder 可能已复用
-                            if (entity.id != proxyEntity.id) return@onMainDispatcher
+                        // 页面已销毁则不回填；与 bind 末尾同一防护：协程返回时 holder 可能已复用
+                        groupFragment.onLiveView {
+                            if (entity.id != proxyEntity.id) return@onLiveView
                             selectedView.visibility = View.VISIBLE
                             applyStatusColor()
                         }

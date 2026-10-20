@@ -121,8 +121,8 @@ class AssetsActivity : ThemedActivity() {
     }
 
     // both processes read ca.pem in SagerNet.onCreate only
+    // 进程级协程写完之后才调用，一律经 onLiveActivity：页面已销毁时整段丢弃
     private fun needRestart() {
-        if (isFinishing || isDestroyed) return
         snackbar(R.string.need_restart).setAction(R.string.apply) { triggerFullRestart(this) }.show()
     }
 
@@ -145,6 +145,7 @@ class AssetsActivity : ThemedActivity() {
             }
             val assetsDir = app.assetsDir
 
+            // 进程级：把选中的规则资源 / 证书拷进 assets 目录，页面退出也要写完；界面收尾走 onLiveActivity
             runOnDefaultDispatcher {
                 // a custom CA always lands in ca.pem, whatever the picked file was called
                 val outFile = File(
@@ -176,7 +177,7 @@ class AssetsActivity : ThemedActivity() {
                     publishAsset(tmpFile, outFile, "Custom")
 
                     adapter.reloadAssets()
-                    if (isCertificate) onMainDispatcher { needRestart() }
+                    if (isCertificate) onLiveActivity { needRestart() }
                 } catch (e: Exception) {
                     Logs.w(e)
                     // tryToShow, not show: this runs on appScope and the
@@ -278,11 +279,12 @@ class AssetsActivity : ThemedActivity() {
 
         override fun commit(actions: List<Pair<Int, File>>) {
             val files = actions.map { it.second }
+            // 进程级：撤销窗口到期后删文件，页面已关闭也要删完；界面收尾走 onLiveActivity
             runOnDefaultDispatcher {
                 files.forEach { it.deleteRecursively() }
                 // the root store keeps a removed ca.pem until the next process start
                 if (files.any { it.name == SagerNet.CA_FILE_NAME }) {
-                    onMainDispatcher { needRestart() }
+                    onLiveActivity { needRestart() }
                 }
             }
         }

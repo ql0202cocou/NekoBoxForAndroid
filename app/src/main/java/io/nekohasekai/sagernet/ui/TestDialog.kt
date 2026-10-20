@@ -69,6 +69,7 @@ class TestDialog(fragment: ConfigurationFragment) {
         if (dialogStatus.get() != 2) {
             results.add(profile)
         }
+        // 进程级：测试进度可能在页面销毁后到达，通知照常更新，对话框经弱引用与 isAdded 判界面
         runOnMainDispatcher {
             val progress = finishedN.addAndGet(1)
             val status = dialogStatus.get()

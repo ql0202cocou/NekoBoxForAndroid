@@ -19,7 +19,7 @@ import io.nekohasekai.sagernet.group.subscriptionPresets
 import io.nekohasekai.sagernet.group.truncateForDisplay
 import io.nekohasekai.sagernet.group.isHttpSubscriptionLink
 import io.nekohasekai.sagernet.ktx.alert
-import io.nekohasekai.sagernet.ktx.onMainDispatcher
+import io.nekohasekai.sagernet.ktx.onLiveActivity
 import io.nekohasekai.sagernet.ktx.parseProxies
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
@@ -35,9 +35,7 @@ class MainImporter(private val activity: MainActivity) {
     // 导入链跑在 appScope（深链、配置页的剪贴板 / 文件导入都会进来），解析期间
     // 旋转或退出后 Activity 已销毁：再弹窗会 BadTokenException，提交 Fragment 会抛
     // "Activity has been destroyed"。这时放弃界面部分，已写库的导入不受影响
-    private suspend fun onLiveActivity(block: () -> Unit) = onMainDispatcher {
-        if (!activity.isFinishing && !activity.isDestroyed) block()
-    }
+    private suspend fun onLiveActivity(block: () -> Unit) = activity.onLiveActivity(block)
 
     suspend fun importSubscription(uri: Uri) {
         val group: ProxyGroup
@@ -115,6 +113,7 @@ class MainImporter(private val activity: MainActivity) {
             MaterialAlertDialogBuilder(activity).setTitle(R.string.subscription_import)
                 .setMessage(if (details.isNotEmpty()) "$message\n\n$details" else message)
                 .setPositiveButton(R.string.yes) { _, _ ->
+                    // 进程级：确认后建订阅分组并更新，对话框关闭或页面重建也要完成
                     runOnDefaultDispatcher {
                         finishImportSubscription(group)
                     }
@@ -147,6 +146,7 @@ class MainImporter(private val activity: MainActivity) {
             MaterialAlertDialogBuilder(activity).setTitle(R.string.profile_import)
                 .setMessage(activity.getString(R.string.profile_import_message, shownName))
                 .setPositiveButton(R.string.yes) { _, _ ->
+                    // 进程级：确认后建节点，对话框关闭或页面重建也要完成；界面收尾走 onLiveActivity
                     runOnDefaultDispatcher {
                         finishImportProfile(profile)
                     }

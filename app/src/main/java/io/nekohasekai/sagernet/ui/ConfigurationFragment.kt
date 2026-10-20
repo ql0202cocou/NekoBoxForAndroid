@@ -32,6 +32,7 @@ import io.nekohasekai.sagernet.group.GroupUpdater
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.displayName
+import io.nekohasekai.sagernet.ktx.ifViewAlive
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
@@ -231,6 +232,8 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
     }
 
     override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
+        // 进程级：监听回调不在主线程，只负责切回主线程；监听器在 onDestroy 才摘，onDestroyView 之后仍会收到，
+        // 所以 selectGroupTab 自己判页面是否还活着
         runOnMainDispatcher {
             // editingGroup: an editor took the user to the edited group
             if (key == Key.PROFILE_GROUP) selectGroupTab(EditorCache.editingGroup)
@@ -240,14 +243,18 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
     // Switch the pager to a group tab. import() calls this directly: the
     // cache is editor-owned, so changing tabs must not write PROFILE_GROUP
     // into it.
+    // 只在主线程调用。选中的分组先写进 DataStore（下次建视图按它选 tab），pager 部分只在视图还活着时做：
+    // 进程级的导入链可能在页面销毁之后才走到这里，adapter / groupPager 此时是旧视图的引用
     private fun selectGroupTab(targetId: Long) {
         if (targetId > 0 && targetId != DataStore.selectedGroup) {
             DataStore.selectedGroup = targetId
-            val targetIndex = adapter.groupList.indexOfFirst { it.id == targetId }
-            if (targetIndex >= 0) {
-                groupPager.setCurrentItem(targetIndex, false)
-            } else {
-                adapter.reload()
+            ifViewAlive {
+                val targetIndex = adapter.groupList.indexOfFirst { it.id == targetId }
+                if (targetIndex >= 0) {
+                    groupPager.setCurrentItem(targetIndex, false)
+                } else {
+                    adapter.reload()
+                }
             }
         }
     }
@@ -284,12 +291,9 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
     suspend fun import(proxies: List<AbstractBean>) {
         val targetId = GroupRepository.selectedGroupForImport()
         ProfileRepository.createProfiles(targetId, proxies)
-        onMainDispatcher {
-            // Same tab switch the PROFILE_GROUP cache listener performs; the
-            // view (and its adapter) may be gone for an appScope caller
-            if (::adapter.isInitialized) selectGroupTab(targetId)
-        }
-        // appScope caller: the fragment may be gone by now
+        // Same tab switch the PROFILE_GROUP cache listener performs; 导入链跑在 appScope，
+        // 写库之后页面可能已销毁：切 tab 与提示都只在页面还活着时才碰界面
+        onMainDispatcher { selectGroupTab(targetId) }
         showSnackbar(app.resources.getQuantityString(R.plurals.added, proxies.size, proxies.size))
 
     }
@@ -342,7 +346,7 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
             }
 
             R.id.action_update_subscription -> {
-                // currentGroup 有读库兜底，不能留在主线程
+                // 进程级：订阅更新（startUpdate）要在页面离开后继续；currentGroup 有读库兜底，不能留在主线程
                 runOnDefaultDispatcher {
                     val group = GroupRepository.currentGroup()
                     if (group.type != GroupType.SUBSCRIPTION) {
@@ -398,6 +402,7 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
     internal val exportConfig =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { data ->
             if (data != null) {
+                // 进程级：把已生成的配置写进用户选的文件，页面重建或离开后也要写完（writeToDocument 自己判界面是否还在）
                 runOnDefaultDispatcher { writeToDocument(data, pendingExportConfig) }
             }
         }

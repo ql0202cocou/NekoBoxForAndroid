@@ -188,6 +188,7 @@ class GroupTestRunner(private val fragment: ConfigurationFragment) {
         val test = TestDialog(fragment)
         val testJobs = mutableListOf<Job>()
 
+        // 进程级：测试任务设计成可比界面活得久（最小化、旋转），结果由 test.cancel 路径写库
         val mainJob = runOnDefaultDispatcher {
             // 这里抛异常会直达 appScope 的默认 handler 崩溃，且 test.cancel()
             // 不再执行、runningTest 永久卡 true；走与取消相同的复位路径
@@ -213,6 +214,7 @@ class GroupTestRunner(private val fragment: ConfigurationFragment) {
                 Logs.w(e)
             }
 
+            // 进程级：测试结束的收尾回到主线程，经 TestDialog 的弱引用与 isAdded 判界面，不直接碰 View
             runOnMainDispatcher {
                 test.cancel()
             }
@@ -220,6 +222,7 @@ class GroupTestRunner(private val fragment: ConfigurationFragment) {
         test.cancel = {
             test.dialogStatus.set(2)
             test.dismiss()
+            // 进程级：取消 / 结束后把测试结果写库，页面已销毁也必须完成
             runOnDefaultDispatcher {
                 mainJob.cancel()
                 testJobs.forEach { it.cancel() }

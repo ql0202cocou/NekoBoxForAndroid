@@ -132,6 +132,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         super.onDestroyView()
         // 分享落在 cache 的备份明文含全部凭证，离开页面就清掉；
         // 接收方还没读完会让这次分享失败，代价可接受
+        // 进程级：页面销毁之后才执行的清理，不碰 View
         runOnDefaultDispatcher { app.deleteSharedBackups() }
     }
 
@@ -234,6 +235,12 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
             MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.backup_import)
                 .setView(import.root)
                 .setPositiveButton(R.string.backup_import) { _, _ ->
+                    // 三个勾选项在点击时（主线程）读完再往后传：后面的进程级协程不碰 CheckBox
+                    val profile = import.backupConfigurations.isChecked
+                    val rule = import.backupRules.isChecked
+                    val setting = import.backupSettings.isChecked
+                    // 对话框属于 Activity 的窗口，不属于本页的视图：收尾按 Activity 是否还活着判断
+                    val host = requireActivity()
                     val binding = LayoutProgressBinding.inflate(layoutInflater)
                     binding.content.text = getString(R.string.backup_importing)
                     val dialog = AlertDialog.Builder(requireContext())
@@ -241,12 +248,10 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                         .setCancelable(false)
                         .show()
                     // 放在进程级的作用域里：下面要先停服务再等它停稳，等待期间页面被重建（旋转等）
-                    // 不能取消这次恢复，否则服务已停、备份却没导入，也没有任何提示
+                    // 不能取消这次恢复，否则服务已停、备份却没导入，也没有任何提示。
+                    // 进程级：界面收尾（失败提示、关进度框）只在页面存活时做，其余不碰 View
                     runOnDefaultDispatcher {
                         runCatching {
-                            val profile = import.backupConfigurations.isChecked
-                            val rule = import.backupRules.isChecked
-                            val setting = import.backupSettings.isChecked
                             // 先解码并校验（备份损坏、引用断链在这里就中止），此时服务还没动
                             val decoded = BackupRestore.decode(content, profile, rule, setting)
                             // 服务在跑时先停，等它确认停止（最终流量已落库）再写库；
@@ -264,15 +269,11 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                             triggerFullRestart(app)
                         }.onFailure {
                             Logs.w(it)
-                            onMainDispatcher {
-                                if (isAdded) alert(importFailureMessage(it)).tryToShow()
-                            }
+                            onLiveView { alert(importFailureMessage(it)).tryToShow() }
                         }
 
-                        onMainDispatcher {
-                            // 页面期间被重建过时，旧窗口已随旧 Activity 移除，dismiss 会抛 IllegalArgumentException
-                            runCatching { dialog.dismiss() }
-                        }
+                        // 页面期间被重建过时，旧窗口已随旧 Activity 移除，不再 dismiss
+                        host.onLiveActivity { dialog.dismiss() }
                     }
                 }
                 .setNegativeButton(android.R.string.cancel, null)

@@ -29,6 +29,7 @@ class SwitchActivity : ThemedActivity(R.layout.layout_empty),
         val old = DataStore.selectedProxy
         DataStore.selectedProxy = profileId
         // postUpdate(id) 要重读这一行，放到后台；监听器本来就在后台回调（同 MainActivity.cbSelectorUpdate）
+        // 进程级：选中节点的两次 postUpdate 要在 finish() 之后照常完成，不碰界面
         runOnDefaultDispatcher {
             ProfileRepository.postUpdate(old)
             ProfileRepository.postUpdate(profileId)

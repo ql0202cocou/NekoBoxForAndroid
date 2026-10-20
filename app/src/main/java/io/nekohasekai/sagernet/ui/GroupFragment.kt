@@ -134,6 +134,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             R.id.action_update_all -> {
                 requireContext().confirm(R.string.update_all_subscription) {
                     // getAllGroups 是阻塞读库，不能留在主线程
+                    // 进程级：全部订阅更新（startUpdate）要在页面离开后继续，不碰界面
                     runOnDefaultDispatcher {
                         GroupRepository.getAllGroups()
                             .filter { it.type == GroupType.SUBSCRIPTION }
@@ -183,6 +184,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { data ->
             if (data != null) {
                 val groupId = selectedGroupId
+                // 进程级：把分组链接写进用户选的文件，页面重建或离开后也要写完（writeToDocument 自己判界面是否还在）
                 runOnDefaultDispatcher {
                     val (links, note) = stdLinksOfGroup(groupId) ?: return@runOnDefaultDispatcher
                     // writeToDocument 拒绝空内容而不是把选中的文件截成 0 字节：
@@ -271,6 +273,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             // to `updated` there while the write below iterates it
             val updated = HashSet(updated)
             this.updated.clear()
+            // 进程级：分组拖动排序的落库，页面随后离开也要写完
             runOnDefaultDispatcher {
                 GroupRepository.updateUserOrders(updated)
             }
@@ -290,6 +293,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
 
         override fun commit(actions: List<Pair<Int, ProxyGroup>>) {
             val groups = actions.map { it.second }
+            // 进程级：撤销窗口到期的分组删除落库；其后的 reload 自带页面作用域，页面已销毁时什么也不做
             runOnDefaultDispatcher {
                 GroupRepository.deleteGroups(groups)
                 // 删完刷新列表：页面作用域内的读取，页面已销毁时什么也不做
@@ -432,6 +436,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                     MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.confirm)
                         .setMessage(R.string.clear_profiles_message)
                         .setPositiveButton(R.string.yes) { _, _ ->
+                            // 进程级：确认后的清空分组落库，不随页面取消
                             runOnDefaultDispatcher {
                                 GroupRepository.clearGroup(proxyGroup.id)
                             }

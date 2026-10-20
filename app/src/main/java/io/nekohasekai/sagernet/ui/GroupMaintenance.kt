@@ -26,6 +26,7 @@ import moe.matsuri.nb4a.Protocols
 class GroupMaintenance(private val fragment: ConfigurationFragment) {
 
     fun clearTraffic() {
+        // 进程级：清除流量要写完并通知 :bg，页面离开也不能中断，不碰界面
         runOnDefaultDispatcher {
             val toClear = ProfileRepository.getProfilesByGroup(GroupRepository.currentGroupId())
                 .filter { it.tx != 0L || it.rx != 0L }
@@ -40,6 +41,7 @@ class GroupMaintenance(private val fragment: ConfigurationFragment) {
     }
 
     fun clearTestResults() {
+        // 进程级：清除测试结果落库，页面离开也要写完，不碰界面
         runOnDefaultDispatcher {
             val toClear = ProfileRepository.getProfilesByGroup(GroupRepository.currentGroupId())
                 .filter { it.status != 0 }
