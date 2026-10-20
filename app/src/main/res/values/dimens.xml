@@ -13,6 +13,10 @@
          （2 + 64 + 8）；状态卡片出现时列表再让出卡片高度 + 8dp -->
     <dimen name="nav_dock_clearance">74dp</dimen>
     <dimen name="stats_bar_gap">8dp</dimen>
+    <!-- 状态卡片阴影：M3 level 2 = 3dp，同 Dock -->
+    <dimen name="stats_bar_elevation">3dp</dimen>
+    <!-- 状态点「进行中」的空心环线宽 -->
+    <dimen name="stats_dot_ring">2dp</dimen>
     <!-- 连接按钮（56dp）与 Dock 垂直居中：2 + (64 − 56) / 2 -->
     <dimen name="fab_margin_bottom">6dp</dimen>
     <!-- 对话框窗口背景（drawable/alert_dialog_background）：取值同 material 的

@@ -144,6 +144,16 @@
         <item name="android:textColor">?primaryOrTextPrimary</item>
     </style>
 
+    <!-- 状态卡片滑入 / 滑出的时长。HideBottomViewOnScrollBehavior 在 onLayoutChild 里用 child 的 context
+         解析 motionDurationLong2（进，默认 500ms）与 motionDurationMedium4（出，默认 400ms），
+         字段是私有的、没有 setter；挂在 StatsBar 的 android:theme 上把它们重映射到
+         motionDurationMedium2（300ms）与 motionDurationMedium1（250ms）。缓动同样由它读取
+         motionEasingEmphasizedInterpolator，进出共用，不能分开 -->
+    <style name="ThemeOverlay.SagerNet.StatsBarMotion" parent="">
+        <item name="motionDurationLong2">?attr/motionDurationMedium2</item>
+        <item name="motionDurationMedium4">?attr/motionDurationMedium1</item>
+    </style>
+
     <!-- 连接按钮保持圆形：M3 FAB 样式的形状是 Large（16dp 圆角），用 50% 圆角盖回去 -->
     <style name="ShapeAppearanceOverlay.SagerNet.Circle" parent="">
         <item name="cornerFamily">rounded</item>
