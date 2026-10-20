@@ -12,6 +12,10 @@ import androidx.appcompat.widget.SearchView
 class ConfigurationSearch(private val fragment: ConfigurationFragment) : SearchView.OnQueryTextListener {
 
     override fun onQueryTextChange(query: String): Boolean {
+        // 搜索框里的字记进 ViewModel：旋转与进程重建后据此把搜索框和列表过滤恢复原样
+        fragment.model.searchQuery = query
+        // 输入了字说明搜索框是展开的（含旋转后恢复出来的）：返回键先收起它
+        if (query.isNotEmpty()) searchViewBackCallback?.isEnabled = true
         if (query.isEmpty()) {
             // 清空作用到每个分组页：滑到别的页时搜索框失焦收起才发出这次清空，
             // selectedGroup 此时已是新页，只清当前页的话原页留着搜索词，之后每次
@@ -34,7 +38,8 @@ class ConfigurationSearch(private val fragment: ConfigurationFragment) : SearchV
             searchView.maxWidth = Int.MAX_VALUE
 
             searchView.setOnQueryTextFocusChangeListener { _, hasFocus ->
-                if (!hasFocus) {
+                // 旋转 / 重建时拆视图也会让它失焦：那不是用户收起搜索，别把要留给新视图的搜索词清掉
+                if (!hasFocus && !leavingForRecreation()) {
                     cancelSearch(searchView)
                 }
             }
@@ -54,6 +59,8 @@ class ConfigurationSearch(private val fragment: ConfigurationFragment) : SearchV
             searchViewBackCallback = closeSearchOnBack
         }
     }
+
+    private fun leavingForRecreation() = fragment.activity?.isChangingConfigurations == true
 
     private var searchViewBackCallback: OnBackPressedCallback? = null
 

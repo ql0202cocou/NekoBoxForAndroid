@@ -13,6 +13,7 @@ import androidx.annotation.StringRes
 import androidx.appcompat.widget.Toolbar
 import androidx.core.os.BundleCompat
 import androidx.core.os.bundleOf
+import androidx.fragment.app.viewModels
 import androidx.preference.PreferenceDataStore
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.appbar.AppBarLayout
@@ -77,6 +78,9 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
         fun returnProfile(profileId: Long)
     }
 
+    // 分组列表、搜索词、入场动画已播的分组与待写出的导出内容在 ViewModel 里：旋转后不重读库、不重播入场
+    val model: ConfigurationViewModel by viewModels()
+
     lateinit var adapter: GroupPagerAdapter
     lateinit var tabLayout: TabLayout
     lateinit var groupPager: ViewPager2
@@ -113,16 +117,31 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
     }
 
     // 节点卡片的错位入场只在冷启动（本页不是经转场进入）和用户切分组时播；经 Dock 淡变回到本页时
-    // 不播，免得两种动画叠在一起。ViewPager2 建好后的第一次 onPageSelected 是初始页，不算用户切换
-    private var pageSelections = 0
+    // 不播，免得两种动画叠在一起。ViewPager2 建好后的第一次 onPageSelected 是初始页，不算用户切换。
+    // 次数与「哪些分组播过」在 ViewModel 里，旋转后视图重建不会清零、也不会再播一次
     private val enterAnimationCallback = object : ViewPager2.OnPageChangeCallback() {
         override fun onPageSelected(position: Int) {
-            pageSelections++
+            model.pageSelections++
         }
     }
 
+    // 选择模式下记下用户翻到的分组（普通模式写 DataStore.selectedGroup，见 updateSelectedCallback），进程重建后回到它
+    private val selectionCallback = object : ViewPager2.OnPageChangeCallback() {
+        override fun onPageSelected(position: Int) {
+            if (!select) return
+            adapter.groupList.getOrNull(position)?.id?.let { model.selectedGroupId = it }
+        }
+    }
+
+    // 旋转 / 进程重建后搜索框带着字恢复出来（SearchView 自己的视图状态），随后第一个分组页 resume 时的 requestFocus
+    // 会抢走它的焦点，触发「失焦收起」把搜索清掉。这一次不抢；之后用户滑到别的页，仍照旧抢焦点、收起搜索
+    private var keepSearchFocus = false
+
+    /** 分组页 resume 时调用：这一次是否要把焦点留给恢复出来的搜索框（只管第一次） */
+    fun takeSearchFocusGuard(): Boolean = keepSearchFocus.also { keepSearchFocus = false }
+
     /** 当前选中的分组页能否播错位入场：用户切过分组，或本页不是经转场进入的 */
-    fun allowsEnterAnimation(): Boolean = pageSelections > 1 || enterTransition == null
+    fun allowsEnterAnimation(): Boolean = model.pageSelections > 1 || enterTransition == null
 
     val updateSelectedCallback = object : ViewPager2.OnPageChangeCallback() {
         override fun onPageScrolled(
@@ -165,20 +184,15 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
         }
 
         search.setup(toolbar.findViewById<SearchView>(R.id.action_search))
+        keepSearchFocus = model.searchQuery.isNotEmpty()
 
         groupPager = view.findViewById(R.id.group_pager)
         tabLayout = view.findViewById(R.id.group_tab)
         appBar = view.findViewById(R.id.appbar)
 
-        // onViewCreated can run again (rotation): unregister the previous
-        // adapter before replacing it
-        if (::adapter.isInitialized) {
-            ProfileRepository.removeListener(adapter)
-            GroupRepository.removeListener(adapter)
-        }
+        // 选择模式下已选节点所在的分组，读库决定落在哪一页时用
+        model.argGroupId = selectedItem?.groupId
         adapter = GroupPagerAdapter(this)
-        ProfileRepository.addListener(adapter)
-        GroupRepository.addListener(adapter)
 
         groupPager.adapter = adapter
         groupPager.offscreenPageLimit = 2
@@ -186,8 +200,9 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
         groupPager.unregisterOnPageChangeCallback(appBarLiftCallback)
         groupPager.registerOnPageChangeCallback(appBarLiftCallback)
         groupPager.unregisterOnPageChangeCallback(enterAnimationCallback)
-        pageSelections = 0
         groupPager.registerOnPageChangeCallback(enterAnimationCallback)
+        groupPager.unregisterOnPageChangeCallback(selectionCallback)
+        groupPager.registerOnPageChangeCallback(selectionCallback)
 
         TabLayoutMediator(tabLayout, groupPager) { tab, position ->
             if (adapter.groupList.size > position) {
@@ -197,6 +212,8 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
                 true
             }
         }.attach()
+        // 接线完成之后再接上 ViewModel：现成的列表直接用，否则读库
+        adapter.start()
 
         toolbar.setOnClickListener {
             val fragment = getCurrentGroupFragment()
@@ -259,13 +276,14 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
         }
     }
 
+    override fun onDestroyView() {
+        // 摘掉适配器：ViewModel 留存，之后到达的读库结果只换它里面的列表
+        if (::adapter.isInitialized) adapter.stop()
+        super.onDestroyView()
+    }
+
     override fun onDestroy() {
         EditorCache.profileCacheStore.unregisterChangeListener(this)
-
-        if (::adapter.isInitialized) {
-            GroupRepository.removeListener(adapter)
-            ProfileRepository.removeListener(adapter)
-        }
 
         super.onDestroy()
     }
@@ -393,11 +411,14 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
     fun urlTest() = groupTest.urlTest()
 
 
-    // Content of a config export awaiting the picked document; kept in a
-    // field (not the editor-owned profileCacheStore) and still lost with the
-    // process, which writeToDocument refuses to write instead of truncating
-    // the picked file.
-    internal var pendingExportConfig = ""
+    // 等待用户选定文件的配置导出内容，放在 ViewModel 里（旋转后选择器的结果送到新页面实例时还在），
+    // 不放编辑器持有的 profileCacheStore；进程重建会丢，writeToDocument 对空内容拒绝写入，
+    // 不会截断用户选的文件
+    internal var pendingExportConfig: String
+        get() = model.pendingExportConfig
+        set(value) {
+            model.pendingExportConfig = value
+        }
 
     internal val exportConfig =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { data ->

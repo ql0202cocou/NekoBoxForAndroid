@@ -7,20 +7,16 @@ import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.view.ViewGroup
 import android.widget.TextView
-import androidx.core.os.BundleCompat
 import androidx.core.view.isGone
-import androidx.core.view.size
 import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
+import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import io.nekohasekai.sagernet.GroupOrder
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.bg.BaseService
-import io.nekohasekai.sagernet.database.GroupRepository
-import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.databinding.LayoutProfileListBinding
@@ -28,19 +24,35 @@ import io.nekohasekai.sagernet.ktx.DragScaleCallback
 import io.nekohasekai.sagernet.ktx.FixedLinearLayoutManager
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.animatorsEnabled
-import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.setPlaceholderVisible
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
 import io.nekohasekai.sagernet.widget.padForSystemBars
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import io.nekohasekai.sagernet.bg.ServiceRegistry
 
 class ProfileListFragment : Fragment() {
 
-    lateinit var proxyGroup: ProxyGroup
-    var selected = false
+    companion object {
+        /**
+         * 分组 id、排序方式与「是否是选中分组页」都走 arguments：进程被杀后系统只用无参构造恢复 Fragment 并带回 arguments，
+         * 页面不再依赖父级在创建后赋值的字段
+         */
+        fun newInstance(group: ProxyGroup, selected: Boolean) = ProfileListFragment().apply {
+            arguments = Bundle().apply {
+                putLong(ProfileListViewModel.ARG_GROUP_ID, group.id)
+                putInt(ProfileListViewModel.ARG_ORDER, group.order)
+                putBoolean(ProfileListViewModel.ARG_SELECTED, selected)
+            }
+        }
+    }
+
+    // 没有分组 id 的页面（不是经 GroupPagerAdapter 建出来）没有列表可显示
+    private val groupId get() = arguments?.getLong(ProfileListViewModel.ARG_GROUP_ID, ProfileListViewModel.NO_GROUP)
+        ?: ProfileListViewModel.NO_GROUP
+    private val hasGroup get() = groupId > 0L
+
+    // 节点列表的数据、搜索词、载入标志与仓库监听在 ViewModel 里：旋转后不重读库，滚动位置随之恢复
+    val profileModel: ProfileListViewModel by viewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -53,30 +65,6 @@ class ProfileListFragment : Fragment() {
     lateinit var undoManager: UndoSnackbarManager<ProxyEntity>
     var adapter: ConfigurationAdapter? = null
     var itemTouchHelper: ItemTouchHelper? = null
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-
-        if (::proxyGroup.isInitialized) {
-            outState.putParcelable("proxyGroup", proxyGroup)
-        }
-    }
-
-    override fun onViewStateRestored(savedInstanceState: Bundle?) {
-        super.onViewStateRestored(savedInstanceState)
-
-        savedInstanceState?.let {
-            BundleCompat.getParcelable(it, "proxyGroup", ProxyGroup::class.java)
-        }?.also {
-            proxyGroup = it
-            // The system onViewCreated call may already have run the
-            // setup; only redo it when it bailed out on the then
-            // uninitialized proxyGroup.
-            if (!::configurationListView.isInitialized) {
-                onViewCreated(requireView(), null)
-            }
-        }
-    }
 
     private val isEnabled: Boolean
         get() {
@@ -92,8 +80,7 @@ class ProfileListFragment : Fragment() {
 
     // 空状态占位：空分组显示「还没有节点」，搜索无结果显示「没有匹配的节点」。
     // 列表首次载入前适配器也是空的，等第一次数据变化（reloadProfiles / filter 都以它收尾）
-    // 之后才允许显示，免得每个分组页刚建好时占位闪一下
-    private var listLoaded = false
+    // 之后才允许显示，免得每个分组页刚建好时占位闪一下。载入标志在 ViewModel 里，旋转后仍为真
     private var emptyObserverAdapter: ConfigurationAdapter? = null
 
     // 适配器是 ListAdapter：整表刷新由 DiffUtil 拆成范围事件（插入 / 删除 / 变更 / 移动）发出，
@@ -114,7 +101,7 @@ class ProfileListFragment : Fragment() {
     fun onListSubmitted() = onListChanged()
 
     private fun onListChanged() {
-        listLoaded = true
+        profileModel.listLoaded = true
         updateEmptyState()
         playEnterAnimationOnce()
         (parentFragment as? ConfigurationFragment)?.updateAppBarLift()
@@ -124,7 +111,7 @@ class ProfileListFragment : Fragment() {
         val root = view ?: return
         val holder = root.findViewById<View>(R.id.profile_list_empty) ?: return
         val listAdapter = adapter
-        if (!listLoaded || listAdapter == null || listAdapter.itemCount != 0) {
+        if (!profileModel.listLoaded || listAdapter == null || listAdapter.itemCount != 0) {
             holder.setPlaceholderVisible(false)
             return
         }
@@ -140,16 +127,16 @@ class ProfileListFragment : Fragment() {
     // 这一页的节点卡片还没播过错位入场：第一次拿到非空数据并且正可见时播一次
     // （onListChanged 与 onResume 两条路径，先到先播）；滚动、刷新状态、搜索都不再触发。
     // 只在冷启动与用户切分组时播：经 Dock 淡变回到配置页时父级在转场中，这一页按已播处理。
+    // 「哪些分组播过」记在配置页的 ViewModel 里，旋转后视图重建不会再播一次。
     // view 动画不服从系统动画时长缩放，所以关闭动画时不播
-    private var enterAnimationPlayed = false
-
     private fun playEnterAnimationOnce() {
-        if (enterAnimationPlayed || select || !isResumed) return
+        val config = parentFragment as? ConfigurationFragment ?: return
+        if (groupId in config.model.enterAnimationPlayed || select || !isResumed) return
         val list = listViewOrNull ?: return
         val listAdapter = adapter ?: return
-        if (!listLoaded || listAdapter.itemCount == 0 || !list.isShown) return
-        enterAnimationPlayed = true
-        if ((parentFragment as? ConfigurationFragment)?.allowsEnterAnimation() == false) return
+        if (!profileModel.listLoaded || listAdapter.itemCount == 0 || !list.isShown) return
+        config.model.enterAnimationPlayed.add(groupId)
+        if (!config.allowsEnterAnimation()) return
         if (!requireContext().animatorsEnabled()) return
         list.layoutAnimation = AnimationUtils.loadLayoutAnimation(
             requireContext(), R.anim.layout_profile_list_enter
@@ -185,36 +172,25 @@ class ProfileListFragment : Fragment() {
     override fun onResume() {
         super.onResume()
 
-        if (::configurationListView.isInitialized && configurationListView.size == 0) {
-            configurationListView.adapter = adapter
-            // 页面内的读取：IO 线程读库，随视图销毁取消；刷新回主线程由 reloadProfiles 自己完成
-            adapter?.let { listAdapter ->
-                viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
-                    listAdapter.reloadProfiles()
-                }
-            }
-        } else if (!::configurationListView.isInitialized) {
-            onViewCreated(requireView(), null)
-        }
-        // onViewCreated 在 proxyGroup 还没赋值时直接返回（页面不是经 GroupPagerAdapter 建出来，
-        // 或状态恢复早于赋值），此时没有列表可显示，下面的菜单与焦点都依赖它们。
-        // 根治（分组 id 走 arguments）在 U4d
-        if (!::proxyGroup.isInitialized || !::configurationListView.isInitialized) return
+        // 没有分组 id 的页面（不是经 GroupPagerAdapter 建出来）onViewCreated 没建列表，没有可显示的
+        if (!hasGroup || listViewOrNull == null) return
+        // 第一次可见才读库；旋转后的新页面里 ViewModel 已有列表，不会再读
+        profileModel.start(parentConfiguration?.model?.searchQuery.orEmpty())
         checkOrderMenu()
-        configurationListView.requestFocus()
+        if (parentConfiguration?.takeSearchFocusGuard() != true) configurationListView.requestFocus()
         playEnterAnimationOnce()
         (parentFragment as? ConfigurationFragment)?.updateAppBarLift()
     }
 
     fun checkOrderMenu() {
-        if (select || !::proxyGroup.isInitialized) return
+        if (select || !hasGroup) return
 
         val pf = parentFragment as? ToolbarFragment ?: return
         val menu = pf.toolbar.menu
         val origin = menu.findItem(R.id.action_order_origin)
         val byName = menu.findItem(R.id.action_order_by_name)
         val byDelay = menu.findItem(R.id.action_order_by_delay)
-        when (proxyGroup.order) {
+        when (profileModel.order) {
             GroupOrder.ORIGIN -> {
                 origin.isChecked = true
             }
@@ -228,41 +204,25 @@ class ProfileListFragment : Fragment() {
             }
         }
 
-        fun updateTo(order: Int) {
-            if (proxyGroup.order == order) return
-            // 进程级：分组排序方式的落库，页面随后离开也要写完
-            runOnDefaultDispatcher {
-                proxyGroup.order = order
-                GroupRepository.updateSortOrder(proxyGroup.id, order)
-            }
-        }
-
         origin.setOnMenuItemClickListener {
             it.isChecked = true
-            updateTo(GroupOrder.ORIGIN)
+            profileModel.changeOrder(GroupOrder.ORIGIN)
             true
         }
         byName.setOnMenuItemClickListener {
             it.isChecked = true
-            updateTo(GroupOrder.BY_NAME)
+            profileModel.changeOrder(GroupOrder.BY_NAME)
             true
         }
         byDelay.setOnMenuItemClickListener {
             it.isChecked = true
-            updateTo(GroupOrder.BY_DELAY)
+            profileModel.changeOrder(GroupOrder.BY_DELAY)
             true
         }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        if (!::proxyGroup.isInitialized) return
-
-        // onViewCreated can run again (onViewStateRestored / onResume):
-        // unregister the previous adapter before replacing it
-        adapter?.let {
-            ProfileRepository.removeListener(it)
-            GroupRepository.removeListener(it)
-        }
+        if (!hasGroup) return
 
         configurationListView = view.findViewById(R.id.configuration_list)
         if (select) {
@@ -281,24 +241,18 @@ class ProfileListFragment : Fragment() {
         layoutManager = FixedLinearLayoutManager(configurationListView)
         configurationListView.layoutManager = layoutManager
         emptyObserverAdapter?.unregisterAdapterDataObserver(emptyObserver)
-        listLoaded = false
-        enterAnimationPlayed = false
+        profileModel.configure(selectedItem?.id)
         adapter = ConfigurationAdapter(this)
         emptyObserverAdapter = adapter
         adapter!!.registerAdapterDataObserver(emptyObserver)
-        ProfileRepository.addListener(adapter!!)
-        GroupRepository.addListener(adapter!!)
         configurationListView.adapter = adapter
         configurationListView.setItemViewCacheSize(20)
         updateEmptyState()
 
         if (!select) {
 
-            // Replace any previous instances before creating new ones
-            // (onViewCreated can re-run, see onViewStateRestored /
-            // onResume): flush pending undo actions, and detach the old
-            // helper or two helpers would handle the same drag and swap
-            // items twice.
+            // 视图重建时先换掉旧的：提交待撤销的删除，并摘掉旧的 ItemTouchHelper，
+            // 否则两个 helper 会处理同一次拖动、把项换两次
             if (::undoManager.isInitialized) undoManager.flush()
             undoManager = UndoSnackbarManager(activity as MainActivity, adapter!!)
 
@@ -344,16 +298,20 @@ class ProfileListFragment : Fragment() {
 
         }
 
+        // 撤销管理器建好之后再接上：ViewModel 的通知经适配器的 mutate 用到它。
+        // 接上之后 ViewModel 里现成的列表已在适配器里，布局状态（滚动位置）在第一次布局时恢复
+        profileModel.attach(adapter!!)
+    }
+
+    override fun onDestroyView() {
+        // 拖动中途销毁时由 ViewModel 放弃这次拖动并按库重读，摘掉的适配器不再收通知
+        adapter?.let { profileModel.detach(it) }
+        emptyObserverAdapter?.unregisterAdapterDataObserver(emptyObserver)
+        emptyObserverAdapter = null
+        super.onDestroyView()
     }
 
     override fun onDestroy() {
-        emptyObserverAdapter?.unregisterAdapterDataObserver(emptyObserver)
-        emptyObserverAdapter = null
-        adapter?.let {
-            ProfileRepository.removeListener(it)
-            GroupRepository.removeListener(it)
-        }
-
         super.onDestroy()
 
         if (!::undoManager.isInitialized) return

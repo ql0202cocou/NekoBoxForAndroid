@@ -25,27 +25,6 @@ object KnownUiGaps {
 
     val all: List<KnownUiGap> = listOf(
         KnownUiGap(
-            id = "enter-animation-replays-on-rotation",
-            source = "open-issues.md「U2 批 7 的边界与实现时发现」：M5 入场只在冷启动与用户切分组时播；旋转后视图重建会再播一次" +
-                "（enterTransition 不随重建保留）",
-            acceptance = "旋转后配置页的节点列表不再播入场动画",
-        ) { it.rotationDoesNotReplayEnterAnimation() },
-
-        KnownUiGap(
-            id = "config-list-position-lost-on-recreate",
-            source = "Robolectric 实测发现（open-issues.md 没有记录）：配置页滚到中间后重建（recreate），重建后第一个可见项回到 0。" +
-                "只在 Robolectric 里复现，没有在真机 / 模拟器上核对；若真机上位置能恢复，说明是节点异步载入与 " +
-                "LayoutManager 状态恢复的时序在 Robolectric 里不同，这一项应删掉",
-            acceptance = "配置页节点列表滚到中间后重建，第一个可见项不变",
-        ) { it.configListPositionSurvives(Change.RECREATE) },
-
-        KnownUiGap(
-            id = "config-list-position-lost-on-rotation",
-            source = "Robolectric 实测发现（open-issues.md 没有记录），与重建同一原因，见上一项",
-            acceptance = "配置页节点列表滚到中间后旋转，第一个可见项不变",
-        ) { it.configListPositionSurvives(Change.ROTATE) },
-
-        KnownUiGap(
             id = "child-editor-process-recreation-overwrites-saved-content",
             source = "open-issues.md「2026-10-05 审计发现」：ConfigEditActivity.kt:197-207 子编辑器已保存内容在" +
                 "「子编辑器前台时进程死亡 → 父编辑器重建」场景被静默覆盖（QUALITY-008 也提到子编辑器的进程重建没被覆盖）",

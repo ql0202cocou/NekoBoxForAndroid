@@ -3,104 +3,80 @@ package io.nekohasekai.sagernet.ui
 import android.view.View
 import androidx.core.view.isGone
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DiffUtil
 import androidx.viewpager2.adapter.FragmentStateAdapter
-import io.nekohasekai.sagernet.aidl.TrafficData
 import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.database.GroupManager
-import io.nekohasekai.sagernet.database.ProfileManager
-import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
-import io.nekohasekai.sagernet.database.GroupRepository
-import io.nekohasekai.sagernet.database.ProfileRepository
-import io.nekohasekai.sagernet.ktx.onMainDispatcher
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.util.concurrent.atomic.AtomicBoolean
 
+/**
+ * 配置页的 tab 页适配器，每个分组一页（[ProfileListFragment]）。分组列表、读库与仓库监听都在
+ * [ConfigurationViewModel] 里，旋转后新的适配器直接用现成的列表；这里只管把变化转成 ViewPager2 / TabLayout 的更新。
+ */
 class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentStateAdapter(fragment),
-    ProfileManager.Listener,
-    GroupManager.Listener {
+    ConfigurationViewModel.Host {
+
+    // 数据在 ViewModel 里。ViewModel 在适配器构造时取一次存着：读库结果晚于视图销毁时也不必再经 Fragment 去找它
+    private val model = fragment.model
 
     var selectedGroupIndex = 0
-    var groupList: ArrayList<ProxyGroup> = ArrayList()
 
-    // 批量删除提交后才逐条发 onRemoved，ungrouped 被删空时每条都会看到 0：
-    // 已排上一次 reload 就不再查数、不再重复 reload，reload 换完列表后复位
-    private val emptyUngroupedReloadPending = AtomicBoolean(false)
+    val groupList: ArrayList<ProxyGroup> get() = model.groupList
 
-    // 页面作用域：适配器随视图重建（ConfigurationFragment.onViewCreated 每次都新建），
-    // 此刻视图已存在；视图销毁时取消，之后的读库结果与 View 更新一并作废
-    private val scope = fragment.viewLifecycleOwner.lifecycleScope
-
-    private class Loaded(val groups: ArrayList<ProxyGroup>, val set: Boolean, val selectedIndex: Int)
+    /** 重读分组并换掉 tab 列表，可从任意线程调用 */
+    fun reload(now: Boolean = false) = model.reload(now)
 
     /**
-     * 重读分组并换掉 tab 列表。读库在 IO 线程，所有 View 与 groupList / selectedGroupIndex 的读写都回到主线程；
-     * 可从任意线程调用（监听器回调在后台）。[now] 为真时（视图尚未 attach 的首次载入）直接在主线程应用，
-     * 否则等 groupPager attach 后再应用
+     * 页面接线（groupPager.adapter、TabLayoutMediator）完成后调用：接上 ViewModel，
+     * 列表已经读过（旋转）就直接用，否则读库
      */
-    fun reload(now: Boolean = false) {
-        // arguments 里的已选节点（选择模式）是页面状态，在主线程取；读库兜底的部分才进 IO
-        val argGroup = fragment.selectedItem?.groupId
-        scope.launch {
-            var handedOver = false
-            try {
-                val loaded = withContext(Dispatchers.IO) {
-                    var newGroupList = ArrayList(GroupRepository.getAllGroups())
-                    if (newGroupList.isEmpty()) {
-                        // 走 GroupManager 的锁内双检创建：直接写 DAO 时，并发 reload 或与
-                        // :bg 的 currentGroup() 竞争会落出两个 ungrouped 分组
-                        GroupRepository.currentGroup()
-                        newGroupList = ArrayList(GroupRepository.getAllGroups())
-                    }
-                    newGroupList.find { it.ungrouped }?.let {
-                        if (ProfileRepository.countProfilesByGroup(it.id) == 0L) {
-                            newGroupList.remove(it)
-                        }
-                    }
+    fun start() {
+        model.attach(this)
+        if (model.groupsLoaded) {
+            // 现成的列表：ViewPager2 的状态（当前页、各页 Fragment）在第一次布局时按它恢复，不必再切页
+            selectedGroupIndex = groupList.indexOfFirst { it.id == currentGroupId() }.coerceAtLeast(0)
+            fragment.tabLayout.isGone = groupList.size < 2
+            registerSelectedCallback()
+        } else {
+            reload(true)
+        }
+    }
 
-                    // groupList / selectedGroupIndex 归主线程（增删回调与 createFragment
-                    // 都在主线程），这里只读写本地的新列表，两个字段到主线程块里一起换
-                    val selectedGroup = argGroup ?: GroupRepository.currentGroupId()
-                    val set = selectedGroup > 0L
-                    val newSelectedIndex = if (set) newGroupList.indexOfFirst { it.id == selectedGroup } else -1
-                    if (!set && newGroupList.size == 1) {
-                        val onlyGroup = newGroupList[0].id
-                        if (DataStore.selectedGroup != onlyGroup) {
-                            DataStore.selectedGroup = onlyGroup
-                        }
-                    }
-                    Loaded(newGroupList, set, newSelectedIndex)
-                }
-                handedOver = true
-                if (now) {
-                    applyLoaded(loaded)
-                } else {
-                    fragment.groupPager.post {
-                        if (scope.isActive) applyLoaded(loaded) else emptyUngroupedReloadPending.set(false)
-                    }
-                }
-            } finally {
-                // 正常路径由 applyLoaded 复位；读库期间被取消（视图销毁）或失败时在这里兜底，
-                // 免得标记一直挂着、之后的空分组 reload 全被跳过
-                if (!handedOver) emptyUngroupedReloadPending.set(false)
+    /** 视图销毁时调用：摘掉适配器，之后到达的读库结果只换 ViewModel 里的列表 */
+    fun stop() = model.detach(this)
+
+    // 选中的分组：选择模式看用户翻到的页，否则看 DataStore（别处也会改它）
+    private fun currentGroupId(): Long =
+        if (fragment.select) model.selectedGroupId.takeIf { it > 0L } ?: model.argGroupId ?: -1L
+        else DataStore.selectedGroup
+
+    private fun registerSelectedCallback() {
+        if (!fragment.select) {
+            fragment.groupPager.unregisterOnPageChangeCallback(fragment.updateSelectedCallback)
+            fragment.groupPager.registerOnPageChangeCallback(fragment.updateSelectedCallback)
+        }
+    }
+
+    // ConfigurationViewModel.Host
+    override fun applyGroups(groups: ArrayList<ProxyGroup>, selectedGroup: Long, now: Boolean) {
+        if (now) {
+            applyLoaded(groups, selectedGroup)
+        } else {
+            fragment.groupPager.post {
+                // 视图销毁（或已换成新适配器）之后只把读到的列表交给 ViewModel，不再碰 View
+                if (model.isAttached(this)) applyLoaded(groups, selectedGroup) else model.commitGroups(groups)
             }
         }
     }
 
-    private fun applyLoaded(loaded: Loaded) {
-        emptyUngroupedReloadPending.set(false)
+    private fun applyLoaded(groups: ArrayList<ProxyGroup>, selectedGroup: Long) {
         // 回调只在主线程增删：reload 也会从后台的监听器（onAdd / onRemoved）
         // 调用，主线程这时可能正在分发回调。数据集变化和 setCurrentItem
         // 期间摘掉它，免得把 selectedGroup 写成过渡中的页
         if (!fragment.select) {
             fragment.groupPager.unregisterOnPageChangeCallback(fragment.updateSelectedCallback)
         }
-        if (loaded.set) selectedGroupIndex = loaded.selectedIndex
+        val set = selectedGroup > 0L
+        if (set) selectedGroupIndex = groups.indexOfFirst { it.id == selectedGroup }
         // 按分组 id 差量刷新：没变的页（及其 Fragment 与滚动位置）原样保留，
         // 新增 / 删除 / 挪动只发对应的细粒度通知。getItemId / containsItem 按 id 回答，
         // FragmentStateAdapter 靠它们认出哪些 Fragment 还在、哪些该回收。
@@ -108,21 +84,18 @@ class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentS
         val pager = fragment.groupPager
         val old = groupList
         val shownId = old.getOrNull(pager.currentItem)?.id
-        groupList = loaded.groups
-        DiffUtil.calculateDiff(GroupDiff(old, loaded.groups)).dispatchUpdatesTo(this)
+        model.commitGroups(groups)
+        DiffUtil.calculateDiff(GroupDiff(old, groups)).dispatchUpdatesTo(this)
         // 差量下 RecyclerView 让原来那一页跟着挪到新下标，ViewPager2 的 currentItem 却要等下一次布局才更新；
         // 此刻直接 setCurrentItem(目标) 会因为「目标 == 旧 currentItem」被当成已在该页而什么也不做
         // （比如导入落到排在最前的新分组）。所以先让页码对上正在显示的那一页，再去目标页
-        val shownIndex = groupList.indexOfFirst { it.id == shownId }
+        val shownIndex = groups.indexOfFirst { it.id == shownId }
         if (shownIndex >= 0) pager.setCurrentItem(shownIndex, false)
-        if (loaded.set) pager.setCurrentItem(selectedGroupIndex, false)
+        if (set) pager.setCurrentItem(selectedGroupIndex, false)
         // 换页后新页的滚动位置不同，等页面挂上再取一次抬升状态
-        fragment.groupPager.post { fragment.updateAppBarLift() }
-        val hideTab = groupList.size < 2
-        fragment.tabLayout.isGone = hideTab
-        if (!fragment.select) {
-            fragment.groupPager.registerOnPageChangeCallback(fragment.updateSelectedCallback)
-        }
+        pager.post { fragment.updateAppBarLift() }
+        fragment.tabLayout.isGone = groups.size < 2
+        registerSelectedCallback()
     }
 
     // 分组的身份是 id；tab 上显示的只有名字（displayName），名字或是否为 ungrouped 变了才算内容变化
@@ -138,12 +111,8 @@ class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentS
         override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
             val a = old[oldItemPosition]
             val b = new[newItemPosition]
-            return a.name == b.name && a.ungrouped == b.ungrouped && a.type == b.type
+            return a.name.orEmpty() == b.name.orEmpty() && a.ungrouped == b.ungrouped && a.type == b.type
         }
-    }
-
-    init {
-        reload(true)
     }
 
     override fun getItemCount(): Int {
@@ -151,12 +120,8 @@ class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentS
     }
 
     override fun createFragment(position: Int): Fragment {
-        return ProfileListFragment().apply {
-            proxyGroup = groupList[position]
-            if (position == selectedGroupIndex) {
-                selected = true
-            }
-        }
+        val group = groupList[position]
+        return ProfileListFragment.newInstance(group, selected = position == selectedGroupIndex)
     }
 
     override fun getItemId(position: Int): Long {
@@ -167,59 +132,20 @@ class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentS
         return groupList.any { it.id == itemId }
     }
 
-    // 下面三个回调跑在调用方的后台线程：只在页面作用域的主线程块里碰 tabLayout 与 groupList，
-    // 视图销毁后整块作废（不再读 fragment.tabLayout 这个陈旧引用）
-    override suspend fun groupAdd(group: ProxyGroup) {
-        scope.launch(Dispatchers.Main) {
-            groupList.add(group)
-
-            if (groupList.any { !it.ungrouped }) fragment.tabLayout.post {
-                fragment.tabLayout.visibility = View.VISIBLE
-            }
-
-            notifyItemInserted(groupList.size - 1)
-            fragment.tabLayout.getTabAt(groupList.size - 1)?.select()
+    override fun groupInserted(group: ProxyGroup) {
+        if (groupList.any { !it.ungrouped }) fragment.tabLayout.post {
+            fragment.tabLayout.visibility = View.VISIBLE
         }
+
+        notifyItemInserted(groupList.size - 1)
+        fragment.tabLayout.getTabAt(groupList.size - 1)?.select()
     }
 
-    override suspend fun groupRemoved(groupId: Long) {
-        scope.launch(Dispatchers.Main) {
-            val index = groupList.indexOfFirst { it.id == groupId }
-            if (index == -1) return@launch
-            groupList.removeAt(index)
-            notifyItemRemoved(index)
-        }
+    override fun groupRemovedAt(index: Int) {
+        notifyItemRemoved(index)
     }
 
-    override suspend fun groupUpdated(group: ProxyGroup) {
-        scope.launch(Dispatchers.Main) {
-            val index = groupList.indexOfFirst { it.id == group.id }
-            if (index == -1) return@launch
-            fragment.tabLayout.getTabAt(index)?.text = group.displayName()
-        }
-    }
-
-    override suspend fun groupUpdated(groupId: Long) = Unit
-
-    override suspend fun onAdd(profile: ProxyEntity) {
-        val groupMissing = onMainDispatcher { groupList.none { it.id == profile.groupId } }
-        if (groupMissing) {
-            DataStore.selectedGroup = profile.groupId
-            reload()
-        }
-    }
-
-    override suspend fun onUpdated(data: TrafficData) = Unit
-
-    override suspend fun onUpdated(profile: ProxyEntity) = Unit
-
-    override suspend fun onRemoved(groupId: Long, profileId: Long) {
-        if (emptyUngroupedReloadPending.get()) return
-        val group = onMainDispatcher { groupList.find { it.id == groupId } } ?: return
-        if (group.ungrouped && ProfileRepository.countProfilesByGroup(groupId) == 0L &&
-            emptyUngroupedReloadPending.compareAndSet(false, true)
-        ) {
-            reload()
-        }
+    override fun groupRenamed(index: Int, group: ProxyGroup) {
+        fragment.tabLayout.getTabAt(index)?.text = group.displayName()
     }
 }

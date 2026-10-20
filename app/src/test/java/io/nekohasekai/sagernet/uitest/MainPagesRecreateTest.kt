@@ -7,7 +7,7 @@ import org.robolectric.ParameterizedRobolectricTestRunner
 /**
  * 主界面四页的重建 / 旋转：页面类型、Dock 选中项、标题不变；配置页的选中分组与列表位置不变；
  * 设置分类页重建 / 旋转后仍停在该页；分类页返回后一级页的滚动位置恢复。
- * 不截图，所有平台都跑。目前不满足验收的项（配置页列表位置）登记在 [KnownUiGaps]，不在这里。
+ * 不截图，所有平台都跑。配置页列表位置与入场动画的旋转用例在 ConfigPageStateTest。
  * 分类页上旋转后一级页的滚动位置见 [SettingsScrollStateTest]。
  */
 @RunWith(ParameterizedRobolectricTestRunner::class)
