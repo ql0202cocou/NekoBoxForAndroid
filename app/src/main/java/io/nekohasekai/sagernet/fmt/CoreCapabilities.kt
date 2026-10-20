@@ -11,7 +11,10 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 // 本地 doc/agent/k1b-wip/）：
 // - Xray：I1（v26.3.27 源码 S-X*、run -test 实测 T-*、本机回环 L-*）；K1b（v26.9.30 复核：X1 源码 S2-X*，X2 实测
 //   T2-* / L2-*）；N9（v26.10.10 复核，2026-10-11：对比 v26.9.30 的 diff 只碰第 6 / 9 / 12 / 14 / 15 条，其余按 diff
-//   未变，结论见维护者本地 doc/agent/core-wip/reports/N9-xray.md）；
+//   未变，结论见维护者本地 doc/agent/core-wip/reports/N9-xray.md）；N10（v26.10.17 复核，2026-10-20：对比 v26.10.10 的
+//   diff 只碰第 3 / 10 / 12 条——REALITY 模块随 Go 1.27 同步、ML-DSA-65 改用标准库，Vision 读 TLS 缓冲改为反射，run 读
+//   配置文件时检查扩展名——服务端对 ClientHello 的要求与 min/maxClientVer 不变，其余按 diff 未变；run -test 144 条与
+//   回环 80 条与 v26.10.10 一致，Vision 的数据通路没有回环实测；结论见维护者本地 doc/agent/core-wip/reports/N10-xray.md）；
 // - mihomo：I1（v1.19.31 源码 S-M*、-t 实测 T-M*、回环 L-MA*）；M1（v1.19.32 复核：源码 S2-M*、-t 实测 T2-*、回环
 //   L2-*）；
 // - sing-box：I2b（vendored libcore/sing-box，1.14.2 + 1.14.2-neko-1）；现为 1.14.3-neko-2，此后的补丁（SOCKS5 出站的
@@ -51,6 +54,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //     所以生成器里每个键名的拼写要靠测试保证。
 // 12. run -test 的退出码与「Failed to start: … with tag out-N > …」的报错格式（ExternalCoreStartup.kt 依赖它）。
 //     JSON 解码错误由 Go 1.27 改成「Config.outbounds.<下标>.…」（下标把首位的 block 也算在内），仍没有 tag。
+//     v26.10.17 起 run 只接受 .json / .jsonc / .yml / .yaml / .toml / .pb / .protobuf 扩展名的配置文件（本应用写 .json）。
 // 13. 公网明文禁令（v26.7.11 起）：不带 TLS 的 VLESS（没有 VLESS Encryption）/ Trojan 出站，服务端地址不在 Xray
 //     的私有名单里时 run -test 报错。私有名单含 127/8、::1、localhost 与 203.0.113.0/24、198.51.100.0/24 等文档
 //     地址段，所以测拒绝要用 2001:db8::/32 或普通域名；本应用的 Xray 跳一律拨 127.0.0.1，确认仍不触发。
@@ -90,7 +94,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 // 能替节点拨号的核心。value 与 ProxyEntity.CORE_* 相同；version 是这张表核实时的版本
 enum class DialCore(val value: Int, val displayName: String, val version: String) {
     SING_BOX(CORE_SING_BOX, "sing-box", "1.14.3"),
-    XRAY(CORE_XRAY, "Xray", "v26.10.10"),
+    XRAY(CORE_XRAY, "Xray", "v26.10.17"),
     MIHOMO(CORE_MIHOMO, "mihomo", "v1.19.32");
 
     companion object {
