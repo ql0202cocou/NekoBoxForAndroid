@@ -50,7 +50,13 @@ class ConfigurationHolder(
 ) : RecyclerView.ViewHolder(view),
     PopupMenu.OnMenuItemClickListener {
 
-    lateinit var entity: ProxyEntity
+    // 最近一次绑定的实例，只在适配器缓存里取不到时兜底
+    private lateinit var boundEntity: ProxyEntity
+
+    // 动作（分享、编辑、删除、导出）与流量重画取用的节点：每次取缓存里的最新实例。
+    // 差量认为卡片字段没变时不会重绑，持有绑定那一刻的实例会让这些动作读到过期的节点内容（例如旧密码的分享链接）
+    val entity: ProxyEntity
+        get() = groupFragment.adapter?.latestEntity(boundEntity.id) ?: boundEntity
 
     val profileName: TextView = view.findViewById(R.id.profile_name)
     val profileType: TextView = view.findViewById(R.id.profile_type)
@@ -66,7 +72,7 @@ class ConfigurationHolder(
     val removeButton: ImageView = view.findViewById(R.id.remove)
 
     // 上次绑定的节点 id 与本次绑定是否要让状态行淡入：只有「同一个 holder 上同一个节点」
-    // 的测试结果文字变化才淡入（整组重读 notifyDataSetChanged 与带 payload 的更新都会走到这里），
+    // 的测试结果文字变化才淡入（整组重读的差量变化与 onUpdated 都带 payload 就地重绑，会走到这里），
     // 首次绑定、滚动复用、换节点都不动画
     private var boundId = Long.MIN_VALUE
     private var fadeStatus = false
@@ -91,7 +97,7 @@ class ConfigurationHolder(
             profileStatus.animate().cancel()
             profileStatus.alpha = 1f
         }
-        entity = proxyEntity
+        boundEntity = proxyEntity
 
         if (groupFragment.select) {
             view.setOnClickListener {
@@ -146,18 +152,20 @@ class ConfigurationHolder(
         fadeStatus = false
 
         editButton.setOnClickListener {
-            it.context.startActivity(proxyEntity.settingIntent(it.context))
+            it.context.startActivity(entity.settingIntent(it.context))
         }
 
         removeButton.setOnClickListener {
             groupFragment.adapter?.let {
-                val index = it.configurationIdList.indexOf(proxyEntity.id)
+                val index = it.indexOfId(proxyEntity.id)
                 // a stale holder can outlive its row: -1 would queue an
                 // undo entry that inserts at index -1 on restore, while
                 // still deleting the profile on commit
                 if (index < 0) return@let
+                // 先取最新实例再移除：撤销与到期删除用的是这一份
+                val latest = entity
                 it.remove(index)
-                groupFragment.undoManager.remove(index to proxyEntity)
+                groupFragment.undoManager.remove(index to latest)
             }
         }
 
@@ -192,7 +200,7 @@ class ConfigurationHolder(
                 shareButton.isVisible = true
 
                 shareLayout.setOnClickListener {
-                    showShare(it, proxyEntity)
+                    showShare(it, entity)
                 }
             }
         }

@@ -95,11 +95,23 @@ class ProfileListFragment : Fragment() {
     // 之后才允许显示，免得每个分组页刚建好时占位闪一下
     private var listLoaded = false
     private var emptyObserverAdapter: ConfigurationAdapter? = null
+
+    // 适配器是 ListAdapter：整表刷新由 DiffUtil 拆成范围事件（插入 / 删除 / 变更 / 移动）发出，
+    // 不再是一条 onChanged，所以五类事件都要接住。变更与移动不改条数，但载入完成、入场动画触发
+    // 与顶部栏抬升的判断仍照旧跑一遍（都是幂等的）
     private val emptyObserver = object : RecyclerView.AdapterDataObserver() {
         override fun onChanged() = onListChanged()
         override fun onItemRangeInserted(positionStart: Int, itemCount: Int) = onListChanged()
         override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) = onListChanged()
+        override fun onItemRangeChanged(positionStart: Int, itemCount: Int) = onListChanged()
+        override fun onItemRangeMoved(fromPosition: Int, toPosition: Int, itemCount: Int) = onListChanged()
     }
+
+    /**
+     * 适配器每次整表提交（整组重读、搜索过滤）之后调用。差量在前后两份列表一样时不发任何通知
+     * （空分组载入空列表、搜索结果不变），observer 就不会响，载入完成标志与空状态要在这里补上
+     */
+    fun onListSubmitted() = onListChanged()
 
     private fun onListChanged() {
         listLoaded = true
