@@ -28,6 +28,7 @@ import io.nekohasekai.sagernet.widget.liftOnScrollOf
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import io.nekohasekai.sagernet.widget.QRCodeDialog
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
+import io.nekohasekai.sagernet.widget.insertClamped
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -214,10 +215,11 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                 }
                 // 同节点列表的 reloadProfiles：整表重读会把撤销窗口里待删的分组读回来，先提交掉，
                 // 否则撤销会按旧位置再插一份
-                undoManager.flush()
-                groupList.clear()
-                groupList.addAll(groups)
-                notifyDataSetChanged()
+                undoManager.mutate {
+                    groupList.clear()
+                    groupList.addAll(groups)
+                    notifyDataSetChanged()
+                }
             }
         }
 
@@ -286,8 +288,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
 
         override fun undo(actions: List<Pair<Int, ProxyGroup>>) {
             for ((index, item) in actions) {
-                groupList.add(index, item)
-                notifyItemInserted(index)
+                notifyItemInserted(groupList.insertClamped(index, item))
             }
         }
 
@@ -305,9 +306,10 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             delay(300L)
 
             onMainDispatcher {
-                undoManager.flush()
-                groupList.add(group)
-                notifyItemInserted(groupList.size - 1)
+                undoManager.mutate {
+                    groupList.add(group)
+                    notifyItemInserted(groupList.size - 1)
+                }
 
                 if (group.type == GroupType.SUBSCRIPTION) {
                     GroupUpdater.startUpdate(group, true)
@@ -321,12 +323,13 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             onMainDispatcher {
                 val index = groupList.indexOfFirst { it.id == groupId }
                 if (index == -1) return@onMainDispatcher
-                undoManager.flush()
-                if (groupCount <= 2) {
-                    reload()
-                } else {
-                    groupList.removeAt(index)
-                    notifyItemRemoved(index)
+                undoManager.mutate {
+                    if (groupCount <= 2) {
+                        reload()
+                    } else {
+                        groupList.removeAt(index)
+                        notifyItemRemoved(index)
+                    }
                 }
             }
         }
@@ -341,10 +344,10 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                     reload()
                     return@onMainDispatcher
                 }
-                undoManager.flush()
-
-                groupList[index] = group
-                notifyItemChanged(index)
+                undoManager.mutate {
+                    groupList[index] = group
+                    notifyItemChanged(index)
+                }
             }
         }
 

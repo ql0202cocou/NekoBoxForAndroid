@@ -21,6 +21,7 @@ import io.nekohasekai.sagernet.databinding.LayoutAssetItemBinding
 import io.nekohasekai.sagernet.databinding.LayoutAssetsBinding
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
+import io.nekohasekai.sagernet.widget.insertClamped
 import io.nekohasekai.sagernet.widget.liftOnScrollOf
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import libcore.Libcore
@@ -230,11 +231,12 @@ class AssetsActivity : ThemedActivity() {
                     list to list.associate { it.absolutePath to localVersion(it) }
                 }
                 // 待删的文件在撤销窗口内还在盘上，重新列目录会把它读回来：先提交掉，否则撤销会按旧位置再插一份
-                undoManager.flush()
-                assets.clear()
-                assets.addAll(list)
-                versions = newVersions
-                notifyDataSetChanged()
+                undoManager.mutate {
+                    assets.clear()
+                    assets.addAll(list)
+                    versions = newVersions
+                    notifyDataSetChanged()
+                }
             }
         }
 
@@ -271,8 +273,7 @@ class AssetsActivity : ThemedActivity() {
 
         override fun undo(actions: List<Pair<Int, File>>) {
             for ((index, item) in actions) {
-                assets.add(index, item)
-                notifyItemInserted(index)
+                notifyItemInserted(assets.insertClamped(index, item))
             }
         }
 

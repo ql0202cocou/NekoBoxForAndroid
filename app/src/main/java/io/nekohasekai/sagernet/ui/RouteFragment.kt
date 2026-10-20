@@ -20,6 +20,7 @@ import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.widget.liftOnScrollOf
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
+import io.nekohasekai.sagernet.widget.insertClamped
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -217,8 +218,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
 
         override fun undo(actions: List<Pair<Int, RuleEntity>>) {
             for ((index, item) in actions) {
-                ruleList.add(index, item)
-                notifyItemInserted(index)
+                notifyItemInserted(ruleList.insertClamped(index, item))
             }
         }
 
@@ -234,9 +234,11 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
             // 监听器跑在调用方的后台线程上，节点名在这里查
             val names = RuleRepository.outboundProfileNames(listOf(rule))
             ruleListView.post {
-                outboundNames.putAll(names)
-                ruleList.add(rule)
-                ruleAdapter.notifyItemInserted(ruleList.size - 1)
+                undoManager.mutate {
+                    outboundNames.putAll(names)
+                    ruleList.add(rule)
+                    ruleAdapter.notifyItemInserted(ruleList.size - 1)
+                }
                 needReload()
             }
         }
@@ -247,11 +249,13 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
             // list in post.
             val names = RuleRepository.outboundProfileNames(listOf(rule))
             ruleListView.post {
-                outboundNames.putAll(names)
-                val index = ruleList.indexOfFirst { it.id == rule.id }
-                if (index == -1) return@post
-                ruleList[index] = rule
-                ruleAdapter.notifyItemChanged(index)
+                undoManager.mutate {
+                    outboundNames.putAll(names)
+                    val index = ruleList.indexOfFirst { it.id == rule.id }
+                    if (index == -1) return@post
+                    ruleList[index] = rule
+                    ruleAdapter.notifyItemChanged(index)
+                }
                 needReload()
             }
         }
@@ -259,24 +263,24 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
         override suspend fun onRemoved(ruleId: Long) {
             ruleListView.post {
                 // 同节点列表：别处删了规则先提交撤销窗口，免得 undo 按旧位置插回越界或插回幽灵行
-                undoManager.flush()
-                val index = ruleList.indexOfFirst { it.id == ruleId }
-                if (index == -1) {
-                    needReload()
-                } else {
-                    ruleList.removeAt(index)
-                    ruleAdapter.notifyItemRemoved(index)
-                    needReload()
+                undoManager.mutate {
+                    val index = ruleList.indexOfFirst { it.id == ruleId }
+                    if (index != -1) {
+                        ruleList.removeAt(index)
+                        ruleAdapter.notifyItemRemoved(index)
+                    }
                 }
+                needReload()
             }
         }
 
         override suspend fun onCleared() {
             ruleListView.post {
                 // 「重置路由」清空了全部规则：窗口里待删的规则已不在库里，撤销只会插回幽灵行
-                undoManager.flush()
-                ruleList.clear()
-                ruleAdapter.notifyDataSetChanged()
+                undoManager.mutate {
+                    ruleList.clear()
+                    ruleAdapter.notifyDataSetChanged()
+                }
                 needReload()
             }
         }

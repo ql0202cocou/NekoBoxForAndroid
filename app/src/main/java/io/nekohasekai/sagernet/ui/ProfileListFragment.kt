@@ -350,9 +350,14 @@ class ProfileListFragment : Fragment() {
 
     val profileAccess = Mutex()
     val reloadAccess = Mutex()
-    // 提交撤销窗口里的待删项（视图还没建好、undoManager 未初始化时什么也不做）：别处改动列表前先调它
-    fun flushUndo() {
-        if (::undoManager.isInitialized) undoManager.flush()
+    // 节点列表改动的统一入口（转给 UndoSnackbarManager.mutate）；undoManager 未初始化时直接执行
+    inline fun <R> mutateList(block: () -> R): R {
+        val manager = undoManagerOrNull() ?: return block()
+        return manager.mutate(block)
     }
+
+    // lateinit 的 isInitialized 不能写在 inline 函数里，单独取一次
+    fun undoManagerOrNull(): UndoSnackbarManager<ProxyEntity>? =
+        if (::undoManager.isInitialized) undoManager else null
 
 }

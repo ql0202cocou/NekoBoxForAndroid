@@ -21,6 +21,7 @@ import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.scrollTo
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
+import io.nekohasekai.sagernet.widget.insertClamped
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -134,10 +135,11 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
         }
         // 与 onAdd / reloadProfiles 一样先提交撤销窗口：undo 按删除时的可见位置
         // 插回，过滤后列表变短就会越界崩溃
-        groupFragment.flushUndo()
-        configurationIdList.clear()
-        configurationIdList.addAll(visibleIds())
-        notifyDataSetChanged()
+        groupFragment.mutateList {
+            configurationIdList.clear()
+            configurationIdList.addAll(visibleIds())
+            notifyDataSetChanged()
+        }
     }
 
     // dragging is disabled while filtering, so the visible list and the search
@@ -176,17 +178,18 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
         for ((index, item) in actions) {
             groupFragment.configurationListView.post {
                 configurationList[item.id] = item
-                configurationIdList.add(index, item.id)
+                // 下标夹在当前范围内：窗口期间列表被改短也不越界
+                val at = configurationIdList.insertClamped(index, item.id)
                 // back into the search source, anchored on the row it was
                 // restored above: deleting is allowed while filtering, and
                 // `index` is then a visible position the full list has never
                 // shared
-                val anchor = configurationIdList.getOrNull(index + 1)
+                val anchor = configurationIdList.getOrNull(at + 1)
                 allProfileIds.add(
                     anchor?.let { allProfileIds.indexOf(it) }?.takeIf { it >= 0 }
                         ?: allProfileIds.size, item.id
                 )
-                notifyItemInserted(index)
+                notifyItemInserted(at)
             }
         }
     }
@@ -202,14 +205,15 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
         if (profile.groupId != groupFragment.proxyGroup.id) return
 
         groupFragment.configurationListView.post {
-            groupFragment.flushUndo()
-            configurationList[profile.id] = profile
-            allProfileIds.add(profile.id)
-            // 搜索中只把命中的新节点放进可见列表，与 visibleIds() 的过滤一致
-            if (!matchesQuery(profile)) return@post
-            val pos = itemCount
-            configurationIdList.add(profile.id)
-            notifyItemInserted(pos)
+            groupFragment.mutateList {
+                configurationList[profile.id] = profile
+                allProfileIds.add(profile.id)
+                // 搜索中只把命中的新节点放进可见列表，与 visibleIds() 的过滤一致
+                if (!matchesQuery(profile)) return@post
+                val pos = itemCount
+                configurationIdList.add(profile.id)
+                notifyItemInserted(pos)
+            }
         }
     }
 
@@ -220,11 +224,12 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
             // dispatcher while the main thread mutates the list
             val index = configurationIdList.indexOf(profile.id)
             if (index < 0) return@post
-            groupFragment.flushUndo()
-            // 库里的 tx/rx 可能落后于实时流量，重绑时 bind 会优先取
-            // ProfileRepository.liveTraffic
-            configurationList[profile.id] = profile
-            notifyItemChanged(index, PAYLOAD_UPDATED)
+            groupFragment.mutateList {
+                // 库里的 tx/rx 可能落后于实时流量，重绑时 bind 会优先取
+                // ProfileRepository.liveTraffic
+                configurationList[profile.id] = profile
+                notifyItemChanged(index, PAYLOAD_UPDATED)
+            }
         }
     }
 
@@ -254,13 +259,14 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
         groupFragment.configurationListView.post {
             // 别处删了节点（菜单批删、编辑器删除）：先提交撤销窗口。undo 按删除时的位置插回，列表变短会越界；
             // 删的若正是窗口里待删的那个，撤销还会插回一行库里已没有的节点
-            groupFragment.flushUndo()
-            allProfileIds.remove(profileId)
-            val index = configurationIdList.indexOf(profileId)
-            if (index < 0) return@post
-            configurationIdList.removeAt(index)
-            configurationList.remove(profileId)
-            notifyItemRemoved(index)
+            groupFragment.mutateList {
+                allProfileIds.remove(profileId)
+                val index = configurationIdList.indexOf(profileId)
+                if (index < 0) return@post
+                configurationIdList.removeAt(index)
+                configurationList.remove(profileId)
+                notifyItemRemoved(index)
+            }
         }
     }
 
@@ -303,17 +309,18 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
         } else null
 
         viewScope.launch(Dispatchers.Main) {
-            // 整组重读会把撤销窗口里待删的行重新放回列表，先把它提交掉
-            groupFragment.flushUndo()
+            // 整组重读会把撤销窗口里待删的行重新放回列表，先把它提交掉。
             // mutate the lists on the main thread: this runs on a
             // background dispatcher while the main thread reads them
-            configurationList.clear()
-            configurationList.putAll(newProfiles.associateBy { it.id })
-            allProfileIds.clear()
-            allProfileIds.addAll(newProfileIds)
-            configurationIdList.clear()
-            configurationIdList.addAll(visibleIds())
-            notifyDataSetChanged()
+            groupFragment.mutateList {
+                configurationList.clear()
+                configurationList.putAll(newProfiles.associateBy { it.id })
+                allProfileIds.clear()
+                allProfileIds.addAll(newProfileIds)
+                configurationIdList.clear()
+                configurationIdList.addAll(visibleIds())
+                notifyDataSetChanged()
+            }
 
             // 在过滤后的可见列表里找选中行，列表位置才对得上
             val selectedProfileIndex = selectedProxy?.let { configurationIdList.indexOf(it) } ?: -1
