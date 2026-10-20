@@ -25,8 +25,7 @@ import io.nekohasekai.sagernet.databinding.LayoutAboutBinding
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.plugin.PluginManager.loadString
 import io.nekohasekai.sagernet.utils.PackageCache
-import io.nekohasekai.sagernet.widget.liftOnScrollOf
-import io.nekohasekai.sagernet.widget.padForSystemBars
+import io.nekohasekai.sagernet.widget.hostMainScrollable
 import libcore.Libcore
 import moe.matsuri.nb4a.plugin.Plugins
 import kotlinx.coroutines.Dispatchers
@@ -47,8 +46,7 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
 
         val binding = LayoutAboutBinding.bind(view)
 
-        binding.aboutScroll.padForSystemBars(bottomExtra = mainBottomClearance())
-        binding.appbar.root.liftOnScrollOf(binding.aboutScroll)
+        hostMainScrollable(binding.aboutScroll, appBar = binding.appbar.root)
         toolbar.setTitle(R.string.menu_about)
 
         if (savedInstanceState == null) {

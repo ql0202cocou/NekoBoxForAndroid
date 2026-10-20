@@ -20,8 +20,7 @@ import io.nekohasekai.sagernet.database.RuleRepository
 import io.nekohasekai.sagernet.databinding.LayoutRouteBinding
 import io.nekohasekai.sagernet.databinding.LayoutRouteItemBinding
 import io.nekohasekai.sagernet.ktx.*
-import io.nekohasekai.sagernet.widget.liftOnScrollOf
-import io.nekohasekai.sagernet.widget.padForSystemBars
+import io.nekohasekai.sagernet.widget.hostMainScrollable
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -72,8 +71,7 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
         toolbar.inflateMenu(R.menu.add_route_menu)
         toolbar.setOnMenuItemClickListener(this)
 
-        ruleListView.padForSystemBars(bottomExtra = mainBottomClearance())
-        binding.appbar.root.liftOnScrollOf(ruleListView)
+        hostMainScrollable(ruleListView, appBar = binding.appbar.root)
         ruleListView.layoutManager = FixedLinearLayoutManager(ruleListView)
 
         // onViewCreated can run again: 摘掉上一个适配器的观察者，数据留在 ViewModel 里

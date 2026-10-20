@@ -14,8 +14,7 @@ import androidx.lifecycle.lifecycleScope
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.databinding.LayoutLogcatBinding
 import io.nekohasekai.sagernet.ktx.*
-import io.nekohasekai.sagernet.widget.liftOnScrollOf
-import io.nekohasekai.sagernet.widget.padForSystemBars
+import io.nekohasekai.sagernet.widget.hostMainScrollable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -44,8 +43,7 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
 
         binding.textview.breakStrategy = 0 // simple
 
-        binding.scroolview.padForSystemBars(bottomExtra = mainBottomClearance())
-        binding.appbar.root.liftOnScrollOf(binding.scroolview)
+        hostMainScrollable(binding.scroolview, appBar = binding.appbar.root)
 
         reloadSession()
     }

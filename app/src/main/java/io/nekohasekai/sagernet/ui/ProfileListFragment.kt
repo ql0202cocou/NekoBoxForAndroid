@@ -26,6 +26,7 @@ import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.animatorsEnabled
 import io.nekohasekai.sagernet.ktx.setPlaceholderVisible
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
+import io.nekohasekai.sagernet.widget.hostMainScrollable
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import kotlinx.coroutines.sync.Mutex
 import io.nekohasekai.sagernet.bg.ServiceRegistry
@@ -151,13 +152,6 @@ class ProfileListFragment : Fragment() {
         list.scheduleLayoutAnimation()
     }
 
-    // 列表滚动时通知父级更新顶部栏抬升；onViewCreated 会再次执行，换新前先摘掉旧的
-    private val liftScrollListener = object : RecyclerView.OnScrollListener() {
-        override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-            (parentFragment as? ConfigurationFragment)?.updateAppBarLift()
-        }
-    }
-
     private val parentConfiguration by lazy {
         try {
             parentFragment as ConfigurationFragment
@@ -229,15 +223,15 @@ class ProfileListFragment : Fragment() {
             // 选择节点页没有 FAB：保留 XML 的 48dp 底部留白，只保证不低于导航栏。
             // 这一页不加载工具栏菜单，没有搜索框，不需要让开键盘
             configurationListView.padForSystemBars(bottomAtLeast = true)
+            // 没有 Dock，不经 hostMainScrollable；顶部栏抬升仍由父级的控制器按当前页判断
+            parentConfiguration?.appBarLift?.follow(configurationListView)
         } else {
             // 主界面：底部留白与顶部相同（XML 的 48dp 只给选择节点页），再加导航栏与悬浮的
-            // Dock、状态卡片所占高度（mainBottomClearance）。
+            // Dock、状态卡片所占高度（hostMainScrollable 里的 bottomClearance）。
             // 工具栏的节点搜索会弹键盘，键盘弹出时改加键盘高度，搜索结果才能滚到最后一项
             configurationListView.updatePadding(bottom = configurationListView.paddingTop)
-            configurationListView.padForSystemBars(ime = true, bottomExtra = mainBottomClearance())
+            hostMainScrollable(configurationListView, lift = parentConfiguration?.appBarLift, ime = true)
         }
-        configurationListView.removeOnScrollListener(liftScrollListener)
-        configurationListView.addOnScrollListener(liftScrollListener)
         layoutManager = FixedLinearLayoutManager(configurationListView)
         configurationListView.layoutManager = layoutManager
         emptyObserverAdapter?.unregisterAdapterDataObserver(emptyObserver)

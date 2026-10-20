@@ -17,7 +17,7 @@ import io.nekohasekai.sagernet.databinding.LayoutWebviewBinding
 import io.nekohasekai.sagernet.fmt.CLASH_API_LISTEN
 import io.nekohasekai.sagernet.ktx.launchCustomTab
 import io.nekohasekai.sagernet.ktx.snackbar
-import io.nekohasekai.sagernet.widget.padForSystemBars
+import io.nekohasekai.sagernet.widget.hostMainScrollable
 import moe.matsuri.nb4a.utils.WebViewUtil
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import io.nekohasekai.sagernet.bg.BaseService
@@ -46,9 +46,8 @@ class WebviewFragment : ToolbarFragment(R.layout.layout_webview), Toolbar.OnMenu
         // must then see those insets as zero, or a dashboard using CSS safe-area-inset-*
         // pads a second time (the AppBar already clears the status bar). IME insets still
         // reach the WebView.
-        binding.webviewContainer.padForSystemBars(
-            consume = true, bottomExtra = mainBottomClearance()
-        )
+        // 例外：WebView 不发嵌套滚动，Dock 与状态卡片在这一页收不起来，所以声明 nestedScrolling = false
+        hostMainScrollable(binding.webviewContainer, consume = true, nestedScrolling = false)
         webviewContainer = binding.webviewContainer
 
         // webview

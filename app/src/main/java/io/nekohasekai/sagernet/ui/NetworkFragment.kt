@@ -6,7 +6,7 @@ import android.view.View
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.databinding.LayoutNetworkBinding
 import io.nekohasekai.sagernet.ktx.app
-import io.nekohasekai.sagernet.widget.padForSystemBars
+import io.nekohasekai.sagernet.widget.hostMainScrollable
 
 class NetworkFragment : NamedFragment(R.layout.layout_network) {
 
@@ -15,12 +15,8 @@ class NetworkFragment : NamedFragment(R.layout.layout_network) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        view.padForSystemBars(bottomExtra = mainBottomClearance())
-        // 滚动时通知工具页重新判断顶部栏是否抬升
-        view.setOnScrollChangeListener { _, _, _, _, _ ->
-            (parentFragment as? ToolsFragment)?.updateAppBarLift()
-        }
-        view.post { (parentFragment as? ToolsFragment)?.updateAppBarLift() }
+        // 顶部栏的抬升由工具页的控制器按当前页判断，这里只让本页的滚动视图参与
+        hostMainScrollable(view, lift = (parentFragment as? ToolsFragment)?.appBarLift)
 
         val binding = LayoutNetworkBinding.bind(view)
         binding.stunTest.setOnClickListener {

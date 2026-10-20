@@ -7,10 +7,13 @@
     android:layout_height="match_parent"
     android:clipChildren="false">
 
+    <!-- 页面底色画在这里，与窗口背景（android:colorBackground）同色，肉眼无差别：
+         以后玻璃捕获下层内容时取到的是不透明的页面底色，而不是窗口背景那块透明 -->
     <androidx.coordinatorlayout.widget.CoordinatorLayout
         android:id="@+id/fragment_holder"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:background="?android:attr/colorBackground" />
 
     <!-- We double trackThickness as half of it will be invisible -->
     <com.google.android.material.progressindicator.CircularProgressIndicator

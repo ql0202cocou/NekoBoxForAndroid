@@ -27,8 +27,7 @@ import io.nekohasekai.sagernet.fmt.haveLink
 import io.nekohasekai.sagernet.fmt.toUniversalLink
 import io.nekohasekai.sagernet.group.GroupUpdater
 import io.nekohasekai.sagernet.ktx.*
-import io.nekohasekai.sagernet.widget.liftOnScrollOf
-import io.nekohasekai.sagernet.widget.padForSystemBars
+import io.nekohasekai.sagernet.widget.hostMainScrollable
 import io.nekohasekai.sagernet.widget.QRCodeDialog
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
 import io.nekohasekai.sagernet.widget.insertClamped
@@ -112,8 +111,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         toolbar.inflateMenu(R.menu.add_group_menu)
         toolbar.setOnMenuItemClickListener(this)
 
-        groupListView.padForSystemBars(bottomExtra = mainBottomClearance())
-        binding.appbar.root.liftOnScrollOf(groupListView)
+        hostMainScrollable(groupListView, appBar = binding.appbar.root)
         groupListView.layoutManager = FixedLinearLayoutManager(groupListView)
 
         // onViewCreated can run again: 数据留在 ViewModel 里，新适配器直接取现成的列表

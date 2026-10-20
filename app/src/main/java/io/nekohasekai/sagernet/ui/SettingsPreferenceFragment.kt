@@ -20,7 +20,7 @@ import io.nekohasekai.sagernet.database.preference.isIntegerInRange
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.utils.Theme
 import io.nekohasekai.sagernet.widget.liftAncestorAppBar
-import io.nekohasekai.sagernet.widget.padForSystemBars
+import io.nekohasekai.sagernet.widget.hostMainScrollable
 import moe.matsuri.nb4a.ui.*
 import io.nekohasekai.sagernet.bg.ServiceRegistry
 
@@ -39,8 +39,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         super.onViewCreated(view, savedInstanceState)
 
         listView.layoutManager = FixedLinearLayoutManager(listView)
-        listView.padForSystemBars(bottomExtra = mainBottomClearance())
-        listView.liftAncestorAppBar()
+        hostMainScrollable(listView, liftAncestorAppBar = true)
         // 从二级页面返回一级页：恢复进入前的滚动位置（页面入口在列表末尾）
         if (arguments?.getString(ARG_PREFERENCE_ROOT) == null) {
             (activity as? MainActivity)?.takeSettingsListState()?.let {

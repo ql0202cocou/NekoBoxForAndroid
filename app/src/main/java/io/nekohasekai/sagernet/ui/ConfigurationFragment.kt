@@ -16,7 +16,6 @@ import androidx.core.os.bundleOf
 import androidx.fragment.app.viewModels
 import androidx.preference.PreferenceDataStore
 import androidx.viewpager2.widget.ViewPager2
-import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
 import io.nekohasekai.sagernet.GroupType
@@ -44,6 +43,7 @@ import io.nekohasekai.sagernet.ktx.startFilesForResult
 import io.nekohasekai.sagernet.ktx.writeToDocument
 import io.nekohasekai.sagernet.ui.profile.settingActivityOf
 import io.nekohasekai.sagernet.database.EditorCache
+import io.nekohasekai.sagernet.widget.AppBarLiftController
 
 class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
     PopupMenu.OnMenuItemClickListener,
@@ -84,7 +84,6 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
     lateinit var adapter: GroupPagerAdapter
     lateinit var tabLayout: TabLayout
     lateinit var groupPager: ViewPager2
-    private lateinit var appBar: AppBarLayout
 
     val alwaysShowAddress by lazy { DataStore.alwaysShowAddress }
 
@@ -100,20 +99,23 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
     /**
      * 顶部栏（含 Tab 条）是否抬升：当前页的列表能向上滚就抬升。
      * 主界面没有 CoordinatorLayout（嵌套滚动要一路传到外层给 Dock 与状态卡片），
-     * AppBarLayout 的抬升不会自己触发，由这里手动驱动。
+     * AppBarLayout 的抬升不会自己触发，由这个控制器驱动；各页的列表经 hostMainScrollable(lift = appBarLift)
+     * （选择模式没有 Dock，直接 follow）订阅滚动。
      * 按 groupPager.currentItem 取当前页：选择模式下 DataStore.selectedGroup 不更新，
      * getCurrentGroupFragment 不适用
      */
-    fun updateAppBarLift() {
-        if (!::appBar.isInitialized || !::groupPager.isInitialized || !::adapter.isInitialized) return
+    val appBarLift = AppBarLiftController {
+        if (!::groupPager.isInitialized || !::adapter.isInitialized) return@AppBarLiftController null
         val id = adapter.groupList.getOrNull(groupPager.currentItem)?.id
         val page = id?.let { childFragmentManager.findFragmentByTag("f$it") as? ProfileListFragment }
-        val list = page?.listViewOrNull
-        appBar.setLifted(list?.canScrollVertically(-1) == true)
+        page?.listViewOrNull
     }
 
+    /** 列表数据、选中页变了之后重新判断一次 */
+    fun updateAppBarLift() = appBarLift.update()
+
     private val appBarLiftCallback = object : ViewPager2.OnPageChangeCallback() {
-        override fun onPageSelected(position: Int) = updateAppBarLift()
+        override fun onPageSelected(position: Int) = appBarLift.update()
     }
 
     // 节点卡片的错位入场只在冷启动（本页不是经转场进入）和用户切分组时播；经 Dock 淡变回到本页时
@@ -188,11 +190,11 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
 
         groupPager = view.findViewById(R.id.group_pager)
         tabLayout = view.findViewById(R.id.group_tab)
-        appBar = view.findViewById(R.id.appbar)
 
         // 选择模式下已选节点所在的分组，读库决定落在哪一页时用
         model.argGroupId = selectedItem?.groupId
         adapter = GroupPagerAdapter(this)
+        appBarLift.attach(view.findViewById(R.id.appbar))
 
         groupPager.adapter = adapter
         groupPager.offscreenPageLimit = 2
@@ -279,6 +281,7 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
     override fun onDestroyView() {
         // 摘掉适配器：ViewModel 留存，之后到达的读库结果只换它里面的列表
         if (::adapter.isInitialized) adapter.stop()
+        appBarLift.detach()
         super.onDestroyView()
     }
 

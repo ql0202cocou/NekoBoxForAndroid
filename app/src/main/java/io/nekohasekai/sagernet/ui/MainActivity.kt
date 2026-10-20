@@ -43,26 +43,27 @@ import io.nekohasekai.sagernet.fmt.PluginEntry
 import io.nekohasekai.sagernet.group.GroupInterfaceAdapter
 import io.nekohasekai.sagernet.ktx.motionDuration
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
+import io.nekohasekai.sagernet.widget.MainContentHost
+import io.nekohasekai.sagernet.widget.MainContentHostOwner
 import io.nekohasekai.sagernet.widget.safeDrawingTypes
 import io.nekohasekai.sagernet.widget.systemBarMargins
 import io.nekohasekai.sagernet.bg.ServiceRegistry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-/**
- * 页面由 MainActivity 托管时，滚动视图底部要为悬浮的 Dock 与状态卡片让出的高度
- * （[MainActivity.bottomControlsClearance]），给 padForSystemBars 的 bottomExtra 用；
- * 其它宿主（选节点、通知里的切换对话框）没有 Dock，为 0
- */
-fun Fragment.mainBottomClearance(): () -> Int =
-    { (activity as? MainActivity)?.bottomControlsClearance() ?: 0 }
-
 class MainActivity : ThemedActivity(),
+    MainContentHostOwner,
     SagerConnection.Callback,
     OnPreferenceDataStoreChangeListener,
     PreferenceFragmentCompat.OnPreferenceStartScreenCallback {
 
     lateinit var binding: LayoutMainBinding
+
+    /**
+     * 页面的滚动视图经 hostMainScrollable 登记在这里：底部留白取 [bottomControlsClearance]，
+     * 滚动与结构变化汇到同一个订阅点。其它宿主（选节点、通知里的切换对话框）没有 Dock，不实现这个接口
+     */
+    override val contentHost = MainContentHost { bottomControlsClearance() }
 
     // 设置一级页的滚动状态等页面外状态。第一次取要在 super.onCreate() 之后（SavedStateHandle）
     private val mainModel: MainViewModel by viewModels()
@@ -199,7 +200,7 @@ class MainActivity : ThemedActivity(),
     /**
      * 主界面列表底部在导航栏插入区之外要让出的高度（px）：Dock 区（底边距、Dock、8dp 间隔），
      * 已连接、状态卡片允许出现时再加卡片高度与 8dp 间隔。连接状态或卡片高度变化时
-     * 重新分发插入区，各列表的 padForSystemBars(bottomExtra) 随之更新
+     * 重新分发插入区，各滚动视图（hostMainScrollable）的底部留白随之更新
      */
     fun bottomControlsClearance(): Int {
         var clearance = resources.getDimensionPixelSize(R.dimen.nav_dock_clearance)

@@ -15,19 +15,59 @@ import io.nekohasekai.sagernet.R
  * 自带颜色动画，liftable 会在 onLayout 时随 app:liftOnScroll="true" 自动置真。
  * 所以由页面自己监听滚动视图，滚离顶部就 setLifted(true)，回到顶部还原。
  *
- * 主界面分页的版本是 ConfigurationFragment.updateAppBarLift（按当前页的列表驱动），
- * 工具页的分页版本是 ToolsFragment.updateAppBarLift，做法相同。
+ * 全部走 [AppBarLiftController]：单页由 [liftOnScrollOf] 建一个，分页宿主（主界面的节点页、
+ * 工具页）自己持有一个，当前页的滚动视图由它的 source 回答。滚动事件来自 [ScrollHub]，
+ * 与玻璃共用同一个分发器，不再各占一次 View 唯一的滚动回调槽。
  */
+
+/**
+ * 顶部栏抬升状态 = 「source 给出的滚动视图还能不能向上滚」。
+ *
+ * - 单页：source 固定返回那个滚动视图；
+ * - 分页：source 按分页当前页取滚动视图，每个页面的滚动视图都 [follow] 同一个控制器，
+ *   非当前页的滚动事件触发 [update] 也无妨，读的始终是当前页。
+ *
+ * 控制器可以先于顶部栏存在（持有它的 Fragment 构造时就有），[attach] 在视图创建后绑定顶部栏，
+ * [detach] 在视图销毁时解开。没绑顶部栏时 [update] 什么也不做。
+ */
+class AppBarLiftController(private val source: () -> View?) : ContentListener {
+
+    private var appBar: AppBarLayout? = null
+
+    fun attach(appBar: AppBarLayout) {
+        this.appBar = appBar
+    }
+
+    fun detach() {
+        appBar = null
+    }
+
+    /** 按当前页的滚动位置重新判断。没有可取的滚动视图时按「在顶部」处理 */
+    fun update() {
+        appBar?.setLifted(source()?.canScrollVertically(-1) == true)
+    }
+
+    /**
+     * 订阅 [scrolling] 的滚动事件，并在布局完成后补一次判断：恢复的滚动位置、旋转重建后没有滚动事件。
+     * 同一个视图重复 follow 无效。
+     */
+    fun follow(scrolling: View) {
+        ScrollHub.of(scrolling).addListener(this)
+        scrolling.post { update() }
+    }
+
+    override fun onContentScrolled(source: View) = update()
+}
 
 /**
  * 让本顶部栏随 [scrolling]（RecyclerView / NestedScrollView）的滚动位置抬升。
  * View.OnScrollChangeListener 对这两种视图都会回调（RecyclerView 在 dispatchOnScrolled 里触发）。
  */
 fun AppBarLayout.liftOnScrollOf(scrolling: View) {
-    val update = { setLifted(scrolling.canScrollVertically(-1)) }
-    scrolling.setOnScrollChangeListener { _, _, _, _, _ -> update() }
-    // 恢复的滚动位置、旋转重建后没有滚动事件，布局完成后补一次
-    scrolling.post { update() }
+    AppBarLiftController { scrolling }.also {
+        it.attach(this)
+        it.follow(scrolling)
+    }
 }
 
 /**

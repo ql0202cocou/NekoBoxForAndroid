@@ -22,7 +22,7 @@ import io.nekohasekai.sagernet.databinding.LayoutBackupBinding
 import io.nekohasekai.sagernet.databinding.LayoutImportBinding
 import io.nekohasekai.sagernet.databinding.LayoutProgressBinding
 import io.nekohasekai.sagernet.ktx.*
-import io.nekohasekai.sagernet.widget.padForSystemBars
+import io.nekohasekai.sagernet.widget.hostMainScrollable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import moe.matsuri.nb4a.utils.Util
@@ -81,12 +81,8 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         super.onViewCreated(view, savedInstanceState)
 
         val binding = LayoutBackupBinding.bind(view)
-        binding.root.padForSystemBars(bottomExtra = mainBottomClearance())
-        // 滚动时通知工具页重新判断顶部栏是否抬升
-        binding.root.setOnScrollChangeListener { _, _, _, _, _ ->
-            (parentFragment as? ToolsFragment)?.updateAppBarLift()
-        }
-        binding.root.post { (parentFragment as? ToolsFragment)?.updateAppBarLift() }
+        // 顶部栏的抬升由工具页的控制器按当前页判断，这里只让本页的滚动视图参与
+        hostMainScrollable(binding.root, lift = (parentFragment as? ToolsFragment)?.appBarLift)
 
         binding.resetSettings.setOnClickListener {
             requireContext().confirm(R.string.reset_settings_message) {

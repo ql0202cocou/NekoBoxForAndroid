@@ -17,4 +17,7 @@
 
     <!-- NavDock 图标脉冲动画挂在图标容器上的 tag，换选中项时取出来取消 -->
     <item name="nav_dock_pulse" type="id" />
+
+    <!-- ScrollHub 挂在滚动视图上的 tag：每个滚动视图唯一的滚动分发器 -->
+    <item name="scroll_hub" type="id" />
 </resources>
