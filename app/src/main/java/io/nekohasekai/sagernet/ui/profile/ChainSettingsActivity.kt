@@ -89,7 +89,9 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
         configurationList.padForSystemBars()
         configurationList.layoutManager = FixedLinearLayoutManager(configurationList)
         configurationList.adapter = configurationAdapter
-        // 成员列表整体重建（载入、选中后重载）时刷新；旋转后第一次回调就是当前列表
+        // 成员列表整体重建（载入、选中后重载）时刷新；旋转后第一次回调就是当前列表。
+        // 保留整表刷新：首行「添加」和末尾的缺失成员占位行不在 proxyList 里，同一配置可重复出现，
+        // 没有稳定的行身份可比；重建只发生在载入与选中后，拖动 / 删除已走针对性通知
         lifecycleScope.launch {
             members.revision.collect { configurationAdapter.notifyDataSetChanged() }
         }

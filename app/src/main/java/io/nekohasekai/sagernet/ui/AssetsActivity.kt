@@ -10,6 +10,7 @@ import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.isInvisible
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.AppBarLayout
@@ -232,10 +233,17 @@ class AssetsActivity : ThemedActivity() {
                 }
                 // 待删的文件在撤销窗口内还在盘上，重新列目录会把它读回来：先提交掉，否则撤销会按旧位置再插一份
                 undoManager.mutate {
+                    val oldAssets = assets.toList()
+                    val oldVersions = versions
                     assets.clear()
                     assets.addAll(list)
                     versions = newVersions
-                    notifyDataSetChanged()
+                    if (oldAssets.isEmpty()) {
+                        // 首次载入没有旧行可比，整表绑定即可（保持无入场动画）
+                        notifyDataSetChanged()
+                    } else {
+                        diffAssets(oldAssets, oldVersions, list, newVersions).dispatchUpdatesTo(this@AssetAdapter)
+                    }
                 }
             }
         }
@@ -465,3 +473,18 @@ class AssetsActivity : ThemedActivity() {
         )
     }
 }
+
+/**
+ * 资源列表重读前后的差量：以路径为身份，本地版本变了才算内容变化（版本文字是行里唯一随重读变化的内容）。
+ * 其余行不重绑，更新中的进度状态由持有者自己维护
+ */
+internal fun diffAssets(
+    old: List<File>, oldVersions: Map<String, String>,
+    new: List<File>, newVersions: Map<String, String>,
+): DiffUtil.DiffResult = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+    override fun getOldListSize() = old.size
+    override fun getNewListSize() = new.size
+    override fun areItemsTheSame(o: Int, n: Int) = old[o].absolutePath == new[n].absolutePath
+    override fun areContentsTheSame(o: Int, n: Int) =
+        oldVersions[old[o].absolutePath] == newVersions[new[n].absolutePath]
+}, false)

@@ -187,6 +187,8 @@ abstract class AppSelectActivity : ThemedActivity() {
             override fun publishResults(constraint: CharSequence, results: FilterResults) {
                 @Suppress("UNCHECKED_CAST")
                 filteredApps = results.values as List<ProxiedApp>
+                // 保留整表刷新：过滤与排序每次都换掉绝大部分行，没有稳定的行身份可比；
+                // 且 Filterable、FastScroll 的 SectionedAdapter 都按整表语义工作，差量刷新收益很小
                 notifyDataSetChanged()
                 updateEmptyHint()
             }
