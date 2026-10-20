@@ -88,4 +88,16 @@ class ThemeAttrsTest {
         val (app, dialog) = baseThemes.map { theme -> styleItems(theme).filterKeys { it in attrs } }
         assertEquals("Theme.SagerNet 与 Theme.SagerNet.Dialog 的自定义属性取值不同", app, dialog)
     }
+
+    // 弹簧：Theme.Material3 不定义 motionSpring*，两个基础主题都要补，且指向同一个项目自己的 style（刚度 800、阻尼比 0.6）
+    @Test
+    fun baseThemesDefineSpringAttrs() {
+        val springStyle = "@style/Motion.SagerNet.Spring.FastSpatial"
+        for (theme in baseThemes) {
+            assertEquals("$theme 的 motionSpringFastSpatial", springStyle, styleItems(theme)["motionSpringFastSpatial"])
+        }
+        val spring = styleItems("Motion.SagerNet.Spring.FastSpatial")
+        assertEquals("800", spring["stiffness"])
+        assertEquals("0.6", spring["damping"])
+    }
 }

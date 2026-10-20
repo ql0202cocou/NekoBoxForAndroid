@@ -17,6 +17,9 @@
         <item name="serviceBreathPeriod">1400</item>
         <item name="serviceBreathStep">66</item>
         <item name="serviceBreathFade">300</item>
+        <!-- 弹簧：Theme.Material3 不定义 motionSpring*（只有 Expressive 主题有），两个基础主题自己补，
+             指向本项目的 Motion.SagerNet.Spring.* -->
+        <item name="motionSpringFastSpatial">@style/Motion.SagerNet.Spring.FastSpatial</item>
         <item name="actionBarTheme">@style/ThemeOverlay.Material3.Toolbar.Surface</item>
         <!-- 文字与控件默认色走主题角色（res/color/theme_text_*）：M3 主题把它们指向固定的基线中性色，
              不随六套主题变；这里改成 onSurface / onSurfaceVariant 的状态列表，禁用态 alpha 照 M3 -->
@@ -63,6 +66,9 @@
         <item name="serviceBreathPeriod">1400</item>
         <item name="serviceBreathStep">66</item>
         <item name="serviceBreathFade">300</item>
+        <!-- 弹簧：Theme.Material3 不定义 motionSpring*（只有 Expressive 主题有），两个基础主题自己补，
+             指向本项目的 Motion.SagerNet.Spring.* -->
+        <item name="motionSpringFastSpatial">@style/Motion.SagerNet.Spring.FastSpatial</item>
         <item name="actionBarTheme">@style/ThemeOverlay.Material3.Toolbar.Surface</item>
         <!-- 文字与控件默认色走主题角色（res/color/theme_text_*）：M3 主题把它们指向固定的基线中性色，
              不随六套主题变；这里改成 onSurface / onSurfaceVariant 的状态列表，禁用态 alpha 照 M3 -->
@@ -136,6 +142,13 @@
 
     <style name="Widget.SagerNet.Button.TextButton.Dialog.Flush" parent="Widget.Material3.Button.TextButton.Dialog.Flush">
         <item name="android:textColor">?primaryOrTextPrimary</item>
+    </style>
+
+    <!-- Dock 选中胶囊的弹簧：M3 Expressive 的快速空间弹簧（刚度 800、阻尼比 0.6）。
+         自己写一份而不引用 Motion.Material3.Spring.*（后者不是公开资源）；觉得过冲就只改这两个数 -->
+    <style name="Motion.SagerNet.Spring.FastSpatial" parent="">
+        <item name="stiffness">800</item>
+        <item name="damping">0.6</item>
     </style>
 
     <style name="Theme.Start" parent="Theme.Material3.DayNight">
