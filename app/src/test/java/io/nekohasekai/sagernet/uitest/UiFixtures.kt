@@ -123,6 +123,14 @@ object UiFixtures {
         Result(normal, subscription, profiles)
     }
 
+    /** 往分组里再加 [count] 个节点（让列表长到能滚动） */
+    fun addProfiles(group: ProxyGroup, count: Int) = onBackground {
+        ProfileRepository.createProfiles(
+            group.id,
+            (1..count).map { shadowsocks("Extra %02d".format(it), "198.51.100.${it % 200 + 1}", 8388) },
+        )
+    }
+
     /** SagerDatabase 不开 allowMainThreadQueries，写库要在后台线程；Dispatchers.IO 上的真线程，settle 会等到它挂起 */
     private fun <T> onBackground(block: suspend () -> T): T = runBlocking(Dispatchers.IO) { block() }
 

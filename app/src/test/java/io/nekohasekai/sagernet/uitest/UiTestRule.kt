@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.uitest
 import android.animation.ValueAnimator
 import android.app.Activity
 import android.content.Intent
+import android.os.Bundle
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.bg.ServiceRegistry
 import io.nekohasekai.sagernet.database.GroupManager
@@ -92,7 +93,10 @@ class UiTestRule : TestRule {
         check(crashed == null) { "应用启动阶段崩溃过（CrashHandler 拉起了 $crashed）" }
     }
 
-    private fun after() {
+    private fun after() = finishActivities()
+
+    /** 销毁用例启动过的全部 Activity（后启动的先销毁），再等界面安静。同一用例里换设备配置前也用它 */
+    fun finishActivities() {
         for (controller in controllers.asReversed()) {
             runCatching {
                 controller.pause().stop().destroy()
@@ -114,6 +118,36 @@ class UiTestRule : TestRule {
 
     inline fun <reified A : Activity> launch(intent: Intent? = null): ActivityController<A> =
         launch(A::class.java, intent)
+
+    /** 启动但不 settle：用来测「创建后立刻销毁」，后台任务此时还没跑完 */
+    fun <A : Activity> launchUnsettled(type: Class<A>, intent: Intent? = null): ActivityController<A> {
+        val controller = if (intent == null) Robolectric.buildActivity(type)
+        else Robolectric.buildActivity(type, intent)
+        controllers += controller
+        controller.setup()
+        return controller
+    }
+
+    /** 用保存下来的实例状态重新启动一个 Activity（模拟进程重建后系统带回 savedInstanceState） */
+    fun <A : Activity> launchRestored(type: Class<A>, intent: Intent?, state: Bundle): ActivityController<A> {
+        val controller = if (intent == null) Robolectric.buildActivity(type)
+        else Robolectric.buildActivity(type, intent)
+        controllers += controller
+        controller.setup(state)
+        UiSettle.settle()
+        return controller
+    }
+
+    /** 立刻销毁（不 settle）并不再由规则收尾，用例自己决定何时放行后台 */
+    fun destroyNow(controller: ActivityController<*>) {
+        controllers.remove(controller)
+        controller.pause().stop().destroy()
+    }
+
+    /** 打开动画（规则默认把动画时长缩放设为 0）：只有要验证动画是否播放的用例用 */
+    fun enableAnimations() {
+        ValueAnimator::class.java.getMethod("setDurationScale", Float::class.javaPrimitiveType).invoke(null, 1f)
+    }
 
     /** 在后台线程跑 [block]：SagerDatabase 不开 allowMainThreadQueries，主线程不能查库 */
     fun <T> offMain(block: () -> T): T {
