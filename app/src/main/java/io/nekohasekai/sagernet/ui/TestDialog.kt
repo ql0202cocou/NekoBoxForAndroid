@@ -98,19 +98,20 @@ class TestDialog(fragment: ConfigurationFragment) {
                     profileStatusColor = context.getColorAttr(com.google.android.material.R.attr.colorOnSurfaceVariant)
                 }
 
+                // 对话框底是 surfaceContainerHigh，比卡片底深，用深一档的 *_strong
                 1 -> {
                     profileStatusText = fragment.getString(R.string.available, profile.ping)
-                    profileStatusColor = context.getColour(R.color.status_ok)
+                    profileStatusColor = context.getColour(R.color.status_ok_strong)
                 }
 
                 2 -> {
                     profileStatusText = profile.error
-                    profileStatusColor = context.getColour(R.color.status_error)
+                    profileStatusColor = context.getColour(R.color.status_error_strong)
                 }
 
                 3 -> {
                     profileStatusText = context.unavailableText(profile.error)
-                    profileStatusColor = context.getColour(R.color.status_error)
+                    profileStatusColor = context.getColour(R.color.status_error_strong)
                 }
             }
 
