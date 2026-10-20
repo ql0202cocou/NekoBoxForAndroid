@@ -17,9 +17,12 @@ import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.ui.MainActivity
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * 主界面的状态卡片：悬浮在 Dock 上方，显示上下行速率与连接状态，点按测试连通性。
@@ -154,42 +157,41 @@ class StatsBar @JvmOverloads constructor(
         }"
     }
 
+    // 连通性测试只在状态卡片上显示结果（成功 / 失败文案与失败提示），是页面内的读取加显示：
+    // 跟 Activity 的作用域走，页面销毁即取消，销毁后不再碰视图。测试本身是一次只读探测，没有需要做完的写入
+    private var testJob: Job? = null
+
     fun testConnection() {
         val activity = context.unwrapTo<MainActivity>()
         isEnabled = false
         setStatus(app.getText(R.string.connection_test_testing))
-        runOnDefaultDispatcher {
+        testJob?.cancel()
+        testJob = activity.lifecycleScope.launch {
             try {
-                val elapsed = activity.urlTest()
-                onMainDispatcher {
-                    // Activity 已销毁时不再触视图（与 GroupInterfaceAdapter 同一检查）
-                    if (activity.isFinishing || activity.isDestroyed) return@onMainDispatcher
-                    isEnabled = true
-                    setStatus(
-                        app.getString(
-                            if (DataStore.connectionTestURL.startsWith("https://")) {
-                                R.string.connection_test_available
-                            } else {
-                                R.string.connection_test_available_http
-                            }, elapsed
-                        )
+                val elapsed = withContext(Dispatchers.Default) { activity.urlTest() }
+                isEnabled = true
+                setStatus(
+                    app.getString(
+                        if (DataStore.connectionTestURL.startsWith("https://")) {
+                            R.string.connection_test_available
+                        } else {
+                            R.string.connection_test_available_http
+                        }, elapsed
                     )
-                }
-
+                )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Logs.w(e.toString())
-                onMainDispatcher {
-                    if (activity.isFinishing || activity.isDestroyed) return@onMainDispatcher
-                    isEnabled = true
-                    // 失败要落回失败文案：重置成「测试中」会让状态栏永久停在错误状态
-                    setStatus(app.getString(R.string.connection_test_error, e.readableMessage))
+                isEnabled = true
+                // 失败要落回失败文案：重置成「测试中」会让状态栏永久停在错误状态
+                setStatus(app.getString(R.string.connection_test_error, e.readableMessage))
 
-                    activity.snackbar(
-                        app.getString(
-                            R.string.connection_test_error, e.readableMessage
-                        )
-                    ).show()
-                }
+                activity.snackbar(
+                    app.getString(
+                        R.string.connection_test_error, e.readableMessage
+                    )
+                ).show()
             }
         }
     }

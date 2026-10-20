@@ -27,7 +27,9 @@ import libcore.Libcore
 import moe.matsuri.nb4a.utils.Util
 import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
 import java.security.cert.Certificate
@@ -211,20 +213,24 @@ class AssetsActivity : ThemedActivity() {
         // 各文件的本地版本，reloadAssets 在后台读好，bind 直接取，免得主线程读文件
         var versions = emptyMap<String, String>()
 
-        // 调用方都在主线程：列目录和读版本文件放到后台
-        fun reloadAssets() = runOnDefaultDispatcher {
-            val assetsDir = app.assetsDir
-            val files = assetsDir.listFiles()?.filter {
-                it.isFile && (it.name.endsWith(".db") || it.name == SagerNet.CA_FILE_NAME) &&
-                        it.name !in assetNames
-            }.orEmpty()
-            val list = listOf(File(assetsDir, "geoip.db"), File(assetsDir, "geosite.db")) + files
-            val newVersions = list.associate { it.absolutePath to localVersion(it) }
+        // 列目录和读版本文件放到后台，结果在 Activity 的作用域里回填：页面销毁即取消，销毁后不再碰列表。
+        // 重复触发时取消上一次，旧结果不会盖掉新结果；调用方都在主线程
+        private var reloadJob: Job? = null
 
-            layout.refreshLayout.post {
+        fun reloadAssets() {
+            reloadJob?.cancel()
+            reloadJob = lifecycleScope.launch {
+                val (list, newVersions) = withContext(Dispatchers.Default) {
+                    val assetsDir = app.assetsDir
+                    val files = assetsDir.listFiles()?.filter {
+                        it.isFile && (it.name.endsWith(".db") || it.name == SagerNet.CA_FILE_NAME) &&
+                                it.name !in assetNames
+                    }.orEmpty()
+                    val list = listOf(File(assetsDir, "geoip.db"), File(assetsDir, "geosite.db")) + files
+                    list to list.associate { it.absolutePath to localVersion(it) }
+                }
                 // 待删的文件在撤销窗口内还在盘上，重新列目录会把它读回来：先提交掉，否则撤销会按旧位置再插一份
                 undoManager.flush()
-                // 只在主线程改列表：主线程同时在读它
                 assets.clear()
                 assets.addAll(list)
                 versions = newVersions

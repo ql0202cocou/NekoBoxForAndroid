@@ -3,10 +3,11 @@ package io.nekohasekai.sagernet.widget
 import android.content.Context
 import android.util.AttributeSet
 import androidx.preference.Preference
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.ktx.app
-import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
-import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
 import io.nekohasekai.sagernet.utils.PackageCache
 import io.nekohasekai.sagernet.database.EditorCache
 
@@ -29,15 +30,19 @@ class AppListPreference : Preference {
 
     override fun getSummary(): CharSequence {
         if (!PackageCache.isLoaded) {
-            if (!waitingForCache) {
+            val scope = pageScopeOrNull()
+            if (!waitingForCache && scope != null) {
                 waitingForCache = true
-                runOnDefaultDispatcher {
-                    // 失败也要复位标志，否则之后永远不再等待
-                    val loaded = PackageCache.tryAwaitLoad()
-                    waitingForCache = false
-                    // 加载失败（如包读取权限被拒）时不再刷新，下次绑定自然重试，
-                    // 避免「刷新-重试」自激循环
-                    if (loaded) runOnMainDispatcher { notifyChanged() }
+                scope.launch {
+                    try {
+                        // 加载失败（如包读取权限被拒）时不再刷新，下次绑定自然重试，
+                        // 避免「刷新-重试」自激循环
+                        val loaded = withContext(Dispatchers.Default) { PackageCache.tryAwaitLoad() }
+                        if (loaded) notifyChanged()
+                    } finally {
+                        // 失败或页面销毁（取消）也要复位标志，否则之后永远不再等待
+                        waitingForCache = false
+                    }
                 }
             }
             return ""

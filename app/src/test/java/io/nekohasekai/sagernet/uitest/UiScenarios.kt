@@ -18,6 +18,7 @@ import io.nekohasekai.sagernet.database.EditorSessionState
 import io.nekohasekai.sagernet.database.STATE_EDITOR_SESSION
 import io.nekohasekai.sagernet.database.checkEditorSession
 import io.nekohasekai.sagernet.database.claimEditorSession
+import io.nekohasekai.sagernet.ui.AssetsActivity
 import io.nekohasekai.sagernet.ui.ConfigurationFragment
 import io.nekohasekai.sagernet.ui.ConfigurationHolder
 import io.nekohasekai.sagernet.ui.EditorActivity
@@ -28,6 +29,9 @@ import io.nekohasekai.sagernet.ui.RouteFragment
 import io.nekohasekai.sagernet.ui.SettingsFragment
 import io.nekohasekai.sagernet.ui.SettingsPreferenceFragment
 import io.nekohasekai.sagernet.ui.ToolbarFragment
+import io.nekohasekai.sagernet.utils.PackageCache
+import io.nekohasekai.sagernet.widget.AppListPreference
+import io.nekohasekai.sagernet.widget.OutboundPreference
 import io.nekohasekai.sagernet.ui.profile.ConfigEditActivity
 import io.nekohasekai.sagernet.ui.profile.ProfileSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.ShadowsocksSettingsActivity
@@ -436,6 +440,98 @@ class UiScenarios(private val ui: UiTestRule) {
         } finally {
             flag.set(false)
         }
+    }
+
+    // ------------------------------------------------------ 控件与零散读取（U4b b3）
+
+    /** 规则资源页：整表重读在途时销毁页面，销毁后列表不被回填；[destroyFirst] 为假时作对照，必须回填 */
+    fun assetsReloadCancelledOnDestroy(destroyFirst: Boolean): Check {
+        UiFixtures.install()
+        val assets = ui.launch<AssetsActivity>()
+        val adapter = assets.get().adapter
+        if (adapter.assets.isEmpty()) error("前置条件：规则资源页没有列表项")
+        adapter.assets.clear()
+        if (destroyFirst) {
+            IoGate().use {
+                adapter.reloadAssets()
+                ui.destroyNow(assets)
+            }
+        } else {
+            adapter.reloadAssets()
+        }
+        UiSettle.settle()
+        val alive = adapter.jobField("reloadJob").running()
+        return when {
+            destroyFirst && adapter.assets.isNotEmpty() -> Check(false, "销毁后规则资源列表又被回填了（${adapter.assets.size} 项）")
+            destroyFirst && alive -> Check(false, "销毁后重读协程没取消")
+            !destroyFirst && adapter.assets.isEmpty() -> Check(false, "对照组：页面还在却没有回填")
+            else -> Check(true)
+        }
+    }
+
+    /** 出站摘要查节点名：查库在途时销毁页面，结果不再回填；[destroyFirst] 为假时作对照，必须查到 */
+    fun outboundSummaryLoadCancelledOnDestroy(destroyFirst: Boolean): Check {
+        val fixtures = UiFixtures.install()
+        val host = ui.launch<AssetsActivity>()
+        val preference = OutboundPreference(host.get()).apply {
+            key = "b3_outbound"
+            value = "3"
+        }
+        EditorCache.profileCacheStore.putLong("b3_outboundLong", fixtures.profiles[0].id)
+        fun loaded() = preference.javaClass.getDeclaredField("loadedName")
+            .apply { isAccessible = true }.get(preference)
+        if (destroyFirst) {
+            IoGate().use {
+                preference.summary
+                ui.destroyNow(host)
+            }
+        } else {
+            preference.summary
+        }
+        UiSettle.settle()
+        return when {
+            destroyFirst && loaded() != null -> Check(false, "销毁后查询结果仍被回填")
+            !destroyFirst && loaded() == null -> Check(false, "对照组：页面还在却没有查到节点名")
+            else -> Check(true)
+        }
+    }
+
+    /** 应用列表摘要等待包缓存：等待在途时销毁页面，等待随之取消并复位标志（否则之后永远不再等待） */
+    fun appListWaitCancelledOnDestroy(): Check {
+        UiFixtures.install()
+        val host = ui.launch<AssetsActivity>()
+        // 包缓存在应用启动时就已加载完：临时置回未加载（进程内单例，结束后还原），摘要才会进入等待
+        val loadedField = PackageCache.javaClass.getDeclaredField("isLoaded").apply { isAccessible = true }
+        val wasLoaded = loadedField.getBoolean(PackageCache)
+        loadedField.setBoolean(PackageCache, false)
+        try {
+            val preference = AppListPreference(host.get())
+            fun waiting() = preference.javaClass.getDeclaredField("waitingForCache")
+                .apply { isAccessible = true }.getBoolean(preference)
+            IoGate().use {
+                preference.summary
+                if (!waiting()) error("前置条件：取摘要后没有进入等待")
+                ui.destroyNow(host)
+            }
+            UiSettle.settle()
+            return if (!waiting()) Check(true) else Check(false, "销毁后等待标志仍然置位")
+        } finally {
+            loadedField.setBoolean(PackageCache, wasLoaded)
+        }
+    }
+
+    /** 状态卡片的连通性测试：测试在途时销毁页面，协程随之取消 */
+    fun statsTestCancelledOnDestroy(): Check {
+        UiFixtures.install()
+        val main = ui.launch<MainActivity>()
+        val stats = main.get().binding.stats
+        IoGate().use {
+            stats.testConnection()
+            if (!stats.jobField("testJob").running()) error("前置条件：点测试后没有在途的协程")
+            ui.destroyNow(main)
+        }
+        UiSettle.settle()
+        return if (!stats.jobField("testJob").running()) Check(true) else Check(false, "销毁后测试协程没取消")
     }
 
     // ------------------------------------------------------ 编辑器重建与会话

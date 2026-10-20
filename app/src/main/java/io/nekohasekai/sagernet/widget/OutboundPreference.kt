@@ -4,8 +4,9 @@ import android.content.Context
 import android.util.AttributeSet
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.ProfileRepository
-import io.nekohasekai.sagernet.ktx.onMainDispatcher
-import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import moe.matsuri.nb4a.ui.SimpleMenuPreference
 import io.nekohasekai.sagernet.database.EditorCache
 
@@ -38,16 +39,16 @@ class OutboundPreference
 
     private fun loadName(profileId: Long) {
         if (loadingId == profileId) return
+        // 没有页面作用域（context 不是 Activity 派生）就不查，下次绑定再试
+        val scope = pageScopeOrNull() ?: return
         loadingId = profileId
-        runOnDefaultDispatcher {
-            val name = ProfileRepository.getProfile(profileId)?.displayName()
-            onMainDispatcher {
-                // 查库期间又选了别的节点：这次结果作废，由新的那次查询刷新
-                if (loadingId != profileId) return@onMainDispatcher
-                loadingId = 0L
-                loadedName = profileId to name
-                notifyChanged()
-            }
+        scope.launch {
+            val name = withContext(Dispatchers.Default) { ProfileRepository.getProfile(profileId)?.displayName() }
+            // 查库期间又选了别的节点：这次结果作废，由新的那次查询刷新
+            if (loadingId != profileId) return@launch
+            loadingId = 0L
+            loadedName = profileId to name
+            notifyChanged()
         }
     }
 
