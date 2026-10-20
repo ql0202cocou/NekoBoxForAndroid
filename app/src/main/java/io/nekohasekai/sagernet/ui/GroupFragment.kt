@@ -11,8 +11,11 @@ import androidx.appcompat.widget.PopupMenu
 import androidx.appcompat.widget.Toolbar
 import androidx.core.view.*
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.AsyncDifferConfig
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -37,11 +40,54 @@ import kotlinx.coroutines.withContext
 import moe.matsuri.nb4a.utils.Util
 import moe.matsuri.nb4a.utils.toBytesString
 import java.util.*
+import java.util.concurrent.Executor
 
 private const val KEY_SELECTED_GROUP = "selectedGroupId"
 
 // 只刷新订阅更新进度条的局部 bind 标记
 private const val PAYLOAD_PROGRESS = "progress"
+
+// 分组卡片显示的字段：差量比较只看这些，别的字段变了不重绑。进度条不在其中——
+// 它的状态在 GroupUpdater.progress / updating，不在 ProxyGroup 上，走 PAYLOAD_PROGRESS 专用通知
+private data class GroupCardState(
+    val name: String?,
+    val ungrouped: Boolean,
+    val type: Int,
+    val hasSubscription: Boolean,
+    val bytesUsed: Long?,
+    val bytesRemaining: Long?,
+    val expiryDate: Long?,
+    val username: String?,
+    val lastUpdated: Long?,
+)
+
+private fun ProxyGroup.cardState(): GroupCardState {
+    val subscription = subscription
+    return GroupCardState(
+        name = name.takeIf { !it.isNullOrBlank() },
+        ungrouped = ungrouped,
+        type = type,
+        hasSubscription = subscription != null,
+        bytesUsed = subscription?.bytesUsed,
+        bytesRemaining = subscription?.bytesRemaining,
+        expiryDate = subscription?.expiryDate,
+        username = subscription?.username,
+        lastUpdated = subscription?.lastUpdated,
+    )
+}
+
+// 身份按 id；内容按卡片显示的字段。getChangePayload 不覆盖：内容变了就整卡重绑（null payload），
+// 与原来 groupUpdated 的 notifyItemChanged(index) 一致
+private val GROUP_DIFF = object : DiffUtil.ItemCallback<ProxyGroup>() {
+    override fun areItemsTheSame(oldItem: ProxyGroup, newItem: ProxyGroup) = oldItem.id == newItem.id
+
+    override fun areContentsTheSame(oldItem: ProxyGroup, newItem: ProxyGroup) =
+        oldItem.cardState() == newItem.cardState()
+}
+
+// 差量计算与结果回主线程都在调用线程上同步完成：分组只有几行，同步算完，
+// 滑动 / 拖动 / 撤销的就地改动才不会撞上一次还没落地的差量。submit 只在主线程调用
+private val SYNC_EXECUTOR = Executor { it.run() }
 
 class GroupFragment : ToolbarFragment(R.layout.layout_group),
     Toolbar.OnMenuItemClickListener {
@@ -103,8 +149,10 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
 
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                 val index = viewHolder.bindingAdapterPosition
+                // 先取项再移除：移除后这个 holder 已不在任何位置
+                val group = (viewHolder as GroupHolder).proxyGroup
                 groupAdapter.remove(index)
-                undoManager.remove(index to (viewHolder as GroupHolder).proxyGroup)
+                undoManager.remove(index to group)
             }
 
             override fun onMove(
@@ -195,15 +243,40 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             }
         }
 
-    inner class GroupAdapter : RecyclerView.Adapter<GroupHolder>(),
+    inner class GroupAdapter : ListAdapter<ProxyGroup, GroupHolder>(
+        AsyncDifferConfig.Builder(GROUP_DIFF)
+            .setBackgroundThreadExecutor(SYNC_EXECUTOR)
+            .setMainThreadExecutor(SYNC_EXECUTOR)
+            .build()
+    ),
         GroupManager.Listener,
         UndoSnackbarManager.Interface<ProxyGroup> {
 
-        val groupList = ArrayList<ProxyGroup>()
+        // 当前列表的可变工作副本，同时就是 differ 持有的那一个实例（ListAdapter 的 currentList 是它的只读视图）。
+        // 整表变化（重读、新增、库里删除、编辑器改动）一律经 submitGroups 提交一份新副本，由 DiffUtil 发通知；
+        // 只有三条主线程同步路径就地改它并紧跟精确的 notify：滑动删除、撤销插回、拖动换位
+        // （ItemTouchHelper 要求当场可见，撤销下标只对删除当时的列表有效）。主线程之外不碰
+        var groupList = ArrayList<ProxyGroup>()
+            private set
 
         // 页面作用域：适配器在 onViewCreated 里建，此刻视图已存在；视图销毁时取消，
         // 读库结果与列表刷新一并作废。reload 可从任意线程调用（监听回调、撤销提交）
         private val viewScope = viewLifecycleOwner.lifecycleScope
+
+        // 拖动进行中（已有换位、尚未落下）；这期间不应用整表重读：库里还是拖动前的顺序，
+        // 会把正在拖的列表拽回去。落下后补读一次
+        private var dragging = false
+        private var reloadAfterDrag = false
+
+        /**
+         * 提交一份新列表：传副本，differ 对同一实例直接返回、不做比对；此后的就地改动落在这份副本上。
+         * 同步比对（见 SYNC_EXECUTOR），返回时 RecyclerView 已收到全部通知
+         */
+        private fun submitGroups(groups: List<ProxyGroup>) {
+            val next = ArrayList(groups)
+            groupList = next
+            submitList(next)
+        }
 
         fun reload() {
             viewScope.launch {
@@ -213,18 +286,22 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                     if (ungrouped != null && groups.size > 1 && ProfileRepository.countProfilesByGroup(ungrouped.id) == 0L) groups.removeAll { it.ungrouped }
                     groups
                 }
+                if (dragging) {
+                    reloadAfterDrag = true
+                    return@launch
+                }
                 // 同节点列表的 reloadProfiles：整表重读会把撤销窗口里待删的分组读回来，先提交掉，
                 // 否则撤销会按旧位置再插一份
                 undoManager.mutate {
-                    groupList.clear()
-                    groupList.addAll(groups)
-                    notifyDataSetChanged()
+                    submitGroups(groups)
                 }
             }
         }
 
         init {
             setHasStableIds(true)
+            // 先把空的工作副本交给 differ，之后它们始终是同一个实例
+            submitList(groupList)
 
             reload()
         }
@@ -234,12 +311,12 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         }
 
         override fun onBindViewHolder(holder: GroupHolder, position: Int) {
-            holder.bind(groupList[position])
+            holder.bind(getItem(position))
         }
 
         override fun onBindViewHolder(holder: GroupHolder, position: Int, payloads: List<Any>) {
             if (payloads.isNotEmpty() && payloads.all { it == PAYLOAD_PROGRESS }) {
-                holder.bindProgress()
+                holder.bindProgress(getItem(position))
             } else {
                 onBindViewHolder(holder, position)
             }
@@ -251,12 +328,8 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             super.onViewRecycled(holder)
         }
 
-        override fun getItemCount(): Int {
-            return groupList.size
-        }
-
         override fun getItemId(position: Int): Long {
-            return groupList[position].id
+            return getItem(position).id
         }
 
         private val updated = HashSet<ProxyGroup>()
@@ -266,7 +339,10 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                 groupList[i] = group
                 updated.add(group)
             }
-            if (moved) notifyItemMoved(from, to)
+            if (moved) {
+                dragging = true
+                notifyItemMoved(from, to)
+            }
             return moved
         }
 
@@ -275,17 +351,24 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             // to `updated` there while the write below iterates it
             val updated = HashSet(updated)
             this.updated.clear()
+            dragging = false
+            val deferredReload = reloadAfterDrag
+            reloadAfterDrag = false
             // 进程级：分组拖动排序的落库，页面随后离开也要写完
             runOnDefaultDispatcher {
                 GroupRepository.updateUserOrders(updated)
+                // 拖动期间被挡下的重读，要等新顺序落库后再读
+                if (deferredReload) reload()
             }
         }
 
+        // 滑动删除：就地改（见 groupList 的说明）
         fun remove(index: Int) {
             groupList.removeAt(index)
             notifyItemRemoved(index)
         }
 
+        // 撤销插回：就地改，下标夹在当前范围内
         override fun undo(actions: List<Pair<Int, ProxyGroup>>) {
             for ((index, item) in actions) {
                 notifyItemInserted(groupList.insertClamped(index, item))
@@ -303,12 +386,16 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         }
 
         override suspend fun groupAdd(group: ProxyGroup) {
+            // 这 300 ms 并不等任何动画：回调跑在保存方（分组编辑器）的协程里，延迟的实际效果是
+            // 把编辑器的 finish() 与后面的监听器各推迟 300 ms，保留原样（去掉会改编辑器的关闭时机）
             delay(300L)
 
             onMainDispatcher {
                 undoManager.mutate {
-                    groupList.add(group)
-                    notifyItemInserted(groupList.size - 1)
+                    // 延迟期间另一次整表重读可能已经把这个分组读进列表：按 id 去重，在就不再追加
+                    if (groupList.none { it.id == group.id }) {
+                        submitGroups(groupList + group)
+                    }
                 }
 
                 if (group.type == GroupType.SUBSCRIPTION) {
@@ -321,14 +408,12 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             // 该回调跑在调用方的后台线程，读库在这里做，主线程只动视图
             val groupCount = GroupRepository.getAllGroups().size
             onMainDispatcher {
-                val index = groupList.indexOfFirst { it.id == groupId }
-                if (index == -1) return@onMainDispatcher
+                if (groupList.none { it.id == groupId }) return@onMainDispatcher
                 undoManager.mutate {
                     if (groupCount <= 2) {
                         reload()
                     } else {
-                        groupList.removeAt(index)
-                        notifyItemRemoved(index)
+                        submitGroups(groupList.filter { it.id != groupId })
                     }
                 }
             }
@@ -345,15 +430,21 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                     return@onMainDispatcher
                 }
                 undoManager.mutate {
-                    groupList[index] = group
-                    notifyItemChanged(index)
+                    if (groupList[index] === group) {
+                        // 同一个实例被就地改过：差量比不出变化，按原来的做法整卡重绑
+                        notifyItemChanged(index)
+                    } else {
+                        submitGroups(groupList.map { if (it.id == group.id) group else it })
+                    }
                 }
             }
         }
 
+        // 节点数变了（清空分组、节点增删）：分组本身没变，差量看不出，整卡重绑重查节点数
         override suspend fun groupUpdated(groupId: Long) = notifyGroupChanged(groupId, null)
 
-        // 解析进度每前进一步都会到这里：只刷新进度条，不整卡重绑、不再查节点数
+        // 解析进度每前进一步都会到这里：进度不在 ProxyGroup 上，差量看不到，也不该为它整卡重绑、重查节点数，
+        // 所以保留带 payload 的定点通知，由 onBindViewHolder 只刷新进度条
         override suspend fun groupProgress(groupId: Long) = notifyGroupChanged(groupId, PAYLOAD_PROGRESS)
 
         private suspend fun notifyGroupChanged(groupId: Long, payload: Any?) {
@@ -394,7 +485,13 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             countJob = null
         }
 
-        lateinit var proxyGroup: ProxyGroup
+        // 最近一次绑定的项，只在取不到当前位置时兜底
+        private var boundGroup: ProxyGroup? = null
+
+        // 动作（二维码、立即更新、滑动 / 拖动判定）取用的分组：每次取当前位置的最新项。
+        // 差量认为内容没变时不会重绑，持有绑定那一刻的实例会让这些动作读到过期的订阅链接
+        val proxyGroup: ProxyGroup
+            get() = (bindingAdapter as? GroupAdapter)?.groupList?.getOrNull(bindingAdapterPosition) ?: boundGroup!!
         val groupName = binding.groupName
         val groupStatus = binding.groupStatus
         val groupTraffic = binding.groupTraffic
@@ -436,12 +533,14 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                 }
 
                 R.id.action_clear -> {
+                    // 对话框期间列表可能变动，先取下 id
+                    val groupId = proxyGroup.id
                     MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.confirm)
                         .setMessage(R.string.clear_profiles_message)
                         .setPositiveButton(R.string.yes) { _, _ ->
                             // 进程级：确认后的清空分组落库，不随页面取消
                             runOnDefaultDispatcher {
-                                GroupRepository.clearGroup(proxyGroup.id)
+                                GroupRepository.clearGroup(groupId)
                             }
                         }
                         .setNegativeButton(android.R.string.cancel, null)
@@ -453,15 +552,15 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         }
 
 
-        fun bindProgress() {
-            if (proxyGroup.id in GroupUpdater.updating) {
+        fun bindProgress(group: ProxyGroup) {
+            if (group.id in GroupUpdater.updating) {
                 subscriptionUpdateProgress.isVisible = true
 
-                if (!GroupUpdater.progress.containsKey(proxyGroup.id)) {
+                if (!GroupUpdater.progress.containsKey(group.id)) {
                     subscriptionUpdateProgress.isIndeterminate = true
                 } else {
                     subscriptionUpdateProgress.isIndeterminate = false
-                    GroupUpdater.progress[proxyGroup.id]?.let {
+                    GroupUpdater.progress[group.id]?.let {
                         subscriptionUpdateProgress.max = it.max
                         subscriptionUpdateProgress.progress = it.progress
                     }
@@ -472,18 +571,18 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             } else {
                 // 进度条常驻占位（invisible），更新开始 / 结束时卡片高度不变
                 subscriptionUpdateProgress.isInvisible = true
-                updateButton.isInvisible = proxyGroup.type != GroupType.SUBSCRIPTION
-                editButton.isGone = proxyGroup.ungrouped
+                updateButton.isInvisible = group.type != GroupType.SUBSCRIPTION
+                editButton.isGone = group.ungrouped
             }
         }
 
         fun bind(group: ProxyGroup) {
             cancelPendingCount()
-            proxyGroup = group
+            boundGroup = group
 
-            editButton.isGone = proxyGroup.ungrouped
-            updateButton.isInvisible = proxyGroup.type != GroupType.SUBSCRIPTION
-            groupName.text = proxyGroup.displayName()
+            editButton.isGone = group.ungrouped
+            updateButton.isInvisible = group.type != GroupType.SUBSCRIPTION
+            groupName.text = group.displayName()
 
             editButton.setOnClickListener {
                 startActivity(Intent(it.context, GroupSettingsActivity::class.java).apply {
@@ -496,7 +595,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             }
 
             optionsButton.setOnClickListener {
-                selectedGroupId = proxyGroup.id
+                selectedGroupId = group.id
 
                 val popup = PopupMenu(requireContext(), it)
                 popup.menuInflater.inflate(R.menu.group_action_menu, popup.menu)
@@ -508,10 +607,10 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                 popup.show()
             }
 
-            bindProgress()
+            bindProgress(group)
 
             // 流量与到期时间取 RawUpdater 从 Subscription-Userinfo 解析好的字段
-            val subscription = proxyGroup.subscription
+            val subscription = group.subscription
             val lines = mutableListOf<String>()
             if (subscription != null) {
                 val used = subscription.bytesUsed
