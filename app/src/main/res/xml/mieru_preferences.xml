@@ -1,7 +1,7 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <EditTextPreference
-        app:icon="@drawable/ic_social_emoji_symbols"
+        app:icon="@drawable/ic_baseline_label_24"
         app:key="profileName"
         app:title="@string/profile_name"
         app:useSimpleSummaryProvider="true" />
@@ -9,12 +9,12 @@
     <PreferenceCategory app:title="@string/proxy_cat">
 
         <EditTextPreference
-            app:icon="@drawable/ic_hardware_router"
+            app:icon="@drawable/ic_action_dns"
             app:key="serverAddress"
             app:title="@string/server_address"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
-            app:icon="@drawable/ic_maps_directions_boat"
+            app:icon="@drawable/ic_baseline_settings_ethernet_24"
             app:key="serverPort"
             app:title="@string/server_port"
             app:useSimpleSummaryProvider="true" />
@@ -22,7 +22,7 @@
             app:defaultValue="TCP"
             app:entries="@array/mieru_protocol"
             app:entryValues="@array/mieru_protocol"
-            app:icon="@drawable/ic_baseline_compare_arrows_24"
+            app:icon="@drawable/ic_baseline_lan_24"
             app:key="serverProtocol"
             app:title="@string/protocol"
             app:useSimpleSummaryProvider="true" />
@@ -37,7 +37,7 @@
             app:key="serverPassword"
             app:title="@string/password" />
         <EditTextPreference
-            app:icon="@drawable/baseline_public_24"
+            app:icon="@drawable/ic_baseline_straighten_24"
             app:key="serverMTU"
             app:title="@string/mtu"
             app:useSimpleSummaryProvider="true" />

@@ -1,7 +1,7 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <EditTextPreference
-        app:icon="@drawable/ic_social_emoji_symbols"
+        app:icon="@drawable/ic_baseline_label_24"
         app:key="profileName"
         app:title="@string/profile_name"
         app:useSimpleSummaryProvider="true" />
@@ -9,12 +9,12 @@
     <PreferenceCategory app:title="@string/proxy_cat">
 
         <EditTextPreference
-            app:icon="@drawable/ic_hardware_router"
+            app:icon="@drawable/ic_action_dns"
             app:key="serverAddress"
             app:title="@string/server_address"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
-            app:icon="@drawable/ic_maps_directions_boat"
+            app:icon="@drawable/ic_baseline_settings_ethernet_24"
             app:key="serverPort"
             app:title="@string/server_port"
             app:useSimpleSummaryProvider="true" />
@@ -24,12 +24,12 @@
             app:key="serverPassword"
             app:title="@string/password" />
         <EditTextPreference
-            app:icon="@drawable/ic_action_copyright"
+            app:icon="@drawable/baseline_public_24"
             app:key="serverSNI"
             app:title="@string/sni"
             app:useSimpleSummaryProvider="true" />
         <SwitchPreferenceCompat
-            app:icon="@drawable/ic_notification_enhanced_encryption"
+            app:icon="@drawable/ic_action_lock_open"
             app:key="serverAllowInsecure"
             app:summary="@string/allow_insecure_sum"
             app:title="@string/allow_insecure" />
@@ -37,7 +37,7 @@
             app:defaultValue="original"
             app:entries="@array/trojan_go_networks_entry"
             app:entryValues="@array/trojan_go_networks_value"
-            app:icon="@drawable/ic_baseline_compare_arrows_24"
+            app:icon="@drawable/ic_baseline_lan_24"
             app:key="serverNetwork"
             app:title="@string/network"
             app:useSimpleSummaryProvider="true" />
@@ -45,7 +45,7 @@
             app:defaultValue="none"
             app:entries="@array/trojan_go_security_entry"
             app:entryValues="@array/trojan_go_security_value"
-            app:icon="@drawable/ic_baseline_layers_24"
+            app:icon="@drawable/ic_action_lock"
             app:key="serverEncryption"
             app:title="@string/encryption"
             app:useSimpleSummaryProvider="true" />
@@ -55,12 +55,12 @@
         app:key="serverWsCategory"
         app:title="@string/cag_ws">
         <EditTextPreference
-            app:icon="@drawable/ic_baseline_airplanemode_active_24"
+            app:icon="@drawable/baseline_public_24"
             app:key="serverHost"
             app:title="@string/ws_host"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
-            app:icon="@drawable/ic_baseline_format_align_left_24"
+            app:icon="@drawable/ic_baseline_link_24"
             app:key="serverPath"
             app:title="@string/ws_path"
             app:useSimpleSummaryProvider="true" />
@@ -74,7 +74,7 @@
             app:defaultValue="AES-128-GCM"
             app:entries="@array/trojan_go_methods"
             app:entryValues="@array/trojan_go_methods"
-            app:icon="@drawable/ic_notification_enhanced_encryption"
+            app:icon="@drawable/ic_action_lock"
             app:key="serverMethod"
             app:title="@string/enc_method"
             app:useSimpleSummaryProvider="true" />

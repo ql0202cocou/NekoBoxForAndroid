@@ -1,7 +1,7 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <EditTextPreference
-        app:icon="@drawable/ic_social_emoji_symbols"
+        app:icon="@drawable/ic_baseline_label_24"
         app:key="profileName"
         app:title="@string/profile_name"
         app:useSimpleSummaryProvider="true" />
@@ -18,12 +18,12 @@
     <PreferenceCategory app:title="@string/proxy_cat">
 
         <EditTextPreference
-            app:icon="@drawable/ic_hardware_router"
+            app:icon="@drawable/ic_action_dns"
             app:key="serverAddress"
             app:title="@string/server_address"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
-            app:icon="@drawable/ic_maps_directions_boat"
+            app:icon="@drawable/ic_baseline_settings_ethernet_24"
             app:key="serverPorts"
             app:title="@string/server_port"
             app:useSimpleSummaryProvider="true" />
@@ -49,17 +49,17 @@
             app:defaultValue="0"
             app:entries="@array/hysteria_protocol"
             app:entryValues="@array/int_array_3"
-            app:icon="@drawable/ic_baseline_layers_24"
+            app:icon="@drawable/ic_baseline_lan_24"
             app:key="serverProtocol"
             app:title="@string/protocol"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
-            app:icon="@drawable/ic_action_copyright"
+            app:icon="@drawable/baseline_public_24"
             app:key="serverSNI"
             app:title="@string/sni"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
-            app:icon="@drawable/ic_baseline_legend_toggle_24"
+            app:icon="@drawable/ic_baseline_http_24"
             app:key="serverALPN"
             app:title="@string/alpn"
             app:useSimpleSummaryProvider="true" />
@@ -74,7 +74,7 @@
             app:title="@string/certificate_fingerprint"
             app:useSimpleSummaryProvider="true" />
         <SwitchPreferenceCompat
-            app:icon="@drawable/ic_notification_enhanced_encryption"
+            app:icon="@drawable/ic_action_lock_open"
             app:key="serverAllowInsecure"
             app:summary="@string/allow_insecure_sum"
             app:title="@string/allow_insecure" />
@@ -89,17 +89,17 @@
             app:title="@string/hysteria_download_mbps"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
-            app:icon="@drawable/ic_baseline_texture_24"
+            app:icon="@drawable/ic_baseline_speed_24"
             app:key="serverStreamReceiveWindow"
             app:title="@string/hysteria_stream_receive_window"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
-            app:icon="@drawable/ic_baseline_transform_24"
+            app:icon="@drawable/ic_baseline_speed_24"
             app:key="serverConnectionReceiveWindow"
             app:title="@string/hysteria_connection_receive_window"
             app:useSimpleSummaryProvider="true" />
         <SwitchPreferenceCompat
-            app:icon="@drawable/ic_baseline_multiple_stop_24"
+            app:icon="@drawable/ic_baseline_straighten_24"
             app:key="serverDisableMtuDiscovery"
             app:title="@string/hysteria_disable_mtu_discovery" />
         <EditTextPreference

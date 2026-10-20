@@ -1,18 +1,18 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
     <EditTextPreference
-        app:icon="@drawable/ic_social_emoji_symbols"
+        app:icon="@drawable/ic_baseline_label_24"
         app:key="name"
         app:title="@string/profile_name"
         app:useSimpleSummaryProvider="true" />
 
     <PreferenceCategory app:title="@string/proxy_cat">
         <EditTextPreference
-            app:icon="@drawable/ic_hardware_router"
+            app:icon="@drawable/ic_action_dns"
             app:key="serverAddress"
             app:title="@string/server_address"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
-            app:icon="@drawable/ic_maps_directions_boat"
+            app:icon="@drawable/ic_baseline_settings_ethernet_24"
             app:key="serverPort"
             app:title="@string/server_port"
             app:useSimpleSummaryProvider="true" />
@@ -25,7 +25,7 @@
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
             app:dialogLayout="@layout/layout_password_dialog"
-            app:icon="@drawable/ic_notification_enhanced_encryption"
+            app:icon="@drawable/ic_settings_password"
             app:key="password"
             app:title="@string/password" />
     </PreferenceCategory>
@@ -34,12 +34,12 @@
         app:key="serverSecurityCategory"
         app:title="@string/security_settings">
         <EditTextPreference
-            app:icon="@drawable/ic_action_copyright"
+            app:icon="@drawable/baseline_public_24"
             app:key="sni"
             app:title="@string/sni"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
-            app:icon="@drawable/ic_baseline_legend_toggle_24"
+            app:icon="@drawable/ic_baseline_http_24"
             app:key="alpn"
             app:title="@string/alpn"
             app:useSimpleSummaryProvider="true" />
@@ -49,7 +49,7 @@
             app:title="@string/certificates"
             app:useSimpleSummaryProvider="true" />
         <SwitchPreferenceCompat
-            app:icon="@drawable/ic_notification_enhanced_encryption"
+            app:icon="@drawable/ic_action_lock_open"
             app:key="allowInsecure"
             app:summary="@string/allow_insecure_sum"
             app:title="@string/allow_insecure" />
