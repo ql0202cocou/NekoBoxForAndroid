@@ -2,6 +2,7 @@ package io.nekohasekai.sagernet.widget
 
 import android.animation.ValueAnimator
 import android.content.Context
+import android.graphics.Canvas
 import android.graphics.drawable.GradientDrawable
 import android.text.format.Formatter
 import android.util.AttributeSet
@@ -23,6 +24,8 @@ import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.ui.MainActivity
+import io.nekohasekai.sagernet.widget.glass.GlassSurface
+import io.nekohasekai.sagernet.widget.glass.GlassTarget
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -50,6 +53,9 @@ class StatsBar @JvmOverloads constructor(
     private val rxNumber by lazy(LazyThreadSafetyMode.NONE) { findViewById<TextView>(R.id.rx_number) }
     private val rxUnit by lazy(LazyThreadSafetyMode.NONE) { findViewById<TextView>(R.id.rx_unit) }
     private val behavior = Behavior { allowShow }
+
+    /** 玻璃材质（U5f）：非 SOLID 档时底色按配方变半透明，环境色与中心衬底在文字之下，亮边在之上。SOLID 档什么也不做 */
+    val glassSurface = GlassSurface(this, GlassTarget.STATUS_CARD, { setCardBackgroundColor(it) })
 
     /**
      * 卡片给列表底部留白的贡献比例：0 = 不占（未连接、被滚动收起），1 = 全占（卡片展开）。
@@ -112,6 +118,17 @@ class StatsBar @JvmOverloads constructor(
         if (value == clearanceFraction) return
         clearanceFraction = value
         onClearanceChanged?.invoke()
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        glassSurface.refresh()
+    }
+
+    override fun dispatchDraw(canvas: Canvas) {
+        glassSurface.drawBelow(canvas)
+        super.dispatchDraw(canvas)
+        glassSurface.drawAbove(canvas)
     }
 
     override fun onDetachedFromWindow() {

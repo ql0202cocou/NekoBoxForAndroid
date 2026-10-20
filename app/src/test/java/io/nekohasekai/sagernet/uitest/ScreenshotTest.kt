@@ -18,6 +18,8 @@ import io.nekohasekai.sagernet.ui.profile.ProfileSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.ShadowsocksSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.VMessSettingsActivity
 import io.nekohasekai.sagernet.utils.Theme
+import io.nekohasekai.sagernet.widget.glass.GlassTier
+import io.nekohasekai.sagernet.widget.glass.GlassTiers
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
@@ -46,6 +48,8 @@ class ScreenshotTest(private val shot: Shot) : UiTestBase() {
     fun render() {
         fixtures = UiFixtures.install()
         applyDevice(shot)
+        // UiTestRule 默认把玻璃压成 SOLID；材质层的截图在启动页面之前改成它要的档位
+        if (shot.material == Material.FROST) GlassTiers.testOverride = GlassTier.FROST
         when (shot.screen) {
             Screen.CONFIG_LIST -> mainActivity().shot()
             Screen.CONFIG_CONNECTED -> {

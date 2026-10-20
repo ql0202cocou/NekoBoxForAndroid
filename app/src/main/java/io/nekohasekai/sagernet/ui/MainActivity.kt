@@ -67,7 +67,7 @@ class MainActivity : ThemedActivity(),
      */
     override val contentHost = MainContentHost { bottomControlsClearance() }
 
-    // 玻璃材质三个悬浮层的档位来源（U5f；F1 只接通知点，表面还不画玻璃）
+    // 玻璃材质三个悬浮层的档位来源（U5f）；各层的 GlassSurface 在 onCreate 里订阅它
     val glass = GlassTiers(this)
 
     // 设置一级页的滚动状态等页面外状态。第一次取要在 super.onCreate() 之后（SavedStateHandle）
@@ -126,6 +126,9 @@ class MainActivity : ThemedActivity(),
 
         setContentView(binding.root)
         changeState(BaseService.State.Idle)
+        // 玻璃材质：三个悬浮层订阅档位（档位变了只重绘，不重建 Activity）
+        listOf(binding.dock.glassSurface, binding.stats.glassSurface, binding.fab.glassSurface)
+            .forEach { it.bind(glass) }
         connection.connect(this, this)
         DataStore.configurationStore.registerChangeListener(this)
         GroupRepository.userInterface = GroupInterfaceAdapter(this)
