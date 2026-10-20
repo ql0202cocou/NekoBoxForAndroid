@@ -32,12 +32,6 @@ object KnownUiGaps {
         ) { it.rotationDoesNotReplayEnterAnimation() },
 
         KnownUiGap(
-            id = "settings-hub-scroll-lost-after-rotating-in-section",
-            source = "open-issues.md「U2 批 5」已知限制：二级页上旋转后再回设置页，滚动位置回到顶部",
-            acceptance = "设置一级页滚动后进入分类页，在分类页上旋转，再返回，一级页的滚动位置仍在",
-        ) { it.settingsHubScrollKept(rotateInside = true) },
-
-        KnownUiGap(
             id = "config-list-position-lost-on-recreate",
             source = "Robolectric 实测发现（open-issues.md 没有记录）：配置页滚到中间后重建（recreate），重建后第一个可见项回到 0。" +
                 "只在 Robolectric 里复现，没有在真机 / 模拟器上核对；若真机上位置能恢复，说明是节点异步载入与 " +

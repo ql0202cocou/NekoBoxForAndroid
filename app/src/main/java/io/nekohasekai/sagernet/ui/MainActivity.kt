@@ -14,6 +14,7 @@ import androidx.activity.addCallback
 import androidx.annotation.IdRes
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.activity.viewModels
 import androidx.core.view.ViewCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -62,6 +63,9 @@ class MainActivity : ThemedActivity(),
     PreferenceFragmentCompat.OnPreferenceStartScreenCallback {
 
     lateinit var binding: LayoutMainBinding
+
+    // 设置一级页的滚动状态等页面外状态。第一次取要在 super.onCreate() 之后（SavedStateHandle）
+    private val mainModel: MainViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -215,12 +219,12 @@ class MainActivity : ThemedActivity(),
             .replace(R.id.fragment_holder, fragment)
             .commitAllowingStateLoss()
         binding.dock.select(dockItemOf(fragment))
-        settingsListState = when {
+        mainModel.settingsListState = when {
             // 从设置页进二级页面：记下设置列表的滚动位置（替换是异步提交的，此时设置页还在）
             // （只有一级页有非空状态；分类页间不互相进入）
             fragment.opensFromSettings -> (currentFragment() as? SettingsFragment)?.listState()
             // 回到设置一级页：交给新的设置列表恢复（takeSettingsListState）
-            fragment is SettingsFragment -> settingsListState
+            fragment is SettingsFragment -> mainModel.settingsListState
             else -> null
         }
     }
@@ -271,12 +275,8 @@ class MainActivity : ThemedActivity(),
         displayFragmentWithId(R.id.nav_settings)
     }
 
-    // 从设置一级页进入二级页面（七个分类页和末尾四个入口）前，一级列表的滚动状态；
-    // 返回一级页时恢复，免得每次从顶部滚到底
-    private var settingsListState: Parcelable? = null
-
-    /** 新的设置列表取走进入二级页面前保存的滚动状态，只取一次 */
-    fun takeSettingsListState(): Parcelable? = settingsListState.also { settingsListState = null }
+    /** 新的设置列表取走进入二级页面前保存的滚动状态，只取一次（状态在 [MainViewModel] 里，旋转与进程重建后仍在） */
+    fun takeSettingsListState(): Parcelable? = mainModel.takeSettingsListState()
 
     /** 设置一级页上点分类入口（嵌套的 PreferenceScreen）：打开对应的二级页 */
     override fun onPreferenceStartScreen(
