@@ -48,6 +48,7 @@ import io.nekohasekai.sagernet.widget.MainContentHostOwner
 import io.nekohasekai.sagernet.widget.safeDrawingTypes
 import io.nekohasekai.sagernet.widget.systemBarMargins
 import io.nekohasekai.sagernet.bg.ServiceRegistry
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -87,9 +88,11 @@ class MainActivity : ThemedActivity(),
             for (apply in floatingMargins) apply(safeDrawing)
             insets
         }
-        // 列表底部留白含状态卡片的高度（bottomControlsClearance）：卡片高度变了就重新分发插入区
+        // 列表底部留白含状态卡片的贡献（bottomControlsClearance）：卡片滑入 / 滑出时逐帧重算，
+        // 卡片高度变了也重算；只改列表的内边距，不重新分发整棵树的插入区
+        binding.stats.onClearanceChanged = { contentHost.refreshClearance() }
         binding.stats.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
-            if (bottom - top != oldBottom - oldTop) ViewCompat.requestApplyInsets(binding.coordinator)
+            if (bottom - top != oldBottom - oldTop) contentHost.refreshClearance()
         }
 
         if (savedInstanceState == null) {
@@ -199,15 +202,15 @@ class MainActivity : ThemedActivity(),
 
     /**
      * 主界面列表底部在导航栏插入区之外要让出的高度（px）：Dock 区（底边距、Dock、8dp 间隔），
-     * 已连接、状态卡片允许出现时再加卡片高度与 8dp 间隔。连接状态或卡片高度变化时
-     * 重新分发插入区，各滚动视图（hostMainScrollable）的底部留白随之更新
+     * 再加状态卡片的贡献：（卡片高度 + 8dp 间隔）乘以 [StatsBar.clearanceFraction]。比例随卡片的
+     * 滑入 / 滑出平滑变化，所以连接、断开、列表滚动把卡片收起 / 拉出时留白都不突跳；
+     * 卡片被滑走之后不再多留一块空白。变化时 [StatsBar.onClearanceChanged] 带动各滚动视图
+     * （hostMainScrollable）重算底部留白
      */
     fun bottomControlsClearance(): Int {
-        var clearance = resources.getDimensionPixelSize(R.dimen.nav_dock_clearance)
-        if (binding.stats.allowShow) {
-            clearance += binding.stats.height + resources.getDimensionPixelSize(R.dimen.stats_bar_gap)
-        }
-        return clearance
+        val stats = binding.stats
+        val card = (stats.height + resources.getDimensionPixelSize(R.dimen.stats_bar_gap)) * stats.clearanceFraction
+        return resources.getDimensionPixelSize(R.dimen.nav_dock_clearance) + card.roundToInt()
     }
 
     @SuppressLint("CommitTransaction")
@@ -344,9 +347,7 @@ class MainActivity : ThemedActivity(),
         if (state == BaseService.State.Stopped) ProfileRepository.liveTraffic.clear()
 
         binding.fab.changeState(state, animate)
-        val statsAllowed = binding.stats.allowShow
         binding.stats.changeState(state, animate)
-        if (binding.stats.allowShow != statsAllowed) ViewCompat.requestApplyInsets(binding.coordinator)
         if (msg != null) snackbar(getString(R.string.vpn_error, msg)).show()
         (supportFragmentManager.findFragmentById(R.id.fragment_holder) as? WebviewFragment)
             ?.onCoreStateChanged(state)

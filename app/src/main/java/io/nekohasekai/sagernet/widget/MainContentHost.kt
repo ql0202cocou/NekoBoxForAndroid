@@ -29,7 +29,7 @@ interface MainContentHostOwner {
  * 主界面托管内容的登记处与事件汇聚点，一个 MainActivity 一个。
  *
  * - [bottomClearance]：滚动视图底部要为悬浮的 Dock 与状态卡片让出的高度（px）。宿主在它变化时
- *   重新分发插入区，各滚动视图的 padForSystemBars 随之更新；
+ *   调 [refreshClearance]，各滚动视图的 padForSystemBars 随之更新；
  * - [sources]：当前挂在窗口上的、被托管的滚动视图（缓存里脱离窗口的页面不算）；
  * - [addListener]：订阅全部托管视图的滚动（[ContentListener.onContentScrolled]）与结构变化
  *   （[ContentListener.onContentChanged]：挂上 / 摘下窗口、重新布局）。事件的来源是每个视图自己的
@@ -45,6 +45,16 @@ class MainContentHost(private val clearance: () -> Int) {
     private val registered = WeakHashMap<View, Boolean>()
 
     fun bottomClearance(): Int = clearance()
+
+    /**
+     * 让位高度变了（状态卡片滑入 / 滑出的每一帧、卡片高度变化）：所有挂在窗口上的托管视图按最近一次的
+     * 插入区重算底部留白，不重新分发整棵树的插入区。脱离窗口的缓存页不用管，挂回时会请求分发、读到当时的值
+     */
+    fun refreshClearance() {
+        for (view in registered.keys.toTypedArray()) {
+            if (view.isAttachedToWindow) view.reapplySystemBarPadding()
+        }
+    }
 
     /** 当前挂在窗口上的托管视图 */
     val sources: List<View>

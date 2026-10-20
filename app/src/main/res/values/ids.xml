@@ -20,4 +20,7 @@
 
     <!-- ScrollHub 挂在滚动视图上的 tag：每个滚动视图唯一的滚动分发器 -->
     <item name="scroll_hub" type="id" />
+
+    <!-- padForSystemBars 挂在视图上的重算函数（按最近一次的插入区重新算内边距），见 reapplySystemBarPadding -->
+    <item name="system_bar_padding" type="id" />
 </resources>

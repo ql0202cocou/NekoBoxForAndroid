@@ -8,6 +8,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
+import io.nekohasekai.sagernet.R
 
 /** The inset types a view must keep its content clear of: system bars and display cutouts. */
 val safeDrawingTypes = WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
@@ -25,7 +26,7 @@ val safeDrawingTypes = WindowInsetsCompat.Type.systemBars() or WindowInsetsCompa
  * @param ime 底部同时让开软键盘：取导航栏与键盘两者较高的一个。只给上方有输入框、
  *   键盘弹出时仍要能滚到最后一项的列表用（edge-to-edge 窗口不会因键盘缩小）。
  * @param bottomExtra 底部在插入区之外再让出的高度（px），每次分发插入区时取值：主界面的列表
- *   要让开悬浮的 Dock 与状态卡片，宿主在它们变化时重新请求分发。只在 [bottom] 为真、
+ *   要让开悬浮的 Dock 与状态卡片，宿主在它们变化时调 [reapplySystemBarPadding]（逐帧）或重新请求分发。只在 [bottom] 为真、
  *   键盘没有弹出时生效（键盘盖住了 Dock 与卡片）。
  * @param consume forward the insets to children with the handled types zeroed. Only for a
  *   view that owns its whole subtree (e.g. a WebView container): below API 30 consumed
@@ -41,7 +42,9 @@ fun View.padForSystemBars(
 ) {
     val base = Rect(paddingLeft, paddingTop, paddingRight, paddingBottom)
     if (bottom) (this as? ViewGroup)?.clipToPadding = false
-    ViewCompat.setOnApplyWindowInsetsListener(this) { v, insets ->
+    // 最近一次分发到的插入区：bottomExtra 变化时（见 reapplySystemBarPadding）不必等下一次分发就能重算
+    var lastInsets: WindowInsetsCompat? = null
+    fun applyPadding(v: View, insets: WindowInsetsCompat) {
         val safeDrawing = insets.getInsets(safeDrawingTypes)
         val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
         val bottomInset = if (ime) maxOf(safeDrawing.bottom, imeBottom) else safeDrawing.bottom
@@ -59,6 +62,11 @@ fun View.padForSystemBars(
                 else -> base.bottom + bottomInset + extra
             },
         )
+    }
+    setTag(R.id.system_bar_padding, Runnable { lastInsets?.let { applyPadding(this, it) } })
+    ViewCompat.setOnApplyWindowInsetsListener(this) { v, insets ->
+        lastInsets = insets
+        applyPadding(v, insets)
         if (consume) {
             WindowInsetsCompat.Builder(insets).setInsets(safeDrawingTypes, Insets.NONE).build()
         } else insets
@@ -70,6 +78,15 @@ fun View.padForSystemBars(
         override fun onViewAttachedToWindow(v: View) = ViewCompat.requestApplyInsets(v)
         override fun onViewDetachedFromWindow(v: View) = Unit
     })
+}
+
+/**
+ * 按最近一次的插入区重新算 [padForSystemBars] 的内边距，不触发整棵树重新分发插入区。
+ * 用在 bottomExtra 逐帧变化的场合（状态卡片滑入 / 滑出时列表底部留白跟着走）；
+ * 没调过 padForSystemBars 或还没收到过插入区时什么也不做（挂上窗口时会请求分发，那时再按当时的值算）。
+ */
+fun View.reapplySystemBarPadding() {
+    (getTag(R.id.system_bar_padding) as? Runnable)?.run()
 }
 
 /**

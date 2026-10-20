@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.widget
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.drawable.GradientDrawable
 import android.text.format.Formatter
@@ -14,6 +15,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.withStarted
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.google.android.material.card.MaterialCardView
+import com.google.android.material.motion.MotionUtils
+import android.view.animation.AccelerateDecelerateInterpolator
 import kotlin.math.ceil
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.bg.BaseService
@@ -48,6 +51,21 @@ class StatsBar @JvmOverloads constructor(
     private val rxUnit by lazy(LazyThreadSafetyMode.NONE) { findViewById<TextView>(R.id.rx_unit) }
     private val behavior = Behavior { allowShow }
 
+    /**
+     * 卡片给列表底部留白的贡献比例：0 = 不占（未连接、被滚动收起），1 = 全占（卡片展开）。
+     * 跟着卡片的滑入 / 滑出走（同一档时长与缓动），列表底部留白逐帧跟随，不再在连接 / 断开 / 收起时突跳
+     */
+    var clearanceFraction = 0f
+        private set
+
+    /** [clearanceFraction] 每次变化（逐帧）的回调，宿主据此重算列表底部留白 */
+    var onClearanceChanged: (() -> Unit)? = null
+
+    private var clearanceAnimator: ValueAnimator? = null
+
+    // 当前这次滑动是否带动画：由 performShow / performHide 设，滚动触发的滑动恒带动画
+    private var slideAnimated = true
+
     /** 只有已连接时为真，由 [changeState] 维护；为假时卡片保持收起 */
     var allowShow = false
         private set
@@ -58,6 +76,49 @@ class StatsBar @JvmOverloads constructor(
     init {
         // 初始收起：此时还没布局，位移由 Behavior.onLayoutChild 补上
         behavior.slideDown(this, false)
+        // 卡片的展开 / 收起（连接、断开、滚动都经父类的状态变化）带动留白；监听在初始收起之后才接上
+        behavior.addOnScrollStateChangedListener { _, state ->
+            followSlide(expanded = state == HideBottomViewOnScrollBehavior.STATE_SCROLLED_UP)
+        }
+    }
+
+    private fun followSlide(expanded: Boolean) {
+        val target = if (expanded) 1f else 0f
+        clearanceAnimator?.cancel()
+        clearanceAnimator = null
+        if (!slideAnimated || !context.animatorsEnabled() || target == clearanceFraction) {
+            setClearanceFraction(target)
+            return
+        }
+        // 时长与缓动取父类滑动用的同一组主题属性（经 StatsBarMotion 重映射，进 300ms、出 250ms）
+        val duration = context.motionDuration(
+            if (expanded) com.google.android.material.R.attr.motionDurationLong2
+            else com.google.android.material.R.attr.motionDurationMedium4,
+            if (expanded) 500 else 400,
+        )
+        clearanceAnimator = ValueAnimator.ofFloat(clearanceFraction, target).apply {
+            this.duration = duration
+            interpolator = MotionUtils.resolveThemeInterpolator(
+                context,
+                com.google.android.material.R.attr.motionEasingEmphasizedInterpolator,
+                AccelerateDecelerateInterpolator(),
+            )
+            addUpdateListener { setClearanceFraction(it.animatedValue as Float) }
+            start()
+        }
+    }
+
+    private fun setClearanceFraction(value: Float) {
+        if (value == clearanceFraction) return
+        clearanceFraction = value
+        onClearanceChanged?.invoke()
+    }
+
+    override fun onDetachedFromWindow() {
+        // 动画里的更新回调拿着本视图，离开窗口就停；终值在重新连接 / 重建后由状态变化补上
+        clearanceAnimator?.cancel()
+        clearanceAnimator = null
+        super.onDetachedFromWindow()
     }
 
     override fun onFinishInflate() {
@@ -116,14 +177,21 @@ class StatsBar @JvmOverloads constructor(
         }
     }
 
-    private fun performShow(animate: Boolean) = behavior.slideUp(this, animate)
+    private fun performShow(animate: Boolean) {
+        slideAnimated = animate
+        behavior.slideUp(this, animate)
+        slideAnimated = true
+    }
+
     private fun performHide(animate: Boolean) {
+        slideAnimated = animate
         // 触摸浏览（TalkBack）开启时父类的 slideDown 直接返回，让滚动收不起卡片；断开连接时卡片
         // 必须收起（否则一直显示「未连接」并盖住列表底部），这里临时关掉这条豁免。之后重新连接
         // 照常经 slideUp 展开，滚动收起在触摸浏览下仍不生效
         behavior.disableOnTouchExploration(false)
         behavior.slideDown(this, animate)
         behavior.disableOnTouchExploration(true)
+        slideAnimated = true
     }
 
     /** 状态点的样子：Ok 实心 primary；Pending（连接中、测试中）空心环；Error 实心 error；Idle 实心 onSurfaceVariant */
