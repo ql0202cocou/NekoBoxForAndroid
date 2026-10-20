@@ -7,14 +7,15 @@ import kotlin.math.pow
 import kotlin.math.roundToInt
 
 /**
- * ui-plan 第 7 节的对比度，算在 FROST 配方的最终合成背景上（纯 JVM，颜色取自 M3Palette 生成的六主题亮 / 暗两套角色）：
+ * ui-plan 第 7 节的对比度，算在 FROST 与 BLUR 配方的最终合成背景上（纯 JVM，颜色取自 M3Palette 生成的六主题亮 / 暗两套角色）：
  * 正文与小标签 ≥ 4.5:1，图标 ≥ 3:1。
  *
  * 合成顺序同 GlassSurface 的绘制顺序：页面底 → 底色（角色色 @ 配方不透明度）→ 环境色 → sheen → 中心衬底。
  * 取最坏情况：
  * - 背景取两种——页面底（colorBackground）与「页面底混 25% onSurface」（滚动内容经过玻璃下方时明暗变化最大的情形）；
+ *   BLUR 档下层是模糊后的页面，上面这两种同样是最坏情形（模糊只会把明暗拉向均值），不另建模；
  * - 环境色取 from / to 中更差的一个，sheen 取最强（顶部），状态卡片的中心衬底按「文字在卡片边缘、衬底已淡出」不计
- *   （只会让实际更好）。
+ *   （只会让实际更好；BLUR 档的卡片边缘只有 64%，中心衬底不计是最保守的取法）。
  * 前景始终是 on- 角色的实色，不随材质变半透明。
  */
 class GlassContrastTest {
@@ -56,9 +57,9 @@ class GlassContrastTest {
 
     private val background = "background"
 
-    /** 一个表面在 FROST 档下、两种背景、两种环境色端点下可能出现的全部合成底色 */
-    private fun backdrops(target: GlassTarget, p: Map<String, Int>): List<Int> {
-        val r = GlassRecipes.of(target, GlassTier.FROST)
+    /** 一个表面在 [tier] 档下、两种背景、两种环境色端点下可能出现的全部合成底色 */
+    private fun backdrops(target: GlassTarget, tier: GlassTier, p: Map<String, Int>): List<Int> {
+        val r = GlassRecipes.of(target, tier)
         val h = r.highlight!!
         val dark = luminance(p.getValue("surface")) < 0.5
         val page = p.getValue(background)
@@ -74,8 +75,8 @@ class GlassContrastTest {
         }
     }
 
-    private fun worst(target: GlassTarget, p: Map<String, Int>, foreground: String): Double =
-        backdrops(target, p).minOf { contrast(p.getValue(foreground), it) }
+    private fun worst(target: GlassTarget, tier: GlassTier, p: Map<String, Int>, foreground: String): Double =
+        backdrops(target, tier, p).minOf { contrast(p.getValue(foreground), it) }
 
     private fun forEveryTheme(check: (label: String, p: Map<String, Int>) -> Unit) {
         for (spec in M3Palette.specs) for (dark in listOf(false, true)) {
@@ -83,27 +84,33 @@ class GlassContrastTest {
         }
     }
 
+    private val tiers = listOf(GlassTier.FROST, GlassTier.BLUR)
+
     @Test
     fun dockUnselectedLabelAndIcon() = forEveryTheme { label, p ->
-        val ratio = worst(GlassTarget.DOCK, p, "on_surface_variant")
-        println("CONTRAST dock on_surface_variant $label = ${"%.2f".format(ratio)}")
-        assertTrue("Dock 未选中标签 $label 只有 $ratio:1", ratio >= 4.5)
+        for (tier in tiers) {
+            val ratio = worst(GlassTarget.DOCK, tier, p, "on_surface_variant")
+            println("CONTRAST $tier dock on_surface_variant $label = ${"%.2f".format(ratio)}")
+            assertTrue("Dock 未选中标签 $tier $label 只有 $ratio:1", ratio >= 4.5)
+        }
     }
 
     @Test
     fun statusCardText() = forEveryTheme { label, p ->
-        for (fg in listOf("on_surface", "on_surface_variant")) {
-            val ratio = worst(GlassTarget.STATUS_CARD, p, fg)
-            println("CONTRAST card $fg $label = ${"%.2f".format(ratio)}")
-            assertTrue("状态卡片 $fg $label 只有 $ratio:1", ratio >= 4.5)
+        for (tier in tiers) for (fg in listOf("on_surface", "on_surface_variant")) {
+            val ratio = worst(GlassTarget.STATUS_CARD, tier, p, fg)
+            println("CONTRAST $tier card $fg $label = ${"%.2f".format(ratio)}")
+            assertTrue("状态卡片 $fg $tier $label 只有 $ratio:1", ratio >= 4.5)
         }
     }
 
     @Test
     fun connectButtonIcon() = forEveryTheme { label, p ->
-        val ratio = worst(GlassTarget.CONNECT_BUTTON, p, "on_primary_container")
-        println("CONTRAST button on_primary_container $label = ${"%.2f".format(ratio)}")
-        assertTrue("连接按钮图标 $label 只有 $ratio:1", ratio >= 3.0)
+        for (tier in tiers) {
+            val ratio = worst(GlassTarget.CONNECT_BUTTON, tier, p, "on_primary_container")
+            println("CONTRAST $tier button on_primary_container $label = ${"%.2f".format(ratio)}")
+            assertTrue("连接按钮图标 $tier $label 只有 $ratio:1", ratio >= 3.0)
+        }
     }
 
     /** 选中胶囊保持实色 secondaryContainer（不经玻璃）：粉色主题刚过 4.5:1（浅 4.57、深 4.54） */

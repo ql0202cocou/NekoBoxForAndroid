@@ -148,17 +148,18 @@ object GlassRecipes {
     private val CARD_SOLID = solid(GlassTarget.STATUS_CARD, GlassShape.EXTRA_LARGE, ColorRole.SURFACE_CONTAINER, 3f)
     private val BUTTON_SOLID = solid(GlassTarget.CONNECT_BUTTON, GlassShape.CIRCLE, ColorRole.PRIMARY_CONTAINER, 6f)
 
+    // FROST 无模糊，下层的锐利文字会透出来（鬼影）：Dock / 卡片 / 按钮取 98 / 99 / 98%，
+    // 鬼影只剩极淡的轮廓；卡片底色已到 99%，不再叠中心衬底（叠了也只多 0.5%）
     private val DOCK_FROST = DOCK_SOLID.copy(
-        tier = GlassTier.FROST, baseAlpha = 0.92f, ambient = AMBIENT, highlight = HIGHLIGHT,
+        tier = GlassTier.FROST, baseAlpha = 0.98f, ambient = AMBIENT, highlight = HIGHLIGHT,
         shadows = PANEL_SHADOWS, elevationDp = 0f,
     )
     private val CARD_FROST = CARD_SOLID.copy(
-        tier = GlassTier.FROST, baseAlpha = 0.93f,
-        centerBackdrop = Layer(ColorRole.SURFACE_CONTAINER, 0.50f),
+        tier = GlassTier.FROST, baseAlpha = 0.99f,
         ambient = AMBIENT, highlight = HIGHLIGHT, shadows = PANEL_SHADOWS, elevationDp = 0f,
     )
     private val BUTTON_FROST = BUTTON_SOLID.copy(
-        tier = GlassTier.FROST, baseAlpha = 0.95f, highlight = HIGHLIGHT,
+        tier = GlassTier.FROST, baseAlpha = 0.98f, highlight = HIGHLIGHT,
         shadows = BUTTON_SHADOWS, elevationDp = 0f,
     )
 

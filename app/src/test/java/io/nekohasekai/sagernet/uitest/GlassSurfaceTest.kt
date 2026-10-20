@@ -12,7 +12,7 @@ import org.junit.Test
 
 /**
  * U5f F2 / F3：三个悬浮层的玻璃表面随档位变化。SOLID 不改宿主（保持原来的不透明底色），FROST 把底色换成配方里的
- * 不透明度，BLUR 换成 BLUR 配方的（Dock 72%、状态卡片边缘 64%；连接按钮永远是 FROST 的 95%）；
+ * 不透明度，BLUR 换成 BLUR 配方的（Dock 72%、状态卡片边缘 64%；连接按钮永远是 FROST 的 98%）；
  * 档位切换（设置项改了）只重算、不重建 Activity；下层抓取不可用时（来源未登记）整个表面回到完整的 FROST 配方。
  * 不截图，所有平台都跑。
  *
@@ -44,17 +44,17 @@ class GlassSurfaceTest : UiTestBase() {
         UiFixtures.install()
         GlassTiers.testOverride = GlassTier.FROST
         val main = ui.launch<MainActivity>().get()
-        // Dock 92%、状态卡片 93%、连接按钮 95%
-        assertEquals(Triple(pct(92), pct(93), pct(95)), main.fills())
+        // Dock 98%、状态卡片 99%、连接按钮 98%
+        assertEquals(Triple(pct(98), pct(99), pct(98)), main.fills())
     }
 
     @Test
     fun blurUsesTheBlurRecipeButNeverForTheConnectButton() {
         UiFixtures.install()
-        // 注入 BLUR 也一样：连接按钮不做下层抓取，仍是 FROST 的 95%
+        // 注入 BLUR 也一样：连接按钮不做下层抓取，仍是 FROST 的 98%
         GlassTiers.testOverride = GlassTier.BLUR
         val main = ui.launch<MainActivity>().get()
-        assertEquals(Triple(pct(72), pct(64), pct(95)), main.fills())
+        assertEquals(Triple(pct(72), pct(64), pct(98)), main.fills())
         assertEquals(GlassTier.FROST, main.glass.tier(GlassTarget.CONNECT_BUTTON))
     }
 
@@ -63,13 +63,13 @@ class GlassSurfaceTest : UiTestBase() {
         UiFixtures.install()
         GlassTiers.testOverride = GlassTier.BLUR
         val main = ui.launch<MainActivity>().get()
-        assertEquals(Triple(pct(72), pct(64), pct(95)), main.fills())
+        assertEquals(Triple(pct(72), pct(64), pct(98)), main.fills())
 
         // 来源没了（下层抓取不可用）：整体回到 FROST，不是「BLUR 底色去掉模糊」
         main.glass.backdropSource.release()
         main.binding.dock.glassSurface.refresh()
         main.binding.stats.glassSurface.refresh()
-        assertEquals(Triple(pct(92), pct(93), pct(95)), main.fills())
+        assertEquals(Triple(pct(98), pct(99), pct(98)), main.fills())
     }
 
     @Test
@@ -79,7 +79,7 @@ class GlassSurfaceTest : UiTestBase() {
         val controller = ui.launch<MainActivity>()
         val main = controller.get()
         // 自动：Robolectric（API 35、硬件加速的窗口）解析成 BLUR
-        assertEquals(Triple(pct(72), pct(64), pct(95)), main.fills())
+        assertEquals(Triple(pct(72), pct(64), pct(98)), main.fills())
 
         ui.offMain { DataStore.glassMaterial = 2 }
         UiSettle.settle()
@@ -87,12 +87,12 @@ class GlassSurfaceTest : UiTestBase() {
 
         ui.offMain { DataStore.glassMaterial = 1 }
         UiSettle.settle()
-        assertEquals(Triple(pct(92), pct(93), pct(95)), main.fills())
+        assertEquals(Triple(pct(98), pct(99), pct(98)), main.fills())
 
         // 改回自动：BLUR 的底色回来
         ui.offMain { DataStore.glassMaterial = 0 }
         UiSettle.settle()
-        assertEquals(Triple(pct(72), pct(64), pct(95)), main.fills())
+        assertEquals(Triple(pct(72), pct(64), pct(98)), main.fills())
         assertSame(main, controller.get())
     }
 }

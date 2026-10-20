@@ -58,11 +58,11 @@ class GlassRecipeTest {
 
     @Test
     fun frostOpacities() {
-        assertEquals(0.92f, recipe(GlassTarget.DOCK, GlassTier.FROST).baseAlpha, eps)
-        assertEquals(0.93f, recipe(GlassTarget.STATUS_CARD, GlassTier.FROST).baseAlpha, eps)
-        assertEquals(0.95f, recipe(GlassTarget.CONNECT_BUTTON, GlassTier.FROST).baseAlpha, eps)
-        val card = recipe(GlassTarget.STATUS_CARD, GlassTier.FROST).centerBackdrop!!
-        assertEquals(Layer(ColorRole.SURFACE_CONTAINER, 0.50f), card)
+        assertEquals(0.98f, recipe(GlassTarget.DOCK, GlassTier.FROST).baseAlpha, eps)
+        assertEquals(0.99f, recipe(GlassTarget.STATUS_CARD, GlassTier.FROST).baseAlpha, eps)
+        assertEquals(0.98f, recipe(GlassTarget.CONNECT_BUTTON, GlassTier.FROST).baseAlpha, eps)
+        // 卡片底色已到 99%，FROST 档不再叠中心衬底
+        assertNull(recipe(GlassTarget.STATUS_CARD, GlassTier.FROST).centerBackdrop)
         for (target in GlassTarget.entries) {
             val r = recipe(target, GlassTier.FROST)
             // 静态磨砂：不模糊、不提饱和度、不用系统 elevation（阴影自绘）
