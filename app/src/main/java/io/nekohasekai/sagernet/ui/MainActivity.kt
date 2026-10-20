@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.os.Parcelable
 import android.os.RemoteException
 import android.view.KeyEvent
+import android.view.View
 import androidx.activity.addCallback
 import androidx.annotation.IdRes
 import androidx.core.app.ActivityCompat
@@ -43,6 +44,7 @@ import io.nekohasekai.sagernet.fmt.PluginEntry
 import io.nekohasekai.sagernet.group.GroupInterfaceAdapter
 import io.nekohasekai.sagernet.ktx.motionDuration
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
+import io.nekohasekai.sagernet.widget.ContentListener
 import io.nekohasekai.sagernet.widget.MainContentHost
 import io.nekohasekai.sagernet.widget.MainContentHostOwner
 import io.nekohasekai.sagernet.widget.safeDrawingTypes
@@ -70,6 +72,19 @@ class MainActivity : ThemedActivity(),
     // 玻璃材质三个悬浮层的档位来源（U5f）；各层的 GlassSurface 在 onCreate 里订阅它
     val glass = GlassTiers(this)
 
+    // BLUR 档的下层来源是 fragment_holder；托管的滚动视图挂上 / 摘下窗口（结构变化）让已录的下层过期。
+    // MainContentHost 在滚动视图每次重新布局时也会回调（RecyclerView 滚动时挂上新行就会请求布局），
+    // 那只是子节点在滚动视图自己的 RenderNode 里变化，下层按引用实时重放，不用重录，所以只认「挂在窗口上的集合变了」
+    private var backdropAttachedSources: Set<View> = emptySet()
+    private val backdropContentListener = object : ContentListener {
+        override fun onContentChanged(source: View?) {
+            val now = contentHost.sources.toSet()
+            if (now == backdropAttachedSources) return
+            backdropAttachedSources = now
+            glass.backdropSource.markChanged()
+        }
+    }
+
     // 设置一级页的滚动状态等页面外状态。第一次取要在 super.onCreate() 之后（SavedStateHandle）
     private val mainModel: MainViewModel by viewModels()
 
@@ -77,6 +92,9 @@ class MainActivity : ThemedActivity(),
         super.onCreate(savedInstanceState)
 
         binding = LayoutMainBinding.inflate(layoutInflater)
+        // 玻璃的下层来源：fragment_holder（在三个悬浮层之下、不含它们）。页面转场的脉冲长度与转场同一个时长
+        glass.backdropSource.attach(binding.fragmentHolder) { pageTransitionMillis() }
+        contentHost.addListener(backdropContentListener)
         binding.fab.initProgress(binding.fabProgress)
         binding.dock.onItemSelected = { id ->
             // 已在该页时不重建页面；二级页面（含设置的分类页）上点「设置」回到设置一级页
@@ -274,8 +292,12 @@ class MainActivity : ThemedActivity(),
         themedDuration(MaterialSharedAxis(MaterialSharedAxis.X, forward))
 
     private fun <T : Visibility> themedDuration(transition: T): T = transition.apply {
-        duration = motionDuration(com.google.android.material.R.attr.motionDurationMedium2, 300)
+        duration = pageTransitionMillis()
     }
+
+    // 页面转场的时长，转场本身与玻璃下层的脉冲窗口（GlassBackdropSource）共用
+    private fun pageTransitionMillis(): Long =
+        motionDuration(com.google.android.material.R.attr.motionDurationMedium2, 300)
 
     // 下一次 displayFragment 是返回设置一级页（返回箭头 / 返回键），不是 Dock 切换
     private var returningToSettings = false
@@ -453,6 +475,8 @@ class MainActivity : ThemedActivity(),
 
     override fun onDestroy() {
         super.onDestroy()
+        contentHost.removeListener(backdropContentListener)
+        glass.backdropSource.release()
         GroupRepository.userInterface = null
         DataStore.configurationStore.unregisterChangeListener(this)
         connection.disconnect(this)

@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.uitest
 import android.graphics.Color
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ui.MainActivity
+import io.nekohasekai.sagernet.widget.glass.GlassTarget
 import io.nekohasekai.sagernet.widget.glass.GlassTier
 import io.nekohasekai.sagernet.widget.glass.GlassTiers
 import org.junit.Assert.assertEquals
@@ -10,8 +11,14 @@ import org.junit.Assert.assertSame
 import org.junit.Test
 
 /**
- * U5f F2：三个悬浮层的玻璃表面随档位变化。SOLID 不改宿主（保持原来的不透明底色），FROST 把底色换成配方里的
- * 不透明度；档位切换（设置项改了）只重算、不重建 Activity。不截图，所有平台都跑。
+ * U5f F2 / F3：三个悬浮层的玻璃表面随档位变化。SOLID 不改宿主（保持原来的不透明底色），FROST 把底色换成配方里的
+ * 不透明度，BLUR 换成 BLUR 配方的（Dock 72%、状态卡片边缘 64%；连接按钮永远是 FROST 的 95%）；
+ * 档位切换（设置项改了）只重算、不重建 Activity；下层抓取不可用时（来源未登记）整个表面回到完整的 FROST 配方。
+ * 不截图，所有平台都跑。
+ *
+ * Robolectric 的窗口报告硬件加速（`View.isHardwareAccelerated` 为真），所以「自动」在这里解析成 BLUR、
+ * 宿主真的建了 GlassBackdrop；但画布是软件画布，`drawBackdrop` 不画任何东西（BLUR 不在 Robolectric 里渲染，
+ * 截图基线靠 UiTestRule 压成 SOLID）。这里验证的是档位、底色与降级的决定，不是像素。
  */
 class GlassSurfaceTest : UiTestBase() {
 
@@ -42,13 +49,37 @@ class GlassSurfaceTest : UiTestBase() {
     }
 
     @Test
+    fun blurUsesTheBlurRecipeButNeverForTheConnectButton() {
+        UiFixtures.install()
+        // 注入 BLUR 也一样：连接按钮不做下层抓取，仍是 FROST 的 95%
+        GlassTiers.testOverride = GlassTier.BLUR
+        val main = ui.launch<MainActivity>().get()
+        assertEquals(Triple(pct(72), pct(64), pct(95)), main.fills())
+        assertEquals(GlassTier.FROST, main.glass.tier(GlassTarget.CONNECT_BUTTON))
+    }
+
+    @Test
+    fun missingBackdropSourceFallsBackToTheFullFrostRecipe() {
+        UiFixtures.install()
+        GlassTiers.testOverride = GlassTier.BLUR
+        val main = ui.launch<MainActivity>().get()
+        assertEquals(Triple(pct(72), pct(64), pct(95)), main.fills())
+
+        // 来源没了（下层抓取不可用）：整体回到 FROST，不是「BLUR 底色去掉模糊」
+        main.glass.backdropSource.release()
+        main.binding.dock.glassSurface.refresh()
+        main.binding.stats.glassSurface.refresh()
+        assertEquals(Triple(pct(92), pct(93), pct(95)), main.fills())
+    }
+
+    @Test
     fun settingChangeRepaintsWithoutRecreate() {
         UiFixtures.install()
         GlassTiers.testOverride = null
         val controller = ui.launch<MainActivity>()
         val main = controller.get()
-        // 自动：Robolectric（API 35）解析成 BLUR，F3 之前按 FROST 画
-        assertEquals(Triple(pct(92), pct(93), pct(95)), main.fills())
+        // 自动：Robolectric（API 35、硬件加速的窗口）解析成 BLUR
+        assertEquals(Triple(pct(72), pct(64), pct(95)), main.fills())
 
         ui.offMain { DataStore.glassMaterial = 2 }
         UiSettle.settle()
@@ -57,6 +88,11 @@ class GlassSurfaceTest : UiTestBase() {
         ui.offMain { DataStore.glassMaterial = 1 }
         UiSettle.settle()
         assertEquals(Triple(pct(92), pct(93), pct(95)), main.fills())
+
+        // 改回自动：BLUR 的底色回来
+        ui.offMain { DataStore.glassMaterial = 0 }
+        UiSettle.settle()
+        assertEquals(Triple(pct(72), pct(64), pct(95)), main.fills())
         assertSame(main, controller.get())
     }
 }

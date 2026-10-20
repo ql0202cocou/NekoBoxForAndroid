@@ -223,8 +223,14 @@ class NavDock @JvmOverloads constructor(
 
     override fun onDetachedFromWindow() {
         pillSpring.cancel()
-        glassSurface.cancelPress()
+        glassSurface.detach()
         super.onDetachedFromWindow()
+    }
+
+    // 玻璃：BLUR 档先把模糊后的下层画在宿主的半透明底色之下（super.draw 画底色与内容）
+    override fun draw(canvas: Canvas) {
+        glassSurface.drawBackdrop(canvas)
+        super.draw(canvas)
     }
 
     // 玻璃：材质层在各项之下（环境色、sheen）与之上（按压光、亮边）

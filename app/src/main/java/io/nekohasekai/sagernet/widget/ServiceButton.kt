@@ -302,7 +302,7 @@ class ServiceButton @JvmOverloads constructor(
     }
 
     override fun onDetachedFromWindow() {
-        glassSurface.cancelPress()
+        glassSurface.detach()
         animate().cancel()
         scaleX = 1f
         scaleY = 1f

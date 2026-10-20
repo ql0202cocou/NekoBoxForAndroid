@@ -125,6 +125,12 @@ class StatsBar @JvmOverloads constructor(
         glassSurface.refresh()
     }
 
+    // 玻璃：BLUR 档先把模糊后的下层画在宿主的半透明底色之下（super.draw 画底色与内容）
+    override fun draw(canvas: Canvas) {
+        glassSurface.drawBackdrop(canvas)
+        super.draw(canvas)
+    }
+
     override fun dispatchDraw(canvas: Canvas) {
         glassSurface.drawBelow(canvas)
         super.dispatchDraw(canvas)
@@ -135,6 +141,7 @@ class StatsBar @JvmOverloads constructor(
         // 动画里的更新回调拿着本视图，离开窗口就停；终值在重新连接 / 重建后由状态变化补上
         clearanceAnimator?.cancel()
         clearanceAnimator = null
+        glassSurface.detach()
         super.onDetachedFromWindow()
     }
 

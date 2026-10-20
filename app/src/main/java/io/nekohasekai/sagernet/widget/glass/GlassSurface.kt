@@ -10,6 +10,7 @@ import android.graphics.Path
 import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
+import android.os.Build
 import android.view.MotionEvent
 import android.view.View
 import androidx.core.graphics.ColorUtils
@@ -28,17 +29,21 @@ import kotlin.math.sin
 
 /**
  * 把 [GlassRecipe] 画到一个悬浮层（Dock、状态卡片、连接按钮）上。宿主各有一个，宿主在自己的绘制钩子里转调：
- * 子视图之前 [drawBelow]（环境色渐变、sheen、中心衬底），子视图之后 [drawAbove]（按压光、顶亮边、内高光、外侧细线）；
+ * `draw()` 里 `super.draw()` 之前 [drawBackdrop]（仅 BLUR：模糊后的下层），子视图之前 [drawBelow]
+ * （环境色渐变、sheen、中心衬底），子视图之后 [drawAbove]（按压光、顶亮边、内高光、外侧细线）；
  * 底色（半透明的角色色）不在这里画，经 [applyFill] 交给宿主自己的背景（卡片的 cardBackgroundColor、
  * 按钮的 backgroundTint），形状、系统 elevation 阴影、涟漪都沿用宿主原样。
  *
  * 档位来自 [GlassTiers.tier]，经 [bind] 订阅：档位变了只重算配方并重绘，不重建 Activity。
  * - SOLID：宿主原样，这里不画任何东西，也不改宿主的任何属性（截图基线保持逐像素不变）；
  * - FROST：按配方画静态磨砂；
- * - BLUR：F3 才有下层捕获，现在按 FROST 画（[effectiveTier]）。
+ * - BLUR：FROST 的全部，加 [GlassBackdrop] 抓取的模糊下层（配方里的底色只有 64–72%，靠它托着读）。
+ *   下层抓取不可用时（API < 31、宿主不在硬件加速的窗口里、来源未登记、RenderEffect 失败）这个表面整体回到
+ *   **完整的 FROST 配方**（[GlassPolicy.effectiveTier]），不是「BLUR 底色去掉模糊」。连接按钮永不 BLUR。
  *
- * 阴影：F2 保留宿主的系统 elevation 阴影，不用配方里的自绘阴影（`GlassRecipe.shadows`）；FROST 底色 92–95% 不透明，
- * 系统阴影在底色之下不外漏。前景（文字、图标）不经这里，始终是宿主的 on- 角色，不会变半透明。
+ * 阴影：所有档位都保留宿主的系统 elevation 阴影，不用配方里的自绘阴影（`GlassRecipe.shadows`）。FROST 底色 92–95%
+ * 不透明；BLUR 只有 64–72%，但系统阴影只画在形状之外（模拟器上同一画面开 / 关 elevation 对比，Dock 与卡片内部
+ * 逐像素一致，浅色与深色都是），不会从半透明的底色里透出来，所以不需要 `cardElevation = 0` 加自绘阴影。前景（文字、图标）不经这里，始终是宿主的 on- 角色，不会变半透明。
  * 颜色一律由 [ColorRole] 按宿主的主题解析（?attr/ 角色），只在这里加透明度。
  */
 class GlassSurface(
@@ -64,6 +69,10 @@ class GlassSurface(
     )
 
     private var tiers: GlassTiers? = null
+
+    // BLUR 档的下层抓取；null = 当前档位不抓取。backdropFailed：这个宿主的抓取抛过异常，本次挂载内不再尝试
+    private var backdrop: GlassBackdrop? = null
+    private var backdropFailed = false
 
     // 当前生效的配方；null = SOLID（宿主原样）
     private var recipe: GlassRecipe? = null
@@ -99,11 +108,18 @@ class GlassSurface(
 
     override fun onGlassTiersChanged() = refresh()
 
-    /** 宿主挂上窗口 / 主题变化后调用：按当前主题重新解析颜色 */
+    /** 宿主挂上窗口 / 主题变化后调用：重新取档位（含硬件加速、下层抓取是否可用）并按当前主题解析颜色 */
     fun refresh() {
         val glass = tiers ?: return
-        val tier = effectiveTier(glass.tier(target, hardwareAccelerated = true))
+        val hardware = host.isHardwareAccelerated
+        val tier = GlassPolicy.effectiveTier(
+            glass.tier(target, hardware),
+            GlassPolicy.backdropAvailable(
+                Build.VERSION.SDK_INT, hardware, glass.backdropSource.hasSource, backdropFailed,
+            ),
+        )
         if (tier == GlassTier.SOLID) {
+            releaseBackdrop()
             if (recipe == null) return
             recipe = null
             colors = null
@@ -117,12 +133,31 @@ class GlassSurface(
         recipe = r
         colors = c
         geometryValid = false
+        if (tier == GlassTier.BLUR) acquireBackdrop(glass.backdropSource) else releaseBackdrop()
         applyFill(c.fill)
         host.invalidate()
     }
 
-    // F3 之前 BLUR 按 FROST 画：BLUR 配方的底色只有 64–72%，没有下层模糊托着读不清
-    private fun effectiveTier(tier: GlassTier) = if (tier == GlassTier.BLUR) GlassTier.FROST else tier
+    private fun acquireBackdrop(source: GlassBackdropSource) {
+        // 策略已保证 API >= 31；这里再守一次，让 lint 与老系统都放心
+        if (Build.VERSION.SDK_INT < GlassPolicy.BLUR_MIN_SDK) return
+        val b = backdrop ?: GlassBackdrop(host, source) {
+            // 抓取失败：记下，下一轮消息里整体降到 FROST（不在绘制过程中改宿主的属性）
+            backdropFailed = true
+            host.post { refresh() }
+        }.also { backdrop = it }
+        b.attach()
+    }
+
+    private fun releaseBackdrop() {
+        detachBackdrop()
+        backdrop = null
+    }
+
+    // 只有 API >= 31 才可能建出 backdrop；这里守一次，lint 与老系统都放心
+    private fun detachBackdrop() {
+        if (Build.VERSION.SDK_INT >= GlassPolicy.BLUR_MIN_SDK) backdrop?.detach()
+    }
 
     private fun resolve(r: GlassRecipe): Colors {
         val dark = !MaterialColors.isColorLight(MaterialColors.getColor(host, com.google.android.material.R.attr.colorSurface))
@@ -145,6 +180,19 @@ class GlassSurface(
             hairline = role(h.hairlineColor, h.hairline.pick(dark)),
             press = role(edgeRole, h.pressGlow.pick(dark)),
         )
+    }
+
+    /**
+     * 宿主 `draw()` 里、`super.draw()` 之前：BLUR 档画模糊后的下层（形状之内，在宿主半透明底色之下）。
+     * 其它档位什么也不做。非硬件画布（截图、软件层）画不了，那一帧没有下层
+     */
+    fun drawBackdrop(canvas: Canvas) {
+        val r = recipe ?: return
+        val c = colors ?: return
+        if (r.tier != GlassTier.BLUR || Build.VERSION.SDK_INT < GlassPolicy.BLUR_MIN_SDK) return
+        val b = backdrop ?: return
+        if (!prepare(r, c)) return
+        b.draw(canvas, shape, r)
     }
 
     /** 子视图之前：环境色渐变、sheen、中心衬底（都在形状之内） */
@@ -314,7 +362,14 @@ class GlassSurface(
         }
     }
 
-    /** 宿主脱离窗口时调用：停掉按压光，免得动画回调拿着视图 */
+    /** 宿主脱离窗口时调用：停掉按压光，摘掉下层抓取的监听、丢掉显示列表；下次挂上由 [refresh] 重建 */
+    fun detach() {
+        cancelPress()
+        detachBackdrop()
+        backdropFailed = false
+    }
+
+    /** 停掉按压光，免得动画回调拿着视图 */
     fun cancelPress() {
         pressAnimator?.cancel()
         pressAnimator = null

@@ -28,6 +28,9 @@ class GlassTiers(private val context: Context) {
 
     private class Snapshot(val choice: GlassChoice, val lowRam: Boolean, val powerSave: Boolean)
 
+    /** BLUR 档下层抓取的来源（`fragment_holder`），MainActivity 登记；各 BLUR 表面的 GlassSurface 从这里取 */
+    val backdropSource = GlassBackdropSource()
+
     private val listeners = ArrayList<Listener>()
     private var snapshot: Snapshot? = null
     private var receiver: BroadcastReceiver? = null
@@ -42,7 +45,8 @@ class GlassTiers(private val context: Context) {
 
     /** [target] 现在该用的档位。UI 测试可经 [testOverride] 整体压成固定档位 */
     fun tier(target: GlassTarget, hardwareAccelerated: Boolean = true): GlassTier {
-        testOverride?.let { return it }
+        // 连接按钮永不 BLUR（不对它做下层捕获），注入的档位也一样
+        testOverride?.let { return if (it == GlassTier.BLUR && target == GlassTarget.CONNECT_BUTTON) GlassTier.FROST else it }
         val s = snapshot ?: read().also { snapshot = it }
         return GlassPolicy.resolve(
             s.choice, target, Build.VERSION.SDK_INT, hardwareAccelerated, s.lowRam, s.powerSave,

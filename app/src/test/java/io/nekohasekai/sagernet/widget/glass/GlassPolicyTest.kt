@@ -84,4 +84,27 @@ class GlassPolicyTest {
         assertEquals(GlassChoice.AUTO, GlassChoice.fromStored(3))
         assertEquals(GlassChoice.AUTO, GlassChoice.fromStored(-1))
     }
+
+    @Test
+    fun backdropNeedsEveryCondition() {
+        fun available(sdk: Int = 36, hw: Boolean = true, source: Boolean = true, failed: Boolean = false) =
+            GlassPolicy.backdropAvailable(sdk, hw, source, failed)
+        assertEquals(true, available())
+        assertEquals(true, available(sdk = 31))
+        assertEquals(false, available(sdk = 30))
+        assertEquals(false, available(hw = false))
+        assertEquals(false, available(source = false))
+        assertEquals(false, available(failed = true))
+    }
+
+    @Test
+    fun blurFallsBackToTheFullFrostTierWhenTheBackdropIsUnavailable() {
+        assertEquals(GlassTier.BLUR, GlassPolicy.effectiveTier(GlassTier.BLUR, backdropAvailable = true))
+        assertEquals(GlassTier.FROST, GlassPolicy.effectiveTier(GlassTier.BLUR, backdropAvailable = false))
+        // SOLID 与 FROST 与下层抓取无关
+        for (available in listOf(true, false)) {
+            assertEquals(GlassTier.SOLID, GlassPolicy.effectiveTier(GlassTier.SOLID, available))
+            assertEquals(GlassTier.FROST, GlassPolicy.effectiveTier(GlassTier.FROST, available))
+        }
+    }
 }
