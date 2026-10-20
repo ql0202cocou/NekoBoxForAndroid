@@ -56,6 +56,11 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         true
     }
 
+    // 文本编辑项统一弹 Outlined 对话框，登记过输入规则的（混合端口）带行内校验
+    override fun onDisplayPreferenceDialog(preference: Preference) {
+        if (!showOutlinedDialog(preference)) super.onDisplayPreferenceDialog(preference)
+    }
+
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         preferenceManager.preferenceDataStore = DataStore.configurationStore
         DataStore.initGlobal()
@@ -162,7 +167,11 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         val mixedPort = findPreference<EditTextPreference>(Key.MIXED_PORT)!!
         mixedPort.setOnBindEditTextListener(EditTextPreferenceModifiers.Port)
         // 范围同 DataStore.mixedPort 的 parsePort：越界值会被静默换成 2080 + 用户偏移，
-        // 界面却显示原值，所以在保存前拦下
+        // 界面却显示原值，所以在输入时就拦下；下面的 change 监听器在「确定」时兜底
+        InlineValidations.register(mixedPort, InlineValidation(
+            message = { it.getString(R.string.integer_range_error, 1025, 65535) },
+            isValid = { isIntegerInRange(it, 1025, 65535) },
+        ))
         mixedPort.setOnPreferenceChangeListener { _, newValue ->
             if (!isIntegerInRange(newValue, 1025, 65535)) {
                 Toast.makeText(

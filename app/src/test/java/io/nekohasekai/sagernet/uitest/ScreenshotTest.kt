@@ -5,7 +5,9 @@ import android.content.Intent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.preference.EditTextPreference
 import androidx.test.core.app.ApplicationProvider
+import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.database.DataStore
@@ -97,6 +99,16 @@ class ScreenshotTest(private val shot: Shot) : UiTestBase() {
             // 单选列表对话框（MTU）与文本输入对话框（Remote DNS 的 EditTextPreference）
             Screen.DIALOG_LIST_CHOICE -> settingsDialog(0, "MTU")
             Screen.DIALOG_TEXT_INPUT -> settingsDialog(4, "Remote DNS")
+            // 带行内校验的文本对话框：端口填了 70000，打开就显示错误行、「确定」禁用
+            Screen.DIALOG_INLINE_ERROR -> {
+                val editor = editor(VMessSettingsActivity::class.java, 0)
+                val port = editor.get().child!!.findPreference<EditTextPreference>(Key.SERVER_PORT)!!
+                port.text = "70000"
+                UiSettle.settle()
+                port.performClick()
+                UiSettle.settle()
+                Screenshots.checkScreen(shot)
+            }
         }
     }
 

@@ -15,6 +15,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.withStarted
+import androidx.preference.Preference
 import androidx.preference.PreferenceDataStore
 import androidx.preference.PreferenceFragmentCompat
 import com.github.shadowsocks.plugin.Empty
@@ -322,6 +323,11 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
                 }
                 EditorCache.profileCacheStore.registerChangeListener(this)
             }
+        }
+
+        // 文本编辑项统一弹 Outlined 对话框，登记过输入规则的（整数、端口、服务器地址、证书指纹等）带行内校验
+        override fun onDisplayPreferenceDialog(preference: Preference) {
+            if (!showOutlinedDialog(preference)) super.onDisplayPreferenceDialog(preference)
         }
 
         open fun onMenuItemSelected(item: MenuItem): Boolean = when (item.itemId) {

@@ -49,6 +49,8 @@ import io.nekohasekai.sagernet.fmt.decideCore
 import io.nekohasekai.sagernet.fmt.putBean
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.ui.EditorActivity
+import io.nekohasekai.sagernet.ui.InlineValidation
+import io.nekohasekai.sagernet.ui.InlineValidations
 import kotlinx.parcelize.Parcelize
 import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 import io.nekohasekai.sagernet.database.EditorCache
@@ -512,6 +514,7 @@ private fun Preference.findInvalidIntegerPreference(): EditTextPreference? {
     return null
 }
 
+// 输入时与「确定」时共用同一条规则：对话框里按它实时校验（InlineValidation），change 监听器照旧兜底拒绝
 fun EditTextPreference.bindIntegerPreference(
     min: Int = 0, max: Int = Int.MAX_VALUE, allowEmpty: Boolean = false,
 ): EditTextPreference {
@@ -519,6 +522,10 @@ fun EditTextPreference.bindIntegerPreference(
     extras.putInt(INTEGER_MAX, max)
     extras.putBoolean(INTEGER_ALLOW_EMPTY, allowEmpty)
     setOnBindEditTextListener(EditTextPreferenceModifiers.Number)
+    InlineValidations.register(this, InlineValidation(
+        message = { it.getString(R.string.integer_range_error, min, max) },
+        isValid = { io.nekohasekai.sagernet.database.preference.isIntegerInRange(it, min, max, allowEmpty) },
+    ))
     setOnPreferenceChangeListener { _, value ->
         val valid = io.nekohasekai.sagernet.database.preference.isIntegerInRange(value, min, max, allowEmpty)
         if (!valid) {
@@ -534,11 +541,15 @@ fun EditTextPreference.bindPasswordPreference(): EditTextPreference {
     return this
 }
 
-// Rejects an edit that fails `valid` with a toast; pair it with validateEditor() so
-// values that were imported or cached before the check existed are caught on save.
+// 输入时在对话框里实时校验并禁用「确定」（InlineValidation），change 监听器在「确定」时再拒绝一次并弹 Toast 兜底；
+// 与 validateEditor() 配对：导入或之前缓存的、没经过输入校验的值在保存时拦下。
 fun EditTextPreference.bindValidatedPreference(
     @StringRes message: Int, valid: (String) -> Boolean,
 ): EditTextPreference {
+    InlineValidations.register(this, InlineValidation(
+        message = { it.getString(message) },
+        isValid = valid,
+    ))
     setOnPreferenceChangeListener { _, value ->
         val ok = value is String && valid(value)
         if (!ok) Toast.makeText(context, message, Toast.LENGTH_LONG).show()

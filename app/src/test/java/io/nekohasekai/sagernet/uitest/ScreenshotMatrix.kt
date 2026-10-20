@@ -37,6 +37,9 @@ enum class Screen(val dir: String) {
     DIALOG_THEME_PICKER("dialog-theme-picker"),
     DIALOG_LIST_CHOICE("dialog-list-choice"),
     DIALOG_TEXT_INPUT("dialog-text-input"),
+
+    // 编辑器里带行内校验的文本对话框，输入不合法的状态（端口 70000：错误行 + 「确定」禁用）
+    DIALOG_INLINE_ERROR("dialog-inline-error"),
 }
 
 /** 主题：[id] 进文件名；[appTheme] 是写进 DataStore.appTheme 的编号（选色网格里的粉、白、黑） */
@@ -46,7 +49,7 @@ enum class ThemeVariant(val id: String, val appTheme: Int) {
     BLACK("black", Theme.BLACK),
 }
 
-/** 材质：截图时 UiTestRule 的档位注入点取什么。SOLID 是原有的 77 张基线，FROST 是 U5f 的静态磨砂基线 */
+/** 材质：截图时 UiTestRule 的档位注入点取什么。SOLID 是 MD3 实色基线（78 张），FROST 是 U5f 的静态磨砂基线 */
 enum class Material(val suffix: String) {
     SOLID(""),
     FROST("_frost"),
@@ -74,13 +77,13 @@ data class Shot(
 }
 
 /**
- * 分层矩阵（81 张）。每个轴的每个取值都至少覆盖到；宽度 × 字号的四个组合在配置页和设置一级页上齐全。
+ * 分层矩阵（82 张）。每个轴的每个取值都至少覆盖到；宽度 × 字号的四个组合在配置页和设置一级页上齐全。
  * - A 主题层：7 个画面 × 粉 / 白 / 黑 × 亮 / 暗，411dp、字号 1.0（42 张）
- * - B 布局层：全部 19 个画面，粉亮，360dp、字号 1.3（最挤的一档，19 张）
+ * - B 布局层：除 [defaultOnlyScreens] 外的 19 个画面，粉亮，360dp、字号 1.3（最挤的一档，19 张）
  * - C 补角：配置页与设置一级页，粉亮，360dp / 1.0 与 411dp / 1.3（4 张）
- * - D 默认层：不在 A 层的 12 个画面，粉亮，411dp / 1.0（12 张）
+ * - D 默认层：不在 A 层的 13 个画面，粉亮，411dp / 1.0（13 张）
  * - E 材质层：玻璃的 FROST 档，只在配置页「已连接」（三个悬浮层同屏）：粉亮 / 粉暗 411dp，粉亮 360dp / 1.3，黑暗 411dp（4 张）。
- *   其余 77 张由 UiTestRule 压成 SOLID，代表 MD3 实色
+ *   其余 78 张由 UiTestRule 压成 SOLID，代表 MD3 实色
  */
 object ScreenshotMatrix {
 
@@ -96,7 +99,11 @@ object ScreenshotMatrix {
         ThemeVariant.entries.flatMap { theme -> listOf(false, true).map { dark -> Shot(screen, theme, dark) } }
     }
 
-    val layoutLayer: List<Shot> = Screen.entries.map { Shot(it, widthDp = 360, fontScale = 1.3f) }
+    /** 只在 D 层留一张的画面：新增的单点状态，不需要每个布局档位都有 */
+    private val defaultOnlyScreens = setOf(Screen.DIALOG_INLINE_ERROR)
+
+    val layoutLayer: List<Shot> =
+        (Screen.entries - defaultOnlyScreens).map { Shot(it, widthDp = 360, fontScale = 1.3f) }
 
     val cornerLayer: List<Shot> = cornerScreens.flatMap {
         listOf(Shot(it, widthDp = 360), Shot(it, fontScale = 1.3f))
