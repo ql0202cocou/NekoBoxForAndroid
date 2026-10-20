@@ -273,8 +273,29 @@ class ConfigListDiffTest : UiTestBase() {
         viaWorker { runBlocking { ProfileRepository.postUpdate(TrafficData(target.id, 2048, 4096)) } }
 
         assertEquals("流量只重画该行的流量段，不发任何适配器通知", 0, events.total)
-        assertTrue(holder.profileStatus.text.isNotEmpty())
+        // 流量显示在上面那一行，测速结果那一格仍空着
+        assertEquals(View.VISIBLE, holder.trafficText.visibility)
+        assertTrue(holder.trafficText.text.isNotEmpty())
+        assertEquals("", holder.profileStatus.text.toString())
         assertEquals(2048L, s.adapter.configurationList[target.id]!!.tx)
+    }
+
+    @Test
+    fun testResultKeepsCardHeightOfNodeWithTraffic() {
+        val s = open()
+        val target = s.fixtures.profiles[4] // Seoul：有流量、未测
+        val holder = s.holderOf(target.id)!!
+        val before = holder.itemView.height
+        assertTrue(before > 0)
+        val traffic = holder.trafficText.text.toString()
+
+        postTestResults(s.fixtures.normalGroup.id, Triple(target.id, 1, 77))
+        UiSettle.settle()
+
+        assertSame(holder, s.holderOf(target.id))
+        assertEquals(s.list.resources.getString(R.string.available, 77), holder.profileStatus.text.toString())
+        assertEquals("流量留在原来那一行", traffic, holder.trafficText.text.toString())
+        assertEquals("测速结果出现不改变卡片高度", before, holder.itemView.height)
     }
 
     // ---------------------------------------------------------------- 搜索过滤（M5：不重播入场动画）
