@@ -64,6 +64,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         override fun AlertDialog.Builder.prepare(listener: DialogInterface.OnClickListener) {
             setTitle(R.string.delete_confirm_prompt)
             setPositiveButton(R.string.yes) { _, _ ->
+                // 进程级：删除落库，页面随即关闭也要删完，不碰界面
                 runOnDefaultDispatcher {
                     ProfileRepository.deleteProfile(arg.groupId, arg.profileId)
                 }
@@ -157,6 +158,9 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
     protected open fun validateEditor(): String? = null
 
+    // 偏好屏幕里有服务器地址项（链式、自定义配置没有）；Fragment 创建时写入，页面销毁后的保存用它决定是否校验地址
+    var hasServerAddressField = false
+
     // 实体级字段，不在 bean 里；onCreate 时写入
     protected fun editorCore() = EditorCache.profileCacheStore.getString(Key.PROFILE_CORE)
         ?.toIntOrNull() ?: ProxyEntity.CORE_AUTO
@@ -171,11 +175,19 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
     override suspend fun save() {
         awaitEditorReady()
         val canSave = onMainDispatcher {
-            val screen = child?.preferenceScreen ?: return@onMainDispatcher false
+            // 页面已销毁（保存途中旋转、被系统回收）后没有偏好屏幕可查，也不能再弹提示：保存是进程级的，
+            // 要写完才对得起用户点的「保存」，所以只跳过依赖屏幕的检查（输入时已逐项拦过），其余缓存检查照做。
+            // Fragment 还没提交（页面活着、child 为空）则没有可保存的内容，直接不保存
+            val gone = isDestroyed
+            val screen = if (gone) null else child?.preferenceScreen
+            if (screen == null && !gone) return@onMainDispatcher false
             validateEditor()?.let { message ->
-                Toast.makeText(this@ProfileSettingsActivity, message, Toast.LENGTH_LONG).show()
+                if (!gone) Toast.makeText(this@ProfileSettingsActivity, message, Toast.LENGTH_LONG).show()
                 return@onMainDispatcher false
             }
+            // 页面已销毁时看不到地址项是否可见：有地址项的编辑器只要缓存里的地址不合法就不存（保守，等同原来的不保存），
+            // 免得新建节点空地址被悄悄写进库；整数项输入时已逐项拦过，库里旧值原样写回不会更糟
+            if (screen == null) return@onMainDispatcher !hasServerAddressField || isServerAddress(EditorCache.serverAddress)
             // every protocol editor with a server field shares this check
             val address = screen.findPreference<EditTextPreference>(Key.SERVER_ADDRESS)
             if (address != null && address.isVisible && address.isEnabled &&
@@ -206,7 +218,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         val profileCore = if (coreSelectable(ProxyEntity().putBean(probe).type, probe)) editorCore() else ProxyEntity.CORE_AUTO
         val decision = decideEditorCore(probe, profileCore)
         if (decision is CoreDecision.Rejected) {
-            onMainDispatcher {
+            onLiveActivity {
                 MaterialAlertDialogBuilder(this@ProfileSettingsActivity).setTitle(R.string.error_title)
                     .setMessage(coreRejectionMessage(decision, probe))
                     .setPositiveButton(android.R.string.ok, null).show()
@@ -222,7 +234,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         } else {
             val entity = awaitProxyEntity()
             if (entity == null) {
-                finish()
+                onLiveActivity { finish() }
                 return
             }
             if (entity.id == DataStore.selectedProxy) {
@@ -234,12 +246,12 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             })
             // proxyEntity 是打开编辑器时读的缓存：节点在编辑期间被删掉时更新 0 行，
             // 不提示的话修改就悄悄丢了
-            if (!saved) onMainDispatcher {
+            if (!saved) onLiveActivity {
                 Toast.makeText(this@ProfileSettingsActivity, R.string.deleted_profile, Toast.LENGTH_LONG).show()
             }
         }
         onSaved()
-        finish()
+        onLiveActivity { finish() }
 
     }
 
@@ -275,8 +287,10 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             super.onCreatePreferences(savedInstanceState, rootKey)
             // input-time counterpart of the save check in saveAndExit(); null for
             // editors without a server field (chain, custom config)
-            findPreference<EditTextPreference>(Key.SERVER_ADDRESS)
-                ?.bindValidatedPreference(R.string.server_address_error, ::isServerAddress)
+            val address = findPreference<EditTextPreference>(Key.SERVER_ADDRESS)
+            address?.bindValidatedPreference(R.string.server_address_error, ::isServerAddress)
+            // 页面销毁后的保存看不到偏好屏幕，靠这个标记决定要不要校验地址（见 save）
+            profileActivity?.hasServerAddressField = address != null
             // 各协议编辑器共用的端口校验；hysteria 用 serverPorts，链式与自定义配置没有端口，均为 null
             findPreference<EditTextPreference>(Key.SERVER_PORT)?.bindPortPreference()
         }
@@ -401,6 +415,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                                         subscriptionUpdateProgress.isGone = true
                                         groupStatusRow.isGone = true
                                         root.setOnClickListener {
+                                            // 进程级：移动节点落库，页面随即关闭也要移完；关闭页面走 onLiveActivity
                                             runOnDefaultDispatcher {
                                                 val oldGroupId = ent.groupId
                                                 val newGroupId = group.id
@@ -413,9 +428,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                                                 if (activity.holdsEditorSession()) {
                                                     EditorCache.editingGroup = newGroupId // post switch animation
                                                 }
-                                                runOnMainDispatcher {
-                                                    activity.finish()
-                                                }
+                                                activity.onLiveActivity { activity.finish() }
                                             }
                                         }
                                     }
@@ -435,6 +448,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                     // confirm like the back guard instead of silently dropping them.
                     MaterialAlertDialogBuilder(activity).setTitle(R.string.unsaved_changes_prompt)
                         .setPositiveButton(R.string.yes) { _, _ ->
+                            // 进程级：移动前先保存，要写完；界面收尾在 saveAndExit 里走 onLiveActivity
                             runOnDefaultDispatcher { activity.saveAndExit() }
                         }
                         .setNegativeButton(R.string.no) { _, _ ->

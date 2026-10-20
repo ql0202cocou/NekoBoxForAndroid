@@ -132,6 +132,7 @@ class EditorViewModel : ViewModel() {
             proxyEntityLoad.complete(null)
             return
         }
+        // 进程级：保存（appScope）在等这个结果，页面在载入途中关闭也不能让它半路取消；协程不碰 View
         runOnDefaultDispatcher {
             try {
                 val entity = ProfileRepository.getProfile(editingId)

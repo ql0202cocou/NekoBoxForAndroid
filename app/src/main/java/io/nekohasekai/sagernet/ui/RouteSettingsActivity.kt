@@ -19,7 +19,7 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.RuleEntity
 import io.nekohasekai.sagernet.database.RuleRepository
 import io.nekohasekai.sagernet.ktx.app
-import io.nekohasekai.sagernet.ktx.onMainDispatcher
+import io.nekohasekai.sagernet.ktx.onLiveActivity
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.utils.PackageCache
 import io.nekohasekai.sagernet.widget.AppListPreference
@@ -153,6 +153,7 @@ class RouteSettingsActivity(
         override fun AlertDialog.Builder.prepare(listener: DialogInterface.OnClickListener) {
             setTitle(R.string.delete_route_prompt)
             setPositiveButton(R.string.yes) { _, _ ->
+                // 进程级：删除落库，页面随即关闭也要删完，不碰界面
                 runOnDefaultDispatcher {
                     RuleRepository.deleteRule(arg.ruleId)
                 }
@@ -222,7 +223,7 @@ class RouteSettingsActivity(
         // Only block a brand-new empty route; an existing rule left unchanged
         // just exits without saving.
         if (editingId == 0L && !needSave()) {
-            onMainDispatcher {
+            onLiveActivity {
                 MaterialAlertDialogBuilder(this@RouteSettingsActivity).setTitle(R.string.empty_route)
                     .setMessage(R.string.empty_route_notice)
                     .setPositiveButton(android.R.string.ok, null)
@@ -240,12 +241,12 @@ class RouteSettingsActivity(
         } else if (needSave()) {
             val entity = RuleRepository.getRule(EditorCache.editingId)
             if (entity == null) {
-                finish()
+                onLiveActivity { finish() }
                 return
             }
             RuleRepository.updateRule(entity.apply { serialize() })
         }
-        finish()
+        onLiveActivity { finish() }
 
     }
 

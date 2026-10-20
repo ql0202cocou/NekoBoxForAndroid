@@ -59,7 +59,7 @@ class GroupMaintenance(private val fragment: ConfigurationFragment) {
             }
             if (toClear.isNotEmpty()) {
                 fragment.requireContext().confirm(R.string.delete_confirm_prompt) {
-                    // 确认后的删除必须做完，不随页面取消
+                    // 进程级：确认后的删除必须做完，不随页面取消
                     runOnDefaultDispatcher {
                         ProfileRepository.deleteProfiles(toClear)
                     }
@@ -90,7 +90,7 @@ class GroupMaintenance(private val fragment: ConfigurationFragment) {
                 fragment.requireContext().confirm(
                     fragment.getString(R.string.delete_confirm_prompt) + "\n" + names.joinToString("\n")
                 ) {
-                    // 确认后的删除必须做完，不随页面取消
+                    // 进程级：确认后的删除必须做完，不随页面取消
                     runOnDefaultDispatcher {
                         ProfileRepository.deleteProfiles(toClear)
                     }

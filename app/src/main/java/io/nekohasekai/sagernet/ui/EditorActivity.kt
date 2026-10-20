@@ -31,6 +31,7 @@ import io.nekohasekai.sagernet.database.claimEditorSession
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.database.renewEditorSession
 import io.nekohasekai.sagernet.ktx.Logs
+import io.nekohasekai.sagernet.ktx.onLiveActivity
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.widget.OutboundPreference
@@ -183,11 +184,12 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
 
     /**
      * 保存入口：会话不属于本编辑器时不保存、提示并关闭，否则交给 [save]。
-     * 保存留在调用方的作用域里跑（不绑页面），页面在保存途中关闭也要写完。
+     * 保存留在调用方的作用域里跑（不绑页面），页面在保存途中关闭也要写完；
+     * 写完之后的界面收尾（提示、对话框、关闭页面）一律经 [onLiveActivity]，页面已销毁时整段丢弃。
      */
     suspend fun saveAndExit() {
         if (!holdsEditorSession(forSave = true)) {
-            onMainDispatcher {
+            onLiveActivity {
                 Toast.makeText(this@EditorActivity, R.string.editor_session_lost, Toast.LENGTH_LONG).show()
                 finish()
             }
@@ -273,6 +275,7 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
                 // 在主线程取 activity：点击后对话框马上 detach，
                 // 放到 Default 调度器里再 requireActivity() 会和它竞争
                 val activity = requireActivity() as EditorActivity
+                // 进程级：保存必须写完，页面在保存途中关闭或旋转也不能中断；界面收尾在 saveAndExit 里走 onLiveActivity
                 runOnDefaultDispatcher {
                     activity.saveAndExit()
                 }
@@ -333,6 +336,7 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
             }
 
             R.id.action_apply -> {
+                // 进程级：保存必须写完，页面在保存途中关闭或旋转也不能中断；界面收尾在 saveAndExit 里走 onLiveActivity
                 runOnDefaultDispatcher {
                     activity?.saveAndExit()
                 }

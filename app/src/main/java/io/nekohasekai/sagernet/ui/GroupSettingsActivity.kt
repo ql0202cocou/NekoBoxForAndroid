@@ -22,7 +22,7 @@ import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
 import io.nekohasekai.sagernet.group.isEditableSubscriptionLink
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
-import io.nekohasekai.sagernet.ktx.onMainDispatcher
+import io.nekohasekai.sagernet.ktx.onLiveActivity
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ui.profile.bindValidatedPreference
 import io.nekohasekai.sagernet.widget.OutboundPreference
@@ -194,6 +194,7 @@ class GroupSettingsActivity(
         override fun AlertDialog.Builder.prepare(listener: DialogInterface.OnClickListener) {
             setTitle(R.string.delete_group_prompt)
             setPositiveButton(R.string.yes) { _, _ ->
+                // 进程级：删除落库，页面随即关闭也要删完，不碰界面
                 runOnDefaultDispatcher {
                     GroupRepository.deleteGroup(arg.groupId)
                 }
@@ -268,7 +269,7 @@ class GroupSettingsActivity(
         val editingId = EditorCache.editingId
         // 真要写库时才校验链接：没改动就退出的旧分组不被历史遗留的值拦住
         if ((editingId == 0L || needSave()) && !subscriptionLinkAcceptable()) {
-            onMainDispatcher {
+            onLiveActivity {
                 Toast.makeText(
                     this@GroupSettingsActivity, R.string.invalid_subscription_link_input, Toast.LENGTH_LONG
                 ).show()
@@ -280,7 +281,7 @@ class GroupSettingsActivity(
         } else if (needSave()) {
             val entity = GroupRepository.getGroup(EditorCache.editingId)
             if (entity == null) {
-                finish()
+                onLiveActivity { finish() }
                 return
             }
             val keepUserInfo = (entity.type == GroupType.SUBSCRIPTION &&
@@ -302,7 +303,7 @@ class GroupSettingsActivity(
             )
         }
 
-        finish()
+        onLiveActivity { finish() }
 
     }
 
