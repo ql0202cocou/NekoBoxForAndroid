@@ -46,6 +46,7 @@ import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.widget.MainContentHost
 import io.nekohasekai.sagernet.widget.MainContentHostOwner
 import io.nekohasekai.sagernet.widget.safeDrawingTypes
+import io.nekohasekai.sagernet.widget.glass.GlassTiers
 import io.nekohasekai.sagernet.widget.systemBarMargins
 import io.nekohasekai.sagernet.bg.ServiceRegistry
 import kotlin.math.roundToInt
@@ -65,6 +66,9 @@ class MainActivity : ThemedActivity(),
      * 滚动与结构变化汇到同一个订阅点。其它宿主（选节点、通知里的切换对话框）没有 Dock，不实现这个接口
      */
     override val contentHost = MainContentHost { bottomControlsClearance() }
+
+    // 玻璃材质三个悬浮层的档位来源（U5f；F1 只接通知点，表面还不画玻璃）
+    val glass = GlassTiers(this)
 
     // 设置一级页的滚动状态等页面外状态。第一次取要在 super.onCreate() 之后（SavedStateHandle）
     private val mainModel: MainViewModel by viewModels()
@@ -412,9 +416,13 @@ class MainActivity : ThemedActivity(),
     // 监听器在写入线程里同步回调（DataStore 可能由 binder 线程或后台协程写入），下面的 snackbar 与重连都要在主线程做：
     // 切到页面作用域的主线程（已在主线程时立即执行），页面销毁后协程随之取消，不会碰已销毁的 Activity
     override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
-        if (key != Key.SERVICE_MODE && key != Key.PROXY_APPS && key != Key.BYPASS_MODE && key != Key.INDIVIDUAL) return
+        if (key != Key.SERVICE_MODE && key != Key.PROXY_APPS && key != Key.BYPASS_MODE && key != Key.INDIVIDUAL &&
+            key != Key.GLASS_MATERIAL
+        ) return
         lifecycleScope.launch(Dispatchers.Main.immediate) {
             when (key) {
+                // 玻璃档位只重算并通知监听者，不重建 Activity
+                Key.GLASS_MATERIAL -> glass.refresh()
                 Key.SERVICE_MODE -> onBinderDied()
                 Key.PROXY_APPS, Key.BYPASS_MODE, Key.INDIVIDUAL -> {
                     if (ServiceRegistry.state.canStop) {
@@ -431,10 +439,12 @@ class MainActivity : ThemedActivity(),
     override fun onStart() {
         connection.updateConnectionId(SagerConnection.CONNECTION_ID_MAIN_ACTIVITY_FOREGROUND)
         super.onStart()
+        glass.start()
     }
 
     override fun onStop() {
         connection.updateConnectionId(SagerConnection.CONNECTION_ID_MAIN_ACTIVITY_BACKGROUND)
+        glass.stop()
         super.onStop()
     }
 
