@@ -16,6 +16,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceDataStore
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceScreen
@@ -44,6 +45,8 @@ import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.widget.safeDrawingTypes
 import io.nekohasekai.sagernet.widget.systemBarMargins
 import io.nekohasekai.sagernet.bg.ServiceRegistry
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * 页面由 MainActivity 托管时，滚动视图底部要为悬浮的 Dock 与状态卡片让出的高度
@@ -139,6 +142,7 @@ class MainActivity : ThemedActivity(),
         if (intent.action != Intent.ACTION_VIEW) return
         val uri = intent.data ?: return
 
+        // 进程级：深链导入链要在页面离开后继续，界面收尾由 MainImporter 的 onLiveActivity 统一守卫
         runOnDefaultDispatcher {
             if (uri.scheme == "sn" && uri.host == "subscription" || uri.scheme == "clash") {
                 importSubscription(uri)
@@ -386,6 +390,7 @@ class MainActivity : ThemedActivity(),
     }
 
     override fun cbTrafficUpdate(data: TrafficData) {
+        // 进程级：只把 :bg 推来的流量增量转给监听器，不碰 View，页面离开也不必取消
         runOnDefaultDispatcher {
             ProfileRepository.postUpdate(data)
         }
@@ -395,21 +400,27 @@ class MainActivity : ThemedActivity(),
         val old = DataStore.selectedProxy
         DataStore.selectedProxy = id
         DataStore.currentProfile = id
+        // 进程级：通知旧 / 新选中节点的监听器，不碰 View（上面两行在 binder 线程写 DataStore，监听器对这两个键无界面动作）
         runOnDefaultDispatcher {
             ProfileRepository.postUpdate(old)
             ProfileRepository.postUpdate(id)
         }
     }
 
+    // 监听器在写入线程里同步回调（DataStore 可能由 binder 线程或后台协程写入），下面的 snackbar 与重连都要在主线程做：
+    // 切到页面作用域的主线程（已在主线程时立即执行），页面销毁后协程随之取消，不会碰已销毁的 Activity
     override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
-        when (key) {
-            Key.SERVICE_MODE -> onBinderDied()
-            Key.PROXY_APPS, Key.BYPASS_MODE, Key.INDIVIDUAL -> {
-                if (ServiceRegistry.state.canStop) {
-                    // 分应用代理的设置改动，同 needReload 要整个重启
-                    snackbar(getString(R.string.need_reload)).setAction(R.string.apply) {
-                        SagerNet.reloadService(fullRestart = true)
-                    }.show()
+        if (key != Key.SERVICE_MODE && key != Key.PROXY_APPS && key != Key.BYPASS_MODE && key != Key.INDIVIDUAL) return
+        lifecycleScope.launch(Dispatchers.Main.immediate) {
+            when (key) {
+                Key.SERVICE_MODE -> onBinderDied()
+                Key.PROXY_APPS, Key.BYPASS_MODE, Key.INDIVIDUAL -> {
+                    if (ServiceRegistry.state.canStop) {
+                        // 分应用代理的设置改动，同 needReload 要整个重启
+                        snackbar(getString(R.string.need_reload)).setAction(R.string.apply) {
+                            SagerNet.reloadService(fullRestart = true)
+                        }.show()
+                    }
                 }
             }
         }
