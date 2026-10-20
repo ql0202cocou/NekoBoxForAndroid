@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/netip"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sagernet/sing/common"
@@ -30,7 +31,7 @@ type ClientBind struct {
 	reservedAccess      sync.RWMutex
 	reservedForEndpoint map[netip.AddrPort][3]uint8
 	connAccess          sync.Mutex
-	conn                *wireConn
+	conn                atomic.Pointer[wireConn]
 	done                chan struct{}
 	isConnect           bool
 	connectAddr         netip.AddrPort
@@ -51,8 +52,10 @@ func NewClientBind(ctx context.Context, logger logger.Logger, dialer N.Dialer, i
 	}
 }
 
+// neko：c.conn 改为 atomic.Pointer。快路径不加锁读它、锁内写它，原来是普通指针，-race 报读写竞争，
+// 接收与发送协程拿到的连接对象也就没有 happens-before 保证
 func (c *ClientBind) connect() (*wireConn, error) {
-	serverConn := c.conn
+	serverConn := c.conn.Load()
 	if serverConn != nil {
 		select {
 		case <-serverConn.done:
@@ -68,7 +71,7 @@ func (c *ClientBind) connect() (*wireConn, error) {
 		return nil, net.ErrClosed
 	default:
 	}
-	serverConn = c.conn
+	serverConn = c.conn.Load()
 	if serverConn != nil {
 		select {
 		case <-serverConn.done:
@@ -82,7 +85,7 @@ func (c *ClientBind) connect() (*wireConn, error) {
 		if err != nil {
 			return nil, err
 		}
-		c.conn = &wireConn{
+		serverConn = &wireConn{
 			PacketConn: bufio.NewUnbindPacketConn(udpConn),
 			done:       make(chan struct{}),
 		}
@@ -91,12 +94,13 @@ func (c *ClientBind) connect() (*wireConn, error) {
 		if err != nil {
 			return nil, err
 		}
-		c.conn = &wireConn{
+		serverConn = &wireConn{
 			PacketConn: bufio.NewPacketConn(udpConn),
 			done:       make(chan struct{}),
 		}
 	}
-	return c.conn, nil
+	c.conn.Store(serverConn)
+	return serverConn, nil
 }
 
 func (c *ClientBind) Open(port uint16) (fns []conn.ReceiveFunc, actualPort uint16, err error) {
@@ -119,8 +123,7 @@ func (c *ClientBind) receive(packets [][]byte, sizes []int, eps []conn.Endpoint)
 		}
 		c.logger.Error(E.Cause(err, "connect to server"))
 		err = nil
-		c.pauseManager.WaitActive()
-		time.Sleep(time.Second)
+		c.backoff()
 		return
 	}
 	n, addr, err := udpConn.ReadFrom(packets[0])
@@ -155,8 +158,30 @@ func (c *ClientBind) Close() error {
 	}
 	c.connAccess.Lock()
 	defer c.connAccess.Unlock()
-	common.Close(common.PtrOrNil(c.conn))
+	common.Close(common.PtrOrNil(c.conn.Load()))
 	return nil
+}
+
+// neko：连不上时的重连退避（原为 WaitActive 加 time.Sleep(time.Second)）要能被 bind 关闭打断。WaitActive 不随关闭返回，
+// 而 device.Down / BindUpdate 关 bind 后要等接收协程退出：暂停期间关 bind 会一直卡住，不暂停时每个端点也要白等
+// 最多 1 秒，几十个连不上的端点停一次服务就是几十秒
+func (c *ClientBind) backoff() {
+	if c.pauseManager != nil {
+		active := make(chan struct{})
+		go func() {
+			c.pauseManager.WaitActive()
+			close(active)
+		}()
+		select {
+		case <-c.done:
+			return
+		case <-active:
+		}
+	}
+	select {
+	case <-c.done:
+	case <-time.After(time.Second):
+	}
 }
 
 func (c *ClientBind) SetMark(mark uint32) error {
@@ -166,8 +191,9 @@ func (c *ClientBind) SetMark(mark uint32) error {
 func (c *ClientBind) Send(bufs [][]byte, ep conn.Endpoint, offset int) error {
 	udpConn, err := c.connect()
 	if err != nil {
-		c.pauseManager.WaitActive()
-		time.Sleep(time.Second)
+		// neko：连不上直接报错，不再 WaitActive 加 time.Sleep(time.Second)。Send 常在 wireguard-go 持有设备状态锁时
+		// 被调用（Up 时的 keepalive / 握手），在这里等会让每个连不上的端点把启动拖慢 1 秒、暂停时卡死 Down；
+		// 握手重试本来就由 wireguard-go 的定时器驱动，不会空转
 		return err
 	}
 	destination := netip.AddrPort(ep.(remoteEndpoint))

@@ -31,7 +31,7 @@ class CoreCapabilitiesTest {
     fun `声明的核心版本等于仓库固定的版本`() {
         assertEquals(pinnedInPluginsSh("XRAY_VERSION"), DialCore.XRAY.version)
         assertEquals(pinnedInPluginsSh("MIHOMO_VERSION"), DialCore.MIHOMO.version)
-        // vendored sing-box 的版本声明形如 1.14.3-neko-2，能力表只记上游版本
+        // vendored sing-box 的版本声明形如 1.14.3-neko-3，能力表只记上游版本
         val goVersion = Regex("""var Version = "([^"]+)"""")
             .find(repoFile("libcore/sing-box/constant/version.go").readText())!!.groupValues[1]
         assertTrue(goVersion, Regex("""\d+\.\d+\.\d+-neko-\d+""").matches(goVersion))
