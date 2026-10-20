@@ -83,7 +83,7 @@ jobs:
         # vendored sing-box 是嵌套 module，上面的 ./... 覆盖不到它；
         # 这里用 -race 跑补丁所在的包（含自建补丁的回归测试：dns fallback 动作、
         # dialer 的 DoNotSelectInterface、SOCKS5 UDP 关联的来源声明、WireGuard 启动报错不带密钥、
-        # WireGuard ClientBind 的退避和竞争）。
+        # WireGuard 选 bind 与 ClientBind 的退避和竞争）。
         # fork 自建的回归测试所在包都要列进这一步。
         # -race 需要 CGO，ubuntu runner 默认 CGO_ENABLED=1
         run: cd libcore/sing-box && go test -race ./dns/... ./route/... ./common/dialer/... ./protocol/socks/... ./transport/wireguard/...

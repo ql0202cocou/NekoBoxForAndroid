@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -85,4 +86,40 @@ func TestBoxInstanceWireGuardBehindDeadDetour(t *testing.T) {
 	}
 	runWithin(t, "Start", 10*time.Second, instance.Start)
 	runWithin(t, "Close", 10*time.Second, instance.Close)
+}
+
+func heapInuseAfterGC() uint64 {
+	runtime.GC()
+	runtime.GC()
+	var stats runtime.MemStats
+	runtime.ReadMemStats(&stats)
+	return stats.HeapInuse
+}
+
+// 不设 detour 的 WireGuard 端点不能再按 StdNetBind 的批量（128 × 64 KB，发送与 IPv4 / IPv6 接收各一份）
+// 预占缓冲：原来每个端点约 24 MB，选择器分组里几十个成员同时启动就是上 GB 的堆，反复启停后 :bg 内存失控
+// （vendored sing-box 的 1.14.3-neko-3 补丁，见 libcore/sing-box/NEKO.md）
+func TestBoxInstanceWireGuardEndpointsHeap(t *testing.T) {
+	const endpointCount = 10
+	before := heapInuseAfterGC()
+	instance, err := NewSingBoxInstance(wireGuardTestConfig(t, endpointCount, "", 0), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer instance.Close()
+	if err := instance.Start(); err != nil {
+		t.Fatal(err)
+	}
+	// 设备 Up、接收协程拿缓冲都在 Start 返回之后异步发生
+	time.Sleep(time.Second)
+	after := heapInuseAfterGC()
+	runtime.KeepAlive(instance)
+	var grown uint64
+	if after > before {
+		grown = after - before
+	}
+	if limit := uint64(endpointCount) * 2 << 20; grown > limit {
+		t.Fatalf("%d WireGuard endpoints grew the heap by %d MB after Start, over 2 MB each", endpointCount, grown>>20)
+	}
+	t.Logf("%d WireGuard endpoints: heap +%.1f MB", endpointCount, float64(grown)/(1<<20))
 }

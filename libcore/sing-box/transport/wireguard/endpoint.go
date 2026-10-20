@@ -17,6 +17,7 @@ import (
 	E "github.com/sagernet/sing/common/exceptions"
 	F "github.com/sagernet/sing/common/format"
 	M "github.com/sagernet/sing/common/metadata"
+	N "github.com/sagernet/sing/common/network"
 	"github.com/sagernet/sing/common/x/list"
 	"github.com/sagernet/sing/service"
 	"github.com/sagernet/sing/service/pause"
@@ -140,7 +141,7 @@ func (e *Endpoint) Start(postStart bool) error {
 		return nil
 	}
 	var bind conn.Bind
-	udpListener, isUDPListener := common.Cast[dialer.UDPListener](e.options.Dialer)
+	udpListener, isUDPListener := stdNetBindListener(e.options.Dialer, e.options.ListenPort)
 	if isUDPListener {
 		listenerControl, egressEnabled := udpListener.UDPListenerControl()
 		standardBind := conn.NewStdNetBind(listenerControl).(*conn.StdNetBind)
@@ -262,6 +263,17 @@ func (e *Endpoint) Start(postStart bool) error {
 	}
 	e.allowedIPs = wgDevice.AllowedIPs()
 	return nil
+}
+
+// neko：StdNetBind 在 linux / android 上按 conn.IdealBatchSize（128）批量收发，wireguard-go 为此给发送和 IPv4 / IPv6
+// 接收各预占 128 个 64 KB 缓冲，每个端点约 24 MB 堆。选择器分组里几十个 WireGuard 成员同时启动就是上 GB 的堆，
+// GC 目标随之翻倍，停止后的垃圾迟迟不回收，再复用时清零又让它们全部常驻，几轮启停后进程内存失控。
+// 只有要监听固定 listen_port 的端点才需要 StdNetBind，其余与设了 detour 的端点一样走 ClientBind（批量 1）
+func stdNetBindListener(outboundDialer N.Dialer, listenPort uint16) (dialer.UDPListener, bool) {
+	if listenPort == 0 {
+		return nil, false
+	}
+	return common.Cast[dialer.UDPListener](outboundDialer)
 }
 
 func (e *Endpoint) DialContext(ctx context.Context, network string, destination M.Socksaddr) (net.Conn, error) {
