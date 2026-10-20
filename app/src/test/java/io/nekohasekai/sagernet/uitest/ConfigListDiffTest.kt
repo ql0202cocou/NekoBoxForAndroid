@@ -6,6 +6,9 @@ import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import android.widget.TextView
+import androidx.core.graphics.ColorUtils
+import com.google.android.material.card.MaterialCardView
+import com.google.android.material.color.MaterialColors
 import io.nekohasekai.sagernet.GroupOrder
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.aidl.TrafficData
@@ -18,6 +21,7 @@ import io.nekohasekai.sagernet.database.ProxyEditableFields
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.fmt.putBean
+import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
 import io.nekohasekai.sagernet.ui.ConfigurationFragment
 import io.nekohasekai.sagernet.ui.ConfigurationHolder
@@ -26,6 +30,7 @@ import io.nekohasekai.sagernet.ui.ProfileListFragment
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -226,6 +231,35 @@ class ConfigListDiffTest : UiTestBase() {
         UiSettle.settle()
         assertEquals(View.INVISIBLE, s.holderOf(old.id)!!.selectedView.visibility)
         assertEquals(View.VISIBLE, s.holderOf(next.id)!!.selectedView.visibility)
+    }
+
+    private fun ConfigurationHolder.card() = view as MaterialCardView
+
+    /** 选中的卡片：底色叠 primary 8%、描边 primary 40%、1dp 线宽；未选中的是默认底色与默认描边 */
+    @Test
+    fun selectedCardHasFillAndStrokeAndMovesWithSelection() {
+        val s = open()
+        val p = s.fixtures.profiles
+        val primary = s.page.requireContext().getColorAttr(androidx.appcompat.R.attr.colorPrimary)
+        val selected = s.holderOf(p[0].id)!!.card()
+        val other = s.holderOf(p[2].id)!!.card()
+        val defaultFill = other.cardBackgroundColor.defaultColor
+        val defaultStroke = other.strokeColor
+
+        assertEquals(MaterialColors.layer(defaultFill, primary, 0.08f), selected.cardBackgroundColor.defaultColor)
+        assertEquals(ColorUtils.setAlphaComponent(primary, 102), selected.strokeColor)
+        assertTrue("选中卡片的描边宽度", selected.strokeWidth > 0)
+        assertNotEquals("选中卡片的底色应不同于默认", defaultFill, selected.cardBackgroundColor.defaultColor)
+        assertNotEquals("选中卡片的描边应不同于默认", defaultStroke, selected.strokeColor)
+
+        // 选中项切换：新卡片带样式，旧卡片回到默认（与从没选过的卡片一致）
+        ui.offMain { DataStore.selectedProxy = p[2].id }
+        viaWorker { runBlocking { ProfileRepository.postUpdate(p[0].id); ProfileRepository.postUpdate(p[2].id) } }
+        UiSettle.settle()
+        assertEquals(defaultFill, s.holderOf(p[0].id)!!.card().cardBackgroundColor.defaultColor)
+        assertEquals(defaultStroke, s.holderOf(p[0].id)!!.card().strokeColor)
+        assertEquals(MaterialColors.layer(defaultFill, primary, 0.08f), s.holderOf(p[2].id)!!.card().cardBackgroundColor.defaultColor)
+        assertEquals(ColorUtils.setAlphaComponent(primary, 102), s.holderOf(p[2].id)!!.card().strokeColor)
     }
 
     @Test

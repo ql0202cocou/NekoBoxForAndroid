@@ -41,12 +41,11 @@
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="center_vertical"
                     android:layout_weight="1"
-                    android:gravity="center_vertical"
+                    android:gravity="top"
                     android:paddingStart="16dp"
-                    android:paddingTop="8dp"
-                    android:paddingBottom="8dp">
+                    android:paddingTop="12dp"
+                    android:paddingBottom="4dp">
 
                     <TextView
                         android:id="@+id/profile_name"
@@ -155,17 +154,19 @@
                     android:textAppearance="?attr/textAppearanceBodyMedium"
                     android:textColor="?attr/colorOnSurfaceVariant" />
 
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1" />
-
+                <!-- 测速结果：Label large、等宽数字，单行、末尾省略，占剩余宽度靠右，
+                     结果变化（含空串与长错误）不改变卡片高度 -->
                 <TextView
                     android:id="@+id/profile_status"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="4dp"
-                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:fontFeatureSettings="tnum"
+                    android:gravity="end"
+                    android:maxLines="1"
+                    android:textAppearance="?attr/textAppearanceLabelLarge"
                     android:textColor="?attr/colorOnSurfaceVariant" />
 
             </LinearLayout>
