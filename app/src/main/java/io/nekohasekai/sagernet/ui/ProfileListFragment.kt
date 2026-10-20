@@ -12,6 +12,7 @@ import androidx.core.view.isGone
 import androidx.core.view.size
 import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -31,6 +32,8 @@ import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.setPlaceholderVisible
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
 import io.nekohasekai.sagernet.widget.padForSystemBars
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import io.nekohasekai.sagernet.bg.ServiceRegistry
 
@@ -172,12 +175,19 @@ class ProfileListFragment : Fragment() {
 
         if (::configurationListView.isInitialized && configurationListView.size == 0) {
             configurationListView.adapter = adapter
-            runOnDefaultDispatcher {
-                adapter?.reloadProfiles()
+            // 页面内的读取：IO 线程读库，随视图销毁取消；刷新回主线程由 reloadProfiles 自己完成
+            adapter?.let { listAdapter ->
+                viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+                    listAdapter.reloadProfiles()
+                }
             }
         } else if (!::configurationListView.isInitialized) {
             onViewCreated(requireView(), null)
         }
+        // onViewCreated 在 proxyGroup 还没赋值时直接返回（页面不是经 GroupPagerAdapter 建出来，
+        // 或状态恢复早于赋值），此时没有列表可显示，下面的菜单与焦点都依赖它们。
+        // 根治（分组 id 走 arguments）在 U4d
+        if (!::proxyGroup.isInitialized || !::configurationListView.isInitialized) return
         checkOrderMenu()
         configurationListView.requestFocus()
         playEnterAnimationOnce()
@@ -185,9 +195,9 @@ class ProfileListFragment : Fragment() {
     }
 
     fun checkOrderMenu() {
-        if (select) return
+        if (select || !::proxyGroup.isInitialized) return
 
-        val pf = requireParentFragment() as? ToolbarFragment ?: return
+        val pf = parentFragment as? ToolbarFragment ?: return
         val menu = pf.toolbar.menu
         val origin = menu.findItem(R.id.action_order_origin)
         val byName = menu.findItem(R.id.action_order_by_name)

@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.ui
 
 import android.os.SystemClock
+import androidx.lifecycle.lifecycleScope
 import io.nekohasekai.sagernet.IPv6Mode
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
@@ -29,6 +30,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import moe.matsuri.nb4a.ui.ConnectionTestNotification
 import moe.matsuri.nb4a.utils.Util
 import java.net.InetSocketAddress
@@ -45,7 +47,8 @@ private val runningTest = AtomicBoolean(false)
 /**
  * 配置页的 TCP ping / URL 测试调度（从 ConfigurationFragment 拆出，逻辑与协程作用域不变）。
  * 由 ConfigurationFragment 的字段持有，只存 fragment 引用，生命周期与原先这些方法写在 fragment 里一致；
- * 测试任务跑在 appScope，捕获的仍是同一个 fragment
+ * 测试任务（startGroupTest）跑在 appScope，设计上可比界面活得久，捕获的仍是同一个 fragment；
+ * 入口处读当前分组的 runGroupTest 是页面内的读取，跑在 fragment 的视图作用域里
  */
 class GroupTestRunner(private val fragment: ConfigurationFragment) {
 
@@ -145,28 +148,30 @@ class GroupTestRunner(private val fragment: ConfigurationFragment) {
         }
     }
 
-    // 两种测试共用的入口：currentGroup 有读库兜底，先后台取好分组再回主线程
-    // 建对话框；读库失败时复位 runningTest，否则此后所有测试都被静默拒绝
+    // 两种测试共用的入口：currentGroup 有读库兜底，先在 IO 线程取好分组再回主线程
+    // 建对话框。读库跑在 fragment 的视图作用域里（页面内的读取），页面销毁就取消；
+    // 取消、读库失败、对话框没建成时都要复位 runningTest，否则此后所有测试都被静默拒绝
     private fun runGroupTest(
         filter: (ProxyEntity) -> Boolean,
         testOne: suspend CoroutineScope.(ProxyGroup, ProxyEntity) -> Boolean,
     ) {
         if (!runningTest.compareAndSet(false, true)) return
-        runOnDefaultDispatcher {
-            val group = try {
-                GroupRepository.currentGroup()
-            } catch (e: Exception) {
-                Logs.w(e)
-                runningTest.set(false)
-                return@runOnDefaultDispatcher
-            }
-            onMainDispatcher {
-                // 等读库的间隙里 fragment 可能已销毁
-                if (!fragment.isAdded) {
-                    runningTest.set(false)
-                    return@onMainDispatcher
+        fragment.viewLifecycleOwner.lifecycleScope.launch {
+            var started = false
+            try {
+                val group = try {
+                    withContext(Dispatchers.IO) { GroupRepository.currentGroup() }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Logs.w(e)
+                    return@launch
                 }
                 startGroupTest(group, filter, testOne)
+                started = true
+            } finally {
+                // 交给 startGroupTest 之后，复位由测试的 cancel 路径负责
+                if (!started) runningTest.set(false)
             }
         }
     }

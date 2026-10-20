@@ -22,6 +22,7 @@ import io.nekohasekai.sagernet.widget.padForSystemBars
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItemClickListener {
 
@@ -144,22 +145,26 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
         // 出站指定节点的规则要显示的节点名，键是节点 id；只在主线程读写，名字在后台查好再放进来，绑定时不查库
         private val outboundNames = HashMap<Long, String>()
 
-        suspend fun reload() {
-            val rules = RuleRepository.getRules()
-            val names = RuleRepository.outboundProfileNames(rules)
-            ruleListView.post {
+        // 页面作用域：适配器在 onViewCreated 里建，此刻视图已存在；视图销毁时取消，
+        // 读库结果与列表刷新一并作废。reload 可从任意线程调用（含「重置路由」的进程级协程）
+        private val viewScope = viewLifecycleOwner.lifecycleScope
+
+        fun reload() {
+            viewScope.launch {
+                val (rules, names) = withContext(Dispatchers.IO) {
+                    val rules = RuleRepository.getRules()
+                    rules to RuleRepository.outboundProfileNames(rules)
+                }
                 ruleList.clear()
                 ruleList.addAll(rules)
                 outboundNames.clear()
                 outboundNames.putAll(names)
-                ruleAdapter.notifyDataSetChanged()
+                notifyDataSetChanged()
             }
         }
 
         init {
-            runOnDefaultDispatcher {
-                reload()
-            }
+            reload()
         }
 
         override fun onCreateViewHolder(

@@ -2,6 +2,7 @@ package io.nekohasekai.sagernet.ui
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
 import io.nekohasekai.sagernet.GroupOrder
 import io.nekohasekai.sagernet.R
@@ -20,6 +21,8 @@ import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.scrollTo
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
     RecyclerView.Adapter<ConfigurationHolder>(),
@@ -30,6 +33,10 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
     init {
         setHasStableIds(true)
     }
+
+    // 页面作用域：适配器在 ProfileListFragment.onViewCreated 里建，此刻视图已存在；
+    // 视图销毁时取消，整组重读的读库结果与随后的列表刷新一并作废
+    private val viewScope = groupFragment.viewLifecycleOwner.lifecycleScope
 
     var configurationIdList: MutableList<Long> = mutableListOf()
     val configurationList = HashMap<Long, ProxyEntity>()
@@ -76,6 +83,12 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
         getItem(id)?.let { holder.bind(it) }
     }
 
+    // 行被回收时取消它还在途的选中态查询，免得结果落到池里的 holder 上
+    override fun onViewRecycled(holder: ConfigurationHolder) {
+        holder.cancelPendingBind()
+        super.onViewRecycled(holder)
+    }
+
     override fun getItemCount(): Int {
         return configurationIdList.size
     }
@@ -113,8 +126,8 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
         if (name.isEmpty() && query.isEmpty()) return
         query = name.lowercase()
         if (name.isEmpty()) {
-            // 清空搜索时的整组重读带读库，放到后台线程
-            runOnDefaultDispatcher {
+            // 清空搜索时的整组重读带读库，放到 IO 线程；页面销毁时随作用域取消
+            viewScope.launch(Dispatchers.IO) {
                 reloadProfiles()
             }
             return
@@ -265,6 +278,8 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
         reloadProfiles()
     }
 
+    // 阻塞读库，调用方在后台线程（onResume / 清空搜索走 IO，监听回调跑在调用方线程）；
+    // 列表刷新回到主线程，挂在页面作用域上，视图销毁后不再触碰 View
     fun reloadProfiles() {
         var newProfiles = ProfileRepository.getProfilesByGroup(groupFragment.proxyGroup.id)
         when (groupFragment.proxyGroup.order) {
@@ -285,7 +300,7 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
             groupFragment.selectedItem?.id ?: DataStore.selectedProxy
         } else null
 
-        groupFragment.configurationListView.post {
+        viewScope.launch(Dispatchers.Main) {
             // 整组重读会把撤销窗口里待删的行重新放回列表，先把它提交掉
             groupFragment.flushUndo()
             // mutate the lists on the main thread: this runs on a

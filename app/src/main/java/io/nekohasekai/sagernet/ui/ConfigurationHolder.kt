@@ -10,6 +10,7 @@ import android.widget.TextView
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
@@ -35,7 +36,12 @@ import io.nekohasekai.sagernet.ktx.tryToShow
 import io.nekohasekai.sagernet.ui.ConfigurationFragment.SelectCallback
 import io.nekohasekai.sagernet.ui.profile.settingIntent
 import io.nekohasekai.sagernet.widget.QRCodeDialog
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import moe.matsuri.nb4a.Protocols.getProtocolColor
 import io.nekohasekai.sagernet.bg.ServiceRegistry
 
@@ -65,7 +71,18 @@ class ConfigurationHolder(
     private var boundId = Long.MIN_VALUE
     private var fadeStatus = false
 
+    // 页面作用域：holder 由适配器在视图存活时创建，视图销毁时取消。
+    // 行内的读取与回填挂在这里，每次 bind / 回收时先取消上一次的，复用后的 holder 不会收到旧节点的结果
+    private val viewScope = groupFragment.viewLifecycleOwner.lifecycleScope
+    private var bindJob: Job? = null
+
+    fun cancelPendingBind() {
+        bindJob?.cancel()
+        bindJob = null
+    }
+
     fun bind(proxyEntity: ProxyEntity) {
+        cancelPendingBind()
         if (groupFragment.parentFragment !is ConfigurationFragment) return
 
         fadeStatus = boundId == proxyEntity.id
@@ -152,54 +169,52 @@ class ConfigurationHolder(
             shareLayout.isGone = true
         }
 
-        runOnDefaultDispatcher {
-            val selected = (groupFragment.selectedItem?.id ?: DataStore.selectedProxy) == proxyEntity.id
-            val started =
-                selected && ServiceRegistry.state.started && DataStore.currentProfile == proxyEntity.id
-            onMainDispatcher {
-                // 回到主线程时 holder 可能已复用到其他节点（同 GroupHolder.bind 的 id 防护）
-                if (entity.id != proxyEntity.id) return@onMainDispatcher
-                editButton.isEnabled = !started
-                removeButton.isEnabled = !started
-                selectedView.visibility = if (selected) View.VISIBLE else View.INVISIBLE
-                applyStatusColor()
+        // 选中态要读库（DataStore 键值表），读完回到主线程回填按钮；
+        // bindJob 被下一次 bind / 回收 / 视图销毁取消，所以回填时 holder 一定还绑着这个节点
+        val selectedItemId = groupFragment.selectedItem?.id
+        bindJob = viewScope.launch {
+            val (selected, started) = withContext(Dispatchers.IO) {
+                val selected = (selectedItemId ?: DataStore.selectedProxy) == proxyEntity.id
+                val started =
+                    selected && ServiceRegistry.state.started && DataStore.currentProfile == proxyEntity.id
+                selected to started
             }
-
-            fun showShare(anchor: View) {
-                val popup = PopupMenu(groupFragment.requireContext(), anchor)
-                popup.menuInflater.inflate(R.menu.profile_share_menu, popup.menu)
-
-                if (!proxyEntity.haveStandardLink()) {
-                    popup.menu.findItem(R.id.action_group_qr).subMenu?.removeItem(R.id.action_standard_qr)
-                    popup.menu.findItem(R.id.action_group_clipboard).subMenu?.removeItem(
-                        R.id.action_standard_clipboard
-                    )
-                }
-
-                if (proxyEntity.nekoBean != null) {
-                    popup.menu.removeItem(R.id.action_group_configuration)
-                }
-
-                popup.setOnMenuItemClickListener(this@ConfigurationHolder)
-                popup.show()
-            }
+            editButton.isEnabled = !started
+            removeButton.isEnabled = !started
+            selectedView.visibility = if (selected) View.VISIBLE else View.INVISIBLE
+            applyStatusColor()
 
             if (!selectOrChain) {
-                onMainDispatcher {
-                    // 同上：holder 复用后不再回填旧节点的分享按钮
-                    if (entity.id != proxyEntity.id) return@onMainDispatcher
-                    shareLayer.setBackgroundColor(Color.TRANSPARENT)
-                    shareButton.setImageResource(R.drawable.ic_social_share)
-                    shareButton.setColorFilter(shareButton.context.getColorAttr(com.google.android.material.R.attr.colorOnSurfaceVariant))
-                    shareButton.isVisible = true
+                shareLayer.setBackgroundColor(Color.TRANSPARENT)
+                shareButton.setImageResource(R.drawable.ic_social_share)
+                shareButton.setColorFilter(shareButton.context.getColorAttr(com.google.android.material.R.attr.colorOnSurfaceVariant))
+                shareButton.isVisible = true
 
-                    shareLayout.setOnClickListener {
-                        showShare(it)
-                    }
+                shareLayout.setOnClickListener {
+                    showShare(it, proxyEntity)
                 }
             }
         }
 
+    }
+
+    private fun showShare(anchor: View, proxyEntity: ProxyEntity) {
+        val popup = PopupMenu(groupFragment.requireContext(), anchor)
+        popup.menuInflater.inflate(R.menu.profile_share_menu, popup.menu)
+
+        if (!proxyEntity.haveStandardLink()) {
+            popup.menu.findItem(R.id.action_group_qr).subMenu?.removeItem(R.id.action_standard_qr)
+            popup.menu.findItem(R.id.action_group_clipboard).subMenu?.removeItem(
+                R.id.action_standard_clipboard
+            )
+        }
+
+        if (proxyEntity.nekoBean != null) {
+            popup.menu.removeItem(R.id.action_group_configuration)
+        }
+
+        popup.setOnMenuItemClickListener(this@ConfigurationHolder)
+        popup.show()
     }
 
     // 流量、地址与状态这一段：TrafficLooper 前台时每秒推一次流量，只重画这里，
@@ -301,32 +316,26 @@ class ConfigurationHolder(
         (groupFragment.activity as MainActivity).snackbar(exportToClipboard(link)).show()
     }
 
-    // 导出配置走构建流程，要读节点库（buildConfig），不能在主线程做：后台生成，回主线程复制或选文件。
-    // 失败的提示与菜单里其它导出项相同
+    // 导出配置走构建流程，要读节点库（buildConfig），不能在主线程做：IO 线程生成，回主线程复制或选文件。
+    // 页面作用域：生成期间页面离开就不再弹提示 / 选文件。失败的提示与菜单里其它导出项相同
     private fun exportConfig(toFile: Boolean) {
         val entity = entity
-        runOnDefaultDispatcher {
+        viewScope.launch {
             val cfg = try {
-                entity.exportConfig()
+                withContext(Dispatchers.IO) { entity.exportConfig() }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Logs.w(e)
-                onMainDispatcher {
-                    if (groupFragment.isAdded) {
-                        (groupFragment.activity as MainActivity).snackbar(e.readableMessage).show()
-                    }
-                }
-                return@runOnDefaultDispatcher
+                (groupFragment.activity as MainActivity).snackbar(e.readableMessage).show()
+                return@launch
             }
-            onMainDispatcher {
-                // 生成期间页面可能已离开
-                if (!groupFragment.isAdded) return@onMainDispatcher
-                if (toFile) {
-                    val configuration = groupFragment.parentFragment as ConfigurationFragment
-                    configuration.pendingExportConfig = cfg.first
-                    groupFragment.startFilesForResult(configuration.exportConfig, cfg.second)
-                } else {
-                    export(cfg.first)
-                }
+            if (toFile) {
+                val configuration = groupFragment.parentFragment as ConfigurationFragment
+                configuration.pendingExportConfig = cfg.first
+                groupFragment.startFilesForResult(configuration.exportConfig, cfg.second)
+            } else {
+                export(cfg.first)
             }
         }
     }

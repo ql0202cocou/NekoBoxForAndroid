@@ -19,9 +19,12 @@ import io.nekohasekai.sagernet.database.STATE_EDITOR_SESSION
 import io.nekohasekai.sagernet.database.checkEditorSession
 import io.nekohasekai.sagernet.database.claimEditorSession
 import io.nekohasekai.sagernet.ui.ConfigurationFragment
+import io.nekohasekai.sagernet.ui.ConfigurationHolder
 import io.nekohasekai.sagernet.ui.EditorActivity
+import io.nekohasekai.sagernet.ui.GroupFragment
 import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.ui.ProfileListFragment
+import io.nekohasekai.sagernet.ui.RouteFragment
 import io.nekohasekai.sagernet.ui.SettingsFragment
 import io.nekohasekai.sagernet.ui.SettingsPreferenceFragment
 import io.nekohasekai.sagernet.ui.ToolbarFragment
@@ -30,8 +33,10 @@ import io.nekohasekai.sagernet.ui.profile.ProfileSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.ShadowsocksSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.VMessSettingsActivity
 import moe.matsuri.nb4a.TempDatabase
+import kotlinx.coroutines.Job
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.android.controller.ActivityController
+import org.robolectric.shadows.ShadowDialog
 
 /** 一个验收项的判定：[ok] 为真表示满足验收；[detail] 在不满足时说明差在哪 */
 class Check(val ok: Boolean, val detail: String = "") {
@@ -221,6 +226,147 @@ class UiScenarios(private val ui: UiTestRule) {
     }
 
     enum class CloseTarget { MAIN_CONFIG, MAIN_GROUPS, MAIN_ROUTES, MAIN_SETTINGS, EDITOR_VMESS, EDITOR_SHADOWSOCKS }
+
+    // ------------------------------------------------------ 页面作用域（U4b b2）
+
+    /** 读私有的 Job 字段（行内协程的句柄）：只为断言「销毁后协程已取消」 */
+    private fun Any.jobField(name: String): Job? =
+        javaClass.getDeclaredField(name).apply { isAccessible = true }.get(this) as Job?
+
+    private fun Job?.running() = this?.isActive == true
+
+    /**
+     * 配置页：行内的选中态查询在途时销毁页面——查询随视图作用域取消，销毁之后不再回填这一行。
+     * 回填只会把 selectedView 设成 VISIBLE / INVISIBLE，所以先把它设成 GONE 当哨兵。
+     * 重绑发生在主线程、此时主 looper 不空转，在途的查询不可能先于销毁完成回填。
+     */
+    fun configRowLoadCancelledOnDestroy(): Check {
+        UiFixtures.install()
+        val main = ui.launch<MainActivity>()
+        val list = (main.get().fragment() as ConfigurationFragment).currentList()
+        val holders = (0 until list.childCount).map { list.getChildViewHolder(list.getChildAt(it)) as ConfigurationHolder }
+        if (holders.isEmpty()) error("前置条件：配置页没有可见行")
+        holders.forEach {
+            it.selectedView.visibility = View.GONE
+            it.bind(it.entity)
+        }
+        if (holders.none { it.jobField("bindJob").running() }) error("前置条件：重绑后没有在途的行内查询")
+        ui.destroyNow(main)
+        UiSettle.settle()
+        val stray = holders.count { it.selectedView.visibility != View.GONE }
+        val alive = holders.count { it.jobField("bindJob").running() }
+        return if (stray == 0 && alive == 0) Check(true)
+        else Check(false, "销毁后仍有 $stray 行被回填、$alive 个行内协程没取消")
+    }
+
+    /** 分组页：卡片的节点数查询在途时销毁页面，销毁后不再回填状态文字 */
+    fun groupRowCountCancelledOnDestroy(): Check {
+        UiFixtures.install()
+        val main = ui.launch<MainActivity>()
+        main.go(Page.GROUPS)
+        val fragment = main.get().fragment() as GroupFragment
+        val list = fragment.groupListView
+        val holders = (0 until list.childCount).map { list.getChildViewHolder(list.getChildAt(it)) as GroupFragment.GroupHolder }
+        if (holders.isEmpty()) error("前置条件：分组页没有可见行")
+        val sentinel = "sentinel"
+        holders.forEach {
+            it.groupStatus.text = sentinel
+            it.bind(it.proxyGroup)
+        }
+        if (holders.none { it.jobField("countJob").running() }) error("前置条件：重绑后没有在途的节点数查询")
+        ui.destroyNow(main)
+        UiSettle.settle()
+        val stray = holders.count { it.groupStatus.text.toString() != sentinel }
+        val alive = holders.count { it.jobField("countJob").running() }
+        return if (stray == 0 && alive == 0) Check(true)
+        else Check(false, "销毁后仍有 $stray 张卡片被回填、$alive 个查询没取消")
+    }
+
+    /** 路由页：整表重读在途时销毁页面，销毁后列表不被刷新 */
+    fun routeReloadCancelledOnDestroy(): Check {
+        UiFixtures.install()
+        val main = ui.launch<MainActivity>()
+        main.go(Page.ROUTES)
+        val adapter = (main.get().fragment() as RouteFragment).ruleAdapter
+        if (adapter.ruleList.isEmpty()) error("前置条件：路由页没有规则")
+        adapter.ruleList.clear()
+        adapter.reload()
+        ui.destroyNow(main)
+        UiSettle.settle()
+        return if (adapter.ruleList.isEmpty()) Check(true) else Check(false, "销毁后路由列表又被刷新了（${adapter.ruleList.size} 条）")
+    }
+
+    /**
+     * 配置页的分组 tab 适配器：重读在途时销毁页面，以及页面销毁后再从后台线程触发重读，
+     * 都不得改动 tab 列表、不得有未捕获异常（后台线程不碰 View，换列表只在主线程的页面作用域里）
+     */
+    fun pagerReloadAfterDestroyIsHarmless(): Check {
+        UiFixtures.install()
+        val main = ui.launch<MainActivity>()
+        val adapter = (main.get().fragment() as ConfigurationFragment).adapter
+        val before = adapter.groupList
+        adapter.reload()
+        ui.destroyNow(main)
+        UiSettle.settle()
+        ui.offMain { adapter.reload() }
+        UiSettle.settle()
+        return if (adapter.groupList === before) Check(true) else Check(false, "销毁后 tab 列表被换掉了")
+    }
+
+    /**
+     * 没有 proxyGroup 的 ProfileListFragment（不是经 GroupPagerAdapter 建出来）走到 onResume：
+     * 不得抛 UninitializedPropertyAccessException，也没有列表可显示
+     */
+    fun profileListResumesWithoutGroup(): Check {
+        UiFixtures.install()
+        val main = ui.launch<MainActivity>()
+        val orphan = ProfileListFragment()
+        main.get().supportFragmentManager.beginTransaction()
+            .add(R.id.fragment_holder, orphan).commitNow()
+        UiSettle.settle()
+        return when {
+            !orphan.isResumed -> Check(false, "孤立的列表页没有走到 RESUMED")
+            orphan.listViewOrNull != null -> Check(false, "没有分组却建出了列表")
+            else -> Check(true)
+        }
+    }
+
+    /**
+     * 「删除不可用」：读库后才弹确认框，读库在途时销毁页面就不弹；[destroyFirst] 为假时作对照，必须弹出来
+     * （夹具里有失败的节点），免得「没弹」是因为场景根本弹不出来
+     */
+    fun deleteUnavailableConfirm(destroyFirst: Boolean): Check {
+        UiFixtures.install()
+        val main = ui.launch<MainActivity>()
+        val config = main.get().fragment() as ConfigurationFragment
+        val item = config.toolbar.menu.findItem(R.id.action_connection_test_delete_unavailable)
+            ?: error("前置条件：菜单里没有「删除不可用」")
+        ShadowDialog.reset()
+        config.onMenuItemClick(item)
+        if (destroyFirst) ui.destroyNow(main)
+        UiSettle.settle()
+        val shown = ShadowDialog.getLatestDialog() != null
+        return when {
+            destroyFirst && shown -> Check(false, "页面销毁后仍弹出了确认框")
+            !destroyFirst && !shown -> Check(false, "对照组：页面还在却没有弹出确认框")
+            else -> Check(true)
+        }
+    }
+
+    /** 点测试后读当前分组在途时销毁页面：不起测试，进程级的「测试中」标记复位，之后还能再测 */
+    fun groupTestEntryResetsOnDestroy(): Check {
+        UiFixtures.install()
+        val main = ui.launch<MainActivity>()
+        val config = main.get().fragment() as ConfigurationFragment
+        val item = config.toolbar.menu.findItem(R.id.action_connection_tcp_ping) ?: error("前置条件：菜单里没有「TCP Ping」")
+        config.onMenuItemClick(item)
+        val flag = Class.forName("io.nekohasekai.sagernet.ui.GroupTestRunnerKt").getDeclaredField("runningTest")
+            .apply { isAccessible = true }.get(null) as java.util.concurrent.atomic.AtomicBoolean
+        if (!flag.get()) error("前置条件：点测试后没有置位")
+        ui.destroyNow(main)
+        UiSettle.settle()
+        return if (!flag.get()) Check(true) else Check(false, "页面销毁后「测试中」标记仍然置位，之后所有测试都会被静默拒绝")
+    }
 
     // ------------------------------------------------------ 编辑器重建与会话
 

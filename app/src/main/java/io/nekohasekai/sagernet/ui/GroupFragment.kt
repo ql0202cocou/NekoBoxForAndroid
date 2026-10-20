@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.PopupMenu
 import androidx.appcompat.widget.Toolbar
 import androidx.core.view.*
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -27,7 +28,11 @@ import io.nekohasekai.sagernet.widget.liftOnScrollOf
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import io.nekohasekai.sagernet.widget.QRCodeDialog
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import moe.matsuri.nb4a.utils.Util
 import moe.matsuri.nb4a.utils.toBytesString
 import java.util.*
@@ -193,11 +198,18 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
 
         val groupList = ArrayList<ProxyGroup>()
 
-        suspend fun reload() {
-            val groups = GroupRepository.getAllGroups().toMutableList()
-            val ungrouped = groups.find { it.ungrouped }
-            if (ungrouped != null && groups.size > 1 && ProfileRepository.countProfilesByGroup(ungrouped.id) == 0L) groups.removeAll { it.ungrouped }
-            groupListView.post {
+        // 页面作用域：适配器在 onViewCreated 里建，此刻视图已存在；视图销毁时取消，
+        // 读库结果与列表刷新一并作废。reload 可从任意线程调用（监听回调、撤销提交）
+        private val viewScope = viewLifecycleOwner.lifecycleScope
+
+        fun reload() {
+            viewScope.launch {
+                val groups = withContext(Dispatchers.IO) {
+                    val groups = GroupRepository.getAllGroups().toMutableList()
+                    val ungrouped = groups.find { it.ungrouped }
+                    if (ungrouped != null && groups.size > 1 && ProfileRepository.countProfilesByGroup(ungrouped.id) == 0L) groups.removeAll { it.ungrouped }
+                    groups
+                }
                 // 同节点列表的 reloadProfiles：整表重读会把撤销窗口里待删的分组读回来，先提交掉，
                 // 否则撤销会按旧位置再插一份
                 undoManager.flush()
@@ -210,9 +222,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         init {
             setHasStableIds(true)
 
-            runOnDefaultDispatcher {
-                reload()
-            }
+            reload()
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): GroupHolder {
@@ -229,6 +239,12 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             } else {
                 onBindViewHolder(holder, position)
             }
+        }
+
+        // 行被回收时取消它还在途的节点数查询
+        override fun onViewRecycled(holder: GroupHolder) {
+            holder.cancelPendingCount()
+            super.onViewRecycled(holder)
         }
 
         override fun getItemCount(): Int {
@@ -276,6 +292,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             val groups = actions.map { it.second }
             runOnDefaultDispatcher {
                 GroupRepository.deleteGroups(groups)
+                // 删完刷新列表：页面作用域内的读取，页面已销毁时什么也不做
                 reload()
             }
         }
@@ -302,9 +319,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                 if (index == -1) return@onMainDispatcher
                 undoManager.flush()
                 if (groupCount <= 2) {
-                    runOnDefaultDispatcher {
-                        reload()
-                    }
+                    reload()
                 } else {
                     groupList.removeAt(index)
                     notifyItemRemoved(index)
@@ -319,7 +334,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             onMainDispatcher {
                 val index = groupList.indexOfFirst { it.id == group.id }
                 if (index == -1) {
-                    runOnDefaultDispatcher { reload() }
+                    reload()
                     return@onMainDispatcher
                 }
                 undoManager.flush()
@@ -338,7 +353,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             onMainDispatcher {
                 val index = groupList.indexOfFirst { it.id == groupId }
                 if (index == -1) {
-                    runOnDefaultDispatcher { reload() }
+                    reload()
                     return@onMainDispatcher
                 }
                 notifyItemChanged(index, payload)
@@ -361,6 +376,16 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
     inner class GroupHolder(binding: LayoutGroupItemBinding) :
         RecyclerView.ViewHolder(binding.root),
         PopupMenu.OnMenuItemClickListener {
+
+        // 页面作用域：holder 由适配器在视图存活时创建，视图销毁时取消；
+        // 节点数查询每次 bind / 回收时先取消上一次的，复用后的 holder 不会收到旧分组的结果
+        private val viewScope = viewLifecycleOwner.lifecycleScope
+        private var countJob: Job? = null
+
+        fun cancelPendingCount() {
+            countJob?.cancel()
+            countJob = null
+        }
 
         lateinit var proxyGroup: ProxyGroup
         val groupName = binding.groupName
@@ -385,17 +410,17 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
                 }
 
                 R.id.action_export_clipboard -> {
-                    runOnDefaultDispatcher {
-                        val (links, note) = stdLinksOfGroup(proxyGroup.id)
-                            ?: return@runOnDefaultDispatcher
-                        onMainDispatcher {
-                            // 大分组的链接可能超过 binder 事务上限，按实际结果提示；
-                            // 一条链接都没有时不复制空串，与导出到文件一致
-                            val result = if (links.isEmpty()) R.string.action_export_err
-                            else exportToClipboard(links)
-                            activity.snackbar(listOfNotNull(activity.getString(result), note).joinToString("\n"))
-                                .show()
-                        }
+                    // 页面内的操作：IO 线程生成链接，回主线程复制并提示；页面离开就不再弹
+                    val groupId = proxyGroup.id
+                    viewScope.launch {
+                        val (links, note) = withContext(Dispatchers.IO) { stdLinksOfGroup(groupId) }
+                            ?: return@launch
+                        // 大分组的链接可能超过 binder 事务上限，按实际结果提示；
+                        // 一条链接都没有时不复制空串，与导出到文件一致
+                        val result = if (links.isEmpty()) R.string.action_export_err
+                        else exportToClipboard(links)
+                        activity.snackbar(listOfNotNull(activity.getString(result), note).joinToString("\n"))
+                            .show()
                     }
                 }
 
@@ -445,6 +470,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         }
 
         fun bind(group: ProxyGroup) {
+            cancelPendingCount()
             proxyGroup = group
 
             editButton.isGone = proxyGroup.ungrouped
@@ -505,44 +531,38 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
 
             groupUser.text = subscription?.username ?: ""
 
-            runOnDefaultDispatcher {
-                val size = ProfileRepository.countProfilesByGroup(group.id)
-                onMainDispatcher {
-                    // 计数期间 holder 可能已被复用；离开分组页时 fragment 也可能已销毁，
-                    // 下面的 getString 走 requireContext，会在 appScope 上抛异常崩溃
-                    if (proxyGroup.id != group.id || !isAdded) return@onMainDispatcher
-                    when (group.type) {
-                        GroupType.BASIC -> {
-                            if (size == 0L) {
-                                groupStatus.setText(R.string.group_status_empty)
-                            } else {
-                                groupStatus.text = getString(R.string.group_status_proxies, size)
-                            }
-                        }
-
-                        GroupType.SUBSCRIPTION -> {
-                            groupStatus.text = if (size == 0L) {
-                                getString(R.string.group_status_empty_subscription)
-                            } else {
-                                val subscription = group.subscription
-                                if (subscription == null) {
-                                    // corrupted state: a subscription group without
-                                    // the bean (GroupUpdater guards the same case)
-                                    getString(R.string.group_status_proxies, size)
-                                } else {
-                                    val date = Date(subscription.lastUpdated * 1000L)
-                                    getString(
-                                        R.string.group_status_proxies_subscription,
-                                        size,
-                                        DateFormat.getDateFormat(requireContext()).format(date)
-                                    )
-                                }
-                            }
-
+            countJob = viewScope.launch {
+                val size = withContext(Dispatchers.IO) { ProfileRepository.countProfilesByGroup(group.id) }
+                when (group.type) {
+                    GroupType.BASIC -> {
+                        if (size == 0L) {
+                            groupStatus.setText(R.string.group_status_empty)
+                        } else {
+                            groupStatus.text = getString(R.string.group_status_proxies, size)
                         }
                     }
-                }
 
+                    GroupType.SUBSCRIPTION -> {
+                        groupStatus.text = if (size == 0L) {
+                            getString(R.string.group_status_empty_subscription)
+                        } else {
+                            val subscription = group.subscription
+                            if (subscription == null) {
+                                // corrupted state: a subscription group without
+                                // the bean (GroupUpdater guards the same case)
+                                getString(R.string.group_status_proxies, size)
+                            } else {
+                                val date = Date(subscription.lastUpdated * 1000L)
+                                getString(
+                                    R.string.group_status_proxies_subscription,
+                                    size,
+                                    DateFormat.getDateFormat(requireContext()).format(date)
+                                )
+                            }
+                        }
+
+                    }
+                }
             }
 
         }
