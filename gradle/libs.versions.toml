@@ -31,6 +31,11 @@ desugar-jdk-libs = "2.1.5"
 junit = "4.13.2"
 # 只用于单测：在 JVM 上执行 Room 数据库迁移（SagerDatabaseMigrationTest）
 sqlite-jdbc = "3.53.4.0"
+# 只用于单测：UI 测试基线（Robolectric 跑页面，Roborazzi 只用库做截图比较，不用它的 Gradle 插件）
+robolectric = "4.17"
+roborazzi = "1.76.0"
+# Robolectric 4.17 的 SDK 35 运行时（DefaultSdkProvider 的 15-robolectric-13954326-i7）；经 Gradle 下载并校验，测试离线读取
+robolectric-android-all = "15-robolectric-13954326-i7"
 
 [libraries]
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
@@ -68,6 +73,9 @@ recyclerview-fastscroll = { group = "com.simplecityapps", name = "recyclerview-f
 desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugar-jdk-libs" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 sqlite-jdbc = { group = "org.xerial", name = "sqlite-jdbc", version.ref = "sqlite-jdbc" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+roborazzi = { group = "io.github.takahirom.roborazzi", name = "roborazzi", version.ref = "roborazzi" }
+robolectric-android-all = { group = "org.robolectric", name = "android-all-instrumented", version.ref = "robolectric-android-all" }
 
 [plugins]
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
