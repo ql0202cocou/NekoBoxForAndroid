@@ -1058,8 +1058,12 @@ private fun ClashFields.tuic(bean: TuicBean): Pair<Set<String>, ClashInactive> {
 }
 
 private fun ClashFields.wireGuard(bean: WireGuardBean): Pair<Set<String>, ClashInactive> {
-    kept("server"); kept("port"); kept("ip"); kept("ipv6"); kept("private-key"); kept("public-key")
-    kept("pre-shared-key")
+    kept("server"); kept("port"); kept("private-key"); kept("public-key"); kept("pre-shared-key")
+    // 裸 IP 导入时补上前缀（同 mihomo），是同一个地址的另一种写法
+    for (key in listOf("ip", "ipv6")) {
+        val address = text(key)
+        if (!address.isNullOrBlank() && '/' !in address) converted(EQUIVALENT_VALUE, key) else kept(key)
+    }
     intField("mtu"); intField("persistent-keepalive")
     when (val reserved = value("reserved")) {
         null -> Unit

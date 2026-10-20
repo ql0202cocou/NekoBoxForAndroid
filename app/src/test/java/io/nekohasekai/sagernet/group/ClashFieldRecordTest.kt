@@ -220,6 +220,30 @@ class ClashFieldRecordTest {
         assertField(fields, "workers", IGNORED, ClashFieldReason.NO_WIREGUARD_WORKERS)
     }
 
+    @Test
+    fun `wireguard 裸 IP 的本地地址照 mihomo 按键补前缀`() {
+        val node = "name: w, type: wireguard, server: 198.51.100.20, port: 51820, private-key: pk-placeholder"
+        val (both, fields) = imported("{$node, ip: 172.16.0.2, ipv6: \"2001:db8::2\"}")
+        assertNoLoss(fields)
+        assertEquals("172.16.0.2/32\n2001:db8::2/128", (both as WireGuardBean).localAddress)
+        assertField(fields, "ip", CONVERTED, ClashFieldReason.EQUIVALENT_VALUE)
+        assertField(fields, "ipv6", CONVERTED, ClashFieldReason.EQUIVALENT_VALUE)
+
+        val (v4, v4Fields) = imported("{$node, ip: 172.16.0.2}")
+        assertEquals("172.16.0.2/32", (v4 as WireGuardBean).localAddress)
+        assertNull(v4Fields["ipv6"])
+        val (v6, _) = imported("{$node, ipv6: \"2001:db8::2\"}")
+        assertEquals("2001:db8::2/128", (v6 as WireGuardBean).localAddress)
+
+        // 已带前缀的原样保留；mihomo 按键名补，ip 里写 IPv6 也补 /32
+        val (mixed, mixedFields) = imported("{$node, ip: 172.16.0.2/24, ipv6: \"2001:db8::2/64\"}")
+        assertEquals("172.16.0.2/24\n2001:db8::2/64", (mixed as WireGuardBean).localAddress)
+        assertField(mixedFields, "ip", KEPT)
+        assertField(mixedFields, "ipv6", KEPT)
+        val (v6InIp, _) = imported("{$node, ip: \"2001:db8::2\"}")
+        assertEquals("2001:db8::2/32", (v6InIp as WireGuardBean).localAddress)
+    }
+
     // ---------- 剩余顶层 / 嵌套字段 ----------
 
     @Test

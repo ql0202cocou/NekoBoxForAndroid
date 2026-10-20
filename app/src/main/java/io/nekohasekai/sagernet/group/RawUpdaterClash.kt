@@ -869,9 +869,14 @@ private fun parseClashWireGuard(proxy: Map<String, Any?>): WireGuardBean {
                 "name" -> bean.name = opt.value.toString()
                 "server" -> bean.serverAddress = opt.value.toString()
                 "port" -> bean.serverPort = opt.value.toString().toInt()
+                // sing-box 的 address 要 CIDR，Clash 惯例写裸 IP：照 mihomo（v1.19.32
+                // WireGuardOption.Prefixes）按键补前缀，ip 补 /32、ipv6 补 /128，已带 / 的原样保留
                 "ip", "ipv6" -> {
                     val address = opt.value.toString()
-                    if (address.isNotBlank()) localAddresses.add(address)
+                    if (address.isNotBlank()) localAddresses.add(
+                        if ('/' in address) address
+                        else address + if (opt.key == "ip") "/32" else "/128"
+                    )
                 }
 
                 "private-key" -> bean.privateKey = opt.value.toString()
