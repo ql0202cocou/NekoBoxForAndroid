@@ -12,11 +12,12 @@ import android.widget.TextView
 import androidx.activity.result.component1
 import androidx.activity.result.component2
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.core.view.isVisible
+import androidx.lifecycle.lifecycleScope
 import io.nekohasekai.sagernet.fmt.displayType
 import androidx.preference.PreferenceFragmentCompat
 import androidx.recyclerview.widget.ItemTouchHelper
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.R
@@ -26,6 +27,7 @@ import io.nekohasekai.sagernet.databinding.LayoutAddEntityBinding
 import io.nekohasekai.sagernet.databinding.LayoutProfileBinding
 import io.nekohasekai.sagernet.fmt.internal.ChainBean
 import io.nekohasekai.sagernet.ktx.*
+import kotlinx.coroutines.launch
 import io.nekohasekai.sagernet.ui.ProfileSelectActivity
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import moe.matsuri.nb4a.Protocols.getProtocolColor
@@ -40,11 +42,13 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
     // 偏好部分只有「Profile Name」一行，顶栏正下方的内容（跳列表）不随它滚动，抬升没有对应的滚动源
     override val liftAppBarWithPreferenceList = false
 
-    val proxyList = ArrayList<ProxyEntity>()
+    // 成员列表在 ViewModel 里，旋转时留存、不重读库。第一次取要在 super.onCreate() 之后
+    private val members: ChainMembersViewModel by viewModels()
 
-    // Keep the cache in sync with proxyList so a rotation (which rebuilds
-    // proxyList from EditorCache.serverProtocol in reload()) does not lose
-    // unsaved member edits.
+    val proxyList: ArrayList<ProxyEntity> get() = members.proxyList
+
+    // 让缓存与 proxyList 保持同步：进程重建（reload() 按 EditorCache.serverProtocol 重建 proxyList）
+    // 后才不会丢掉未保存的成员改动
     fun updateProxiesCache() {
         EditorCache.serverProtocol = proxyList.joinToString(",") { it.id.toString() }
     }
@@ -71,9 +75,7 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
         addPreferencesFromResource(R.xml.name_preferences)
     }
 
-    lateinit var configurationList: RecyclerView
-    lateinit var configurationAdapter: ProxiesAdapter
-    lateinit var layoutManager: LinearLayoutManager
+    val configurationAdapter = ProxiesAdapter()
 
     @SuppressLint("InlinedApi")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -83,13 +85,14 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
         if (!ownsEditorSession) return
 
         supportActionBar!!.setTitle(R.string.chain_settings)
-        replacing = savedInstanceState?.getInt("replacing") ?: 0
-        configurationList = findViewById(R.id.configuration_list)
+        val configurationList = findViewById<RecyclerView>(R.id.configuration_list)
         configurationList.padForSystemBars()
-        layoutManager = FixedLinearLayoutManager(configurationList)
-        configurationList.layoutManager = layoutManager
-        configurationAdapter = ProxiesAdapter()
+        configurationList.layoutManager = FixedLinearLayoutManager(configurationList)
         configurationList.adapter = configurationAdapter
+        // 成员列表整体重建（载入、选中后重载）时刷新；旋转后第一次回调就是当前列表
+        lifecycleScope.launch {
+            members.revision.collect { configurationAdapter.notifyDataSetChanged() }
+        }
 
         ItemTouchHelper(object : DragScaleCallback(
             ItemTouchHelper.UP or ItemTouchHelper.DOWN, ItemTouchHelper.START
@@ -139,53 +142,16 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
             }
         }
 
-        launchInSession {
-            // Restored fragments can create their view inside super.onCreate,
-            // before this Activity has installed its adapter. Queue on Main
-            // before accessing it so Activity.onCreate can finish first.
+        // 恢复出来的 Fragment 可能在 super.onCreate 里就创建视图，那时本 Activity 的 onCreate 还没走完：
+        // 先切到主线程再碰成员列表，让 onCreate 先走完。
+        // 旋转后列表已在 ViewModel 里，不再重载；进程重建后（loaded 为假）按缓存里的 id 载入
+        editor.launchInSession {
             checked { awaitEditorReady() }
-            val adapter = onMain { configurationAdapter }
-            adapter.reload(this)
+            if (!onMain { members.loaded }) members.reload(this, ::cachedProxyIds)
         }
     }
 
     inner class ProxiesAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
-
-        // Dangling member ids (their profiles were deleted) render as
-        // non-interactive placeholder rows after the member rows; keeping them
-        // out of proxyList preserves the index arithmetic in move()/remove()
-        // and the existing cache-rewrite semantics.
-        private val missingIds = ArrayList<Long>()
-
-        // session 是调用方所在的 launchInSession 协程：每个挂起点之后先复查会话，再碰缓存与 proxyList
-        suspend fun reload(session: EditorScope) {
-            session.checked { awaitEditorReady() }
-            val idList = cachedProxyIds()
-            val profiles = if (idList.isNotEmpty()) {
-                session.checked { ProfileRepository.getProfiles(idList) }.map { it.id to it }.toMap()
-            } else emptyMap()
-            // A process-death restore fires this twice (the restored fragment
-            // and the re-init replacement), so rebuild the list instead of
-            // appending; mutate it on the main thread where the RecyclerView
-            // reads it.
-            session.onMain {
-                // A select-profile callback may have written the cache while
-                // the profiles were loading; retry instead of rebuilding the
-                // list from stale ids and wiping that selection.
-                val currentIds = cachedProxyIds()
-                if (currentIds != idList) {
-                    launchInSession { reload(this) }
-                    return@onMain
-                }
-                proxyList.clear()
-                missingIds.clear()
-                for (id in idList) {
-                    val profile = profiles[id]
-                    if (profile != null) proxyList.add(profile) else missingIds.add(id)
-                }
-                notifyDataSetChanged()
-            }
-        }
 
         fun move(from: Int, to: Int) {
             // 先取出再插入：ItemTouchHelper 一次可能跨多行，交换会让列表顺序与界面不一致；
@@ -207,7 +173,7 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
             return when {
                 position == 0 -> 0
                 position <= proxyList.size -> proxyList[position - 1].id
-                else -> -missingIds[position - 1 - proxyList.size]
+                else -> -members.missingIds[position - 1 - proxyList.size]
             }
         }
 
@@ -233,22 +199,22 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
             } else if (holder is ProfileHolder) {
                 holder.bind(proxyList[position - 1])
             } else if (holder is MissingHolder) {
-                holder.bind(missingIds[position - 1 - proxyList.size])
+                holder.bind(members.missingIds[position - 1 - proxyList.size])
             }
         }
 
         override fun getItemCount(): Int {
-            return proxyList.size + missingIds.size + 1
+            return proxyList.size + members.missingIds.size + 1
         }
 
     }
 
-    // members 须为 proxyList 的主线程快照：本函数跑在 Default 调度器上，
+    // memberSnapshot 须为 proxyList 的主线程快照：本函数跑在 Default 调度器上，
     // 直接迭代 proxyList 会与主线程的拖拽/删除并发
-    fun testProfileAllowed(profile: ProxyEntity, members: List<ProxyEntity>): Boolean {
+    fun testProfileAllowed(profile: ProxyEntity, memberSnapshot: List<ProxyEntity>): Boolean {
         if (profile.id == EditorCache.editingId) return false
 
-        for (entity in members) {
+        for (entity in memberSnapshot) {
             if (testProfileContains(entity, profile)) return false
         }
 
@@ -287,13 +253,12 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
         }
     }
 
-    // survives process death so a pending replace does not turn into an append
-    var replacing = 0
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        outState.putInt("replacing", replacing)
-    }
+    // 进程死亡后仍在（SavedStateHandle），待处理的替换才不会变成追加
+    var replacing: Int
+        get() = members.replacing
+        set(value) {
+            members.replacing = value
+        }
 
     val selectProfileForAdd =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { (resultCode, data) ->
@@ -305,8 +270,8 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
                 val profile = checked { ProfileRepository.getProfile(profileId) } ?: return@launchInSession
 
                 // proxyList 只由主线程改写（拖拽/删除/重载），快照必须在主线程取
-                val members = onMain { proxyList.toList() }
-                if (!checked { testProfileAllowed(profile, members) }) {
+                val snapshot = onMain { proxyList.toList() }
+                if (!checked { testProfileAllowed(profile, snapshot) }) {
                     onMain {
                         MaterialAlertDialogBuilder(this@ChainSettingsActivity).setTitle(R.string.circular_reference)
                             .setMessage(R.string.circular_reference_sum)
@@ -330,7 +295,7 @@ class ChainSettingsActivity : ProfileSettingsActivity<ChainBean>(R.layout.layout
                         }
                         EditorCache.serverProtocol = ids.joinToString(",")
                         EditorCache.dirty = true
-                        launchInSession { configurationAdapter.reload(this) }
+                        editor.launchInSession { members.reload(this, ::cachedProxyIds) }
                     }
                 }
             }

@@ -27,6 +27,10 @@ import androidx.test.core.app.ApplicationProvider
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.database.GroupRepository
+import io.nekohasekai.sagernet.database.ProfileRepository
+import io.nekohasekai.sagernet.database.ProxyGroup
+import io.nekohasekai.sagernet.database.RuleRepository
 import io.nekohasekai.sagernet.database.EditorCache
 import io.nekohasekai.sagernet.database.EditorSessionState
 import io.nekohasekai.sagernet.database.STATE_EDITOR_SESSION
@@ -36,13 +40,17 @@ import io.nekohasekai.sagernet.ui.AssetsActivity
 import io.nekohasekai.sagernet.ui.ConfigurationFragment
 import io.nekohasekai.sagernet.ui.ConfigurationHolder
 import io.nekohasekai.sagernet.ui.EditorActivity
+import io.nekohasekai.sagernet.fmt.internal.ChainBean
 import io.nekohasekai.sagernet.ui.GroupFragment
+import io.nekohasekai.sagernet.ui.GroupSettingsActivity
 import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.ui.ProfileListFragment
 import io.nekohasekai.sagernet.ui.RouteFragment
+import io.nekohasekai.sagernet.ui.RouteSettingsActivity
 import io.nekohasekai.sagernet.ui.SettingsFragment
 import io.nekohasekai.sagernet.ui.SettingsPreferenceFragment
 import io.nekohasekai.sagernet.ui.ToolbarFragment
+import io.nekohasekai.sagernet.ui.profile.ChainSettingsActivity
 import io.nekohasekai.sagernet.utils.PackageCache
 import io.nekohasekai.sagernet.widget.AppListPreference
 import io.nekohasekai.sagernet.widget.OutboundPreference
@@ -51,11 +59,13 @@ import io.nekohasekai.sagernet.ui.profile.ProfileSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.ShadowsocksSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.VMessSettingsActivity
 import moe.matsuri.nb4a.TempDatabase
+import androidx.appcompat.view.menu.MenuBuilder
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import org.robolectric.RuntimeEnvironment
@@ -638,6 +648,134 @@ class UiScenarios(private val ui: UiTestRule) {
         val shown = restoredChild.get().binding.editor.text.toString()
         return if (cached == SAVED_JSON && shown == SAVED_JSON) Check(true)
         else Check(false, "缓存里是 ${cached?.let { "\"$it\"" }}，子编辑器显示 \"$shown\"，应为 \"$SAVED_JSON\"")
+    }
+
+    // ------------------------------------------------------ 编辑器旋转不重读库（U4d d5）
+    //
+    // 做法：编辑器载入之后，在库里把对应的行改掉（或删掉），再旋转。旋转若重读了库，改动就会出现在编辑器里；
+    // 状态留在 ViewModel 里的话，旋转后看到的仍是载入时的那一份（节点用对象同一性断言）。
+
+    private fun <T> bg(block: suspend () -> T): T = ui.offMain { runBlocking { block() } }
+
+    /** 等后台把缓存写好，期间不空转主 looper：Fragment 的提交排在主 looper 上，此时还没发生 */
+    private fun awaitCache(what: String, ok: () -> Boolean) {
+        val deadline = System.nanoTime() + 10_000_000_000L
+        while (!ok()) {
+            if (System.nanoTime() > deadline) error("前置条件：等缓存里的$what 超时")
+            Thread.sleep(1)
+        }
+    }
+
+    private fun EditorActivity.moveItemVisible(): Boolean {
+        val menu = MenuBuilder(this)
+        onCreateOptionsMenu(menu)
+        return menu.findItem(R.id.action_move).isVisible
+    }
+
+    /** 节点编辑器：正在编辑的节点载入一次，旋转后还是同一个对象，不重新读库 */
+    fun profileEditorRotationKeepsLoadedEntity(): Check {
+        val (editor, _) = ssEditor()
+        val before = editor.get().proxyEntity ?: error("前置条件：节点还没载入")
+        val name = before.displayName()
+        bg {
+            val entity = ProfileRepository.getProfile(before.id)!!
+            entity.requireBean().name = "Renamed elsewhere"
+            ProfileRepository.updateProfile(entity)
+        }
+        editor.change(Change.ROTATE)
+        val after = editor.get().proxyEntity
+        return if (after === before) Check(true)
+        else Check(false, "旋转后节点重新读了库：之前「$name」，之后「${after?.displayName()}」")
+    }
+
+    /** 节点编辑器：「移动」菜单项的可见性算一次，旋转不重算（算了的话，库里分组删掉后菜单会变） */
+    fun profileEditorRotationKeepsMoveMenu(): Check {
+        val fixtures = UiFixtures.install()
+        val second = bg { GroupRepository.createGroup(ProxyGroup(name = "Second group")) }
+        val editor = ui.launch(
+            ShadowsocksSettingsActivity::class.java,
+            editIntent(ShadowsocksSettingsActivity::class.java, fixtures.profiles[1].id),
+        )
+        if (!editor.get().moveItemVisible()) error("前置条件：有两个普通分组时菜单里没有「移动」")
+        bg { GroupRepository.deleteGroup(second.id) }
+        editor.change(Change.ROTATE)
+        return if (editor.get().moveItemVisible()) Check(true) else Check(false, "旋转后「移动」菜单项重新查了库，变成隐藏")
+    }
+
+    /**
+     * 分组编辑器：初始化写完缓存、Fragment 还没提交时旋转（上一个实例在提交前被销毁）：新实例只重新提交 Fragment，
+     * 不再读一遍库——库里把分组改名后，缓存里仍是第一次读到的名字。
+     */
+    fun groupEditorRotationBeforeCommitDoesNotReload(): Check {
+        val fixtures = UiFixtures.install()
+        val intent = Intent(ApplicationProvider.getApplicationContext(), GroupSettingsActivity::class.java)
+            .putExtra(GroupSettingsActivity.EXTRA_GROUP_ID, fixtures.normalGroup.id)
+        val editor = ui.launchCreatedOnly(GroupSettingsActivity::class.java, intent)
+        awaitCache("分组名") { EditorCache.groupName == UiFixtures.NORMAL_GROUP }
+        if (editor.get().child != null) error("前置条件：旋转前 Fragment 已经提交了")
+        bg { GroupRepository.updateGroup(fixtures.normalGroup.apply { name = "Renamed elsewhere" }) }
+        editor.change(Change.ROTATE)
+        if (editor.get().child == null) return Check(false, "旋转后没有提交偏好 Fragment")
+        return same("缓存里的分组名", UiFixtures.NORMAL_GROUP, EditorCache.groupName)
+    }
+
+    /** 路由编辑器：同分组编辑器，初始化写完缓存、Fragment 还没提交时旋转，不重读库 */
+    fun routeEditorRotationBeforeCommitDoesNotReload(): Check {
+        UiFixtures.install()
+        val rule = bg { RuleRepository.getRules().first() }
+        val intent = Intent(ApplicationProvider.getApplicationContext(), RouteSettingsActivity::class.java)
+            .putExtra(RouteSettingsActivity.EXTRA_ROUTE_ID, rule.id)
+        val editor = ui.launchCreatedOnly(RouteSettingsActivity::class.java, intent)
+        awaitCache("规则名") { EditorCache.routeName == rule.name }
+        if (editor.get().child != null) error("前置条件：旋转前 Fragment 已经提交了")
+        bg { RuleRepository.updateRule(rule.copy(name = "Renamed elsewhere")) }
+        editor.change(Change.ROTATE)
+        if (editor.get().child == null) return Check(false, "旋转后没有提交偏好 Fragment")
+        return same("缓存里的规则名", rule.name, EditorCache.routeName)
+    }
+
+    private fun chainEditor(): ActivityController<ChainSettingsActivity> {
+        val fixtures = UiFixtures.install()
+        val chain = bg {
+            ProfileRepository.createProfile(
+                fixtures.normalGroup.id,
+                ChainBean().apply {
+                    name = "Chain A"
+                    proxies = listOf(fixtures.profiles[0].id)
+                },
+            )
+        }
+        return ui.launch(ChainSettingsActivity::class.java, editIntent(ChainSettingsActivity::class.java, chain.id))
+    }
+
+    /** 链式代理编辑器：成员列表载入一次，旋转后是同一批对象，不按 id 重读库；适配器里的条数不变 */
+    fun chainEditorRotationKeepsMembers(): Check {
+        val editor = chainEditor()
+        val before = editor.get().proxyList.toList()
+        if (before.size != 1) error("前置条件：成员列表没有载入 $before")
+        bg {
+            val member = ProfileRepository.getProfile(before[0].id)!!
+            member.requireBean().name = "Renamed elsewhere"
+            ProfileRepository.updateProfile(member)
+        }
+        editor.change(Change.ROTATE)
+        val after = editor.get().proxyList
+        if (after.size != 1 || after[0] !== before[0]) {
+            return Check(false, "旋转后成员列表重新读了库：之前 ${before.map { it.displayName() }}，之后 ${after.map { it.displayName() }}")
+        }
+        return same("适配器条数", 2, editor.get().configurationAdapter.itemCount)
+    }
+
+    /** 链式代理编辑器：待处理的「替换第几个成员」随进程重建带回（SavedStateHandle），不会变成追加 */
+    fun chainEditorReplacingSurvivesProcessRecreation(): Check {
+        val editor = chainEditor()
+        editor.get().replacing = 1
+        val intent = editor.get().intent
+        val state = saveProcessState(editor)
+        ui.destroyNow(editor)
+        TempDatabase.profileCacheDao.reset()
+        val restored = ui.launchRestored(ChainSettingsActivity::class.java, intent, state)
+        return same("replacing", 1, restored.get().replacing)
     }
 
     // ------------------------------------------------------ 入场动画（M5）

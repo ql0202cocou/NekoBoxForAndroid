@@ -7,7 +7,6 @@ import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import android.view.ViewGroup.MarginLayoutParams
-import android.widget.LinearLayout
 import androidx.appcompat.app.AlertDialog
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -33,7 +32,6 @@ import io.nekohasekai.sagernet.ui.ThemedActivity
 import io.nekohasekai.sagernet.widget.liftOnScrollOf
 import io.nekohasekai.sagernet.widget.padForSystemBars
 import io.nekohasekai.sagernet.widget.safeDrawingTypes
-import moe.matsuri.nb4a.ui.ExtendedKeyboard
 import org.json.JSONObject
 import io.nekohasekai.sagernet.database.EditorCache
 
@@ -65,7 +63,8 @@ class ConfigEditActivity : ThemedActivity() {
         }
     }
 
-    lateinit var binding: LayoutEditConfigBinding
+    // 第一次用到在 onCreate 里（super 之后）
+    val binding by lazy { LayoutEditConfigBinding.inflate(layoutInflater) }
 
     @SuppressLint("InlinedApi")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -82,7 +81,6 @@ class ConfigEditActivity : ThemedActivity() {
             parentDirty = EditorCache.dirty
         }
 
-        binding = LayoutEditConfigBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         setSupportActionBar(findViewById(R.id.toolbar))
@@ -148,7 +146,7 @@ class ConfigEditActivity : ThemedActivity() {
             }
         }
 
-        val extendedKeyboard = findViewById<ExtendedKeyboard>(R.id.extended_keyboard)
+        val extendedKeyboard = binding.extendedKeyboard
         extendedKeyboard.setKeyListener { char ->
             try {
                 binding.editor.insert(char)
@@ -160,8 +158,7 @@ class ConfigEditActivity : ThemedActivity() {
         // 键位 40dp 宽：窄屏上放不下时靠末尾的键滚动，所以最常用的引号排在最前、下划线最后
         extendedKeyboard.submitList("\"{},:_".map { it.toString() })
 
-        val keyboardContainer = findViewById<LinearLayout>(R.id.keyboard_container)
-        ViewCompat.setOnApplyWindowInsetsListener(keyboardContainer) { v, windowInsets ->
+        ViewCompat.setOnApplyWindowInsetsListener(binding.keyboardContainer) { v, windowInsets ->
             // getInsets(ime()) is already zero while the keyboard is hidden.
             val imeInsets = windowInsets.getInsets(WindowInsetsCompat.Type.ime())
             val systemBarInsets = windowInsets.getInsets(safeDrawingTypes)

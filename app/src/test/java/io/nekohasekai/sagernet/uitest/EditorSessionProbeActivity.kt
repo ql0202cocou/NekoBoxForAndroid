@@ -5,6 +5,7 @@ import androidx.fragment.app.DialogFragment
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.ui.EditorActivity
+import io.nekohasekai.sagernet.ui.EditorScope
 import kotlinx.coroutines.Job
 
 /**

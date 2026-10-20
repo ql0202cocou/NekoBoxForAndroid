@@ -40,18 +40,8 @@ class GroupSettingsActivity(
     private var landingProxyPreference: OutboundPreference? = null
     private var subscriptionLinkPreference: EditTextPreference? = null
 
-    // A redelivered activity result (process death while the picker was
-    // foreground) may run before the async re-init; init() must re-apply
-    // these so the entity values do not overwrite the user's selection.
-    @Volatile
-    private var pendingFrontProxy: Long? = null
-
-    @Volatile
-    private var pendingLandingProxy: Long? = null
-
-    @Volatile
-    private var pendingSubscriptionLink: String? = null
-
+    // 选择结果重放得比异步初始化早（选择器在前台时进程死亡）时暂存在 ViewModel 里：
+    // 初始化要把它们补回缓存，免得实体里的值盖掉用户刚选的。键见下面的常量
     fun ProxyGroup.init() {
         EditorCache.groupName = name ?: ""
         EditorCache.groupType = type
@@ -220,6 +210,10 @@ class GroupSettingsActivity(
 
     companion object {
         const val EXTRA_GROUP_ID = "id"
+
+        private const val PENDING_FRONT_PROXY = "frontProxy"
+        private const val PENDING_LANDING_PROXY = "landingProxy"
+        private const val PENDING_SUBSCRIPTION_LINK = "subscriptionLink"
     }
 
     @SuppressLint("CommitTransaction")
@@ -254,15 +248,15 @@ class GroupSettingsActivity(
 
                 // Re-apply a picker result redelivered before this init ran,
                 // so the user's selection wins over the entity values.
-                pendingFrontProxy?.let {
+                editor.pending<Long>(PENDING_FRONT_PROXY)?.let {
                     EditorCache.frontProxy = it
                     EditorCache.frontProxyTmp = 3
                 }
-                pendingLandingProxy?.let {
+                editor.pending<Long>(PENDING_LANDING_PROXY)?.let {
                     EditorCache.landingProxy = it
                     EditorCache.landingProxyTmp = 3
                 }
-                pendingSubscriptionLink?.let { EditorCache.subscriptionLink = it }
+                editor.pending<String>(PENDING_SUBSCRIPTION_LINK)?.let { EditorCache.subscriptionLink = it }
                 true
             }
         }
@@ -315,13 +309,13 @@ class GroupSettingsActivity(
     // Registration order fixes the request keys the framework uses to redeliver
     // results, so keep front before landing.
     val selectProfileForAddFront = profilePicker({
-        pendingFrontProxy = it
+        editor.setPending(PENDING_FRONT_PROXY, it)
         EditorCache.frontProxy = it
         EditorCache.frontProxyTmp = 3
     }, { frontProxyPreference })
 
     val selectProfileForAddLanding = profilePicker({
-        pendingLandingProxy = it
+        editor.setPending(PENDING_LANDING_PROXY, it)
         EditorCache.landingProxy = it
         EditorCache.landingProxyTmp = 3
     }, { landingProxyPreference })
@@ -342,7 +336,7 @@ class GroupSettingsActivity(
         val link = uri.toString()
         // pending first, like the profile pickers: a redelivered result may run
         // before the async re-init, which then re-applies it
-        pendingSubscriptionLink = link
+        editor.setPending(PENDING_SUBSCRIPTION_LINK, link)
         EditorCache.subscriptionLink = link
         // 进程死亡恢复时 fragment 提交前为 null；它创建时会读 EditorCache 里的值
         subscriptionLinkPreference?.text = link

@@ -26,8 +26,8 @@ import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import io.nekohasekai.sagernet.fmt.coreSelectable
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import androidx.preference.EditTextPreference
 import androidx.preference.Preference
@@ -86,40 +86,14 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
     abstract fun T.init()
     abstract fun T.serialize()
 
-    private val editorReady = CompletableDeferred<Unit>()
+    // 等初始化把实体写进缓存；节点已不存在或会话失效时抛 CancellationException，等它的协程随之结束
+    protected suspend fun awaitEditorReady() = editor.awaitInit()
 
-    protected suspend fun awaitEditorReady() = editorReady.await()
+    // 正在编辑的那一行，新建节点时为 null。在 ViewModel 里后台载入一次（旋转不重读），主线程不查库：
+    // 载入完成前这里是 null，要用它的地方先 awaitProxyEntity()
+    val proxyEntity: ProxyEntity? get() = editor.proxyEntity
 
-    // 正在编辑的那一行，新建节点时为 null。onCreate 里在后台载入一次，主线程不查库：载入完成前这里是 null，
-    // 要用它的地方先 awaitProxyEntity()
-    @Volatile
-    var proxyEntity: ProxyEntity? = null
-        private set
-    private val proxyEntityLoad = CompletableDeferred<ProxyEntity?>()
-
-    suspend fun awaitProxyEntity(): ProxyEntity? = proxyEntityLoad.await()
-
-    // 不挂在页面生命周期上：保存跑在 appScope 里等这个结果，页面在载入途中被销毁也不能让它一直等。
-    // 读库抛出的异常交给每个等待方（与原先 lazy 求值时抛给读取方相同）
-    private fun startProxyEntityLoad(editingId: Long) {
-        if (editingId == 0L) {
-            proxyEntityLoad.complete(null)
-            return
-        }
-        runOnDefaultDispatcher {
-            try {
-                val entity = ProfileRepository.getProfile(editingId)
-                proxyEntity = entity
-                proxyEntityLoad.complete(entity)
-            } catch (e: Throwable) {
-                proxyEntityLoad.completeExceptionally(e)
-            }
-        }
-    }
-
-    // action_move 的可见性要查库得出；onCreate 末尾异步预取后由
-    // invalidateOptionsMenu 应用，默认值与菜单 XML 一致（隐藏）
-    private var canMoveProfile = false
+    suspend fun awaitProxyEntity(): ProxyEntity? = editor.awaitProxyEntity()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         beginEditorSession(savedInstanceState)
@@ -130,10 +104,10 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         }
         super.onCreate(savedInstanceState)
         if (finishIfEditorSessionLost()) {
-            proxyEntityLoad.complete(null)
+            editor.loadProxyEntity(0L)
             return
         }
-        startProxyEntityLoad(EditorCache.editingId)
+        editor.loadProxyEntity(EditorCache.editingId)
         setSupportActionBar(findViewById(R.id.toolbar))
         supportActionBar?.apply {
             setTitle(R.string.profile_config)
@@ -149,11 +123,9 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         // editor would save a garbage profile.
         if (needsEditorInit(savedInstanceState, Key.PROFILE_CORE)) {
             val editingId = EditorCache.editingId
-            // 提交成功才算就绪；节点不存在（load 返回 false）、会话失效、页面销毁都不会提交，
-            // 协程结束时取消 editorReady，等它的协程随之结束
-            launchEditorInit(
-                { MyPreferenceFragmentCompat() }, now = true, onCommitted = { editorReady.complete(Unit) },
-            ) {
+            // 读库与写缓存在 ViewModel 里只跑一次；节点不存在（load 返回 false）、会话失效、页面销毁
+            // 都不会提交 Fragment，等初始化的协程随之结束
+            launchEditorInit({ MyPreferenceFragmentCompat() }, now = true) {
                 if (editingId == 0L) {
                     EditorCache.editingGroup = checked { GroupRepository.selectedGroupForImport() }
                     createEntity().applyDefaultValues().init()
@@ -169,24 +141,16 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                     )
                 }
                 true
-            }.invokeOnCompletion {
-                if (!editorReady.isCompleted) editorReady.cancel()
             }
         } else {
-            editorReady.complete(Unit)
+            editor.markInitDone()
         }
 
-        // action_move 可见性条件要查库，等初始化写好 editingGroup 后异步预取
-        // 再刷新菜单；节点已不存在或初始化失败时 editorReady 被取消，这里随之结束
-        // （会话被接管时 onCreate 早已返回，走不到这里）
-        launchInSession {
-            checked { awaitEditorReady() }
-            // 读 editingGroup 与查库都在会话内：被接管后缓存里是别人的内容，不能拿来算菜单
-            canMoveProfile = EditorCache.editingId != 0L // 非新建
-                    && GroupRepository.getGroup(EditorCache.editingGroup)?.type == GroupType.BASIC // 不在订阅组
-                    && GroupRepository.getAllGroups()
-                .filter { it.type == GroupType.BASIC }.size > 1 // 还有其他普通分组
-            onMain { invalidateOptionsMenu() }
+        // action_move 可见性条件要查库，等初始化写好 editingGroup 后在 ViewModel 里异步预取一次（旋转不重算），
+        // 算好后由这里订阅并刷新菜单（会话被接管时 onCreate 早已返回，走不到这里）
+        editor.prefetchCanMoveProfile()
+        lifecycleScope.launch {
+            editor.canMoveProfile.drop(1).collect { invalidateOptionsMenu() }
         }
 
     }
@@ -285,8 +249,8 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         super.onCreateOptionsMenu(menu)
-        // action_move 可见性取 onCreate 预取的结果，勿在主线程查库
-        menu.findItem(R.id.action_move)?.isVisible = canMoveProfile
+        // action_move 可见性取 ViewModel 预取的结果，勿在主线程查库
+        menu.findItem(R.id.action_move)?.isVisible = editor.canMoveProfile.value
         menu.findItem(R.id.action_create_shortcut)?.apply {
             if (Build.VERSION.SDK_INT >= 26 && EditorCache.editingId != 0L) {
                 isVisible = true // not new profile

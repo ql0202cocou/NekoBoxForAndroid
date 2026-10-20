@@ -33,11 +33,8 @@ class RouteSettingsActivity(
     @LayoutRes resId: Int = R.layout.layout_settings_activity,
 ) : EditorActivity(resId) {
 
-    // A redelivered activity result (process death while the picker was
-    // foreground) may run before the async re-init; init() must re-apply
-    // this so the entity values do not overwrite the user's selection.
-    @Volatile
-    private var pendingRouteOutbound: Long? = null
+    // 选择结果重放得比异步初始化早（选择器在前台时进程死亡）时暂存在 ViewModel 里：
+    // 初始化要把它补回缓存，免得实体里的值盖掉用户刚选的
 
     // 新建规则的初始内容；读应用名可能阻塞，调用方要用 checked 包起来，读完再写缓存
     fun newRule(packageName: String?) = RuleEntity().apply {
@@ -90,8 +87,6 @@ class RouteSettingsActivity(
         }
     }
 
-    private lateinit var editConfigPreference: EditConfigPreference
-
     fun needSave(): Boolean {
         return EditorCache.dirty
     }
@@ -101,23 +96,20 @@ class RouteSettingsActivity(
         rootKey: String?,
     ) {
         addPreferencesFromResource(R.xml.route_preferences)
-
-        editConfigPreference = findPreference(Key.SERVER_CONFIG)!!
     }
 
     override fun onResume() {
         super.onResume()
 
-        if (::editConfigPreference.isInitialized) {
-            editConfigPreference.notifyChanged()
-        }
+        // 子编辑器写完缓存回来，刷新「自定义配置」一行的摘要；Fragment 还没提交时没有可刷新的
+        child?.findPreference<EditConfigPreference>(Key.SERVER_CONFIG)?.notifyChanged()
     }
 
     val selectProfileForAdd = profilePicker({
-        pendingRouteOutbound = it
+        editor.setPending(PENDING_ROUTE_OUTBOUND, it)
         EditorCache.routeOutboundRule = it
         EditorCache.routeOutbound = 3
-    }, { if (::outbound.isInitialized) outbound else null })
+    }, { child?.findPreference<OutboundPreference>(Key.ROUTE_OUTBOUND) })
 
     val selectAppList = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -125,17 +117,12 @@ class RouteSettingsActivity(
         // The fragment may not be committed yet on a process-death restore;
         // AppListActivity already wrote EditorCache.routePackages, so skipping
         // the refresh loses nothing.
-        if (::apps.isInitialized) {
-            apps.postUpdate()
-        }
+        child?.findPreference<AppListPreference>(Key.ROUTE_PACKAGES)?.postUpdate()
     }
 
-    lateinit var outbound: OutboundPreference
-    lateinit var apps: AppListPreference
-
     override fun PreferenceFragmentCompat.viewCreated(view: View, savedInstanceState: Bundle?) {
-        outbound = findPreference(Key.ROUTE_OUTBOUND)!!
-        apps = findPreference(Key.ROUTE_PACKAGES)!!
+        val outbound = findPreference<OutboundPreference>(Key.ROUTE_OUTBOUND)!!
+        val apps = findPreference<AppListPreference>(Key.ROUTE_PACKAGES)!!
 
         outbound.setOnPreferenceChangeListener { _, newValue ->
             if (newValue.toString() == "3") {
@@ -183,6 +170,8 @@ class RouteSettingsActivity(
     companion object {
         const val EXTRA_ROUTE_ID = "id"
         const val EXTRA_PACKAGE_NAME = "pkg"
+
+        private const val PENDING_ROUTE_OUTBOUND = "routeOutbound"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -216,7 +205,7 @@ class RouteSettingsActivity(
 
                 // Re-apply a picker result redelivered before this init ran,
                 // so the user's selection wins over the entity values.
-                pendingRouteOutbound?.let {
+                editor.pending<Long>(PENDING_ROUTE_OUTBOUND)?.let {
                     EditorCache.routeOutboundRule = it
                     EditorCache.routeOutbound = 3
                 }

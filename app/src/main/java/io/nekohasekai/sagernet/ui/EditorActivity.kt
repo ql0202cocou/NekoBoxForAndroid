@@ -7,6 +7,7 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.annotation.LayoutRes
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.DialogFragment
@@ -28,8 +29,6 @@ import io.nekohasekai.sagernet.database.STATE_EDITOR_SESSION
 import io.nekohasekai.sagernet.database.checkEditorSession
 import io.nekohasekai.sagernet.database.claimEditorSession
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
-import io.nekohasekai.sagernet.database.permitsCacheWrite
-import io.nekohasekai.sagernet.database.permitsSave
 import io.nekohasekai.sagernet.database.renewEditorSession
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
@@ -37,7 +36,6 @@ import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.widget.OutboundPreference
 import io.nekohasekai.sagernet.widget.liftAncestorAppBar
 import io.nekohasekai.sagernet.widget.padForSystemBars
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -55,17 +53,19 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
     constructor() : super()
     constructor(@LayoutRes contentLayoutId: Int) : super(contentLayoutId)
 
-    // Token proving this Activity still owns the cache; persisted so a restore
-    // can detect another editor taking it over.
-    private var editorSession = 0L
+    /**
+     * 页面级状态的持有者（会话令牌、初始化结果、选择器暂存等），旋转时留存。
+     * 在 `super.onCreate()` 之前就要用（认领会话），所以不带 SavedStateHandle。
+     */
+    protected val editor: EditorViewModel by viewModels()
 
     /** False once another editor claimed the cache; saving would hit the wrong entity. */
-    protected var ownsEditorSession = true
-        private set
+    protected val ownsEditorSession get() = editor.owns
 
+    // 令牌也存进实例状态：进程重建后 ViewModel 是新的，靠它认出缓存是被接管还是只是丢了
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        outState.putLong(STATE_EDITOR_SESSION, editorSession)
+        outState.putLong(STATE_EDITOR_SESSION, editor.session)
     }
 
     /**
@@ -74,11 +74,13 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
      */
     protected fun beginEditorSession(savedInstanceState: Bundle?) {
         if (savedInstanceState == null) {
-            editorSession = claimEditorSession()
+            editor.session = claimEditorSession()
+            editor.owns = true
             return
         }
-        editorSession = savedInstanceState.getLong(STATE_EDITOR_SESSION, 0L)
-        ownsEditorSession = checkEditorSession(editorSession) != EditorSessionState.TAKEN_OVER
+        // 旋转：ViewModel 还在，令牌以它为准；进程重建：ViewModel 是新的，令牌取自实例状态
+        if (editor.session == 0L) editor.session = savedInstanceState.getLong(STATE_EDITOR_SESSION, 0L)
+        editor.owns = checkEditorSession(editor.session) != EditorSessionState.TAKEN_OVER
     }
 
     /**
@@ -93,7 +95,7 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
     }
 
     /** Re-claim after a process-death re-init rewrote the cache. */
-    protected fun renewEditorSessionToken() = renewEditorSession(editorSession)
+    protected fun renewEditorSessionToken() = renewEditorSession(editor.session)
 
     /**
      * 会话归属的统一检查入口：初始化写缓存、提交 Fragment、选择器回调写缓存、保存，
@@ -104,18 +106,16 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
      * false 表示初始化 / 回调写缓存（见 [permitsCacheWrite]）。
      */
     protected fun holdsEditorSession(forSave: Boolean = false): Boolean {
-        if (!ownsEditorSession) return false
         // 保存不看页面是否销毁：缓存归属由令牌决定（旋转重建后令牌不变），保存在途中
         // 被旋转时，写完比丢掉用户的保存更合理
         if (!forSave && lifecycle.currentState == Lifecycle.State.DESTROYED) return false
-        val state = checkEditorSession(editorSession)
-        return if (forSave) state.permitsSave() else state.permitsCacheWrite()
+        return editor.holds(forSave)
     }
 
     /**
-     * 恢复时是否需要重新初始化缓存与 Fragment：首次创建、进程死亡后缓存被清空，
-     * 或上一个实例在 Fragment 提交前就被销毁（缓存里只有初始化写了一半的内容，
-     * 此时用户还没见过界面，重新初始化不会丢修改）。
+     * 恢复时是否需要走 [launchEditorInit]：首次创建、进程死亡后缓存被清空，
+     * 或上一个实例在 Fragment 提交前就被销毁（此时用户还没见过界面，不会丢修改）。
+     * 读库与写缓存只在 ViewModel 里跑一次，旋转后的这种情况只是重新提交 Fragment。
      */
     protected fun needsEditorInit(savedInstanceState: Bundle?, cacheMarkerKey: String): Boolean =
         savedInstanceState == null ||
@@ -123,13 +123,14 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
                 supportFragmentManager.findFragmentById(R.id.settings) == null
 
     /**
-     * 编辑器协程的统一入口（初始化、选择器回调、子编辑器结果回写都经这里）。在 [scope]（默认页面的
+     * 编辑器协程的统一入口（选择器回调、子编辑器结果回写等要碰 View 的工作经这里）。在 [scope]（默认页面的
      * [lifecycleScope]，Fragment 里的调用传自己的）里的 [context] 上启动 [block]：
      * - 启动时先查一次会话归属，不属于本编辑器（页面已销毁、缓存被别的编辑器接管）就不跑；
      * - [block] 里每个挂起点（含阻塞读库）之后、碰缓存或 View 之前，必须再查一次：读库用
      *   [EditorScope.checked]，切主线程用 [EditorScope.onMain]，两者检查失败都抛 [CancellationException]，
      *   协程静默结束，迟到的结果被丢弃（不弹提示，被接管的编辑器此时已不可见或已提示过）；
      * - 页面销毁时协程随 [scope] 取消。
+     * 要跨旋转存活、且不碰 View 的工作（初始化读库等）走 [EditorViewModel.launchInSession]；
      * 必须在页面关闭后仍写完的保存不走这里（见 [saveAndExit]）。
      */
     protected fun launchInSession(
@@ -137,51 +138,31 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
         context: CoroutineContext = Dispatchers.Default,
         block: suspend EditorScope.() -> Unit,
     ): Job = scope.launch(context) {
-        val session = EditorScope(this)
+        val session = EditorScope(this, ::holdsEditorSession)
         session.ensureHeld()
         session.block()
     }
 
-    /** [launchInSession] 里 [block] 的接收者：会话检查只能在入口内部用。 */
-    inner class EditorScope internal constructor(scope: CoroutineScope) : CoroutineScope by scope {
-        /** 会话已失效就抛 [CancellationException]，结束当前协程。 */
-        fun ensureHeld() {
-            if (!holdsEditorSession()) throw CancellationException("编辑器会话已失效")
-        }
-
-        /** 运行 [block]（可挂起或阻塞读库），返回前再查一次会话；调用方只在这之后才可以碰缓存与 View。 */
-        suspend fun <T> checked(block: suspend () -> T): T {
-            val result = block()
-            ensureHeld()
-            return result
-        }
-
-        /**
-         * 切到主线程，先查会话再运行 [block]；[block] 本身不再挂起，所以查完到写完之间没有间隙。
-         * 写缓存、改 View 都放在这里面。
-         */
-        suspend fun <T> onMain(block: () -> T): T = onMainDispatcher {
-            ensureHeld()
-            block()
-        }
-    }
-
     /**
      * 编辑器初始化：[load] 在后台把实体写进缓存，返回 false 表示实体已不存在（直接关闭页面）；
-     * 随后提交偏好 Fragment（[now] 为真时同步提交），提交成功后调 [onCommitted]。
-     * [load] 里读库要用 [EditorScope.checked] 包起来，再写缓存。会话失效时静默结束，不提交、不关闭页面。
+     * 随后提交偏好 Fragment（[now] 为真时同步提交）。
+     * [load] 由 [EditorViewModel.startInit] 在 ViewModel 作用域里只跑一次：旋转后新的 Activity 再调本函数只会
+     * 等同一个结果并重新提交 Fragment（上一个实例可能在提交前就被销毁了），不再读库；因此 [load] 里不得碰
+     * Activity 的 View。读库要用 [EditorScope.checked] 包起来，再写缓存。会话失效时静默结束，不提交、不关闭页面。
      */
     protected fun launchEditorInit(
         createFragment: () -> Fragment,
         now: Boolean = false,
-        onCommitted: () -> Unit = {},
         load: suspend EditorScope.() -> Boolean,
-    ) = launchInSession {
-        if (!load()) {
-            onMainDispatcher { finish() }
-            return@launchInSession
+    ) {
+        val loaded = editor.startInit(load)
+        launchInSession {
+            if (!checked { loaded.await() }) {
+                onMainDispatcher { finish() }
+                return@launchInSession
+            }
+            commitEditorFragment(createFragment(), now)
         }
-        if (commitEditorFragment(createFragment(), now)) onCommitted()
     }
 
     /**

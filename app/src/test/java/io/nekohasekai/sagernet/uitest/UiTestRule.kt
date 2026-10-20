@@ -128,6 +128,18 @@ class UiTestRule : TestRule {
         return controller
     }
 
+    /**
+     * 只走到 onCreate：Activity 停在 CREATED，`withStarted` 里的提交（编辑器的 Fragment 提交）不会发生。
+     * 用来确定性地复现「后台读完了、Fragment 还没提交」的窗口；不 settle。
+     */
+    fun <A : Activity> launchCreatedOnly(type: Class<A>, intent: Intent? = null): ActivityController<A> {
+        val controller = if (intent == null) Robolectric.buildActivity(type)
+        else Robolectric.buildActivity(type, intent)
+        controllers += controller
+        controller.create()
+        return controller
+    }
+
     /** 用保存下来的实例状态重新启动一个 Activity（模拟进程重建后系统带回 savedInstanceState） */
     fun <A : Activity> launchRestored(type: Class<A>, intent: Intent?, state: Bundle): ActivityController<A> {
         val controller = if (intent == null) Robolectric.buildActivity(type)
