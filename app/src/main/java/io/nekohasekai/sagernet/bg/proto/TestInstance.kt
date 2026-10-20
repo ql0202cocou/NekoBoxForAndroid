@@ -8,9 +8,11 @@ import io.nekohasekai.sagernet.fmt.buildConfig
 import io.nekohasekai.sagernet.fmt.withRealityHint
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.mkPort
+import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.runOnIoDispatcher
 import io.nekohasekai.sagernet.ktx.tryResume
 import io.nekohasekai.sagernet.ktx.tryResumeWithException
+import io.nekohasekai.sagernet.plugin.PluginManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -56,7 +58,7 @@ class TestInstance(profile: ProxyEntity, val link: String, private val timeout: 
             val cont = c as Continuation<Int>
             processes = GuardedProcessPool {
                 Logs.w(it)
-                cont.tryResumeWithException(it)
+                cont.tryResumeWithException(redacted(it))
             }
             c.invokeOnCancellation {
                 // The test below runs on appScope and outlives the caller;
@@ -98,16 +100,25 @@ class TestInstance(profile: ProxyEntity, val link: String, private val timeout: 
                                 cont.tryResume(singBoxUrlTest())
                             }
                         } catch (e: Exception) {
-                            cont.tryResumeWithException(e)
+                            cont.tryResumeWithException(redacted(e))
                         }
                     }
                 } catch (e: Exception) {
                     // use {} rethrows close() failures; the continuation must
                     // still be resumed (a no-op if it already was).
-                    cont.tryResumeWithException(e)
+                    cont.tryResumeWithException(redacted(e))
                 }
             }
         }
+    }
+
+    // 测速的报错会存进节点的测速结果、显示在卡片上，先按本次构建的凭据脱敏（redactErrorText）。文本没变时原样返回；
+    // 取消与缺插件保留原类型（调用方按类型识别，消息里没有凭据）。脱敏后的异常不带原异常，免得原文经 cause 流出
+    private fun redacted(e: Throwable): Throwable {
+        if (e is CancellationException || e is PluginManager.PluginNotFoundException) return e
+        val message = e.readableMessage
+        val text = redactErrorText(message)
+        return if (text == message) e else Exception(text)
     }
 
     // 经 sing-box 测速；REALITY 握手失败时按构建结果补一句提示（ConfigBuildResult.withRealityHint）

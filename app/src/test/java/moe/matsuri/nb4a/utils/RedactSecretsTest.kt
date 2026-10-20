@@ -518,4 +518,61 @@ class RedactSecretsTest {
         assertFalse(redacted.contains(secret.take(100)))
         assertTrue(redacted.contains("example.com"))
     }
+
+    // ---- 按值遮蔽（redactSecretValues）：核心报错原文里没有键名，按配置里敏感键的取值查找
+
+    private val wireGuardKey = "cGxhY2Vob2xkZXItcHJpdmF0ZS1rZXktZm9yLXRlc3Q="
+
+    @Test
+    fun secretValuesFromJsonConfigAreMaskedInFreeText() {
+        val config = JavaUtil.gson.toJson(
+            mapOf(
+                "endpoints" to listOf(
+                    mapOf("type" to "wireguard", "private_key" to wireGuardKey, "address" to listOf("172.16.0.2/32"))
+                ),
+                "outbounds" to listOf(
+                    mapOf("type" to "vless", "uuid" to "00000000-0000-0000-0000-00000000000a", "server" to "v.example.com")
+                ),
+            )
+        )
+        val error = "initialize endpoint[0]: invalid key $wireGuardKey; dial v.example.com: " +
+            "user 00000000-0000-0000-0000-00000000000a rejected"
+        val redacted = Util.redactSecretValues(error, listOf(config))
+        assertEquals("initialize endpoint[0]: invalid key ***; dial v.example.com: user *** rejected", redacted)
+    }
+
+    @Test
+    fun secretValuesFromYamlConfigAreMaskedAndNestedSecretsCount() {
+        val error = "listener in-0 auth failed for $defaultUser / $defaultPass"
+        val redacted = Util.redactSecretValues(error, listOf(mihomo(users = true, longServer = false)))
+        assertEquals("listener in-0 auth failed for *** / ***", redacted)
+        // 敏感键下的映射整个算：hysteria2 的 obfs 对象里的值
+        val hy2 = JavaUtil.gson.toJson(mapOf("obfs" to mapOf("type" to "salamander", "password" to "obfs-pass-1")))
+        assertEquals("bad *** / ***", Util.redactSecretValues("bad salamander / obfs-pass-1", listOf(hy2)))
+    }
+
+    @Test
+    fun shortAndModeValuesAreNotMaskedByValue() {
+        val config = JavaUtil.gson.toJson(
+            mapOf(
+                "inbounds" to listOf(mapOf("protocol" to "socks", "settings" to mapOf("auth" to "password"))),
+                "outbounds" to listOf(mapOf("password" to "123")),
+            )
+        )
+        val error = "dial 192.0.2.123:443: password authentication failed"
+        assertEquals(error, Util.redactSecretValues(error, listOf(config)))
+    }
+
+    @Test
+    fun longerValueIsMaskedBeforeItsPrefix() {
+        val config = JavaUtil.gson.toJson(mapOf("password" to "abcdef", "token" to "abcdef-ghijkl"))
+        assertEquals("got *** and ***", Util.redactSecretValues("got abcdef-ghijkl and abcdef", listOf(config)))
+    }
+
+    @Test
+    fun unparsableSourceIsSkipped() {
+        val error = "something failed: secret-value-1"
+        assertEquals(error, Util.redactSecretValues(error, listOf("{not json", "- [unclosed")))
+        assertEquals(error, Util.redactSecretValues(error, emptyList()))
+    }
 }

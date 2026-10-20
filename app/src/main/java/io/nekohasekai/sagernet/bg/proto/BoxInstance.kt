@@ -32,6 +32,7 @@ import kotlinx.coroutines.plus
 import libcore.BoxInstance
 import libcore.Libcore
 import moe.matsuri.nb4a.net.LocalResolverImpl
+import moe.matsuri.nb4a.utils.Util
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.CopyOnWriteArrayList
@@ -81,6 +82,12 @@ abstract class BoxInstance(
     fun isInitialized(): Boolean {
         return ::config.isInitialized && ::box.isInitialized
     }
+
+    // 报错文本按本次构建的凭据脱敏（ConfigBuildResult.redactErrorText，外核配置取已组装的这几份）；
+    // 构建没完成时没有可按值遮的配置，只按键名脱敏
+    fun redactErrorText(text: String): String =
+        if (::config.isInitialized) config.redactErrorText(text, externalProcesses.map { it.config })
+        else Util.redactSecrets(text)
 
     protected fun initPlugin(name: String): PluginManager.InitResult {
         return pluginPath.getOrPut(name) { PluginManager.init(name)!! }

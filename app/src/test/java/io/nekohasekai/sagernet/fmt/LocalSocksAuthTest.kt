@@ -136,6 +136,23 @@ class LocalSocksAuthTest {
         assertTrue(logged, "\"username\": \"***\"" in logged)
     }
 
+    @Test
+    fun `测速报错先按值遮本机凭据与配置里的值，再按键名脱敏`() {
+        val singBox = """{"outbounds": [{"type": "trojan", "password": "trojan-pass-1"}]}"""
+        val xray = """{"outbounds": [{"protocol": "vless", "settings": {"vnext": [{"users": [{"id": "vless-id-0001"}]}]}}]}"""
+        val withConfig = ConfigBuildResult(
+            singBox, emptyList(), 1L, TrafficBindings(emptyMap(), emptyMap(), emptySet()), emptyMap(), -1L, localAuth = auth,
+        )
+        val error = "socks ${auth.username}:${auth.password} failed; trojan-pass-1 rejected; vless-id-0001 unknown; " +
+            "{\"uuid\": \"not-in-config\"}"
+        val redacted = withConfig.redactErrorText(error, listOf(xray))
+        assertClean(redacted)
+        assertEquals(
+            "socks ***:*** failed; *** rejected; *** unknown; {\"uuid\": \"***\"}",
+            redacted,
+        )
+    }
+
     private fun plan(): ExternalRunPlan {
         val xray = VMessBean().apply {
             serverAddress = "x.example.com"

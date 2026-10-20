@@ -30,6 +30,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import moe.matsuri.nb4a.ui.ConnectionTestNotification
+import moe.matsuri.nb4a.utils.Util
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.concurrent.ConcurrentHashMap
@@ -91,6 +92,7 @@ class GroupTestRunner(private val fragment: ConfigurationFragment) {
                     if (!isActive) return@runGroupTest false
                     profile.status = 1
                     profile.ping = (SystemClock.elapsedRealtime() - start).toInt()
+                    profile.error = null
                 } finally {
                     // OkHttp 5 的 okhttp3.internal.closeQuietly 不是公开 API
                     runCatching { socket.close() }
@@ -109,9 +111,10 @@ class GroupTestRunner(private val fragment: ConfigurationFragment) {
                     message.contains("ENETUNREACH") -> profile.error =
                         app.getString(R.string.connection_test_unreachable)
 
+                    // 报错原文会存库并显示在卡片上，按键名脱敏后再存
                     else -> {
                         profile.status = 3
-                        profile.error = message
+                        profile.error = Util.redactSecrets(message)
                     }
                 }
             }
@@ -129,10 +132,12 @@ class GroupTestRunner(private val fragment: ConfigurationFragment) {
                 val result = TestInstance(profile, testURL, 5000).doTest()
                 profile.status = 1
                 profile.ping = result
+                profile.error = null
             } catch (e: PluginManager.PluginNotFoundException) {
                 profile.status = 2
                 profile.error = e.readableMessage
             } catch (e: Exception) {
+                // TestInstance 抛出前已按本次构建的凭据脱敏
                 profile.status = 3
                 profile.error = e.readableMessage
             }

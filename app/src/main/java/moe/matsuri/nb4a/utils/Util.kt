@@ -7,6 +7,7 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import libcore.StringBox
+import org.yaml.snakeyaml.Yaml
 import java.io.ByteArrayOutputStream
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
@@ -258,6 +259,43 @@ object Util {
         result = URL_USERINFO_BARE.replace(result) { it.groupValues[1] + "***@" }
         result = URL_QUERY_SECRET.replace(result) { it.groupValues[1] + "***" }
         return result
+    }
+
+    // 按值遮蔽的最短长度：更短的值在报错里多半撞上端口、地址等普通片段，留给按键名的脱敏
+    private const val SECRET_VALUE_MIN_LENGTH = 4
+
+    // 敏感键下不是凭据的值：Xray socks 入站的认证方式（auth: password / noauth）
+    private val NON_SECRET_VALUES = setOf("password", "noauth")
+
+    private val SENSITIVE_KEY_NAMES = SENSITIVE_KEYS.mapTo(HashSet()) { it.lowercase() }
+
+    // 按值遮蔽：sources（本次生成的配置原文，JSON 或 YAML）里敏感键（SENSITIVE_KEYS，连字符当下划线）下的字符串值，
+    // 在 text 里出现就换成 ***；敏感键下的映射与列表整个算进去。给没有键名可依的自由文本用（核心的报错原文），
+    // redactSecrets 只认「键: 值」的写法。长的值先换，免得短值先截断它；解析不了的原文跳过
+    fun redactSecretValues(text: String, sources: List<String>): String {
+        val values = HashSet<String>()
+        for (source in sources) {
+            val root = runCatching {
+                if (source.trimStart().startsWith("{")) JavaUtil.gson.fromJson(source, Any::class.java)
+                else Yaml().load<Any?>(source)
+            }.getOrNull()
+            collectSecretValues(root, false, values)
+        }
+        return values.filter { it.length >= SECRET_VALUE_MIN_LENGTH && it !in NON_SECRET_VALUES }
+            .sortedByDescending { it.length }
+            .fold(text) { result, value -> result.replace(value, "***") }
+    }
+
+    private fun collectSecretValues(node: Any?, sensitive: Boolean, out: MutableSet<String>) {
+        when (node) {
+            is Map<*, *> -> node.forEach { (key, value) ->
+                val name = (key as? String)?.lowercase()?.replace('-', '_')
+                collectSecretValues(value, sensitive || name in SENSITIVE_KEY_NAMES, out)
+            }
+
+            is List<*> -> node.forEach { collectSecretValues(it, sensitive, out) }
+            is String -> if (sensitive) out += node
+        }
     }
 
     // 把 YAML 里敏感键的值换成 ***，同一映射里的其它键值不动。
