@@ -128,19 +128,11 @@ class V2RayTransportTest {
         }
     }
 
-    // xhttp 带 host / path / mode / extra 四项参数。解析器还没有读取这些参数的入口（标准链接、v2rayN JSON）
-    // 与根本带不了参数的旧格式（老 vmess 标准链接、Quantumult CSV）都按不支持拒绝，免得导入参数全丢的节点
+    // xhttp 带 host / path / mode / extra 四项参数。标准链接与 v2rayN JSON 会读这些参数（见 XhttpLinkTest）；
+    // 根本带不了参数的三种旧格式（老 vmess 标准链接、Kitsunebi、Quantumult CSV）仍按不支持拒绝，免得导入参数全丢的节点
     @Test
-    fun `还读不了 XHTTP 参数的入口拒绝 xhttp 与 splithttp`() {
+    fun `只剩三种带不了 XHTTP 参数的旧格式拒绝 xhttp 与 splithttp`() {
         for (name in listOf("xhttp", "splithttp", "XHTTP")) {
-            val e = assertThrows(UnsupportedTransportException::class.java) { vless("type=$name") }
-            assertEquals(name, e.transport)
-            assertThrows(UnsupportedTransportException::class.java) {
-                TrojanBean().parseDuckSoft("https://pw@example.com:443?type=$name".toHttpUrl())
-            }
-            assertThrows(UnsupportedTransportException::class.java) {
-                parseV2RayNJson("""{"v":"2","ps":"n","add":"example.com","port":"443","id":"$uuid","aid":"0","net":"$name"}""")
-            }
             assertThrows(UnsupportedTransportException::class.java) {
                 parseCsvVMess("n = vmess, example.com, 443, auto, \"$uuid\", obfs=$name")
             }
@@ -148,6 +140,20 @@ class V2RayTransportTest {
             assertThrows(UnsupportedTransportException::class.java) {
                 parseV2Ray("vmess://$name:$uuid-0@example.com:443?a=b")
             }
+            // Kitsunebi 的 obfs 与 CSV、老链接共用这个入口
+            assertThrows(UnsupportedTransportException::class.java) { requireV2RayTransportWithoutXhttp(name) }
+        }
+    }
+
+    @Test
+    fun `标准链接与 v2rayN JSON 收下 xhttp 与 splithttp，统一成 xhttp`() {
+        for (name in listOf("xhttp", "splithttp", "XHTTP")) {
+            assertEquals("xhttp", vless("type=$name").type)
+            assertEquals("xhttp", TrojanBean().apply { parseDuckSoft("https://pw@example.com:443?type=$name".toHttpUrl()) }.type)
+            assertEquals(
+                "xhttp",
+                parseV2RayNJson("""{"v":"2","ps":"n","add":"example.com","port":"443","id":"$uuid","aid":"0","net":"$name"}""").type,
+            )
         }
     }
 

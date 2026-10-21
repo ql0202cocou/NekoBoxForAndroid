@@ -1,6 +1,8 @@
 package io.nekohasekai.sagernet.fmt.v2ray
 
 import com.google.gson.Gson
+import com.google.gson.JsonElement
+import com.google.gson.JsonPrimitive
 import com.google.gson.annotations.SerializedName
 import io.nekohasekai.sagernet.fmt.SING_BOX_VMESS_SECURITIES
 import io.nekohasekai.sagernet.fmt.buildSingBoxOutboundTLS
@@ -53,7 +55,17 @@ data class VmessQRCode(
     // ws early data, same names as the ducksoft query params
     var ed: Int = 0,
     var eh: String = "",
+    // 非标准键，只有 xhttp 用：extra 的 JSON。我们导出字符串（紧凑的规范 JSON），导入时字符串与对象都收，
+    // 其它客户端写成对象也能读；用 JsonElement 接，免得 Gson 在类型不符时整份解析失败
+    var extra: JsonElement? = null,
 )
+
+// 取出 extra 的文本：字符串取其内容，对象 / 数组等取其 JSON 文本（交给 canonicalXhttpExtra 判断是否合格）
+private fun JsonElement?.asExtraText(): String? = when {
+    this == null || isJsonNull -> null
+    isJsonPrimitive && asJsonPrimitive.isString -> asString
+    else -> toString()
+}
 
 fun StandardV2RayBean.isTLS(): Boolean {
     return security == "tls"
@@ -178,9 +190,9 @@ fun StandardV2RayBean.parseDuckSoft(url: HttpUrl) {
         path = "/" + url.pathSegments.joinToString("/")
     }
 
-    // XHTTP 的 host / path / mode / extra 还没有对应的解析，先拒绝，免得导入参数全丢的节点
-    type = requireV2RayTransportWithoutXhttp(url.queryParameter("type"))
-    if (url.queryParameter("headerType") == "http") type = "http"
+    type = requireV2RayTransport(url.queryParameter("type"))
+    // headerType 是 tcp 的伪 HTTP 头；xhttp 链接就算带了它也不能把传输方式改掉
+    if (url.queryParameter("headerType") == "http" && type != "xhttp") type = "http"
 
     // 未知值（xtls、拼写错误等）抛异常拒绝导入，不按无 TLS 处理
     security = requireV2RaySecurity(url.queryParameter("security"))
@@ -250,6 +262,15 @@ fun StandardV2RayBean.parseDuckSoft(url: HttpUrl) {
             url.queryParameter("serviceName")?.let {
                 path = it
             }
+        }
+
+        // 参数不合格（mode 不认识、extra 过不了白名单）直接抛，批量导入按条目跳过。
+        // host 原样收下（用户写什么是什么，IPv6 也不动）；缺省的 host 由生成器按 TLS / 无 TLS 兜底，这里不补
+        "xhttp" -> {
+            host = url.queryParameter("host") ?: ""
+            path = normalizedXhttpPath(url.queryParameter("path") ?: path)
+            xhttpMode = requireXhttpMode(url.queryParameter("mode"))
+            xhttpExtra = canonicalXhttpExtra(url.queryParameter("extra"))
         }
     }
 
@@ -361,12 +382,19 @@ internal fun parseV2RayNJson(result: String): VMessBean {
     bean.encryption = vmessQRCode.scy
     bean.uuid = vmessQRCode.id
     bean.alterId = vmessQRCode.aid.toIntOrNull()
-    // v2rayN 把 h2 写作 "h2"，归一化后是 "http"。XHTTP 的参数还没有对应的解析，先拒绝
-    bean.type = requireV2RayTransportWithoutXhttp(vmessQRCode.net)
+    // v2rayN 把 h2 写作 "h2"，归一化后是 "http"
+    bean.type = requireV2RayTransport(vmessQRCode.net)
     bean.host = vmessQRCode.host
     bean.path = vmessQRCode.path
     // tcp 带伪 HTTP 头
     if (bean.type == "tcp" && vmessQRCode.type == "http") bean.type = "http"
+    if (bean.type == "xhttp") {
+        // v2rayN 用 type 字段装 xhttp 的 mode（tcp 才是伪装类型）；留着 tcp 的占位值 none 的当作没写。
+        // 不合格的 mode / extra 抛异常，批量导入按条目跳过
+        bean.path = normalizedXhttpPath(vmessQRCode.path)
+        bean.xhttpMode = requireXhttpMode(vmessQRCode.type?.takeUnless { it.equals("none", ignoreCase = true) })
+        bean.xhttpExtra = canonicalXhttpExtra(vmessQRCode.extra.asExtraText())
+    }
     // 未知值抛异常拒绝导入，不按无 TLS 处理
     val vmessTls = requireV2RaySecurity(vmessQRCode.tls)
     when (vmessTls) {
@@ -459,6 +487,15 @@ internal fun VMessBean.toV2rayNJson(): String {
         host = bean.host
         path = bean.path
 
+        // xhttp：从不写旧名 splithttp；mode 放在 type 字段（v2rayN 的写法），extra 写成字符串（紧凑的规范 JSON），
+        // host 只写用户填的（生成器的兜底不进链接）。残缺的旧节点与不合格的 mode / extra 在这里抛，不导出会被导成别的东西的链接
+        if (bean.isXhttp()) {
+            bean.requireXhttpComplete()
+            net = "xhttp"
+            type = requireXhttpMode(bean.xhttpMode)
+            canonicalXhttpExtra(bean.xhttpExtra).takeIf { it.isNotEmpty() }?.let { extra = JsonPrimitive(it) }
+        }
+
         when (net) {
             "http" -> {
                 if (isTLS()) {
@@ -511,6 +548,13 @@ internal fun VMessBean.toV2rayNJson(): String {
     })
 }
 
+// 导出用：type 是不是 xhttp（含旧名 splithttp，导出时一律写 xhttp）
+private fun StandardV2RayBean.isXhttp(): Boolean = v2rayTransportOrNull(type) == "xhttp"
+
+private fun StandardV2RayBean.requireXhttpComplete() {
+    if (xhttpParametersLost()) throw XhttpParametersLostException()
+}
+
 fun StandardV2RayBean.toUriVMessVLESSTrojan(isTrojan: Boolean): String {
     // VMess
     if (this is VMessBean && !isVLESS) {
@@ -522,7 +566,7 @@ fun StandardV2RayBean.toUriVMessVLESSTrojan(isTrojan: Boolean): String {
         .username(if (this is TrojanBean) password else uuid)
         .host(serverAddress)
         .port(serverPort)
-        .addQueryParameter("type", type)
+        .addQueryParameter("type", if (isXhttp()) "xhttp" else type)
 
     if (isVLESS) {
         builder.addQueryParameter("encryption", "none")
@@ -556,6 +600,16 @@ fun StandardV2RayBean.toUriVMessVLESSTrojan(isTrojan: Boolean): String {
                 builder.setQueryParameter("serviceName", path)
             }
         }
+    }
+
+    // xhttp：host 只写用户填的（生成器的兜底不进链接），mode 总是写，extra 写紧凑的规范 JSON（有才写）。
+    // 残缺的旧节点与不合格的 mode / extra 在这里抛，不导出会被导成别的东西的链接
+    if (isXhttp()) {
+        requireXhttpComplete()
+        if (host.isNotBlank()) builder.addQueryParameter("host", host)
+        builder.addQueryParameter("path", path)
+        builder.addQueryParameter("mode", requireXhttpMode(xhttpMode))
+        canonicalXhttpExtra(xhttpExtra).takeIf { it.isNotEmpty() }?.let { builder.addQueryParameter("extra", it) }
     }
 
     // "none" must be written for trojan: the parser defaults a missing

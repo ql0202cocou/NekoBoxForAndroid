@@ -28,6 +28,7 @@ import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.fmt.trojan_go.TrojanGoBean
 import io.nekohasekai.sagernet.fmt.tuic.TuicBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
+import io.nekohasekai.sagernet.fmt.v2ray.canonicalXhttpExtra
 import io.nekohasekai.sagernet.fmt.v2ray.parseV2RayNJson
 import io.nekohasekai.sagernet.fmt.v2ray.toV2rayNJson
 import io.nekohasekai.sagernet.ktx.parseProxies
@@ -64,7 +65,11 @@ object ProtocolLinkCases {
 
     private const val GENERIC = "AbstractBean 的高级 JSON 覆盖（自定义出站 / 自定义配置），不进分享链接"
     private const val MUX = "Mux 设置不进分享链接（各协议的链接格式都没有 mux 参数）"
-    private const val XHTTP = "XHTTP 的 mode / extra 导入导出稍后随分享链接一起加入，目前链接格式不带这两项"
+
+    // XHTTP 的 extra：白名单重建后的规范 JSON（键序、键名、范围写法都已规范），导出再解析要逐字节相同
+    private val XHTTP_EXTRA = canonicalXhttpExtra(
+        """{"headers":{"X-Test":"v1"},"xPaddingBytes":"100-500","scMaxEachPostBytes":1000000,"xmux":{"maxConcurrency":"16-32","hKeepAlivePeriod":-1}}""",
+    )
 
     private fun generic() = mapOf(
         "customOutboundJson" to GENERIC,
@@ -212,7 +217,6 @@ object ProtocolLinkCases {
         "VMess", TYPE_VMESS, VMessBean::class.java, "vmess",
         neverInLink = generic() + mapOf(
             "enableMux" to MUX, "muxPadding" to MUX, "muxType" to MUX, "muxConcurrency" to MUX,
-            "xhttpMode" to XHTTP, "xhttpExtra" to XHTTP,
         ),
         cases = listOf(
             LinkCase("vmess-ws-tls-full") {
@@ -231,6 +235,23 @@ object ProtocolLinkCases {
                     packetEncoding = 1
                 }
             },
+            // xhttp：host 只写用户填的（IPv6 原样），mode 放 type 字段，extra 是非标准的字符串键
+            LinkCase("vmess-xhttp-plain") {
+                vmess { type = "xhttp"; host = "[2001:db8::1]"; path = "/xh"; xhttpMode = "packet-up"; encryption = "auto" }
+            },
+            LinkCase("vmess-xhttp-tls-extra") {
+                vmess {
+                    type = "xhttp"; host = "cdn.example.com"; path = "/xh/路径"; xhttpMode = "stream-up"; xhttpExtra = XHTTP_EXTRA
+                    security = "tls"; sni = "sni.example.com"; alpn = "h2"; utlsFingerprint = "chrome"
+                }
+            },
+            LinkCase("vmess-xhttp-reality") {
+                vmess {
+                    type = "xhttp"; path = "/"; xhttpMode = "stream-one"
+                    security = "tls"; sni = "sni.example.com"; utlsFingerprint = "firefox"
+                    realityPubKey = REALITY_KEY; realityShortId = SHORT_ID
+                }
+            },
             LinkCase("vmess-h2-tls") { vmess { type = "http"; host = "h2.example.com"; path = "/h2"; security = "tls"; sni = "h2.example.com" } },
             LinkCase("vmess-tcp-http-header") { vmess { type = "http"; host = "fake.example.com"; path = "/" } },
         ),
@@ -243,7 +264,6 @@ object ProtocolLinkCases {
         "VLESS", TYPE_VMESS, VMessBean::class.java, "vless",
         neverInLink = generic() + mapOf(
             "enableMux" to MUX, "muxPadding" to MUX, "muxType" to MUX, "muxConcurrency" to MUX,
-            "xhttpMode" to XHTTP, "xhttpExtra" to XHTTP,
         ),
         cases = listOf(
             LinkCase("vless-ws-tls-full") {
@@ -263,6 +283,22 @@ object ProtocolLinkCases {
                 }
             },
             LinkCase("vless-grpc") { vless { type = "grpc"; path = "grpc-service"; security = "tls"; sni = "grpc.example.com" } },
+            LinkCase("vless-xhttp-plain") {
+                vless { type = "xhttp"; host = "[2001:db8::1]"; path = "/xh"; xhttpMode = "packet-up"; encryption = "" }
+            },
+            LinkCase("vless-xhttp-tls-extra") {
+                vless {
+                    type = "xhttp"; host = "cdn.example.com"; path = "/xh?a=1&b=2"; xhttpMode = "stream-up"; xhttpExtra = XHTTP_EXTRA
+                    encryption = ""; security = "tls"; sni = "sni.example.com"; alpn = "h2"; utlsFingerprint = "chrome"
+                }
+            },
+            LinkCase("vless-xhttp-reality") {
+                vless {
+                    type = "xhttp"; path = "/"; xhttpMode = "stream-one"; encryption = ""
+                    security = "tls"; sni = "sni.example.com"; utlsFingerprint = "firefox"
+                    realityPubKey = REALITY_KEY; realityShortId = SHORT_ID
+                }
+            },
             LinkCase("vless-httpupgrade") {
                 vless { type = "httpupgrade"; host = "up.example.com"; path = "/up"; security = "tls"; sni = "up.example.com" }
             },
@@ -288,7 +324,6 @@ object ProtocolLinkCases {
         neverInLink = generic() + mapOf(
             "uuid" to "Trojan 用 password，没有 uuid", "encryption" to "Trojan 没有加密 / flow",
             "enableMux" to MUX, "muxPadding" to MUX, "muxType" to MUX, "muxConcurrency" to MUX,
-            "xhttpMode" to XHTTP, "xhttpExtra" to XHTTP,
         ),
         cases = listOf(
             LinkCase("trojan-ws-tls-full") {
@@ -309,6 +344,15 @@ object ProtocolLinkCases {
                 }
             },
             LinkCase("trojan-plain") { trojan { security = "none" } },
+            LinkCase("trojan-xhttp-tls-extra") {
+                trojan {
+                    type = "xhttp"; host = "cdn.example.com"; path = "/xh"; xhttpMode = "stream-up"; xhttpExtra = XHTTP_EXTRA
+                    security = "tls"; sni = "sni.example.com"; alpn = "h2"
+                }
+            },
+            LinkCase("trojan-xhttp-plain") {
+                trojan { type = "xhttp"; host = "[2001:db8::1]"; path = "/xh"; xhttpMode = "packet-up"; security = "none" }
+            },
         ),
         export = ::standard,
         parse = ::viaParseProxies,

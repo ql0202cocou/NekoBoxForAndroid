@@ -7,7 +7,8 @@ import java.util.Locale
 // 导入（分享链接、Clash 订阅、通用链接）与构建（sing-box、Xray）都经这里归一化：
 // 不认识的值抛 UnsupportedTransportException，不再静默按 TCP 运行。
 // XHTTP（旧名 splithttp，统一归一为 xhttp）只有 Xray 能跑，而且带 host / path / mode / extra 四项参数：
-// 不能携带这些参数的旧格式入口必须用 requireV2RayTransportWithoutXhttp，否则会导入出参数全丢的节点。
+// 能携带这些参数的入口（标准链接、v2rayN JSON、通用链接、Clash 的 VLESS）读完四项再收下；
+// 带不了的旧格式入口必须用 requireV2RayTransportWithoutXhttp，否则会导入出参数全丢的节点。
 
 // 值来自远端订阅，消息会进界面与可导出的日志：只有形态合格的才回显（规则同 shownSingBoxValue）
 open class UnsupportedTransportException(
@@ -60,7 +61,7 @@ fun v2rayTransportOrNull(value: String?): String? {
 fun requireV2RayTransport(value: String?): String =
     v2rayTransportOrNull(value) ?: throw UnsupportedTransportException(value)
 
-// 给携带不了 XHTTP 参数的入口用：老的 vmess 标准链接、Kitsunebi、Quantumult 的 CSV 行，以及解析器还没有读取 XHTTP 参数的入口。
+// 给携带不了 XHTTP 参数的入口用：老的 vmess 标准链接、Kitsunebi、Quantumult 的 CSV 行。
 // xhttp（含别名 splithttp）按不支持拒绝，抛的异常和未知值一样，批量导入照常逐条跳过
 fun requireV2RayTransportWithoutXhttp(value: String?): String {
     val name = requireV2RayTransport(value)
