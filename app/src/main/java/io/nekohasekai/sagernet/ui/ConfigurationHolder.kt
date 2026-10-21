@@ -117,7 +117,6 @@ class ConfigurationHolder(
                         groupFragment.onLiveView {
                             if (entity.id != proxyEntity.id) return@onLiveView
                             selectedView.visibility = View.VISIBLE
-                            applyStatusColor()
                         }
                     }
 
@@ -191,7 +190,6 @@ class ConfigurationHolder(
             editButton.isEnabled = !started
             removeButton.isEnabled = !started
             selectedView.visibility = if (selected) View.VISIBLE else View.INVISIBLE
-            applyStatusColor()
 
             if (!selectOrChain) {
                 shareLayer.setBackgroundColor(Color.TRANSPARENT)
@@ -274,9 +272,9 @@ class ConfigurationHolder(
             }
         } else if (proxyEntity.status == 1) {
             profileStatus.text = groupFragment.getString(R.string.available, proxyEntity.ping)
-            applyStatusColor()
+            profileStatus.setTextColor(groupFragment.requireContext().getColour(R.color.status_ok))
         } else {
-            applyStatusColor()
+            profileStatus.setTextColor(groupFragment.requireContext().getColour(R.color.status_error))
             if (proxyEntity.status == 2) {
                 profileStatus.text = proxyEntity.error
             }
@@ -299,21 +297,6 @@ class ConfigurationHolder(
                 view.context.motionDuration(com.google.android.material.R.attr.motionDurationShort4, 200)
             ).start()
         }
-    }
-
-    // 测速结果（status > 0）的颜色：选中的卡片用深一档的 *_strong，选中态的底比普通卡片深。
-    // 选中状态在 bind 里异步确定、点选时直接改，两处改完 selectedView 都要再调一次
-    private fun applyStatusColor() {
-        val status = entity.status
-        if (status <= 0) return
-        val selected = selectedView.isVisible
-        val color = when {
-            status == 1 && selected -> R.color.status_ok_strong
-            status == 1 -> R.color.status_ok
-            selected -> R.color.status_error_strong
-            else -> R.color.status_error
-        }
-        profileStatus.setTextColor(view.context.getColour(color))
     }
 
     var currentName = ""

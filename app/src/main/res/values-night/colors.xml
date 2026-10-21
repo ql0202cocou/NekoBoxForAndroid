@@ -4,9 +4,6 @@
     <!-- 测速可用 / 不可用：green 300 / red 300 -->
     <color name="status_ok">#81C784</color>
     <color name="status_error">#E57373</color>
-    <!-- 更深的底（测速对话框、选中的节点卡片）：暗色普通档在那里也够（六套主题最低 7.11 / 4.79:1），沿用同值 -->
-    <color name="status_ok_strong">#81C784</color>
-    <color name="status_error_strong">#E57373</color>
     <!-- 日志页三色：信息沿用原来的 #86C166，错误与警告 red 300，其它 grey 500 -->
     <color name="log_info">#86C166</color>
     <color name="log_error">#E57373</color>
