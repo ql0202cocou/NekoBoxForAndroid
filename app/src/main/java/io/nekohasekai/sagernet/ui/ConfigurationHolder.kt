@@ -267,11 +267,17 @@ class ConfigurationHolder(
 
         profileAddress.text = address
         val previousStatus = profileStatus.text.toString()
-        // 流量固定在上面这一行，测速结果那一格只放结果：结果出现或清除都不挪动流量，卡片高度不变
-        (trafficText.parent as View).isGone = !showTraffic && address.isBlank()
+        (trafficText.parent as View).isGone =
+            (!showTraffic || proxyEntity.status <= 0) && address.isBlank()
 
         if (proxyEntity.status <= 0) {
-            profileStatus.text = ""
+            if (showTraffic) {
+                profileStatus.text = trafficText.text
+                profileStatus.setTextColor(groupFragment.requireContext().getColorAttr(com.google.android.material.R.attr.colorOnSurfaceVariant))
+                trafficText.text = ""
+            } else {
+                profileStatus.text = ""
+            }
         } else if (proxyEntity.status == 1) {
             profileStatus.text = groupFragment.getString(R.string.available, proxyEntity.ping)
             applyStatusColor()

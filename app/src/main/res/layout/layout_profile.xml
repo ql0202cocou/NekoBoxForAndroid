@@ -154,8 +154,8 @@
                     android:textAppearance="?attr/textAppearanceBodyMedium"
                     android:textColor="?attr/colorOnSurfaceVariant" />
 
-                <!-- 测速结果：Label large、等宽数字，单行、末尾省略，占剩余宽度靠右，
-                     结果变化（含空串与长错误）不改变卡片高度 -->
+                <!-- 测速结果：Label large、等宽数字，单行、末尾省略，占剩余宽度靠右，长错误不会折行。
+                     没测速时这一格显示流量；有流量的节点出了结果，流量挪到上一行（卡片多一行，维护者定的做法） -->
                 <TextView
                     android:id="@+id/profile_status"
                     android:layout_width="0dp"
