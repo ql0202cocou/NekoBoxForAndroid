@@ -17,7 +17,7 @@ import java.util.WeakHashMap
  *    内容滚进留白区、画在悬浮层后面）；
  * 2. 顶部栏随滚动抬升（页面里没有 CoordinatorLayout，只能手动驱动，见 AppBarLift.kt）；
  * 3. 嵌套滚动一路传到外层，Dock 与状态卡片才会随列表收起。
- * 以前九个页面各写一遍，现在收在这一处，并给「以后画在这些悬浮层里的玻璃」留出订阅点（[MainContentHost]）。
+ * 以前九个页面各写一遍，现在收在这一处（[MainContentHost]）。
  */
 
 /** 持有 [MainContentHost] 的宿主（MainActivity）。页面经它找到托管入口，不依赖具体的 Activity 类 */
@@ -33,7 +33,7 @@ interface MainContentHostOwner {
  * - [sources]：当前挂在窗口上的、被托管的滚动视图（缓存里脱离窗口的页面不算）；
  * - [addListener]：订阅全部托管视图的滚动（[ContentListener.onContentScrolled]）与结构变化
  *   （[ContentListener.onContentChanged]：挂上 / 摘下窗口、重新布局）。事件的来源是每个视图自己的
- *   [ScrollHub]，这里不另占 View 唯一的滚动回调槽。玻璃订阅这里，顶部栏抬升订阅各视图的 hub。
+ *   [ScrollHub]，这里不另占 View 唯一的滚动回调槽。顶部栏抬升订阅各视图的 hub。
  *
  * 只在主线程使用。
  */

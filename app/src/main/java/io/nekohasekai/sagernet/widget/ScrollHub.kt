@@ -13,8 +13,7 @@ interface ContentListener {
 
     /**
      * 托管内容的结构变了：[source] 挂上 / 摘下窗口，或它重新布局（数据变化、尺寸变化）。
-     * 只由 [MainContentHost] 分发；[source] 为 null 表示不止一个视图受影响。
-     * 玻璃要在这里重新录制下层
+     * 只由 [MainContentHost] 分发；[source] 为 null 表示不止一个视图受影响
      */
     fun onContentChanged(source: View?) = Unit
 }
@@ -22,7 +21,7 @@ interface ContentListener {
 /**
  * 一个滚动视图唯一的滚动分发器。
  *
- * View 的滚动回调（OnScrollChangeListener）只有一个槽，顶部栏抬升与（以后的）玻璃都要订阅滚动，
+ * View 的滚动回调（OnScrollChangeListener）只有一个槽，顶部栏抬升等订阅者都经它收滚动，
  * 所以整个应用里只有这个类会去设置它，其余地方一律 [of] 取分发器再 [addListener]；
  * 别处再设置会悄悄顶掉分发器（`MainContentHostSourceTest` 扫源码拦这一点）。
  * 分发器以 tag 挂在视图上，随视图一起回收；重复订阅同一个对象无效，所以页面重新绑定时不会叠加。

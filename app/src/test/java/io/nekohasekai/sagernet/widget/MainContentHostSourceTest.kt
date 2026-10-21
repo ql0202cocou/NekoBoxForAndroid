@@ -7,7 +7,7 @@ import java.io.File
 /**
  * U5e E1 的约定里编译、lint 都查不出的两条，扫源码钉住：
  * - 整个应用只有 ScrollHub 会对滚动视图调 setOnScrollChangeListener（View 只有这一个槽，
- *   别处再调会悄悄顶掉分发器，顶部栏抬升与玻璃就收不到滚动了）；
+ *   别处再调会悄悄顶掉分发器，顶部栏抬升就收不到滚动了）；
  * - 主界面托管页面的底部留白只经 hostMainScrollable 设：padForSystemBars(bottomExtra = …) 只出现在
  *   它自己的定义与 hostMainScrollable 里，页面不再各写一遍。
  */

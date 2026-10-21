@@ -17,7 +17,7 @@ import io.nekohasekai.sagernet.R
  *
  * 全部走 [AppBarLiftController]：单页由 [liftOnScrollOf] 建一个，分页宿主（主界面的节点页、
  * 工具页）自己持有一个，当前页的滚动视图由它的 source 回答。滚动事件来自 [ScrollHub]，
- * 与玻璃共用同一个分发器，不再各占一次 View 唯一的滚动回调槽。
+ * 不再各占一次 View 唯一的滚动回调槽。
  */
 
 /**
