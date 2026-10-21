@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-k2-lost: no core can fully run this profile. sing-box: [type, path] XHTTP parameters were lost; re-import the node or update the subscription. Xray: [type, path] XHTTP parameters were lost; re-import the node or update the subscription",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "no core can fully run this profile. sing-box: [type, path] XHTTP parameters were lost; re-import the node or update the subscription. Xray: [type, path] XHTTP parameters were lost; re-import the node or update the subscription"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

@@ -298,6 +298,23 @@
         "warnings": ["group 1 front proxy 99 no longer exists, ignored"]
       }
     },
+    "k2-selector-xhttp-members": {
+      "note": "只有运行模式按选择器构建，主节点 1（VMess ws）是选中项，不预检；成员 2 是正常的 VLESS xhttp + TLS（Xray），预检通过、无诊断；成员 3 是 xhttp 但 path 为空的 VMess（模拟旧版本只存了 type 的存量节点，即「参数已丢失」），自动选核时能力表对 sing-box 与 Xray 都报 XHTTP_PARAMETERS_LOST（与核心无关的取值非法冲突，字段键 type、path），按偏好顺序（不是 REALITY，sing-box 在前）分组成「no core can fully run this profile. sing-box: … Xray: …」，在 requireBuildableHop 拒绝，planOrSkip 记 ProfileSkipped 并告警一次，withProfileName 包上成员自己的名字，reasonNamesProfile 为 true。测速与导出只构建主节点，不碰成员，没有诊断。这条是新增场景的预期，文本照 K2 提交 ③ 的能力表用词写，不从产物回填",
+      "run": {
+        "diagnostics": [
+          {
+            "type": "ProfileSkipped",
+            "profileId": 3,
+            "profileName": "golden-k2-sel-lost",
+            "reason": "golden-k2-sel-lost: no core can fully run this profile. sing-box: [type, path] XHTTP parameters were lost; re-import the node or update the subscription. Xray: [type, path] XHTTP parameters were lost; re-import the node or update the subscription",
+            "reasonNamesProfile": true
+          }
+        ],
+        "warnings": [
+          "profile 3 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-k2-sel-lost: no core can fully run this profile. sing-box: [type, path] XHTTP parameters were lost; re-import the node or update the subscription. Xray: [type, path] XHTTP parameters were lost; re-import the node or update the subscription"
+        ]
+      }
+    },
     "multi-selector-plugin-chain-members": {
       "note": "只有运行模式按选择器构建。成员 8 是链（4 Xray、3 Naive、5 mihomo）：预检从出口一跳起逐跳检查，mihomo 一跳通过，Naive 一跳 requireAvailable 得「插件未安装」，经 withProfileName 包上 Naive 节点名；planOrSkip 跳过成员 8，出错的不是成员本身，reasonNamesProfile 为 false。其余成员（6 Xray、7 mihomo、9 链 Xray + mihomo）都是内置核心，主节点 1 不预检",
       "run": {
@@ -433,7 +450,7 @@
       }
     },
     "selector-bad-members": {
-      "note": "只有运行模式按选择器构建，成员按 userOrder 逐个预检，主节点 1 不预检。2 TUIC v4（buildInternalOutbound）；3 Trojan 带证书指纹且手动指定 sing-box（K1 起 Trojan 带指纹自动走 Xray，夹具改为手动 sing-box 以保留「预检失败」的意图）：能力表判定手动 sing-box 有冲突 SING_BOX_CERTIFICATE_PIN，requireBuildableHop 按 CoreDecision.Rejected.message 报「the manually chosen core sing-box cannot run this profile: [字段键] 原因」；4 WireGuard reserved 只有两字节；5 强制 sing-box 的 VLESS REALITY 带 mldsa65Verify：同 3，冲突 SING_BOX_MLDSA65_VERIFY，字段键 realityMldsa65Verify；6 type 1 自定义出站 JSON 解析失败（gson 的 EOFException 文本）；7 VMess 的 xhttp 传输、path 为空（基线字节是 StandardV2Ray 层 Kryo 7 写的，旧版本只存了 type，读出 path 为空，即「参数已丢失」），自动选核：能力表对 sing-box 与 Xray 都报 XHTTP_PARAMETERS_LOST（与核心无关的取值非法冲突，字段键 type、path），按偏好顺序（不是 REALITY，sing-box 在前）分组成「no core can fully run this profile. sing-box: … Xray: …」，在 requireBuildableHop 拒绝，不再走到生成器。K2 之前这一项是 TRANSPORT_UNKNOWN（xhttp 当时不被认识）；模拟器重采基线时这个夹具要改成真正未知的传输（如 kcp），并另加参数已丢失与正常 xhttp 的场景；8 AnyTLS 证书解析失败（带 certificates 自动选核走 mihomo，预检试组装 mihomo 配置时报，顶层消息不含平台相关的 cause）。都经 withProfileName 包上成员自己的名字，reasonNamesProfile 为 true",
+      "note": "只有运行模式按选择器构建，成员按 userOrder 逐个预检，主节点 1 不预检。2 TUIC v4（buildInternalOutbound）；3 Trojan 带证书指纹且手动指定 sing-box（K1 起 Trojan 带指纹自动走 Xray，夹具改为手动 sing-box 以保留「预检失败」的意图）：能力表判定手动 sing-box 有冲突 SING_BOX_CERTIFICATE_PIN，requireBuildableHop 按 CoreDecision.Rejected.message 报「the manually chosen core sing-box cannot run this profile: [字段键] 原因」；4 WireGuard reserved 只有两字节；5 强制 sing-box 的 VLESS REALITY 带 mldsa65Verify：同 3，冲突 SING_BOX_MLDSA65_VERIFY，字段键 realityMldsa65Verify；6 type 1 自定义出站 JSON 解析失败（gson 的 EOFException 文本）；7 VMess 的 kcp 传输（本应用不认识的传输；K2 之前这个夹具用 xhttp，K2 起 xhttp 是支持的传输，夹具换成 kcp 以继续测「未知传输」），自动选核：能力表对 sing-box 与 Xray 都报 TRANSPORT_UNKNOWN（取值 kcp），按偏好顺序（不是 REALITY，sing-box 在前）分组成「no core can fully run this profile. sing-box: … Xray: …」，在 requireBuildableHop 拒绝，不再走到 sing-box 生成器的 unsupported transport。参数已丢失的 xhttp 节点由 k2-selector-xhttp-members 的成员 3 钉住；8 AnyTLS 证书解析失败（带 certificates 自动选核走 mihomo，预检试组装 mihomo 配置时报，顶层消息不含平台相关的 cause）。都经 withProfileName 包上成员自己的名字，reasonNamesProfile 为 true",
       "run": {
         "diagnostics": [
           {
@@ -474,8 +491,8 @@
           {
             "type": "ProfileSkipped",
             "profileId": 7,
-            "profileName": "golden-sel-xhttp",
-            "reason": "golden-sel-xhttp: no core can fully run this profile. sing-box: [type, path] XHTTP parameters were lost; re-import the node or update the subscription. Xray: [type, path] XHTTP parameters were lost; re-import the node or update the subscription",
+            "profileName": "golden-sel-kcp",
+            "reason": "golden-sel-kcp: no core can fully run this profile. sing-box: [type] This app does not support the transport (kcp). Xray: [type] This app does not support the transport (kcp)",
             "reasonNamesProfile": true
           },
           {
@@ -492,7 +509,7 @@
           "profile 4 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-wg-bad: WireGuard reserved must contain exactly three bytes (0..255)",
           "profile 5 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-mldsa: the manually chosen core sing-box cannot run this profile: [realityMldsa65Verify] sing-box cannot verify REALITY mldsa65Verify",
           "profile 6 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-custom-broken: java.io.EOFException: End of input at line 1 column 15 path $.",
-          "profile 7 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-xhttp: no core can fully run this profile. sing-box: [type, path] XHTTP parameters were lost; re-import the node or update the subscription. Xray: [type, path] XHTTP parameters were lost; re-import the node or update the subscription",
+          "profile 7 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-kcp: no core can fully run this profile. sing-box: [type] This app does not support the transport (kcp). Xray: [type] This app does not support the transport (kcp)",
           "profile 8 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-anytls-bad-ca: Invalid AnyTLS certificate for mihomo fingerprint pinning"
         ]
       }

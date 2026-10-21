@@ -55,23 +55,23 @@
     "pageSize": 16384,
     "locale": "en-US"
   },
-  "scenarios": 342,
+  "scenarios": 357,
   "counts": {
-    "runOk": 282,
-    "runError": 60,
-    "testOk": 288,
-    "testError": 54,
-    "exportOk": 282,
-    "exportError": 60
+    "runOk": 293,
+    "runError": 64,
+    "testOk": 299,
+    "testError": 58,
+    "exportOk": 293,
+    "exportError": 64
   },
   "externalChecks": {
-    "checked": 281,
+    "checked": 302,
     "failed": 0,
     "inconclusive": 0,
     "byPlugin": {
       "xray-plugin": {
-        "checked": 190,
-        "passed": 190,
+        "checked": 211,
+        "passed": 211,
         "failed": 0,
         "inconclusive": 0
       },

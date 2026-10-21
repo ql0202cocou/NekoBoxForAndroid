@@ -169,7 +169,7 @@
       "core": 0,
       "beanColumn": "vmessBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
-      "beanKryoBase64": "BwAAAHhyYXktMS5leGFtcGxlLmNv7bsBAAClNmIxZDJmM2EtNGM1ZS00ZjdhLTliMGMtMWQyZTNmNGE1YjZjgf////90Y/B0bPNyZWFsaXR5LTEuZXhhbXBsZS5vcueBgQCBrFoyOXNaR1Z1TFhKbFlXeHBkSGt0Y0hWaWJHbGpMV3RsZVMwd01EQXdNREUwYTFiMmMzZDRlNWY2YTfiAIEAAAAAAAAAAAAAAQAAAIGBAQAAAGdvbGRlbi1rMS1zZWwtdmxlc/OBgQ=="
+      "beanKryoBase64": "CAAAAHhyYXktMS5leGFtcGxlLmNv7bsBAAClNmIxZDJmM2EtNGM1ZS00ZjdhLTliMGMtMWQyZTNmNGE1YjZjgf////90Y/B0bPNyZWFsaXR5LTEuZXhhbXBsZS5vcueBgQCBrFoyOXNaR1Z1TFhKbFlXeHBkSGt0Y0hWaWJHbGpMV3RsZVMwd01EQXdNREUwYTFiMmMzZDRlNWY2YTfiAIEAAAAAAAAAAAAAAQAAAIGBAQAAAGdvbGRlbi1rMS1zZWwtdmxlc/OBgQ=="
     },
     {
       "id": 2,
@@ -185,7 +185,7 @@
       "core": 0,
       "beanColumn": "trojanBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.trojan.TrojanBean",
-      "beanKryoBase64": "AgAAAAcAAAB4cmF5LTIuZXhhbXBsZS5jb+27AQAAgYB0Y/B0bPNyZWFsaXR5LTIuZXhhbXBsZS5vcueBgQCBrFoyOXNaR1Z1TFhKbFlXeHBkSGt0Y0hWaWJHbGpMV3RsZVMwd01EQXdNREUwYTFiMmMzZDRlNWY2YTfiAIEAAAAAAAAAAAAAAQAAAIGBZ29sZGVuLXBhc3MtdHJvamHuAQAAAGdvbGRlbi1rMS1zZWwtdHJvamFuLXJlYWxpdPmBgQ=="
+      "beanKryoBase64": "AgAAAAgAAAB4cmF5LTIuZXhhbXBsZS5jb+27AQAAgYB0Y/B0bPNyZWFsaXR5LTIuZXhhbXBsZS5vcueBgQCBrFoyOXNaR1Z1TFhKbFlXeHBkSGt0Y0hWaWJHbGpMV3RsZVMwd01EQXdNREUwYTFiMmMzZDRlNWY2YTfiAIEAAAAAAAAAAAAAAQAAAIGBZ29sZGVuLXBhc3MtdHJvamHuAQAAAGdvbGRlbi1rMS1zZWwtdHJvamFuLXJlYWxpdPmBgQ=="
     },
     {
       "id": 3,
@@ -201,7 +201,7 @@
       "core": 0,
       "beanColumn": "trojanBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.trojan.TrojanBean",
-      "beanKryoBase64": "AgAAAAcAAAB4cmF5LTMuZXhhbXBsZS5jb+27AQAAgYB0Y/B0bPN0cm9qYW4tMy5leGFtcGxlLm9y54GBAIGBgQCBAAAAAAAAAAAAAAEAAACB4AFBQjpDRDpFRjowMToyMzo0NTo2Nzo4OTpBQjpDRDpFRjowMToyMzo0NTo2Nzo4OTpBQjpDRDpFRjowMToyMzo0NTo2Nzo4OTpBQjpDRDpFRjowMToyMzo0NTo2Nzo4OWdvbGRlbi1wYXNzLXRyb2ph7gEAAABnb2xkZW4tazEtc2VsLXRyb2phbi1wae6BgQ=="
+      "beanKryoBase64": "AgAAAAgAAAB4cmF5LTMuZXhhbXBsZS5jb+27AQAAgYB0Y/B0bPN0cm9qYW4tMy5leGFtcGxlLm9y54GBAIGBgQCBAAAAAAAAAAAAAAEAAACB4AFBQjpDRDpFRjowMToyMzo0NTo2Nzo4OTpBQjpDRDpFRjowMToyMzo0NTo2Nzo4OTpBQjpDRDpFRjowMToyMzo0NTo2Nzo4OTpBQjpDRDpFRjowMToyMzo0NTo2Nzo4OWdvbGRlbi1wYXNzLXRyb2ph7gEAAABnb2xkZW4tazEtc2VsLXRyb2phbi1wae6BgQ=="
     },
     {
       "id": 4,
@@ -217,7 +217,7 @@
       "core": 2,
       "beanColumn": "trojanBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.trojan.TrojanBean",
-      "beanKryoBase64": "AgAAAAcAAAB4cmF5LTQuZXhhbXBsZS5jb+27AQAAgYBncnDjZ29sZGVuLWdycON0bPNncnBjLTQuZXhhbXBsZS5vcueBgQCBgYEAgQAAAAAAAAAAAAABAAAAgYFnb2xkZW4tcGFzcy10cm9qYe4BAAAAZ29sZGVuLWsxLXNlbC10cm9qYW4tZ3Jw44GB"
+      "beanKryoBase64": "AgAAAAgAAAB4cmF5LTQuZXhhbXBsZS5jb+27AQAAgYBncnDjZ29sZGVuLWdycON0bPNncnBjLTQuZXhhbXBsZS5vcueBgQCBgYEAgQAAAAAAAAAAAAABAAAAgYFnb2xkZW4tcGFzcy10cm9qYe4BAAAAZ29sZGVuLWsxLXNlbC10cm9qYW4tZ3Jw44GB"
     },
     {
       "id": 5,

@@ -169,7 +169,7 @@
       "core": 0,
       "beanColumn": "trojanBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.trojan.TrojanBean",
-      "beanKryoBase64": "AgAAAAcAAAB0cm9qYW4uZXhhbXBsZS5jb+27AQAAgYB0Y/B0bPN3d3cuZXhhbXBsZS5jb+2BgQCBrFoyOXNaR1Z1TFhKbFlXeHBkSGt0Y0hWaWJHbGpMV3RsZVMwd01EQXdNREUwYTFiMmMzZDRlNWY2YTfiAIEAAAAAAQABAAAAAgAAAIGBZ29sZGVuLXBhc3MtdHJvamHuAQAAAGdvbGRlbi1rMS10cm9qYW4tcmVhbGl0eS1zbXX4gYE="
+      "beanKryoBase64": "AgAAAAgAAAB0cm9qYW4uZXhhbXBsZS5jb+27AQAAgYB0Y/B0bPN3d3cuZXhhbXBsZS5jb+2BgQCBrFoyOXNaR1Z1TFhKbFlXeHBkSGt0Y0hWaWJHbGpMV3RsZVMwd01EQXdNREUwYTFiMmMzZDRlNWY2YTfiAIEAAAAAAQABAAAAAgAAAIGBZ29sZGVuLXBhc3MtdHJvamHuAQAAAGdvbGRlbi1rMS10cm9qYW4tcmVhbGl0eS1zbXX4gYE="
     }
   ],
   "rules": [],

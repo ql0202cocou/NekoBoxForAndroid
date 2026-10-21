@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "xray-vless-unknown-transport",
-  "description": "VLESS 未知传输方式 splithttp：应报错",
+  "description": "VLESS 未知传输方式 kcp：应报错（K2 起 xhttp / splithttp 已是支持的传输，这里换成真正未知的）",
   "mainProfileId": 1,
   "settings": [
     {
@@ -169,7 +169,7 @@
       "core": 0,
       "beanColumn": "vmessBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
-      "beanKryoBase64": "BwAAAHZsZXNzLmV4YW1wbGUuY2/tuwEAAKU2YjFkMmYzYS00YzVlLTRmN2EtOWIwYy0xZDJlM2Y0YTViNmOB/////3NwbGl0aHR08HRs83ZsZXNzLmV4YW1wbGUuY2/tgYEAgYGBAIEAAAAAAAAAAAAAAQAAAIGBAQAAAGdvbGRlbi14cmF5LXNwbGl0aHR08IGB"
+      "beanKryoBase64": "CAAAAHZsZXNzLmV4YW1wbGUuY2/tuwEAAKU2YjFkMmYzYS00YzVlLTRmN2EtOWIwYy0xZDJlM2Y0YTViNmOB/////2tj8HRs83ZsZXNzLmV4YW1wbGUuY2/tgYEAgYGBAIEAAAAAAAAAAAAAAQAAAIGBAQAAAGdvbGRlbi14cmF5LWtj8IGB"
     }
   ],
   "rules": [],

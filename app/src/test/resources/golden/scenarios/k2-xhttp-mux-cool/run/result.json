@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-k2-mux-cool: no core can fully run this profile. sing-box: [type] sing-box has no XHTTP transport; [enableMux, muxType] sing-box has no Mux.Cool (Xray's multiplexing). Xray: [type, enableMux, muxType] Xray cannot combine Mux.Cool with XHTTP; turn mux off (the XUDP packet encoding is fine)",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "no core can fully run this profile. sing-box: [type] sing-box has no XHTTP transport; [enableMux, muxType] sing-box has no Mux.Cool (Xray's multiplexing). Xray: [type, enableMux, muxType] Xray cannot combine Mux.Cool with XHTTP; turn mux off (the XUDP packet encoding is fine)"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

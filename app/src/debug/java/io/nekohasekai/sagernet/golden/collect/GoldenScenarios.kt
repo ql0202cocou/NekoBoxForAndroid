@@ -37,6 +37,7 @@ fun goldenScenarios(): List<Scenario> = scenarioTable {
     k1Selection()
     bug001Precheck()
     bug001Trial()
+    k2Xhttp()
 }
 
 private fun ScenarioTable.single(
@@ -175,8 +176,8 @@ private fun ScenarioTable.singBoxNodes() {
     single("sb-vmess-bracketed-ipv6", "VMess 地址带方括号（初始化时去掉）") {
         vmess("golden-vmess-bracket", server = "[2001:db8::21]")
     }
-    single("sb-vmess-unknown-transport", "存量节点的未知传输方式 xhttp：应报错") {
-        vmess("golden-vmess-xhttp").transport("xhttp", host = "x.example.org", path = "/x")
+    single("sb-vmess-unknown-transport", "存量节点的未知传输方式 kcp：应报错（K2 起 xhttp 已是支持的传输，这里换成真正未知的）") {
+        vmess("golden-vmess-kcp").transport("kcp", host = "x.example.org", path = "/x")
     }
 
     single("sb-vless-tcp-tls", "VLESS 手动指定 sing-box，tcp + TLS", core = CORE_SING_BOX) {
@@ -383,8 +384,8 @@ private fun ScenarioTable.xrayNodes() {
     single("xray-vless-ipv6-server", "VLESS REALITY，IPv6 服务器") {
         vless("golden-xray-v6", server = "2001:db8::50").reality()
     }
-    single("xray-vless-unknown-transport", "VLESS 未知传输方式 splithttp：应报错") {
-        vless("golden-xray-splithttp").transport("splithttp", path = "/s").tls(sni = "vless.example.com")
+    single("xray-vless-unknown-transport", "VLESS 未知传输方式 kcp：应报错（K2 起 xhttp / splithttp 已是支持的传输，这里换成真正未知的）") {
+        vless("golden-xray-kcp").transport("kcp", path = "/s").tls(sni = "vless.example.com")
     }
 
     // VMess 手动指定 Xray
@@ -766,7 +767,7 @@ private fun ScenarioTable.selectors() {
         node(4, wireguard("golden-sel-wg-bad", reserved = "1,2"))
         node(5, vless("golden-sel-mldsa").reality(mldsa65Verify = Fx.MLDSA65_VERIFY), core = CORE_SING_BOX)
         node(6, customBean("golden-sel-custom-broken", 1, "{golden-broken"))
-        node(7, vmess("golden-sel-xhttp").transport("xhttp"))
+        node(7, vmess("golden-sel-kcp").transport("kcp"))
         node(8, anytls("golden-sel-anytls-bad-ca", certificates = "golden-not-a-cert"))
     }
     scenario("selector-main-bad", "选择器：选中的节点本身构建失败（不预检，照常报错）") {
@@ -1653,5 +1654,75 @@ private fun ScenarioTable.bug001Trial() {
     }
     single("bug001-main-bad-wireguard", "主节点的 WireGuard 私钥只有 31 字节：三种模式都在启动前整次失败") {
         wireguard("golden-bug001-main-bad-wg", server = "bug001-main-wg.example.com", privateKey = Fx.WG_PRIVATE_KEY_SHORT)
+    }
+}
+
+// K2（XHTTP 传输）。Xray 的 run -test 在采集时校验每份合并配置，所以这里的成功场景同时验证生成的 xhttpSettings 能被内置 Xray 接受。
+// 拒绝类场景（参数已丢失、手动 sing-box、Vision / Mux.Cool 冲突）在三种模式下都应整次失败，报错文本钉住能力表的用词
+private fun ScenarioTable.k2Xhttp() {
+    single("k2-vless-xhttp-none-empty-host", "VLESS xhttp，无 TLS、host 为空：Xray 的 xhttpSettings.host 用服务器地址补上（否则 Host 头是映射地址）") {
+        vless("golden-k2-vless-none").xhttp(path = "/golden-xhttp")
+    }
+    single("k2-vless-xhttp-tls-extra", "VLESS xhttp + TLS，显式 host 与 mode（stream-up），extra 带 headers、xPaddingBytes、xmux") {
+        vless("golden-k2-vless-tls").tls(sni = "vless.example.com", alpn = "h2")
+            .xhttp(
+                host = "cdn.example.org",
+                path = "/golden-xhttp",
+                mode = "stream-up",
+                extra = """{"headers":{"X-Golden":"1"},"xPaddingBytes":"100-1000","noSSEHeader":true,""" +
+                    """"xmux":{"maxConcurrency":"16-32","cMaxReuseTimes":0,"hMaxRequestTimes":"600-900"}}""",
+            )
+    }
+    single("k2-vless-xhttp-reality-auto", "VLESS xhttp + REALITY，mode auto，走 Xray（REALITY 只由 Xray 定义）") {
+        vless("golden-k2-vless-reality").reality().xhttp(path = "/golden-xhttp")
+    }
+    single("k2-vmess-xhttp-none", "VMess xhttp，无 TLS，自动选核走 Xray") {
+        vmess("golden-k2-vmess-none").xhttp(host = "xhttp.example.org", path = "/golden-xhttp", mode = "packet-up")
+    }
+    single("k2-trojan-xhttp-tls", "Trojan xhttp + TLS，mode stream-one，自动选核走 Xray") {
+        trojan("golden-k2-trojan-tls").tls(sni = "trojan.example.com")
+            .xhttp(path = "/golden-xhttp", mode = "stream-one")
+    }
+    single("k2-xhttp-alpn-h3", "VLESS xhttp + TLS，ALPN 恰好是 h3：Xray 的 tlsSettings.alpn 原样为 [h3]（经回环验证后才放行）") {
+        vless("golden-k2-alpn-h3").tls(sni = "vless.example.com", alpn = "h3").xhttp(path = "/golden-xhttp")
+    }
+    single("k2-xhttp-ipv6-none", "VLESS xhttp，无 TLS、host 为空、IPv6 服务器：host 补成带方括号的服务器地址") {
+        vless("golden-k2-ipv6", server = "2001:db8::60").xhttp(path = "/golden-xhttp")
+    }
+    single("k2-xhttp-parameters-lost", "存量 xhttp 节点（旧版本只存了 type，path 为空）：参数已丢失，应报错（XHTTP_PARAMETERS_LOST）") {
+        vless("golden-k2-lost").tls(sni = "vless.example.com").transport("xhttp")
+    }
+    single("k2-xhttp-manual-sing-box", "VLESS xhttp 手动指定 sing-box：sing-box 没有 XHTTP 传输，应拒绝", core = CORE_SING_BOX) {
+        vless("golden-k2-manual-sb").tls(sni = "vless.example.com").xhttp(path = "/golden-xhttp")
+    }
+    single("k2-xhttp-vision", "VLESS xhttp + REALITY + Vision 流控：Xray 不能在 XHTTP 上跑 Vision，应拒绝（XRAY_XHTTP_VISION）") {
+        vless("golden-k2-vision", flow = FLOW_VISION).reality().xhttp(path = "/golden-xhttp")
+    }
+    single("k2-xhttp-mux-cool", "VLESS xhttp + TLS + Mux.Cool：Xray 不能同开，应拒绝（XRAY_XHTTP_MUX_COOL）") {
+        vless("golden-k2-mux-cool").tls(sni = "vless.example.com").xhttp(path = "/golden-xhttp").mux(type = MUX_COOL, concurrency = 4)
+    }
+
+    // 选择器与链里的 xhttp 节点：成员 / 跳走 Xray，合并进同一份 Xray 配置
+    scenario("k2-selector-xhttp-members", "选择器：xhttp 成员（Xray）正常构建，参数已丢失的 xhttp 成员被预检跳过；选中内核成员") {
+        group(1, selector = true)
+        node(1, vmess("golden-k2-sel-vmess").ws())
+        node(2, vless("golden-k2-sel-xhttp").tls(sni = "vless.example.com").xhttp(path = "/golden-xhttp", mode = "packet-up"))
+        node(3, vmess("golden-k2-sel-lost").transport("xhttp"))
+    }
+    scenario("k2-selector-main-xhttp", "选择器：选中 xhttp 成员（Xray）") {
+        group(1, selector = true)
+        node(1, vmess("golden-k2-selmain-vmess").ws())
+        node(2, vless("golden-k2-selmain-xhttp").reality().xhttp(path = "/golden-xhttp"))
+        main = 2
+    }
+    scenario("k2-chain-xhttp-first", "链：第一跳是 xhttp（Xray），出口 sing-box") {
+        node(2, vless("golden-k2-chain-xhttp").tls(sni = "vless.example.com").xhttp(path = "/golden-xhttp"))
+        node(3, vmess("golden-k2-chain-exit").ws())
+        chain(1, 2, 3)
+    }
+    scenario("k2-chain-xhttp-exit", "链：出口是 xhttp（Xray），第一跳 sing-box") {
+        node(2, vmess("golden-k2-chain-first").ws())
+        node(3, trojan("golden-k2-chain-xhttp-exit").tls(sni = "trojan.example.com").xhttp(path = "/golden-xhttp"))
+        chain(1, 2, 3)
     }
 }

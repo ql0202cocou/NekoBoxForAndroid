@@ -4,7 +4,6 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.KryoConverters
-import io.nekohasekai.sagernet.fmt.kryo.KryoSamples
 import io.nekohasekai.sagernet.fmt.putByteArray
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -44,27 +43,10 @@ class GoldenInputTest {
                 val bean = entity.requireBean()
                 assertEquals(where, row["beanClass"].asString, bean.javaClass.name)
                 // 重新序列化得到同样的字节，说明字段全部读回，没有错位或丢失
-                val rewritten = KryoConverters.serialize(bean)
-                if (layerVersions(row["beanClass"].asString, bytes) == layerVersions(row["beanClass"].asString, rewritten)) {
-                    assertArrayEquals(where, bytes, rewritten)
-                } else {
-                    // 基线是旧版本的实现采集的（StandardV2Ray 层 Kryo 7 → 8，K2）：字节里的版本号比当前低，重新写出的字节
-                    // 不可能相同。改查两件事——旧字节的各层版本号都不高于当前；重新写出的字节读回后字段与原来逐项相同
-                    // （没有错位或丢失）。模拟器重新采集基线后所有输入都是当前版本，上面逐字节相同的检查随之恢复，这里不再走到
-                    val old = layerVersions(row["beanClass"].asString, bytes)
-                    for ((layer, version) in old) {
-                        assertTrue("$where $layer 版本号 $version 高于当前", version <= KryoSamples.currentVersion(layer))
-                    }
-                    val again = ProxyEntity(type = row["type"].asInt).apply { putByteArray(rewritten) }.requireBean()
-                    assertEquals(where, KryoSamples.fieldsOf(bean), KryoSamples.fieldsOf(again))
-                }
+                assertArrayEquals(where, bytes, KryoConverters.serialize(bean))
                 profiles++
             }
         }
         assertTrue("基线里没有节点", profiles > 0)
     }
-
-    // 字节里各层（含 AbstractBean 的 extraVersion）写入的版本号
-    private fun layerVersions(beanClass: String, bytes: ByteArray): Map<String, Int> =
-        KryoSamples.versionsInBytes(beanClass, "storage", bytes)
 }

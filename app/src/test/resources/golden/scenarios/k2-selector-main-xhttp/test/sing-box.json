@@ -1,0 +1,68 @@
+{
+  "dns": {
+    "final": "dns-direct",
+    "rules": [],
+    "servers": [
+      {
+        "detour": "direct",
+        "tag": "dns-local",
+        "type": "local"
+      },
+      {
+        "domain_resolver": "dns-local",
+        "path": "/dns-query",
+        "server": "192.0.2.53",
+        "tag": "dns-direct",
+        "type": "https"
+      }
+    ],
+    "strategy": "prefer_ipv4"
+  },
+  "endpoints": [],
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 37899,
+      "override_address": "vless.example.com",
+      "override_port": 443,
+      "tag": "c-0-mapping-2",
+      "type": "direct"
+    }
+  ],
+  "log": {
+    "level": "panic"
+  },
+  "outbounds": [
+    {
+      "password": "pa18d2e90fd28c2d7189668bed06e2b32",
+      "server": "127.0.0.1",
+      "server_port": 35451,
+      "username": "ub57033c44cb010ca",
+      "tag": "proxy",
+      "type": "socks"
+    },
+    {
+      "tag": "direct",
+      "type": "direct"
+    },
+    {
+      "tag": "bypass",
+      "type": "direct"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "default_domain_resolver": {
+      "server": "dns-direct"
+    },
+    "rule_set": [],
+    "rules": [
+      {
+        "inbound": [
+          "c-0-mapping-2"
+        ],
+        "outbound": "direct"
+      }
+    ]
+  }
+}

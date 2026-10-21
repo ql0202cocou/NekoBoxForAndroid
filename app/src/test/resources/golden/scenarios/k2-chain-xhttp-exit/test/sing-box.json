@@ -1,0 +1,85 @@
+{
+  "dns": {
+    "final": "dns-direct",
+    "rules": [],
+    "servers": [
+      {
+        "detour": "direct",
+        "tag": "dns-local",
+        "type": "local"
+      },
+      {
+        "domain_resolver": "dns-local",
+        "path": "/dns-query",
+        "server": "192.0.2.53",
+        "tag": "dns-direct",
+        "type": "https"
+      }
+    ],
+    "strategy": "prefer_ipv4"
+  },
+  "endpoints": [],
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 46731,
+      "override_address": "trojan.example.com",
+      "override_port": 443,
+      "tag": "c-0-mapping-3",
+      "type": "direct"
+    }
+  ],
+  "log": {
+    "level": "panic"
+  },
+  "outbounds": [
+    {
+      "password": "pd845f2fbf5b199097e98c9bc487c29b4",
+      "server": "127.0.0.1",
+      "server_port": 37011,
+      "username": "uf3dffe1925ae813b",
+      "tag": "proxy",
+      "type": "socks"
+    },
+    {
+      "alter_id": 0,
+      "packet_encoding": "",
+      "security": "auto",
+      "server": "vmess.example.com",
+      "server_port": 443,
+      "transport": {
+        "headers": {
+          "Host": "cdn.example.org"
+        },
+        "path": "/golden-ws",
+        "type": "ws"
+      },
+      "uuid": "5a0c1e2f-3b4d-4e6f-8a9b-0c1d2e3f4a5b",
+      "tag": "g-2",
+      "type": "vmess"
+    },
+    {
+      "tag": "direct",
+      "type": "direct"
+    },
+    {
+      "tag": "bypass",
+      "type": "direct"
+    }
+  ],
+  "route": {
+    "auto_detect_interface": true,
+    "default_domain_resolver": {
+      "server": "dns-direct"
+    },
+    "rule_set": [],
+    "rules": [
+      {
+        "inbound": [
+          "c-0-mapping-3"
+        ],
+        "outbound": "g-2"
+      }
+    ]
+  }
+}

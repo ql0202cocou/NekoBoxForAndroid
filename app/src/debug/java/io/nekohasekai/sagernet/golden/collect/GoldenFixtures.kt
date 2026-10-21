@@ -203,6 +203,20 @@ fun <T : StandardV2RayBean> T.transport(type: String, host: String = "", path: S
     this.path = path
 }
 
+// XHTTP（K2）：mode 取 auto / packet-up / stream-up / stream-one；extra 须已是规范形式（XhttpExtra 白名单重建后的紧凑 JSON）
+fun <T : StandardV2RayBean> T.xhttp(
+    host: String = "",
+    path: String = "/",
+    mode: String = "auto",
+    extra: String = "",
+): T = apply {
+    type = "xhttp"
+    this.host = host
+    this.path = path
+    xhttpMode = mode
+    xhttpExtra = extra
+}
+
 fun <T : StandardV2RayBean> T.ws(
     host: String = "cdn.example.org",
     path: String = "/golden-ws",

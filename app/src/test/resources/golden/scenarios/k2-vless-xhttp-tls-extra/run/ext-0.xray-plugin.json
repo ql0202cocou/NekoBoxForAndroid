@@ -1,0 +1,87 @@
+{
+  "log": {
+    "loglevel": "warning",
+    "access": "none"
+  },
+  "inbounds": [
+    {
+      "tag": "in-0",
+      "listen": "127.0.0.1",
+      "port": 34805,
+      "protocol": "socks",
+      "settings": {
+        "auth": "password",
+        "accounts": [
+          {
+            "user": "u0682c1b8af618408",
+            "pass": "pf640c0ed867621fc1ae7dcd780272a54"
+          }
+        ],
+        "udp": true
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "block",
+      "protocol": "blackhole"
+    },
+    {
+      "tag": "out-0",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "127.0.0.1",
+            "port": 43619,
+            "users": [
+              {
+                "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "xhttpSettings": {
+          "host": "cdn.example.org",
+          "path": "/golden-xhttp",
+          "mode": "stream-up",
+          "extra": {
+            "headers": {
+              "X-Golden": "1"
+            },
+            "xPaddingBytes": "100-1000",
+            "noSSEHeader": true,
+            "xmux": {
+              "maxConcurrency": "16-32",
+              "cMaxReuseTimes": 0,
+              "hMaxRequestTimes": "600-900"
+            }
+          }
+        },
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "vless.example.com",
+          "alpn": [
+            "h2"
+          ]
+        }
+      }
+    }
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": [
+          "in-0"
+        ],
+        "outboundTag": "out-0"
+      }
+    ]
+  }
+}

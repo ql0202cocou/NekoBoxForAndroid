@@ -14,13 +14,11 @@
 - 测某个核心上的特性或合并配置的场景，夹具手动指定原来的核心（自动选核会换核时只改 `input.json` 的 `core`）。
 - 局部的有意变化：按审查过的差异修改受影响的文件，再在模拟器上重采集、对照一致；不整体替换基线，`manifest.json`
   保持上一次整体采集。逐次的经过见 git 历史。
-- K2（XHTTP）把 StandardV2Ray 层的 Kryo 版本号升到 8，`input.json` 里的 bean 字节仍是 7（模拟器重采之前不改）：
-  `GoldenInputTest` 对字节里版本号低于当前的 bean 不要求逐字节相同，改查「重新写出的字节读回后字段不变」。
-  `sb-vmess-unknown-transport`、`xray-vless-unknown-transport` 与 `selector-bad-members` 的成员 7 用 xhttp / splithttp
-  当「未知传输」夹具：这些字节是 v7 写的，只有 type，读出来 path 为空，K2 起算「参数已丢失」（`XHTTP_PARAMETERS_LOST`，
-  与核心无关的取值非法冲突），报错文本随之手改（三种模式的 `result.json` 与 `golden-jvm/expected-diagnostics.json`），
-  场景描述（`input.json` 的 `description`）仍是旧说法。重采集时要把这三处夹具换成真正未知的传输（如 kcp），
-  并另加「参数已丢失」与正常 xhttp 的场景；重采后输入全是当前版本，逐字节检查随之恢复。
+- K2（XHTTP）把 StandardV2Ray 层的 Kryo 版本号升到 8，随后在模拟器上局部重采：全部 `input.json` 的 StandardV2Ray 系 bean
+  （VMess / VLESS / Trojan / HTTP / ShadowTLS）字节里只有这一层的版本号由 7 变 8，`GoldenInputTest` 恢复逐字节检查；新增
+  15 个 `k2-` 场景；`sb-vmess-unknown-transport`、`xray-vless-unknown-transport` 与 `selector-bad-members` 的成员 7
+  原来用 xhttp / splithttp 当「未知传输」，K2 起 xhttp 是支持的传输，三处夹具换成 kcp。`manifest.json` 只更新场景数、
+  计数与校验次数，其余仍是 K1b 那次整体采集。
 
 采集入口只编进 debug 包（`app/src/debug/`）。采集入口与实测入口长期保留：
 JVM 黄金测试（见「JVM 黄金测试」一节）不覆盖 Android 一侧的外壳（DataStore 的默认值、Room 读取事务、
@@ -100,7 +98,7 @@ socks 出站的凭据）。`input.json` 与 `address/corpus.json` 顶层的 `for
 ```
 
 配置构建只消费注入的输入（`fmt/ConfigInput.kt`）之后，整条构建能在普通 JVM 上跑。`GoldenJvmBuildTest` 对本目录
-每个场景的每种模式（342 × 3）：用 `input.json` 的 `groups` / `profiles` / `rules` 建内存数据源（查询语义同 DAO），
+每个场景的每种模式（357 × 3）：用 `input.json` 的 `groups` / `profiles` / `rules` 建内存数据源（查询语义同 DAO），
 设置取 `effectiveSettings`（Clash API secret 只在运行模式且开了 Clash API 时取，同生产外壳），包名 UID 取
 `packageUids`，插件状态按 `plugins` 回答（`missing` 即「plugin X is not installed」）；再走
 「采集引用闭包（`ConfigSnapshot.collect`）→ 纯构建入口 `buildConfig(input)` → `ExternalRunPlan.from` →
@@ -221,7 +219,7 @@ address/corpus.json                                        地址解析语料与
 | `plugins` | 六个外核插件 id 的状态：`builtin`、`missing` 或 `external:<包名>` |
 | `system` | API 级别（`sdkInt`、`sdkIntFull`）、系统版本、build fingerprint、ABI、页大小、语言 |
 | `scenarios` / `counts` | 场景数与各模式成功 / 失败的数量 |
-| `externalChecks` | run / test 模式里启动前校验的次数（每组 Xray / mihomo 合并配置一次）：`checked`、`failed`、`inconclusive`（超时、被信号杀掉、进程起不来，照常继续）的总数，`byPlugin` 按插件 id 分开计（另有 `passed`），`problems` 逐条列出没过与没有结论的场景、模式、插件与原因。基线全部场景的合并配置（Xray 190 份、mihomo 91 份）都应被校验且全部通过 |
+| `externalChecks` | run / test 模式里启动前校验的次数（每组 Xray / mihomo 合并配置一次）：`checked`、`failed`、`inconclusive`（超时、被信号杀掉、进程起不来，照常继续）的总数，`byPlugin` 按插件 id 分开计（另有 `passed`），`problems` 逐条列出没过与没有结论的场景、模式、插件与原因。基线全部场景的合并配置（Xray 211 份、mihomo 91 份）都应被校验且全部通过 |
 | `collectedAt` | 采集时间（UTC）；两次采集之间只有它允许不同 |
 
 ## input.json
@@ -325,9 +323,18 @@ socks 出站与入站都没有；同一份 sing-box 配置里本机凭据只有�
 
 场景表在 `app/src/debug/java/io/nekohasekai/sagernet/golden/collect/GoldenScenarios.kt`，按类别分组：
 单节点（sing-box、Xray、mihomo、插件核心）、自定义配置、链、分组前置 / 落地、选择器、路由规则、设置变体、
-分组 DNS、同核心多节点（`multi-` 前缀）、K1 选核（`k1-` 前缀）、BUG-001 短期预检（`bug001-` 前缀）。新增场景只往
-表里加；场景 id 入库后不要改名。目前 342 个场景（281 个按单项特性分类的，加 14 个 `multi-` 场景、33 个 `k1-` 场景、
-14 个 `bug001-` 场景）。
+分组 DNS、同核心多节点（`multi-` 前缀）、K1 选核（`k1-` 前缀）、BUG-001 短期预检（`bug001-` 前缀）、K2 XHTTP（`k2-` 前缀）。新增场景只往
+表里加；场景 id 入库后不要改名。目前 357 个场景（281 个按单项特性分类的，加 14 个 `multi-` 场景、33 个 `k1-` 场景、
+14 个 `bug001-` 场景、15 个 `k2-` 场景）。
+
+`k2-` 场景钉住 XHTTP 传输（只走 Xray，手动选 sing-box 拒绝），成功的场景在采集时同样经 Xray 的 `run -test` 校验：
+`k2-vless-xhttp-none-empty-host`（无 TLS、host 为空：`xhttpSettings.host` 用服务器地址补上）、`k2-xhttp-ipv6-none`（同，IPv6
+服务器补成带方括号的地址）、`k2-vless-xhttp-tls-extra`（显式 host 与 mode，`extra` 带 headers、xPaddingBytes、xmux）、
+`k2-vless-xhttp-reality-auto`、`k2-vmess-xhttp-none`、`k2-trojan-xhttp-tls`、`k2-xhttp-alpn-h3`（ALPN 恰为 h3）；
+拒绝类（三种模式都整次失败）有 `k2-xhttp-parameters-lost`（path 为空的存量节点，`XHTTP_PARAMETERS_LOST`）、
+`k2-xhttp-manual-sing-box`、`k2-xhttp-vision`（Xray 不能在 XHTTP 上跑 Vision）、`k2-xhttp-mux-cool`（Xray 不能同开
+Mux.Cool）；选择器与链各两个：`k2-selector-xhttp-members`（xhttp 成员正常构建，参数已丢失的成员被跳过，期望见
+`golden-jvm/expected-diagnostics.json`）、`k2-selector-main-xhttp`、`k2-chain-xhttp-first`、`k2-chain-xhttp-exit`。
 
 `k1-` 场景的描述写明预期（选中的核心或拒绝），「对照表 N」指 K1 选核变更对照表的第 N 行（第 14 行「mihomo 握手必败的
 uTLS 指纹」是 K1b 加的，对应 `k1-anytls-psk-fingerprint-certificates` 与 `k1-anytls-randomized-mihomo-manual` 两个场景）；
