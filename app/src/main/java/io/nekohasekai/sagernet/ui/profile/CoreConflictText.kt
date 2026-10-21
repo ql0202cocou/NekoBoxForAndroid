@@ -68,6 +68,7 @@ fun profileFieldTitle(field: ProfileField, bean: AbstractBean): Int {
         ProfileField.HOST -> when (network) {
             "ws" -> R.string.ws_host
             "httpupgrade" -> R.string.http_upgrade_host
+            "xhttp" -> R.string.xhttp_host
             else -> R.string.http_host
         }
 
@@ -75,6 +76,7 @@ fun profileFieldTitle(field: ProfileField, bean: AbstractBean): Int {
             "ws" -> R.string.ws_path
             "grpc" -> R.string.grpc_service_name
             "httpupgrade" -> R.string.http_upgrade_path
+            "xhttp" -> R.string.xhttp_path
             else -> R.string.http_path
         }
 

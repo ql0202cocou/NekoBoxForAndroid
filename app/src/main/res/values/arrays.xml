@@ -264,6 +264,15 @@
         <item>quic</item>
         <item>grpc</item>
         <item>httpupgrade</item>
+        <item>xhttp</item>
+    </string-array>
+
+    <!-- XHTTP 的 mode：值即显示名，顺序同 XhttpExtra.kt 的 XHTTP_MODES -->
+    <string-array name="xhttp_mode_value">
+        <item>auto</item>
+        <item>packet-up</item>
+        <item>stream-up</item>
+        <item>stream-one</item>
     </string-array>
 
     <string-array name="trojan_go_networks_entry">

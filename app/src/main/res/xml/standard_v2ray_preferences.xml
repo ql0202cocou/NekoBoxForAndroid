@@ -70,6 +70,16 @@
             app:title="@string/http_path"
             app:useSimpleSummaryProvider="true" />
         <moe.matsuri.nb4a.ui.SimpleMenuPreference
+            app:entries="@array/xhttp_mode_value"
+            app:entryValues="@array/xhttp_mode_value"
+            app:icon="@drawable/ic_baseline_transform_24"
+            app:key="xhttpMode"
+            app:title="@string/xhttp_mode" />
+        <Preference
+            app:icon="@drawable/baseline_construction_24"
+            app:key="xhttpExtra"
+            app:title="@string/xhttp_extra" />
+        <moe.matsuri.nb4a.ui.SimpleMenuPreference
             app:entries="@array/transport_layer_encryption_value"
             app:entryValues="@array/transport_layer_encryption_value"
             app:icon="@drawable/ic_baseline_layers_24"

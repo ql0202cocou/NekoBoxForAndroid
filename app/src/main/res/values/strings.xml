@@ -107,6 +107,15 @@
     <string name="http_host">HTTP Host</string>
     <string name="http_path">HTTP Path</string>
     <string name="grpc_service_name">gRPC ServiceName</string>
+    <string name="xhttp_host">XHTTP Host</string>
+    <string name="xhttp_path">XHTTP Path</string>
+    <string name="xhttp_host_hint">Optional. Empty means the server address without TLS, and the server name (SNI) with TLS or REALITY. An IPv6 address must be wrapped in brackets, for example [2001:db8::1].</string>
+    <string name="xhttp_path_hint">Empty is saved as /.</string>
+    <string name="xhttp_mode">XHTTP Mode</string>
+    <string name="xhttp_mode_summary">%1$s\nIf the server fixes a mode, pick the same one here. Auto means packet-up without TLS or with TLS, and stream-one with REALITY.</string>
+    <string name="xhttp_extra">XHTTP Extra (JSON)</string>
+    <string name="xhttp_extra_invalid">Invalid XHTTP setting: %1$s</string>
+    <string name="xhttp_alpn_h3_hint">With XHTTP, a single h3 makes the connection run over UDP (QUIC). It fails when a previous hop in the chain does not forward UDP.</string>
     <string name="tls">Use TLS</string>
     <string name="sni">Server Name Indication</string>
     <string name="alpn">Application-Layer Protocol Negotiation</string>

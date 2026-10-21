@@ -175,6 +175,15 @@
     <string name="ws_path">WebSocket 路径</string>
     <string name="http_host">HTTP 主机</string>
     <string name="http_path">HTTP 路径</string>
+    <string name="xhttp_host">XHTTP 主机</string>
+    <string name="xhttp_path">XHTTP 路径</string>
+    <string name="xhttp_host_hint">可选。留空时，无 TLS 用服务器地址，TLS 或 REALITY 用服务器名称（SNI）。IPv6 地址必须加方括号，例如 [2001:db8::1]。</string>
+    <string name="xhttp_path_hint">留空时保存为 /。</string>
+    <string name="xhttp_mode">XHTTP 模式</string>
+    <string name="xhttp_mode_summary">%1$s\n服务端若固定了模式，这里必须选同一个。自动：无 TLS 与 TLS 时是 packet-up，REALITY 时是 stream-one。</string>
+    <string name="xhttp_extra">XHTTP 高级参数（JSON）</string>
+    <string name="xhttp_extra_invalid">XHTTP 设置无效：%1$s</string>
+    <string name="xhttp_alpn_h3_hint">XHTTP 下 ALPN 只写 h3 时，连接走 UDP（QUIC）；链上前一跳不转发 UDP 就连不通。</string>
     <string name="utls_fingerprint">uTLS 指纹</string>
     <string name="grpc_service_name">gRPC 服务名称</string>
     <string name="alpn">应用层协议协商</string>

@@ -23,6 +23,8 @@ import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.databinding.LayoutEditConfigBinding
+import io.nekohasekai.sagernet.fmt.v2ray.InvalidXhttpExtraException
+import io.nekohasekai.sagernet.fmt.v2ray.canonicalXhttpExtra
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.ktx.readableMessage
@@ -206,8 +208,24 @@ class ConfigEditActivity : ThemedActivity() {
         }
     }
 
+    // 个别 key 的内容有自己的校验器：不合格就留在编辑页，让用户当场改（消息只带键名，不带值）
+    private fun validationError(text: String): String? = when (key) {
+        Key.XHTTP_EXTRA_EDIT -> try {
+            canonicalXhttpExtra(text)
+            null
+        } catch (e: InvalidXhttpExtraException) {
+            getString(R.string.xhttp_extra_invalid, e.message)
+        }
+
+        else -> null
+    }
+
     fun saveAndExit() {
         formatText()?.let {
+            validationError(it)?.let { message ->
+                MaterialAlertDialogBuilder(this).setTitle(R.string.error_title).setMessage(message).show()
+                return
+            }
             if (useConfigStore) {
                 DataStore.configurationStore.putString(key, it)
             } else {

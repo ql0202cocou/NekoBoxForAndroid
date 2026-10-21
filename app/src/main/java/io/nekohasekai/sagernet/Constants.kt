@@ -100,6 +100,13 @@ object Key {
     const val SERVER_CUSTOM = "serverCustom"
     const val SERVER_CUSTOM_OUTBOUND = "serverCustomOutbound"
 
+    // XHTTP 的 extra：编辑器缓存里保存的值，以及交给 JSON 编辑页临时编辑的那份（确认通过校验后才写回前者）
+    const val XHTTP_EXTRA = "xhttpExtra"
+    const val XHTTP_EXTRA_EDIT = "xhttpExtraEdit"
+
+    // 载入编辑器的节点是不是旧版本留下的残缺 xhttp 节点（path 从未落库）；放在编辑缓存里，旋转后仍在
+    const val XHTTP_LOST = "xhttpParametersLost"
+
     const val SERVER_SECURITY_CATEGORY = "serverSecurityCategory"
     const val SERVER_TLS_CAMOUFLAGE_CATEGORY = "serverTlsCamouflageCategory"
     const val SERVER_ECH_CATEORY = "serverECHCategory"
