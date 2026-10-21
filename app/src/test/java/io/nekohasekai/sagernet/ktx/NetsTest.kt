@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.InetAddress
 
-// 只覆盖不依赖 Android 框架的纯函数；mkPort、lookupViaNameserver 等依赖 SystemClock / native 核心，
+// 只覆盖不依赖 Android 框架的纯函数（mkPort 的保留表逻辑在 PortReservationsTest）；mkPort、lookupViaNameserver 等依赖 SystemClock / native 核心，
 // 在本地 JVM 单测里不可用，不在此测试。isLocalNameserverAddress / usableNameservers 的默认解析走
 // android.system.Os，这里只测注入解析函数的版本
 class NetsTest {

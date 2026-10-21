@@ -21,11 +21,11 @@ import libcore.HTTPClient
 import libcore.Libcore
 import moe.matsuri.nb4a.utils.NGUtil
 import okhttp3.HttpUrl
+import java.io.File
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
-import java.util.concurrent.ConcurrentHashMap
 
 fun linkBuilder() = HttpUrl.Builder().scheme("https")
 
@@ -217,26 +217,24 @@ suspend fun lookupServerAddress(
     lookupViaNameserver(groupNameserver, domain)?.orderByIpv6Mode(ipv6Mode)?.takeIf { it.isNotEmpty() }
         ?: lookupSystem(domain, network).orderByIpv6Mode(ipv6Mode)
 
-// Ports handed out but not yet bound by their consumer (external cores bind only
-// after process spawn). Keep them out of rotation so concurrent callers — e.g.
-// parallel URL-test instances — can't be assigned the same ephemeral port.
-// Nothing reports back once a port is really bound, so reservations expire: past
-// the spawn window they can no longer collide, and holding them forever would eat
-// the ephemeral range until the retry loop below just spins.
-private const val MK_PORT_RESERVE_MS = 60_000L
-private val mkPortReserved = ConcurrentHashMap<Int, Long>()
-
-fun mkPort(): Int {
-    val now = SystemClock.elapsedRealtime()
-    mkPortReserved.values.removeAll { now - it > MK_PORT_RESERVE_MS }
-    while (true) {
-        val port = Socket().use { socket ->
-            socket.reuseAddress = true
-            socket.bind(InetSocketAddress(0))
-            socket.localPort
-        }
-        if (mkPortReserved.putIfAbsent(port, now) == null) return port
-    }
+// 本机端口：向系统要一个临时端口，再经跨进程保留表（PortReservations）去重。主进程的测速与 :bg 的运行服务
+// 共用这张表，并发测速、测速与启动服务同时进行时都不会分到同一个端口。保留表是临时数据，放 noBackupFilesDir，
+// 不参与备份与换机恢复
+private val portReservations by lazy {
+    PortReservations(
+        file = File(app.noBackupFilesDir, "port_reservations"),
+        now = SystemClock::elapsedRealtime,
+        pickPort = {
+            Socket().use { socket ->
+                socket.reuseAddress = true
+                socket.bind(InetSocketAddress(0))
+                socket.localPort
+            }
+        },
+    )
 }
+
+/** 分配一个本机端口（[PortReservations.TTL_MS] 内不会再发给本进程或另一个进程）；文件锁或读写失败时抛异常 */
+fun mkPort(): Int = portReservations.reserve()
 
 const val USER_AGENT = "NekoBox/Android/" + BuildConfig.VERSION_NAME + " (Prefer ClashMeta Format)"
