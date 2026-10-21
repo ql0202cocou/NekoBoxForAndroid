@@ -41,11 +41,12 @@
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
                     android:layout_weight="1"
-                    android:gravity="top"
+                    android:gravity="center_vertical"
                     android:paddingStart="16dp"
-                    android:paddingTop="12dp"
-                    android:paddingBottom="4dp">
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp">
 
                     <!-- 节点名只占一行，过长在末尾省略（TalkBack 仍读完整名字） -->
                     <TextView
@@ -157,19 +158,17 @@
                     android:textAppearance="?attr/textAppearanceBodyMedium"
                     android:textColor="?attr/colorOnSurfaceVariant" />
 
-                <!-- 测速结果：Label large、等宽数字，单行、末尾省略，占剩余宽度靠右，长错误不会折行。
-                     没测速时这一格显示流量；有流量的节点出了结果，流量挪到上一行（卡片多一行，维护者定的做法） -->
-                <TextView
-                    android:id="@+id/profile_status"
+                <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1" />
+
+                <TextView
+                    android:id="@+id/profile_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
                     android:layout_marginStart="4dp"
-                    android:layout_weight="1"
-                    android:ellipsize="end"
-                    android:fontFeatureSettings="tnum"
-                    android:gravity="end"
-                    android:maxLines="1"
-                    android:textAppearance="?attr/textAppearanceLabelLarge"
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
                     android:textColor="?attr/colorOnSurfaceVariant" />
 
             </LinearLayout>

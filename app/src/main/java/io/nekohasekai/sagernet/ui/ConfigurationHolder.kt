@@ -1,8 +1,5 @@
 package io.nekohasekai.sagernet.ui
 
-import android.animation.ArgbEvaluator
-import android.animation.ValueAnimator
-import android.content.res.ColorStateList
 import android.graphics.Color
 import android.text.format.Formatter
 import android.view.MenuItem
@@ -11,13 +8,10 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.widget.PopupMenu
-import androidx.core.graphics.ColorUtils
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.card.MaterialCardView
-import com.google.android.material.color.MaterialColors
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.TrafficData
@@ -27,7 +21,6 @@ import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.displayType
 import io.nekohasekai.sagernet.fmt.toUniversalLink
 import io.nekohasekai.sagernet.ktx.Logs
-import io.nekohasekai.sagernet.ktx.animatorsEnabled
 import io.nekohasekai.sagernet.ktx.alert
 import io.nekohasekai.sagernet.ktx.exportToClipboard
 import io.nekohasekai.sagernet.ktx.getColorAttr
@@ -123,7 +116,8 @@ class ConfigurationHolder(
                         // 页面已销毁则不回填；与 bind 末尾同一防护：协程返回时 holder 可能已复用
                         groupFragment.onLiveView {
                             if (entity.id != proxyEntity.id) return@onLiveView
-                            applySelection(selected = true, animate = true)
+                            selectedView.visibility = View.VISIBLE
+                            applyStatusColor()
                         }
                     }
 
@@ -196,8 +190,8 @@ class ConfigurationHolder(
             }
             editButton.isEnabled = !started
             removeButton.isEnabled = !started
-            // 同一个 holder 上同一个节点的重绑（点选后旧卡片的 payload 重绑也走这里）才过渡，首次绑定与复用不动画
-            applySelection(selected, animate = fadeStatus)
+            selectedView.visibility = if (selected) View.VISIBLE else View.INVISIBLE
+            applyStatusColor()
 
             if (!selectOrChain) {
                 shareLayer.setBackgroundColor(Color.TRANSPARENT)
@@ -307,78 +301,6 @@ class ConfigurationHolder(
         }
     }
 
-    // ---- 选中态的卡片样式 ----
-    // 选中的节点：4dp 侧边标记（selectedView）之外，卡片底色叠 primary 8%、描边用 primary 40%（线宽沿用
-    // Outlined 卡片的 1dp）。颜色只取主题角色加透明度；未选中时还原成取值前缓存的默认底色与描边（状态列表）。
-    // 三处必须一起改（侧边标记、卡片样式、测速结果的 *_strong 颜色），所以都从 applySelection 走
-    private val card = view as MaterialCardView
-    private val defaultFill: ColorStateList = card.cardBackgroundColor
-    private val defaultStroke: ColorStateList? = card.strokeColorStateList
-    private var selectionStyled = false
-    private var shownFill = defaultFill.defaultColor
-    private var shownStroke = defaultStroke?.defaultColor ?: Color.TRANSPARENT
-    private var selectionAnimator: ValueAnimator? = null
-
-    private fun applySelection(selected: Boolean, animate: Boolean) {
-        val changed = selectedView.isVisible != selected
-        selectedView.visibility = if (selected) View.VISIBLE else View.INVISIBLE
-        applyStatusColor()
-        styleCard(selected, animate && changed && view.context.animatorsEnabled())
-    }
-
-    private fun styleCard(selected: Boolean, animate: Boolean) {
-        selectionAnimator?.cancel()
-        selectionAnimator = null
-        if (!selected && !selectionStyled) return
-        val context = view.context
-        val primary = context.getColorAttr(androidx.appcompat.R.attr.colorPrimary)
-        val toFill = if (selected) MaterialColors.layer(defaultFill.defaultColor, primary, SELECTED_FILL_ALPHA)
-        else defaultFill.defaultColor
-        val toStroke = if (selected) ColorUtils.setAlphaComponent(primary, SELECTED_STROKE_ALPHA)
-        else defaultStroke?.defaultColor ?: Color.TRANSPARENT
-        fun finish() {
-            selectionStyled = selected
-            if (selected) {
-                card.setCardBackgroundColor(toFill)
-                card.setStrokeColor(toStroke)
-            } else {
-                // 还原成缓存的状态列表，不留固定色
-                card.setCardBackgroundColor(defaultFill)
-                if (defaultStroke != null) card.setStrokeColor(defaultStroke) else card.strokeColor = Color.TRANSPARENT
-            }
-            shownFill = toFill
-            shownStroke = toStroke
-        }
-        if (!animate) {
-            finish()
-            return
-        }
-        val fromFill = shownFill
-        val fromStroke = shownStroke
-        val evaluator = ArgbEvaluator()
-        selectionAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = context.motionDuration(com.google.android.material.R.attr.motionDurationShort4, 200)
-            addUpdateListener {
-                val f = it.animatedFraction
-                shownFill = evaluator.evaluate(f, fromFill, toFill) as Int
-                shownStroke = evaluator.evaluate(f, fromStroke, toStroke) as Int
-                card.setCardBackgroundColor(shownFill)
-                card.setStrokeColor(shownStroke)
-            }
-            addListener(object : android.animation.AnimatorListenerAdapter() {
-                private var canceled = false
-                override fun onAnimationCancel(animation: android.animation.Animator) {
-                    canceled = true
-                }
-
-                override fun onAnimationEnd(animation: android.animation.Animator) {
-                    if (!canceled) finish()
-                }
-            })
-            start()
-        }
-    }
-
     // 测速结果（status > 0）的颜色：选中的卡片用深一档的 *_strong，选中态的底比普通卡片深。
     // 选中状态在 bind 里异步确定、点选时直接改，两处改完 selectedView 都要再调一次
     private fun applyStatusColor() {
@@ -392,12 +314,6 @@ class ConfigurationHolder(
             else -> R.color.status_error
         }
         profileStatus.setTextColor(view.context.getColour(color))
-    }
-
-    private companion object {
-        // 选中卡片：底色叠 primary 8%，描边 primary 40%
-        const val SELECTED_FILL_ALPHA = 0.08f
-        const val SELECTED_STROKE_ALPHA = 102
     }
 
     var currentName = ""
