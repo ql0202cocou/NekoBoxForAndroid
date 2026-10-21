@@ -2,7 +2,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <EditTextPreference
-        app:icon="@drawable/ic_baseline_label_24"
+        app:icon="@drawable/ic_social_emoji_symbols"
         app:key="profileName"
         app:title="@string/profile_name"
         app:useSimpleSummaryProvider="true" />
@@ -10,12 +10,12 @@
     <PreferenceCategory app:title="@string/proxy_cat">
 
         <EditTextPreference
-            app:icon="@drawable/ic_action_dns"
+            app:icon="@drawable/ic_hardware_router"
             app:key="serverAddress"
             app:title="@string/server_address"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
-            app:icon="@drawable/ic_baseline_settings_ethernet_24"
+            app:icon="@drawable/ic_maps_directions_boat"
             app:key="serverPort"
             app:title="@string/server_port"
             app:useSimpleSummaryProvider="true" />
@@ -34,7 +34,7 @@
             app:defaultValue="https"
             app:entries="@array/naive_proto_entry"
             app:entryValues="@array/naive_proto_value"
-            app:icon="@drawable/ic_baseline_http_24"
+            app:icon="@drawable/ic_baseline_layers_24"
             app:key="serverProtocol"
             app:title="@string/protocol"
             app:useSimpleSummaryProvider="true" />
@@ -44,7 +44,7 @@
             app:title="@string/extra_headers"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
-            app:icon="@drawable/baseline_public_24"
+            app:icon="@drawable/ic_action_copyright"
             app:key="serverSNI"
             app:title="@string/sni"
             app:useSimpleSummaryProvider="true" />

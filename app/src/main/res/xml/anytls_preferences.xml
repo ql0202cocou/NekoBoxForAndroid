@@ -1,19 +1,19 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <EditTextPreference
-        app:icon="@drawable/ic_baseline_label_24"
+        app:icon="@drawable/ic_social_emoji_symbols"
         app:key="name"
         app:title="@string/profile_name"
         app:useSimpleSummaryProvider="true" />
 
     <PreferenceCategory app:title="@string/proxy_cat">
         <EditTextPreference
-            app:icon="@drawable/ic_action_dns"
+            app:icon="@drawable/ic_hardware_router"
             app:key="serverAddress"
             app:title="@string/server_address"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
-            app:icon="@drawable/ic_baseline_settings_ethernet_24"
+            app:icon="@drawable/ic_maps_directions_boat"
             app:key="serverPort"
             app:title="@string/server_port"
             app:useSimpleSummaryProvider="true" />
@@ -26,7 +26,7 @@
             app:defaultValue="0"
             app:entries="@array/proxy_core_anytls_entry"
             app:entryValues="@array/proxy_core_anytls_value"
-            app:icon="@drawable/baseline_developer_board_24"
+            app:icon="@drawable/ic_baseline_stream_24"
             app:key="profileCore"
             app:title="@string/proxy_core"
             app:useSimpleSummaryProvider="true" />
@@ -34,17 +34,17 @@
 
     <PreferenceCategory app:title="@string/security_settings">
         <EditTextPreference
-            app:icon="@drawable/baseline_public_24"
+            app:icon="@drawable/ic_action_copyright"
             app:key="sni"
             app:title="@string/sni"
             app:useSimpleSummaryProvider="true" />
         <SwitchPreferenceCompat
-            app:icon="@drawable/ic_action_lock_open"
+            app:icon="@drawable/ic_notification_enhanced_encryption"
             app:key="allowInsecure"
             app:summary="@string/anytls_allow_insecure_sum"
             app:title="@string/allow_insecure" />
         <EditTextPreference
-            app:icon="@drawable/ic_baseline_http_24"
+            app:icon="@drawable/ic_baseline_legend_toggle_24"
             app:key="alpn"
             app:title="@string/alpn"
             app:useSimpleSummaryProvider="true" />
@@ -74,7 +74,7 @@
             app:key="enableECH"
             app:title="@string/enable" />
         <EditTextPreference
-            app:icon="@drawable/ic_baseline_texture_24"
+            app:icon="@drawable/ic_baseline_nfc_24"
             app:key="echConfig"
             app:title="@string/ech_config"
             app:useSimpleSummaryProvider="true" />

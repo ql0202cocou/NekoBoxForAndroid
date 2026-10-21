@@ -1,13 +1,13 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <EditTextPreference
-        app:icon="@drawable/ic_baseline_label_24"
+        app:icon="@drawable/ic_social_emoji_symbols"
         app:key="profileName"
         app:title="@string/profile_name"
         app:useSimpleSummaryProvider="true" />
 
     <SwitchPreferenceCompat
-        app:icon="@drawable/ic_baseline_call_split_24"
+        app:icon="@drawable/ic_baseline_import_contacts_24"
         app:key="isOutboundOnly"
         app:title="@string/is_outbound_only" />
 

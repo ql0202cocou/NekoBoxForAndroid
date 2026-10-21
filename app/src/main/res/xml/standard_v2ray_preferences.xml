@@ -1,7 +1,7 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <EditTextPreference
-        app:icon="@drawable/ic_baseline_label_24"
+        app:icon="@drawable/ic_social_emoji_symbols"
         app:key="name"
         app:title="@string/profile_name"
         app:useSimpleSummaryProvider="true" />
@@ -9,12 +9,12 @@
     <PreferenceCategory app:title="@string/proxy_cat">
 
         <EditTextPreference
-            app:icon="@drawable/ic_action_dns"
+            app:icon="@drawable/ic_hardware_router"
             app:key="serverAddress"
             app:title="@string/server_address"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
-            app:icon="@drawable/ic_baseline_settings_ethernet_24"
+            app:icon="@drawable/ic_maps_directions_boat"
             app:key="serverPort"
             app:title="@string/server_port"
             app:useSimpleSummaryProvider="true" />
@@ -34,14 +34,14 @@
             app:key="uuid"
             app:title="@string/uuid" />
         <EditTextPreference
-            app:icon="@drawable/ic_baseline_texture_24"
+            app:icon="@drawable/ic_maps_360"
             app:key="alterId"
             app:title="@string/alter_id"
             app:useSimpleSummaryProvider="true" />
         <moe.matsuri.nb4a.ui.SimpleMenuPreference
             app:entries="@array/vmess_encryption_value"
             app:entryValues="@array/vmess_encryption_value"
-            app:icon="@drawable/ic_action_lock"
+            app:icon="@drawable/ic_notification_enhanced_encryption"
             app:key="encryption"
             app:title="@string/encryption"
             app:useSimpleSummaryProvider="true" />
@@ -55,24 +55,24 @@
         <moe.matsuri.nb4a.ui.SimpleMenuPreference
             app:entries="@array/networks_value"
             app:entryValues="@array/networks_value"
-            app:icon="@drawable/ic_baseline_lan_24"
+            app:icon="@drawable/ic_baseline_compare_arrows_24"
             app:key="type"
             app:title="@string/network"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
-            app:icon="@drawable/baseline_public_24"
+            app:icon="@drawable/ic_baseline_airplanemode_active_24"
             app:key="host"
             app:title="@string/http_host"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
-            app:icon="@drawable/ic_baseline_link_24"
+            app:icon="@drawable/ic_baseline_format_align_left_24"
             app:key="path"
             app:title="@string/http_path"
             app:useSimpleSummaryProvider="true" />
         <moe.matsuri.nb4a.ui.SimpleMenuPreference
             app:entries="@array/transport_layer_encryption_value"
             app:entryValues="@array/transport_layer_encryption_value"
-            app:icon="@drawable/ic_baseline_security_24"
+            app:icon="@drawable/ic_baseline_layers_24"
             app:key="security"
             app:title="@string/security"
             app:useSimpleSummaryProvider="true" />
@@ -80,7 +80,7 @@
             app:defaultValue="0"
             app:entries="@array/proxy_core_v2ray_entry"
             app:entryValues="@array/proxy_core_v2ray_value"
-            app:icon="@drawable/baseline_developer_board_24"
+            app:icon="@drawable/ic_baseline_stream_24"
             app:key="profileCore"
             app:title="@string/proxy_core"
             app:useSimpleSummaryProvider="true" />
@@ -91,13 +91,13 @@
         app:title="@string/cag_ws">
         <EditTextPreference
             app:defaultValue="0"
-            app:icon="@drawable/ic_baseline_speed_24"
+            app:icon="@drawable/ic_baseline_compare_arrows_24"
             app:key="wsMaxEarlyData"
             app:title="@string/ws_max_early_data"
             app:useSimpleSummaryProvider="true" />
 
         <EditTextPreference
-            app:icon="@drawable/ic_baseline_texture_24"
+            app:icon="@drawable/ic_baseline_stream_24"
             app:key="earlyDataHeaderName"
             app:title="@string/early_data_header_name"
             app:useSimpleSummaryProvider="true" />
@@ -107,12 +107,12 @@
         app:key="serverSecurityCategory"
         app:title="@string/security_settings">
         <EditTextPreference
-            app:icon="@drawable/baseline_public_24"
+            app:icon="@drawable/ic_action_copyright"
             app:key="sni"
             app:title="@string/sni"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
-            app:icon="@drawable/ic_baseline_http_24"
+            app:icon="@drawable/ic_baseline_legend_toggle_24"
             app:key="alpn"
             app:title="@string/alpn"
             app:useSimpleSummaryProvider="true" />
@@ -127,7 +127,7 @@
             app:title="@string/certificate_fingerprint"
             app:useSimpleSummaryProvider="true" />
         <SwitchPreferenceCompat
-            app:icon="@drawable/ic_action_lock_open"
+            app:icon="@drawable/ic_notification_enhanced_encryption"
             app:key="allowInsecure"
             app:summary="@string/allow_insecure_sum"
             app:title="@string/allow_insecure" />
@@ -178,7 +178,7 @@
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
             app:defaultValue="1"
-            app:icon="@drawable/ic_baseline_view_list_24"
+            app:icon="@drawable/ic_baseline_low_priority_24"
             app:key="muxConcurrency"
             app:title="@string/mux_concurrency"
             app:useSimpleSummaryProvider="true" />
@@ -196,7 +196,7 @@
             app:key="enableECH"
             app:title="@string/enable" />
         <EditTextPreference
-            app:icon="@drawable/ic_baseline_texture_24"
+            app:icon="@drawable/ic_baseline_nfc_24"
             app:key="echConfig"
             app:title="@string/ech_config"
             app:useSimpleSummaryProvider="true" />
