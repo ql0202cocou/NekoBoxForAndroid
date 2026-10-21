@@ -124,13 +124,6 @@
     <string name="route_add">Create Route</string>
     <string name="delete_route_prompt">Are you sure you want to remove this route?</string>
     <string name="route_name">Route Name</string>
-    <string name="route_field_domain">Domain</string>
-    <string name="route_field_dst_ip">Dest IP</string>
-    <string name="route_field_dst_port">Dest port</string>
-    <string name="route_field_src_ip">Source IP</string>
-    <string name="route_field_src_port">Source port</string>
-    <string name="route_field_outbound">Outbound</string>
-    <string name="route_summary_more">+%d more</string>
     <string name="route_proxy">Proxy</string>
     <string name="route_bypass">Bypass</string>
     <string name="route_block">Block</string>

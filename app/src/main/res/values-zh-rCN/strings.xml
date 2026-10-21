@@ -197,13 +197,6 @@
     <string name="route_add">新建路由规则</string>
     <string name="delete_route_prompt">您确定要移除此路由吗\?</string>
     <string name="route_name">路由名称</string>
-    <string name="route_field_domain">域名</string>
-    <string name="route_field_dst_ip">目标 IP</string>
-    <string name="route_field_dst_port">目标端口</string>
-    <string name="route_field_src_ip">来源 IP</string>
-    <string name="route_field_src_port">来源端口</string>
-    <string name="route_field_outbound">出站</string>
-    <string name="route_summary_more">+%d 项</string>
     <string name="route_profile">选择配置…</string>
     <string name="empty_route">空路由</string>
     <string name="empty_route_notice">在保存前设置一些规则</string>

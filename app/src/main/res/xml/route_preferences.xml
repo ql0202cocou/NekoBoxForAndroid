@@ -19,46 +19,46 @@
         <EditTextPreference
             app:icon="@drawable/ic_baseline_domain_24"
             app:key="routeDomain"
-            app:title="@string/route_field_domain"
+            app:title="domain"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
             app:icon="@drawable/ic_baseline_nat_24"
             app:key="routeIP"
-            app:title="@string/route_field_dst_ip"
+            app:title="dst ip"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             app:icon="@drawable/ic_baseline_settings_ethernet_24"
             app:key="routePort"
-            app:title="@string/route_field_dst_port"
+            app:title="dst port"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
             app:icon="@drawable/ic_baseline_nat_24"
             app:key="routeSource"
-            app:title="@string/route_field_src_ip"
+            app:title="src ip"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
             app:icon="@drawable/ic_baseline_settings_ethernet_24"
             app:key="routeSourcePort"
-            app:title="@string/route_field_src_port"
+            app:title="src port"
             app:useSimpleSummaryProvider="true" />
         <moe.matsuri.nb4a.ui.SimpleMenuPreference
             app:entries="@array/route_protocol_entry"
             app:entryValues="@array/route_protocol_value"
             app:icon="@drawable/ic_baseline_lan_24"
             app:key="routeNetwork"
-            app:title="@string/network"
+            app:title="network"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
             app:icon="@drawable/ic_baseline_http_24"
             app:key="routeProtocol"
-            app:title="@string/protocol"
+            app:title="protocol"
             app:useSimpleSummaryProvider="true" />
         <io.nekohasekai.sagernet.widget.OutboundPreference
             app:icon="@drawable/ic_baseline_alt_route_24"
             app:key="routeOutbound"
-            app:title="@string/route_field_outbound"
+            app:title="outbound"
             app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 </PreferenceScreen>
