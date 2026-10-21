@@ -265,6 +265,10 @@ private fun buildXrayStreamSettings(bean: StandardV2RayBean): Map<String, Any?> 
 
             "tcp" -> put("network", "tcp")
 
+            // 生成器还没有实现 XHTTP 的 xhttpSettings；选核阶段把它记成不支持的传输挡在前面，
+            // 这里是最后一道防线，不退成 TCP
+            "xhttp" -> throw UnsupportedTransportException(bean.type)
+
             // quic 已被 xrayLacksTransport() 拦下
             else -> error("can't reach")
         }

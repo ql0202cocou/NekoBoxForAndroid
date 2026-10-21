@@ -113,8 +113,8 @@ fun parseV2Ray(link: String): StandardV2RayBean {
                 }
             }
         }
-        // 去掉 +tls 后才是传输方式
-        bean.type = requireV2RayTransport(protocol)
+        // 去掉 +tls 后才是传输方式。老的 vmess 标准链接带不了 XHTTP 的参数
+        bean.type = requireV2RayTransportWithoutXhttp(protocol)
 
         when (bean.type) {
             "http" -> {
@@ -178,7 +178,8 @@ fun StandardV2RayBean.parseDuckSoft(url: HttpUrl) {
         path = "/" + url.pathSegments.joinToString("/")
     }
 
-    type = requireV2RayTransport(url.queryParameter("type"))
+    // XHTTP 的 host / path / mode / extra 还没有对应的解析，先拒绝，免得导入参数全丢的节点
+    type = requireV2RayTransportWithoutXhttp(url.queryParameter("type"))
     if (url.queryParameter("headerType") == "http") type = "http"
 
     // 未知值（xtls、拼写错误等）抛异常拒绝导入，不按无 TLS 处理
@@ -314,7 +315,8 @@ private fun tryResolveVmess4Kitsunebi(server: String): VMessBean {
         url.queryParameter("allowInsecure")
             ?.apply { if (this == "1" || this == "true") allowInsecure = true }
         url.queryParameter("obfs")?.apply {
-            type = requireV2RayTransport(this)
+            // Kitsunebi 链接带不了 XHTTP 的参数
+            type = requireV2RayTransportWithoutXhttp(this)
             if (type == "ws") {
                 url.queryParameter("obfsParam")?.apply {
                     if (this.startsWith("{")) {
@@ -359,8 +361,8 @@ internal fun parseV2RayNJson(result: String): VMessBean {
     bean.encryption = vmessQRCode.scy
     bean.uuid = vmessQRCode.id
     bean.alterId = vmessQRCode.aid.toIntOrNull()
-    // v2rayN 把 h2 写作 "h2"，归一化后是 "http"
-    bean.type = requireV2RayTransport(vmessQRCode.net)
+    // v2rayN 把 h2 写作 "h2"，归一化后是 "http"。XHTTP 的参数还没有对应的解析，先拒绝
+    bean.type = requireV2RayTransportWithoutXhttp(vmessQRCode.net)
     bean.host = vmessQRCode.host
     bean.path = vmessQRCode.path
     // tcp 带伪 HTTP 头
@@ -402,7 +404,7 @@ internal fun parseV2RayNJson(result: String): VMessBean {
     return bean
 }
 
-private fun parseCsvVMess(csv: String): VMessBean {
+internal fun parseCsvVMess(csv: String): VMessBean {
 
     // Quantumult writes "name = vmess, host, port, ..." with a space after every
     // comma; untrimmed, the port never parsed and the host kept its leading space
@@ -420,7 +422,8 @@ private fun parseCsvVMess(csv: String): VMessBean {
         when {
             it == "over-tls=true" -> bean.security = "tls"
             it.startsWith("tls-host=") -> bean.host = it.substringAfter("=")
-            it.startsWith("obfs=") -> bean.type = requireV2RayTransport(it.substringAfter("="))
+            // Quantumult 的 CSV 行带不了 XHTTP 的参数
+            it.startsWith("obfs=") -> bean.type = requireV2RayTransportWithoutXhttp(it.substringAfter("="))
             it.startsWith("obfs-path=") || it.contains("Host:") -> {
                 // each marker guarded on its own: substringAfter() without a match
                 // returns the whole field, which used to land in host/path
@@ -687,6 +690,9 @@ fun buildSingBoxOutboundStreamSettings(bean: StandardV2RayBean): V2RayTransportO
                 path = bean.path
             }
         }
+
+        // vendored sing-box 没有 XHTTP。选核阶段已经把它记成冲突挡在前面，这里是最后一道防线，不退成 TCP
+        "xhttp" -> throw UnsupportedTransportException(bean.type)
 
         else -> error("can't reach")
     }

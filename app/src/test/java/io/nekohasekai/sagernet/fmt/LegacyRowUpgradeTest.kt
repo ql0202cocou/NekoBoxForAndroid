@@ -57,9 +57,9 @@ class LegacyRowUpgradeTest {
 
     private fun decode(bytes: ByteArray) = KryoConverters.deserialize(VMessBean(), bytes)
 
-    // 改写后的字节：StandardV2Ray 层版本号是 7，字段 = 样本的 expected 加上 overrides
+    // 改写后的字节：StandardV2Ray 层版本号是当前版本，字段 = 样本的 expected 加上 overrides
     private fun assertRewritten(where: String, bytes: ByteArray, expected: JsonObject, overrides: Map<String, Any>) {
-        assertEquals("$where 版本号", 7, bytes.byteBuffer().readInt())
+        assertEquals("$where 版本号", KryoSamples.currentVersion("StandardV2RayBean"), bytes.byteBuffer().readInt())
         val bean = decode(bytes)
         assertFalse("$where 不再带未标注标记", bean.legacyUnlabeled)
         val want = expected.deepCopy().apply {
@@ -291,7 +291,7 @@ class LegacyRowUpgradeTest {
         assertSame(LegacyRowUpgrade.Unchanged, upgrade(TYPE_TROJAN, CORE_AUTO, sample("TrojanBean/aa275d5e/trojan-tcp-tls-ech").bytes))
     }
 
-    // 全部 v7 以前的 VMessBean / TrojanBean 样本 × 各种 core × 全局开关：严格读都读得出；改写过的字节都是 v7、能读回，
+    // 全部 v7 以前的 VMessBean / TrojanBean 样本 × 各种 core × 全局开关：严格读都读得出；改写过的字节都是当前版本、能读回，
     // 除了报告的字段外与原样一致；没改写的结论与直接对 bean 标注一致
     @Test
     fun `全部旧样本：改写的字节只差报告的字段`() {

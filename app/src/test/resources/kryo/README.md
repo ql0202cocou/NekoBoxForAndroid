@@ -50,16 +50,23 @@
    （例如空白值补默认值、Trojan-Go 的 `none` 改为 `original`、ShadowTLS 的 `security` 恒为 `tls`）。
    哪些字段写进了字节，是用旧实现逐个扰动字段值、看字节是否变化得出的。
    「当前格式仍保存」指：StandardV2Ray 系按 `type` 只保留该传输方式的字段（ws：host / path / wsMaxEarlyData /
-   earlyDataHeaderName；http、httpupgrade：host / path；grpc：path）、`security == "tls"` 时才保留 TLS 字段；
+   earlyDataHeaderName；http、httpupgrade：host / path；grpc：path；xhttp：版本号 ≥ 8 才有 host / path / xhttpMode /
+   xhttpExtra，7 及以前只有 type）、`security == "tls"` 时才保留 TLS 字段；
    SSH 按 `authType` 保留 password 或 privateKey / privateKeyPassphrase；Trojan-Go 只有 `ws` 保留 host / path。
 2. 旧字节里没有的字段：该版本分支的迁移值，否则是当前默认值。迁移值：
    - Hysteria `version < 7`：`protocolVersion = 1`（`uploadMbps` / `downloadMbps` 的默认值随之为 10 / 50）；
    - Hysteria `version < 6`：`serverAddress` 末尾是多端口（含 `-` 或 `,`）时拆成地址与 `serverPorts`，否则
      `serverPorts = serverPort`；
    - Tuic `version < 2`：`protocolVersion = 4`；
+   - StandardV2Ray `version < 8`：`xhttpMode = "auto"`、`xhttpExtra = ""`（所有版本的样本都如此）；xhttp 节点的 host / path
+     读出来是空串，即「参数已丢失」的残缺节点；旧名 `splithttp` 读出后经 `initializeDefaultValues` 归一为 `xhttp`；
    - 其余（SOCKS 的 `sUoT`、Shadowsocks 的 `sUoTVersion`（默认 2，即旧行为）、StandardV2Ray 的 ECH / mux / REALITY ML-DSA / 证书指纹、Subscription 的流量与到期、
      `nameserverFromSubscription`、ProxyEntity 的 `core`、ProxyGroup 的 nameserver / 选择器 / 前置落地等）取默认值。
 3. 已经不存在的旧字段（StandardV2Ray v0–v2 的 `enablePqSignature`、`disabledDRS`）被读取分支跳过，不出现在 `expected`。
+
+StandardV2Ray 从 7 升到 8（K2）时，`type` 为 xhttp 的节点多写 host、path、mode、extra 四个字符串；其余传输方式的字节布局只有
+版本号变。7 及以前的字节里 xhttp / splithttp 节点只写了 type，读取分支对它们什么也不多读。`9d46aca1` 的 xhttp / splithttp
+样本就是升版本号之前、用当时的实现写出的这种字节。
 
 StandardV2Ray 从 6 升到 7（K1）时字节布局只有版本号变，读取分支也只多了一句「版本号 < 7 时置
 `legacyUnlabeled`」：这是 transient 标记，表示 K1 之前写下、mux 协议族等还没标注的数据。标注（`LegacyProfileUpgrade.kt`）
@@ -109,7 +116,7 @@ grpc 边界样本（来源提交都在这 12 个之内）直接用 5.2.1 写出�
 | 层 | 当前 | 有样本的版本（来源提交） | 没有样本的版本及原因 |
 | --- | --- | --- | --- |
 | AbstractBean（extraVersion） | 1 | v1（所有 bean 样本） | v0：早于本仓库历史；读取时不参与分支 |
-| StandardV2RayBean | 7 | v0 布局 A `9d78e4f2`、`a82e5b4f`；v0 布局 B `8e976675`；v0 布局 C `680b362b`；v1 `607afa8c`；v2 `2c3a6164`；v3 布局 a `110f3b21`；v3 布局 b `aa275d5e`；v4 `04da8864`（另有 `bbbdf577` 实体内嵌）；v5 `329572d1`；v6 `dd8f56d3`（含实体内嵌）；v7 HEAD（VMess / Trojan / HTTP / ShadowTLS 各一个全字段与默认值样本，另有 muxType = 3 的 VLESS 与 core = 2、Mux.Cool 的实体内嵌 VMess；`9d46aca1` 另有 VLESS / VMess / Trojan 的 xhttp 与 splithttp 各一个，旧实现只写 type，host / path 不落库） | — |
+| StandardV2RayBean | 8 | v0 布局 A `9d78e4f2`、`a82e5b4f`；v0 布局 B `8e976675`；v0 布局 C `680b362b`；v1 `607afa8c`；v2 `2c3a6164`；v3 布局 a `110f3b21`；v3 布局 b `aa275d5e`；v4 `04da8864`（另有 `bbbdf577` 实体内嵌）；v5 `329572d1`；v6 `dd8f56d3`（含实体内嵌）；v7 `90134fb5`（VMess / Trojan / HTTP / ShadowTLS 各一个全字段与默认值样本，另有 muxType = 3 的 VLESS 与 core = 2、Mux.Cool 的实体内嵌 VMess）、`9d46aca1`（VLESS / VMess / Trojan 的 xhttp 与 splithttp 各一个，旧实现只写 type，host / path 不落库）；v8 HEAD（同 v7 的那一组，另有 VLESS / VMess / Trojan 的 xhttp，带 host / path / mode / extra） | — |
 | TrojanBean | 2 | v2（每个 StandardV2Ray 来源提交、HEAD） | v0、v1：早于本仓库历史（读取分支是 StandardV2Ray 之前的旧布局） |
 | HttpBean | 0 | v0（同上） | — |
 | ShadowTLSBean | 0 | v0（同上） | — |

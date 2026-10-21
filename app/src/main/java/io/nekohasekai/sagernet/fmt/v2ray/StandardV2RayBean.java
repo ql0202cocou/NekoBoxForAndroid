@@ -19,12 +19,20 @@ public abstract class StandardV2RayBean extends AbstractBean {
 
     //////// End of VMess & VLESS ////////
 
-    // "V2Ray Transport" tcp/http/ws/quic/grpc/httpupgrade
+    // "V2Ray Transport" tcp/http/ws/quic/grpc/httpupgrade/xhttp
     public String type;
 
     public String host;
 
     public String path;
+
+    // --------------------------------------- xhttp（Kryo 8 起保存，只在 type 为 xhttp 时有意义）
+
+    // auto / packet-up / stream-up / stream-one（Xray 的 mode，XhttpExtra.kt 的 requireXhttpMode）
+    public String xhttpMode;
+
+    // extra：Xray SplitHTTPConfig 的高级参数，经 XhttpExtra.kt 白名单重建的紧凑 JSON，空串表示没有
+    public String xhttpExtra;
 
     // --------------------------------------- tls?
 
@@ -95,9 +103,13 @@ public abstract class StandardV2RayBean extends AbstractBean {
         else if ("h2".equals(type)) type = "http";
 
         type = type.toLowerCase(java.util.Locale.ROOT);
+        // splithttp 是 xhttp 的旧名，存储里统一用 xhttp
+        if ("splithttp".equals(type)) type = "xhttp";
 
         if (JavaUtil.isNullOrBlank(host)) host = "";
         if (JavaUtil.isNullOrBlank(path)) path = "";
+        if (JavaUtil.isNullOrBlank(xhttpMode)) xhttpMode = "auto";
+        if (JavaUtil.isNullOrBlank(xhttpExtra)) xhttpExtra = "";
 
         if (JavaUtil.isNullOrBlank(security)) {
             if (this instanceof TrojanBean) {
@@ -133,8 +145,9 @@ public abstract class StandardV2RayBean extends AbstractBean {
 
     @Override
     public void serialize(ByteBufferOutput output) {
+        // 8：xhttp 多写 host、path、mode、extra（7 及以前只写 type，host / path 从未落库）。
         // 7：字节布局与 6 相同，只用版本号区分 K1 之前写下、还没标注的数据（见 legacyUnlabeled）
-        output.writeInt(7);
+        output.writeInt(8);
         super.serialize(output);
         output.writeString(uuid);
         output.writeString(encryption);
@@ -163,6 +176,14 @@ public abstract class StandardV2RayBean extends AbstractBean {
             }
             case "grpc": {
                 output.writeString(path);
+                break;
+            }
+            case "xhttp":
+            case "splithttp": {
+                output.writeString(host);
+                output.writeString(path);
+                output.writeString(xhttpMode);
+                output.writeString(xhttpExtra);
                 break;
             }
         }
@@ -232,6 +253,18 @@ public abstract class StandardV2RayBean extends AbstractBean {
                         input.readString();
                         input.readString();
                     }
+                }
+                break;
+            }
+            case "xhttp":
+            case "splithttp": {
+                // 版本号 < 8 的字节只写了 type：host / path / mode / extra 读出来是默认值，
+                // path 为空即「参数已丢失」（xhttpParametersLost）
+                if (version >= 8) {
+                    host = input.readString();
+                    path = input.readString();
+                    xhttpMode = input.readString();
+                    xhttpExtra = input.readString();
                 }
                 break;
             }

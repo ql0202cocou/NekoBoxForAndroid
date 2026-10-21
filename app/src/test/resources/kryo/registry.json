@@ -10,7 +10,7 @@
       }
     },
     "StandardV2RayBean": {
-      "current": 7,
+      "current": 8,
       "sampled": [
         0,
         1,
@@ -19,7 +19,8 @@
         4,
         5,
         6,
-        7
+        7,
+        8
       ],
       "unsampled": {}
     },
@@ -439,6 +440,12 @@
       "versionName": "1.9.0-a2",
       "date": "2026-10-21",
       "note": "HEAD：StandardV2Ray v7 在 K2 升 v8 之前的 xhttp / splithttp 样本（旧实现只写 type，host / path 从未落库）"
+    },
+    "337247d7016107ce3771b0773fa92a2c12a992bf": {
+      "tag": null,
+      "versionName": "1.9.0-a2",
+      "date": "2026-10-21",
+      "note": "HEAD：StandardV2Ray v8（xhttp 多写 host / path / mode / extra）的当前版本样本，由此提交加上升 v8 的改动（与样本同一提交入库）写出"
     }
   }
 }

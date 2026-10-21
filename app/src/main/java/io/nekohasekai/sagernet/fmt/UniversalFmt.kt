@@ -6,6 +6,8 @@ import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
+import io.nekohasekai.sagernet.fmt.v2ray.XhttpParametersLostException
+import io.nekohasekai.sagernet.fmt.v2ray.xhttpParametersLost
 import io.nekohasekai.sagernet.fmt.v2ray.requireV2RayTransport
 import moe.matsuri.nb4a.utils.Util
 
@@ -35,6 +37,8 @@ internal fun universalBean(type: Int, bytes: ByteArray, globalAllowInsecure: () 
     // 只有 VMess / VLESS / Trojan 按 type 构建传输层
     if (bean is StandardV2RayBean && (bean is VMessBean || bean is TrojanBean)) {
         bean.type = requireV2RayTransport(bean.type)
+        // 旧版本导出的 xhttp 通用链接只带 type，host / path 等参数已经丢了，不导入残缺的节点
+        if (bean.xhttpParametersLost()) throw XhttpParametersLostException()
     }
     // K1 之前生成的链接（StandardV2Ray v7 之前的字节）：按 K1 的选核标注一次（fmt/LegacyProfileUpgrade.kt）。
     // 链接里没有 core 列，导入后的节点是自动选核，按自动标注；全局「允许不安全」取导入时本机的值

@@ -359,6 +359,8 @@ class ProtocolContractTest {
         mapOf("type" to "ws", "security" to "tls"),
         mapOf("type" to "http", "security" to "none"),
         mapOf("type" to "grpc", "security" to "none"),
+        // xhttp 的 host / path / mode / extra 只在这个形态下写入（Kryo 8 起）
+        mapOf("type" to "xhttp", "security" to "none"),
     )
     private val KRYO_SHAPES: Map<Class<out AbstractBean>, List<Map<String, Any?>>> = mapOf(
         io.nekohasekai.sagernet.fmt.http.HttpBean::class.java to V2RAY_SHAPES,

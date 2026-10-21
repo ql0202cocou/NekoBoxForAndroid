@@ -64,6 +64,7 @@ object ProtocolLinkCases {
 
     private const val GENERIC = "AbstractBean 的高级 JSON 覆盖（自定义出站 / 自定义配置），不进分享链接"
     private const val MUX = "Mux 设置不进分享链接（各协议的链接格式都没有 mux 参数）"
+    private const val XHTTP = "XHTTP 的 mode / extra 导入导出稍后随分享链接一起加入，目前链接格式不带这两项"
 
     private fun generic() = mapOf(
         "customOutboundJson" to GENERIC,
@@ -120,6 +121,7 @@ object ProtocolLinkCases {
         neverInLink = generic() + mapOf(
             "uuid" to "HTTP 代理没有 uuid", "encryption" to "HTTP 代理没有加密 / flow",
             "type" to "HTTP 代理没有传输层", "host" to "HTTP 代理没有传输层", "path" to "HTTP 代理没有传输层",
+            "xhttpMode" to "HTTP 代理没有传输层", "xhttpExtra" to "HTTP 代理没有传输层",
             "realityPubKey" to "HTTP 代理没有 REALITY", "realityShortId" to "HTTP 代理没有 REALITY",
             "realityMldsa65Verify" to "HTTP 代理没有 REALITY",
             "wsMaxEarlyData" to "HTTP 代理没有 WebSocket", "earlyDataHeaderName" to "HTTP 代理没有 WebSocket",
@@ -210,6 +212,7 @@ object ProtocolLinkCases {
         "VMess", TYPE_VMESS, VMessBean::class.java, "vmess",
         neverInLink = generic() + mapOf(
             "enableMux" to MUX, "muxPadding" to MUX, "muxType" to MUX, "muxConcurrency" to MUX,
+            "xhttpMode" to XHTTP, "xhttpExtra" to XHTTP,
         ),
         cases = listOf(
             LinkCase("vmess-ws-tls-full") {
@@ -240,6 +243,7 @@ object ProtocolLinkCases {
         "VLESS", TYPE_VMESS, VMessBean::class.java, "vless",
         neverInLink = generic() + mapOf(
             "enableMux" to MUX, "muxPadding" to MUX, "muxType" to MUX, "muxConcurrency" to MUX,
+            "xhttpMode" to XHTTP, "xhttpExtra" to XHTTP,
         ),
         cases = listOf(
             LinkCase("vless-ws-tls-full") {
@@ -284,6 +288,7 @@ object ProtocolLinkCases {
         neverInLink = generic() + mapOf(
             "uuid" to "Trojan 用 password，没有 uuid", "encryption" to "Trojan 没有加密 / flow",
             "enableMux" to MUX, "muxPadding" to MUX, "muxType" to MUX, "muxConcurrency" to MUX,
+            "xhttpMode" to XHTTP, "xhttpExtra" to XHTTP,
         ),
         cases = listOf(
             LinkCase("trojan-ws-tls-full") {

@@ -18,10 +18,10 @@ class V2RayTransportTest {
 
     @Test
     fun `已知传输方式原样返回`() {
-        for (name in listOf("tcp", "http", "ws", "quic", "grpc", "httpupgrade")) {
+        for (name in listOf("tcp", "http", "ws", "quic", "grpc", "httpupgrade", "xhttp")) {
             assertEquals(name, requireV2RayTransport(name))
         }
-        assertEquals(V2RAY_TRANSPORTS, setOf("tcp", "http", "ws", "quic", "grpc", "httpupgrade"))
+        assertEquals(V2RAY_TRANSPORTS, setOf("tcp", "http", "ws", "quic", "grpc", "httpupgrade", "xhttp"))
     }
 
     @Test
@@ -30,6 +30,8 @@ class V2RayTransportTest {
         assertEquals("tcp", requireV2RayTransport("none"))
         assertEquals("http", requireV2RayTransport("h2"))
         assertEquals("ws", requireV2RayTransport("websocket"))
+        // splithttp 是 xhttp 的旧名，统一归一为 xhttp
+        assertEquals("xhttp", requireV2RayTransport("splithttp"))
     }
 
     @Test
@@ -45,11 +47,13 @@ class V2RayTransportTest {
         assertEquals("tcp", requireV2RayTransport("Raw"))
         assertEquals("http", requireV2RayTransport("H2"))
         assertEquals("httpupgrade", requireV2RayTransport("HttpUpgrade"))
+        assertEquals("xhttp", requireV2RayTransport("XHTTP"))
+        assertEquals("xhttp", requireV2RayTransport("SplitHTTP"))
     }
 
     @Test
     fun `未知值拒绝且报错带原始值`() {
-        for (name in listOf("xhttp", "splithttp", "kcp", "mkcp", "XHTTP", "ws+tls", "wss")) {
+        for (name in listOf("kcp", "mkcp", "KCP", "ws+tls", "wss")) {
             assertNull(v2rayTransportOrNull(name))
             val e = assertThrows(UnsupportedTransportException::class.java) {
                 requireV2RayTransport(name)
@@ -113,24 +117,68 @@ class V2RayTransportTest {
 
     @Test
     fun `标准链接未知 type 拒绝`() {
-        for (name in listOf("xhttp", "splithttp", "kcp")) {
+        for (name in listOf("kcp", "mkcp")) {
             val e = assertThrows(UnsupportedTransportException::class.java) {
                 vless("type=$name")
             }
             assertEquals(name, e.transport)
         }
         assertThrows(UnsupportedTransportException::class.java) {
-            TrojanBean().parseDuckSoft("https://pw@example.com:443?type=xhttp".toHttpUrl())
+            TrojanBean().parseDuckSoft("https://pw@example.com:443?type=kcp".toHttpUrl())
+        }
+    }
+
+    // xhttp 带 host / path / mode / extra 四项参数。解析器还没有读取这些参数的入口（标准链接、v2rayN JSON）
+    // 与根本带不了参数的旧格式（老 vmess 标准链接、Quantumult CSV）都按不支持拒绝，免得导入参数全丢的节点
+    @Test
+    fun `还读不了 XHTTP 参数的入口拒绝 xhttp 与 splithttp`() {
+        for (name in listOf("xhttp", "splithttp", "XHTTP")) {
+            val e = assertThrows(UnsupportedTransportException::class.java) { vless("type=$name") }
+            assertEquals(name, e.transport)
+            assertThrows(UnsupportedTransportException::class.java) {
+                TrojanBean().parseDuckSoft("https://pw@example.com:443?type=$name".toHttpUrl())
+            }
+            assertThrows(UnsupportedTransportException::class.java) {
+                parseV2RayNJson("""{"v":"2","ps":"n","add":"example.com","port":"443","id":"$uuid","aid":"0","net":"$name"}""")
+            }
+            assertThrows(UnsupportedTransportException::class.java) {
+                parseCsvVMess("n = vmess, example.com, 443, auto, \"$uuid\", obfs=$name")
+            }
+            // 老的 vmess 标准链接（用户名是传输方式）；带 ? 跳过 base64 的格式，Kitsunebi 的探测在 JVM 里失败后回退到它
+            assertThrows(UnsupportedTransportException::class.java) {
+                parseV2Ray("vmess://$name:$uuid-0@example.com:443?a=b")
+            }
+        }
+    }
+
+    @Test
+    fun `不带 XHTTP 的入口对其它传输方式照常`() {
+        assertEquals("tcp", requireV2RayTransportWithoutXhttp(null))
+        assertEquals("tcp", requireV2RayTransportWithoutXhttp("raw"))
+        assertEquals("http", requireV2RayTransportWithoutXhttp("h2"))
+        assertEquals("ws", requireV2RayTransportWithoutXhttp("WS"))
+        val e = assertThrows(UnsupportedTransportException::class.java) { requireV2RayTransportWithoutXhttp("kcp") }
+        assertEquals("kcp", e.transport)
+    }
+
+    @Test
+    fun `构建 sing-box 出站时 xhttp 报错，不退成 TCP`() {
+        for (name in listOf("xhttp", "splithttp")) {
+            val bean = VMessBean().apply { type = name }
+            val e = assertThrows(UnsupportedTransportException::class.java) {
+                buildSingBoxOutboundStreamSettings(bean)
+            }
+            assertEquals(name, e.transport)
         }
     }
 
     @Test
     fun `构建时存量节点的未知传输方式报错`() {
-        val bean = VMessBean().apply { type = "xhttp" }
+        val bean = VMessBean().apply { type = "kcp" }
         val e = assertThrows(UnsupportedTransportException::class.java) {
             buildSingBoxOutboundStreamSettings(bean)
         }
-        assertEquals("xhttp", e.transport)
+        assertEquals("kcp", e.transport)
     }
 
     @Test
