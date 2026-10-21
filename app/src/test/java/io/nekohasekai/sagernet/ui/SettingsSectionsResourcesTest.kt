@@ -1,7 +1,5 @@
 package io.nekohasekai.sagernet.ui
 
-import io.nekohasekai.sagernet.Key
-import io.nekohasekai.sagernet.widget.glass.GlassChoice
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -15,7 +13,7 @@ import javax.xml.parsers.DocumentBuilderFactory
  *   原因见 XML 注释），
  *   分类 key 与顺序等于 [SettingsPreferenceFragment.sections]：key 对不上，
  *   setPreferencesFromResource 会抛异常，一级页上的入口也会缺；
- * - 设置项一个不少、也不重复：七个分类里所有行的 key 恰好是拆分前的 40 个，加上之后新增的 1 个（glassMaterial）；
+ * - 设置项一个不少、也不重复：七个分类里所有行的 key 恰好是拆分前的 40 个；
  * - 每个分类都有标题和图标（一级页上的入口行靠它们显示）。
  */
 class SettingsSectionsResourcesTest {
@@ -35,7 +33,7 @@ class SettingsSectionsResourcesTest {
 
     private val screens get() = root.children().filter { it.tagName == "PreferenceScreen" }
 
-    // 拆分前设置页的全部 40 个设置项，加上之后新增的 glassMaterial
+    // 拆分前设置页的全部 40 个设置项
     private val expectedKeys = setOf(
         "isAutoConnect", "appTheme", "nightTheme", "serviceMode", "tunImplementation", "mtu",
         "speedInterval", "profileTrafficStatistics", "showDirectSpeed", "showGroupInNotification",
@@ -46,7 +44,6 @@ class SettingsSectionsResourcesTest {
         "enableFakeDns", "mixedPort", "appendHttpProxy", "allowAccess", "connectionTestURL",
         "enableClashAPI", "networkChangeResetConnections", "wakeResetConnections",
         "globalAllowInsecure", "allowInsecureOnRequest", "appTLSVersion",
-        "glassMaterial",
     )
 
     @Test
@@ -61,25 +58,11 @@ class SettingsSectionsResourcesTest {
 
     @Test
     fun sectionsHoldEverySettingExactlyOnce() {
-        assertEquals(41, expectedKeys.size)
+        assertEquals(40, expectedKeys.size)
         val keys = screens.flatMap { it.rows() }.map { it.getAttribute("app:key") }
         assertTrue("有行缺少 app:key", keys.none { it.isEmpty() })
         assertEquals("有设置项出现了不止一次", keys.size, keys.toSet().size)
         assertEquals(expectedKeys, keys.toSet())
-    }
-
-    /** 玻璃材质：「界面」分类的最后一行，有图标，三个选项与 GlassChoice 一一对应 */
-    @Test
-    fun glassMaterialIsLastRowOfInterfaceWithIcon() {
-        val section = screens.single { it.getAttribute("app:key") == SettingsPreferenceFragment.KEY_INTERFACE }
-        val row = section.rows().last()
-        assertEquals(Key.GLASS_MATERIAL, row.getAttribute("app:key"))
-        assertTrue("玻璃材质行缺少 app:icon", row.getAttribute("app:icon").startsWith("@drawable/"))
-        assertEquals("@array/glass_material", row.getAttribute("app:entries"))
-        assertEquals("@array/int_array_3", row.getAttribute("app:entryValues"))
-        assertEquals("0", row.getAttribute("app:defaultValue"))
-        assertEquals(GlassChoice.AUTO.stored, row.getAttribute("app:defaultValue").toInt())
-        assertEquals(listOf(0, 1, 2), GlassChoice.entries.map { it.stored })
     }
 
     @Test

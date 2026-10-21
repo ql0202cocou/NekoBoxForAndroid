@@ -62,8 +62,6 @@ object DataStore {
     var isExpert by configurationStore.boolean(Key.APP_EXPERT)
     var appTheme by configurationStore.int(Key.APP_THEME)
     var nightTheme by configurationStore.stringToInt(Key.NIGHT_THEME)
-    // 0 自动 / 1 静态磨砂 / 2 实色，取值见 GlassChoice；与 global_preferences.xml 的 defaultValue 一致
-    var glassMaterial by configurationStore.stringToInt(Key.GLASS_MATERIAL)
     var serviceMode by configurationStore.string(Key.SERVICE_MODE) { Key.MODE_VPN }
 
     var trafficSniffing by configurationStore.stringToInt(Key.TRAFFIC_SNIFFING) { 1 }

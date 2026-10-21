@@ -512,7 +512,4 @@
     <string name="reality_ech_conflict_error">REALITY 不能与 ECH 同时启用：sing-box 会拒绝该配置，Xray 会忽略 ECH。</string>
     <string name="restore_pending">备份恢复尚未完成，完成后再启动服务。</string>
     <string name="restore_replay_failed">中断的备份恢复未能完成，请查看日志并重新导入备份。</string>
-    <string name="glass_material">玻璃材质</string>
-    <string name="glass_material_frosted">静态磨砂</string>
-    <string name="glass_material_solid">实色</string>
 </resources>

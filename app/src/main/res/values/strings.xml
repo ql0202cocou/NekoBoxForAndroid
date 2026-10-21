@@ -579,7 +579,4 @@
     <string name="redo">Redo</string>
     <string name="insert_tab">Insert tab</string>
     <string name="format">Format</string>
-    <string name="glass_material">Glass material</string>
-    <string name="glass_material_frosted">Static frosted</string>
-    <string name="glass_material_solid">Solid</string>
 </resources>

@@ -349,12 +349,6 @@
         <item>@string/disable</item>
         <item>@string/auto</item>
     </string-array>
-    <!-- 顺序与 GlassChoice.stored 一致：0 自动、1 静态磨砂、2 实色 -->
-    <string-array name="glass_material">
-        <item>@string/auto</item>
-        <item>@string/glass_material_frosted</item>
-        <item>@string/glass_material_solid</item>
-    </string-array>
     <string-array name="ipv6_mode">
         <item>@string/disable</item>
         <item>@string/enable</item>

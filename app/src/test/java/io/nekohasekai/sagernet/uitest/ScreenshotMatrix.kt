@@ -49,41 +49,32 @@ enum class ThemeVariant(val id: String, val appTheme: Int) {
     BLACK("black", Theme.BLACK),
 }
 
-/** 材质：截图时 UiTestRule 的档位注入点取什么。SOLID 是 MD3 实色基线（78 张），FROST 是 U5f 的静态磨砂基线 */
-enum class Material(val suffix: String) {
-    SOLID(""),
-    FROST("_frost"),
-}
-
-/** 一张截图的档位。[widthDp] 是屏幕宽度（dp），[fontScale] 是系统字号缩放，[material] 是玻璃材质档位 */
+/** 一张截图的档位。[widthDp] 是屏幕宽度（dp），[fontScale] 是系统字号缩放 */
 data class Shot(
     val screen: Screen,
     val theme: ThemeVariant = ThemeVariant.PINK,
     val dark: Boolean = false,
     val widthDp: Int = 411,
     val fontScale: Float = 1.0f,
-    val material: Material = Material.SOLID,
 ) {
     /** 窗口高度（dp）：360dp 宽按常见的 360×800，其余 411×914 */
     val heightDp: Int
         get() = if (widthDp == 360) 800 else 914
 
-    /** 相对基线目录的路径，如 `config-list/pink-light_w411_f1.0.png`；非 SOLID 材质带后缀（`..._frost.png`） */
+    /** 相对基线目录的路径，如 `config-list/pink-light_w411_f1.0.png` */
     val path: String
-        get() = "${screen.dir}/${theme.id}-${if (dark) "dark" else "light"}_w${widthDp}_f${fontScale}${material.suffix}.png"
+        get() = "${screen.dir}/${theme.id}-${if (dark) "dark" else "light"}_w${widthDp}_f${fontScale}.png"
 
     // 参数化用例的名字
     override fun toString() = path
 }
 
 /**
- * 分层矩阵（82 张）。每个轴的每个取值都至少覆盖到；宽度 × 字号的四个组合在配置页和设置一级页上齐全。
+ * 分层矩阵（78 张）。每个轴的每个取值都至少覆盖到；宽度 × 字号的四个组合在配置页和设置一级页上齐全。
  * - A 主题层：7 个画面 × 粉 / 白 / 黑 × 亮 / 暗，411dp、字号 1.0（42 张）
  * - B 布局层：除 [defaultOnlyScreens] 外的 19 个画面，粉亮，360dp、字号 1.3（最挤的一档，19 张）
  * - C 补角：配置页与设置一级页，粉亮，360dp / 1.0 与 411dp / 1.3（4 张）
  * - D 默认层：不在 A 层的 13 个画面，粉亮，411dp / 1.0（13 张）
- * - E 材质层：玻璃的 FROST 档，只在配置页「已连接」（三个悬浮层同屏）：粉亮 / 粉暗 411dp，粉亮 360dp / 1.3，黑暗 411dp（4 张）。
- *   其余 78 张由 UiTestRule 压成 SOLID，代表 MD3 实色
  */
 object ScreenshotMatrix {
 
@@ -111,14 +102,7 @@ object ScreenshotMatrix {
 
     val defaultLayer: List<Shot> = (Screen.entries - themeScreens.toSet()).map { Shot(it) }
 
-    val materialLayer: List<Shot> = listOf(
-        Shot(Screen.CONFIG_CONNECTED, material = Material.FROST),
-        Shot(Screen.CONFIG_CONNECTED, dark = true, material = Material.FROST),
-        Shot(Screen.CONFIG_CONNECTED, widthDp = 360, fontScale = 1.3f, material = Material.FROST),
-        Shot(Screen.CONFIG_CONNECTED, theme = ThemeVariant.BLACK, dark = true, material = Material.FROST),
-    )
-
-    val shots: List<Shot> = themeLayer + layoutLayer + cornerLayer + defaultLayer + materialLayer
+    val shots: List<Shot> = themeLayer + layoutLayer + cornerLayer + defaultLayer
 
     val paths: Set<String> = shots.map { it.path }.toSet()
 

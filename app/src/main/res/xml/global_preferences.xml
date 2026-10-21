@@ -88,14 +88,6 @@
             app:icon="@drawable/ic_baseline_visibility_off_24"
             app:key="hideFromRecents"
             app:title="@string/hide_from_recents" />
-        <moe.matsuri.nb4a.ui.SimpleMenuPreference
-            app:defaultValue="0"
-            app:entries="@array/glass_material"
-            app:entryValues="@array/int_array_3"
-            app:icon="@drawable/ic_baseline_blur_on_24"
-            app:key="glassMaterial"
-            app:title="@string/glass_material"
-            app:useSimpleSummaryProvider="true" />
     </PreferenceScreen>
 
     <PreferenceScreen

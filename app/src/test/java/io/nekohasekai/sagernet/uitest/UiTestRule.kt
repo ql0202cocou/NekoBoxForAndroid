@@ -12,8 +12,6 @@ import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.utils.Theme
-import io.nekohasekai.sagernet.widget.glass.GlassTier
-import io.nekohasekai.sagernet.widget.glass.GlassTiers
 import moe.matsuri.nb4a.TempDatabase
 import org.junit.rules.TestRule
 import org.junit.runner.Description
@@ -28,7 +26,7 @@ import kotlin.concurrent.thread
 /**
  * UI 测试的公共环境。Robolectric 在同一 SDK 下复用沙箱类加载器，`object` 单例与 `by lazy` 的数据库
  * 会跨用例留存，所以每个用例前后都在这里归零：
- * - 前：区域 en-US / 时区 UTC、动画时长缩放 0、玻璃档位压成 SOLID、三个库清表、已知的内存状态与监听器表复位、安装未捕获异常收集器；
+ * - 前：区域 en-US / 时区 UTC、动画时长缩放 0、三个库清表、已知的内存状态与监听器表复位、安装未捕获异常收集器；
  * - 后：销毁用例启动的 Activity、等后台安静、还原区域与时区，并把收集到的未捕获异常（主线程与后台线程）
  *   一次性报出来——页面在后台回调里崩溃不能被悄悄吞掉。
  *
@@ -56,7 +54,6 @@ class UiTestRule : TestRule {
             } catch (t: Throwable) {
                 if (failure == null) failure = t else failure.addSuppressed(t)
             } finally {
-                GlassTiers.testOverride = null
                 Thread.setDefaultUncaughtExceptionHandler(handler)
                 Locale.setDefault(locale)
                 TimeZone.setDefault(zone)
@@ -81,9 +78,6 @@ class UiTestRule : TestRule {
         Locale.setDefault(Locale.US)
         TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
         Logs.enabled = false
-        // 玻璃材质压成 SOLID：截图基线代表 MD3 实色，不随自动档在 Robolectric（SDK 35）上选到的档位变化；
-        // 用户设置（DataStore）不动，设置页仍显示真实的默认值。要测真实策略的用例自己置 null
-        GlassTiers.testOverride = GlassTier.SOLID
         // 动画时长缩放 0：animatorsEnabled() 为 false，所有动画直接跳到终态
         ValueAnimator::class.java.getMethod("setDurationScale", Float::class.javaPrimitiveType).invoke(null, 0f)
 

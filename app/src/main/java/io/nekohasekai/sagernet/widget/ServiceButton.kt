@@ -1,14 +1,12 @@
 package io.nekohasekai.sagernet.widget
 
 import android.content.Context
-import android.graphics.Canvas
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.util.AttributeSet
-import android.view.MotionEvent
 import android.view.PointerIcon
 import android.view.View
 import androidx.annotation.DrawableRes
@@ -30,8 +28,6 @@ import io.nekohasekai.sagernet.ktx.animatorsEnabled
 import io.nekohasekai.sagernet.ktx.motionDuration
 import io.nekohasekai.sagernet.ktx.themeInteger
 import io.nekohasekai.sagernet.ktx.unwrapTo
-import io.nekohasekai.sagernet.widget.glass.GlassSurface
-import io.nekohasekai.sagernet.widget.glass.GlassTarget
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -45,14 +41,6 @@ class ServiceButton @JvmOverloads constructor(
     defStyleAttr: Int = 0
 ) :
     FloatingActionButton(context, attrs, defStyleAttr), DynamicAnimation.OnAnimationEndListener {
-
-    /**
-     * 玻璃材质（U5f）：非 SOLID 档时底色（primaryContainer）按配方变半透明，顶亮边、内高光、按压光画在图标之上。
-     * SOLID 档什么也不做。按钮不捕获下层内容（u5-plan 第 6 节），BLUR 档同 FROST
-     */
-    val glassSurface = GlassSurface(
-        this, GlassTarget.CONNECT_BUTTON, { backgroundTintList = GlassSurface.tint(it) }, pressable = true,
-    )
 
     private val callback = object : Animatable2Compat.AnimationCallback() {
         override fun onAnimationEnd(drawable: Drawable) {
@@ -284,25 +272,10 @@ class ServiceButton @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        glassSurface.refresh()
         updateBreathing()
     }
 
-    // 底色之后、图标前画环境色 / sheen，图标之后画亮边与按压光；呼吸叠层是前景，在这些之上
-    override fun onDraw(canvas: Canvas) {
-        glassSurface.drawBelow(canvas)
-        super.onDraw(canvas)
-        glassSurface.drawAbove(canvas)
-    }
-
-    // 只观察触点（按压光的位置），不消费事件
-    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        glassSurface.trackTouch(ev)
-        return super.dispatchTouchEvent(ev)
-    }
-
     override fun onDetachedFromWindow() {
-        glassSurface.detach()
         animate().cancel()
         scaleX = 1f
         scaleY = 1f

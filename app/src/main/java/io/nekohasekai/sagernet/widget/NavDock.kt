@@ -4,10 +4,8 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
-import android.graphics.Canvas
 import android.util.AttributeSet
 import android.view.LayoutInflater
-import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
 import android.widget.FrameLayout
@@ -29,8 +27,6 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.ktx.animatorsEnabled
 import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.ktx.motionDuration
-import io.nekohasekai.sagernet.widget.glass.GlassSurface
-import io.nekohasekai.sagernet.widget.glass.GlassTarget
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -91,12 +87,6 @@ class NavDock @JvmOverloads constructor(
 
     /** 点击某一项时回调，参数是该项对应的页面 id */
     var onItemSelected: ((Int) -> Unit)? = null
-
-    /**
-     * 玻璃材质（U5f）：非 SOLID 档时外壳底色按配方变半透明，环境色、顶亮边、按压光画在壳上；
-     * 选中胶囊与前景不经它，仍是实色的 secondaryContainer 与 on- 角色。SOLID 档什么也不做
-     */
-    val glassSurface = GlassSurface(this, GlassTarget.DOCK, { setCardBackgroundColor(it) }, pressable = true)
 
     init {
         radius = resources.getDimension(R.dimen.nav_dock_radius)
@@ -216,34 +206,9 @@ class NavDock @JvmOverloads constructor(
         pillPlaced = true
     }
 
-    override fun onAttachedToWindow() {
-        super.onAttachedToWindow()
-        glassSurface.refresh()
-    }
-
     override fun onDetachedFromWindow() {
         pillSpring.cancel()
-        glassSurface.detach()
         super.onDetachedFromWindow()
-    }
-
-    // 玻璃：BLUR 档先把模糊后的下层画在宿主的半透明底色之下（super.draw 画底色与内容）
-    override fun draw(canvas: Canvas) {
-        glassSurface.drawBackdrop(canvas)
-        super.draw(canvas)
-    }
-
-    // 玻璃：材质层在各项之下（环境色、sheen）与之上（按压光、亮边）
-    override fun dispatchDraw(canvas: Canvas) {
-        glassSurface.drawBelow(canvas)
-        super.dispatchDraw(canvas)
-        glassSurface.drawAbove(canvas)
-    }
-
-    // 只观察触点（按压光的位置），不消费事件
-    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        glassSurface.trackTouch(ev)
-        return super.dispatchTouchEvent(ev)
     }
 
     private companion object {
