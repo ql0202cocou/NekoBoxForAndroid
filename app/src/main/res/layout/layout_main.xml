@@ -29,27 +29,23 @@
         app:trackCornerRadius="@dimen/mtrl_progress_track_thickness"
         app:trackThickness="8dp" />
 
-    <!-- 连接按钮：M3 FAB（Primary）样式，56dp，用 50% 圆角的 overlay 保持圆形；静止阴影取样式的 6dp，
-         按下不抬升（样式的 translationZ 为 0）。固定在右下角，与 Dock 垂直居中（底边距 2 + (64 − 56) / 2）。
+    <!-- 连接按钮：固定在右下角，与 Dock 垂直居中（底边距 2 + (64 − 56) / 2）。
          外边距在 MainActivity 里再加上系统栏与刘海的插入区 -->
     <io.nekohasekai.sagernet.widget.ServiceButton
         android:id="@+id/fab"
-        style="@style/Widget.Material3.FloatingActionButton.Primary"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
         android:layout_marginEnd="12dp"
         android:layout_marginBottom="@dimen/fab_margin_bottom"
+        android:elevation="6dp"
         android:nextFocusDown="@+id/stats"
         app:backgroundTint="?fabColorBackground"
-        app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.SagerNet.Circle"
+        app:pressedTranslationZ="6dp"
         app:srcCompat="@drawable/ic_service_idle"
         app:tint="?attr/colorOnPrimaryContainer" />
 
-    <!-- 状态卡片：悬浮在 Dock 上方 8dp（底边距 2 + 64 + 8），只在已连接时出现。
-         形状 Extra large（28dp）、阴影 3dp（level 2）。android:theme 把滑入 / 滑出的时长重映射成
-         300 / 250ms，见 ThemeOverlay.SagerNet.StatsBarMotion。
-         内容两行：速率行（上行 / 下行并排）+ 状态行（状态点 + 一段状态文字），高约 84dp -->
+    <!-- 状态卡片：悬浮在 Dock 上方 8dp（底边距 2 + 64 + 8），只在已连接时出现 -->
     <io.nekohasekai.sagernet.widget.StatsBar
         android:id="@+id/stats"
         android:layout_width="match_parent"
@@ -59,10 +55,9 @@
         android:layout_marginEnd="16dp"
         android:layout_marginBottom="@dimen/nav_dock_clearance"
         android:nextFocusUp="@+id/fab"
-        android:theme="@style/ThemeOverlay.SagerNet.StatsBarMotion"
         app:cardBackgroundColor="?attr/colorSurfaceContainer"
-        app:cardElevation="@dimen/stats_bar_elevation"
-        app:shapeAppearance="?attr/shapeAppearanceCornerExtraLarge"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="2dp"
         app:strokeWidth="0dp">
 
         <LinearLayout
@@ -73,124 +68,38 @@
             android:paddingHorizontal="20dp"
             android:paddingVertical="16dp">
 
-            <LinearLayout
-                android:layout_width="match_parent"
+            <TextView
+                android:id="@+id/tx"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:layout_columnWeight="1"
+                android:layout_gravity="fill_horizontal"
+                android:ellipsize="marquee"
+                android:singleLine="true"
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:textColor="?attr/colorOnSurface" />
 
-                <!-- tx：整列是一个无障碍节点（contentDescription 由 StatsBar 与可见文字同步），子视图不单独朗读 -->
-                <LinearLayout
-                    android:id="@+id/tx_column"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:importantForAccessibility="yes"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:id="@+id/tx_arrow"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:minWidth="14dp"
-                        android:importantForAccessibility="no"
-                        android:textAppearance="?attr/textAppearanceLabelMedium"
-                        android:textColor="?attr/colorOnSurfaceVariant" />
-
-                    <!-- 数字：等宽数字（tnum）、右对齐，最小宽度由 StatsBar 按字体实测（容得下 3 位数字加小数点） -->
-                    <TextView
-                        android:id="@+id/tx_number"
-                        android:importantForAccessibility="no"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:fontFeatureSettings="tnum"
-                        android:gravity="end"
-                        android:maxLines="1"
-                        android:textAppearance="?attr/textAppearanceTitleMedium"
-                        android:textColor="?attr/colorOnSurface" />
-
-                    <TextView
-                        android:id="@+id/tx_unit"
-                        android:importantForAccessibility="no"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="4dp"
-                        android:maxLines="1"
-                        android:textAppearance="?attr/textAppearanceLabelMedium"
-                        android:textColor="?attr/colorOnSurfaceVariant" />
-                </LinearLayout>
-
-                <Space
-                    android:layout_width="8dp"
-                    android:layout_height="0dp" />
-
-                <!-- rx：整列是一个无障碍节点（contentDescription 由 StatsBar 与可见文字同步），子视图不单独朗读 -->
-                <LinearLayout
-                    android:id="@+id/rx_column"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:importantForAccessibility="yes"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:id="@+id/rx_arrow"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:minWidth="14dp"
-                        android:importantForAccessibility="no"
-                        android:textAppearance="?attr/textAppearanceLabelMedium"
-                        android:textColor="?attr/colorOnSurfaceVariant" />
-
-                    <!-- 数字：等宽数字（tnum）、右对齐，最小宽度由 StatsBar 按字体实测（容得下 3 位数字加小数点） -->
-                    <TextView
-                        android:id="@+id/rx_number"
-                        android:importantForAccessibility="no"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:fontFeatureSettings="tnum"
-                        android:gravity="end"
-                        android:maxLines="1"
-                        android:textAppearance="?attr/textAppearanceTitleMedium"
-                        android:textColor="?attr/colorOnSurface" />
-
-                    <TextView
-                        android:id="@+id/rx_unit"
-                        android:importantForAccessibility="no"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="4dp"
-                        android:maxLines="1"
-                        android:textAppearance="?attr/textAppearanceLabelMedium"
-                        android:textColor="?attr/colorOnSurfaceVariant" />
-                </LinearLayout>
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
+            <TextView
+                android:id="@+id/rx"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:layout_columnWeight="1"
+                android:layout_gravity="fill_horizontal"
+                android:ellipsize="marquee"
+                android:singleLine="true"
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:textColor="?attr/colorOnSurface" />
 
-                <!-- 状态点：8dp，颜色与实心 / 空心由 StatsBar 按状态设置（只取主题角色） -->
-                <View
-                    android:id="@+id/status_dot"
-                    android:layout_width="8dp"
-                    android:layout_height="8dp"
-                    android:importantForAccessibility="no" />
-
-                <TextView
-                    android:id="@+id/status"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:layout_weight="1"
-                    android:ellipsize="end"
-                    android:maxLines="2"
-                    android:textAppearance="?attr/textAppearanceTitleSmall"
-                    android:textColor="?attr/colorOnSurface"
-                    tools:text="@string/connection_test_available" />
-            </LinearLayout>
+            <TextView
+                android:id="@+id/status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="fill_horizontal"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textAppearance="?attr/textAppearanceBodyLarge"
+                android:textColor="?attr/colorOnSurface"
+                tools:text="@string/connection_test_available" />
 
         </LinearLayout>
 

@@ -20,6 +20,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.dynamicanimation.animation.DynamicAnimation
 import androidx.dynamicanimation.animation.SpringAnimation
+import androidx.dynamicanimation.animation.SpringForce
 import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.motion.MotionUtils
@@ -35,8 +36,8 @@ import kotlin.math.sin
  *
  * 外壳是全圆角的卡片（surfaceContainer 底，阴影 3dp），每项的图标与文字颜色见 `nav_dock_item`。
  * 选中胶囊是一个共享的视图（`nav_dock_pill`，secondaryContainer），放在四个项之下，选中变化时
- * 用弹簧滑到新选中项下面（取主题的 motionSpringFastSpatial，Expressive 快速空间弹簧，
- * 刚度 800、阻尼比 0.6）；首次布局、尺寸变化与系统动画关闭时直接放到位。选中哪一项由宿主按当前页面调用 [select]，
+ * 用弹簧（刚度 380、阻尼比 0.8，M3 默认的空间弹簧）滑到新选中项下面；首次布局、尺寸变化与系统动画
+ * 关闭时直接放到位。选中哪一项由宿主按当前页面调用 [select]，
  * 点击只通过 [onItemSelected] 交给宿主，自己不改选中状态。
  */
 class NavDock @JvmOverloads constructor(
@@ -66,10 +67,10 @@ class NavDock @JvmOverloads constructor(
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
     }
     private val pillSpring = SpringAnimation(pill, DynamicAnimation.TRANSLATION_X).apply {
-        spring = MotionUtils.resolveThemeSpringForce(
-            context, com.google.android.material.R.attr.motionSpringFastSpatial,
-            R.style.Motion_SagerNet_Spring_FastSpatial
-        )
+        spring = SpringForce().apply {
+            stiffness = PILL_STIFFNESS
+            dampingRatio = PILL_DAMPING_RATIO
+        }
     }
     private var selectedId = View.NO_ID
     // 胶囊是否已经放到过位；没有就不做动画
@@ -212,6 +213,10 @@ class NavDock @JvmOverloads constructor(
     }
 
     private companion object {
+        // M3 默认的空间弹簧（spatial default）
+        const val PILL_STIFFNESS = 380f
+        const val PILL_DAMPING_RATIO = 0.8f
+
         // 填充层淡入与脉冲：350ms（主题的 motionDurationMedium3），脉冲峰值放大 10%
         const val ICON_FILL_DURATION_MS = 350
         const val ICON_PULSE = 0.1f
