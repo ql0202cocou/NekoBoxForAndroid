@@ -47,10 +47,13 @@
                     android:paddingTop="12dp"
                     android:paddingBottom="4dp">
 
+                    <!-- 节点名只占一行，过长在末尾省略（TalkBack 仍读完整名字） -->
                     <TextView
                         android:id="@+id/profile_name"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:maxLines="1"
                         android:textAppearance="?attr/textAppearanceTitleMedium"
                         android:textColor="?attr/colorOnSurface"
                         tools:text="@string/profile_name" />
