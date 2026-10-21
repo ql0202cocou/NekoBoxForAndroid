@@ -99,6 +99,14 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //     XHTTP 与 Vision 流控（proxy/vless/outbound 要求 TLS / REALITY 直连）、与 Mux.Cool（新版服务端只接受纯 XUDP）的
 //     冲突是否仍成立；REALITY 是否仍能配 xhttp；单值 ALPN h3 的行为。sing-box 一侧：vendored 版本有了 XHTTP 传输时，
 //     改 TRANSPORT_XHTTP 一行与 SING_BOX_TRANSPORT_XHTTP。
+//     v26.10.17 的回环实测（doc/agent/k1b-wip/probe-plan/xray/xhttp/）：Vision 每次连接都报「XTLS only supports TLS and
+//     REALITY directly for now」；Mux.Cool 的 TCP 子连接被服务端拒（common/mux: unexpected network TCP），XUDP 承载的
+//     UDP 正常；单值 h3 的客户端改拨 UDP（QUIC），经 TCP+UDP 转发入口可用、只转发 TCP 的入口不通 —— 映射入站
+//     （ConfigBuilder.addMappingInbound）没有 network 限制，两者都收，所以 h3 不记冲突；将来若给映射入站加 network 限制，
+//     必须重新判定。客户端 mode=auto 的实际选择：无 TLS 与 TLS 为 packet-up，REALITY 为 stream-one；Xray 服务端若固定
+//     了 mode，客户端要显式写同一个 mode（auto 解析成 packet-up，服务端固定 stream-up / stream-one 会拒）。
+//     host 头：host 为空时 Xray 在无 TLS 下取拨号地址（经映射是 127.0.0.1），TLS / REALITY 下取 serverName；IPv6 字面量必须带
+//     方括号，裸写会让客户端构造不出请求。
 
 // 能替节点拨号的核心。value 与 ProxyEntity.CORE_* 相同；version 是这张表核实时的版本
 enum class DialCore(val value: Int, val displayName: String, val version: String) {

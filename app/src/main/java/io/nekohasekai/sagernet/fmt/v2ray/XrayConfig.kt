@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.fmt.v2ray
 
+import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
 import io.nekohasekai.sagernet.fmt.ExternalHop
 import io.nekohasekai.sagernet.fmt.LOCALHOST
@@ -7,6 +8,7 @@ import io.nekohasekai.sagernet.fmt.effectiveAllowInsecure
 import io.nekohasekai.sagernet.fmt.requireDistinctHops
 import io.nekohasekai.sagernet.fmt.requireLocalAuth
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
+import io.nekohasekai.sagernet.ktx.wrapIPV6Host
 import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 import moe.matsuri.nb4a.utils.JavaUtil.gson
 import moe.matsuri.nb4a.utils.echAsBase64
@@ -181,13 +183,47 @@ fun buildXrayOutbound(
     }
 }
 
-// Xray 不能表达的传输与生效的 allowInsecure：生成前报错（选核判定已排除这两类，这里兜底），VMess / VLESS / Trojan 共用
+// Xray 不能表达的传输、生效的 allowInsecure、XHTTP 配 Vision / Mux.Cool：生成前报错（选核判定已排除这几类，这里兜底），VMess / VLESS / Trojan 共用
 private fun requireXrayStream(bean: StandardV2RayBean, globalAllowInsecure: Boolean) {
     if (bean.xrayLacksTransport()) {
         error("xray-core no longer supports the ${bean.type} transport, use the sing-box core for this profile")
     }
     if (bean.xrayLacksAllowInsecure(globalAllowInsecure)) {
         error("xray-core no longer supports allowInsecure, use a certificate fingerprint or the sing-box core for this profile")
+    }
+    // XHTTP 配 Vision 流控 / Mux.Cool 都能通过 Xray 的 run -test，到运行时才每次连接失败（K2 回环 XL-45 / XL-49）；
+    // 选核判定（XRAY_XHTTP_VISION / XRAY_XHTTP_MUX_COOL）已经排除，这里同样是最后一道防线。只开 XUDP 包编码不算 Mux.Cool
+    if (v2rayTransportOrNull(bean.type) == "xhttp") {
+        if (bean.isVLESS && bean.encryption?.startsWith("xtls-rprx-vision") == true) {
+            error("xray-core cannot run the Vision flow over XHTTP, remove the flow for this profile")
+        }
+        if (bean.enableMux) {
+            error("xray-core cannot combine Mux.Cool with XHTTP, turn mux off for this profile")
+        }
+    }
+}
+
+// xhttpSettings 的键集固定为 host（可省）、path、mode、extra（可省），不写别的键：
+//  - path：参数残缺的旧节点（path 为空，见 xhttpParametersLost）直接报错，不猜测；
+//  - mode：requireXhttpMode 规范成小写，Xray 区分大小写，写 Stream-One 会让整份配置起不来（K2 回环 XT-10）；
+//  - host：用户写了就原样用（带端口也行，Xray 原样发出）。没写时，TLS / REALITY 由 Xray 取 serverName（应用已把 sni 兜底成
+//    serverAddress），不用补；没有 TLS 时 Xray 取拨号地址，经映射就是 127.0.0.1，前面有 CDN 或按 Host 分流的反代、
+//    或服务端设了 host 校验时请求会被拒，所以用 serverAddress 补上（K2 回环 XL-08 / XL-09）。IPv6 字面量必须带方括号：
+//    裸写 Xray 会报 invalid port、一个请求都发不出去（XL-03），带方括号发出的 Host 与直连 IPv6 时 Xray 自己发的一致（XL-05）；
+//  - extra：重新跑一遍 canonicalXhttpExtra（白名单重建），再作为 JSON 对象写入。写成字符串 Xray 会报错（XT-02），
+//    未知键 Xray 会静默忽略（XT-03），所以一切把关都靠这里的白名单；downloadSettings 会让 Xray 另拨一个目标（XT-15），
+//    sockopt / dialerProxy 从不出现。错误信息只带键名，不带值（header 的值可能是凭据）
+private fun buildXhttpSettings(bean: StandardV2RayBean): Map<String, Any?> {
+    if (bean.xhttpParametersLost()) throw XhttpParametersLostException()
+    return LinkedHashMap<String, Any?>().apply {
+        val host = bean.host?.trim().orEmpty().ifEmpty {
+            if (bean.security == "tls") "" else bean.serverAddress?.trim().orEmpty().wrapIPV6Host()
+        }
+        if (host.isNotEmpty()) put("host", host)
+        put("path", bean.path)
+        put("mode", requireXhttpMode(bean.xhttpMode))
+        val extra = canonicalXhttpExtra(bean.xhttpExtra)
+        if (extra.isNotEmpty()) put("extra", JsonParser.parseString(extra).asJsonObject)
     }
 }
 
@@ -265,9 +301,12 @@ private fun buildXrayStreamSettings(bean: StandardV2RayBean): Map<String, Any?> 
 
             "tcp" -> put("network", "tcp")
 
-            // 生成器还没有实现 XHTTP 的 xhttpSettings；选核阶段把它记成不支持的传输挡在前面，
-            // 这里是最后一道防线，不退成 TCP
-            "xhttp" -> throw UnsupportedTransportException(bean.type)
+            // XHTTP（旧名 splithttp）：network 写 xhttp。参数残缺的旧节点、extra 或 mode 不合格的节点在这里报错，
+            // 选核阶段与编辑器保存已经挡过一遍，这是最后一道防线（导入的、升级留下的值绕过编辑器也进不来）
+            "xhttp" -> {
+                put("network", "xhttp")
+                put("xhttpSettings", buildXhttpSettings(bean))
+            }
 
             // quic 已被 xrayLacksTransport() 拦下
             else -> error("can't reach")

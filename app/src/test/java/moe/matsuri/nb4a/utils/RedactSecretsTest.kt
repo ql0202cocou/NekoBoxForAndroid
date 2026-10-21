@@ -376,6 +376,77 @@ class RedactSecretsTest {
         }
     }
 
+    // XHTTP（K2）：extra.headers 的值可能是凭据，名字却是任意的，按键名的名单盖不住，整个 headers 对象的值都遮，Host 除外
+    private fun xhttpOutbound(headers: Map<String, Any?>) = linkedMapOf<String, Any?>(
+        "protocol" to "vless",
+        "streamSettings" to linkedMapOf(
+            "network" to "xhttp",
+            "xhttpSettings" to linkedMapOf(
+                "host" to "cdn.example.net", "path" to "/xh", "mode" to "auto",
+                "extra" to linkedMapOf("headers" to headers, "xPaddingBytes" to "100-200"),
+            ),
+        ),
+    )
+
+    @Test
+    fun `JSON 里 xhttp 的 extra headers 的值被遮蔽，名字与其它键保持可读`() {
+        val token = "tok-8f3a91c2d4e65b70"
+        val headers = linkedMapOf<String, Any?>("X-Api-Token" to token, "X-Env" to "prod-secret-env", "Authorization" to "Bearer abc.def")
+        val pretty = JavaUtil.gson.toJson(xhttpOutbound(headers))
+        val compact = com.google.gson.GsonBuilder().disableHtmlEscaping().create().toJson(xhttpOutbound(headers))
+        for (input in listOf(pretty, compact)) {
+            val redacted = Util.redactSecrets(input)
+            assertFalse(redacted, redacted.contains(token))
+            assertFalse(redacted, redacted.contains("prod-secret-env"))
+            assertFalse(redacted, redacted.contains("Bearer abc.def"))
+            for (kept in listOf("X-Api-Token", "X-Env", "Authorization", "cdn.example.net", "/xh", "100-200", "xhttp")) {
+                assertTrue("$kept 应保留：$redacted", redacted.contains(kept))
+            }
+        }
+    }
+
+    @Test
+    fun `JSON 里 headers 的值含引号、括号与转义时整个值被遮蔽，Host 不遮`() {
+        val tricky = "a\"b},{\"c\":[d]\\e"
+        val headers = linkedMapOf<String, Any?>("X-One" to tricky, "Host" to "keep.example.com", "x-two" to "second-secret")
+        val redacted = Util.redactSecrets(JavaUtil.gson.toJson(xhttpOutbound(headers)))
+        assertFalse(redacted, redacted.contains("second-secret"))
+        assertFalse(redacted, redacted.contains("[d]"))
+        assertTrue(redacted, redacted.contains("keep.example.com"))
+        // 遮完仍是合法 JSON，结构没变
+        val tree = JavaUtil.gson.fromJson(redacted, Map::class.java)
+        @Suppress("UNCHECKED_CAST")
+        val extra = (((tree["streamSettings"] as Map<String, Any?>)["xhttpSettings"]) as Map<String, Any?>)["extra"] as Map<String, Any?>
+        assertEquals(
+            mapOf("X-One" to "***", "Host" to "keep.example.com", "x-two" to "***"),
+            extra["headers"],
+        )
+        assertEquals("100-200", extra["xPaddingBytes"])
+    }
+
+    @Test
+    fun `tcp 伪 HTTP 头的数组值也被遮蔽，Host 数组保留`() {
+        val input = JavaUtil.gson.toJson(
+            linkedMapOf("headers" to linkedMapOf("Host" to listOf("a.example.com"), "X-Token" to listOf("t-1", "t-2"))),
+        )
+        val redacted = Util.redactSecrets(input)
+        assertFalse(redacted, redacted.contains("t-1"))
+        assertFalse(redacted, redacted.contains("t-2"))
+        assertTrue(redacted, redacted.contains("a.example.com"))
+    }
+
+    @Test
+    fun `按值遮蔽：xhttp extra headers 的值在核心报错原文里被换掉，Host 不换`() {
+        val token = "tok-8f3a91c2d4e65b70"
+        val config = JavaUtil.gson.toJson(
+            xhttpOutbound(linkedMapOf("X-Api-Token" to token, "Host" to "keep.example.com")),
+        )
+        val error = "Failed to start: XHTTP request failed: header X-Api-Token=$token rejected by keep.example.com"
+        val redacted = Util.redactSecretValues(error, listOf(config))
+        assertFalse(redacted, redacted.contains(token))
+        assertTrue(redacted, redacted.contains("keep.example.com"))
+    }
+
     @Test
     fun `JSON 里 mieru 的 user 对象中 name 被遮蔽，其它 name 不受影响`() {
         val mieru = JavaUtil.gson.toJson(

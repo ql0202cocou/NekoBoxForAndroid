@@ -82,6 +82,16 @@ class ExternalCoreInvariantsTest {
         vless { security = "tls"; enableECH = true; echConfig = "ZmFrZS1lY2gtY29uZmln" },
         // 开了 ECH 但没有内联配置：Xray 生成器什么都不写（不自己查 DNS）
         vless { security = "tls"; enableECH = true },
+        // XHTTP（K2）：无 TLS（host 兜底）、TLS（extra、mode、h3）、REALITY、VMess
+        vless { type = "xhttp"; path = "/xh" },
+        vless { type = "xhttp"; path = "/xh"; serverAddress = "2001:db8::1" },
+        vless {
+            type = "xhttp"; path = "/xh"; security = "tls"; sni = "node.example.com"; alpn = "h3"; host = "cdn.example.net"
+            xhttpMode = "stream-up"
+            xhttpExtra = """{"headers":{"X-Token":"abc"},"xPaddingBytes":"100-200","xmux":{"maxConcurrency":"4-8","hKeepAlivePeriod":30}}"""
+        },
+        vless { type = "xhttp"; path = "/xh"; security = "tls"; realityPubKey = realityKey; sni = "www.example.org"; xhttpMode = "stream-one" },
+        vmess { type = "xhttp"; path = "/vm"; security = "tls"; packetEncoding = 2 },
     )
 
     private val mihomoBeans: List<AnyTLSBean> = listOf(
@@ -246,6 +256,55 @@ class ExternalCoreInvariantsTest {
         expectXray("routing 写 balancers", "禁用的键 balancers") { sub("routing").add("balancers", JsonObject()) }
         expectXray("规则指向 blackhole", "不能指向 blackhole") { sub("routing", "rules").addProperty("outboundTag", "block") }
         expectXray("入站没有规则", "不是一一对应") { sub("routing").add("rules", JsonArray()) }
+    }
+
+    // XHTTP 的反例：基础配置是一个带 extra 的 xhttp 出站
+    private fun xhttpBase(): JsonObject = JsonParser.parseString(
+        trojanConfig(
+            buildXrayOutbound(
+                vless {
+                    type = "xhttp"; path = "/xh"; security = "tls"; sni = "node.example.com"
+                    xhttpExtra = """{"headers":{"X-Token":"abc"},"xPaddingBytes":"100-200"}"""
+                },
+                LOCALHOST, 31001, settings,
+            ),
+        ),
+    ).asJsonObject
+
+    private fun expectXhttp(name: String, fragment: String, mutate: JsonObject.() -> Unit) {
+        val config = xhttpBase().apply(mutate)
+        val violations = ExternalCoreInvariants.xray(gson.toJson(config)).violations
+        assertTrue("$name：应报出「$fragment」，实际：$violations", violations.any { fragment in it })
+    }
+
+    @Test
+    fun `Xray XHTTP 反例：键集、extra 与禁用的拨号键都被抓到`() {
+        noViolations("XHTTP 反例的基础配置", ExternalCoreInvariants.xray(gson.toJson(xhttpBase())))
+        fun JsonObject.xhttp() = outbound(1).sub("streamSettings", "xhttpSettings")
+        fun JsonObject.extra() = outbound(1).sub("streamSettings", "xhttpSettings", "extra")
+        expectXhttp("xhttpSettings 多出未知键", "表外的键 sockopt") { xhttp().add("sockopt", JsonObject()) }
+        expectXhttp("xhttpSettings 多出 downloadSettings", "表外的键 downloadSettings") { xhttp().add("downloadSettings", JsonObject()) }
+        expectXhttp("xhttpSettings 缺 mode", "缺少键 mode") { xhttp().remove("mode") }
+        expectXhttp("mode 大写", "只许") { xhttp().addProperty("mode", "Stream-One") }
+        expectXhttp("mode 不认识", "只许") { xhttp().addProperty("mode", "packet-down") }
+        expectXhttp("path 为空", "path") { xhttp().addProperty("path", "") }
+        expectXhttp("host 为空串", "host") { xhttp().addProperty("host", "") }
+        expectXhttp("extra 写成字符串", "不是对象") { xhttp().addProperty("extra", "{}") }
+        expectXhttp("extra 是空对象", "空对象") { xhttp().add("extra", JsonObject()) }
+        expectXhttp("extra 里的 downloadSettings", "downloadSettings") { extra().add("downloadSettings", JsonObject()) }
+        expectXhttp("extra 里的未知键", "extra") { extra().addProperty("fooBar", 1) }
+        expectXhttp("extra 里的 host", "extra") { extra().addProperty("host", "a.example.com") }
+        expectXhttp("extra 里的小写键名", "不是规范形态") {
+            val extra = extra()
+            extra.remove("xPaddingBytes")
+            extra.addProperty("xpaddingbytes", "100-200")
+        }
+        expectXhttp("extra 里的 headers 含 Host", "extra") { extra().getAsJsonObject("headers").addProperty("Host", "a.example.com") }
+        expectXhttp("extra 里嵌套 sockopt", "sockopt") { extra().add("xmux", JsonObject().apply { add("sockopt", JsonObject()) }) }
+        expectXhttp("streamSettings 的 sockopt", "禁用的键 sockopt") { outbound(1).sub("streamSettings").add("sockopt", JsonObject()) }
+        expectXhttp("streamSettings 的 dialerProxy", "dialerProxy") { outbound(1).sub("streamSettings").addProperty("dialerProxy", "x") }
+        expectXhttp("network 是 xhttp 却缺 xhttpSettings", "缺少 xhttpSettings") { outbound(1).sub("streamSettings").remove("xhttpSettings") }
+        expectXhttp("network 不是 xhttp 却有 xhttpSettings", "不该有 xhttpSettings") { outbound(1).sub("streamSettings").addProperty("network", "tcp") }
     }
 
     private fun mihomoBase(): MutableMap<String, Any?> {

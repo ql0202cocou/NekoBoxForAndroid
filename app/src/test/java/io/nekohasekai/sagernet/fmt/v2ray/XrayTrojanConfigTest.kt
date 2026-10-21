@@ -326,4 +326,67 @@ class XrayTrojanConfigTest {
         )
         assertEquals(4, config.getAsJsonArray("inbounds").size())
     }
+
+    // ---- XHTTP（K2）：Trojan 与 VMess / VLESS 共用 buildXrayStreamSettings，这里确认三种安全层与 host 兜底都一样
+
+    @Test
+    fun `xhttp 无 TLS：host 用 serverAddress 补上`() {
+        val outbound = build(trojan { type = "xhttp"; path = "/xh"; security = "none" })
+        assertJson(
+            """{"protocol":"trojan","settings":$servers,"streamSettings":{"network":"xhttp",
+            "xhttpSettings":{"host":"trojan.example.com","path":"/xh","mode":"auto"}}}""",
+            outbound,
+        )
+        val v6 = build(trojan { type = "xhttp"; path = "/xh"; security = "none"; serverAddress = "2001:db8::2" }).stream()
+            .getAsJsonObject("xhttpSettings")
+        assertEquals("[2001:db8::2]", v6.get("host").asString)
+    }
+
+    @Test
+    fun `xhttp 加 TLS：host 为空不写，mode 与 extra 照写`() {
+        val outbound = build(trojan {
+            type = "xhttp"
+            path = "/xh"
+            sni = "sni.example.com"
+            xhttpMode = "Packet-Up"
+            xhttpExtra = """{"xPaddingBytes":"200-400","headers":{"X-K2-Probe":"k2-probe-value"}}"""
+        })
+        assertJson(
+            """{"protocol":"trojan","settings":$servers,"streamSettings":{"network":"xhttp",
+            "xhttpSettings":{"path":"/xh","mode":"packet-up","extra":{"headers":{"X-K2-Probe":"k2-probe-value"},
+            "xPaddingBytes":"200-400"}},"security":"tls","tlsSettings":{"serverName":"sni.example.com"}}}""",
+            outbound,
+        )
+    }
+
+    @Test
+    fun `xhttp 加 REALITY`() {
+        val outbound = build(trojan {
+            type = "xhttp"
+            path = "/xh"
+            host = "cdn.example.net"
+            sni = "www.example.org"
+            realityPubKey = realityKey
+            xhttpMode = "stream-one"
+        })
+        assertJson(
+            """{"protocol":"trojan","settings":$servers,"streamSettings":{"network":"xhttp",
+            "xhttpSettings":{"host":"cdn.example.net","path":"/xh","mode":"stream-one"},"security":"reality",
+            "realitySettings":{"serverName":"www.example.org","publicKey":"$realityKey","fingerprint":"chrome"}}}""",
+            outbound,
+        )
+    }
+
+    @Test
+    fun `xhttp 配 Mux Cool 时生成报错`() {
+        assertThrows(IllegalStateException::class.java) { build(trojan { type = "xhttp"; path = "/xh"; enableMux = true }) }
+    }
+
+    @Test
+    fun `参数残缺的 xhttp 节点与不合格的 extra 生成时报错`() {
+        assertThrows(XhttpParametersLostException::class.java) { build(trojan { type = "xhttp"; path = "" }) }
+        assertThrows(InvalidXhttpExtraException::class.java) {
+            build(trojan { type = "xhttp"; path = "/xh"; xhttpExtra = """{"downloadSettings":{}}""" })
+        }
+    }
 }

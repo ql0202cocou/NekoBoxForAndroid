@@ -220,6 +220,24 @@ object Util {
         RegexOption.IGNORE_CASE
     )
 
+    // JSON 的 "headers": {名字: 值, …}：XHTTP 的 extra.headers（以及 ws 等传输的自定义头）的值可能是凭据，
+    // 名字却是任意的（X-Api-Token 之类），按键名的名单盖不住，所以整个 headers 对象的值都遮，只有 Host 不遮
+    // （它是服务器域名，排查 Host 头问题要用，XHTTP 的校验器也不许 headers 里写 Host）。
+    // 成员的值是字符串，或字符串数组（tcp 的伪 HTTP 头）；成员的写法有别的形态（嵌套对象）时整个对象不处理。
+    // 第 1 组是 "headers": {，第 2 组是成员，第 3 组是 }
+    private const val JSON_HEADER_VALUE = """(?:$JSON_STRING|\[(?:\s*+$JSON_STRING\s*+,?+)*+\s*+\])"""
+    private val JSON_HEADERS_OBJECT = Regex(
+        """("headers"\s*+:\s*+\{)((?:\s*+$JSON_STRING\s*+:\s*+$JSON_HEADER_VALUE\s*+,?+)*+)(\s*+\})""",
+        RegexOption.IGNORE_CASE
+    )
+    private val JSON_HEADER_MEMBER = Regex("""($JSON_STRING)(\s*+:\s*+)$JSON_HEADER_VALUE""")
+
+    private fun redactHeaderMembers(members: String): String = JSON_HEADER_MEMBER.replace(members) {
+        val name = it.groupValues[1].removeSurrounding("\"")
+        if (name.equals("host", ignoreCase = true)) it.value
+        else it.groupValues[1] + it.groupValues[2] + if (it.value.trimEnd().endsWith("]")) "[\"***\"]" else "\"***\""
+    }
+
     // YAML 里敏感键的位置：行首（可带块序列项的「- 」），或行内映射 {k: v, …} 里 { 与 , 之后。
     // 正则只负责找到键，值的范围由 yamlValueEnd 按 YAML 写法逐字符确定。
     // 第 1 组非空即行首键（组内是缩进与「- 」）
@@ -252,6 +270,9 @@ object Util {
     fun redactSecrets(text: String): String {
         var result = SENSITIVE_JSON_VALUE.replace(text) {
             it.groupValues[1] + if (it.groupValues[2].isEmpty()) "\"***\"" else "[\"***\"]"
+        }
+        result = JSON_HEADERS_OBJECT.replace(result) {
+            it.groupValues[1] + redactHeaderMembers(it.groupValues[2]) + it.groupValues[3]
         }
         result = USER_OBJECT_NAME.replace(result) { it.groupValues[1] + "\"***\"" }
         result = redactYamlValues(result)
@@ -290,7 +311,14 @@ object Util {
         when (node) {
             is Map<*, *> -> node.forEach { (key, value) ->
                 val name = (key as? String)?.lowercase()?.replace('-', '_')
-                collectSecretValues(value, sensitive || name in SENSITIVE_KEY_NAMES, out)
+                if (name == "headers" && value is Map<*, *>) {
+                    // HTTP 头的值都算（见 JSON_HEADERS_OBJECT），Host 除外
+                    value.forEach { (headerName, headerValue) ->
+                        if ((headerName as? String)?.lowercase() != "host") collectSecretValues(headerValue, true, out)
+                    }
+                } else {
+                    collectSecretValues(value, sensitive || name in SENSITIVE_KEY_NAMES, out)
+                }
             }
 
             is List<*> -> node.forEach { collectSecretValues(it, sensitive, out) }

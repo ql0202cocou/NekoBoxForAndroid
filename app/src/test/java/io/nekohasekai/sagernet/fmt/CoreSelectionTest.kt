@@ -484,6 +484,18 @@ class CoreSelectionTest {
         assertSelected(XRAY, decide(vless { type = "xhttp"; path = "/" }))
     }
 
+    // 单值 ALPN h3：Xray 客户端改走 QUIC（UDP 拨号）。映射入站没有 network 限制（TCP 与 UDP 都收，override 的地址端口对两者都生效），
+    // K2 在模拟器上用 TCP+UDP 转发入口验证过 QUIC 可用（XL-37 / XL-39；只转发 TCP 的入口不通，XL-38），所以不记冲突。
+    // 链上前一跳不转发 UDP 时会不通，那是链的属性，选核判定不了
+    @Test
+    fun `xhttp 单值 ALPN h3 不是冲突`() {
+        for (node in listOf(vless { xhttp(); security = "tls"; alpn = "h3" }, vmess { xhttp(); security = "tls"; alpn = "h3" }, trojan { xhttp(); security = "tls"; alpn = "h3" })) {
+            assertSelected(XRAY, decide(node))
+            assertSelected(XRAY, decide(node, CORE_XRAY))
+        }
+        assertSelected(XRAY, decide(vless { xhttp(); security = "tls"; alpn = "h3,h2" }, CORE_XRAY))
+    }
+
     @Test
     fun `非法的 mux 与 packet encoding 取值`() {
         assertRejected(decide(vmess { mux(9) }), CoreConflict.MUX_TYPE_UNKNOWN)

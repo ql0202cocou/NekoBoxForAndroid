@@ -5,6 +5,8 @@ import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.fmt.v2ray.XRAY_BLOCK_TAG
+import io.nekohasekai.sagernet.fmt.v2ray.canonicalXhttpExtra
+import moe.matsuri.nb4a.utils.JavaUtil.gson
 import org.yaml.snakeyaml.Yaml
 
 // 外核「哑管道」不变量：Xray 与 mihomo 在本应用里只是 sing-box 的出站插件，只承担节点拨号与本机端口
@@ -114,14 +116,15 @@ object ExternalCoreInvariants {
     // streamSettings：不得出现 sockopt、dialerProxy 之类引入额外拨号路径或改变出口的键
     val XRAY_STREAM = keys(
         "network",
-        optional = setOf("security", "tcpSettings", "wsSettings", "grpcSettings", "httpupgradeSettings", "tlsSettings", "realitySettings"),
+        optional = setOf("security", "tcpSettings", "wsSettings", "grpcSettings", "httpupgradeSettings", "xhttpSettings", "tlsSettings", "realitySettings"),
         forbidden = forbid("会引入额外拨号路径或改变出口", "sockopt", "dialerProxy"),
     )
-    val XRAY_NETWORKS = setOf("tcp", "ws", "grpc", "httpupgrade")
+    val XRAY_NETWORKS = setOf("tcp", "ws", "grpc", "httpupgrade", "xhttp")
 
     // network → 它自己的传输设置键与那一级的键集；tcp 的设置只用来写 http 头伪装，可以没有
     val XRAY_TRANSPORT_KEYS = mapOf(
         "tcp" to "tcpSettings", "ws" to "wsSettings", "grpc" to "grpcSettings", "httpupgrade" to "httpupgradeSettings",
+        "xhttp" to "xhttpSettings",
     )
     val XRAY_TCP = keys("header")
     val XRAY_TCP_HEADER = keys("type", "request")
@@ -131,6 +134,15 @@ object ExternalCoreInvariants {
     val XRAY_WS = keys("path", optional = setOf("host"), forbidden = forbid("Host 写独立的 host 键", "headers"))
     val XRAY_GRPC = keys("serviceName")
     val XRAY_HTTPUPGRADE = keys("path", optional = setOf("host"))
+
+    // XHTTP（K2）：键集固定为 path、mode，可选 host、extra，一个键都不多（downloadSettings 之类放在 extra 里也不行，见下）。
+    // extra 必须是对象，且是 canonicalXhttpExtra 的不动点（重建一遍得到同样的文本），所以只含白名单里的键
+    val XRAY_XHTTP = keys("path", "mode", optional = setOf("host", "extra"))
+    val XRAY_XHTTP_MODES = setOf("auto", "packet-up", "stream-up", "stream-one")
+
+    // 这些键在 streamSettings 的任何一层都不许出现：downloadSettings 是独立的拨号目标（绕过 ExternalDialTarget.Mapped 的映射），
+    // sockopt / dialerProxy 引入额外拨号路径或改变出口。键名按大小写不敏感比较，Xray 的 JSON 解析也不分大小写
+    val XRAY_STREAM_NEVER_KEYS = setOf("downloadsettings", "sockopt", "dialerproxy")
 
     // echConfigList 是内联的 ECH 配置，不涉及 DNS：Xray 的 ECH 自动查询需要别的键（查询服务器等），一个都不在表里。
     // 将来真要走自动查询，把那个例外键显式列在这里并在例外表里写明原因，不要放宽成「允许 dns」
@@ -403,7 +415,7 @@ object ExternalCoreInvariants {
             val stream = objectWithKeys(path, value, XRAY_STREAM) ?: return
             val network = stream["network"]
             if (network !in XRAY_NETWORKS) bad("$path.network", "是 $network，只许 $XRAY_NETWORKS")
-            // 传输设置只许与 network 对得上的那一项；ws / grpc / httpupgrade 必须有，tcp 只在写 http 头时有
+            // 传输设置只许与 network 对得上的那一项；ws / grpc / httpupgrade / xhttp 必须有，tcp 只在写 http 头时有
             for ((net, key) in XRAY_TRANSPORT_KEYS) {
                 if (key in stream && net != network) bad("$path.$key", "network 是 $network，不该有 $key")
                 if (key !in stream && net == network && net != "tcp") bad("$path.$key", "network 是 $net，缺少 $key")
@@ -418,6 +430,8 @@ object ExternalCoreInvariants {
             stream["httpupgradeSettings"]?.let { upgrade ->
                 objectWithKeys("$path.httpupgradeSettings", upgrade, XRAY_HTTPUPGRADE)
             }
+            stream["xhttpSettings"]?.let { xhttp -> xhttp("$path.xhttpSettings", xhttp) }
+            neverKeys(path, stream)
             // security 与它的设置一一对应
             val security = stream["security"]
             if ("security" in stream && security != "tls" && security != "reality") bad("$path.security", "是 $security，只许 tls、reality")
@@ -428,6 +442,38 @@ object ExternalCoreInvariants {
             stream["tlsSettings"]?.let { tls("$path.tlsSettings", it) }
             stream["realitySettings"]?.let { reality ->
                 objectWithKeys("$path.realitySettings", reality, XRAY_REALITY)
+            }
+        }
+
+        fun xhttp(path: String, value: Any?) {
+            val x = objectWithKeys(path, value, XRAY_XHTTP) ?: return
+            if (x["path"] !is String || x["path"] == "") bad("$path.path", "不是非空字符串")
+            if (x["mode"] !in XRAY_XHTTP_MODES) bad("$path.mode", "是 ${x["mode"]}，只许 $XRAY_XHTTP_MODES（小写）")
+            x["host"]?.let { if (it !is String || it.isEmpty()) bad("$path.host", "不是非空字符串（空 host 不写）") }
+            if ("extra" in x) {
+                val extra = x["extra"]
+                if (extra !is Map<*, *>) {
+                    bad("$path.extra", "不是对象（Xray 不接受字符串写法）")
+                } else if (extra.isEmpty()) {
+                    bad("$path.extra", "是空对象（没有 extra 时不写）")
+                } else {
+                    val text = gson.toJson(extra)
+                    val canonical = runCatching { canonicalXhttpExtra(text) }.getOrNull()
+                    // 白名单重建的不动点：键名规范、顺序固定、值合格
+                    if (canonical == null) bad("$path.extra", "通不过 XHTTP extra 校验")
+                    else if (JsonParser.parseString(canonical) != JsonParser.parseString(text)) bad("$path.extra", "不是规范形态")
+                }
+            }
+        }
+
+        // streamSettings 的任何一层都不许出现 downloadSettings / sockopt / dialerProxy
+        fun neverKeys(path: String, value: Any?) {
+            when (value) {
+                is Map<*, *> -> value.forEach { (k, v) ->
+                    if ((k as? String)?.lowercase() in XRAY_STREAM_NEVER_KEYS) bad("$path.$k", "streamSettings 任何一层都不许出现")
+                    neverKeys("$path.$k", v)
+                }
+                is List<*> -> value.forEachIndexed { i, v -> neverKeys("$path[$i]", v) }
             }
         }
 
