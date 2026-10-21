@@ -25,7 +25,7 @@ class ImportBatchTest {
     @Test
     fun `有段被拒但其余段有节点时照常返回`() {
         val batch = ImportBatch<String>()
-        batch.reject(UnsupportedTransportException("xhttp"))
+        batch.reject(UnsupportedTransportException("mkcp"))
         batch.add(listOf("a"))
         batch.reject(UnsupportedTransportException("kcp"))
         batch.add(null)
@@ -34,7 +34,7 @@ class ImportBatchTest {
 
     @Test
     fun `一个节点都没有时抛出第一条被拒原因`() {
-        val first = UnsupportedTransportException("xhttp")
+        val first = UnsupportedTransportException("mkcp")
         val batch = ImportBatch<String>()
         batch.add(null)
         batch.reject(first)
@@ -68,7 +68,7 @@ class ImportBatchTest {
         val first = clashRejected()
         val batch = ImportBatch<String>()
         batch.reject(first)
-        batch.reject(UnsupportedTransportException("xhttp"))
+        batch.reject(UnsupportedTransportException("mkcp"))
         val e = assertThrows(ClashImportException::class.java) { batch.result() }
         assertSame(first, e)
 

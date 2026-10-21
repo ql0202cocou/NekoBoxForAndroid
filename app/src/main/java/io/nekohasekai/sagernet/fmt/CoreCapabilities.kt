@@ -91,6 +91,14 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 // Clash 订阅导入（K3a）：
 // 25. mihomo 升级后核对 group/ClashImportFields.kt 的键表（adapter/outbound/*.go 的 proxy 标签）、clashRejection 的
 //     生效条件（各 *Options.Parse 返回 nil 的条件）与 CLASH_NO_EFFECT_KEYS。
+//
+// XHTTP（K2）：
+// 26. Xray 的 SplitHTTPConfig（infra/conf/transport_method.go）：客户端键是否有增减，fmt/v2ray/XhttpExtra.kt 的白名单与
+//     数值上限按它重对；mode 的取值（auto / packet-up / stream-up / stream-one）、extra 存在时是否仍只保留外层的
+//     host / path / mode、headers 不许含 host、xmux 里 maxConnections 与 maxConcurrency 互斥是否不变。
+//     XHTTP 与 Vision 流控（proxy/vless/outbound 要求 TLS / REALITY 直连）、与 Mux.Cool（新版服务端只接受纯 XUDP）的
+//     冲突是否仍成立；REALITY 是否仍能配 xhttp；单值 ALPN h3 的行为。sing-box 一侧：vendored 版本有了 XHTTP 传输时，
+//     改 TRANSPORT_XHTTP 一行与 SING_BOX_TRANSPORT_XHTTP。
 
 // 能替节点拨号的核心。value 与 ProxyEntity.CORE_* 相同；version 是这张表核实时的版本
 enum class DialCore(val value: Int, val displayName: String, val version: String) {
@@ -152,6 +160,11 @@ enum class Requirement(val label: String, val fields: List<ProfileField>, val is
     TRANSPORT_QUIC("传输 quic", listOf(ProfileField.TRANSPORT)),
     TRANSPORT_GRPC("传输 grpc", listOf(ProfileField.TRANSPORT)),
     TRANSPORT_HTTPUPGRADE("传输 httpupgrade", listOf(ProfileField.TRANSPORT)),
+    TRANSPORT_XHTTP("传输 xhttp（旧名 splithttp）", listOf(ProfileField.TRANSPORT)),
+    TRANSPORT_XHTTP_LOST(
+        "传输 xhttp：参数已丢失（旧版本只存了 type，path 为空）",
+        listOf(ProfileField.TRANSPORT, ProfileField.PATH),
+    ),
     TRANSPORT_UNKNOWN("传输：本应用不认识的值", listOf(ProfileField.TRANSPORT)),
     SECURITY_TLS("TLS", listOf(ProfileField.SECURITY)),
     SECURITY_REALITY("REALITY", listOf(ProfileField.SECURITY, ProfileField.REALITY_PUBLIC_KEY)),

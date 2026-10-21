@@ -14,6 +14,7 @@ import io.nekohasekai.sagernet.fmt.v2ray.effectiveUtlsFingerprint
 import io.nekohasekai.sagernet.fmt.v2ray.muxProtocolName
 import io.nekohasekai.sagernet.fmt.v2ray.resolveWsEarlyData
 import io.nekohasekai.sagernet.fmt.v2ray.v2rayTransportOrNull
+import io.nekohasekai.sagernet.fmt.v2ray.xhttpParametersLost
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 
 // 节点对核心的要求：从 type、bean 与全局「允许不安全」提取，与核心无关。只描述「生成器会把什么写进配置」，
@@ -22,7 +23,8 @@ import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 
 enum class CoreProtocol { VMESS, VLESS, TROJAN, ANYTLS, OTHER }
 
-enum class CoreTransport { TCP, HTTP_HEADER, H2, WS, QUIC, GRPC, HTTPUPGRADE, UNKNOWN }
+// XHTTP_LOST：xhttp 节点的参数已丢失（旧版本只存了 type，见 xhttpParametersLost），不拿它去匹配核心
+enum class CoreTransport { TCP, HTTP_HEADER, H2, WS, QUIC, GRPC, HTTPUPGRADE, XHTTP, XHTTP_LOST, UNKNOWN }
 
 enum class TlsMode { NONE, TLS, REALITY }
 
@@ -82,6 +84,8 @@ data class CoreRequirements(
             CoreTransport.QUIC -> items += RequirementItem(Requirement.TRANSPORT_QUIC)
             CoreTransport.GRPC -> items += RequirementItem(Requirement.TRANSPORT_GRPC)
             CoreTransport.HTTPUPGRADE -> items += RequirementItem(Requirement.TRANSPORT_HTTPUPGRADE)
+            CoreTransport.XHTTP -> items += RequirementItem(Requirement.TRANSPORT_XHTTP)
+            CoreTransport.XHTTP_LOST -> items += RequirementItem(Requirement.TRANSPORT_XHTTP_LOST)
             CoreTransport.UNKNOWN -> items += RequirementItem(Requirement.TRANSPORT_UNKNOWN, transportName)
         }
         when (tls) {
@@ -171,6 +175,7 @@ private fun standardRequirements(
         "quic" -> CoreTransport.QUIC
         "grpc" -> CoreTransport.GRPC
         "httpupgrade" -> CoreTransport.HTTPUPGRADE
+        "xhttp" -> if (bean.xhttpParametersLost()) CoreTransport.XHTTP_LOST else CoreTransport.XHTTP
         else -> CoreTransport.UNKNOWN
     }
     val certificatePin = tlsOn && !bean.certificateFingerprint.isNullOrBlank()

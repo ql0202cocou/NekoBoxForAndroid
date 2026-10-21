@@ -464,7 +464,10 @@
     <string name="core_conflict_mihomo_v2ray_protocol">本应用不能用 mihomo 运行 VMess、VLESS 或 Trojan</string>
     <string name="core_conflict_xray_transport_h2">Xray 已移除 HTTP/2（h2）传输</string>
     <string name="core_conflict_xray_transport_quic">Xray 已移除 QUIC 传输</string>
-    <string name="core_conflict_xray_reality_transport">Xray 只能在 TCP 或 gRPC 传输上使用 REALITY</string>
+    <string name="core_conflict_xray_reality_transport">Xray 只能在 TCP、gRPC 或 XHTTP 传输上使用 REALITY</string>
+    <string name="core_conflict_sing_box_transport_xhttp">sing-box 没有 XHTTP 传输</string>
+    <string name="core_conflict_xray_xhttp_vision">Xray 不能在 XHTTP 传输上使用 Vision 流控</string>
+    <string name="core_conflict_xray_xhttp_mux_cool">Xray 不能在 XHTTP 传输上使用 Mux.Cool，请关闭多路复用（XUDP 包编码不受影响）</string>
     <string name="core_conflict_sing_box_quic_without_tls">sing-box 的 QUIC 传输必须开启 TLS</string>
     <string name="core_conflict_sing_box_quic_utls">sing-box 不能在 QUIC 传输上使用 uTLS 指纹，每次连接都会失败</string>
     <string name="core_conflict_sing_box_quic_reality">sing-box 不能在 QUIC 传输上使用 REALITY，每次连接都会失败</string>
@@ -486,6 +489,7 @@
     <string name="core_conflict_xray_ws_early_data_path">不填标头名时，sing-box 把前置数据拼在 WebSocket 路径里，Xray 却放进 Sec-WebSocket-Protocol 标头；请把标头名设为 Sec-WebSocket-Protocol</string>
     <string name="core_conflict_xray_ws_early_data_header">Xray 只在 Sec-WebSocket-Protocol 标头里发送前置数据</string>
     <string name="core_conflict_transport_unknown">本应用不支持这个传输协议</string>
+    <string name="core_conflict_xhttp_parameters_lost">XHTTP 参数已丢失，请重新导入节点或更新订阅</string>
     <string name="core_conflict_mux_type_unknown">不认识的 Mux 协议</string>
     <string name="core_conflict_packet_encoding_unknown">不认识的包编码</string>
     <string name="core_conflict_core_value_unknown">不认识的核心</string>

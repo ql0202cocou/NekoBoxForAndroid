@@ -68,6 +68,19 @@ val CAPABILITY_TABLE: Map<Requirement, Map<DialCore, CapabilityCell>> = linkedMa
     ),
     Requirement.TRANSPORT_GRPC to row(supported(SB, "lite 实现，路径固定为 /<service_name>/Tun"), supported(XR), NA),
     Requirement.TRANSPORT_HTTPUPGRADE to row(supported(SB), supported(XR), NA),
+    // K2：Xray 的 xhttp（旧名 splithttp）；vendored sing-box 没有这个传输（libcore/sing-box 的 option/v2ray_transport.go 与
+    // transport/v2ray 都没有 xhttp / splithttp）。host / path / mode / extra 在 StandardV2RayBean；与 Vision、Mux.Cool 的冲突见组合规则
+    Requirement.TRANSPORT_XHTTP to row(
+        unsupported(SB, CoreConflict.SING_BOX_TRANSPORT_XHTTP),
+        supported(XR, "xhttpSettings（host / path / mode / extra）；REALITY 可用"),
+        NA,
+    ),
+    // 参数已丢失的残缺节点：不拿它匹配核心，两个核心都报同一条与核心无关的冲突（要求重新导入）
+    Requirement.TRANSPORT_XHTTP_LOST to row(
+        unsupported(SB, CoreConflict.XHTTP_PARAMETERS_LOST),
+        unsupported(XR, CoreConflict.XHTTP_PARAMETERS_LOST),
+        NA,
+    ),
     Requirement.TRANSPORT_UNKNOWN to row(
         unsupported(SB, CoreConflict.TRANSPORT_UNKNOWN), unsupported(XR, CoreConflict.TRANSPORT_UNKNOWN), NA,
     ),
@@ -77,8 +90,8 @@ val CAPABILITY_TABLE: Map<Requirement, Map<DialCore, CapabilityCell>> = linkedMa
     Requirement.SECURITY_REALITY to row(
         // I2b §2.3、§2.4：没有 mldsa65；固定自报 1.8.1、去掉 X25519MLKEM768
         supported(SB, "固定自报客户端版本 1.8.1，去掉 X25519MLKEM768；不能配 ECH"),
-        // I1 §3.1：只限 tcp / grpc（xhttp 本应用尚不支持）
-        supported(XR, "只能配 tcp / grpc"),
+        // I1 §3.1：只限 tcp / grpc / xhttp
+        supported(XR, "只能配 tcp / grpc / xhttp"),
         NA,
     ),
     // I1 §3.3、L-X21/23/24；I2b §2.3（sing-box 的 reality 选项没有 mldsa65）
@@ -173,7 +186,8 @@ class CombinationRule(
 )
 
 val COMBINATION_RULES: List<CombinationRule> = listOf(
-    // I1 §3.1（S-X3，T-B5 / T-A2 实测）：REALITY only supports RAW, XHTTP and gRPC。h2、quic 在传输行已报
+    // I1 §3.1（S-X3，T-B5 / T-A2 实测）：REALITY only supports RAW, XHTTP and gRPC。h2、quic 在传输行已报；
+    // xhttp 在允许之列（K2），所以这条只挡 ws / httpupgrade
     CombinationRule(
         DialCore.XRAY, CoreConflict.XRAY_REALITY_TRANSPORT, verifiedAt(DialCore.XRAY),
         "REALITY + ws / httpupgrade",
@@ -202,4 +216,19 @@ val COMBINATION_RULES: List<CombinationRule> = listOf(
         DialCore.SING_BOX, CoreConflict.SING_BOX_QUIC_UTLS, verifiedAt(DialCore.SING_BOX),
         "quic + uTLS 指纹（非 REALITY）",
     ) { it.transport == CoreTransport.QUIC && it.tls == TlsMode.TLS && it.utlsFingerprint != null },
+    // K2：Vision 流控要求出站拿到的是 TLS / REALITY 的直连（proxy/vless/outbound/outbound.go：「XTLS only supports TLS and
+    // REALITY directly for now.」），XHTTP 在 HTTP/2、HTTP/3 的请求流上跑，到不了这个条件，每次连接都失败
+    CombinationRule(
+        DialCore.XRAY, CoreConflict.XRAY_XHTTP_VISION, verifiedAt(DialCore.XRAY),
+        "xhttp + Vision 流控（xtls-rprx-vision、xtls-rprx-vision-udp443）",
+    ) { it.transport == CoreTransport.XHTTP && it.vlessFlow?.startsWith(XHTTP_VISION_FLOW_PREFIX) == true },
+    // K2：XHTTP 自带多路复用（xmux），Xray 的文档与新版服务端不接受 Mux.Cool 与 XHTTP 同开（只接受纯 XUDP）。
+    // 仅用 XUDP 包编码（packetEncoding = 2）不算 Mux.Cool：生成器写的是 xudpConcurrency，TCP 不复用。
+    // Vision 流控下 mux 本来就不生效（CoreRequirements 的 mux 为 null），不会和上一条重复报
+    CombinationRule(
+        DialCore.XRAY, CoreConflict.XRAY_XHTTP_MUX_COOL, verifiedAt(DialCore.XRAY),
+        "xhttp + Mux.Cool",
+    ) { it.transport == CoreTransport.XHTTP && it.mux?.family == MuxFamily.MUX_COOL },
 )
+
+private const val XHTTP_VISION_FLOW_PREFIX = "xtls-rprx-vision"

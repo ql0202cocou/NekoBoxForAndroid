@@ -433,7 +433,7 @@
       }
     },
     "selector-bad-members": {
-      "note": "只有运行模式按选择器构建，成员按 userOrder 逐个预检，主节点 1 不预检。2 TUIC v4（buildInternalOutbound）；3 Trojan 带证书指纹且手动指定 sing-box（K1 起 Trojan 带指纹自动走 Xray，夹具改为手动 sing-box 以保留「预检失败」的意图）：能力表判定手动 sing-box 有冲突 SING_BOX_CERTIFICATE_PIN，requireBuildableHop 按 CoreDecision.Rejected.message 报「the manually chosen core sing-box cannot run this profile: [字段键] 原因」；4 WireGuard reserved 只有两字节；5 强制 sing-box 的 VLESS REALITY 带 mldsa65Verify：同 3，冲突 SING_BOX_MLDSA65_VERIFY，字段键 realityMldsa65Verify；6 type 1 自定义出站 JSON 解析失败（gson 的 EOFException 文本）；7 VMess 的 xhttp 传输，自动选核：能力表对 sing-box 与 Xray 都报 TRANSPORT_UNKNOWN（取值 xhttp），按偏好顺序（不是 REALITY，sing-box 在前）分组成「no core can fully run this profile. sing-box: … Xray: …」，在 requireBuildableHop 拒绝，不再走到 sing-box 生成器的 unsupported transport；8 AnyTLS 证书解析失败（带 certificates 自动选核走 mihomo，预检试组装 mihomo 配置时报，顶层消息不含平台相关的 cause）。都经 withProfileName 包上成员自己的名字，reasonNamesProfile 为 true",
+      "note": "只有运行模式按选择器构建，成员按 userOrder 逐个预检，主节点 1 不预检。2 TUIC v4（buildInternalOutbound）；3 Trojan 带证书指纹且手动指定 sing-box（K1 起 Trojan 带指纹自动走 Xray，夹具改为手动 sing-box 以保留「预检失败」的意图）：能力表判定手动 sing-box 有冲突 SING_BOX_CERTIFICATE_PIN，requireBuildableHop 按 CoreDecision.Rejected.message 报「the manually chosen core sing-box cannot run this profile: [字段键] 原因」；4 WireGuard reserved 只有两字节；5 强制 sing-box 的 VLESS REALITY 带 mldsa65Verify：同 3，冲突 SING_BOX_MLDSA65_VERIFY，字段键 realityMldsa65Verify；6 type 1 自定义出站 JSON 解析失败（gson 的 EOFException 文本）；7 VMess 的 xhttp 传输、path 为空（基线字节是 StandardV2Ray 层 Kryo 7 写的，旧版本只存了 type，读出 path 为空，即「参数已丢失」），自动选核：能力表对 sing-box 与 Xray 都报 XHTTP_PARAMETERS_LOST（与核心无关的取值非法冲突，字段键 type、path），按偏好顺序（不是 REALITY，sing-box 在前）分组成「no core can fully run this profile. sing-box: … Xray: …」，在 requireBuildableHop 拒绝，不再走到生成器。K2 之前这一项是 TRANSPORT_UNKNOWN（xhttp 当时不被认识）；模拟器重采基线时这个夹具要改成真正未知的传输（如 kcp），并另加参数已丢失与正常 xhttp 的场景；8 AnyTLS 证书解析失败（带 certificates 自动选核走 mihomo，预检试组装 mihomo 配置时报，顶层消息不含平台相关的 cause）。都经 withProfileName 包上成员自己的名字，reasonNamesProfile 为 true",
       "run": {
         "diagnostics": [
           {
@@ -475,7 +475,7 @@
             "type": "ProfileSkipped",
             "profileId": 7,
             "profileName": "golden-sel-xhttp",
-            "reason": "golden-sel-xhttp: no core can fully run this profile. sing-box: [type] This app does not support the transport (xhttp). Xray: [type] This app does not support the transport (xhttp)",
+            "reason": "golden-sel-xhttp: no core can fully run this profile. sing-box: [type, path] XHTTP parameters were lost; re-import the node or update the subscription. Xray: [type, path] XHTTP parameters were lost; re-import the node or update the subscription",
             "reasonNamesProfile": true
           },
           {
@@ -492,7 +492,7 @@
           "profile 4 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-wg-bad: WireGuard reserved must contain exactly three bytes (0..255)",
           "profile 5 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-mldsa: the manually chosen core sing-box cannot run this profile: [realityMldsa65Verify] sing-box cannot verify REALITY mldsa65Verify",
           "profile 6 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-custom-broken: java.io.EOFException: End of input at line 1 column 15 path $.",
-          "profile 7 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-xhttp: no core can fully run this profile. sing-box: [type] This app does not support the transport (xhttp). Xray: [type] This app does not support the transport (xhttp)",
+          "profile 7 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-xhttp: no core can fully run this profile. sing-box: [type, path] XHTTP parameters were lost; re-import the node or update the subscription. Xray: [type, path] XHTTP parameters were lost; re-import the node or update the subscription",
           "profile 8 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-anytls-bad-ca: Invalid AnyTLS certificate for mihomo fingerprint pinning"
         ]
       }

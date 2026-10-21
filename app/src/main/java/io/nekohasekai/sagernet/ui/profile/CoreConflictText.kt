@@ -24,6 +24,9 @@ fun coreConflictReason(id: CoreConflict): Int = when (id) {
     CoreConflict.XRAY_TRANSPORT_H2 -> R.string.core_conflict_xray_transport_h2
     CoreConflict.XRAY_TRANSPORT_QUIC -> R.string.core_conflict_xray_transport_quic
     CoreConflict.XRAY_REALITY_TRANSPORT -> R.string.core_conflict_xray_reality_transport
+    CoreConflict.SING_BOX_TRANSPORT_XHTTP -> R.string.core_conflict_sing_box_transport_xhttp
+    CoreConflict.XRAY_XHTTP_VISION -> R.string.core_conflict_xray_xhttp_vision
+    CoreConflict.XRAY_XHTTP_MUX_COOL -> R.string.core_conflict_xray_xhttp_mux_cool
     CoreConflict.SING_BOX_QUIC_WITHOUT_TLS -> R.string.core_conflict_sing_box_quic_without_tls
     CoreConflict.SING_BOX_QUIC_UTLS -> R.string.core_conflict_sing_box_quic_utls
     CoreConflict.SING_BOX_QUIC_REALITY -> R.string.core_conflict_sing_box_quic_reality
@@ -45,6 +48,7 @@ fun coreConflictReason(id: CoreConflict): Int = when (id) {
     CoreConflict.XRAY_WS_EARLY_DATA_PATH -> R.string.core_conflict_xray_ws_early_data_path
     CoreConflict.XRAY_WS_EARLY_DATA_HEADER -> R.string.core_conflict_xray_ws_early_data_header
     CoreConflict.TRANSPORT_UNKNOWN -> R.string.core_conflict_transport_unknown
+    CoreConflict.XHTTP_PARAMETERS_LOST -> R.string.core_conflict_xhttp_parameters_lost
     CoreConflict.MUX_TYPE_UNKNOWN -> R.string.core_conflict_mux_type_unknown
     CoreConflict.PACKET_ENCODING_UNKNOWN -> R.string.core_conflict_packet_encoding_unknown
     CoreConflict.CORE_VALUE_UNKNOWN -> R.string.core_conflict_core_value_unknown

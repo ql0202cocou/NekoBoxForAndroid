@@ -386,10 +386,102 @@ class CoreSelectionTest {
 
     @Test
     fun `未知传输两个核心都不行`() {
-        val bean = vless().apply { type = "xhttp" }
+        val bean = vless().apply { type = "kcp" }
         val rejected = assertRejected(decideCore(coreRequirements(TYPE_VMESS, bean, false), CORE_AUTO), TRANSPORT_UNKNOWN)
         assertEquals(listOf(SING_BOX, XRAY), rejected.conflicts.map { it.core })
-        assertEquals("xhttp", rejected.conflicts.first().value)
+        assertEquals("kcp", rejected.conflicts.first().value)
+    }
+
+    // ---- XHTTP：只有 Xray 能跑
+
+    private fun StandardV2RayBean.xhttp() {
+        type = "xhttp"
+        path = "/xh"
+    }
+
+    @Test
+    fun `xhttp 自动选核落到 Xray，手动 sing-box 被拒`() {
+        assertSelected(XRAY, decide(vless { xhttp() }))
+        assertSelected(XRAY, decide(vmess { xhttp() }))
+        assertSelected(XRAY, decide(trojan { xhttp() }))
+        assertSelected(XRAY, decide(vless { xhttp() }, CORE_XRAY))
+        // 旧名 splithttp 在 initializeDefaultValues 里归一，没归一的也按 xhttp 判
+        assertSelected(XRAY, decide(vless { xhttp(); type = "splithttp" }))
+        for (node in listOf(vless { xhttp() }, vmess { xhttp() }, trojan { xhttp() })) {
+            val rejected = assertRejected(decide(node, CORE_SING_BOX), CoreConflict.SING_BOX_TRANSPORT_XHTTP)
+            assertEquals(setOf(ProfileField.TRANSPORT), rejected.fields)
+            assertEquals(true, rejected.manual)
+        }
+        // mihomo 不承载这三个协议
+        assertRejected(decide(vless { xhttp() }, CORE_MIHOMO), MIHOMO_V2RAY_PROTOCOL)
+    }
+
+    @Test
+    fun `xhttp 配 REALITY 在 Xray 上可用，ws 与 httpupgrade 仍不行`() {
+        assertSelected(XRAY, decide(vless { reality(); xhttp() }))
+        assertSelected(XRAY, decide(vless { reality(); xhttp() }, CORE_XRAY))
+        assertRejected(decide(vless { reality(); type = "ws" }, CORE_XRAY), XRAY_REALITY_TRANSPORT)
+        // REALITY 对 xhttp 的要求不会因为 sing-box 一侧的冲突被带偏
+        assertRejected(decide(vless { reality(); xhttp() }, CORE_SING_BOX), CoreConflict.SING_BOX_TRANSPORT_XHTTP)
+    }
+
+    @Test
+    fun `xhttp 配 Vision 流控 Xray 也不行`() {
+        for (flow in listOf("xtls-rprx-vision", "xtls-rprx-vision-udp443")) {
+            val node = vless { xhttp(); encryption = flow }
+            val rejected = assertRejected(decide(node, CORE_XRAY), CoreConflict.XRAY_XHTTP_VISION)
+            assertEquals(setOf(ProfileField.TRANSPORT, ProfileField.ENCRYPTION), rejected.fields)
+            // 自动选核两个核心都不行（sing-box 另外不认 -udp443 这个 flow）
+            val auto = decide(node)
+            assertEquals(listOf(SING_BOX, XRAY), (auto as CoreDecision.Rejected).byCore().keys.toList())
+            val expected = if (flow.endsWith("-udp443")) {
+                arrayOf(CoreConflict.SING_BOX_TRANSPORT_XHTTP, SING_BOX_VLESS_FLOW, CoreConflict.XRAY_XHTTP_VISION)
+            } else {
+                arrayOf(CoreConflict.SING_BOX_TRANSPORT_XHTTP, CoreConflict.XRAY_XHTTP_VISION)
+            }
+            assertRejected(auto, *expected)
+        }
+        // 没有流控、或 VMess / Trojan 都不涉及
+        assertSelected(XRAY, decide(vless { xhttp(); encryption = "" }, CORE_XRAY))
+        assertSelected(XRAY, decide(vmess { xhttp() }, CORE_XRAY))
+        // Vision 流控下 mux 本来不生效，只报流控这一条
+        assertRejected(decide(vless { xhttp(); encryption = "xtls-rprx-vision"; mux(MUX_COOL) }, CORE_XRAY), CoreConflict.XRAY_XHTTP_VISION)
+    }
+
+    @Test
+    fun `xhttp 配 Mux Cool 不行，只用 XUDP 包编码可以`() {
+        for (node in listOf(vless { xhttp(); mux(MUX_COOL) }, vmess { xhttp(); mux(MUX_COOL) }, trojan { xhttp(); mux(MUX_COOL) })) {
+            val rejected = assertRejected(decide(node, CORE_XRAY), CoreConflict.XRAY_XHTTP_MUX_COOL)
+            assertEquals(setOf(ProfileField.TRANSPORT, ProfileField.ENABLE_MUX, ProfileField.MUX_TYPE), rejected.fields)
+        }
+        // 没开 mux，或者 muxType 是 Mux.Cool 但开关没开
+        assertSelected(XRAY, decide(vless { xhttp(); muxType = MUX_COOL }, CORE_XRAY))
+        // XUDP 不是 Mux.Cool
+        assertSelected(XRAY, decide(vless { xhttp(); packetEncoding = 2 }, CORE_XRAY))
+        assertSelected(XRAY, decide(vmess { xhttp(); packetEncoding = 2 }))
+        // sing-mux 是另一个冲突（Xray 没有）
+        assertRejected(decide(vless { xhttp(); mux(MUX_SMUX) }, CORE_XRAY), XRAY_SING_MUX)
+    }
+
+    // 旧版本只存了 xhttp 的 type：path 为空即参数已丢失，两个核心都不拿它去跑，报同一条与核心无关的冲突
+    @Test
+    fun `xhttp 参数已丢失的节点要求重新导入`() {
+        for (node in listOf(vless { type = "xhttp" }, vmess { type = "splithttp" }, trojan { type = "xhttp" })) {
+            val auto = assertRejected(decide(node), CoreConflict.XHTTP_PARAMETERS_LOST)
+            assertEquals(listOf(SING_BOX, XRAY), auto.conflicts.map { it.core })
+            assertEquals(setOf(ProfileField.TRANSPORT, ProfileField.PATH), auto.fields)
+            assertRejected(decide(node, CORE_XRAY), CoreConflict.XHTTP_PARAMETERS_LOST)
+            assertRejected(decide(node, CORE_SING_BOX), CoreConflict.XHTTP_PARAMETERS_LOST)
+        }
+        val message = (decide(vless { type = "xhttp" }, CORE_XRAY) as CoreDecision.Rejected).message(CORE_XRAY)
+        assertEquals(
+            "the manually chosen core Xray cannot run this profile: " +
+                "[type, path] XHTTP parameters were lost; re-import the node or update the subscription",
+            message,
+        )
+        // 其它传输方式的空 path 不受影响；xhttp 补上 path 就是正常节点
+        assertSelected(SING_BOX, decide(vless { type = "ws" }))
+        assertSelected(XRAY, decide(vless { type = "xhttp"; path = "/" }))
     }
 
     @Test

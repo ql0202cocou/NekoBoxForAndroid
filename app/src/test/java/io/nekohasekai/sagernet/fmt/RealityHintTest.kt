@@ -38,7 +38,7 @@ class RealityHintTest {
         val hinted = result(RealityOnSingBox(2, "东京", listOf(wsConflict))).withRealityHint(Exception(failed))
         assertEquals(
             "$failed. Hint: $cause; profile \"东京\" cannot run on Xray: " +
-                "[type, realityPubKey] Xray only runs REALITY over TCP or gRPC",
+                "[type, realityPubKey] Xray only runs REALITY over TCP, gRPC or XHTTP",
             hinted.message,
         )
     }
@@ -51,7 +51,7 @@ class RealityHintTest {
         ).withRealityHint(Exception(failed))
         assertEquals(
             "$failed. Hint: $cause; it is not known which of these REALITY profiles on sing-box failed: " +
-                "profile \"东京\" cannot run on Xray: [type, realityPubKey] Xray only runs REALITY over TCP or gRPC; " +
+                "profile \"东京\" cannot run on Xray: [type, realityPubKey] Xray only runs REALITY over TCP, gRPC or XHTTP; " +
                 "[enableMux, muxType] ${CoreConflict.XRAY_SING_MUX.reason} (smux) | " +
                 "profile \"香港\" can run on Xray: $toXray",
             hinted.message,

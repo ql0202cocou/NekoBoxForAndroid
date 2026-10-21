@@ -15,9 +15,12 @@
 - 局部的有意变化：按审查过的差异修改受影响的文件，再在模拟器上重采集、对照一致；不整体替换基线，`manifest.json`
   保持上一次整体采集。逐次的经过见 git 历史。
 - K2（XHTTP）把 StandardV2Ray 层的 Kryo 版本号升到 8，`input.json` 里的 bean 字节仍是 7（模拟器重采之前不改）：
-  `GoldenInputTest` 对字节里版本号低于当前的 bean 不要求逐字节相同，改查「重新写出的字节读回后字段不变」；
-  `xray-vless-unknown-transport` 的报错文本里 `splithttp` 经 `initializeDefaultValues` 归一成 `xhttp`，三个 `result.json`
-  已按此手改。重采集后输入全是当前版本，逐字节检查随之恢复，这两处要再核对一次。
+  `GoldenInputTest` 对字节里版本号低于当前的 bean 不要求逐字节相同，改查「重新写出的字节读回后字段不变」。
+  `sb-vmess-unknown-transport`、`xray-vless-unknown-transport` 与 `selector-bad-members` 的成员 7 用 xhttp / splithttp
+  当「未知传输」夹具：这些字节是 v7 写的，只有 type，读出来 path 为空，K2 起算「参数已丢失」（`XHTTP_PARAMETERS_LOST`，
+  与核心无关的取值非法冲突），报错文本随之手改（三种模式的 `result.json` 与 `golden-jvm/expected-diagnostics.json`），
+  场景描述（`input.json` 的 `description`）仍是旧说法。重采集时要把这三处夹具换成真正未知的传输（如 kcp），
+  并另加「参数已丢失」与正常 xhttp 的场景；重采后输入全是当前版本，逐字节检查随之恢复。
 
 采集入口只编进 debug 包（`app/src/debug/`）。采集入口与实测入口长期保留：
 JVM 黄金测试（见「JVM 黄金测试」一节）不覆盖 Android 一侧的外壳（DataStore 的默认值、Room 读取事务、

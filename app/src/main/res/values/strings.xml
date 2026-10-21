@@ -527,7 +527,10 @@
     <string name="core_conflict_mihomo_v2ray_protocol">This app cannot run VMess, VLESS or Trojan on mihomo</string>
     <string name="core_conflict_xray_transport_h2">Xray removed the HTTP/2 (h2) transport</string>
     <string name="core_conflict_xray_transport_quic">Xray removed the QUIC transport</string>
-    <string name="core_conflict_xray_reality_transport">Xray only runs REALITY over TCP or gRPC</string>
+    <string name="core_conflict_xray_reality_transport">Xray only runs REALITY over TCP, gRPC or XHTTP</string>
+    <string name="core_conflict_sing_box_transport_xhttp">sing-box has no XHTTP transport</string>
+    <string name="core_conflict_xray_xhttp_vision">Xray cannot run the Vision flow over XHTTP</string>
+    <string name="core_conflict_xray_xhttp_mux_cool">Xray cannot combine Mux.Cool with XHTTP; turn mux off (the XUDP packet encoding is fine)</string>
     <string name="core_conflict_sing_box_quic_without_tls">sing-box requires TLS for the QUIC transport</string>
     <string name="core_conflict_sing_box_quic_utls">sing-box cannot use a uTLS fingerprint over QUIC: every connection fails</string>
     <string name="core_conflict_sing_box_quic_reality">sing-box cannot run REALITY over QUIC: every connection fails</string>
@@ -549,6 +552,7 @@
     <string name="core_conflict_xray_ws_early_data_path">Without a header name, early data goes in the WebSocket path on sing-box but in the Sec-WebSocket-Protocol header on Xray; set the header name to Sec-WebSocket-Protocol</string>
     <string name="core_conflict_xray_ws_early_data_header">Xray only sends early data in the Sec-WebSocket-Protocol header</string>
     <string name="core_conflict_transport_unknown">This app does not support the transport</string>
+    <string name="core_conflict_xhttp_parameters_lost">XHTTP parameters were lost; re-import the node or update the subscription</string>
     <string name="core_conflict_mux_type_unknown">Unknown mux protocol</string>
     <string name="core_conflict_packet_encoding_unknown">Unknown packet encoding</string>
     <string name="core_conflict_core_value_unknown">Unknown core</string>

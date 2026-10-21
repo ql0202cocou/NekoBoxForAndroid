@@ -64,7 +64,19 @@ enum class CoreConflict(
     ),
     XRAY_REALITY_TRANSPORT(
         DialCore.XRAY, GapKind.CORE, listOf(ProfileField.TRANSPORT, ProfileField.REALITY_PUBLIC_KEY),
-        "Xray only runs REALITY over TCP or gRPC",
+        "Xray only runs REALITY over TCP, gRPC or XHTTP",
+    ),
+    SING_BOX_TRANSPORT_XHTTP(
+        DialCore.SING_BOX, GapKind.CORE, listOf(ProfileField.TRANSPORT),
+        "sing-box has no XHTTP transport",
+    ),
+    XRAY_XHTTP_VISION(
+        DialCore.XRAY, GapKind.CORE, listOf(ProfileField.TRANSPORT, ProfileField.ENCRYPTION),
+        "Xray cannot run the Vision flow over XHTTP",
+    ),
+    XRAY_XHTTP_MUX_COOL(
+        DialCore.XRAY, GapKind.CORE, listOf(ProfileField.TRANSPORT, ProfileField.ENABLE_MUX, ProfileField.MUX_TYPE),
+        "Xray cannot combine Mux.Cool with XHTTP; turn mux off (the XUDP packet encoding is fine)",
     ),
     SING_BOX_QUIC_WITHOUT_TLS(
         DialCore.SING_BOX, GapKind.CORE, listOf(ProfileField.TRANSPORT, ProfileField.SECURITY),
@@ -162,6 +174,11 @@ enum class CoreConflict(
     TRANSPORT_UNKNOWN(
         null, GapKind.INVALID_VALUE, listOf(ProfileField.TRANSPORT),
         "This app does not support the transport",
+    ),
+    // 旧版本只存了 xhttp 的 type（host / path / mode / extra 从未落库），参数无从还原：不迁移不猜测，要求重新导入
+    XHTTP_PARAMETERS_LOST(
+        null, GapKind.INVALID_VALUE, listOf(ProfileField.TRANSPORT, ProfileField.PATH),
+        "XHTTP parameters were lost; re-import the node or update the subscription",
     ),
     MUX_TYPE_UNKNOWN(
         null, GapKind.INVALID_VALUE, listOf(ProfileField.MUX_TYPE),
