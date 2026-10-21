@@ -325,9 +325,9 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
             }
         }
 
-        // 文本编辑项统一弹 Outlined 对话框，登记过输入规则的（整数、端口、服务器地址、证书指纹等）带行内校验
+        // 登记过输入规则的文本编辑项（整数、端口、服务器地址、证书指纹等）弹带行内校验的对话框，其余照旧用默认对话框
         override fun onDisplayPreferenceDialog(preference: Preference) {
-            if (!showOutlinedDialog(preference)) super.onDisplayPreferenceDialog(preference)
+            if (!showValidatedDialog(preference)) super.onDisplayPreferenceDialog(preference)
         }
 
         open fun onMenuItemSelected(item: MenuItem): Boolean = when (item.itemId) {

@@ -9,7 +9,7 @@ import androidx.test.core.app.ApplicationProvider
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.ui.GroupSettingsActivity
-import io.nekohasekai.sagernet.ui.OutlinedEditTextDialogFragment
+import io.nekohasekai.sagernet.ui.ValidatedEditTextDialogFragment
 import io.nekohasekai.sagernet.uitest.InlineValidationHarness.DIALOG_TAG
 import io.nekohasekai.sagernet.uitest.InlineValidationHarness.clickCancel
 import io.nekohasekai.sagernet.uitest.InlineValidationHarness.clickOk
@@ -17,7 +17,7 @@ import io.nekohasekai.sagernet.uitest.InlineValidationHarness.currentDialog
 import io.nekohasekai.sagernet.uitest.InlineValidationHarness.currentDialogFragment
 import io.nekohasekai.sagernet.uitest.InlineValidationHarness.edit
 import io.nekohasekai.sagernet.uitest.InlineValidationHarness.error
-import io.nekohasekai.sagernet.uitest.InlineValidationHarness.inputLayout
+import io.nekohasekai.sagernet.uitest.InlineValidationHarness.errorView
 import io.nekohasekai.sagernet.uitest.InlineValidationHarness.okEnabled
 import io.nekohasekai.sagernet.uitest.InlineValidationHarness.openDialog
 import io.nekohasekai.sagernet.uitest.InlineValidationHarness.pref
@@ -49,7 +49,7 @@ class InlineValidationTest : UiTestBase() {
     fun portDialogValidatesWhileTyping() {
         val editor = vmessEditor(ui).get()
         val dialog = editor.openDialog(Key.SERVER_PORT)
-        assertTrue("应该是带行内校验的对话框", editor.currentDialogFragment() is OutlinedEditTextDialogFragment)
+        assertTrue("应该是带行内校验的对话框", editor.currentDialogFragment() is ValidatedEditTextDialogFragment)
         // 夹具里的端口 443 合法
         assertEquals("443", dialog.edit().text.toString())
         assertNull(dialog.error())
@@ -141,7 +141,7 @@ class InlineValidationTest : UiTestBase() {
         UiSettle.settle()
         val editor = controller.get()
         val dialog = editor.currentDialog()
-        assertTrue("重建后应仍是带行内校验的对话框", editor.currentDialogFragment() is OutlinedEditTextDialogFragment)
+        assertTrue("重建后应仍是带行内校验的对话框", editor.currentDialogFragment() is ValidatedEditTextDialogFragment)
         // 输入的文本随对话框恢复，错误与按钮状态按它重新判定
         assertEquals("70000", dialog.edit().text.toString())
         assertEquals(portError, dialog.error())
@@ -156,15 +156,13 @@ class InlineValidationTest : UiTestBase() {
     }
 
     @Test
-    fun preferenceWithoutRuleGetsOutlinedDialogWithoutErrorRow() {
+    fun preferenceWithoutRuleKeepsDefaultDialog() {
         val editor = vmessEditor(ui).get()
-        // 用户名没有输入规则：同样是 Outlined 对话框（页面里的文本对话框外观一致），但没有校验
+        // 用户名没有输入规则：与 1.8.4 一样是 androidx 的默认对话框，没有错误行，「确定」始终可用
         val dialog = editor.openDialog("username")
-        assertTrue(editor.currentDialogFragment() is OutlinedEditTextDialogFragment)
-        val layout = dialog.inputLayout()!!
-        assertFalse("没规则的项不留错误行", layout.isErrorEnabled)
+        assertEquals(EditTextPreferenceDialogFragmentCompat::class.java, editor.currentDialogFragment().javaClass)
+        assertNull("默认对话框没有错误行", dialog.errorView())
         dialog.type("anything goes")
-        assertNull(dialog.error())
         assertTrue(dialog.okEnabled())
         dialog.type("")
         assertTrue("没规则：空值也不禁用确定", dialog.okEnabled())
@@ -176,7 +174,7 @@ class InlineValidationTest : UiTestBase() {
         val intent = Intent(ApplicationProvider.getApplicationContext(), ShadowsocksSettingsActivity::class.java)
             .putExtra(ProfileSettingsActivity.EXTRA_PROFILE_ID, fixtures.profiles[1].id)
         val editor = ui.launch(ShadowsocksSettingsActivity::class.java, intent).get()
-        // 密码项自带 dialogLayout（layout_password_dialog）：交回基类，不被换成 Outlined 对话框
+        // 密码项自带 dialogLayout（layout_password_dialog）：交回基类，不被换成带行内校验的对话框
         editor.openDialog("password")
         assertEquals(EditTextPreferenceDialogFragmentCompat::class.java, editor.currentDialogFragment().javaClass)
     }
@@ -211,7 +209,7 @@ class InlineValidationTest : UiTestBase() {
     fun settingsPageMixedPortValidatesInline() {
         val settings = settingsEditor(ui, 5)
         val dialog = settings.openDialog(Key.MIXED_PORT)
-        assertTrue(settings.parentFragmentManager.findFragmentByTag(DIALOG_TAG) is OutlinedEditTextDialogFragment)
+        assertTrue(settings.parentFragmentManager.findFragmentByTag(DIALOG_TAG) is ValidatedEditTextDialogFragment)
         val message = string(R.string.integer_range_error, 1025, 65535)
         dialog.type("80")
         assertEquals(message, dialog.error())
@@ -222,12 +220,15 @@ class InlineValidationTest : UiTestBase() {
     }
 
     @Test
-    fun settingsPageOtherTextDialogsAreOutlinedToo() {
+    fun settingsPageOtherTextDialogsKeepDefaultDialog() {
         val settings = settingsEditor(ui, 4)
-        // Remote DNS：没有规则，Outlined 外观、没有错误行
+        // Remote DNS：没有规则，默认对话框、没有错误行
         val dialog = settings.openDialog(Key.REMOTE_DNS)
-        assertTrue(settings.parentFragmentManager.findFragmentByTag(DIALOG_TAG) is OutlinedEditTextDialogFragment)
-        assertFalse(dialog.inputLayout()!!.isErrorEnabled)
+        assertEquals(
+            EditTextPreferenceDialogFragmentCompat::class.java,
+            settings.parentFragmentManager.findFragmentByTag(DIALOG_TAG)!!.javaClass,
+        )
+        assertNull(dialog.errorView())
         assertTrue(dialog.okEnabled())
     }
 

@@ -2,12 +2,13 @@ package io.nekohasekai.sagernet.uitest
 
 import android.content.DialogInterface
 import android.content.Intent
+import android.view.View
 import android.widget.EditText
+import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.DialogFragment
 import androidx.preference.EditTextPreference
 import androidx.test.core.app.ApplicationProvider
-import com.google.android.material.textfield.TextInputLayout
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
@@ -87,10 +88,11 @@ internal object InlineValidationHarness {
 
     fun AlertDialog.edit(): EditText = findViewById(android.R.id.edit)!!
 
-    /** 行内错误行；对话框不是带 TextInputLayout 的那种（默认对话框）时为 null */
-    fun AlertDialog.inputLayout(): TextInputLayout? = findViewById(R.id.input_layout)
+    /** 行内错误行；对话框不是带行内校验的那种（默认对话框）时为 null */
+    fun AlertDialog.errorView(): TextView? = findViewById(R.id.input_error)
 
-    fun AlertDialog.error(): String? = inputLayout()!!.error?.toString()
+    /** 错误行显示的文字；错误行隐藏（输入合法）时为 null */
+    fun AlertDialog.error(): String? = errorView()!!.takeIf { it.visibility == View.VISIBLE }?.text?.toString()
 
     fun AlertDialog.okEnabled(): Boolean = getButton(DialogInterface.BUTTON_POSITIVE).isEnabled
 

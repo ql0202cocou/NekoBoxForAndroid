@@ -56,9 +56,9 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         true
     }
 
-    // 文本编辑项统一弹 Outlined 对话框，登记过输入规则的（混合端口）带行内校验
+    // 登记过输入规则的文本编辑项（混合端口）弹带行内校验的对话框，其余照旧用默认对话框
     override fun onDisplayPreferenceDialog(preference: Preference) {
-        if (!showOutlinedDialog(preference)) super.onDisplayPreferenceDialog(preference)
+        if (!showValidatedDialog(preference)) super.onDisplayPreferenceDialog(preference)
     }
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {

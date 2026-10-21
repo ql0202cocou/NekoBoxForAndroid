@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 登记了输入规则的 EditTextPreference 用的对话框（ValidatedEditTextDialogFragment）。以 androidx.preference 自带的
+     preference_dialog_edittext 为底：同样的说明文字（@android:id/message）、下划线样式的文本框（@android:id/edit）、
+     同样的边距，允许多行（有的项按行填列表；输入类型由 setOnBindEditTextListener 的修饰覆盖），
+     文本框的标签是对话框标题（LabelFor 在这里是误报），只在文本框下多一行错误文字。
+     错误行默认隐藏，输入不合法时由代码显示（accessibilityLiveRegion 让 TalkBack 在文字变化时朗读） -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layout_marginTop="48dp"
+    android:layout_marginBottom="48dp"
+    android:overScrollMode="ifContentScrolls">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@android:id/message"
+            style="?android:attr/textAppearanceSmall"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="24dp"
+            android:layout_marginEnd="24dp"
+            android:layout_marginBottom="48dp"
+            android:textColor="?android:attr/textColorSecondary" />
+
+        <EditText
+            android:id="@android:id/edit"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
+            android:inputType="textMultiLine"
+            android:minHeight="48dp"
+            tools:ignore="LabelFor" />
+
+        <TextView
+            android:id="@+id/input_error"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="24dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginEnd="24dp"
+            android:accessibilityLiveRegion="polite"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textColor="?attr/colorError"
+            android:visibility="gone" />
+
+    </LinearLayout>
+</ScrollView>

@@ -9,12 +9,12 @@ import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.EditText
+import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.preference.EditTextPreference
 import androidx.preference.EditTextPreferenceDialogFragmentCompat
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
-import com.google.android.material.textfield.TextInputLayout
 import io.nekohasekai.sagernet.R
 import java.util.Collections
 import java.util.WeakHashMap
@@ -54,16 +54,17 @@ private fun EditTextPreference.hasCustomDialogLayout() =
 
 /**
  * 偏好页的 [PreferenceFragmentCompat.onDisplayPreferenceDialog] 调用（编辑器与设置页都用）：
- * 没有自定义 dialogLayout 的 EditTextPreference 一律弹 [OutlinedEditTextDialogFragment]，返回 true，
- * 这样同一个页面里的文本对话框外观一致；登记过输入规则的项在里面带行内校验。
- * 其它偏好项（含自带 dialogLayout 的密码框、测速对话框）返回 false，交给基类。
+ * 登记过输入规则（[InlineValidations]）且没有自定义 dialogLayout 的 EditTextPreference 弹
+ * [ValidatedEditTextDialogFragment]，返回 true。其它偏好项（没有规则的文本项、自带 dialogLayout 的密码框和
+ * 测速对话框）返回 false，交给基类，与 1.8.4 一样用默认的文本对话框。
  */
 @Suppress("DEPRECATION")
-fun PreferenceFragmentCompat.showOutlinedDialog(preference: Preference): Boolean {
+fun PreferenceFragmentCompat.showValidatedDialog(preference: Preference): Boolean {
     if (preference !is EditTextPreference || preference.hasCustomDialogLayout()) return false
+    if (InlineValidations.of(preference) == null) return false
     if (parentFragmentManager.findFragmentByTag(DIALOG_FRAGMENT_TAG) != null) return true
     // 目标 Fragment 是 androidx.preference 对话框找回偏好项的唯一途径（基类同样这么做）
-    OutlinedEditTextDialogFragment.newInstance(preference.key).also {
+    ValidatedEditTextDialogFragment.newInstance(preference.key).also {
         it.setTargetFragment(this, 0)
         it.show(parentFragmentManager, DIALOG_FRAGMENT_TAG)
     }
@@ -71,40 +72,36 @@ fun PreferenceFragmentCompat.showOutlinedDialog(preference: Preference): Boolean
 }
 
 /**
- * EditTextPreference 的 Outlined 文本框对话框。偏好项登记了输入规则（[InlineValidations]）时带行内校验：
- * 输入时实时校验，不合法就在文本框下显示原因（TextInputLayout 的错误行，TalkBack 会朗读）并禁用「确定」，
- * 合法则清除错误、启用「确定」；打开时先判一次，缓存里已经不合法的值立刻显示错误、「确定」不可用，仍可取消。
- * 没有规则的项只是换了外观：没有错误行，「确定」始终可用。
+ * 带行内校验的 EditTextPreference 对话框，外观是默认对话框（下划线文本框）加一行错误文字：
+ * 输入时实时校验，不合法就在文本框下显示原因（TalkBack 会朗读）并禁用「确定」，合法则隐藏错误、启用「确定」；
+ * 打开时先判一次，缓存里已经不合法的值立刻显示错误、「确定」不可用，仍可取消。
  *
  * 系统会用无参构造 + arguments 重建本类，所以规则从偏好项重新查，不放在构造参数或字段里；
  * 输入类型等 `setOnBindEditTextListener` 的修饰由基类的 onBindDialogView 照常套用。
  */
-class OutlinedEditTextDialogFragment : EditTextPreferenceDialogFragmentCompat() {
+class ValidatedEditTextDialogFragment : EditTextPreferenceDialogFragmentCompat() {
 
     companion object {
         // PreferenceDialogFragmentCompat.ARG_KEY 是 protected，这里写字面量
-        fun newInstance(key: String) = OutlinedEditTextDialogFragment().apply {
+        fun newInstance(key: String) = ValidatedEditTextDialogFragment().apply {
             arguments = Bundle(1).apply { putString("key", key) }
         }
     }
 
-    private var inputLayout: TextInputLayout? = null
+    private var errorView: TextView? = null
     private var editText: EditText? = null
     private var validation: InlineValidation? = null
 
     // 对话框内容视图交给 AlertDialog 挂载，没有父容器可传
     @SuppressLint("InflateParams")
     override fun onCreateDialogView(context: Context): View =
-        LayoutInflater.from(context).inflate(R.layout.layout_preference_dialog_input, null)
+        LayoutInflater.from(context).inflate(R.layout.layout_preference_dialog_validated, null)
 
     override fun onBindDialogView(view: View) {
         // 基类绑定 @android:id/edit：初始文本、输入类型等修饰
         super.onBindDialogView(view)
         validation = InlineValidations.of(preference)
-        // 错误行只在有规则时启用，没规则的项下面不留空行
-        inputLayout = view.findViewById<TextInputLayout>(R.id.input_layout).also {
-            it.isErrorEnabled = validation != null
-        }
+        errorView = view.findViewById(R.id.input_error)
         editText = view.findViewById<EditText>(android.R.id.edit).also { edit ->
             edit.addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -124,11 +121,15 @@ class OutlinedEditTextDialogFragment : EditTextPreferenceDialogFragmentCompat() 
         val rule = validation ?: return
         val edit = editText ?: return
         val valid = rule.isValid(edit.text.toString())
-        val layout = inputLayout
-        if (layout != null) {
-            // 状态没变就不重设：每次 setError 都会让 TalkBack 重新朗读
-            val message = if (valid) null else rule.message(edit.context)
-            if (layout.error?.toString() != message) layout.error = message
+        errorView?.let { view ->
+            if (valid) {
+                view.visibility = View.GONE
+            } else {
+                // 状态没变就不重设：每次改文字都会让 TalkBack 重新朗读
+                val message = rule.message(edit.context)
+                if (view.text.toString() != message) view.text = message
+                view.visibility = View.VISIBLE
+            }
         }
         (dialog as? AlertDialog)?.getButton(DialogInterface.BUTTON_POSITIVE)?.isEnabled = valid
     }
