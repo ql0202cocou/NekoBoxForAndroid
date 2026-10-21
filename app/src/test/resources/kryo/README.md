@@ -109,7 +109,7 @@ grpc 边界样本（来源提交都在这 12 个之内）直接用 5.2.1 写出�
 | 层 | 当前 | 有样本的版本（来源提交） | 没有样本的版本及原因 |
 | --- | --- | --- | --- |
 | AbstractBean（extraVersion） | 1 | v1（所有 bean 样本） | v0：早于本仓库历史；读取时不参与分支 |
-| StandardV2RayBean | 7 | v0 布局 A `9d78e4f2`、`a82e5b4f`；v0 布局 B `8e976675`；v0 布局 C `680b362b`；v1 `607afa8c`；v2 `2c3a6164`；v3 布局 a `110f3b21`；v3 布局 b `aa275d5e`；v4 `04da8864`（另有 `bbbdf577` 实体内嵌）；v5 `329572d1`；v6 `dd8f56d3`（含实体内嵌）；v7 HEAD（VMess / Trojan / HTTP / ShadowTLS 各一个全字段与默认值样本，另有 muxType = 3 的 VLESS 与 core = 2、Mux.Cool 的实体内嵌 VMess） | — |
+| StandardV2RayBean | 7 | v0 布局 A `9d78e4f2`、`a82e5b4f`；v0 布局 B `8e976675`；v0 布局 C `680b362b`；v1 `607afa8c`；v2 `2c3a6164`；v3 布局 a `110f3b21`；v3 布局 b `aa275d5e`；v4 `04da8864`（另有 `bbbdf577` 实体内嵌）；v5 `329572d1`；v6 `dd8f56d3`（含实体内嵌）；v7 HEAD（VMess / Trojan / HTTP / ShadowTLS 各一个全字段与默认值样本，另有 muxType = 3 的 VLESS 与 core = 2、Mux.Cool 的实体内嵌 VMess；`9d46aca1` 另有 VLESS / VMess / Trojan 的 xhttp 与 splithttp 各一个，旧实现只写 type，host / path 不落库） | — |
 | TrojanBean | 2 | v2（每个 StandardV2Ray 来源提交、HEAD） | v0、v1：早于本仓库历史（读取分支是 StandardV2Ray 之前的旧布局） |
 | HttpBean | 0 | v0（同上） | — |
 | ShadowTLSBean | 0 | v0（同上） | — |

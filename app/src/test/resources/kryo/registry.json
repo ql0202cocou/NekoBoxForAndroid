@@ -433,6 +433,12 @@
       "versionName": "1.8.0",
       "date": "2026-10-14",
       "note": "HEAD：Shadowsocks v3（加 sUoTVersion）的当前版本样本，由此提交加上升 v3 的改动（与样本同一提交入库）写出"
+    },
+    "9d46aca162a741b3e4382c54926fff7d04c794a3": {
+      "tag": null,
+      "versionName": "1.9.0-a2",
+      "date": "2026-10-21",
+      "note": "HEAD：StandardV2Ray v7 在 K2 升 v8 之前的 xhttp / splithttp 样本（旧实现只写 type，host / path 从未落库）"
     }
   }
 }
