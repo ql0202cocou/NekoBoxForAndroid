@@ -21,12 +21,15 @@ import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
 import io.nekohasekai.sagernet.fmt.tlsFields
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.fmt.tuic.TuicBean
+import io.nekohasekai.sagernet.fmt.v2ray.InvalidXhttpExtraException
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.fmt.v2ray.UnsupportedTransportException
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.clashNetworkTransport
 import io.nekohasekai.sagernet.fmt.v2ray.isTLS
 import io.nekohasekai.sagernet.fmt.v2ray.muxProtocolType
+import io.nekohasekai.sagernet.fmt.v2ray.normalizedXhttpPath
+import io.nekohasekai.sagernet.fmt.v2ray.requireXhttpMode
 import io.nekohasekai.sagernet.fmt.v2ray.setTLS
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import io.nekohasekai.sagernet.fmt.wireguard.isWireGuardLocalAddressList
@@ -170,6 +173,15 @@ private fun clashRejection(type: String, proxy: Map<String, Any?>, bean: Abstrac
     // vmess / vless / http：mihomo 打开了 TLS，导入的节点却是明文
     if (bean is StandardV2RayBean && bean !is TrojanBean && tls != null && !bean.isTLS()) {
         return rejected(ClashNodeFailure.SECURITY_SETTING_NOT_READ, tls.key)
+    }
+    // VLESS 的 xhttp：download-settings（按 mihomo 的读法找键）是上下行分开的独立拨号目标，整个节点拒绝，
+    // 值是空对象也一样（拿不准就拒绝，不悄悄回落到单连接）。network 不是 xhttp 时 mihomo 不读 xhttp-opts，不在此列
+    if (bean is VMessBean && bean.isVLESS && bean.type == "xhttp") {
+        val opts = proxy.mihomoEntry("xhttp-opts")
+        val download = (opts?.value as? Map<*, *>)?.mihomoEntry("download-settings")
+        if (opts != null && download != null && download.value != null) {
+            return rejected(ClashNodeFailure.DOWNLOAD_SETTINGS_NOT_SUPPORTED, opts.key, download.key)
+        }
     }
 
     // 证书固定（TLS 打开时；vmess / vless / http 的 TLS 关着时它不起作用）：值不是 SHA-256 摘要（解析器会丢掉），
@@ -493,6 +505,7 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>): StandardV2RayBean {
 
             "network" -> network = opt.value?.toString()
 
+            // xhttp-opts 不在这里暂存：它按 mihomo 的读法单独读（applyClashXhttpOpts）
             "ws-opts", "h2-opts", "http-opts", "grpc-opts" -> transportOpts[opt.key] = opt.value
 
             "smux" -> (opt.value as? Map<String, Any?>)?.also {
@@ -526,12 +539,16 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>): StandardV2RayBean {
             }
         }
     }
-    bean.type = clashV2RayTransport(bean is TrojanBean, network)
+    val clashType = proxy["type"] as String
+    bean.type = clashV2RayTransport(clashType, network)
     checkClashTransportTls(bean.type, network, bean.isTLS())
-    val optsKey = optsKeyOf(if (bean is TrojanBean) "trojan" else "", network)
-    // mihomo 只读当前 network 的 *-opts（含 ws-opts 的升级标记，它只在 network 为 ws 时出现）
-    // 仍放在 clashKey 里：读 opts 时的意外异常按带键路径的 INVALID_VALUE 报，不变成 OTHER
-    if (optsKey != null && clashKey(optsKey, transportOpts[optsKey]) {
+    val optsKey = optsKeyOf(clashType, network)
+    if (bean.type == "xhttp") {
+        // 同样放在 clashKey 里：读 opts 时的意外异常按带键路径的 INVALID_VALUE 报
+        clashKey("xhttp-opts", proxy["xhttp-opts"]) { bean.applyClashXhttpOpts(proxy) }
+    } else if (optsKey != null && clashKey(optsKey, transportOpts[optsKey]) {
+            // mihomo 只读当前 network 的 *-opts（含 ws-opts 的升级标记，它只在 network 为 ws 时出现）
+            // 仍放在 clashKey 里：读 opts 时的意外异常按带键路径的 INVALID_VALUE 报，不变成 OTHER
             bean.applyClashTransportOpts(optsKey, transportOpts[optsKey])
         }
     ) bean.type = "httpupgrade"
@@ -539,12 +556,50 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>): StandardV2RayBean {
 }
 
 // network -> bean.type。Trojan（mihomo 的 trojan.go）只认 ws 与 grpc，其它值（包括 h2、http、xhttp、kcp）都当作 TCP 跑；
-// VMess / VLESS 不认识的 network 抛异常，按已知类型的坏节点记日志并跳过（忽略它的话 type 停在默认的 tcp，之后再也看不出来）
-private fun clashV2RayTransport(trojan: Boolean, network: String?): String =
-    if (trojan) when (network) {
+// VLESS 另认 xhttp（vless.go 的 xhttp-opts），VMess 的 xhttp 与 VMess / VLESS 不认识的 network 一样抛异常，
+// 按已知类型的坏节点记日志并跳过（忽略它的话 type 停在默认的 tcp，之后再也看不出来）
+private fun clashV2RayTransport(clashType: String, network: String?): String = when {
+    clashType == "trojan" -> when (network) {
         "ws", "grpc" -> network
         else -> "tcp"
-    } else clashNetworkTransport(network)
+    }
+
+    clashType == "vless" && network == "xhttp" -> "xhttp"
+    else -> clashNetworkTransport(network)
+}
+
+// VLESS xhttp-opts -> host / path / mode（mihomo v1.19.32 adapter/outbound/vless.go 的 XHTTPOptions）。
+// 键按 mihomo 的读法找（不区分大小写、_ 当作 -），解析器与 mihomo 不会各读各的；
+// 取值规则：host 空即不写（mihomo 取 servername，再取 server，与应用的默认一致）、path 空是 "/"、mode 空是 auto。
+// 其余键（headers、x-padding-*、session-*、reuse-settings 等）不翻译成 extra，由字段记录报为有损。
+// mode 不认识、取值不是标量时整个节点被拒（INVALID_VALUE）；download-settings 在 clashRejection 里拒绝
+private fun StandardV2RayBean.applyClashXhttpOpts(proxy: Map<String, Any?>) {
+    path = normalizedXhttpPath(null)
+    val entry = proxy.mihomoEntry("xhttp-opts") ?: return
+    val optsKey = entry.key
+    val opts = entry.value
+    if (opts.isFalseOrEmpty()) return
+    // 不是 map：mihomo 解码失败
+    if (opts !is Map<*, *>) throw ClashNodeRejected(ClashNodeFailure.INVALID_VALUE, listOf(optsKey))
+    fun scalar(name: String): Pair<Any?, String>? {
+        val item = opts.mihomoEntry(name) ?: return null
+        val value = item.value ?: return null
+        if (value is Map<*, *> || value is List<*>) {
+            throw ClashNodeRejected(ClashNodeFailure.INVALID_VALUE, listOf(optsKey, item.key))
+        }
+        return item.key to value.toString()
+    }
+    host = scalar("host")?.second.orEmpty()
+    path = normalizedXhttpPath(scalar("path")?.second)
+    scalar("mode")?.let { (key, text) ->
+        // 值只在路径是 xhttp-opts.mode 时按枚举规则显示
+        xhttpMode = try {
+            requireXhttpMode(text)
+        } catch (e: InvalidXhttpExtraException) {
+            throw ClashNodeRejected(ClashNodeFailure.INVALID_VALUE, listOf(optsKey, key), text)
+        }
+    }
+}
 
 // mihomo 的 h2 是 HTTP/2 传输（带 TLS 时在 TLS 上，不带 TLS 是明文 h2c），http 是 TCP 上的 HTTP/1.1 伪装头（带 TLS 时在
 // TLS 里）。本应用的 http 传输带 TLS 时是 h2、不带 TLS 时是 HTTP/1.1 伪装头，所以只有 h2 + TLS 与 http + 明文
@@ -917,8 +972,9 @@ private fun parseClashWireGuard(proxy: Map<String, Any?>): WireGuardBean {
 private fun StandardV2RayBean.applyClashFixups() {
     // 1. SNI; h2-opts/http-opts hosts arrive newline-joined and the
     // SNI can only carry one of them
+    // xhttp 的 host 只是 Host 头：mihomo 的 SNI 取 servername 再取 server，不取 host，这里同样不补
     val firstHost = host.substringBefore("\n")
-    if (isTLS() && sni.isNullOrBlank() && firstHost.isNotBlank() && !firstHost.isIpAddress()) {
+    if (type != "xhttp" && isTLS() && sni.isNullOrBlank() && firstHost.isNotBlank() && !firstHost.isIpAddress()) {
         sni = firstHost
     }
     // 2. REALITY 必须有 uTLS 指纹，没写时用 chrome（mihomo 对这样的节点报 REALITY is based on uTLS，本应用给默认值让它可用）

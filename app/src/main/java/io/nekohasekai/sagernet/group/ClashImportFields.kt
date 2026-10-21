@@ -323,6 +323,10 @@ private val HTTP_TRANSPORT_KEYS = setOf(
     "h2-opts", "h2-opts.host", "h2-opts.path",
 )
 
+// VLESS 的 xhttp-opts（vless.go 的 XHTTPOptions）。path / host / mode 之外的键本应用都不导入，也不翻译成 extra：
+// 子键一律通配，没列到的键拿不准算有损（NOT_READ），不会被当成「mihomo 不认识」。download-settings 整个节点被拒，到不了记录
+private val XHTTP_KEYS = setOf("xhttp-opts", "xhttp-opts.*")
+
 // 只在 TLS 打开时起作用的键（mihomo 与本应用都是），TLS 关着时它们没有影响
 private val TLS_ONLY_KEYS = setOf(
     "sni", "servername", "alpn", "client-fingerprint", "ech-opts",
@@ -351,8 +355,8 @@ private val VMESS_KEYS = BASIC_KEYS + CERT_KEYS + ECH_KEYS + TLS_VARIANT_KEYS + 
 private val VLESS_KEYS = BASIC_KEYS + CERT_KEYS + ECH_KEYS + TLS_VARIANT_KEYS + REALITY_KEYS + TRANSPORT_KEYS +
         HTTP_TRANSPORT_KEYS + setOf(
     "uuid", "flow", "tls", "alpn", "udp", "packet-addr", "xudp", "packet-encoding", "encryption", "network",
-    "xhttp-opts", "servername", "client-fingerprint",
-)
+    "servername", "client-fingerprint",
+) + XHTTP_KEYS
 private val TROJAN_KEYS = BASIC_KEYS + CERT_KEYS + ECH_KEYS + TLS_VARIANT_KEYS + REALITY_KEYS + TRANSPORT_KEYS +
         setOf("password", "alpn", "sni", "udp", "network", "ss-opts", "client-fingerprint")
 private val ANYTLS_KEYS = BASIC_KEYS + CERT_KEYS + ECH_KEYS + TLS_VARIANT_KEYS + setOf(
@@ -633,6 +637,7 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
             keptIfFinal(bean.path, "grpc-opts", "grpc-service-name")
             open("grpc-opts")
         }
+        "xhttp-opts" -> xhttpOpts(bean)
     }
     sniAndTransport(trojan, bean, network, activeOpts, tlsOn, sniKey)
 
@@ -680,7 +685,7 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
     val transportOpts = setOf("ws-opts", "h2-opts", "http-opts", "grpc-opts", "xhttp-opts", "mkcp-opts", "mekya-opts")
     return table to { path ->
         when {
-            // 其它 network 的 *-opts：mihomo 不读（xhttp / mkcp / mekya 的 network 整个节点被拒）
+            // 其它 network 的 *-opts：mihomo 不读（mkcp / mekya 的 network 整个节点被拒；VLESS 的 xhttp 是当前 network 时它是生效的）
             path[0] in transportOpts && path[0] != mihomoActiveOpts -> INACTIVE
             path.size == 2 && path[0] == "ws-opts" && path[1] == "v2ray-http-upgrade-fast-open" &&
                     !mihomoFlag("ws-opts", "v2ray-http-upgrade") -> INACTIVE
@@ -698,6 +703,8 @@ private fun ClashFields.network(type: String, network: String?): String? {
     if (network == null) return null
     when {
         network == "" || network == "tcp" || network == "ws" || network == "grpc" -> kept("network")
+        // 只有 VLESS 认 xhttp（VMess 的已在解析时被拒）
+        network == "xhttp" && type == "vless" -> kept("network")
         // mihomo 的 trojan.go 只认 ws / grpc，其它值（h2、http、xhttp、kcp 等）一律当作 TCP 跑，解析器同样按 TCP 导入；
         // 值在这里不被认识，记「未知值，用了默认」
         type == "trojan" -> ignored(UNKNOWN_VALUE, "network")
@@ -715,9 +722,37 @@ private fun ClashFields.network(type: String, network: String?): String? {
 internal fun optsKeyOf(type: String, network: String?): String? = when (network) {
     "ws" -> "ws-opts"
     "grpc" -> "grpc-opts"
+    "xhttp" -> if (type == "vless") "xhttp-opts" else null
     "h2" -> if (type == "trojan") null else "h2-opts"
     "http" -> if (type == "trojan") null else "http-opts"
     else -> null
+}
+
+// xhttp-opts：host / path / mode 导入（键按 mihomo 的读法找，与 applyClashXhttpOpts 一致），其它子键走未读分类（通配，有损）。
+// 空值与解析器写进 bean 的默认值等价（path 空即 "/"，host 与 mode 空即不设），不记有损
+private fun ClashFields.xhttpOpts(bean: StandardV2RayBean) {
+    val entry = proxy.mihomoEntry("xhttp-opts") ?: return
+    val opts = entry.value as? Map<*, *> ?: return
+    val base = listOf(entry.key as? String ?: return)
+    openAt(base)
+    for (name in listOf("host", "path", "mode")) {
+        val item = opts.mihomoEntry(name) ?: continue
+        val key = item.key as? String ?: continue
+        val text = item.value?.toString() ?: continue
+        val at = base + key
+        when (name) {
+            "path" -> if (text.isBlank()) recordAt(at, ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
+            else if (text == bean.path) recordAt(at, ClashFieldResult.KEPT, null)
+            else recordAt(at, ClashFieldResult.IGNORED, OVERRIDDEN)
+
+            "host" -> if (text == bean.host) recordAt(at, ClashFieldResult.KEPT, null)
+            else recordAt(at, ClashFieldResult.IGNORED, OVERRIDDEN)
+
+            // 大小写与空白不同的写法规范成小写，值等价
+            else -> if (text == bean.xhttpMode) recordAt(at, ClashFieldResult.KEPT, null)
+            else recordAt(at, ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
+        }
+    }
 }
 
 // 解析器从一个 *-opts 对象写进 bean 的值：子键的原始路径，写的是 host（否则是 path），写入的值
@@ -774,7 +809,8 @@ private fun ClashFields.sniAndTransport(
 ) {
     val active = activeOpts?.let { optsWrites(it) }.orEmpty()
     val firstHost = bean.host.orEmpty().substringBefore("\n")
-    val hostSni = tlsOn && bean.sni.isNullOrBlank() && firstHost.isNotBlank() && !firstHost.isIpAddress()
+    // xhttp 的 host 只是 Host 头，不当作 SNI（applyClashFixups 同样跳过），与 mihomo 一致
+    val hostSni = tlsOn && bean.sni.isNullOrBlank() && bean.type != "xhttp" && firstHost.isNotBlank() && !firstHost.isIpAddress()
     val oursSni = bean.sni.blankAsNull() ?: (if (hostSni) firstHost else bean.serverAddress)
     val mihomoSni = text(sniKey).blankAsNull()
         ?: (if (!trojan && network == "ws") active.lastOrNull { it.host }?.value.blankAsNull() else null)

@@ -83,7 +83,8 @@ class XhttpParametersLostException :
     UnsupportedTransportException("xhttp", "xhttp parameters were lost; re-import the node or update the subscription")
 
 // Clash（mihomo）节点的 network 字段只认 mihomo 的写法：不写或 tcp 是 TCP，
-// h2 / http 都落到 http，ws / grpc 原样；其余（xhttp 等）拒绝。
+// h2 / http 都落到 http，ws / grpc 原样；其余拒绝。xhttp 在这里也是拒绝：mihomo 只有 VLESS 认 xhttp，
+// 由 VLESS 的调用方（RawUpdaterClash 的 clashV2RayTransport）先行处理，VMess 走到这里就被拒；Trojan 不经这里（其它值按 TCP）。
 // httpupgrade 在 Clash 里写作 ws-opts 的 v2ray-http-upgrade，不经这里
 private val CLASH_NETWORKS = setOf("tcp", "http", "h2", "ws", "grpc")
 

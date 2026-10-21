@@ -13,7 +13,7 @@ const val CLASH_KEY_NOT_SHOWN = "(key not shown)"
 val CLASH_ENUM_PATHS = setOf(
     "type", "network", "cipher", "plugin", "plugin-opts.mode", "packet-encoding", "protocol",
     "smux.protocol", "flow", "client-fingerprint", "udp-relay-mode", "congestion-controller",
-    "ip-version", "alpn",
+    "ip-version", "alpn", "xhttp-opts.mode",
 )
 
 // 只对某些 type 可以显示值的键，且只显示列出的取值，其它值一律是占位串：hysteria2（hy2）的 obfs 是混淆类型名，
@@ -124,6 +124,8 @@ enum class ClashNodeFailure(val text: String) {
     CERT_PIN_NOT_SUPPORTED("certificate pinning is not supported"),
     OBFS_NOT_SUPPORTED("obfs type is not supported"),
     MISSING_OBFS_PASSWORD("missing obfs password"),
+    // VLESS xhttp-opts 的 download-settings 是独立的拨号目标（另一个服务器、端口与 TLS），本应用的链式映射管不到
+    DOWNLOAD_SETTINGS_NOT_SUPPORTED("xhttp download-settings is not supported"),
 
     // 兜底：detail 是异常类名
     OTHER("parse error"),
