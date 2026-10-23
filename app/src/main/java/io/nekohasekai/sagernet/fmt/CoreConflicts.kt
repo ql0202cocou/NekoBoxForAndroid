@@ -78,6 +78,14 @@ enum class CoreConflict(
         DialCore.XRAY, GapKind.CORE, listOf(ProfileField.TRANSPORT, ProfileField.ENABLE_MUX, ProfileField.MUX_TYPE),
         "Xray cannot combine Mux.Cool with XHTTP; turn mux off (the XUDP packet encoding is fine)",
     ),
+    XRAY_VISION_TRANSPORT(
+        DialCore.XRAY, GapKind.CORE, listOf(ProfileField.TRANSPORT, ProfileField.SECURITY, ProfileField.ENCRYPTION),
+        "Xray runs the Vision flow only over TCP with TLS or REALITY",
+    ),
+    SING_BOX_VISION_TRANSPORT(
+        DialCore.SING_BOX, GapKind.CORE, listOf(ProfileField.TRANSPORT, ProfileField.SECURITY, ProfileField.ENCRYPTION),
+        "sing-box runs the Vision flow only over TCP or HTTPUpgrade with TLS or REALITY",
+    ),
     SING_BOX_QUIC_WITHOUT_TLS(
         DialCore.SING_BOX, GapKind.CORE, listOf(ProfileField.TRANSPORT, ProfileField.SECURITY),
         "sing-box requires TLS for the QUIC transport",

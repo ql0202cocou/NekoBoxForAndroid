@@ -27,6 +27,8 @@ fun coreConflictReason(id: CoreConflict): Int = when (id) {
     CoreConflict.SING_BOX_TRANSPORT_XHTTP -> R.string.core_conflict_sing_box_transport_xhttp
     CoreConflict.XRAY_XHTTP_VISION -> R.string.core_conflict_xray_xhttp_vision
     CoreConflict.XRAY_XHTTP_MUX_COOL -> R.string.core_conflict_xray_xhttp_mux_cool
+    CoreConflict.XRAY_VISION_TRANSPORT -> R.string.core_conflict_xray_vision_transport
+    CoreConflict.SING_BOX_VISION_TRANSPORT -> R.string.core_conflict_sing_box_vision_transport
     CoreConflict.SING_BOX_QUIC_WITHOUT_TLS -> R.string.core_conflict_sing_box_quic_without_tls
     CoreConflict.SING_BOX_QUIC_UTLS -> R.string.core_conflict_sing_box_quic_utls
     CoreConflict.SING_BOX_QUIC_REALITY -> R.string.core_conflict_sing_box_quic_reality

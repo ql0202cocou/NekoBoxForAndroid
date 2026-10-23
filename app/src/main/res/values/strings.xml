@@ -540,6 +540,8 @@
     <string name="core_conflict_sing_box_transport_xhttp">sing-box has no XHTTP transport</string>
     <string name="core_conflict_xray_xhttp_vision">Xray cannot run the Vision flow over XHTTP</string>
     <string name="core_conflict_xray_xhttp_mux_cool">Xray cannot combine Mux.Cool with XHTTP; turn mux off (the XUDP packet encoding is fine)</string>
+    <string name="core_conflict_xray_vision_transport">Xray runs the Vision flow only over TCP with TLS or REALITY</string>
+    <string name="core_conflict_sing_box_vision_transport">sing-box runs the Vision flow only over TCP or HTTPUpgrade with TLS or REALITY</string>
     <string name="core_conflict_sing_box_quic_without_tls">sing-box requires TLS for the QUIC transport</string>
     <string name="core_conflict_sing_box_quic_utls">sing-box cannot use a uTLS fingerprint over QUIC: every connection fails</string>
     <string name="core_conflict_sing_box_quic_reality">sing-box cannot run REALITY over QUIC: every connection fails</string>

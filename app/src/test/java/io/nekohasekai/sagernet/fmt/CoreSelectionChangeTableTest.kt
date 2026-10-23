@@ -99,13 +99,19 @@ class CoreSelectionChangeTableTest {
             flow?.let { if (!SING_BOX_VLESS_FLOWS.accepts(it)) return true }
             if (reality && standard!!.enableECH == true) return true
             if (transport == "quic" && (!tlsOn || reality || utls != null)) return true
+            // Vision 只在 RAW / httpupgrade + TLS / REALITY 上能初始化（http 带 TLS 是 h2、不带是伪 HTTP 头，都不行）
+            if (flow == StandardV2RayBean.FLOW_VISION && (!tlsOn || transport !in setOf("tcp", "httpupgrade"))) return true
             return false
         }
 
-    // Xray 启动前的配置校验（run -test）会拒绝的取值
+    // Xray 启动前的配置校验（run -test）会拒绝、或每次连接都失败的取值
     private val Sample.xrayCannotRun: Boolean
         get() {
             if (reality && transport in setOf("ws", "httpupgrade")) return true
+            // Vision 只在 RAW + TLS / REALITY 上能跑（run -test 不拒绝）；h2 / quic 另有传输本身的冲突
+            if (flow?.startsWith(StandardV2RayBean.FLOW_VISION) == true && transport != "quic" && !(transport == "http" && tlsOn) &&
+                (transport != "tcp" || !tlsOn)
+            ) return true
             utls?.let {
                 if (!XRAY_UTLS_FINGERPRINTS.accepts(it)) return true
                 if (reality && XRAY_REALITY_FORBIDDEN_FINGERPRINTS.accepts(it)) return true
@@ -147,7 +153,8 @@ class CoreSelectionChangeTableTest {
             "sing-box 本来就跑不起来的取值",
             "冻结规则走 sing-box，且节点带 sing-box 加载期报错或每次拨号都失败的取值：sing-box 不认的 uTLS 指纹" +
                 "（例如 randomizednoalpn、hellochrome_131、大写的 Chrome、mihomo 专有的 chrome120 / none）、sing-box 不认的" +
-                " VLESS flow（xtls-rprx-vision-udp443 等）、REALITY + ECH、quic 不带 TLS、quic + uTLS 指纹或 REALITY",
+                " VLESS flow（xtls-rprx-vision-udp443 等）、REALITY + ECH、quic 不带 TLS、quic + uTLS 指纹或 REALITY、" +
+                "Vision 流控配 RAW / httpupgrade 以外的传输或不带 TLS",
             "sing-box（冻结规则的结果；sing-box 加载配置时报错或拨号失败，实际跑不起来）",
             "自动选核且 Xray 能完整承载时改走 Xray；否则（手动 sing-box，或 Xray 也承载不了）启动前拒绝，报出冲突字段",
             "原来的启动失败或连不上，变成可用（走 Xray）或启动前的明确报错",
@@ -155,9 +162,10 @@ class CoreSelectionChangeTableTest {
         ) { it.carriedBy == Carrier.SING_BOX && it.singBoxCannotRun },
         Row(
             "Xray 本来就跑不起来的取值",
-            "冻结规则走 Xray，且节点带 Xray run -test 会拒绝的取值：REALITY + ws / httpupgrade、Xray 不认的 uTLS 指纹" +
-                "（chrome120、chrome_psk、none 等）、REALITY + unsafe、Xray 不认的 VLESS flow",
-            "Xray（冻结规则的结果；启动前的核心校验拒绝，实际跑不起来）",
+            "冻结规则走 Xray，且节点带 Xray run -test 会拒绝、或每次连接都失败的取值：REALITY + ws / httpupgrade、Xray 不认的 uTLS 指纹" +
+                "（chrome120、chrome_psk、none 等）、REALITY + unsafe、Xray 不认的 VLESS flow、Vision 流控配 ws / grpc / httpupgrade / " +
+                "http 伪装或不带 TLS",
+            "Xray（冻结规则的结果；启动前的核心校验拒绝或每次连接都失败，实际跑不起来）",
             "自动选核且 sing-box 能完整承载时改走 sing-box；否则启动前拒绝，报出冲突字段",
             "原来的启动失败变成可用（走 sing-box）或更早、更具体的报错",
             setOf(Result.XRAY), setOf(Result.SING_BOX, Result.REJECTED),

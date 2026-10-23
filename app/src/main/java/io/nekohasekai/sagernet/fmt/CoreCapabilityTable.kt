@@ -221,7 +221,7 @@ val COMBINATION_RULES: List<CombinationRule> = listOf(
     CombinationRule(
         DialCore.XRAY, CoreConflict.XRAY_XHTTP_VISION, verifiedAt(DialCore.XRAY),
         "xhttp + Vision 流控（xtls-rprx-vision、xtls-rprx-vision-udp443）",
-    ) { it.transport == CoreTransport.XHTTP && it.vlessFlow?.startsWith(XHTTP_VISION_FLOW_PREFIX) == true },
+    ) { it.transport == CoreTransport.XHTTP && it.vlessFlow?.startsWith(VISION_FLOW) == true },
     // K2：XHTTP 自带多路复用（xmux），Xray 的文档与新版服务端不接受 Mux.Cool 与 XHTTP 同开（只接受纯 XUDP）。
     // 仅用 XUDP 包编码（packetEncoding = 2）不算 Mux.Cool：生成器写的是 xudpConcurrency，TCP 不复用。
     // Vision 流控下 mux 本来就不生效（CoreRequirements 的 mux 为 null），不会和上一条重复报
@@ -229,6 +229,34 @@ val COMBINATION_RULES: List<CombinationRule> = listOf(
         DialCore.XRAY, CoreConflict.XRAY_XHTTP_MUX_COOL, verifiedAt(DialCore.XRAY),
         "xhttp + Mux.Cool",
     ) { it.transport == CoreTransport.XHTTP && it.mux?.family == MuxFamily.MUX_COOL },
+    // Vision 流控的其余传输（v26.10.21 回环实测，维护者本地 doc/agent/k1b-wip/probe-plan/xray/vision/ 的 VT-*）：客户端出站要求底层
+    // 直接是 TLS / REALITY（同上「XTLS only supports TLS and REALITY directly for now.」），ws、grpc（含 REALITY）、httpupgrade、
+    // tcp 的 http 头伪装（带 TLS 也不行）与不带 TLS 的 tcp 每次连接都失败，run -test 都不报错。xhttp、h2、quic、未知传输各有
+    // 自己的冲突，这里不重复报。UDP 由客户端发出、Xray 服务端拒收（服务端入站同样的检查），不单列
+    CombinationRule(
+        DialCore.XRAY, CoreConflict.XRAY_VISION_TRANSPORT, verifiedAt(DialCore.XRAY),
+        "Vision 流控 + RAW 以外的传输（ws / grpc / httpupgrade / http 头伪装）或不带 TLS",
+    ) {
+        it.vlessFlow?.startsWith(VISION_FLOW) == true && it.transport !in VISION_OWN_TRANSPORT_CONFLICTS &&
+            it.transport != CoreTransport.H2 && it.transport != CoreTransport.QUIC &&
+            (it.transport != CoreTransport.TCP || it.tls == TlsMode.NONE)
+    },
+    // sing-vmess 的 NewVisionConn 只认 TLS 连接本身（「vision: not a valid supported TLS connection: <类型>」），有传输层时拿到的是
+    // 传输层的连接：ws、grpc（含 REALITY）、h2、quic、http 头伪装与不带 TLS 的 tcp 在 Vision 初始化时就失败，TCP 与 XUDP 的 UDP
+    // 都一样（同上 VT-*，h2 / quic / http 头伪装对的是 sing-box 服务端，去掉 flow 即通）。httpupgrade 升级后就是 TLS 连接本身，
+    // 客户端能用，对 sing-box 服务端实测能通，只有 Xray 服务端拒收（服务端的事，不算 sing-box 的缺口）。xtls-rprx-vision-udp443
+    // 本来就是 SING_BOX_VLESS_FLOW，这里只看 xtls-rprx-vision
+    CombinationRule(
+        DialCore.SING_BOX, CoreConflict.SING_BOX_VISION_TRANSPORT, verifiedAt(DialCore.SING_BOX),
+        "Vision 流控 + RAW / httpupgrade 以外的传输或不带 TLS",
+    ) {
+        it.vlessFlow == VISION_FLOW && it.transport !in VISION_OWN_TRANSPORT_CONFLICTS &&
+            (it.tls == TlsMode.NONE || it.transport !in setOf(CoreTransport.TCP, CoreTransport.HTTPUPGRADE))
+    },
 )
 
-private const val XHTTP_VISION_FLOW_PREFIX = "xtls-rprx-vision"
+// Vision 流控；Xray 还认带 -udp443 后缀的变体，按前缀匹配
+private const val VISION_FLOW = "xtls-rprx-vision"
+
+// 这些传输各有自己的冲突（XRAY_XHTTP_VISION / SING_BOX_TRANSPORT_XHTTP、XHTTP_PARAMETERS_LOST、TRANSPORT_UNKNOWN），Vision 的两条不再重复报
+private val VISION_OWN_TRANSPORT_CONFLICTS = setOf(CoreTransport.XHTTP, CoreTransport.XHTTP_LOST, CoreTransport.UNKNOWN)

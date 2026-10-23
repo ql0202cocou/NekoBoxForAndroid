@@ -448,6 +448,62 @@ class CoreSelectionTest {
         assertRejected(decide(vless { xhttp(); encryption = "xtls-rprx-vision"; mux(MUX_COOL) }, CORE_XRAY), CoreConflict.XRAY_XHTTP_VISION)
     }
 
+    // ---- Vision 流控只在 RAW（sing-box 另有 httpupgrade）+ TLS / REALITY 上能跑（回环实测见 CoreCapabilityTable 的组合规则）
+
+    private fun vision(block: StandardV2RayBean.() -> Unit) = vless { encryption = StandardV2RayBean.FLOW_VISION; block() }
+
+    @Test
+    fun `Vision 配 ws 或 grpc 两个核心都不行`() {
+        for (node in listOf(vision { type = "ws" }, vision { type = "grpc" }, vision { reality(); type = "grpc" })) {
+            val auto = decide(node)
+            assertEquals(setOf(SING_BOX, XRAY), (auto as CoreDecision.Rejected).byCore().keys)
+            assertRejected(auto, CoreConflict.SING_BOX_VISION_TRANSPORT, CoreConflict.XRAY_VISION_TRANSPORT)
+            val rejected = assertRejected(decide(node, CORE_XRAY), CoreConflict.XRAY_VISION_TRANSPORT)
+            assertEquals(setOf(ProfileField.TRANSPORT, ProfileField.SECURITY, ProfileField.ENCRYPTION), rejected.fields)
+            assertRejected(decide(node, CORE_SING_BOX), CoreConflict.SING_BOX_VISION_TRANSPORT)
+        }
+    }
+
+    @Test
+    fun `Vision 不带 TLS 两个核心都不行`() {
+        val node = vision { security = "none" }
+        assertRejected(decide(node), CoreConflict.SING_BOX_VISION_TRANSPORT, CoreConflict.XRAY_VISION_TRANSPORT)
+        // http 不带 TLS 是 tcp 的伪 HTTP 头
+        assertRejected(decide(vision { security = "none"; type = "http" }), CoreConflict.SING_BOX_VISION_TRANSPORT, CoreConflict.XRAY_VISION_TRANSPORT)
+    }
+
+    @Test
+    fun `Vision 配 httpupgrade 只有 sing-box 能跑`() {
+        assertSelected(SING_BOX, decide(vision { type = "httpupgrade" }))
+        assertSelected(SING_BOX, decide(vision { type = "httpupgrade" }, CORE_SING_BOX))
+        assertRejected(decide(vision { type = "httpupgrade" }, CORE_XRAY), CoreConflict.XRAY_VISION_TRANSPORT)
+        // 不带 TLS 时 sing-box 也不行
+        assertRejected(decide(vision { type = "httpupgrade"; security = "none" }), CoreConflict.SING_BOX_VISION_TRANSPORT, CoreConflict.XRAY_VISION_TRANSPORT)
+    }
+
+    @Test
+    fun `Vision 配 h2 或 quic 时 sing-box 也不行，Xray 只报传输本身`() {
+        assertRejected(decide(vision { type = "http" }), CoreConflict.SING_BOX_VISION_TRANSPORT, XRAY_TRANSPORT_H2)
+        assertRejected(decide(vision { type = "quic" }), CoreConflict.SING_BOX_VISION_TRANSPORT, XRAY_TRANSPORT_QUIC)
+    }
+
+    @Test
+    fun `Vision 在 RAW 加 TLS 或 REALITY 上照旧`() {
+        assertSelected(SING_BOX, decide(vision { }))
+        assertSelected(XRAY, decide(vision { reality() }))
+        assertSelected(XRAY, decide(vision { }, CORE_XRAY))
+        // -udp443 只有 Xray 认；配 ws 时 sing-box 报 flow，Xray 报传输
+        assertSelected(XRAY, decide(vless { encryption = "xtls-rprx-vision-udp443" }))
+        assertRejected(
+            decide(vless { encryption = "xtls-rprx-vision-udp443"; type = "ws" }),
+            SING_BOX_VLESS_FLOW, CoreConflict.XRAY_VISION_TRANSPORT,
+        )
+        // 没有流控时 ws / grpc / 不带 TLS 都不受影响
+        assertSelected(SING_BOX, decide(vless { type = "ws" }))
+        assertSelected(SING_BOX, decide(vless { security = "none" }))
+        assertSelected(XRAY, decide(vless { reality(); type = "grpc" }))
+    }
+
     @Test
     fun `xhttp 配 Mux Cool 不行，只用 XUDP 包编码可以`() {
         for (node in listOf(vless { xhttp(); mux(MUX_COOL) }, vmess { xhttp(); mux(MUX_COOL) }, trojan { xhttp(); mux(MUX_COOL) })) {

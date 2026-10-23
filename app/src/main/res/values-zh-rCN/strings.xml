@@ -477,6 +477,8 @@
     <string name="core_conflict_sing_box_transport_xhttp">sing-box 没有 XHTTP 传输</string>
     <string name="core_conflict_xray_xhttp_vision">Xray 不能在 XHTTP 传输上使用 Vision 流控</string>
     <string name="core_conflict_xray_xhttp_mux_cool">Xray 不能在 XHTTP 传输上使用 Mux.Cool，请关闭多路复用（XUDP 包编码不受影响）</string>
+    <string name="core_conflict_xray_vision_transport">Xray 只能在 TCP 传输加 TLS 或 REALITY 上使用 Vision 流控</string>
+    <string name="core_conflict_sing_box_vision_transport">sing-box 只能在 TCP 或 HTTPUpgrade 传输加 TLS 或 REALITY 上使用 Vision 流控</string>
     <string name="core_conflict_sing_box_quic_without_tls">sing-box 的 QUIC 传输必须开启 TLS</string>
     <string name="core_conflict_sing_box_quic_utls">sing-box 不能在 QUIC 传输上使用 uTLS 指纹，每次连接都会失败</string>
     <string name="core_conflict_sing_box_quic_reality">sing-box 不能在 QUIC 传输上使用 REALITY，每次连接都会失败</string>
