@@ -9,7 +9,7 @@ set -eo pipefail
 source buildScript/init/verify_sha256.sh
 
 XRAY_VERSION="v26.10.21"
-MIHOMO_VERSION="v1.19.32"
+MIHOMO_VERSION="v1.19.33"
 
 # sha256 of the extracted binaries (exactly what ships in the APK), frozen when
 # the versions above were bumped — recompute and update them together. Guards
@@ -17,8 +17,8 @@ MIHOMO_VERSION="v1.19.32"
 # checksums at all, and Xray's .dgst sits next to the asset it describes.
 XRAY_SHA256_arm64_v8a=c50408346deb5e38dbacb31e37aa09c64b7dd6eaf3c050c8cbac47e816464143
 XRAY_SHA256_x86_64=1e265a36411e2066d43c6f182068b63f46849ae2261fdcab912103e5458a7ce2
-MIHOMO_SHA256_arm64_v8a=bb9afbd48717f92d59e07da35fb694b83d40d6edb63eb9033c2ee4174137d195
-MIHOMO_SHA256_x86_64=1c5aa8e8a7006e4093560fe48505fd1587de29210879e806822cb1094b334413
+MIHOMO_SHA256_arm64_v8a=cfa0be78846bfef7272fe5a73089f8cf0e1f15a6ffb601f5cc809f457f712f67
+MIHOMO_SHA256_x86_64=fd1fb2773a0b723dbdc7d5f7e81aec8358b43d2674f689edc8f87d453e8687c7
 
 ABIS="arm64-v8a x86_64"
 DIR=app/executableSo

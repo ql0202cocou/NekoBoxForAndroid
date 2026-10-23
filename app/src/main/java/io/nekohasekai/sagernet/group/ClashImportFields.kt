@@ -41,7 +41,7 @@ import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 
 // Clash 节点的字段记录（K3a）：解析完成后，拿输入的 map 与解析出的 bean 对照，给输入里每个非空键
 // （含解析器读到的嵌套对象的子键）一个结果。只读不写：不改 bean，不影响导入结果。
-// 键表来自 mihomo v1.19.32 的 adapter/outbound/*.go（proxy:"…" 标签，BasicOption 是各类型共有的键，
+// 键表来自 mihomo v1.19.32 的 adapter/outbound/*.go（v1.19.33 未变；proxy:"…" 标签，BasicOption 是各类型共有的键，
 // smux 由 adapter/parser.go 统一处理）；mihomo 解码时键名大小写不敏感、_ 当作 -，查表前同样归一化。
 // 有记录的键按记录；没记录的键：随节点而定的无影响（inactive）→ 无影响名单 → 空值 / false →
 // 键表里有的记「未导入」（有损），键表里没有的记「mihomo 不认识」（无影响）

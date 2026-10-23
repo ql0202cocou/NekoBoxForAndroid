@@ -45,7 +45,7 @@ val XRAY_UTLS_FINGERPRINTS = CoreNames(
     ignoreCase = true,
 )
 
-// mihomo v1.19.32 的 client-fingerprint（component/tls/utls.go 的 GetFingerprint 与 fingerprints），区分大小写。
+// mihomo v1.19.32 的 client-fingerprint（component/tls/utls.go 的 GetFingerprint 与 fingerprints，v1.19.33 未变），区分大小写。
 // none 表示 Go 标准 TLS；名单外 -t 不报错，运行时只打 warning 并改用 Go 标准 TLS。
 // mihomo 认识的名字共 19 个，这里只收能完成握手的 15 个，其余 4 个见 MIHOMO_UTLS_FINGERPRINTS_BROKEN
 val MIHOMO_UTLS_FINGERPRINTS = CoreNames(
@@ -57,7 +57,7 @@ val MIHOMO_UTLS_FINGERPRINTS = CoreNames(
     ignoreCase = false,
 )
 
-// mihomo 认识、-t 也不报错，但握手跑不通的名字（v1.19.31 与 v1.19.32 相同，K1b M1 L2-MF-* 回环实测）。维护者 2026-10-06
+// mihomo 认识、-t 也不报错，但握手跑不通的名字（v1.19.31、v1.19.32 与 v1.19.33 相同，K1b M1 L2-MF-* 与 N12 回环实测）。维护者 2026-10-06
 // 定（K1b 待决定项 D）：从名单剔除，作为冲突 MIHOMO_UTLS_HANDSHAKE_FAILS。
 // - chrome_psk、chrome_pq_psk、chrome_padding_psk_shuffle：每次拨号都报 tls: empty psk detected。uTLS 在没有可恢复的
 //   会话时对带 PSK 扩展的模板直接报这个错，mihomo 没设 OmitEmptyPsk（M1 S2-U2）；

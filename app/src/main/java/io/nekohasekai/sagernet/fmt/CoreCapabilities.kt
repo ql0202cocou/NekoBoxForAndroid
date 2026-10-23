@@ -20,7 +20,10 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //   未变；run -test 144 条、回环 80 条与 XHTTP 的 129 条与 v26.10.17 一致，新补的 Vision 回环 6 条（TLS / REALITY，内层明文与
 //   TLS 1.3 直拷，UDP 经 XUDP）新旧二进制都通；结论见维护者本地 doc/agent/core-wip/reports/N11-xray.md）；
 // - mihomo：I1（v1.19.31 源码 S-M*、-t 实测 T-M*、回环 L-MA*）；M1（v1.19.32 复核：源码 S2-M*、-t 实测 T2-*、回环
-//   L2-*）；
+//   L2-*）；N12（v1.19.33 复核，2026-10-24：对比 v1.19.32 的 diff 不碰第 16–21 条——AnyTLS、component/tls / ca / ech、listener
+//   逐字节相同，metacubex/tls v0.1.9 只改服务端 ECH，utls 不变——-t 116 份（K1 的 24 份、dialer-proxy 成环、golden 的 91 份）、
+//   AnyTLS 回环 10 条、client-fingerprint 名单 19 个逐个拨号、socks listener 握手与 UDP 与 v1.19.32 一致；结论见维护者本地
+//   doc/agent/core-wip/reports/N12-mihomo.md）；
 // - sing-box：I2b（vendored libcore/sing-box，1.14.2 + 1.14.2-neko-1）；现为 1.14.3-neko-3，此后的补丁（SOCKS5 出站的
 //   UDP ASSOCIATE 握手、WireGuard 启动报错去掉密钥、WireGuard 选 bind 与 ClientBind 退避）与 1.14.3 的上游改动都不涉及
 //   本表各项；sing-vmess 随 1.14.3 升级，引用路径未变；
@@ -116,7 +119,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 enum class DialCore(val value: Int, val displayName: String, val version: String) {
     SING_BOX(CORE_SING_BOX, "sing-box", "1.14.3"),
     XRAY(CORE_XRAY, "Xray", "v26.10.21"),
-    MIHOMO(CORE_MIHOMO, "mihomo", "v1.19.32");
+    MIHOMO(CORE_MIHOMO, "mihomo", "v1.19.33");
 
     companion object {
         fun of(value: Int): DialCore? = entries.firstOrNull { it.value == value }
