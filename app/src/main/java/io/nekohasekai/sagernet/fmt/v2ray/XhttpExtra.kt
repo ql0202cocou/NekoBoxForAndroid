@@ -14,7 +14,7 @@ import java.util.Locale
 // XHTTP 的 extra 与 mode 校验。纯函数：不读 DataStore、不碰 Android，导入、编辑器保存与生成器共用。
 //
 // extra 来自远端订阅或分享链接，里面的内容会原样进入 Xray 的 xhttpSettings，所以不能照单全收：
-// 按 Xray v26.10.17 SplitHTTPConfig（infra/conf/transport_method.go）的客户端键做白名单，
+// 按 Xray v26.10.17 SplitHTTPConfig（infra/conf/transport_method.go，v26.10.21 未变）的客户端键做白名单，
 // 解析后用规范键名与校验过类型的值重建一个新对象，输入里没通过白名单的任何内容都到不了生成器。
 //  - 键名按 ASCII 大小写不敏感匹配（Go 的 encoding/json 大小写不敏感，还会把 Unicode 里的「近似字符」折叠成 ASCII，
 //    如 U+212A 开尔文符号等于 k），所以含非 ASCII 的键一律当未知键拒绝；同一个键的两种大小写写法同时出现算重复；
@@ -116,7 +116,7 @@ private val XMUX_FIELDS = listOf(
     Field("hKeepAlivePeriod", Kind.INT, max = 3600, min = -1),
 )
 
-// 顺序即输出顺序。键名对照 Xray v26.10.17 SplitHTTPConfig 的 json 标签（host / path / mode / downloadSettings / extra 不在其中）
+// 顺序即输出顺序。键名对照 Xray v26.10.17 SplitHTTPConfig（v26.10.21 未变）的 json 标签（host / path / mode / downloadSettings / extra 不在其中）
 private val EXTRA_FIELDS = listOf(
     Field("headers", Kind.HEADERS),
     Field("xPaddingBytes", Kind.RANGE, max = 65_536),

@@ -91,7 +91,7 @@ class ExternalCoreCheck(
     }
 }
 
-// Xray v26.9.30 的 run -test（v26.10.10、v26.10.17 实测格式相同，K1c N9 / N10）：配置有错时退出码 23，标准输出里一行
+// Xray v26.9.30 的 run -test（v26.10.10、v26.10.17、v26.10.21 实测格式相同，K1c N9 / N10 / N11）：配置有错时退出码 23，标准输出里一行
 // 「Failed to start: main: failed to load config files: [<文件>] > infra/conf: failed to build outbound config
 // with tag out-2 > infra/conf: …」，各层用 " > " 连接、每层前面是 Go 包路径；tag 重复时是
 // 「Failed to start: main: failed to create server > app/proxyman/outbound: existing tag found: out-1」
@@ -109,7 +109,7 @@ private val XRAY_INVALID_UUID = Regex("""\binvalid UUID:.*$""")
 private val XRAY_INVALID_HEX_BYTE = Regex("""\bencoding/hex: invalid byte:.*$""")
 
 // REALITY 的 shortId 是凭据：infra/conf 构建 REALITY 客户端配置时，过长报「too long "shortId": <值>」、
-// 含非十六进制字符报「invalid "shortId": <值>」，都把用户填的值原样带出（v26.9.30、v26.10.10 与 v26.10.17 实测相同）。
+// 含非十六进制字符报「invalid "shortId": <值>」，都把用户填的值原样带出（v26.9.30、v26.10.10、v26.10.17 与 v26.10.21 实测相同）。
 // 同样保留前缀、遮到行尾；publicKey / mldsa65Verify / spiderX 在客户端语义里是服务端公钥、公开校验密钥和路径，不遮
 private val XRAY_INVALID_SHORT_ID = Regex("""\binvalid "shortId":.*$""")
 private val XRAY_TOO_LONG_SHORT_ID = Regex("""\btoo long "shortId":.*$""")

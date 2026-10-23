@@ -15,6 +15,10 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //   diff 只碰第 3 / 10 / 12 条——REALITY 模块随 Go 1.27 同步、ML-DSA-65 改用标准库，Vision 读 TLS 缓冲改为反射，run 读
 //   配置文件时检查扩展名——服务端对 ClientHello 的要求与 min/maxClientVer 不变，其余按 diff 未变；run -test 144 条与
 //   回环 80 条与 v26.10.10 一致，Vision 的数据通路没有回环实测；结论见维护者本地 doc/agent/core-wip/reports/N10-xray.md）；
+//   N11（v26.10.21 复核，2026-10-24：对比 v26.10.17 的 diff 只碰第 6 / 10 / 14 条——内置根证书包删掉 eMudhra 的三张 emSign 根、
+//   官方二进制改用 Go 1.27.3 编译（Vision 读 TLS 缓冲的新分支生效）、socks 入站临时 UDP 连接的计时器改为创建时初始化——其余按 diff
+//   未变；run -test 144 条、回环 80 条与 XHTTP 的 129 条与 v26.10.17 一致，新补的 Vision 回环 6 条（TLS / REALITY，内层明文与
+//   TLS 1.3 直拷，UDP 经 XUDP）新旧二进制都通；结论见维护者本地 doc/agent/core-wip/reports/N11-xray.md）；
 // - mihomo：I1（v1.19.31 源码 S-M*、-t 实测 T-M*、回环 L-MA*）；M1（v1.19.32 复核：源码 S2-M*、-t 实测 T2-*、回环
 //   L2-*）；
 // - sing-box：I2b（vendored libcore/sing-box，1.14.2 + 1.14.2-neko-1）；现为 1.14.3-neko-3，此后的补丁（SOCKS5 出站的
@@ -99,7 +103,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //     XHTTP 与 Vision 流控（proxy/vless/outbound 要求 TLS / REALITY 直连）、与 Mux.Cool（新版服务端只接受纯 XUDP）的
 //     冲突是否仍成立；REALITY 是否仍能配 xhttp；单值 ALPN h3 的行为。sing-box 一侧：vendored 版本有了 XHTTP 传输时，
 //     改 TRANSPORT_XHTTP 一行与 SING_BOX_TRANSPORT_XHTTP。
-//     v26.10.17 的回环实测（doc/agent/k1b-wip/probe-plan/xray/xhttp/）：Vision 每次连接都报「XTLS only supports TLS and
+//     v26.10.17 的回环实测（doc/agent/k1b-wip/probe-plan/xray/xhttp/，v26.10.21 重跑相同）：Vision 每次连接都报「XTLS only supports TLS and
 //     REALITY directly for now」；Mux.Cool 的 TCP 子连接被服务端拒（common/mux: unexpected network TCP），XUDP 承载的
 //     UDP 正常；单值 h3 的客户端改拨 UDP（QUIC），经 TCP+UDP 转发入口可用、只转发 TCP 的入口不通 —— 映射入站
 //     （ConfigBuilder.addMappingInbound）没有 network 限制，两者都收，所以 h3 不记冲突；将来若给映射入站加 network 限制，
@@ -111,7 +115,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 // 能替节点拨号的核心。value 与 ProxyEntity.CORE_* 相同；version 是这张表核实时的版本
 enum class DialCore(val value: Int, val displayName: String, val version: String) {
     SING_BOX(CORE_SING_BOX, "sing-box", "1.14.3"),
-    XRAY(CORE_XRAY, "Xray", "v26.10.17"),
+    XRAY(CORE_XRAY, "Xray", "v26.10.21"),
     MIHOMO(CORE_MIHOMO, "mihomo", "v1.19.32");
 
     companion object {
