@@ -1,6 +1,6 @@
 diff -ruN --exclude=.git --exclude=NEKO.md a/box.go b/box.go
---- a/box.go	2026-10-24 13:03:28
-+++ b/box.go	2026-10-24 13:03:29
+--- a/box.go	2026-10-24 13:37:21
++++ b/box.go	2026-10-24 13:37:46
 @@ -151,7 +151,7 @@
  	var needCacheFile bool
  	var needClashAPI bool
@@ -23,7 +23,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/box.go b/box.go
  		router.AppendTracker(trafficManager)
 diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/go_http.go b/boxapi/go_http.go
 --- a/boxapi/go_http.go	1970-01-01 07:30:00
-+++ b/boxapi/go_http.go	2026-10-24 13:03:29
++++ b/boxapi/go_http.go	2026-10-24 13:37:46
 @@ -0,0 +1,30 @@
 +package boxapi
 +
@@ -57,7 +57,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/go_http.go b/boxapi/go_http.
 +}
 diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/go_net.go b/boxapi/go_net.go
 --- a/boxapi/go_net.go	1970-01-01 07:30:00
-+++ b/boxapi/go_net.go	2026-10-24 13:03:29
++++ b/boxapi/go_net.go	2026-10-24 13:37:46
 @@ -0,0 +1,23 @@
 +package boxapi
 +
@@ -84,7 +84,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/go_net.go b/boxapi/go_net.go
 +}
 diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/v2ray_server.go b/boxapi/v2ray_server.go
 --- a/boxapi/v2ray_server.go	1970-01-01 07:30:00
-+++ b/boxapi/v2ray_server.go	2026-10-24 13:03:29
++++ b/boxapi/v2ray_server.go	2026-10-24 13:37:46
 @@ -0,0 +1,41 @@
 +package boxapi
 +
@@ -129,7 +129,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/v2ray_server.go b/boxapi/v2r
 +}
 diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/v2ray_stats_service.go b/boxapi/v2ray_stats_service.go
 --- a/boxapi/v2ray_stats_service.go	1970-01-01 07:30:00
-+++ b/boxapi/v2ray_stats_service.go	2026-10-24 13:03:29
++++ b/boxapi/v2ray_stats_service.go	2026-10-24 13:37:46
 @@ -0,0 +1,205 @@
 +package boxapi
 +
@@ -337,8 +337,8 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/boxapi/v2ray_stats_service.go b/box
 +	return counter
 +}
 diff -ruN --exclude=.git --exclude=NEKO.md a/common/dialer/default.go b/common/dialer/default.go
---- a/common/dialer/default.go	2026-10-24 13:03:28
-+++ b/common/dialer/default.go	2026-10-24 13:03:29
+--- a/common/dialer/default.go	2026-10-24 13:37:21
++++ b/common/dialer/default.go	2026-10-24 13:37:46
 @@ -25,6 +25,8 @@
  	"github.com/database64128/tfo-go/v2"
  )
@@ -404,7 +404,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/common/dialer/default.go b/common/d
  	}
 diff -ruN --exclude=.git --exclude=NEKO.md a/common/dialer/default_neko_test.go b/common/dialer/default_neko_test.go
 --- a/common/dialer/default_neko_test.go	1970-01-01 07:30:00
-+++ b/common/dialer/default_neko_test.go	2026-10-24 13:03:29
++++ b/common/dialer/default_neko_test.go	2026-10-24 13:37:46
 @@ -0,0 +1,109 @@
 +package dialer
 +
@@ -516,16 +516,16 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/common/dialer/default_neko_test.go 
 +	}
 +}
 diff -ruN --exclude=.git --exclude=NEKO.md a/constant/version.go b/constant/version.go
---- a/constant/version.go	2026-10-24 13:03:28
-+++ b/constant/version.go	2026-10-24 13:03:29
+--- a/constant/version.go	2026-10-24 13:37:21
++++ b/constant/version.go	2026-10-24 13:37:46
 @@ -1,3 +1,3 @@
  package constant
  
 -var Version = "unknown"
-+var Version = "1.14.4-neko-1"
++var Version = "1.14.4-neko-2"
 diff -ruN --exclude=.git --exclude=NEKO.md a/dns/router.go b/dns/router.go
---- a/dns/router.go	2026-10-24 13:03:28
-+++ b/dns/router.go	2026-10-24 13:03:29
+--- a/dns/router.go	2026-10-24 13:37:21
++++ b/dns/router.go	2026-10-24 13:37:46
 @@ -492,6 +492,8 @@
  	transport adapter.DNSTransport
  	options   adapter.DNSQueryOptions
@@ -622,7 +622,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/dns/router.go b/dns/router.go
  func addressLimitResponseCheck(rule adapter.DNSRule, metadata *adapter.InboundContext) func(response *mDNS.Msg) bool {
 diff -ruN --exclude=.git --exclude=NEKO.md a/dns/router_fallback_test.go b/dns/router_fallback_test.go
 --- a/dns/router_fallback_test.go	1970-01-01 07:30:00
-+++ b/dns/router_fallback_test.go	2026-10-24 13:03:29
++++ b/dns/router_fallback_test.go	2026-10-24 13:37:46
 @@ -0,0 +1,304 @@
 +package dns
 +
@@ -929,8 +929,8 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/dns/router_fallback_test.go b/dns/r
 +	require.Equal(t, int32(0), final.queryCount.Load())
 +}
 diff -ruN --exclude=.git --exclude=NEKO.md a/go.mod b/go.mod
---- a/go.mod	2026-10-24 13:03:28
-+++ b/go.mod	2026-10-24 13:03:29
+--- a/go.mod	2026-10-24 13:37:21
++++ b/go.mod	2026-10-24 13:37:46
 @@ -1,6 +1,6 @@
  module github.com/sagernet/sing-box
  
@@ -948,19 +948,28 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/go.mod b/go.mod
  	github.com/openai/openai-go/v3 v3.26.0
  	github.com/oschwald/maxminddb-golang v1.13.1
  	github.com/pkg/sftp v1.13.10
-@@ -70,10 +70,10 @@
+@@ -68,14 +68,14 @@
+ 	github.com/vishvananda/netns v0.0.5
+ 	go.uber.org/zap v1.27.1
  	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
- 	golang.org/x/crypto v0.54.0
+-	golang.org/x/crypto v0.54.0
++	golang.org/x/crypto v0.57.0
  	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f
 -	golang.org/x/mod v0.37.0
-+	golang.org/x/mod v0.38.0
- 	golang.org/x/net v0.57.0
- 	golang.org/x/sync v0.22.0
+-	golang.org/x/net v0.57.0
+-	golang.org/x/sync v0.22.0
 -	golang.org/x/sys v0.47.0
+-	golang.org/x/term v0.45.0
+-	golang.org/x/text v0.40.0
++	golang.org/x/mod v0.41.0
++	golang.org/x/net v0.60.0
++	golang.org/x/sync v0.23.0
 +	golang.org/x/sys v0.48.0
- 	golang.org/x/term v0.45.0
- 	golang.org/x/text v0.40.0
++	golang.org/x/term v0.46.0
++	golang.org/x/text v0.42.0
  	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10
+ 	google.golang.org/grpc v1.79.1
+ 	google.golang.org/protobuf v1.36.11
 @@ -190,7 +190,6 @@
  	go4.org/mem v0.0.0-20240501181205-ae6ca9944745 // indirect
  	golang.org/x/oauth2 v0.36.0 // indirect
@@ -970,8 +979,8 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/go.mod b/go.mod
  	golang.zx2c4.com/wireguard/windows v0.5.3 // indirect
  	google.golang.org/genproto/googleapis/rpc v0.0.0-20251202230838-ff82c1b0f217 // indirect
 diff -ruN --exclude=.git --exclude=NEKO.md a/go.sum b/go.sum
---- a/go.sum	2026-10-24 13:03:28
-+++ b/go.sum	2026-10-24 13:03:29
+--- a/go.sum	2026-10-24 13:37:21
++++ b/go.sum	2026-10-24 13:37:46
 @@ -205,8 +205,8 @@
  github.com/metacubex/utls v1.8.7/go.mod h1:kncGGVhFaoGn5M3pFe3SXhZCzsbCJayNOH4UEqTKTko=
  github.com/mholt/acmez/v3 v3.1.6 h1:eGVQNObP0pBN4sxqrXeg7MYqTOWyoiYpQqITVWlrevk=
@@ -983,17 +992,50 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/go.sum b/go.sum
  github.com/mitchellh/go-ps v1.0.0 h1:i6ampVEEF4wQFF+bkYfwYgY+F/uYJDktmvLPf7qIgjc=
  github.com/mitchellh/go-ps v1.0.0/go.mod h1:J4lOc8z8yJs6vUwklHw2XEIiT4z4C40KtWVN3nvg8Pg=
  github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 h1:zYyBkD/k9seD2A7fsi6Oo2LfFZAehjjQMERAvZLEDnQ=
+@@ -442,8 +442,8 @@
+ golang.org/x/crypto v0.19.0/go.mod h1:Iy9bg/ha4yyC70EfRS8jz+B6ybOBKMaSxLj6P6oBDfU=
+ golang.org/x/crypto v0.23.0/go.mod h1:CKFgDieR+mRhux2Lsu27y0fO304Db0wZe70UKqHu0v8=
+ golang.org/x/crypto v0.30.0/go.mod h1:kDsLvtWBEx7MV9tJOj9bnXsPbxwJQ6csT/x4KIN4Ssk=
+-golang.org/x/crypto v0.54.0 h1:YLIA59K4fiNzHzjnZt2tUJQjQtUWfWbeHBqKtk3eScw=
+-golang.org/x/crypto v0.54.0/go.mod h1:KWL8ny2AZdGR2cWmzeHrp2azQPGogOv+HeQaVEXC2dk=
++golang.org/x/crypto v0.57.0 h1:3ZVCjf8Ggz7zneR/EHRVx68Ctf+2pmIMP2UFhh9cC6M=
++golang.org/x/crypto v0.57.0/go.mod h1:Fdz0i5U6CoizGwLda9DttjSk6qlZo25zYNtR+ycvuZA=
+ golang.org/x/exp v0.0.0-20190121172915-509febef88a4/go.mod h1:CJ0aWSM057203Lf6IL+f9T1iT9GByDxfZKAQTCR3kQA=
+ golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f h1:W3F4c+6OLc6H2lb//N1q4WpJkhzJCK5J6kUi1NTVXfM=
+ golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f/go.mod h1:J1xhfL/vlindoeF/aINzNzt2Bket5bjo9sdOYzOsU80=
 @@ -459,8 +459,8 @@
  golang.org/x/mod v0.12.0/go.mod h1:iBbtSCu2XBx23ZKBPSOrRkjjQPZFPuis4dIYUhu/chs=
  golang.org/x/mod v0.15.0/go.mod h1:hTbmBsO62+eylJbnUtE2MGJUyE7QWk4xUqPFrRgJ+7c=
  golang.org/x/mod v0.17.0/go.mod h1:hTbmBsO62+eylJbnUtE2MGJUyE7QWk4xUqPFrRgJ+7c=
 -golang.org/x/mod v0.37.0 h1:vF1DjpVEshcIqoEaauuHebaLk1O1forxjxBaVn884JQ=
 -golang.org/x/mod v0.37.0/go.mod h1:m8S8VeM9r4dzDwjrKO0a1sZP3YjeMamRRlD+fmR2Q/0=
-+golang.org/x/mod v0.38.0 h1:MECBjubtXD7yj4HrhIUcywNaGeNVUdfVnxmPajOk4yk=
-+golang.org/x/mod v0.38.0/go.mod h1:V6Xz0pq8TQ3dGqVQ1FVHuelZpAL0uNhSkk9ogYP3c40=
++golang.org/x/mod v0.41.0 h1:qJmnOUb4YB+FsEuM3HcWucdZASCPGhsX6uljO6pog0c=
++golang.org/x/mod v0.41.0/go.mod h1:Ek9pY8RKWXwsWvd3rQiHYtMqkjSUV+s1Rj7j4H5Ur6o=
  golang.org/x/net v0.0.0-20180724234803-3673e40ba225/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
  golang.org/x/net v0.0.0-20180826012351-8a410e7b638d/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
  golang.org/x/net v0.0.0-20190213061140-3a22650c66bd/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
+@@ -476,8 +476,8 @@
+ golang.org/x/net v0.15.0/go.mod h1:idbUs1IY1+zTqbi8yxTbhexhEEk5ur9LInksu6HrEpk=
+ golang.org/x/net v0.21.0/go.mod h1:bIjVDfnllIU7BJ2DNgfnXvpSvtn8VRwhlsaeUTyUS44=
+ golang.org/x/net v0.25.0/go.mod h1:JkAGAh7GEvH74S6FOH42FLoXpXbE/aqXSrIQjXgsiwM=
+-golang.org/x/net v0.57.0 h1:K5+3DljvIuDG9/Jv9rvyMywYNFCQ9RSUY6OOTTkT+tE=
+-golang.org/x/net v0.57.0/go.mod h1:KpXc8iv+r3XplLAG/f7Jsf9RPszJzdR0f58q9vGOuEU=
++golang.org/x/net v0.60.0 h1:79p50tfZlm0J9YfoDsSi639qSXNGVwEzOPLCxM2FsYU=
++golang.org/x/net v0.60.0/go.mod h1:2DA/G1UfVbCpQPeWTmMPGY7Cs2PkBkwu743bVX5PIVg=
+ golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be/go.mod h1:N/0e6XlmueqKjAGxoOufVs8QHGRruUQn6yWY3a++T0U=
+ golang.org/x/oauth2 v0.36.0 h1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs=
+ golang.org/x/oauth2 v0.36.0/go.mod h1:YDBUJMTkDnJS+A4BP4eZBjCqtokkg1hODuPjwiGPO7Q=
+@@ -491,8 +491,8 @@
+ golang.org/x/sync v0.6.0/go.mod h1:Czt+wKu1gCyEFDUtn0jG5QVvpJ6rzVqr5aXyt9drQfk=
+ golang.org/x/sync v0.7.0/go.mod h1:Czt+wKu1gCyEFDUtn0jG5QVvpJ6rzVqr5aXyt9drQfk=
+ golang.org/x/sync v0.10.0/go.mod h1:Czt+wKu1gCyEFDUtn0jG5QVvpJ6rzVqr5aXyt9drQfk=
+-golang.org/x/sync v0.22.0 h1:SZjpbeLmrCk4xhRSZFNZW5gFUeCeFgjekvI/+gfScek=
+-golang.org/x/sync v0.22.0/go.mod h1:9xrNwdLfx4jkKbNva9FpL6vEN7evnE43NNNJQ2LF3+0=
++golang.org/x/sync v0.23.0 h1:KameEIfc1IkluZyXWLn39Wd4tURc6GbCiISGiZm2bQk=
++golang.org/x/sync v0.23.0/go.mod h1:sUUOizhqBxiL6pEWpqNLUiaJn1ShEbZ6BBqskPbjZm0=
+ golang.org/x/sys v0.0.0-20180830151530-49385e6e1522/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+ golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+ golang.org/x/sys v0.0.0-20190412213103-97732733099d/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 @@ -512,8 +512,8 @@
  golang.org/x/sys v0.17.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
  golang.org/x/sys v0.20.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
@@ -1005,6 +1047,28 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/go.sum b/go.sum
  golang.org/x/telemetry v0.0.0-20240228155512-f48c80bd79b2/go.mod h1:TeRTkGYfJXctD9OcfyVLyj2J3IxLnKwHJR8f4D8a3YE=
  golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
  golang.org/x/term v0.0.0-20210927222741-03fcf44c2211/go.mod h1:jbD1KX2456YbFQfuXm/mYQcufACuNUgVhRMnK/tPxf8=
+@@ -523,8 +523,8 @@
+ golang.org/x/term v0.17.0/go.mod h1:lLRBjIVuehSbZlaOtGMbcMncT+aqLLLmKrsjNrUguwk=
+ golang.org/x/term v0.20.0/go.mod h1:8UkIAJTvZgivsXaD6/pH6U9ecQzZ45awqEOzuCvwpFY=
+ golang.org/x/term v0.27.0/go.mod h1:iMsnZpn0cago0GOrHO2+Y7u7JPn5AylBrcoWkElMTSM=
+-golang.org/x/term v0.45.0 h1:NwWyBmoJCbfTHpxrWoZ9C6/VxOf7ic219I8xZZFdrf0=
+-golang.org/x/term v0.45.0/go.mod h1:9aqxs0blBcrm/n0L9QW0aRVD+ktan8ssZromtqJC43w=
++golang.org/x/term v0.46.0 h1:3+OXuTbaKDgwk8jTi3aSLHRlmWqHEUDUtxnbFigO4YE=
++golang.org/x/term v0.46.0/go.mod h1:+K02xbkittuwc0Am4abfA3Fc+XRGXkvBXNO88NCXPoc=
+ golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
+ golang.org/x/text v0.3.3/go.mod h1:5Zoc/QRtKVWzQhOtBMvqHzDpF6irO9z98xDceosuGiQ=
+ golang.org/x/text v0.3.6/go.mod h1:5Zoc/QRtKVWzQhOtBMvqHzDpF6irO9z98xDceosuGiQ=
+@@ -535,8 +535,8 @@
+ golang.org/x/text v0.14.0/go.mod h1:18ZOQIKpY8NJVqYksKHtTdi31H5itFRjB5/qKTNYzSU=
+ golang.org/x/text v0.15.0/go.mod h1:18ZOQIKpY8NJVqYksKHtTdi31H5itFRjB5/qKTNYzSU=
+ golang.org/x/text v0.21.0/go.mod h1:4IBbMaMmOPCJ8SecivzSH54+73PCFmPWxNTLm+vZkEQ=
+-golang.org/x/text v0.40.0 h1:Ub2Z6/xjgF1WrYQz2nuITOEegKFtiIy+rieRJ5lHZKs=
+-golang.org/x/text v0.40.0/go.mod h1:hpnzDAfGV753zIKo+wk3u1bVKCGPbrnF7+7LBF/UHVY=
++golang.org/x/text v0.42.0 h1:JbOZXgfeCPU9gacVtYliJqOhD+zhrEqK4LfdpmlUZqI=
++golang.org/x/text v0.42.0/go.mod h1:ojzP1Z+2QtioaF8DTtO8K5q7JWVVYwZKenzujK0Zd0E=
+ golang.org/x/time v0.15.0 h1:bbrp8t3bGUeFOx08pvsMYRTCVSMk89u4tKbNOZbp88U=
+ golang.org/x/time v0.15.0/go.mod h1:Y4YMaQmXwGQZoFaVFk4YpCt4FLQMYKZe9oeV/f4MSno=
+ golang.org/x/tools v0.0.0-20180917221912-90fa682c2a6e/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
 @@ -550,8 +550,6 @@
  golang.org/x/tools v0.6.0/go.mod h1:Xwgl3UAJ/d3gWutnCtw505GrjyAbvKui8lOU390QaIU=
  golang.org/x/tools v0.13.0/go.mod h1:HvlwmtVNQAhOuCjW7xxvovg8wbNq7LwfXh/k7wXUl58=
@@ -1016,14 +1080,14 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/go.sum b/go.sum
  golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 diff -ruN --exclude=.git --exclude=NEKO.md a/nekoutils/callback.go b/nekoutils/callback.go
 --- a/nekoutils/callback.go	1970-01-01 07:30:00
-+++ b/nekoutils/callback.go	2026-10-24 13:03:29
++++ b/nekoutils/callback.go	2026-10-24 13:37:46
 @@ -0,0 +1,3 @@
 +package nekoutils
 +
 +var Selector_OnProxySelected func(selectorTag string, tag string)
 diff -ruN --exclude=.git --exclude=NEKO.md a/nekoutils/srs.go b/nekoutils/srs.go
 --- a/nekoutils/srs.go	1970-01-01 07:30:00
-+++ b/nekoutils/srs.go	2026-10-24 13:03:29
++++ b/nekoutils/srs.go	2026-10-24 13:37:46
 @@ -0,0 +1,7 @@
 +package nekoutils
 +
@@ -1033,8 +1097,8 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/nekoutils/srs.go b/nekoutils/srs.go
 +
 +var GetGeoSiteHeadlessRules func(name string) ([]option.HeadlessRule, error)
 diff -ruN --exclude=.git --exclude=NEKO.md a/option/rule_action.go b/option/rule_action.go
---- a/option/rule_action.go	2026-10-24 13:03:28
-+++ b/option/rule_action.go	2026-10-24 13:03:29
+--- a/option/rule_action.go	2026-10-24 13:37:21
++++ b/option/rule_action.go	2026-10-24 13:37:46
 @@ -199,6 +199,8 @@
  type DNSRouteActionOptions struct {
  	Server      string `json:"server,omitempty" reference:"dns_server"`
@@ -1045,8 +1109,8 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/option/rule_action.go b/option/rule
  }
  
 diff -ruN --exclude=.git --exclude=NEKO.md a/protocol/group/selector.go b/protocol/group/selector.go
---- a/protocol/group/selector.go	2026-10-24 13:03:28
-+++ b/protocol/group/selector.go	2026-10-24 13:03:29
+--- a/protocol/group/selector.go	2026-10-24 13:37:21
++++ b/protocol/group/selector.go	2026-10-24 13:37:46
 @@ -12,6 +12,7 @@
  	"github.com/sagernet/sing-box/common/urltest"
  	C "github.com/sagernet/sing-box/constant"
@@ -1066,8 +1130,8 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/protocol/group/selector.go b/protoc
  		s.history.NotifyUpdated()
  	}
 diff -ruN --exclude=.git --exclude=NEKO.md a/protocol/socks/outbound.go b/protocol/socks/outbound.go
---- a/protocol/socks/outbound.go	2026-10-24 13:03:29
-+++ b/protocol/socks/outbound.go	2026-10-24 13:03:29
+--- a/protocol/socks/outbound.go	2026-10-24 13:37:21
++++ b/protocol/socks/outbound.go	2026-10-24 13:37:46
 @@ -3,6 +3,7 @@
  import (
  	"context"
@@ -1179,7 +1243,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/protocol/socks/outbound.go b/protoc
  }
 diff -ruN --exclude=.git --exclude=NEKO.md a/protocol/socks/outbound_neko_test.go b/protocol/socks/outbound_neko_test.go
 --- a/protocol/socks/outbound_neko_test.go	1970-01-01 07:30:00
-+++ b/protocol/socks/outbound_neko_test.go	2026-10-24 13:03:29
++++ b/protocol/socks/outbound_neko_test.go	2026-10-24 13:37:46
 @@ -0,0 +1,314 @@
 +// 本仓库新增的测试（neko-2 补丁「SOCKS5 出站在 UDP ASSOCIATE 里声明未指定来源」，见 libcore/sing-box/NEKO.md）。
 +// 用假 SOCKS5 服务端抓 UDP ASSOCIATE 请求的原始字节，断言声明的 DST 一律是 [::]:0，且数据报头仍是原目标；
@@ -1496,8 +1560,8 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/protocol/socks/outbound_neko_test.g
 +	}
 +}
 diff -ruN --exclude=.git --exclude=NEKO.md a/protocol/vless/outbound.go b/protocol/vless/outbound.go
---- a/protocol/vless/outbound.go	2026-10-24 13:03:29
-+++ b/protocol/vless/outbound.go	2026-10-24 13:03:29
+--- a/protocol/vless/outbound.go	2026-10-24 13:37:21
++++ b/protocol/vless/outbound.go	2026-10-24 13:37:46
 @@ -92,11 +92,15 @@
  			return nil, E.New("unknown packet encoding: ", *options.PacketEncoding)
  		}
@@ -1516,8 +1580,8 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/protocol/vless/outbound.go b/protoc
  		return nil, err
  	}
 diff -ruN --exclude=.git --exclude=NEKO.md a/route/rule/rule_action.go b/route/rule/rule_action.go
---- a/route/rule/rule_action.go	2026-10-24 13:03:29
-+++ b/route/rule/rule_action.go	2026-10-24 13:03:29
+--- a/route/rule/rule_action.go	2026-10-24 13:37:21
++++ b/route/rule/rule_action.go	2026-10-24 13:37:46
 @@ -108,6 +108,8 @@
  		return &RuleActionDNSRoute{
  			Server:      action.RouteOptions.Server,
@@ -1537,8 +1601,8 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/route/rule/rule_action.go b/route/r
  }
  
 diff -ruN --exclude=.git --exclude=NEKO.md a/route/rule/rule_set_local.go b/route/rule/rule_set_local.go
---- a/route/rule/rule_set_local.go	2026-10-24 13:03:29
-+++ b/route/rule/rule_set_local.go	2026-10-24 13:03:29
+--- a/route/rule/rule_set_local.go	2026-10-24 13:37:21
++++ b/route/rule/rule_set_local.go	2026-10-24 13:37:46
 @@ -11,6 +11,7 @@
  	"github.com/sagernet/sing-box/adapter"
  	"github.com/sagernet/sing-box/common/srs"
@@ -1578,7 +1642,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/route/rule/rule_set_local.go b/rout
  		err := ruleSet.reloadFile(filePath)
 diff -ruN --exclude=.git --exclude=NEKO.md a/transport/wireguard/bind_neko_test.go b/transport/wireguard/bind_neko_test.go
 --- a/transport/wireguard/bind_neko_test.go	1970-01-01 07:30:00
-+++ b/transport/wireguard/bind_neko_test.go	2026-10-24 13:03:29
++++ b/transport/wireguard/bind_neko_test.go	2026-10-24 13:37:46
 @@ -0,0 +1,249 @@
 +// 本仓库新增的测试（1.14.3-neko-3 补丁「WireGuard 只在固定 listen_port 时用 StdNetBind」与「ClientBind 的
 +// 退避与竞争」，见 libcore/sing-box/NEKO.md）。
@@ -1830,8 +1894,8 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/transport/wireguard/bind_neko_test.
 +	}
 +}
 diff -ruN --exclude=.git --exclude=NEKO.md a/transport/wireguard/client_bind.go b/transport/wireguard/client_bind.go
---- a/transport/wireguard/client_bind.go	2026-10-24 13:03:29
-+++ b/transport/wireguard/client_bind.go	2026-10-24 13:03:29
+--- a/transport/wireguard/client_bind.go	2026-10-24 13:37:21
++++ b/transport/wireguard/client_bind.go	2026-10-24 13:37:46
 @@ -5,6 +5,7 @@
  	"net"
  	"net/netip"
@@ -1915,8 +1979,8 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/transport/wireguard/client_bind.go 
  	}
  	destination := netip.AddrPort(ep.(remoteEndpoint))
 diff -ruN --exclude=.git --exclude=NEKO.md a/transport/wireguard/endpoint.go b/transport/wireguard/endpoint.go
---- a/transport/wireguard/endpoint.go	2026-10-24 13:03:29
-+++ b/transport/wireguard/endpoint.go	2026-10-24 13:03:29
+--- a/transport/wireguard/endpoint.go	2026-10-24 13:37:21
++++ b/transport/wireguard/endpoint.go	2026-10-24 13:37:46
 @@ -18,6 +18,7 @@
  	E "github.com/sagernet/sing/common/exceptions"
  	F "github.com/sagernet/sing/common/format"
@@ -1965,7 +2029,7 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/transport/wireguard/endpoint.go b/t
  func (e *Endpoint) DialContext(ctx context.Context, network string, destination M.Socksaddr) (net.Conn, error) {
 diff -ruN --exclude=.git --exclude=NEKO.md a/transport/wireguard/endpoint_neko_test.go b/transport/wireguard/endpoint_neko_test.go
 --- a/transport/wireguard/endpoint_neko_test.go	1970-01-01 07:30:00
-+++ b/transport/wireguard/endpoint_neko_test.go	2026-10-24 13:03:29
++++ b/transport/wireguard/endpoint_neko_test.go	2026-10-24 13:37:46
 @@ -0,0 +1,178 @@
 +// 本仓库新增的测试（1.14.3-neko-2 补丁「WireGuard 启动报错不带密钥」，见 libcore/sing-box/NEKO.md）。
 +// 端点 Start 时 IpcSet 失败，上游把整段 ipcConf（私钥、公钥、预共享密钥的十六进制）拼进报错；这条报错会经

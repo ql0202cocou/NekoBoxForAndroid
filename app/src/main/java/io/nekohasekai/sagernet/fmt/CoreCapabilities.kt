@@ -24,7 +24,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //   逐字节相同，metacubex/tls v0.1.9 只改服务端 ECH，utls 不变——-t 116 份（K1 的 24 份、dialer-proxy 成环、golden 的 91 份）、
 //   AnyTLS 回环 10 条、client-fingerprint 名单 19 个逐个拨号、socks listener 握手与 UDP 与 v1.19.32 一致；结论见维护者本地
 //   doc/agent/core-wip/reports/N12-mihomo.md）；
-// - sing-box：I2b（vendored libcore/sing-box，1.14.2 + 1.14.2-neko-1）；现为 1.14.4-neko-1，此后的补丁（SOCKS5 出站的
+// - sing-box：I2b（vendored libcore/sing-box，1.14.2 + 1.14.2-neko-1）；现为 1.14.4-neko-2，此后的补丁（SOCKS5 出站的
 //   UDP ASSOCIATE 握手、WireGuard 启动报错去掉密钥、WireGuard 选 bind 与 ClientBind 退避、ICMP 不选接口）与 1.14.3、
 //   1.14.4 的上游改动都不涉及本表各项；sing-vmess 随 1.14.3、1.14.4 升级（1.14.4 只改 vless/vision.go 的关闭与竞争），
 //   引用路径未变；1.14.4 的 REALITY 客户端只改伪装请求的 IPv6 主机写法，自报版本与曲线过滤不变；

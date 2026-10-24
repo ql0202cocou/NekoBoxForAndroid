@@ -2,7 +2,7 @@
 
 This directory is a vendored copy of upstream
 [SagerNet/sing-box](https://github.com/SagerNet/sing-box) **v1.14.4** plus the
-NekoBox patch set (`1.14.4-neko-1`). The patches originate from
+NekoBox patch set (`1.14.4-neko-2`). The patches originate from
 `MatsuriDayo/sing-box` (`aed32ee3066cdbc7d471e3e0415c5134088962df`,
 `1.12.19-neko-1`); upstream NekoBox is unmaintained, so this fork maintains and
 rebases the patches itself. When rebasing onto a newer upstream sing-box
@@ -191,7 +191,7 @@ Additional patches maintained by this fork (not from MatsuriDayo):
 ## Replayable patch artifact
 
 The whole patch set is materialized as a single replayable diff,
-`libcore/patches/sing-box-v1.14.4-neko-1.diff`: a clean clone of upstream tag
+`libcore/patches/sing-box-v1.14.4-neko-2.diff`: a clean clone of upstream tag
 v1.14.4 plus this file applied with `patch -p1` reproduces this directory
 exactly. Excluded from the artifact (and from the verification comparison):
 `.git`, the top-level `clients/` git submodule placeholders (not carried here;
@@ -213,7 +213,7 @@ git clone --depth 1 --branch v1.14.4 https://github.com/SagerNet/sing-box "$TMP/
 rm -rf "$TMP/a/clients"
 cp -R libcore/sing-box "$TMP/b"
 (cd "$TMP" && command diff -ruN --exclude=.git --exclude=NEKO.md a b) \
-  > libcore/patches/sing-box-v1.14.4-neko-1.diff
+  > libcore/patches/sing-box-v1.14.4-neko-2.diff
 ```
 
 The `a`/`b` directory names are load-bearing: they keep the diff header paths
@@ -282,26 +282,48 @@ The fork tests and the `libcore.yml` race step pass; one mutation check each
 for the ICMP guard and the `Send` part. `1.14.4-neko-1` is that set; the
 artifact was renamed with it (`sing-box-v1.14.3-neko-3.diff` →
 `sing-box-v1.14.4-neko-1.diff`).
+`1.14.4-neko-2` changes no source beyond `constant/version.go`: it moves `golang.org/x/net` and
+`golang.org/x/crypto` ahead of upstream to their first fixed versions
+(2026-10-24, `govulncheck` v1.1.4 on libcore with its build tags and Go
+1.26.10 reported seven reachable vulnerabilities, all in these two modules,
+which upstream v1.14.4 still pins; the standard library had none), and their
+requirements pull `x/term`, `x/text`, `x/mod` and `x/sync` up with them (see
+the go.mod section). The artifact was renamed with it
+(`sing-box-v1.14.4-neko-1.diff` → `sing-box-v1.14.4-neko-2.diff`).
 
 ## go.mod divergence from upstream
 
 `check_versions` requires every module shared with `libcore/go.mod` to sit at
 the same version in both files, so dependency bumps land here too. As of
-2026-10-24 this go.mod diverges from the upstream v1.14.4 one (re-derived
-on the 1.14.4 files: the same set as on 1.14.2 and 1.14.3, because upstream
-left all five entries where they were):
+2026-10-24 this go.mod diverges from the upstream v1.14.4 one: the five
+entries re-derived on the 1.14.4 files (the same set as on 1.14.2 and 1.14.3,
+because upstream left them where they were), plus the security bumps of
+`1.14.4-neko-2` and what they require. Drop each bump once upstream's
+go.mod reaches it:
 
 - `go` directive `1.26.0` (upstream `1.25.5`) — forced by `x/sys` below
 - `github.com/miekg/dns v1.1.73` (upstream v1.1.72) — libcore requires it
   directly
-- `golang.org/x/mod v0.38.0` (upstream v0.37.0) — required by
-  `miekg/dns v1.1.73`
+- `golang.org/x/mod v0.41.0` (upstream v0.37.0) — `miekg/dns v1.1.73`
+  needs v0.38.0, `x/text v0.42.0` below v0.41.0
 - `golang.org/x/sys v0.48.0` (upstream v0.47.0) — libcore requires it
   directly; it declares `go 1.26.0`, which is what pushes the go directive
   up; upstream sing-box ≥ 1.14 requires Go 1.25+ and its own CI builds with
   Go 1.26.8, so 1.26 stays within the upstream-supported range
 - `golang.org/x/tools v0.47.0 // indirect` dropped (upstream lists it; `go mod
   tidy` removes it as unused)
+- `golang.org/x/net v0.60.0` (upstream v0.57.0) — security: GO-2026-6603,
+  -6610, -6611, -6612 and -6617 (HTTP/2; -6610, malformed framing headers
+  accepted by the transport, is the client-side one; the others mainly hit
+  HTTP/2 servers, which the app does not run)
+- `golang.org/x/crypto v0.57.0` (upstream v0.54.0) — security: GO-2026-6354
+  and -6355 (SSH channel deadlock DoS; fixed in v0.56.0), and `x/net v0.60.0`
+  requires v0.57.0
+- `golang.org/x/term v0.46.0` (upstream v0.45.0) and `golang.org/x/text
+  v0.42.0` (upstream v0.40.0) — required by `x/net v0.60.0` / `x/crypto
+  v0.57.0`
+- `golang.org/x/sync v0.23.0` (upstream v0.22.0) — required by `x/text
+  v0.42.0`
 
 Apply such bumps with `go mod tidy` in this directory (it also drops stale
 indirect entries), and re-run `./run lib check_versions` afterwards.
