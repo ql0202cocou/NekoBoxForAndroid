@@ -450,7 +450,7 @@
       }
     },
     "selector-bad-members": {
-      "note": "只有运行模式按选择器构建，成员按 userOrder 逐个预检，主节点 1 不预检。2 TUIC v4（buildInternalOutbound）；3 Trojan 带证书指纹且手动指定 sing-box（K1 起 Trojan 带指纹自动走 Xray，夹具改为手动 sing-box 以保留「预检失败」的意图）：能力表判定手动 sing-box 有冲突 SING_BOX_CERTIFICATE_PIN，requireBuildableHop 按 CoreDecision.Rejected.message 报「the manually chosen core sing-box cannot run this profile: [字段键] 原因」；4 WireGuard reserved 只有两字节；5 强制 sing-box 的 VLESS REALITY 带 mldsa65Verify：同 3，冲突 SING_BOX_MLDSA65_VERIFY，字段键 realityMldsa65Verify；6 type 1 自定义出站 JSON 解析失败（gson 的 EOFException 文本）；7 VMess 的 kcp 传输（本应用不认识的传输；K2 之前这个夹具用 xhttp，K2 起 xhttp 是支持的传输，夹具换成 kcp 以继续测「未知传输」），自动选核：能力表对 sing-box 与 Xray 都报 TRANSPORT_UNKNOWN（取值 kcp），按偏好顺序（不是 REALITY，sing-box 在前）分组成「no core can fully run this profile. sing-box: … Xray: …」，在 requireBuildableHop 拒绝，不再走到 sing-box 生成器的 unsupported transport。参数已丢失的 xhttp 节点由 k2-selector-xhttp-members 的成员 3 钉住；8 AnyTLS 证书解析失败（带 certificates 自动选核走 mihomo，预检试组装 mihomo 配置时报，顶层消息不含平台相关的 cause）。都经 withProfileName 包上成员自己的名字，reasonNamesProfile 为 true",
+      "note": "只有运行模式按选择器构建，成员按 userOrder 逐个预检，主节点 1 不预检。2 TUIC v4（buildInternalOutbound）；3 Trojan 带证书指纹且手动指定 sing-box（K1 起 Trojan 带指纹自动走 Xray，夹具改为手动 sing-box 以保留「预检失败」的意图）：能力表判定手动 sing-box 有冲突 SING_BOX_CERTIFICATE_PIN，requireBuildableHop 按 CoreDecision.Rejected.message 报「the manually chosen core sing-box cannot run this profile: [字段键] 原因」；4 WireGuard reserved 只有两字节；5 强制 sing-box 的 VLESS REALITY 带 mldsa65Verify：同 3，冲突 SING_BOX_MLDSA65_VERIFY，字段键 realityMldsa65Verify；6 type 1 自定义出站 JSON 解析失败（gson 的 EOFException 文本；Gson 2.15.0 起解析器在键名之后更新 JSON 路径，报错路径由 `$.` 变成 `$.golden-broken`，与 custom-node-outbound-json-invalid 一致）；7 VMess 的 kcp 传输（本应用不认识的传输；K2 之前这个夹具用 xhttp，K2 起 xhttp 是支持的传输，夹具换成 kcp 以继续测「未知传输」），自动选核：能力表对 sing-box 与 Xray 都报 TRANSPORT_UNKNOWN（取值 kcp），按偏好顺序（不是 REALITY，sing-box 在前）分组成「no core can fully run this profile. sing-box: … Xray: …」，在 requireBuildableHop 拒绝，不再走到 sing-box 生成器的 unsupported transport。参数已丢失的 xhttp 节点由 k2-selector-xhttp-members 的成员 3 钉住；8 AnyTLS 证书解析失败（带 certificates 自动选核走 mihomo，预检试组装 mihomo 配置时报，顶层消息不含平台相关的 cause）。都经 withProfileName 包上成员自己的名字，reasonNamesProfile 为 true",
       "run": {
         "diagnostics": [
           {
@@ -485,7 +485,7 @@
             "type": "ProfileSkipped",
             "profileId": 6,
             "profileName": "golden-sel-custom-broken",
-            "reason": "golden-sel-custom-broken: java.io.EOFException: End of input at line 1 column 15 path $.",
+            "reason": "golden-sel-custom-broken: java.io.EOFException: End of input at line 1 column 15 path $.golden-broken",
             "reasonNamesProfile": true
           },
           {
@@ -508,7 +508,7 @@
           "profile 3 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-trojan-pin: the manually chosen core sing-box cannot run this profile: [certificateFingerprint] sing-box cannot pin a whole-certificate SHA-256 (it only pins public keys)",
           "profile 4 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-wg-bad: WireGuard reserved must contain exactly three bytes (0..255)",
           "profile 5 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-mldsa: the manually chosen core sing-box cannot run this profile: [realityMldsa65Verify] sing-box cannot verify REALITY mldsa65Verify",
-          "profile 6 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-custom-broken: java.io.EOFException: End of input at line 1 column 15 path $.",
+          "profile 6 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-custom-broken: java.io.EOFException: End of input at line 1 column 15 path $.golden-broken",
           "profile 7 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-kcp: no core can fully run this profile. sing-box: [type] This app does not support the transport (kcp). Xray: [type] This app does not support the transport (kcp)",
           "profile 8 skipped: io.nekohasekai.sagernet.fmt.ProfileBuildException: golden-sel-anytls-bad-ca: Invalid AnyTLS certificate for mihomo fingerprint pinning"
         ]

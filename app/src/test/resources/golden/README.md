@@ -19,6 +19,9 @@
   15 个 `k2-` 场景；`sb-vmess-unknown-transport`、`xray-vless-unknown-transport` 与 `selector-bad-members` 的成员 7
   原来用 xhttp / splithttp 当「未知传输」，K2 起 xhttp 是支持的传输，三处夹具换成 kcp。`manifest.json` 只更新场景数、
   计数与校验次数，其余仍是 K1b 那次整体采集。
+- Gson 2.14.0 → 2.15.0（2026-10-24）：解析器在读完键名后更新 JSON 路径（google/gson#3098），自定义出站 JSON 写坏时的
+  报错路径由 `path $.` 变成 `path $.golden-broken`。`custom-outbound-json-invalid` 三种模式的 `result.json` 与
+  `selector-bad-members` 成员 6 的预期按此修改，与早就带键名的 `custom-node-outbound-json-invalid` 一致；报错只多出键名，不含取值。
 
 采集入口只编进 debug 包（`app/src/debug/`）。采集入口与实测入口长期保留：
 JVM 黄金测试（见「JVM 黄金测试」一节）不覆盖 Android 一侧的外壳（DataStore 的默认值、Room 读取事务、

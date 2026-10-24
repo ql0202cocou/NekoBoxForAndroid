@@ -157,13 +157,12 @@ fi
 
 #### g. Gradle wrapper jar 的 sha256
 
-# 当前固定值 497c8c2a… 等于官方 9.5.0 / 9.6.0 发布的 wrapper jar 校验和
-# （不是 9.7.1 的 7a9ce74c…）。官方站
-# https://services.gradle.org/distributions/gradle-<版本>-wrapper.jar.sha256
-# 只发 .sha256、不发 jar 本身。下次升级 Gradle 时顺手换成对应版本的官方 jar：
-# 取 github.com/gradle/gradle 对应 tag 下的 gradle/wrapper/gradle-wrapper.jar，
-# 核对其 sha256 等于官方 .sha256 后替换 jar，并更新下面的值
-WRAPPER_JAR_SHA256=497c8c2a7e5031f6aa847f88104aa80a93532ec32ee17bdb8d1d2f67a194a9c7
+# 当前固定值 3b8a2577… 等于官方 9.8.2 发布的 wrapper jar 校验和
+# （https://services.gradle.org/distributions/gradle-<版本>-wrapper.jar.sha256，官方站只发 .sha256）。
+# 升级 Gradle：先用旧版本跑一次 wrapper 任务改指向，再用新版本跑一次生成 jar 与 gradlew 脚本
+# （新版本自带的 kotlin-dsl 插件要先补进 verification-metadata），核对 jar 的 sha256 等于官方 .sha256
+# 后更新下面的值。不要从 github.com/gradle/gradle 取 gradlew：那是 Gradle 自己仓库定制过的脚本
+WRAPPER_JAR_SHA256=3b8a25775a69158b5ad2b1d17a80a88dc7b40a352a73eb27d06c612a7ce68e98
 WRAPPER_JAR_ACTUAL=$(shasum -a 256 gradle/wrapper/gradle-wrapper.jar | cut -d' ' -f1)
 if [ "$WRAPPER_JAR_ACTUAL" != "$WRAPPER_JAR_SHA256" ]; then
   fail "gradle-wrapper.jar sha256 is $WRAPPER_JAR_ACTUAL but check_versions.sh pins $WRAPPER_JAR_SHA256"
