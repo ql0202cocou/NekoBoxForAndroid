@@ -62,7 +62,7 @@ Only resolving outbound, i.e. nodes, is supported. Information such as diversion
 * JDK 17+
 * Android SDK（platform 37、build-tools 36.0.0），通过 `local.properties` 的 `sdk.dir` 或 `ANDROID_HOME` 指定 / set via `sdk.dir` in `local.properties` or `ANDROID_HOME`
 * NDK 25.0.8775105
-* Go 1.26.x，用 1.26 线最新的补丁版本（含安全修复）；系统 Go 更新时在命令前加 `GOTOOLCHAIN=go1.26.<最新补丁>`，如 `GOTOOLCHAIN=go1.26.9` / Go 1.26.x, on the latest 1.26 patch release (security fixes); with a newer system Go, prefix commands with `GOTOOLCHAIN=go1.26.<latest patch>`, e.g. `GOTOOLCHAIN=go1.26.9`
+* Go 1.26.x，用 1.26 线最新的补丁版本（含安全修复）；系统 Go 更新时在命令前加 `GOTOOLCHAIN=go1.26.<最新补丁>`，如 `GOTOOLCHAIN=go1.26.10` / Go 1.26.x, on the latest 1.26 patch release (security fixes); with a newer system Go, prefix commands with `GOTOOLCHAIN=go1.26.<latest patch>`, e.g. `GOTOOLCHAIN=go1.26.10`
 
 ```bash
 ./run lib core      # 构建 libcore.aar / build libcore.aar

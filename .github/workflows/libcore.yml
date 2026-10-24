@@ -26,14 +26,14 @@ jobs:
           # 工具链版本写进 key，Go / NDK 升级（含 Go 的补丁版本）就会重编。Go 写完整版本、与下面两处
           # go-version 相同（check_versions 检查）：setup-go 默认不查最新，只写 1.26 时用的是 runner
           # 镜像预装的补丁版本（1.8.1 发布时是 1.26.8），出了安全补丁也用不上
-          key: libcore-go1.26.9-ndk25.0.8775105-${{ hashFiles('.github/workflows/libcore.yml', 'run', 'buildScript/lib/core.sh', 'buildScript/lib/core/**', 'buildScript/init/env.sh', 'buildScript/init/env_ndk.sh', 'buildScript/init/env_gobin.sh', 'libcore/**', '!libcore/.build/**', '!libcore/libcore.aar') }}
+          key: libcore-go1.26.10-ndk25.0.8775105-${{ hashFiles('.github/workflows/libcore.yml', 'run', 'buildScript/lib/core.sh', 'buildScript/lib/core/**', 'buildScript/init/env.sh', 'buildScript/init/env_ndk.sh', 'buildScript/init/env_gobin.sh', 'libcore/**', '!libcore/.build/**', '!libcore/libcore.aar') }}
       - name: Install Golang
         if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           # 固定到 1.26 线的具体补丁版本（与 libcore/go.mod 的 1.26 线、上面缓存 key 里的版本一致）；
           # 出新补丁时三处一起改。只写 1.26 不会自动取最新，浮动的 ^1.26 又会漂到 1.27.x
-          go-version: '1.26.9'
+          go-version: '1.26.10'
           cache-dependency-path: libcore/go.sum
       - name: Install NDK 25.0.8775105
         if: steps.cache.outputs.cache-hit != 'true'
@@ -67,7 +67,7 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           # 与上面构建任务的版本相同
-          go-version: '1.26.9'
+          go-version: '1.26.10'
           cache-dependency-path: libcore/go.sum
       - name: Download Geo Assets
         # geo 缓存测试要用真实数据库，下载脚本取上游最新发布并按该发布附带的 .sha256sum 校验；测试只读，
