@@ -24,9 +24,10 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //   逐字节相同，metacubex/tls v0.1.9 只改服务端 ECH，utls 不变——-t 116 份（K1 的 24 份、dialer-proxy 成环、golden 的 91 份）、
 //   AnyTLS 回环 10 条、client-fingerprint 名单 19 个逐个拨号、socks listener 握手与 UDP 与 v1.19.32 一致；结论见维护者本地
 //   doc/agent/core-wip/reports/N12-mihomo.md）；
-// - sing-box：I2b（vendored libcore/sing-box，1.14.2 + 1.14.2-neko-1）；现为 1.14.3-neko-3，此后的补丁（SOCKS5 出站的
-//   UDP ASSOCIATE 握手、WireGuard 启动报错去掉密钥、WireGuard 选 bind 与 ClientBind 退避）与 1.14.3 的上游改动都不涉及
-//   本表各项；sing-vmess 随 1.14.3 升级，引用路径未变；
+// - sing-box：I2b（vendored libcore/sing-box，1.14.2 + 1.14.2-neko-1）；现为 1.14.4-neko-1，此后的补丁（SOCKS5 出站的
+//   UDP ASSOCIATE 握手、WireGuard 启动报错去掉密钥、WireGuard 选 bind 与 ClientBind 退避、ICMP 不选接口）与 1.14.3、
+//   1.14.4 的上游改动都不涉及本表各项；sing-vmess 随 1.14.3、1.14.4 升级（1.14.4 只改 vless/vision.go 的关闭与竞争），
+//   引用路径未变；1.14.4 的 REALITY 客户端只改伪装请求的 IPv6 主机写法，自报版本与曲线过滤不变；
 // - 生成器：I2b 的逐字段真值表（buildSingBoxOutbound*、buildXrayOutbound、buildMihomoProxy）。
 // uTLS 指纹名单、VLESS flow、ws early data 另读了上游固定 tag 的源码，位置写在各常量上。
 //
@@ -118,13 +119,13 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 // Vision 流控的传输（XRAY_VISION_TRANSPORT / SING_BOX_VISION_TRANSPORT）：
 // 27. Xray 的 proxy/vless/outbound（与 inbound）是否仍只认直接的 TLS / REALITY 连接（VLESS Encryption 例外，本应用不支持）；
 //     sing-vmess 的 NewVisionConn 是否仍只认 TLS 连接本身（tlsRegistry），httpupgrade 是否仍把 TLS 连接原样交出。用
-//     doc/agent/k1b-wip/probe-plan/xray/vision/ 的 gen-transports.py + run-transports.sh 重跑（v26.10.21 / 1.14.3-neko-3：26 条，
+//     doc/agent/k1b-wip/probe-plan/xray/vision/ 的 gen-transports.py + run-transports.sh 重跑（v26.10.21 / 1.14.3-neko-3：26 条，1.14.4-neko-1 重跑判定相同；
 //     Xray 客户端在 ws / grpc / httpupgrade / http 伪装 / 不带 TLS 上每次连接都失败，UDP 由 Xray 服务端拒收；sing-box 在 ws / grpc /
 //     h2 / quic / http 伪装 / 不带 TLS 上初始化 Vision 失败，httpupgrade 对 sing-box 服务端能通、对 Xray 服务端被拒）。
 
 // 能替节点拨号的核心。value 与 ProxyEntity.CORE_* 相同；version 是这张表核实时的版本
 enum class DialCore(val value: Int, val displayName: String, val version: String) {
-    SING_BOX(CORE_SING_BOX, "sing-box", "1.14.3"),
+    SING_BOX(CORE_SING_BOX, "sing-box", "1.14.4"),
     XRAY(CORE_XRAY, "Xray", "v26.10.21"),
     MIHOMO(CORE_MIHOMO, "mihomo", "v1.19.33");
 

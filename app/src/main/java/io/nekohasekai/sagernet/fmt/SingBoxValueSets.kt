@@ -23,13 +23,13 @@ package io.nekohasekai.sagernet.fmt
 // method），所以报错只回显形如 ^[A-Za-z0-9._+-]{1,64}$ 的取值，其余写 (value not shown)，不暴露长度。
 
 // 名单核实时 vendored sing-box 的上游版本（libcore/sing-box/constant/version.go 去掉 -neko-N）
-const val SING_BOX_VALUE_SETS_VERSION = "1.14.3"
+const val SING_BOX_VALUE_SETS_VERSION = "1.14.4"
 
 // 名单依赖的上游模块与核实时的版本（libcore/sing-box/go.mod 的 require）
 val SING_BOX_VALUE_SET_MODULES = mapOf(
     "github.com/sagernet/sing-shadowsocks2" to "v0.2.2-0.20260929152114-a69d1086332b",
-    "github.com/sagernet/sing-vmess" to "v0.2.9-0.20260929152519-9b95ab8c9478",
-    "github.com/sagernet/sing-quic" to "v0.7.2-0.20261002084117-75c3ac4fa12b",
+    "github.com/sagernet/sing-vmess" to "v0.2.9-0.20261019223527-a0c58542bd9d",
+    "github.com/sagernet/sing-quic" to "v0.7.2-0.20261020082049-7e0a5869a5f4",
 )
 
 // 取值不在 sing-box 的名单里。field 是报错里的字段说明，value 是原值（只给代码判断用，不进消息）；

@@ -35,7 +35,7 @@ sing-box / universal proxy toolchain for Android.
 
 | 核心 / Core | 版本 / Version | 用途 / Used for |
 | --- | --- | --- |
-| [sing-box](https://github.com/SagerNet/sing-box) | v1.14.3（附带本仓库补丁 / with local patches） | 承载其余一切，可选核心时优先 / Runs everything else; preferred whenever the core can be chosen |
+| [sing-box](https://github.com/SagerNet/sing-box) | v1.14.4（附带本仓库补丁 / with local patches） | 承载其余一切，可选核心时优先 / Runs everything else; preferred whenever the core can be chosen |
 | [Xray-core](https://github.com/XTLS/Xray-core) | v26.10.21 | 带 REALITY 或 mldsa65Verify 的 VMess / VLESS / Trojan 优先使用；节点带证书指纹、Mux.Cool，或只有 Xray 认的 flow / 指纹时也走 Xray / Preferred for VMess / VLESS / Trojan with REALITY or mldsa65Verify; also used when the profile has a certificate fingerprint, Mux.Cool, or a flow / fingerprint only Xray accepts |
 | [mihomo](https://github.com/MetaCubeX/mihomo) | v1.19.33 | 带证书指纹或 certificates 的 AnyTLS；只有 mihomo 认的指纹也走 mihomo / AnyTLS with a certificate fingerprint or certificates; also used for a fingerprint only mihomo accepts |
 

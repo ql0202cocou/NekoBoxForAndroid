@@ -4,7 +4,7 @@ package io.nekohasekai.sagernet.fmt
 
 // ---- 取值名单
 
-// sing-box 1.14.3 的 uTLS 指纹（utls_client.go 自 1.14.2 未变），区分大小写，名单外在加载配置时报 unknown uTLS fingerprint
+// sing-box 1.14.4 的 uTLS 指纹（utls_client.go 自 1.14.2 未变），区分大小写，名单外在加载配置时报 unknown uTLS fingerprint
 // （libcore/sing-box/common/tls/utls_client.go 的 uTLSClientHelloID；空串在那里等于 chrome，但生成器不写空值）。
 // randomized 虽在名单里，按源码在部分进程上同样握手失败（未实测，已知差异 SING_BOX_UTLS_RANDOMIZED_SEED）
 val SING_BOX_UTLS_FINGERPRINTS = CoreNames(

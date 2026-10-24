@@ -223,7 +223,7 @@ func New(options Options) (*Box, error) {
 	}
 	service.MustRegister[adapter.DNSRouter](ctx, dnsRouter)
 	service.MustRegister[adapter.DNSRuleSetUpdateValidator](ctx, dnsRouter)
-	connectionManager := route.NewConnectionManager(logFactory.NewLogger("connection"))
+	connectionManager := route.NewConnectionManager(ctx, logFactory.NewLogger("connection"))
 	service.MustRegister[adapter.ConnectionManager](ctx, connectionManager)
 	networkManager, err := route.NewNetworkManager(ctx, logFactory.NewLogger("network"), routeOptions, dnsOptions)
 	if err != nil {
@@ -243,7 +243,7 @@ func New(options Options) (*Box, error) {
 	// neko: libcore 总传 PlatformLogWriter，按上游条件会常驻 trafficManager（每条连接
 	// 多一层 tracker）；app 只在开 Clash API 时用它，去掉该条件回到 1.14.0 的行为
 	if needClashAPI || needAPIService {
-		trafficManager := trafficcontrol.NewManager(outboundManager)
+		trafficManager := trafficcontrol.NewManager()
 		service.MustRegisterPtr(ctx, trafficManager)
 		router.AppendTracker(trafficManager)
 		internalServices = append(internalServices, trafficManager)

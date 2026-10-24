@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"syscall"
 	"testing"
 
 	C "github.com/sagernet/sing-box/constant"
@@ -12,7 +13,7 @@ import (
 
 // 构造带非 nil networkStrategy、但没有 networkManager 的 dialer：一旦走进接口选择
 // 路径就会解引用 nil networkManager 而 panic，走普通拨号 / 监听则正常返回。
-// 以此断言 DoNotSelectInterface 让四个入口都绕开接口选择（Android VPN protect 依赖它）
+// 以此断言 DoNotSelectInterface 让各个入口都绕开接口选择（Android VPN protect 依赖它）
 func newStrategyDialer() *DefaultDialer {
 	strategy := C.NetworkStrategyDefault
 	return &DefaultDialer{networkStrategy: &strategy}
@@ -87,4 +88,30 @@ func TestDoNotSelectInterfaceListenPacket(t *testing.T) {
 	noSelection(t, "ListenSerialInterfacePacket", func() error {
 		return closeOK(d.ListenSerialInterfacePacket(context.Background(), destination, &strategy, nil, nil, 0))
 	})
+}
+
+// v1.14.4 起 ICMPControl 在有 networkStrategy 时给 ICMP socket 追加接口绑定；DoNotSelectInterface 时必须只用基础控制函数
+func TestDoNotSelectInterfaceICMPControl(t *testing.T) {
+	withDoNotSelectInterface(t)
+	d := newStrategyDialer()
+	called := 0
+	d.dialer4.Control = func(network, address string, conn syscall.RawConn) error {
+		called++
+		return nil
+	}
+	packetConn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer packetConn.Close()
+	rawConn, err := packetConn.SyscallConn()
+	if err != nil {
+		t.Fatal(err)
+	}
+	noSelection(t, "ICMPControl", func() error {
+		return d.ICMPControl()("udp4", "127.0.0.1:0", rawConn)
+	})
+	if called != 1 {
+		t.Fatalf("base control called %d times, want 1", called)
+	}
 }

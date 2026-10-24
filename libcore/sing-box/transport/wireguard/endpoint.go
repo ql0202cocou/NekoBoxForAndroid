@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/sagernet/sing-box/common/dialer"
 	"github.com/sagernet/sing-box/service/powerreport"
@@ -39,6 +40,7 @@ type Endpoint struct {
 	egressPool     *tun.UDPEgressPool
 	pause          pause.Manager
 	pauseCallback  *list.Element[pause.Callback]
+	stateAccess    sync.Mutex
 }
 
 func NewEndpoint(options EndpointOptions) (*Endpoint, error) {
@@ -82,7 +84,7 @@ func NewEndpoint(options EndpointOptions) (*Endpoint, error) {
 		}
 		if len(rawPeer.Reserved) > 0 {
 			if len(rawPeer.Reserved) != 3 {
-				return nil, E.New("invalid reserved value for peer ", peerIndex, ", required 3 bytes, got ", len(peer.reserved))
+				return nil, E.New("invalid reserved value for peer ", peerIndex, ", required 3 bytes, got ", len(rawPeer.Reserved))
 			}
 			copy(peer.reserved[:], rawPeer.Reserved[:])
 		}
@@ -299,6 +301,8 @@ func (e *Endpoint) Close() error {
 		e.egressPool.Close()
 		e.egressPool = nil
 	}
+	e.stateAccess.Lock()
+	defer e.stateAccess.Unlock()
 	if e.device != nil {
 		e.device.Down()
 		e.device.Close()
@@ -324,9 +328,20 @@ func (e *Endpoint) BindUpdate() error {
 
 func (e *Endpoint) onPauseUpdated(event int) {
 	switch event {
-	case pause.EventNetworkPause:
+	case pause.EventNetworkPause, pause.EventNetworkWake:
+		go e.updateNetworkPause()
+	}
+}
+
+func (e *Endpoint) updateNetworkPause() {
+	e.stateAccess.Lock()
+	defer e.stateAccess.Unlock()
+	if e.device == nil {
+		return
+	}
+	if e.pause.IsNetworkPaused() {
 		e.device.Down()
-	case pause.EventNetworkWake:
+	} else {
 		e.device.Up()
 	}
 }
