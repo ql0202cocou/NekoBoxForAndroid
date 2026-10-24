@@ -173,9 +173,8 @@ func (c *ClientBind) SetMark(mark uint32) error {
 func (c *ClientBind) Send(bufs [][]byte, ep conn.Endpoint, offset int) error {
 	udpConn, err := c.connect()
 	if err != nil {
-		// neko：连不上直接报错，不再 time.Sleep(time.Second)（v1.14.4 已去掉其中的 WaitActive）。Send 常在 wireguard-go 持有
-		// 设备状态锁时被调用（Up 时的 keepalive / 握手），在这里等会让每个连不上的端点把启动拖慢 1 秒、同时挡住 Down；
-		// 握手重试本来就由 wireguard-go 的定时器驱动，不会空转
+		// neko：连不上直接报错、不等待。Send 常在 wireguard-go 持有设备状态锁时被调用（Up 时的 keepalive / 握手），
+		// 在这里等会拖慢每个连不上的端点的启动、同时挡住 Down；握手重试由 wireguard-go 的定时器驱动，不会空转
 		return err
 	}
 	destination := netip.AddrPort(ep.(remoteEndpoint))

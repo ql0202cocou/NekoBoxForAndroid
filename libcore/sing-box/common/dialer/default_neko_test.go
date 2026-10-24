@@ -99,17 +99,9 @@ func TestDoNotSelectInterfaceICMPControl(t *testing.T) {
 		called++
 		return nil
 	}
-	packetConn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer packetConn.Close()
-	rawConn, err := packetConn.SyscallConn()
-	if err != nil {
-		t.Fatal(err)
-	}
+	// 接口选择路径在用到 conn 之前就解引用 nil networkManager，所以不需要真实的 socket
 	noSelection(t, "ICMPControl", func() error {
-		return d.ICMPControl()("udp4", "127.0.0.1:0", rawConn)
+		return d.ICMPControl()("udp4", "127.0.0.1:0", nil)
 	})
 	if called != 1 {
 		t.Fatalf("base control called %d times, want 1", called)

@@ -378,8 +378,8 @@ func (d *DefaultDialer) ListenPacket(ctx context.Context, destination M.Socksadd
 }
 
 func (d *DefaultDialer) ICMPControl() control.Func {
-	// neko：同 DialContext，DoNotSelectInterface 时不按 networkStrategy 绑接口（v1.14.4 起 ICMP 也会绑，
-	// 与 Android VPN protect 语义冲突）
+	// neko：同 DialContext，DoNotSelectInterface 时不按 networkStrategy 绑接口（v1.14.4 起设了 networkStrategy 时
+	// ICMP 也会绑，与 Android VPN protect 语义冲突）。libcore 的 UsePlatformNetworkInterfaces 为 false，从不设它，这里是兜底
 	if DoNotSelectInterface || d.networkStrategy == nil || d.defaultNetworkStrategy && len(d.networkType) == 0 {
 		return d.dialer4.Control
 	}
