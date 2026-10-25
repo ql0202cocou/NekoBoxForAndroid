@@ -1,9 +1,12 @@
 package io.nekohasekai.sagernet.utils
 
+import android.app.UiModeManager
 import android.content.Context
+import android.os.Build
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatDelegate
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.ktx.app
 
@@ -136,8 +139,31 @@ object Theme {
         }
     }
 
+    // 本进程上次交给系统的按应用日夜模式（UiModeManager.MODE_NIGHT_*），-1 表示还没设过
+    private var platformNightMode = -1
+
     fun applyNightTheme() {
-        AppCompatDelegate.setDefaultNightMode(getNightMode())
+        val mode = getNightMode()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            AppCompatDelegate.setDefaultNightMode(mode)
+            return
+        }
+        // 12+ 交给系统按应用记住：启动画面在应用代码运行前就按它选底色（否则跟随系统，与应用设置不一致时
+        // 先闪另一种底色），切换时由系统推送 uiMode 变化、重建界面。AppCompat 这时只跟随系统，不再叠加一层覆盖；
+        // 「自动」（按省电模式）系统没有对应值，仍由 AppCompat 判断，系统一侧跟随系统
+        val platform = when (mode) {
+            AppCompatDelegate.MODE_NIGHT_YES -> UiModeManager.MODE_NIGHT_YES
+            AppCompatDelegate.MODE_NIGHT_NO -> UiModeManager.MODE_NIGHT_NO
+            else -> UiModeManager.MODE_NIGHT_AUTO
+        }
+        if (platform != platformNightMode) {
+            SagerNet.uiMode.setApplicationNightMode(platform)
+            platformNightMode = platform
+        }
+        AppCompatDelegate.setDefaultNightMode(
+            if (mode == AppCompatDelegate.MODE_NIGHT_AUTO_BATTERY) mode
+            else AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+        )
     }
 
 }

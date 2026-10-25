@@ -1,6 +1,5 @@
 package io.nekohasekai.sagernet.ui
 
-import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Bundle
 import android.widget.TextView
@@ -9,7 +8,6 @@ import androidx.activity.addCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import androidx.core.graphics.ColorUtils
 import androidx.fragment.app.DialogFragment
 import com.google.android.material.snackbar.Snackbar
@@ -24,7 +22,6 @@ abstract class ThemedActivity : AppCompatActivity {
     constructor() : super()
     constructor(contentLayoutId: Int) : super(contentLayoutId)
 
-    var uiMode = 0
     open val isDialog = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,17 +51,6 @@ abstract class ThemedActivity : AppCompatActivity {
         // ProcessPhoenix 以 NEW_TASK | CLEAR_TASK 重启，系统会换掉任务的 base intent，
         // 残留的隐藏标志随之消失
         if (DataStore.hideFromRecents) SagerNet.setExcludeFromRecents(true)
-
-        uiMode = resources.configuration.uiMode
-    }
-
-    override fun onConfigurationChanged(newConfig: Configuration) {
-        super.onConfigurationChanged(newConfig)
-
-        if (newConfig.uiMode != uiMode) {
-            uiMode = newConfig.uiMode
-            ActivityCompat.recreate(this)
-        }
     }
 
     fun snackbar(@StringRes resId: Int): Snackbar = snackbar("").setText(resId)
