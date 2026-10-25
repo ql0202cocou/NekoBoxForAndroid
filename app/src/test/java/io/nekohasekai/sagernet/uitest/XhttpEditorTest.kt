@@ -39,6 +39,12 @@ class XhttpEditorTest : UiTestBase() {
     private fun string(id: Int, vararg args: Any) =
         ApplicationProvider.getApplicationContext<android.content.Context>().getString(id, *args)
 
+    // 界面上的拒绝提示：本地化的原因（键名路径 + 枚举文案），不是异常的英文消息
+    private fun rejected(reason: Int, path: String? = null): String {
+        val text = string(reason)
+        return string(R.string.xhttp_extra_invalid, if (path == null) text else string(R.string.xhttp_reject_at, path, text))
+    }
+
     private fun EditorActivity.pref(key: String): Preference = child!!.findPreference(key)!!
 
     private fun EditorActivity.selectNetwork(value: String) {
@@ -177,7 +183,7 @@ class XhttpEditorTest : UiTestBase() {
         UiSettle.settle()
         assertEquals("不合格的 extra 不能写进缓存", """{"noSSEHeader":true}""", cached("xhttpExtra"))
         val message = latestDialogMessage()
-        assertEquals(string(R.string.xhttp_extra_invalid, "xhttp extra rejected at downloadSettings: downloadSettings is not allowed"), message)
+        assertEquals(rejected(R.string.xhttp_reject_download_settings, "downloadSettings"), message)
         assertFalse(message.contains("zq72"))
         assertFalse(message.contains("secret-dl"))
     }
@@ -213,7 +219,7 @@ class XhttpEditorTest : UiTestBase() {
         ShadowToast.reset()
         save(editor)
         val toast = ShadowToast.getTextOfLatestToast()
-        assertEquals(string(R.string.xhttp_extra_invalid, "xhttp extra rejected at downloadSettings: downloadSettings is not allowed"), toast)
+        assertEquals(rejected(R.string.xhttp_reject_download_settings, "downloadSettings"), toast)
         assertEquals("不合格的 extra 不能存库", "ws", savedBean(id).type)
         assertNotNull(editor.child)
     }
@@ -226,7 +232,7 @@ class XhttpEditorTest : UiTestBase() {
         EditorCache.profileCacheStore.putString("xhttpMode", "Fast-Mode")
         ShadowToast.reset()
         save(editor)
-        assertEquals(string(R.string.xhttp_extra_invalid, "xhttp mode rejected: unsupported mode"), ShadowToast.getTextOfLatestToast())
+        assertEquals(rejected(R.string.xhttp_reject_unsupported_mode), ShadowToast.getTextOfLatestToast())
         assertEquals("ws", savedBean(id).type)
     }
 
@@ -358,7 +364,7 @@ class XhttpEditorTest : UiTestBase() {
         assertFalse("校验不过不能关闭页面", page.isFinishing)
         assertFalse("校验不过不能写回缓存", cached(Key.XHTTP_EXTRA_EDIT)!!.contains("downloadSettings"))
         val message = latestDialogMessage()
-        assertEquals(string(R.string.xhttp_extra_invalid, "xhttp extra rejected at downloadSettings: downloadSettings is not allowed"), message)
+        assertEquals(rejected(R.string.xhttp_reject_download_settings, "downloadSettings"), message)
         assertFalse(message.contains("secret-dl"))
 
         // 改成合法内容后保存：写回缓存并关闭

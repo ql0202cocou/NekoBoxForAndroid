@@ -32,6 +32,7 @@ import io.nekohasekai.sagernet.fmt.v2ray.requireXhttpMode
 import io.nekohasekai.sagernet.fmt.v2ray.v2rayTransportOrNull
 import io.nekohasekai.sagernet.fmt.v2ray.xhttpParametersLost
 import io.nekohasekai.sagernet.ktx.toStringPretty
+import io.nekohasekai.sagernet.ktx.userMessage
 import kotlinx.coroutines.Dispatchers
 import moe.matsuri.nb4a.proxy.PreferenceBinding
 import moe.matsuri.nb4a.proxy.PreferenceBindingManager
@@ -92,7 +93,7 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
             canonicalXhttpExtra(xhttpExtra.readStringFromCache())
             null
         } catch (e: InvalidXhttpExtraException) {
-            getString(R.string.xhttp_extra_invalid, e.message)
+            e.userMessage
         }
     }
 
@@ -298,7 +299,7 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
             if (canonical.isEmpty()) getString(androidx.preference.R.string.not_set)
             else JSONObject(canonical).keys().asSequence().joinToString(", ")
         } catch (e: InvalidXhttpExtraException) {
-            getString(R.string.xhttp_extra_invalid, e.message)
+            e.userMessage
         }
     }
 
@@ -315,7 +316,7 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
             canonicalXhttpExtra(edited)
         } catch (e: InvalidXhttpExtraException) {
             MaterialAlertDialogBuilder(this@StandardV2RaySettingsActivity).setTitle(R.string.error_title)
-                .setMessage(getString(R.string.xhttp_extra_invalid, e.message))
+                .setMessage(e.userMessage)
                 .setPositiveButton(android.R.string.ok, null).show()
             return@launchInSession
         }

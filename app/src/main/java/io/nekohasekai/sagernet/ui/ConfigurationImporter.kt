@@ -17,6 +17,7 @@ import io.nekohasekai.sagernet.ktx.displayName
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.showSnackbar
+import io.nekohasekai.sagernet.ktx.userMessage
 import java.io.FileNotFoundException
 import java.util.zip.ZipInputStream
 
@@ -76,7 +77,7 @@ class ConfigurationImporter(private val fragment: ConfigurationFragment) {
             (fragment.activity as? MainActivity)?.importSubscription(e.link.toUri())
         } catch (e: Exception) {
             Logs.w(e)
-            fragment.showSnackbar(e.readableMessage)
+            fragment.showSnackbar(e.userMessage)
         }
     }
 
@@ -90,7 +91,7 @@ class ConfigurationImporter(private val fragment: ConfigurationFragment) {
             (fragment.activity as? MainActivity)?.importSubscription(e.link.toUri())
         } catch (e: Exception) {
             Logs.w(e)
-            fragment.showSnackbar(e.readableMessage)
+            fragment.showSnackbar(e.userMessage)
         }
     }
 }

@@ -189,7 +189,7 @@ abstract class GroupUpdater {
                             false
                         } catch (e: Throwable) {
                             Logs.w(e)
-                            userInterface?.onUpdateFailure(group, e.readableMessage)
+                            userInterface?.onUpdateFailure(group, e.userMessage)
                             false
                         }
                     } finally {

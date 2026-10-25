@@ -38,11 +38,44 @@ const val XHTTP_DEFAULT_MODE = "auto"
 class InvalidXhttpExtraException(
     val what: String,
     val path: List<String>,
-    val reason: String,
+    val reason: XhttpRejection,
 ) : UnsupportedTransportException(
     "xhttp",
-    "xhttp $what rejected" + (if (path.isEmpty()) "" else " at " + path.joinToString(".") { shownKey(it) }) + ": $reason",
-)
+    "xhttp $what rejected" + (if (path.isEmpty()) "" else " at " + shownPath(path)) + ": ${reason.text}",
+) {
+    // 给界面用的键名路径（同消息里的写法）；空串表示整段被拒
+    val shownPath: String get() = shownPath(path)
+}
+
+// 被拒的原因，封闭集合：text 进异常消息与日志（英文），界面按枚举取本地化文案
+enum class XhttpRejection(val text: String) {
+    UNSUPPORTED_MODE("unsupported mode"),
+    EXTRA_TOO_LONG("extra is too long"),
+    NOT_JSON_OBJECT("not a valid JSON object"),
+    UNKNOWN_KEY("unknown key"),
+    DUPLICATE_KEY("duplicate key"),
+    DOWNLOAD_SETTINGS("downloadSettings is not allowed"),
+    NESTED_EXTRA("nested extra is not allowed"),
+    HOST_IN_EXTRA("host must not be set in extra"),
+    PATH_IN_EXTRA("path must not be set in extra"),
+    MODE_IN_EXTRA("mode must not be set in extra"),
+    VALUE_TOO_LONG("value is too long"),
+    VALUE_BAD_CHARACTERS("value has unsupported characters"),
+    VALUE_UNSUPPORTED("unsupported value"),
+    NOT_BOOLEAN("must be a boolean"),
+    NOT_INTEGER("must be an integer"),
+    OUT_OF_RANGE("value is out of range"),
+    NOT_OBJECT("must be an object"),
+    XMUX_BOTH_LIMITS("maxConnections and maxConcurrency can not both be set"),
+    NOT_STRING("must be a string"),
+    NOT_RANGE("must be an integer or a from-to range"),
+    TOO_MANY_HEADERS("too many headers"),
+    INVALID_HEADER_NAME("invalid header name"),
+    HEADER_HOST("headers must not contain host"),
+    DUPLICATE_HEADER("duplicate header"),
+}
+
+private fun shownPath(path: List<String>): String = path.joinToString(".") { shownKey(it) }
 
 // 路径里的键名：形态合格才回显
 private fun shownKey(key: String): String = if (SHOWABLE_VALUE.matches(key)) key else "(key not shown)"
@@ -51,27 +84,27 @@ private fun shownKey(key: String): String = if (SHOWABLE_VALUE.matches(key)) key
 fun requireXhttpMode(value: String?): String {
     if (value.isNullOrBlank()) return XHTTP_DEFAULT_MODE
     val name = value.trim().lowercase(Locale.ROOT)
-    if (name !in XHTTP_MODES) throw InvalidXhttpExtraException("mode", emptyList(), "unsupported mode")
+    if (name !in XHTTP_MODES) throw InvalidXhttpExtraException("mode", emptyList(), XhttpRejection.UNSUPPORTED_MODE)
     return name
 }
 
 // extra → 规范的紧凑 JSON；空值与空对象返回 ""。违规抛 InvalidXhttpExtraException
 fun canonicalXhttpExtra(raw: String?): String {
     if (raw.isNullOrBlank()) return ""
-    if (raw.length > XHTTP_EXTRA_MAX_LENGTH) throw reject(emptyList(), "extra is too long")
+    if (raw.length > XHTTP_EXTRA_MAX_LENGTH) throw reject(emptyList(), XhttpRejection.EXTRA_TOO_LONG)
     val root = try {
         parseExtra(raw)
     } catch (e: InvalidXhttpExtraException) {
         throw e
     } catch (e: Exception) {
         // 解析器的消息带行列与路径（键名），不转述
-        throw reject(emptyList(), "not a valid JSON object")
+        throw reject(emptyList(), XhttpRejection.NOT_JSON_OBJECT)
     }
     if (root.size() == 0) return ""
     return GsonBuilder().disableHtmlEscaping().create().toJson(root)
 }
 
-private fun reject(path: List<String>, reason: String) = InvalidXhttpExtraException("extra", path, reason)
+private fun reject(path: List<String>, reason: XhttpRejection) = InvalidXhttpExtraException("extra", path, reason)
 
 // ---- 白名单
 
@@ -151,11 +184,11 @@ private val XMUX_BY_LOWER = XMUX_FIELDS.associateBy { it.name.lowercase(Locale.R
 
 // extra 里不许出现的键：给出明确原因，免得被当成「不认识的键」
 private val FORBIDDEN = mapOf(
-    "downloadsettings" to "downloadSettings is not allowed",
-    "extra" to "nested extra is not allowed",
-    "host" to "host must not be set in extra",
-    "path" to "path must not be set in extra",
-    "mode" to "mode must not be set in extra",
+    "downloadsettings" to XhttpRejection.DOWNLOAD_SETTINGS,
+    "extra" to XhttpRejection.NESTED_EXTRA,
+    "host" to XhttpRejection.HOST_IN_EXTRA,
+    "path" to XhttpRejection.PATH_IN_EXTRA,
+    "mode" to XhttpRejection.MODE_IN_EXTRA,
 )
 
 // headers 的限制：条数、名字（RFC 9110 token）、值的长度
@@ -168,10 +201,10 @@ private val HEADER_NAME = Regex("^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,128}$")
 private fun parseExtra(raw: String): JsonObject {
     val reader = JsonReader(StringReader(raw))
     reader.strictness = Strictness.STRICT
-    if (reader.peek() != JsonToken.BEGIN_OBJECT) throw reject(emptyList(), "not a valid JSON object")
+    if (reader.peek() != JsonToken.BEGIN_OBJECT) throw reject(emptyList(), XhttpRejection.NOT_JSON_OBJECT)
     val result = readFields(reader, emptyList(), EXTRA_BY_LOWER, topLevel = true)
     // 对象之后不许再有内容
-    if (reader.peek() != JsonToken.END_DOCUMENT) throw reject(emptyList(), "not a valid JSON object")
+    if (reader.peek() != JsonToken.END_DOCUMENT) throw reject(emptyList(), XhttpRejection.NOT_JSON_OBJECT)
     return result
 }
 
@@ -189,10 +222,10 @@ private fun readFields(
         val path = parent + key
         val ascii = key.all { it.code in 0x21..0x7E }
         val lower = key.lowercase(Locale.ROOT)
-        if (!ascii) throw reject(path, "unknown key")
+        if (!ascii) throw reject(path, XhttpRejection.UNKNOWN_KEY)
         if (topLevel) FORBIDDEN[lower]?.let { throw reject(path, it) }
-        val field = table[lower] ?: throw reject(path, "unknown key")
-        if (lower in found) throw reject(path, "duplicate key")
+        val field = table[lower] ?: throw reject(path, XhttpRejection.UNKNOWN_KEY)
+        if (lower in found) throw reject(path, XhttpRejection.DUPLICATE_KEY)
         found[lower] = readValue(reader, path, field)
     }
     reader.endObject()
@@ -205,52 +238,52 @@ private fun readFields(
 private fun readValue(reader: JsonReader, path: List<String>, field: Field): JsonElement = when (field.kind) {
     Kind.TEXT -> {
         val text = readString(reader, path)
-        if (text.length > field.max) throw reject(path, "value is too long")
+        if (text.length > field.max) throw reject(path, XhttpRejection.VALUE_TOO_LONG)
         val charset = when (field.name) {
             "sessionIDTable" -> TABLE_TEXT
             "uplinkHTTPMethod" -> METHOD_TEXT
             else -> KEY_TEXT
         }
-        if (!charset.matches(text)) throw reject(path, "value has unsupported characters")
+        if (!charset.matches(text)) throw reject(path, XhttpRejection.VALUE_BAD_CHARACTERS)
         JsonPrimitive(text)
     }
 
     Kind.ENUM -> {
         val text = readString(reader, path)
-        if (text.isNotEmpty() && text !in field.values) throw reject(path, "unsupported value")
+        if (text.isNotEmpty() && text !in field.values) throw reject(path, XhttpRejection.VALUE_UNSUPPORTED)
         JsonPrimitive(text)
     }
 
     Kind.BOOL -> {
-        if (reader.peek() != JsonToken.BOOLEAN) throw reject(path, "must be a boolean")
+        if (reader.peek() != JsonToken.BOOLEAN) throw reject(path, XhttpRejection.NOT_BOOLEAN)
         JsonPrimitive(reader.nextBoolean())
     }
 
     Kind.RANGE -> readRange(reader, path, field.max)
 
     Kind.INT -> {
-        val value = readInteger(reader, path) ?: throw reject(path, "must be an integer")
-        if (value < field.min || value > field.max) throw reject(path, "value is out of range")
+        val value = readInteger(reader, path) ?: throw reject(path, XhttpRejection.NOT_INTEGER)
+        if (value < field.min || value > field.max) throw reject(path, XhttpRejection.OUT_OF_RANGE)
         JsonPrimitive(value)
     }
 
     Kind.HEADERS -> readHeaders(reader, path)
 
     Kind.XMUX -> {
-        if (reader.peek() != JsonToken.BEGIN_OBJECT) throw reject(path, "must be an object")
+        if (reader.peek() != JsonToken.BEGIN_OBJECT) throw reject(path, XhttpRejection.NOT_OBJECT)
         val xmux = readFields(reader, path, XMUX_BY_LOWER)
         // Xray 在构建配置时拒绝两者同时指定，提前在导入时报
         val connections = xmux.get("maxConnections")?.let { rangeUpper(it) } ?: 0
         val concurrency = xmux.get("maxConcurrency")?.let { rangeUpper(it) } ?: 0
         if (connections > 0 && concurrency > 0) {
-            throw reject(path, "maxConnections and maxConcurrency can not both be set")
+            throw reject(path, XhttpRejection.XMUX_BOTH_LIMITS)
         }
         xmux
     }
 }
 
 private fun readString(reader: JsonReader, path: List<String>): String {
-    if (reader.peek() != JsonToken.STRING) throw reject(path, "must be a string")
+    if (reader.peek() != JsonToken.STRING) throw reject(path, XhttpRejection.NOT_STRING)
     return reader.nextString()
 }
 
@@ -258,7 +291,7 @@ private fun readString(reader: JsonReader, path: List<String>): String {
 private fun readInteger(reader: JsonReader, path: List<String>): Long? {
     if (reader.peek() != JsonToken.NUMBER) return null
     val literal = reader.nextString()
-    if (!INTEGER.matches(literal) || literal.length > 12) throw reject(path, "must be an integer")
+    if (!INTEGER.matches(literal) || literal.length > 12) throw reject(path, XhttpRejection.NOT_INTEGER)
     return literal.toLong()
 }
 
@@ -270,7 +303,7 @@ private val RANGE_TEXT = Regex("^([0-9]{1,12})(?:-([0-9]{1,12}))?$")
 private fun readRange(reader: JsonReader, path: List<String>, max: Long): JsonElement {
     val (from, to) = when (reader.peek()) {
         JsonToken.NUMBER -> {
-            val value = readInteger(reader, path) ?: throw reject(path, "must be an integer")
+            val value = readInteger(reader, path) ?: throw reject(path, XhttpRejection.NOT_INTEGER)
             value to value
         }
 
@@ -279,19 +312,19 @@ private fun readRange(reader: JsonReader, path: List<String>, max: Long): JsonEl
             if (text.isEmpty()) {
                 0L to 0L
             } else {
-                val m = RANGE_TEXT.matchEntire(text) ?: throw reject(path, "must be an integer or a from-to range")
+                val m = RANGE_TEXT.matchEntire(text) ?: throw reject(path, XhttpRejection.NOT_RANGE)
                 val a = m.groupValues[1].toLong()
                 val b = m.groupValues[2].takeIf { it.isNotEmpty() }?.toLong() ?: a
                 a to b
             }
         }
 
-        else -> throw reject(path, "must be an integer or a from-to range")
+        else -> throw reject(path, XhttpRejection.NOT_RANGE)
     }
-    if (from < 0 || to < 0) throw reject(path, "value is out of range")
+    if (from < 0 || to < 0) throw reject(path, XhttpRejection.OUT_OF_RANGE)
     val low = minOf(from, to)
     val high = maxOf(from, to)
-    if (high > max) throw reject(path, "value is out of range")
+    if (high > max) throw reject(path, XhttpRejection.OUT_OF_RANGE)
     return if (low == high) JsonPrimitive(low) else JsonPrimitive("$low-$high")
 }
 
@@ -304,22 +337,22 @@ private fun rangeUpper(element: JsonElement): Long {
 // headers：字符串到字符串的对象，名字是 token、不含 Host（大小写不敏感，Xray 同样拒绝）、同名只许一个。
 // 值可能带凭据（如 Authorization）：这里只校验形态；日志里的遮蔽由写出配置的一侧负责
 private fun readHeaders(reader: JsonReader, path: List<String>): JsonElement {
-    if (reader.peek() != JsonToken.BEGIN_OBJECT) throw reject(path, "must be an object")
+    if (reader.peek() != JsonToken.BEGIN_OBJECT) throw reject(path, XhttpRejection.NOT_OBJECT)
     val out = JsonObject()
     val seen = HashSet<String>()
     reader.beginObject()
     while (reader.hasNext()) {
         val name = reader.nextName()
         val here = path + name
-        if (out.size() >= HEADERS_MAX) throw reject(path, "too many headers")
-        if (!HEADER_NAME.matches(name)) throw reject(here, "invalid header name")
+        if (out.size() >= HEADERS_MAX) throw reject(path, XhttpRejection.TOO_MANY_HEADERS)
+        if (!HEADER_NAME.matches(name)) throw reject(here, XhttpRejection.INVALID_HEADER_NAME)
         val lower = name.lowercase(Locale.ROOT)
-        if (lower == "host") throw reject(here, "headers must not contain host")
-        if (!seen.add(lower)) throw reject(here, "duplicate header")
+        if (lower == "host") throw reject(here, XhttpRejection.HEADER_HOST)
+        if (!seen.add(lower)) throw reject(here, XhttpRejection.DUPLICATE_HEADER)
         val value = readString(reader, here)
-        if (value.length > HEADER_VALUE_MAX) throw reject(here, "value is too long")
+        if (value.length > HEADER_VALUE_MAX) throw reject(here, XhttpRejection.VALUE_TOO_LONG)
         if (value.any { it.code < 0x20 && it != '\t' || it.code == 0x7F }) {
-            throw reject(here, "value has unsupported characters")
+            throw reject(here, XhttpRejection.VALUE_BAD_CHARACTERS)
         }
         out.add(name, JsonPrimitive(value))
     }

@@ -23,6 +23,7 @@ import io.nekohasekai.sagernet.ktx.onLiveActivity
 import io.nekohasekai.sagernet.ktx.parseProxies
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
+import io.nekohasekai.sagernet.ktx.userMessage
 import moe.matsuri.nb4a.utils.Util
 
 /**
@@ -135,7 +136,7 @@ class MainImporter(private val activity: MainActivity) {
             parseProxies(uri.toString()).getOrNull(0) ?: error(activity.getString(R.string.no_proxies_found))
         } catch (e: Exception) {
             onLiveActivity {
-                activity.alert(e.readableMessage).show()
+                activity.alert(e.userMessage).show()
             }
             return
         }

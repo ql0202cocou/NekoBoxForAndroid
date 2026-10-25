@@ -29,6 +29,7 @@ import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.toStringPretty
+import io.nekohasekai.sagernet.ktx.userMessage
 import io.nekohasekai.sagernet.ui.ThemedActivity
 import io.nekohasekai.sagernet.widget.liftOnScrollOf
 import io.nekohasekai.sagernet.widget.padForSystemBars
@@ -214,7 +215,7 @@ class ConfigEditActivity : ThemedActivity() {
             canonicalXhttpExtra(text)
             null
         } catch (e: InvalidXhttpExtraException) {
-            getString(R.string.xhttp_extra_invalid, e.message)
+            e.userMessage
         }
 
         else -> null
