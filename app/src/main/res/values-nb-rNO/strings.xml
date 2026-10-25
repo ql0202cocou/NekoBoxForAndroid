@@ -285,4 +285,12 @@
     <string name="ssh_public_key">Offentlig nøkkel</string>
     <string name="ssh_auth_type_none">Ingen</string>
     <string name="route_for">Regel for %s</string>
+    <string name="settings_service">Tjeneste</string>
+    <string name="settings_interface">Grensesnitt</string>
+    <string name="settings_notification">Varsler</string>
+    <string name="settings_route">Rute</string>
+    <string name="settings_inbound">Innkommende</string>
+    <string name="settings_advanced">Avansert</string>
+    <string name="settings_cat_security">Sikkerhet</string>
+    <string name="settings_cat_debug">Testing og feilsøking</string>
 </resources>

@@ -76,4 +76,12 @@
     <string name="menu_about">Пра</string>
     <string name="menu_group">Група</string>
     <string name="menu_configuration">Канфігурацыя</string>
+    <string name="settings_service">Сэрвіс</string>
+    <string name="settings_interface">Інтэрфейс</string>
+    <string name="settings_notification">Апавяшчэнні</string>
+    <string name="settings_route">Маршрут</string>
+    <string name="settings_inbound">Уваходныя</string>
+    <string name="settings_advanced">Пашыраныя</string>
+    <string name="settings_cat_security">Бяспека</string>
+    <string name="settings_cat_debug">Тэставанне і адладка</string>
 </resources>

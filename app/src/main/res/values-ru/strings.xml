@@ -421,4 +421,12 @@
 <string name="ws_path">Путь к WebSocket</string>
 <string name="xtls_flow">Flow (подпротокол VLESS)</string>
 <string name="yes">Да</string>
+<string name="settings_service">Сервис</string>
+<string name="settings_interface">Интерфейс</string>
+<string name="settings_notification">Уведомления</string>
+<string name="settings_route">Маршруты</string>
+<string name="settings_inbound">Входящие</string>
+<string name="settings_advanced">Дополнительно</string>
+<string name="settings_cat_security">Безопасность</string>
+<string name="settings_cat_debug">Тестирование и отладка</string>
 </resources>

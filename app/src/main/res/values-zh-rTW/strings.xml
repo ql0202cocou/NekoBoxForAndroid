@@ -321,4 +321,12 @@
     <string name="backup_summary">如果路由規則不與設定檔一起備份，則自訂出站將丟失。</string>
     <string name="backup_not_file">不是一個備份檔案，預計 .json，但 %s</string>
     <string name="packet_encoding">封包編碼</string>
+    <string name="settings_service">執行</string>
+    <string name="settings_interface">介面</string>
+    <string name="settings_notification">通知</string>
+    <string name="settings_route">路由</string>
+    <string name="settings_inbound">傳入</string>
+    <string name="settings_advanced">進階</string>
+    <string name="settings_cat_security">安全</string>
+    <string name="settings_cat_debug">測試與偵錯</string>
 </resources>

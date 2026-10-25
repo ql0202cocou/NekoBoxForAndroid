@@ -344,4 +344,12 @@
  
     <string name="connection_test_delete_unavailable">Borrado no disponible</string> 
 
+    <string name="settings_service">Servicio</string>
+    <string name="settings_interface">Interfaz</string>
+    <string name="settings_notification">Notificaciones</string>
+    <string name="settings_route">Ruta</string>
+    <string name="settings_inbound">Entrada</string>
+    <string name="settings_advanced">Avanzado</string>
+    <string name="settings_cat_security">Seguridad</string>
+    <string name="settings_cat_debug">Pruebas y depuración</string>
 </resources> 

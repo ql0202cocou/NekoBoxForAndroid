@@ -295,4 +295,12 @@
     <string name="naive_insecure_concurrency_summary">Kötü ağ koşullarında daha sağlam olmak için N eşzamanlı tünel bağlantısı kullan. Daha fazla bağlantı, tünellemeyi algılamayı kolaylaştırır ve daha az güvenli hale getirir. Bu proje, trafik çözümlemesine karşı en güçlü güvenlik için çaba göstermektedir. Güvensiz bir şekilde kullanmak amacını bozar.
 \n
 \nBunu kullanmanız gerekiyorsa, sorunlarınızı çözüp çözmediğini görmek için önce N=2 değerini deneyin. Burada 4\'ten fazla bağlantı kullanmamanızı şiddetle tavsiye ederiz.</string>
+    <string name="settings_service">Servis</string>
+    <string name="settings_interface">Arayüz</string>
+    <string name="settings_notification">Bildirimler</string>
+    <string name="settings_route">Rota</string>
+    <string name="settings_inbound">Gelen bağlantılar</string>
+    <string name="settings_advanced">Gelişmiş</string>
+    <string name="settings_cat_security">Güvenlik</string>
+    <string name="settings_cat_debug">Test ve hata ayıklama</string>
 </resources>

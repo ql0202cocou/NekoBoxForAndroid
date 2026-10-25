@@ -71,4 +71,12 @@
     <string name="connection_test_available">成功: HTTPS ハンドシェイクに要した時間は %dms です。</string>
     <string name="network">ネットワーク</string>
     <string name="speed_interval">速度通知のアップデート間隔</string>
+    <string name="settings_service">サービス</string>
+    <string name="settings_interface">インターフェース</string>
+    <string name="settings_notification">通知</string>
+    <string name="settings_route">ルート</string>
+    <string name="settings_inbound">インバウンド</string>
+    <string name="settings_advanced">詳細設定</string>
+    <string name="settings_cat_security">セキュリティ</string>
+    <string name="settings_cat_debug">テストとデバッグ</string>
 </resources>

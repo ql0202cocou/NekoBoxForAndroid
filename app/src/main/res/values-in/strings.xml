@@ -156,4 +156,12 @@
     <string name="ws_host">Host Soket Web</string>
     <string name="security">Enkripsi lapisan transportasi</string>
     <string name="alter_id">Ubah ID</string>
+    <string name="settings_service">Layanan</string>
+    <string name="settings_interface">Antarmuka</string>
+    <string name="settings_notification">Notifikasi</string>
+    <string name="settings_route">Rute</string>
+    <string name="settings_inbound">Inbound</string>
+    <string name="settings_advanced">Lanjutan</string>
+    <string name="settings_cat_security">Keamanan</string>
+    <string name="settings_cat_debug">Pengujian dan debug</string>
 </resources>

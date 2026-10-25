@@ -293,4 +293,12 @@
     <string name="ssh_private_key">مفتاح خاص</string>
     <string name="ssh_public_key">المفتاح العمومي</string>
     <string name="ssh_auth_type_none">لا شيء</string>
+    <string name="settings_service">الخدمة</string>
+    <string name="settings_interface">الواجهة</string>
+    <string name="settings_notification">الإشعارات</string>
+    <string name="settings_route">طريق</string>
+    <string name="settings_inbound">الواردة</string>
+    <string name="settings_advanced">متقدم</string>
+    <string name="settings_cat_security">الأمان</string>
+    <string name="settings_cat_debug">الاختبار وتصحيح الأخطاء</string>
 </resources>

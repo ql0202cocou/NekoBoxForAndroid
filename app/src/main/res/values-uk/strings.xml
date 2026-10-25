@@ -406,4 +406,12 @@
     <string name="padding">Заповнення (Padding)</string>
     <string name="network_change_reset_connections">Скидати вихідні з\'єднання при зміні мережі</string>
     <string name="wake_reset_connections">Скидати вихідні з\'єднання при виході пристрою зі сну</string>
+    <string name="settings_service">Служба</string>
+    <string name="settings_interface">Інтерфейс</string>
+    <string name="settings_notification">Сповіщення</string>
+    <string name="settings_route">Маршрут</string>
+    <string name="settings_inbound">Вхідні</string>
+    <string name="settings_advanced">Додатково</string>
+    <string name="settings_cat_security">Безпека</string>
+    <string name="settings_cat_debug">Тестування й налагодження</string>
 </resources>

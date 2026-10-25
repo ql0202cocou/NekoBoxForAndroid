@@ -231,4 +231,12 @@
     <string name="backup_import_summary">L\'importation écrasera les données existantes.</string>
     <string name="tools_network">Réseaux</string>
     <string name="backup_importing">Importation…</string>
+    <string name="settings_service">Service</string>
+    <string name="settings_interface">Interface</string>
+    <string name="settings_notification">Notifications</string>
+    <string name="settings_route">Route</string>
+    <string name="settings_inbound">Entrant</string>
+    <string name="settings_advanced">Avancé</string>
+    <string name="settings_cat_security">Sécurité</string>
+    <string name="settings_cat_debug">Tests et débogage</string>
 </resources>
