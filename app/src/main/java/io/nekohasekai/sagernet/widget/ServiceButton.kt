@@ -53,6 +53,8 @@ class ServiceButton @JvmOverloads constructor(
 
     private inner class AnimatedState(
         @DrawableRes resId: Int,
+        // 不播动画、直接落到这个状态时对外圈做的事；null 表示同 onStart
+        private val onJump: (BaseProgressIndicator<*>.() -> Unit)? = null,
         private val onStart: BaseProgressIndicator<*>.() -> Unit = { hideProgress() }
     ) {
         val icon: AnimatedVectorDrawableCompat =
@@ -64,6 +66,14 @@ class ServiceButton @JvmOverloads constructor(
             setImageDrawable(icon)
             icon.start()
             progress.onStart()
+        }
+
+        // 图标直接停在终帧：先 start 建好动画集，stop 才会跳到终帧
+        fun jump() {
+            setImageDrawable(icon)
+            icon.start()
+            icon.stop()
+            progress.(onJump ?: onStart)()
         }
 
         fun stop() = icon.stop()
@@ -81,7 +91,8 @@ class ServiceButton @JvmOverloads constructor(
         }
     }
     private val iconConnected by lazy {
-        AnimatedState(R.drawable.ic_service_connected) {
+        // 不播动画时不画「补满再收起」的外圈，直接收起
+        AnimatedState(R.drawable.ic_service_connected, onJump = { hideProgress() }) {
             delayedAnimation?.cancel()
             setProgressCompat(1, true)
         }
@@ -119,13 +130,16 @@ class ServiceButton @JvmOverloads constructor(
     }
 
     fun changeState(state: BaseService.State, animate: Boolean) {
+        // 窗口不可见（主界面在后台，如用快捷方式启动）时不播：图标动画不跑、结束回调不来，排在后面的状态
+        // 一直起不了头，「连接中」延时显示的外圈也就取消不掉，回到前台还要把过时的变形补播一遍
+        val animated = animate && isAttachedToWindow && windowVisibility == View.VISIBLE && isShown
         when (state) {
-            BaseService.State.Connecting -> changeState(iconConnecting, animate)
-            BaseService.State.Connected -> changeState(iconConnected, animate)
+            BaseService.State.Connecting -> changeState(iconConnecting, animated)
+            BaseService.State.Connected -> changeState(iconConnected, animated)
             // 变形动画只从已连接的图标开始；此时 checked 还是上一个状态的值。
             // 不能用 ServiceRegistry.state：SagerConnection 在 binder 线程先写入新状态再派发回调，读到的已是新值
-            BaseService.State.Stopping -> changeState(iconStopping, animate && checked)
-            else -> changeState(iconStopped, animate)
+            BaseService.State.Stopping -> changeState(iconStopping, animated && checked)
+            else -> changeState(iconStopped, animated)
         }
         checked = state == BaseService.State.Connected
         refreshDrawableState()
@@ -155,8 +169,7 @@ class ServiceButton @JvmOverloads constructor(
         } else {
             animationQueue.peekFirst()?.stop()
             animationQueue.clear()
-            icon.start()    // force ensureAnimatorSet to be called so that stop() will work
-            icon.stop()
+            icon.jump()
         }
     }
 
