@@ -11,7 +11,9 @@ import com.google.android.material.color.utilities.SchemeMonochrome
 
 /**
  * 十二种主题的 Material 3 配色：从种子色算出亮 / 暗两套颜色角色，渲染成
- * res/values(-night)/colors_m3_<名字>.xml 与 res/values/themes_m3.xml 的全文。
+ * res/values(-night)/colors_m3_<名字>.xml 与 res/values/themes_m3.xml 的全文；
+ * 另为每个非黑主题生成「纯黑夜间」覆盖样式（ThemeOverlay.SagerNet.PureBlack.<样式>）及其颜色
+ * （res/values(-night)/colors_m3_pure.xml）。
  *
  * 算法是 material 库自带的 color.utilities（与 Android 12+ 系统取色同一套算法的 Java 移植），
  * contrast 一律 0。M3PaletteTest 用它钉住资源文件，也用它重新生成（见该类的说明）。
@@ -152,6 +154,45 @@ object M3Palette {
 
     fun hex(argb: Int) = "#%06X".format(argb and 0xFFFFFF)
 
+    /** 「纯黑夜间」覆盖样式只改这些角色（surface 系），其它角色不动 */
+    val pureBlackRoles: List<String> = listOf(
+        "background", "surface", "surface_dim", "surface_container_lowest", "surface_container_low",
+        "surface_container", "surface_container_high", "surface_container_highest", "surface_bright",
+    )
+
+    /** 有「纯黑夜间」覆盖的主题：「黑」本来就是纯黑阶梯（darkOverrides），不生成 */
+    val pureBlackSpecs: List<Spec> get() = specs.filter { it.darkOverrides.isEmpty() }
+
+    /**
+     * 「纯黑夜间」的暗色 surface 系（同 FlClash 的 toPureBlack）：在生成的暗色方案上保留每个角色的色相与彩度，
+     * 色调整体下移 surface 的色调（M3 暗色 surface 是 6）——surface 落到 0（纯黑），各层容器保持原来的层级差
+     */
+    fun pureBlackColors(spec: Spec): List<Pair<String, Int>> {
+        val dark = colors(spec, true).toMap()
+        val shift = Hct.fromInt(dark.getValue("surface")).tone
+        return pureBlackRoles.map { role ->
+            val hct = Hct.fromInt(dark.getValue(role))
+            role to Hct.from(hct.hue, hct.chroma, (hct.tone - shift).coerceAtLeast(0.0)).toInt()
+        }
+    }
+
+    fun pureColorName(spec: Spec, role: String) = "m3_${spec.name}_pure_$role"
+
+    /** 覆盖样式用的颜色文件：亮色套写各主题原来的亮色值（白天套上覆盖样式等于没变），暗色套写压黑后的值 */
+    fun pureColorsXml(dark: Boolean): String = buildString {
+        append("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n")
+        append("<!-- 由 $SOURCE 生成，勿手改：「纯黑夜间」覆盖样式的 surface 系颜色，")
+        append(if (dark) "暗色（色调下移到 surface 为纯黑）" else "亮色（与各主题的亮色值相同，覆盖样式在白天不改变外观）")
+        append(" -->\n<resources>\n")
+        for (spec in pureBlackSpecs) {
+            val values = if (dark) pureBlackColors(spec) else colors(spec, false).filter { it.first in pureBlackRoles }
+            for ((role, argb) in values) {
+                append("    <color name=\"${pureColorName(spec, role)}\">${hex(argb)}</color>\n")
+            }
+        }
+        append("</resources>\n")
+    }
+
     /** 某主题某模式下的全部角色：资源名后缀 → ARGB，顺序同 [roles] */
     fun colors(spec: Spec, dark: Boolean): List<Pair<String, Int>> {
         val scheme = spec.scheme.create(Hct.fromInt(spec.seed), dark)
@@ -183,12 +224,21 @@ object M3Palette {
 
     fun themesXml(): String = buildString {
         append("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n")
-        append("<!-- 由 $SOURCE 生成，勿手改：每种主题的活动与对话框样式，只写颜色角色 -->\n")
+        append("<!-- 由 $SOURCE 生成，勿手改：每种主题的活动与对话框样式，只写颜色角色；")
+        append("末尾是各主题的「纯黑夜间」覆盖样式（只写 surface 系） -->\n")
         append("<resources>\n")
         for (spec in specs) for (parent in listOf("Theme.SagerNet", "Theme.SagerNet.Dialog")) {
             append("\n    <style name=\"$parent.${spec.style}\" parent=\"$parent\">\n")
             for ((attr, role) in styleItems()) {
                 append("        <item name=\"$attr\">@color/${colorName(spec, role)}</item>\n")
+            }
+            append("    </style>\n")
+        }
+        for (spec in pureBlackSpecs) {
+            append("\n    <style name=\"ThemeOverlay.SagerNet.PureBlack.${spec.style}\" parent=\"\">\n")
+            for (role in pureBlackRoles) {
+                val attr = roles.first { it.name == role }.attr
+                append("        <item name=\"$attr\">@color/${pureColorName(spec, role)}</item>\n")
             }
             append("    </style>\n")
         }
@@ -201,6 +251,8 @@ object M3Palette {
             put("values/colors_m3_${spec.name}.xml", colorsXml(spec, false))
             put("values-night/colors_m3_${spec.name}.xml", colorsXml(spec, true))
         }
+        put("values/colors_m3_pure.xml", pureColorsXml(false))
+        put("values-night/colors_m3_pure.xml", pureColorsXml(true))
         put("values/themes_m3.xml", themesXml())
     }
 }

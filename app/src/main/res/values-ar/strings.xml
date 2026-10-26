@@ -233,6 +233,8 @@
     <string name="enable">مكن</string>
     <string name="follow_system">اتبع النظام</string>
     <string name="night_mode">وضع الليل</string>
+    <string name="pure_black">أسود خالص في وضع الليل</string>
+    <string name="pure_black_sum">استخدام خلفية سوداء خالصة في وضع الليل؛ يوفر الطاقة على شاشات OLED</string>
     <string name="lines">%d سطور</string>
     <string name="license">الرخصة</string>
     <string name="need_reload">أعد تحميل خدمة البروکسی لتطبيق التغييرات</string>

@@ -219,6 +219,8 @@
     <string name="license">Licencia</string> 
     <string name="lines">%d líneas</string> 
     <string name="night_mode">Modo nocturno</string> 
+    <string name="pure_black">Negro puro en modo nocturno</string>
+    <string name="pure_black_sum">Usar un fondo negro puro en modo nocturno; ahorra batería en pantallas OLED</string>
     <string name="follow_system">Seguir sistema</string> 
     <string name="enable">Permitir</string> 
     <string name="disable">Desactivar</string> 

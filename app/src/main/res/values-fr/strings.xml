@@ -14,6 +14,8 @@
     <string name="license">Licence</string>
     <string name="follow_system">Selon le système</string>
     <string name="night_mode">Mode nuit</string>
+    <string name="pure_black">Noir pur en mode nuit</string>
+    <string name="pure_black_sum">Utiliser un fond noir pur en mode nuit ; économise la batterie sur les écrans OLED</string>
     <string name="lines">%d lignes</string>
     <string name="random">Aléatoire</string>
     <string name="list">Liste</string>

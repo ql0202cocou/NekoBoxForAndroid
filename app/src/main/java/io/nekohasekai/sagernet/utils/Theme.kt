@@ -88,10 +88,35 @@ object Theme {
 
     fun apply(context: Context) {
         context.setTheme(getTheme())
+        applyPureBlack(context)
     }
 
     fun applyDialog(context: Context) {
         context.setTheme(getDialogTheme())
+        applyPureBlack(context)
+    }
+
+    // 「纯黑夜间」：开着时在主题上再套一层只改 surface 系的覆盖样式（themes_m3.xml，生成）。覆盖样式的
+    // 白天取值与主题本身相同，所以不必判断当前是否夜间；「黑」主题本来就是纯黑，没有覆盖
+    private fun applyPureBlack(context: Context) {
+        if (!DataStore.pureBlack) return
+        val overlay = pureBlackOverlay(DataStore.appTheme) ?: return
+        context.theme.applyStyle(overlay, true)
+    }
+
+    private fun pureBlackOverlay(theme: Int): Int? = when (canonicalTheme(theme)) {
+        RED -> R.style.ThemeOverlay_SagerNet_PureBlack_Red
+        ORANGE -> R.style.ThemeOverlay_SagerNet_PureBlack_Orange
+        AMBER -> R.style.ThemeOverlay_SagerNet_PureBlack_Amber
+        GREEN -> R.style.ThemeOverlay_SagerNet_PureBlack_Green
+        TEAL -> R.style.ThemeOverlay_SagerNet_PureBlack_Teal
+        BLUE -> R.style.ThemeOverlay_SagerNet_PureBlack_Blue
+        INDIGO -> R.style.ThemeOverlay_SagerNet_PureBlack_Indigo
+        PURPLE -> R.style.ThemeOverlay_SagerNet_PureBlack_Purple
+        BROWN -> R.style.ThemeOverlay_SagerNet_PureBlack_Brown
+        GREY -> R.style.ThemeOverlay_SagerNet_PureBlack_Grey
+        BLACK -> null
+        else -> R.style.ThemeOverlay_SagerNet_PureBlack_Pink_SSR
     }
 
     fun getTheme(): Int {

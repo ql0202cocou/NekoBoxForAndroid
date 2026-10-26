@@ -238,6 +238,8 @@
     <string name="license">مجوز</string>
     <string name="lines">%d خط</string>
     <string name="night_mode">حالت تاریک</string>
+    <string name="pure_black">سیاه خالص در حالت تاریک</string>
+    <string name="pure_black_sum">در حالت تاریک از پس‌زمینه سیاه خالص استفاده شود؛ در صفحه‌های OLED مصرف باتری کمتر است</string>
     <string name="follow_system">مانند سیستم</string>
     <string name="enable">فعال</string>
     <string name="disable">غیرفعال</string>

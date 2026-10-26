@@ -13,7 +13,7 @@ import javax.xml.parsers.DocumentBuilderFactory
  *   原因见 XML 注释），
  *   分类 key 与顺序等于 [SettingsPreferenceFragment.sections]：key 对不上，
  *   setPreferencesFromResource 会抛异常，一级页上的入口也会缺；
- * - 设置项一个不少、也不重复：七个分类里所有行的 key 恰好是拆分前的 40 个；
+ * - 设置项一个不少、也不重复：七个分类里所有行的 key 恰好是拆分前的 40 个加之后新增的（2026-10-26「夜间纯黑」）；
  * - 每个分类都有标题和图标（一级页上的入口行靠它们显示）。
  */
 class SettingsSectionsResourcesTest {
@@ -33,9 +33,9 @@ class SettingsSectionsResourcesTest {
 
     private val screens get() = root.children().filter { it.tagName == "PreferenceScreen" }
 
-    // 拆分前设置页的全部 40 个设置项
+    // 拆分前设置页的全部 40 个设置项，加 2026-10-26 的 pureBlack
     private val expectedKeys = setOf(
-        "isAutoConnect", "appTheme", "nightTheme", "serviceMode", "tunImplementation", "mtu",
+        "isAutoConnect", "appTheme", "nightTheme", "pureBlack", "serviceMode", "tunImplementation", "mtu",
         "speedInterval", "profileTrafficStatistics", "showDirectSpeed", "showGroupInNotification",
         "hideFromRecents", "alwaysShowAddress", "meteredNetwork", "acquireWakeLock", "logLevel",
         "globalCustomConfig", "proxyApps", "bypassLan", "bypassLanInCore", "trafficSniffing",
@@ -58,7 +58,7 @@ class SettingsSectionsResourcesTest {
 
     @Test
     fun sectionsHoldEverySettingExactlyOnce() {
-        assertEquals(40, expectedKeys.size)
+        assertEquals(41, expectedKeys.size)
         val keys = screens.flatMap { it.rows() }.map { it.getAttribute("app:key") }
         assertTrue("有行缺少 app:key", keys.none { it.isEmpty() })
         assertEquals("有设置项出现了不止一次", keys.size, keys.toSet().size)

@@ -180,6 +180,8 @@
     <string name="enable">Etkinleştir</string>
     <string name="follow_system">Sistemi Takip Et</string>
     <string name="night_mode">Gece Modu</string>
+    <string name="pure_black">Gece modunda saf siyah</string>
+    <string name="pure_black_sum">Gece modunda saf siyah arka plan kullan; OLED ekranlarda pil tasarrufu sağlar</string>
     <string name="lines">%d Satır</string>
     <string name="license">Lisans</string>
     <string name="need_reload">Değişiklikleri uygulamak için vekil sunucu servisini yeniden başlatın</string>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 由 app/src/test/java/io/nekohasekai/sagernet/utils/M3Palette.kt 生成，勿手改：每种主题的活动与对话框样式，只写颜色角色 -->
+<!-- 由 app/src/test/java/io/nekohasekai/sagernet/utils/M3Palette.kt 生成，勿手改：每种主题的活动与对话框样式，只写颜色角色；末尾是各主题的「纯黑夜间」覆盖样式（只写 surface 系） -->
 <resources>
 
     <style name="Theme.SagerNet.Pink_SSR" parent="Theme.SagerNet">
@@ -1224,5 +1224,137 @@
         <item name="colorOnTertiaryFixedVariant">@color/m3_black_on_tertiary_fixed_variant</item>
         <item name="colorPrimaryVariant">@color/m3_black_primary</item>
         <item name="colorSecondaryVariant">@color/m3_black_secondary</item>
+    </style>
+
+    <style name="ThemeOverlay.SagerNet.PureBlack.Pink_SSR" parent="">
+        <item name="android:colorBackground">@color/m3_pink_pure_background</item>
+        <item name="colorSurface">@color/m3_pink_pure_surface</item>
+        <item name="colorSurfaceDim">@color/m3_pink_pure_surface_dim</item>
+        <item name="colorSurfaceContainerLowest">@color/m3_pink_pure_surface_container_lowest</item>
+        <item name="colorSurfaceContainerLow">@color/m3_pink_pure_surface_container_low</item>
+        <item name="colorSurfaceContainer">@color/m3_pink_pure_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/m3_pink_pure_surface_container_high</item>
+        <item name="colorSurfaceContainerHighest">@color/m3_pink_pure_surface_container_highest</item>
+        <item name="colorSurfaceBright">@color/m3_pink_pure_surface_bright</item>
+    </style>
+
+    <style name="ThemeOverlay.SagerNet.PureBlack.Red" parent="">
+        <item name="android:colorBackground">@color/m3_red_pure_background</item>
+        <item name="colorSurface">@color/m3_red_pure_surface</item>
+        <item name="colorSurfaceDim">@color/m3_red_pure_surface_dim</item>
+        <item name="colorSurfaceContainerLowest">@color/m3_red_pure_surface_container_lowest</item>
+        <item name="colorSurfaceContainerLow">@color/m3_red_pure_surface_container_low</item>
+        <item name="colorSurfaceContainer">@color/m3_red_pure_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/m3_red_pure_surface_container_high</item>
+        <item name="colorSurfaceContainerHighest">@color/m3_red_pure_surface_container_highest</item>
+        <item name="colorSurfaceBright">@color/m3_red_pure_surface_bright</item>
+    </style>
+
+    <style name="ThemeOverlay.SagerNet.PureBlack.Orange" parent="">
+        <item name="android:colorBackground">@color/m3_orange_pure_background</item>
+        <item name="colorSurface">@color/m3_orange_pure_surface</item>
+        <item name="colorSurfaceDim">@color/m3_orange_pure_surface_dim</item>
+        <item name="colorSurfaceContainerLowest">@color/m3_orange_pure_surface_container_lowest</item>
+        <item name="colorSurfaceContainerLow">@color/m3_orange_pure_surface_container_low</item>
+        <item name="colorSurfaceContainer">@color/m3_orange_pure_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/m3_orange_pure_surface_container_high</item>
+        <item name="colorSurfaceContainerHighest">@color/m3_orange_pure_surface_container_highest</item>
+        <item name="colorSurfaceBright">@color/m3_orange_pure_surface_bright</item>
+    </style>
+
+    <style name="ThemeOverlay.SagerNet.PureBlack.Amber" parent="">
+        <item name="android:colorBackground">@color/m3_amber_pure_background</item>
+        <item name="colorSurface">@color/m3_amber_pure_surface</item>
+        <item name="colorSurfaceDim">@color/m3_amber_pure_surface_dim</item>
+        <item name="colorSurfaceContainerLowest">@color/m3_amber_pure_surface_container_lowest</item>
+        <item name="colorSurfaceContainerLow">@color/m3_amber_pure_surface_container_low</item>
+        <item name="colorSurfaceContainer">@color/m3_amber_pure_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/m3_amber_pure_surface_container_high</item>
+        <item name="colorSurfaceContainerHighest">@color/m3_amber_pure_surface_container_highest</item>
+        <item name="colorSurfaceBright">@color/m3_amber_pure_surface_bright</item>
+    </style>
+
+    <style name="ThemeOverlay.SagerNet.PureBlack.Green" parent="">
+        <item name="android:colorBackground">@color/m3_green_pure_background</item>
+        <item name="colorSurface">@color/m3_green_pure_surface</item>
+        <item name="colorSurfaceDim">@color/m3_green_pure_surface_dim</item>
+        <item name="colorSurfaceContainerLowest">@color/m3_green_pure_surface_container_lowest</item>
+        <item name="colorSurfaceContainerLow">@color/m3_green_pure_surface_container_low</item>
+        <item name="colorSurfaceContainer">@color/m3_green_pure_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/m3_green_pure_surface_container_high</item>
+        <item name="colorSurfaceContainerHighest">@color/m3_green_pure_surface_container_highest</item>
+        <item name="colorSurfaceBright">@color/m3_green_pure_surface_bright</item>
+    </style>
+
+    <style name="ThemeOverlay.SagerNet.PureBlack.Teal" parent="">
+        <item name="android:colorBackground">@color/m3_teal_pure_background</item>
+        <item name="colorSurface">@color/m3_teal_pure_surface</item>
+        <item name="colorSurfaceDim">@color/m3_teal_pure_surface_dim</item>
+        <item name="colorSurfaceContainerLowest">@color/m3_teal_pure_surface_container_lowest</item>
+        <item name="colorSurfaceContainerLow">@color/m3_teal_pure_surface_container_low</item>
+        <item name="colorSurfaceContainer">@color/m3_teal_pure_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/m3_teal_pure_surface_container_high</item>
+        <item name="colorSurfaceContainerHighest">@color/m3_teal_pure_surface_container_highest</item>
+        <item name="colorSurfaceBright">@color/m3_teal_pure_surface_bright</item>
+    </style>
+
+    <style name="ThemeOverlay.SagerNet.PureBlack.Blue" parent="">
+        <item name="android:colorBackground">@color/m3_blue_pure_background</item>
+        <item name="colorSurface">@color/m3_blue_pure_surface</item>
+        <item name="colorSurfaceDim">@color/m3_blue_pure_surface_dim</item>
+        <item name="colorSurfaceContainerLowest">@color/m3_blue_pure_surface_container_lowest</item>
+        <item name="colorSurfaceContainerLow">@color/m3_blue_pure_surface_container_low</item>
+        <item name="colorSurfaceContainer">@color/m3_blue_pure_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/m3_blue_pure_surface_container_high</item>
+        <item name="colorSurfaceContainerHighest">@color/m3_blue_pure_surface_container_highest</item>
+        <item name="colorSurfaceBright">@color/m3_blue_pure_surface_bright</item>
+    </style>
+
+    <style name="ThemeOverlay.SagerNet.PureBlack.Indigo" parent="">
+        <item name="android:colorBackground">@color/m3_indigo_pure_background</item>
+        <item name="colorSurface">@color/m3_indigo_pure_surface</item>
+        <item name="colorSurfaceDim">@color/m3_indigo_pure_surface_dim</item>
+        <item name="colorSurfaceContainerLowest">@color/m3_indigo_pure_surface_container_lowest</item>
+        <item name="colorSurfaceContainerLow">@color/m3_indigo_pure_surface_container_low</item>
+        <item name="colorSurfaceContainer">@color/m3_indigo_pure_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/m3_indigo_pure_surface_container_high</item>
+        <item name="colorSurfaceContainerHighest">@color/m3_indigo_pure_surface_container_highest</item>
+        <item name="colorSurfaceBright">@color/m3_indigo_pure_surface_bright</item>
+    </style>
+
+    <style name="ThemeOverlay.SagerNet.PureBlack.Purple" parent="">
+        <item name="android:colorBackground">@color/m3_purple_pure_background</item>
+        <item name="colorSurface">@color/m3_purple_pure_surface</item>
+        <item name="colorSurfaceDim">@color/m3_purple_pure_surface_dim</item>
+        <item name="colorSurfaceContainerLowest">@color/m3_purple_pure_surface_container_lowest</item>
+        <item name="colorSurfaceContainerLow">@color/m3_purple_pure_surface_container_low</item>
+        <item name="colorSurfaceContainer">@color/m3_purple_pure_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/m3_purple_pure_surface_container_high</item>
+        <item name="colorSurfaceContainerHighest">@color/m3_purple_pure_surface_container_highest</item>
+        <item name="colorSurfaceBright">@color/m3_purple_pure_surface_bright</item>
+    </style>
+
+    <style name="ThemeOverlay.SagerNet.PureBlack.Brown" parent="">
+        <item name="android:colorBackground">@color/m3_brown_pure_background</item>
+        <item name="colorSurface">@color/m3_brown_pure_surface</item>
+        <item name="colorSurfaceDim">@color/m3_brown_pure_surface_dim</item>
+        <item name="colorSurfaceContainerLowest">@color/m3_brown_pure_surface_container_lowest</item>
+        <item name="colorSurfaceContainerLow">@color/m3_brown_pure_surface_container_low</item>
+        <item name="colorSurfaceContainer">@color/m3_brown_pure_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/m3_brown_pure_surface_container_high</item>
+        <item name="colorSurfaceContainerHighest">@color/m3_brown_pure_surface_container_highest</item>
+        <item name="colorSurfaceBright">@color/m3_brown_pure_surface_bright</item>
+    </style>
+
+    <style name="ThemeOverlay.SagerNet.PureBlack.Grey" parent="">
+        <item name="android:colorBackground">@color/m3_white_pure_background</item>
+        <item name="colorSurface">@color/m3_white_pure_surface</item>
+        <item name="colorSurfaceDim">@color/m3_white_pure_surface_dim</item>
+        <item name="colorSurfaceContainerLowest">@color/m3_white_pure_surface_container_lowest</item>
+        <item name="colorSurfaceContainerLow">@color/m3_white_pure_surface_container_low</item>
+        <item name="colorSurfaceContainer">@color/m3_white_pure_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/m3_white_pure_surface_container_high</item>
+        <item name="colorSurfaceContainerHighest">@color/m3_white_pure_surface_container_highest</item>
+        <item name="colorSurfaceBright">@color/m3_white_pure_surface_bright</item>
     </style>
 </resources>

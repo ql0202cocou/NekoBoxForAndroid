@@ -13,6 +13,8 @@
     <string name="unavailable">Utilgjengelig</string>
     <string name="follow_system">Følg systemforvalg</string>
     <string name="night_mode">Nattmodus</string>
+    <string name="pure_black">Helt svart i nattmodus</string>
+    <string name="pure_black_sum">Bruk helt svart bakgrunn i nattmodus; sparer strøm på OLED-skjermer</string>
     <string name="license">Lisens</string>
     <string name="apply">Bruk</string>
     <string name="no">Nei</string>

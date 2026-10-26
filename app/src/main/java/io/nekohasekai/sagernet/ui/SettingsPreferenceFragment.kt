@@ -130,6 +130,12 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             Theme.applyNightTheme()
             true
         }
+        findPreference<SwitchPreferenceCompat>(Key.PURE_BLACK)!!.setOnPreferenceChangeListener { _, newValue ->
+            // 回调早于写入：先写再重建，重建出来的界面才会按新值套（或不套）覆盖样式
+            DataStore.pureBlack = newValue as Boolean
+            ActivityCompat.recreate(requireActivity())
+            true
+        }
         findPreference<SwitchPreferenceCompat>(Key.HIDE_FROM_RECENTS)!!.setOnPreferenceChangeListener { _, newValue ->
             // 回调早于写入，直接用新值
             SagerNet.setExcludeFromRecents(newValue as Boolean)

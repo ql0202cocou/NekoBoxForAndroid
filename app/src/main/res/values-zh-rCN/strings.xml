@@ -270,6 +270,8 @@
     <string name="config_settings">配置设置</string>
     <string name="custom_config">自定义配置</string>
     <string name="night_mode">夜间模式</string>
+    <string name="pure_black">夜间纯黑背景</string>
+    <string name="pure_black_sum">夜间模式下使用纯黑背景，OLED 屏幕更省电</string>
     <string name="enable">启用</string>
     <string name="auto">自动</string>
     <string name="follow_system">跟随系统</string>

@@ -95,6 +95,26 @@ class M3PaletteTest {
         }
     }
 
+    // 「纯黑夜间」：surface 与 background 压到纯黑，容器阶梯保持递增，「黑」主题不生成
+    @Suppress("RestrictedApi")
+    @Test
+    fun pureBlackSurfacesAreBlackAndKeepLadder() {
+        assertTrue(M3Palette.pureBlackSpecs.none { it.name == "black" })
+        assertEquals(M3Palette.specs.size - 1, M3Palette.pureBlackSpecs.size)
+        for (spec in M3Palette.pureBlackSpecs) {
+            val pure = M3Palette.pureBlackColors(spec).toMap()
+            assertEquals(M3Palette.pureBlackRoles.toSet(), pure.keys)
+            assertEquals("${spec.name} surface", "#000000", M3Palette.hex(pure.getValue("surface")))
+            assertEquals("${spec.name} background", "#000000", M3Palette.hex(pure.getValue("background")))
+            val ladder = listOf(
+                "surface_container_lowest", "surface_container_low", "surface_container",
+                "surface_container_high", "surface_container_highest", "surface_bright",
+            ).map { com.google.android.material.color.utilities.Hct.fromInt(pure.getValue(it)).tone }
+            assertEquals("${spec.name} 容器阶梯要递增", ladder.sorted(), ladder)
+            assertTrue("${spec.name} 最亮一层也要接近黑", ladder.last() < 25.0)
+        }
+    }
+
     @Test
     fun regenerate() {
         val out = System.getenv("M3_RES_OUT")

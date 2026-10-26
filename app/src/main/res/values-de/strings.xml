@@ -23,6 +23,8 @@
     <string name="lines">%d Linien</string>
     <string name="auto">Automatisch</string>
     <string name="night_mode">Nachtmodus</string>
+    <string name="pure_black">Reines Schwarz im Nachtmodus</string>
+    <string name="pure_black_sum">Im Nachtmodus einen rein schwarzen Hintergrund verwenden; schont den Akku bei OLED-Displays</string>
     <string name="follow_system">System folgen</string>
     <string name="enable">Aktivieren</string>
     <string name="disable">Deaktivieren</string>

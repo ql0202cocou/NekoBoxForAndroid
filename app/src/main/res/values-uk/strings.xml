@@ -242,6 +242,8 @@
     <string name="license">Ліцензія</string>
     <string name="lines">%d рядків</string>
     <string name="night_mode">Нічний режим</string>
+    <string name="pure_black">Чистий чорний у нічному режимі</string>
+    <string name="pure_black_sum">Використовувати чисто чорний фон у нічному режимі; економить заряд на OLED-екранах</string>
     <string name="follow_system">Як у системі</string>
     <string name="enable">Увімкнути</string>
     <string name="disable">Вимкнути</string>

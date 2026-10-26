@@ -80,6 +80,11 @@
             app:title="@string/night_mode"
             app:useSimpleSummaryProvider="true" />
         <SwitchPreferenceCompat
+            app:icon="@drawable/ic_baseline_dark_mode_24"
+            app:key="pureBlack"
+            app:summary="@string/pure_black_sum"
+            app:title="@string/pure_black" />
+        <SwitchPreferenceCompat
             app:icon="@drawable/ic_baseline_center_focus_weak_24"
             app:key="alwaysShowAddress"
             app:summary="@string/always_show_address_sum"
