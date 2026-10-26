@@ -17,14 +17,15 @@
 
     <color name="color_pink_ssr">#fb7299</color>
 
-    <!-- 语义色，亮暗各一套（暗色见 values-night/colors.xml），取值来自 Material 2014 色板。
-         测速可用 / 不可用：亮色沿用原来的 green 500 / red 500 -->
+    <!-- 语义色，亮暗各一套（暗色见 values-night/colors.xml），取值来自 Material 2014 色板；
+         显示前经 ui/StatusColors 向主题色和谐化（白 / 黑主题除外）。
+         测速：可用（不超过 600 ms）green 500、慢 orange 500、不可用 red 500 -->
     <color name="status_ok">#4CAF50</color>
+    <color name="status_slow">#FF9800</color>
     <color name="status_error">#F44336</color>
-    <!-- 日志页三色：原来亮暗共用 #86C166 / #FF0000 / #888888，在亮色底上对比不足，
-         亮色改用 green 700 / red 700 / grey 600 -->
+    <!-- 日志页：信息 green 700、警告 orange 700（亮色底上对比够）；错误用主题的 error 角色、
+         其它行用 outline 角色，不再写字面色 -->
     <color name="log_info">#388E3C</color>
-    <color name="log_error">#D32F2F</color>
-    <color name="log_other">#757575</color>
+    <color name="log_warn">#F57C00</color>
 
 </resources>

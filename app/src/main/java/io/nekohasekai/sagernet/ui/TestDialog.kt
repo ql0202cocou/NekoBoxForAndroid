@@ -14,6 +14,8 @@ import io.nekohasekai.sagernet.fmt.displayType
 import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.ktx.getColour
 import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
+import io.nekohasekai.sagernet.ui.StatusColors.latencyColor
+import io.nekohasekai.sagernet.ui.StatusColors.statusErrorColor
 import moe.matsuri.nb4a.Protocols
 import moe.matsuri.nb4a.Protocols.getProtocolColor
 import moe.matsuri.nb4a.ui.ConnectionTestNotification
@@ -101,17 +103,17 @@ class TestDialog(fragment: ConfigurationFragment) {
 
                 1 -> {
                     profileStatusText = fragment.getString(R.string.available, profile.ping)
-                    profileStatusColor = context.getColour(R.color.status_ok)
+                    profileStatusColor = context.latencyColor(profile.ping)
                 }
 
                 2 -> {
                     profileStatusText = profile.error
-                    profileStatusColor = context.getColour(R.color.status_error)
+                    profileStatusColor = context.statusErrorColor()
                 }
 
                 3 -> {
                     profileStatusText = context.unavailableText(profile.error)
-                    profileStatusColor = context.getColour(R.color.status_error)
+                    profileStatusColor = context.statusErrorColor()
                 }
             }
 

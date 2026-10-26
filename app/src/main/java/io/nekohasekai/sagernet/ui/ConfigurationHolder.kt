@@ -34,6 +34,8 @@ import io.nekohasekai.sagernet.ktx.snackbar
 import io.nekohasekai.sagernet.ktx.startFilesForResult
 import io.nekohasekai.sagernet.ktx.tryToShow
 import io.nekohasekai.sagernet.ui.ConfigurationFragment.SelectCallback
+import io.nekohasekai.sagernet.ui.StatusColors.latencyColor
+import io.nekohasekai.sagernet.ui.StatusColors.statusErrorColor
 import io.nekohasekai.sagernet.ui.profile.settingIntent
 import io.nekohasekai.sagernet.widget.QRCodeDialog
 import kotlinx.coroutines.CancellationException
@@ -272,9 +274,9 @@ class ConfigurationHolder(
             }
         } else if (proxyEntity.status == 1) {
             profileStatus.text = groupFragment.getString(R.string.available, proxyEntity.ping)
-            profileStatus.setTextColor(groupFragment.requireContext().getColour(R.color.status_ok))
+            profileStatus.setTextColor(groupFragment.requireContext().latencyColor(proxyEntity.ping))
         } else {
-            profileStatus.setTextColor(groupFragment.requireContext().getColour(R.color.status_error))
+            profileStatus.setTextColor(groupFragment.requireContext().statusErrorColor())
             if (proxyEntity.status == 2) {
                 profileStatus.text = proxyEntity.error
             }

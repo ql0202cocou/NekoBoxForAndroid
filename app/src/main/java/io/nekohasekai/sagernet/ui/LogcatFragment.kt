@@ -14,6 +14,7 @@ import androidx.lifecycle.lifecycleScope
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.databinding.LayoutLogcatBinding
 import io.nekohasekai.sagernet.ktx.*
+import io.nekohasekai.sagernet.ui.StatusColors.semanticColor
 import io.nekohasekai.sagernet.widget.hostMainScrollable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -48,14 +49,15 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
         reloadSession()
     }
 
-    // 日志三色（res/color 的 log_info / log_error / log_other，亮暗各一套）：在主线程取好再交给 IO 上的着色
-    private class LogColors(val info: Int, val error: Int, val other: Int)
+    // 日志四色：信息 / 警告是字面色（log_info / log_warn，亮暗各一套）向主题和谐化，错误用 error 角色、
+    // 其它行用 outline 角色；在主线程取好再交给 IO 上的着色
+    private class LogColors(val info: Int, val warn: Int, val error: Int, val other: Int)
 
     private fun getColorForLine(line: String, colors: LogColors): ForegroundColorSpan {
         val color = when {
             line.contains("INFO[") || line.contains(" [Info]") -> colors.info
             line.contains("ERROR[") || line.contains(" [Error]") -> colors.error
-            line.contains("WARN[") || line.contains(" [Warning]") -> colors.error
+            line.contains("WARN[") || line.contains(" [Warning]") -> colors.warn
             else -> colors.other
         }
         return ForegroundColorSpan(color)
@@ -65,9 +67,10 @@ class LogcatFragment : ToolbarFragment(R.layout.layout_logcat),
     private fun reloadSession() = viewLifecycleOwner.lifecycleScope.launch {
         val context = requireContext()
         val colors = LogColors(
-            context.getColour(R.color.log_info),
-            context.getColour(R.color.log_error),
-            context.getColour(R.color.log_other),
+            context.semanticColor(R.color.log_info),
+            context.semanticColor(R.color.log_warn),
+            context.getColorAttr(androidx.appcompat.R.attr.colorError),
+            context.getColorAttr(com.google.android.material.R.attr.colorOutline),
         )
         val span = withContext(Dispatchers.IO) {
             SpannableString(String(SendLog.getNekoLog(50 * 1024))).also { span ->
