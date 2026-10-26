@@ -6,15 +6,21 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-// 主题读取时归并：21 个旧编号全部保留，读取时归到 6 个代表
+// 主题读取时归并：21 个旧编号全部保留，读取时归到 12 个代表（2026-10-26 恢复六种颜色后）
 class ThemeMergeTest {
 
     // 归并表在这里手写钉死，不从 Theme.MERGED 反推：改表必须同时改这里
     private val expected = mapOf(
-        1 to 2, 2 to 2, 3 to 2, 4 to 2,
-        14 to 16, 15 to 16, 16 to 16, 17 to 16, 18 to 16,
-        5 to 7, 6 to 7, 7 to 7, 8 to 7, 9 to 7, 20 to 7,
-        10 to 11, 11 to 11, 12 to 11, 13 to 11,
+        1 to 1,
+        2 to 2, 3 to 2,
+        4 to 4, 5 to 4,
+        6 to 6,
+        7 to 7, 8 to 7, 20 to 7,
+        9 to 10, 10 to 10,
+        11 to 11, 12 to 11, 13 to 11,
+        14 to 15, 15 to 15,
+        16 to 16, 17 to 16,
+        18 to 18,
         19 to 19,
         21 to 21,
     )
@@ -22,9 +28,15 @@ class ThemeMergeTest {
     // 代表编号 → 应用主题 / 对话框主题
     private val styles = mapOf(
         2 to (R.style.Theme_SagerNet_Pink_SSR to R.style.Theme_SagerNet_Dialog_Pink_SSR),
+        1 to (R.style.Theme_SagerNet_Red to R.style.Theme_SagerNet_Dialog_Red),
         16 to (R.style.Theme_SagerNet_Orange to R.style.Theme_SagerNet_Dialog_Orange),
-        7 to (R.style.Theme_SagerNet_Blue to R.style.Theme_SagerNet_Dialog_Blue),
+        15 to (R.style.Theme_SagerNet_Amber to R.style.Theme_SagerNet_Dialog_Amber),
         11 to (R.style.Theme_SagerNet_Green to R.style.Theme_SagerNet_Dialog_Green),
+        10 to (R.style.Theme_SagerNet_Teal to R.style.Theme_SagerNet_Dialog_Teal),
+        7 to (R.style.Theme_SagerNet_Blue to R.style.Theme_SagerNet_Dialog_Blue),
+        6 to (R.style.Theme_SagerNet_Indigo to R.style.Theme_SagerNet_Dialog_Indigo),
+        4 to (R.style.Theme_SagerNet_Purple to R.style.Theme_SagerNet_Dialog_Purple),
+        18 to (R.style.Theme_SagerNet_Brown to R.style.Theme_SagerNet_Dialog_Brown),
         19 to (R.style.Theme_SagerNet_Grey to R.style.Theme_SagerNet_Dialog_Grey),
         21 to (R.style.Theme_SagerNet_Black to R.style.Theme_SagerNet_Dialog_Black),
     )
@@ -39,7 +51,7 @@ class ThemeMergeTest {
 
     @Test
     fun keptOrderAndRepresentatives() {
-        assertEquals(listOf(2, 16, 7, 11, 19, 21), Theme.KEPT)
+        assertEquals(listOf(2, 1, 16, 15, 11, 10, 7, 6, 4, 18, 19, 21), Theme.KEPT)
         for (id in Theme.KEPT) {
             assertEquals("编号 $id", id, Theme.canonicalTheme(id))
             assertFalse("编号 $id 不能出现在 MERGED 里", id in Theme.MERGED)

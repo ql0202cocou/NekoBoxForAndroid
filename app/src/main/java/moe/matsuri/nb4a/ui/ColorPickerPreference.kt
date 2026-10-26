@@ -121,7 +121,7 @@ class ColorPickerPreference
         val current = Theme.canonicalTheme(getPersistedInt(0))
 
         val grid = GridLayout(context).apply {
-            // 64dp × 6 放不进 360dp 宽屏上的对话框，排成 3 列两行
+            // 64dp 一格，360dp 宽的对话框一行放不下，排成 3 列 4 行（12 种主题）
             columnCount = 3
 
             for (themeId in Theme.KEPT) {
@@ -159,9 +159,15 @@ class ColorPickerPreference
         // 网格每格的种子色，按 Theme.KEPT 的顺序取
         private val SWATCH_COLORS = mapOf(
             Theme.PINK_SSR to R.color.color_pink_ssr,
+            Theme.RED to R.color.material_red_700,
             Theme.ORANGE to R.color.material_orange_500,
-            Theme.BLUE to R.color.material_blue_500,
+            Theme.AMBER to R.color.material_amber_500,
             Theme.GREEN to R.color.material_green_500,
+            Theme.TEAL to R.color.material_teal_700,
+            Theme.BLUE to R.color.material_blue_500,
+            Theme.INDIGO to R.color.material_indigo_500,
+            Theme.PURPLE to R.color.material_purple_500,
+            Theme.BROWN to R.color.material_brown_500,
             Theme.GREY to R.color.white,
             Theme.BLACK to R.color.black,
         )

@@ -10,7 +10,7 @@ import com.google.android.material.color.utilities.SchemeContent
 import com.google.android.material.color.utilities.SchemeMonochrome
 
 /**
- * 六种主题的 Material 3 配色：从种子色算出亮 / 暗两套颜色角色，渲染成
+ * 十二种主题的 Material 3 配色：从种子色算出亮 / 暗两套颜色角色，渲染成
  * res/values(-night)/colors_m3_<名字>.xml 与 res/values/themes_m3.xml 的全文。
  *
  * 算法是 material 库自带的 color.utilities（与 Android 12+ 系统取色同一套算法的 Java 移植），
@@ -122,16 +122,30 @@ object M3Palette {
     /** 彩色主题的种子与选色网格（ColorPickerPreference）的颜色资源名，测试核对两边一致 */
     val seedColorNames: Map<String, String> = mapOf(
         "pink" to "color_pink_ssr",
+        "red" to "material_red_700",
         "orange" to "material_orange_500",
-        "blue" to "material_blue_500",
+        "amber" to "material_amber_500",
         "green" to "material_green_500",
+        "teal" to "material_teal_700",
+        "blue" to "material_blue_500",
+        "indigo" to "material_indigo_500",
+        "purple" to "material_purple_500",
+        "brown" to "material_brown_500",
     )
 
+    // 顺序同 Theme.KEPT（选色网格的显示顺序）；彩色种子取 Material 2014 色板的 500 色（粉除外）。
+    // 红与青用 700 色：它们的 500 色色调落在 M3 回避的 50–59 区间，primaryContainer 会被推到 49，与色块对不上
     val specs: List<Spec> = listOf(
         Spec("pink", "Pink_SSR", 0xFFFB7299.toInt(), Scheme.CONTENT),
+        Spec("red", "Red", 0xFFD32F2F.toInt(), Scheme.CONTENT),
         Spec("orange", "Orange", 0xFFFF9800.toInt(), Scheme.CONTENT),
-        Spec("blue", "Blue", 0xFF2196F3.toInt(), Scheme.CONTENT),
+        Spec("amber", "Amber", 0xFFFFC107.toInt(), Scheme.CONTENT),
         Spec("green", "Green", 0xFF4CAF50.toInt(), Scheme.CONTENT),
+        Spec("teal", "Teal", 0xFF00796B.toInt(), Scheme.CONTENT),
+        Spec("blue", "Blue", 0xFF2196F3.toInt(), Scheme.CONTENT),
+        Spec("indigo", "Indigo", 0xFF3F51B5.toInt(), Scheme.CONTENT),
+        Spec("purple", "Purple", 0xFF9C27B0.toInt(), Scheme.CONTENT),
+        Spec("brown", "Brown", 0xFF795548.toInt(), Scheme.CONTENT),
         Spec("white", "Grey", MONO_SEED, Scheme.MONOCHROME),
         Spec("black", "Black", MONO_SEED, Scheme.MONOCHROME, amoled),
     )

@@ -245,9 +245,15 @@
     <string name="need_reload">重载代理服务以应用修改</string>
     <string name="theme">主题颜色</string>
     <string name="theme_pink">粉</string>
+    <string name="theme_red">红</string>
     <string name="theme_orange">橙</string>
-    <string name="theme_blue">蓝</string>
+    <string name="theme_amber">琥珀</string>
     <string name="theme_green">绿</string>
+    <string name="theme_teal">青</string>
+    <string name="theme_blue">蓝</string>
+    <string name="theme_indigo">靛蓝</string>
+    <string name="theme_purple">紫</string>
+    <string name="theme_brown">棕</string>
     <string name="theme_white">白</string>
     <string name="theme_black">黑</string>
     <string name="extra_headers">附加标头</string>

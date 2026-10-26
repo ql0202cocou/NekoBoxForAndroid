@@ -36,8 +36,9 @@ object Theme {
 
     private fun defaultTheme() = PINK_SSR
 
-    // 选色网格里的 6 种主题，顺序即显示顺序：粉（默认）、橙、蓝、绿、白、黑
-    val KEPT = listOf(PINK_SSR, ORANGE, BLUE, GREEN, GREY, BLACK)
+    // 选色网格里的 12 种主题，顺序即显示顺序：粉（默认）、红、橙、琥珀、绿、青、蓝、靛蓝、紫、棕、白、黑
+    // （2026-10-26 从归并表里恢复了红、琥珀、青、靛蓝、紫、棕六种）
+    val KEPT = listOf(PINK_SSR, RED, ORANGE, AMBER, GREEN, TEAL, BLUE, INDIGO, PURPLE, BROWN, GREY, BLACK)
 
     // 已并入代表的旧编号 → 代表编号。归并只在读取时映射，不改写存储的编号。
     // 以后把某种颜色加回来，要改这些地方：
@@ -48,20 +49,15 @@ object Theme {
     //   4. 在 ColorPickerPreference.SWATCH_COLORS 补上它的色块颜色；
     //   5. 改 ThemeMergeTest 手写的归并表（expected）与样式表（styles），以及其中 KEPT 的顺序。
     // 原来选过它的用户会恢复为该颜色重新生成的 M3 配色（不是 M2 时代的原色）
+    // 代表取色相最近的保留色：黄 → 琥珀、深紫 → 紫、青色 → 青（恢复六种颜色时改的三处）
     val MERGED: Map<Int, Int> = mapOf(
-        RED to PINK_SSR,
         PINK to PINK_SSR,
-        PURPLE to PINK_SSR,
-        YELLOW to ORANGE,
-        AMBER to ORANGE,
+        YELLOW to AMBER,
         DEEP_ORANGE to ORANGE,
-        BROWN to ORANGE,
-        DEEP_PURPLE to BLUE,
-        INDIGO to BLUE,
+        DEEP_PURPLE to PURPLE,
         LIGHT_BLUE to BLUE,
-        CYAN to BLUE,
+        CYAN to TEAL,
         BLUE_GREY to BLUE,
-        TEAL to GREEN,
         LIGHT_GREEN to GREEN,
         LIME to GREEN,
     )
@@ -73,12 +69,18 @@ object Theme {
         else -> MERGED[theme] ?: defaultTheme()
     }
 
-    // 选色网格与设置行摘要里显示的主题名称：按归并后的代表取，只认 KEPT 里的六个
+    // 选色网格与设置行摘要里显示的主题名称：按归并后的代表取，只认 KEPT 里的十二个
     @StringRes
     fun nameRes(themeId: Int): Int = when (canonicalTheme(themeId)) {
+        RED -> R.string.theme_red
         ORANGE -> R.string.theme_orange
-        BLUE -> R.string.theme_blue
+        AMBER -> R.string.theme_amber
         GREEN -> R.string.theme_green
+        TEAL -> R.string.theme_teal
+        BLUE -> R.string.theme_blue
+        INDIGO -> R.string.theme_indigo
+        PURPLE -> R.string.theme_purple
+        BROWN -> R.string.theme_brown
         GREY -> R.string.theme_white
         BLACK -> R.string.theme_black
         else -> R.string.theme_pink
@@ -102,9 +104,15 @@ object Theme {
 
     fun getTheme(theme: Int): Int {
         return when (canonicalTheme(theme)) {
+            RED -> R.style.Theme_SagerNet_Red
             ORANGE -> R.style.Theme_SagerNet_Orange
-            BLUE -> R.style.Theme_SagerNet_Blue
+            AMBER -> R.style.Theme_SagerNet_Amber
             GREEN -> R.style.Theme_SagerNet_Green
+            TEAL -> R.style.Theme_SagerNet_Teal
+            BLUE -> R.style.Theme_SagerNet_Blue
+            INDIGO -> R.style.Theme_SagerNet_Indigo
+            PURPLE -> R.style.Theme_SagerNet_Purple
+            BROWN -> R.style.Theme_SagerNet_Brown
             GREY -> R.style.Theme_SagerNet_Grey
             BLACK -> R.style.Theme_SagerNet_Black
             else -> R.style.Theme_SagerNet_Pink_SSR
@@ -113,9 +121,15 @@ object Theme {
 
     fun getDialogTheme(theme: Int): Int {
         return when (canonicalTheme(theme)) {
+            RED -> R.style.Theme_SagerNet_Dialog_Red
             ORANGE -> R.style.Theme_SagerNet_Dialog_Orange
-            BLUE -> R.style.Theme_SagerNet_Dialog_Blue
+            AMBER -> R.style.Theme_SagerNet_Dialog_Amber
             GREEN -> R.style.Theme_SagerNet_Dialog_Green
+            TEAL -> R.style.Theme_SagerNet_Dialog_Teal
+            BLUE -> R.style.Theme_SagerNet_Dialog_Blue
+            INDIGO -> R.style.Theme_SagerNet_Dialog_Indigo
+            PURPLE -> R.style.Theme_SagerNet_Dialog_Purple
+            BROWN -> R.style.Theme_SagerNet_Dialog_Brown
             GREY -> R.style.Theme_SagerNet_Dialog_Grey
             BLACK -> R.style.Theme_SagerNet_Dialog_Black
             else -> R.style.Theme_SagerNet_Dialog_Pink_SSR
