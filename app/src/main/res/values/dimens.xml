@@ -5,7 +5,7 @@
     <dimen name="nav_dock_height">64dp</dimen>
     <dimen name="nav_dock_radius">32dp</dimen>
     <dimen name="nav_dock_padding">4dp</dimen>
-    <dimen name="nav_dock_elevation">3dp</dimen>
+    <dimen name="nav_dock_elevation">1dp</dimen>
     <dimen name="nav_dock_item_radius">28dp</dimen>
     <dimen name="nav_dock_margin_bottom">2dp</dimen>
     <dimen name="nav_dock_margin_end">76dp</dimen>

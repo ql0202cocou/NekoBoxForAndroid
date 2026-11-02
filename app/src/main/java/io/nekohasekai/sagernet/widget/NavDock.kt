@@ -34,7 +34,7 @@ import kotlin.math.sin
 /**
  * 主界面底部的悬浮 Dock：四个一级页面（配置、分组、路由、设置）的入口，横向等分。
  *
- * 外壳是全圆角的卡片（surfaceContainer 底，阴影 3dp），每项的图标与文字颜色见 `nav_dock_item`。
+ * 外壳是全圆角的卡片（surfaceContainer 底，阴影 1dp），每项的图标与文字颜色见 `nav_dock_item`。
  * 选中胶囊是一个共享的视图（`nav_dock_pill`，secondaryContainer），放在四个项之下，选中变化时
  * 用弹簧（刚度 380、阻尼比 0.8，M3 默认的空间弹簧）滑到新选中项下面；首次布局、尺寸变化与系统动画
  * 关闭时直接放到位。选中哪一项由宿主按当前页面调用 [select]，
