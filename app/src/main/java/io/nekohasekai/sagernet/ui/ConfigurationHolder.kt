@@ -118,7 +118,7 @@ class ConfigurationHolder(
                         // 页面已销毁则不回填；与 bind 末尾同一防护：协程返回时 holder 可能已复用
                         groupFragment.onLiveView {
                             if (entity.id != proxyEntity.id) return@onLiveView
-                            selectedView.visibility = View.VISIBLE
+                            updateSelection(true)
                         }
                     }
 
@@ -191,7 +191,7 @@ class ConfigurationHolder(
             }
             editButton.isEnabled = !started
             removeButton.isEnabled = !started
-            selectedView.visibility = if (selected) View.VISIBLE else View.INVISIBLE
+            updateSelection(selected)
 
             if (!selectOrChain) {
                 shareLayer.setBackgroundColor(Color.TRANSPARENT)
@@ -205,6 +205,11 @@ class ConfigurationHolder(
             }
         }
 
+    }
+
+    private fun updateSelection(selected: Boolean) {
+        view.isSelected = selected
+        selectedView.visibility = if (selected) View.VISIBLE else View.INVISIBLE
     }
 
     private fun showShare(anchor: View, proxyEntity: ProxyEntity) {
