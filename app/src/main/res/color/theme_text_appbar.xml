@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 彩色顶部栏的文字与图标使用对应容器前景色，禁用态沿用 Material 的透明度。 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:alpha="@dimen/material_emphasis_disabled" android:color="?attr/colorOnPrimaryContainer" android:state_enabled="false" />
+    <item android:color="?attr/colorOnPrimaryContainer" />
+</selector>

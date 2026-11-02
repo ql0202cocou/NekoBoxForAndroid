@@ -33,11 +33,13 @@ abstract class ThemedActivity : AppCompatActivity {
         Theme.applyNightTheme()
 
         if (!isDialog) {
-            // 状态栏压在顶部栏上，图标颜色按顶部栏的实际底色（appBarColor）判断。顶部栏现在是
-            // surface，结果等于跟随日夜；保留按底色判断的写法，以后换顶部栏颜色不用改这里。
+            // 状态栏压在彩色顶部栏上，选择与实际底色对比更高的黑色或白色图标。
+            // 中等亮度的主题色也可能适合黑色图标，不能用亮度 0.5 简单分界。
             // 导航栏压在主题的 surface 上，日夜默认值就是对的
-            val appBarLuminance = ColorUtils.calculateLuminance(getColorAttr(R.attr.appBarColor))
-            val statusBarStyle = if (appBarLuminance < 0.5) {
+            val appBarColor = getColorAttr(R.attr.appBarColor)
+            val useWhiteStatusIcons = ColorUtils.calculateContrast(Color.WHITE, appBarColor) >
+                ColorUtils.calculateContrast(Color.BLACK, appBarColor)
+            val statusBarStyle = if (useWhiteStatusIcons) {
                 SystemBarStyle.dark(Color.TRANSPARENT)
             } else {
                 // 第二个参数（深色遮罩）只在 API 23 以下生效，minSdk 24 用不到，给透明即可
