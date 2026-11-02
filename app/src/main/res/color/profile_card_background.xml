@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 普通节点融入页面底色，选中节点用柔和的容器色配合左侧标记。 -->
+<!-- 亮色下用明亮卡片衬托浅色页面底，选中节点保留柔和填充与左侧标记。 -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:color="?attr/colorSurfaceContainer" android:state_selected="true" />
-    <item android:color="?attr/colorSurface" />
+    <item android:color="?attr/colorSurfaceContainerLowest" />
 </selector>

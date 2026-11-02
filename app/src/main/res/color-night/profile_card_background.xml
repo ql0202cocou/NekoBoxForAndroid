@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 夜间卡片逐级提亮，使普通、选中节点都能与页面底色区分。 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="?attr/colorSurfaceContainerHigh" android:state_selected="true" />
+    <item android:color="?attr/colorSurfaceContainerLow" />
+</selector>
