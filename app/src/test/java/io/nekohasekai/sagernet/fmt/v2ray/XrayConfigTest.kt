@@ -3,10 +3,15 @@ package io.nekohasekai.sagernet.fmt.v2ray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_VMESS
+import io.nekohasekai.sagernet.fmt.CoreDecision
+import io.nekohasekai.sagernet.fmt.DialCore
 import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
 import io.nekohasekai.sagernet.fmt.ExternalDialTarget
 import io.nekohasekai.sagernet.fmt.ExternalHop
 import io.nekohasekai.sagernet.fmt.LocalSocksAuth
+import io.nekohasekai.sagernet.fmt.decideCore
 import moe.matsuri.nb4a.utils.JavaUtil.gson
 import moe.matsuri.nb4a.utils.Util
 import org.junit.Assert.assertEquals
@@ -66,11 +71,11 @@ class XrayConfigTest {
     fun `mux 块总写 xudpProxyUDP443 allow`() {
         assertJson(
             """{"enabled":true,"concurrency":4,"xudpProxyUDP443":"allow"}""",
-            build(bean(vless = true) { enableMux = true; muxConcurrency = 4 }).getAsJsonObject("mux"),
+            build(bean(vless = true) { enableMux = true; muxType = MUX_COOL; muxConcurrency = 4 }).getAsJsonObject("mux"),
         )
         assertJson(
             """{"enabled":true,"concurrency":8,"xudpProxyUDP443":"allow"}""",
-            build(bean(vless = false) { enableMux = true; muxConcurrency = 0 }).getAsJsonObject("mux"),
+            build(bean(vless = false) { enableMux = true; muxType = MUX_COOL; muxConcurrency = 0 }).getAsJsonObject("mux"),
         )
         assertJson(
             """{"enabled":true,"concurrency":-1,"xudpConcurrency":16,"xudpProxyUDP443":"allow"}""",
@@ -78,11 +83,14 @@ class XrayConfigTest {
         )
         assertJson(
             """{"enabled":true,"concurrency":2,"xudpConcurrency":16,"xudpProxyUDP443":"allow"}""",
-            build(bean(vless = false) { enableMux = true; muxConcurrency = 2; packetEncoding = 2 }).getAsJsonObject("mux"),
+            build(bean(vless = false) { enableMux = true; muxType = MUX_COOL; muxConcurrency = 2; packetEncoding = 2 }).getAsJsonObject("mux"),
         )
         // 不开 mux 也不开 xudp、或 vision 流控：不写 mux 块
         assertFalse(build(bean(vless = true)).has("mux"))
-        assertFalse(build(bean(vless = true) { encryption = StandardV2RayBean.FLOW_VISION; enableMux = true }).has("mux"))
+        assertFalse(
+            build(bean(vless = true) { security = "tls"; encryption = StandardV2RayBean.FLOW_VISION; enableMux = true; muxType = MUX_COOL })
+                .has("mux"),
+        )
     }
 
     @Test
@@ -178,7 +186,21 @@ class XrayConfigTest {
             )
         }
         assertEquals(
-            "xray-core no longer supports allowInsecure, use a certificate fingerprint or the sing-box core for this profile",
+            "xray-core cannot run this profile: [allowInsecure, globalAllowInsecure] " +
+                "Xray removed allowInsecure; pin the certificate fingerprint instead",
+            e.message,
+        )
+    }
+
+    // 开了 ECH 却没填配置：本应用不让 Xray 自己查 ECH 配置（XRAY_ECH_AUTO_QUERY），生成器不再静默丢掉 ECH
+    @Test
+    fun `ECH 没填配置时生成报错`() {
+        val e = assertThrows(IllegalStateException::class.java) {
+            build(bean(vless = true) { security = "tls"; enableECH = true })
+        }
+        assertEquals(
+            "xray-core cannot run this profile: [enableECH, echConfig] " +
+                "This app cannot make Xray look up the ECH config; fill in the ECH config",
             e.message,
         )
     }
@@ -203,7 +225,11 @@ class XrayConfigTest {
                 stream,
             )
         }
-        assertFalse(bean(vless = true) { security = "tls"; realityPubKey = realityKey }.xrayLacksAllowInsecure(true))
+        // 生成器的防线与选核是同一个判定：手动指定 Xray 时也没有冲突
+        assertEquals(
+            CoreDecision.Selected(DialCore.XRAY, true),
+            decideCore(TYPE_VMESS, CORE_XRAY, bean(vless = true) { security = "tls"; realityPubKey = realityKey }, true),
+        )
     }
 
     // ---- XHTTP（K2）。预期值来自 K2 在模拟器上对 Xray v26.10.17 的回环验证（doc/agent/k1b-wip/probe-plan/xray/xhttp/）
@@ -346,9 +372,14 @@ class XrayConfigTest {
     @Test
     fun `参数残缺的 xhttp 节点（path 为空）生成时报错`() {
         for (empty in listOf("", "  ", null)) {
-            assertThrows(XhttpParametersLostException::class.java) {
+            val e = assertThrows(IllegalStateException::class.java) {
                 build(bean(vless = true) { type = "xhttp"; path = empty })
             }
+            assertEquals(
+                "xray-core cannot run this profile: [type, path] " +
+                    "XHTTP parameters were lost; re-import the node or update the subscription",
+                e.message,
+            )
         }
     }
 
@@ -365,14 +396,23 @@ class XrayConfigTest {
     @Test
     fun `xhttp 配 Vision 流控或 Mux Cool 时生成报错，只开 XUDP 包编码可以`() {
         for (flow in listOf("xtls-rprx-vision", "xtls-rprx-vision-udp443")) {
-            assertThrows(IllegalStateException::class.java) {
+            val e = assertThrows(IllegalStateException::class.java) {
                 build(bean(vless = true) { type = "xhttp"; path = "/xh"; security = "tls"; encryption = flow })
             }
+            assertEquals(
+                "xray-core cannot run this profile: [type, encryption] Xray cannot run the Vision flow over XHTTP",
+                e.message,
+            )
         }
         for (isVless in listOf(true, false)) {
-            assertThrows(IllegalStateException::class.java) {
-                build(bean(vless = isVless) { type = "xhttp"; path = "/xh"; enableMux = true; muxConcurrency = 4 })
+            val e = assertThrows(IllegalStateException::class.java) {
+                build(bean(vless = isVless) { type = "xhttp"; path = "/xh"; enableMux = true; muxType = MUX_COOL; muxConcurrency = 4 })
             }
+            assertEquals(
+                "xray-core cannot run this profile: [type, enableMux, muxType] " +
+                    "Xray cannot combine Mux.Cool with XHTTP; turn mux off (the XUDP packet encoding is fine)",
+                e.message,
+            )
         }
         val xudp = build(bean(vless = true) { type = "xhttp"; path = "/xh"; packetEncoding = 2 })
         assertJson(
@@ -380,7 +420,7 @@ class XrayConfigTest {
             xudp.getAsJsonObject("mux"),
         )
         // 其它传输上 Vision 与 Mux.Cool 的行为不变
-        assertTrue(build(bean(vless = true) { enableMux = true }).has("mux"))
+        assertTrue(build(bean(vless = true) { enableMux = true; muxType = MUX_COOL }).has("mux"))
     }
 
     // header 的值可能是凭据：配置里必须带（Xray 才发得出去），写日志与存进报错文本的路径上都要遮掉

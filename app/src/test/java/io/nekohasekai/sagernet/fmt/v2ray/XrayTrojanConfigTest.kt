@@ -203,6 +203,7 @@ class XrayTrojanConfigTest {
     fun `开 mux 写 Mux_Cool 与 xudpProxyUDP443 allow，packetEncoding 不读`() {
         val muxed = build(trojan {
             enableMux = true
+            muxType = MUX_COOL
             muxConcurrency = 4
             packetEncoding = 2
         })
@@ -210,6 +211,7 @@ class XrayTrojanConfigTest {
         // 没填并发数时取 8，与 VMess / VLESS 相同
         val fallback = build(trojan {
             enableMux = true
+            muxType = MUX_COOL
             muxConcurrency = 0
         })
         assertJson("""{"enabled":true,"concurrency":8,"xudpProxyUDP443":"allow"}""", fallback.getAsJsonObject("mux"))
@@ -226,15 +228,15 @@ class XrayTrojanConfigTest {
     @Test
     fun `h2、quic 与生效的 allowInsecure 照现有规则报错`() {
         assertEquals(
-            "xray-core no longer supports the http transport, use the sing-box core for this profile",
+            "xray-core cannot run this profile: [type, security] Xray removed the HTTP/2 (h2) transport",
             buildError(trojan { type = "http" }),
         )
         assertEquals(
-            "xray-core no longer supports the quic transport, use the sing-box core for this profile",
+            "xray-core cannot run this profile: [type] Xray removed the QUIC transport",
             buildError(trojan { type = "quic" }),
         )
-        val insecure =
-            "xray-core no longer supports allowInsecure, use a certificate fingerprint or the sing-box core for this profile"
+        val insecure = "xray-core cannot run this profile: [allowInsecure, globalAllowInsecure] " +
+            "Xray removed allowInsecure; pin the certificate fingerprint instead"
         assertEquals(insecure, buildError(trojan { allowInsecure = true }))
         assertEquals(insecure, buildError(trojan(), settings.copy(globalAllowInsecure = true)))
     }
@@ -278,6 +280,7 @@ class XrayTrojanConfigTest {
         val trojanMux = trojan {
             password = "fake-trojan-pass-2"
             enableMux = true
+            muxType = MUX_COOL
         }
         val beans = listOf(vmessWs, vlessReality, trojanGrpc, trojanMux)
         // 跳实例的外核按 bean 取（externalCore）：Trojan 与 VMess / VLESS 都是 Xray（D10），合成一组
@@ -379,12 +382,23 @@ class XrayTrojanConfigTest {
 
     @Test
     fun `xhttp 配 Mux Cool 时生成报错`() {
-        assertThrows(IllegalStateException::class.java) { build(trojan { type = "xhttp"; path = "/xh"; enableMux = true }) }
+        val e = assertThrows(IllegalStateException::class.java) {
+            build(trojan { type = "xhttp"; path = "/xh"; enableMux = true; muxType = MUX_COOL })
+        }
+        assertEquals(
+            "xray-core cannot run this profile: [type, enableMux, muxType] " +
+                "Xray cannot combine Mux.Cool with XHTTP; turn mux off (the XUDP packet encoding is fine)",
+            e.message,
+        )
     }
 
     @Test
     fun `参数残缺的 xhttp 节点与不合格的 extra 生成时报错`() {
-        assertThrows(XhttpParametersLostException::class.java) { build(trojan { type = "xhttp"; path = "" }) }
+        assertEquals(
+            "xray-core cannot run this profile: [type, path] " +
+                "XHTTP parameters were lost; re-import the node or update the subscription",
+            assertThrows(IllegalStateException::class.java) { build(trojan { type = "xhttp"; path = "" }) }.message,
+        )
         assertThrows(InvalidXhttpExtraException::class.java) {
             build(trojan { type = "xhttp"; path = "/xh"; xhttpExtra = """{"downloadSettings":{}}""" })
         }

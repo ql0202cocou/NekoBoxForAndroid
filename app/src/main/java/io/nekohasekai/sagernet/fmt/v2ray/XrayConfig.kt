@@ -1,9 +1,14 @@
 package io.nekohasekai.sagernet.fmt.v2ray
 
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_TROJAN
+import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_VMESS
+import io.nekohasekai.sagernet.fmt.CoreDecision
 import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
 import io.nekohasekai.sagernet.fmt.ExternalHop
 import io.nekohasekai.sagernet.fmt.LOCALHOST
-import io.nekohasekai.sagernet.fmt.effectiveAllowInsecure
+import io.nekohasekai.sagernet.fmt.decideCore
+import io.nekohasekai.sagernet.fmt.fieldText
 import io.nekohasekai.sagernet.fmt.requireDistinctHops
 import io.nekohasekai.sagernet.fmt.requireLocalAuth
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
@@ -12,22 +17,6 @@ import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 import moe.matsuri.nb4a.utils.JavaUtil.gson
 import moe.matsuri.nb4a.utils.echAsBase64
 import moe.matsuri.nb4a.utils.listByLineOrComma
-
-// Xray-core 已移除单独的 h2（带 TLS 的 "http"）与 quic 传输：固定版本对这类配置报「The feature HTTP transport
-// … has been removed」/「The feature QUIC transport … has been removed」。选核由能力表决定（XRAY_TRANSPORT_H2 /
-// XRAY_TRANSPORT_QUIC），这里只是生成器的最后一道防线：判定之外的调用方把这类节点交给 Xray 时报错，
-// 不生成核心会拒绝的配置。VMess / VLESS / Trojan 共用
-fun StandardV2RayBean.xrayLacksTransport(): Boolean =
-    type == "quic" || (type == "http" && isTLS())
-
-// Xray-core 在生成配置时无条件拒绝 allowInsecure（已移除的功能；固定版本 v26.9.30 的
-// infra/conf/transport_security.go，写 false 不报错）。证书固定不受影响：pinnedPeerCertSha256 是官方给的替代，
-// 本来就优先于 allowInsecure。REALITY 节点不算：REALITY 分支不写 allowInsecure（REALITY 不验证服务端证书）。
-// 选核由能力表决定（XRAY_ALLOW_INSECURE），这里同 xrayLacksTransport 只是生成器的最后一道防线；
-// 全局开关由调用方传入（buildXrayOutbound 取 ExternalCoreSettings）
-fun StandardV2RayBean.xrayLacksAllowInsecure(globalAllowInsecure: Boolean): Boolean =
-    isTLS() && realityPubKey.isNullOrBlank() && certificateFingerprint.isNullOrBlank() &&
-        effectiveAllowInsecure(allowInsecure, globalAllowInsecure)
 
 // 没有路由规则命中的流量走 outbounds 的第一项，所以第一项固定是 blackhole：漏了规则的入站只会丢流量，
 // 不会串到某个节点
@@ -103,7 +92,7 @@ fun buildXrayOutbound(
     dialPort: Int,
     settings: ExternalCoreSettings,
 ): LinkedHashMap<String, Any?> {
-    requireXrayStream(bean, settings.globalAllowInsecure)
+    requireXrayCarries(TYPE_VMESS, bean, settings.globalAllowInsecure)
     val user = LinkedHashMap<String, Any?>().apply {
         put("id", bean.uuid)
         if (bean.isVLESS) {
@@ -154,7 +143,7 @@ fun buildXrayOutbound(
     dialPort: Int,
     settings: ExternalCoreSettings,
 ): LinkedHashMap<String, Any?> {
-    requireXrayStream(bean, settings.globalAllowInsecure)
+    requireXrayCarries(TYPE_TROJAN, bean, settings.globalAllowInsecure)
     // Xray 自己也拒绝空密码，在这里报出来，调用方能带上节点名
     if (bean.password.isNullOrEmpty()) error("Trojan password is empty")
 
@@ -182,23 +171,14 @@ fun buildXrayOutbound(
     }
 }
 
-// Xray 不能表达的传输、生效的 allowInsecure、XHTTP 配 Vision / Mux.Cool：生成前报错（选核判定已排除这几类，这里兜底），VMess / VLESS / Trojan 共用
-private fun requireXrayStream(bean: StandardV2RayBean, globalAllowInsecure: Boolean) {
-    if (bean.xrayLacksTransport()) {
-        error("xray-core no longer supports the ${bean.type} transport, use the sing-box core for this profile")
-    }
-    if (bean.xrayLacksAllowInsecure(globalAllowInsecure)) {
-        error("xray-core no longer supports allowInsecure, use a certificate fingerprint or the sing-box core for this profile")
-    }
-    // XHTTP 配 Vision 流控 / Mux.Cool 都能通过 Xray 的 run -test，到运行时才每次连接失败（K2 回环 XL-45 / XL-49）；
-    // 选核判定（XRAY_XHTTP_VISION / XRAY_XHTTP_MUX_COOL）已经排除，这里同样是最后一道防线。只开 XUDP 包编码不算 Mux.Cool
-    if (bean.isXhttp()) {
-        if (bean.isVLESS && bean.encryption?.startsWith(StandardV2RayBean.FLOW_VISION) == true) {
-            error("xray-core cannot run the Vision flow over XHTTP, remove the flow for this profile")
-        }
-        if (bean.enableMux) {
-            error("xray-core cannot combine Mux.Cool with XHTTP, turn mux off for this profile")
-        }
+// 生成器的最后一道防线：判定之外的调用方把 Xray 承载不了的节点交给 Xray 时，生成前报错，不生成 run -test 能过、
+// 运行时才失败（或核心直接拒绝）的配置。不另写规则：按手动指定 Xray 跑一遍选核判定（decideCore，与编辑器保存、构建
+// 同一套能力表与组合规则），有冲突就拒绝。已知差异不是冲突，不在这里报。报错只用冲突自带的字段键、英文原因与
+// 已按 shownConflictValue 处理的取值，不带凭据。全局「允许不安全」由调用方传入（buildXrayOutbound 取 ExternalCoreSettings）
+private fun requireXrayCarries(type: Int, bean: StandardV2RayBean, globalAllowInsecure: Boolean) {
+    val decision = decideCore(type, CORE_XRAY, bean, globalAllowInsecure)
+    if (decision is CoreDecision.Rejected) {
+        error("xray-core cannot run this profile: " + decision.conflicts.joinToString("; ") { it.fieldText() })
     }
 }
 
@@ -260,8 +240,7 @@ private fun buildXrayStreamSettings(bean: StandardV2RayBean): Map<String, Any?> 
                 })
             }
 
-            // h2 is rejected by xrayLacksTransport(); only the v2ray-style
-            // tcp fake-http header form reaches here
+            // h2 已被 requireXrayCarries 拦下（XRAY_TRANSPORT_H2），到这里的只有 tcp 的伪 HTTP 头
             "http" -> {
                 put("network", "tcp")
                 put("tcpSettings", LinkedHashMap<String, Any?>().apply {
@@ -306,7 +285,7 @@ private fun buildXrayStreamSettings(bean: StandardV2RayBean): Map<String, Any?> 
                 put("xhttpSettings", buildXhttpSettings(bean))
             }
 
-            // quic 已被 xrayLacksTransport() 拦下
+            // quic 已被 requireXrayCarries 拦下（XRAY_TRANSPORT_QUIC）
             else -> error("can't reach")
         }
 
@@ -348,8 +327,9 @@ private fun buildXrayStreamSettings(bean: StandardV2RayBean): Map<String, Any?> 
                     }
                     put("pinnedPeerCertSha256", certPin)
                 }
-                // 从不写 allowInsecure：Xray 已移除这个功能（见 xrayLacksAllowInsecure），能力表也不让这类节点走 Xray；
-                // 没有证书指纹而 allowInsecure 生效的节点在 requireXrayStream 已报错，到不了这里
+                // 从不写 allowInsecure：Xray 已移除这个功能（固定版本的 infra/conf/transport_security.go 无条件拒绝，写 false
+                // 不报错），能力表也不让这类节点走 Xray；没有证书指纹而 allowInsecure 生效的节点在 requireXrayCarries 已报错
+                // （XRAY_ALLOW_INSECURE），到不了这里
                 fp?.let { put("fingerprint", it) }
                 if (bean.certificates.isNotBlank()) {
                     put("certificates", ArrayList<Any?>().apply {

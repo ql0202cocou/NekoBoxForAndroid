@@ -30,6 +30,7 @@ import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Random
@@ -144,7 +145,14 @@ class LegacyProfileUpgradeTest {
         assertEquals("/ws", singBox.path)
         assertEquals(2048, singBox.max_early_data)
         assertNull(singBox.early_data_header_name)
-        assertEquals("/ws?ed=2048", xrayWsPath(bean))
+        // Xray 生成器与选核同一判定，现在直接拒绝没有头名的 early data（XRAY_WS_EARLY_DATA_PATH）；它写的 ?ed=N 与头名无关，
+        // 用标上 Sec-WebSocket-Protocol 的同一节点钉住
+        val e = assertThrows(IllegalStateException::class.java) { xrayWsPath(bean) }
+        assertEquals(
+            "xray-core cannot run this profile: [wsMaxEarlyData, earlyDataHeaderName] " + CoreConflict.XRAY_WS_EARLY_DATA_PATH.reason,
+            e.message,
+        )
+        assertEquals("/ws?ed=2048", xrayWsPath(ws { earlyDataHeaderName = "Sec-WebSocket-Protocol" }))
     }
 
     @Test

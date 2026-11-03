@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.fmt
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import io.nekohasekai.sagernet.fmt.v2ray.MUX_COOL
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.buildXrayConfig
 import io.nekohasekai.sagernet.fmt.v2ray.buildXrayOutbound
@@ -73,15 +74,13 @@ class ExternalCoreInvariantsTest {
         vless { },
         vless { security = "tls"; sni = "node.example.com"; alpn = "h2,http/1.1"; utlsFingerprint = "chrome" },
         vless { security = "tls"; realityPubKey = realityKey; realityShortId = "0123abcd"; sni = "www.example.org"; utlsFingerprint = "chrome"; encryption = "xtls-rprx-vision" },
-        vless { security = "tls"; type = "grpc"; path = "svc"; enableMux = true; muxConcurrency = 4 },
+        vless { security = "tls"; type = "grpc"; path = "svc"; enableMux = true; muxType = MUX_COOL; muxConcurrency = 4 },
         vless { security = "tls"; type = "httpupgrade"; host = "cdn.example.net"; path = "/up"; packetEncoding = 2 },
         vless { type = "http"; host = "a.example.com,b.example.com"; path = "/h" },
-        vmess { type = "ws"; host = "cdn.example.com"; path = "/ws"; security = "tls"; enableMux = true },
+        vmess { type = "ws"; host = "cdn.example.com"; path = "/ws"; security = "tls"; enableMux = true; muxType = MUX_COOL },
         vmess { security = "tls"; certificateFingerprint = "d2fd6f6b04f88cb7cf03ce84064d413aeefc44b6dad87d0900cb90aeca364325" },
         vmess { security = "tls"; certificates = "-----BEGIN CERTIFICATE-----\nZmFrZQ==\n-----END CERTIFICATE-----" },
         vless { security = "tls"; enableECH = true; echConfig = "ZmFrZS1lY2gtY29uZmln" },
-        // 开了 ECH 但没有内联配置：Xray 生成器什么都不写（不自己查 DNS）
-        vless { security = "tls"; enableECH = true },
         // XHTTP（K2）：无 TLS（host 兜底）、TLS（extra、mode、h3）、REALITY、VMess
         vless { type = "xhttp"; path = "/xh" },
         vless { type = "xhttp"; path = "/xh"; serverAddress = "2001:db8::1" },
