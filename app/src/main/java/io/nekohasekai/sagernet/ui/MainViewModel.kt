@@ -20,8 +20,7 @@ class MainViewModel(private val handle: SavedStateHandle) : ViewModel() {
     var settingsListState: Parcelable?
         get() = handle[KEY_SETTINGS_LIST_STATE]
         set(value) {
-            if (value == null) handle.remove<Parcelable>(KEY_SETTINGS_LIST_STATE)
-            else handle[KEY_SETTINGS_LIST_STATE] = value
+            handle[KEY_SETTINGS_LIST_STATE] = value
         }
 
     /** 新的设置列表取走进入二级页面前保存的滚动状态，只取一次 */

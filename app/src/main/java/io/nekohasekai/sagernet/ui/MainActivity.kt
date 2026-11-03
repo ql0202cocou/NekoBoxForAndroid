@@ -234,13 +234,13 @@ class MainActivity : ThemedActivity(),
             .replace(R.id.fragment_holder, fragment)
             .commitAllowingStateLoss()
         binding.dock.select(dockItemOf(fragment))
-        mainModel.settingsListState = when {
+        if (fragment.opensFromSettings) {
             // 从设置页进二级页面：记下设置列表的滚动位置（替换是异步提交的，此时设置页还在）
             // （只有一级页有非空状态；分类页间不互相进入）
-            fragment.opensFromSettings -> (currentFragment() as? SettingsFragment)?.listState()
-            // 回到设置一级页：交给新的设置列表恢复（takeSettingsListState）
-            fragment is SettingsFragment -> mainModel.settingsListState
-            else -> null
+            mainModel.settingsListState = (currentFragment() as? SettingsFragment)?.listState()
+        } else if (fragment !is SettingsFragment) {
+            // 回到设置一级页时留着，交给新的设置列表恢复（takeSettingsListState）；去别的页就作废
+            mainModel.settingsListState = null
         }
     }
 
@@ -450,11 +450,10 @@ class MainActivity : ThemedActivity(),
     // 监听器在写入线程里同步回调（DataStore 可能由 binder 线程或后台协程写入），下面的 snackbar 与重连都要在主线程做：
     // 切到页面作用域的主线程（已在主线程时立即执行），页面销毁后协程随之取消，不会碰已销毁的 Activity
     override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
-        if (key != Key.SERVICE_MODE && key != Key.PROXY_APPS && key != Key.BYPASS_MODE && key != Key.INDIVIDUAL) return
-        lifecycleScope.launch(Dispatchers.Main.immediate) {
-            when (key) {
-                Key.SERVICE_MODE -> onBinderDied()
-                Key.PROXY_APPS, Key.BYPASS_MODE, Key.INDIVIDUAL -> {
+        val action: () -> Unit = when (key) {
+            Key.SERVICE_MODE -> ::onBinderDied
+            Key.PROXY_APPS, Key.BYPASS_MODE, Key.INDIVIDUAL -> {
+                {
                     if (ServiceRegistry.state.canStop) {
                         // 分应用代理的设置改动，同 needReload 要整个重启
                         snackbar(getString(R.string.need_reload)).setAction(R.string.apply) {
@@ -463,7 +462,10 @@ class MainActivity : ThemedActivity(),
                     }
                 }
             }
+
+            else -> return
         }
+        lifecycleScope.launch(Dispatchers.Main.immediate) { action() }
     }
 
     override fun onStart() {

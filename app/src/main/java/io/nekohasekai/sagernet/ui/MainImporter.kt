@@ -35,8 +35,7 @@ class MainImporter(private val activity: MainActivity) {
 
     // 导入链跑在 appScope（深链、配置页的剪贴板 / 文件导入都会进来），解析期间
     // 旋转或退出后 Activity 已销毁：再弹窗会 BadTokenException，提交 Fragment 会抛
-    // "Activity has been destroyed"。这时放弃界面部分，已写库的导入不受影响
-    private suspend fun onLiveActivity(block: () -> Unit) = activity.onLiveActivity(block)
+    // "Activity has been destroyed"。这时放弃界面部分（activity.onLiveActivity），已写库的导入不受影响
 
     suspend fun importSubscription(uri: Uri) {
         val group: ProxyGroup
@@ -59,7 +58,7 @@ class MainImporter(private val activity: MainActivity) {
                     export = false
                 }
             } catch (e: Exception) {
-                onLiveActivity {
+                activity.onLiveActivity {
                     activity.alert(e.readableMessage).show()
                 }
                 return
@@ -72,7 +71,7 @@ class MainImporter(private val activity: MainActivity) {
         val link = group.subscription?.link
         if (!link.isNullOrBlank()) {
             if (!isHttpSubscriptionLink(link)) {
-                onLiveActivity {
+                activity.onLiveActivity {
                     activity.alert(activity.getString(R.string.invalid_subscription_url)).show()
                 }
                 return
@@ -86,7 +85,7 @@ class MainImporter(private val activity: MainActivity) {
         group.name = group.name.takeIf { !it.isNullOrBlank() }
             ?: ("Subscription #" + System.currentTimeMillis())
 
-        onLiveActivity {
+        activity.onLiveActivity {
 
             activity.displayFragmentWithId(R.id.nav_group)
 
@@ -135,13 +134,13 @@ class MainImporter(private val activity: MainActivity) {
         val profile = try {
             parseProxies(uri.toString()).getOrNull(0) ?: error(activity.getString(R.string.no_proxies_found))
         } catch (e: Exception) {
-            onLiveActivity {
+            activity.onLiveActivity {
                 activity.alert(e.userMessage).show()
             }
             return
         }
 
-        onLiveActivity {
+        activity.onLiveActivity {
             // 节点名同样来自外部链接、可能极长：确认框里截断显示，导入的仍是完整值
             val shownName = truncateForDisplay(profile.displayName(), IMPORT_PREVIEW_NAME_MAX)
             MaterialAlertDialogBuilder(activity).setTitle(R.string.profile_import)
@@ -163,7 +162,7 @@ class MainImporter(private val activity: MainActivity) {
 
         ProfileRepository.createProfile(targetId, profile)
 
-        onLiveActivity {
+        activity.onLiveActivity {
             activity.displayFragmentWithId(R.id.nav_configuration)
 
             activity.snackbar(activity.resources.getQuantityString(R.plurals.added, 1, 1)).show()
