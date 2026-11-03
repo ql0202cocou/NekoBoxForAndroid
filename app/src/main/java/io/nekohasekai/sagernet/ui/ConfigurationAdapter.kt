@@ -2,7 +2,7 @@ package io.nekohasekai.sagernet.ui
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
-import androidx.recyclerview.widget.AsyncDifferConfig
+
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import io.nekohasekai.sagernet.R
@@ -12,10 +12,9 @@ import io.nekohasekai.sagernet.fmt.beanForType
 import io.nekohasekai.sagernet.fmt.displayType
 import io.nekohasekai.sagernet.ktx.scrollTo
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
-import java.util.concurrent.Executor
+import io.nekohasekai.sagernet.widget.syncDifferConfig
 
 // 节点被更新（测试结果、编辑等）：就地重绑，不触发整卡的变更动画
-private const val PAYLOAD_UPDATED = ProfileListViewModel.PAYLOAD_UPDATED
 
 // 节点卡片显示的字段：差量比较只看这些。选中态不在其中（它在 DataStore，bind 时异步查），
 // 选中项变化走 onUpdated(profile) 的定点通知；实时流量也不在其中（走 onUpdated(TrafficData) 直接重画流量段）
@@ -59,20 +58,11 @@ private val PROFILE_DIFF = object : DiffUtil.ItemCallback<ProxyEntity>() {
     override fun areContentsTheSame(oldItem: ProxyEntity, newItem: ProxyEntity) =
         oldItem.cardState() == newItem.cardState()
 
-    override fun getChangePayload(oldItem: ProxyEntity, newItem: ProxyEntity): Any = PAYLOAD_UPDATED
+    override fun getChangePayload(oldItem: ProxyEntity, newItem: ProxyEntity): Any = ProfileListViewModel.PAYLOAD_UPDATED
 }
 
-// 差量计算与结果回主线程都在调用线程上同步完成：拖动 / 撤销 / 删除的就地改动与整表提交
-// 才不会撞上一次还没落地的差量。submit 只在主线程调用；节点数在数百到数千的量级，主线程算得过来
-private val SYNC_EXECUTOR = Executor { it.run() }
-
 class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
-    ListAdapter<ProxyEntity, ConfigurationHolder>(
-        AsyncDifferConfig.Builder(PROFILE_DIFF)
-            .setBackgroundThreadExecutor(SYNC_EXECUTOR)
-            .setMainThreadExecutor(SYNC_EXECUTOR)
-            .build()
-    ),
+    ListAdapter<ProxyEntity, ConfigurationHolder>(syncDifferConfig(PROFILE_DIFF)),
     ProfileListViewModel.Host,
     UndoSnackbarManager.Interface<ProxyEntity> {
 
@@ -85,16 +75,6 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
     // 只有主线程同步的几条路径就地改它并紧跟精确的 notify：拖动换位、删除、撤销插回、新增追加、
     // 单行更新（ItemTouchHelper 要求当场可见，撤销下标只对删除当时的列表有效）。主线程之外不碰
     val items: ArrayList<ProxyEntity> get() = model.items
-
-    // 缓存里每个节点的当前实例（含被搜索过滤掉的）
-    val configurationList: HashMap<Long, ProxyEntity> get() = model.configurationList
-
-    // 可见行的 id 视图（只读，不拷贝）；ConfigurationFragment 的标题栏点击按它找选中行的位置
-    val configurationIdList: List<Long>
-        get() = object : AbstractList<Long>() {
-            override val size get() = items.size
-            override fun get(index: Int) = items[index].id
-        }
 
     init {
         setHasStableIds(true)
@@ -189,8 +169,4 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
     override fun undo(actions: List<Pair<Int, ProxyEntity>>) = model.undo(actions)
 
     override fun commit(actions: List<Pair<Int, ProxyEntity>>) = model.commit(actions)
-
-    suspend fun onAdd(profile: ProxyEntity) = model.onAdd(profile)
-
-    fun reloadProfiles() = model.reloadProfiles()
 }

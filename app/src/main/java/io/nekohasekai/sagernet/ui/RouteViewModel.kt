@@ -25,13 +25,10 @@ private const val UNCONFIRMED = Long.MAX_VALUE
  * 界面刷新由当前的 [Host]（页面里的适配器）完成；没有 [Host]（旋转的空档）时只改状态，
  * 新适配器建好时直接取现成的列表。ViewModel 不碰 Activity 与 View。
  */
-class RouteViewModel : ViewModel() {
+class RouteViewModel : ListViewModel<RouteViewModel.Host>() {
 
     /** 页面里的适配器与 Fragment：ViewModel 把「改列表」的通知交给它 */
-    interface Host {
-        /** 列表变更的统一入口：先提交撤销窗口（UndoSnackbarManager.mutate），再执行 [block] */
-        fun mutate(block: () -> Unit)
-
+    interface Host : ListHost {
         /** 状态变了：按 [RouteViewModel.ruleList] 重新生成行提交，由 DiffUtil 发通知 */
         fun refresh()
 
@@ -57,8 +54,6 @@ class RouteViewModel : ViewModel() {
     // 整表重读的序号，每次在主线程上、读库之前递增
     private var reloadGen = 0L
 
-    private var host: Host? = null
-
     // 没有页面时到达的「提示重载」，等下一个页面接上时补上
     private var needReloadPending = false
 
@@ -66,21 +61,11 @@ class RouteViewModel : ViewModel() {
         RuleRepository.removeListener(listener)
     }
 
-    fun attach(host: Host) {
-        this.host = host
+    override fun onAttached(host: Host) {
         if (needReloadPending) {
             needReloadPending = false
             host.needReload()
         }
-    }
-
-    fun detach(host: Host) {
-        if (this.host === host) this.host = null
-    }
-
-    private fun mutateList(block: () -> Unit) {
-        val host = host
-        if (host == null) block() else host.mutate(block)
     }
 
     private fun notifyNeedReload() {
@@ -199,10 +184,6 @@ class RouteViewModel : ViewModel() {
         }
     }
 
-    // 与原来的 View.post 一样排到主 looper 末尾，不阻塞调用方
-    private fun postToMain(block: () -> Unit) {
-        viewModelScope.launch(Dispatchers.Main) { block() }
-    }
 
     // 放在 listener 之后：属性初始化按书写顺序，init 里要用到它
     init {

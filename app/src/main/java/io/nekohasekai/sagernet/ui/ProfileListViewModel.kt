@@ -34,15 +34,12 @@ import kotlinx.coroutines.launch
  * 界面刷新由当前的 [Host]（页面里的适配器）完成；没有 [Host]（旋转的空档）时只改列表，
  * 新适配器建好时直接取现成的列表。ViewModel 不碰 Activity 与 View。
  */
-class ProfileListViewModel(private val handle: SavedStateHandle) : ViewModel(),
+class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel<ProfileListViewModel.Host>(),
     ProfileManager.Listener,
     GroupManager.Listener {
 
     /** 页面里的适配器：ViewModel 把「改列表」的通知交给它，由它转成 RecyclerView 的变更事件 */
-    interface Host {
-        /** 列表变更的统一入口：先提交撤销窗口（UndoSnackbarManager.mutate），再执行 [block] */
-        fun mutate(block: () -> Unit)
-
+    interface Host : ListHost {
         /** 整表换成 [list]（就是 [items] 本身），由 DiffUtil 发通知 */
         fun submit(list: ArrayList<ProxyEntity>)
 
@@ -114,7 +111,6 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ViewModel(),
     var listLoaded = false
 
     private var started = false
-    private var host: Host? = null
 
     private val updated = HashSet<ProxyEntity>()
 
@@ -147,19 +143,16 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ViewModel(),
         this.selectedItemId = selectedItemId
     }
 
-    fun attach(host: Host) {
-        this.host = host
+    override fun onAttached(host: Host) {
         // 载入已完成但这一页还没有机会定位（载入时没有页面）：补上
         if (listLoaded) scrollToInitialIfPending()
     }
 
     /**
-     * 视图销毁时摘掉 [host]。拖动中途销毁的话 ItemTouchHelper 不会再回调 clearView，换位只存在于内存里：
+     * 视图销毁、宿主已摘掉。拖动中途销毁的话 ItemTouchHelper 不会再回调 clearView，换位只存在于内存里：
      * 放弃这次拖动并按库重读，免得列表顺序与库不一致
      */
-    fun detach(host: Host) {
-        if (this.host !== host) return
-        this.host = null
+    override fun onDetached() {
         if (dragging) {
             dragging = false
             reloadAfterDrag = false
@@ -183,10 +176,6 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ViewModel(),
         viewModelScope.launch(Dispatchers.IO) { reloadProfiles() }
     }
 
-    private fun mutateList(block: () -> Unit) {
-        val host = host
-        if (host == null) block() else host.mutate(block)
-    }
 
     /**
      * 提交一份新的可见列表：传副本，differ 对同一实例直接返回、不做比对；此后的就地改动落在这份副本上。
@@ -286,9 +275,9 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ViewModel(),
     // 撤销插回：就地改，下标夹在当前范围内
     fun undo(actions: List<Pair<Int, ProxyEntity>>) {
         for ((index, item) in actions) {
-            onMain {
+            postToMain {
                 // 点撤销到这个 post 执行之间若有整组重读，它已经把这一行读回来了（库里还没删），不能再插一次
-                if (item.id in allProfileIds) return@onMain
+                if (item.id in allProfileIds) return@postToMain
                 configurationList[item.id] = item
                 // 下标夹在当前范围内：窗口期间列表被改短也不越界
                 val at = items.insertClamped(index, item)
@@ -313,11 +302,6 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ViewModel(),
         runOnDefaultDispatcher { ProfileRepository.deleteProfiles(profiles) }
     }
 
-    // 回调跑在调用方线程：改列表一律投回主线程。用 Dispatchers.Main（不是 immediate），
-    // 与原先的 view.post 一样总是排到主线程消息队列里，不会在回调线程就是主线程时插队
-    private fun onMain(block: () -> Unit) {
-        viewModelScope.launch(Dispatchers.Main) { block() }
-    }
 
     // ------------------------------------------------------------- 仓库通知
 
@@ -325,7 +309,7 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ViewModel(),
     override suspend fun onAdd(profile: ProxyEntity) {
         if (profile.groupId != groupId) return
 
-        onMain {
+        postToMain {
             mutateList {
                 // 并发的整组重读可能已经把这一行读进来了（先落库、重读先到、onAdd 后到）：
                 // 重读的数据不旧于这次通知，按 id 去重，在就不再追加
@@ -345,11 +329,11 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ViewModel(),
     // （选中态不在卡片字段里），差量看不出，所以走定点通知而不是整表提交
     override suspend fun onUpdated(profile: ProxyEntity) {
         if (profile.groupId != groupId) return
-        onMain {
+        postToMain {
             // compute the index here: this callback runs on a background
             // dispatcher while the main thread mutates the list
             val index = indexOfId(profile.id)
-            if (index < 0) return@onMain
+            if (index < 0) return@postToMain
             mutateList {
                 // 库里的 tx/rx 可能落后于实时流量，重绑时 bind 会优先取
                 // ProfileRepository.liveTraffic
@@ -361,7 +345,7 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ViewModel(),
     }
 
     override suspend fun onUpdated(data: TrafficData) {
-        onMain {
+        postToMain {
             try {
                 // 缓存的实体跟着实时流量走：停止时 liveTraffic 被清空，之后重绑的行
                 // 回落到实体上的值，不能是列表加载时的旧值。在主线程改：后台回调期间
@@ -369,7 +353,7 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ViewModel(),
                 configurationList[data.id]?.apply {
                     rx = data.rx
                     tx = data.tx
-                } ?: return@onMain
+                } ?: return@postToMain
                 host?.bindTraffic(data)
             } catch (e: Exception) {
                 Logs.w(e)
@@ -380,7 +364,7 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ViewModel(),
     override suspend fun onRemoved(groupId: Long, profileId: Long) {
         if (groupId != this.groupId) return
 
-        onMain {
+        postToMain {
             // 别处删了节点（菜单批删、编辑器删除）：先提交撤销窗口。undo 按删除时的位置插回，列表变短会越界；
             // 删的若正是窗口里待删的那个，撤销还会插回一行库里已没有的节点
             mutateList {

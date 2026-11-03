@@ -12,7 +12,6 @@ import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.ItemTouchHelper
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import io.nekohasekai.sagernet.GroupOrder
 import io.nekohasekai.sagernet.R
@@ -72,7 +71,6 @@ class ProfileListFragment : Fragment() {
             return ServiceRegistry.state.let { it.canStop || it == BaseService.State.Stopped }
         }
 
-    lateinit var layoutManager: LinearLayoutManager
     lateinit var configurationListView: RecyclerView
 
     // 视图还没建出来（ViewPager 预载间隙）时为空
@@ -232,8 +230,7 @@ class ProfileListFragment : Fragment() {
             configurationListView.updatePadding(bottom = configurationListView.paddingTop)
             hostMainScrollable(configurationListView, lift = parentConfiguration?.appBarLift, ime = true)
         }
-        layoutManager = FixedLinearLayoutManager(configurationListView)
-        configurationListView.layoutManager = layoutManager
+        configurationListView.layoutManager = FixedLinearLayoutManager(configurationListView)
         emptyObserverAdapter?.unregisterAdapterDataObserver(emptyObserver)
         profileModel.configure(selectedItem?.id)
         adapter = ConfigurationAdapter(this)

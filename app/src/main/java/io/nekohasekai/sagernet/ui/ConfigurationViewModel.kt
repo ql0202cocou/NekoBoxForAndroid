@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * 界面刷新由当前的 [Host]（页面里的适配器）完成；没有 [Host]（旋转的空档）时只改列表，
  * 新适配器建好时直接取现成的列表。ViewModel 不碰 Activity 与 View。
  */
-class ConfigurationViewModel(private val handle: SavedStateHandle) : ViewModel(),
+class ConfigurationViewModel(private val handle: SavedStateHandle) : HostedViewModel<ConfigurationViewModel.Host>(),
     ProfileManager.Listener,
     GroupManager.Listener {
 
@@ -90,8 +90,6 @@ class ConfigurationViewModel(private val handle: SavedStateHandle) : ViewModel()
 
     var pendingExportConfig = ""
 
-    private var host: Host? = null
-
     // 批量删除提交后才逐条发 onRemoved，ungrouped 被删空时每条都会看到 0：
     // 已排上一次 reload 就不再查数、不再重复 reload，reload 换完列表后复位
     private val emptyUngroupedReloadPending = AtomicBoolean(false)
@@ -108,15 +106,6 @@ class ConfigurationViewModel(private val handle: SavedStateHandle) : ViewModel()
         GroupRepository.removeListener(this)
     }
 
-    fun attach(host: Host) {
-        this.host = host
-    }
-
-    fun detach(host: Host) {
-        if (this.host === host) this.host = null
-    }
-
-    fun isAttached(host: Host) = this.host === host
 
     /** 换 tab 列表；适配器做完差量刷新后调用。读库结果在应用前页面已销毁时也经它落进来 */
     fun commitGroups(groups: ArrayList<ProxyGroup>) {
@@ -207,9 +196,9 @@ class ConfigurationViewModel(private val handle: SavedStateHandle) : ViewModel()
     // 下面几个回调跑在调用方的后台线程：只在主线程块里碰 groupList 与 Host
 
     override suspend fun groupAdd(group: ProxyGroup) {
-        viewModelScope.launch(Dispatchers.Main) {
+        postToMain {
             // 并发的整表重读可能已经把这个分组读进列表：按 id 去重，免得 FragmentStateAdapter 遇到重复 id
-            if (groupList.any { it.id == group.id }) return@launch
+            if (groupList.any { it.id == group.id }) return@postToMain
             groupList.add(group)
             saveGroups()
             host?.groupInserted(group)
@@ -217,9 +206,9 @@ class ConfigurationViewModel(private val handle: SavedStateHandle) : ViewModel()
     }
 
     override suspend fun groupRemoved(groupId: Long) {
-        viewModelScope.launch(Dispatchers.Main) {
+        postToMain {
             val index = groupList.indexOfFirst { it.id == groupId }
-            if (index == -1) return@launch
+            if (index == -1) return@postToMain
             groupList.removeAt(index)
             saveGroups()
             host?.groupRemovedAt(index)
@@ -227,9 +216,9 @@ class ConfigurationViewModel(private val handle: SavedStateHandle) : ViewModel()
     }
 
     override suspend fun groupUpdated(group: ProxyGroup) {
-        viewModelScope.launch(Dispatchers.Main) {
+        postToMain {
             val index = groupList.indexOfFirst { it.id == group.id }
-            if (index == -1) return@launch
+            if (index == -1) return@postToMain
             groupList[index] = group
             saveGroups()
             host?.groupRenamed(index, group)

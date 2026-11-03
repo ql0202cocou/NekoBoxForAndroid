@@ -15,6 +15,7 @@ import androidx.core.os.BundleCompat
 import androidx.core.os.bundleOf
 import androidx.fragment.app.viewModels
 import androidx.preference.PreferenceDataStore
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
@@ -225,9 +226,9 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
 
             if (fragment != null && listAdapter != null) {
                 val selectedProxy = selectedItem?.id ?: DataStore.selectedProxy
-                val selectedProfileIndex = listAdapter.configurationIdList.indexOf(selectedProxy)
+                val selectedProfileIndex = listAdapter.indexOfId(selectedProxy)
                 if (selectedProfileIndex != -1) {
-                    val layoutManager = fragment.layoutManager
+                    val layoutManager = fragment.configurationListView.layoutManager as LinearLayoutManager
                     val first = layoutManager.findFirstVisibleItemPosition()
                     val last = layoutManager.findLastVisibleItemPosition()
 

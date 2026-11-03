@@ -8,7 +8,7 @@ import android.view.ViewGroup
 import androidx.appcompat.widget.Toolbar
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.AsyncDifferConfig
+
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.ListAdapter
@@ -22,9 +22,10 @@ import io.nekohasekai.sagernet.databinding.LayoutRouteItemBinding
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.widget.hostMainScrollable
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
+import io.nekohasekai.sagernet.widget.syncDifferConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.util.concurrent.Executor
+
 
 class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItemClickListener {
 
@@ -185,18 +186,10 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
             ) PAYLOAD_ENABLED else null
     }
 
-    /**
-     * 列表只有几十行，差量计算就在调用线程（主线程）上同步做：提交后 [currentList] 立刻是新内容，
-     * 滑动、拖动、撤销用的位置与 [ruleList] 始终一致，不会有「后台算完才换」的空档。
-     */
-    private val syncExecutor = Executor { it.run() }
-
-    inner class RuleAdapter : ListAdapter<RuleRow, RuleAdapter.RuleHolder>(
-        AsyncDifferConfig.Builder(RuleDiff)
-            .setBackgroundThreadExecutor(syncExecutor)
-            .setMainThreadExecutor(syncExecutor)
-            .build()
-    ), RouteViewModel.Host, UndoSnackbarManager.Interface<RuleEntity> {
+    // 差量在主线程同步算（syncDifferConfig）：提交后 currentList 立刻是新内容，
+    // 滑动、拖动、撤销用的位置与 ruleList 始终一致，不会有「后台算完才换」的空档
+    inner class RuleAdapter : ListAdapter<RuleRow, RuleAdapter.RuleHolder>(syncDifferConfig(RuleDiff)),
+        RouteViewModel.Host, UndoSnackbarManager.Interface<RuleEntity> {
 
         // 数据在 ViewModel 里，适配器只管显示。ViewModel 在适配器构造时取一次存着：
         // 撤销提交等后台回调晚于视图销毁时也不必再经 Fragment 去找它
@@ -221,7 +214,6 @@ class RouteFragment : ToolbarFragment(R.layout.layout_route), Toolbar.OnMenuItem
             submitList(ruleList.map(::rowOf))
         }
 
-        fun reload() = model.reload()
 
         init {
             // 旋转后 ViewModel 里已有现成的列表，直接显示；还没读过库就等 ViewModel 的读库结果

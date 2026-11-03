@@ -12,7 +12,7 @@ import androidx.appcompat.widget.Toolbar
 import androidx.core.view.*
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.AsyncDifferConfig
+
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.ListAdapter
@@ -31,6 +31,7 @@ import io.nekohasekai.sagernet.widget.hostMainScrollable
 import io.nekohasekai.sagernet.widget.QRCodeDialog
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
 import io.nekohasekai.sagernet.widget.insertClamped
+import io.nekohasekai.sagernet.widget.syncDifferConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -38,10 +39,9 @@ import kotlinx.coroutines.withContext
 import moe.matsuri.nb4a.utils.Util
 import moe.matsuri.nb4a.utils.toBytesString
 import java.util.*
-import java.util.concurrent.Executor
+
 
 // 只刷新订阅更新进度条的局部 bind 标记
-private const val PAYLOAD_PROGRESS = GroupViewModel.PAYLOAD_PROGRESS
 
 // 分组卡片显示的字段：差量比较只看这些，别的字段变了不重绑。进度条不在其中——
 // 它的状态在 GroupUpdater.progress / updating，不在 ProxyGroup 上，走 PAYLOAD_PROGRESS 专用通知
@@ -81,9 +81,6 @@ private val GROUP_DIFF = object : DiffUtil.ItemCallback<ProxyGroup>() {
         oldItem.cardState() == newItem.cardState()
 }
 
-// 差量计算与结果回主线程都在调用线程上同步完成：分组只有几行，同步算完，
-// 滑动 / 拖动 / 撤销的就地改动才不会撞上一次还没落地的差量。submit 只在主线程调用
-private val SYNC_EXECUTOR = Executor { it.run() }
 
 class GroupFragment : ToolbarFragment(R.layout.layout_group),
     Toolbar.OnMenuItemClickListener {
@@ -233,12 +230,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             }
         }
 
-    inner class GroupAdapter : ListAdapter<ProxyGroup, GroupHolder>(
-        AsyncDifferConfig.Builder(GROUP_DIFF)
-            .setBackgroundThreadExecutor(SYNC_EXECUTOR)
-            .setMainThreadExecutor(SYNC_EXECUTOR)
-            .build()
-    ),
+    inner class GroupAdapter : ListAdapter<ProxyGroup, GroupHolder>(syncDifferConfig(GROUP_DIFF)),
         GroupViewModel.Host,
         UndoSnackbarManager.Interface<ProxyGroup> {
 
@@ -252,7 +244,6 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         // （ItemTouchHelper 要求当场可见，撤销下标只对删除当时的列表有效）。主线程之外不碰
         val groupList: ArrayList<ProxyGroup> get() = model.groupList
 
-        fun reload() = model.reload()
 
         init {
             setHasStableIds(true)
@@ -279,7 +270,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         }
 
         override fun onBindViewHolder(holder: GroupHolder, position: Int, payloads: List<Any>) {
-            if (payloads.isNotEmpty() && payloads.all { it == PAYLOAD_PROGRESS }) {
+            if (payloads.isNotEmpty() && payloads.all { it == GroupViewModel.PAYLOAD_PROGRESS }) {
                 holder.bindProgress(getItem(position))
             } else {
                 onBindViewHolder(holder, position)
@@ -320,7 +311,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             runOnDefaultDispatcher {
                 GroupRepository.updateUserOrders(updated)
                 // 拖动期间被挡下的重读，要等新顺序落库后再读
-                if (deferredReload) reload()
+                if (deferredReload) model.reload()
             }
         }
 
@@ -343,7 +334,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             runOnDefaultDispatcher {
                 GroupRepository.deleteGroups(groups)
                 // 删完刷新列表
-                reload()
+                model.reload()
             }
         }
 

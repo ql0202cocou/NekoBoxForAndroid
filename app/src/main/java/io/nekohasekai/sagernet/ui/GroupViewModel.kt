@@ -28,13 +28,10 @@ import kotlinx.coroutines.withContext
  * 界面刷新由当前的 [Host]（页面里的适配器）完成；没有 [Host]（旋转的空档）时只改列表，
  * 新适配器建好时直接取现成的列表。ViewModel 不碰 Activity 与 View。
  */
-class GroupViewModel(private val handle: SavedStateHandle) : ViewModel(), GroupManager.Listener {
+class GroupViewModel(private val handle: SavedStateHandle) : ListViewModel<GroupViewModel.Host>(), GroupManager.Listener {
 
     /** 页面里的适配器：ViewModel 把「改列表」的通知交给它，由它转成 RecyclerView 的变更事件 */
-    interface Host {
-        /** 列表变更的统一入口：先提交撤销窗口（UndoSnackbarManager.mutate），再执行 [block] */
-        fun mutate(block: () -> Unit)
-
+    interface Host : ListHost {
         /** 整表换成 [groups]（就是 ViewModel 的工作副本本身），由 DiffUtil 发通知 */
         fun submit(groups: ArrayList<ProxyGroup>)
 
@@ -56,8 +53,6 @@ class GroupViewModel(private val handle: SavedStateHandle) : ViewModel(), GroupM
             handle[KEY_SELECTED_GROUP] = value
         }
 
-    private var host: Host? = null
-
     // 拖动进行中（已有换位、尚未落下）；这期间不应用整表重读：库里还是拖动前的顺序，
     // 会把正在拖的列表拽回去。落下后补读一次
     private var dragging = false
@@ -72,27 +67,16 @@ class GroupViewModel(private val handle: SavedStateHandle) : ViewModel(), GroupM
         GroupRepository.removeListener(this)
     }
 
-    fun attach(host: Host) {
-        this.host = host
-    }
-
     /**
-     * 视图销毁时摘掉 [host]。拖动中途销毁的话 ItemTouchHelper 不会再回调 clearView，换位只存在于内存里：
+     * 视图销毁、宿主已摘掉。拖动中途销毁的话 ItemTouchHelper 不会再回调 clearView，换位只存在于内存里：
      * 放弃这次拖动并按库重读，免得列表顺序与库不一致
      */
-    fun detach(host: Host) {
-        if (this.host !== host) return
-        this.host = null
+    override fun onDetached() {
         if (dragging) {
             dragging = false
             reloadAfterDrag = false
             reload()
         }
-    }
-
-    private fun mutateList(block: () -> Unit) {
-        val host = host
-        if (host == null) block() else host.mutate(block)
     }
 
     /** 提交一份新列表：传副本，此后的就地改动落在这份副本上。只在主线程调用 */
