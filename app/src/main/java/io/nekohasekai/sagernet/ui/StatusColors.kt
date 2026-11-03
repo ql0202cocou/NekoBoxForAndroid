@@ -21,17 +21,23 @@ object StatusColors {
     const val SLOW_THRESHOLD_MS = 600
 
     // 主题是否单色（灰 / 黑）：看 primary 的饱和度，不读设置
-    private fun Context.isMonochromeTheme(): Boolean {
+    private fun isMonochrome(@ColorInt primary: Int): Boolean {
         val hsl = FloatArray(3)
-        ColorUtils.colorToHSL(getColorAttr(androidx.appcompat.R.attr.colorPrimary), hsl)
+        ColorUtils.colorToHSL(primary, hsl)
         return hsl[1] < 0.05f
     }
+
+    // 每对（字面色，primary）的和谐化结果：列表每行绑定都来取，HCT 换算不便宜，算过一次就存着。只在主线程用
+    private val harmonized = HashMap<Long, Int>()
 
     /** 语义色资源经和谐化后的颜色 */
     @ColorInt
     fun Context.semanticColor(@ColorRes res: Int): Int {
         val color = getColour(res)
-        return if (isMonochromeTheme()) color else MaterialColors.harmonizeWithPrimary(this, color)
+        val primary = getColorAttr(androidx.appcompat.R.attr.colorPrimary)
+        if (isMonochrome(primary)) return color
+        val key = (color.toLong() shl 32) or (primary.toLong() and 0xFFFFFFFFL)
+        return harmonized.getOrPut(key) { MaterialColors.harmonize(color, primary) }
     }
 
     /** 测速成功时按延迟取色 */

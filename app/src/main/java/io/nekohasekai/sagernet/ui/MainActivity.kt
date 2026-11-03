@@ -94,8 +94,8 @@ class MainActivity : ThemedActivity(),
         }
         // 列表底部留白含状态卡片的贡献（bottomControlsClearance）：卡片滑入 / 滑出时逐帧重算，
         // 卡片高度变了也重算；只改列表的内边距，不重新分发整棵树的插入区
-        binding.stats.onClearanceChanged = {
-            contentHost.refreshClearance()
+        binding.stats.onClearanceChanged = { settled ->
+            contentHost.refreshClearance(onlyVisible = !settled)
             followSnackbarAnchor()
         }
         binding.stats.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
@@ -216,9 +216,13 @@ class MainActivity : ThemedActivity(),
      */
     fun bottomControlsClearance(): Int {
         val stats = binding.stats
-        val card = (stats.height + resources.getDimensionPixelSize(R.dimen.stats_bar_gap)) * stats.clearanceFraction
-        return resources.getDimensionPixelSize(R.dimen.nav_dock_clearance) + card.roundToInt()
+        val card = (stats.height + statsBarGap) * stats.clearanceFraction
+        return navDockClearance + card.roundToInt()
     }
+
+    // 逐帧调用，尺寸只查一次（配置变化时 Activity 重建）
+    private val statsBarGap by lazy { resources.getDimensionPixelSize(R.dimen.stats_bar_gap) }
+    private val navDockClearance by lazy { resources.getDimensionPixelSize(R.dimen.nav_dock_clearance) }
 
     @SuppressLint("CommitTransaction")
     fun displayFragment(fragment: ToolbarFragment) {

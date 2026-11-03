@@ -8,6 +8,7 @@ import android.util.AttributeSet
 import android.view.View
 import android.widget.TextView
 import androidx.appcompat.widget.TooltipCompat
+import androidx.core.animation.doOnEnd
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.withStarted
@@ -49,8 +50,11 @@ class StatsBar @JvmOverloads constructor(
     var clearanceFraction = 0f
         private set
 
-    /** [clearanceFraction] 每次变化（逐帧）的回调，宿主据此重算列表底部留白 */
-    var onClearanceChanged: (() -> Unit)? = null
+    /**
+     * [clearanceFraction] 每次变化（逐帧）的回调，宿主据此重算列表底部留白。settled 为假表示滑动还在进行中
+     * （宿主可只重算屏幕上的视图），为真表示终值已到位（滑动结束，或没有动画一步到位）
+     */
+    var onClearanceChanged: ((settled: Boolean) -> Unit)? = null
 
     private var clearanceAnimator: ValueAnimator? = null
 
@@ -78,7 +82,7 @@ class StatsBar @JvmOverloads constructor(
         clearanceAnimator?.cancel()
         clearanceAnimator = null
         if (!slideAnimated || !context.animatorsEnabled() || target == clearanceFraction) {
-            setClearanceFraction(target)
+            setClearanceFraction(target, settled = true)
             return
         }
         // 时长与缓动取父类滑动用的同一组主题属性（Material 默认：进 500ms、出 400ms）
@@ -94,15 +98,17 @@ class StatsBar @JvmOverloads constructor(
                 com.google.android.material.R.attr.motionEasingEmphasizedInterpolator,
                 AccelerateDecelerateInterpolator(),
             )
-            addUpdateListener { setClearanceFraction(it.animatedValue as Float) }
+            addUpdateListener { setClearanceFraction(it.animatedValue as Float, settled = false) }
+            // 结束（含被取消）时按当前值再通知一次「已到位」：滑动期间宿主只重算屏幕上的视图，缓存的分页在这里补上
+            doOnEnd { onClearanceChanged?.invoke(true) }
             start()
         }
     }
 
-    private fun setClearanceFraction(value: Float) {
+    private fun setClearanceFraction(value: Float, settled: Boolean) {
         if (value == clearanceFraction) return
         clearanceFraction = value
-        onClearanceChanged?.invoke()
+        onClearanceChanged?.invoke(settled)
     }
 
     override fun onDetachedFromWindow() {

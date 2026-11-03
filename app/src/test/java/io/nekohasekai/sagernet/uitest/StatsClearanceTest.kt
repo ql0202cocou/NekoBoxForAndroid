@@ -149,8 +149,8 @@ class StatsClearanceTest : UiTestBase() {
         val seen = ArrayList<Int>()
         main.get().binding.stats.onClearanceChanged.let { original ->
             // 宿主已接了回调：在它之后再记录每一帧的列表底部留白
-            main.get().binding.stats.onClearanceChanged = {
-                original?.invoke()
+            main.get().binding.stats.onClearanceChanged = { settled ->
+                original?.invoke(settled)
                 seen += clearanceIn(list)
             }
         }
@@ -175,8 +175,8 @@ class StatsClearanceTest : UiTestBase() {
         val list = main.list()
         val seen = ArrayList<Int>()
         val original = main.stats.onClearanceChanged
-        main.stats.onClearanceChanged = {
-            original?.invoke()
+        main.stats.onClearanceChanged = { settled ->
+            original?.invoke(settled)
             seen += clearanceIn(list)
         }
         main.connect()
