@@ -2,11 +2,9 @@ package io.nekohasekai.sagernet.uitest
 
 import android.view.View
 import io.nekohasekai.sagernet.bg.BaseService
-import io.nekohasekai.sagernet.ui.MainActivity
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.robolectric.android.controller.ActivityController
 
 /**
  * Snackbar 显示期间状态卡片滑入 / 滑出：Snackbar 跟着换锚点、挪位置，始终在可见控件（卡片或 Dock）之上，
@@ -15,17 +13,12 @@ import org.robolectric.android.controller.ActivityController
  */
 class SnackbarAnchorTest : UiTestBase() {
 
-    private fun launchMain(): ActivityController<MainActivity> {
-        UiFixtures.install()
-        return ui.launch<MainActivity>()
-    }
-
     private fun top(view: View) = IntArray(2).also { view.getLocationInWindow(it) }[1]
     private fun bottom(view: View) = top(view) + view.height
 
     @Test
     fun snackbarFollowsTheStatusCardWhileShown() {
-        val controller = launchMain()
+        val controller = ui.launchMain()
         val main = controller.get()
         val stats = main.binding.stats
         val dock = main.binding.dock

@@ -43,16 +43,10 @@ import org.robolectric.android.controller.ActivityController
  */
 class MainContentHostTest : UiTestBase() {
 
-    private fun launchMain(): ActivityController<MainActivity> {
-        val fixtures = UiFixtures.install()
-        UiFixtures.addProfiles(fixtures.normalGroup, 30)
-        return ui.launch<MainActivity>()
-    }
-
     private fun ActivityController<MainActivity>.go(page: Int): Fragment {
         get().displayFragmentWithId(page)
         UiSettle.settle()
-        return get().supportFragmentManager.findFragmentById(R.id.fragment_holder)!!
+        return hostedFragment<Fragment>()
     }
 
     private fun Fragment.child(id: Int) = view!!.findViewById<View>(id)
@@ -68,8 +62,7 @@ class MainContentHostTest : UiTestBase() {
 
     private fun assertHosted(main: MainActivity, scroll: View, declaredBottom: Int) {
         val host = main.contentHost
-        assertTrue("${scroll.javaClass.simpleName} 没有登记到 contentHost", scroll in host.sources)
-        assertTrue("${scroll.javaClass.simpleName} 应该发滚动事件", host.reportsScroll(scroll))
+        assertTrue("${scroll.javaClass.simpleName} 没有登记到 contentHost", scroll in host.hostedViews)
         assertTrue("嵌套滚动没开", scroll.isNestedScrollingEnabled)
         assertTrue("${scroll.javaClass.simpleName} 不是 NestedScrollingChild", scroll is NestedScrollingChild)
         val clearance = host.bottomClearance()
@@ -85,7 +78,7 @@ class MainContentHostTest : UiTestBase() {
 
     @Test
     fun configListIsHosted() {
-        val main = launchMain()
+        val main = ui.launchMain(30)
         val config = main.go(Page.CONFIG.navId) as ConfigurationFragment
         val list = config.getCurrentGroupFragment()!!.configurationListView
         // 主界面的节点列表：底部留白与顶部相同
@@ -94,21 +87,21 @@ class MainContentHostTest : UiTestBase() {
 
     @Test
     fun groupListIsHosted() {
-        val main = launchMain()
+        val main = ui.launchMain(30)
         val group = main.go(Page.GROUPS.navId) as GroupFragment
         assertHosted(main.get(), group.groupListView, declaredBottom(main.get(), R.layout.layout_group, R.id.group_list))
     }
 
     @Test
     fun routeListIsHosted() {
-        val main = launchMain()
+        val main = ui.launchMain(30)
         val route = main.go(Page.ROUTES.navId) as RouteFragment
         assertHosted(main.get(), route.ruleListView, declaredBottom(main.get(), R.layout.layout_route, R.id.route_list))
     }
 
     @Test
     fun settingsListIsHosted() {
-        val main = launchMain()
+        val main = ui.launchMain(30)
         val settings = main.go(Page.SETTINGS.navId) as SettingsFragment
         val list = (settings.childFragmentManager.findFragmentById(R.id.settings) as SettingsPreferenceFragment).listView
         assertHosted(main.get(), list, 0)
@@ -116,7 +109,7 @@ class MainContentHostTest : UiTestBase() {
 
     @Test
     fun aboutLogcatAndToolsPagesAreHosted() {
-        val main = launchMain()
+        val main = ui.launchMain(30)
         val about = main.go(R.id.nav_about) as AboutFragment
         assertHosted(main.get(), about.child(R.id.about_scroll), declaredBottom(main.get(), R.layout.layout_about, R.id.about_scroll))
 
@@ -130,7 +123,7 @@ class MainContentHostTest : UiTestBase() {
 
     @Test
     fun backupPageIsHosted() {
-        val main = launchMain()
+        val main = ui.launchMain(30)
         val tools = main.go(R.id.nav_tools) as ToolsFragment
         // 切到第二页（备份）
         tools.view!!.findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.tools_pager).setCurrentItem(1, false)
@@ -141,12 +134,11 @@ class MainContentHostTest : UiTestBase() {
 
     @Test
     fun dashboardIsTheDeclaredException() {
-        val main = launchMain()
+        val main = ui.launchMain(30)
         val dashboard = main.go(R.id.nav_traffic) as WebviewFragment
         val container = dashboard.child(R.id.webview_container)
         val host = main.get().contentHost
-        assertTrue("Dashboard 的容器也要让开 Dock", container in host.sources)
-        assertFalse("WebView 容器不发滚动事件，登记时要如实标出", host.reportsScroll(container))
+        assertTrue("Dashboard 的容器也要让开 Dock", container in host.hostedViews)
         assertFalse("WebView 容器不是嵌套滚动的子视图", container is NestedScrollingChild)
         assertEquals(
             "Dashboard 容器的底部留白也 = 声明 + 插入区 + 让位",
@@ -165,7 +157,7 @@ class MainContentHostTest : UiTestBase() {
     @Test
     fun liftFollowsScrollWithDirectAppBar() {
         shortScreen()
-        val main = launchMain()
+        val main = ui.launchMain(30)
         val about = main.go(R.id.nav_about) as AboutFragment
         val scroll = about.child(R.id.about_scroll)
         val bar = about.appBar()
@@ -182,7 +174,7 @@ class MainContentHostTest : UiTestBase() {
     @Test
     fun liftFollowsScrollWithAncestorAppBar() {
         shortScreen()
-        val main = launchMain()
+        val main = ui.launchMain(30)
         val settings = main.go(Page.SETTINGS.navId) as SettingsFragment
         val list = (settings.childFragmentManager.findFragmentById(R.id.settings) as SettingsPreferenceFragment).listView
         val bar = settings.appBar()
@@ -194,7 +186,7 @@ class MainContentHostTest : UiTestBase() {
 
     @Test
     fun liftControllerFollowsCurrentConfigPage() {
-        val main = launchMain()
+        val main = ui.launchMain(30)
         val config = main.go(Page.CONFIG.navId) as ConfigurationFragment
         val list = config.getCurrentGroupFragment()!!.configurationListView
         val bar = config.appBar()
@@ -210,7 +202,7 @@ class MainContentHostTest : UiTestBase() {
     @Test
     fun liftControllerFollowsCurrentToolsPage() {
         shortScreen()
-        val main = launchMain()
+        val main = ui.launchMain(30)
         val tools = main.go(R.id.nav_tools) as ToolsFragment
         val bar = tools.appBar()
         val pager = tools.child(R.id.tools_pager) as androidx.viewpager2.widget.ViewPager2
@@ -236,75 +228,54 @@ class MainContentHostTest : UiTestBase() {
         assertFalse(bar.isLifted)
     }
 
-    // ---------------------------------------------------------------- 共享的滚动 / 结构变化订阅点
+    // ---------------------------------------------------------------- 滚动分发器与托管视图
 
     private class Counter : ContentListener {
         var scrolled = 0
-        var changed = 0
-        val changedSources = ArrayList<View?>()
         override fun onContentScrolled(source: View) {
             scrolled++
-        }
-
-        override fun onContentChanged(source: View?) {
-            changed++
-            changedSources += source
         }
     }
 
     @Test
-    fun hubAndHostSubscribersAllReceiveTheSameScroll() {
+    fun hubSubscribersAllReceiveTheSameScroll() {
         shortScreen()
-        val main = launchMain()
+        val main = ui.launchMain(30)
         val about = main.go(R.id.nav_about) as AboutFragment
         val scroll = about.child(R.id.about_scroll)
-        val host = main.get().contentHost
 
         val hubA = Counter()
         val hubB = Counter()
-        val hostA = Counter()
-        val hostB = Counter()
         val hub = ScrollHub.of(scroll)
         assertSame("每个视图只有一个分发器", hub, ScrollHub.of(scroll))
         hub.addListener(hubA)
         hub.addListener(hubA) // 同一个对象重复订阅无效
         hub.addListener(hubB)
-        host.addListener(hostA)
-        host.addListener(hostB)
 
         scroll.scrollBy(0, 100)
         UiSettle.settle()
         assertEquals("重复订阅只收一次", 1, hubA.scrolled)
         assertEquals(1, hubB.scrolled)
-        assertEquals(1, hostA.scrolled)
-        assertEquals(1, hostB.scrolled)
         // 抬升是同一个分发器的又一个订阅者，没有被后来的订阅顶掉
         assertTrue(about.appBar().isLifted)
 
         hub.removeListener(hubB)
-        host.removeListener(hostB)
         scroll.scrollBy(0, 100)
         UiSettle.settle()
         assertEquals(2, hubA.scrolled)
         assertEquals("摘掉之后不再收到", 1, hubB.scrolled)
-        assertEquals(2, hostA.scrolled)
-        assertEquals(1, hostB.scrolled)
     }
 
     @Test
-    fun hostReportsStructureChangesWhenPageIsReplaced() {
-        val main = launchMain()
+    fun hostTracksTheHostedViewOfTheCurrentPage() {
+        val main = ui.launchMain(30)
         main.go(Page.GROUPS.navId)
         val host = main.get().contentHost
-        val oldSource = host.sources.single { it is RecyclerView && it.id == R.id.group_list }
-        val counter = Counter()
-        host.addListener(counter)
+        val oldView = host.hostedViews.single { it is RecyclerView && it.id == R.id.group_list }
 
         val route = main.go(Page.ROUTES.navId) as RouteFragment
         assertNotNull(route.ruleListView)
-        assertTrue("新页面的滚动视图登记了", route.ruleListView in host.sources)
-        assertFalse("被替换的页面摘出了 sources", oldSource in host.sources)
-        assertTrue("新页面挂上窗口时通知了结构变化", counter.changedSources.any { it === route.ruleListView })
-        assertTrue("旧页面摘下窗口时通知了结构变化", counter.changedSources.any { it === oldSource })
+        assertTrue("新页面的滚动视图登记了", route.ruleListView in host.hostedViews)
+        assertFalse("被替换的页面摘出了托管视图", oldView in host.hostedViews)
     }
 }

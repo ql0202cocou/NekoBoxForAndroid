@@ -1,10 +1,8 @@
 package io.nekohasekai.sagernet.uitest
 
 import android.view.View
-import android.view.ViewGroup
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import android.widget.TextView
 import io.nekohasekai.sagernet.GroupOrder
 import io.nekohasekai.sagernet.R
@@ -32,7 +30,6 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.robolectric.android.controller.ActivityController
-import kotlin.concurrent.thread
 
 /**
  * U4c c5 节点列表（ListAdapter + DiffUtil）：测速结果只产生那一行的 payload 变更（M6，就地重绑、状态行淡入）；
@@ -63,7 +60,7 @@ class ConfigListDiffTest : UiTestBase() {
         }
         if (animations) ui.enableAnimations()
         val main = ui.launch<MainActivity>()
-        val config = main.get().supportFragmentManager.findFragmentById(R.id.fragment_holder) as ConfigurationFragment
+        val config = main.hostedFragment<ConfigurationFragment>()
         val page = config.getCurrentGroupFragment()!!
         return Setup(main, config, page, fixtures)
     }
@@ -91,37 +88,10 @@ class ConfigListDiffTest : UiTestBase() {
 
     private fun Setup.holderOf(id: Long) = list.findViewHolderForItemId(id) as ConfigurationHolder?
 
-    /** 记下适配器收到的全部通知 */
-    private class Events : RecyclerView.AdapterDataObserver() {
-        val changed = ArrayList<Triple<Int, Int, Any?>>()
-        var inserted = 0
-        var removed = 0
-        var moved = 0
-        var reset = 0
-        override fun onChanged() { reset++ }
-        override fun onItemRangeChanged(positionStart: Int, itemCount: Int, payload: Any?) { changed += Triple(positionStart, itemCount, payload) }
-        override fun onItemRangeInserted(positionStart: Int, itemCount: Int) { inserted += itemCount }
-        override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) { removed += itemCount }
-        override fun onItemRangeMoved(fromPosition: Int, toPosition: Int, itemCount: Int) { moved += itemCount }
-        val total get() = changed.size + inserted + removed + moved + reset
-    }
-
-    private fun Setup.watch() = Events().also { adapter.registerAdapterDataObserver(it) }
-
-    /**
-     * 在后台线程跑会触发仓库监听回调的操作：回调要切回主线程，主线程不能阻塞等它，
-     * 所以轮询 settle 直到 worker 结束
-     */
-    private fun <T> viaWorker(block: () -> T): T {
-        var result: Result<T>? = null
-        val worker = thread(name = "ui-test-bg") { result = runCatching(block) }
-        while (worker.isAlive) UiSettle.settle()
-        UiSettle.settle()
-        return result!!.getOrThrow()
-    }
+    private fun Setup.watch() = AdapterEvents().also { adapter.registerAdapterDataObserver(it) }
 
     /** 写测速结果并整组刷新，与 GroupTestRunner 收尾的两步一致（批量写不发逐行更新） */
-    private fun postTestResults(groupId: Long, vararg results: Triple<Long, Int, Int>) = viaWorker {
+    private fun postTestResults(groupId: Long, vararg results: Triple<Long, Int, Int>) = ui.viaWorker {
         runBlocking {
             for ((id, status, ping) in results) {
                 SagerDatabase.proxyDao.updateStatus(id, status, ping, if (status == 3) "timeout" else null)
@@ -130,20 +100,11 @@ class ConfigListDiffTest : UiTestBase() {
         }
     }
 
-    private fun setOrder(groupId: Long, order: Int) = viaWorker {
+    private fun setOrder(groupId: Long, order: Int) = ui.viaWorker {
         runBlocking { GroupRepository.updateSortOrder(groupId, order) }
     }
 
-    private fun View.findUndoAction(): View? {
-        if (id == com.google.android.material.R.id.snackbar_action) return this
-        if (this is ViewGroup) for (i in 0 until childCount) getChildAt(i).findUndoAction()?.let { return it }
-        return null
-    }
-
-    private fun Setup.undoAction(): View {
-        UiSettle.settle()
-        return main.get().window.decorView.findUndoAction() ?: error("前置条件：没有撤销按钮")
-    }
+    private fun Setup.undoAction(): View = main.get().undoAction()
 
     // ---------------------------------------------------------------- M6：测速结果就地重绑
 
@@ -184,7 +145,7 @@ class ConfigListDiffTest : UiTestBase() {
         val before = s.ids()
         val events = s.watch()
 
-        viaWorker { runBlocking { GroupRepository.postReload(s.fixtures.normalGroup.id) } }
+        ui.viaWorker { runBlocking { GroupRepository.postReload(s.fixtures.normalGroup.id) } }
 
         assertEquals("库里读出的是新实例，卡片字段相同就不该有任何通知", 0, events.total)
         assertEquals(before, s.ids())
@@ -200,7 +161,7 @@ class ConfigListDiffTest : UiTestBase() {
         // 密码卡片上不显示：差量认为没变、不重绑；但分享 / 导出取用的必须是新内容
         val edited = ui.offMain { SagerDatabase.proxyDao.getById(ss.id)!! }.apply { ssBean!!.password = "edited-password" }
         ui.offMain { SagerDatabase.proxyDao.updateEditableFields(ProxyEditableFields(edited)) }
-        viaWorker { runBlocking { GroupRepository.postReload(s.fixtures.normalGroup.id) } }
+        ui.viaWorker { runBlocking { GroupRepository.postReload(s.fixtures.normalGroup.id) } }
 
         assertEquals(0, events.total)
         assertEquals("edited-password", holder.entity.ssBean!!.password)
@@ -218,7 +179,7 @@ class ConfigListDiffTest : UiTestBase() {
         // 选中项切换（MainActivity.cbSelectorUpdate / SwitchActivity）：内容没变，差量看不出，
         // 靠 onUpdated 的定点通知把两行的选中态重画
         ui.offMain { DataStore.selectedProxy = next.id }
-        viaWorker { runBlocking { ProfileRepository.postUpdate(old.id); ProfileRepository.postUpdate(next.id) } }
+        ui.viaWorker { runBlocking { ProfileRepository.postUpdate(old.id); ProfileRepository.postUpdate(next.id) } }
 
         assertEquals(2, events.changed.size)
         assertTrue(events.changed.all { it.third == "updated" })
@@ -236,11 +197,11 @@ class ConfigListDiffTest : UiTestBase() {
         assertEquals("", holder.profileStatus.text.toString())
         val events = s.watch()
 
-        viaWorker { runBlocking { ProfileRepository.postUpdate(TrafficData(target.id, 2048, 4096)) } }
+        ui.viaWorker { runBlocking { ProfileRepository.postUpdate(TrafficData(target.id, 2048, 4096)) } }
 
         assertEquals("流量只重画该行的流量段，不发任何适配器通知", 0, events.total)
         assertTrue(holder.profileStatus.text.isNotEmpty())
-        assertEquals(2048L, s.adapter.configurationList[target.id]!!.tx)
+        assertEquals(2048L, s.page.profileModel.configurationList[target.id]!!.tx)
     }
 
     // ---------------------------------------------------------------- 搜索过滤（M5：不重播入场动画）
@@ -311,7 +272,7 @@ class ConfigListDiffTest : UiTestBase() {
         val s = open()
         // 新建一个空分组并切过去：它的第一次载入是「空列表 → 空列表」，差量不发任何通知，
         // 载入完成与空状态靠 onListSubmitted 补上
-        val created = viaWorker { runBlocking { GroupRepository.createGroup(ProxyGroup(name = "Empty")) } }
+        val created = ui.viaWorker { runBlocking { GroupRepository.createGroup(ProxyGroup(name = "Empty")) } }
         val index = s.config.adapter.groupList.indexOfFirst { it.id == created.id }
         assertTrue("前置条件：新分组进了 tab 列表", index >= 0)
         s.config.groupPager.setCurrentItem(index, false)
@@ -371,7 +332,7 @@ class ConfigListDiffTest : UiTestBase() {
 
         // 重读读出同样的顺序：差量无变化，列表不动
         val events = s.watch()
-        viaWorker { runBlocking { GroupRepository.postReload(groupId) } }
+        ui.viaWorker { runBlocking { GroupRepository.postReload(groupId) } }
         assertEquals(dragged, s.ids())
         s.assertScreenMatchesList()
         assertEquals(0, events.total)
@@ -388,7 +349,7 @@ class ConfigListDiffTest : UiTestBase() {
         assertTrue(before != dragged)
 
         // 拖动中来了一次整组重读（库里还是旧顺序，比如订阅更新或测速结束）：不能把正在拖的列表拽回去
-        viaWorker { runBlocking { GroupRepository.postReload(groupId) } }
+        ui.viaWorker { runBlocking { GroupRepository.postReload(groupId) } }
         assertEquals(dragged, s.ids())
 
         s.adapter.commitMove()
@@ -476,7 +437,7 @@ class ConfigListDiffTest : UiTestBase() {
         val before = s.ids()
         val events = s.watch()
 
-        val created = viaWorker {
+        val created = ui.viaWorker {
             runBlocking {
                 ProfileRepository.createProfiles(groupId, (1..3).map {
                     SOCKSBean().apply { name = "Imported $it"; serverAddress = "192.0.2.${100 + it}"; serverPort = 1080 }
@@ -504,10 +465,10 @@ class ConfigListDiffTest : UiTestBase() {
             entity.id = SagerDatabase.proxyDao.addProxy(entity)
             entity
         }
-        viaWorker { runBlocking { GroupRepository.postReload(groupId) } }
+        ui.viaWorker { runBlocking { GroupRepository.postReload(groupId) } }
         assertTrue("前置条件：重读已读进新行", created.id in s.ids())
 
-        viaWorker { runBlocking { s.adapter.onAdd(created) } }
+        ui.viaWorker { runBlocking { s.page.profileModel.onAdd(created) } }
 
         val ids = s.ids()
         assertEquals("onAdd 不能再追加一行", 1, ids.count { it == created.id })
@@ -525,7 +486,7 @@ class ConfigListDiffTest : UiTestBase() {
         s.holderOf(before[2])!!.removeButton.performClick()
         val action = s.undoAction()
         // 整组重读的主线程部分排在撤销的 post 之前：它读到的库里还有这一行
-        ui.offMain { s.adapter.reloadProfiles() }
+        ui.offMain { s.page.profileModel.reloadProfiles() }
         action.performClick()
         UiSettle.settle()
 
@@ -623,7 +584,7 @@ class ConfigListDiffTest : UiTestBase() {
     fun selectModeListsRowsAndReturnsClickedProfile() {
         val fixtures = UiFixtures.install()
         val activity = ui.launch<io.nekohasekai.sagernet.ui.ProfileSelectActivity>()
-        val config = activity.get().supportFragmentManager.findFragmentById(R.id.fragment_holder) as ConfigurationFragment
+        val config = activity.hostedFragment<ConfigurationFragment>()
         val page = config.getCurrentGroupFragment()!!
         val s = Setup(activity, config, page, fixtures)
         assertEquals(fixtures.profiles.take(7).map { it.id }, s.ids())
@@ -632,7 +593,7 @@ class ConfigListDiffTest : UiTestBase() {
 
         // 选择模式下搜索 / 重读同样走差量
         val events = s.watch()
-        viaWorker { runBlocking { GroupRepository.postReload(fixtures.normalGroup.id) } }
+        ui.viaWorker { runBlocking { GroupRepository.postReload(fixtures.normalGroup.id) } }
         assertEquals(0, events.total)
 
         s.holderOf(fixtures.profiles[2].id)!!.view.performClick()

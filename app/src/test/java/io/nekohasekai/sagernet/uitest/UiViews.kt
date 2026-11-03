@@ -1,11 +1,84 @@
 package io.nekohasekai.sagernet.uitest
 
+import android.app.Activity
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.view.View
 import android.view.View.MeasureSpec
 import android.view.ViewGroup
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentActivity
 import androidx.recyclerview.widget.RecyclerView
+import io.nekohasekai.sagernet.R
+import org.robolectric.android.controller.ActivityController
+
+/** 主界面 fragment_holder 里当前显示的页面，按 [F] 取 */
+inline fun <reified F : Fragment> FragmentActivity.hostedFragment(): F =
+    supportFragmentManager.findFragmentById(R.id.fragment_holder) as F
+
+inline fun <reified F : Fragment> ActivityController<out FragmentActivity>.hostedFragment(): F = get().hostedFragment()
+
+/**
+ * Snackbar 上的「撤销」按钮，没有就报前置条件错误。默认先等界面安静；IO 门关着时不能 settle（见 IoGate），
+ * 那时传 [settle] = false，调用方自己空转主 looper
+ */
+fun Activity.undoAction(settle: Boolean = true): View {
+    if (settle) UiSettle.settle()
+    return window.decorView.findViewById(com.google.android.material.R.id.snackbar_action) ?: error("前置条件：没有撤销按钮")
+}
+
+/**
+ * 记录适配器发出的每类通知：按类计数、变更事件的（起点，条数，payload），以及按顺序的事件描述 [log]
+ * （all / insert(起点,条数) / remove(起点,条数) / move(起点,终点,条数) / change(起点,条数,payload 或 -)）。
+ * 注册在初始载入之后，就不含载入本身
+ */
+class AdapterEvents : RecyclerView.AdapterDataObserver() {
+    val changed = ArrayList<Triple<Int, Int, Any?>>()
+    var inserted = 0
+    var removed = 0
+    var moved = 0
+    var reset = 0
+    val log = ArrayList<String>()
+
+    override fun onChanged() {
+        reset++
+        log += "all"
+    }
+
+    override fun onItemRangeChanged(positionStart: Int, itemCount: Int, payload: Any?) {
+        changed += Triple(positionStart, itemCount, payload)
+        log += "change($positionStart,$itemCount,${payload ?: "-"})"
+    }
+
+    override fun onItemRangeInserted(positionStart: Int, itemCount: Int) {
+        inserted += itemCount
+        log += "insert($positionStart,$itemCount)"
+    }
+
+    override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) {
+        removed += itemCount
+        log += "remove($positionStart,$itemCount)"
+    }
+
+    override fun onItemRangeMoved(fromPosition: Int, toPosition: Int, itemCount: Int) {
+        moved += itemCount
+        log += "move($fromPosition,$toPosition,$itemCount)"
+    }
+
+    val total get() = changed.size + inserted + removed + moved + reset
+
+    /** 取走到目前为止的事件描述并清零 */
+    fun take(): List<String> = log.toList().also { clear() }
+
+    fun clear() {
+        changed.clear()
+        inserted = 0
+        removed = 0
+        moved = 0
+        reset = 0
+        log.clear()
+    }
+}
 
 /** 视图树里高度最大的 RecyclerView（设置分类页、编辑器的主列表） */
 fun View.largestRecyclerView(): RecyclerView? {

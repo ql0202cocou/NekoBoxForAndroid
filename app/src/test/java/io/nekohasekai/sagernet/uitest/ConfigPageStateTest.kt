@@ -5,8 +5,6 @@ import androidx.appcompat.widget.SearchView
 import androidx.recyclerview.widget.LinearLayoutManager
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.database.GroupManager
-import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.ui.ConfigurationFragment
 import io.nekohasekai.sagernet.ui.MainActivity
@@ -34,9 +32,7 @@ class ConfigPageStateTest : UiBehaviorBase() {
 
     // ---------------------------------------------------------------- 公共
 
-    private fun ActivityController<*>.config(): ConfigurationFragment =
-        (get() as androidx.fragment.app.FragmentActivity).supportFragmentManager
-            .findFragmentById(R.id.fragment_holder) as ConfigurationFragment
+    private fun ActivityController<*>.config() = (get() as androidx.fragment.app.FragmentActivity).hostedFragment<ConfigurationFragment>()
 
     private fun ConfigurationFragment.page(groupId: Long): ProfileListFragment =
         childFragmentManager.findFragmentByTag("f$groupId") as ProfileListFragment
@@ -49,20 +45,8 @@ class ConfigPageStateTest : UiBehaviorBase() {
 
     private fun ProfileListFragment.names() = profileModel.items.map { it.displayName() }
 
-    private fun profileListeners(): Int = listenerCount(ProfileManager, "listeners")
-    private fun groupListeners(): Int = listenerCount(GroupManager, "listeners")
-
-    private fun listenerCount(owner: Any, field: String): Int =
-        (owner.javaClass.getDeclaredField(field).apply { isAccessible = true }.get(owner) as List<*>).size
-
-    /** 在后台线程跑会触发仓库监听回调的操作：回调要切回主线程，所以轮询 settle 直到 worker 结束 */
-    private fun <T> viaWorker(block: () -> T): T {
-        var result: Result<T>? = null
-        val worker = kotlin.concurrent.thread(name = "ui-test-bg") { result = runCatching(block) }
-        while (worker.isAlive) UiSettle.settle()
-        UiSettle.settle()
-        return result!!.getOrThrow()
-    }
+    private fun profileListeners() = ListenerTable.PROFILE.count()
+    private fun groupListeners() = ListenerTable.GROUP.count()
 
     private fun openMain(extraProfiles: Int = 0): ActivityController<MainActivity> {
         val fixtures = UiFixtures.install()
@@ -77,8 +61,6 @@ class ConfigPageStateTest : UiBehaviorBase() {
         val id = adapter.groupList[index].id
         ui.offMain { DataStore.selectedGroup = id }
     }
-
-    private fun saveProcessState(main: ActivityController<*>): Bundle = Bundle().also { main.pause().saveInstanceState(it) }
 
     private fun ConfigurationFragment.searchView(): SearchView =
         toolbar.menu.findItem(R.id.action_search).actionView as SearchView
@@ -150,7 +132,7 @@ class ConfigPageStateTest : UiBehaviorBase() {
         main.rotate()
         val page = main.config().currentPage()
         val before = page.names()
-        val added = viaWorker {
+        val added = ui.viaWorker {
             kotlinx.coroutines.runBlocking {
                 io.nekohasekai.sagernet.database.ProfileRepository.createProfile(
                     page.profileModel.groupId,
@@ -219,7 +201,7 @@ class ConfigPageStateTest : UiBehaviorBase() {
         assertEquals("前置条件：入场动画已取下", null, list.layoutAnimation)
 
         // 旋转之后列表又有一次整组刷新（比如测速结果到了）：不是切分组，不该再播
-        viaWorker { kotlinx.coroutines.runBlocking { io.nekohasekai.sagernet.database.GroupRepository.postReload(groupId) } }
+        ui.viaWorker { kotlinx.coroutines.runBlocking { io.nekohasekai.sagernet.database.GroupRepository.postReload(groupId) } }
         assertEquals("整组刷新没有重播入场动画", null, main.config().page(groupId).configurationListView.layoutAnimation)
     }
 
@@ -269,9 +251,7 @@ class ConfigPageStateTest : UiBehaviorBase() {
         val selectedProxy = ui.offMain { DataStore.selectedProxy }
         val groupId = config.adapter.groupList[0].id
 
-        val state = saveProcessState(main)
-        ui.destroyNow(main)
-        val restored = ui.launchRestored(MainActivity::class.java, null, state)
+        val restored = ui.recreateProcess(main)
         UiSettle.settle(advanceMs = 500)
 
         val back = restored.config()
@@ -291,9 +271,7 @@ class ConfigPageStateTest : UiBehaviorBase() {
         val fixtures = UiFixtures.install()
         val main = ui.launch<MainActivity>()
         main.config().select(1)
-        val state = saveProcessState(main)
-        ui.destroyNow(main)
-        val restored = ui.launchRestored(MainActivity::class.java, null, state)
+        val restored = ui.recreateProcess(main)
         UiSettle.settle(advanceMs = 500)
 
         val back = restored.config()
@@ -311,9 +289,7 @@ class ConfigPageStateTest : UiBehaviorBase() {
     @Test
     fun everyRestoredPageGetsItsGroupFromArguments() {
         val main = openMain()
-        val state = saveProcessState(main)
-        ui.destroyNow(main)
-        val restored = ui.launchRestored(MainActivity::class.java, null, state)
+        val restored = ui.recreateProcess(main)
         val config = restored.config()
         val pages = config.childFragmentManager.fragments.filterIsInstance<ProfileListFragment>()
         assertTrue("恢复出了分组页", pages.isNotEmpty())
@@ -330,9 +306,7 @@ class ConfigPageStateTest : UiBehaviorBase() {
         config.search("Tokyo")
         assertEquals(listOf("Tokyo 01 VMess"), config.currentPage().names())
 
-        val state = saveProcessState(main)
-        ui.destroyNow(main)
-        val restored = ui.launchRestored(MainActivity::class.java, null, state)
+        val restored = ui.recreateProcess(main)
         UiSettle.settle(advanceMs = 500)
 
         val back = restored.config()
@@ -351,9 +325,7 @@ class ConfigPageStateTest : UiBehaviorBase() {
         main.rotate()
         assertEquals("旋转后选择器的结果送到新页面实例时内容还在", "{\"exported\":true}", main.config().pendingExportConfig)
 
-        val state = saveProcessState(main)
-        ui.destroyNow(main)
-        val restored = ui.launchRestored(MainActivity::class.java, null, state)
+        val restored = ui.recreateProcess(main)
         assertEquals("进程重建会丢（配置里有凭据，不进 Bundle）", "", restored.config().pendingExportConfig)
     }
 
@@ -372,9 +344,7 @@ class ConfigPageStateTest : UiBehaviorBase() {
         select.rotate()
         assertEquals("旋转后仍在第二个分组", 1, select.config().groupPager.currentItem)
 
-        val state = saveProcessState(select)
-        ui.destroyNow(select)
-        val restored = ui.launchRestored(ProfileSelectActivity::class.java, null, state)
+        val restored = ui.recreateProcess(select)
         UiSettle.settle(advanceMs = 500)
         assertEquals("进程重建后仍在第二个分组", 1, restored.config().groupPager.currentItem)
         assertEquals(second, restored.config().model.selectedGroupId)

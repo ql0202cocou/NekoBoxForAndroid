@@ -11,7 +11,9 @@ import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
 import io.nekohasekai.sagernet.ktx.Logs
+import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.utils.Theme
+import kotlinx.coroutines.runBlocking
 import moe.matsuri.nb4a.TempDatabase
 import org.junit.rules.TestRule
 import org.junit.runner.Description
@@ -106,11 +108,16 @@ class UiTestRule : TestRule {
         UiSettle.settle()
     }
 
+    // 建控制器并登记，用例结束时由规则按相反顺序销毁
+    private fun <A : Activity> build(type: Class<A>, intent: Intent?): ActivityController<A> {
+        val controller = if (intent == null) Robolectric.buildActivity(type) else Robolectric.buildActivity(type, intent)
+        controllers += controller
+        return controller
+    }
+
     /** 启动并显示一个 Activity（create → start → resume → visible），随后等界面安静 */
     fun <A : Activity> launch(type: Class<A>, intent: Intent? = null): ActivityController<A> {
-        val controller = if (intent == null) Robolectric.buildActivity(type)
-        else Robolectric.buildActivity(type, intent)
-        controllers += controller
+        val controller = build(type, intent)
         controller.setup()
         UiSettle.settle()
         return controller
@@ -121,9 +128,7 @@ class UiTestRule : TestRule {
 
     /** 启动但不 settle：用来测「创建后立刻销毁」，后台任务此时还没跑完 */
     fun <A : Activity> launchUnsettled(type: Class<A>, intent: Intent? = null): ActivityController<A> {
-        val controller = if (intent == null) Robolectric.buildActivity(type)
-        else Robolectric.buildActivity(type, intent)
-        controllers += controller
+        val controller = build(type, intent)
         controller.setup()
         return controller
     }
@@ -133,21 +138,44 @@ class UiTestRule : TestRule {
      * 用来确定性地复现「后台读完了、Fragment 还没提交」的窗口；不 settle。
      */
     fun <A : Activity> launchCreatedOnly(type: Class<A>, intent: Intent? = null): ActivityController<A> {
-        val controller = if (intent == null) Robolectric.buildActivity(type)
-        else Robolectric.buildActivity(type, intent)
-        controllers += controller
+        val controller = build(type, intent)
         controller.create()
         return controller
     }
 
     /** 用保存下来的实例状态重新启动一个 Activity（模拟进程重建后系统带回 savedInstanceState） */
     fun <A : Activity> launchRestored(type: Class<A>, intent: Intent?, state: Bundle): ActivityController<A> {
-        val controller = if (intent == null) Robolectric.buildActivity(type)
-        else Robolectric.buildActivity(type, intent)
-        controllers += controller
+        val controller = build(type, intent)
         controller.setup(state)
         UiSettle.settle()
         return controller
+    }
+
+    /** 装好夹具（可再加 [extraProfiles] 个节点到普通分组）并启动主界面 */
+    fun launchMain(extraProfiles: Int = 0): ActivityController<MainActivity> {
+        val fixtures = UiFixtures.install()
+        if (extraProfiles > 0) UiFixtures.addProfiles(fixtures.normalGroup, extraProfiles)
+        return launch<MainActivity>()
+    }
+
+    /** 存实例状态（pause + saveInstanceState），给进程重建用 */
+    fun saveInstanceState(controller: ActivityController<*>): Bundle =
+        Bundle().also { controller.pause().saveInstanceState(it) }
+
+    /**
+     * 模拟进程重建：存实例状态 → 销毁 → [between]（清内存里的状态，模拟进程已死）→ 用实例状态重新启动同类 Activity
+     * （[intent] 为空表示像主界面那样无参启动），随后等界面安静
+     */
+    fun <A : Activity> recreateProcess(
+        controller: ActivityController<A>,
+        intent: Intent? = null,
+        between: () -> Unit = {},
+    ): ActivityController<A> {
+        val state = saveInstanceState(controller)
+        val type = controller.get().javaClass
+        destroyNow(controller)
+        between()
+        return launchRestored(type, intent, state)
     }
 
     /** 立刻销毁（不 settle）并不再由规则收尾，用例自己决定何时放行后台 */
@@ -168,6 +196,21 @@ class UiTestRule : TestRule {
         return result!!.getOrThrow()
     }
 
+    /** 在后台线程跑挂起的 [block]（仓库的读写方法） */
+    fun <T> bg(block: suspend () -> T): T = offMain { runBlocking { block() } }
+
+    /**
+     * 在后台线程跑会触发仓库监听回调的 [block]：回调要切回主线程，主线程不能阻塞等它，
+     * 所以轮询 settle 直到 worker 结束
+     */
+    fun <T> viaWorker(block: () -> T): T {
+        var result: Result<T>? = null
+        val worker = thread(name = "ui-test-bg") { result = runCatching(block) }
+        while (worker.isAlive) UiSettle.settle()
+        UiSettle.settle()
+        return result!!.getOrThrow()
+    }
+
     private fun resetDatabases() {
         offMain {
             SagerDatabase.instance.clearAllTables()
@@ -185,13 +228,6 @@ class UiTestRule : TestRule {
         GroupManager.userInterface = null
         // Application.onCreate 每个用例都会再加一次 SubscriptionUpdater（会去排 WorkManager），
         // 其余监听器本应由页面自己摘掉。整表清空，页面与夹具各自按需再加
-        clearListeners(GroupManager, "listeners")
-        clearListeners(ProfileManager, "listeners")
-        clearListeners(ProfileManager, "ruleListeners")
-    }
-
-    private fun clearListeners(owner: Any, field: String) {
-        val list = owner.javaClass.getDeclaredField(field).apply { isAccessible = true }.get(owner)
-        (list as MutableList<*>).clear()
+        for (table in ListenerTable.entries) table.list().clear()
     }
 }

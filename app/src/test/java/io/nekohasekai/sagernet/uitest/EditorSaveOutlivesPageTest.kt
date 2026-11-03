@@ -17,7 +17,6 @@ import io.nekohasekai.sagernet.ui.GroupSettingsActivity
 import io.nekohasekai.sagernet.ui.RouteSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.ProfileSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.ShadowsocksSettingsActivity
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -89,8 +88,6 @@ class EditorSaveOutlivesPageTest : UiTestBase() {
     private fun editIntent(type: Class<*>, key: String, id: Long) =
         Intent(ApplicationProvider.getApplicationContext(), type).putExtra(key, id)
 
-    private fun <T> bg(block: suspend () -> T): T = ui.offMain { runBlocking { block() } }
-
     private fun ssEditor(): ActivityController<ShadowsocksSettingsActivity> {
         val fixtures = UiFixtures.install()
         return ui.launch(
@@ -106,7 +103,7 @@ class EditorSaveOutlivesPageTest : UiTestBase() {
     }
 
     private fun savedAddress(id: Long) =
-        bg { (ProfileRepository.getProfile(id)!!.requireBean() as ShadowsocksBean).serverAddress }
+        ui.bg { (ProfileRepository.getProfile(id)!!.requireBean() as ShadowsocksBean).serverAddress }
 
     /** 节点编辑器：保存写库在途时销毁页面，写库照常完成，收尾不碰已销毁的页面 */
     @Test
@@ -171,7 +168,7 @@ class EditorSaveOutlivesPageTest : UiTestBase() {
         val alive = ssEditor()
         val aliveActivity = alive.get()
         aliveActivity.editAddress()
-        bg { ProfileRepository.deleteProfile(aliveActivity.proxyEntity!!.groupId, aliveActivity.proxyEntity!!.id) }
+        ui.bg { ProfileRepository.deleteProfile(aliveActivity.proxyEntity!!.groupId, aliveActivity.proxyEntity!!.id) }
         ShadowToast.reset()
         runOnDefaultDispatcher { aliveActivity.saveAndExit() }
         UiSettle.settle()
@@ -183,7 +180,7 @@ class EditorSaveOutlivesPageTest : UiTestBase() {
         val editor = ssEditor()
         val activity = editor.get()
         activity.editAddress()
-        bg { ProfileRepository.deleteProfile(activity.proxyEntity!!.groupId, activity.proxyEntity!!.id) }
+        ui.bg { ProfileRepository.deleteProfile(activity.proxyEntity!!.groupId, activity.proxyEntity!!.id) }
         ShadowToast.reset()
         DbGate().use { gate ->
             runOnDefaultDispatcher { activity.saveAndExit() }
@@ -212,7 +209,7 @@ class EditorSaveOutlivesPageTest : UiTestBase() {
             ui.destroyNow(editor)
         }
         UiSettle.settle()
-        assertEquals("页面销毁后分组没有保存", "Renamed group", bg { GroupRepository.getGroup(fixtures.normalGroup.id)!!.name })
+        assertEquals("页面销毁后分组没有保存", "Renamed group", ui.bg { GroupRepository.getGroup(fixtures.normalGroup.id)!!.name })
         assertEquals("已销毁的页面上弹了 Toast", 0, ShadowToast.shownToastCount())
     }
 
@@ -220,7 +217,7 @@ class EditorSaveOutlivesPageTest : UiTestBase() {
     @Test
     fun routeSaveCompletesAfterPageDestroyed() {
         UiFixtures.install()
-        val rule = bg { RuleRepository.getRules().first() }
+        val rule = ui.bg { RuleRepository.getRules().first() }
         val editor = ui.launch(
             RouteSettingsActivity::class.java,
             editIntent(RouteSettingsActivity::class.java, RouteSettingsActivity.EXTRA_ROUTE_ID, rule.id),
@@ -234,7 +231,7 @@ class EditorSaveOutlivesPageTest : UiTestBase() {
             ui.destroyNow(editor)
         }
         UiSettle.settle()
-        assertEquals("页面销毁后规则没有保存", "Renamed rule", bg { RuleRepository.getRule(rule.id)!!.name })
+        assertEquals("页面销毁后规则没有保存", "Renamed rule", ui.bg { RuleRepository.getRule(rule.id)!!.name })
     }
 
     /** 新建一条什么都没填的路由：页面活着弹「空路由」对话框（对照），页面已销毁就不弹 */

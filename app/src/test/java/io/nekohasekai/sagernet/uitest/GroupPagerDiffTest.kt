@@ -2,8 +2,6 @@ package io.nekohasekai.sagernet.uitest
 
 import android.view.View
 import androidx.fragment.app.Fragment
-import androidx.recyclerview.widget.RecyclerView
-import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.GroupRepository
 import io.nekohasekai.sagernet.database.ProfileRepository
@@ -12,14 +10,12 @@ import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
 import io.nekohasekai.sagernet.ui.ConfigurationFragment
 import io.nekohasekai.sagernet.ui.MainActivity
-import io.nekohasekai.sagernet.ui.ProfileListFragment
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import kotlin.concurrent.thread
 
 /**
  * U4c c6 分组 tab 页（GroupPagerAdapter，按分组 id 差量刷新）：
@@ -49,7 +45,7 @@ class GroupPagerDiffTest : UiTestBase() {
 
     private fun openMain(): ConfigurationFragment {
         val main = ui.launch<MainActivity>()
-        return main.get().supportFragmentManager.findFragmentById(R.id.fragment_holder) as ConfigurationFragment
+        return main.hostedFragment<ConfigurationFragment>()
     }
 
     /** 夹具的两个分组（Personal、订阅）再加 [extra] 个，共 2 + extra 个；当前选中第 [current] 个 */
@@ -95,15 +91,6 @@ class GroupPagerDiffTest : UiTestBase() {
         assertNotNull("当前页的 Fragment 已建出", page(currentId))
     }
 
-    /** 在后台线程跑会触发仓库监听回调的操作；回调要切回主线程，所以轮询 settle 直到 worker 结束 */
-    private fun <T> viaWorker(block: () -> T): T {
-        var result: Result<T>? = null
-        val worker = thread(name = "ui-test-bg") { result = runCatching(block) }
-        while (worker.isAlive) UiSettle.settle()
-        UiSettle.settle()
-        return result!!.getOrThrow()
-    }
-
     private fun bean(name: String) = SOCKSBean().apply {
         this.name = name
         serverAddress = "192.0.2.1"
@@ -111,22 +98,7 @@ class GroupPagerDiffTest : UiTestBase() {
         protocol = SOCKSBean.PROTOCOL_SOCKS5
     }
 
-    /** 记下适配器收到的全部通知 */
-    private class Events : RecyclerView.AdapterDataObserver() {
-        val changed = ArrayList<Pair<Int, Int>>()
-        var inserted = 0
-        var removed = 0
-        var moved = 0
-        var reset = 0
-        override fun onChanged() { reset++ }
-        override fun onItemRangeChanged(positionStart: Int, itemCount: Int, payload: Any?) { changed += positionStart to itemCount }
-        override fun onItemRangeInserted(positionStart: Int, itemCount: Int) { inserted += itemCount }
-        override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) { removed += itemCount }
-        override fun onItemRangeMoved(fromPosition: Int, toPosition: Int, itemCount: Int) { moved += itemCount }
-        val total get() = changed.size + inserted + removed + moved + reset
-    }
-
-    private fun Setup.watch() = Events().also { config.adapter.registerAdapterDataObserver(it) }
+    private fun Setup.watch() = AdapterEvents().also { config.adapter.registerAdapterDataObserver(it) }
 
     // ---------------------------------------------------------------- 差量：只发该发的通知
 
@@ -155,7 +127,7 @@ class GroupPagerDiffTest : UiTestBase() {
             SagerDatabase.groupDao.updateGroup(group)
         }
         s.reload()
-        assertEquals("改名：只通知那一页变化", listOf(0 to 1), events.changed)
+        assertEquals("改名：只通知那一页变化", listOf(0 to 1), events.changed.map { it.first to it.second })
         assertEquals(0, events.reset)
     }
 
@@ -293,14 +265,14 @@ class GroupPagerDiffTest : UiTestBase() {
         val current = s.currentId
         val currentPage = s.page(current)
 
-        val added = viaWorker { runBlocking { GroupRepository.createGroup(ProxyGroup(name = "Added")) } }
+        val added = ui.viaWorker { runBlocking { GroupRepository.createGroup(ProxyGroup(name = "Added")) } }
         assertEquals(dbIds(), s.ids)
         assertEquals("新增分组后选中它", added.id, s.currentId)
         s.assertConsistent()
 
         // 先回到原来的页，再删掉新增的那个：当前页不动
         s.select(s.ids.indexOf(current))
-        viaWorker { runBlocking { GroupRepository.deleteGroup(added.id) } }
+        ui.viaWorker { runBlocking { GroupRepository.deleteGroup(added.id) } }
         assertEquals(dbIds(), s.ids)
         assertEquals(current, s.currentId)
         assertSame(currentPage, s.page(current))
@@ -318,7 +290,7 @@ class GroupPagerDiffTest : UiTestBase() {
 
         // 新分组直接写库、排在最前（页码正好等于当前页码）；第一个节点落进去时 onAdd 发现页里没有它，选中并整表重读
         val fresh = createGroup("Fresh", order = minOrder() - 1)
-        viaWorker { runBlocking { ProfileRepository.createProfile(fresh.id, bean("first")) } }
+        ui.viaWorker { runBlocking { ProfileRepository.createProfile(fresh.id, bean("first")) } }
 
         assertEquals(listOf(fresh.id, personal.id, s.fixtures.subscriptionGroup.id), s.ids)
         assertEquals("自动切到新分组", fresh.id, s.currentId)
@@ -333,7 +305,7 @@ class GroupPagerDiffTest : UiTestBase() {
     fun importIntoNewGroupAtTheEndSwitchesToIt() {
         val s = open()
         val fresh = createGroup("Fresh")
-        viaWorker { runBlocking { ProfileRepository.createProfile(fresh.id, bean("first")) } }
+        ui.viaWorker { runBlocking { ProfileRepository.createProfile(fresh.id, bean("first")) } }
 
         assertEquals(fresh.id, s.ids.last())
         assertEquals(fresh.id, s.currentId)
@@ -347,7 +319,7 @@ class GroupPagerDiffTest : UiTestBase() {
         val personal = s.fixtures!!.normalGroup
         assertEquals("前置条件：停在订阅分组", s.fixtures.subscriptionGroup.id, s.currentId)
 
-        viaWorker { runBlocking { s.config.import(listOf(bean("imported"))) } }
+        ui.viaWorker { runBlocking { s.config.import(listOf(bean("imported"))) } }
 
         assertEquals("导入落在第一个普通分组，并切过去", personal.id, s.currentId)
         assertEquals(personal.id, DataStore.selectedGroup)
@@ -368,20 +340,20 @@ class GroupPagerDiffTest : UiTestBase() {
         // 第一个节点落进 ungrouped：它进列表，仍只有一个分组，tab 条仍隐藏
         val ungrouped = ui.offMain { SagerDatabase.groupDao.allGroups() }.single()
         assertTrue(ungrouped.ungrouped)
-        viaWorker { runBlocking { ProfileRepository.createProfile(ungrouped.id, bean("first")) } }
+        ui.viaWorker { runBlocking { ProfileRepository.createProfile(ungrouped.id, bean("first")) } }
         assertEquals(listOf(ungrouped.id), s.ids)
         assertEquals(View.GONE, s.tabs.visibility)
         s.assertConsistent()
 
         // 新建一个普通分组：两个分组，tab 条出现
-        val added = viaWorker { runBlocking { GroupRepository.createGroup(ProxyGroup(name = "Added")) } }
+        val added = ui.viaWorker { runBlocking { GroupRepository.createGroup(ProxyGroup(name = "Added")) } }
         assertEquals(listOf(ungrouped.id, added.id), s.ids)
         assertEquals(View.VISIBLE, s.tabs.visibility)
         s.assertConsistent()
 
         // ungrouped 的节点删光：它退出列表，只剩一个分组，tab 条再次隐藏
         val profile = ui.offMain { SagerDatabase.proxyDao.getByGroup(ungrouped.id) }.single()
-        viaWorker { runBlocking { ProfileRepository.deleteProfile(ungrouped.id, profile.id) } }
+        ui.viaWorker { runBlocking { ProfileRepository.deleteProfile(ungrouped.id, profile.id) } }
         assertEquals(listOf(added.id), s.ids)
         assertEquals(View.GONE, s.tabs.visibility)
         assertEquals(added.id, s.currentId)

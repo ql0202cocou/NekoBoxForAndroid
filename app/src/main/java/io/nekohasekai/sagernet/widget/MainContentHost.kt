@@ -1,11 +1,13 @@
 package io.nekohasekai.sagernet.widget
 
+import android.graphics.Rect
 import android.view.View
 import androidx.core.view.NestedScrollingChild
 import androidx.core.view.ViewCompat
 import androidx.fragment.app.Fragment
 import com.google.android.material.appbar.AppBarLayout
 import io.nekohasekai.sagernet.BuildConfig
+import java.util.Collections
 import java.util.WeakHashMap
 
 /*
@@ -26,84 +28,41 @@ interface MainContentHostOwner {
 }
 
 /**
- * 主界面托管内容的登记处与事件汇聚点，一个 MainActivity 一个。
+ * 主界面托管内容的登记处，一个 MainActivity 一个。
  *
- * - [bottomClearance]：滚动视图底部要为悬浮的 Dock 与状态卡片让出的高度（px）。宿主在它变化时
- *   调 [refreshClearance]，各滚动视图的 padForSystemBars 随之更新；
- * - [sources]：当前挂在窗口上的、被托管的滚动视图（缓存里脱离窗口的页面不算）；
- * - [addListener]：订阅全部托管视图的滚动（[ContentListener.onContentScrolled]）与结构变化
- *   （[ContentListener.onContentChanged]：挂上 / 摘下窗口、重新布局）。事件的来源是每个视图自己的
- *   [ScrollHub]，这里不另占 View 唯一的滚动回调槽。顶部栏抬升订阅各视图的 hub。
- *
- * 只在主线程使用。
+ * [bottomClearance]：滚动视图底部要为悬浮的 Dock 与状态卡片让出的高度（px）。宿主在它变化时
+ * 调 [refreshClearance]，各登记过的滚动视图（[register]，经 [hostMainScrollable]）的 padForSystemBars 随之更新。
+ * 滚动事件不经这里：顶部栏抬升直接订阅各视图自己的 [ScrollHub]。只在主线程使用。
  */
 class MainContentHost(private val clearance: () -> Int) {
 
-    private val listeners = ArrayList<ContentListener>()
+    // 登记过的视图；弱引用：从未挂上窗口的视图不会被这里拖住
+    private val registered: MutableSet<View> = Collections.newSetFromMap(WeakHashMap())
 
-    // 登记过的视图 -> 是否会发滚动事件。弱引用的键：从未挂上窗口的视图不会被这里拖住
-    private val registered = WeakHashMap<View, Boolean>()
+    private val visibleRect = Rect()
 
     fun bottomClearance(): Int = clearance()
 
     /**
-     * 让位高度变了（状态卡片滑入 / 滑出的每一帧、卡片高度变化）：所有挂在窗口上的托管视图按最近一次的
-     * 插入区重算底部留白，不重新分发整棵树的插入区。脱离窗口的缓存页不用管，挂回时会请求分发、读到当时的值
+     * 让位高度变了（状态卡片滑入 / 滑出的每一帧、卡片高度变化）：挂在窗口上的托管视图按最近一次的插入区重算底部留白，
+     * 不重新分发整棵树的插入区。[onlyVisible] 为真（滑动进行中的每一帧）时只重算屏幕上看得见的视图——ViewPager
+     * 缓存的分页每帧跟着重新布局是白做，等终值到位再补；脱离窗口的缓存页不用管，挂回时会请求分发、读到当时的值
      */
-    fun refreshClearance() {
-        for (view in registered.keys.toTypedArray()) {
-            if (view.isAttachedToWindow) view.reapplySystemBarPadding()
+    fun refreshClearance(onlyVisible: Boolean = false) {
+        for (view in registered.toTypedArray()) {
+            if (!view.isAttachedToWindow) continue
+            if (onlyVisible && !view.getGlobalVisibleRect(visibleRect)) continue
+            view.reapplySystemBarPadding()
         }
     }
 
-    /** 当前挂在窗口上的托管视图 */
-    val sources: List<View>
-        get() = registered.keys.filter { it.isAttachedToWindow }
+    /** 当前挂在窗口上的托管视图（测试用） */
+    internal val hostedViews: List<View>
+        get() = registered.filter { it.isAttachedToWindow }
 
-    /**
-     * [view] 是否会发滚动事件。Dashboard 的 WebView 容器不会（WebView 自己在内部滚动，
-     * 既不发嵌套滚动也不触发容器的滚动回调），订阅者对它只能靠 [ContentListener.onContentChanged]
-     * 或自己的定时重录，不能等滚动事件。
-     */
-    fun reportsScroll(view: View): Boolean = registered[view] == true
-
-    fun addListener(listener: ContentListener) {
-        if (listeners.none { it === listener }) listeners += listener
-    }
-
-    fun removeListener(listener: ContentListener) {
-        listeners.removeAll { it === listener }
-    }
-
-    /** 登记一个托管视图；同一个视图重复登记只更新标志，不叠加监听 */
-    internal fun register(view: View, reportsScroll: Boolean) {
-        val first = !registered.containsKey(view)
-        registered[view] = reportsScroll
-        if (first) {
-            view.addOnAttachStateChangeListener(attachListener)
-            view.addOnLayoutChangeListener(layoutListener)
-            if (reportsScroll) ScrollHub.of(view).addListener(scrollForwarder)
-        }
-        if (view.isAttachedToWindow) dispatchChanged(view)
-    }
-
-    private fun dispatchChanged(source: View?) {
-        for (listener in listeners.toTypedArray()) listener.onContentChanged(source)
-    }
-
-    private val scrollForwarder = object : ContentListener {
-        override fun onContentScrolled(source: View) {
-            for (listener in listeners.toTypedArray()) listener.onContentScrolled(source)
-        }
-    }
-
-    private val attachListener = object : View.OnAttachStateChangeListener {
-        override fun onViewAttachedToWindow(v: View) = dispatchChanged(v)
-        override fun onViewDetachedFromWindow(v: View) = dispatchChanged(v)
-    }
-
-    private val layoutListener = View.OnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
-        dispatchChanged(v)
+    /** 登记一个托管视图；重复登记无效 */
+    internal fun register(view: View) {
+        registered += view
     }
 }
 
@@ -116,14 +75,14 @@ class MainContentHost(private val clearance: () -> Int) {
  *   找页面里的 R.id.appbar；
  * - 嵌套滚动：RecyclerView / NestedScrollView（[NestedScrollingChild]）显式开启，debug 构建下对不能
  *   嵌套滚动的视图直接报错；
- * - 登记到 [MainContentHost]，滚动与结构变化汇入同一个订阅点。
+ * - 登记到 [MainContentHost]，让位高度变化时随之重算底部留白。
  *
  * 当前宿主不是 [MainContentHostOwner]（选节点页、通知里的切换对话框：没有 Dock）时只做留白为 0 的
  * 系统栏适配和抬升，不登记。没有 Dock 的页面本来就该直接用 padForSystemBars / liftOnScrollOf。
  *
  * 唯一的例外是 Dashboard（WebviewFragment）：它传入的是 WebView 的外层容器，WebView 不发嵌套滚动，
  * 状态卡片在该页收不起（open-issues 已记，已定保持例外）。这种页面显式传 `nestedScrolling = false`：
- * 不开嵌套滚动、不断言类型，也不订阅滚动，登记时标为不发滚动事件（[MainContentHost.reportsScroll]）。
+ * 不开嵌套滚动、不断言类型。
  */
 fun Fragment.hostMainScrollable(
     scroll: View,
@@ -160,5 +119,5 @@ fun Fragment.hostMainScrollable(
         liftAncestorAppBar -> scroll.liftAncestorAppBar()
     }
 
-    (activity as? MainContentHostOwner)?.contentHost?.register(scroll, reportsScroll = nestedScrolling)
+    (activity as? MainContentHostOwner)?.contentHost?.register(scroll)
 }

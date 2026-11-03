@@ -1,8 +1,6 @@
 package io.nekohasekai.sagernet.uitest
 
 import android.view.View
-import android.view.ViewGroup
-import androidx.recyclerview.widget.RecyclerView
 import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.GroupManager
@@ -25,7 +23,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.robolectric.android.controller.ActivityController
-import kotlin.concurrent.thread
 
 /**
  * U4c c3 分组列表（ListAdapter + DiffUtil）：订阅进度只走 payload 刷新受影响的那张卡；拖动排序落库且
@@ -55,7 +52,7 @@ class GroupListDiffTest : UiTestBase() {
         val main = ui.launch<MainActivity>()
         main.get().displayFragmentWithId(Page.GROUPS.navId)
         UiSettle.settle()
-        val fragment = main.get().supportFragmentManager.findFragmentById(R.id.fragment_holder) as GroupFragment
+        val fragment = main.hostedFragment<GroupFragment>()
         return main to fragment
     }
 
@@ -76,33 +73,6 @@ class GroupListDiffTest : UiTestBase() {
         return (0 until list.childCount).map { list.getChildViewHolder(list.getChildAt(it)) as GroupFragment.GroupHolder }
     }
 
-    /** 记下适配器收到的全部通知 */
-    private class Events : RecyclerView.AdapterDataObserver() {
-        val changed = ArrayList<Triple<Int, Int, Any?>>()
-        var inserted = 0
-        var removed = 0
-        var moved = 0
-        var reset = 0
-        override fun onChanged() { reset++ }
-        override fun onItemRangeChanged(positionStart: Int, itemCount: Int, payload: Any?) { changed += Triple(positionStart, itemCount, payload) }
-        override fun onItemRangeInserted(positionStart: Int, itemCount: Int) { inserted += itemCount }
-        override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) { removed += itemCount }
-        override fun onItemRangeMoved(fromPosition: Int, toPosition: Int, itemCount: Int) { moved += itemCount }
-        val total get() = changed.size + inserted + removed + moved + reset
-    }
-
-    /**
-     * 在后台线程跑会触发仓库监听回调的操作：回调要切回主线程，主线程不能阻塞等它，
-     * 所以轮询 settle 直到 worker 结束
-     */
-    private fun <T> viaWorker(block: () -> T): T {
-        var result: Result<T>? = null
-        val worker = thread(name = "ui-test-bg") { result = runCatching(block) }
-        while (worker.isAlive) UiSettle.settle()
-        UiSettle.settle()
-        return result!!.getOrThrow()
-    }
-
     // ---------------------------------------------------------------- 订阅进度
 
     @Test
@@ -114,11 +84,11 @@ class GroupListDiffTest : UiTestBase() {
         assertTrue("前置条件：至少两张可见卡片", fragment.holders().size >= 2)
         // 哨兵：整卡重绑会立刻把名字改回分组名；只刷进度条时哨兵留着
         fragment.holders().forEach { it.groupName.text = "sentinel" }
-        val events = Events().also { adapter.registerAdapterDataObserver(it) }
+        val events = AdapterEvents().also { adapter.registerAdapterDataObserver(it) }
 
         GroupUpdater.updating.add(target.id)
         GroupUpdater.progress[target.id] = GroupUpdater.Progress(10).apply { progress = 3 }
-        viaWorker { runBlocking { GroupManager.postProgress(target.id) } }
+        ui.viaWorker { runBlocking { GroupManager.postProgress(target.id) } }
 
         assertEquals("只该有一条通知", 1, events.total)
         val (position, count, payload) = events.changed.single()
@@ -134,7 +104,7 @@ class GroupListDiffTest : UiTestBase() {
 
         // 再前进一步：仍然只有进度条变
         GroupUpdater.progress[target.id]!!.progress = 7
-        viaWorker { runBlocking { GroupManager.postProgress(target.id) } }
+        ui.viaWorker { runBlocking { GroupManager.postProgress(target.id) } }
         assertEquals(2, events.total)
         assertEquals(7, fragment.holders().first { it.proxyGroup.id == target.id }.subscriptionUpdateProgress.progress)
         assertTrue(fragment.holders().all { it.groupName.text.toString() == "sentinel" })
@@ -142,7 +112,7 @@ class GroupListDiffTest : UiTestBase() {
         // 更新结束后的整卡刷新（groupUpdated(groupId)）会收回进度条并重绑
         GroupUpdater.updating.remove(target.id)
         GroupUpdater.progress.remove(target.id)
-        viaWorker { runBlocking { GroupManager.postReload(target.id) } }
+        ui.viaWorker { runBlocking { GroupManager.postReload(target.id) } }
         val rebound = fragment.holders().first { it.proxyGroup.id == target.id }
         assertEquals(View.INVISIBLE, rebound.subscriptionUpdateProgress.visibility)
         assertEquals(target.displayName(), rebound.groupName.text.toString())
@@ -155,9 +125,9 @@ class GroupListDiffTest : UiTestBase() {
         val (_, fragment) = open()
         val adapter = fragment.groupAdapter
         val before = fragment.ids()
-        val events = Events().also { adapter.registerAdapterDataObserver(it) }
+        val events = AdapterEvents().also { adapter.registerAdapterDataObserver(it) }
 
-        adapter.reload()
+        fragment.groupModel.reload()
         UiSettle.settle()
 
         assertEquals("库里读出的是新实例，内容相同就不该有任何通知", 0, events.total)
@@ -169,10 +139,10 @@ class GroupListDiffTest : UiTestBase() {
         val (_, fragment) = open()
         val adapter = fragment.groupAdapter
         val target = adapter.groupList.first()
-        val events = Events().also { adapter.registerAdapterDataObserver(it) }
+        val events = AdapterEvents().also { adapter.registerAdapterDataObserver(it) }
 
         val renamed = ui.offMain { SagerDatabase.groupDao.getById(target.id)!! }.apply { name = "Renamed" }
-        viaWorker { runBlocking { GroupRepository.updateGroup(renamed) } }
+        ui.viaWorker { runBlocking { GroupRepository.updateGroup(renamed) } }
 
         assertEquals(1, events.total)
         val (position, count, payload) = events.changed.single()
@@ -187,13 +157,13 @@ class GroupListDiffTest : UiTestBase() {
         val (_, fragment) = open()
         val adapter = fragment.groupAdapter
         val sub = adapter.groupList.first { it.type == GroupType.SUBSCRIPTION }
-        val events = Events().also { adapter.registerAdapterDataObserver(it) }
+        val events = AdapterEvents().also { adapter.registerAdapterDataObserver(it) }
 
         // 订阅链接卡片上不显示：差量认为没变，不重绑；但二维码 / 立即更新取用的必须是新链接
         val edited = ui.offMain { SagerDatabase.groupDao.getById(sub.id)!! }.apply {
             subscription!!.link = "https://example.com/edited"
         }
-        viaWorker { runBlocking { GroupRepository.updateGroup(edited) } }
+        ui.viaWorker { runBlocking { GroupRepository.updateGroup(edited) } }
 
         assertEquals(0, events.total)
         val holder = fragment.holders().first { it.proxyGroup.id == sub.id }
@@ -207,7 +177,7 @@ class GroupListDiffTest : UiTestBase() {
         val before = fragment.holders().first { it.proxyGroup.id == normal.id }.groupStatus.text.toString()
         assertTrue("前置条件：分组里有节点（$before）", before != app.getString(R.string.group_status_empty))
 
-        viaWorker { runBlocking { GroupRepository.clearGroup(normal.id) } }
+        ui.viaWorker { runBlocking { GroupRepository.clearGroup(normal.id) } }
 
         val holder = fragment.holders().first { it.proxyGroup.id == normal.id }
         assertEquals(app.getString(R.string.group_status_empty), holder.groupStatus.text.toString())
@@ -236,8 +206,8 @@ class GroupListDiffTest : UiTestBase() {
         assertEquals("落下后库里是同一顺序", dragged, dbIds())
 
         // 重读读出同样的顺序：差量无变化，列表不动
-        val events = Events().also { adapter.registerAdapterDataObserver(it) }
-        adapter.reload()
+        val events = AdapterEvents().also { adapter.registerAdapterDataObserver(it) }
+        fragment.groupModel.reload()
         UiSettle.settle()
         assertEquals(dragged, fragment.ids())
         assertEquals(dragged, fragment.visibleIds())
@@ -255,7 +225,7 @@ class GroupListDiffTest : UiTestBase() {
         assertTrue(before != dragged)
 
         // 拖动中来了一次整表重读（库里还是旧顺序）：不能把正在拖的列表拽回去
-        adapter.reload()
+        fragment.groupModel.reload()
         UiSettle.settle()
         assertEquals(dragged, fragment.ids())
 
@@ -283,7 +253,7 @@ class GroupListDiffTest : UiTestBase() {
         UiSettle.settle()
         assertFalse("前置条件：延迟期间新分组还没进列表", created.id in fragment.ids())
 
-        adapter.reload()
+        fragment.groupModel.reload()
         UiSettle.settle()
         assertEquals("重读已读进新分组", 1, fragment.ids().count { it == created.id })
 
@@ -303,7 +273,7 @@ class GroupListDiffTest : UiTestBase() {
         val before = fragment.ids()
 
         // 经真实的仓库监听回调：延迟是 worker 协程上的真实时间，viaWorker 轮询到它结束
-        val created = viaWorker { runBlocking { GroupRepository.createGroup(ProxyGroup(name = "Added")) } }
+        val created = ui.viaWorker { runBlocking { GroupRepository.createGroup(ProxyGroup(name = "Added")) } }
 
         assertEquals(before + created.id, fragment.ids())
         assertEquals(fragment.ids(), fragment.visibleIds())
@@ -311,12 +281,6 @@ class GroupListDiffTest : UiTestBase() {
     }
 
     // ---------------------------------------------------------------- 删除与撤销
-
-    private fun View.findUndoAction(): View? {
-        if (id == com.google.android.material.R.id.snackbar_action) return this
-        if (this is ViewGroup) for (i in 0 until childCount) getChildAt(i).findUndoAction()?.let { return it }
-        return null
-    }
 
     private fun swipe(fragment: GroupFragment, index: Int): ProxyGroup {
         val group = fragment.groupAdapter.groupList[index]
@@ -329,7 +293,7 @@ class GroupListDiffTest : UiTestBase() {
     fun swipeDeleteThenUndoRestoresPosition() {
         val (main, fragment) = open(extraGroups = 1)
         val before = fragment.ids()
-        val events = Events().also { fragment.groupAdapter.registerAdapterDataObserver(it) }
+        val events = AdapterEvents().also { fragment.groupAdapter.registerAdapterDataObserver(it) }
 
         val deleted = swipe(fragment, 1)
         UiSettle.settle()
@@ -337,7 +301,7 @@ class GroupListDiffTest : UiTestBase() {
         assertEquals(fragment.ids(), fragment.visibleIds())
         assertEquals("撤销窗口里还没落库", before, dbIds())
 
-        val action = main.get().window.decorView.findUndoAction() ?: error("前置条件：没有撤销按钮")
+        val action = main.get().undoAction()
         action.performClick()
         UiSettle.settle()
 

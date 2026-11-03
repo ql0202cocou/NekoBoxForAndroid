@@ -1,7 +1,6 @@
 package io.nekohasekai.sagernet.uitest
 
 import android.view.View
-import android.view.ViewGroup
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.GroupRepository
 import io.nekohasekai.sagernet.database.ProxyGroup
@@ -30,18 +29,6 @@ class UndoScenarios(private val ui: UiTestRule) {
     }
 
     private fun MainActivity.page() = supportFragmentManager.findFragmentById(R.id.fragment_holder)
-
-    /** 当前窗口里「撤销」按钮：删除后立刻取一次，之后即使气泡正在关闭也能点它 */
-    private fun View.findUndoAction(): View? {
-        if (id == com.google.android.material.R.id.snackbar_action) return this
-        if (this is ViewGroup) for (i in 0 until childCount) getChildAt(i).findUndoAction()?.let { return it }
-        return null
-    }
-
-    private fun MainActivity.undoAction(): View {
-        UiSettle.settle()
-        return window.decorView.findUndoAction() ?: error("前置条件：没有撤销按钮")
-    }
 
     private fun View.clickUndo() {
         performClick()

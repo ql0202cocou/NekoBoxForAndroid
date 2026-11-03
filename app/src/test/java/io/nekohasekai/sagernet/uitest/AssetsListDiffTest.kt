@@ -1,7 +1,6 @@
 package io.nekohasekai.sagernet.uitest
 
 import androidx.recyclerview.widget.ListUpdateCallback
-import androidx.recyclerview.widget.RecyclerView
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ui.AssetsActivity
 import io.nekohasekai.sagernet.ui.diffAssets
@@ -64,26 +63,20 @@ class AssetsListDiffTest : UiTestBase() {
             val adapter = host.get().adapter
             assertTrue(adapter.assets.any { it.name == extra.name })
 
-            val seen = ArrayList<String>()
-            adapter.registerAdapterDataObserver(object : RecyclerView.AdapterDataObserver() {
-                override fun onChanged() { seen += "reset" }
-                override fun onItemRangeInserted(p: Int, c: Int) { seen += "ins" }
-                override fun onItemRangeRemoved(p: Int, c: Int) { seen += "rem" }
-                override fun onItemRangeChanged(p: Int, c: Int, payload: Any?) { seen += "chg" }
-                override fun onItemRangeMoved(f: Int, t: Int, c: Int) { seen += "mov" }
-            })
+            val seen = AdapterEvents().also { adapter.registerAdapterDataObserver(it) }
 
             // 无变化的重读：不发任何通知
             adapter.reloadAssets()
             UiSettle.settle()
-            assertEquals(emptyList<String>(), seen)
+            assertEquals(emptyList<String>(), seen.log)
 
             // 新增一个文件：只插入一行
             val added = File(dir, "zz-added.db").apply { writeText("y") }
             try {
                 adapter.reloadAssets()
                 UiSettle.settle()
-                assertEquals(listOf("ins"), seen)
+                assertEquals("只插入一行", 1, seen.inserted)
+                assertEquals(1, seen.total)
                 assertTrue(adapter.assets.any { it.name == added.name })
             } finally {
                 added.delete()
@@ -93,7 +86,8 @@ class AssetsListDiffTest : UiTestBase() {
             seen.clear()
             adapter.reloadAssets()
             UiSettle.settle()
-            assertEquals(listOf("rem"), seen)
+            assertEquals("只删一行", 1, seen.removed)
+            assertEquals(1, seen.total)
             assertTrue(adapter.assets.none { it.name == added.name })
 
             // 删除一行后撤销：按原位置插回

@@ -2,23 +2,16 @@ package io.nekohasekai.sagernet.uitest
 
 import android.os.Looper
 import android.view.View
-import android.view.ViewGroup
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.RuleRepository
 import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.ui.RouteFragment
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Test
 import org.robolectric.Shadows.shadowOf
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 /**
  * U4c c2 路由列表：整表重读与撤销窗口的次序。重读在途（读库被门挡住）时滑掉一行，
@@ -26,52 +19,14 @@ import java.util.concurrent.TimeUnit
  */
 class RouteReloadUndoTest : UiTestBase() {
 
-    /**
-     * 占满 IO 调度器，让之后提交的读库排队不动；关门（[close]）后排队的任务照常跑完。
-     * 门开着时不能 settle（占着的线程在等门闩），出了 use 块再 settle。与 UiScenarios.IoGate 同一做法（那个是私有的）
-     */
-    @OptIn(DelicateCoroutinesApi::class)
-    private class IoGate : AutoCloseable {
-        private val release = CountDownLatch(1)
-
-        init {
-            val slots = System.getProperty("kotlinx.coroutines.io.parallelism")?.toIntOrNull()
-                ?: maxOf(64, Runtime.getRuntime().availableProcessors())
-            val occupied = CountDownLatch(slots)
-            repeat(slots) {
-                GlobalScope.launch(Dispatchers.IO) {
-                    occupied.countDown()
-                    release.await()
-                }
-            }
-            try {
-                check(occupied.await(10, TimeUnit.SECONDS)) { "IO 调度器没能在 10 s 内被占满" }
-                val probe = CountDownLatch(1)
-                GlobalScope.launch(Dispatchers.IO) { probe.countDown() }
-                check(!probe.await(100, TimeUnit.MILLISECONDS)) { "IO 门没有挡住后续的 IO 任务" }
-            } catch (t: Throwable) {
-                release.countDown()
-                throw t
-            }
-        }
-
-        override fun close() = release.countDown()
-    }
-
     private fun open(): RouteFragment {
         UiFixtures.install()
         val main = ui.launch<MainActivity>()
         main.get().displayFragmentWithId(R.id.nav_route)
         UiSettle.settle()
-        val fragment = main.get().supportFragmentManager.findFragmentById(R.id.fragment_holder) as RouteFragment
+        val fragment = main.hostedFragment<RouteFragment>()
         check(fragment.ruleAdapter.ruleList.size >= 3) { "前置条件：路由页不足 3 条规则" }
         return fragment
-    }
-
-    private fun View.findUndoAction(): View? {
-        if (id == com.google.android.material.R.id.snackbar_action) return this
-        if (this is ViewGroup) for (i in 0 until childCount) getChildAt(i).findUndoAction()?.let { return it }
-        return null
     }
 
     private fun RouteFragment.ids() = ruleAdapter.ruleList.map { it.id }
@@ -84,9 +39,8 @@ class RouteReloadUndoTest : UiTestBase() {
         ruleAdapter.remove(index)
         undoManager.remove(index to rule)
         shadowOf(Looper.getMainLooper()).idle()
-        val action = requireActivity().window.decorView.findUndoAction()
-        assertNotNull("前置条件：没有撤销按钮", action)
-        return action!!
+        // IO 门关着时不能 settle
+        return requireActivity().undoAction(settle = false)
     }
 
     @Test
@@ -97,7 +51,7 @@ class RouteReloadUndoTest : UiTestBase() {
 
         val action: View
         IoGate().use {
-            fragment.ruleAdapter.reload()
+            fragment.routeModel.reload()
             action = fragment.swipe(1)
         }
         // 放行：重读此刻才读库，撤销窗口还开着，库里仍有被滑掉的那条
@@ -119,7 +73,7 @@ class RouteReloadUndoTest : UiTestBase() {
         val before = fragment.ids()
 
         IoGate().use {
-            fragment.ruleAdapter.reload()
+            fragment.routeModel.reload()
             val action = fragment.swipe(1)
             // 重读还没应用就撤销：规则回到列表，也不再被过滤
             action.performClick()
@@ -142,10 +96,10 @@ class RouteReloadUndoTest : UiTestBase() {
         // 撤销窗口走完，删除落库并确认；之后的整表重读读不到它，列表与库一致
         UiSettle.settle(advanceMs = 30_000)
         assertEquals(before - swiped, dbIds())
-        fragment.ruleAdapter.reload()
+        fragment.routeModel.reload()
         UiSettle.settle()
         assertEquals(before - swiped, fragment.ids())
-        fragment.ruleAdapter.reload()
+        fragment.routeModel.reload()
         UiSettle.settle()
         assertEquals(before - swiped, fragment.ids())
         assertEquals(fragment.ids().size, fragment.ruleAdapter.itemCount)

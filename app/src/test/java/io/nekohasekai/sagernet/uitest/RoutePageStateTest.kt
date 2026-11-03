@@ -14,7 +14,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.robolectric.android.controller.ActivityController
-import kotlin.concurrent.thread
 
 /**
  * U4d d3 路由页 ViewModel：规则列表、出站节点名、滑掉的规则记录、仓库监听都由 [io.nekohasekai.sagernet.ui.RouteViewModel] 持有。
@@ -26,14 +25,12 @@ import kotlin.concurrent.thread
  */
 class RoutePageStateTest : UiTestBase() {
 
-    private fun <T> bg(block: suspend () -> T): T = ui.offMain { runBlocking { block() } }
-
     private class Opened(val main: ActivityController<MainActivity>, val nodeId: Long)
 
     private fun open(extraRules: Int = 0): Opened {
         val fixtures = UiFixtures.install()
         val node = fixtures.profiles.first()
-        bg {
+        ui.bg {
             // 一条出站指定节点的规则：行上显示节点名，名字由 ViewModel 在载入时一并查好
             RuleRepository.createRule(RuleEntity(name = "Via node", enabled = true, outbound = node.id, domains = "domain:node.example.com"))
             repeat(extraRules) { n ->
@@ -47,11 +44,11 @@ class RoutePageStateTest : UiTestBase() {
     }
 
     private fun ActivityController<MainActivity>.routeFragment() =
-        get().supportFragmentManager.findFragmentById(R.id.fragment_holder) as RouteFragment
+        hostedFragment<RouteFragment>()
 
     private fun RouteFragment.ids() = ruleAdapter.ruleList.map { it.id }
 
-    private fun dbIds(): List<Long> = bg { RuleRepository.getRules() }.map { it.id }
+    private fun dbIds(): List<Long> = ui.bg { RuleRepository.getRules() }.map { it.id }
 
     /** 位置 [position] 当前显示的出站文字（先布局一遍，保证该位置有已绑定的行） */
     private fun RouteFragment.outboundText(position: Int): String {
@@ -63,15 +60,6 @@ class RoutePageStateTest : UiTestBase() {
         val holder = ruleListView.findViewHolderForAdapterPosition(position) as? RouteFragment.RuleAdapter.RuleHolder
             ?: error("位置 $position 没有已绑定的行")
         return holder.routeOutbound.text.toString()
-    }
-
-    // 在后台线程跑会触发仓库监听回调的操作：回调要排回主 looper，主线程不能阻塞等它，轮询 settle 直到 worker 结束
-    private fun <T> viaWorker(block: () -> T): T {
-        var result: Result<T>? = null
-        val worker = thread(name = "ui-test-bg") { result = runCatching(block) }
-        while (worker.isAlive) UiSettle.settle()
-        UiSettle.settle()
-        return result!!.getOrThrow()
     }
 
     // ------------------------------------------------------------- 旋转：不重读库、滚动位置
@@ -133,10 +121,7 @@ class RoutePageStateTest : UiTestBase() {
         val position = opened.main.routeFragment().ruleListView.firstVisible()
         assertTrue("前置条件：列表没有滚动（第一个可见项 $position）", position > 0)
 
-        val state = android.os.Bundle()
-        opened.main.pause().saveInstanceState(state)
-        ui.destroyNow(opened.main)
-        val restored = ui.launchRestored(MainActivity::class.java, null, state)
+        val restored = ui.recreateProcess(opened.main)
 
         // 新 ViewModel 的列表是异步读回来的：布局状态等到列表非空再恢复（PREVENT_WHEN_EMPTY），不在空列表上丢掉
         assertEquals(position, restored.routeFragment().ruleListView.firstVisible())
@@ -146,7 +131,7 @@ class RoutePageStateTest : UiTestBase() {
     fun rotationShowsLoadedEmptyStateImmediately() {
         UiFixtures.install()
         // 规则全部清空（库里没有规则）：ViewModel 读过库、结果为空，旋转后页面直接显示占位，不必再等一次读库
-        bg { RuleRepository.clearRules() }
+        ui.bg { RuleRepository.clearRules() }
         val main = ui.launch<MainActivity>()
         main.get().displayFragmentWithId(Page.ROUTES.navId)
         UiSettle.settle()
@@ -179,8 +164,8 @@ class RoutePageStateTest : UiTestBase() {
         assertEquals("旋转后监听器没有重复也没有漏", base + 1, ListenerTable.RULE.count())
 
         val target = rotated.ruleAdapter.ruleList.first()
-        val renamed = bg { RuleRepository.getRule(target.id)!! }.copy(name = "Renamed after rotation")
-        viaWorker { runBlocking { RuleRepository.updateRule(renamed) } }
+        val renamed = ui.bg { RuleRepository.getRule(target.id)!! }.copy(name = "Renamed after rotation")
+        ui.viaWorker { runBlocking { RuleRepository.updateRule(renamed) } }
         assertEquals("旋转后真正的变更通知照常到达", "Renamed after rotation", rotated.ruleAdapter.ruleList.first { it.id == target.id }.name)
         assertEquals(rotated.ids().size, rotated.ruleAdapter.itemCount)
 
@@ -210,7 +195,7 @@ class RoutePageStateTest : UiTestBase() {
         assertEquals(rotated.ids().size, rotated.ruleAdapter.itemCount)
 
         // 之后的整表重读（比如别处的变更通知）也不会把它读回来
-        rotated.ruleAdapter.reload()
+        rotated.routeModel.reload()
         UiSettle.settle()
         assertEquals(dbIds(), rotated.ids())
     }
@@ -221,8 +206,7 @@ class RoutePageStateTest : UiTestBase() {
     fun processRecreationRereadsDatabase() {
         val opened = open()
         val before = opened.main.routeFragment().ids()
-        val state = android.os.Bundle()
-        opened.main.pause().saveInstanceState(state)
+        val state = ui.saveInstanceState(opened.main)
         ui.destroyNow(opened.main)
 
         val added = ui.offMain {

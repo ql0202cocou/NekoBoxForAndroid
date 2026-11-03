@@ -23,12 +23,14 @@ internal fun <A : Activity> ActivityController<A>.rotate() {
 /** 仓库监听器表里现有的监听器个数（反射读 GroupManager / ProfileManager 的内部表，UiTestRule 清表用的也是它们） */
 internal enum class ListenerTable(private val owner: Any, private val field: String) {
     GROUP(GroupManager, "listeners"),
+    PROFILE(ProfileManager, "listeners"),
     RULE(ProfileManager, "ruleListeners");
 
-    fun count(): Int {
-        val list = owner.javaClass.getDeclaredField(field).apply { isAccessible = true }.get(owner)
-        return (list as List<*>).size
-    }
+    /** 仓库的监听器列表本身（反射取私有字段） */
+    fun list(): MutableList<*> =
+        owner.javaClass.getDeclaredField(field).apply { isAccessible = true }.get(owner) as MutableList<*>
+
+    fun count(): Int = list().size
 }
 
 internal fun RecyclerView.firstVisible(): Int = (layoutManager as LinearLayoutManager).findFirstVisibleItemPosition()

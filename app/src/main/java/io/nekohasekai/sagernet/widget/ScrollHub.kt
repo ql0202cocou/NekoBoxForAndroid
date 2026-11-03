@@ -3,19 +3,10 @@ package io.nekohasekai.sagernet.widget
 import android.view.View
 import io.nekohasekai.sagernet.R
 
-/**
- * 滚动视图上发生的事。[ScrollHub]（单个视图）与 [MainContentHost]（主界面托管的全部滚动视图）
- * 用同一个接口分发，方法都有空实现，订阅者只实现自己关心的。
- */
-interface ContentListener {
+/** 滚动视图上发生的事，由该视图的 [ScrollHub] 分发 */
+fun interface ContentListener {
     /** [source] 的滚动位置变了（RecyclerView 也走这里：它在 dispatchOnScrolled 里触发 View 的滚动回调） */
-    fun onContentScrolled(source: View) = Unit
-
-    /**
-     * 托管内容的结构变了：[source] 挂上 / 摘下窗口，或它重新布局（数据变化、尺寸变化）。
-     * 只由 [MainContentHost] 分发；[source] 为 null 表示不止一个视图受影响
-     */
-    fun onContentChanged(source: View?) = Unit
+    fun onContentScrolled(source: View)
 }
 
 /**
@@ -30,9 +21,6 @@ interface ContentListener {
 class ScrollHub private constructor(val view: View) {
 
     private val listeners = ArrayList<ContentListener>()
-
-    /** 当前托管这个视图的 [MainContentHost]；只由 host 读写，换宿主时用来摘掉旧登记 */
-    internal var host: MainContentHost? = null
 
     fun addListener(listener: ContentListener) {
         if (listeners.none { it === listener }) listeners += listener

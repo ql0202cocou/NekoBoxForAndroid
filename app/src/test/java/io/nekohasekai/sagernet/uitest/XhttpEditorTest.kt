@@ -8,6 +8,7 @@ import androidx.preference.Preference
 import androidx.test.core.app.ApplicationProvider
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.database.EditorCache
 import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
@@ -17,7 +18,6 @@ import io.nekohasekai.sagernet.ui.profile.ConfigEditActivity
 import io.nekohasekai.sagernet.ui.profile.StandardV2RaySettingsActivity
 import io.nekohasekai.sagernet.ui.profile.VMessSettingsActivity
 import io.nekohasekai.sagernet.uitest.InlineValidationHarness.vmessEditor
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -36,13 +36,10 @@ import org.robolectric.shadows.ShadowToast
  */
 class XhttpEditorTest : UiTestBase() {
 
-    private fun string(id: Int, vararg args: Any) =
-        ApplicationProvider.getApplicationContext<android.content.Context>().getString(id, *args)
-
     // 界面上的拒绝提示：本地化的原因（键名路径 + 枚举文案），不是异常的英文消息
     private fun rejected(reason: Int, path: String? = null): String {
-        val text = string(reason)
-        return string(R.string.xhttp_extra_invalid, if (path == null) text else string(R.string.xhttp_reject_at, path, text))
+        val text = app.getString(reason)
+        return app.getString(R.string.xhttp_extra_invalid, if (path == null) text else app.getString(R.string.xhttp_reject_at, path, text))
     }
 
     private fun EditorActivity.pref(key: String): Preference = child!!.findPreference(key)!!
@@ -62,9 +59,7 @@ class XhttpEditorTest : UiTestBase() {
 
     private val xhttpKeys = listOf("host", "path", "xhttpMode", "xhttpExtra")
 
-    private fun <T> bg(block: suspend () -> T): T = ui.offMain { runBlocking { block() } }
-
-    private fun savedBean(id: Long) = bg { ProfileRepository.getProfile(id)!!.requireBean() as VMessBean }
+    private fun savedBean(id: Long) = ui.bg { ProfileRepository.getProfile(id)!!.requireBean() as VMessBean }
 
     private fun save(activity: EditorActivity) {
         runOnDefaultDispatcher { activity.saveAndExit() }
@@ -83,14 +78,14 @@ class XhttpEditorTest : UiTestBase() {
 
         editor.selectNetwork("xhttp")
         for (key in xhttpKeys) assertTrue("$key 应该可见", editor.pref(key).isVisible)
-        assertEquals(string(R.string.xhttp_host), editor.pref("host").title)
-        assertEquals(string(R.string.xhttp_path), editor.pref("path").title)
-        assertEquals(string(R.string.xhttp_mode), editor.pref("xhttpMode").title)
-        assertEquals(string(R.string.xhttp_extra), editor.pref("xhttpExtra").title)
+        assertEquals(app.getString(R.string.xhttp_host), editor.pref("host").title)
+        assertEquals(app.getString(R.string.xhttp_path), editor.pref("path").title)
+        assertEquals(app.getString(R.string.xhttp_mode), editor.pref("xhttpMode").title)
+        assertEquals(app.getString(R.string.xhttp_extra), editor.pref("xhttpExtra").title)
         // 主机、路径、ALPN 的对话框带说明：空主机的含义、IPv6 要方括号、空路径存为斜杠、h3 走 UDP
-        assertEquals(string(R.string.xhttp_host_hint), (editor.pref("host") as EditTextPreference).dialogMessage)
-        assertEquals(string(R.string.xhttp_path_hint), (editor.pref("path") as EditTextPreference).dialogMessage)
-        assertEquals(string(R.string.xhttp_alpn_h3_hint), (editor.pref("alpn") as EditTextPreference).dialogMessage)
+        assertEquals(app.getString(R.string.xhttp_host_hint), (editor.pref("host") as EditTextPreference).dialogMessage)
+        assertEquals(app.getString(R.string.xhttp_path_hint), (editor.pref("path") as EditTextPreference).dialogMessage)
+        assertEquals(app.getString(R.string.xhttp_alpn_h3_hint), (editor.pref("alpn") as EditTextPreference).dialogMessage)
 
         for (other in listOf("tcp", "ws", "grpc", "httpupgrade", "http")) {
             editor.selectNetwork(other)
@@ -109,12 +104,12 @@ class XhttpEditorTest : UiTestBase() {
         assertEquals(listOf("auto", "packet-up", "stream-up", "stream-one"), mode.entryValues.map { it.toString() })
         assertEquals("auto", cached("xhttpMode"))
         // 摘要带当前值和「服务端固定了模式时要选同一个」的说明
-        assertEquals(string(R.string.xhttp_mode_summary, "auto"), mode.summary)
+        assertEquals(app.getString(R.string.xhttp_mode_summary, "auto"), mode.summary)
 
         mode.value = "stream-up"
         UiSettle.settle()
         assertEquals("stream-up", cached("xhttpMode"))
-        assertEquals(string(R.string.xhttp_mode_summary, "stream-up"), mode.summary)
+        assertEquals(app.getString(R.string.xhttp_mode_summary, "stream-up"), mode.summary)
     }
 
     @Test
@@ -148,7 +143,7 @@ class XhttpEditorTest : UiTestBase() {
     fun validExtraComesBackCanonicalAndUpdatesSummary() {
         val editor = vmessEditor(ui).get()
         editor.selectNetwork("xhttp")
-        assertEquals(string(androidx.preference.R.string.not_set), editor.pref("xhttpExtra").summary)
+        assertEquals(app.getString(androidx.preference.R.string.not_set), editor.pref("xhttpExtra").summary)
         // JSON 编辑页写回的是排版过、键序和写法随意的文本
         EditorCache.profileCacheStore.putString(
             Key.XHTTP_EXTRA_EDIT,
@@ -168,7 +163,7 @@ class XhttpEditorTest : UiTestBase() {
         editor.applyEditedXhttpExtra()
         UiSettle.settle()
         assertEquals("", cached("xhttpExtra"))
-        assertEquals(string(androidx.preference.R.string.not_set), editor.pref("xhttpExtra").summary)
+        assertEquals(app.getString(androidx.preference.R.string.not_set), editor.pref("xhttpExtra").summary)
     }
 
     @Test
@@ -257,7 +252,7 @@ class XhttpEditorTest : UiTestBase() {
         EditorCache.profileCacheStore.putString("muxType", "3")
         save(editor)
         val message = latestDialogMessage()
-        assertTrue(message, message.contains(string(R.string.core_conflict_xray_xhttp_mux_cool)))
+        assertTrue(message, message.contains(app.getString(R.string.core_conflict_xray_xhttp_mux_cool)))
     }
 
     // ---- 旧版本留下的残缺 xhttp 节点（path 从未落库）：不猜测、不替用户补斜杠
@@ -273,7 +268,7 @@ class XhttpEditorTest : UiTestBase() {
             type = "xhttp"
             path = ""
         }
-        val entity = bg { ProfileRepository.createProfile(fixtures.normalGroup.id, bean) }
+        val entity = ui.bg { ProfileRepository.createProfile(fixtures.normalGroup.id, bean) }
         val intent = Intent(ApplicationProvider.getApplicationContext(), VMessSettingsActivity::class.java)
             .putExtra(io.nekohasekai.sagernet.ui.profile.ProfileSettingsActivity.EXTRA_PROFILE_ID, entity.id)
         return ui.launch(VMessSettingsActivity::class.java, intent)
@@ -286,7 +281,7 @@ class XhttpEditorTest : UiTestBase() {
         assertEquals("xhttp", cached("type"))
         ShadowToast.reset()
         save(editor)
-        assertEquals(string(R.string.core_conflict_xhttp_parameters_lost), ShadowToast.getTextOfLatestToast())
+        assertEquals(app.getString(R.string.core_conflict_xhttp_parameters_lost), ShadowToast.getTextOfLatestToast())
         assertTrue("不能替用户补斜杠", savedBean(id).path.isNullOrEmpty())
         assertEquals("xhttp", savedBean(id).type)
     }
@@ -320,7 +315,7 @@ class XhttpEditorTest : UiTestBase() {
         val recreated = controller.get()
         ShadowToast.reset()
         save(recreated)
-        assertEquals(string(R.string.core_conflict_xhttp_parameters_lost), ShadowToast.getTextOfLatestToast())
+        assertEquals(app.getString(R.string.core_conflict_xhttp_parameters_lost), ShadowToast.getTextOfLatestToast())
         assertTrue(savedBean(id).path.isNullOrEmpty())
     }
 
@@ -336,7 +331,7 @@ class XhttpEditorTest : UiTestBase() {
         (editor.pref("path") as EditTextPreference).text = ""
         UiSettle.settle()
         save(editor)
-        val created = bg {
+        val created = ui.bg {
             ProfileRepository.getProfilesByGroup(EditorCache.editingGroup).first { it.requireBean().serverAddress == "198.51.100.77" }
         }
         val bean = created.requireBean() as VMessBean

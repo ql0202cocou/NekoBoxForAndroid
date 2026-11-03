@@ -15,7 +15,6 @@ import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ui.BackupFragment
 import java.io.File
 import android.content.Intent
-import android.os.Bundle
 import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
@@ -60,14 +59,9 @@ import io.nekohasekai.sagernet.ui.profile.ShadowsocksSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.VMessSettingsActivity
 import moe.matsuri.nb4a.TempDatabase
 import androidx.appcompat.view.menu.MenuBuilder
-import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.android.controller.ActivityController
@@ -271,44 +265,6 @@ class UiScenarios(private val ui: UiTestRule) {
     private fun Job?.running() = this?.isActive == true
 
     /**
-     * 占满 Dispatchers.IO 的并行度：门开着的时候，页面代码提交到 IO 的读库任务只能排队，不会运行，
-     * 「读库在途时销毁页面」因此是确定的，不取决于读库和销毁谁先到。
-     * 关闭（[close]）后排队的任务照常跑完。门开着时不能 settle（占着的线程在等门闩，settle 会超时），
-     * 所以一律用 `IoGate().use { ... }` 包住「触发读库 → 销毁页面」，出了块再 settle。
-     * Robolectric 的 ActivityController.pause()/stop()/destroy() 每一步都会把主 looper 空转一遍，
-     * 没有这道门时，已读完的结果会在销毁前的空转里被应用——那是正常行为，不是缺陷。
-     */
-    @OptIn(DelicateCoroutinesApi::class)
-    private class IoGate : AutoCloseable {
-        private val release = CountDownLatch(1)
-
-        init {
-            // kotlinx.coroutines 的 IO 并行度：系统属性，缺省 max(64, CPU 数)
-            val slots = System.getProperty("kotlinx.coroutines.io.parallelism")?.toIntOrNull()
-                ?: maxOf(64, Runtime.getRuntime().availableProcessors())
-            val occupied = CountDownLatch(slots)
-            repeat(slots) {
-                GlobalScope.launch(Dispatchers.IO) {
-                    occupied.countDown()
-                    release.await()
-                }
-            }
-            try {
-                check(occupied.await(10, TimeUnit.SECONDS)) { "IO 调度器没能在 10 s 内被占满" }
-                // 自检：门关上后再提交的 IO 任务必须跑不起来，否则下面的「在途」不成立
-                val probe = CountDownLatch(1)
-                GlobalScope.launch(Dispatchers.IO) { probe.countDown() }
-                check(!probe.await(100, TimeUnit.MILLISECONDS)) { "IO 门没有挡住后续的 IO 任务" }
-            } catch (t: Throwable) {
-                release.countDown()
-                throw t
-            }
-        }
-
-        override fun close() = release.countDown()
-    }
-
-    /**
      * 配置页：行内的选中态查询在途时销毁页面——查询随视图作用域取消，销毁之后不再回填这一行。
      * 回填只会把 selectedView 设成 VISIBLE / INVISIBLE，所以先把它设成 GONE 当哨兵。
      * 读库被 [IoGate] 挡在门外，销毁时查询一定还在途。
@@ -364,11 +320,12 @@ class UiScenarios(private val ui: UiTestRule) {
         UiFixtures.install()
         val main = ui.launch<MainActivity>()
         main.go(Page.ROUTES)
-        val adapter = (main.get().fragment() as RouteFragment).ruleAdapter
+        val fragment = main.get().fragment() as RouteFragment
+        val adapter = fragment.ruleAdapter
         if (adapter.ruleList.isEmpty()) error("前置条件：路由页没有规则")
         IoGate().use {
             adapter.ruleList.clear()
-            adapter.reload()
+            fragment.routeModel.reload()
             ui.destroyNow(main)
         }
         UiSettle.settle()
@@ -586,12 +543,6 @@ class UiScenarios(private val ui: UiTestRule) {
         )
     }
 
-    private fun saveProcessState(editor: ActivityController<out Activity>): Bundle {
-        val state = Bundle()
-        editor.pause().saveInstanceState(state)
-        return state
-    }
-
     /**
      * 模拟进程重建（SS 编辑器）：存实例状态 → 销毁 → 内存里的编辑缓存清空 → 用实例状态新建。
      * 按 EditorSession 规则：缓存丢了（CACHE_LOST）不是被接管，编辑器照旧从库里的实体重新初始化，
@@ -601,7 +552,8 @@ class UiScenarios(private val ui: UiTestRule) {
         val (editor, intent) = ssEditor()
         editor.get().serverAddressPreference().text = EDITED_ADDRESS
         UiSettle.settle()
-        val state = saveProcessState(editor)
+        // 实例状态自己留着：下面要从里面读会话令牌
+        val state = ui.saveInstanceState(editor)
         ui.destroyNow(editor)
         TempDatabase.profileCacheDao.reset()
         val restored = ui.launchRestored(ShadowsocksSettingsActivity::class.java, intent, state)
@@ -615,7 +567,7 @@ class UiScenarios(private val ui: UiTestRule) {
     /** 进程重建时缓存已被别的顶层编辑器认领（TAKEN_OVER）：编辑器提示并关闭，不碰别人的缓存 */
     fun editorProcessRecreationTakenOver(): Check {
         val (editor, intent) = ssEditor()
-        val state = saveProcessState(editor)
+        val state = ui.saveInstanceState(editor)
         ui.destroyNow(editor)
         claimEditorSession() // 别的编辑器接管
         val foreign = EditorCache.profileCacheStore.getLong(Key.EDITOR_SESSION)
@@ -636,8 +588,8 @@ class UiScenarios(private val ui: UiTestRule) {
         val childIntent = Intent(ApplicationProvider.getApplicationContext(), ConfigEditActivity::class.java)
             .putExtra("key", Key.SERVER_CUSTOM_OUTBOUND)
         val child = ui.launch(ConfigEditActivity::class.java, childIntent)
-        val parentState = saveProcessState(parent)
-        val childState = saveProcessState(child)
+        val parentState = ui.saveInstanceState(parent)
+        val childState = ui.saveInstanceState(child)
         ui.destroyNow(child)
         ui.destroyNow(parent)
         TempDatabase.profileCacheDao.reset()
@@ -654,8 +606,6 @@ class UiScenarios(private val ui: UiTestRule) {
     //
     // 做法：编辑器载入之后，在库里把对应的行改掉（或删掉），再旋转。旋转若重读了库，改动就会出现在编辑器里；
     // 状态留在 ViewModel 里的话，旋转后看到的仍是载入时的那一份（节点用对象同一性断言）。
-
-    private fun <T> bg(block: suspend () -> T): T = ui.offMain { runBlocking { block() } }
 
     /** 等后台把缓存写好，期间不空转主 looper：Fragment 的提交排在主 looper 上，此时还没发生 */
     private fun awaitCache(what: String, ok: () -> Boolean) {
@@ -677,7 +627,7 @@ class UiScenarios(private val ui: UiTestRule) {
         val (editor, _) = ssEditor()
         val before = editor.get().proxyEntity ?: error("前置条件：节点还没载入")
         val name = before.displayName()
-        bg {
+        ui.bg {
             val entity = ProfileRepository.getProfile(before.id)!!
             entity.requireBean().name = "Renamed elsewhere"
             ProfileRepository.updateProfile(entity)
@@ -691,13 +641,13 @@ class UiScenarios(private val ui: UiTestRule) {
     /** 节点编辑器：「移动」菜单项的可见性算一次，旋转不重算（算了的话，库里分组删掉后菜单会变） */
     fun profileEditorRotationKeepsMoveMenu(): Check {
         val fixtures = UiFixtures.install()
-        val second = bg { GroupRepository.createGroup(ProxyGroup(name = "Second group")) }
+        val second = ui.bg { GroupRepository.createGroup(ProxyGroup(name = "Second group")) }
         val editor = ui.launch(
             ShadowsocksSettingsActivity::class.java,
             editIntent(ShadowsocksSettingsActivity::class.java, fixtures.profiles[1].id),
         )
         if (!editor.get().moveItemVisible()) error("前置条件：有两个普通分组时菜单里没有「移动」")
-        bg { GroupRepository.deleteGroup(second.id) }
+        ui.bg { GroupRepository.deleteGroup(second.id) }
         editor.change(Change.ROTATE)
         return if (editor.get().moveItemVisible()) Check(true) else Check(false, "旋转后「移动」菜单项重新查了库，变成隐藏")
     }
@@ -713,7 +663,7 @@ class UiScenarios(private val ui: UiTestRule) {
         val editor = ui.launchCreatedOnly(GroupSettingsActivity::class.java, intent)
         awaitCache("分组名") { EditorCache.groupName == UiFixtures.NORMAL_GROUP }
         if (editor.get().child != null) error("前置条件：旋转前 Fragment 已经提交了")
-        bg { GroupRepository.updateGroup(fixtures.normalGroup.apply { name = "Renamed elsewhere" }) }
+        ui.bg { GroupRepository.updateGroup(fixtures.normalGroup.apply { name = "Renamed elsewhere" }) }
         editor.change(Change.ROTATE)
         if (editor.get().child == null) return Check(false, "旋转后没有提交偏好 Fragment")
         return same("缓存里的分组名", UiFixtures.NORMAL_GROUP, EditorCache.groupName)
@@ -722,13 +672,13 @@ class UiScenarios(private val ui: UiTestRule) {
     /** 路由编辑器：同分组编辑器，初始化写完缓存、Fragment 还没提交时旋转，不重读库 */
     fun routeEditorRotationBeforeCommitDoesNotReload(): Check {
         UiFixtures.install()
-        val rule = bg { RuleRepository.getRules().first() }
+        val rule = ui.bg { RuleRepository.getRules().first() }
         val intent = Intent(ApplicationProvider.getApplicationContext(), RouteSettingsActivity::class.java)
             .putExtra(RouteSettingsActivity.EXTRA_ROUTE_ID, rule.id)
         val editor = ui.launchCreatedOnly(RouteSettingsActivity::class.java, intent)
         awaitCache("规则名") { EditorCache.routeName == rule.name }
         if (editor.get().child != null) error("前置条件：旋转前 Fragment 已经提交了")
-        bg { RuleRepository.updateRule(rule.copy(name = "Renamed elsewhere")) }
+        ui.bg { RuleRepository.updateRule(rule.copy(name = "Renamed elsewhere")) }
         editor.change(Change.ROTATE)
         if (editor.get().child == null) return Check(false, "旋转后没有提交偏好 Fragment")
         return same("缓存里的规则名", rule.name, EditorCache.routeName)
@@ -736,7 +686,7 @@ class UiScenarios(private val ui: UiTestRule) {
 
     private fun chainEditor(): ActivityController<ChainSettingsActivity> {
         val fixtures = UiFixtures.install()
-        val chain = bg {
+        val chain = ui.bg {
             ProfileRepository.createProfile(
                 fixtures.normalGroup.id,
                 ChainBean().apply {
@@ -753,7 +703,7 @@ class UiScenarios(private val ui: UiTestRule) {
         val editor = chainEditor()
         val before = editor.get().proxyList.toList()
         if (before.size != 1) error("前置条件：成员列表没有载入 $before")
-        bg {
+        ui.bg {
             val member = ProfileRepository.getProfile(before[0].id)!!
             member.requireBean().name = "Renamed elsewhere"
             ProfileRepository.updateProfile(member)
@@ -771,10 +721,7 @@ class UiScenarios(private val ui: UiTestRule) {
         val editor = chainEditor()
         editor.get().replacing = 1
         val intent = editor.get().intent
-        val state = saveProcessState(editor)
-        ui.destroyNow(editor)
-        TempDatabase.profileCacheDao.reset()
-        val restored = ui.launchRestored(ChainSettingsActivity::class.java, intent, state)
+        val restored = ui.recreateProcess(editor, intent) { TempDatabase.profileCacheDao.reset() }
         return same("replacing", 1, restored.get().replacing)
     }
 

@@ -1,6 +1,5 @@
 package io.nekohasekai.sagernet.uitest
 
-import android.os.Bundle
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.ui.SettingsFragment
@@ -23,7 +22,7 @@ class SettingsScrollStateTest : UiTestBase() {
     private val scenarios by lazy { UiScenarios(ui) }
 
     private fun hubOf(main: MainActivity) =
-        (main.supportFragmentManager.findFragmentById(R.id.fragment_holder) as SettingsFragment)
+        main.hostedFragment<SettingsFragment>()
             .childFragmentManager.findFragmentById(R.id.settings) as SettingsPreferenceFragment
 
     private fun scrolledHub(): Pair<org.robolectric.android.controller.ActivityController<MainActivity>, Int> {
@@ -51,10 +50,7 @@ class SettingsScrollStateTest : UiTestBase() {
         main.get().displayFragment(SettingsFragment.section(SettingsPreferenceFragment.sections[0].first))
         UiSettle.settle()
 
-        val state = Bundle()
-        main.pause().saveInstanceState(state)
-        ui.destroyNow(main)
-        val restored = ui.launchRestored(MainActivity::class.java, null, state)
+        val restored = ui.recreateProcess(main)
         restored.get().backToSettings()
         UiSettle.settle()
 

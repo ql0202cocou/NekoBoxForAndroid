@@ -25,12 +25,6 @@ import org.robolectric.android.controller.ActivityController
  */
 class StatsClearanceTest : UiTestBase() {
 
-    private fun launchMain(): ActivityController<MainActivity> {
-        val fixtures = UiFixtures.install()
-        UiFixtures.addProfiles(fixtures.normalGroup, 30)
-        return ui.launch<MainActivity>()
-    }
-
     private val ActivityController<MainActivity>.stats get() = get().binding.stats
 
     private fun ActivityController<MainActivity>.connect(advanceMs: Long = 500) {
@@ -40,7 +34,7 @@ class StatsClearanceTest : UiTestBase() {
     }
 
     private fun ActivityController<MainActivity>.list(): RecyclerView {
-        val config = get().supportFragmentManager.findFragmentById(R.id.fragment_holder) as ConfigurationFragment
+        val config = hostedFragment<ConfigurationFragment>()
         return config.getCurrentGroupFragment()!!.configurationListView
     }
 
@@ -74,7 +68,7 @@ class StatsClearanceTest : UiTestBase() {
 
     @Test
     fun hiddenCardLeavesOnlyTheDockClearance() {
-        val main = launchMain()
+        val main = ui.launchMain(30)
         val list = main.list()
         assertEquals(0f, main.stats.clearanceFraction, 0f)
         assertEquals(expectedClearance(main.get(), false), main.get().bottomControlsClearance())
@@ -85,7 +79,7 @@ class StatsClearanceTest : UiTestBase() {
 
     @Test
     fun shownCardAddsItsOwnClearance() {
-        val main = launchMain()
+        val main = ui.launchMain(30)
         main.connect()
         assertTrue(main.stats.isExpanded)
         assertEquals(1f, main.stats.clearanceFraction, 0f)
@@ -97,7 +91,7 @@ class StatsClearanceTest : UiTestBase() {
 
     @Test
     fun collapsedCardGivesItsClearanceBack() {
-        val main = launchMain()
+        val main = ui.launchMain(30)
         main.connect()
         val list = main.list()
         val behavior = main.stats.behavior
@@ -120,7 +114,7 @@ class StatsClearanceTest : UiTestBase() {
 
     @Test
     fun disconnectingReleasesTheClearance() {
-        val main = launchMain()
+        val main = ui.launchMain(30)
         main.connect()
         val list = main.list()
         assertEquals(expectedClearance(main.get(), true), clearanceIn(list))
@@ -134,10 +128,10 @@ class StatsClearanceTest : UiTestBase() {
 
     @Test
     fun otherPagesFollowTheCardToo() {
-        val main = launchMain()
+        val main = ui.launchMain(30)
         main.get().displayFragmentWithId(R.id.nav_about)
         UiSettle.settle()
-        val about = main.get().supportFragmentManager.findFragmentById(R.id.fragment_holder) as AboutFragment
+        val about = main.hostedFragment<AboutFragment>()
         val scroll = about.view!!.findViewById<View>(R.id.about_scroll)
         val base = scroll.paddingBottom - insetBottom(scroll) - dockClearance(main.get())
         main.connect()
@@ -150,7 +144,7 @@ class StatsClearanceTest : UiTestBase() {
     @Test
     fun clearanceGlidesWhenAnimationsAreOn() {
         ui.enableAnimations()
-        val main = launchMain()
+        val main = ui.launchMain(30)
         val list = main.list()
         val seen = ArrayList<Int>()
         main.get().binding.stats.onClearanceChanged.let { original ->
@@ -177,7 +171,7 @@ class StatsClearanceTest : UiTestBase() {
     @Test
     fun clearanceJumpsToTheEndWhenAnimationsAreOff() {
         // 规则默认把动画时长缩放设为 0
-        val main = launchMain()
+        val main = ui.launchMain(30)
         val list = main.list()
         val seen = ArrayList<Int>()
         val original = main.stats.onClearanceChanged

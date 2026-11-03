@@ -1,7 +1,6 @@
 package io.nekohasekai.sagernet.uitest
 
 import android.view.View
-import androidx.recyclerview.widget.RecyclerView
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileRepository
@@ -9,10 +8,8 @@ import io.nekohasekai.sagernet.database.RuleEntity
 import io.nekohasekai.sagernet.database.RuleRepository
 import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.ui.RouteFragment
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -25,38 +22,17 @@ import org.robolectric.android.controller.ActivityController
  */
 class RouteListDiffTest : UiTestBase() {
 
-    /** 记录适配器收到的数据事件；不含初始载入（注册在载入之后） */
-    private class Recorder : RecyclerView.AdapterDataObserver() {
-        val events = ArrayList<String>()
-        override fun onChanged() { events += "all" }
-        override fun onItemRangeInserted(positionStart: Int, itemCount: Int) { events += "insert($positionStart,$itemCount)" }
-        override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) { events += "remove($positionStart,$itemCount)" }
-        override fun onItemRangeMoved(fromPosition: Int, toPosition: Int, itemCount: Int) {
-            events += "move($fromPosition,$toPosition,$itemCount)"
-        }
-        override fun onItemRangeChanged(positionStart: Int, itemCount: Int, payload: Any?) {
-            events += "change($positionStart,$itemCount,${payload ?: "-"})"
-        }
-        override fun onItemRangeChanged(positionStart: Int, itemCount: Int) {
-            events += "change($positionStart,$itemCount,-)"
-        }
-
-        fun take(): List<String> = events.toList().also { events.clear() }
-    }
-
-    private fun <T> bg(block: suspend () -> T): T = ui.offMain { runBlocking { block() } }
-
     private fun open(): Pair<ActivityController<MainActivity>, RouteFragment> {
         UiFixtures.install()
         val main = ui.launch<MainActivity>()
         main.get().displayFragmentWithId(R.id.nav_route)
         UiSettle.settle()
-        val fragment = main.get().supportFragmentManager.findFragmentById(R.id.fragment_holder) as RouteFragment
+        val fragment = main.hostedFragment<RouteFragment>()
         assertTrue("前置条件：路由页不足 3 条规则", fragment.ruleAdapter.itemCount >= 3)
         return main to fragment
     }
 
-    private fun RouteFragment.watch(): Recorder = Recorder().also { ruleAdapter.registerAdapterDataObserver(it) }
+    private fun RouteFragment.watch() = AdapterEvents().also { ruleAdapter.registerAdapterDataObserver(it) }
 
     private fun RouteFragment.holder(position: Int): RouteFragment.RuleAdapter.RuleHolder {
         ruleListView.measure(
@@ -72,7 +48,7 @@ class RouteListDiffTest : UiTestBase() {
 
     private fun RouteFragment.ids() = ruleAdapter.ruleList.map { it.id }
 
-    private fun dbIds(): List<Long> = bg { RuleRepository.getRules() }.map { it.id }
+    private fun dbIds(): List<Long> = ui.bg { RuleRepository.getRules() }.map { it.id }
 
     private fun RouteFragment.emptyVisible() = view!!.findViewById<View>(R.id.route_list_empty).visibility == View.VISIBLE
 
@@ -89,25 +65,25 @@ class RouteListDiffTest : UiTestBase() {
         val holdersBefore = (0 until 3).map { fragment.holder(it) }
 
         // 新增：只在末尾插一行，已有的行不动
-        val created = bg { RuleRepository.createRule(RuleEntity(name = "Extra", enabled = true, domains = "domain:extra.example.com")) }
+        val created = ui.bg { RuleRepository.createRule(RuleEntity(name = "Extra", enabled = true, domains = "domain:extra.example.com")) }
         UiSettle.settle()
         assertEquals(listOf("insert(3,1)"), recorder.take())
         assertEquals("Extra", fragment.holder(3).profileName.text.toString())
         fragment.assertConsistent("新增后")
 
         // 修改：只有这一行收到变化事件，且是整行重绑（没有 payload，与改动前一致）
-        bg { RuleRepository.updateRule(created.copy(name = "Extra renamed")) }
+        ui.bg { RuleRepository.updateRule(created.copy(name = "Extra renamed")) }
         UiSettle.settle()
         assertEquals(listOf("change(3,1,-)"), recorder.take())
         assertEquals("Extra renamed", fragment.holder(3).profileName.text.toString())
 
         // 内容没变的更新不产生任何事件
-        bg { RuleRepository.updateRule(created.copy(name = "Extra renamed")) }
+        ui.bg { RuleRepository.updateRule(created.copy(name = "Extra renamed")) }
         UiSettle.settle()
         assertEquals(emptyList<String>(), recorder.take())
 
         // 删除：只在原位置删一行
-        bg { RuleRepository.deleteRule(fragment.ids()[1]) }
+        ui.bg { RuleRepository.deleteRule(fragment.ids()[1]) }
         UiSettle.settle()
         assertEquals(listOf("remove(1,1)"), recorder.take())
         fragment.assertConsistent("删除后")
@@ -124,14 +100,14 @@ class RouteListDiffTest : UiTestBase() {
         val count = fragment.ruleAdapter.itemCount
 
         // 与菜单「重置路由」同一条路径：先清空（RuleListener.onCleared），再清标记、重读建出默认规则
-        bg { RuleRepository.clearRules() }
+        ui.bg { RuleRepository.clearRules() }
         UiSettle.settle()
         assertEquals(listOf("remove(0,$count)"), recorder.take())
         assertEquals(0, fragment.ruleAdapter.itemCount)
         assertTrue("清空后应显示空状态占位", fragment.emptyVisible())
 
         DataStore.rulesFirstCreate = false
-        fragment.ruleAdapter.reload()
+        fragment.routeModel.reload()
         UiSettle.settle()
         val events = recorder.take()
         assertTrue("重建默认规则后应只有插入事件：$events", events.isNotEmpty() && events.all { it.startsWith("insert(") })
@@ -154,10 +130,10 @@ class RouteListDiffTest : UiTestBase() {
         assertEquals(listOf("change(0,1,enabled)"), recorder.take())
         assertSame(first, fragment.holder(0))
         assertEquals(!before, first.enableSwitch.isChecked)
-        assertEquals(!before, bg { RuleRepository.getRules() }.first().enabled)
+        assertEquals(!before, ui.bg { RuleRepository.getRules() }.first().enabled)
 
         // 再提交一次相同内容不再有事件
-        fragment.ruleAdapter.reload()
+        fragment.routeModel.reload()
         UiSettle.settle()
         assertEquals(emptyList<String>(), recorder.take())
     }
@@ -193,7 +169,7 @@ class RouteListDiffTest : UiTestBase() {
         val main = ui.launch<MainActivity>()
         main.get().displayFragmentWithId(R.id.nav_route)
         UiSettle.settle()
-        val reopened = main.get().supportFragmentManager.findFragmentById(R.id.fragment_holder) as RouteFragment
+        val reopened = main.hostedFragment<RouteFragment>()
         assertEquals(expected, reopened.ids())
         assertEquals(expected, reopened.ruleAdapter.currentList.map { it.id })
         assertEquals(reopened.ruleAdapter.ruleList.map { it.displayName() }, reopened.shownNames())
@@ -214,9 +190,7 @@ class RouteListDiffTest : UiTestBase() {
         assertEquals(before - rule.id, fragment.ids())
 
         UiSettle.settle()
-        val undo = main.get().window.decorView.findViewById<View>(com.google.android.material.R.id.snackbar_action)
-        assertNotNull("前置条件：没有撤销按钮", undo)
-        undo.performClick()
+        main.get().undoAction().performClick()
         UiSettle.settle()
         assertEquals(listOf("insert(1,1)"), recorder.take())
         assertEquals(before, fragment.ids())
@@ -246,38 +220,38 @@ class RouteListDiffTest : UiTestBase() {
         val main = ui.launch<MainActivity>()
         main.get().displayFragmentWithId(R.id.nav_route)
         UiSettle.settle()
-        val fragment = main.get().supportFragmentManager.findFragmentById(R.id.fragment_holder) as RouteFragment
+        val fragment = main.hostedFragment<RouteFragment>()
         val recorder = fragment.watch()
 
-        val created = bg { RuleRepository.createRule(RuleEntity(name = "Via node", enabled = true, outbound = node.id, domains = "domain:node.example.com")) }
+        val created = ui.bg { RuleRepository.createRule(RuleEntity(name = "Via node", enabled = true, outbound = node.id, domains = "domain:node.example.com")) }
         UiSettle.settle()
         val index = fragment.ids().indexOf(created.id)
         assertEquals(listOf("insert($index,1)"), recorder.take())
         assertEquals(oldName, fragment.holder(index).routeOutbound.text.toString())
 
         // 节点改名不通知规则监听器：下一次整表重读时只有这一行变，其余行不动
-        bg {
+        ui.bg {
             val entity = ProfileRepository.getProfile(node.id)!!
             entity.requireBean().name = "Renamed node"
             ProfileRepository.updateProfile(entity)
         }
-        fragment.ruleAdapter.reload()
+        fragment.routeModel.reload()
         UiSettle.settle()
         assertEquals(listOf("change($index,1,-)"), recorder.take())
         assertEquals("Renamed node", fragment.holder(index).routeOutbound.text.toString())
 
         // 重读但没有变化：没有事件
-        fragment.ruleAdapter.reload()
+        fragment.routeModel.reload()
         UiSettle.settle()
         assertEquals(emptyList<String>(), recorder.take())
 
         // 经规则更新回调（onUpdated）带出的新名字同样更新这一行
-        bg {
+        ui.bg {
             val entity = ProfileRepository.getProfile(node.id)!!
             entity.requireBean().name = "Renamed twice"
             ProfileRepository.updateProfile(entity)
         }
-        bg { RuleRepository.updateRule(created.copy(domains = "domain:node.example.com\ndomain:more.example.com")) }
+        ui.bg { RuleRepository.updateRule(created.copy(domains = "domain:node.example.com\ndomain:more.example.com")) }
         UiSettle.settle()
         assertEquals(listOf("change($index,1,-)"), recorder.take())
         assertEquals("Renamed twice", fragment.holder(index).routeOutbound.text.toString())
@@ -288,12 +262,12 @@ class RouteListDiffTest : UiTestBase() {
         val (_, fragment) = open()
         assertFalse(fragment.emptyVisible())
         val ids = fragment.ids()
-        ids.forEach { id -> bg { RuleRepository.deleteRule(id) } }
+        ids.forEach { id -> ui.bg { RuleRepository.deleteRule(id) } }
         UiSettle.settle()
         assertEquals(0, fragment.ruleAdapter.itemCount)
         assertTrue(fragment.emptyVisible())
 
-        bg { RuleRepository.createRule(RuleEntity(name = "Back", enabled = true, domains = "domain:back.example.com")) }
+        ui.bg { RuleRepository.createRule(RuleEntity(name = "Back", enabled = true, domains = "domain:back.example.com")) }
         UiSettle.settle()
         assertEquals(1, fragment.ruleAdapter.itemCount)
         assertFalse(fragment.emptyVisible())

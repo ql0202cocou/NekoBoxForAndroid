@@ -1,6 +1,5 @@
 package io.nekohasekai.sagernet.uitest
 
-import android.content.Context
 import android.content.DialogInterface
 import android.content.Intent
 import android.view.inputmethod.EditorInfo
@@ -8,6 +7,7 @@ import androidx.preference.EditTextPreferenceDialogFragmentCompat
 import androidx.test.core.app.ApplicationProvider
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ui.GroupSettingsActivity
 import io.nekohasekai.sagernet.ui.ValidatedEditTextDialogFragment
 import io.nekohasekai.sagernet.uitest.InlineValidationHarness.DIALOG_TAG
@@ -40,10 +40,7 @@ import org.junit.Test
  */
 class InlineValidationTest : UiTestBase() {
 
-    private fun string(id: Int, vararg args: Any): String =
-        ApplicationProvider.getApplicationContext<Context>().getString(id, *args)
-
-    private val portError get() = string(R.string.integer_range_error, 1, 65535)
+    private val portError get() = app.getString(R.string.integer_range_error, 1, 65535)
 
     @Test
     fun portDialogValidatesWhileTyping() {
@@ -101,7 +98,7 @@ class InlineValidationTest : UiTestBase() {
     fun serverAddressRejectsSpacesAndEmpty() {
         val editor = vmessEditor(ui).get()
         val dialog = editor.openDialog(Key.SERVER_ADDRESS)
-        val message = string(R.string.server_address_error)
+        val message = app.getString(R.string.server_address_error)
         assertNull(dialog.error())
         dialog.type("a b")
         assertEquals(message, dialog.error())
@@ -117,7 +114,7 @@ class InlineValidationTest : UiTestBase() {
     fun certificateFingerprintAllowsBlankAndChecksHex() {
         val editor = vmessEditor(ui).get()
         val dialog = editor.openDialog("certificateFingerprint")
-        val message = string(R.string.certificate_fingerprint_error)
+        val message = app.getString(R.string.certificate_fingerprint_error)
         // 空表示不固定证书，合法
         assertEquals("", dialog.edit().text.toString())
         assertNull(dialog.error())
@@ -201,7 +198,7 @@ class InlineValidationTest : UiTestBase() {
         // 其中一行非法仍被拦下
         val again = editor.openDialog("localAddress")
         again.type("10.0.0.3/32\nnot-an-address")
-        assertEquals(string(R.string.wireguard_address_error), again.error())
+        assertEquals(app.getString(R.string.wireguard_address_error), again.error())
         assertFalse(again.okEnabled())
     }
 
@@ -210,7 +207,7 @@ class InlineValidationTest : UiTestBase() {
         val settings = settingsEditor(ui, 5)
         val dialog = settings.openDialog(Key.MIXED_PORT)
         assertTrue(settings.parentFragmentManager.findFragmentByTag(DIALOG_TAG) is ValidatedEditTextDialogFragment)
-        val message = string(R.string.integer_range_error, 1025, 65535)
+        val message = app.getString(R.string.integer_range_error, 1025, 65535)
         dialog.type("80")
         assertEquals(message, dialog.error())
         assertFalse(dialog.okEnabled())
@@ -249,7 +246,7 @@ class InlineValidationTest : UiTestBase() {
         // 更新间隔项在「自动更新」关着时不可点；代码设置 isChecked 不触发开关的监听器，直接放开这一项
         editor.pref(Key.SUBSCRIPTION_AUTO_UPDATE_DELAY).isEnabled = true
         val dialog = editor.openDialog(Key.SUBSCRIPTION_AUTO_UPDATE_DELAY)
-        val message = string(R.string.auto_update_delay_error)
+        val message = app.getString(R.string.auto_update_delay_error)
         dialog.type("5")
         assertEquals(message, dialog.error())
         assertFalse(dialog.okEnabled())
