@@ -54,6 +54,8 @@ android {
             all { test ->
                 // Robolectric 沙箱 + 原生绘图占内存，默认 512 MB 不够
                 test.maxHeapSize = "2g"
+                // CI 默认日志只显示断言位置，完整栈才能定位后台线程的未捕获异常
+                test.testLogging.exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
                 // 截图重录开关：-Pscreenshots.record=<正则>，只重写文件名匹配的基线；不传则逐张比较，没有「全部重录」
                 providers.gradleProperty("screenshots.record").orNull?.let {
                     test.systemProperty("screenshots.record", it)
