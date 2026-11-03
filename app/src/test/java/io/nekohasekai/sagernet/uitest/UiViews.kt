@@ -6,10 +6,12 @@ import android.graphics.Canvas
 import android.view.View
 import android.view.View.MeasureSpec
 import android.view.ViewGroup
+import androidx.core.view.ViewCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.recyclerview.widget.RecyclerView
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.widget.safeDrawingTypes
 import org.robolectric.android.controller.ActivityController
 
 /** 主界面 fragment_holder 里当前显示的页面，按 [F] 取 */
@@ -80,6 +82,23 @@ class AdapterEvents : RecyclerView.AdapterDataObserver() {
     }
 }
 
+/** 当前挂着的各行的 ViewHolder，按自上而下排 */
+inline fun <reified H : RecyclerView.ViewHolder> RecyclerView.holders(): List<H> =
+    (0 until childCount).map { getChildAt(it) }.sortedBy { it.top }.map { getChildViewHolder(it) as H }
+
+/**
+ * 位置 [position] 上已绑定的行：先按当前尺寸测量 + 布局一遍，保证该位置有已绑定的 ViewHolder
+ * （列表还没画过 / 刚变过数据时子项可能没布局出来）
+ */
+inline fun <reified H : RecyclerView.ViewHolder> RecyclerView.boundHolder(position: Int): H {
+    measure(
+        MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
+        MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY),
+    )
+    layout(left, top, right, bottom)
+    return findViewHolderForAdapterPosition(position) as? H ?: error("位置 $position 没有已绑定的行")
+}
+
 /** 视图树里高度最大的 RecyclerView（设置分类页、编辑器的主列表） */
 fun View.largestRecyclerView(): RecyclerView? {
     var best: RecyclerView? = null
@@ -128,6 +147,13 @@ fun View.drawFullLength(): Bitmap {
     decor.draw(Canvas(bitmap))
     return bitmap
 }
+
+/** 系统栏 / 刘海等「安全绘制区」插入的底部高度 */
+fun insetBottom(view: View): Int =
+    ViewCompat.getRootWindowInsets(view)?.getInsets(safeDrawingTypes)?.bottom ?: 0
+
+/** [view] 顶边在窗口里的 y */
+fun top(view: View): Int = IntArray(2).also { view.getLocationInWindow(it) }[1]
 
 private fun topInRoot(view: View, root: View): Int {
     var top = 0

@@ -1,12 +1,10 @@
 package io.nekohasekai.sagernet.uitest
 
 import android.app.Activity
-import android.content.Intent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.preference.EditTextPreference
-import androidx.test.core.app.ApplicationProvider
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.bg.BaseService
@@ -15,7 +13,6 @@ import io.nekohasekai.sagernet.database.EditorCache
 import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.ui.SettingsFragment
 import io.nekohasekai.sagernet.ui.SettingsPreferenceFragment
-import io.nekohasekai.sagernet.ui.profile.ProfileSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.ShadowsocksSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.VMessSettingsActivity
 import io.nekohasekai.sagernet.utils.Theme
@@ -137,9 +134,7 @@ class ScreenshotTest(private val shot: Shot) : UiTestBase() {
     }
 
     private fun <A : Activity> editor(type: Class<A>, profileIndex: Int): ActivityController<A> {
-        val intent = Intent(ApplicationProvider.getApplicationContext(), type)
-            .putExtra(ProfileSettingsActivity.EXTRA_PROFILE_ID, fixtures.profiles[profileIndex].id)
-        return ui.launch(type, intent)
+        return ui.launchEditor(type, fixtures.profiles[profileIndex].id)
     }
 
     // 设置页上点一行，弹出它的对话框

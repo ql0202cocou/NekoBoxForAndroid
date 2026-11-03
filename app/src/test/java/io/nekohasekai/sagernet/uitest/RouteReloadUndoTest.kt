@@ -2,12 +2,7 @@ package io.nekohasekai.sagernet.uitest
 
 import android.os.Looper
 import android.view.View
-import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.RuleRepository
-import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.ui.RouteFragment
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
@@ -19,19 +14,8 @@ import org.robolectric.Shadows.shadowOf
  */
 class RouteReloadUndoTest : UiTestBase() {
 
-    private fun open(): RouteFragment {
-        UiFixtures.install()
-        val main = ui.launch<MainActivity>()
-        main.get().displayFragmentWithId(R.id.nav_route)
-        UiSettle.settle()
-        val fragment = main.hostedFragment<RouteFragment>()
-        check(fragment.ruleAdapter.ruleList.size >= 3) { "前置条件：路由页不足 3 条规则" }
-        return fragment
-    }
-
     private fun RouteFragment.ids() = ruleAdapter.ruleList.map { it.id }
 
-    private fun dbIds(): List<Long> = ui.offMain { runBlocking { RuleRepository.getRules() } }.map { it.id }
 
     /** 滑掉一行并取到撤销按钮；只空转主 looper（门开着不能 settle） */
     private fun RouteFragment.swipe(index: Int): View {
@@ -45,7 +29,7 @@ class RouteReloadUndoTest : UiTestBase() {
 
     @Test
     fun reloadInFlightDuringUndoWindowDoesNotBringBackSwipedRule() {
-        val fragment = open()
+        val (_, fragment) = ui.openRoutePage()
         val before = fragment.ids()
         val swiped = before[1]
 
@@ -63,13 +47,13 @@ class RouteReloadUndoTest : UiTestBase() {
         val after = fragment.ids()
         assertEquals("撤销不得产生重复项：$after", after.toSet().size, after.size)
         assertFalse("被滑掉的规则已随窗口提交，不应出现：$after", swiped in after)
-        assertEquals("列表与库一致", dbIds(), after)
+        assertEquals("列表与库一致", UiFixtures.ruleIds(), after)
         assertEquals(after.size, fragment.ruleAdapter.itemCount)
     }
 
     @Test
     fun undoBeforeReloadAppliesKeepsTheRule() {
-        val fragment = open()
+        val (_, fragment) = ui.openRoutePage()
         val before = fragment.ids()
 
         IoGate().use {
@@ -82,20 +66,20 @@ class RouteReloadUndoTest : UiTestBase() {
         }
         UiSettle.settle()
         assertEquals("重读应用后规则仍在、没有重复", before, fragment.ids())
-        assertEquals(before, dbIds())
+        assertEquals(before, UiFixtures.ruleIds())
         assertEquals(before.size, fragment.ruleAdapter.itemCount)
     }
 
     @Test
     fun reloadAfterCommittedDeletionKeepsItGone() {
-        val fragment = open()
+        val (_, fragment) = ui.openRoutePage()
         val before = fragment.ids()
         val swiped = before[0]
         fragment.swipe(0)
 
         // 撤销窗口走完，删除落库并确认；之后的整表重读读不到它，列表与库一致
         UiSettle.settle(advanceMs = 30_000)
-        assertEquals(before - swiped, dbIds())
+        assertEquals(before - swiped, UiFixtures.ruleIds())
         fragment.routeModel.reload()
         UiSettle.settle()
         assertEquals(before - swiped, fragment.ids())

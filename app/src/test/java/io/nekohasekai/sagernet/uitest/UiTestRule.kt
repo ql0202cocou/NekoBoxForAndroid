@@ -4,6 +4,7 @@ import android.animation.ValueAnimator
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import androidx.test.core.app.ApplicationProvider
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.bg.ServiceRegistry
 import io.nekohasekai.sagernet.database.GroupManager
@@ -11,7 +12,10 @@ import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
 import io.nekohasekai.sagernet.ktx.Logs
+import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.ui.MainActivity
+import io.nekohasekai.sagernet.ui.RouteFragment
+import io.nekohasekai.sagernet.ui.profile.ProfileSettingsActivity
 import io.nekohasekai.sagernet.utils.Theme
 import kotlinx.coroutines.runBlocking
 import moe.matsuri.nb4a.TempDatabase
@@ -151,11 +155,35 @@ class UiTestRule : TestRule {
         return controller
     }
 
+    /** 打开节点编辑器的 Intent（带 [profileId]） */
+    fun <A : Activity> editorIntent(type: Class<A>, profileId: Long): Intent =
+        Intent(ApplicationProvider.getApplicationContext(), type).putExtra(ProfileSettingsActivity.EXTRA_PROFILE_ID, profileId)
+
+    inline fun <reified A : Activity> editorIntent(profileId: Long): Intent = editorIntent(A::class.java, profileId)
+
+    /** 启动 [profileId] 的节点编辑器 */
+    fun <A : Activity> launchEditor(type: Class<A>, profileId: Long): ActivityController<A> =
+        launch(type, editorIntent(type, profileId))
+
+    inline fun <reified A : Activity> launchEditor(profileId: Long): ActivityController<A> =
+        launchEditor(A::class.java, profileId)
+
     /** 装好夹具（可再加 [extraProfiles] 个节点到普通分组）并启动主界面 */
     fun launchMain(extraProfiles: Int = 0): ActivityController<MainActivity> {
         val fixtures = UiFixtures.install()
         if (extraProfiles > 0) UiFixtures.addProfiles(fixtures.normalGroup, extraProfiles)
         return launch<MainActivity>()
+    }
+
+    /** 装好夹具，启动主界面并切到路由页，返回（主界面，路由页）；前置条件：至少 3 条规则 */
+    fun openRoutePage(): Pair<ActivityController<MainActivity>, RouteFragment> {
+        UiFixtures.install()
+        val main = launch<MainActivity>()
+        main.get().displayFragmentWithId(R.id.nav_route)
+        UiSettle.settle()
+        val fragment = main.hostedFragment<RouteFragment>()
+        check(fragment.ruleAdapter.itemCount >= 3) { "前置条件：路由页不足 3 条规则" }
+        return main to fragment
     }
 
     /** 存实例状态（pause + saveInstanceState），给进程重建用 */
@@ -190,11 +218,7 @@ class UiTestRule : TestRule {
     }
 
     /** 在后台线程跑 [block]：SagerDatabase 不开 allowMainThreadQueries，主线程不能查库 */
-    fun <T> offMain(block: () -> T): T {
-        var result: Result<T>? = null
-        thread(name = "ui-test-bg") { result = runCatching(block) }.join()
-        return result!!.getOrThrow()
-    }
+    fun <T> offMain(block: () -> T): T = runOffMain(block)
 
     /** 在后台线程跑挂起的 [block]（仓库的读写方法） */
     fun <T> bg(block: suspend () -> T): T = offMain { runBlocking { block() } }
@@ -230,4 +254,14 @@ class UiTestRule : TestRule {
         // 其余监听器本应由页面自己摘掉。整表清空，页面与夹具各自按需再加
         for (table in ListenerTable.entries) table.list().clear()
     }
+}
+
+/**
+ * 在独立线程上跑 [block] 并等它结束：不走 Dispatchers.IO，[IoGate] 关着门时也能读库；
+ * 规则的 offMain 与 UiFixtures 的读库助手都经这里
+ */
+internal fun <T> runOffMain(block: () -> T): T {
+    var result: Result<T>? = null
+    thread(name = "ui-test-bg") { result = runCatching(block) }.join()
+    return result!!.getOrThrow()
 }

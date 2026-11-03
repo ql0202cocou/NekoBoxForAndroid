@@ -131,6 +131,16 @@ object UiFixtures {
         )
     }
 
+    /**
+     * 库里当前的 id（按库内顺序）。在独立线程读（runOffMain）：不走 Dispatchers.IO，[IoGate] 关着门时也能读；
+     * SagerDatabase 不开 allowMainThreadQueries，主线程不能直接查
+     */
+    fun profileIds(groupId: Long): List<Long> = runOffMain { SagerDatabase.proxyDao.getByGroup(groupId) }.map { it.id }
+
+    fun groupIds(): List<Long> = runOffMain { SagerDatabase.groupDao.allGroups() }.map { it.id }
+
+    fun ruleIds(): List<Long> = runOffMain { runBlocking { RuleRepository.getRules() } }.map { it.id }
+
     /** SagerDatabase 不开 allowMainThreadQueries，写库要在后台线程；Dispatchers.IO 上的真线程，settle 会等到它挂起 */
     private fun <T> onBackground(block: suspend () -> T): T = runBlocking(Dispatchers.IO) { block() }
 

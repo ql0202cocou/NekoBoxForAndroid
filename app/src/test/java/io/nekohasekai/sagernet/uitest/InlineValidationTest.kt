@@ -25,7 +25,6 @@ import io.nekohasekai.sagernet.uitest.InlineValidationHarness.type
 import io.nekohasekai.sagernet.uitest.InlineValidationHarness.vmessEditor
 import io.nekohasekai.sagernet.uitest.InlineValidationHarness.wireGuardEditor
 import io.nekohasekai.sagernet.uitest.InlineValidationHarness.settingsEditor
-import io.nekohasekai.sagernet.ui.profile.ProfileSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.ShadowsocksSettingsActivity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -168,9 +167,7 @@ class InlineValidationTest : UiTestBase() {
     @Test
     fun preferenceWithCustomDialogLayoutKeepsItsOwnDialog() {
         val fixtures = UiFixtures.install()
-        val intent = Intent(ApplicationProvider.getApplicationContext(), ShadowsocksSettingsActivity::class.java)
-            .putExtra(ProfileSettingsActivity.EXTRA_PROFILE_ID, fixtures.profiles[1].id)
-        val editor = ui.launch(ShadowsocksSettingsActivity::class.java, intent).get()
+        val editor = ui.launchEditor(ShadowsocksSettingsActivity::class.java, fixtures.profiles[1].id).get()
         // 密码项自带 dialogLayout（layout_password_dialog）：交回基类，不被换成带行内校验的对话框
         editor.openDialog("password")
         assertEquals(EditTextPreferenceDialogFragmentCompat::class.java, editor.currentDialogFragment().javaClass)

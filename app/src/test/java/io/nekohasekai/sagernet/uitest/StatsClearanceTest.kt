@@ -1,14 +1,12 @@
 package io.nekohasekai.sagernet.uitest
 
 import android.view.View
-import androidx.core.view.ViewCompat
 import androidx.recyclerview.widget.RecyclerView
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.ui.AboutFragment
 import io.nekohasekai.sagernet.ui.ConfigurationFragment
 import io.nekohasekai.sagernet.ui.MainActivity
-import io.nekohasekai.sagernet.widget.safeDrawingTypes
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -40,11 +38,6 @@ class StatsClearanceTest : UiTestBase() {
 
     private fun dockClearance(main: MainActivity) = main.resources.getDimensionPixelSize(R.dimen.nav_dock_clearance)
     private fun gap(main: MainActivity) = main.resources.getDimensionPixelSize(R.dimen.stats_bar_gap)
-
-    private fun insetBottom(view: View) =
-        ViewCompat.getRootWindowInsets(view)?.getInsets(safeDrawingTypes)?.bottom ?: 0
-
-    private fun top(view: View) = IntArray(2).also { view.getLocationInWindow(it) }[1]
 
     /** 列表底部内边距里除了页面自己声明的那一份（= 顶部内边距）和系统栏插入区之外的部分 */
     private fun clearanceIn(list: RecyclerView) = list.paddingBottom - list.paddingTop - insetBottom(list)

@@ -68,7 +68,6 @@ class GroupPagerDiffTest : UiTestBase() {
 
     private fun minOrder(): Long = ui.offMain { SagerDatabase.groupDao.allGroups() }.minOf { it.userOrder }
 
-    private fun dbIds(): List<Long> = ui.offMain { SagerDatabase.groupDao.allGroups() }.map { it.id }
 
     /** 整表重读并等它落到界面上 */
     private fun Setup.reload() {
@@ -180,7 +179,7 @@ class GroupPagerDiffTest : UiTestBase() {
         ui.offMain { SagerDatabase.groupDao.deleteById(removed) }
         s.reload()
 
-        assertEquals(dbIds(), s.ids)
+        assertEquals(UiFixtures.groupIds(), s.ids)
         assertEquals(current, s.currentId)
         assertEquals(1, s.pager.currentItem)
         assertSame(currentPage, s.page(current))
@@ -196,7 +195,7 @@ class GroupPagerDiffTest : UiTestBase() {
         ui.offMain { SagerDatabase.groupDao.deleteById(s.ids.last()) }
         s.reload()
 
-        assertEquals(dbIds(), s.ids)
+        assertEquals(UiFixtures.groupIds(), s.ids)
         assertEquals(current, s.currentId)
         assertSame(currentPage, s.page(current))
         s.assertConsistent()
@@ -209,7 +208,7 @@ class GroupPagerDiffTest : UiTestBase() {
         ui.offMain { SagerDatabase.groupDao.deleteById(gone) }
         s.reload()
 
-        assertEquals(dbIds(), s.ids)
+        assertEquals(UiFixtures.groupIds(), s.ids)
         assertTrue(gone !in s.ids)
         // 选中项指向的分组没了：落在某个还在的分组上，tab 与页一致
         s.assertConsistent()
@@ -230,7 +229,7 @@ class GroupPagerDiffTest : UiTestBase() {
         }
         s.reload()
 
-        assertEquals(dbIds(), s.ids)
+        assertEquals(UiFixtures.groupIds(), s.ids)
         assertEquals("顺序真的变了", listOf(before.last().id, before[1].id, before[2].id, before.first().id), s.ids)
         assertEquals("当前仍是同一个分组", current, s.currentId)
         assertEquals(s.ids.indexOf(current), s.pager.currentItem)
@@ -266,14 +265,14 @@ class GroupPagerDiffTest : UiTestBase() {
         val currentPage = s.page(current)
 
         val added = ui.viaWorker { runBlocking { GroupRepository.createGroup(ProxyGroup(name = "Added")) } }
-        assertEquals(dbIds(), s.ids)
+        assertEquals(UiFixtures.groupIds(), s.ids)
         assertEquals("新增分组后选中它", added.id, s.currentId)
         s.assertConsistent()
 
         // 先回到原来的页，再删掉新增的那个：当前页不动
         s.select(s.ids.indexOf(current))
         ui.viaWorker { runBlocking { GroupRepository.deleteGroup(added.id) } }
-        assertEquals(dbIds(), s.ids)
+        assertEquals(UiFixtures.groupIds(), s.ids)
         assertEquals(current, s.currentId)
         assertSame(currentPage, s.page(current))
         s.assertConsistent()

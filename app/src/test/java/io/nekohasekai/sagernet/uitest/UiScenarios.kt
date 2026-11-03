@@ -54,7 +54,6 @@ import io.nekohasekai.sagernet.utils.PackageCache
 import io.nekohasekai.sagernet.widget.AppListPreference
 import io.nekohasekai.sagernet.widget.OutboundPreference
 import io.nekohasekai.sagernet.ui.profile.ConfigEditActivity
-import io.nekohasekai.sagernet.ui.profile.ProfileSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.ShadowsocksSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.VMessSettingsActivity
 import moe.matsuri.nb4a.TempDatabase
@@ -240,12 +239,12 @@ class UiScenarios(private val ui: UiTestRule) {
                     }
 
                 CloseTarget.EDITOR_VMESS -> ui.launchUnsettled(
-                    VMessSettingsActivity::class.java, editIntent(VMessSettingsActivity::class.java, fixtures.profiles[0].id)
+                    VMessSettingsActivity::class.java, ui.editorIntent(VMessSettingsActivity::class.java, fixtures.profiles[0].id)
                 )
 
                 CloseTarget.EDITOR_SHADOWSOCKS -> ui.launchUnsettled(
                     ShadowsocksSettingsActivity::class.java,
-                    editIntent(ShadowsocksSettingsActivity::class.java, fixtures.profiles[1].id)
+                    ui.editorIntent(ShadowsocksSettingsActivity::class.java, fixtures.profiles[1].id)
                 )
             }
             ui.destroyNow(controller)
@@ -273,7 +272,7 @@ class UiScenarios(private val ui: UiTestRule) {
         UiFixtures.install()
         val main = ui.launch<MainActivity>()
         val list = (main.get().fragment() as ConfigurationFragment).currentList()
-        val holders = (0 until list.childCount).map { list.getChildViewHolder(list.getChildAt(it)) as ConfigurationHolder }
+        val holders = list.holders<ConfigurationHolder>()
         if (holders.isEmpty()) error("前置条件：配置页没有可见行")
         IoGate().use {
             holders.forEach {
@@ -297,7 +296,7 @@ class UiScenarios(private val ui: UiTestRule) {
         main.go(Page.GROUPS)
         val fragment = main.get().fragment() as GroupFragment
         val list = fragment.groupListView
-        val holders = (0 until list.childCount).map { list.getChildViewHolder(list.getChildAt(it)) as GroupFragment.GroupHolder }
+        val holders = list.holders<GroupFragment.GroupHolder>()
         if (holders.isEmpty()) error("前置条件：分组页没有可见行")
         val sentinel = "sentinel"
         IoGate().use {
@@ -518,12 +517,9 @@ class UiScenarios(private val ui: UiTestRule) {
 
     // ------------------------------------------------------ 编辑器重建与会话
 
-    private fun editIntent(type: Class<*>, profileId: Long) =
-        Intent(ApplicationProvider.getApplicationContext(), type).putExtra(ProfileSettingsActivity.EXTRA_PROFILE_ID, profileId)
-
     private fun ssEditor(): Pair<ActivityController<ShadowsocksSettingsActivity>, Intent> {
         val fixtures = UiFixtures.install()
-        val intent = editIntent(ShadowsocksSettingsActivity::class.java, fixtures.profiles[1].id)
+        val intent = ui.editorIntent(ShadowsocksSettingsActivity::class.java, fixtures.profiles[1].id)
         return ui.launch(ShadowsocksSettingsActivity::class.java, intent) to intent
     }
 
@@ -642,10 +638,7 @@ class UiScenarios(private val ui: UiTestRule) {
     fun profileEditorRotationKeepsMoveMenu(): Check {
         val fixtures = UiFixtures.install()
         val second = ui.bg { GroupRepository.createGroup(ProxyGroup(name = "Second group")) }
-        val editor = ui.launch(
-            ShadowsocksSettingsActivity::class.java,
-            editIntent(ShadowsocksSettingsActivity::class.java, fixtures.profiles[1].id),
-        )
+        val editor = ui.launchEditor(ShadowsocksSettingsActivity::class.java, fixtures.profiles[1].id)
         if (!editor.get().moveItemVisible()) error("前置条件：有两个普通分组时菜单里没有「移动」")
         ui.bg { GroupRepository.deleteGroup(second.id) }
         editor.change(Change.ROTATE)
@@ -695,7 +688,7 @@ class UiScenarios(private val ui: UiTestRule) {
                 },
             )
         }
-        return ui.launch(ChainSettingsActivity::class.java, editIntent(ChainSettingsActivity::class.java, chain.id))
+        return ui.launchEditor(ChainSettingsActivity::class.java, chain.id)
     }
 
     /** 链式代理编辑器：成员列表载入一次，旋转后是同一批对象，不按 id 重读库；适配器里的条数不变 */

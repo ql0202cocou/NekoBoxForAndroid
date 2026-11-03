@@ -13,7 +13,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.robolectric.android.controller.ActivityController
 
 /**
  * U4c c2 路由列表 ListAdapter + DiffUtil：增 / 改 / 删 / 重置经差量事件反映到列表，没变的行不被重绑；
@@ -22,45 +21,27 @@ import org.robolectric.android.controller.ActivityController
  */
 class RouteListDiffTest : UiTestBase() {
 
-    private fun open(): Pair<ActivityController<MainActivity>, RouteFragment> {
-        UiFixtures.install()
-        val main = ui.launch<MainActivity>()
-        main.get().displayFragmentWithId(R.id.nav_route)
-        UiSettle.settle()
-        val fragment = main.hostedFragment<RouteFragment>()
-        assertTrue("前置条件：路由页不足 3 条规则", fragment.ruleAdapter.itemCount >= 3)
-        return main to fragment
-    }
-
     private fun RouteFragment.watch() = AdapterEvents().also { ruleAdapter.registerAdapterDataObserver(it) }
 
-    private fun RouteFragment.holder(position: Int): RouteFragment.RuleAdapter.RuleHolder {
-        ruleListView.measure(
-            View.MeasureSpec.makeMeasureSpec(ruleListView.width, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(ruleListView.height, View.MeasureSpec.EXACTLY),
-        )
-        ruleListView.layout(ruleListView.left, ruleListView.top, ruleListView.right, ruleListView.bottom)
-        return ruleListView.findViewHolderForAdapterPosition(position) as? RouteFragment.RuleAdapter.RuleHolder
-            ?: error("位置 $position 没有已绑定的行")
-    }
+    private fun RouteFragment.holder(position: Int): RouteFragment.RuleAdapter.RuleHolder =
+        ruleListView.boundHolder(position)
 
     private fun RouteFragment.shownNames() = (0 until ruleAdapter.itemCount).map { holder(it).profileName.text.toString() }
 
     private fun RouteFragment.ids() = ruleAdapter.ruleList.map { it.id }
 
-    private fun dbIds(): List<Long> = ui.bg { RuleRepository.getRules() }.map { it.id }
 
     private fun RouteFragment.emptyVisible() = view!!.findViewById<View>(R.id.route_list_empty).visibility == View.VISIBLE
 
     private fun RouteFragment.assertConsistent(message: String) {
         assertEquals("$message：适配器条数与列表一致", ruleAdapter.ruleList.size, ruleAdapter.itemCount)
         assertEquals("$message：适配器内容与列表一致", ids(), ruleAdapter.currentList.map { it.id })
-        assertEquals("$message：列表与库一致", dbIds(), ids())
+        assertEquals("$message：列表与库一致", UiFixtures.ruleIds(), ids())
     }
 
     @Test
     fun addUpdateRemoveGoThroughDiff() {
-        val (_, fragment) = open()
+        val (_, fragment) = ui.openRoutePage()
         val recorder = fragment.watch()
         val holdersBefore = (0 until 3).map { fragment.holder(it) }
 
@@ -95,7 +76,7 @@ class RouteListDiffTest : UiTestBase() {
 
     @Test
     fun resetRoutesClearsThenRebuilds() {
-        val (_, fragment) = open()
+        val (_, fragment) = ui.openRoutePage()
         val recorder = fragment.watch()
         val count = fragment.ruleAdapter.itemCount
 
@@ -118,7 +99,7 @@ class RouteListDiffTest : UiTestBase() {
 
     @Test
     fun enableSwitchRebindsInPlace() {
-        val (_, fragment) = open()
+        val (_, fragment) = ui.openRoutePage()
         val recorder = fragment.watch()
         val first = fragment.holder(0)
         val before = first.enableSwitch.isChecked
@@ -140,7 +121,7 @@ class RouteListDiffTest : UiTestBase() {
 
     @Test
     fun dragReorderPersistsAcrossReopen() {
-        val (_, fragment) = open()
+        val (_, fragment) = ui.openRoutePage()
         val recorder = fragment.watch()
         val before = fragment.ids()
         val adapter = fragment.ruleAdapter
@@ -162,7 +143,7 @@ class RouteListDiffTest : UiTestBase() {
         // 松手：与 clearView 一致，提交顺序
         adapter.commitMove()
         UiSettle.settle()
-        assertEquals("落库顺序应与列表一致", expected, dbIds())
+        assertEquals("落库顺序应与列表一致", expected, UiFixtures.ruleIds())
 
         // 重开：新建 Activity 读库后顺序不变
         ui.finishActivities()
@@ -177,7 +158,7 @@ class RouteListDiffTest : UiTestBase() {
 
     @Test
     fun deleteThenUndoRestoresPosition() {
-        val (main, fragment) = open()
+        val (main, fragment) = ui.openRoutePage()
         val recorder = fragment.watch()
         val before = fragment.ids()
         val names = fragment.shownNames()
@@ -200,7 +181,7 @@ class RouteListDiffTest : UiTestBase() {
 
     @Test
     fun deleteCommitsAfterUndoWindow() {
-        val (_, fragment) = open()
+        val (_, fragment) = ui.openRoutePage()
         val before = fragment.ids()
         val rule = fragment.ruleAdapter.ruleList[0]
         fragment.ruleAdapter.remove(0)
@@ -208,7 +189,7 @@ class RouteListDiffTest : UiTestBase() {
 
         // 撤销窗口走完：删除落库，列表不变
         UiSettle.settle(advanceMs = 30_000)
-        assertEquals(before - rule.id, dbIds())
+        assertEquals(before - rule.id, UiFixtures.ruleIds())
         assertEquals(before - rule.id, fragment.ids())
         fragment.assertConsistent("窗口到期后")
     }
@@ -259,7 +240,7 @@ class RouteListDiffTest : UiTestBase() {
 
     @Test
     fun emptyStateFollowsList() {
-        val (_, fragment) = open()
+        val (_, fragment) = ui.openRoutePage()
         assertFalse(fragment.emptyVisible())
         val ids = fragment.ids()
         ids.forEach { id -> ui.bg { RuleRepository.deleteRule(id) } }

@@ -48,18 +48,10 @@ class RoutePageStateTest : UiTestBase() {
 
     private fun RouteFragment.ids() = ruleAdapter.ruleList.map { it.id }
 
-    private fun dbIds(): List<Long> = ui.bg { RuleRepository.getRules() }.map { it.id }
 
     /** 位置 [position] 当前显示的出站文字（先布局一遍，保证该位置有已绑定的行） */
     private fun RouteFragment.outboundText(position: Int): String {
-        ruleListView.measure(
-            View.MeasureSpec.makeMeasureSpec(ruleListView.width, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(ruleListView.height, View.MeasureSpec.EXACTLY),
-        )
-        ruleListView.layout(ruleListView.left, ruleListView.top, ruleListView.right, ruleListView.bottom)
-        val holder = ruleListView.findViewHolderForAdapterPosition(position) as? RouteFragment.RuleAdapter.RuleHolder
-            ?: error("位置 $position 没有已绑定的行")
-        return holder.routeOutbound.text.toString()
+        return ruleListView.boundHolder<RouteFragment.RuleAdapter.RuleHolder>(position).routeOutbound.text.toString()
     }
 
     // ------------------------------------------------------------- 旋转：不重读库、滚动位置
@@ -190,14 +182,14 @@ class RoutePageStateTest : UiTestBase() {
 
         val rotated = opened.main.routeFragment()
         assertFalse("旋转后滑掉的规则不回来", rule.id in rotated.ids())
-        assertFalse("旋转时撤销窗口提交了删除", rule.id in dbIds())
-        assertEquals(dbIds(), rotated.ids())
+        assertFalse("旋转时撤销窗口提交了删除", rule.id in UiFixtures.ruleIds())
+        assertEquals(UiFixtures.ruleIds(), rotated.ids())
         assertEquals(rotated.ids().size, rotated.ruleAdapter.itemCount)
 
         // 之后的整表重读（比如别处的变更通知）也不会把它读回来
         rotated.routeModel.reload()
         UiSettle.settle()
-        assertEquals(dbIds(), rotated.ids())
+        assertEquals(UiFixtures.ruleIds(), rotated.ids())
     }
 
     // ------------------------------------------------------------- 进程重建

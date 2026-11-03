@@ -1,14 +1,12 @@
 package io.nekohasekai.sagernet.uitest
 
 import android.content.DialogInterface
-import android.content.Intent
 import android.view.View
 import android.widget.EditText
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.DialogFragment
 import androidx.preference.EditTextPreference
-import androidx.test.core.app.ApplicationProvider
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
@@ -18,7 +16,6 @@ import io.nekohasekai.sagernet.ui.SettingsFragment
 import io.nekohasekai.sagernet.ui.SettingsPreferenceFragment
 import io.nekohasekai.sagernet.ui.profile.WireGuardSettingsActivity
 import kotlinx.coroutines.runBlocking
-import io.nekohasekai.sagernet.ui.profile.ProfileSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.VMessSettingsActivity
 import org.robolectric.android.controller.ActivityController
 
@@ -33,9 +30,7 @@ internal object InlineValidationHarness {
     /** 夹具里第一个节点是 VMess（端口 443、服务器 192.0.2.10） */
     fun vmessEditor(ui: UiTestRule): ActivityController<VMessSettingsActivity> {
         val fixtures = UiFixtures.install()
-        val intent = Intent(ApplicationProvider.getApplicationContext(), VMessSettingsActivity::class.java)
-            .putExtra(ProfileSettingsActivity.EXTRA_PROFILE_ID, fixtures.profiles[0].id)
-        return ui.launch(VMessSettingsActivity::class.java, intent)
+        return ui.launchEditor(VMessSettingsActivity::class.java, fixtures.profiles[0].id)
     }
 
     /** 新建一个 WireGuard 节点（夹具里没有）并打开它的编辑器 */
@@ -50,9 +45,7 @@ internal object InlineValidationHarness {
             peerPublicKey = "B".repeat(43) + "="
         }
         val entity = ui.offMain { runBlocking { ProfileRepository.createProfile(fixtures.normalGroup.id, bean) } }
-        val intent = Intent(ApplicationProvider.getApplicationContext(), WireGuardSettingsActivity::class.java)
-            .putExtra(ProfileSettingsActivity.EXTRA_PROFILE_ID, entity.id)
-        return ui.launch(WireGuardSettingsActivity::class.java, intent)
+        return ui.launchEditor(WireGuardSettingsActivity::class.java, entity.id)
     }
 
     /** 设置页（分类页）里的文本编辑项：SettingsFragment 的子 Fragment 才是偏好列表 */

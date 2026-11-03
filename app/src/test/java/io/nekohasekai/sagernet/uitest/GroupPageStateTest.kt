@@ -54,7 +54,6 @@ class GroupPageStateTest : UiTestBase() {
 
     private fun GroupFragment.ids() = groupAdapter.groupList.map { it.id }
     private fun GroupFragment.names() = groupAdapter.groupList.map { it.name }
-    private fun dbIds(): List<Long> = ui.offMain { SagerDatabase.groupDao.allGroups() }.map { it.id }
 
     // ------------------------------------------------------------- 旋转：不重读库、滚动位置
 
@@ -160,8 +159,8 @@ class GroupPageStateTest : UiTestBase() {
 
         val rotated = main.groupFragment()
         assertFalse("旋转后滑掉的分组不回来", group.id in rotated.ids())
-        assertFalse("旋转时撤销窗口提交了删除", group.id in dbIds())
-        assertEquals(dbIds(), rotated.ids())
+        assertFalse("旋转时撤销窗口提交了删除", group.id in UiFixtures.groupIds())
+        assertEquals(UiFixtures.groupIds(), rotated.ids())
         assertEquals(rotated.ids().size, rotated.groupAdapter.itemCount)
     }
 
@@ -205,9 +204,7 @@ class GroupPageStateTest : UiTestBase() {
 
         // 选订阅分组（不是列表第一个），用真实的点击路径设置 selectedGroupId，再点「导出到文件」
         val target = fixtures.subscriptionGroup
-        val holder = fragment.groupListView.let { list ->
-            (0 until list.childCount).map { list.getChildViewHolder(list.getChildAt(it)) as GroupFragment.GroupHolder }
-        }.first { it.proxyGroup.id == target.id }
+        val holder = fragment.groupListView.holders<GroupFragment.GroupHolder>().first { it.proxyGroup.id == target.id }
         holder.optionsButton.performClick()
         UiSettle.settle()
         assertEquals("前置条件：点「更多」记下了分组", target.id, fragment.groupModel.selectedGroupId)

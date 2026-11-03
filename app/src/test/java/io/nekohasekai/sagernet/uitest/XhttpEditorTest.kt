@@ -269,9 +269,7 @@ class XhttpEditorTest : UiTestBase() {
             path = ""
         }
         val entity = ui.bg { ProfileRepository.createProfile(fixtures.normalGroup.id, bean) }
-        val intent = Intent(ApplicationProvider.getApplicationContext(), VMessSettingsActivity::class.java)
-            .putExtra(io.nekohasekai.sagernet.ui.profile.ProfileSettingsActivity.EXTRA_PROFILE_ID, entity.id)
-        return ui.launch(VMessSettingsActivity::class.java, intent)
+        return ui.launchEditor(VMessSettingsActivity::class.java, entity.id)
     }
 
     @Test

@@ -13,7 +13,6 @@ import org.junit.Test
  */
 class SnackbarAnchorTest : UiTestBase() {
 
-    private fun top(view: View) = IntArray(2).also { view.getLocationInWindow(it) }[1]
     private fun bottom(view: View) = top(view) + view.height
 
     @Test

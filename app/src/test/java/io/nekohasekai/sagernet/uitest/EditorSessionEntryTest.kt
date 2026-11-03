@@ -2,7 +2,6 @@ package io.nekohasekai.sagernet.uitest
 
 import android.app.Activity
 import android.content.Intent
-import androidx.test.core.app.ApplicationProvider
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.EditorCache
 import io.nekohasekai.sagernet.database.ProfileRepository
@@ -11,7 +10,6 @@ import io.nekohasekai.sagernet.fmt.internal.ChainBean
 import io.nekohasekai.sagernet.ui.GroupSettingsActivity
 import io.nekohasekai.sagernet.ui.ProfileSelectActivity
 import io.nekohasekai.sagernet.ui.profile.ChainSettingsActivity
-import io.nekohasekai.sagernet.ui.profile.ProfileSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.ShadowsocksSettingsActivity
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
@@ -132,9 +130,7 @@ class EditorSessionEntryTest : UiTestBase() {
         val chain = ui.offMain {
             runBlocking { ProfileRepository.createProfile(fixtures.normalGroup.id, ChainBean().apply { name = "Chain A" }) }
         }
-        val intent = Intent(ApplicationProvider.getApplicationContext(), ChainSettingsActivity::class.java)
-            .putExtra(ProfileSettingsActivity.EXTRA_PROFILE_ID, chain.id)
-        return ui.launch(ChainSettingsActivity::class.java, intent).get() to fixtures.profiles[0].id
+        return ui.launchEditor(ChainSettingsActivity::class.java, chain.id).get() to fixtures.profiles[0].id
     }
 
     private fun deliverPick(editor: ChainSettingsActivity, profileId: Long) {
@@ -202,9 +198,7 @@ class EditorSessionEntryTest : UiTestBase() {
 
     private fun ssEditor(): ShadowsocksSettingsActivity {
         val fixtures = UiFixtures.install()
-        val intent = Intent(ApplicationProvider.getApplicationContext(), ShadowsocksSettingsActivity::class.java)
-            .putExtra(ProfileSettingsActivity.EXTRA_PROFILE_ID, fixtures.profiles[1].id)
-        return ui.launch(ShadowsocksSettingsActivity::class.java, intent).get()
+        return ui.launchEditor(ShadowsocksSettingsActivity::class.java, fixtures.profiles[1].id).get()
     }
 
     private fun ShadowsocksSettingsActivity.openJsonEditor() {

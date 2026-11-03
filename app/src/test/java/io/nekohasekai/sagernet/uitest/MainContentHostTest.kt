@@ -4,7 +4,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.widget.FrameLayout
 import androidx.core.view.NestedScrollingChild
-import androidx.core.view.ViewCompat
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.AppBarLayout
@@ -21,7 +20,6 @@ import io.nekohasekai.sagernet.ui.ToolsFragment
 import io.nekohasekai.sagernet.ui.WebviewFragment
 import io.nekohasekai.sagernet.widget.ContentListener
 import io.nekohasekai.sagernet.widget.ScrollHub
-import io.nekohasekai.sagernet.widget.safeDrawingTypes
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -50,9 +48,6 @@ class MainContentHostTest : UiTestBase() {
     }
 
     private fun Fragment.child(id: Int) = view!!.findViewById<View>(id)
-
-    private fun insetBottom(view: View) =
-        ViewCompat.getRootWindowInsets(view)?.getInsets(safeDrawingTypes)?.bottom ?: 0
 
     /** 布局文件里声明的底部内边距：新 inflate 一份读，不依赖被测代码 */
     private fun declaredBottom(main: MainActivity, layout: Int, id: Int?): Int {

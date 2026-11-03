@@ -37,7 +37,6 @@ class UndoScenarios(private val ui: UiTestRule) {
 
     private fun ruleIds(fragment: RouteFragment) = fragment.ruleAdapter.ruleList.map { it.id }
 
-    private fun dbRuleIds(): List<Long> = ui.offMain { runBlocking { RuleRepository.getRules() } }.map { it.id }
 
     private fun routeFragment(main: ActivityController<MainActivity>): RouteFragment {
         main.go(Page.ROUTES)
@@ -66,7 +65,7 @@ class UndoScenarios(private val ui: UiTestRule) {
         val afterAdd = ruleIds(fragment)
         action.clickUndo()
         val after = ruleIds(fragment)
-        val db = dbRuleIds()
+        val db = UiFixtures.ruleIds()
         if (before[1] in after) return Check(false, "撤销窗口已被新增关闭，被删的规则不应再回来：$after")
         if (after != afterAdd) return Check(false, "点撤销改动了列表：$afterAdd -> $after")
         if (after.toSet().size != after.size) return Check(false, "列表有重复项：$after")
@@ -85,7 +84,7 @@ class UndoScenarios(private val ui: UiTestRule) {
         UiSettle.settle()
         action.clickUndo()
         val after = ruleIds(fragment)
-        val db = dbRuleIds()
+        val db = UiFixtures.ruleIds()
         if (after.toSet().size != after.size) return Check(false, "列表有重复项：$after")
         return if (after == db) Check(true) else Check(false, "列表与库不一致：列表 $after，库 $db")
     }
@@ -99,7 +98,7 @@ class UndoScenarios(private val ui: UiTestRule) {
         swipeRule(fragment, 0)
         main.get().undoAction().clickUndo()
         val after = ruleIds(fragment)
-        val db = dbRuleIds()
+        val db = UiFixtures.ruleIds()
         if (after != before) return Check(false, "撤销后顺序变了：$before -> $after")
         return if (db == before) Check(true) else Check(false, "撤销后库里的规则变了：$db")
     }

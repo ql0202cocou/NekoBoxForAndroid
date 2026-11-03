@@ -67,11 +67,10 @@ class ConfigListDiffTest : UiTestBase() {
 
     private fun Setup.ids() = adapter.items.map { it.id }
 
-    private fun dbIds(groupId: Long): List<Long> = ui.offMain { SagerDatabase.proxyDao.getByGroup(groupId) }.map { it.id }
 
     /** 屏幕上各行（按自上而下）绑定的节点 id */
     private fun Setup.visibleIds(): List<Long> =
-        holders().sortedBy { it.view.top }.map { it.entity.id }
+        holders().map { it.entity.id }
 
     /** 屏幕上的行是工作副本里连续的一段，且顺序相同（数据与视图一致） */
     private fun Setup.assertScreenMatchesList() {
@@ -83,8 +82,7 @@ class ConfigListDiffTest : UiTestBase() {
         assertEquals(ids.subList(start, minOf(ids.size, start + visible.size)), visible)
     }
 
-    private fun Setup.holders(): List<ConfigurationHolder> =
-        (0 until list.childCount).map { list.getChildViewHolder(list.getChildAt(it)) as ConfigurationHolder }
+    private fun Setup.holders(): List<ConfigurationHolder> = list.holders()
 
     private fun Setup.holderOf(id: Long) = list.findViewHolderForItemId(id) as ConfigurationHolder?
 
@@ -396,11 +394,11 @@ class ConfigListDiffTest : UiTestBase() {
         val dragged = listOf(before[1], before[2], before[0]) + before.drop(3)
         assertEquals(dragged, s.ids())
         s.assertScreenMatchesList()
-        assertEquals("拖动期间不落库", before, dbIds(groupId))
+        assertEquals("拖动期间不落库", before, UiFixtures.profileIds(groupId))
 
         s.adapter.commitMove()
         UiSettle.settle()
-        assertEquals("落下后库里是同一顺序", dragged, dbIds(groupId))
+        assertEquals("落下后库里是同一顺序", dragged, UiFixtures.profileIds(groupId))
 
         // 重读读出同样的顺序：差量无变化，列表不动
         val events = s.watch()
@@ -426,7 +424,7 @@ class ConfigListDiffTest : UiTestBase() {
 
         s.adapter.commitMove()
         UiSettle.settle()
-        assertEquals(dragged, dbIds(groupId))
+        assertEquals(dragged, UiFixtures.profileIds(groupId))
         assertEquals("落库后补读一次，列表与库一致", dragged, s.ids())
         s.assertScreenMatchesList()
     }
@@ -445,19 +443,19 @@ class ConfigListDiffTest : UiTestBase() {
         UiSettle.settle()
         assertEquals(before - victim, s.ids())
         s.assertScreenMatchesList()
-        assertEquals("撤销窗口里还没落库", before, dbIds(groupId))
+        assertEquals("撤销窗口里还没落库", before, UiFixtures.profileIds(groupId))
 
         s.undoAction().performClick()
         UiSettle.settle()
         assertEquals("撤销按原位置插回", before, s.ids())
         s.assertScreenMatchesList()
-        assertEquals(before, dbIds(groupId))
+        assertEquals(before, UiFixtures.profileIds(groupId))
         assertEquals(1, events.removed)
         assertEquals(1, events.inserted)
         assertEquals("删除与撤销都是精确通知，没有整表重置", 0, events.reset)
 
         UiSettle.settle(advanceMs = 10_000)
-        assertEquals("窗口随撤销关闭，之后什么都不会再被删", before, dbIds(groupId))
+        assertEquals("窗口随撤销关闭，之后什么都不会再被删", before, UiFixtures.profileIds(groupId))
         assertEquals(before, s.ids())
     }
 
@@ -473,7 +471,7 @@ class ConfigListDiffTest : UiTestBase() {
         s.page.undoManager.flush()
         UiSettle.settle()
 
-        assertEquals(before - victim, dbIds(groupId))
+        assertEquals(before - victim, UiFixtures.profileIds(groupId))
         assertEquals(before - victim, s.ids())
         s.assertScreenMatchesList()
     }
@@ -521,7 +519,7 @@ class ConfigListDiffTest : UiTestBase() {
         s.assertScreenMatchesList()
         assertEquals(3, events.inserted)
         assertEquals(0, events.reset)
-        assertEquals(dbIds(groupId), s.ids())
+        assertEquals(UiFixtures.profileIds(groupId), s.ids())
     }
 
     @Test
@@ -545,7 +543,7 @@ class ConfigListDiffTest : UiTestBase() {
         val ids = s.ids()
         assertEquals("onAdd 不能再追加一行", 1, ids.count { it == created.id })
         assertEquals(ids.toSet().size, ids.size)
-        assertEquals(dbIds(groupId), ids)
+        assertEquals(UiFixtures.profileIds(groupId), ids)
         assertEquals(ids.size, s.adapter.itemCount)
         s.assertScreenMatchesList()
     }
@@ -567,7 +565,7 @@ class ConfigListDiffTest : UiTestBase() {
         assertEquals(ids.toSet().size, ids.size)
         assertEquals(ids.size, s.adapter.itemCount)
         s.assertScreenMatchesList()
-        assertEquals(before, dbIds(groupId))
+        assertEquals(before, UiFixtures.profileIds(groupId))
     }
 
     // ---------------------------------------------------------------- 排序方式
@@ -697,7 +695,7 @@ class ConfigListDiffTest : UiTestBase() {
         assertEquals(0, events.reset)
 
         setOrder(groupId, GroupOrder.ORIGIN)
-        assertEquals(dbIds(groupId), s.ids())
+        assertEquals(UiFixtures.profileIds(groupId), s.ids())
         s.assertScreenMatchesList()
     }
 }

@@ -15,7 +15,6 @@ import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ui.EditorActivity
 import io.nekohasekai.sagernet.ui.GroupSettingsActivity
 import io.nekohasekai.sagernet.ui.RouteSettingsActivity
-import io.nekohasekai.sagernet.ui.profile.ProfileSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.ShadowsocksSettingsActivity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -85,15 +84,13 @@ private class DbGate : AutoCloseable {
  */
 class EditorSaveOutlivesPageTest : UiTestBase() {
 
+    // 分组 / 路由编辑器的 extra 键与节点编辑器不同，节点编辑器走 ui.launchEditor
     private fun editIntent(type: Class<*>, key: String, id: Long) =
         Intent(ApplicationProvider.getApplicationContext(), type).putExtra(key, id)
 
     private fun ssEditor(): ActivityController<ShadowsocksSettingsActivity> {
         val fixtures = UiFixtures.install()
-        return ui.launch(
-            ShadowsocksSettingsActivity::class.java,
-            editIntent(ShadowsocksSettingsActivity::class.java, ProfileSettingsActivity.EXTRA_PROFILE_ID, fixtures.profiles[1].id),
-        )
+        return ui.launchEditor(ShadowsocksSettingsActivity::class.java, fixtures.profiles[1].id)
     }
 
     private fun EditorActivity.editAddress() {

@@ -58,20 +58,11 @@ class GroupListDiffTest : UiTestBase() {
 
     private fun GroupFragment.ids() = groupAdapter.groupList.map { it.id }
 
-    private fun dbIds(): List<Long> = ui.offMain { SagerDatabase.groupDao.allGroups() }.map { it.id }
 
     /** 屏幕上各行（按自上而下）绑定的分组 id */
-    private fun GroupFragment.visibleIds(): List<Long> {
-        val list = groupListView
-        return (0 until list.childCount).map { list.getChildAt(it) }
-            .sortedBy { it.top }
-            .map { (list.getChildViewHolder(it) as GroupFragment.GroupHolder).proxyGroup.id }
-    }
+    private fun GroupFragment.visibleIds(): List<Long> = holders().map { it.proxyGroup.id }
 
-    private fun GroupFragment.holders(): List<GroupFragment.GroupHolder> {
-        val list = groupListView
-        return (0 until list.childCount).map { list.getChildViewHolder(list.getChildAt(it)) as GroupFragment.GroupHolder }
-    }
+    private fun GroupFragment.holders(): List<GroupFragment.GroupHolder> = groupListView.holders()
 
     // ---------------------------------------------------------------- 订阅进度
 
@@ -199,11 +190,11 @@ class GroupListDiffTest : UiTestBase() {
         val dragged = listOf(before[1], before[2], before[0]) + before.drop(3)
         assertEquals(dragged, fragment.ids())
         assertEquals("屏幕上的行与工作副本一致", dragged, fragment.visibleIds())
-        assertEquals("拖动期间不落库", before, dbIds())
+        assertEquals("拖动期间不落库", before, UiFixtures.groupIds())
 
         adapter.commitMove()
         UiSettle.settle()
-        assertEquals("落下后库里是同一顺序", dragged, dbIds())
+        assertEquals("落下后库里是同一顺序", dragged, UiFixtures.groupIds())
 
         // 重读读出同样的顺序：差量无变化，列表不动
         val events = AdapterEvents().also { adapter.registerAdapterDataObserver(it) }
@@ -231,7 +222,7 @@ class GroupListDiffTest : UiTestBase() {
 
         adapter.commitMove()
         UiSettle.settle()
-        assertEquals(dragged, dbIds())
+        assertEquals(dragged, UiFixtures.groupIds())
         assertEquals("落库后补读一次，列表与库一致", dragged, fragment.ids())
         assertEquals(dragged, fragment.visibleIds())
     }
@@ -263,7 +254,7 @@ class GroupListDiffTest : UiTestBase() {
         assertEquals(ids.toSet().size, ids.size)
         assertEquals(ids.size, adapter.itemCount)
         assertEquals(ids, fragment.visibleIds())
-        assertEquals(dbIds(), ids)
+        assertEquals(UiFixtures.groupIds(), ids)
     }
 
     @Test
@@ -299,7 +290,7 @@ class GroupListDiffTest : UiTestBase() {
         UiSettle.settle()
         assertEquals(before - deleted.id, fragment.ids())
         assertEquals(fragment.ids(), fragment.visibleIds())
-        assertEquals("撤销窗口里还没落库", before, dbIds())
+        assertEquals("撤销窗口里还没落库", before, UiFixtures.groupIds())
 
         val action = main.get().undoAction()
         action.performClick()
@@ -307,14 +298,14 @@ class GroupListDiffTest : UiTestBase() {
 
         assertEquals("撤销按原位置插回", before, fragment.ids())
         assertEquals(before, fragment.visibleIds())
-        assertEquals(before, dbIds())
+        assertEquals(before, UiFixtures.groupIds())
         assertEquals(1, events.removed)
         assertEquals(1, events.inserted)
         assertEquals("滑动与撤销都是精确通知，没有整表重置", 0, events.reset)
 
         // 窗口随撤销关闭，之后什么都不会再被删
         UiSettle.settle(advanceMs = 10_000)
-        assertEquals(before, dbIds())
+        assertEquals(before, UiFixtures.groupIds())
         assertEquals(before, fragment.ids())
     }
 
@@ -329,7 +320,7 @@ class GroupListDiffTest : UiTestBase() {
         fragment.undoManager.flush()
         UiSettle.settle()
 
-        assertEquals(before - deleted.id, dbIds())
+        assertEquals(before - deleted.id, UiFixtures.groupIds())
         assertEquals(before - deleted.id, fragment.ids())
         assertEquals(fragment.ids(), fragment.visibleIds())
         assertEquals(fragment.ids().size, fragment.groupAdapter.itemCount)
