@@ -41,7 +41,6 @@ import io.nekohasekai.sagernet.widget.padForSystemBars
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 import kotlin.coroutines.CoroutineContext
 
 /**
@@ -139,11 +138,7 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
         scope: CoroutineScope = lifecycleScope,
         context: CoroutineContext = Dispatchers.Default,
         block: suspend EditorScope.() -> Unit,
-    ): Job = scope.launch(context) {
-        val session = EditorScope(this, ::holdsEditorSession)
-        session.ensureHeld()
-        session.block()
-    }
+    ): Job = scope.launchEditorScope(::holdsEditorSession, context, block)
 
     /**
      * 编辑器初始化：[load] 在后台把实体写进缓存，返回 false 表示实体已不存在（直接关闭页面）；

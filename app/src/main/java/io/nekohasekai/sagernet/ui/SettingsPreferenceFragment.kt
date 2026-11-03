@@ -6,7 +6,7 @@ import android.os.Bundle
 import android.os.Parcelable
 import android.view.View
 import android.view.inputmethod.EditorInfo
-import android.widget.Toast
+
 import androidx.core.app.ActivityCompat
 import androidx.preference.*
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -15,9 +15,9 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.databinding.LayoutDialogInputBinding
-import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
-import io.nekohasekai.sagernet.database.preference.isIntegerInRange
+
 import io.nekohasekai.sagernet.ktx.*
+import io.nekohasekai.sagernet.ui.profile.bindPortPreference
 import io.nekohasekai.sagernet.utils.Theme
 import io.nekohasekai.sagernet.widget.liftAncestorAppBar
 import io.nekohasekai.sagernet.widget.hostMainScrollable
@@ -170,25 +170,9 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
     }
 
     private fun setupInbound() {
-        val mixedPort = findPreference<EditTextPreference>(Key.MIXED_PORT)!!
-        mixedPort.setOnBindEditTextListener(EditTextPreferenceModifiers.Port)
         // 范围同 DataStore.mixedPort 的 parsePort：越界值会被静默换成 2080 + 用户偏移，
-        // 界面却显示原值，所以在输入时就拦下；下面的 change 监听器在「确定」时兜底
-        InlineValidations.register(mixedPort, InlineValidation(
-            message = { it.getString(R.string.integer_range_error, 1025, 65535) },
-            isValid = { isIntegerInRange(it, 1025, 65535) },
-        ))
-        mixedPort.setOnPreferenceChangeListener { _, newValue ->
-            if (!isIntegerInRange(newValue, 1025, 65535)) {
-                Toast.makeText(
-                    requireContext(), getString(R.string.integer_range_error, 1025, 65535), Toast.LENGTH_LONG
-                ).show()
-                false
-            } else {
-                needReload()
-                true
-            }
-        }
+        // 界面却显示原值，所以在输入时就拦下（bindPortPreference：对话框里实时校验，「确定」时兜底）
+        findPreference<EditTextPreference>(Key.MIXED_PORT)!!.bindPortPreference(min = 1025) { needReload() }
         reloadOn(Key.APPEND_HTTP_PROXY)
 
         // 开了以后 mixed 入站绑 0.0.0.0、没有认证，同一网络里谁都能用本机代理：打开前先确认。

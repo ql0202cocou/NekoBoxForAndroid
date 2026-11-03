@@ -63,11 +63,7 @@ class EditorViewModel : ViewModel() {
     fun launchInSession(
         context: CoroutineContext = Dispatchers.Default,
         block: suspend EditorScope.() -> Unit,
-    ): Job = viewModelScope.launch(context) {
-        val scope = EditorScope(this, ::holds)
-        scope.ensureHeld()
-        scope.block()
-    }
+    ): Job = viewModelScope.launchEditorScope(::holds, context, block)
 
     // ------------------------------------------------------------- 初始化
 
@@ -82,10 +78,8 @@ class EditorViewModel : ViewModel() {
     fun startInit(load: suspend EditorScope.() -> Boolean): CompletableDeferred<Boolean> {
         if (!initStarted) {
             initStarted = true
-            viewModelScope.launch(Dispatchers.Default) {
-                val scope = EditorScope(this, ::holds)
-                scope.ensureHeld()
-                initResult.complete(scope.load())
+            viewModelScope.launchEditorScope(::holds, Dispatchers.Default) {
+                initResult.complete(load())
             }.invokeOnCompletion { cause ->
                 if (cause != null) initResult.completeExceptionally(cause)
             }
@@ -217,4 +211,15 @@ class EditorScope internal constructor(
         ensureHeld()
         block()
     }
+}
+
+/** 在 [context] 上启动 [block]：先按 [holds] 查一次会话，不属于本编辑器就不跑（[EditorScope.ensureHeld]） */
+internal fun CoroutineScope.launchEditorScope(
+    holds: () -> Boolean,
+    context: CoroutineContext,
+    block: suspend EditorScope.() -> Unit,
+): Job = launch(context) {
+    val session = EditorScope(this, holds)
+    session.ensureHeld()
+    session.block()
 }

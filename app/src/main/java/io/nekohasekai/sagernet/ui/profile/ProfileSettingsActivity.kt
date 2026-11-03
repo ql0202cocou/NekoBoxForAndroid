@@ -42,6 +42,7 @@ import io.nekohasekai.sagernet.database.GroupRepository
 import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.preference.EditTextPreferenceModifiers
+import io.nekohasekai.sagernet.database.preference.isIntegerInRange
 import io.nekohasekai.sagernet.databinding.LayoutGroupItemBinding
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.CoreDecision
@@ -160,8 +161,16 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
     protected open fun validateEditor(): String? = null
 
-    // 偏好屏幕里有服务器地址项（链式、自定义配置没有）；Fragment 创建时写入，页面销毁后的保存用它决定是否校验地址
+    // 偏好屏幕里有服务器地址项（链式、自定义配置没有）；Fragment 创建时写入，保存时据此决定要不要校验地址
     var hasServerAddressField = false
+
+    /** 打开 JSON 编辑页编辑缓存键 [key]：[seed] 先写入种子内容——放种子不算编辑，脏标记保持原样 */
+    internal fun launchJsonEditor(key: String, launcher: ActivityResultLauncher<Intent>, seed: () -> Unit) {
+        val dirty = EditorCache.dirty
+        seed()
+        EditorCache.dirty = dirty
+        launcher.launch(ConfigEditActivity.intent(this, key))
+    }
 
     // 实体级字段，不在 bean 里；onCreate 时写入
     protected fun editorCore() = EditorCache.profileCacheStore.getString(Key.PROFILE_CORE)
@@ -177,38 +186,24 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
     override suspend fun save() {
         awaitEditorReady()
         val canSave = onMainDispatcher {
-            // 页面已销毁（保存途中旋转、被系统回收）后没有偏好屏幕可查，也不能再弹提示：保存是进程级的，
-            // 要写完才对得起用户点的「保存」，所以只跳过依赖屏幕的检查（输入时已逐项拦过），其余缓存检查照做。
+            // 保存是进程级的：页面已销毁（保存途中旋转、被系统回收）后也要写完才对得起用户点的「保存」，只是不能再弹提示，
+            // 也没有偏好屏幕可查（整数项输入时已逐项拦过，库里旧值原样写回不会更糟）；其余检查都按缓存做，页面活着与否一样。
             // Fragment 还没提交（页面活着、child 为空）则没有可保存的内容，直接不保存
             val gone = isDestroyed
             val screen = if (gone) null else child?.preferenceScreen
             if (screen == null && !gone) return@onMainDispatcher false
-            validateEditor()?.let { message ->
+            // 有地址项的编辑器（链式、自定义配置没有）共用这条地址检查，与输入时的校验是同一条规则（isServerAddress）
+            val message = validateEditor()
+                ?: getString(R.string.server_address_error)
+                    .takeIf { hasServerAddressField && !isServerAddress(EditorCache.serverAddress) }
+                ?: screen?.findInvalidIntegerPreference()?.let { invalid ->
+                    "${invalid.title}: ${getString(R.string.integer_range_error, invalid.extras.getInt(INTEGER_MIN), invalid.extras.getInt(INTEGER_MAX))}"
+                }
+            if (message != null) {
                 if (!gone) Toast.makeText(this@ProfileSettingsActivity, message, Toast.LENGTH_LONG).show()
                 return@onMainDispatcher false
             }
-            // 页面已销毁时看不到地址项是否可见：有地址项的编辑器只要缓存里的地址不合法就不存（保守，等同原来的不保存），
-            // 免得新建节点空地址被悄悄写进库；整数项输入时已逐项拦过，库里旧值原样写回不会更糟
-            if (screen == null) return@onMainDispatcher !hasServerAddressField || isServerAddress(EditorCache.serverAddress)
-            // every protocol editor with a server field shares this check
-            val address = screen.findPreference<EditTextPreference>(Key.SERVER_ADDRESS)
-            if (address != null && address.isVisible && address.isEnabled &&
-                !isServerAddress(EditorCache.serverAddress)
-            ) {
-                Toast.makeText(
-                    this@ProfileSettingsActivity, R.string.server_address_error, Toast.LENGTH_LONG
-                ).show()
-                return@onMainDispatcher false
-            }
-            val invalid = screen.findInvalidIntegerPreference()
-            if (invalid != null) {
-                Toast.makeText(
-                    this@ProfileSettingsActivity,
-                    "${invalid.title}: ${getString(R.string.integer_range_error, invalid.extras.getInt(INTEGER_MIN), invalid.extras.getInt(INTEGER_MAX))}",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-            invalid == null
+            true
         }
         if (!canSave) return
 
@@ -330,13 +325,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             val activity = profileActivity ?: return
             activity.launchInSession(lifecycleScope, Dispatchers.Main.immediate) {
                 val bean = checked { activity.awaitProxyEntity() }?.requireBean() ?: return@launchInSession
-                // seeding the editor is not an edit: keep dirty as it was
-                val dirty = EditorCache.dirty
-                seed(bean)
-                EditorCache.dirty = dirty
-                launcher.launch(Intent(requireContext(), ConfigEditActivity::class.java).apply {
-                    putExtra("key", key)
-                })
+                activity.launchJsonEditor(key, launcher) { seed(bean) }
             }
         }
 
@@ -485,8 +474,9 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 
 }
 
-fun EditTextPreference.bindPortPreference(): EditTextPreference {
-    bindIntegerPreference(1, 65535)
+// [onAccepted]：「确定」通过时的回调（设置页的本机端口用它提示重载）
+fun EditTextPreference.bindPortPreference(min: Int = 1, onAccepted: (() -> Unit)? = null): EditTextPreference {
+    bindIntegerPreference(min, 65535, onAccepted = onAccepted)
     setOnBindEditTextListener(EditTextPreferenceModifiers.Port)
     return this
 }
@@ -514,25 +504,29 @@ private fun Preference.findInvalidIntegerPreference(): EditTextPreference? {
     return null
 }
 
-// 输入时与「确定」时共用同一条规则：对话框里按它实时校验（InlineValidation），change 监听器照旧兜底拒绝
+// 输入时与「确定」时共用同一条规则：对话框里按它实时校验（InlineValidation），change 监听器照旧兜底拒绝并弹 Toast；
+// 通过时调 [onAccepted]（设置页用它提示重载）
+private fun EditTextPreference.bindValidation(validation: InlineValidation, onAccepted: (() -> Unit)? = null) {
+    InlineValidations.register(this, validation)
+    setOnPreferenceChangeListener { _, value ->
+        val valid = value is String && validation.isValid(value)
+        if (valid) onAccepted?.invoke()
+        else Toast.makeText(context, validation.message(context), Toast.LENGTH_LONG).show()
+        valid
+    }
+}
+
 fun EditTextPreference.bindIntegerPreference(
-    min: Int = 0, max: Int = Int.MAX_VALUE, allowEmpty: Boolean = false,
+    min: Int = 0, max: Int = Int.MAX_VALUE, allowEmpty: Boolean = false, onAccepted: (() -> Unit)? = null,
 ): EditTextPreference {
     extras.putInt(INTEGER_MIN, min)
     extras.putInt(INTEGER_MAX, max)
     extras.putBoolean(INTEGER_ALLOW_EMPTY, allowEmpty)
     setOnBindEditTextListener(EditTextPreferenceModifiers.Number)
-    InlineValidations.register(this, InlineValidation(
+    bindValidation(InlineValidation(
         message = { it.getString(R.string.integer_range_error, min, max) },
-        isValid = { io.nekohasekai.sagernet.database.preference.isIntegerInRange(it, min, max, allowEmpty) },
-    ))
-    setOnPreferenceChangeListener { _, value ->
-        val valid = io.nekohasekai.sagernet.database.preference.isIntegerInRange(value, min, max, allowEmpty)
-        if (!valid) {
-            Toast.makeText(context, context.getString(R.string.integer_range_error, min, max), Toast.LENGTH_LONG).show()
-        }
-        valid
-    }
+        isValid = { isIntegerInRange(it, min, max, allowEmpty) },
+    ), onAccepted)
     return this
 }
 
@@ -541,20 +535,11 @@ fun EditTextPreference.bindPasswordPreference(): EditTextPreference {
     return this
 }
 
-// 输入时在对话框里实时校验并禁用「确定」（InlineValidation），change 监听器在「确定」时再拒绝一次并弹 Toast 兜底；
-// 与 validateEditor() 配对：导入或之前缓存的、没经过输入校验的值在保存时拦下。
+// 与 validateEditor() 配对：导入或之前缓存的、没经过输入校验的值在保存时拦下
 fun EditTextPreference.bindValidatedPreference(
     @StringRes message: Int, valid: (String) -> Boolean,
 ): EditTextPreference {
-    InlineValidations.register(this, InlineValidation(
-        message = { it.getString(message) },
-        isValid = valid,
-    ))
-    setOnPreferenceChangeListener { _, value ->
-        val ok = value is String && valid(value)
-        if (!ok) Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-        ok
-    }
+    bindValidation(InlineValidation(message = { it.getString(message) }, isValid = valid))
     return this
 }
 

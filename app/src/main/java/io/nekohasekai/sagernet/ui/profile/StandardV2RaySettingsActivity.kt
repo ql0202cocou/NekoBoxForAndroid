@@ -1,6 +1,5 @@
 package io.nekohasekai.sagernet.ui.profile
 
-import android.content.Intent
 import android.os.Bundle
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.preference.EditTextPreference
@@ -323,10 +322,9 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
     private fun launchXhttpExtraEditor() {
         val current = xhttpExtra.readStringFromCache()
         val seed = if (current.isBlank()) "" else runCatching { JSONObject(current).toStringPretty() }.getOrDefault(current)
-        val dirty = EditorCache.dirty
-        EditorCache.profileCacheStore.putString(Key.XHTTP_EXTRA_EDIT, seed)
-        EditorCache.dirty = dirty
-        xhttpExtraEditor.launch(Intent(this, ConfigEditActivity::class.java).putExtra("key", Key.XHTTP_EXTRA_EDIT))
+        launchJsonEditor(Key.XHTTP_EXTRA_EDIT, xhttpExtraEditor) {
+            EditorCache.profileCacheStore.putString(Key.XHTTP_EXTRA_EDIT, seed)
+        }
     }
 
     private fun updateView(network: String) {

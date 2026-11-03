@@ -1,7 +1,9 @@
 package io.nekohasekai.sagernet.ui.profile
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.DialogInterface
+import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import android.view.Menu
@@ -37,6 +39,14 @@ import io.nekohasekai.sagernet.database.EditorCache
 
 class ConfigEditActivity : ThemedActivity() {
 
+    companion object {
+        /** extras 里要编辑的缓存键，由 [intent] 放入 */
+        const val EXTRA_KEY = "key"
+
+        fun intent(context: Context, key: String): Intent =
+            Intent(context, ConfigEditActivity::class.java).putExtra(EXTRA_KEY, key)
+    }
+
     // 载入时的文本；未保存与否只看当前文本是否与它相同。
     // 存储内容在本页存活期间不变，所以重建时重新载入即可得到同一份，不必进 savedInstanceState
     private var loadedText = ""
@@ -71,7 +81,7 @@ class ConfigEditActivity : ThemedActivity() {
         super.onCreate(savedInstanceState)
 
         intent?.extras?.apply {
-            getString("key")?.let { key = it }
+            getString(EXTRA_KEY)?.let { key = it }
             getString("useConfigStore")?.let { useConfigStore = true }
         }
 
