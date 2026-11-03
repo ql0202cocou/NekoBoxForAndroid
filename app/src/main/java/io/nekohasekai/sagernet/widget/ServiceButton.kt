@@ -174,7 +174,7 @@ class ServiceButton @JvmOverloads constructor(
     }
 
     // ---- 已连接时的「呼吸」叠层 ----
-    // 叠层是与按钮同形（圆）的前景，颜色 colorOnPrimaryContainer，不透明度在 0 与 14% 之间往返，
+    // 叠层是与按钮同形（圆）的前景，颜色 fabColorForeground，不透明度在 0 与 14% 之间往返，
     // 周期 1400ms。为免整屏每帧重绘，用 Handler 按 66ms 步进（约 15fps），不用无限循环的 ValueAnimator；
     // 进出已连接态时整体 300ms 淡入淡出。
     // 离开已连接态、脱离窗口、窗口或视图不可见、系统动画被关闭（动画时长缩放为 0）时都停，不留叠层
@@ -238,7 +238,7 @@ class ServiceButton @JvmOverloads constructor(
         val wave = (1f - cos(2.0 * PI * phase).toFloat()) / 2f
         val alpha = (BREATH_MAX_ALPHA * breathEnvelope * wave * 255f).toInt().coerceIn(0, 255)
         val base = MaterialColors.getColor(
-            this, com.google.android.material.R.attr.colorOnPrimaryContainer
+            this, R.attr.fabColorForeground
         )
         overlay.setColor(ColorUtils.setAlphaComponent(base, alpha))
         if (!breathWanted && breathEnvelope <= 0f) {

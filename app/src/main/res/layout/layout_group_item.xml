@@ -19,11 +19,11 @@
         <!-- 常驻占位（invisible）：更新开始或结束时卡片高度不变 -->
         <com.google.android.material.progressindicator.LinearProgressIndicator
             android:id="@+id/subscription_update_progress"
+            style="@style/Widget.SagerNet.UpdateProgressIndicator"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:indeterminate="true"
-            android:visibility="invisible"
-            app:indicatorColor="?selectedColorPrimary" />
+            android:visibility="invisible" />
 
         <!-- 标题行：名称 / 用户名在左，更新、编辑、更多三个图标在右（与节点卡片一致）。
              minHeight 48dp：移动到分组对话框里图标全部隐藏、只剩名称时，整卡仍够触控目标 -->

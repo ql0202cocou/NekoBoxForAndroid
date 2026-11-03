@@ -42,10 +42,28 @@ enum class Screen(val dir: String) {
     DIALOG_INLINE_ERROR("dialog-inline-error"),
 }
 
-/** 主题：[id] 进文件名；[appTheme] 是写进 DataStore.appTheme 的编号（选色网格里的粉、白、黑） */
+/** 主题：[id] 进文件名；[appTheme] 是写进 DataStore.appTheme 的编号（选色网格里的全部 21 种颜色） */
 enum class ThemeVariant(val id: String, val appTheme: Int) {
     PINK("pink", Theme.PINK_SSR),
-    WHITE("white", Theme.GREY),
+    RED("red", Theme.RED),
+    PINK_MATERIAL("pink_material", Theme.PINK),
+    PURPLE("purple", Theme.PURPLE),
+    DEEP_PURPLE("deep_purple", Theme.DEEP_PURPLE),
+    INDIGO("indigo", Theme.INDIGO),
+    BLUE("blue", Theme.BLUE),
+    LIGHT_BLUE("light_blue", Theme.LIGHT_BLUE),
+    CYAN("cyan", Theme.CYAN),
+    TEAL("teal", Theme.TEAL),
+    GREEN("green", Theme.GREEN),
+    LIGHT_GREEN("light_green", Theme.LIGHT_GREEN),
+    LIME("lime", Theme.LIME),
+    YELLOW("yellow", Theme.YELLOW),
+    AMBER("amber", Theme.AMBER),
+    ORANGE("orange", Theme.ORANGE),
+    DEEP_ORANGE("deep_orange", Theme.DEEP_ORANGE),
+    BROWN("brown", Theme.BROWN),
+    GREY("grey", Theme.GREY),
+    BLUE_GREY("blue_grey", Theme.BLUE_GREY),
     BLACK("black", Theme.BLACK),
 }
 
@@ -70,11 +88,12 @@ data class Shot(
 }
 
 /**
- * 分层矩阵（78 张）。每个轴的每个取值都至少覆盖到；宽度 × 字号的四个组合在配置页和设置一级页上齐全。
- * - A 主题层：7 个画面 × 粉 / 白 / 黑 × 亮 / 暗，411dp、字号 1.0（42 张）
+ * 分层矩阵（114 张）。每个轴的每个取值都至少覆盖到；宽度 × 字号的四个组合在配置页和设置一级页上齐全。
+ * - A 主题层：7 个画面 × 粉 / 灰 / 黑 × 亮 / 暗，411dp、字号 1.0（42 张）
  * - B 布局层：除 [defaultOnlyScreens] 外的 19 个画面，粉亮，360dp、字号 1.3（最挤的一档，19 张）
  * - C 补角：配置页与设置一级页，粉亮，360dp / 1.0 与 411dp / 1.3（4 张）
  * - D 默认层：不在 A 层的 13 个画面，粉亮，411dp / 1.0（13 张）
+ * - E 完整色板：其余 18 种主题的配置页 × 亮 / 暗（36 张）
  */
 object ScreenshotMatrix {
 
@@ -86,8 +105,10 @@ object ScreenshotMatrix {
 
     private val cornerScreens = listOf(Screen.CONFIG_LIST, Screen.SETTINGS_HUB)
 
+    private val representativeThemes = listOf(ThemeVariant.PINK, ThemeVariant.GREY, ThemeVariant.BLACK)
+
     val themeLayer: List<Shot> = themeScreens.flatMap { screen ->
-        ThemeVariant.entries.flatMap { theme -> listOf(false, true).map { dark -> Shot(screen, theme, dark) } }
+        representativeThemes.flatMap { theme -> listOf(false, true).map { dark -> Shot(screen, theme, dark) } }
     }
 
     /** 只在 D 层留一张的画面：新增的单点状态，不需要每个布局档位都有 */
@@ -102,7 +123,11 @@ object ScreenshotMatrix {
 
     val defaultLayer: List<Shot> = (Screen.entries - themeScreens.toSet()).map { Shot(it) }
 
-    val shots: List<Shot> = themeLayer + layoutLayer + cornerLayer + defaultLayer
+    val paletteLayer: List<Shot> = (ThemeVariant.entries - representativeThemes.toSet()).flatMap { theme ->
+        listOf(false, true).map { dark -> Shot(Screen.CONFIG_LIST, theme, dark) }
+    }
+
+    val shots: List<Shot> = themeLayer + layoutLayer + cornerLayer + defaultLayer + paletteLayer
 
     val paths: Set<String> = shots.map { it.path }.toSet()
 

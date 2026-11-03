@@ -12,7 +12,7 @@ import io.nekohasekai.sagernet.ktx.getColour
 /**
  * 测速与日志的语义色。字面色（res/color 的 status_* / log_*，亮暗各一套）在显示前向主题的 primary 和谐化
  * （material 的 Blend.harmonize：色相向 primary 靠最多 15°，彩度与明度不变，同 FlClash 的做法）；
- * 白 / 黑主题是单色方案、primary 没有色相，不和谐化。
+ * 灰 / 黑主题是单色方案、primary 没有色相，不和谐化。
  * 延迟分三档：不超过 [SLOW_THRESHOLD_MS] 用可用色、更慢的用「慢」色、失败用错误色。
  */
 object StatusColors {
@@ -20,7 +20,7 @@ object StatusColors {
     /** 延迟超过这个值（ms）算「慢」 */
     const val SLOW_THRESHOLD_MS = 600
 
-    // 主题是否单色（白 / 黑）：看 primary 的饱和度，不读设置
+    // 主题是否单色（灰 / 黑）：看 primary 的饱和度，不读设置
     private fun Context.isMonochromeTheme(): Boolean {
         val hsl = FloatArray(3)
         ColorUtils.colorToHSL(getColorAttr(androidx.appcompat.R.attr.colorPrimary), hsl)

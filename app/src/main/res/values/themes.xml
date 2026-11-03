@@ -3,14 +3,15 @@
     <style name="Theme.SagerNet" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- 颜色角色由各主题的样式提供（themes_m3.xml，生成）。
              M3 主题默认 colorAccent = ?colorSecondary，开关、设置分类标题、AppCompat 的 Colored 按钮
-             都按它着色，这里改回 primary -->
-        <item name="colorAccent">?attr/colorPrimary</item>
+             都按它着色；secondary 取旧版强调色的可读色阶 -->
+        <item name="colorAccent">?attr/colorSecondary</item>
 
         <!-- 自定义颜色属性都指向 M3 角色，随所选主题与日夜切换 -->
         <item name="primaryOrTextPrimary">?attr/colorPrimary</item>
         <item name="fabColorBackground">?attr/colorPrimaryContainer</item>
+        <item name="fabColorForeground">?attr/colorOnPrimaryContainer</item>
         <item name="selectedColorPrimary">?attr/colorPrimary</item>
-        <!-- 顶部栏与连接按钮共用主题容器色，文字、图标和分组标签用对应前景色 -->
+        <!-- 顶部栏用旧版主色，文字、图标和分组标签用对应前景色；黑主题的连接按钮另取灰色 -->
         <item name="appBarColor">?attr/colorPrimaryContainer</item>
         <item name="appBarLayoutStyle">@style/Widget.SagerNet.AppBarLayout</item>
         <item name="toolbarStyle">@style/Widget.SagerNet.Toolbar</item>
@@ -21,7 +22,7 @@
         <item name="serviceBreathFade">300</item>
         <item name="actionBarTheme">@style/ThemeOverlay.SagerNet.Toolbar</item>
         <!-- 文字与控件默认色走主题角色（res/color/theme_text_*）：M3 主题把它们指向固定的基线中性色，
-             不随六套主题变；这里改成 onSurface / onSurfaceVariant 的状态列表，禁用态 alpha 照 M3 -->
+             不随所选主题变；这里改成 onSurface / onSurfaceVariant 的状态列表，禁用态 alpha 照 M3 -->
         <item name="android:textColorPrimary">@color/theme_text_primary</item>
         <item name="android:textColorSecondary">@color/theme_text_secondary</item>
         <item name="android:textColorTertiary">@color/theme_text_secondary</item>
@@ -51,14 +52,15 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <!-- 颜色角色由各主题的样式提供（themes_m3.xml，生成）。
              M3 主题默认 colorAccent = ?colorSecondary，开关、设置分类标题、AppCompat 的 Colored 按钮
-             都按它着色，这里改回 primary -->
-        <item name="colorAccent">?attr/colorPrimary</item>
+             都按它着色；secondary 取旧版强调色的可读色阶 -->
+        <item name="colorAccent">?attr/colorSecondary</item>
 
         <!-- 自定义颜色属性都指向 M3 角色，随所选主题与日夜切换 -->
         <item name="primaryOrTextPrimary">?attr/colorPrimary</item>
         <item name="fabColorBackground">?attr/colorPrimaryContainer</item>
+        <item name="fabColorForeground">?attr/colorOnPrimaryContainer</item>
         <item name="selectedColorPrimary">?attr/colorPrimary</item>
-        <!-- 顶部栏与连接按钮共用主题容器色，文字、图标和分组标签用对应前景色 -->
+        <!-- 顶部栏用旧版主色，文字、图标和分组标签用对应前景色；黑主题的连接按钮另取灰色 -->
         <item name="appBarColor">?attr/colorPrimaryContainer</item>
         <item name="appBarLayoutStyle">@style/Widget.SagerNet.AppBarLayout</item>
         <item name="toolbarStyle">@style/Widget.SagerNet.Toolbar</item>
@@ -69,7 +71,7 @@
         <item name="serviceBreathFade">300</item>
         <item name="actionBarTheme">@style/ThemeOverlay.SagerNet.Toolbar</item>
         <!-- 文字与控件默认色走主题角色（res/color/theme_text_*）：M3 主题把它们指向固定的基线中性色，
-             不随六套主题变；这里改成 onSurface / onSurfaceVariant 的状态列表，禁用态 alpha 照 M3 -->
+             不随所选主题变；这里改成 onSurface / onSurfaceVariant 的状态列表，禁用态 alpha 照 M3 -->
         <item name="android:textColorPrimary">@color/theme_text_primary</item>
         <item name="android:textColorSecondary">@color/theme_text_secondary</item>
         <item name="android:textColorTertiary">@color/theme_text_secondary</item>
@@ -94,6 +96,12 @@
 
         <item name="windowFixedHeightMajor" type="dimen">95%</item>
 
+    </style>
+
+    <!-- 更新进度用可读主色和中性轨道，避免旧版主色、强调色在部分主题下接近或重合 -->
+    <style name="Widget.SagerNet.UpdateProgressIndicator" parent="Widget.Material3.LinearProgressIndicator">
+        <item name="indicatorColor">?attr/selectedColorPrimary</item>
+        <item name="trackColor">?attr/colorSurfaceContainerHighest</item>
     </style>
 
     <!-- 滚动后仍保持主题底色，避免默认的表面色覆盖彩色顶部栏 -->
@@ -137,7 +145,7 @@
     </style>
 
     <!-- 设置类页面（androidx.preference）的主题：
-         开关换成 M3 MaterialSwitch；分类标题用 M3 的 titleSmall（颜色仍走库的 colorAccent，即 primary）；
+         开关换成 M3 MaterialSwitch；分类标题用 M3 的 titleSmall（颜色仍走库的 colorAccent，即旧版强调色的可读色阶）；
          分隔线换成 outlineVariant（库自带的是固定 #1f000000，暗色底上几乎看不见） -->
     <style name="PreferenceThemeOverlay.SagerNet" parent="PreferenceThemeOverlay">
         <item name="switchPreferenceCompatStyle">@style/Preference.SwitchPreferenceCompat.SagerNet</item>
@@ -163,22 +171,18 @@
              MaterialAlertDialogBuilder 相同的外观；后者在代码里另设背景，不受影响 -->
         <item name="android:windowBackground">@drawable/alert_dialog_background</item>
         <item name="android:colorBackground">?attr/colorSurfaceContainerHigh</item>
+        <!-- 对话框按钮沿用 M3 文字按钮的样式：文字色是 primary 的状态列表（禁用态 onSurface 38%）。
+             不要再套一层写固定的 android:textColor：单色会盖掉禁用态，之后「输入非法时禁用确定」就看不出按钮被禁用 -->
         <item name="buttonBarPositiveButtonStyle">
-            @style/Widget.SagerNet.Button.TextButton.Dialog
+            @style/Widget.Material3.Button.TextButton.Dialog
         </item>
         <item name="buttonBarNegativeButtonStyle">
-            @style/Widget.SagerNet.Button.TextButton.Dialog
+            @style/Widget.Material3.Button.TextButton.Dialog
         </item>
         <item name="buttonBarNeutralButtonStyle">
-            @style/Widget.SagerNet.Button.TextButton.Dialog.Flush
+            @style/Widget.Material3.Button.TextButton.Dialog.Flush
         </item>
     </style>
-
-    <!-- 对话框按钮沿用 M3 文字按钮的样式：文字色是 primary 的状态列表（禁用态 onSurface 38%）。
-         不要再写固定的 android:textColor：单色会盖掉禁用态，之后「输入非法时禁用确定」就看不出按钮被禁用 -->
-    <style name="Widget.SagerNet.Button.TextButton.Dialog" parent="Widget.Material3.Button.TextButton.Dialog" />
-
-    <style name="Widget.SagerNet.Button.TextButton.Dialog.Flush" parent="Widget.Material3.Button.TextButton.Dialog.Flush" />
 
     <style name="Theme.Start" parent="Theme.Material3.DayNight">
         <item name="android:navigationBarColor">@android:color/transparent</item>

@@ -1,0 +1,173 @@
+{
+  "source": "5768494d (1.4.2), app/src/main/res/values/themes.xml and colors.xml",
+  "themes": [
+    {
+      "id": 2,
+      "colorPrimary": "#FB7299",
+      "colorPrimaryDark": "#FB7299",
+      "colorAccent": "#FF4081",
+      "colorMaterial100": "#FF80AB",
+      "colorMaterial300": "#FB7299"
+    },
+    {
+      "id": 1,
+      "colorPrimary": "#F44336",
+      "colorPrimaryDark": "#D32F2F",
+      "colorAccent": "#FF5252",
+      "colorMaterial100": "#FFCDD2",
+      "colorMaterial300": "#E57373"
+    },
+    {
+      "id": 3,
+      "colorPrimary": "#E91E63",
+      "colorPrimaryDark": "#C2185B",
+      "colorAccent": "#FF4081",
+      "colorMaterial100": "#F8BBD0",
+      "colorMaterial300": "#F06292"
+    },
+    {
+      "id": 4,
+      "colorPrimary": "#9C27B0",
+      "colorPrimaryDark": "#7B1FA2",
+      "colorAccent": "#E040FB",
+      "colorMaterial100": "#E1BEE7",
+      "colorMaterial300": "#BA68C8"
+    },
+    {
+      "id": 5,
+      "colorPrimary": "#673AB7",
+      "colorPrimaryDark": "#512DA8",
+      "colorAccent": "#7C4DFF",
+      "colorMaterial100": "#D1C4E9",
+      "colorMaterial300": "#9575CD"
+    },
+    {
+      "id": 6,
+      "colorPrimary": "#3F51B5",
+      "colorPrimaryDark": "#303F9F",
+      "colorAccent": "#536DFE",
+      "colorMaterial100": "#C5CAE9",
+      "colorMaterial300": "#7986CB"
+    },
+    {
+      "id": 7,
+      "colorPrimary": "#2196F3",
+      "colorPrimaryDark": "#1976D2",
+      "colorAccent": "#448AFF",
+      "colorMaterial100": "#BBDEFB",
+      "colorMaterial300": "#64B5F6"
+    },
+    {
+      "id": 8,
+      "colorPrimary": "#03A9F4",
+      "colorPrimaryDark": "#0288D1",
+      "colorAccent": "#40C4FF",
+      "colorMaterial100": "#B3E5FC",
+      "colorMaterial300": "#4FC3F7"
+    },
+    {
+      "id": 9,
+      "colorPrimary": "#00BCD4",
+      "colorPrimaryDark": "#0097A7",
+      "colorAccent": "#18FFFF",
+      "colorMaterial100": "#B2EBF2",
+      "colorMaterial300": "#4DD0E1"
+    },
+    {
+      "id": 10,
+      "colorPrimary": "#009688",
+      "colorPrimaryDark": "#00796B",
+      "colorAccent": "#64FFDA",
+      "colorMaterial100": "#B2DFDB",
+      "colorMaterial300": "#4DB6AC"
+    },
+    {
+      "id": 11,
+      "colorPrimary": "#4CAF50",
+      "colorPrimaryDark": "#388E3C",
+      "colorAccent": "#69F0AE",
+      "colorMaterial100": "#C8E6C9",
+      "colorMaterial300": "#81C784"
+    },
+    {
+      "id": 12,
+      "colorPrimary": "#8BC34A",
+      "colorPrimaryDark": "#689F38",
+      "colorAccent": "#B2FF59",
+      "colorMaterial100": "#DCEDC8",
+      "colorMaterial300": "#AED581"
+    },
+    {
+      "id": 13,
+      "colorPrimary": "#CDDC39",
+      "colorPrimaryDark": "#AFB42B",
+      "colorAccent": "#EEFF41",
+      "colorMaterial100": "#F0F4C3",
+      "colorMaterial300": "#DCE775"
+    },
+    {
+      "id": 14,
+      "colorPrimary": "#FFEB3B",
+      "colorPrimaryDark": "#FBC02D",
+      "colorAccent": "#FFFF00",
+      "colorMaterial100": "#FFF9C4",
+      "colorMaterial300": "#FFF176"
+    },
+    {
+      "id": 15,
+      "colorPrimary": "#FFC107",
+      "colorPrimaryDark": "#FFA000",
+      "colorAccent": "#FFD740",
+      "colorMaterial100": "#FFECB3",
+      "colorMaterial300": "#FFD54F"
+    },
+    {
+      "id": 16,
+      "colorPrimary": "#FF9800",
+      "colorPrimaryDark": "#F57C00",
+      "colorAccent": "#FFAB40",
+      "colorMaterial100": "#FFE0B2",
+      "colorMaterial300": "#FFB74D"
+    },
+    {
+      "id": 17,
+      "colorPrimary": "#FF5722",
+      "colorPrimaryDark": "#E64A19",
+      "colorAccent": "#FF6E40",
+      "colorMaterial100": "#FFCCBC",
+      "colorMaterial300": "#FF8A65"
+    },
+    {
+      "id": 18,
+      "colorPrimary": "#795548",
+      "colorPrimaryDark": "#5D4037",
+      "colorAccent": "#BCAAA4",
+      "colorMaterial100": "#D7CCC8",
+      "colorMaterial300": "#A1887F"
+    },
+    {
+      "id": 19,
+      "colorPrimary": "#9E9E9E",
+      "colorPrimaryDark": "#616161",
+      "colorAccent": "#EEEEEE",
+      "colorMaterial100": "#F5F5F5",
+      "colorMaterial300": "#E0E0E0"
+    },
+    {
+      "id": 20,
+      "colorPrimary": "#607D8B",
+      "colorPrimaryDark": "#455A64",
+      "colorAccent": "#B0BEC5",
+      "colorMaterial100": "#CFD8DC",
+      "colorMaterial300": "#90A4AE"
+    },
+    {
+      "id": 21,
+      "colorPrimary": "#2B2B2B",
+      "colorPrimaryDark": "#2B2B2B",
+      "colorAccent": "#9E9E9E",
+      "colorMaterial100": "#2B2B2B",
+      "colorMaterial300": "#2B2B2B"
+    }
+  ]
+}

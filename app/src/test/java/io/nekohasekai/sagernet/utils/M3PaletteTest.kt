@@ -1,5 +1,8 @@
 package io.nekohasekai.sagernet.utils
 
+import com.google.gson.JsonParser
+import com.google.android.material.color.utilities.ColorUtils
+import com.google.android.material.color.utilities.Contrast
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -37,10 +40,10 @@ class M3PaletteTest {
     }
 
     // material 1.14.0 的 Theme.Material3.Light（Base.V14.Theme.Material3.Light）定义的全部 color* 属性，
-    // 除 colorPrimaryDark（M3 默认 ?attr/colorPrimary，不写）；升级 material 时对照库重新核对
+    // 加上复刻旧版时恢复的 colorPrimaryDark；升级 material 时对照库重新核对
     private val materialColorAttrs = setOf(
         "colorPrimary", "colorOnPrimary", "colorPrimaryContainer", "colorOnPrimaryContainer",
-        "colorPrimaryInverse", "colorPrimaryVariant",
+        "colorPrimaryInverse", "colorPrimaryVariant", "colorPrimaryDark",
         "colorSecondary", "colorOnSecondary", "colorSecondaryContainer", "colorOnSecondaryContainer",
         "colorSecondaryVariant",
         "colorTertiary", "colorOnTertiary", "colorTertiaryContainer", "colorOnTertiaryContainer",
@@ -75,33 +78,50 @@ class M3PaletteTest {
     }
 
     @Test
-    fun blackLightEqualsWhiteLight() {
-        val white = M3Palette.specs.first { it.name == "white" }
-        val black = M3Palette.specs.first { it.name == "black" }
-        assertEquals(M3Palette.colors(white, false), M3Palette.colors(black, false))
-        // 暗色套只有 surface 系不同
-        val diff = M3Palette.colors(white, true).zip(M3Palette.colors(black, true))
-            .filter { (w, b) -> w != b }.map { it.first.first }.toSet()
-        assertEquals(M3Palette.amoled.keys, diff)
+    fun legacyColorsMatch142InBothModes() {
+        val fixture = JsonParser.parseString(File("src/test/resources/legacy-theme-colors.json").readText())
+            .asJsonObject.getAsJsonArray("themes").associate { it.asJsonObject.get("id").asInt to it.asJsonObject }
+        assertEquals((1..21).toSet(), fixture.keys)
+        assertEquals(21, M3Palette.specs.size)
+        for ((id, spec) in Theme.KEPT.zip(M3Palette.specs)) for (dark in listOf(false, true)) {
+            val expected = fixture.getValue(id)
+            val colors = M3Palette.colors(spec, dark).toMap()
+            for ((role, field) in mapOf(
+                "primary_container" to "colorPrimary", "legacy_primary_dark" to "colorPrimaryDark",
+                "secondary_container" to "colorAccent", "primary_fixed" to "colorMaterial100",
+                "primary_fixed_dim" to "colorMaterial300",
+            )) assertEquals("编号 $id / $role / 暗色 $dark", expected.get(field).asString, M3Palette.hex(colors.getValue(role)))
+            assertEquals(if (dark) "#121212" else "#FFFFFF", M3Palette.hex(colors.getValue("background")))
+            assertEquals(if (dark) "#121212" else "#FFFFFF", M3Palette.hex(colors.getValue("surface")))
+            assertEquals(if (id == 21) expected.get("colorAccent").asString else expected.get("colorPrimary").asString,
+                M3Palette.hex(colors.getValue("fab_background")))
+        }
     }
 
+    @Suppress("RestrictedApi")
     @Test
-    fun contentKeepsSeedAsPrimaryContainer() {
-        for (spec in M3Palette.specs.filter { it.scheme == M3Palette.Scheme.CONTENT }) {
-            for (dark in listOf(false, true)) {
-                val container = M3Palette.colors(spec, dark).first { it.first == "primary_container" }.second
-                assertEquals("${spec.name} dark=$dark", M3Palette.hex(spec.seed), M3Palette.hex(container))
+    fun restoredThemesKeepReadableForegrounds() {
+        for (spec in M3Palette.specs) for (dark in listOf(false, true)) {
+            val colors = M3Palette.colors(spec, dark).toMap()
+            val pairs = listOf(
+                "primary_container" to "on_primary_container", "secondary_container" to "on_secondary_container",
+                "tertiary_container" to "on_tertiary_container", "fab_background" to "on_fab",
+                "surface" to "on_surface", "surface_container_high" to "on_surface_variant",
+                "surface_container_highest" to "primary", "surface_container_highest" to "secondary",
+            )
+            for ((background, foreground) in pairs) {
+                val ratio = Contrast.ratioOfTones(ColorUtils.lstarFromArgb(colors.getValue(background)),
+                    ColorUtils.lstarFromArgb(colors.getValue(foreground)))
+                assertTrue("${spec.name} 暗色 $dark / $foreground 在 $background 上的对比度 $ratio", ratio >= 4.5)
             }
         }
     }
 
-    // 「纯黑夜间」：surface 与 background 压到纯黑，容器阶梯保持递增，「黑」主题不生成
+    // 「纯黑夜间」：surface 与 background 压到纯黑，容器阶梯保持递增，所有主题都生成
     @Suppress("RestrictedApi")
     @Test
     fun pureBlackSurfacesAreBlackAndKeepLadder() {
-        assertTrue(M3Palette.pureBlackSpecs.none { it.name == "black" })
-        assertEquals(M3Palette.specs.size - 1, M3Palette.pureBlackSpecs.size)
-        for (spec in M3Palette.pureBlackSpecs) {
+        for (spec in M3Palette.specs) {
             val pure = M3Palette.pureBlackColors(spec).toMap()
             assertEquals(M3Palette.pureBlackRoles.toSet(), pure.keys)
             assertEquals("${spec.name} surface", "#000000", M3Palette.hex(pure.getValue("surface")))

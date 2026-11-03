@@ -15,6 +15,16 @@
     <string name="menu_about">About</string>
     <string name="theme">Theme</string>
     <string name="theme_pink">Pink</string>
+    <string name="theme_pink_material">Material pink</string>
+    <string name="theme_deep_purple">Deep purple</string>
+    <string name="theme_light_blue">Light blue</string>
+    <string name="theme_cyan">Cyan</string>
+    <string name="theme_light_green">Light green</string>
+    <string name="theme_lime">Lime</string>
+    <string name="theme_yellow">Yellow</string>
+    <string name="theme_deep_orange">Deep orange</string>
+    <string name="theme_grey">Grey</string>
+    <string name="theme_blue_grey">Blue grey</string>
     <string name="theme_red">Red</string>
     <string name="theme_orange">Orange</string>
     <string name="theme_amber">Amber</string>
@@ -24,7 +34,6 @@
     <string name="theme_indigo">Indigo</string>
     <string name="theme_purple">Purple</string>
     <string name="theme_brown">Brown</string>
-    <string name="theme_white">White</string>
     <string name="theme_black">Black</string>
     <string name="group_default">Ungrouped</string>
     <string name="quick_toggle">Toggle</string>

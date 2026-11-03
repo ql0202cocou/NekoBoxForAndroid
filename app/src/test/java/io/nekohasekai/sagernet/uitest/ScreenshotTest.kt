@@ -12,7 +12,6 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.EditorCache
-import io.nekohasekai.sagernet.ui.EditorActivity
 import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.ui.SettingsFragment
 import io.nekohasekai.sagernet.ui.SettingsPreferenceFragment
@@ -111,7 +110,7 @@ class ScreenshotTest(private val shot: Shot) : UiTestBase() {
     // 设备与主题要在启动页面之前定好：宽高与亮暗走 qualifiers，字号走 fontScale，颜色与夜间模式走 DataStore
     private fun applyDevice(shot: Shot) {
         val night = if (shot.dark) "night" else "notnight"
-        RuntimeEnvironment.setQualifiers("en-rUS-w${shot.widthDp}dp-h${shot.heightDp}dp-port-$night-xhdpi")
+        RuntimeEnvironment.setQualifiers("en-rUS-w${shot.widthDp}dp-h${shot.heightDp}dp-port-$night-hdpi")
         RuntimeEnvironment.setFontScale(shot.fontScale)
         DataStore.appTheme = shot.theme.appTheme
         DataStore.nightTheme = if (shot.dark) 1 else 2 // 1 = 始终暗色，2 = 始终亮色，见 Theme.getNightMode

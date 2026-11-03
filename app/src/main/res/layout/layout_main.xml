@@ -40,7 +40,7 @@
         app:backgroundTint="?fabColorBackground"
         app:pressedTranslationZ="6dp"
         app:srcCompat="@drawable/ic_service_idle"
-        app:tint="?attr/colorOnPrimaryContainer" />
+        app:tint="?attr/fabColorForeground" />
 
     <!-- 状态卡片：悬浮在 Dock 上方 8dp（底边距 2 + 64 + 8），只在已连接时出现 -->
     <io.nekohasekai.sagernet.widget.StatsBar

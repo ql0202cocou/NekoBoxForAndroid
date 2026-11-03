@@ -11,6 +11,7 @@ import android.view.ViewGroup
 import android.widget.GridLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
@@ -38,7 +39,7 @@ class ColorPickerPreference
 ) {
 
     init {
-        // 摘要显示当前主题名；存的可能是被归并的旧编号，nameRes 按代表取
+        // 摘要按原编号显示主题名，旧编号恢复为各自的配色
         setSummaryProvider { context.getString(Theme.nameRes(getPersistedInt(0))) }
     }
 
@@ -49,10 +50,8 @@ class ColorPickerPreference
 
         // holder 会被复用：每次绑定都重建右侧色点，不用一次性标记，否则重新绑定后不会再加回来
         widgetFrame.removeAllViews()
-        // 当前主题的种子色，与选色网格一致（M3 配色下 colorPrimary 不是种子色本身）
-        val seed = ContextCompat.getColor(
-            context, SWATCH_COLORS.getValue(Theme.canonicalTheme(getPersistedInt(0)))
-        )
+        // 当前主题的旧版主色，与选色网格一致
+        val seed = ContextCompat.getColor(context, Theme.swatchRes(getPersistedInt(0)))
         val factor = context.resources.displayMetrics.density
         widgetFrame.addView(ImageView(context).apply {
             layoutParams = ViewGroup.LayoutParams((48 * factor).roundToInt(), (48 * factor).roundToInt())
@@ -117,19 +116,19 @@ class ColorPickerPreference
 
         lateinit var dialog: AlertDialog
 
-        // 存的可能是被归并的旧编号，选中态落在它的代表上
+        // 原编号直接对应选中项，未知编号才回退到默认粉色
         val current = Theme.canonicalTheme(getPersistedInt(0))
 
         val grid = GridLayout(context).apply {
-            // 64dp 一格，360dp 宽的对话框一行放不下，排成 3 列 4 行（12 种主题）
+            // 每格 64dp，21 种主题排成 3 列 7 行；矮屏由外层滚动容器承接
             columnCount = 3
 
             for (themeId in Theme.KEPT) {
-                val color = ContextCompat.getColor(context, SWATCH_COLORS.getValue(themeId))
+                val color = ContextCompat.getColor(context, Theme.swatchRes(themeId))
                 val view = getSwatchView(color, themeId == current).apply {
                     contentDescription = context.getString(Theme.nameRes(themeId))
                     setOnClickListener {
-                        // 遵循 Preference 契约：监听器接受才持久化；写入的总是代表编号
+                        // 遵循 Preference 契约：监听器接受才持久化；写入原主题编号
                         if (callChangeListener(themeId)) {
                             persistInt(themeId)
                             // persistInt 不会通知刷新，摘要要跟着变
@@ -144,32 +143,13 @@ class ColorPickerPreference
         }
 
         dialog = MaterialAlertDialogBuilder(context).setTitle(title)
-            .setView(LinearLayout(context).apply {
-                gravity = Gravity.CENTER
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-                addView(grid)
+            .setView(ScrollView(context).apply {
+                addView(LinearLayout(context).apply {
+                    gravity = Gravity.CENTER
+                    addView(grid)
+                }, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
             })
             .setNegativeButton(android.R.string.cancel, null)
             .show()
-    }
-
-    companion object {
-        // 网格每格的种子色，按 Theme.KEPT 的顺序取
-        private val SWATCH_COLORS = mapOf(
-            Theme.PINK_SSR to R.color.color_pink_ssr,
-            Theme.RED to R.color.material_red_700,
-            Theme.ORANGE to R.color.material_orange_500,
-            Theme.AMBER to R.color.material_amber_500,
-            Theme.GREEN to R.color.material_green_500,
-            Theme.TEAL to R.color.material_teal_700,
-            Theme.BLUE to R.color.material_blue_500,
-            Theme.INDIGO to R.color.material_indigo_500,
-            Theme.PURPLE to R.color.material_purple_500,
-            Theme.BROWN to R.color.material_brown_500,
-            Theme.GREY to R.color.white,
-            Theme.BLACK to R.color.black,
-        )
     }
 }

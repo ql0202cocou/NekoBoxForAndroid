@@ -3,12 +3,13 @@ package io.nekohasekai.sagernet.utils
 import android.app.UiModeManager
 import android.content.Context
 import android.os.Build
+import androidx.annotation.ColorRes
 import androidx.annotation.StringRes
+import androidx.annotation.StyleRes
 import androidx.appcompat.app.AppCompatDelegate
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.ktx.app
 
 object Theme {
 
@@ -36,55 +37,116 @@ object Theme {
 
     private fun defaultTheme() = PINK_SSR
 
-    // 选色网格里的 12 种主题，顺序即显示顺序：粉（默认）、红、橙、琥珀、绿、青、蓝、靛蓝、紫、棕、白、黑
-    // （2026-10-26 从归并表里恢复了红、琥珀、青、靛蓝、紫、棕六种）
-    val KEPT = listOf(PINK_SSR, RED, ORANGE, AMBER, GREEN, TEAL, BLUE, INDIGO, PURPLE, BROWN, GREY, BLACK)
-
-    // 已并入代表的旧编号 → 代表编号。归并只在读取时映射，不改写存储的编号。
-    // 以后把某种颜色加回来，要改这些地方：
-    //   1. 从这里删掉那一行，把它加进 KEPT（顺序即选色网格的显示顺序）；
-    //   2. 在下面 getTheme / getDialogTheme 两个 when 里补分支；
-    //   3. 在 M3Palette.specs（测试代码）加一条种子，彩色主题同时加进 seedColorNames，
-    //      再按 M3PaletteTest 的说明重新生成 colors_m3_*.xml 与 themes_m3.xml；
-    //   4. 在 ColorPickerPreference.SWATCH_COLORS 补上它的色块颜色；
-    //   5. 改 ThemeMergeTest 手写的归并表（expected）与样式表（styles），以及其中 KEPT 的顺序。
-    // 原来选过它的用户会恢复为该颜色重新生成的 M3 配色（不是 M2 时代的原色）
-    // 代表取色相最近的保留色：黄 → 琥珀、深紫 → 紫、青色 → 青（恢复六种颜色时改的三处）
-    val MERGED: Map<Int, Int> = mapOf(
-        PINK to PINK_SSR,
-        YELLOW to AMBER,
-        DEEP_ORANGE to ORANGE,
-        DEEP_PURPLE to PURPLE,
-        LIGHT_BLUE to BLUE,
-        CYAN to TEAL,
-        BLUE_GREY to BLUE,
-        LIGHT_GREEN to GREEN,
-        LIME to GREEN,
+    // 一个编号对应的全部资源：主题样式、对话框样式、纯黑覆盖样式、名称、取色网格的种子色
+    private class Styles(
+        @StyleRes val theme: Int,
+        @StyleRes val dialog: Int,
+        @StyleRes val pureBlack: Int,
+        @StringRes val name: Int,
+        @ColorRes val swatch: Int,
     )
 
-    // 存储的编号 → 实际使用的主题编号：KEPT 里的取自身，MERGED 里的取代表，
-    // 其它（含从未写过的 0、负数和未知编号）取默认主题
-    fun canonicalTheme(theme: Int): Int = when (theme) {
-        in KEPT -> theme
-        else -> MERGED[theme] ?: defaultTheme()
-    }
+    // 恢复 1.4.2 的全部主题编号，一张表：默认粉色在最前，其余按旧编号排列（即 KEPT 的顺序）。
+    // 读取时不改写用户保存的编号；补颜色只改这里（样式与颜色资源由 M3Palette 生成）
+    private val STYLES: Map<Int, Styles> = linkedMapOf(
+        PINK_SSR to Styles(
+            R.style.Theme_SagerNet_Pink_SSR, R.style.Theme_SagerNet_Dialog_Pink_SSR,
+            R.style.ThemeOverlay_SagerNet_PureBlack_Pink_SSR, R.string.theme_pink, R.color.color_pink_ssr,
+        ),
+        RED to Styles(
+            R.style.Theme_SagerNet_Red, R.style.Theme_SagerNet_Dialog_Red,
+            R.style.ThemeOverlay_SagerNet_PureBlack_Red, R.string.theme_red, R.color.material_red_500,
+        ),
+        PINK to Styles(
+            R.style.Theme_SagerNet_Pink, R.style.Theme_SagerNet_Dialog_Pink,
+            R.style.ThemeOverlay_SagerNet_PureBlack_Pink, R.string.theme_pink_material, R.color.material_pink_500,
+        ),
+        PURPLE to Styles(
+            R.style.Theme_SagerNet_Purple, R.style.Theme_SagerNet_Dialog_Purple,
+            R.style.ThemeOverlay_SagerNet_PureBlack_Purple, R.string.theme_purple, R.color.material_purple_500,
+        ),
+        DEEP_PURPLE to Styles(
+            R.style.Theme_SagerNet_DeepPurple, R.style.Theme_SagerNet_Dialog_DeepPurple,
+            R.style.ThemeOverlay_SagerNet_PureBlack_DeepPurple, R.string.theme_deep_purple, R.color.material_deep_purple_500,
+        ),
+        INDIGO to Styles(
+            R.style.Theme_SagerNet_Indigo, R.style.Theme_SagerNet_Dialog_Indigo,
+            R.style.ThemeOverlay_SagerNet_PureBlack_Indigo, R.string.theme_indigo, R.color.material_indigo_500,
+        ),
+        BLUE to Styles(
+            R.style.Theme_SagerNet_Blue, R.style.Theme_SagerNet_Dialog_Blue,
+            R.style.ThemeOverlay_SagerNet_PureBlack_Blue, R.string.theme_blue, R.color.material_blue_500,
+        ),
+        LIGHT_BLUE to Styles(
+            R.style.Theme_SagerNet_LightBlue, R.style.Theme_SagerNet_Dialog_LightBlue,
+            R.style.ThemeOverlay_SagerNet_PureBlack_LightBlue, R.string.theme_light_blue, R.color.material_light_blue_500,
+        ),
+        CYAN to Styles(
+            R.style.Theme_SagerNet_Cyan, R.style.Theme_SagerNet_Dialog_Cyan,
+            R.style.ThemeOverlay_SagerNet_PureBlack_Cyan, R.string.theme_cyan, R.color.material_cyan_500,
+        ),
+        TEAL to Styles(
+            R.style.Theme_SagerNet_Teal, R.style.Theme_SagerNet_Dialog_Teal,
+            R.style.ThemeOverlay_SagerNet_PureBlack_Teal, R.string.theme_teal, R.color.material_teal_500,
+        ),
+        GREEN to Styles(
+            R.style.Theme_SagerNet_Green, R.style.Theme_SagerNet_Dialog_Green,
+            R.style.ThemeOverlay_SagerNet_PureBlack_Green, R.string.theme_green, R.color.material_green_500,
+        ),
+        LIGHT_GREEN to Styles(
+            R.style.Theme_SagerNet_LightGreen, R.style.Theme_SagerNet_Dialog_LightGreen,
+            R.style.ThemeOverlay_SagerNet_PureBlack_LightGreen, R.string.theme_light_green, R.color.material_light_green_500,
+        ),
+        LIME to Styles(
+            R.style.Theme_SagerNet_Lime, R.style.Theme_SagerNet_Dialog_Lime,
+            R.style.ThemeOverlay_SagerNet_PureBlack_Lime, R.string.theme_lime, R.color.material_lime_500,
+        ),
+        YELLOW to Styles(
+            R.style.Theme_SagerNet_Yellow, R.style.Theme_SagerNet_Dialog_Yellow,
+            R.style.ThemeOverlay_SagerNet_PureBlack_Yellow, R.string.theme_yellow, R.color.material_yellow_500,
+        ),
+        AMBER to Styles(
+            R.style.Theme_SagerNet_Amber, R.style.Theme_SagerNet_Dialog_Amber,
+            R.style.ThemeOverlay_SagerNet_PureBlack_Amber, R.string.theme_amber, R.color.material_amber_500,
+        ),
+        ORANGE to Styles(
+            R.style.Theme_SagerNet_Orange, R.style.Theme_SagerNet_Dialog_Orange,
+            R.style.ThemeOverlay_SagerNet_PureBlack_Orange, R.string.theme_orange, R.color.material_orange_500,
+        ),
+        DEEP_ORANGE to Styles(
+            R.style.Theme_SagerNet_DeepOrange, R.style.Theme_SagerNet_Dialog_DeepOrange,
+            R.style.ThemeOverlay_SagerNet_PureBlack_DeepOrange, R.string.theme_deep_orange, R.color.material_deep_orange_500,
+        ),
+        BROWN to Styles(
+            R.style.Theme_SagerNet_Brown, R.style.Theme_SagerNet_Dialog_Brown,
+            R.style.ThemeOverlay_SagerNet_PureBlack_Brown, R.string.theme_brown, R.color.material_brown_500,
+        ),
+        GREY to Styles(
+            R.style.Theme_SagerNet_Grey, R.style.Theme_SagerNet_Dialog_Grey,
+            R.style.ThemeOverlay_SagerNet_PureBlack_Grey, R.string.theme_grey, R.color.material_grey_500,
+        ),
+        BLUE_GREY to Styles(
+            R.style.Theme_SagerNet_BlueGrey, R.style.Theme_SagerNet_Dialog_BlueGrey,
+            R.style.ThemeOverlay_SagerNet_PureBlack_BlueGrey, R.string.theme_blue_grey, R.color.material_blue_grey_500,
+        ),
+        BLACK to Styles(
+            R.style.Theme_SagerNet_Black, R.style.Theme_SagerNet_Dialog_Black,
+            R.style.ThemeOverlay_SagerNet_PureBlack_Black, R.string.theme_black, R.color.color_ng_black_primary,
+        ),
+    )
 
-    // 选色网格与设置行摘要里显示的主题名称：按归并后的代表取，只认 KEPT 里的十二个
+    val KEPT: List<Int> = STYLES.keys.toList()
+
+    fun canonicalTheme(theme: Int): Int = if (theme in STYLES) theme else defaultTheme()
+
+    private fun styles(theme: Int): Styles = STYLES.getValue(canonicalTheme(theme))
+
     @StringRes
-    fun nameRes(themeId: Int): Int = when (canonicalTheme(themeId)) {
-        RED -> R.string.theme_red
-        ORANGE -> R.string.theme_orange
-        AMBER -> R.string.theme_amber
-        GREEN -> R.string.theme_green
-        TEAL -> R.string.theme_teal
-        BLUE -> R.string.theme_blue
-        INDIGO -> R.string.theme_indigo
-        PURPLE -> R.string.theme_purple
-        BROWN -> R.string.theme_brown
-        GREY -> R.string.theme_white
-        BLACK -> R.string.theme_black
-        else -> R.string.theme_pink
-    }
+    fun nameRes(themeId: Int): Int = styles(themeId).name
+
+    /** 取色网格里这个主题的种子色 */
+    @ColorRes
+    fun swatchRes(themeId: Int): Int = styles(themeId).swatch
 
     fun apply(context: Context) {
         context.setTheme(getTheme())
@@ -96,70 +158,18 @@ object Theme {
         applyPureBlack(context)
     }
 
-    // 「纯黑夜间」：开着时在主题上再套一层只改 surface 系的覆盖样式（themes_m3.xml，生成）。覆盖样式的
-    // 白天取值与主题本身相同，所以不必判断当前是否夜间；「黑」主题本来就是纯黑，没有覆盖
+    // 旧版的黑主题也使用普通夜间背景；所有主题都通过同一个开关选择纯黑背景。
     private fun applyPureBlack(context: Context) {
-        if (!DataStore.pureBlack) return
-        val overlay = pureBlackOverlay(DataStore.appTheme) ?: return
-        context.theme.applyStyle(overlay, true)
+        if (DataStore.pureBlack) context.theme.applyStyle(styles(DataStore.appTheme).pureBlack, true)
     }
 
-    private fun pureBlackOverlay(theme: Int): Int? = when (canonicalTheme(theme)) {
-        RED -> R.style.ThemeOverlay_SagerNet_PureBlack_Red
-        ORANGE -> R.style.ThemeOverlay_SagerNet_PureBlack_Orange
-        AMBER -> R.style.ThemeOverlay_SagerNet_PureBlack_Amber
-        GREEN -> R.style.ThemeOverlay_SagerNet_PureBlack_Green
-        TEAL -> R.style.ThemeOverlay_SagerNet_PureBlack_Teal
-        BLUE -> R.style.ThemeOverlay_SagerNet_PureBlack_Blue
-        INDIGO -> R.style.ThemeOverlay_SagerNet_PureBlack_Indigo
-        PURPLE -> R.style.ThemeOverlay_SagerNet_PureBlack_Purple
-        BROWN -> R.style.ThemeOverlay_SagerNet_PureBlack_Brown
-        GREY -> R.style.ThemeOverlay_SagerNet_PureBlack_Grey
-        BLACK -> null
-        else -> R.style.ThemeOverlay_SagerNet_PureBlack_Pink_SSR
-    }
+    fun getTheme(): Int = getTheme(DataStore.appTheme)
 
-    fun getTheme(): Int {
-        return getTheme(DataStore.appTheme)
-    }
+    fun getDialogTheme(): Int = getDialogTheme(DataStore.appTheme)
 
-    fun getDialogTheme(): Int {
-        return getDialogTheme(DataStore.appTheme)
-    }
+    fun getTheme(theme: Int): Int = styles(theme).theme
 
-    fun getTheme(theme: Int): Int {
-        return when (canonicalTheme(theme)) {
-            RED -> R.style.Theme_SagerNet_Red
-            ORANGE -> R.style.Theme_SagerNet_Orange
-            AMBER -> R.style.Theme_SagerNet_Amber
-            GREEN -> R.style.Theme_SagerNet_Green
-            TEAL -> R.style.Theme_SagerNet_Teal
-            BLUE -> R.style.Theme_SagerNet_Blue
-            INDIGO -> R.style.Theme_SagerNet_Indigo
-            PURPLE -> R.style.Theme_SagerNet_Purple
-            BROWN -> R.style.Theme_SagerNet_Brown
-            GREY -> R.style.Theme_SagerNet_Grey
-            BLACK -> R.style.Theme_SagerNet_Black
-            else -> R.style.Theme_SagerNet_Pink_SSR
-        }
-    }
-
-    fun getDialogTheme(theme: Int): Int {
-        return when (canonicalTheme(theme)) {
-            RED -> R.style.Theme_SagerNet_Dialog_Red
-            ORANGE -> R.style.Theme_SagerNet_Dialog_Orange
-            AMBER -> R.style.Theme_SagerNet_Dialog_Amber
-            GREEN -> R.style.Theme_SagerNet_Dialog_Green
-            TEAL -> R.style.Theme_SagerNet_Dialog_Teal
-            BLUE -> R.style.Theme_SagerNet_Dialog_Blue
-            INDIGO -> R.style.Theme_SagerNet_Dialog_Indigo
-            PURPLE -> R.style.Theme_SagerNet_Dialog_Purple
-            BROWN -> R.style.Theme_SagerNet_Dialog_Brown
-            GREY -> R.style.Theme_SagerNet_Dialog_Grey
-            BLACK -> R.style.Theme_SagerNet_Dialog_Black
-            else -> R.style.Theme_SagerNet_Dialog_Pink_SSR
-        }
-    }
+    fun getDialogTheme(theme: Int): Int = styles(theme).dialog
 
     var currentNightMode = -1
     fun getNightMode(): Int {
