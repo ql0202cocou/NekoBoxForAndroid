@@ -12,6 +12,7 @@ import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
+import io.nekohasekai.sagernet.fmt.beanForType
 import io.nekohasekai.sagernet.fmt.displayType
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.moveUserOrder
@@ -33,6 +34,12 @@ import kotlinx.coroutines.launch
  * 列表与状态只在主线程读写。监听回调跑在调用方线程，读库在那里做，改列表一律切回主线程。
  * 界面刷新由当前的 [Host]（页面里的适配器）完成；没有 [Host]（旋转的空档）时只改列表，
  * 新适配器建好时直接取现成的列表。ViewModel 不碰 Activity 与 View。
+ *
+ * 搜索键：缓存里每一项是 [CachedProfile]，节点实例与它的搜索键（[searchKey]：名称、类型、地址三段逐字符折叠后拼起来）
+ * 放在同一个对象里，一起放进、一起替换、一起删掉，不会出现「实例换了、键还是旧的」。键在节点进缓存时算一次
+ * （整组重读、新增、单行更新在回调线程算好再回主线程，撤销插回在主线程算），之后每次按键只是每个节点一次
+ * `contains`、不再分配。实时流量只改实例上的 tx/rx，与搜索无关，键不用跟着变。取不到 bean 的坏行不缓存键，
+ * 匹配时照旧现算（与原先一样在 displayName 处抛）。
  */
 class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel<ProfileListViewModel.Host>(),
     ProfileManager.Listener,
@@ -43,8 +50,9 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
         /** 整表换成 [list]（就是 [items] 本身），由 DiffUtil 发通知 */
         fun submit(list: ArrayList<ProxyEntity>)
 
-        fun notifyInserted(position: Int)
-        fun notifyRemoved(position: Int)
+        /** 从 [position] 起插入 / 删除了连续的 [count] 行 */
+        fun notifyInserted(position: Int, count: Int = 1)
+        fun notifyRemoved(position: Int, count: Int = 1)
         fun notifyMoved(from: Int, to: Int)
 
         /** 第 [position] 行的内容变了但差量看不出，就地通知 */
@@ -53,7 +61,7 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
         /** 实时流量只重画流量段，不重绑整行 */
         fun bindTraffic(data: TrafficData)
 
-        /** 整表提交之后：差量可能一条通知也不发，载入完成与空状态仍要确认 */
+        /** 整表提交或搜索过滤之后：可能一条通知也不发，载入完成与空状态仍要确认 */
         fun onListSubmitted()
 
         /** 首次载入后的定位：滚到 [index] 行 */
@@ -80,15 +88,16 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
     private var selectedItemId: Long? = null
 
     // 可见列表的可变工作副本，同时就是 differ 持有的那一个实例。
-    // 整表变化（整组重读、搜索过滤）一律经 submitItems 提交一份新副本，由 DiffUtil 发通知；
-    // 只有主线程同步的几条路径就地改它并紧跟精确的 notify：拖动换位、删除、撤销插回、新增追加、
-    // 单行更新（ItemTouchHelper 要求当场可见，撤销下标只对删除当时的列表有效）。主线程之外不碰
+    // 整组重读经 submitItems 提交一份新副本，由 DiffUtil 发通知；
+    // 其余路径都在主线程就地改它并紧跟精确的 notify：搜索过滤（applyFilter，沿完整顺序走一遍，不做 Myers 差量）、
+    // 拖动换位、删除、撤销插回、新增追加、单行更新（ItemTouchHelper 要求当场可见，撤销下标只对删除当时的列表有效）。
+    // 主线程之外不碰
     var items = ArrayList<ProxyEntity>()
         private set
 
-    // 缓存里每个节点的当前实例（含被搜索过滤掉的）；items 里的项一定取自这里，两者始终在主线程
+    // 缓存里每个节点的当前实例与搜索键（含被搜索过滤掉的，见类注释）；items 里的项一定取自这里，两者始终在主线程
     // 同一个 post 里成对更新。取不到说明是陈旧回调（latestEntity 返回 null），而不是在主线程同步读库兜底
-    val configurationList = HashMap<Long, ProxyEntity>()
+    private val configurationList = HashMap<Long, CachedProfile>()
 
     // every id in group order, unaffected by filter(): the HashMap's key
     // order used to scramble search results
@@ -102,7 +111,13 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
 
     /** 当前搜索词（小写），只在主线程读写。整组重读回到主线程时按它重新过滤 */
     var query = ""
-        private set
+        private set(value) {
+            field = value
+            queryKey = searchFold(value)
+        }
+
+    // query 按 searchFold 折叠后的样子，与缓存里的搜索键直接比较
+    private var queryKey = ""
 
     /**
      * 列表是否已经载入过（含空分组）。为假时页面不显示空状态占位，免得刚建好的分组页闪一下；
@@ -191,20 +206,16 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
     fun indexOfId(profileId: Long) = items.indexOfFirst { it.id == profileId }
 
     /** 缓存里某节点的最新实例：holder 的动作（分享、编辑、删除）取它，不用绑定那一刻的旧实例 */
-    fun latestEntity(profileId: Long): ProxyEntity? = configurationList[profileId]
+    fun latestEntity(profileId: Long): ProxyEntity? = configurationList[profileId]?.entity
 
     private fun getItemAt(index: Int) = items.getOrNull(index)
 
-    private fun visibleItems(): List<ProxyEntity> {
-        val all = allProfileIds.mapNotNull { configurationList[it] }
-        if (query.isEmpty()) return all
-        return all.filter { matchesQuery(it) }
-    }
+    private fun visibleItems(): List<ProxyEntity> =
+        allProfileIds.mapNotNull { id -> configurationList[id]?.takeIf { matchesQuery(it) }?.entity }
 
-    private fun matchesQuery(profile: ProxyEntity) = query.isEmpty() ||
-            profile.displayName().contains(query, ignoreCase = true) ||
-            profile.displayType().contains(query, ignoreCase = true) ||
-            profile.displayAddress().contains(query, ignoreCase = true)
+    // 与原先对名称、类型、地址三者各做一次 contains(query, ignoreCase = true) 结果相同（见 searchFold）
+    private fun matchesQuery(cached: CachedProfile) = query.isEmpty() ||
+            (cached.searchKey ?: cached.entity.searchKey()).contains(queryKey)
 
     // ------------------------------------------------------------- 搜索
 
@@ -221,10 +232,73 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
         // 与 onAdd / reloadProfiles 一样先提交撤销窗口：undo 按删除时的可见位置
         // 插回，过滤后列表变短就会越界
         mutateList {
-            submitItems(visibleItems())
+            applyFilter()
         }
-        // 前后两次结果一样时差量不发任何通知，空状态（「没有匹配的节点」）仍要按新搜索词刷新
+        // 前后两次结果一样时不发任何通知，空状态（「没有匹配的节点」）仍要按新搜索词刷新
         host?.onListSubmitted()
+    }
+
+    /**
+     * 按当前搜索词把 [items] 就地改成 [allProfileIds] 的新子序列：沿完整顺序走一遍（O(n)，不做 Myers 差量），
+     * 只对离开 / 进入可见列表的行发通知，相邻的合并成一个范围；留下的行一条通知也没有。
+     * 与 DiffUtil 一样先把列表改成最终结果再发通知，通知的位置按「前面已处理、后面未处理」的中间状态逐条给出。
+     * 可见列表若不是 allProfileIds 的子序列（不变式被破坏，按说不会发生）就退回整表差量
+     */
+    private fun applyFilter() {
+        val old = items
+        // 每个 id 一格：SHOWN_BEFORE / SHOWN_AFTER 两位，都不在的是 0
+        val marks = ByteArray(allProfileIds.size)
+        val next = ArrayList<ProxyEntity>(allProfileIds.size)
+        var oldPos = 0
+        for (i in allProfileIds.indices) {
+            val id = allProfileIds[i]
+            val cached = configurationList[id] ?: continue
+            var mark = 0
+            if (oldPos < old.size && old[oldPos].id == id) {
+                oldPos++
+                mark = SHOWN_BEFORE
+            }
+            if (matchesQuery(cached)) {
+                next.add(cached.entity)
+                mark = mark or SHOWN_AFTER
+            }
+            marks[i] = mark.toByte()
+        }
+        if (oldPos != old.size) {
+            submitItems(next)
+            return
+        }
+        old.clear()
+        old.addAll(next)
+        val host = host ?: return
+        // pos：下一行在中间状态列表里的位置。删除不推进它，插入与留下推进
+        var pos = 0
+        var runMark = 0
+        var runStart = 0
+        var runCount = 0
+        for (b in marks) {
+            val mark = b.toInt()
+            if (mark == 0) continue
+            if (runCount > 0 && mark != runMark) {
+                notifyRun(host, runMark, runStart, runCount)
+                runCount = 0
+            }
+            if (mark == SHOWN_BEFORE or SHOWN_AFTER) {
+                pos++
+                continue
+            }
+            if (runCount == 0) {
+                runMark = mark
+                runStart = pos
+            }
+            runCount++
+            if (mark == SHOWN_AFTER) pos++
+        }
+        if (runCount > 0) notifyRun(host, runMark, runStart, runCount)
+    }
+
+    private fun notifyRun(host: Host, mark: Int, start: Int, count: Int) {
+        if (mark == SHOWN_AFTER) host.notifyInserted(start, count) else host.notifyRemoved(start, count)
     }
 
     // ------------------------------------------------------------- 拖动排序
@@ -278,7 +352,7 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
             postToMain {
                 // 点撤销到这个 post 执行之间若有整组重读，它已经把这一行读回来了（库里还没删），不能再插一次
                 if (item.id in allProfileIds) return@postToMain
-                configurationList[item.id] = item
+                configurationList[item.id] = CachedProfile.of(item)
                 // 下标夹在当前范围内：窗口期间列表被改短也不越界
                 val at = items.insertClamped(index, item)
                 // back into the search source, anchored on the row it was
@@ -308,16 +382,18 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
     // 新增：就地追加到末尾。导入一批节点会逐个来到这里，每个都做一次整表差量是 O(n²)
     override suspend fun onAdd(profile: ProxyEntity) {
         if (profile.groupId != groupId) return
+        // 搜索键在回调线程算好
+        val cached = CachedProfile.of(profile)
 
         postToMain {
             mutateList {
                 // 并发的整组重读可能已经把这一行读进来了（先落库、重读先到、onAdd 后到）：
                 // 重读的数据不旧于这次通知，按 id 去重，在就不再追加
                 if (profile.id in allProfileIds) return@mutateList
-                configurationList[profile.id] = profile
+                configurationList[profile.id] = cached
                 allProfileIds.add(profile.id)
                 // 搜索中只把命中的新节点放进可见列表，与 visibleItems() 的过滤一致
-                if (!matchesQuery(profile)) return@mutateList
+                if (!matchesQuery(cached)) return@mutateList
                 val pos = items.size
                 items.add(profile)
                 host?.notifyInserted(pos)
@@ -329,6 +405,8 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
     // （选中态不在卡片字段里），差量看不出，所以走定点通知而不是整表提交
     override suspend fun onUpdated(profile: ProxyEntity) {
         if (profile.groupId != groupId) return
+        // 搜索键在回调线程算好
+        val cached = CachedProfile.of(profile)
         postToMain {
             // compute the index here: this callback runs on a background
             // dispatcher while the main thread mutates the list
@@ -337,7 +415,7 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
             mutateList {
                 // 库里的 tx/rx 可能落后于实时流量，重绑时 bind 会优先取
                 // ProfileRepository.liveTraffic
-                configurationList[profile.id] = profile
+                configurationList[profile.id] = cached
                 items[index] = profile
                 host?.notifyChanged(index, PAYLOAD_UPDATED)
             }
@@ -350,7 +428,7 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
                 // 缓存的实体跟着实时流量走：停止时 liveTraffic 被清空，之后重绑的行
                 // 回落到实体上的值，不能是列表加载时的旧值。在主线程改：后台回调期间
                 // 主线程也在改这张表
-                configurationList[data.id]?.apply {
+                configurationList[data.id]?.entity?.apply {
                     rx = data.rx
                     tx = data.tx
                 } ?: return@postToMain
@@ -417,6 +495,8 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
         }
 
         val newProfileIds = newProfiles.map { it.id }
+        // 搜索键在这里（后台线程）算好，主线程只放进缓存
+        val newCached = newProfiles.map { CachedProfile.of(it) }
 
         val selectedProxy = if (selected) {
             selectedItemId ?: DataStore.selectedProxy
@@ -433,7 +513,7 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
             // background dispatcher while the main thread reads them
             mutateList {
                 configurationList.clear()
-                configurationList.putAll(newProfiles.associateBy { it.id })
+                newCached.associateByTo(configurationList) { it.entity.id }
                 allProfileIds.clear()
                 allProfileIds.addAll(newProfileIds)
                 submitItems(visibleItems())
@@ -472,5 +552,40 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
 
         // 节点被更新（测试结果、编辑等）：就地重绑，不触发整卡的变更动画
         const val PAYLOAD_UPDATED = "updated"
+
+        // applyFilter 里每个 id 的标记位：过滤前可见、过滤后可见
+        private const val SHOWN_BEFORE = 1
+        private const val SHOWN_AFTER = 2
+    }
+
+    /** 缓存的一项：节点实例与按它算出的搜索键，成对放进、成对替换（见类注释） */
+    private class CachedProfile(val entity: ProxyEntity, val searchKey: String?) {
+        companion object {
+            // 取不到 bean 的坏行不缓存键（null），匹配时照旧现算
+            fun of(profile: ProxyEntity) =
+                CachedProfile(profile, if (profile.beanForType() == null) null else profile.searchKey())
+        }
     }
 }
+
+// 折叠后的字符串里不会出现大写的 A（它自己折成 a，也没有别的字符折成它），搜索词同样折叠过、也不含它：
+// 用它把三段隔开，命中不会跨段
+private const val SEARCH_KEY_SEPARATOR = 'A'
+
+/**
+ * 逐字符折叠成 toLowerCase(toUpperCase(c))。String.regionMatches(ignoreCase = true) 判两个字符相等的条件
+ * 就是折叠后相等，所以「折叠后的文本 contains 折叠后的搜索词」与「文本 contains(搜索词, ignoreCase = true)」结果相同；
+ * 直接用 lowercase() 则不同（如 ſ 与 s、词尾的 ς 与 σ 原先算相等）。长度不变，逐字符对应
+ */
+internal fun searchFold(text: String): String {
+    val out = CharArray(text.length)
+    for (i in text.indices) out[i] = text[i].uppercaseChar().lowercaseChar()
+    return String(out)
+}
+
+/** 名称、类型、地址三段的搜索键；分开成一个函数是为了让测试能对照原先的三次 contains */
+internal fun searchKey(name: String, type: String, address: String): String =
+    searchFold(name) + SEARCH_KEY_SEPARATOR + searchFold(type) + SEARCH_KEY_SEPARATOR + searchFold(address)
+
+// 取不到 bean 时与原先一样在 displayName 处抛
+private fun ProxyEntity.searchKey(): String = searchKey(displayName(), displayType(), displayAddress())

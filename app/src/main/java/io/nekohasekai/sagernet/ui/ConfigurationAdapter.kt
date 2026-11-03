@@ -71,8 +71,8 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
     private val model = groupFragment.profileModel
 
     // 可见列表的可变工作副本（ViewModel 持有），同时就是 differ 持有的那一个实例（ListAdapter 的 currentList 是它的只读视图）。
-    // 整表变化（整组重读、搜索过滤）一律由 ViewModel 经 submit 提交一份新副本，由 DiffUtil 发通知；
-    // 只有主线程同步的几条路径就地改它并紧跟精确的 notify：拖动换位、删除、撤销插回、新增追加、
+    // 整组重读由 ViewModel 经 submit 提交一份新副本，由 DiffUtil 发通知；
+    // 其余路径都在主线程就地改它并紧跟精确的 notify：搜索过滤、拖动换位、删除、撤销插回、新增追加、
     // 单行更新（ItemTouchHelper 要求当场可见，撤销下标只对删除当时的列表有效）。主线程之外不碰
     val items: ArrayList<ProxyEntity> get() = model.items
 
@@ -98,9 +98,9 @@ class ConfigurationAdapter(private val groupFragment: ProfileListFragment) :
 
     override fun submit(list: ArrayList<ProxyEntity>) = submitList(list)
 
-    override fun notifyInserted(position: Int) = notifyItemInserted(position)
+    override fun notifyInserted(position: Int, count: Int) = notifyItemRangeInserted(position, count)
 
-    override fun notifyRemoved(position: Int) = notifyItemRemoved(position)
+    override fun notifyRemoved(position: Int, count: Int) = notifyItemRangeRemoved(position, count)
 
     override fun notifyMoved(from: Int, to: Int) = notifyItemMoved(from, to)
 

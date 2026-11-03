@@ -94,7 +94,7 @@ class ProfileListFragment : Fragment() {
     }
 
     /**
-     * 适配器每次整表提交（整组重读、搜索过滤）之后调用。差量在前后两份列表一样时不发任何通知
+     * 适配器每次整表提交（整组重读）与搜索过滤之后调用。前后两份列表一样时不发任何通知
      * （空分组载入空列表、搜索结果不变），observer 就不会响，载入完成标志与空状态要在这里补上
      */
     fun onListSubmitted() = onListChanged()

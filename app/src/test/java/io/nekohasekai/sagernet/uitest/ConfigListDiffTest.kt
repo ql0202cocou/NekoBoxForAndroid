@@ -201,7 +201,7 @@ class ConfigListDiffTest : UiTestBase() {
 
         assertEquals("流量只重画该行的流量段，不发任何适配器通知", 0, events.total)
         assertTrue(holder.profileStatus.text.isNotEmpty())
-        assertEquals(2048L, s.page.profileModel.configurationList[target.id]!!.tx)
+        assertEquals(2048L, s.page.profileModel.latestEntity(target.id)!!.tx)
     }
 
     // ---------------------------------------------------------------- 搜索过滤（M5：不重播入场动画）
@@ -229,6 +229,78 @@ class ConfigListDiffTest : UiTestBase() {
         assertNull("清空搜索也不重播入场动画", s.list.layoutAnimation)
         assertEquals("差量更新，没有整表重置", 0, events.reset)
         assertEquals(s.ids().toSet().size, s.ids().size)
+    }
+
+    /**
+     * 把 [log] 里的插入 / 删除依次作用到 [before] 上，插入的位置先占空（null）：没有别的事件，
+     * 结果的长度与 [after] 相同，占空以外的每一格（留下的行）都已在终态的同一位置
+     */
+    private fun assertReplaysTo(before: List<Long>, after: List<Long>, log: List<String>) {
+        val rows = ArrayList<Long?>(before)
+        val event = Regex("""(insert|remove)\((\d+),(\d+)\)""")
+        for (entry in log) {
+            val match = event.matchEntire(entry) ?: error("过滤只应发插入 / 删除通知，收到 $entry")
+            val (kind, start, count) = match.destructured
+            val at = start.toInt()
+            repeat(count.toInt()) { if (kind == "insert") rows.add(at, null) else rows.removeAt(at) }
+        }
+        assertEquals(after.size, rows.size)
+        rows.forEachIndexed { i, id -> if (id != null) assertEquals("第 $i 行", after[i], id) }
+    }
+
+    @Test
+    fun filterStepNotifiesExactlyTheRowsLeavingAndEntering() {
+        // 动画开着：整卡交叉淡变会换出另一个 holder，这里要求留下的行还是同一个 holder
+        val s = open(animations = true)
+        // 模拟入场动画播完（它的结束回调只在真正绘制时触发）
+        s.list.layoutAnimation = null
+        val p = s.fixtures.profiles
+        val kept = s.holderOf(p[0].id)!!
+        // 哨兵：留下的行若被重绑，名字会被改回节点名
+        kept.profileName.text = "sentinel"
+        val events = s.watch()
+
+        // 第一步只删：地址里带 443 的是 Tokyo、Osaka、Seoul（:8443）与长名字
+        var before = s.ids()
+        s.adapter.filter("443")
+        UiSettle.settle()
+        var after = s.ids()
+        assertEquals(listOf(p[0].id, p[2].id, p[4].id, p[5].id), after)
+        assertEquals("删除的正好是离开的行", 3, events.removed)
+        assertEquals(0, events.inserted + events.changed.size + events.moved + events.reset)
+        assertReplaysTo(before, after, events.take())
+
+        // 第二步有删有增：192.0.2.* 的六个节点，Osaka 离开，Singapore、Local SOCKS5、Office HTTP 进来
+        before = after
+        s.adapter.filter("192.0.2")
+        UiSettle.settle()
+        after = s.ids()
+        assertEquals(listOf(p[0].id, p[1].id, p[3].id, p[4].id, p[5].id, p[6].id), after)
+        val removed = events.removed
+        val inserted = events.inserted
+        assertEquals("没有变更 / 移动 / 整表重置", 0, events.changed.size + events.moved + events.reset)
+        assertReplaysTo(before, after, events.take())
+        assertEquals("删除的正好是离开的行", (before - after.toSet()).size, removed)
+        assertEquals("插入的正好是进来的行", (after - before.toSet()).size, inserted)
+        assertEquals(1, removed)
+        assertEquals(3, inserted)
+
+        // 结果不变的一步：一条通知也没有
+        s.adapter.filter("192.0.2.")
+        UiSettle.settle()
+        assertEquals(after, s.ids())
+        assertEquals(0, events.total)
+
+        // 相邻离开的行合并成一个范围
+        s.adapter.filter("tokyo")
+        UiSettle.settle()
+        assertEquals(listOf(p[0].id), s.ids())
+        assertEquals(listOf("remove(1,5)"), events.take())
+
+        assertEquals("留下的行没被重绑", "sentinel", kept.profileName.text.toString())
+        assertSame(kept, s.holderOf(p[0].id))
+        assertNull("过滤不重播入场动画", s.list.layoutAnimation)
+        s.assertScreenMatchesList()
     }
 
     @Test
