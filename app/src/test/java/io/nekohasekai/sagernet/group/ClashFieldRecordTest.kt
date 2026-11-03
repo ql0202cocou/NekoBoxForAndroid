@@ -1,7 +1,7 @@
 package io.nekohasekai.sagernet.group
 
 import io.nekohasekai.sagernet.fmt.AbstractBean
-import io.nekohasekai.sagernet.fmt.CLASH_KEY_NOT_SHOWN
+import io.nekohasekai.sagernet.fmt.KEY_NOT_SHOWN
 import io.nekohasekai.sagernet.fmt.CLASH_VALUE_NOT_SHOWN
 import io.nekohasekai.sagernet.fmt.ClashFieldReason
 import io.nekohasekai.sagernet.fmt.ClashFieldRecord
@@ -459,7 +459,7 @@ class ClashFieldRecordTest {
             "{name: v, type: vmess, server: secret.example.com, port: 443, uuid: $uuid, network: ws, ws-opts: {headers: {\"X Secret Header\": value-placeholder, X-Plain: v}}}"
         )
         assertTrue(fields.values.filter { it.path != "type" && it.path != "network" }.all { it.shownValue == null })
-        assertField(fields, "ws-opts.headers.$CLASH_KEY_NOT_SHOWN", IGNORED, ClashFieldReason.NOT_READ)
+        assertField(fields, "ws-opts.headers.$KEY_NOT_SHOWN", IGNORED, ClashFieldReason.NOT_READ)
         assertField(fields, "ws-opts.headers.X-Plain", IGNORED, ClashFieldReason.NOT_READ)
         assertFalse(fields.keys.any { it.contains("Secret") })
     }
@@ -1065,8 +1065,8 @@ class ClashFieldRecordTest {
             entry[key] = "x"
             val failed = parseClash(mapOf("proxies" to listOf(entry))).nodes.single() as ClashNodeResult.Failed
             assertEquals(ClashNodeFailure.INVALID_VALUE, failed.failure)
-            assertEquals(CLASH_KEY_NOT_SHOWN, failed.path)
-            assertEquals("invalid value at $CLASH_KEY_NOT_SHOWN", failed.description)
+            assertEquals(KEY_NOT_SHOWN, failed.path)
+            assertEquals("invalid value at $KEY_NOT_SHOWN", failed.description)
         }
     }
 
@@ -1077,7 +1077,7 @@ class ClashFieldRecordTest {
         val v = "name: v, type: vmess, server: v.example.com, port: 443, uuid: $uuid"
         for (key in listOf("!!int 6171", "!!float 6172.5", "!!bool true")) {
             val fields = fields("{$v, network: ws, ws-opts: {headers: {$key: x, X-Plain: v}}}")
-            assertField(fields, "ws-opts.headers.$CLASH_KEY_NOT_SHOWN", IGNORED, ClashFieldReason.NOT_READ)
+            assertField(fields, "ws-opts.headers.$KEY_NOT_SHOWN", IGNORED, ClashFieldReason.NOT_READ)
             assertField(fields, "ws-opts.headers.X-Plain", IGNORED, ClashFieldReason.NOT_READ)
             assertFalse(key, fields.keys.any { it.contains("617") || it.contains("true") })
         }

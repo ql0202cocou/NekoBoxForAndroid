@@ -1,6 +1,5 @@
 package io.nekohasekai.sagernet.fmt.v2ray
 
-import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
 import io.nekohasekai.sagernet.fmt.ExternalHop
 import io.nekohasekai.sagernet.fmt.LOCALHOST
@@ -193,8 +192,8 @@ private fun requireXrayStream(bean: StandardV2RayBean, globalAllowInsecure: Bool
     }
     // XHTTP 配 Vision 流控 / Mux.Cool 都能通过 Xray 的 run -test，到运行时才每次连接失败（K2 回环 XL-45 / XL-49）；
     // 选核判定（XRAY_XHTTP_VISION / XRAY_XHTTP_MUX_COOL）已经排除，这里同样是最后一道防线。只开 XUDP 包编码不算 Mux.Cool
-    if (v2rayTransportOrNull(bean.type) == "xhttp") {
-        if (bean.isVLESS && bean.encryption?.startsWith("xtls-rprx-vision") == true) {
+    if (bean.isXhttp()) {
+        if (bean.isVLESS && bean.encryption?.startsWith(StandardV2RayBean.FLOW_VISION) == true) {
             error("xray-core cannot run the Vision flow over XHTTP, remove the flow for this profile")
         }
         if (bean.enableMux) {
@@ -210,20 +209,19 @@ private fun requireXrayStream(bean: StandardV2RayBean, globalAllowInsecure: Bool
 //    serverAddress），不用补；没有 TLS 时 Xray 取拨号地址，经映射就是 127.0.0.1，前面有 CDN 或按 Host 分流的反代、
 //    或服务端设了 host 校验时请求会被拒，所以用 serverAddress 补上（K2 回环 XL-08 / XL-09）。IPv6 字面量必须带方括号：
 //    裸写 Xray 会报 invalid port、一个请求都发不出去（XL-03），带方括号发出的 Host 与直连 IPv6 时 Xray 自己发的一致（XL-05）；
-//  - extra：重新跑一遍 canonicalXhttpExtra（白名单重建），再作为 JSON 对象写入。写成字符串 Xray 会报错（XT-02），
+//  - extra：重新跑一遍白名单重建（requireXhttpParams），直接作为 JSON 对象写入。写成字符串 Xray 会报错（XT-02），
 //    未知键 Xray 会静默忽略（XT-03），所以一切把关都靠这里的白名单；downloadSettings 会让 Xray 另拨一个目标（XT-15），
 //    sockopt / dialerProxy 从不出现。错误信息只带键名，不带值（header 的值可能是凭据）
 private fun buildXhttpSettings(bean: StandardV2RayBean): Map<String, Any?> {
-    if (bean.xhttpParametersLost()) throw XhttpParametersLostException()
+    val xhttp = bean.requireXhttpParams()
     return LinkedHashMap<String, Any?>().apply {
         val host = bean.host?.trim().orEmpty().ifEmpty {
             if (bean.security == "tls") "" else bean.serverAddress?.trim().orEmpty().wrapIPV6Host()
         }
         if (host.isNotEmpty()) put("host", host)
         put("path", bean.path)
-        put("mode", requireXhttpMode(bean.xhttpMode))
-        val extra = canonicalXhttpExtra(bean.xhttpExtra)
-        if (extra.isNotEmpty()) put("extra", JsonParser.parseString(extra).asJsonObject)
+        put("mode", xhttp.mode)
+        xhttp.extra?.let { put("extra", it) }
     }
 }
 

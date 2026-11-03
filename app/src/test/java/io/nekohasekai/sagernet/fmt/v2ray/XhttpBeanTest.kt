@@ -158,6 +158,36 @@ class XhttpBeanTest {
     // ---- sn:// 通用链接
 
     @Test
+    fun `sn 通用链接在导入时规范 mode 与 extra，拒绝非法值`() {
+        val beans = listOf(vless(), VMessBean().apply { initializeDefaultValues() }, TrojanBean().apply { initializeDefaultValues() })
+        for (bean in beans) {
+            bean.type = "xhttp"
+            bean.path = "/xh"
+            bean.xhttpMode = " STREAM-UP "
+            bean.xhttpExtra = """{"noSSEHeader":true,"XPADDINGBYTES":"500-100"}"""
+            val type = if (bean is TrojanBean) TYPE_TROJAN else TYPE_VMESS
+            val imported = universalBean(type, KryoConverters.serialize(bean)) { error("不该读全局设置") } as StandardV2RayBean
+            assertEquals("stream-up", imported.xhttpMode)
+            assertEquals("""{"xPaddingBytes":"100-500","noSSEHeader":true}""", imported.xhttpExtra)
+
+            bean.xhttpExtra = """{"downloadSettings":{"address":"secret-test-value"}}"""
+            val extraError = assertThrows(InvalidXhttpExtraException::class.java) {
+                universalBean(type, KryoConverters.serialize(bean)) { false }
+            }
+            assertEquals(XhttpRejection.DOWNLOAD_SETTINGS, extraError.reason)
+            assertFalse(extraError.message!!.contains("secret-test-value"))
+
+            bean.xhttpExtra = "{}"
+            bean.xhttpMode = "secret-test-mode"
+            val modeError = assertThrows(InvalidXhttpExtraException::class.java) {
+                universalBean(type, KryoConverters.serialize(bean)) { false }
+            }
+            assertEquals(XhttpRejection.UNSUPPORTED_MODE, modeError.reason)
+            assertFalse(modeError.message!!.contains("secret-test-mode"))
+        }
+    }
+
+    @Test
     fun `sn 通用链接：带参数的 xhttp 节点能导入，旧版残缺的拒绝`() {
         val ok = vless { type = "xhttp"; host = "cdn.example.net"; path = "/xh"; xhttpMode = "stream-up" }
         val imported = universalBean(TYPE_VMESS, KryoConverters.serialize(ok)) { false } as VMessBean

@@ -269,8 +269,9 @@ fun StandardV2RayBean.parseDuckSoft(url: HttpUrl) {
         "xhttp" -> {
             host = url.queryParameter("host") ?: ""
             path = normalizedXhttpPath(url.queryParameter("path") ?: path)
-            xhttpMode = requireXhttpMode(url.queryParameter("mode"))
-            xhttpExtra = canonicalXhttpExtra(url.queryParameter("extra"))
+            xhttpMode = url.queryParameter("mode")
+            xhttpExtra = url.queryParameter("extra")
+            canonicalizeXhttp()
         }
     }
 
@@ -392,8 +393,9 @@ internal fun parseV2RayNJson(result: String): VMessBean {
         // v2rayN 用 type 字段装 xhttp 的 mode（tcp 才是伪装类型）；留着 tcp 的占位值 none 的当作没写。
         // 不合格的 mode / extra 抛异常，批量导入按条目跳过
         bean.path = normalizedXhttpPath(vmessQRCode.path)
-        bean.xhttpMode = requireXhttpMode(vmessQRCode.type?.takeUnless { it.equals("none", ignoreCase = true) })
-        bean.xhttpExtra = canonicalXhttpExtra(vmessQRCode.extra.asExtraText())
+        bean.xhttpMode = vmessQRCode.type?.takeUnless { it.equals("none", ignoreCase = true) }
+        bean.xhttpExtra = vmessQRCode.extra.asExtraText()
+        bean.canonicalizeXhttp()
     }
     // 未知值抛异常拒绝导入，不按无 TLS 处理
     val vmessTls = requireV2RaySecurity(vmessQRCode.tls)
@@ -490,10 +492,10 @@ internal fun VMessBean.toV2rayNJson(): String {
         // xhttp：从不写旧名 splithttp；mode 放在 type 字段（v2rayN 的写法），extra 写成字符串（紧凑的规范 JSON），
         // host 只写用户填的（生成器的兜底不进链接）。残缺的旧节点与不合格的 mode / extra 在这里抛，不导出会被导成别的东西的链接
         if (bean.isXhttp()) {
-            bean.requireXhttpComplete()
+            val xhttp = bean.requireXhttpParams()
             net = "xhttp"
-            type = requireXhttpMode(bean.xhttpMode)
-            canonicalXhttpExtra(bean.xhttpExtra).takeIf { it.isNotEmpty() }?.let { extra = JsonPrimitive(it) }
+            type = xhttp.mode
+            xhttp.extraText.takeIf { it.isNotEmpty() }?.let { extra = JsonPrimitive(it) }
         }
 
         when (net) {
@@ -548,12 +550,6 @@ internal fun VMessBean.toV2rayNJson(): String {
     })
 }
 
-// 导出用：type 是不是 xhttp（含旧名 splithttp，导出时一律写 xhttp）
-private fun StandardV2RayBean.isXhttp(): Boolean = v2rayTransportOrNull(type) == "xhttp"
-
-private fun StandardV2RayBean.requireXhttpComplete() {
-    if (xhttpParametersLost()) throw XhttpParametersLostException()
-}
 
 fun StandardV2RayBean.toUriVMessVLESSTrojan(isTrojan: Boolean): String {
     // VMess
@@ -605,11 +601,11 @@ fun StandardV2RayBean.toUriVMessVLESSTrojan(isTrojan: Boolean): String {
     // xhttp：host 只写用户填的（生成器的兜底不进链接），mode 总是写，extra 写紧凑的规范 JSON（有才写）。
     // 残缺的旧节点与不合格的 mode / extra 在这里抛，不导出会被导成别的东西的链接
     if (isXhttp()) {
-        requireXhttpComplete()
+        val xhttp = requireXhttpParams()
         if (host.isNotBlank()) builder.addQueryParameter("host", host)
         builder.addQueryParameter("path", path)
-        builder.addQueryParameter("mode", requireXhttpMode(xhttpMode))
-        canonicalXhttpExtra(xhttpExtra).takeIf { it.isNotEmpty() }?.let { builder.addQueryParameter("extra", it) }
+        builder.addQueryParameter("mode", xhttp.mode)
+        xhttp.extraText.takeIf { it.isNotEmpty() }?.let { builder.addQueryParameter("extra", it) }
     }
 
     // "none" must be written for trojan: the parser defaults a missing

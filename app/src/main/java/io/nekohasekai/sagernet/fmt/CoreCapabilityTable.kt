@@ -1,5 +1,7 @@
 package io.nekohasekai.sagernet.fmt
 
+import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
+
 // 能力表本体与组合规则（从 CoreCapabilities.kt 拆出的纯数据，行为不变）。升级核心时的复核清单仍在 CoreCapabilities.kt 顶部。
 
 // 本表的声明都没有查到上游的起始版本，一律记核实时的版本
@@ -221,7 +223,7 @@ val COMBINATION_RULES: List<CombinationRule> = listOf(
     CombinationRule(
         DialCore.XRAY, CoreConflict.XRAY_XHTTP_VISION, verifiedAt(DialCore.XRAY),
         "xhttp + Vision 流控（xtls-rprx-vision、xtls-rprx-vision-udp443）",
-    ) { it.transport == CoreTransport.XHTTP && it.vlessFlow?.startsWith(VISION_FLOW) == true },
+    ) { it.transport == CoreTransport.XHTTP && it.vlessFlow?.startsWith(StandardV2RayBean.FLOW_VISION) == true },
     // K2：XHTTP 自带多路复用（xmux），Xray 的文档与新版服务端不接受 Mux.Cool 与 XHTTP 同开（只接受纯 XUDP）。
     // 仅用 XUDP 包编码（packetEncoding = 2）不算 Mux.Cool：生成器写的是 xudpConcurrency，TCP 不复用。
     // Vision 流控下 mux 本来就不生效（CoreRequirements 的 mux 为 null），不会和上一条重复报
@@ -237,7 +239,7 @@ val COMBINATION_RULES: List<CombinationRule> = listOf(
         DialCore.XRAY, CoreConflict.XRAY_VISION_TRANSPORT, verifiedAt(DialCore.XRAY),
         "Vision 流控 + RAW 以外的传输（ws / grpc / httpupgrade / http 头伪装）或不带 TLS",
     ) {
-        it.vlessFlow?.startsWith(VISION_FLOW) == true && it.transport !in VISION_OWN_TRANSPORT_CONFLICTS &&
+        it.vlessFlow?.startsWith(StandardV2RayBean.FLOW_VISION) == true && it.transport !in VISION_OWN_TRANSPORT_CONFLICTS &&
             it.transport != CoreTransport.H2 && it.transport != CoreTransport.QUIC &&
             (it.transport != CoreTransport.TCP || it.tls == TlsMode.NONE)
     },
@@ -250,13 +252,10 @@ val COMBINATION_RULES: List<CombinationRule> = listOf(
         DialCore.SING_BOX, CoreConflict.SING_BOX_VISION_TRANSPORT, verifiedAt(DialCore.SING_BOX),
         "Vision 流控 + RAW / httpupgrade 以外的传输或不带 TLS",
     ) {
-        it.vlessFlow == VISION_FLOW && it.transport !in VISION_OWN_TRANSPORT_CONFLICTS &&
+        it.vlessFlow == StandardV2RayBean.FLOW_VISION && it.transport !in VISION_OWN_TRANSPORT_CONFLICTS &&
             (it.tls == TlsMode.NONE || it.transport !in setOf(CoreTransport.TCP, CoreTransport.HTTPUPGRADE))
     },
 )
-
-// Vision 流控；Xray 还认带 -udp443 后缀的变体，按前缀匹配
-private const val VISION_FLOW = "xtls-rprx-vision"
 
 // 这些传输各有自己的冲突（XRAY_XHTTP_VISION / SING_BOX_TRANSPORT_XHTTP、XHTTP_PARAMETERS_LOST、TRANSPORT_UNKNOWN），Vision 的两条不再重复报
 private val VISION_OWN_TRANSPORT_CONFLICTS = setOf(CoreTransport.XHTTP, CoreTransport.XHTTP_LOST, CoreTransport.UNKNOWN)

@@ -23,7 +23,7 @@ import io.nekohasekai.sagernet.fmt.ClashFieldReason.UNKNOWN_KEY
 import io.nekohasekai.sagernet.fmt.ClashFieldReason.UNKNOWN_VALUE
 import io.nekohasekai.sagernet.fmt.ClashFieldRecord
 import io.nekohasekai.sagernet.fmt.ClashFieldResult
-import io.nekohasekai.sagernet.fmt.clashShownPath
+import io.nekohasekai.sagernet.fmt.shownKeyPath
 import io.nekohasekai.sagernet.fmt.clashShownValueAt
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
@@ -203,7 +203,7 @@ internal class ClashFields(
 
     fun recordAt(path: List<String>, result: ClashFieldResult, reason: ClashFieldReason?) {
         val value = valueAt(path) ?: return
-        records[path] = ClashFieldRecord(clashShownPath(path), result, reason, shownValue(path, value))
+        records[path] = ClashFieldRecord(shownKeyPath(path), result, reason, shownValue(path, value))
         // 子键有记录时，父对象按「已展开」处理
         for (i in 1 until path.size) opened += path.subList(0, i)
     }
@@ -232,7 +232,11 @@ internal class ClashFields(
 
     // 值相同记 KEPT，不同说明被别的键改写了
     fun keptIfFinal(final: String?, vararg names: String) {
-        val path = path(*names) ?: return
+        path(*names)?.let { keptIfFinalAt(it, final) }
+    }
+
+    // 同上，路径已按 mihomo 的读法找好（xhttp-opts 等不经 path() 的键）
+    fun keptIfFinalAt(path: List<String>, final: String?) {
         val value = valueAt(path) ?: return
         if (value.toString() != final) recordAt(path, ClashFieldResult.IGNORED, OVERRIDDEN)
         else recordAt(path, ClashFieldResult.KEPT, null)
@@ -288,7 +292,7 @@ internal class ClashFields(
             ?: (if (normalized.size == 1) CLASH_NO_EFFECT_KEYS[normalized[0]] else null)
             ?: (if (value.isFalseOrEmpty()) DEFAULT_VALUE else null)
             ?: (if (table.knows(normalized)) NOT_READ else UNKNOWN_KEY)
-        return ClashFieldRecord(clashShownPath(shownPath), ClashFieldResult.IGNORED, reason, shownValue(path, value))
+        return ClashFieldRecord(shownKeyPath(shownPath), ClashFieldResult.IGNORED, reason, shownValue(path, value))
     }
 
     // 键表里的 a.b.* 表示 a.b 是键名自由的 map（如 headers）
@@ -700,24 +704,18 @@ private fun ClashFields.network(type: String, network: String?): String? {
     if (network == null) return null
     // 与解析器取同一个条目，记录保留原始键名；标准拼写优先于其它大小写写法。
     val path = listOf(proxy.mihomoEntry("network")!!.key as String)
-    val reason = when {
-        network == "" || network == "tcp" || network == "ws" || network == "grpc" -> null
+    when {
+        network == "" || network == "tcp" || network == "ws" || network == "grpc" -> recordAt(path, ClashFieldResult.KEPT, null)
         // 只有 VLESS 认 xhttp（VMess 的已在解析时被拒）
-        network == "xhttp" && type == "vless" -> null
+        network == "xhttp" && type == "vless" -> recordAt(path, ClashFieldResult.KEPT, null)
         // mihomo 的 trojan.go 只认 ws / grpc，其它值（h2、http、xhttp、kcp 等）一律当作 TCP 跑，解析器同样按 TCP 导入；
         // 值在这里不被认识，记「未知值，用了默认」
-        type == "trojan" -> UNKNOWN_VALUE
+        type == "trojan" -> recordAt(path, ClashFieldResult.IGNORED, UNKNOWN_VALUE)
         // vmess / vless 的 h2 写成本应用的 http 传输（带 TLS 时是 h2；不带 TLS 的 h2c 已在解析时被拒）
-        network == "h2" -> EQUIVALENT_VALUE
+        network == "h2" -> recordAt(path, ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
         // http 是 HTTP/1.1 伪装头，对应本应用不带 TLS 的 http 传输（带 TLS 的已在解析时被拒）
-        else -> null
+        else -> recordAt(path, ClashFieldResult.KEPT, null)
     }
-    val result = when (reason) {
-        UNKNOWN_VALUE -> ClashFieldResult.IGNORED
-        EQUIVALENT_VALUE -> ClashFieldResult.CONVERTED
-        else -> ClashFieldResult.KEPT
-    }
-    recordAt(path, result, reason)
     return optsKeyOf(type, network)
 }
 
@@ -747,11 +745,9 @@ private fun ClashFields.xhttpOpts(bean: StandardV2RayBean) {
         val at = base + key
         when (name) {
             "path" -> if (text.isBlank()) recordAt(at, ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
-            else if (text == bean.path) recordAt(at, ClashFieldResult.KEPT, null)
-            else recordAt(at, ClashFieldResult.IGNORED, OVERRIDDEN)
+            else keptIfFinalAt(at, bean.path)
 
-            "host" -> if (text == bean.host) recordAt(at, ClashFieldResult.KEPT, null)
-            else recordAt(at, ClashFieldResult.IGNORED, OVERRIDDEN)
+            "host" -> keptIfFinalAt(at, bean.host)
 
             // 大小写与空白不同的写法规范成小写，值等价
             else -> if (text == bean.xhttpMode) recordAt(at, ClashFieldResult.KEPT, null)

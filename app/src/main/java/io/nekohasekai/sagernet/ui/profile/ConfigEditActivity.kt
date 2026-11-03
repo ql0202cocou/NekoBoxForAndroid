@@ -23,13 +23,11 @@ import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.databinding.LayoutEditConfigBinding
-import io.nekohasekai.sagernet.fmt.v2ray.InvalidXhttpExtraException
-import io.nekohasekai.sagernet.fmt.v2ray.canonicalXhttpExtra
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.ktx.readableMessage
 import io.nekohasekai.sagernet.ktx.toStringPretty
-import io.nekohasekai.sagernet.ktx.userMessage
+import io.nekohasekai.sagernet.ktx.xhttpSettingsError
 import io.nekohasekai.sagernet.ui.ThemedActivity
 import io.nekohasekai.sagernet.widget.liftOnScrollOf
 import io.nekohasekai.sagernet.widget.padForSystemBars
@@ -211,13 +209,7 @@ class ConfigEditActivity : ThemedActivity() {
 
     // 个别 key 的内容有自己的校验器：不合格就留在编辑页，让用户当场改（消息只带键名，不带值）
     private fun validationError(text: String): String? = when (key) {
-        Key.XHTTP_EXTRA_EDIT -> try {
-            canonicalXhttpExtra(text)
-            null
-        } catch (e: InvalidXhttpExtraException) {
-            e.userMessage
-        }
-
+        Key.XHTTP_EXTRA_EDIT -> xhttpSettingsError(null, text)
         else -> null
     }
 

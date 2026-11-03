@@ -7,7 +7,7 @@ import com.google.gson.JsonPrimitive
 import com.google.gson.Strictness
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonToken
-import io.nekohasekai.sagernet.fmt.SHOWABLE_VALUE
+import io.nekohasekai.sagernet.fmt.shownKeyPath
 import java.io.StringReader
 import java.util.Locale
 
@@ -41,10 +41,10 @@ class InvalidXhttpExtraException(
     val reason: XhttpRejection,
 ) : UnsupportedTransportException(
     "xhttp",
-    "xhttp $what rejected" + (if (path.isEmpty()) "" else " at " + shownPath(path)) + ": ${reason.text}",
+    "xhttp $what rejected" + (if (path.isEmpty()) "" else " at " + shownKeyPath(path)) + ": ${reason.text}",
 ) {
     // 给界面用的键名路径（同消息里的写法）；空串表示整段被拒
-    val shownPath: String get() = shownPath(path)
+    val shownPath: String get() = shownKeyPath(path)
 }
 
 // 被拒的原因，封闭集合：text 进异常消息与日志（英文），界面按枚举取本地化文案
@@ -75,11 +75,6 @@ enum class XhttpRejection(val text: String) {
     DUPLICATE_HEADER("duplicate header"),
 }
 
-private fun shownPath(path: List<String>): String = path.joinToString(".") { shownKey(it) }
-
-// 路径里的键名：形态合格才回显
-private fun shownKey(key: String): String = if (SHOWABLE_VALUE.matches(key)) key else "(key not shown)"
-
 // mode：空值是 auto，大小写不敏感，返回规范小写名；不认识的值抛 InvalidXhttpExtraException（值不进消息）
 fun requireXhttpMode(value: String?): String {
     if (value.isNullOrBlank()) return XHTTP_DEFAULT_MODE
@@ -88,9 +83,13 @@ fun requireXhttpMode(value: String?): String {
     return name
 }
 
-// extra → 规范的紧凑 JSON；空值与空对象返回 ""。违规抛 InvalidXhttpExtraException
-fun canonicalXhttpExtra(raw: String?): String {
-    if (raw.isNullOrBlank()) return ""
+// 紧凑的规范 JSON 写法；Gson 实例线程安全，建一个够用
+private val COMPACT_GSON = GsonBuilder().disableHtmlEscaping().create()
+
+// extra → 按白名单重建的对象；空值与空对象返回 null。违规抛 InvalidXhttpExtraException。
+// 生成器与编辑器的摘要直接用这个对象，不把规范文本再解析一遍
+fun canonicalXhttpExtraObject(raw: String?): JsonObject? {
+    if (raw.isNullOrBlank()) return null
     if (raw.length > XHTTP_EXTRA_MAX_LENGTH) throw reject(emptyList(), XhttpRejection.EXTRA_TOO_LONG)
     val root = try {
         parseExtra(raw)
@@ -100,9 +99,22 @@ fun canonicalXhttpExtra(raw: String?): String {
         // 解析器的消息带行列与路径（键名），不转述
         throw reject(emptyList(), XhttpRejection.NOT_JSON_OBJECT)
     }
-    if (root.size() == 0) return ""
-    return GsonBuilder().disableHtmlEscaping().create().toJson(root)
+    return root.takeIf { it.size() > 0 }
 }
+
+// extra → 规范的紧凑 JSON 文本（存储与链接里的写法）；空值与空对象返回 ""。违规抛 InvalidXhttpExtraException
+fun canonicalXhttpExtra(raw: String?): String = canonicalXhttpExtraObject(raw)?.let(COMPACT_GSON::toJson) ?: ""
+
+/** 规范化之后的 mode 与 extra；[extra] 为 null 表示没有 */
+class XhttpParams(val mode: String, val extra: JsonObject?) {
+    /** extra 的紧凑规范 JSON 文本，没有时为空串 */
+    val extraText: String get() = extra?.let(COMPACT_GSON::toJson) ?: ""
+}
+
+// mode 与 extra 按同一组校验器一起规范化（不合格抛 InvalidXhttpExtraException）：
+// 导入、编辑器保存、导出与生成都经这里，不各自拼这两步
+fun canonicalXhttpParams(mode: String?, extra: String?): XhttpParams =
+    XhttpParams(requireXhttpMode(mode), canonicalXhttpExtraObject(extra))
 
 private fun reject(path: List<String>, reason: XhttpRejection) = InvalidXhttpExtraException("extra", path, reason)
 

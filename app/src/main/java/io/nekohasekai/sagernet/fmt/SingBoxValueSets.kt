@@ -37,13 +37,21 @@ val SING_BOX_VALUE_SET_MODULES = mapOf(
 class UnsupportedSingBoxValueException(val field: String, val value: String?) :
     IllegalArgumentException("sing-box does not support $field ${shownSingBoxValue(value)}")
 
-// 可以回显的取值形态：枚举名常见的字符，最长 64。报错与 Clash 导入诊断共用这一条规则与占位串
+// 可以回显的取值形态：枚举名常见的字符，最长 64。报错、Clash 导入诊断与 XHTTP extra 校验共用这一条规则与占位串
 internal val SHOWABLE_VALUE = Regex("^[A-Za-z0-9._+-]{1,64}$")
 const val VALUE_NOT_SHOWN = "(value not shown)"
+const val KEY_NOT_SHOWN = "(key not shown)"
 
 // 报错里的取值：形态合格的加引号原样写出，否则（含 null 与空串）写 (value not shown)
 internal fun shownSingBoxValue(value: String?): String =
     if (value != null && SHOWABLE_VALUE.matches(value)) "\"$value\"" else VALUE_NOT_SHOWN
+
+// 消息里的键名：不是字符串的键一律不显示（复杂键、带显式标签的标量键），字符串键形态合格才原样回显
+fun shownKey(key: Any?): String =
+    (key as? String)?.takeIf { SHOWABLE_VALUE.matches(it) } ?: KEY_NOT_SHOWN
+
+// 字段路径：每段都按键名规则显示（headers 下的头名由用户决定）
+fun shownKeyPath(segments: List<Any?>): String = segments.joinToString(".") { shownKey(it) }
 
 // Shadowsocks 加密方式。sing-shadowsocks2（版本见 SING_BOX_VALUE_SET_MODULES）：shadowaead/method.go（AEAD）、shadowaead_2022/method.go（2022）、
 // shadowstream/method.go（流密码）、cipher/method_none.go（none），经 shadowsocks.go 的空白导入注册；名单外

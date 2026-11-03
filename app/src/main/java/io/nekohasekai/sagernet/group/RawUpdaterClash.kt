@@ -3,14 +3,14 @@
 package io.nekohasekai.sagernet.group
 
 import io.nekohasekai.sagernet.fmt.AbstractBean
-import io.nekohasekai.sagernet.fmt.CLASH_KEY_NOT_SHOWN
+import io.nekohasekai.sagernet.fmt.KEY_NOT_SHOWN
 import io.nekohasekai.sagernet.fmt.ClashFieldReason
 import io.nekohasekai.sagernet.fmt.ClashFieldRecord
 import io.nekohasekai.sagernet.fmt.ClashFieldResult
 import io.nekohasekai.sagernet.fmt.ClashNodeFailure
 import io.nekohasekai.sagernet.fmt.ClashNodeResult
 import io.nekohasekai.sagernet.fmt.EndpointProblem
-import io.nekohasekai.sagernet.fmt.clashShownPath
+import io.nekohasekai.sagernet.fmt.shownKeyPath
 import io.nekohasekai.sagernet.fmt.clashShownValue
 import io.nekohasekai.sagernet.fmt.clashShownValueAt
 import io.nekohasekai.sagernet.fmt.endpointProblem
@@ -69,7 +69,7 @@ internal class ClashNodeRejected(
     // 只有一段的路径（固定的键名）
     constructor(failure: ClashNodeFailure, key: String, value: Any? = null) : this(failure, listOf(key), value)
 
-    val path: String? = segments?.let { clashShownPath(it) }
+    val path: String? = segments?.let { shownKeyPath(it) }
     val shownValue: String? =
         segments?.let { clashShownValueAt(type, it.joinToString("."), value) }
 }
@@ -119,7 +119,7 @@ private fun parseClashEntry(
     index: Int, entry: Any?, beans: MutableList<AbstractBean>, globalFingerprintIgnored: Boolean,
 ): ClashNodeResult {
     val proxy = entry as? Map<String, Any?>
-        ?: return ClashNodeResult.Failed(index, CLASH_KEY_NOT_SHOWN, null, ClashNodeFailure.ENTRY_NOT_MAP)
+        ?: return ClashNodeResult.Failed(index, KEY_NOT_SHOWN, null, ClashNodeFailure.ENTRY_NOT_MAP)
     val name = proxy["name"]?.toString()
     val type = proxy["type"] as? String
         ?: return ClashNodeResult.Failed(

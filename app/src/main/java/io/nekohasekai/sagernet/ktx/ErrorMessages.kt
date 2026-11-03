@@ -5,6 +5,7 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.fmt.ClashImportException
 import io.nekohasekai.sagernet.fmt.v2ray.InvalidXhttpExtraException
 import io.nekohasekai.sagernet.fmt.v2ray.XhttpRejection
+import io.nekohasekai.sagernet.fmt.v2ray.canonicalXhttpParams
 
 // 给用户看的错误文字。下面几种异常的消息是英文的计数 / 原因，留给日志；界面换成本地化文案，
 // 只用计数、枚举与已过滤的键名路径，不带值。其余异常照旧取 readableMessage
@@ -24,6 +25,14 @@ val Throwable.userMessage: String
 
         else -> readableMessage
     }
+
+/** XHTTP 的 mode / extra 按同一组校验器过一遍：不合格返回给用户看的原因，合格返回 null。只校验 extra 时 mode 传 null */
+fun xhttpSettingsError(mode: String?, extra: String?): String? = try {
+    canonicalXhttpParams(mode, extra)
+    null
+} catch (e: InvalidXhttpExtraException) {
+    e.userMessage
+}
 
 @get:StringRes
 private val XhttpRejection.textRes: Int

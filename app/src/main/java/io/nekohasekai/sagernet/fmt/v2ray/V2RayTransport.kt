@@ -72,15 +72,37 @@ fun requireV2RayTransportWithoutXhttp(value: String?): String {
 // 新入口给 xhttp 节点的 path 规范成非空：空 path 在存储里表示「参数已丢失」（见 xhttpParametersLost）
 fun normalizedXhttpPath(path: String?): String = if (path.isNullOrBlank()) "/" else path
 
+// 传输方式是不是 xhttp（含旧名 splithttp）
+fun StandardV2RayBean.isXhttp(): Boolean = v2rayTransportOrNull(type) == "xhttp"
+
 // 旧版本（Kryo 8 之前）只存了 xhttp 的 type，host / path / mode / extra 从未落库；所有新入口都把 path 规范成非空，
 // 所以 xhttp 节点的 path 为空就是旧版本留下的残缺节点，参数无从还原，不猜测、不迁移。
 // 构建、保存与 sn:// 导入遇到它就报错，让用户重新导入或更新订阅
-fun StandardV2RayBean.xhttpParametersLost(): Boolean =
-    v2rayTransportOrNull(type) == "xhttp" && path.isNullOrBlank()
+fun StandardV2RayBean.xhttpParametersLost(): Boolean = isXhttp() && path.isNullOrBlank()
 
 // 残缺的 xhttp 节点。继承 UnsupportedTransportException，批量导入照常逐条跳过
 class XhttpParametersLostException :
     UnsupportedTransportException("xhttp", "xhttp parameters were lost; re-import the node or update the subscription")
+
+// 残缺的 xhttp 节点直接抛：导出、生成与 sn:// 导入都不替它猜 path
+fun StandardV2RayBean.requireXhttpComplete() {
+    if (xhttpParametersLost()) throw XhttpParametersLostException()
+}
+
+// 导出与生成用：节点完整才给出规范化后的 mode / extra（不改 bean）
+fun StandardV2RayBean.requireXhttpParams(): XhttpParams {
+    requireXhttpComplete()
+    return canonicalXhttpParams(xhttpMode, xhttpExtra)
+}
+
+// 入口用：xhttp 节点的 mode / extra 就地规范化（不合格抛 InvalidXhttpExtraException），非 xhttp 不动。
+// 调用方先填好 host 与 path（path 经 normalizedXhttpPath），再调它
+fun StandardV2RayBean.canonicalizeXhttp() {
+    if (!isXhttp()) return
+    val params = canonicalXhttpParams(xhttpMode, xhttpExtra)
+    xhttpMode = params.mode
+    xhttpExtra = params.extraText
+}
 
 // Clash（mihomo）节点的 network 字段只认 mihomo 的写法：不写或 tcp 是 TCP，
 // h2 / http 都落到 http，ws / grpc 原样；其余拒绝。xhttp 在这里也是拒绝：mihomo 只有 VLESS 认 xhttp，

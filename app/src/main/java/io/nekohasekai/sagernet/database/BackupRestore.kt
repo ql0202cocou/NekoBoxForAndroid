@@ -9,7 +9,10 @@ import io.nekohasekai.sagernet.database.preference.PublicDatabase
 import io.nekohasekai.sagernet.fmt.beanForType
 import io.nekohasekai.sagernet.fmt.normalizedLegacyCore
 import io.nekohasekai.sagernet.fmt.upgradeLegacyProfile
+import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
+import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
+import io.nekohasekai.sagernet.fmt.v2ray.canonicalizeXhttp
 import io.nekohasekai.sagernet.ktx.app
 import moe.matsuri.nb4a.utils.Util
 import org.json.JSONObject
@@ -86,10 +89,10 @@ object BackupRestore {
             decodeArray("profiles") { encoded ->
                 unmarshal(encoded) {
                     ProxyEntity.CREATOR.createFromParcel(it).also { entity ->
-                        // Unknown types leave every bean null (putByteArray has no
-                        // else); the configuration list would crash in requireBean()
-                        // when binding such a record.
-                        entity.requireBean()
+                        // 未知类型没有 bean，不能恢复成会让节点列表崩溃的记录。
+                        val bean = entity.requireBean()
+                        // 备份里 xhttp 的 mode / extra 没经过本版本的校验：按当前规则重新规范化
+                        if (bean is StandardV2RayBean && (bean is VMessBean || bean is TrojanBean)) bean.canonicalizeXhttp()
                     }
                 }
             }

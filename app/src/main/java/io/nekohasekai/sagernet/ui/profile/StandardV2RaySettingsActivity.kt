@@ -24,15 +24,17 @@ import io.nekohasekai.sagernet.fmt.v2ray.MUX_H2MUX
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.canonicalXhttpExtra
+import io.nekohasekai.sagernet.fmt.v2ray.canonicalXhttpExtraObject
+import io.nekohasekai.sagernet.fmt.v2ray.isXhttp
 import io.nekohasekai.sagernet.fmt.v2ray.isRealityMldsa65Verify
 import io.nekohasekai.sagernet.fmt.v2ray.isRealityPublicKey
 import io.nekohasekai.sagernet.fmt.v2ray.isRealityShortId
 import io.nekohasekai.sagernet.fmt.v2ray.normalizedXhttpPath
-import io.nekohasekai.sagernet.fmt.v2ray.requireXhttpMode
 import io.nekohasekai.sagernet.fmt.v2ray.v2rayTransportOrNull
 import io.nekohasekai.sagernet.fmt.v2ray.xhttpParametersLost
 import io.nekohasekai.sagernet.ktx.toStringPretty
 import io.nekohasekai.sagernet.ktx.userMessage
+import io.nekohasekai.sagernet.ktx.xhttpSettingsError
 import kotlinx.coroutines.Dispatchers
 import moe.matsuri.nb4a.proxy.PreferenceBinding
 import moe.matsuri.nb4a.proxy.PreferenceBindingManager
@@ -88,13 +90,7 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
         if (xhttpLoadedLost() && path.readStringFromCache().isBlank()) {
             return getString(R.string.core_conflict_xhttp_parameters_lost)
         }
-        return try {
-            requireXhttpMode(xhttpMode.readStringFromCache())
-            canonicalXhttpExtra(xhttpExtra.readStringFromCache())
-            null
-        } catch (e: InvalidXhttpExtraException) {
-            e.userMessage
-        }
+        return xhttpSettingsError(xhttpMode.readStringFromCache(), xhttpExtra.readStringFromCache())
     }
 
     override fun validateEditor(): String? {
@@ -133,7 +129,7 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
         pbm.fromCacheAll(this)
         // xhttp 的空 path 存储里表示「参数已丢失」。新建的节点、或在本次编辑里才改成 xhttp 的节点，空 path 规范成斜杠；
         // 载入时就是残缺的节点不在此列：path 仍为空时由 validateEditor 拦下（要求用户自己填），不替用户猜
-        if (v2rayTransportOrNull(type) == "xhttp" && !xhttpLoadedLost()) path = normalizedXhttpPath(path)
+        if (isXhttp() && !xhttpLoadedLost()) path = normalizedXhttpPath(path)
     }
 
     private lateinit var securityCategory: PreferenceCategory
@@ -293,14 +289,12 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
 
     // extra 行的摘要：只列顶层键名（白名单里的名字），不带值（headers 的值可能是凭据）
     private fun xhttpExtraSummary(): String {
-        val text = xhttpExtra.readStringFromCache()
-        return try {
-            val canonical = canonicalXhttpExtra(text)
-            if (canonical.isEmpty()) getString(androidx.preference.R.string.not_set)
-            else JSONObject(canonical).keys().asSequence().joinToString(", ")
+        val canonical = try {
+            canonicalXhttpExtraObject(xhttpExtra.readStringFromCache())
         } catch (e: InvalidXhttpExtraException) {
-            e.userMessage
+            return e.userMessage
         }
+        return canonical?.keySet()?.joinToString(", ") ?: getString(androidx.preference.R.string.not_set)
     }
 
     // extra 复用 JSON 编辑页：临时的一份放在 Key.XHTTP_EXTRA_EDIT（页内保存时就过校验器，不合格留在编辑页），

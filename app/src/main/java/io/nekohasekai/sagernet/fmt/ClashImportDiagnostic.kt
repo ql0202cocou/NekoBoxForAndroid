@@ -5,9 +5,8 @@ package io.nekohasekai.sagernet.fmt
 // 诊断里不留原始值：字段路径与可显示的值在记录时就按下面的显示规则处理过
 
 // 可以原样显示的值 / 键名：整串匹配 SHOWABLE_VALUE（与 UnsupportedSingBoxValueException 同一条），
-// 否则显示占位串，不透露长度
+// 否则显示占位串，不透露长度；键名与路径走 shownKey / shownKeyPath
 const val CLASH_VALUE_NOT_SHOWN = VALUE_NOT_SHOWN
-const val CLASH_KEY_NOT_SHOWN = "(key not shown)"
 
 // 只有这些键的值可以出现在诊断文本里（字段路径），其它值一律不出现
 val CLASH_ENUM_PATHS = setOf(
@@ -37,14 +36,6 @@ fun clashShownValue(value: Any?): String {
     val items = if (value is List<*>) value.map { it?.toString() ?: "" } else listOf(value?.toString() ?: "")
     return if (items.all { SHOWABLE_VALUE.matches(it) }) items.joinToString(",") else CLASH_VALUE_NOT_SHOWN
 }
-
-// 不是字符串的键一律不显示：除了复杂键（列表 / map），还有带显式标签（!!int、!!bool 等）的标量键，
-// 它们的 toString 能通过正则
-fun clashShownKey(key: Any?): String =
-    (key as? String)?.takeIf { SHOWABLE_VALUE.matches(it) } ?: CLASH_KEY_NOT_SHOWN
-
-// 字段路径：每段都按键名规则显示（headers 下的头名由用户决定）
-fun clashShownPath(segments: List<Any?>): String = segments.joinToString(".") { clashShownKey(it) }
 
 enum class ClashFieldResult { KEPT, CONVERTED, IGNORED, REJECTED }
 
