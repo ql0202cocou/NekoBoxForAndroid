@@ -68,7 +68,9 @@ class ClashXhttpTest {
 
     @Test
     fun `键按 mihomo 的读法找：大小写不敏感，下划线当作短横线`() {
-        val (bean, fields) = imported("$vless, network: xhttp, Xhttp_Opts: {Path: /p, HOST: h.example.com, Mode: Packet-Up}")
+        val (bean, fields) = imported("$vless, Network: xhttp, Xhttp_Opts: {Path: /p, HOST: h.example.com, Mode: Packet-Up}")
+        assertEquals("xhttp", bean.type)
+        assertEquals(ClashFieldResult.KEPT, fields.getValue("Network").result)
         assertEquals("/p", bean.path)
         assertEquals("h.example.com", bean.host)
         assertEquals("packet-up", bean.xhttpMode)
@@ -150,6 +152,7 @@ class ClashXhttpTest {
             "$vless, network: xhttp, xhttp-opts: {download-settings: {}}",
             "$vless, network: xhttp, xhttp-opts: {Download_Settings: {server: x.example.com}}",
             "$vless, network: xhttp, Xhttp-Opts: {download-settings: {server: x.example.com}}",
+            "$vless, Network: xhttp, Xhttp_Opts: {Download_Settings: {server: secret-dl.example.com}}",
         )) {
             val f = failed(body)
             assertEquals(body, ClashNodeFailure.DOWNLOAD_SETTINGS_NOT_SUPPORTED, f.failure)
@@ -212,6 +215,8 @@ class ClashXhttpTest {
         assertEquals(ClashNodeFailure.UNSUPPORTED_TRANSPORT, f.failure)
         // network 区分大小写，与 mihomo 一致
         assertEquals(ClashNodeFailure.UNSUPPORTED_TRANSPORT, failed("$vless, network: XHTTP").failure)
+        assertEquals(ClashNodeFailure.UNSUPPORTED_TRANSPORT, failed("$vless, Network: XHTTP").failure)
+        assertEquals(ClashNodeFailure.UNSUPPORTED_TRANSPORT, failed("$vmess, NETWORK: xhttp").failure)
     }
 
     @Test

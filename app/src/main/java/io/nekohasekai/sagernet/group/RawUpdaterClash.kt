@@ -33,7 +33,6 @@ import io.nekohasekai.sagernet.fmt.v2ray.requireXhttpMode
 import io.nekohasekai.sagernet.fmt.v2ray.setTLS
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import io.nekohasekai.sagernet.fmt.wireguard.isWireGuardLocalAddressList
-import io.nekohasekai.sagernet.ktx.blankAsNull
 import io.nekohasekai.sagernet.ktx.isIpAddress
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
@@ -431,7 +430,7 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>): StandardV2RayBean {
 
     // 传输方式的 *-opts 与 network 的先后无关：循环里只暂存，network 定下来之后只套用当前 network 的那个
     // （含 ws-opts 的 v2ray-http-upgrade），其它 network 的 opts 不会改写 host / path / SNI
-    var network: String? = null
+    val network = proxy.mihomoEntry("network")?.value?.toString()
     val transportOpts = HashMap<String, Any?>()
     for (opt in proxy) clashKey(opt.key, opt.value) {
         when (opt.key) {
@@ -502,8 +501,6 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>): StandardV2RayBean {
                     }
                 }
             }
-
-            "network" -> network = opt.value?.toString()
 
             // xhttp-opts 不在这里暂存：它按 mihomo 的读法单独读（applyClashXhttpOpts）
             "ws-opts", "h2-opts", "http-opts", "grpc-opts" -> transportOpts[opt.key] = opt.value

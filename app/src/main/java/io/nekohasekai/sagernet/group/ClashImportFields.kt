@@ -624,11 +624,8 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
     fingerprint()
     kept("client-fingerprint")
 
-    val network = text("network")
+    val network = mihomoValue("network")?.toString()
     val activeOpts = network(type, network)
-    // 是否生效按 mihomo 读到的 network 判断：解析器没读到 network（如 Network: ws）而 mihomo 读到时，
-    // 对应的 *-opts 在 mihomo 里是生效的，解析器却没套用
-    val mihomoActiveOpts = optsKeyOf(type, mihomoValue("network")?.toString())
     when (activeOpts) {
         "ws-opts" -> wsOpts(bean)
         "h2-opts" -> h2Opts(bean)
@@ -686,7 +683,7 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
     return table to { path ->
         when {
             // 其它 network 的 *-opts：mihomo 不读（mkcp / mekya 的 network 整个节点被拒；VLESS 的 xhttp 是当前 network 时它是生效的）
-            path[0] in transportOpts && path[0] != mihomoActiveOpts -> INACTIVE
+            path[0] in transportOpts && path[0] != activeOpts -> INACTIVE
             path.size == 2 && path[0] == "ws-opts" && path[1] == "v2ray-http-upgrade-fast-open" &&
                     !mihomoFlag("ws-opts", "v2ray-http-upgrade") -> INACTIVE
 
@@ -701,18 +698,26 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
 // network 的记录；返回 mihomo 在这个 network 下读的 *-opts 键
 private fun ClashFields.network(type: String, network: String?): String? {
     if (network == null) return null
-    when {
-        network == "" || network == "tcp" || network == "ws" || network == "grpc" -> kept("network")
+    // 与解析器取同一个条目，记录保留原始键名；标准拼写优先于其它大小写写法。
+    val path = listOf(proxy.mihomoEntry("network")!!.key as String)
+    val reason = when {
+        network == "" || network == "tcp" || network == "ws" || network == "grpc" -> null
         // 只有 VLESS 认 xhttp（VMess 的已在解析时被拒）
-        network == "xhttp" && type == "vless" -> kept("network")
+        network == "xhttp" && type == "vless" -> null
         // mihomo 的 trojan.go 只认 ws / grpc，其它值（h2、http、xhttp、kcp 等）一律当作 TCP 跑，解析器同样按 TCP 导入；
         // 值在这里不被认识，记「未知值，用了默认」
-        type == "trojan" -> ignored(UNKNOWN_VALUE, "network")
+        type == "trojan" -> UNKNOWN_VALUE
         // vmess / vless 的 h2 写成本应用的 http 传输（带 TLS 时是 h2；不带 TLS 的 h2c 已在解析时被拒）
-        network == "h2" -> converted(EQUIVALENT_VALUE, "network")
+        network == "h2" -> EQUIVALENT_VALUE
         // http 是 HTTP/1.1 伪装头，对应本应用不带 TLS 的 http 传输（带 TLS 的已在解析时被拒）
-        network == "http" -> kept("network")
+        else -> null
     }
+    val result = when (reason) {
+        UNKNOWN_VALUE -> ClashFieldResult.IGNORED
+        EQUIVALENT_VALUE -> ClashFieldResult.CONVERTED
+        else -> ClashFieldResult.KEPT
+    }
+    recordAt(path, result, reason)
     return optsKeyOf(type, network)
 }
 

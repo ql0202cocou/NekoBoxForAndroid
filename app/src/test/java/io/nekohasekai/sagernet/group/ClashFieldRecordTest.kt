@@ -886,11 +886,12 @@ class ClashFieldRecordTest {
     @Test
     fun `network 与 ws-opts 开关键写法不同时按 mihomo 的读法判断`() {
         val v = "name: v, type: vmess, server: v.example.com, port: 80, uuid: $uuid"
-        // mihomo 读到 Network: ws 并用 ws-opts，解析器没读到 network
+        // 解析器与 mihomo 都读到 Network: ws，并套用 ws-opts；记录保留原始键名。
         val (bean, fields) = imported("{$v, Network: ws, ws-opts: {path: /ws}}")
-        assertEquals("tcp", (bean as VMessBean).type)
-        assertField(fields, "Network", IGNORED, ClashFieldReason.NOT_READ)
-        assertField(fields, "ws-opts", IGNORED, ClashFieldReason.NOT_READ)
+        assertEquals("ws", (bean as VMessBean).type)
+        assertEquals("/ws", bean.path)
+        assertField(fields, "Network", KEPT)
+        assertField(fields, "ws-opts.path", KEPT)
         // v2ray-http-upgrade-fast-open 只在 v2ray-http-upgrade 打开时 mihomo 才用
         val ws = "$v, network: ws"
         assertField(
