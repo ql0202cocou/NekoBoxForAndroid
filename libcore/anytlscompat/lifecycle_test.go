@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"libcore/internal/anytlstest"
+
 	M "github.com/sagernet/sing/common/metadata"
 )
 
@@ -51,12 +53,12 @@ func (d *blockedAuthDialer) ListenPacket(context.Context, M.Socksaddr) (net.Pack
 }
 
 func TestCancelDuringAuthenticationWrite(t *testing.T) {
-	p := newPKI(t)
+	p := anytlstest.NewPKI(t, testName)
 	for _, mode := range []string{"caller", "client"} {
 		t.Run(mode, func(t *testing.T) {
-			d := &blockedAuthDialer{certificate: tlsCertificate(t, p.leaf), blocked: make(chan struct{}), stop: make(chan struct{})}
+			d := &blockedAuthDialer{certificate: anytlstest.TLSCertificate(t, p.Leaf), blocked: make(chan struct{}), stop: make(chan struct{})}
 			defer close(d.stop)
-			security, err := NewSecurity(SecurityOptions{ServerName: testName, Fingerprint: pin(p.leaf)})
+			security, err := NewSecurity(SecurityOptions{ServerName: testName, Fingerprint: anytlstest.Pin(p.Leaf)})
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -9,7 +9,7 @@
 | `security.go` | `component/ca/fingerprint.go`、`component/ca/name_cert_verify.go`、`component/ca/config.go`、`transport/vmess/tls.go` | 保留固定和验证域名优先级；注入根证书与时钟，去掉全局信任池和文件加载；TLS/uTLS 分别构建配置，未复制反射转换 |
 | `fingerprint.go` | `component/tls/utls.go` | 保留已允许模板、6:3:2:1 权重及每进程一次的 random 选择；保留应用已有的拒绝表；未知名称不静默降级 |
 | `dns.go` | `dns/resolver.go`、`adapter/outbound/ech.go`、`component/ech/ech.go` | 显式 Exchange 注入，拒绝无配置答案；缓存归属 DNSRouter |
-| `fixture_test.go` 的 ECH 生成器 | `component/ech/key.go` | 只生成测试用 X25519/AES-128-GCM 配置和一次性私钥 |
+| `libcore/internal/anytlstest/anytlstest.go` 的 ECH 生成器 | `component/ech/key.go` | 只生成测试用 X25519/AES-128-GCM 配置和一次性私钥 |
 
 固定来源：[mihomo v1.19.33](https://github.com/MetaCubeX/mihomo/tree/v1.19.33)。
 

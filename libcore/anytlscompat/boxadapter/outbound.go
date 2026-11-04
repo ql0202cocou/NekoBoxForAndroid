@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net"
 	"sync"
-	"time"
 
 	compat "libcore/anytlscompat"
 
@@ -22,18 +21,13 @@ const Type = "neko-anytls-compat-experiment"
 
 // 受控构建接口；产品 JSON 注册入口在 config.go，不承诺上游导出格式。
 type Options struct {
-	Server                   M.Socksaddr
-	Dialer                   N.Dialer
-	DialerOptions            option.DialerOptions
-	DNSRouter                adapter.DNSRouter
-	DNSOptions               adapter.DNSQueryOptions
-	TLS                      compat.SecurityOptions
-	Password                 string
-	ClientMetadata           string
-	DisableReuse             bool
-	IdleSessionCheckInterval time.Duration
-	IdleSessionTimeout       time.Duration
-	MinIdleSession           int
+	Server        M.Socksaddr
+	Dialer        N.Dialer
+	DialerOptions option.DialerOptions
+	DNSRouter     adapter.DNSRouter
+	DNSOptions    adapter.DNSQueryOptions
+	TLS           compat.SecurityOptions
+	Password      string
 }
 
 type Outbound struct {
@@ -54,8 +48,10 @@ func New(ctx context.Context, tag string, options Options) (*Outbound, error) {
 		if options.DNSRouter == nil {
 			return nil, errors.New("ECH requires an explicit DNS router")
 		}
+		// 只捕获路由和查询选项，免得 Security 经由 Lookup 持有整个 Options
+		router, queryOptions := options.DNSRouter, options.DNSOptions
 		options.TLS.ECH.Lookup = compat.HTTPSLookup(func(ctx context.Context, msg *dns.Msg) (*dns.Msg, error) {
-			return options.DNSRouter.Exchange(ctx, msg, options.DNSOptions)
+			return router.Exchange(ctx, msg, queryOptions)
 		})
 	}
 	security, err := compat.NewSecurity(options.TLS)
@@ -70,9 +66,7 @@ func New(ctx context.Context, tag string, options Options) (*Outbound, error) {
 		}
 	}
 	return &Outbound{Adapter: outbound.NewAdapterWithDialerOptions(Type, tag, []string{N.NetworkTCP, N.NetworkUDP}, options.DialerOptions),
-		options: compat.ClientOptions{Server: options.Server, Dialer: multiplexDialer{d}, Security: security, Password: options.Password,
-			ClientMetadata: options.ClientMetadata, DisableReuse: options.DisableReuse, IdleSessionCheckInterval: options.IdleSessionCheckInterval,
-			IdleSessionTimeout: options.IdleSessionTimeout, MinIdleSession: options.MinIdleSession}}, nil
+		options: compat.ClientOptions{Server: options.Server, Dialer: multiplexDialer{d}, Security: security, Password: options.Password}}, nil
 }
 
 func (o *Outbound) Start(stage adapter.StartStage, scope *adapter.Scope) error {

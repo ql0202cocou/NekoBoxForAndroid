@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net"
 	"sync"
-	"time"
 
 	anytls "github.com/sagernet/sing-anytls"
 	M "github.com/sagernet/sing/common/metadata"
@@ -14,15 +13,12 @@ import (
 )
 
 type ClientOptions struct {
-	Server                   M.Socksaddr
-	Dialer                   N.Dialer
-	Security                 *Security
-	Password                 string
-	ClientMetadata           string
-	DisableReuse             bool
-	IdleSessionCheckInterval time.Duration
-	IdleSessionTimeout       time.Duration
-	MinIdleSession           int
+	Server         M.Socksaddr
+	Dialer         N.Dialer
+	Security       *Security
+	Password       string
+	ClientMetadata string
+	DisableReuse   bool
 }
 
 type Client struct {
@@ -44,27 +40,23 @@ func NewClient(parent context.Context, options ClientOptions) (*Client, error) {
 	var err error
 	c.sessions, err = anytls.NewClient(anytls.ClientOptions{
 		Password: options.Password, ClientMetadata: options.ClientMetadata, DisableReuse: options.DisableReuse,
-		IdleSessionCheckInterval: options.IdleSessionCheckInterval, IdleSessionTimeout: options.IdleSessionTimeout,
-		MinIdleSession: options.MinIdleSession,
+		// 会话库把 DialContext 的上下文原样传进来，即下面 DialContext 建立的尝试上下文。
 		DialOut: func(caller context.Context) (net.Conn, error) {
-			dialCtx, done := context.WithCancel(caller)
-			stop := context.AfterFunc(ctx, done)
-			defer func() { stop(); done() }()
+			attempt, _ := caller.Value(dialAttemptKey{}).(*dialAttempt)
+			if attempt == nil {
+				return nil, errors.New("AnyTLS dial outside a client attempt")
+			}
 			if err := ctx.Err(); err != nil {
 				return nil, err
 			}
-			raw, err := options.Dialer.DialContext(dialCtx, N.NetworkTCP, options.Server)
+			raw, err := options.Dialer.DialContext(caller, N.NetworkTCP, options.Server)
 			if err != nil {
 				return nil, err
 			}
-			// 会话库登记连接之前也可能阻塞在认证写入，生命周期必须覆盖这个窗口。
-			original := raw
-			raw = &lifetimeConn{Conn: original, stop: context.AfterFunc(ctx, func() { original.Close() })}
-			if attempt, _ := caller.Value((*dialAttempt)(nil)).(*dialAttempt); attempt != nil {
-				attempt.stops = append(attempt.stops, context.AfterFunc(caller, func() { original.Close() }))
-			}
-			conn, _, err := options.Security.Handshake(dialCtx, raw)
-			return conn, err
+			// 会话库登记连接之前还会阻塞在认证写入（只设写超时、不看上下文），这个窗口靠尝试上下文
+			// 取消时直接关闭原始连接来覆盖；登记之后由会话库在 Client.Close 时关闭。
+			attempt.stops = append(attempt.stops, context.AfterFunc(caller, func() { raw.Close() }))
+			return options.Security.Handshake(caller, raw)
 		},
 	})
 	if err != nil {
@@ -85,13 +77,19 @@ func (c *Client) DialContext(ctx context.Context, network string, destination M.
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
+		// 每次拨号尝试只有一个上下文：调用方取消或客户端关闭都会取消它，拨号、TLS 握手和认证写入
+		// 都在它的覆盖之下。
+		attemptCtx, cancel := context.WithCancel(ctx)
+		stopClientClose := context.AfterFunc(c.ctx, cancel)
 		attempt := &dialAttempt{}
-		defer func() {
-			for _, stop := range attempt.stops {
-				stop()
-			}
-		}()
-		conn, err := c.sessions.DialContext(context.WithValue(ctx, (*dialAttempt)(nil), attempt), destination)
+		conn, err := c.sessions.DialContext(context.WithValue(attemptCtx, dialAttemptKey{}, attempt), destination)
+		// 先撤销原始连接的关闭登记再取消尝试上下文，否则取消本身会关掉刚登记的会话连接。
+		for _, stop := range attempt.stops {
+			stop()
+		}
+		stopClientClose()
+		cancel()
+		// 取消与拨号完成竞争时，会话库仍可能返回连接；调用方已取消就不交出去。
 		if cause := ctx.Err(); cause != nil {
 			if conn != nil {
 				conn.Close()
@@ -120,13 +118,10 @@ func (c *Client) Close() error {
 
 type sessionDialer struct{ client *Client }
 
-type dialAttempt struct{ stops []func() bool }
-type lifetimeConn struct {
-	net.Conn
-	stop func() bool
-}
+type dialAttemptKey struct{}
 
-func (c *lifetimeConn) Close() error { c.stop(); return c.Conn.Close() }
+// 一次尝试里 DialOut 登记的关闭函数；会话库目前每次最多拨一次，留切片以防它重试。
+type dialAttempt struct{ stops []func() bool }
 
 func (d sessionDialer) DialContext(ctx context.Context, network string, destination M.Socksaddr) (net.Conn, error) {
 	return d.client.DialContext(ctx, N.NetworkTCP, destination)

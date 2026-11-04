@@ -17,6 +17,8 @@ import (
 	"strings"
 	"sync"
 
+	"libcore/anytlscompat/boxadapter"
+
 	box "github.com/sagernet/sing-box"
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/adapter/endpoint"
@@ -414,6 +416,17 @@ func classifyCreate(err error) trialResult {
 	}
 	if errors.Is(err, x509.IncorrectPasswordError) {
 		return trialResult{category: trialSSHPrivateKeyPassphrase}
+	}
+	// AnyTLS 兼容出站是 libcore 自己的代码：按它导出的哨兵错误分类，不靠匹配文案
+	switch {
+	case errors.Is(err, boxadapter.ErrUTLSFingerprint):
+		return trialResult{category: trialTLSUTLSFingerprint}
+	case errors.Is(err, boxadapter.ErrCertificatePin):
+		return trialResult{category: trialTLSCertificate}
+	case errors.Is(err, boxadapter.ErrECHConfig):
+		return trialResult{category: trialTLSECHConfig}
+	case errors.Is(err, boxadapter.ErrTLSOptions):
+		return trialResult{category: trialTLSOptions}
 	}
 	message := err.Error()
 	for _, rule := range trialCreateRules {

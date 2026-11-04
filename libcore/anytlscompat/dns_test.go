@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"libcore/internal/anytlstest"
+
 	"github.com/miekg/dns"
 	M "github.com/sagernet/sing/common/metadata"
 )
@@ -26,13 +28,13 @@ func echAnswer(request *dns.Msg, config []byte, rcode int) *dns.Msg {
 }
 
 func TestECHDNSDifferential(t *testing.T) {
-	mihomoBinary(t)
-	p := newPKI(t)
-	ech := newECH(t, 1)
+	anytlstest.MihomoBinary(t)
+	p := anytlstest.NewPKI(t, testName)
+	ech := anytlstest.NewECH(t, 1)
 	for _, fp := range []string{"none", "chrome"} {
 		for _, outcome := range []string{"answer", "empty", "nxdomain", "malformed"} {
 			t.Run(fp+"/"+outcome, func(t *testing.T) {
-				server := startServer(t, &stdtls.Config{Certificates: []stdtls.Certificate{tlsCertificate(t, p.leaf)}, EncryptedClientHelloKeys: []stdtls.EncryptedClientHelloKey{ech.key}}, nil)
+				server := startServer(t, &stdtls.Config{Certificates: []stdtls.Certificate{anytlstest.TLSCertificate(t, p.Leaf)}, EncryptedClientHelloKeys: []stdtls.EncryptedClientHelloKey{ech.Key}})
 				var queries atomic.Int64
 				answer := func(msg *dns.Msg) *dns.Msg {
 					if len(msg.Question) != 1 || msg.Question[0].Qtype != dns.TypeHTTPS || msg.Question[0].Name != "lookup.test." {
@@ -48,7 +50,7 @@ func TestECHDNSDifferential(t *testing.T) {
 					case "malformed":
 						return echAnswer(msg, []byte{1, 2, 3}, dns.RcodeSuccess)
 					}
-					return echAnswer(msg, ech.list, dns.RcodeSuccess)
+					return echAnswer(msg, ech.List, dns.RcodeSuccess)
 				}
 				pc, err := net.ListenPacket("udp", "127.0.0.1:0")
 				if err != nil {
@@ -57,7 +59,7 @@ func TestECHDNSDifferential(t *testing.T) {
 				dnsServer := &dns.Server{PacketConn: pc, Handler: dns.HandlerFunc(func(w dns.ResponseWriter, m *dns.Msg) { w.WriteMsg(answer(m)) })}
 				go dnsServer.ActivateAndServe()
 				t.Cleanup(func() { dnsServer.Shutdown() })
-				opts := SecurityOptions{ServerName: testName, Fingerprint: pin(p.leaf), ClientFingerprint: fp, ECH: ECHOptions{Enabled: true, QueryServerName: "lookup.test",
+				opts := SecurityOptions{ServerName: testName, Fingerprint: anytlstest.Pin(p.Leaf), ClientFingerprint: fp, ECH: ECHOptions{Enabled: true, QueryServerName: "lookup.test",
 					Lookup: HTTPSLookup(func(ctx context.Context, m *dns.Msg) (*dns.Msg, error) { return answer(m), ctx.Err() })}}
 				a := prototypeExchange(t, server.addr, opts)
 				before := queries.Load()
@@ -75,11 +77,11 @@ func TestECHDNSDifferential(t *testing.T) {
 }
 
 func TestECHRefreshAndRecovery(t *testing.T) {
-	p := newPKI(t)
-	good, bad := newECH(t, 1), newECH(t, 2)
-	server := startServer(t, &stdtls.Config{Certificates: []stdtls.Certificate{tlsCertificate(t, p.leaf)}, EncryptedClientHelloKeys: []stdtls.EncryptedClientHelloKey{good.key}}, nil)
+	p := anytlstest.NewPKI(t, testName)
+	good, bad := anytlstest.NewECH(t, 1), anytlstest.NewECH(t, 2)
+	server := startServer(t, &stdtls.Config{Certificates: []stdtls.Certificate{anytlstest.TLSCertificate(t, p.Leaf)}, EncryptedClientHelloKeys: []stdtls.EncryptedClientHelloKey{good.Key}})
 	var calls atomic.Int64
-	security, err := NewSecurity(SecurityOptions{ServerName: testName, Fingerprint: pin(p.leaf), ECH: ECHOptions{Enabled: true, Lookup: HTTPSLookup(func(ctx context.Context, m *dns.Msg) (*dns.Msg, error) {
+	security, err := NewSecurity(SecurityOptions{ServerName: testName, Fingerprint: anytlstest.Pin(p.Leaf), ECH: ECHOptions{Enabled: true, Lookup: HTTPSLookup(func(ctx context.Context, m *dns.Msg) (*dns.Msg, error) {
 		n := calls.Add(1)
 		if m.Question[0].Name != testName+"." {
 			t.Error("SNI must be default query name")
@@ -88,9 +90,9 @@ func TestECHRefreshAndRecovery(t *testing.T) {
 			return nil, errors.New("simulated DNS failure")
 		}
 		if n == 3 {
-			return echAnswer(m, bad.list, dns.RcodeSuccess), nil
+			return echAnswer(m, bad.List, dns.RcodeSuccess), nil
 		}
-		return echAnswer(m, good.list, dns.RcodeSuccess), nil
+		return echAnswer(m, good.List, dns.RcodeSuccess), nil
 	})}})
 	if err != nil {
 		t.Fatal(err)
@@ -148,7 +150,7 @@ func TestHandshakeCancellation(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			done := make(chan error, 1)
-			go func() { _, _, err := s.Handshake(ctx, raw); done <- err }()
+			go func() { _, err := s.Handshake(ctx, raw); done <- err }()
 			<-entered
 			cancel()
 			select {
@@ -164,10 +166,10 @@ func TestHandshakeCancellation(t *testing.T) {
 }
 
 func TestStaticECHDoesNotQuery(t *testing.T) {
-	p := newPKI(t)
-	ech := newECH(t, 1)
-	server := startServer(t, &stdtls.Config{Certificates: []stdtls.Certificate{tlsCertificate(t, p.leaf)}, EncryptedClientHelloKeys: []stdtls.EncryptedClientHelloKey{ech.key}}, nil)
-	if err := prototypeExchange(t, server.addr, SecurityOptions{ServerName: testName, Fingerprint: pin(p.leaf), ECH: ECHOptions{Enabled: true, Config: ech.encoded(), Lookup: func(context.Context, string) ([]byte, error) { t.Error("static ECH queried DNS"); return nil, ErrECH }}}); err != nil {
+	p := anytlstest.NewPKI(t, testName)
+	ech := anytlstest.NewECH(t, 1)
+	server := startServer(t, &stdtls.Config{Certificates: []stdtls.Certificate{anytlstest.TLSCertificate(t, p.Leaf)}, EncryptedClientHelloKeys: []stdtls.EncryptedClientHelloKey{ech.Key}})
+	if err := prototypeExchange(t, server.addr, SecurityOptions{ServerName: testName, Fingerprint: anytlstest.Pin(p.Leaf), ECH: ECHOptions{Enabled: true, Config: ech.Encoded(), Lookup: func(context.Context, string) ([]byte, error) { t.Error("static ECH queried DNS"); return nil, ErrECH }}}); err != nil {
 		t.Fatal(err)
 	}
 }

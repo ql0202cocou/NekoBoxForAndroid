@@ -1,8 +1,9 @@
 package anytlscompat
 
 import (
-	"errors"
+	"fmt"
 	"math/rand/v2"
+	"slices"
 	"sync"
 
 	utls "github.com/metacubex/utls"
@@ -19,6 +20,14 @@ var fingerprints = map[string]utls.ClientHelloID{
 	"chrome_pq":          utls.HelloChrome_115_PQ,
 }
 
+// 与 app 侧 CoreCapabilityValues.kt 的 ANYTLS_COMPAT_ECH_FINGERPRINTS 保持一致（由 app 的 wire 测试核对）。
+var echFingerprints = []string{"none", "chrome", "firefox", "chrome120", "firefox120"}
+
+// ECHFingerprintAllowed 报告该客户端指纹名是否属于实测可用的 ECH 组合；空串表示标准 TLS。
+func ECHFingerprintAllowed(name string) bool {
+	return name == "" || slices.Contains(echFingerprints, name)
+}
+
 var randomFingerprint = sync.OnceValue(func() utls.ClientHelloID {
 	names := []string{"chrome", "chrome", "chrome", "chrome", "chrome", "chrome", "safari", "safari", "safari", "ios", "ios", "firefox"}
 	return fingerprints[names[rand.IntN(len(names))]]
@@ -28,7 +37,7 @@ func fingerprint(name string) (*utls.ClientHelloID, error) {
 	// 与产品现有拒绝表保持一致；样机不放开不稳定或必败模板。
 	switch name {
 	case "chrome_psk", "chrome_pq_psk", "chrome_padding_psk_shuffle", "randomized":
-		return nil, errors.New("client fingerprint is blocked by the existing compatibility policy")
+		return nil, fmt.Errorf("%w: blocked by the existing compatibility policy", ErrClientFingerprint)
 	}
 	if name == "" || name == "none" {
 		return nil, nil
@@ -39,7 +48,7 @@ func fingerprint(name string) (*utls.ClientHelloID, error) {
 	}
 	id, ok := fingerprints[name]
 	if !ok {
-		return nil, errors.New("unsupported client fingerprint")
+		return nil, ErrClientFingerprint
 	}
 	return &id, nil
 }

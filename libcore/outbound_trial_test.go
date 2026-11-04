@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"libcore/anytlscompat/boxadapter"
+
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sys/unix"
 )
@@ -141,6 +143,8 @@ func trialValidCases(t testing.TB) []trialCase {
 		ok("trojan-mux", "outbound", map[string]any{"type": "trojan", "server": "tj.example", "server_port": 443, "password": "p", "tls": trialTLS(), "multiplex": map[string]any{"enabled": true, "protocol": "h2mux", "padding": true}}),
 		ok("direct", "outbound", map[string]any{"type": "direct"}),
 		ok("selector", "outbound", map[string]any{"type": "selector", "outbounds": []string{"a", "b"}}),
+		// AnyTLS 兼容出站的 ECH 自动查询走 domain_resolver（含分组 DNS），试建不需要真实服务器
+		ok("anytls-compat-group-dns", "outbound", map[string]any{"type": boxadapter.Type, "server": "node.example.org", "server_port": 443, "password": "fake", "domain_resolver": "dns-group-1", "detour": "parent", "tls": map[string]any{"enabled": true, "ech": map[string]any{"enabled": true}}}),
 	}
 }
 
@@ -169,6 +173,15 @@ func trialBadCases(t testing.TB) []trialCase {
 	}
 	wgPeer := func(peer map[string]any) map[string]any {
 		return map[string]any{"type": "wireguard", "address": []string{"172.16.0.2/32"}, "private_key": trialKey(32), "peers": []any{peer}}
+	}
+	// AnyTLS 兼容出站；tls 为 nil 时不写 tls 块。输入里的 secret- 取值不能出现在返回文本里
+	compat := func(tls map[string]any) map[string]any {
+		m := map[string]any{"type": boxadapter.Type, "server": "node.example.org", "server_port": 443, "password": "secret-password"}
+		if tls != nil {
+			tls["enabled"] = true
+			m["tls"] = tls
+		}
+		return m
 	}
 	return []trialCase{
 		decode("json-unknown-field", "outbound", "secret_typo_field", trialJSON(trojan(map[string]any{"secret_typo_field": "x"}))),
@@ -228,6 +241,12 @@ func trialBadCases(t testing.TB) []trialCase {
 		bad("vmess-security", "outbound", trialValueSet, map[string]any{"type": "vmess", "server": "vm.example", "server_port": 443, "uuid": trialUUIDValue, "security": "bogus"}),
 		bad("tuic-congestion", "outbound", trialValueSet, map[string]any{"type": "tuic", "server": "tu.example", "server_port": 443, "uuid": trialUUIDValue, "password": "p", "tls": trialTLS(), "congestion_control": "bogus"}),
 		bad("anytls-tfo", "outbound", trialDialer, map[string]any{"type": "anytls", "server": "at.example", "server_port": 443, "password": "p", "tls": trialTLS(), "tcp_fast_open": true}),
+		bad("anytls-compat-pin", "outbound", trialTLSCertificate, compat(map[string]any{"certificate_fingerprint": "secret-invalid-pin"})),
+		bad("anytls-compat-pem", "outbound", trialTLSCertificate, compat(map[string]any{"certificate": "secret-invalid-pem"})),
+		bad("anytls-compat-utls", "outbound", trialTLSUTLSFingerprint, compat(map[string]any{"utls": map[string]any{"enabled": true, "fingerprint": "secret-invalid-profile"}})),
+		bad("anytls-compat-ech", "outbound", trialTLSECHConfig, compat(map[string]any{"ech": map[string]any{"enabled": true, "config": "secret-invalid-ech"}})),
+		bad("anytls-compat-ech-profile", "outbound", trialTLSOptions, compat(map[string]any{"ech": map[string]any{"enabled": true}, "utls": map[string]any{"enabled": true, "fingerprint": "safari"}})),
+		bad("anytls-compat-without-tls", "outbound", trialTLSRequired, compat(nil)),
 		bad("direct-detour", "outbound", trialDialer, map[string]any{"type": "direct", "detour": "x"}),
 		bad("wg-listen-port-detour", "endpoint", trialDialer, map[string]any{"type": "wireguard", "address": []string{"172.16.0.2/32"}, "private_key": trialKey(32), "listen_port": 51000, "detour": "x", "peers": []any{trialWGPeerConfig(trialKey(32), "")}}),
 		bad("selector-without-members", "outbound", trialOther, map[string]any{"type": "selector"}),

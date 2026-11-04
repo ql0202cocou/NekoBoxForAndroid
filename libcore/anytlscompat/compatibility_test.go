@@ -15,35 +15,37 @@ import (
 	"testing"
 	"time"
 
+	"libcore/internal/anytlstest"
+
 	M "github.com/sagernet/sing/common/metadata"
 )
 
 func TestCertificateDifferential(t *testing.T) {
-	mihomoBinary(t)
-	p := newPKI(t)
+	anytlstest.MihomoBinary(t)
+	p := anytlstest.NewPKI(t, testName)
 	type scenario struct {
 		name                    string
 		cert                    stdtls.Certificate
 		pin, nameOverride, sni  string
 		insecure, trusted, want bool
 	}
-	full := tlsCertificate(t, p.leaf, p.intermediate, p.root)
-	expired := tlsCertificate(t, p.expired, p.intermediate, p.root)
+	full := anytlstest.TLSCertificate(t, p.Leaf, p.Intermediate, p.Root)
+	expired := anytlstest.TLSCertificate(t, p.Expired, p.Intermediate, p.Root)
 	cases := []scenario{
-		{"leaf", full, pin(p.leaf), "", testName, false, false, true},
-		{"leaf_wrong_name", full, pin(p.leaf), "", "wrong.test", false, false, true},
-		{"leaf_expired", expired, pin(p.expired), "", testName, false, false, true},
-		{"intermediate", full, pin(p.intermediate), "", testName, false, false, true},
-		{"root", full, pin(p.root), "", testName, false, false, true},
-		{"root_wrong_name", full, pin(p.root), "", "wrong.test", false, false, false},
-		{"root_expired", expired, pin(p.root), "", testName, false, false, false},
-		{"root_absent", tlsCertificate(t, p.leaf, p.intermediate), pin(p.root), "", testName, false, true, false},
-		{"unrelated_anchor", tlsCertificate(t, p.leaf, p.unrelated), pin(p.unrelated), "", testName, false, false, false},
-		{"wrong_pin_insecure", full, pin(p.unrelated), "", testName, true, true, false},
-		{"root_wrong_name_insecure", full, pin(p.root), "", "wrong.test", true, false, false},
-		{"root_expired_insecure", expired, pin(p.root), "", testName, true, false, false},
-		{"verify_name_overrides_sni", full, pin(p.root), testName, "wrong.test", false, false, true},
-		{"verify_name_enforced_with_pin", full, pin(p.root), "wrong.test", testName, true, false, false},
+		{"leaf", full, anytlstest.Pin(p.Leaf), "", testName, false, false, true},
+		{"leaf_wrong_name", full, anytlstest.Pin(p.Leaf), "", "wrong.test", false, false, true},
+		{"leaf_expired", expired, anytlstest.Pin(p.Expired), "", testName, false, false, true},
+		{"intermediate", full, anytlstest.Pin(p.Intermediate), "", testName, false, false, true},
+		{"root", full, anytlstest.Pin(p.Root), "", testName, false, false, true},
+		{"root_wrong_name", full, anytlstest.Pin(p.Root), "", "wrong.test", false, false, false},
+		{"root_expired", expired, anytlstest.Pin(p.Root), "", testName, false, false, false},
+		{"root_absent", anytlstest.TLSCertificate(t, p.Leaf, p.Intermediate), anytlstest.Pin(p.Root), "", testName, false, true, false},
+		{"unrelated_anchor", anytlstest.TLSCertificate(t, p.Leaf, p.Unrelated), anytlstest.Pin(p.Unrelated), "", testName, false, false, false},
+		{"wrong_pin_insecure", full, anytlstest.Pin(p.Unrelated), "", testName, true, true, false},
+		{"root_wrong_name_insecure", full, anytlstest.Pin(p.Root), "", "wrong.test", true, false, false},
+		{"root_expired_insecure", expired, anytlstest.Pin(p.Root), "", testName, true, false, false},
+		{"verify_name_overrides_sni", full, anytlstest.Pin(p.Root), testName, "wrong.test", false, false, true},
+		{"verify_name_enforced_with_pin", full, anytlstest.Pin(p.Root), "wrong.test", testName, true, false, false},
 		{"trusted", full, "", "", testName, false, true, true},
 		{"untrusted", full, "", "", testName, false, false, false},
 		{"insecure", full, "", "", "wrong.test", true, false, true},
@@ -54,12 +56,12 @@ func TestCertificateDifferential(t *testing.T) {
 		t.Run(fp, func(t *testing.T) {
 			for _, c := range cases {
 				t.Run(c.name, func(t *testing.T) {
-					server := startServer(t, &stdtls.Config{Certificates: []stdtls.Certificate{c.cert}}, nil)
+					server := startServer(t, &stdtls.Config{Certificates: []stdtls.Certificate{c.cert}})
 					opts := SecurityOptions{ServerName: c.sni, VerifyName: c.nameOverride, Fingerprint: c.pin, AllowInsecure: c.insecure, ClientFingerprint: fp}
 					root := ""
 					if c.trusted {
-						opts.Roots = roots(p.root)
-						root = p.root.certPEM
+						opts.Roots = anytlstest.Roots(p.Root)
+						root = p.Root.CertPEM
 					}
 					prototypeErr := prototypeExchange(t, server.addr, opts)
 					oracleErr := oracleExchange(t, server.addr, opts, root)
@@ -73,16 +75,16 @@ func TestCertificateDifferential(t *testing.T) {
 }
 
 func TestLegacyPinPolicy(t *testing.T) {
-	p := newPKI(t)
-	got, err := LegacyPin(pin(p.unrelated), []byte(p.leaf.certPEM))
-	if err != nil || got != pin(p.unrelated) {
+	p := anytlstest.NewPKI(t, testName)
+	got, err := LegacyPin(anytlstest.Pin(p.Unrelated), []byte(p.Leaf.CertPEM))
+	if err != nil || got != anytlstest.Pin(p.Unrelated) {
 		t.Fatal("explicit pin must win", err)
 	}
-	got, err = LegacyPin("", []byte(p.leaf.certPEM+p.root.certPEM))
-	if err != nil || got != pin(p.leaf) {
+	got, err = LegacyPin("", []byte(p.Leaf.CertPEM+p.Root.CertPEM))
+	if err != nil || got != anytlstest.Pin(p.Leaf) {
 		t.Fatal("first PEM must win", err)
 	}
-	if _, err = LegacyPin("invalid", []byte(p.leaf.certPEM)); err == nil {
+	if _, err = LegacyPin("invalid", []byte(p.Leaf.CertPEM)); err == nil {
 		t.Fatal("invalid explicit pin fell back to PEM")
 	}
 	if _, err = LegacyPin("", []byte("invalid")); err == nil {
@@ -91,30 +93,30 @@ func TestLegacyPinPolicy(t *testing.T) {
 	if _, err = NewSecurity(SecurityOptions{Fingerprint: strings.Repeat("zz", 32)}); !errors.Is(err, ErrFingerprint) {
 		t.Fatal(err)
 	}
-	canonical := pin(p.leaf)
+	canonical := anytlstest.Pin(p.Leaf)
 	var parts []string
 	for i := 0; i < len(canonical); i += 2 {
 		parts = append(parts, strings.ToUpper(canonical[i:i+2]))
 	}
-	v, err := pinVerifier(" "+strings.Join(parts, ":")+" ", nil)
+	digest, err := parsePin(" " + strings.Join(parts, ":") + " ")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = v([]*x509.Certificate{p.leaf.parsed}, "wrong.test"); err != nil {
+	if err = pinVerifier(digest, time.Now)([]*x509.Certificate{p.Leaf.Parsed}, "wrong.test"); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestUTLSWireDifferential(t *testing.T) {
-	mihomoBinary(t)
-	p := newPKI(t)
+	anytlstest.MihomoBinary(t)
+	p := anytlstest.NewPKI(t, testName)
 	profiles := []string{"chrome", "firefox", "safari", "ios", "android", "edge", "360", "qq", "chrome120", "firefox120", "safari16", "chrome_psk_shuffle", "chrome_pq"}
 	for _, fp := range profiles {
 		t.Run(fp, func(t *testing.T) {
-			cfg := &stdtls.Config{Certificates: []stdtls.Certificate{tlsCertificate(t, p.leaf)}, NextProtos: []string{"h2", "http/1.1"}}
-			prototypeServer := startServer(t, cfg, nil)
-			oracleServer := startServer(t, cfg, nil)
-			opts := SecurityOptions{ServerName: testName, Fingerprint: pin(p.leaf), ClientFingerprint: fp, ALPN: []string{"h2", "http/1.1"}}
+			cfg := &stdtls.Config{Certificates: []stdtls.Certificate{anytlstest.TLSCertificate(t, p.Leaf)}, NextProtos: []string{"h2", "http/1.1"}}
+			prototypeServer := startServer(t, cfg)
+			oracleServer := startServer(t, cfg)
+			opts := SecurityOptions{ServerName: testName, Fingerprint: anytlstest.Pin(p.Leaf), ClientFingerprint: fp, ALPN: []string{"h2", "http/1.1"}}
 			if err := prototypeExchange(t, prototypeServer.addr, opts); err != nil {
 				t.Fatal("prototype", err)
 			}
@@ -142,8 +144,8 @@ func TestUTLSWireDifferential(t *testing.T) {
 	}
 	for _, fp := range []string{"chrome_psk", "chrome_pq_psk", "chrome_padding_psk_shuffle"} {
 		t.Run(fp, func(t *testing.T) {
-			server := startServer(t, &stdtls.Config{Certificates: []stdtls.Certificate{tlsCertificate(t, p.leaf)}}, nil)
-			opts := SecurityOptions{ServerName: testName, Fingerprint: pin(p.leaf), ClientFingerprint: fp}
+			server := startServer(t, &stdtls.Config{Certificates: []stdtls.Certificate{anytlstest.TLSCertificate(t, p.Leaf)}})
+			opts := SecurityOptions{ServerName: testName, Fingerprint: anytlstest.Pin(p.Leaf), ClientFingerprint: fp}
 			a, b := prototypeExchange(t, server.addr, opts), oracleExchange(t, server.addr, opts, "")
 			if a == nil || b == nil {
 				t.Fatalf("expected existing unsupported PSK templates to fail; prototype=%v mihomo=%v", a, b)
@@ -153,12 +155,12 @@ func TestUTLSWireDifferential(t *testing.T) {
 }
 
 func TestRandomFingerprints(t *testing.T) {
-	p := newPKI(t)
+	p := anytlstest.NewPKI(t, testName)
 	for _, fp := range []string{"random"} {
 		t.Run(fp, func(t *testing.T) {
-			server := startServer(t, &stdtls.Config{Certificates: []stdtls.Certificate{tlsCertificate(t, p.leaf)}}, nil)
+			server := startServer(t, &stdtls.Config{Certificates: []stdtls.Certificate{anytlstest.TLSCertificate(t, p.Leaf)}})
 			for range 6 {
-				if err := prototypeExchange(t, server.addr, SecurityOptions{ServerName: testName, Fingerprint: pin(p.leaf), ClientFingerprint: fp}); err != nil {
+				if err := prototypeExchange(t, server.addr, SecurityOptions{ServerName: testName, Fingerprint: anytlstest.Pin(p.Leaf), ClientFingerprint: fp}); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -175,38 +177,38 @@ func TestRandomFingerprints(t *testing.T) {
 }
 
 func TestECHDifferential(t *testing.T) {
-	mihomoBinary(t)
-	p := newPKI(t)
-	good, bad := newECH(t, 1), newECH(t, 2)
+	anytlstest.MihomoBinary(t)
+	p := anytlstest.NewPKI(t, testName)
+	good, bad := anytlstest.NewECH(t, 1), anytlstest.NewECH(t, 2)
 	for _, fp := range []string{"none", "chrome", "firefox"} {
 		t.Run(fp, func(t *testing.T) {
 			for _, mode := range []string{"accepted_leaf", "accepted_root", "accepted_wrong_pin", "accepted_expired_root", "rejected_trusted", "rejected_pin_only", "malformed"} {
 				t.Run(mode, func(t *testing.T) {
-					cert := tlsCertificate(t, p.leaf, p.intermediate, p.root)
-					opts := SecurityOptions{ServerName: testName, Fingerprint: pin(p.leaf), ClientFingerprint: fp, ECH: ECHOptions{Enabled: true, Config: good.encoded()}}
+					cert := anytlstest.TLSCertificate(t, p.Leaf, p.Intermediate, p.Root)
+					opts := SecurityOptions{ServerName: testName, Fingerprint: anytlstest.Pin(p.Leaf), ClientFingerprint: fp, ECH: ECHOptions{Enabled: true, Config: good.Encoded()}}
 					want := mode == "accepted_leaf" || mode == "accepted_root"
 					root := ""
 					switch mode {
 					case "accepted_root":
-						opts.Fingerprint = pin(p.root)
+						opts.Fingerprint = anytlstest.Pin(p.Root)
 					case "accepted_wrong_pin":
-						opts.Fingerprint = pin(p.unrelated)
+						opts.Fingerprint = anytlstest.Pin(p.Unrelated)
 						opts.AllowInsecure = true
 					case "accepted_expired_root":
-						cert = tlsCertificate(t, p.expired, p.intermediate, p.root)
-						opts.Fingerprint = pin(p.root)
+						cert = anytlstest.TLSCertificate(t, p.Expired, p.Intermediate, p.Root)
+						opts.Fingerprint = anytlstest.Pin(p.Root)
 					case "rejected_trusted":
-						opts.ECH.Config = bad.encoded()
-						opts.Roots = roots(p.root)
-						root = p.root.certPEM
+						opts.ECH.Config = bad.Encoded()
+						opts.Roots = anytlstest.Roots(p.Root)
+						root = p.Root.CertPEM
 					case "rejected_pin_only":
-						opts.ECH.Config = bad.encoded()
+						opts.ECH.Config = bad.Encoded()
 						opts.AllowInsecure = true
 					case "malformed":
 						opts.ECH.Config = base64.StdEncoding.EncodeToString([]byte{1, 2, 3})
 					}
-					cfg := &stdtls.Config{Certificates: []stdtls.Certificate{cert}, EncryptedClientHelloKeys: []stdtls.EncryptedClientHelloKey{good.key}}
-					ps, os := startServer(t, cfg, nil), startServer(t, cfg, nil)
+					cfg := &stdtls.Config{Certificates: []stdtls.Certificate{cert}, EncryptedClientHelloKeys: []stdtls.EncryptedClientHelloKey{good.Key}}
+					ps, os := startServer(t, cfg), startServer(t, cfg)
 					a, b := prototypeExchange(t, ps.addr, opts), oracleExchange(t, os.addr, opts, root)
 					if (a == nil) != want || (b == nil) != want {
 						t.Fatalf("want=%v prototype=%v mihomo=%v", want, a, b)
@@ -230,9 +232,9 @@ func TestECHDifferential(t *testing.T) {
 }
 
 func TestMihomoServerInterop(t *testing.T) {
-	mihomoBinary(t)
-	p := newPKI(t)
-	ech := newECH(t, 1)
+	anytlstest.MihomoBinary(t)
+	p := anytlstest.NewPKI(t, testName)
+	ech := anytlstest.NewECH(t, 1)
 	echo, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -265,16 +267,16 @@ func TestMihomoServerInterop(t *testing.T) {
 	for _, fp := range []string{"none", "chrome"} {
 		for _, useECH := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/ECH_%v", fp, useECH), func(t *testing.T) {
-				port := freePort(t)
+				port := anytlstest.FreePort(t)
 				listener := map[string]any{"name": "server", "type": "anytls", "listen": "127.0.0.1", "port": port, "users": map[string]string{"test": testPassword},
-					"certificate": p.leaf.certPEM + p.intermediate.certPEM + p.root.certPEM, "private-key": p.leaf.keyPEM, "proxy": "DIRECT",
+					"certificate": p.Leaf.CertPEM + p.Intermediate.CertPEM + p.Root.CertPEM, "private-key": p.Leaf.KeyPEM, "proxy": "DIRECT",
 					"padding-scheme": "stop=4\n0=64-96\n1=200-600\n2=300-700,c,400-900\n3=100-200"}
-				opts := SecurityOptions{ServerName: testName, Fingerprint: pin(p.root), ClientFingerprint: fp}
+				opts := SecurityOptions{ServerName: testName, Fingerprint: anytlstest.Pin(p.Root), ClientFingerprint: fp}
 				if useECH {
-					listener["ech-key"] = ech.pem
-					opts.ECH = ECHOptions{Enabled: true, Config: ech.encoded()}
+					listener["ech-key"] = ech.PEM
+					opts.ECH = ECHOptions{Enabled: true, Config: ech.Encoded()}
 				}
-				startMihomo(t, map[string]any{"listeners": []any{listener}}, port)
+				anytlstest.StartMihomo(t, map[string]any{"listeners": []any{listener}})
 				security, err := NewSecurity(opts)
 				if err != nil {
 					t.Fatal(err)
@@ -343,9 +345,9 @@ func TestMihomoServerInterop(t *testing.T) {
 }
 
 func TestConcurrentClose(t *testing.T) {
-	p := newPKI(t)
-	server := startServer(t, &stdtls.Config{Certificates: []stdtls.Certificate{tlsCertificate(t, p.leaf)}}, nil)
-	s, err := NewSecurity(SecurityOptions{ServerName: testName, Fingerprint: pin(p.leaf)})
+	p := anytlstest.NewPKI(t, testName)
+	server := startServer(t, &stdtls.Config{Certificates: []stdtls.Certificate{anytlstest.TLSCertificate(t, p.Leaf)}})
+	s, err := NewSecurity(SecurityOptions{ServerName: testName, Fingerprint: anytlstest.Pin(p.Leaf)})
 	if err != nil {
 		t.Fatal(err)
 	}

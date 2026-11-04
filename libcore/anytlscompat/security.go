@@ -20,7 +20,9 @@ import (
 var (
 	ErrPin         = errors.New("certificate pin mismatch")
 	ErrFingerprint = errors.New("invalid certificate fingerprint")
-	ErrECH         = errors.New("ECH configuration unavailable")
+	// 客户端（uTLS）指纹名不可用；ErrFingerprint 指的是证书固定值，两者不混用。
+	ErrClientFingerprint = errors.New("unsupported client fingerprint")
+	ErrECH               = errors.New("ECH configuration unavailable")
 )
 
 // 安全层只封装调用方提供的连接，不自行拨号或使用进程级信任配置。
@@ -40,7 +42,8 @@ type ECHOptions struct {
 	Enabled         bool
 	Config          string
 	QueryServerName string
-	Lookup          func(context.Context, string) ([]byte, error)
+	// 握手直接使用并可能保留返回的切片，不再复制；实现每次都必须返回新分配的切片（HTTPSLookup 即如此）。
+	Lookup func(context.Context, string) ([]byte, error)
 }
 
 type Security struct {
@@ -50,17 +53,10 @@ type Security struct {
 	ech     []byte
 }
 
-type TLSState struct {
-	ServerName  string
-	ALPN        string
-	Version     uint16
-	ECHAccepted bool
-}
-
 // 显式 SHA-256 优先于旧节点 PEM；旧字段只能在明确选择固定策略时使用。
 func LegacyPin(explicit string, certificatesPEM []byte) (string, error) {
 	if explicit != "" {
-		if _, err := pinVerifier(explicit, nil); err != nil {
+		if _, err := parsePin(explicit); err != nil {
 			return "", err
 		}
 		return explicit, nil
@@ -85,17 +81,24 @@ func NewSecurity(options SecurityOptions) (*Security, error) {
 		options.Time = time.Now
 	}
 	s := &Security{options: options}
-	var err error
 	if options.Fingerprint != "" {
-		s.verify, err = pinVerifier(options.Fingerprint, options.Time)
+		digest, err := parsePin(options.Fingerprint)
 		if err != nil {
 			return nil, err
 		}
+		s.verify = pinVerifier(digest, options.Time)
+		if options.VerifyName != "" {
+			// 验证域名覆盖握手 SNI；在构造时一次折进校验函数，握手时不再另建闭包。
+			base, name := s.verify, options.VerifyName
+			s.verify = func(certs []*x509.Certificate, _ string) error { return base(certs, name) }
+		}
 	} else if options.VerifyName != "" {
+		roots, name, now := options.Roots, options.VerifyName, options.Time
 		s.verify = func(certs []*x509.Certificate, _ string) error {
-			return verifyChain(certs, options.Roots, options.VerifyName, options.Time())
+			return verifyChain(certs, roots, name, now())
 		}
 	}
+	var err error
 	s.hello, err = fingerprint(options.ClientFingerprint)
 	if err != nil {
 		return nil, err
@@ -113,12 +116,17 @@ func NewSecurity(options SecurityOptions) (*Security, error) {
 	return s, nil
 }
 
-// 固定语义源自 mihomo v1.19.33 component/ca/fingerprint.go，许可见 NOTICE.md。
-func pinVerifier(value string, now func() time.Time) (func([]*x509.Certificate, string) error, error) {
+// parsePin 把整证书 SHA-256 固定值解成摘要：去掉首尾空白和冒号分隔，长度必须正好 32 字节。
+func parsePin(value string) ([]byte, error) {
 	digest, err := hex.DecodeString(strings.TrimSpace(strings.ReplaceAll(value, ":", "")))
 	if err != nil || len(digest) != sha256.Size {
 		return nil, ErrFingerprint
 	}
+	return digest, nil
+}
+
+// 固定语义源自 mihomo v1.19.33 component/ca/fingerprint.go，许可见 NOTICE.md。
+func pinVerifier(digest []byte, now func() time.Time) func([]*x509.Certificate, string) error {
 	return func(certs []*x509.Certificate, name string) error {
 		for i, cert := range certs {
 			hash := sha256.Sum256(cert.Raw)
@@ -130,14 +138,10 @@ func pinVerifier(value string, now func() time.Time) (func([]*x509.Certificate, 
 			}
 			roots := x509.NewCertPool()
 			roots.AddCert(cert)
-			var current time.Time
-			if now != nil {
-				current = now()
-			}
-			return verifyChain(certs[:i+1], roots, name, current)
+			return verifyChain(certs[:i+1], roots, name, now())
 		}
 		return ErrPin
-	}, nil
+	}
 }
 
 func verifyChain(certs []*x509.Certificate, roots *x509.CertPool, name string, now time.Time) error {
@@ -153,7 +157,7 @@ func verifyChain(certs []*x509.Certificate, roots *x509.CertPool, name string, n
 }
 
 // 任一配置、查询或握手错误都关闭传入连接；不会降级重试明文 ClientHello。
-func (s *Security) Handshake(ctx context.Context, raw net.Conn) (conn net.Conn, state TLSState, err error) {
+func (s *Security) Handshake(ctx context.Context, raw net.Conn) (conn net.Conn, err error) {
 	defer func() {
 		if err != nil {
 			raw.Close()
@@ -162,8 +166,8 @@ func (s *Security) Handshake(ctx context.Context, raw net.Conn) (conn net.Conn, 
 	if err = ctx.Err(); err != nil {
 		return
 	}
-	o := s.options
-	ech := append([]byte(nil), s.ech...)
+	o := &s.options
+	ech := s.ech
 	if o.ECH.Enabled && o.ECH.Config == "" {
 		name := o.ECH.QueryServerName
 		if name == "" {
@@ -177,44 +181,36 @@ func (s *Security) Handshake(ctx context.Context, raw net.Conn) (conn net.Conn, 
 			err = ErrECH
 			return
 		}
-		ech = append([]byte(nil), ech...)
 	}
-	verify := func(certs []*x509.Certificate, name string) error {
-		if o.VerifyName != "" {
-			name = o.VerifyName
-		}
-		return s.verify(certs, name)
-	}
+	// metacubex/tls v0.1.9 与 utls v1.8.8 只读 NextProtos 和 ECH 列表，握手时都不再复制（ALPN 在构造时已复制）；
+	// uTLS 会给 cfg.NextProtos 重新赋值但不写入原切片，所以 Config 仍按每次握手新建、不共享。
+	var echAccepted bool
 	if s.hello == nil {
-		cfg := &tls.Config{ServerName: o.ServerName, NextProtos: append([]string(nil), o.ALPN...), RootCAs: o.Roots,
+		cfg := &tls.Config{ServerName: o.ServerName, NextProtos: o.ALPN, RootCAs: o.Roots,
 			Time: o.Time, InsecureSkipVerify: o.AllowInsecure, EncryptedClientHelloConfigList: ech}
 		if s.verify != nil {
 			cfg.InsecureSkipVerify = true
-			cfg.VerifyConnection = func(state tls.ConnectionState) error { return verify(state.PeerCertificates, state.ServerName) }
+			cfg.VerifyConnection = func(state tls.ConnectionState) error { return s.verify(state.PeerCertificates, state.ServerName) }
 		}
 		tc := tls.Client(raw, cfg)
 		if err = tc.HandshakeContext(ctx); err != nil {
 			return
 		}
-		cs := tc.ConnectionState()
-		state = TLSState{cs.ServerName, cs.NegotiatedProtocol, cs.Version, cs.ECHAccepted}
-		conn = tc
+		conn, echAccepted = tc, tc.ConnectionState().ECHAccepted
 	} else {
-		cfg := &utls.Config{ServerName: o.ServerName, NextProtos: append([]string(nil), o.ALPN...), RootCAs: o.Roots,
+		cfg := &utls.Config{ServerName: o.ServerName, NextProtos: o.ALPN, RootCAs: o.Roots,
 			Time: o.Time, InsecureSkipVerify: o.AllowInsecure, EncryptedClientHelloConfigList: ech}
 		if s.verify != nil {
 			cfg.InsecureSkipVerify = true
-			cfg.VerifyConnection = func(state utls.ConnectionState) error { return verify(state.PeerCertificates, state.ServerName) }
+			cfg.VerifyConnection = func(state utls.ConnectionState) error { return s.verify(state.PeerCertificates, state.ServerName) }
 		}
 		tc := utls.UClient(raw, cfg, *s.hello)
 		if err = tc.HandshakeContext(ctx); err != nil {
 			return
 		}
-		cs := tc.ConnectionState()
-		state = TLSState{cs.ServerName, cs.NegotiatedProtocol, cs.Version, cs.ECHAccepted}
-		conn = tc
+		conn, echAccepted = tc, tc.ConnectionState().ECHAccepted
 	}
-	if o.ECH.Enabled && !state.ECHAccepted {
+	if o.ECH.Enabled && !echAccepted {
 		err = ErrECH
 		conn = nil
 	}

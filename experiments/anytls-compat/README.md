@@ -16,10 +16,12 @@ Fixtures bind to loopback and generate temporary PKI and configurations. Rejecti
 MIHOMO_BIN=/absolute/path/to/mihomo sh experiments/anytls-compat/run.sh
 MIHOMO_BIN=/absolute/path/to/mihomo sh experiments/anytls-compat/run.sh -race \
   -run 'Test(MihomoServerInterop|ConcurrentClose|CancelDuringAuthenticationWrite|ControlledDialDNSAndScope|ECHRefreshAndRecovery|HandshakeCancellation)$'
-# 正式注册、UrlTest、trial 与分组 DNS；在 libcore 中执行。
+# 正式注册、UrlTest 与分组 DNS（TestCompatibility*），trial 用例在共用表里（TestTrial*）；
+# 在 libcore 中执行，构建标签与 AAR 相同（trial 要构造的部分出站依赖这些标签）。
 cd libcore
-MIHOMO_BIN=/absolute/path/to/mihomo GOTOOLCHAIN=go1.26.10 go test -race \
-  -ldflags=-checklinkname=0 -run '^TestCompatibility' .
+source build_tags.sh
+MIHOMO_BIN=/absolute/path/to/mihomo GOTOOLCHAIN=go1.26.10 go test -race -tags "$LIBCORE_BUILD_TAGS" \
+  -ldflags=-checklinkname=0 -run 'Test(Compatibility|ConcurrentClose|CancelDuringAuthenticationWrite|ControlledDialDNSAndScope|ECHRefreshAndRecovery|HandshakeCancellation|Trial(ValidInputsPass|BadInputsClassified|ConcurrentCalls))' .
 ```
 
 `run.sh` 缺少真实 mihomo 时失败；直接 `go test` 的相关用例会明确跳过，不代表互通验证。

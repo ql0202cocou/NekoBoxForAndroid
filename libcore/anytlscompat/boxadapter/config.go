@@ -13,6 +13,7 @@ import (
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/adapter/outbound"
 	"github.com/sagernet/sing-box/common/dialer"
+	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing/common/json/badoption"
@@ -44,15 +45,24 @@ type ECHConfig struct {
 	Config  badoption.Listable[string] `json:"config,omitempty"`
 }
 
+// 构造失败的哨兵错误，libcore 的 trial 用 errors.Is 分类；文案沿用 sing-box 同类报错的写法，不带用户取值。
+var (
+	ErrUTLSFingerprint = errors.New("unknown uTLS fingerprint")
+	ErrCertificatePin  = errors.New("failed to parse certificate pin")
+	ErrECHConfig       = errors.New("invalid ECH configs pem")
+	ErrTLSOptions      = errors.New("unsupported usage for compatibility ECH fingerprint")
+)
+
 func RegisterOutbound(registry *outbound.Registry) {
 	outbound.Register[Config](registry, Type, NewOutbound)
 }
 
 func NewOutbound(ctx context.Context, _ adapter.Router, _ log.ContextLogger, tag string, config Config) (adapter.Outbound, error) {
 	if config.TLS == nil || !config.TLS.Enabled {
-		return nil, errors.New("TLS required")
+		return nil, C.ErrTLSRequired
 	}
-	if !config.ServerOptions.Build().IsValid() || config.ServerPort == 0 {
+	server := config.ServerOptions.Build()
+	if !server.IsValid() || config.ServerPort == 0 {
 		return nil, errors.New("invalid server address")
 	}
 	t := config.TLS
@@ -64,26 +74,24 @@ func NewOutbound(ctx context.Context, _ adapter.Router, _ log.ContextLogger, tag
 	if t.Fingerprint != "" || t.Certificate != "" {
 		pin, err := compat.LegacyPin(t.Fingerprint, []byte(t.Certificate))
 		if err != nil {
-			return nil, errors.New("failed to parse certificate pin")
+			return nil, ErrCertificatePin
 		}
 		security.Fingerprint = pin
 	}
 	if t.UTLS != nil && t.UTLS.Enabled {
 		security.ClientFingerprint = t.UTLS.Fingerprint
 	}
-	options := Options{Server: config.ServerOptions.Build(), DialerOptions: config.DialerOptions, Password: config.Password}
+	options := Options{Server: server, DialerOptions: config.DialerOptions, Password: config.Password}
 	if t.ECH != nil && t.ECH.Enabled {
 		// 只开放真实对照中成功的确定性组合；random 的选择可能落到不支持 ECH 的模板。
-		switch security.ClientFingerprint {
-		case "", "none", "chrome", "firefox", "chrome120", "firefox120":
-		default:
-			return nil, errors.New("unsupported usage for compatibility ECH fingerprint")
+		if !compat.ECHFingerprintAllowed(security.ClientFingerprint) {
+			return nil, ErrTLSOptions
 		}
 		security.ECH.Enabled = true
 		if len(t.ECH.Config) > 0 {
 			block, rest := pem.Decode([]byte(strings.Join(t.ECH.Config, "\n")))
 			if block == nil || block.Type != "ECH CONFIGS" || len(strings.TrimSpace(string(rest))) != 0 || !validECHList(block.Bytes) {
-				return nil, errors.New("invalid ECH configs pem")
+				return nil, ErrECHConfig
 			}
 			security.ECH.Config = base64.StdEncoding.EncodeToString(block.Bytes)
 		} else {
@@ -101,8 +109,8 @@ func NewOutbound(ctx context.Context, _ adapter.Router, _ log.ContextLogger, tag
 	}
 	options.TLS = security
 	result, err := New(ctx, tag, options)
-	if err != nil && (strings.Contains(err.Error(), "client fingerprint")) {
-		return nil, errors.New("unknown uTLS fingerprint")
+	if errors.Is(err, compat.ErrClientFingerprint) {
+		return nil, ErrUTLSFingerprint
 	}
 	return result, err
 }
