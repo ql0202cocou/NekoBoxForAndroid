@@ -137,6 +137,7 @@ class CoreCapabilitiesTest {
             CoreProtocol.VLESS to Requirement.PROTOCOL_VLESS,
             CoreProtocol.TROJAN to Requirement.PROTOCOL_TROJAN,
             CoreProtocol.ANYTLS to Requirement.PROTOCOL_ANYTLS,
+            CoreProtocol.ANYTLS_COMPAT to Requirement.PROTOCOL_ANYTLS_COMPAT,
         )
         for ((protocol, row) in rows) {
             val supported = CAPABILITY_TABLE.getValue(row).filterValues { it is CapabilityCell.Supported }.keys

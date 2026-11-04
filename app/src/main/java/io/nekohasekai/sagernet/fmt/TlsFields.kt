@@ -2,12 +2,13 @@ package io.nekohasekai.sagernet.fmt
 
 import io.nekohasekai.sagernet.fmt.v2ray.requireValidReality
 import io.nekohasekai.sagernet.ktx.blankAsNull
-import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.SingBoxOptions.AnyTLSCompatibilityTLSOptions
 import moe.matsuri.nb4a.SingBoxOptions.OutboundECHOptions
 import moe.matsuri.nb4a.SingBoxOptions.OutboundRealityOptions
 import moe.matsuri.nb4a.SingBoxOptions.OutboundTLSOptions
 import moe.matsuri.nb4a.SingBoxOptions.OutboundUTLSOptions
+import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
+import moe.matsuri.nb4a.proxy.anytls.isAnyTlsCompatibilityTest
 import moe.matsuri.nb4a.utils.echAsPem
 import moe.matsuri.nb4a.utils.listByLineOrComma
 
@@ -45,11 +46,7 @@ fun buildSingBoxOutboundTLS(bean: AbstractBean, globalAllowInsecure: Boolean): O
         "certificate pin reached the sing-box TLS builder"
     }
     return OutboundTLSOptions().apply {
-        enabled = true
-        insecure = effectiveAllowInsecure(tls.allowInsecure, globalAllowInsecure)
-        tls.sni.blankAsNull()?.let { server_name = it }
-        tls.alpn.blankAsNull()?.let { alpn = it.listByLineOrComma() }
-        tls.certificate.blankAsNull()?.let { certificate = it }
+        applyCommonTls(tls, globalAllowInsecure)
         tls.realityPublicKey.blankAsNull()?.let {
             requireValidReality(it, tls.realityShortId.orEmpty())
             reality = OutboundRealityOptions().apply {
@@ -71,37 +68,35 @@ fun buildSingBoxOutboundTLS(bean: AbstractBean, globalAllowInsecure: Boolean): O
                 fingerprint = it
             }
         }
-        if (tls.enableECH) {
-            ech = OutboundECHOptions().apply {
-                enabled = true
-                // sing-box only accepts an "ECH CONFIGS" PEM block; a mihomo
-                // subscription hands us bare base64
-                tls.echConfig.blankAsNull()?.let { config = it.echAsPem().lines() }
-            }
-        }
     }
 }
 
 // 兼容测试采用 mihomo 的证书固定与指纹名单，普通 sing-box TLS 构建保持原有规则。
 fun buildAnyTLSCompatibilityTLS(bean: AnyTLSBean, globalAllowInsecure: Boolean): OutboundTLSOptions {
-    check(bean.compatibilityTest == true)
+    check(bean.isAnyTlsCompatibilityTest)
     val fields = tlsFields(bean)!!
     return AnyTLSCompatibilityTLSOptions().apply {
-        enabled = true
-        insecure = effectiveAllowInsecure(fields.allowInsecure, globalAllowInsecure)
-        server_name = fields.sni.blankAsNull()
-        alpn = fields.alpn.blankAsNull()?.listByLineOrComma()
+        applyCommonTls(fields, globalAllowInsecure)
         certificate_fingerprint = fields.certificateFingerprint.blankAsNull()
-        certificate = fields.certificate.blankAsNull()
         fields.utlsFingerprint.blankAsNull()?.let {
-            require(MIHOMO_UTLS_FINGERPRINTS.accepts(it)) { "unsupported compatibility client fingerprint" }
+            require(ANYTLS_COMPAT_UTLS_FINGERPRINTS.accepts(it)) { "unsupported compatibility client fingerprint" }
             utls = OutboundUTLSOptions().apply { enabled = true; fingerprint = it }
         }
-        if (fields.enableECH) {
-            ech = OutboundECHOptions().apply {
-                enabled = true
-                fields.echConfig.blankAsNull()?.let { config = it.echAsPem().lines() }
-            }
+    }
+}
+
+// 两个 TLS 构建共有的部分：开关、生效的 allowInsecure、SNI、ALPN、证书与 ECH
+private fun OutboundTLSOptions.applyCommonTls(fields: TlsFields, globalAllowInsecure: Boolean) {
+    enabled = true
+    insecure = effectiveAllowInsecure(fields.allowInsecure, globalAllowInsecure)
+    fields.sni.blankAsNull()?.let { server_name = it }
+    fields.alpn.blankAsNull()?.let { alpn = it.listByLineOrComma() }
+    fields.certificate.blankAsNull()?.let { certificate = it }
+    if (fields.enableECH) {
+        ech = OutboundECHOptions().apply {
+            enabled = true
+            // sing-box 只认「ECH CONFIGS」PEM 块，mihomo 订阅给的是裸 base64
+            fields.echConfig.blankAsNull()?.let { config = it.echAsPem().lines() }
         }
     }
 }

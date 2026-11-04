@@ -22,6 +22,8 @@ const val ANYTLS_CERTIFICATES_PREFER_MIHOMO = true
 fun candidateCores(protocol: CoreProtocol): List<DialCore> = when (protocol) {
     CoreProtocol.VMESS, CoreProtocol.VLESS, CoreProtocol.TROJAN -> listOf(DialCore.SING_BOX, DialCore.XRAY)
     CoreProtocol.ANYTLS -> listOf(DialCore.SING_BOX, DialCore.MIHOMO)
+    // 兼容测试节点只由 libcore 的私有兼容出站承载
+    CoreProtocol.ANYTLS_COMPAT -> listOf(DialCore.SING_BOX)
     CoreProtocol.OTHER -> emptyList()
 }
 
@@ -32,7 +34,7 @@ fun preferenceOrder(requirements: CoreRequirements): List<DialCore> {
     val candidates = candidateCores(requirements.protocol)
     val first = when {
         requirements.tls == TlsMode.REALITY || requirements.mldsa65Verify -> DialCore.XRAY
-        requirements.protocol == CoreProtocol.ANYTLS && !requirements.anyTlsCompatibilityTest && requirements.customCa && ANYTLS_CERTIFICATES_PREFER_MIHOMO ->
+        requirements.protocol == CoreProtocol.ANYTLS && requirements.customCa && ANYTLS_CERTIFICATES_PREFER_MIHOMO ->
             DialCore.MIHOMO
 
         else -> DialCore.SING_BOX

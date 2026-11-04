@@ -1,7 +1,7 @@
 package io.nekohasekai.sagernet.uitest
 
-import androidx.preference.Preference
 import androidx.preference.EditTextPreference
+import androidx.preference.Preference
 import io.nekohasekai.sagernet.database.EditorCache
 import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.ProxyEntity

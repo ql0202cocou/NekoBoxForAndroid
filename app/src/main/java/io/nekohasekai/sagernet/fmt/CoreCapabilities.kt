@@ -175,10 +175,8 @@ enum class Requirement(val label: String, val fields: List<ProfileField>, val is
     PROTOCOL_VMESS("协议 VMess", listOf(ProfileField.CORE), isProtocol = true),
     PROTOCOL_VLESS("协议 VLESS", listOf(ProfileField.CORE), isProtocol = true),
     PROTOCOL_TROJAN("协议 Trojan", listOf(ProfileField.CORE), isProtocol = true),
-    PROTOCOL_ANYTLS_COMPAT("协议 AnyTLS 兼容测试", listOf(ProfileField.CORE), isProtocol = true),
-    ANYTLS_COMPAT_PIN("兼容测试证书固定", listOf(ProfileField.CERTIFICATE_FINGERPRINT, ProfileField.CERTIFICATES)),
-    ANYTLS_COMPAT_UTLS("兼容测试 uTLS 指纹", listOf(ProfileField.UTLS_FINGERPRINT)),
     PROTOCOL_ANYTLS("协议 AnyTLS", listOf(ProfileField.CORE), isProtocol = true),
+    PROTOCOL_ANYTLS_COMPAT("协议 AnyTLS 兼容测试", listOf(ProfileField.CORE), isProtocol = true),
     TRANSPORT_TCP("传输 tcp", listOf(ProfileField.TRANSPORT)),
     TRANSPORT_HTTP_HEADER("传输 http 不带 TLS（tcp 伪 HTTP 头）", listOf(ProfileField.TRANSPORT)),
     TRANSPORT_H2("传输 http 带 TLS（h2）", listOf(ProfileField.TRANSPORT, ProfileField.SECURITY)),
@@ -197,11 +195,13 @@ enum class Requirement(val label: String, val fields: List<ProfileField>, val is
     MLDSA65_VERIFY("REALITY mldsa65Verify", listOf(ProfileField.MLDSA65_VERIFY)),
     CERTIFICATE_PIN("整证书 SHA-256 固定（certificateFingerprint）", listOf(ProfileField.CERTIFICATE_FINGERPRINT)),
     CUSTOM_CA("自定义 CA（certificates，非 REALITY）", listOf(ProfileField.CERTIFICATES)),
+    ANYTLS_COMPAT_PIN("兼容测试证书固定", listOf(ProfileField.CERTIFICATE_FINGERPRINT, ProfileField.CERTIFICATES)),
     ALLOW_INSECURE(
         "生效的 allowInsecure（节点或全局，非 REALITY、没有证书指纹）",
         listOf(ProfileField.ALLOW_INSECURE, ProfileField.GLOBAL_ALLOW_INSECURE),
     ),
     UTLS_FINGERPRINT("uTLS 指纹（取值）", listOf(ProfileField.UTLS_FINGERPRINT)),
+    ANYTLS_COMPAT_UTLS("兼容测试 uTLS 指纹", listOf(ProfileField.UTLS_FINGERPRINT)),
     ECH_INLINE("ECH：内联配置", listOf(ProfileField.ENABLE_ECH, ProfileField.ECH_CONFIG)),
     ECH_AUTO_QUERY("ECH：没填配置，自动查询", listOf(ProfileField.ENABLE_ECH, ProfileField.ECH_CONFIG)),
     MUX_SING_MUX("mux 生效且为 sing-mux（h2mux / smux / yamux）", listOf(ProfileField.ENABLE_MUX, ProfileField.MUX_TYPE)),
@@ -235,13 +235,15 @@ sealed class CapabilityCell {
     class Supported(val since: Since, val note: String? = null) : CapabilityCell()
 
     // 只支持 names 里的取值，之外报 outside；rejected 是核心认识、但用了就跑不通的取值，先于 outside 判断，
-    // 报它自己的冲突（与 names 不相交，CoreCapabilitiesTest 检查）
+    // 报它自己的冲突（与 names 不相交，CoreCapabilitiesTest 检查）。showOnlyListed 为真时，outside 冲突不回显取值
+    // （names 与 rejected 里的名字照常回显）：这一行的取值只该是枚举名，名单外的多半是误填进来的凭据，不进诊断
     class SupportedValues(
         val since: Since,
         val names: CoreNames,
         val outside: CoreConflict,
         val note: String? = null,
         val rejected: RejectedValues? = null,
+        val showOnlyListed: Boolean = false,
     ) : CapabilityCell()
 
     class Unsupported(val since: Since, val conflict: CoreConflict) : CapabilityCell()
@@ -264,17 +266,15 @@ fun coreConflicts(core: DialCore, requirements: CoreRequirements): List<Conflict
             continue
         }
         // 按名单判断用原值，记进冲突的取值先过 shownConflictValue
-        // 新兼容入口只回显已知指纹，避免把误填到枚举字段里的凭据写进诊断。
-        val shown = if (item.requirement == Requirement.ANYTLS_COMPAT_UTLS &&
-            !MIHOMO_UTLS_FINGERPRINTS.accepts(item.value) && !MIHOMO_UTLS_FINGERPRINTS_BROKEN.accepts(item.value)
-        ) CONFLICT_VALUE_NOT_SHOWN else shownConflictValue(item.value)
+        val shown = shownConflictValue(item.value)
         when (val cell = CAPABILITY_TABLE.getValue(item.requirement).getValue(core)) {
             is CapabilityCell.Supported -> Unit
             is CapabilityCell.SupportedValues -> when {
                 cell.rejected?.names?.accepts(item.value) == true ->
                     conflicts += Conflict(core, cell.rejected.conflict, shown)
 
-                !cell.names.accepts(item.value) -> conflicts += Conflict(core, cell.outside, shown)
+                !cell.names.accepts(item.value) ->
+                    conflicts += Conflict(core, cell.outside, if (cell.showOnlyListed) CONFLICT_VALUE_NOT_SHOWN else shown)
             }
 
             is CapabilityCell.Unsupported -> conflicts += Conflict(core, cell.conflict, shown)

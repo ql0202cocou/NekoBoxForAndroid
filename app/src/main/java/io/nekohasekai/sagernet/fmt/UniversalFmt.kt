@@ -9,7 +9,7 @@ import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.canonicalizeXhttp
 import io.nekohasekai.sagernet.fmt.v2ray.requireV2RayTransport
 import io.nekohasekai.sagernet.fmt.v2ray.requireXhttpComplete
-import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
+import moe.matsuri.nb4a.proxy.anytls.isAnyTlsCompatibilityTest
 import moe.matsuri.nb4a.utils.Util
 
 // globalAllowInsecure：全局「允许不安全」，只在链接是 K1 之前生成的 StandardV2Ray 系节点时取值（见 universalBean）
@@ -35,7 +35,7 @@ fun parseUniversal(link: String, globalAllowInsecure: () -> Boolean): AbstractBe
 internal fun universalBean(type: Int, bytes: ByteArray, globalAllowInsecure: () -> Boolean): AbstractBean {
     val bean = ProxyEntity(type = type).apply { putByteArray(bytes) }.requireBean()
     // 通用链接也能来自订阅，不能借序列化标记绕过显式新建入口；备份仍走 putByteArray。
-    require(bean !is AnyTLSBean || bean.compatibilityTest != true) {
+    require(!bean.isAnyTlsCompatibilityTest) {
         "AnyTLS compatibility test profiles cannot be imported from links"
     }
     // 通用链接是序列化好的 bean，传输方式与分享链接一样要在导入时拦下未知值。
@@ -56,7 +56,7 @@ internal fun universalBean(type: Int, bytes: ByteArray, globalAllowInsecure: () 
 }
 
 fun AbstractBean.toUniversalLink(): String {
-    check(this !is AnyTLSBean || compatibilityTest != true) {
+    check(!isAnyTlsCompatibilityTest) {
         "AnyTLS compatibility test profiles cannot be shared as universal links"
     }
     var link = "sn://"

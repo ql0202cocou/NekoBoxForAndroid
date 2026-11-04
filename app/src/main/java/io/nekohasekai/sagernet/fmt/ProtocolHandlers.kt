@@ -69,6 +69,7 @@ import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.proxy.anytls.buildSingBoxOutboundAnyTLSBean
 import moe.matsuri.nb4a.proxy.anytls.buildMihomoConfig
 import moe.matsuri.nb4a.proxy.anytls.buildMihomoProxy
+import moe.matsuri.nb4a.proxy.anytls.isAnyTlsCompatibilityTest
 import moe.matsuri.nb4a.proxy.anytls.toUri
 import moe.matsuri.nb4a.proxy.config.ConfigBean
 import moe.matsuri.nb4a.proxy.neko.NekoBean
@@ -126,7 +127,7 @@ fun ProxyEntity.displayType(): String = when (type) {
     TYPE_WG -> "WireGuard"
     TYPE_TUIC -> "TUIC"
     TYPE_SHADOWTLS -> "ShadowTLS"
-    TYPE_ANYTLS -> if (anyTLSBean?.compatibilityTest == true) "AnyTLS (compatibility test)" else "AnyTLS"
+    TYPE_ANYTLS -> if (anyTLSBean.isAnyTlsCompatibilityTest) "AnyTLS (compatibility test)" else "AnyTLS"
     TYPE_CHAIN -> ProxyEntity.chainName
     TYPE_NEKO -> nekoBean?.displayType() ?: "Neko"
     TYPE_CONFIG -> configBean?.displayType() ?: "Custom"
@@ -160,7 +161,7 @@ fun ProxyEntity.beanForType(): AbstractBean? = when (type) {
 fun ProxyEntity.haveLink(): Boolean {
     return when (type) {
         TYPE_CHAIN, TYPE_NEKO -> false
-        TYPE_ANYTLS -> anyTLSBean?.compatibilityTest != true
+        TYPE_ANYTLS -> !anyTLSBean.isAnyTlsCompatibilityTest
         else -> true
     }
 }

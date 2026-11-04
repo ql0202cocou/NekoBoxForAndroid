@@ -22,7 +22,8 @@ private fun values(
     outside: CoreConflict,
     note: String? = null,
     rejected: RejectedValues? = null,
-) = CapabilityCell.SupportedValues(verifiedAt(core), names, outside, note, rejected)
+    showOnlyListed: Boolean = false,
+) = CapabilityCell.SupportedValues(verifiedAt(core), names, outside, note, rejected, showOnlyListed)
 
 private val NA = CapabilityCell.NotApplicable
 
@@ -61,8 +62,14 @@ val CAPABILITY_TABLE: Map<Requirement, Map<DialCore, CapabilityCell>> = linkedMa
         unsupported(MH, CoreConflict.ANYTLS_COMPAT_INTERNAL_ONLY),
     ),
     Requirement.ANYTLS_COMPAT_PIN to row(supported(SB, "mihomo 整证书固定语义"), NA, NA),
+    // 兼容出站拦下的四个名字（fingerprint.go）与 mihomo 握手必败的名单相同，照常回显；名单外的取值不回显
     Requirement.ANYTLS_COMPAT_UTLS to row(
-        values(SB, MIHOMO_UTLS_FINGERPRINTS, CoreConflict.ANYTLS_COMPAT_UTLS), NA, NA,
+        values(
+            SB, ANYTLS_COMPAT_UTLS_FINGERPRINTS, CoreConflict.ANYTLS_COMPAT_UTLS,
+            rejected = RejectedValues(MIHOMO_UTLS_FINGERPRINTS_BROKEN, CoreConflict.ANYTLS_COMPAT_UTLS),
+            showOnlyListed = true,
+        ),
+        NA, NA,
     ),
 
     // 传输：I1 §2.2、S-X4；I2b §1.2.1、§2.6
@@ -202,7 +209,11 @@ val COMBINATION_RULES: List<CombinationRule> = listOf(
     CombinationRule(
         DialCore.SING_BOX, CoreConflict.ANYTLS_COMPAT_ECH, verifiedAt(DialCore.SING_BOX),
         "兼容测试只接受确定可用的 ECH 指纹组合",
-    ) { it.anyTlsCompatibilityTest && it.ech != null && it.utlsFingerprint !in setOf(null, "none", "chrome", "firefox", "chrome120", "firefox120") },
+    ) {
+        // anyTlsRequirements 把空白指纹记成 null（Go 标准 TLS），不在此列
+        it.protocol == CoreProtocol.ANYTLS_COMPAT && it.ech != null && it.utlsFingerprint != null &&
+            !ANYTLS_COMPAT_ECH_FINGERPRINTS.accepts(it.utlsFingerprint)
+    },
     // I1 §3.1（S-X3，T-B5 / T-A2 实测）：REALITY only supports RAW, XHTTP and gRPC。h2、quic 在传输行已报；
     // xhttp 在允许之列（K2），所以这条只挡 ws / httpupgrade
     CombinationRule(

@@ -1,7 +1,8 @@
 package moe.matsuri.nb4a.proxy.anytls
 
-import io.nekohasekai.sagernet.fmt.buildSingBoxOutboundTLS
+import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.buildAnyTLSCompatibilityTLS
+import io.nekohasekai.sagernet.fmt.buildSingBoxOutboundTLS
 import io.nekohasekai.sagernet.ktx.linkBuilder
 import io.nekohasekai.sagernet.ktx.toLink
 import io.nekohasekai.sagernet.ktx.urlSafe
@@ -9,23 +10,30 @@ import io.nekohasekai.sagernet.ktx.withHttpScheme
 import moe.matsuri.nb4a.SingBoxOptions
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
+// 显式新建的 AnyTLS 兼容测试节点：只由 libcore 的私有兼容出站承载，不能分享、导出，也不能从链接导入
+val AbstractBean?.isAnyTlsCompatibilityTest: Boolean get() = this is AnyTLSBean && compatibilityTest == true
+
+// 私有兼容出站的类型名，必须与 libcore/anytlscompat/boxadapter/outbound.go 的 boxadapter.Type 相同
+const val ANYTLS_COMPAT_OUTBOUND_TYPE = "neko-anytls-compat-experiment"
+
 fun buildSingBoxOutboundAnyTLSBean(bean: AnyTLSBean, globalAllowInsecure: Boolean): SingBoxOptions.Outbound_AnyTLSOptions {
-    require(bean.compatibilityTest == true || bean.certificateFingerprint.isNullOrBlank()) {
+    val compat = bean.isAnyTlsCompatibilityTest
+    require(compat || bean.certificateFingerprint.isNullOrBlank()) {
         "AnyTLS certificate fingerprint requires the mihomo core; sing-box only supports public-key pinning"
     }
     return SingBoxOptions.Outbound_AnyTLSOptions().apply {
-        type = if (bean.compatibilityTest == true) "neko-anytls-compat-experiment" else "anytls"
+        type = if (compat) ANYTLS_COMPAT_OUTBOUND_TYPE else "anytls"
         server = bean.serverAddress
         server_port = bean.serverPort
         password = bean.password
 
-        tls = if (bean.compatibilityTest == true) buildAnyTLSCompatibilityTLS(bean, globalAllowInsecure)
+        tls = if (compat) buildAnyTLSCompatibilityTLS(bean, globalAllowInsecure)
         else buildSingBoxOutboundTLS(bean, globalAllowInsecure)
     }
 }
 
 fun AnyTLSBean.toUri(): String {
-    check(compatibilityTest != true) { "AnyTLS compatibility test profiles cannot be shared as ordinary AnyTLS links" }
+    check(!isAnyTlsCompatibilityTest) { "AnyTLS compatibility test profiles cannot be shared as ordinary AnyTLS links" }
     val builder = linkBuilder()
         .host(serverAddress)
         .port(serverPort)

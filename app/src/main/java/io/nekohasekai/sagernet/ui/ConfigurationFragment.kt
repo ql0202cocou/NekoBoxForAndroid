@@ -45,6 +45,7 @@ import io.nekohasekai.sagernet.ktx.writeToDocument
 import io.nekohasekai.sagernet.ui.profile.settingActivityOf
 import io.nekohasekai.sagernet.database.EditorCache
 import io.nekohasekai.sagernet.widget.AppBarLiftController
+import moe.matsuri.nb4a.proxy.anytls.AnyTLSSettingsActivity
 
 class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
     PopupMenu.OnMenuItemClickListener,
@@ -349,9 +350,7 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
         newProfileTypes[item.itemId]?.let { type ->
             startActivity(Intent(requireActivity(), settingActivityOf(type)).apply {
                 if (item.itemId == R.id.action_new_vless) putExtra("vless", true)
-                if (item.itemId == R.id.action_new_anytls_compat) {
-                    putExtra(moe.matsuri.nb4a.proxy.anytls.AnyTLSSettingsActivity.EXTRA_COMPATIBILITY_TEST, true)
-                }
+                if (item.itemId == R.id.action_new_anytls_compat) putExtra(AnyTLSSettingsActivity.EXTRA_COMPATIBILITY_TEST, true)
             })
             return true
         }

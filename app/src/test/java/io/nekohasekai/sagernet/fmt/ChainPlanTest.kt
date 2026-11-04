@@ -110,7 +110,7 @@ class ChainPlanTest {
         val main = record.newEntity()
         val context = ChainPlanContext(
             snapshot, main.groupId, snapshot.group(main.groupId), false, PluginQueries(platform), SingBoxTrials(platform),
-            { warnings += it },
+            { warnings += it }, forExport = false,
         )
         return planChain(main, context, checkHop)
     }

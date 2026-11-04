@@ -19,10 +19,10 @@ import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 // 冲突的原因
 @StringRes
 fun coreConflictReason(id: CoreConflict): Int = when (id) {
+    CoreConflict.XRAY_ANYTLS -> R.string.core_conflict_xray_anytls
     CoreConflict.ANYTLS_COMPAT_INTERNAL_ONLY -> R.string.core_conflict_anytls_compat_internal_only
     CoreConflict.ANYTLS_COMPAT_UTLS -> R.string.core_conflict_anytls_compat_utls
     CoreConflict.ANYTLS_COMPAT_ECH -> R.string.core_conflict_anytls_compat_ech
-    CoreConflict.XRAY_ANYTLS -> R.string.core_conflict_xray_anytls
     CoreConflict.MIHOMO_V2RAY_PROTOCOL -> R.string.core_conflict_mihomo_v2ray_protocol
     CoreConflict.XRAY_TRANSPORT_H2 -> R.string.core_conflict_xray_transport_h2
     CoreConflict.XRAY_TRANSPORT_QUIC -> R.string.core_conflict_xray_transport_quic

@@ -98,9 +98,9 @@ class AnyTLSCompatibilityTest {
             assertThrows(Exception::class.java) { buildConfig(input(nodes, ConfigBuildMode.EXPORT, platform)) }
             assertTrue(platform.ports.isEmpty())
         }
-        for (field in listOf("customOutboundJson", "customConfigJson")) {
+        for (setJson in listOf<(AbstractBean) -> Unit>({ it.customOutboundJson = "{}" }, { it.customConfigJson = "{}" })) {
             val entity = node()
-            AbstractBean::class.java.getField(field).set(entity.requireBean(), "{}")
+            setJson(entity.requireBean())
             assertThrows(Exception::class.java) { buildConfig(input(listOf(entity), ConfigBuildMode.RUN, FakeConfigPlatform())) }
         }
     }
@@ -119,5 +119,12 @@ class AnyTLSCompatibilityTest {
         val rejected = entity.coreDecision(false) as CoreDecision.Rejected
         assertFalse(rejected.message(entity.core).contains("accidentally-pasted-secret"))
         assertTrue(rejected.conflicts.any { it.value == CONFLICT_VALUE_NOT_SHOWN })
+    }
+
+    @Test
+    fun `兼容出站拦下的指纹照常回显名字`() {
+        val entity = node().apply { anyTLSBean!!.utlsFingerprint = "chrome_psk" }
+        val rejected = entity.coreDecision(false) as CoreDecision.Rejected
+        assertEquals(listOf(Conflict(DialCore.SING_BOX, CoreConflict.ANYTLS_COMPAT_UTLS, "chrome_psk")), rejected.conflicts)
     }
 }
