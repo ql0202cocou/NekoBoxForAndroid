@@ -4,10 +4,13 @@ go 1.26.0
 
 require (
 	github.com/matsuridayo/libneko v1.0.0 // replaced
+	github.com/metacubex/tls v0.1.9
+	github.com/metacubex/utls v1.8.8
 	github.com/miekg/dns v1.1.73
 	github.com/oschwald/maxminddb-golang v1.13.1
 	github.com/sagernet/quic-go v0.61.0-sing-box-mod.12
 	github.com/sagernet/sing v0.9.7-0.20261023115459-5dc452e537bf
+	github.com/sagernet/sing-anytls v0.0.0-20260928104022-580984e4d8cb
 	github.com/sagernet/sing-box v1.0.0 // replaced
 	github.com/sagernet/sing-tun v0.9.7-0.20261023115432-040db71fcd33
 	golang.org/x/crypto v0.57.0
@@ -52,7 +55,10 @@ require (
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
 	github.com/mdlayher/netlink v1.11.2 // indirect
 	github.com/mdlayher/socket v0.6.0 // indirect
-	github.com/metacubex/utls v1.8.7 // indirect
+	github.com/metacubex/cpu v0.1.0 // indirect
+	github.com/metacubex/hkdf v0.1.0 // indirect
+	github.com/metacubex/hpke v0.1.0 // indirect
+	github.com/metacubex/mlkem v0.1.0 // indirect
 	github.com/mholt/acmez/v3 v3.1.6 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/sagernet/bbolt v0.0.0-20260915102804-500ee1e84832 // indirect

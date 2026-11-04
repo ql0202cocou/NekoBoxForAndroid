@@ -35,13 +35,22 @@ sing-box / universal proxy toolchain for Android.
 
 | 核心 / Core | 版本 / Version | 用途 / Used for |
 | --- | --- | --- |
-| [sing-box](https://github.com/SagerNet/sing-box) | v1.14.4（附带本仓库补丁 / with local patches） | 承载其余一切，可选核心时优先 / Runs everything else; preferred whenever the core can be chosen |
+| [sing-box](https://github.com/SagerNet/sing-box) | v1.14.4（附带本仓库补丁及 uTLS v1.8.8 / with local patches and uTLS v1.8.8） | 承载其余一切，可选核心时优先 / Runs everything else; preferred whenever the core can be chosen |
 | [Xray-core](https://github.com/XTLS/Xray-core) | v26.10.21 | XHTTP 节点仅使用 Xray；带 REALITY 或 mldsa65Verify 的 VMess / VLESS / Trojan 优先使用；节点带证书指纹、Mux.Cool，或只有 Xray 认的 flow / 指纹时也走 Xray / Required for XHTTP profiles; preferred for VMess / VLESS / Trojan with REALITY or mldsa65Verify; also used when the profile has a certificate fingerprint, Mux.Cool, or a flow / fingerprint only Xray accepts |
-| [mihomo](https://github.com/MetaCubeX/mihomo) | v1.19.33 | 带证书指纹或 certificates 的 AnyTLS；只有 mihomo 认的指纹也走 mihomo / AnyTLS with a certificate fingerprint or certificates; also used for a fingerprint only mihomo accepts |
+| [mihomo](https://github.com/MetaCubeX/mihomo) | v1.19.33 | 带证书指纹或 certificates 的普通 AnyTLS；只有 mihomo 认的指纹也走 mihomo / Ordinary AnyTLS with a certificate fingerprint or certificates; also used for a fingerprint only mihomo accepts |
 
 VMess / VLESS / Trojan 与 AnyTLS 节点可在编辑页手动指定核心；指定的核心承载不了节点的设置时报错并列出冲突字段，不再回落到其他核心。Trojan-Go、NaïveProxy、Mieru 以及 faketcp / wechat-video 模式的 Hysteria 1 需要另外安装对应插件。
 
 The core can be chosen per profile for VMess / VLESS / Trojan and AnyTLS; if the chosen core cannot run the profile's settings, it fails with the conflicting fields listed instead of falling back to another core. Trojan-Go, NaïveProxy, Mieru and Hysteria 1 in faketcp / wechat-video mode need their plugin installed separately.
+
+“新建节点 → AnyTLS（兼容测试）”可显式创建使用内部兼容实现的测试节点，支持运行、测速和 trial。
+现有节点不迁移，mihomo 保留。测试节点不可分享或导出；默认信任使用应用证书库，PEM 按 mihomo 的第一张证书固定语义处理。
+详见 [兼容测试说明](libcore/anytlscompat/README.md)。
+
+“New profile → AnyTLS (compatibility test)” explicitly creates test profiles using the internal compatibility implementation
+for runtime, URL testing and trial. Existing profiles are not migrated and mihomo remains available. Test profiles cannot be
+shared or exported; default trust uses the app certificate store and PEM pins its first certificate as in mihomo.
+See the [compatibility notes](libcore/anytlscompat/README.md).
 
 ## 支持的订阅格式 / Supported Subscription Format
 

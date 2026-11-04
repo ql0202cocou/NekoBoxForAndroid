@@ -54,6 +54,17 @@ val CAPABILITY_TABLE: Map<Requirement, Map<DialCore, CapabilityCell>> = linkedMa
         supported(SB), unsupported(XR, CoreConflict.XRAY_ANYTLS), supported(MH),
     ),
 
+    // 测试标记独立匹配，不改变普通 AnyTLS 的任何候选与安全语义。
+    Requirement.PROTOCOL_ANYTLS_COMPAT to row(
+        supported(SB, "libcore 私有兼容出站"),
+        unsupported(XR, CoreConflict.ANYTLS_COMPAT_INTERNAL_ONLY),
+        unsupported(MH, CoreConflict.ANYTLS_COMPAT_INTERNAL_ONLY),
+    ),
+    Requirement.ANYTLS_COMPAT_PIN to row(supported(SB, "mihomo 整证书固定语义"), NA, NA),
+    Requirement.ANYTLS_COMPAT_UTLS to row(
+        values(SB, MIHOMO_UTLS_FINGERPRINTS, CoreConflict.ANYTLS_COMPAT_UTLS), NA, NA,
+    ),
+
     // 传输：I1 §2.2、S-X4；I2b §1.2.1、§2.6
     Requirement.TRANSPORT_TCP to row(supported(SB), supported(XR), NA),
     Requirement.TRANSPORT_HTTP_HEADER to row(
@@ -188,6 +199,10 @@ class CombinationRule(
 )
 
 val COMBINATION_RULES: List<CombinationRule> = listOf(
+    CombinationRule(
+        DialCore.SING_BOX, CoreConflict.ANYTLS_COMPAT_ECH, verifiedAt(DialCore.SING_BOX),
+        "兼容测试只接受确定可用的 ECH 指纹组合",
+    ) { it.anyTlsCompatibilityTest && it.ech != null && it.utlsFingerprint !in setOf(null, "none", "chrome", "firefox", "chrome120", "firefox120") },
     // I1 §3.1（S-X3，T-B5 / T-A2 实测）：REALITY only supports RAW, XHTTP and gRPC。h2、quic 在传输行已报；
     // xhttp 在允许之列（K2），所以这条只挡 ws / httpupgrade
     CombinationRule(

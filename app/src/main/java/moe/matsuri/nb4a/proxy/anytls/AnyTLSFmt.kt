@@ -1,6 +1,7 @@
 package moe.matsuri.nb4a.proxy.anytls
 
 import io.nekohasekai.sagernet.fmt.buildSingBoxOutboundTLS
+import io.nekohasekai.sagernet.fmt.buildAnyTLSCompatibilityTLS
 import io.nekohasekai.sagernet.ktx.linkBuilder
 import io.nekohasekai.sagernet.ktx.toLink
 import io.nekohasekai.sagernet.ktx.urlSafe
@@ -9,20 +10,22 @@ import moe.matsuri.nb4a.SingBoxOptions
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 fun buildSingBoxOutboundAnyTLSBean(bean: AnyTLSBean, globalAllowInsecure: Boolean): SingBoxOptions.Outbound_AnyTLSOptions {
-    require(bean.certificateFingerprint.isNullOrBlank()) {
+    require(bean.compatibilityTest == true || bean.certificateFingerprint.isNullOrBlank()) {
         "AnyTLS certificate fingerprint requires the mihomo core; sing-box only supports public-key pinning"
     }
     return SingBoxOptions.Outbound_AnyTLSOptions().apply {
-        type = "anytls"
+        type = if (bean.compatibilityTest == true) "neko-anytls-compat-experiment" else "anytls"
         server = bean.serverAddress
         server_port = bean.serverPort
         password = bean.password
 
-        tls = buildSingBoxOutboundTLS(bean, globalAllowInsecure)
+        tls = if (bean.compatibilityTest == true) buildAnyTLSCompatibilityTLS(bean, globalAllowInsecure)
+        else buildSingBoxOutboundTLS(bean, globalAllowInsecure)
     }
 }
 
 fun AnyTLSBean.toUri(): String {
+    check(compatibilityTest != true) { "AnyTLS compatibility test profiles cannot be shared as ordinary AnyTLS links" }
     val builder = linkBuilder()
         .host(serverAddress)
         .port(serverPort)

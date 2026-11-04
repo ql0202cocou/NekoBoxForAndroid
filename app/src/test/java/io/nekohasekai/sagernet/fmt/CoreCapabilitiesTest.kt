@@ -121,7 +121,8 @@ class CoreCapabilitiesTest {
         )
         for ((requirement, cells) in CAPABILITY_TABLE) {
             assertFalse("$requirement × sing-box", cells.getValue(DialCore.SING_BOX) == CapabilityCell.NotApplicable)
-            assertFalse("$requirement × Xray", cells.getValue(DialCore.XRAY) == CapabilityCell.NotApplicable)
+            assertEquals("$requirement × Xray", requirement in setOf(Requirement.ANYTLS_COMPAT_PIN, Requirement.ANYTLS_COMPAT_UTLS),
+                cells.getValue(DialCore.XRAY) == CapabilityCell.NotApplicable)
             assertEquals(
                 "$requirement × mihomo", !requirement.isProtocol && requirement !in anyTlsRows,
                 cells.getValue(DialCore.MIHOMO) == CapabilityCell.NotApplicable,

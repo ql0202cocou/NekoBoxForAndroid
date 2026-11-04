@@ -319,7 +319,7 @@ private class ConfigBuild(
     }
 
     // 规划链用的输入（见 planChain）：快照、主分组、设置里的全局「允许不安全」、本次构建的插件查询、sing-box 试建与警告
-    private val planContext = ChainPlanContext(data, proxy.groupId, group, globalAllowInsecure, plugins, trials, warn)
+    private val planContext = ChainPlanContext(data, proxy.groupId, group, globalAllowInsecure, plugins, trials, warn, forExport)
 
     val extraRules = if (forTest) listOf() else data.enabledRules()
 

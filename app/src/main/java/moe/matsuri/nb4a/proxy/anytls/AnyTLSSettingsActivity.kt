@@ -1,6 +1,9 @@
 package moe.matsuri.nb4a.proxy.anytls
 
 import android.os.Bundle
+import androidx.lifecycle.lifecycleScope
+import androidx.preference.Preference
+import kotlinx.coroutines.launch
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.R
@@ -14,7 +17,14 @@ import moe.matsuri.nb4a.proxy.PreferenceBindingManager
 import moe.matsuri.nb4a.proxy.Type
 
 class AnyTLSSettingsActivity : ProfileSettingsActivity<AnyTLSBean>() {
-    override fun createEntity() = AnyTLSBean().applyDefaultValues()
+    companion object {
+        const val EXTRA_COMPATIBILITY_TEST = "anytlsCompatibilityTest"
+    }
+
+    override fun createEntity() = AnyTLSBean().applyDefaultValues().apply {
+        compatibilityTest = intent.getLongExtra(EXTRA_PROFILE_ID, 0L) == 0L &&
+            intent.getBooleanExtra(EXTRA_COMPATIBILITY_TEST, false)
+    }
 
     override fun validateEditor(): String? {
         return certificateFingerprintError(certificateFingerprint.readStringFromCache())
@@ -33,6 +43,7 @@ class AnyTLSSettingsActivity : ProfileSettingsActivity<AnyTLSBean>() {
     private val allowInsecure = pbm.add(PreferenceBinding(Type.Bool, "allowInsecure"))
     private val utlsFingerprint = pbm.add(PreferenceBinding(Type.Text, "utlsFingerprint"))
     private val echConfig = pbm.add(PreferenceBinding(Type.Text, "echConfig"))
+    private val compatibilityTest = pbm.add(PreferenceBinding(Type.Bool, "compatibilityTest"))
     private val enableECH = pbm.add(PreferenceBinding(Type.Bool, "enableECH"))
 
     override fun AnyTLSBean.init() {
@@ -49,6 +60,12 @@ class AnyTLSSettingsActivity : ProfileSettingsActivity<AnyTLSBean>() {
         rootKey: String?
     ) {
         addPreferencesFromResource(R.xml.anytls_preferences)
+        lifecycleScope.launch {
+            awaitEditorReady()
+            val testing = editorBean().compatibilityTest == true
+            findPreference<Preference>("compatibilityTestInfo")?.isVisible = testing
+            findPreference<Preference>("profileCore")?.isVisible = !testing
+        }
 
         findPreference<EditTextPreference>("password")!!.bindPasswordPreference()
         findPreference<EditTextPreference>("certificateFingerprint")!!

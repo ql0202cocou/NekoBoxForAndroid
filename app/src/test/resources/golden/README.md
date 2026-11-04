@@ -19,6 +19,10 @@
   15 个 `k2-` 场景；`sb-vmess-unknown-transport`、`xray-vless-unknown-transport` 与 `selector-bad-members` 的成员 7
   原来用 xhttp / splithttp 当「未知传输」，K2 起 xhttp 是支持的传输，三处夹具换成 kcp。`manifest.json` 只更新场景数、
   计数与校验次数，其余仍是 K1b 那次整体采集。
+- AnyTLS 兼容测试接入（2026-11-04）：63 份 input.json 中的 72 个 AnyTLS 记录只更新 Kryo 字节，
+  AnyTLS 层版本 2 → 3、enableECH 后追加 false。逐条核对长度只增 1、移除新增零字节后其余字节相同；
+  其他输入字段、357 × 3 的所有输出和预期诊断保持原样。原 v0–v2 字节仍在 kryo 历史样本中验证，
+  不涉及用户数据库迁移。采集来自全新临时 Android 37.2 ARM64 / 16 KB 模拟器。
 - Gson 2.14.0 → 2.15.0（2026-10-24）：解析器在读完键名后更新 JSON 路径（google/gson#3098），自定义出站 JSON 写坏时的
   报错路径由 `path $.` 变成 `path $.golden-broken`。`custom-outbound-json-invalid` 三种模式的 `result.json` 与
   `selector-bad-members` 成员 6 的预期按此修改，与早就带键名的 `custom-node-outbound-json-invalid` 一致；报错只多出键名，不含取值。

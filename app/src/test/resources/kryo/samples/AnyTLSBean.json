@@ -42,7 +42,8 @@
         "serverPort": 9443,
         "name": "样本 anytls",
         "customOutboundJson": "{\"tag\":\"custom-outbound-anytls\"}",
-        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"anytls\"}"
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"anytls\"}",
+        "compatibilityTest": false
       },
       "base64": "AAAAAGFueXRscy5leGFtcGxlLmNv7eMkAABhbnl0bHMtZmFrZS1wYXNzd29y5HNuaS1hbnl0bHMuZXhhbXBsZS5vcudosscBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClFVNVpWRXhUTFVaQlMwVT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLWZpcmVmb/gBUVU1WlZFeFRMVVZEU0E9vQEAAACK5qC35pysIGFueXRsc3sidGFnIjoiY3VzdG9tLW91dGJvdW5kLWFueXRscyL9qXsibG9nIjp7ImxldmVsIjoid2FybiJ9LCJub3RlIjoiYW55dGxzIn0=",
       "current": false
@@ -88,7 +89,8 @@
         "serverPort": 1080,
         "name": "",
         "customOutboundJson": "",
-        "customConfigJson": ""
+        "customConfigJson": "",
+        "compatibilityTest": false
       },
       "base64": "AAAAADEyNy4wLjAusTgEAACBgYGBgQCBAQAAAIGBgQ==",
       "current": false
@@ -135,7 +137,8 @@
         "serverPort": 9443,
         "name": "样本 anytls",
         "customOutboundJson": "{\"tag\":\"custom-outbound-anytls\"}",
-        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"anytls\"}"
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"anytls\"}",
+        "compatibilityTest": false
       },
       "base64": "AQAAAGFueXRscy5leGFtcGxlLmNv7eMkAABhbnl0bHMtZmFrZS1wYXNzd29y5HNuaS1hbnl0bHMuZXhhbXBsZS5vcudosscBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClFVNVpWRXhUTFVaQlMwVT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLWZpcmVmb/gBUVU1WlZFeFRMVVZEU0E9vcEBZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAEAAACK5qC35pysIGFueXRsc3sidGFnIjoiY3VzdG9tLW91dGJvdW5kLWFueXRscyL9qXsibG9nIjp7ImxldmVsIjoid2FybiJ9LCJub3RlIjoiYW55dGxzIn0=",
       "current": false
@@ -182,7 +185,8 @@
         "serverPort": 1080,
         "name": "",
         "customOutboundJson": "",
-        "customConfigJson": ""
+        "customConfigJson": "",
+        "compatibilityTest": false
       },
       "base64": "AQAAADEyNy4wLjAusTgEAACBgYGBgQCBgQEAAACBgYE=",
       "current": false
@@ -230,10 +234,11 @@
         "serverPort": 9443,
         "name": "样本 anytls",
         "customOutboundJson": "{\"tag\":\"custom-outbound-anytls\"}",
-        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"anytls\"}"
+        "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"anytls\"}",
+        "compatibilityTest": false
       },
       "base64": "AgAAAGFueXRscy5leGFtcGxlLmNv7eMkAABhbnl0bHMtZmFrZS1wYXNzd29y5HNuaS1hbnl0bHMuZXhhbXBsZS5vcudosscBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClFVNVpWRXhUTFVaQlMwVT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLWZpcmVmb/gBUVU1WlZFeFRMVVZEU0E9vcEBZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAEBAAAAiuagt+acrCBhbnl0bHN7InRhZyI6ImN1c3RvbS1vdXRib3VuZC1hbnl0bHMi/al7ImxvZyI6eyJsZXZlbCI6Indhcm4ifSwibm90ZSI6ImFueXRscyJ9",
-      "current": true
+      "current": false
     },
     {
       "id": "AnyTLSBean/dd8f56d3/default",
@@ -278,9 +283,114 @@
         "serverPort": 1080,
         "name": "",
         "customOutboundJson": "",
-        "customConfigJson": ""
+        "customConfigJson": "",
+        "compatibilityTest": false
       },
       "base64": "AgAAADEyNy4wLjAusTgEAACBgYGBgQCBgQABAAAAgYGB",
+      "current": false
+    },
+    {
+      "id": "AnyTLSBean/compat-v3/ordinary",
+      "class": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
+      "form": "storage",
+      "source": {
+        "commit": null,
+        "tag": null,
+        "versionName": "1.9.0-a8",
+        "workingTreeBase": "49435ddfdbfa196ff359f6c38124ea45e8867197",
+        "note": "2026-11-04 compatibility integration working tree; captured with production KryoConverters.serialize"
+      },
+      "versions": {
+        "AnyTLSBean": 3,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "password": "fake-password",
+        "sni": "tls.example.org",
+        "alpn": "h2",
+        "certificates": "",
+        "certificateFingerprint": "abababababababababababababababababababababababababababababababab",
+        "utlsFingerprint": "chrome120",
+        "allowInsecure": false,
+        "echConfig": "",
+        "enableECH": false,
+        "compatibilityTest": false,
+        "serverAddress": "compat.example.org",
+        "serverPort": 443,
+        "name": "compat-fixture",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "password": "fake-password",
+        "sni": "tls.example.org",
+        "alpn": "h2",
+        "certificates": "",
+        "certificateFingerprint": "abababababababababababababababababababababababababababababababab",
+        "utlsFingerprint": "chrome120",
+        "allowInsecure": false,
+        "echConfig": "",
+        "enableECH": false,
+        "compatibilityTest": false,
+        "serverAddress": "compat.example.org",
+        "serverPort": 443,
+        "name": "compat-fixture",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AwAAAGNvbXBhdC5leGFtcGxlLm9y57sBAABmYWtlLXBhc3N3b3LkdGxzLmV4YW1wbGUub3LnaLKBY2hyb21lMTKwAIHBAWFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWIAAAEAAABjb21wYXQtZml4dHVy5YGB",
+      "current": true
+    },
+    {
+      "id": "AnyTLSBean/compat-v3/explicit-test",
+      "class": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
+      "form": "storage",
+      "source": {
+        "commit": null,
+        "tag": null,
+        "versionName": "1.9.0-a8",
+        "workingTreeBase": "49435ddfdbfa196ff359f6c38124ea45e8867197",
+        "note": "2026-11-04 compatibility integration working tree; captured with production KryoConverters.serialize"
+      },
+      "versions": {
+        "AnyTLSBean": 3,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "password": "fake-password",
+        "sni": "tls.example.org",
+        "alpn": "h2",
+        "certificates": "",
+        "certificateFingerprint": "abababababababababababababababababababababababababababababababab",
+        "utlsFingerprint": "chrome120",
+        "allowInsecure": false,
+        "echConfig": "",
+        "enableECH": false,
+        "compatibilityTest": true,
+        "serverAddress": "compat.example.org",
+        "serverPort": 443,
+        "name": "compat-fixture",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "password": "fake-password",
+        "sni": "tls.example.org",
+        "alpn": "h2",
+        "certificates": "",
+        "certificateFingerprint": "abababababababababababababababababababababababababababababababab",
+        "utlsFingerprint": "chrome120",
+        "allowInsecure": false,
+        "echConfig": "",
+        "enableECH": false,
+        "compatibilityTest": true,
+        "serverAddress": "compat.example.org",
+        "serverPort": 443,
+        "name": "compat-fixture",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "base64": "AwAAAGNvbXBhdC5leGFtcGxlLm9y57sBAABmYWtlLXBhc3N3b3LkdGxzLmV4YW1wbGUub3LnaLKBY2hyb21lMTKwAIHBAWFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWIAAQEAAABjb21wYXQtZml4dHVy5YGB",
       "current": true
     }
   ]

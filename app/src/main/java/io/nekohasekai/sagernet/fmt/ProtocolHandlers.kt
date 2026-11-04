@@ -126,7 +126,7 @@ fun ProxyEntity.displayType(): String = when (type) {
     TYPE_WG -> "WireGuard"
     TYPE_TUIC -> "TUIC"
     TYPE_SHADOWTLS -> "ShadowTLS"
-    TYPE_ANYTLS -> "AnyTLS"
+    TYPE_ANYTLS -> if (anyTLSBean?.compatibilityTest == true) "AnyTLS (compatibility test)" else "AnyTLS"
     TYPE_CHAIN -> ProxyEntity.chainName
     TYPE_NEKO -> nekoBean?.displayType() ?: "Neko"
     TYPE_CONFIG -> configBean?.displayType() ?: "Custom"
@@ -160,6 +160,7 @@ fun ProxyEntity.beanForType(): AbstractBean? = when (type) {
 fun ProxyEntity.haveLink(): Boolean {
     return when (type) {
         TYPE_CHAIN, TYPE_NEKO -> false
+        TYPE_ANYTLS -> anyTLSBean?.compatibilityTest != true
         else -> true
     }
 }

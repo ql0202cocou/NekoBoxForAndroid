@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.fmt
 
+import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
@@ -138,6 +139,11 @@ internal fun requireBuildableHop(proxyEntity: ProxyEntity, bean: AbstractBean, d
     // 它的核心做不到的校验（证书固定、mldsa65Verify），都在这里拒绝并列出冲突字段。静默丢掉安全校验或退化传输比
     // 报错更危险；运行 / 测速 / 导出 / 成员检查都经过这里，编辑器保存时用同一个判定提前拦下
     if (decision is CoreDecision.Rejected) error(decision.message(proxyEntity.core))
+    if (bean is AnyTLSBean && bean.compatibilityTest == true) {
+        require(bean.customOutboundJson.isNullOrBlank() && bean.customConfigJson.isNullOrBlank()) {
+            "AnyTLS compatibility test profiles do not support custom JSON"
+        }
+    }
     // 完整配置型自定义节点作为链成员、前置 / 落地或路由目标时，给出明确
     // 错误，而不是让 sing-box 以 "unknown outbound type" 拒绝整份配置
     if (!proxyEntity.needExternal(decision) && proxyEntity.isFullConfig()) {
@@ -275,6 +281,7 @@ internal class ChainPlanContext(
     val trials: SingBoxTrials,
     /** 展开链时的警告（缺失的成员、失效的前置 / 落地），只记日志。 */
     val warn: (String) -> Unit,
+    val forExport: Boolean = false,
 )
 
 /** 一条链的规划：entity 是根节点；hops 与 [resolveChain] 一样是倒序（首项是出口，末项是最先拨号的一跳），不为空。 */
@@ -304,6 +311,9 @@ internal fun planChain(entity: ProxyEntity, context: ChainPlanContext, checkHop:
     val hops = profileList.mapIndexed { index, hopEntity ->
         val bean = hopEntity.requireBean()
         withProfileName(bean) {
+            require(!(context.forExport && bean is AnyTLSBean && bean.compatibilityTest == true)) {
+                "AnyTLS compatibility test profiles cannot be exported"
+            }
             val hop = planHop(
                 hopEntity, bean, choices[index], index == profileList.lastIndex, muxApplied, globalAllowInsecure,
                 context.plugins, context.trials,

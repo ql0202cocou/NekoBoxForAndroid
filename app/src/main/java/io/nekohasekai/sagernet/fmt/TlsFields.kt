@@ -2,6 +2,8 @@ package io.nekohasekai.sagernet.fmt
 
 import io.nekohasekai.sagernet.fmt.v2ray.requireValidReality
 import io.nekohasekai.sagernet.ktx.blankAsNull
+import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
+import moe.matsuri.nb4a.SingBoxOptions.AnyTLSCompatibilityTLSOptions
 import moe.matsuri.nb4a.SingBoxOptions.OutboundECHOptions
 import moe.matsuri.nb4a.SingBoxOptions.OutboundRealityOptions
 import moe.matsuri.nb4a.SingBoxOptions.OutboundTLSOptions
@@ -75,6 +77,30 @@ fun buildSingBoxOutboundTLS(bean: AbstractBean, globalAllowInsecure: Boolean): O
                 // sing-box only accepts an "ECH CONFIGS" PEM block; a mihomo
                 // subscription hands us bare base64
                 tls.echConfig.blankAsNull()?.let { config = it.echAsPem().lines() }
+            }
+        }
+    }
+}
+
+// 兼容测试采用 mihomo 的证书固定与指纹名单，普通 sing-box TLS 构建保持原有规则。
+fun buildAnyTLSCompatibilityTLS(bean: AnyTLSBean, globalAllowInsecure: Boolean): OutboundTLSOptions {
+    check(bean.compatibilityTest == true)
+    val fields = tlsFields(bean)!!
+    return AnyTLSCompatibilityTLSOptions().apply {
+        enabled = true
+        insecure = effectiveAllowInsecure(fields.allowInsecure, globalAllowInsecure)
+        server_name = fields.sni.blankAsNull()
+        alpn = fields.alpn.blankAsNull()?.listByLineOrComma()
+        certificate_fingerprint = fields.certificateFingerprint.blankAsNull()
+        certificate = fields.certificate.blankAsNull()
+        fields.utlsFingerprint.blankAsNull()?.let {
+            require(MIHOMO_UTLS_FINGERPRINTS.accepts(it)) { "unsupported compatibility client fingerprint" }
+            utls = OutboundUTLSOptions().apply { enabled = true; fingerprint = it }
+        }
+        if (fields.enableECH) {
+            ech = OutboundECHOptions().apply {
+                enabled = true
+                fields.echConfig.blankAsNull()?.let { config = it.echAsPem().lines() }
             }
         }
     }

@@ -563,4 +563,10 @@
     <string name="reality_ech_conflict_error">REALITY 不能与 ECH 同时启用：sing-box 会拒绝该配置，Xray 会忽略 ECH。</string>
     <string name="restore_pending">备份恢复尚未完成，完成后再启动服务。</string>
     <string name="restore_replay_failed">中断的备份恢复未能完成，请查看日志并重新导入备份。</string>
+
+    <string name="anytls_compat_test">AnyTLS（兼容测试）</string>
+    <string name="anytls_compat_description">使用内部兼容出站。PEM 与 mihomo 一样固定第一张证书；默认信任使用应用证书库。测试节点不支持分享或导出。</string>
+    <string name="core_conflict_anytls_compat_internal_only">AnyTLS 兼容测试节点只能使用内部兼容出站。</string>
+    <string name="core_conflict_anytls_compat_utls">AnyTLS 兼容测试不支持这个客户端指纹。</string>
+    <string name="core_conflict_anytls_compat_ech">ECH 兼容测试只支持标准 TLS、chrome、firefox、chrome120 或 firefox120。</string>
 </resources>

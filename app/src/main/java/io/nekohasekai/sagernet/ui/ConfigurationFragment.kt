@@ -337,6 +337,7 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
         R.id.action_new_wg to ProxyEntity.TYPE_WG,
         R.id.action_new_shadowtls to ProxyEntity.TYPE_SHADOWTLS,
         R.id.action_new_anytls to ProxyEntity.TYPE_ANYTLS,
+        R.id.action_new_anytls_compat to ProxyEntity.TYPE_ANYTLS,
         R.id.action_new_config to ProxyEntity.TYPE_CONFIG,
         R.id.action_new_chain to ProxyEntity.TYPE_CHAIN,
     )
@@ -348,6 +349,9 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
         newProfileTypes[item.itemId]?.let { type ->
             startActivity(Intent(requireActivity(), settingActivityOf(type)).apply {
                 if (item.itemId == R.id.action_new_vless) putExtra("vless", true)
+                if (item.itemId == R.id.action_new_anytls_compat) {
+                    putExtra(moe.matsuri.nb4a.proxy.anytls.AnyTLSSettingsActivity.EXTRA_COMPATIBILITY_TEST, true)
+                }
             })
             return true
         }

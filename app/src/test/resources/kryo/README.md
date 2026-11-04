@@ -204,3 +204,12 @@ ECH 开与关在变体间交替（布局 C 覆盖 ECH 块的两种写法）。
 
 漏了第 1 或第 3 步，`KryoCoverageTest` 会失败并指出缺的是哪一层、哪个版本；漏了第 4 步，`KryoCompatTest` 会失败。
 新增一个用这套格式存储的类时，在 `registry.json` 的 `classes` / `layers` 登记并补样本。
+
+## AnyTLS 兼容测试标记（v3）
+
+v3 仅在 AnyTLS 层的 enableECH 后追加 compatibilityTest。v0–v2 从未保存该字段，
+读取分支明确置 false，旧节点不进入兼容路径。旧样本的字节、assigned 和既有字段期望均保留，
+只据此规则为 expected 添加 false；旧 v2 样本改为历史样本。
+2026-11-04 的两个 v3 样本由工作区生产 KryoConverters.serialize 实际写出，分别覆盖普通节点和
+显式测试节点。尚无提交，因此 source.commit 为 null，workingTreeBase 记录基点；所有字段期望按
+赋值与格式手写，不从反序列化结果回填。

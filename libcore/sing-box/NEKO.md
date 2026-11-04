@@ -327,3 +327,11 @@ go.mod reaches it:
 
 Apply such bumps with `go mod tidy` in this directory (it also drops stale
 indirect entries), and re-run `./run lib check_versions` afterwards.
+
+## 2026-11-04 AnyTLS 兼容测试接入
+
+libcore 新增的私有 AnyTLS 兼容出站要求 `github.com/metacubex/utls v1.8.8`，
+因此本目录与 libcore 的共同依赖从 v1.8.7 同步到 v1.8.8（`go.mod` / `go.sum`）。
+本次不改 sing-box 协议源码，不改变既有节点选核；私有注册在 libcore/box_include.go。
+上游差异包含可选 JLS 代码及 CPU 探测修复；既有调用未设置 JLS，指纹模板文件无变化。
+重新生成 `sing-box-v1.14.4-neko-2.diff`，并复核共享 TLS、trial、golden 与补丁 race 测试。

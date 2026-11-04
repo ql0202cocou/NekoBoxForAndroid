@@ -3,6 +3,8 @@ package libcore
 import (
 	"context"
 
+	"libcore/anytlscompat/boxadapter"
+
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/adapter/certificate"
 	"github.com/sagernet/sing-box/adapter/endpoint"
@@ -79,6 +81,7 @@ func nekoboxAndroidOutboundRegistry() *outbound.Registry {
 	shadowtls.RegisterOutbound(registry)
 	vless.RegisterOutbound(registry)
 	anytls.RegisterOutbound(registry)
+	boxadapter.RegisterOutbound(registry)
 
 	hysteria.RegisterOutbound(registry)
 	tuic.RegisterOutbound(registry)

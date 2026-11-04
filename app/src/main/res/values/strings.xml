@@ -630,4 +630,10 @@
     <string name="redo">Redo</string>
     <string name="insert_tab">Insert tab</string>
     <string name="format">Format</string>
+
+    <string name="anytls_compat_test">AnyTLS (compatibility test)</string>
+    <string name="anytls_compat_description">Uses the internal compatibility outbound. PEM certificates pin the first certificate, as in mihomo. Default trust comes from the app. Test profiles cannot be shared or exported.</string>
+    <string name="core_conflict_anytls_compat_internal_only">AnyTLS compatibility test profiles require the internal compatibility outbound.</string>
+    <string name="core_conflict_anytls_compat_utls">Unsupported client fingerprint for the AnyTLS compatibility test.</string>
+    <string name="core_conflict_anytls_compat_ech">ECH compatibility tests require standard TLS, chrome, firefox, chrome120 or firefox120.</string>
 </resources>

@@ -43,6 +43,18 @@ enum class CoreConflict(
     val fields: List<ProfileField>,
     val reason: String,
 ) {
+    ANYTLS_COMPAT_INTERNAL_ONLY(
+        null, GapKind.GENERATOR, listOf(ProfileField.CORE),
+        "AnyTLS compatibility test profiles require the internal compatibility outbound",
+    ),
+    ANYTLS_COMPAT_UTLS(
+        DialCore.SING_BOX, GapKind.GENERATOR, listOf(ProfileField.UTLS_FINGERPRINT),
+        "Unsupported client fingerprint for the AnyTLS compatibility test",
+    ),
+    ANYTLS_COMPAT_ECH(
+        DialCore.SING_BOX, GapKind.GENERATOR, listOf(ProfileField.UTLS_FINGERPRINT, ProfileField.ENABLE_ECH),
+        "ECH compatibility tests require standard TLS, chrome, firefox, chrome120 or firefox120",
+    ),
     // ---- 协议
     XRAY_ANYTLS(
         DialCore.XRAY, GapKind.CORE, listOf(ProfileField.CORE),

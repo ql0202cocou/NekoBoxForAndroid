@@ -175,6 +175,9 @@ enum class Requirement(val label: String, val fields: List<ProfileField>, val is
     PROTOCOL_VMESS("协议 VMess", listOf(ProfileField.CORE), isProtocol = true),
     PROTOCOL_VLESS("协议 VLESS", listOf(ProfileField.CORE), isProtocol = true),
     PROTOCOL_TROJAN("协议 Trojan", listOf(ProfileField.CORE), isProtocol = true),
+    PROTOCOL_ANYTLS_COMPAT("协议 AnyTLS 兼容测试", listOf(ProfileField.CORE), isProtocol = true),
+    ANYTLS_COMPAT_PIN("兼容测试证书固定", listOf(ProfileField.CERTIFICATE_FINGERPRINT, ProfileField.CERTIFICATES)),
+    ANYTLS_COMPAT_UTLS("兼容测试 uTLS 指纹", listOf(ProfileField.UTLS_FINGERPRINT)),
     PROTOCOL_ANYTLS("协议 AnyTLS", listOf(ProfileField.CORE), isProtocol = true),
     TRANSPORT_TCP("传输 tcp", listOf(ProfileField.TRANSPORT)),
     TRANSPORT_HTTP_HEADER("传输 http 不带 TLS（tcp 伪 HTTP 头）", listOf(ProfileField.TRANSPORT)),
@@ -261,7 +264,10 @@ fun coreConflicts(core: DialCore, requirements: CoreRequirements): List<Conflict
             continue
         }
         // 按名单判断用原值，记进冲突的取值先过 shownConflictValue
-        val shown = shownConflictValue(item.value)
+        // 新兼容入口只回显已知指纹，避免把误填到枚举字段里的凭据写进诊断。
+        val shown = if (item.requirement == Requirement.ANYTLS_COMPAT_UTLS &&
+            !MIHOMO_UTLS_FINGERPRINTS.accepts(item.value) && !MIHOMO_UTLS_FINGERPRINTS_BROKEN.accepts(item.value)
+        ) CONFLICT_VALUE_NOT_SHOWN else shownConflictValue(item.value)
         when (val cell = CAPABILITY_TABLE.getValue(item.requirement).getValue(core)) {
             is CapabilityCell.Supported -> Unit
             is CapabilityCell.SupportedValues -> when {

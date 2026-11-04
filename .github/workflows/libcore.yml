@@ -79,6 +79,12 @@ jobs:
           NEKO_TEST_GEOIP_DB: ${{ github.workspace }}/app/src/main/assets/sing-box/geoip.db
           NEKO_TEST_GEOSITE_DB: ${{ github.workspace }}/app/src/main/assets/sing-box/geosite.db
         run: ./run lib test
+      - name: Go Test (AnyTLS compatibility, race)
+        # 注册、受控拨号和关闭路径的竞争检查；真实 mihomo 对照另由 experiments/anytls-compat/run.sh 执行。
+        run: |
+          cd libcore
+          source build_tags.sh
+          go test -race -tags "$LIBCORE_BUILD_TAGS" -ldflags=-checklinkname=0 -run 'Test(Compatibility|ConcurrentClose|CancelDuringAuthenticationWrite|ControlledDialDNSAndScope|ECHRefreshAndRecovery|HandshakeCancellation)' . ./anytlscompat/...
       - name: Go Test (sing-box, race)
         # vendored sing-box 是嵌套 module，上面的 ./... 覆盖不到它；
         # 这里用 -race 跑补丁所在的包（含自建补丁的回归测试：dns fallback 动作、

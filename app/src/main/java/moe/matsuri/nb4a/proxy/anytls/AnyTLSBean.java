@@ -23,6 +23,8 @@ public class AnyTLSBean extends AbstractBean {
     public String echConfig;
     // enable-only ECH (no explicit config; the core discovers it over DNS)
     public Boolean enableECH;
+    // 仅显式创建的兼容测试节点启用；旧存储、订阅和普通链接默认关闭。
+    public Boolean compatibilityTest;
 
     @Override
     public void initializeDefaultValues() {
@@ -36,11 +38,12 @@ public class AnyTLSBean extends AbstractBean {
         if (allowInsecure == null) allowInsecure = false;
         if (echConfig == null) echConfig = "";
         if (enableECH == null) enableECH = false;
+        if (compatibilityTest == null) compatibilityTest = false;
     }
 
     @Override
     public void serialize(ByteBufferOutput output) {
-        output.writeInt(2);
+        output.writeInt(3);
         super.serialize(output);
         output.writeString(password);
         output.writeString(sni);
@@ -51,6 +54,7 @@ public class AnyTLSBean extends AbstractBean {
         output.writeString(echConfig);
         output.writeString(certificateFingerprint);
         output.writeBoolean(enableECH);
+        output.writeBoolean(compatibilityTest);
     }
 
     @Override
@@ -70,6 +74,7 @@ public class AnyTLSBean extends AbstractBean {
         if (version >= 2) {
             enableECH = input.readBoolean();
         }
+        compatibilityTest = version >= 3 && input.readBoolean();
     }
 
 }

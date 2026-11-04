@@ -6,6 +6,14 @@
         app:title="@string/profile_name"
         app:useSimpleSummaryProvider="true" />
 
+    <Preference
+        app:key="compatibilityTestInfo"
+        app:icon="@drawable/ic_baseline_stream_24"
+        app:selectable="false"
+        app:isPreferenceVisible="false"
+        app:title="@string/anytls_compat_test"
+        app:summary="@string/anytls_compat_description" />
+
     <PreferenceCategory app:title="@string/proxy_cat">
         <EditTextPreference
             app:icon="@drawable/ic_hardware_router"

@@ -1895,6 +1895,11 @@ public class SingBoxOptions {
 
     }
 
+    // 私有兼容出站使用整证书摘要，不冒充上游的 SPKI 字段。
+    public static class AnyTLSCompatibilityTLSOptions extends OutboundTLSOptions {
+        public String certificate_fingerprint;
+    }
+
     public static class OutboundTLSOptions extends SingBoxOption {
 
         public Boolean enabled;

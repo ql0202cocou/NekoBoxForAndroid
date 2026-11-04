@@ -144,11 +144,12 @@
       }
     },
     "AnyTLSBean": {
-      "current": 2,
+      "current": 3,
       "sampled": [
         0,
         1,
-        2
+        2,
+        3
       ],
       "unsampled": {}
     },

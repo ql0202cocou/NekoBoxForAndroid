@@ -50,6 +50,7 @@ data class CoreRequirements(
     val mldsa65Verify: Boolean = false,
     val certificatePin: Boolean = false,
     val customCa: Boolean = false,
+    val anyTlsCompatibilityTest: Boolean = false,
     val allowInsecure: Boolean = false,
     // 生效的 uTLS 指纹（REALITY 没填时生成器补 chrome）；null 表示不用 uTLS
     val utlsFingerprint: String? = null,
@@ -71,7 +72,7 @@ data class CoreRequirements(
                 CoreProtocol.VMESS -> Requirement.PROTOCOL_VMESS
                 CoreProtocol.VLESS -> Requirement.PROTOCOL_VLESS
                 CoreProtocol.TROJAN -> Requirement.PROTOCOL_TROJAN
-                CoreProtocol.ANYTLS -> Requirement.PROTOCOL_ANYTLS
+                CoreProtocol.ANYTLS -> if (anyTlsCompatibilityTest) Requirement.PROTOCOL_ANYTLS_COMPAT else Requirement.PROTOCOL_ANYTLS
                 CoreProtocol.OTHER -> error("can't reach")
             }
         )
@@ -94,10 +95,14 @@ data class CoreRequirements(
             TlsMode.REALITY -> items += RequirementItem(Requirement.SECURITY_REALITY)
         }
         if (mldsa65Verify) items += RequirementItem(Requirement.MLDSA65_VERIFY)
-        if (certificatePin) items += RequirementItem(Requirement.CERTIFICATE_PIN)
-        if (customCa) items += RequirementItem(Requirement.CUSTOM_CA)
+        if (anyTlsCompatibilityTest) {
+            if (certificatePin || customCa) items += RequirementItem(Requirement.ANYTLS_COMPAT_PIN)
+        } else {
+            if (certificatePin) items += RequirementItem(Requirement.CERTIFICATE_PIN)
+            if (customCa) items += RequirementItem(Requirement.CUSTOM_CA)
+        }
         if (allowInsecure) items += RequirementItem(Requirement.ALLOW_INSECURE)
-        utlsFingerprint?.let { items += RequirementItem(Requirement.UTLS_FINGERPRINT, it) }
+        utlsFingerprint?.let { items += RequirementItem(if (anyTlsCompatibilityTest) Requirement.ANYTLS_COMPAT_UTLS else Requirement.UTLS_FINGERPRINT, it) }
         when (ech) {
             null -> Unit
             EchMode.INLINE -> items += RequirementItem(Requirement.ECH_INLINE)
@@ -232,6 +237,7 @@ private fun anyTlsRequirements(type: Int, bean: AnyTLSBean, globalAllowInsecure:
     return CoreRequirements(
         type = type,
         protocol = CoreProtocol.ANYTLS,
+        anyTlsCompatibilityTest = bean.compatibilityTest == true,
         tls = TlsMode.TLS,
         certificatePin = certificatePin,
         customCa = !bean.certificates.isNullOrBlank(),

@@ -32,7 +32,7 @@ fun preferenceOrder(requirements: CoreRequirements): List<DialCore> {
     val candidates = candidateCores(requirements.protocol)
     val first = when {
         requirements.tls == TlsMode.REALITY || requirements.mldsa65Verify -> DialCore.XRAY
-        requirements.protocol == CoreProtocol.ANYTLS && requirements.customCa && ANYTLS_CERTIFICATES_PREFER_MIHOMO ->
+        requirements.protocol == CoreProtocol.ANYTLS && !requirements.anyTlsCompatibilityTest && requirements.customCa && ANYTLS_CERTIFICATES_PREFER_MIHOMO ->
             DialCore.MIHOMO
 
         else -> DialCore.SING_BOX
