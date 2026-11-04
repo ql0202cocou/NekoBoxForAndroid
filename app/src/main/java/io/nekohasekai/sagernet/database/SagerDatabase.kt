@@ -10,13 +10,15 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.fmt.KryoConverters
+import io.nekohasekai.sagernet.fmt.preserveLegacyAnyTLSCertificatePolicy
+import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import io.nekohasekai.sagernet.fmt.gson.GsonConverters
 import io.nekohasekai.sagernet.ktx.Logs
 import java.util.concurrent.Executors
 
 @Database(
     entities = [ProxyGroup::class, ProxyEntity::class, RuleEntity::class, DataGeneration::class],
-    version = 10,
+    version = 11,
     autoMigrations = [
         AutoMigration(from = 3, to = 4),
         AutoMigration(from = 4, to = 5),
@@ -117,10 +119,32 @@ abstract class SagerDatabase : RoomDatabase() {
             }
         }
 
+        // 先按旧核心独立保留证书策略，再将全部 AnyTLS 恢复自动选核。
+        // 只执行一次；之后用户手动选择的核心以及备份恢复的选择照常保留。
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.query("SELECT `id`, `core`, `anyTLSBean` FROM `proxy_entities` WHERE `type` = ${ProxyEntity.TYPE_ANYTLS}").use { cursor ->
+                    while (cursor.moveToNext()) {
+                        if (cursor.isNull(2)) continue
+                        // 损坏字节保持原样；未解析的策略在能力匹配处拒绝，不能猜成固定。
+                        val bean = runCatching { KryoConverters.deserialize(AnyTLSBean(), cursor.getBlob(2)) }.getOrNull() ?: continue
+                        if (bean.certificatePolicy != AnyTLSBean.CERTIFICATE_POLICY_LEGACY) continue
+                        preserveLegacyAnyTLSCertificatePolicy(bean, cursor.getInt(1))
+                        db.execSQL("UPDATE `proxy_entities` SET `anyTLSBean` = ? WHERE `id` = ?",
+                            arrayOf<Any>(KryoConverters.serialize(bean), cursor.getLong(0)))
+                    }
+                }
+                db.execSQL(
+                    "UPDATE `proxy_entities` SET `core` = ? WHERE `type` = ? AND `core` != ?",
+                    arrayOf<Any>(ProxyEntity.CORE_AUTO, ProxyEntity.TYPE_ANYTLS, ProxyEntity.CORE_AUTO),
+                )
+            }
+        }
+
         val instance by lazy {
             SagerNet.application.getDatabasePath(Key.DB_PROFILE).parentFile?.mkdirs()
             Room.databaseBuilder(SagerNet.application, SagerDatabase::class.java, Key.DB_PROFILE)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_8_9)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_8_9, MIGRATION_10_11)
                 .setJournalMode(JournalMode.TRUNCATE)
                 .enableMultiInstanceInvalidation()
                 // 不用 destructive fallback：缺迁移时它会静默丢掉所有配置、分组和规则——

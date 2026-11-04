@@ -55,4 +55,48 @@ class SubscriptionCoreResetTest {
             assertSame(new, entity.requireBean())
         }
     }
+    @Test
+    fun `AnyTLS 订阅刷新保留独立证书策略`() {
+        val old = CoreTestNodes.anytls { certificatePolicy = 1; certificates = "old-ca" }
+        val entity = existing(old, CORE_AUTO)
+        val updated = CoreTestNodes.anytls { certificates = "new-ca" }
+        entity.replaceSubscriptionBean(updated)
+        assertEquals(1, updated.certificatePolicy)
+        assertEquals("new-ca", updated.certificates)
+        assertEquals(CORE_AUTO, entity.core)
+    }
+
+    @Test
+    fun `AnyTLS 本地策略与覆写不会造成虚假订阅变化`() {
+        val previous = CoreTestNodes.anytls {
+            certificatePolicy = 1
+            customOutboundJson = "{\"tag\":\"local\"}"
+            customConfigJson = "{\"log\":{\"level\":\"debug\"}}"
+        }
+        val incoming = CoreTestNodes.anytls()
+        assertNotEquals(previous, incoming)
+        incoming.preserveSubscriptionOverridesFrom(previous)
+        assertEquals(previous, incoming)
+    }
+
+    @Test
+    fun `订阅写入保留下载期间修改的策略与覆写`() {
+        val previous = CoreTestNodes.anytls { certificatePolicy = 1 }
+        val entity = existing(previous, CORE_SING_BOX)
+        val incoming = CoreTestNodes.anytls { certificates = "new-ca"; serverPort = 9443 }
+        incoming.preserveSubscriptionOverridesFrom(previous)
+        previous.certificatePolicy = 0
+        previous.customOutboundJson = "{\"tag\":\"edited\"}"
+        previous.customConfigJson = "{\"log\":{\"level\":\"warn\"}}"
+
+        entity.replaceSubscriptionBean(incoming)
+
+        assertEquals(0, incoming.certificatePolicy)
+        assertEquals(previous.customOutboundJson, incoming.customOutboundJson)
+        assertEquals(previous.customConfigJson, incoming.customConfigJson)
+        assertEquals("new-ca", incoming.certificates)
+        assertEquals(9443, incoming.serverPort)
+        assertEquals(CORE_SING_BOX, entity.core)
+    }
+
 }

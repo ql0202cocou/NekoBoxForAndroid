@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "sb-anytls-certpin",
-  "description": "AnyTLS 手动指定 sing-box 又设证书指纹：应报错",
+  "description": "AnyTLS 手动指定 sing-box：整证书指纹固定",
   "mainProfileId": 1,
   "settings": [
     {
@@ -169,7 +169,7 @@
       "core": 1,
       "beanColumn": "anyTLSBean",
       "beanClass": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
-      "beanKryoBase64": "AwAAAGFueXRscy5leGFtcGxlLmNv7fsgAABnb2xkZW4tcGFzcy1hbnl0bPOBgYGBAIHgAUFCOkNEOkVGOjAxOjIzOjQ1OjY3Ojg5OkFCOkNEOkVGOjAxOjIzOjQ1OjY3Ojg5OkFCOkNEOkVGOjAxOjIzOjQ1OjY3Ojg5OkFCOkNEOkVGOjAxOjIzOjQ1OjY3Ojg5AAABAAAAZ29sZGVuLXNiLWFueXRscy1wae6BgQ=="
+      "beanKryoBase64": "BAAAAGFueXRscy5leGFtcGxlLmNv7fsgAABnb2xkZW4tcGFzcy1hbnl0bPOBgYGBAIHgAUFCOkNEOkVGOjAxOjIzOjQ1OjY3Ojg5OkFCOkNEOkVGOjAxOjIzOjQ1OjY3Ojg5OkFCOkNEOkVGOjAxOjIzOjQ1OjY3Ojg5OkFCOkNEOkVGOjAxOjIzOjQ1OjY3Ojg5AAAAAAAAAQAAAGdvbGRlbi1zYi1hbnl0bHMtcGnugYE="
     }
   ],
   "rules": [],

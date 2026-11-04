@@ -17,7 +17,7 @@ import (
 	N "github.com/sagernet/sing/common/network"
 )
 
-const Type = "neko-anytls-compat-experiment"
+const Type = "neko-anytls"
 
 // 受控构建接口；产品 JSON 注册入口在 config.go，不承诺上游导出格式。
 type Options struct {

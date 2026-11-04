@@ -78,7 +78,7 @@ class HopPlanTest {
         configure()
     }, core)
 
-    // AnyTLS 带证书指纹，自动选核走 mihomo
+    // AnyTLS 带证书指纹，显式指定 mihomo 以验证外核计划
     private fun anytls() = entity(AnyTLSBean().apply {
         name = "anytls"
         serverAddress = "a.example.net"
@@ -86,7 +86,7 @@ class HopPlanTest {
         password = "fake-password"
         initializeDefaultValues()
         certificateFingerprint = CoreTestNodes.PIN
-    })
+    }, ProxyEntity.CORE_MIHOMO)
 
     private fun trojanGo() = entity(TrojanGoBean().apply {
         name = "trojan-go"
@@ -206,7 +206,7 @@ class HopPlanTest {
 
     @Test
     fun `能选核的协议由选核判定决定内核还是外核`() {
-        // 不带 REALITY 的 VLESS 与没有证书指纹的 AnyTLS 自动选核走 sing-box：建 sing-box 出站，不经映射
+        // 普通 VLESS 与 AnyTLS 自动走 sing-box；手动 mihomo 仍使用外核。
         val auto = plan(vless()).core as HopCore.Internal
         assertEquals("vless", auto.outbound.asMap()["type"])
         val anytlsAuto = entity(AnyTLSBean().apply {
@@ -216,7 +216,9 @@ class HopPlanTest {
             password = "fake-password"
             initializeDefaultValues()
         })
-        assertEquals("anytls", (plan(anytlsAuto).core as HopCore.Internal).outbound.asMap()["type"])
+        assertEquals("neko-anytls", (plan(anytlsAuto).core as HopCore.Internal).outbound.asMap()["type"])
+        anytlsAuto.core = ProxyEntity.CORE_MIHOMO
+        assertEquals("mihomo-plugin", (plan(anytlsAuto).core as HopCore.External).core!!.pluginId)
         // 手动指定 Xray：外核
         assertEquals("xray-plugin", (plan(vless(core = ProxyEntity.CORE_XRAY)).core as HopCore.External).core!!.pluginId)
         assertTrue(platform.pluginQueries.isEmpty())

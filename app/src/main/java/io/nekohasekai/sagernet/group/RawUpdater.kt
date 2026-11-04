@@ -13,6 +13,7 @@ import io.nekohasekai.sagernet.fmt.v2ray.UnsupportedTransportException
 import io.nekohasekai.sagernet.ktx.*
 import libcore.Libcore
 import moe.matsuri.nb4a.Protocols
+import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.utils.Util
 import org.json.JSONTokener
 import org.yaml.snakeyaml.error.YAMLException
@@ -31,10 +32,18 @@ internal fun shouldRejectUnauthHttpOnly(
     return existing.any { !it.isUnauthHttp() }
 }
 
+// 比较订阅变化与事务内写入都保留本地覆写，避免仅策略不同的节点被反复报告为更新。
+internal fun AbstractBean.preserveSubscriptionOverridesFrom(previous: AbstractBean) {
+    customOutboundJson = previous.customOutboundJson
+    customConfigJson = previous.customConfigJson
+    if (this is AnyTLSBean && previous is AnyTLSBean) certificatePolicy = previous.certificatePolicy
+}
+
 // 订阅更新按名字匹配到旧节点后换上新解析的 bean（putBean 按 bean 的类改 type）。协议类型变了时 core 改回自动：
 // 手动选核是针对旧协议做的。协议类型相同时保留（VMess 与 VLESS 同属 TYPE_VMESS，互换也保留）
 internal fun ProxyEntity.replaceSubscriptionBean(bean: AbstractBean) {
     val oldType = type
+    bean.preserveSubscriptionOverridesFrom(requireBean())
     putBean(bean)
     if (type != oldType) core = ProxyEntity.CORE_AUTO
 }
@@ -233,9 +242,7 @@ object RawUpdater : GroupUpdater() {
             if (toReplace.contains(name)) {
                 val entity = toReplace[name]!!
                 val existsBean = entity.requireBean()
-                // 更新订阅，保留自定义覆写设置
-                bean.customOutboundJson = existsBean.customOutboundJson
-                bean.customConfigJson = existsBean.customConfigJson
+                bean.preserveSubscriptionOverridesFrom(existsBean)
                 // Apply the subscription order even when the content also changed,
                 // otherwise a reordered+edited node stays at its old position.
                 val reordered = entity.userOrder != userOrder
@@ -311,14 +318,9 @@ object RawUpdater : GroupUpdater() {
             for (entity in toUpdate) {
                 if (entity.id !in inGroup) continue
                 val current = SagerDatabase.proxyDao.getById(entity.id) ?: continue
-                val currentBean = current.requireBean()
-                val updatedBean = entity.requireBean().apply {
-                    // Overrides may have been edited during DNS resolution.
-                    // Preserve them from the transaction's fresh row too.
-                    customOutboundJson = currentBean.customOutboundJson
-                    customConfigJson = currentBean.customConfigJson
-                }
+                val updatedBean = entity.requireBean()
                 val before = ProxyConfigSnapshot(current)
+                // 下载期间用户可能改过覆写与证书策略，合并时再从事务内的新鲜行读取。
                 current.replaceSubscriptionBean(updatedBean)
                 // 合并了自定义覆写之后配置仍不同才清测速状态：旧结果对不上新配置，没变的节点保留
                 updatedCount += SagerDatabase.proxyDao.updateConfigResettingStatus(before, current)

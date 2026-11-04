@@ -1,15 +1,22 @@
 {
-  "status": "error",
-  "error": {
-    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
-    "message": "golden-sb-anytls-pin: the manually chosen core sing-box cannot run this profile: [certificateFingerprint] sing-box cannot pin a whole-certificate SHA-256 (it only pins public keys)",
-    "causes": [
-      {
-        "class": "java.lang.IllegalStateException",
-        "message": "the manually chosen core sing-box cannot run this profile: [certificateFingerprint] sing-box cannot pin a whole-certificate SHA-256 (it only pins public keys)"
-      }
-    ]
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {},
+    "trafficMap": {
+      "proxy": [
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-sb-anytls-pin"
+    },
+    "boxTagNames": {
+      "proxy": "golden-sb-anytls-pin"
+    }
   },
+  "external": [],
   "dynamic": {
     "ports": [],
     "paths": [],

@@ -2,6 +2,7 @@ package boxadapter
 
 import (
 	"context"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/pem"
@@ -30,14 +31,15 @@ type Config struct {
 }
 
 type TLSConfig struct {
-	Enabled     bool                        `json:"enabled"`
-	ServerName  string                      `json:"server_name,omitempty"`
-	Insecure    bool                        `json:"insecure,omitempty"`
-	ALPN        badoption.Listable[string]  `json:"alpn,omitempty"`
-	Certificate string                      `json:"certificate,omitempty"`
-	Fingerprint string                      `json:"certificate_fingerprint,omitempty"`
-	UTLS        *option.OutboundUTLSOptions `json:"utls,omitempty"`
-	ECH         *ECHConfig                  `json:"ech,omitempty"`
+	Enabled           bool                        `json:"enabled"`
+	ServerName        string                      `json:"server_name,omitempty"`
+	Insecure          bool                        `json:"insecure,omitempty"`
+	ALPN              badoption.Listable[string]  `json:"alpn,omitempty"`
+	Certificate       string                      `json:"certificate,omitempty"`
+	CertificatePolicy string                      `json:"certificate_policy,omitempty"`
+	Fingerprint       string                      `json:"certificate_fingerprint,omitempty"`
+	UTLS              *option.OutboundUTLSOptions `json:"utls,omitempty"`
+	ECH               *ECHConfig                  `json:"ech,omitempty"`
 }
 
 type ECHConfig struct {
@@ -55,6 +57,8 @@ var (
 
 func RegisterOutbound(registry *outbound.Registry) {
 	outbound.Register[Config](registry, Type, NewOutbound)
+	// 保留旧测试配置的类型名，正式节点只生成 Type。
+	outbound.Register[Config](registry, "neko-anytls-compat-experiment", NewOutbound)
 }
 
 func NewOutbound(ctx context.Context, _ adapter.Router, _ log.ContextLogger, tag string, config Config) (adapter.Outbound, error) {
@@ -71,12 +75,8 @@ func NewOutbound(ctx context.Context, _ adapter.Router, _ log.ContextLogger, tag
 	if security.ServerName == "" {
 		security.ServerName = config.Server
 	}
-	if t.Fingerprint != "" || t.Certificate != "" {
-		pin, err := compat.LegacyPin(t.Fingerprint, []byte(t.Certificate))
-		if err != nil {
-			return nil, ErrCertificatePin
-		}
-		security.Fingerprint = pin
+	if err := applyCertificatePolicy(&security, t); err != nil {
+		return nil, err
 	}
 	if t.UTLS != nil && t.UTLS.Enabled {
 		security.ClientFingerprint = t.UTLS.Fingerprint
@@ -113,6 +113,29 @@ func NewOutbound(ctx context.Context, _ adapter.Router, _ log.ContextLogger, tag
 		return nil, ErrUTLSFingerprint
 	}
 	return result, err
+}
+
+// 策略来自节点的独立持久化字段。信任模式与旧 sing-box 一样替换根池，不能从固定模式推导。
+func applyCertificatePolicy(security *compat.SecurityOptions, config *TLSConfig) error {
+	switch config.CertificatePolicy {
+	case "", "pin", "trust":
+	default:
+		return ErrCertificatePin
+	}
+	if config.Fingerprint != "" || config.Certificate != "" && config.CertificatePolicy != "trust" {
+		pin, err := compat.LegacyPin(config.Fingerprint, []byte(config.Certificate))
+		if err != nil {
+			return ErrCertificatePin
+		}
+		security.Fingerprint = pin
+	} else if config.Certificate != "" {
+		roots := x509.NewCertPool()
+		if !roots.AppendCertsFromPEM([]byte(config.Certificate)) {
+			return ErrCertificatePin
+		}
+		security.Roots = roots
+	}
+	return nil
 }
 
 // trial 只检查容器边界；密码学参数仍由 TLS 握手完整校验，失败不会降级。

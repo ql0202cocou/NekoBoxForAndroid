@@ -65,6 +65,9 @@ taGTp3i+MsV/Dm9ZoX08QkQTOVZRnkIJs7xSOM98agY=
     // ECH 配置：编造的字节，只经过 Base64 / PEM 互转，不做内容校验
     val ECH_CONFIG = base64("golden-ech-config-list-fixture-bytes-for-tests-only")
 
+    // 内部 AnyTLS 在 trial 检查 ECH 列表结构；使用测试专用的 X25519 基点公钥与合法配置，不对应线上服务。
+    const val ANYTLS_ECH_CONFIG = "AEH+DQA9AQAgACAJAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAEAAUAOcHVibGljLmV4YW1wbGUAAA=="
+
     // SSH 夹具：编造的、只用于测试的 ed25519 密钥对，从未用于任何真实主机。
     // 必须是 sing-box 的 ssh 出站在加载期能解析的真内容（私钥可用口令解密、host key 是 authorized_keys 格式），
     // 否则逐出站试建会把 sb-ssh-private-key 场景当成坏成员。重新生成：

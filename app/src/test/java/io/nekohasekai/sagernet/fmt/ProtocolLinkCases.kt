@@ -512,7 +512,10 @@ object ProtocolLinkCases {
     private val anytlsSpec = LinkSpec(
         "AnyTLS", TYPE_ANYTLS, AnyTLSBean::class.java, "anytls",
         neverInLink = generic(),
-        fixedByFormat = mapOf("compatibilityTest" to "专属链接只表示普通 AnyTLS；兼容测试节点拒绝分享，由 AnyTLSCompatibilityTest 单独覆盖"),
+        fixedByFormat = mapOf(
+            "compatibilityTest" to "历史兼容测试标记不进入专属链接，已不再影响选核或运行",
+            "certificatePolicy" to "专属链接只表达固定策略，信任策略使用通用链接完整保留",
+        ),
         cases = listOf(
             // ECH 配置与「只开启 ECH」是两种写法：链接里 ech=<配置> 解析回来只有 echConfig，enableECH 不置位
             LinkCase("anytls-full-ech-config") {

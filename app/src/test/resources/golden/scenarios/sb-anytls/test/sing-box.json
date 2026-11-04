@@ -36,8 +36,8 @@
         "ech": {
           "config": [
             "-----BEGIN ECH CONFIGS-----",
-            "Z29sZGVuLWVjaC1jb25maWctbGlzdC1maXh0dXJlLWJ5dGVzLWZvci10ZXN0cy1v",
-            "bmx5",
+            "AEH+DQA9AQAgACAJAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAEA",
+            "AUAOcHVibGljLmV4YW1wbGUAAA==",
             "-----END ECH CONFIGS-----"
           ],
           "enabled": true
@@ -51,7 +51,7 @@
         }
       },
       "tag": "proxy",
-      "type": "anytls"
+      "type": "neko-anytls"
     },
     {
       "tag": "direct",

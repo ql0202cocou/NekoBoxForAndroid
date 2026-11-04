@@ -295,6 +295,59 @@ class SagerDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun `10 到 11 全部 AnyTLS 保存原证书策略再恢复自动且其余数据不变`() {
+        val schema = Schema.load(10)
+        val samples = KryoSamples.samples.filter { it.id.startsWith("AnyTLSBean/") }
+        val cases = samples.flatMap { sample -> listOf(CORE_AUTO, CORE_SING_BOX, CORE_MIHOMO, CORE_XRAY, 99).map { sample to it } }
+        val rows = cases.mapIndexed { i, (sample, oldCore) ->
+            schema.row("proxy_entities", "id" to i + 1, "groupId" to 7, "type" to TYPE_ANYTLS,
+                "core" to oldCore,
+                "tx" to 1000 + i, "rx" to 2000 + i, "status" to 1, "ping" to 23, "uuid" to "test-$i",
+                "anyTLSBean" to sample.bytes.toBlob())
+        } + listOf(
+            schema.row("proxy_entities", "id" to 900, "type" to TYPE_ANYTLS, "core" to CORE_MIHOMO, "anyTLSBean" to blobOf(1)),
+            schema.row("proxy_entities", "id" to 901, "type" to TYPE_VMESS, "core" to CORE_XRAY, "vmessBean" to blobOf(2)),
+            schema.row("proxy_entities", "id" to 902, "type" to TYPE_CHAIN, "core" to CORE_AUTO, "chainBean" to blobOf(3)),
+        )
+        open(10).use { db ->
+            rows.forEach { db.insert("proxy_entities", it) }
+            val group = schema.row("proxy_groups", "id" to 7, "frontProxy" to 1, "landingProxy" to 2, "isSelector" to 1)
+            val rule = schema.row("rules", "id" to 1, "outbound" to 2)
+            db.insert("proxy_groups", group)
+            db.insert("rules", rule)
+            db.migrate(migrationFrom(10))
+            db.assertSchema(11)
+            val actual = db.table("proxy_entities")
+            for ((index, row) in rows.withIndex()) {
+                val migrated = actual.single { it["id"] == row["id"] }
+                assertEquals(row - "core" - "anyTLSBean", migrated - "core" - "anyTLSBean")
+                assertEquals(if (row["type"] == TYPE_ANYTLS.toLong()) CORE_AUTO.toLong() else row["core"], migrated["core"])
+                if (index >= cases.size) {
+                    assertEquals(row["anyTLSBean"], migrated["anyTLSBean"])
+                    continue
+                }
+                val (sample, oldCore) = cases[index]
+                val expectedPolicy = when {
+                    sample.versions.getValue("AnyTLSBean") >= 4 -> sample.expected["certificatePolicy"].asInt
+                    sample.expected["compatibilityTest"].asBoolean -> 0
+                    oldCore == CORE_SING_BOX -> 1
+                    oldCore == CORE_AUTO && sample.id.endsWith("/default") -> 1
+                    else -> 0
+                }
+                val bytes = (migrated["anyTLSBean"] as Blob).hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+                val bean = io.nekohasekai.sagernet.fmt.KryoConverters.deserialize(moe.matsuri.nb4a.proxy.anytls.AnyTLSBean(), bytes)
+                val expected = sample.expected.deepCopy().apply { addProperty("certificatePolicy", expectedPolicy) }
+                assertEquals(emptyList<String>(), KryoSamples.diff(sample.id, bean, expected))
+            }
+            assertEquals(listOf(group), db.table("proxy_groups"))
+            assertEquals(listOf(rule), db.table("rules"))
+            // 迁移后仍可保存手动核心；不在日常读取路径重复重置。
+            db.execute("UPDATE proxy_entities SET core = ? WHERE id = 1", listOf(CORE_MIHOMO))
+            assertEquals(CORE_MIHOMO.toLong(), db.scalar("SELECT core FROM proxy_entities WHERE id = 1"))
+        }
+    }
+
     // ---- 从每个旧版本一路升到最新版：每一级之后都比对 schema，旧数据不丢，新增列取默认值，新增的表为空。
     // 3 → 8 是 Room 生成的 AutoMigration（实现类只在 SQLiteConnection 入口上执行 ALTER TABLE），8 → 9 因取不到
     // DataStore 只能带读不出 / 为空的 bean，这里种的行都是 SOCKS 类型、core = 自动，不受 8 → 9 的规范化影响

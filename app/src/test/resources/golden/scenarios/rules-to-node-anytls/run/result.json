@@ -1,0 +1,32 @@
+{
+  "status": "ok",
+  "build": {
+    "mainEntId": 1,
+    "selectorGroupId": -1,
+    "profileTagMap": {
+      "2": "g-2"
+    },
+    "trafficMap": {
+      "g-2": [
+        2
+      ],
+      "proxy": [
+        1
+      ]
+    },
+    "boxIndexNames": {
+      "outbound[0]": "golden-rta-main",
+      "outbound[1]": "golden-rta-anytls"
+    },
+    "boxTagNames": {
+      "g-2": "golden-rta-anytls",
+      "proxy": "golden-rta-main"
+    }
+  },
+  "external": [],
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

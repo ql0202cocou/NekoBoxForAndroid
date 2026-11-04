@@ -126,6 +126,7 @@ class GoldenTrafficBindingsTest {
             "rules-to-full-config" to (emptySet<String>() to "完整配置节点不能做出站，被跳过，规则没有应用"),
             "rules-to-main" to (emptySet<String>() to "规则 → 主节点，出站是 proxy"),
             "rules-to-missing" to (emptySet<String>() to "目标节点不存在，规则没有应用"),
+            "rules-to-node-anytls" to (setOf("g-2") to "运行规则 → 单节点 2（内部 AnyTLS），出站 g-2 登记统计；可移植导出的限制不影响运行路由"),
             "rules-to-node-mihomo" to (setOf("g-2") to "规则 → 单节点 2（mihomo，经本机 socks 出站 g-2）"),
             "rules-to-node-sb" to (setOf("g-2") to "规则 → 单节点 2"),
             "rules-to-node-with-front" to (setOf("c-2-2") to "规则 → 节点 2，所在分组带前置，建成两跳链 c-2-2"),

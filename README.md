@@ -35,22 +35,28 @@ sing-box / universal proxy toolchain for Android.
 
 | 核心 / Core | 版本 / Version | 用途 / Used for |
 | --- | --- | --- |
-| [sing-box](https://github.com/SagerNet/sing-box) | v1.14.4（附带本仓库补丁及 uTLS v1.8.8 / with local patches and uTLS v1.8.8） | 承载其余一切，可选核心时优先 / Runs everything else; preferred whenever the core can be chosen |
+| [sing-box](https://github.com/SagerNet/sing-box) | v1.14.4（附带本仓库补丁及 uTLS v1.8.8 / with local patches and uTLS v1.8.8） | 基础内核，承载多数协议；AnyTLS 自动选核的首选 / Base core for most protocols; preferred for automatic AnyTLS selection |
 | [Xray-core](https://github.com/XTLS/Xray-core) | v26.10.21 | XHTTP 节点仅使用 Xray；带 REALITY 或 mldsa65Verify 的 VMess / VLESS / Trojan 优先使用；节点带证书指纹、Mux.Cool，或只有 Xray 认的 flow / 指纹时也走 Xray / Required for XHTTP profiles; preferred for VMess / VLESS / Trojan with REALITY or mldsa65Verify; also used when the profile has a certificate fingerprint, Mux.Cool, or a flow / fingerprint only Xray accepts |
-| [mihomo](https://github.com/MetaCubeX/mihomo) | v1.19.33 | 带证书指纹或 certificates 的普通 AnyTLS；只有 mihomo 认的指纹也走 mihomo / Ordinary AnyTLS with a certificate fingerprint or certificates; also used for a fingerprint only mihomo accepts |
+| [mihomo](https://github.com/MetaCubeX/mihomo) | v1.19.33 | AnyTLS 可选核心；可按节点手动选择 / Optional AnyTLS core; can be selected per profile |
 
 VMess / VLESS / Trojan 与 AnyTLS 节点可在编辑页手动指定核心；指定的核心承载不了节点的设置时报错并列出冲突字段，不再回落到其他核心。Trojan-Go、NaïveProxy、Mieru 以及 faketcp / wechat-video 模式的 Hysteria 1 需要另外安装对应插件。
 
 The core can be chosen per profile for VMess / VLESS / Trojan and AnyTLS; if the chosen core cannot run the profile's settings, it fails with the conflicting fields listed instead of falling back to another core. Trojan-Go, NaïveProxy, Mieru and Hysteria 1 in faketcp / wechat-video mode need their plugin installed separately.
 
-“新建节点 → AnyTLS（兼容测试）”可显式创建使用内部兼容实现的测试节点，支持运行、测速和 trial。
-现有节点不迁移，mihomo 保留。测试节点不可分享或导出；默认信任使用应用证书库，PEM 按 mihomo 的第一张证书固定语义处理。
-详见 [兼容测试说明](libcore/anytlscompat/README.md)。
+普通 AnyTLS 节点自动选核优先 sing-box，使用内置兼容实现，支持整证书固定、uTLS 和 ECH；仍可手动选择 mihomo。
+升级时所有现存 AnyTLS 节点（含原手动核心与兼容测试节点）一次性恢复自动选核，节点参数、流量与链式引用不变；之后可重新手动选择核心。
+证书策略独立保存：旧 sing-box 节点保留自定义信任证书及域名、有效期校验；旧 mihomo 和兼容测试节点保留首张 PEM 固定。新节点默认固定，显式证书指纹优先。
+信任策略使用 sing-box；携带信任证书时不能静默改用 mihomo 固定。信任策略通过 `sn://` 分享；sing-box 的 AnyTLS 配置包含 NekoBox 扩展，不能导出为通用配置。固定策略可改选 mihomo 后导出。
+详见 [AnyTLS 支持说明](libcore/anytlscompat/README.md)。
 
-“New profile → AnyTLS (compatibility test)” explicitly creates test profiles using the internal compatibility implementation
-for runtime, URL testing and trial. Existing profiles are not migrated and mihomo remains available. Test profiles cannot be
-shared or exported; default trust uses the app certificate store and PEM pins its first certificate as in mihomo.
-See the [compatibility notes](libcore/anytlscompat/README.md).
+Ordinary AnyTLS profiles can now select sing-box's built-in compatibility implementation, with whole-certificate pinning,
+uTLS and ECH. Automatic selection prefers sing-box; mihomo remains selectable. Upgrading resets every existing AnyTLS profile, including manual core
+choices and former test profiles, to automatic selection once, preserving profile parameters, traffic and chain references.
+Manual core selection remains available afterwards. Certificate policy is stored independently: former sing-box profiles retain
+custom trust certificates with hostname and validity checks; former mihomo and test profiles retain first-PEM pinning.
+New profiles default to pinning, and explicit fingerprints take priority. Profiles with trust certificates cannot silently switch
+to mihomo pinning. Trust-policy links use `sn://`. Sing-box AnyTLS uses a NekoBox extension and cannot export portable
+configurations; pinning profiles may select mihomo for export. See the [support notes](libcore/anytlscompat/README.md).
 
 ## 支持的订阅格式 / Supported Subscription Format
 

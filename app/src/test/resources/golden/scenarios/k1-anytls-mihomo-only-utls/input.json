@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "k1-anytls-mihomo-only-utls",
-  "description": "对照表 13 的例外：AnyTLS 的 uTLS 指纹只有 mihomo 认（chrome120），留在 mihomo",
+  "description": "对照表 13 的例外：AnyTLS 使用 chrome120，默认走 sing-box、手动 mihomo 也支持",
   "mainProfileId": 1,
   "settings": [
     {
@@ -169,7 +169,7 @@
       "core": 0,
       "beanColumn": "anyTLSBean",
       "beanClass": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
-      "beanKryoBase64": "AwAAAGFueXRscy5leGFtcGxlLmNv7fsgAABnb2xkZW4tcGFzcy1hbnl0bPNhbnl0bHMuZXhhbXBsZS5jb+2BgWNocm9tZTEysACBgQAAAQAAAGdvbGRlbi1rMS1hbnl0bHMtY2hyb21lMTKwgYE="
+      "beanKryoBase64": "BAAAAGFueXRscy5leGFtcGxlLmNv7fsgAABnb2xkZW4tcGFzcy1hbnl0bPNhbnl0bHMuZXhhbXBsZS5jb+2BgWNocm9tZTEysACBgQAAAAAAAAEAAABnb2xkZW4tazEtYW55dGxzLWNocm9tZTEysIGB"
     }
   ],
   "rules": [],

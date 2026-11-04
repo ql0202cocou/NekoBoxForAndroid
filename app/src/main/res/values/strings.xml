@@ -631,9 +631,12 @@
     <string name="insert_tab">Insert tab</string>
     <string name="format">Format</string>
 
-    <string name="anytls_compat_test">AnyTLS (compatibility test)</string>
-    <string name="anytls_compat_description">Uses the internal compatibility outbound. PEM certificates pin the first certificate, as in mihomo. Default trust comes from the app. Test profiles cannot be shared or exported.</string>
-    <string name="core_conflict_anytls_compat_internal_only">AnyTLS compatibility test profiles require the internal compatibility outbound.</string>
-    <string name="core_conflict_anytls_compat_utls">Unsupported client fingerprint for the AnyTLS compatibility test.</string>
-    <string name="core_conflict_anytls_compat_ech">ECH compatibility tests require standard TLS, chrome, firefox, chrome120 or firefox120.</string>
+    <string name="anytls_certificate_description">Auto selection prefers sing-box. PEM certificates use the selected policy; an explicit certificate fingerprint takes priority.</string>
+    <string name="core_conflict_sing_box_anytls_utls">Unsupported client fingerprint for the sing-box AnyTLS.</string>
+    <string name="core_conflict_sing_box_anytls_ech">sing-box AnyTLS ECH require standard TLS, chrome, firefox, chrome120 or firefox120.</string>
+    <string name="anytls_certificate_policy">Certificate policy</string>
+    <string name="anytls_certificate_policy_pin">Pin the first PEM certificate</string>
+    <string name="anytls_certificate_policy_trust">Trust PEM certificates (verify name and validity)</string>
+    <string name="core_conflict_mihomo_anytls_trust">mihomo cannot preserve this profile’s custom certificate trust policy. Select sing-box or explicitly change the certificate policy.</string>
+    <string name="core_conflict_anytls_certificate_policy_invalid">The AnyTLS certificate policy is unresolved or invalid. Restore the profile or select its certificate policy explicitly.</string>
 </resources>

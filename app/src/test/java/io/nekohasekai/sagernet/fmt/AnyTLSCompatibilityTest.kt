@@ -3,7 +3,9 @@ package io.nekohasekai.sagernet.fmt
 import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
+import io.nekohasekai.sagernet.database.RuleEntity
 import io.nekohasekai.sagernet.fmt.internal.ChainBean
+import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.proxy.anytls.parseAnytls
 import moe.matsuri.nb4a.proxy.anytls.toUri
@@ -11,7 +13,7 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AnyTLSCompatibilityTest {
-    private fun node(testing: Boolean = true) = ProxyEntity(id = 1, groupId = 1).putBean(AnyTLSBean().apply {
+    private fun node(testing: Boolean = false, core: Int = ProxyEntity.CORE_AUTO) = ProxyEntity(id = 1, groupId = 1, core = core).putBean(AnyTLSBean().apply {
         initializeDefaultValues()
         serverAddress = "node.example.org"
         serverPort = 443
@@ -21,34 +23,40 @@ class AnyTLSCompatibilityTest {
         compatibilityTest = testing
     })
 
-    private fun input(nodes: List<ProxyEntity>, mode: ConfigBuildMode, platform: FakeConfigPlatform): ConfigInput {
+    private fun input(
+        nodes: List<ProxyEntity>, mode: ConfigBuildMode, platform: FakeConfigPlatform,
+        rules: List<RuleEntity> = emptyList(),
+    ): ConfigInput {
         val record = ProfileRecord.of(nodes.first())
         val group = ProxyGroup(id = 1).apply { name = "test"; proxyServerNameserver = "https://dns.example.org/dns-query" }
-        val data = ConfigSnapshot.collect(MemoryConfigDataSource(listOf(group), nodes, emptyList()), record, mode)
+        val data = ConfigSnapshot.collect(MemoryConfigDataSource(listOf(group), nodes, rules), record, mode)
         return ConfigInput(mode, record, testConfigSettings(), data, emptyMap(), platform)
     }
 
     @Test
-    fun `普通节点仍选择 mihomo 测试节点只匹配内部兼容实现`() {
-        assertEquals(DialCore.MIHOMO, (node(false).coreDecision(false) as CoreDecision.Selected).core)
-        assertEquals(DialCore.SING_BOX, (node().coreDecision(false) as CoreDecision.Selected).core)
-        for (core in listOf(ProxyEntity.CORE_XRAY, ProxyEntity.CORE_MIHOMO)) {
-            assertTrue(node().apply { this.core = core }.coreDecision(false) is CoreDecision.Rejected)
+    fun `普通与历史测试节点自动优先 sing-box 并允许手动 mihomo`() {
+        for (testing in listOf(false, true)) {
+            for (core in listOf(ProxyEntity.CORE_AUTO, ProxyEntity.CORE_MIHOMO, ProxyEntity.CORE_SING_BOX)) {
+                val entity = node(testing, core)
+                val expected = if (core == ProxyEntity.CORE_MIHOMO) DialCore.MIHOMO else DialCore.SING_BOX
+                assertEquals(expected, (entity.coreDecision(false) as CoreDecision.Selected).core)
+            }
+            assertTrue(node(testing, ProxyEntity.CORE_XRAY).coreDecision(false) is CoreDecision.Rejected)
         }
         assertFalse(node().needExternal(false))
     }
 
     @Test
     fun `运行和测速共用内部出站与 trial 不生成外核计划`() {
-        for (mode in listOf(ConfigBuildMode.RUN, ConfigBuildMode.TEST)) {
+        for (core in listOf(ProxyEntity.CORE_AUTO, ProxyEntity.CORE_SING_BOX)) for (mode in listOf(ConfigBuildMode.RUN, ConfigBuildMode.TEST)) {
             val platform = FakeConfigPlatform()
-            val result = buildConfig(input(listOf(node()), mode, platform))
+            val result = buildConfig(input(listOf(node(core = core)), mode, platform))
             assertTrue(result.externalChains.all { it.hops.isEmpty() })
             assertFalse(result.delayTestOnMihomo)
             val trial = JsonParser.parseString(platform.trialQueries.single().second).asJsonObject
-            assertEquals("neko-anytls-compat-experiment", trial["type"].asString)
+            assertEquals("neko-anytls", trial["type"].asString)
             assertEquals("ab".repeat(32), trial["tls"].asJsonObject["certificate_fingerprint"].asString)
-            assertTrue(result.config.contains("neko-anytls-compat-experiment"))
+            assertTrue(result.config.contains("neko-anytls"))
         }
     }
 
@@ -62,34 +70,23 @@ class AnyTLSCompatibilityTest {
     }
 
     @Test
-    fun `测试标记持久化但普通链接不能激活或丢掉它`() {
-        val bean = node().requireBean() as AnyTLSBean
-        val restored = KryoConverters.deserialize(AnyTLSBean(), KryoConverters.serialize(bean))
-        assertTrue(restored.compatibilityTest)
-        assertFalse(node().haveLink())
-        assertThrows(IllegalStateException::class.java) { bean.toUri() }
-        val ordinary = parseAnytls("anytls://fake@node.example.org:443?compatibilityTest=true")
-        ordinary.initializeDefaultValues()
-        assertFalse(ordinary.compatibilityTest)
-    }
-
-    @Test
-    fun `通用链接不能导入或分享兼容测试标记`() {
-        val testing = node().requireBean()
-        val bytes = KryoConverters.serialize(testing)
-        assertThrows(IllegalArgumentException::class.java) {
-            universalBean(ProxyEntity.TYPE_ANYTLS, bytes) { false }
+    fun `历史测试标记不再限制分享或改变选核`() {
+        for (testing in listOf(false, true)) {
+            val entity = node(testing)
+            val bean = entity.requireBean() as AnyTLSBean
+            val bytes = KryoConverters.serialize(bean)
+            val restored = universalBean(ProxyEntity.TYPE_ANYTLS, bytes) { false } as AnyTLSBean
+            assertEquals(testing, restored.compatibilityTest)
+            assertTrue(entity.haveLink())
+            val imported = parseAnytls(bean.toUri()).apply { initializeDefaultValues() }
+            assertEquals(bean.certificateFingerprint, imported.certificateFingerprint)
+            assertFalse(imported.compatibilityTest)
+            assertEquals(DialCore.SING_BOX, (decideCore(ProxyEntity.TYPE_ANYTLS, ProxyEntity.CORE_AUTO, restored, false) as CoreDecision.Selected).core)
         }
-        assertThrows(IllegalStateException::class.java) { testing.toUniversalLink() }
-        val ordinary = universalBean(ProxyEntity.TYPE_ANYTLS, KryoConverters.serialize(node(false).requireBean())) { false }
-        assertFalse((ordinary as AnyTLSBean).compatibilityTest)
-        // 备份与数据库使用原始字节入口，显式创建的测试标记仍须保留。
-        val restored = ProxyEntity(type = ProxyEntity.TYPE_ANYTLS).apply { putByteArray(bytes) }
-        assertTrue(restored.anyTLSBean!!.compatibilityTest)
     }
 
     @Test
-    fun `私有出站不从单节点或链导出 也不接受 JSON 覆盖`() {
+    fun `内部扩展禁止可移植配置导出但 mihomo 仍可导出`() {
         val chain = ProxyEntity(id = 2, groupId = 1).putBean(ChainBean().apply {
             initializeDefaultValues(); proxies = listOf(1L)
         })
@@ -98,19 +95,86 @@ class AnyTLSCompatibilityTest {
             assertThrows(Exception::class.java) { buildConfig(input(nodes, ConfigBuildMode.EXPORT, platform)) }
             assertTrue(platform.ports.isEmpty())
         }
-        for (setJson in listOf<(AbstractBean) -> Unit>({ it.customOutboundJson = "{}" }, { it.customConfigJson = "{}" })) {
-            val entity = node()
-            setJson(entity.requireBean())
-            assertThrows(Exception::class.java) { buildConfig(input(listOf(entity), ConfigBuildMode.RUN, FakeConfigPlatform())) }
+        val exported = buildConfig(input(listOf(node(core = ProxyEntity.CORE_MIHOMO)), ConfigBuildMode.EXPORT, FakeConfigPlatform()))
+        assertFalse(exported.config.contains("neko-anytls"))
+        assertTrue(exported.externalChains.any { it.hops.isNotEmpty() })
+    }
+
+    @Test
+    fun `合法 AnyTLS 规则目标及嵌套链在运行时保留且让整个导出失败`() {
+        val main = ProxyEntity(id = 10, groupId = 1).putBean(SOCKSBean().apply {
+            initializeDefaultValues(); serverAddress = "main.example.org"; serverPort = 1080
+        })
+        for (core in listOf(ProxyEntity.CORE_AUTO, ProxyEntity.CORE_SING_BOX, ProxyEntity.CORE_MIHOMO)) {
+            for (nested in listOf(false, true)) {
+                val anyTls = node(core = core).apply { anyTLSBean!!.name = "rule-anytls" }
+                val inner = ProxyEntity(id = 2, groupId = 1).putBean(ChainBean().apply {
+                    initializeDefaultValues(); proxies = listOf(1L)
+                })
+                val outer = ProxyEntity(id = 3, groupId = 1).putBean(ChainBean().apply {
+                    initializeDefaultValues(); proxies = listOf(2L)
+                })
+                val target = if (nested) outer.id else anyTls.id
+                val nodes = listOf(main, anyTls, inner, outer)
+                val rules = listOf(RuleEntity(id = 1, enabled = true, ip = "198.51.100.0/24", outbound = target))
+                fun assertRulePreserved(result: ConfigBuildResult) {
+                    val config = JsonParser.parseString(result.config).asJsonObject
+                    val rule = config["route"].asJsonObject["rules"].asJsonArray.single {
+                        it.asJsonObject["ip_cidr"]?.asJsonArray?.any { cidr -> cidr.asString == "198.51.100.0/24" } == true
+                    }.asJsonObject
+                    assertEquals(result.profileTagMap.getValue(target), rule["outbound"].asString)
+                    assertTrue(result.diagnostics.isEmpty())
+                }
+                assertRulePreserved(buildConfig(input(nodes, ConfigBuildMode.RUN, FakeConfigPlatform(), rules)))
+                val platform = FakeConfigPlatform()
+                val diagnostics = ArrayList<ConfigBuildDiagnostic>()
+                val exportInput = input(nodes, ConfigBuildMode.EXPORT, platform, rules)
+                if (core == ProxyEntity.CORE_MIHOMO) {
+                    val exported = buildConfig(exportInput, diagnostics)
+                    assertRulePreserved(exported)
+                    val text = exportConfigText(exported, "test", platform::createTempFile).first
+                    assertTrue(text.contains("198.51.100.0/24"))
+                    assertTrue(text.contains("anytls"))
+                } else {
+                    val error = assertThrows(ProfileBuildException::class.java) { buildConfig(exportInput, diagnostics) }
+                    assertEquals("rule-anytls", error.profileName)
+                    assertTrue(error.cause is ConfigExportException)
+                    assertTrue(error.message!!.contains("NekoBox extension"))
+                    assertTrue(platform.warnings.isEmpty())
+                }
+                assertTrue(diagnostics.isEmpty())
+            }
         }
+    }
+
+    @Test
+    fun `普通节点的自定义 JSON 同样进入内部 trial`() {
+        val platform = FakeConfigPlatform()
+        val entity = node().apply { anyTLSBean!!.customOutboundJson = "{\"tls\":{\"server_name\":\"override.example\"}}" }
+        buildConfig(input(listOf(entity), ConfigBuildMode.RUN, platform))
+        val trial = JsonParser.parseString(platform.trialQueries.single().second).asJsonObject
+        assertEquals("override.example", trial["tls"].asJsonObject["server_name"].asString)
+        assertEquals("ab".repeat(32), trial["tls"].asJsonObject["certificate_fingerprint"].asString)
     }
 
     @Test
     fun `ECH 仅接受验证过的确定性指纹组合`() {
         for (fp in listOf("", "none", "chrome", "firefox", "chrome120", "firefox120", "safari", "random", "randomized")) {
-            val entity = node().apply { anyTLSBean!!.apply { enableECH = true; utlsFingerprint = fp } }
+            val entity = node(core = ProxyEntity.CORE_SING_BOX).apply { anyTLSBean!!.apply { enableECH = true; utlsFingerprint = fp } }
             assertEquals(fp, fp in listOf("", "none", "chrome", "firefox", "chrome120", "firefox120"), entity.coreDecision(false) is CoreDecision.Selected)
         }
+    }
+
+    @Test
+    fun `自动选核在内部 ECH 组合不支持时尝试 mihomo 且保留参数`() {
+        val entity = node().apply { anyTLSBean!!.apply { enableECH = true; utlsFingerprint = "safari" } }
+        val original = KryoConverters.serialize(entity.requireBean())
+        assertEquals(CoreDecision.Selected(DialCore.MIHOMO, false), entity.coreDecision(false))
+        assertArrayEquals(original, KryoConverters.serialize(entity.requireBean()))
+        entity.core = ProxyEntity.CORE_SING_BOX
+        val rejected = entity.coreDecision(false) as CoreDecision.Rejected
+        assertEquals(listOf(CoreConflict.SING_BOX_ANYTLS_ECH), rejected.conflicts.map { it.id })
+        assertArrayEquals(original, KryoConverters.serialize(entity.requireBean()))
     }
 
     @Test
@@ -123,8 +187,8 @@ class AnyTLSCompatibilityTest {
 
     @Test
     fun `兼容出站拦下的指纹照常回显名字`() {
-        val entity = node().apply { anyTLSBean!!.utlsFingerprint = "chrome_psk" }
+        val entity = node(core = ProxyEntity.CORE_SING_BOX).apply { anyTLSBean!!.utlsFingerprint = "chrome_psk" }
         val rejected = entity.coreDecision(false) as CoreDecision.Rejected
-        assertEquals(listOf(Conflict(DialCore.SING_BOX, CoreConflict.ANYTLS_COMPAT_UTLS, "chrome_psk")), rejected.conflicts)
+        assertEquals(listOf(Conflict(DialCore.SING_BOX, CoreConflict.SING_BOX_ANYTLS_UTLS, "chrome_psk")), rejected.conflicts)
     }
 }

@@ -174,13 +174,13 @@ enum class KnownDifference(
         DifferenceDecision.DECIDED,
     ),
     ANYTLS_CERTIFICATES(
-        listOf(ProfileField.CERTIFICATES, ProfileField.CERTIFICATE_FINGERPRINT, ProfileField.ALLOW_INSECURE),
+        listOf(ProfileField.CERTIFICATES, ProfileField.CERTIFICATE_FINGERPRINT, ProfileField.ALLOW_INSECURE, ProfileField.CERTIFICATE_POLICY),
         mapOf(
-            DialCore.SING_BOX to "自定义 CA：只信任这些证书，校验域名与有效期；同时生效的 allowInsecure 压过它（不校验）",
+            DialCore.SING_BOX to "按独立策略：固定时与 mihomo 相同；信任时只信任 PEM 中的证书并校验域名与有效期，allowInsecure 可关闭校验",
             DialCore.MIHOMO to "取第一张证书的 SHA-256 作证书固定（命中叶子时不查域名与有效期；CA 证书只有服务端发出才命中）；" +
                 "填了证书指纹时忽略 certificates；有固定时 allowInsecure 不生效",
         ),
-        "两种都不是放弃校验；自动选核不替用户换，维护者 2026-10-06 定：留在 mihomo；手动选哪个都允许",
+        "旧节点迁移保留原策略；信任策略不能在 mihomo 上表达时按冲突拒绝，不能静默换成固定",
         DifferenceDecision.DECIDED,
     ),
     ECH_AUTO_QUERY_RESOLVER(

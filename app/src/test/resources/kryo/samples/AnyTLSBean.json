@@ -43,7 +43,8 @@
         "name": "样本 anytls",
         "customOutboundJson": "{\"tag\":\"custom-outbound-anytls\"}",
         "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"anytls\"}",
-        "compatibilityTest": false
+        "compatibilityTest": false,
+        "certificatePolicy": -1
       },
       "base64": "AAAAAGFueXRscy5leGFtcGxlLmNv7eMkAABhbnl0bHMtZmFrZS1wYXNzd29y5HNuaS1hbnl0bHMuZXhhbXBsZS5vcudosscBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClFVNVpWRXhUTFVaQlMwVT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLWZpcmVmb/gBUVU1WlZFeFRMVVZEU0E9vQEAAACK5qC35pysIGFueXRsc3sidGFnIjoiY3VzdG9tLW91dGJvdW5kLWFueXRscyL9qXsibG9nIjp7ImxldmVsIjoid2FybiJ9LCJub3RlIjoiYW55dGxzIn0=",
       "current": false
@@ -90,7 +91,8 @@
         "name": "",
         "customOutboundJson": "",
         "customConfigJson": "",
-        "compatibilityTest": false
+        "compatibilityTest": false,
+        "certificatePolicy": -1
       },
       "base64": "AAAAADEyNy4wLjAusTgEAACBgYGBgQCBAQAAAIGBgQ==",
       "current": false
@@ -138,7 +140,8 @@
         "name": "样本 anytls",
         "customOutboundJson": "{\"tag\":\"custom-outbound-anytls\"}",
         "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"anytls\"}",
-        "compatibilityTest": false
+        "compatibilityTest": false,
+        "certificatePolicy": -1
       },
       "base64": "AQAAAGFueXRscy5leGFtcGxlLmNv7eMkAABhbnl0bHMtZmFrZS1wYXNzd29y5HNuaS1hbnl0bHMuZXhhbXBsZS5vcudosscBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClFVNVpWRXhUTFVaQlMwVT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLWZpcmVmb/gBUVU1WlZFeFRMVVZEU0E9vcEBZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAEAAACK5qC35pysIGFueXRsc3sidGFnIjoiY3VzdG9tLW91dGJvdW5kLWFueXRscyL9qXsibG9nIjp7ImxldmVsIjoid2FybiJ9LCJub3RlIjoiYW55dGxzIn0=",
       "current": false
@@ -186,7 +189,8 @@
         "name": "",
         "customOutboundJson": "",
         "customConfigJson": "",
-        "compatibilityTest": false
+        "compatibilityTest": false,
+        "certificatePolicy": -1
       },
       "base64": "AQAAADEyNy4wLjAusTgEAACBgYGBgQCBgQEAAACBgYE=",
       "current": false
@@ -235,7 +239,8 @@
         "name": "样本 anytls",
         "customOutboundJson": "{\"tag\":\"custom-outbound-anytls\"}",
         "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"anytls\"}",
-        "compatibilityTest": false
+        "compatibilityTest": false,
+        "certificatePolicy": -1
       },
       "base64": "AgAAAGFueXRscy5leGFtcGxlLmNv7eMkAABhbnl0bHMtZmFrZS1wYXNzd29y5HNuaS1hbnl0bHMuZXhhbXBsZS5vcudosscBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClFVNVpWRXhUTFVaQlMwVT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLWZpcmVmb/gBUVU1WlZFeFRMVVZEU0E9vcEBZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAEBAAAAiuagt+acrCBhbnl0bHN7InRhZyI6ImN1c3RvbS1vdXRib3VuZC1hbnl0bHMi/al7ImxvZyI6eyJsZXZlbCI6Indhcm4ifSwibm90ZSI6ImFueXRscyJ9",
       "current": false
@@ -284,7 +289,8 @@
         "name": "",
         "customOutboundJson": "",
         "customConfigJson": "",
-        "compatibilityTest": false
+        "compatibilityTest": false,
+        "certificatePolicy": -1
       },
       "base64": "AgAAADEyNy4wLjAusTgEAACBgYGBgQCBgQABAAAAgYGB",
       "current": false
@@ -336,10 +342,11 @@
         "serverPort": 443,
         "name": "compat-fixture",
         "customOutboundJson": "",
-        "customConfigJson": ""
+        "customConfigJson": "",
+        "certificatePolicy": -1
       },
       "base64": "AwAAAGNvbXBhdC5leGFtcGxlLm9y57sBAABmYWtlLXBhc3N3b3LkdGxzLmV4YW1wbGUub3LnaLKBY2hyb21lMTKwAIHBAWFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWIAAAEAAABjb21wYXQtZml4dHVy5YGB",
-      "current": true
+      "current": false
     },
     {
       "id": "AnyTLSBean/compat-v3/explicit-test",
@@ -388,9 +395,170 @@
         "serverPort": 443,
         "name": "compat-fixture",
         "customOutboundJson": "",
-        "customConfigJson": ""
+        "customConfigJson": "",
+        "certificatePolicy": -1
       },
       "base64": "AwAAAGNvbXBhdC5leGFtcGxlLm9y57sBAABmYWtlLXBhc3N3b3LkdGxzLmV4YW1wbGUub3LnaLKBY2hyb21lMTKwAIHBAWFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWIAAQEAAABjb21wYXQtZml4dHVy5YGB",
+      "current": false
+    },
+    {
+      "id": "AnyTLSBean/policy-v4/pin",
+      "class": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
+      "form": "storage",
+      "source": {
+        "commit": null,
+        "tag": null,
+        "versionName": "1.9.0-a9",
+        "workingTreeBase": "363ec84add5064ad745b4d1bd086658aafbb5ea7",
+        "note": "2026-11-05 生产 KryoConverters.serialize 实际写出；赋值与字段期望手写"
+      },
+      "versions": {
+        "AnyTLSBean": 4,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "password": "fake-password",
+        "sni": "tls.example.org",
+        "alpn": "h2",
+        "certificates": "",
+        "certificateFingerprint": "abababababababababababababababababababababababababababababababab",
+        "utlsFingerprint": "chrome120",
+        "allowInsecure": false,
+        "echConfig": "",
+        "enableECH": false,
+        "compatibilityTest": false,
+        "serverAddress": "compat.example.org",
+        "serverPort": 443,
+        "name": "compat-fixture",
+        "customOutboundJson": "",
+        "customConfigJson": "",
+        "certificatePolicy": 0
+      },
+      "expected": {
+        "password": "fake-password",
+        "sni": "tls.example.org",
+        "alpn": "h2",
+        "certificates": "",
+        "certificateFingerprint": "abababababababababababababababababababababababababababababababab",
+        "utlsFingerprint": "chrome120",
+        "allowInsecure": false,
+        "echConfig": "",
+        "enableECH": false,
+        "compatibilityTest": false,
+        "serverAddress": "compat.example.org",
+        "serverPort": 443,
+        "name": "compat-fixture",
+        "customOutboundJson": "",
+        "customConfigJson": "",
+        "certificatePolicy": 0
+      },
+      "base64": "BAAAAGNvbXBhdC5leGFtcGxlLm9y57sBAABmYWtlLXBhc3N3b3LkdGxzLmV4YW1wbGUub3LnaLKBY2hyb21lMTKwAIHBAWFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWIAAAAAAAABAAAAY29tcGF0LWZpeHR1cuWBgQ==",
+      "current": true
+    },
+    {
+      "id": "AnyTLSBean/policy-v4/trust",
+      "class": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
+      "form": "storage",
+      "source": {
+        "commit": null,
+        "tag": null,
+        "versionName": "1.9.0-a9",
+        "workingTreeBase": "363ec84add5064ad745b4d1bd086658aafbb5ea7",
+        "note": "2026-11-05 生产 KryoConverters.serialize 实际写出；赋值与字段期望手写"
+      },
+      "versions": {
+        "AnyTLSBean": 4,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "password": "fake-password",
+        "sni": "tls.example.org",
+        "alpn": "h2",
+        "certificates": "",
+        "certificateFingerprint": "abababababababababababababababababababababababababababababababab",
+        "utlsFingerprint": "chrome120",
+        "allowInsecure": false,
+        "echConfig": "",
+        "enableECH": false,
+        "compatibilityTest": true,
+        "serverAddress": "compat.example.org",
+        "serverPort": 443,
+        "name": "compat-fixture",
+        "customOutboundJson": "",
+        "customConfigJson": "",
+        "certificatePolicy": 1
+      },
+      "expected": {
+        "password": "fake-password",
+        "sni": "tls.example.org",
+        "alpn": "h2",
+        "certificates": "",
+        "certificateFingerprint": "abababababababababababababababababababababababababababababababab",
+        "utlsFingerprint": "chrome120",
+        "allowInsecure": false,
+        "echConfig": "",
+        "enableECH": false,
+        "compatibilityTest": true,
+        "serverAddress": "compat.example.org",
+        "serverPort": 443,
+        "name": "compat-fixture",
+        "customOutboundJson": "",
+        "customConfigJson": "",
+        "certificatePolicy": 1
+      },
+      "base64": "BAAAAGNvbXBhdC5leGFtcGxlLm9y57sBAABmYWtlLXBhc3N3b3LkdGxzLmV4YW1wbGUub3LnaLKBY2hyb21lMTKwAIHBAWFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWIAAQEAAAABAAAAY29tcGF0LWZpeHR1cuWBgQ==",
+      "current": true
+    },
+    {
+      "id": "AnyTLSBean/policy-v4/default",
+      "class": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
+      "form": "storage",
+      "source": {
+        "commit": null,
+        "tag": null,
+        "versionName": "1.9.0-a9",
+        "workingTreeBase": "363ec84add5064ad745b4d1bd086658aafbb5ea7",
+        "note": "2026-11-05 生产 KryoConverters.serialize 实际写出；赋值与字段期望手写"
+      },
+      "versions": {
+        "AnyTLSBean": 4,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "password": "",
+        "sni": "",
+        "alpn": "",
+        "certificates": "",
+        "certificateFingerprint": "",
+        "utlsFingerprint": "",
+        "allowInsecure": false,
+        "echConfig": "",
+        "enableECH": false,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": ""
+      },
+      "expected": {
+        "password": "",
+        "sni": "",
+        "alpn": "",
+        "certificates": "",
+        "certificateFingerprint": "",
+        "utlsFingerprint": "",
+        "allowInsecure": false,
+        "echConfig": "",
+        "enableECH": false,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": "",
+        "compatibilityTest": false,
+        "certificatePolicy": 0
+      },
+      "base64": "BAAAADEyNy4wLjAusTgEAACBgYGBgQCBgQAAAAAAAAEAAACBgYE=",
       "current": true
     }
   ]

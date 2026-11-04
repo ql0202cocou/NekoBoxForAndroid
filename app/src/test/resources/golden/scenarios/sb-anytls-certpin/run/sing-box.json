@@ -11,13 +11,6 @@
         "strategy": "ipv4_only"
       },
       {
-        "outbound": [
-          "any"
-        ],
-        "server": "dns-direct",
-        "strategy": "ipv4_only"
-      },
-      {
         "disable_cache": true,
         "inbound": [
           "tun-in"
@@ -73,14 +66,6 @@
       "listen_port": 2080,
       "tag": "mixed-in",
       "type": "mixed"
-    },
-    {
-      "listen": "127.0.0.1",
-      "listen_port": 39101,
-      "override_address": "anytls.example.com",
-      "override_port": 8443,
-      "tag": "c-0-mapping-1",
-      "type": "direct"
     }
   ],
   "log": {
@@ -88,12 +73,16 @@
   },
   "outbounds": [
     {
-      "password": "p5f232aaf854f084775d3017c99d18a5d",
-      "server": "127.0.0.1",
-      "server_port": 37035,
-      "username": "u209af089e354b522",
+      "password": "golden-pass-anytls",
+      "server": "anytls.example.com",
+      "server_port": 8443,
+      "tls": {
+        "certificate_fingerprint": "AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89",
+        "enabled": true,
+        "insecure": false
+      },
       "tag": "proxy",
-      "type": "socks"
+      "type": "neko-anytls"
     },
     {
       "tag": "direct",
@@ -106,6 +95,10 @@
   ],
   "route": {
     "auto_detect_interface": true,
+    "default_domain_resolver": {
+      "server": "dns-direct",
+      "strategy": "prefer_ipv4"
+    },
     "rule_set": [],
     "rules": [
       {
@@ -124,12 +117,6 @@
         ]
       },
       {
-        "inbound": [
-          "c-0-mapping-1"
-        ],
-        "outbound": "direct"
-      },
-      {
         "action": "reject",
         "ip_cidr": [
           "224.0.0.0/3",
@@ -146,20 +133,3 @@
     ]
   }
 }
-
-log-level: warning
-mode: rule
-listeners:
-- name: in-0
-  type: socks
-  listen: 127.0.0.1
-  port: 37035
-  udp: true
-  proxy: out-0
-  users:
-  - {username: u209af089e354b522, password: p5f232aaf854f084775d3017c99d18a5d}
-proxies:
-- {name: out-0, type: anytls, server: 127.0.0.1, port: 39101, password: golden-pass-anytls,
-  udp: true, sni: golden.example.com, fingerprint: 97f5a77c25b237060f2da6aab57e85164fa3b92f0ce0f97fdef0ac10986dc2d8,
-  client-fingerprint: firefox}
-rules: ['MATCH,REJECT']

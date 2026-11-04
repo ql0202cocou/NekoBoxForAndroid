@@ -116,12 +116,12 @@ class CoreCapabilitiesTest {
     @Test
     fun `NotApplicable 只出现在承载不了协议的核心上`() {
         val anyTlsRows = setOf(
-            Requirement.SECURITY_TLS, Requirement.CERTIFICATE_PIN, Requirement.CUSTOM_CA,
+            Requirement.SECURITY_TLS, Requirement.CERTIFICATE_PIN, Requirement.CUSTOM_CA, Requirement.ANYTLS_PIN, Requirement.ANYTLS_UTLS, Requirement.ANYTLS_TRUST, Requirement.ANYTLS_CERTIFICATE_POLICY_INVALID,
             Requirement.ALLOW_INSECURE, Requirement.UTLS_FINGERPRINT, Requirement.ECH_INLINE, Requirement.ECH_AUTO_QUERY,
         )
         for ((requirement, cells) in CAPABILITY_TABLE) {
             assertFalse("$requirement × sing-box", cells.getValue(DialCore.SING_BOX) == CapabilityCell.NotApplicable)
-            assertEquals("$requirement × Xray", requirement in setOf(Requirement.ANYTLS_COMPAT_PIN, Requirement.ANYTLS_COMPAT_UTLS),
+            assertEquals("$requirement × Xray", requirement in setOf(Requirement.ANYTLS_PIN, Requirement.ANYTLS_UTLS, Requirement.ANYTLS_TRUST, Requirement.ANYTLS_CERTIFICATE_POLICY_INVALID),
                 cells.getValue(DialCore.XRAY) == CapabilityCell.NotApplicable)
             assertEquals(
                 "$requirement × mihomo", !requirement.isProtocol && requirement !in anyTlsRows,
@@ -137,7 +137,6 @@ class CoreCapabilitiesTest {
             CoreProtocol.VLESS to Requirement.PROTOCOL_VLESS,
             CoreProtocol.TROJAN to Requirement.PROTOCOL_TROJAN,
             CoreProtocol.ANYTLS to Requirement.PROTOCOL_ANYTLS,
-            CoreProtocol.ANYTLS_COMPAT to Requirement.PROTOCOL_ANYTLS_COMPAT,
         )
         for ((protocol, row) in rows) {
             val supported = CAPABILITY_TABLE.getValue(row).filterValues { it is CapabilityCell.Supported }.keys
@@ -263,7 +262,7 @@ class CoreCapabilitiesTest {
 
     // K1b 待决定项 D：mihomo 认识、但握手必败的 4 个名字是单独的冲突，先于「名单外」命中；sing-box 照常接受
     @Test
-    fun `mihomo 握手必败的指纹是单独的冲突，sing-box 仍接受`() {
+    fun `mihomo 握手必败的指纹与内部 AnyTLS 各自明确拒绝`() {
         val broken = listOf("chrome_psk", "chrome_pq_psk", "chrome_padding_psk_shuffle", "randomized")
         assertEquals(broken.toSet(), MIHOMO_UTLS_FINGERPRINTS_BROKEN.names)
         assertFalse(MIHOMO_UTLS_FINGERPRINTS_BROKEN.ignoreCase)
@@ -283,14 +282,14 @@ class CoreCapabilitiesTest {
                 name, listOf(Conflict(DialCore.MIHOMO, CoreConflict.MIHOMO_UTLS_HANDSHAKE_FAILS, name)),
                 coreConflicts(DialCore.MIHOMO, requirements),
             )
-            assertEquals(name, emptyList<Conflict>(), coreConflicts(DialCore.SING_BOX, requirements))
+            assertEquals(name, listOf(Conflict(DialCore.SING_BOX, CoreConflict.SING_BOX_ANYTLS_UTLS, name)), coreConflicts(DialCore.SING_BOX, requirements))
         }
         // 大小写不同的写法 mihomo 不认识，仍是原来的「名单外」冲突
         val upper = coreRequirements(
             ProxyEntity.TYPE_ANYTLS, CoreTestNodes.anytls { utlsFingerprint = "Randomized" }, false,
         )
         assertEquals(
-            listOf(Conflict(DialCore.MIHOMO, CoreConflict.MIHOMO_UTLS_FINGERPRINT, "Randomized")),
+            listOf(Conflict(DialCore.MIHOMO, CoreConflict.MIHOMO_UTLS_FINGERPRINT, CONFLICT_VALUE_NOT_SHOWN)),
             coreConflicts(DialCore.MIHOMO, upper),
         )
     }
@@ -359,12 +358,6 @@ class CoreCapabilitiesTest {
         )
         val fields = XRAY_REALITY_IGNORED.flatMap { it.fields }.toSet()
         assertEquals(KnownDifference.XRAY_REALITY_IGNORES_PIN_ECH.fields.toSet(), fields)
-    }
-
-    @Test
-    fun `AnyTLS 带 certificates 的偏好例外`() {
-        // 维护者 2026-10-06 定：留在 mihomo。以后改动要同时更新选核测试与对照表
-        assertTrue(ANYTLS_CERTIFICATES_PREFER_MIHOMO)
     }
 
     // 把能力表、组合规则、冲突与已知差异渲染成 Markdown（build/reports/core-selection/capability-table.md），

@@ -19,10 +19,11 @@ import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 // 冲突的原因
 @StringRes
 fun coreConflictReason(id: CoreConflict): Int = when (id) {
+    CoreConflict.MIHOMO_ANYTLS_TRUST -> R.string.core_conflict_mihomo_anytls_trust
+    CoreConflict.ANYTLS_CERTIFICATE_POLICY_INVALID -> R.string.core_conflict_anytls_certificate_policy_invalid
     CoreConflict.XRAY_ANYTLS -> R.string.core_conflict_xray_anytls
-    CoreConflict.ANYTLS_COMPAT_INTERNAL_ONLY -> R.string.core_conflict_anytls_compat_internal_only
-    CoreConflict.ANYTLS_COMPAT_UTLS -> R.string.core_conflict_anytls_compat_utls
-    CoreConflict.ANYTLS_COMPAT_ECH -> R.string.core_conflict_anytls_compat_ech
+    CoreConflict.SING_BOX_ANYTLS_UTLS -> R.string.core_conflict_sing_box_anytls_utls
+    CoreConflict.SING_BOX_ANYTLS_ECH -> R.string.core_conflict_sing_box_anytls_ech
     CoreConflict.MIHOMO_V2RAY_PROTOCOL -> R.string.core_conflict_mihomo_v2ray_protocol
     CoreConflict.XRAY_TRANSPORT_H2 -> R.string.core_conflict_xray_transport_h2
     CoreConflict.XRAY_TRANSPORT_QUIC -> R.string.core_conflict_xray_transport_quic
@@ -90,6 +91,7 @@ fun profileFieldTitle(field: ProfileField, bean: AbstractBean): Int {
         ProfileField.REALITY_PUBLIC_KEY -> R.string.reality_public_key
         ProfileField.MLDSA65_VERIFY -> R.string.reality_mldsa65_verify
         ProfileField.CERTIFICATE_FINGERPRINT -> R.string.certificate_fingerprint
+        ProfileField.CERTIFICATE_POLICY -> R.string.anytls_certificate_policy
         ProfileField.CERTIFICATES -> R.string.certificates
         ProfileField.ALLOW_INSECURE -> R.string.allow_insecure
         ProfileField.GLOBAL_ALLOW_INSECURE -> R.string.core_conflict_field_global_allow_insecure

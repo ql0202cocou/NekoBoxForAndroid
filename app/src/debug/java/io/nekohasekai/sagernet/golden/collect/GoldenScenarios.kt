@@ -15,6 +15,7 @@ import io.nekohasekai.sagernet.fmt.ssh.SSHBean
 import io.nekohasekai.sagernet.fmt.v2ray.MUX_COOL
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean.FLOW_VISION
 import java.util.Base64
+import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 
 // 场景表：一个场景一组输入（设置、分组、节点、规则、选中的节点），三种模式各采一次。
 // 新增场景只往这里加；场景 id 只用小写字母、数字和连字符，一经入库不要改名（基线按 id 对照）。
@@ -309,12 +310,12 @@ private fun ScenarioTable.singBoxNodes() {
     }
 
     single("sb-anytls", "AnyTLS 手动指定 sing-box：SNI、ALPN、uTLS、ECH", core = CORE_SING_BOX) {
-        anytls("golden-sb-anytls", sni = "anytls.example.com", alpn = "h2,http/1.1", utls = "chrome", echConfig = Fx.ECH_CONFIG)
+        anytls("golden-sb-anytls", sni = "anytls.example.com", alpn = "h2,http/1.1", utls = "chrome", echConfig = Fx.ANYTLS_ECH_CONFIG)
     }
-    single("sb-anytls-certificates", "AnyTLS 手动指定 sing-box：自定义 CA + allowInsecure", core = CORE_SING_BOX) {
-        anytls("golden-sb-anytls-ca", certificates = Fx.CERT_PEM, insecure = true)
+    single("sb-anytls-certificates", "AnyTLS 手动指定 sing-box：自定义信任池，保留旧证书策略", core = CORE_SING_BOX) {
+        anytls("golden-sb-anytls-ca", certificates = Fx.CERT_PEM).apply { certificatePolicy = AnyTLSBean.CERTIFICATE_POLICY_TRUST }
     }
-    single("sb-anytls-certpin", "AnyTLS 手动指定 sing-box 又设证书指纹：应报错", core = CORE_SING_BOX) {
+    single("sb-anytls-certpin", "AnyTLS 手动指定 sing-box：整证书指纹固定", core = CORE_SING_BOX) {
         anytls("golden-sb-anytls-pin", pin = Fx.CERT_PIN)
     }
 
@@ -430,19 +431,19 @@ private fun ScenarioTable.xrayNodes() {
 }
 
 private fun ScenarioTable.mihomoNodes() {
-    // 不带证书指纹与 certificates 的 AnyTLS 自动选核走 sing-box（K1），这里测 mihomo 的都手动指定 mihomo；带指纹或
-    // certificates 的自动选核仍走 mihomo。单节点测速时 TestInstance 给 mihomo 开 Clash API
+    // 普通 AnyTLS 自动选核优先 sing-box；这里显式指定 mihomo，钉住各特性与合并生成器。
+    // 单节点测速时 TestInstance 给 mihomo 开 Clash API
     single("mihomo-anytls", "AnyTLS：SNI 留空，兜底为服务器域名", core = CORE_MIHOMO) { anytls("golden-anytls") }
     single("mihomo-anytls-full", "AnyTLS：SNI、多行 ALPN、uTLS", core = CORE_MIHOMO) {
         anytls("golden-anytls-full", sni = "anytls.example.com", alpn = "h2\nhttp/1.1", utls = "chrome")
     }
-    single("mihomo-anytls-certpin", "AnyTLS 证书指纹（带冒号、大写）") {
+    single("mihomo-anytls-certpin", "AnyTLS 证书指纹（带冒号、大写）", core = CORE_MIHOMO) {
         anytls("golden-anytls-pin", sni = "anytls.example.com", pin = Fx.CERT_PIN)
     }
-    single("mihomo-anytls-certificates", "AnyTLS 自定义证书换算成指纹") {
+    single("mihomo-anytls-certificates", "AnyTLS 自定义证书换算成指纹", core = CORE_MIHOMO) {
         anytls("golden-anytls-ca", sni = "golden.example.com", certificates = Fx.CERT_PEM)
     }
-    single("mihomo-anytls-certpin-over-insecure", "证书指纹优先于 allowInsecure") {
+    single("mihomo-anytls-certpin-over-insecure", "证书指纹优先于 allowInsecure", core = CORE_MIHOMO) {
         anytls("golden-anytls-pin-insecure", pin = Fx.CERT_PIN, insecure = true)
     }
     single("mihomo-anytls-insecure", "AnyTLS allowInsecure", core = CORE_MIHOMO) { anytls("golden-anytls-insecure", insecure = true) }
@@ -450,10 +451,10 @@ private fun ScenarioTable.mihomoNodes() {
     single("mihomo-anytls-ech-enable", "AnyTLS 只开 ECH", core = CORE_MIHOMO) { anytls("golden-anytls-ech-on", enableEch = true) }
     single("mihomo-anytls-ip-server", "AnyTLS IPv4 服务器", core = CORE_MIHOMO) { anytls("golden-anytls-ip", server = "203.0.113.60") }
     single("mihomo-anytls-ipv6-server", "AnyTLS IPv6 服务器", core = CORE_MIHOMO) { anytls("golden-anytls-v6", server = "2001:db8::60") }
-    single("mihomo-anytls-bad-certificate", "AnyTLS 证书解析失败：应报错") {
+    single("mihomo-anytls-bad-certificate", "AnyTLS 证书解析失败：应报错", core = CORE_MIHOMO) {
         anytls("golden-anytls-bad-ca", certificates = "-----BEGIN CERTIFICATE-----\ngolden-not-a-cert\n-----END CERTIFICATE-----")
     }
-    single("mihomo-anytls-certpin-invalid", "AnyTLS 证书指纹格式不对：应报错") {
+    single("mihomo-anytls-certpin-invalid", "AnyTLS 证书指纹格式不对：应报错", core = CORE_MIHOMO) {
         anytls("golden-anytls-bad-pin", pin = Fx.CERT_PIN_INVALID)
     }
     scenario("mihomo-anytls-group-missing", "AnyTLS 所在分组不存在：测速不开 Clash API") {
@@ -768,7 +769,7 @@ private fun ScenarioTable.selectors() {
         node(5, vless("golden-sel-mldsa").reality(mldsa65Verify = Fx.MLDSA65_VERIFY), core = CORE_SING_BOX)
         node(6, customBean("golden-sel-custom-broken", 1, "{golden-broken"))
         node(7, vmess("golden-sel-kcp").transport("kcp"))
-        node(8, anytls("golden-sel-anytls-bad-ca", certificates = "golden-not-a-cert"))
+        node(8, anytls("golden-sel-anytls-bad-ca", certificates = "golden-not-a-cert"), core = CORE_MIHOMO)
     }
     scenario("selector-main-bad", "选择器：选中的节点本身构建失败（不预检，照常报错）") {
         group(1, selector = true)
@@ -904,6 +905,11 @@ private fun ScenarioTable.routeRules() {
     scenario("rules-to-node-mihomo", "规则目标是 mihomo 节点") {
         node(1, vmess("golden-rtm-main").ws())
         mihomo(2, anytls("golden-rtm-anytls"))
+        rule(1, outbound = 2) { ip = "198.51.100.0/24" }
+    }
+    scenario("rules-to-node-anytls", "规则目标是内部 AnyTLS：运行保留规则，导出整体拒绝") {
+        node(1, vmess("golden-rta-main").ws())
+        node(2, anytls("golden-rta-anytls"))
         rule(1, outbound = 2) { ip = "198.51.100.0/24" }
     }
     scenario("rules-to-chain", "规则目标是另一条链") {
@@ -1383,15 +1389,15 @@ private fun ScenarioTable.k1Selection() {
     single("k1-trojan-reality-smux", "对照表 12 的例外：Trojan + REALITY 开了 smux，Xray 没有 sing-mux，留在 sing-box") {
         trojan("golden-k1-trojan-reality-smux").reality().mux(type = 1, concurrency = 2)
     }
-    single("k1-anytls", "对照表 13：AnyTLS 不带证书指纹与 certificates，走 sing-box") {
+    single("k1-anytls", "对照表 13：AnyTLS 不带证书指纹与 certificates，默认走 sing-box") {
         anytls("golden-k1-anytls", sni = "anytls.example.com", alpn = "h2", utls = "firefox")
     }
-    single("k1-anytls-mihomo-only-utls", "对照表 13 的例外：AnyTLS 的 uTLS 指纹只有 mihomo 认（chrome120），留在 mihomo") {
+    single("k1-anytls-mihomo-only-utls", "对照表 13 的例外：AnyTLS 使用 chrome120，默认走 sing-box、手动 mihomo 也支持") {
         anytls("golden-k1-anytls-chrome120", sni = "anytls.example.com", utls = "chrome120")
     }
     single(
         "k1-anytls-psk-fingerprint-certificates",
-        "对照表 14：AnyTLS 带 certificates、uTLS 指纹是 mihomo 握手必败的 chrome_psk，自动选核走 sing-box（之前留在 mihomo）",
+        "AnyTLS 带 certificates、指纹 chrome_psk：两个核心均拒绝，不再退回旧原生实现",
     ) {
         anytls("golden-k1-anytls-psk-ca", sni = "anytls.example.com", utls = "chrome_psk", certificates = Fx.CERT_PEM)
     }
@@ -1429,7 +1435,7 @@ private fun ScenarioTable.k1Selection() {
     single("k1-vless-quic-utls", "VLESS quic + TLS 带 uTLS 指纹：sing-box 每次拨号都失败、Xray 没有 quic，应报错") {
         vless("golden-k1-quic-utls").transport("quic").tls(sni = "quic.example.org", utls = "chrome")
     }
-    single("k1-anytls-certificates", "AnyTLS 带 certificates，自动选核留在 mihomo（两个核心对它含义不同）") {
+    single("k1-anytls-certificates", "AnyTLS 带 certificates，自动选核优先 sing-box（两核心均固定第一张证书）") {
         anytls("golden-k1-anytls-ca", sni = "golden.example.com", utls = "firefox", certificates = Fx.CERT_PEM)
     }
     scenario("k1-selector-trojan-on-xray", "选择器：VLESS / Trojan 各种走 Xray 的成员合进一份 Xray 配置，AnyTLS 成员走 sing-box") {

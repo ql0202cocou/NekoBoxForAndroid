@@ -54,8 +54,8 @@ class ChainCommitTest {
             realityShortId = CoreTestNodes.SHORT_ID
         })
 
-    // AnyTLS 带证书指纹，自动选核走 mihomo（K1 起不带指纹与 certificates 的 AnyTLS 自动走 sing-box）
-    private fun anytls(id: Long, groupId: Long = 1) = ProxyEntity(id = id, groupId = groupId, userOrder = id)
+    // 显式指定 mihomo，保持外核端口分配与失败原子性的测试条件。
+    private fun anytls(id: Long, groupId: Long = 1) = ProxyEntity(id = id, groupId = groupId, userOrder = id, core = ProxyEntity.CORE_MIHOMO)
         .putBean(AnyTLSBean().apply {
             name = "anytls-$id"
             serverAddress = "a$id.example.net"

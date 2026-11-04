@@ -477,3 +477,25 @@ raw/             原始数据：device.txt、host.txt、prepare/start/finish(.tx
   的 Info 行里：`<插件 id>: config of <N> hops checked in <毫秒> ms`（每组一行）与
   `external cores: <N> local inbounds ready in <毫秒> ms`；汇总不解析它们。K0b 起就绪等待对内置 Xray / mihomo 的每个入站做带用户名 / 密码的 SOCKS5
   握手（凭据取自运行计划）；Xray 配置关掉了访问日志（`log.access` 为 `none`），探测与正常连接都不再留 accepted 行。
+
+## 2026-11-05 AnyTLS 正式支持与默认 sing-box
+
+普通自动 AnyTLS（包括 certificates、证书指纹与 chrome120）使用内部 `neko-anytls`，支持整证书固定与首张 PEM
+固定；私有扩展配置拒绝作为通用 sing-box 配置导出，固定策略可改选 mihomo。选择器的自动 AnyTLS 成员也走内部出站。
+原有 mihomo 生成器专用场景显式指定 mihomo（含选择器的坏证书成员），只改输入 core，保留原配置输出和错误校验。
+`chrome_psk` 等既有兼容实现拒绝的指纹不再退回旧原生实现，未知指纹诊断隐藏取值；冲突按 sing-box 优先排列。
+`sb-anytls` 原 ECH 值只是占位字节，换为结构合法的公开测试配置，确保运行/测速正例通过真实 trial。
+相对 1.9.0-a9，五个既有场景的通用配置导出由成功变为明确拒绝；`k1-anytls-psk-fingerprint-certificates`
+的运行、测速和导出均因不受支持的 `chrome_psk` 而拒绝，不再使用旧原生路径。`sb-anytls-certpin` 的运行和测速
+从拒绝变为支持。其他协议逻辑不变，选择器的 Xray 端口按移除 AnyTLS 外核映射后的既有分配顺序前移。
+未整体替换基线；`manifest.json` 保持历史整体采集记录，诊断预期只更新理由，历史 Kryo 样本未回填。
+
+同日补充独立证书策略：63 份 input.json 中的 72 个 AnyTLS 记录由生产序列化更新为 Kryo v4，默认显式保存固定策略。
+`sb-anytls-certificates` 专门覆盖旧 sing-box 的自定义信任证书，改为信任策略且 insecure=false；运行/测速输出应包含
+`certificate_policy: "trust"`，不再绕过验证。其他场景的策略与配置输出不变。旧 Kryo 兼容性样本保留原字节，
+上述 input 更新只用于当前配置构建场景，不代替数据库迁移与历史字节测试。
+
+同日修复导出限制被跳过：新增 `rules-to-node-anytls`，运行配置必须保留指向内部 AnyTLS 的规则，导出必须整体失败且不生成
+`export.txt`；不能将合法规则当作坏节点删除。原六个 AnyTLS 导出拒绝场景仅将原因类改为 `ConfigExportException`，状态与
+消息不变。全部 358 个场景在专用 Android 37.2 ARM64 / 16 KB 模拟器重新采集并逐项核对；只更新上述文件与 manifest 的
+场景数、结果计数，保留历史采集元数据，诊断预期没有回填。

@@ -8,12 +8,14 @@ import io.nekohasekai.sagernet.database.preference.KeyValuePair
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
 import io.nekohasekai.sagernet.fmt.beanForType
 import io.nekohasekai.sagernet.fmt.normalizedLegacyCore
+import io.nekohasekai.sagernet.fmt.preserveLegacyAnyTLSCertificatePolicy
 import io.nekohasekai.sagernet.fmt.upgradeLegacyProfile
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.canonicalizeXhttp
 import io.nekohasekai.sagernet.ktx.app
+import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.utils.Util
 import org.json.JSONObject
 import java.io.File
@@ -132,10 +134,18 @@ object BackupRestore {
         val global by lazy(globalAllowInsecure)
         var changed = 0
         for (entity in profiles) {
+            var policyChanged = false
+            entity.anyTLSBean?.let { bean ->
+                if (bean.certificatePolicy == AnyTLSBean.CERTIFICATE_POLICY_LEGACY) {
+                    // 与逐版本数据库迁移保持顺序一致：K1 之前的无效核心值原本由 sing-box 承载。
+                    preserveLegacyAnyTLSCertificatePolicy(bean, normalizedLegacyCore(entity.type, entity.core))
+                    policyChanged = true
+                }
+            }
             val bean = entity.beanForType() as? StandardV2RayBean
             if (bean == null) {
                 val normalized = normalizedLegacyCore(entity.type, entity.core)
-                if (normalized != entity.core) {
+                if (normalized != entity.core || policyChanged) {
                     entity.core = normalized
                     changed++
                 }

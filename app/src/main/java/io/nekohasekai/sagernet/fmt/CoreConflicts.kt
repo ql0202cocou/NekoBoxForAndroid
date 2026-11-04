@@ -14,6 +14,7 @@ enum class ProfileField(val key: String) {
     MLDSA65_VERIFY("realityMldsa65Verify"),
     CERTIFICATE_FINGERPRINT("certificateFingerprint"),
     CERTIFICATES("certificates"),
+    CERTIFICATE_POLICY("certificatePolicy"),
     ALLOW_INSECURE("allowInsecure"),
     GLOBAL_ALLOW_INSECURE("globalAllowInsecure"),
     UTLS_FINGERPRINT("utlsFingerprint"),
@@ -48,17 +49,21 @@ enum class CoreConflict(
         DialCore.XRAY, GapKind.CORE, listOf(ProfileField.CORE),
         "Xray has no AnyTLS outbound",
     ),
-    ANYTLS_COMPAT_INTERNAL_ONLY(
-        null, GapKind.GENERATOR, listOf(ProfileField.CORE),
-        "AnyTLS compatibility test profiles require the internal compatibility outbound",
-    ),
-    ANYTLS_COMPAT_UTLS(
+    SING_BOX_ANYTLS_UTLS(
         DialCore.SING_BOX, GapKind.GENERATOR, listOf(ProfileField.UTLS_FINGERPRINT),
-        "Unsupported client fingerprint for the AnyTLS compatibility test",
+        "Unsupported client fingerprint for sing-box AnyTLS",
     ),
-    ANYTLS_COMPAT_ECH(
+    SING_BOX_ANYTLS_ECH(
         DialCore.SING_BOX, GapKind.GENERATOR, listOf(ProfileField.UTLS_FINGERPRINT, ProfileField.ENABLE_ECH),
-        "ECH compatibility tests require standard TLS, chrome, firefox, chrome120 or firefox120",
+        "sing-box AnyTLS ECH requires standard TLS, chrome, firefox, chrome120 or firefox120",
+    ),
+    MIHOMO_ANYTLS_TRUST(
+        DialCore.MIHOMO, GapKind.GENERATOR, listOf(ProfileField.CERTIFICATES, ProfileField.CERTIFICATE_POLICY),
+        "mihomo cannot preserve this profile's custom certificate trust policy; select sing-box",
+    ),
+    ANYTLS_CERTIFICATE_POLICY_INVALID(
+        null, GapKind.GENERATOR, listOf(ProfileField.CERTIFICATE_POLICY),
+        "AnyTLS certificate policy is unresolved or invalid; restore or select its certificate policy explicitly",
     ),
     MIHOMO_V2RAY_PROTOCOL(
         DialCore.MIHOMO, GapKind.GENERATOR, listOf(ProfileField.CORE),

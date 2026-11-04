@@ -75,6 +75,11 @@ fun buildMihomoProxy(
     dialPort: Int,
     settings: ExternalCoreSettings,
 ): LinkedHashMap<String, Any?> {
+    require(bean.certificatePolicy == AnyTLSBean.CERTIFICATE_POLICY_PIN ||
+        bean.certificatePolicy == AnyTLSBean.CERTIFICATE_POLICY_TRUST &&
+        (bean.certificates.isNullOrBlank() || !bean.certificateFingerprint.isNullOrBlank())) {
+        "mihomo cannot preserve this AnyTLS certificate policy"
+    }
     val proxy = LinkedHashMap<String, Any?>()
     proxy["type"] = "anytls"
     proxy["server"] = dialAddress

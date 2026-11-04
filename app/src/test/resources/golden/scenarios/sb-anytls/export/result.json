@@ -1,6 +1,15 @@
 {
-  "status": "ok",
-  "exportName": "golden-sb-anytls.json",
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-sb-anytls: sing-box AnyTLS uses a NekoBox extension; select mihomo to export a portable configuration",
+    "causes": [
+      {
+        "class": "io.nekohasekai.sagernet.fmt.ConfigExportException",
+        "message": "sing-box AnyTLS uses a NekoBox extension; select mihomo to export a portable configuration"
+      }
+    ]
+  },
   "dynamic": {
     "ports": [],
     "paths": [],

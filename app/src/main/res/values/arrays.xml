@@ -549,4 +549,12 @@
         <item>@string/sniff_routing</item>
     </string-array>
 
+    <string-array name="anytls_certificate_policy_entry">
+        <item>@string/anytls_certificate_policy_pin</item>
+        <item>@string/anytls_certificate_policy_trust</item>
+    </string-array>
+    <string-array name="anytls_certificate_policy_value">
+        <item>0</item>
+        <item>1</item>
+    </string-array>
 </resources>

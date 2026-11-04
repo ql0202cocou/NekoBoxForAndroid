@@ -166,10 +166,10 @@
       "ping": 0,
       "uuid": "",
       "error": null,
-      "core": 0,
+      "core": 3,
       "beanColumn": "anyTLSBean",
       "beanClass": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
-      "beanKryoBase64": "AwAAAGFueXRscy5leGFtcGxlLmNv7fsgAABnb2xkZW4tcGFzcy1hbnl0bPOBgcgBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCmdvbGRlbi1ub3QtYS1jZXJ0Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS2BAIGBAAABAAAAZ29sZGVuLWFueXRscy1iYWQtY+GBgQ=="
+      "beanKryoBase64": "BAAAAGFueXRscy5leGFtcGxlLmNv7fsgAABnb2xkZW4tcGFzcy1hbnl0bPOBgcgBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCmdvbGRlbi1ub3QtYS1jZXJ0Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS2BAIGBAAAAAAAAAQAAAGdvbGRlbi1hbnl0bHMtYmFkLWPhgYE="
     }
   ],
   "rules": [],

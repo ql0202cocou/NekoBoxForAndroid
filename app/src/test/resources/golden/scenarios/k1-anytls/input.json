@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "k1-anytls",
-  "description": "对照表 13：AnyTLS 不带证书指纹与 certificates，走 sing-box",
+  "description": "对照表 13：AnyTLS 不带证书指纹与 certificates，默认走 sing-box",
   "mainProfileId": 1,
   "settings": [
     {
@@ -169,7 +169,7 @@
       "core": 0,
       "beanColumn": "anyTLSBean",
       "beanClass": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
-      "beanKryoBase64": "AwAAAGFueXRscy5leGFtcGxlLmNv7fsgAABnb2xkZW4tcGFzcy1hbnl0bPNhbnl0bHMuZXhhbXBsZS5jb+1osoFmaXJlZm/4AIGBAAABAAAAZ29sZGVuLWsxLWFueXRs84GB"
+      "beanKryoBase64": "BAAAAGFueXRscy5leGFtcGxlLmNv7fsgAABnb2xkZW4tcGFzcy1hbnl0bPNhbnl0bHMuZXhhbXBsZS5jb+1osoFmaXJlZm/4AIGBAAAAAAAAAQAAAGdvbGRlbi1rMS1hbnl0bPOBgQ=="
     }
   ],
   "rules": [],

@@ -41,7 +41,7 @@
         }
       },
       "tag": "proxy",
-      "type": "anytls"
+      "type": "neko-anytls"
     },
     {
       "tag": "direct",

@@ -55,21 +55,24 @@ val CAPABILITY_TABLE: Map<Requirement, Map<DialCore, CapabilityCell>> = linkedMa
         supported(SB), unsupported(XR, CoreConflict.XRAY_ANYTLS), supported(MH),
     ),
 
-    // 测试标记独立匹配，不改变普通 AnyTLS 的任何候选与安全语义。
-    Requirement.PROTOCOL_ANYTLS_COMPAT to row(
-        supported(SB, "libcore 私有兼容出站"),
-        unsupported(XR, CoreConflict.ANYTLS_COMPAT_INTERNAL_ONLY),
-        unsupported(MH, CoreConflict.ANYTLS_COMPAT_INTERNAL_ONLY),
+    // AnyTLS 的内部兼容实现与 mihomo 共用整证书固定语义。
+    Requirement.ANYTLS_PIN to row(supported(SB, "mihomo 整证书固定语义"), NA, supported(MH)),
+    Requirement.ANYTLS_TRUST to row(supported(SB, "独立信任池，验证证书链、域名和有效期"), NA, unsupported(MH, CoreConflict.MIHOMO_ANYTLS_TRUST)),
+    Requirement.ANYTLS_CERTIFICATE_POLICY_INVALID to row(
+        unsupported(SB, CoreConflict.ANYTLS_CERTIFICATE_POLICY_INVALID), NA, unsupported(MH, CoreConflict.ANYTLS_CERTIFICATE_POLICY_INVALID),
     ),
-    Requirement.ANYTLS_COMPAT_PIN to row(supported(SB, "mihomo 整证书固定语义"), NA, NA),
     // 兼容出站拦下的四个名字（fingerprint.go）与 mihomo 握手必败的名单相同，照常回显；名单外的取值不回显
-    Requirement.ANYTLS_COMPAT_UTLS to row(
+    Requirement.ANYTLS_UTLS to row(
         values(
-            SB, ANYTLS_COMPAT_UTLS_FINGERPRINTS, CoreConflict.ANYTLS_COMPAT_UTLS,
-            rejected = RejectedValues(MIHOMO_UTLS_FINGERPRINTS_BROKEN, CoreConflict.ANYTLS_COMPAT_UTLS),
+            SB, ANYTLS_COMPAT_UTLS_FINGERPRINTS, CoreConflict.SING_BOX_ANYTLS_UTLS,
+            rejected = RejectedValues(MIHOMO_UTLS_FINGERPRINTS_BROKEN, CoreConflict.SING_BOX_ANYTLS_UTLS),
             showOnlyListed = true,
         ),
-        NA, NA,
+        NA, values(
+            MH, MIHOMO_UTLS_FINGERPRINTS, CoreConflict.MIHOMO_UTLS_FINGERPRINT,
+            rejected = RejectedValues(MIHOMO_UTLS_FINGERPRINTS_BROKEN, CoreConflict.MIHOMO_UTLS_HANDSHAKE_FAILS),
+            showOnlyListed = true,
+        ),
     ),
 
     // 传输：I1 §2.2、S-X4；I2b §1.2.1、§2.6
@@ -207,11 +210,11 @@ class CombinationRule(
 
 val COMBINATION_RULES: List<CombinationRule> = listOf(
     CombinationRule(
-        DialCore.SING_BOX, CoreConflict.ANYTLS_COMPAT_ECH, verifiedAt(DialCore.SING_BOX),
-        "兼容测试只接受确定可用的 ECH 指纹组合",
+        DialCore.SING_BOX, CoreConflict.SING_BOX_ANYTLS_ECH, verifiedAt(DialCore.SING_BOX),
+        "内部 AnyTLS 只接受确定可用的 ECH 指纹组合",
     ) {
         // anyTlsRequirements 把空白指纹记成 null（Go 标准 TLS），不在此列
-        it.protocol == CoreProtocol.ANYTLS_COMPAT && it.ech != null && it.utlsFingerprint != null &&
+        it.protocol == CoreProtocol.ANYTLS && it.ech != null && it.utlsFingerprint != null &&
             !ANYTLS_COMPAT_ECH_FINGERPRINTS.accepts(it.utlsFingerprint)
     },
     // I1 §3.1（S-X3，T-B5 / T-A2 实测）：REALITY only supports RAW, XHTTP and gRPC。h2、quic 在传输行已报；

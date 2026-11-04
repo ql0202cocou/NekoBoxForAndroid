@@ -16,14 +16,12 @@ import io.nekohasekai.sagernet.fmt.v2ray.resolveWsEarlyData
 import io.nekohasekai.sagernet.fmt.v2ray.v2rayTransportOrNull
 import io.nekohasekai.sagernet.fmt.v2ray.xhttpParametersLost
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
-import moe.matsuri.nb4a.proxy.anytls.isAnyTlsCompatibilityTest
 
 // 节点对核心的要求：从 type、bean 与全局「允许不安全」提取，与核心无关。只描述「生成器会把什么写进配置」，
 // 生成器本来就不输出的（vision 流控下的 mux、REALITY 下的 allowInsecure 与 certificates、Trojan 的 packetEncoding）
 // 不算要求。纯函数：不读设置、数据库、插件状态
 
-// ANYTLS_COMPAT：显式新建的 AnyTLS 兼容测试节点，只由 libcore 的私有兼容出站承载
-enum class CoreProtocol { VMESS, VLESS, TROJAN, ANYTLS, ANYTLS_COMPAT, OTHER }
+enum class CoreProtocol { VMESS, VLESS, TROJAN, ANYTLS, OTHER }
 
 // XHTTP_LOST：xhttp 节点的参数已丢失（旧版本只存了 type，见 xhttpParametersLost），不拿它去匹配核心
 enum class CoreTransport { TCP, HTTP_HEADER, H2, WS, QUIC, GRPC, HTTPUPGRADE, XHTTP, XHTTP_LOST, UNKNOWN }
@@ -52,6 +50,7 @@ data class CoreRequirements(
     val mldsa65Verify: Boolean = false,
     val certificatePin: Boolean = false,
     val customCa: Boolean = false,
+    val anyTlsCertificatePolicy: Int = AnyTLSBean.CERTIFICATE_POLICY_PIN,
     val allowInsecure: Boolean = false,
     // 生效的 uTLS 指纹（REALITY 没填时生成器补 chrome）；null 表示不用 uTLS
     val utlsFingerprint: String? = null,
@@ -67,8 +66,8 @@ data class CoreRequirements(
     // 能力表的行，按 Requirement 的顺序；不能选核的协议没有行
     fun items(): List<RequirementItem> {
         if (protocol == CoreProtocol.OTHER) return emptyList()
-        // 兼容测试节点的证书固定与 uTLS 指纹换成兼容出站自己的行
-        val compat = protocol == CoreProtocol.ANYTLS_COMPAT
+        // AnyTLS 独立保存证书策略，指纹名单独立于 V2Ray 系协议。
+        val anyTls = protocol == CoreProtocol.ANYTLS
         val items = ArrayList<RequirementItem>()
         items += RequirementItem(
             when (protocol) {
@@ -76,7 +75,6 @@ data class CoreRequirements(
                 CoreProtocol.VLESS -> Requirement.PROTOCOL_VLESS
                 CoreProtocol.TROJAN -> Requirement.PROTOCOL_TROJAN
                 CoreProtocol.ANYTLS -> Requirement.PROTOCOL_ANYTLS
-                CoreProtocol.ANYTLS_COMPAT -> Requirement.PROTOCOL_ANYTLS_COMPAT
                 CoreProtocol.OTHER -> error("can't reach")
             }
         )
@@ -99,14 +97,21 @@ data class CoreRequirements(
             TlsMode.REALITY -> items += RequirementItem(Requirement.SECURITY_REALITY)
         }
         if (mldsa65Verify) items += RequirementItem(Requirement.MLDSA65_VERIFY)
-        if (compat) {
-            if (certificatePin || customCa) items += RequirementItem(Requirement.ANYTLS_COMPAT_PIN)
+        if (anyTls) {
+            if (anyTlsCertificatePolicy !in listOf(AnyTLSBean.CERTIFICATE_POLICY_PIN, AnyTLSBean.CERTIFICATE_POLICY_TRUST)) {
+                items += RequirementItem(Requirement.ANYTLS_CERTIFICATE_POLICY_INVALID)
+            }
+            if (certificatePin || customCa && anyTlsCertificatePolicy == AnyTLSBean.CERTIFICATE_POLICY_PIN) {
+                items += RequirementItem(Requirement.ANYTLS_PIN)
+            } else if (customCa) {
+                items += RequirementItem(Requirement.ANYTLS_TRUST)
+            }
         } else {
             if (certificatePin) items += RequirementItem(Requirement.CERTIFICATE_PIN)
             if (customCa) items += RequirementItem(Requirement.CUSTOM_CA)
         }
         if (allowInsecure) items += RequirementItem(Requirement.ALLOW_INSECURE)
-        utlsFingerprint?.let { items += RequirementItem(if (compat) Requirement.ANYTLS_COMPAT_UTLS else Requirement.UTLS_FINGERPRINT, it) }
+        utlsFingerprint?.let { items += RequirementItem(if (anyTls) Requirement.ANYTLS_UTLS else Requirement.UTLS_FINGERPRINT, it) }
         when (ech) {
             null -> Unit
             EchMode.INLINE -> items += RequirementItem(Requirement.ECH_INLINE)
@@ -139,7 +144,7 @@ data class RequirementItem(val requirement: Requirement, val value: String? = nu
 
 fun coreRequirements(type: Int, bean: AbstractBean, globalAllowInsecure: Boolean): CoreRequirements =
     when (val protocol = coreProtocolOf(type, bean)) {
-        CoreProtocol.ANYTLS, CoreProtocol.ANYTLS_COMPAT ->
+        CoreProtocol.ANYTLS ->
             anyTlsRequirements(type, bean as AnyTLSBean, protocol, globalAllowInsecure)
         CoreProtocol.OTHER -> otherRequirements(type, bean)
         else -> standardRequirements(type, bean as StandardV2RayBean, protocol, globalAllowInsecure)
@@ -149,8 +154,7 @@ fun coreRequirements(type: Int, bean: AbstractBean, globalAllowInsecure: Boolean
 private fun coreProtocolOf(type: Int, bean: AbstractBean): CoreProtocol = when {
     type == TYPE_VMESS && bean is VMessBean -> if (bean.isVLESS) CoreProtocol.VLESS else CoreProtocol.VMESS
     type == TYPE_TROJAN && bean is TrojanBean -> CoreProtocol.TROJAN
-    type == TYPE_ANYTLS && bean is AnyTLSBean ->
-        if (bean.isAnyTlsCompatibilityTest) CoreProtocol.ANYTLS_COMPAT else CoreProtocol.ANYTLS
+    type == TYPE_ANYTLS && bean is AnyTLSBean -> CoreProtocol.ANYTLS
     else -> CoreProtocol.OTHER
 }
 
@@ -251,6 +255,7 @@ private fun anyTlsRequirements(
         tls = TlsMode.TLS,
         certificatePin = certificatePin,
         customCa = !bean.certificates.isNullOrBlank(),
+        anyTlsCertificatePolicy = bean.certificatePolicy ?: AnyTLSBean.CERTIFICATE_POLICY_PIN,
         allowInsecure = !certificatePin && effectiveAllowInsecure(bean.allowInsecure, globalAllowInsecure),
         utlsFingerprint = bean.utlsFingerprint?.takeIf { it.isNotBlank() },
         // 与两个生成器相同：填了配置就启用 ECH

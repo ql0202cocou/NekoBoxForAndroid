@@ -9,6 +9,10 @@ import io.nekohasekai.sagernet.fmt.AbstractBean;
 
 public class AnyTLSBean extends AbstractBean {
 
+    public static final int CERTIFICATE_POLICY_LEGACY = -1;
+    public static final int CERTIFICATE_POLICY_PIN = 0;
+    public static final int CERTIFICATE_POLICY_TRUST = 1;
+
     public String password;
     public String sni;
     public String alpn;
@@ -23,8 +27,10 @@ public class AnyTLSBean extends AbstractBean {
     public String echConfig;
     // enable-only ECH (no explicit config; the core discovers it over DNS)
     public Boolean enableECH;
-    // 仅显式创建的兼容测试节点启用；旧存储、订阅和普通链接默认关闭。
+    // 历史 v3 测试标记：保留存储布局与旧备份字节，不再参与运行、选核或分享。
     public Boolean compatibilityTest;
+    // 与核心选择分开保存；旧字节须在迁移或导入时依据原核心解析，不能默认降为固定。
+    public Integer certificatePolicy;
 
     @Override
     public void initializeDefaultValues() {
@@ -39,11 +45,12 @@ public class AnyTLSBean extends AbstractBean {
         if (echConfig == null) echConfig = "";
         if (enableECH == null) enableECH = false;
         if (compatibilityTest == null) compatibilityTest = false;
+        if (certificatePolicy == null) certificatePolicy = CERTIFICATE_POLICY_PIN;
     }
 
     @Override
     public void serialize(ByteBufferOutput output) {
-        output.writeInt(3);
+        output.writeInt(4);
         super.serialize(output);
         output.writeString(password);
         output.writeString(sni);
@@ -55,10 +62,12 @@ public class AnyTLSBean extends AbstractBean {
         output.writeString(certificateFingerprint);
         output.writeBoolean(enableECH);
         output.writeBoolean(compatibilityTest);
+        output.writeInt(certificatePolicy);
     }
 
     @Override
     public void deserialize(ByteBufferInput input) {
+        certificatePolicy = CERTIFICATE_POLICY_LEGACY;
         int version = input.readInt();
         super.deserialize(input);
         password = input.readString();
@@ -75,6 +84,7 @@ public class AnyTLSBean extends AbstractBean {
             enableECH = input.readBoolean();
         }
         compatibilityTest = version >= 3 && input.readBoolean();
+        certificatePolicy = version >= 4 ? input.readInt() : CERTIFICATE_POLICY_LEGACY;
     }
 
 }

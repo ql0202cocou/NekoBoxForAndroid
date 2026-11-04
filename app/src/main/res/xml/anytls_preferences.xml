@@ -7,12 +7,11 @@
         app:useSimpleSummaryProvider="true" />
 
     <Preference
-        app:key="compatibilityTestInfo"
+        app:key="anytlsCertificateInfo"
         app:icon="@drawable/ic_baseline_stream_24"
         app:selectable="false"
-        app:isPreferenceVisible="false"
-        app:title="@string/anytls_compat_test"
-        app:summary="@string/anytls_compat_description" />
+        app:title="@string/action_anytls"
+        app:summary="@string/anytls_certificate_description" />
 
     <PreferenceCategory app:title="@string/proxy_cat">
         <EditTextPreference
@@ -55,6 +54,14 @@
             app:icon="@drawable/ic_baseline_legend_toggle_24"
             app:key="alpn"
             app:title="@string/alpn"
+            app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            app:defaultValue="0"
+            app:entries="@array/anytls_certificate_policy_entry"
+            app:entryValues="@array/anytls_certificate_policy_value"
+            app:icon="@drawable/ic_baseline_vpn_key_24"
+            app:key="certificatePolicy"
+            app:title="@string/anytls_certificate_policy"
             app:useSimpleSummaryProvider="true" />
         <EditTextPreference
             app:icon="@drawable/ic_baseline_vpn_key_24"

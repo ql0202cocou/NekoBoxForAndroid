@@ -564,9 +564,12 @@
     <string name="restore_pending">备份恢复尚未完成，完成后再启动服务。</string>
     <string name="restore_replay_failed">中断的备份恢复未能完成，请查看日志并重新导入备份。</string>
 
-    <string name="anytls_compat_test">AnyTLS（兼容测试）</string>
-    <string name="anytls_compat_description">使用内部兼容出站。PEM 与 mihomo 一样固定第一张证书；默认信任使用应用证书库。测试节点不支持分享或导出。</string>
-    <string name="core_conflict_anytls_compat_internal_only">AnyTLS 兼容测试节点只能使用内部兼容出站。</string>
-    <string name="core_conflict_anytls_compat_utls">AnyTLS 兼容测试不支持这个客户端指纹。</string>
-    <string name="core_conflict_anytls_compat_ech">ECH 兼容测试只支持标准 TLS、chrome、firefox、chrome120 或 firefox120。</string>
+    <string name="anytls_certificate_description">自动选核优先使用 sing-box。PEM 证书按所选策略校验；显式证书指纹优先。</string>
+    <string name="core_conflict_sing_box_anytls_utls">sing-box 的 AnyTLS 不支持这个客户端指纹。</string>
+    <string name="core_conflict_sing_box_anytls_ech">sing-box 的 AnyTLS 开启 ECH 时只支持标准 TLS、chrome、firefox、chrome120 或 firefox120。</string>
+    <string name="anytls_certificate_policy">证书策略</string>
+    <string name="anytls_certificate_policy_pin">固定 PEM 中的第一张证书</string>
+    <string name="anytls_certificate_policy_trust">信任 PEM 证书（校验域名和有效期）</string>
+    <string name="core_conflict_mihomo_anytls_trust">mihomo 无法保留此节点的自定义信任策略。请选择 sing-box，或明确修改证书策略。</string>
+    <string name="core_conflict_anytls_certificate_policy_invalid">AnyTLS 的证书策略未解析或无效。请恢复节点或明确选择证书策略。</string>
 </resources>

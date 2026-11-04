@@ -18,11 +18,11 @@ import org.junit.Test
 import java.io.File
 import java.util.Random
 
-// K1 选核变更对照表（发布说明照它写）与差分测试。
+// 核心选择及历次迁移的变更对照表（发布说明照它写）与差分测试。
 //
 // 「之前」：冻结的 1.8.0-a3 规则（LegacyCoreSelection.outcome）的结果，含旧代码报错的情形；核心自己加载配置时才报的错
 // （sing-box 加载期校验、Xray run -test）冻结规则看不到，记作由该核心承载，在「之前」一栏的文字里写明。
-// 「之后」：先做存量升级标注（upgradeLegacyProfile），再用能力表判定（decideCore）。
+// 「之后」：先做 K1 存量标注及 v11 AnyTLS 自动选核迁移，再用能力表判定（decideCore）。
 //
 // 差分测试用固定种子随机生成大量存量节点，比较两者。每个样本按顺序找第一条命中的行（只看节点本身的字段与冻结规则
 // 的承载）：命中某行的样本，之前、之后的结果都必须落在该行写明的取值里；结果不同的样本必须命中某一行；每行至少有
@@ -120,15 +120,6 @@ class CoreSelectionChangeTableTest {
             return false
         }
 
-    // mihomo 不认识、会静默改用 Go 标准 TLS 的指纹（认识但握手必败的另算，见 mihomoHandshakeFails）
-    private val Sample.mihomoDegrades
-        get() = isAnyTls && utls?.let {
-            !MIHOMO_UTLS_FINGERPRINTS.accepts(it) && !MIHOMO_UTLS_FINGERPRINTS_BROKEN.accepts(it)
-        } == true
-
-    // mihomo 认识、但握手必败的指纹（K1b 待决定项 D）
-    private val Sample.mihomoHandshakeFails get() = isAnyTls && utls?.let { MIHOMO_UTLS_FINGERPRINTS_BROKEN.accepts(it) } == true
-
     // 1.8.0-a3 的 Xray 生成器静默丢掉的字段：packetaddr、没填配置的 ECH、非 Sec-WebSocket-Protocol 的 early data 头名
     private val Sample.xrayDropsField: Boolean
         get() {
@@ -144,11 +135,18 @@ class CoreSelectionChangeTableTest {
             return false
         }
 
-    private val Sample.anyTlsPlain get() = isAnyTls && (bean as AnyTLSBean).let { it.certificateFingerprint.isNullOrBlank() && it.certificates.isNullOrBlank() }
 
     // ---- 对照表（按顺序匹配，第一条命中的行生效）
 
     private val rows = listOf(
+        Row(
+            "AnyTLS 正式支持与统一自动选核",
+            "所有旧 AnyTLS，含原手动核心与测试标记；升级先保留旧证书策略，再将 core 改为自动",
+            "按冻结规则走 sing-box 或 mihomo，或因旧能力限制拒绝",
+            "自动优先 sing-box 兼容实现；能力不匹配时尝试 mihomo；两核均不支持则拒绝；之后仍可手动选核",
+            "保留节点材料、引用与独立证书策略；信任模式不变为固定，未知或未支持指纹不静默降级",
+            setOf(Result.SING_BOX, Result.MIHOMO, Result.REJECTED), setOf(Result.SING_BOX, Result.MIHOMO, Result.REJECTED),
+        ) { it.isAnyTls },
         Row(
             "sing-box 本来就跑不起来的取值",
             "冻结规则走 sing-box，且节点带 sing-box 加载期报错或每次拨号都失败的取值：sing-box 不认的 uTLS 指纹" +
@@ -170,14 +168,6 @@ class CoreSelectionChangeTableTest {
             "原来的启动失败变成可用（走 sing-box）或更早、更具体的报错",
             setOf(Result.XRAY), setOf(Result.SING_BOX, Result.REJECTED),
         ) { it.carriedBy == Carrier.XRAY && it.xrayCannotRun },
-        Row(
-            "mihomo 静默降级的 uTLS 指纹",
-            "AnyTLS 冻结规则走 mihomo，uTLS 指纹 mihomo 不认识（例如 netscape、大写的 Chrome、randomizednoalpn）",
-            "mihomo（只打 warning，静默改用 Go 标准 TLS）",
-            "拒绝（sing-box 也不认这些名字），报出指纹字段",
-            "原来悄悄丢掉的 TLS 指纹伪装，改为启动前报错",
-            setOf(Result.MIHOMO), setOf(Result.REJECTED, Result.SING_BOX),
-        ) { it.carriedBy == Carrier.MIHOMO && it.mihomoDegrades },
         Row(
             "Xray 静默丢掉的字段",
             "冻结规则走 Xray，且节点带 1.8.0-a3 的 Xray 生成器静默丢掉的字段：packetaddr（VMess / VLESS）、开了 ECH 但没填配置" +
@@ -261,34 +251,20 @@ class CoreSelectionChangeTableTest {
             "同 VMess + REALITY；Trojan 的 Xray 出站随 D10 补上",
             setOf(Result.SING_BOX), setOf(Result.XRAY, Result.SING_BOX),
         ) { it.isTrojan && it.reality && it.carriedBy == Carrier.SING_BOX },
-        Row(
-            "AnyTLS 不带证书指纹与 certificates",
-            "AnyTLS 自动选核，没有证书指纹，也没有 certificates",
-            "mihomo",
-            "sing-box；只有 mihomo 认的指纹（chrome120、firefox120、safari16、none）留在 mihomo",
-            "测速改用 sing-box 的 URL 测试（不再有翻倍的超时，测的是热连接往返）；ECH 自动查询改经 sing-box 的 DNS；" +
-                "少一个 mihomo 进程；自定义出站 JSON 改为作用到 AnyTLS 出站；导出从 profiles.txt 变成 .json",
-            setOf(Result.MIHOMO), setOf(Result.SING_BOX, Result.MIHOMO),
-        ) { it.isAnyTls && it.auto && it.anyTlsPlain && it.carriedBy == Carrier.MIHOMO },
-        Row(
-            "mihomo 握手必败的 uTLS 指纹",
-            "AnyTLS 冻结规则走 mihomo，uTLS 指纹是 mihomo 认识但握手必败的 chrome_psk、chrome_pq_psk、" +
-                "chrome_padding_psk_shuffle、randomized（自动选核、不带证书指纹与 certificates 的节点已归上一行）",
-            "mihomo（psk 三个每次握手都报 tls: empty psk detected；randomized 取决于进程的随机种子，多数进程每次都失败）",
-            "自动选核改走 sing-box（sing-box 认这些名字，带 certificates 的也不再留在 mihomo）；带证书指纹时 sing-box " +
-                "不能整证书固定，拒绝；手动 mihomo 拒绝；拒绝时报出指纹字段",
-            "psk 三个改走 sing-box 后能用（sing-box 把它们当 chrome）；randomized 在 sing-box 上按源码同样取决于进程种子" +
-                "（约三分之一进程失败，未实测）；带证书指纹或手动 mihomo 的变成启动前的明确报错（K1b 待决定项 D，" +
-                "维护者 2026-10-06 定；K1b M1 L2-MF-* 回环实测）",
-            setOf(Result.MIHOMO), setOf(Result.SING_BOX, Result.REJECTED),
-        ) { it.carriedBy == Carrier.MIHOMO && it.mihomoHandshakeFails },
+
     )
 
     private fun sample(node: Node): Sample {
         val legacy = LegacyCoreSelection.outcome(node.type, node.core, node.bean, node.global)
         val bean = node.bean.clone()
         val upgraded = upgradeLegacyProfile(node.type, node.core, bean, node.global)
-        return Sample(node, legacy, upgraded, decideCore(node.type, upgraded.core, bean, node.global))
+        // 10 → 11 迁移统一恢复 AnyTLS 自动选核，其他协议仍按原来的 K1 标注。
+        if (bean is AnyTLSBean) {
+            bean.certificatePolicy = AnyTLSBean.CERTIFICATE_POLICY_LEGACY
+            preserveLegacyAnyTLSCertificatePolicy(bean, upgraded.core)
+        }
+        val core = if (bean is AnyTLSBean) CORE_AUTO else upgraded.core
+        return Sample(node, legacy, upgraded, decideCore(node.type, core, bean, node.global))
     }
 
     @Test

@@ -8,7 +8,6 @@ import moe.matsuri.nb4a.SingBoxOptions.OutboundRealityOptions
 import moe.matsuri.nb4a.SingBoxOptions.OutboundTLSOptions
 import moe.matsuri.nb4a.SingBoxOptions.OutboundUTLSOptions
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
-import moe.matsuri.nb4a.proxy.anytls.isAnyTlsCompatibilityTest
 import moe.matsuri.nb4a.utils.echAsPem
 import moe.matsuri.nb4a.utils.listByLineOrComma
 
@@ -56,7 +55,7 @@ fun buildSingBoxOutboundTLS(bean: AbstractBean, globalAllowInsecure: Boolean): O
             }
         }
         tls.utlsFingerprint.blankAsNull()?.let {
-            // uTLS 指纹只在 sing-box 创建出站时才校验。VMess / VLESS / Trojan / AnyTLS 在选核阶段就会因名单外的指纹
+            // uTLS 指纹只在 sing-box 创建出站时才校验。VMess / VLESS / Trojan 在选核阶段就会因名单外的指纹
             // 报冲突，但 HTTP、ShadowTLS 是 OTHER 协议，能力表不为它们产生要求，没有选核冲突可拦；导入又原样保留
             // 链接里的 fp=。这里按同一份名单（SING_BOX_UTLS_FINGERPRINTS）预检，让未选中的成员被跳过，
             // 而不是一个陌生指纹拖垮整份配置。对前几类协议这是第二道防线
@@ -71,12 +70,16 @@ fun buildSingBoxOutboundTLS(bean: AbstractBean, globalAllowInsecure: Boolean): O
     }
 }
 
-// 兼容测试采用 mihomo 的证书固定与指纹名单，普通 sing-box TLS 构建保持原有规则。
+// AnyTLS 采用兼容实现的整证书固定与指纹名单，其他协议的 TLS 构建保持原有规则。
 fun buildAnyTLSCompatibilityTLS(bean: AnyTLSBean, globalAllowInsecure: Boolean): OutboundTLSOptions {
-    check(bean.isAnyTlsCompatibilityTest)
     val fields = tlsFields(bean)!!
     return AnyTLSCompatibilityTLSOptions().apply {
         applyCommonTls(fields, globalAllowInsecure)
+        certificate_policy = when (bean.certificatePolicy) {
+            AnyTLSBean.CERTIFICATE_POLICY_PIN -> null
+            AnyTLSBean.CERTIFICATE_POLICY_TRUST -> "trust"
+            else -> error("unresolved AnyTLS certificate policy")
+        }
         certificate_fingerprint = fields.certificateFingerprint.blankAsNull()
         fields.utlsFingerprint.blankAsNull()?.let {
             require(ANYTLS_COMPAT_UTLS_FINGERPRINTS.accepts(it)) { "unsupported compatibility client fingerprint" }

@@ -199,6 +199,10 @@ fun ConfigBuildResult.withRealityHint(e: Exception): Exception {
 class ProfileBuildException(val profileName: String, cause: Throwable) :
     IllegalArgumentException("$profileName: ${cause.readableMessage}", cause)
 
+// 配置无法保持语义地导出：不是坏节点，不能通过跳过成员或规则目标把导出变成成功。
+// 逐跳检查仍由 withProfileName 包上节点名，planOrSkip 必须保留这个失败。
+class ConfigExportException(message: String) : IllegalArgumentException(message)
+
 // 把 block 抛出的异常包成 ProfileBuildException。已带节点名的不重复包；
 // 缺插件保持原样，BaseService / 测试按类型识别它来引导安装插件；采集范围之外的输入不是节点的错，也不包
 inline fun <T> withProfileName(bean: AbstractBean, block: () -> T): T = try {
@@ -848,7 +852,7 @@ private class ConfigBuild(
 
     // 规划一个根节点的链。选择器成员 / 路由规则目标每跳另做 checkMemberHop，规划失败时跳过并告警、记诊断，返回 null，
     // 不拖垮整份配置；规划不写任何输出，跳过的成员什么都不留下。用户选中的节点不另做检查、出错照常整次失败——
-    // 那是用户明确要用的。查了采集范围之外的输入是采集的缺漏，不跳过，整次构建失败
+    // 那是用户明确要用的。采集缺漏与配置导出限制都不能靠跳过节点处理，整次构建失败
     private fun planOrSkip(entity: ProxyEntity): ChainPlan? {
         if (entity.id == proxy.id) return planChain(entity, planContext)
         return try {
@@ -856,6 +860,7 @@ private class ConfigBuild(
         } catch (e: ConfigInputScopeException) {
             throw e
         } catch (e: Exception) {
+            if (e is ConfigExportException || e is ProfileBuildException && e.cause is ConfigExportException) throw e
             platform.warn("profile ${entity.id} skipped", e)
             // bean 损坏时取名字也会抛（可能正是跳过的原因），退回节点 id，跳过与诊断照常进行
             val name = try {

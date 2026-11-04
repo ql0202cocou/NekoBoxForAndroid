@@ -7,7 +7,7 @@ import io.nekohasekai.sagernet.fmt.internal.ChainBean
 import moe.matsuri.nb4a.SingBoxOptions.CustomSingBoxOption
 import moe.matsuri.nb4a.SingBoxOptions.SingBoxOption
 import moe.matsuri.nb4a.plugin.Plugins
-import moe.matsuri.nb4a.proxy.anytls.isAnyTlsCompatibilityTest
+import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.utils.Util
 import java.io.File
 
@@ -139,11 +139,6 @@ internal fun requireBuildableHop(proxyEntity: ProxyEntity, bean: AbstractBean, d
     // 它的核心做不到的校验（证书固定、mldsa65Verify），都在这里拒绝并列出冲突字段。静默丢掉安全校验或退化传输比
     // 报错更危险；运行 / 测速 / 导出 / 成员检查都经过这里，编辑器保存时用同一个判定提前拦下
     if (decision is CoreDecision.Rejected) error(decision.message(proxyEntity.core))
-    if (bean.isAnyTlsCompatibilityTest) {
-        require(bean.customOutboundJson.isNullOrBlank() && bean.customConfigJson.isNullOrBlank()) {
-            "AnyTLS compatibility test profiles do not support custom JSON"
-        }
-    }
     // 完整配置型自定义节点作为链成员、前置 / 落地或路由目标时，给出明确
     // 错误，而不是让 sing-box 以 "unknown outbound type" 拒绝整份配置
     if (!proxyEntity.needExternal(decision) && proxyEntity.isFullConfig()) {
@@ -266,7 +261,8 @@ internal fun planHop(
 
 // 两段式构建：每条链先规划（planChain，下面），通过之后才提交（ConfigBuild.commitChain：先按跳的顺序要齐
 // 端口与凭据，再定 tag、接线，写出站 / 入站 / 路由规则，登记外核跳数据与 trafficMap）。会失败的计算都在规划里，
-// 规划失败的链不留下任何输出；选择器成员与路由规则目标规划失败时整条跳过，提交用的就是通过的那份规划
+// 规划失败的链不留下任何输出；成员或规则目标的节点错误整条跳过，导出限制则使整次导出失败。
+// 提交用的就是通过的那份规划
 
 /** 规划一条链用的输入：都取自本次构建，规划只读它们（插件查询与 sing-box 试建的记忆表、probedHops 除外，三者只做记忆、不进输出）。 */
 internal class ChainPlanContext(
@@ -311,8 +307,10 @@ internal fun planChain(entity: ProxyEntity, context: ChainPlanContext, checkHop:
     val hops = profileList.mapIndexed { index, hopEntity ->
         val bean = hopEntity.requireBean()
         withProfileName(bean) {
-            require(!context.forExport || !bean.isAnyTlsCompatibilityTest) {
-                "AnyTLS compatibility test profiles cannot be exported"
+            val decision = choices[index].decision
+            val internalAnyTls = bean is AnyTLSBean && decision is CoreDecision.Selected && decision.core == DialCore.SING_BOX
+            if (context.forExport && internalAnyTls) {
+                throw ConfigExportException("sing-box AnyTLS uses a NekoBox extension; select mihomo to export a portable configuration")
             }
             val hop = planHop(
                 hopEntity, bean, choices[index], index == profileList.lastIndex, muxApplied, globalAllowInsecure,

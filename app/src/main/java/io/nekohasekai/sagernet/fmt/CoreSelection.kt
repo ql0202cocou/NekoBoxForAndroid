@@ -14,29 +14,19 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_AUTO
 // 用到判定的地方：构建（ProxyEntity.coreDecision → needExternal 决定内核 / 外核，requireBuildableHop 报拒绝）、
 // 编辑器保存时的拦截、存量节点的升级标注（LegacyProfileUpgrade.kt 规则 d）
 
-// AnyTLS 带 certificates 时自动选核是否 mihomo 优先。两个核心对这个字段含义不同（sing-box 当自定义 CA，mihomo
-// 换算成第一张证书的固定），自动选核不替用户换；手动选哪个都允许。维护者 2026-10-06 已定：留在 mihomo
-const val ANYTLS_CERTIFICATES_PREFER_MIHOMO = true
-
-// 能为该协议选的核心，按默认偏好排列（不能选核的协议为空）。Trojan 走 Xray 即 D10
+// 能为该协议选的核心（不能选核的协议为空）；优先级统一由 preferenceOrder 决定。
 fun candidateCores(protocol: CoreProtocol): List<DialCore> = when (protocol) {
     CoreProtocol.VMESS, CoreProtocol.VLESS, CoreProtocol.TROJAN -> listOf(DialCore.SING_BOX, DialCore.XRAY)
     CoreProtocol.ANYTLS -> listOf(DialCore.SING_BOX, DialCore.MIHOMO)
-    // 兼容测试节点只由 libcore 的私有兼容出站承载
-    CoreProtocol.ANYTLS_COMPAT -> listOf(DialCore.SING_BOX)
     CoreProtocol.OTHER -> emptyList()
 }
 
 // 自动选核的偏好顺序：REALITY 或 mldsa65Verify 生效时 Xray 优先（REALITY 由 Xray 定义，sing-box 与 mihomo 都是
-// 跟随实现，sing-box 一侧的限制见 libcore/sing-box/NEKO.md）；AnyTLS 带 certificates 时按上面的规则（维护者已定）
-// mihomo 优先；其余 sing-box 优先
+// 跟随实现，sing-box 一侧的限制见 libcore/sing-box/NEKO.md）；其余（含 AnyTLS）sing-box 优先
 fun preferenceOrder(requirements: CoreRequirements): List<DialCore> {
     val candidates = candidateCores(requirements.protocol)
     val first = when {
         requirements.tls == TlsMode.REALITY || requirements.mldsa65Verify -> DialCore.XRAY
-        requirements.protocol == CoreProtocol.ANYTLS && requirements.customCa && ANYTLS_CERTIFICATES_PREFER_MIHOMO ->
-            DialCore.MIHOMO
-
         else -> DialCore.SING_BOX
     }
     return candidates.filter { it == first } + candidates.filter { it != first }

@@ -50,6 +50,16 @@ func (compatibilityForwarder) NewConnectionEx(ctx context.Context, conn net.Conn
 	}
 }
 
+func TestCompatibilityFormalAndLegacyTypes(t *testing.T) {
+	for _, kind := range []string{boxadapter.Type, "neko-anytls-compat-experiment"} {
+		out := map[string]any{"type": kind, "tag": "proxy", "server": "127.0.0.1", "server_port": 443,
+			"password": "trial-only", "tls": map[string]any{"enabled": true, "server_name": "node.test"}}
+		if got := TrialSingBoxOutbound("outbound", trialJSON(out)); got != "" {
+			t.Fatalf("type %s: %s", kind, got)
+		}
+	}
+}
+
 func TestCompatibilityRegisteredRuntimeAndURLTest(t *testing.T) {
 	leaf := anytlstest.NewCertificate(t, "inner.test", nil, false, false)
 	pair, pin := anytlstest.TLSCertificate(t, leaf), anytlstest.Pin(leaf)

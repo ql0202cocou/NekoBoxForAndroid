@@ -129,7 +129,7 @@ grpc 边界样本（来源提交都在这 12 个之内）直接用 5.2.1 写出�
 | TrojanGoBean | 1 | v1 `9d78e4f2`、HEAD | v0：早于本仓库历史 |
 | TuicBean | 4 | v1 `9d78e4f2`、`34a30127`；v2 `329572d1`；v4 HEAD | v0：早于本仓库历史；v3：历史上从未写出（d72b889 由 2 直接改为 4） |
 | WireGuardBean | 3 | v2 `9d78e4f2`、`329572d1`；v3 HEAD | v0、v1：早于本仓库历史 |
-| AnyTLSBean | 2 | v0 `5d74526b`；v1 `329572d1`；v2 HEAD | — |
+| AnyTLSBean | 4 | v0 `5d74526b`；v1 `329572d1`；v2 `dd8f56d3`；v3 兼容测试接入样本；v4 证书固定、信任与默认值样本 | — |
 | ChainBean | 1 | v1 `9d78e4f2`、`bbbdf577`（实体内嵌）、HEAD | v0：早于本仓库历史 |
 | ConfigBean | 0 | v0 `9d78e4f2`、HEAD | — |
 | NekoBean | 0 | 不做 | 字段初始化里有 `new JSONObject()`，mockable android.jar 的 org.json 在 JVM 上抛异常，构造不出来；自首个提交以来布局未变 |
@@ -213,3 +213,13 @@ v3 仅在 AnyTLS 层的 enableECH 后追加 compatibilityTest。v0–v2 从未�
 2026-11-04 的两个 v3 样本由工作区生产 KryoConverters.serialize 实际写出，分别覆盖普通节点和
 显式测试节点。尚无提交，因此 source.commit 为 null，workingTreeBase 记录基点；所有字段期望按
 赋值与格式手写，不从反序列化结果回填。
+
+## AnyTLS 独立证书策略（v4）
+
+v4 在 compatibilityTest 后追加 certificatePolicy（0 固定、1 信任）。v0–v3 读为 -1，必须在数据库迁移、旧备份恢复或
+通用链接导入时，按冻结的旧选核规则解析后才能运行。历史测试标记仅在此时识别固定策略。数据库 v11 先保留策略，再将
+所有 AnyTLS 的 core 一次性改为自动；旧 sing-box 的信任证书不能被解释为固定值。后续编辑与订阅更新保留独立策略。
+
+所有旧样本的字节、assigned、source 与既有字段期望保持不变，只按读取分支为 expected 添加 -1，并取消旧 current 标记。
+2026-11-05 的三个 v4 样本由生产序列化实际写出，分别覆盖固定、信任和默认值；赋值和期望手写，未从反序列化结果回填。
+source.commit 为 null，workingTreeBase 指向本轮工作基点；ProxyEntity 与 AbstractBean 层版本不变。

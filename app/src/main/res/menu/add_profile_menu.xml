@@ -64,9 +64,6 @@
                         android:id="@+id/action_new_anytls"
                         android:title="@string/action_anytls" />
                     <item
-                        android:id="@+id/action_new_anytls_compat"
-                        android:title="@string/anytls_compat_test" />
-                    <item
                         android:id="@+id/action_new_ssh"
                         android:title="@string/action_ssh" />
                     <item

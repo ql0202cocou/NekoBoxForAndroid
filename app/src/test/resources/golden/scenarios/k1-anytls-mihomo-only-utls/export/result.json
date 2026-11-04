@@ -1,15 +1,18 @@
 {
-  "status": "ok",
-  "exportName": "profiles.txt",
-  "dynamic": {
-    "ports": [
-      36977,
-      34219
-    ],
-    "paths": [],
-    "secrets": [
-      "uf2f18ebaba3d6b61",
-      "p7a31620cff1cdd7aad61b31bec471be5"
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-k1-anytls-chrome120: sing-box AnyTLS uses a NekoBox extension; select mihomo to export a portable configuration",
+    "causes": [
+      {
+        "class": "io.nekohasekai.sagernet.fmt.ConfigExportException",
+        "message": "sing-box AnyTLS uses a NekoBox extension; select mihomo to export a portable configuration"
+      }
     ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
   }
 }
