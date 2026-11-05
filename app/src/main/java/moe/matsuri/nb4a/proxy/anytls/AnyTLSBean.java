@@ -13,6 +13,13 @@ public class AnyTLSBean extends AbstractBean {
     public static final int CERTIFICATE_POLICY_PIN = 0;
     public static final int CERTIFICATE_POLICY_TRUST = 1;
 
+    // 来源只决定订阅刷新时能否替换策略；通用分享不会把发布方的手动设置变成接收方的本地覆写。
+    public static final int POLICY_DEFAULT = 0;
+    public static final int POLICY_PUBLISHED = 1;
+    public static final int POLICY_MIGRATED = 2;
+    public static final int POLICY_LOCAL = 3;
+    public static final int POLICY_SOURCE_UNKNOWN = 4;
+
     public String password;
     public String sni;
     public String alpn;
@@ -31,6 +38,9 @@ public class AnyTLSBean extends AbstractBean {
     public Boolean compatibilityTest;
     // 与核心选择分开保存；旧字节须在迁移或导入时依据原核心解析，不能默认降为固定。
     public Integer certificatePolicy;
+    public Integer certificatePolicySource = POLICY_DEFAULT;
+    // 旧 mihomo 节点的非空出站覆写作用于本机 SOCKS 跳。
+    public Boolean localSocksOutboundJson = false;
 
     @Override
     public void initializeDefaultValues() {
@@ -50,7 +60,7 @@ public class AnyTLSBean extends AbstractBean {
 
     @Override
     public void serialize(ByteBufferOutput output) {
-        output.writeInt(4);
+        output.writeInt(5);
         super.serialize(output);
         output.writeString(password);
         output.writeString(sni);
@@ -63,6 +73,8 @@ public class AnyTLSBean extends AbstractBean {
         output.writeBoolean(enableECH);
         output.writeBoolean(compatibilityTest);
         output.writeInt(certificatePolicy);
+        output.writeInt(certificatePolicySource);
+        output.writeBoolean(localSocksOutboundJson);
     }
 
     @Override
@@ -85,6 +97,8 @@ public class AnyTLSBean extends AbstractBean {
         }
         compatibilityTest = version >= 3 && input.readBoolean();
         certificatePolicy = version >= 4 ? input.readInt() : CERTIFICATE_POLICY_LEGACY;
+        certificatePolicySource = version >= 5 ? input.readInt() : POLICY_SOURCE_UNKNOWN;
+        localSocksOutboundJson = version >= 5 && input.readBoolean();
     }
 
 }

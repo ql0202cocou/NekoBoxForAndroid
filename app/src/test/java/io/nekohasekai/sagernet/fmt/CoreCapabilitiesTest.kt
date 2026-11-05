@@ -116,12 +116,12 @@ class CoreCapabilitiesTest {
     @Test
     fun `NotApplicable 只出现在承载不了协议的核心上`() {
         val anyTlsRows = setOf(
-            Requirement.SECURITY_TLS, Requirement.CERTIFICATE_PIN, Requirement.CUSTOM_CA, Requirement.ANYTLS_PIN, Requirement.ANYTLS_UTLS, Requirement.ANYTLS_TRUST, Requirement.ANYTLS_CERTIFICATE_POLICY_INVALID,
+            Requirement.SECURITY_TLS, Requirement.CERTIFICATE_PIN, Requirement.CUSTOM_CA, Requirement.ANYTLS_PIN, Requirement.ANYTLS_LOCAL_SOCKS_OVERRIDE, Requirement.ANYTLS_UTLS, Requirement.ANYTLS_TRUST, Requirement.ANYTLS_CERTIFICATE_POLICY_INVALID,
             Requirement.ALLOW_INSECURE, Requirement.UTLS_FINGERPRINT, Requirement.ECH_INLINE, Requirement.ECH_AUTO_QUERY,
         )
         for ((requirement, cells) in CAPABILITY_TABLE) {
             assertFalse("$requirement × sing-box", cells.getValue(DialCore.SING_BOX) == CapabilityCell.NotApplicable)
-            assertEquals("$requirement × Xray", requirement in setOf(Requirement.ANYTLS_PIN, Requirement.ANYTLS_UTLS, Requirement.ANYTLS_TRUST, Requirement.ANYTLS_CERTIFICATE_POLICY_INVALID),
+            assertEquals("$requirement × Xray", requirement in setOf(Requirement.ANYTLS_PIN, Requirement.ANYTLS_LOCAL_SOCKS_OVERRIDE, Requirement.ANYTLS_UTLS, Requirement.ANYTLS_TRUST, Requirement.ANYTLS_CERTIFICATE_POLICY_INVALID),
                 cells.getValue(DialCore.XRAY) == CapabilityCell.NotApplicable)
             assertEquals(
                 "$requirement × mihomo", !requirement.isProtocol && requirement !in anyTlsRows,

@@ -36,7 +36,19 @@ internal fun shouldRejectUnauthHttpOnly(
 internal fun AbstractBean.preserveSubscriptionOverridesFrom(previous: AbstractBean) {
     customOutboundJson = previous.customOutboundJson
     customConfigJson = previous.customConfigJson
-    if (this is AnyTLSBean && previous is AnyTLSBean) certificatePolicy = previous.certificatePolicy
+    if (this is AnyTLSBean && previous is AnyTLSBean) {
+        localSocksOutboundJson = previous.localSocksOutboundJson
+        when (previous.certificatePolicySource) {
+            AnyTLSBean.POLICY_DEFAULT, AnyTLSBean.POLICY_PUBLISHED -> return
+            AnyTLSBean.POLICY_MIGRATED -> if (certificatePolicySource == AnyTLSBean.POLICY_PUBLISHED) return
+            AnyTLSBean.POLICY_LOCAL -> Unit
+            else -> require(certificatePolicySource != AnyTLSBean.POLICY_PUBLISHED || certificatePolicy == previous.certificatePolicy) {
+                "AnyTLS certificate policy changed and its previous source is unknown. Review the policy in the profile editor or import the subscription again."
+            }
+        }
+        certificatePolicy = previous.certificatePolicy
+        certificatePolicySource = previous.certificatePolicySource
+    }
 }
 
 // 订阅更新按名字匹配到旧节点后换上新解析的 bean（putBean 按 bean 的类改 type）。协议类型变了时 core 改回自动：
@@ -242,13 +254,15 @@ object RawUpdater : GroupUpdater() {
             if (toReplace.contains(name)) {
                 val entity = toReplace[name]!!
                 val existsBean = entity.requireBean()
-                bean.preserveSubscriptionOverridesFrom(existsBean)
+                // 比较用副本；事务内要将原始订阅值与当时的本地设置重新合并。
+                val merged = if (bean is AnyTLSBean) bean.clone() else bean
+                merged.preserveSubscriptionOverridesFrom(existsBean)
                 // Apply the subscription order even when the content also changed,
                 // otherwise a reordered+edited node stays at its old position.
                 val reordered = entity.userOrder != userOrder
                 entity.userOrder = userOrder
                 when {
-                    existsBean != bean -> {
+                    existsBean != merged -> {
                         changed++
                         // putBean 之前取旧名：改名节点在报告里显示 旧名 => 新名
                         val oldName = entity.displayName()

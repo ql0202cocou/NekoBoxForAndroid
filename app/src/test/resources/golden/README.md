@@ -502,3 +502,6 @@ raw/             原始数据：device.txt、host.txt、prepare/start/finish(.tx
 
 `sb-anytls-native-overrides` 覆盖迁移后使用原生 JSON 的信任策略节点。运行、测速和导出均应生成 `anytls`，
 保留 `idle_session_timeout`、`min_idle_session`、`tls.fragment`、`tls.min_version` 和信任证书。原有 358 个场景输出不变。
+
+2026-11-05 的迁移复验增加 `mihomo-anytls-local-override`。旧 mihomo 节点在 AUTO 下的运行、测速与导出均将
+`network: tcp` 写入本机 SOCKS 跳。已有 65 份输入中的 74 条 AnyTLS 记录升级到 Kryo v5，逐条核对只增加策略来源和覆写目标字段。

@@ -44,7 +44,9 @@
         "customOutboundJson": "{\"tag\":\"custom-outbound-anytls\"}",
         "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"anytls\"}",
         "compatibilityTest": false,
-        "certificatePolicy": -1
+        "certificatePolicy": -1,
+        "certificatePolicySource": 4,
+        "localSocksOutboundJson": false
       },
       "base64": "AAAAAGFueXRscy5leGFtcGxlLmNv7eMkAABhbnl0bHMtZmFrZS1wYXNzd29y5HNuaS1hbnl0bHMuZXhhbXBsZS5vcudosscBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClFVNVpWRXhUTFVaQlMwVT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLWZpcmVmb/gBUVU1WlZFeFRMVVZEU0E9vQEAAACK5qC35pysIGFueXRsc3sidGFnIjoiY3VzdG9tLW91dGJvdW5kLWFueXRscyL9qXsibG9nIjp7ImxldmVsIjoid2FybiJ9LCJub3RlIjoiYW55dGxzIn0=",
       "current": false
@@ -92,7 +94,9 @@
         "customOutboundJson": "",
         "customConfigJson": "",
         "compatibilityTest": false,
-        "certificatePolicy": -1
+        "certificatePolicy": -1,
+        "certificatePolicySource": 4,
+        "localSocksOutboundJson": false
       },
       "base64": "AAAAADEyNy4wLjAusTgEAACBgYGBgQCBAQAAAIGBgQ==",
       "current": false
@@ -141,7 +145,9 @@
         "customOutboundJson": "{\"tag\":\"custom-outbound-anytls\"}",
         "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"anytls\"}",
         "compatibilityTest": false,
-        "certificatePolicy": -1
+        "certificatePolicy": -1,
+        "certificatePolicySource": 4,
+        "localSocksOutboundJson": false
       },
       "base64": "AQAAAGFueXRscy5leGFtcGxlLmNv7eMkAABhbnl0bHMtZmFrZS1wYXNzd29y5HNuaS1hbnl0bHMuZXhhbXBsZS5vcudosscBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClFVNVpWRXhUTFVaQlMwVT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLWZpcmVmb/gBUVU1WlZFeFRMVVZEU0E9vcEBZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAEAAACK5qC35pysIGFueXRsc3sidGFnIjoiY3VzdG9tLW91dGJvdW5kLWFueXRscyL9qXsibG9nIjp7ImxldmVsIjoid2FybiJ9LCJub3RlIjoiYW55dGxzIn0=",
       "current": false
@@ -190,7 +196,9 @@
         "customOutboundJson": "",
         "customConfigJson": "",
         "compatibilityTest": false,
-        "certificatePolicy": -1
+        "certificatePolicy": -1,
+        "certificatePolicySource": 4,
+        "localSocksOutboundJson": false
       },
       "base64": "AQAAADEyNy4wLjAusTgEAACBgYGBgQCBgQEAAACBgYE=",
       "current": false
@@ -240,7 +248,9 @@
         "customOutboundJson": "{\"tag\":\"custom-outbound-anytls\"}",
         "customConfigJson": "{\"log\":{\"level\":\"warn\"},\"note\":\"anytls\"}",
         "compatibilityTest": false,
-        "certificatePolicy": -1
+        "certificatePolicy": -1,
+        "certificatePolicySource": 4,
+        "localSocksOutboundJson": false
       },
       "base64": "AgAAAGFueXRscy5leGFtcGxlLmNv7eMkAABhbnl0bHMtZmFrZS1wYXNzd29y5HNuaS1hbnl0bHMuZXhhbXBsZS5vcudosscBLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClFVNVpWRXhUTFVaQlMwVT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLWZpcmVmb/gBUVU1WlZFeFRMVVZEU0E9vcEBZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZAEBAAAAiuagt+acrCBhbnl0bHN7InRhZyI6ImN1c3RvbS1vdXRib3VuZC1hbnl0bHMi/al7ImxvZyI6eyJsZXZlbCI6Indhcm4ifSwibm90ZSI6ImFueXRscyJ9",
       "current": false
@@ -290,7 +300,9 @@
         "customOutboundJson": "",
         "customConfigJson": "",
         "compatibilityTest": false,
-        "certificatePolicy": -1
+        "certificatePolicy": -1,
+        "certificatePolicySource": 4,
+        "localSocksOutboundJson": false
       },
       "base64": "AgAAADEyNy4wLjAusTgEAACBgYGBgQCBgQABAAAAgYGB",
       "current": false
@@ -343,7 +355,9 @@
         "name": "compat-fixture",
         "customOutboundJson": "",
         "customConfigJson": "",
-        "certificatePolicy": -1
+        "certificatePolicy": -1,
+        "certificatePolicySource": 4,
+        "localSocksOutboundJson": false
       },
       "base64": "AwAAAGNvbXBhdC5leGFtcGxlLm9y57sBAABmYWtlLXBhc3N3b3LkdGxzLmV4YW1wbGUub3LnaLKBY2hyb21lMTKwAIHBAWFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWIAAAEAAABjb21wYXQtZml4dHVy5YGB",
       "current": false
@@ -396,7 +410,9 @@
         "name": "compat-fixture",
         "customOutboundJson": "",
         "customConfigJson": "",
-        "certificatePolicy": -1
+        "certificatePolicy": -1,
+        "certificatePolicySource": 4,
+        "localSocksOutboundJson": false
       },
       "base64": "AwAAAGNvbXBhdC5leGFtcGxlLm9y57sBAABmYWtlLXBhc3N3b3LkdGxzLmV4YW1wbGUub3LnaLKBY2hyb21lMTKwAIHBAWFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWIAAQEAAABjb21wYXQtZml4dHVy5YGB",
       "current": false
@@ -450,10 +466,12 @@
         "name": "compat-fixture",
         "customOutboundJson": "",
         "customConfigJson": "",
-        "certificatePolicy": 0
+        "certificatePolicy": 0,
+        "certificatePolicySource": 4,
+        "localSocksOutboundJson": false
       },
       "base64": "BAAAAGNvbXBhdC5leGFtcGxlLm9y57sBAABmYWtlLXBhc3N3b3LkdGxzLmV4YW1wbGUub3LnaLKBY2hyb21lMTKwAIHBAWFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWIAAAAAAAABAAAAY29tcGF0LWZpeHR1cuWBgQ==",
-      "current": true
+      "current": false
     },
     {
       "id": "AnyTLSBean/policy-v4/trust",
@@ -504,10 +522,12 @@
         "name": "compat-fixture",
         "customOutboundJson": "",
         "customConfigJson": "",
-        "certificatePolicy": 1
+        "certificatePolicy": 1,
+        "certificatePolicySource": 4,
+        "localSocksOutboundJson": false
       },
       "base64": "BAAAAGNvbXBhdC5leGFtcGxlLm9y57sBAABmYWtlLXBhc3N3b3LkdGxzLmV4YW1wbGUub3LnaLKBY2hyb21lMTKwAIHBAWFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWJhYmFiYWIAAQEAAAABAAAAY29tcGF0LWZpeHR1cuWBgQ==",
-      "current": true
+      "current": false
     },
     {
       "id": "AnyTLSBean/policy-v4/default",
@@ -556,9 +576,127 @@
         "customOutboundJson": "",
         "customConfigJson": "",
         "compatibilityTest": false,
-        "certificatePolicy": 0
+        "certificatePolicy": 0,
+        "certificatePolicySource": 4,
+        "localSocksOutboundJson": false
       },
       "base64": "BAAAADEyNy4wLjAusTgEAACBgYGBgQCBgQAAAAAAAAEAAACBgYE=",
+      "current": false
+    },
+    {
+      "id": "AnyTLSBean/policy-v5/default",
+      "class": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
+      "form": "storage",
+      "source": {
+        "commit": null,
+        "tag": null,
+        "versionName": "1.9.0-a9",
+        "workingTreeBase": "0211f811d2e964d48bdfbb1401e76e753dce4788",
+        "note": "2026-11-05 生产 KryoConverters.serialize 实际写出；赋值与字段期望手写"
+      },
+      "versions": {
+        "AnyTLSBean": 5,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "password": "",
+        "sni": "",
+        "alpn": "",
+        "certificates": "",
+        "certificateFingerprint": "",
+        "utlsFingerprint": "",
+        "allowInsecure": false,
+        "echConfig": "",
+        "enableECH": false,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": "",
+        "compatibilityTest": false,
+        "certificatePolicy": 0,
+        "certificatePolicySource": 0,
+        "localSocksOutboundJson": false
+      },
+      "expected": {
+        "password": "",
+        "sni": "",
+        "alpn": "",
+        "certificates": "",
+        "certificateFingerprint": "",
+        "utlsFingerprint": "",
+        "allowInsecure": false,
+        "echConfig": "",
+        "enableECH": false,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "",
+        "customConfigJson": "",
+        "compatibilityTest": false,
+        "certificatePolicy": 0,
+        "certificatePolicySource": 0,
+        "localSocksOutboundJson": false
+      },
+      "base64": "BQAAADEyNy4wLjAusTgEAACBgYGBgQCBgQAAAAAAAAAAAAAAAQAAAIGBgQ==",
+      "current": true
+    },
+    {
+      "id": "AnyTLSBean/policy-v5/local",
+      "class": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
+      "form": "storage",
+      "source": {
+        "commit": null,
+        "tag": null,
+        "versionName": "1.9.0-a9",
+        "workingTreeBase": "0211f811d2e964d48bdfbb1401e76e753dce4788",
+        "note": "2026-11-05 生产 KryoConverters.serialize 实际写出；赋值与字段期望手写"
+      },
+      "versions": {
+        "AnyTLSBean": 5,
+        "AbstractBean": 1
+      },
+      "assigned": {
+        "password": "",
+        "sni": "",
+        "alpn": "",
+        "certificates": "",
+        "certificateFingerprint": "",
+        "utlsFingerprint": "",
+        "allowInsecure": false,
+        "echConfig": "",
+        "enableECH": false,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "{\"network\":\"tcp\"}",
+        "customConfigJson": "",
+        "compatibilityTest": false,
+        "certificatePolicy": 0,
+        "certificatePolicySource": 3,
+        "localSocksOutboundJson": true
+      },
+      "expected": {
+        "password": "",
+        "sni": "",
+        "alpn": "",
+        "certificates": "",
+        "certificateFingerprint": "",
+        "utlsFingerprint": "",
+        "allowInsecure": false,
+        "echConfig": "",
+        "enableECH": false,
+        "serverAddress": "127.0.0.1",
+        "serverPort": 1080,
+        "name": "",
+        "customOutboundJson": "{\"network\":\"tcp\"}",
+        "customConfigJson": "",
+        "compatibilityTest": false,
+        "certificatePolicy": 0,
+        "certificatePolicySource": 3,
+        "localSocksOutboundJson": true
+      },
+      "base64": "BQAAADEyNy4wLjAusTgEAACBgYGBgQCBgQAAAAAAAAMAAAABAQAAAIF7Im5ldHdvcmsiOiJ0Y3Ai/YE=",
       "current": true
     }
   ]

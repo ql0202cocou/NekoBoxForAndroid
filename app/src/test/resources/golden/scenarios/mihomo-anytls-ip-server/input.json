@@ -169,7 +169,7 @@
       "core": 3,
       "beanColumn": "anyTLSBean",
       "beanClass": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
-      "beanKryoBase64": "BAAAADIwMy4wLjExMy42sPsgAABnb2xkZW4tcGFzcy1hbnl0bPOBgYGBAIGBAAAAAAAAAQAAAGdvbGRlbi1hbnl0bHMtafCBgQ=="
+      "beanKryoBase64": "BQAAADIwMy4wLjExMy42sPsgAABnb2xkZW4tcGFzcy1hbnl0bPOBgYGBAIGBAAAAAAAAAAAAAAABAAAAZ29sZGVuLWFueXRscy1p8IGB"
     }
   ],
   "rules": [],

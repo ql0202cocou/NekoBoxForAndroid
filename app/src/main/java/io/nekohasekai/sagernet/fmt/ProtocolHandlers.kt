@@ -65,6 +65,7 @@ import io.nekohasekai.sagernet.ktx.app
 import moe.matsuri.nb4a.SingBoxOptions.CustomSingBoxOption
 import moe.matsuri.nb4a.SingBoxOptions.MultiplexOptions
 import moe.matsuri.nb4a.SingBoxOptions.SingBoxOption
+import moe.matsuri.nb4a.proxy.anytls.hasLocalSocksOverride
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.proxy.anytls.buildSingBoxOutboundAnyTLSBean
 import moe.matsuri.nb4a.proxy.anytls.buildMihomoConfig
@@ -403,7 +404,7 @@ fun protocolColorAttr(): Int = com.google.android.material.R.attr.colorOnSurface
 // bean class -> whether a standard (protocol-specific) share link exists
 // (was ProxyEntity.haveStandardLink)
 fun hasStandardLink(bean: AbstractBean): Boolean = when (bean) {
-    is AnyTLSBean -> bean.certificatePolicy == AnyTLSBean.CERTIFICATE_POLICY_PIN
+    is AnyTLSBean -> bean.certificatePolicy == AnyTLSBean.CERTIFICATE_POLICY_PIN && !bean.hasLocalSocksOverride()
     is SSHBean -> false
     is WireGuardBean -> false
     is ShadowTLSBean -> false

@@ -223,3 +223,9 @@ v4 在 compatibilityTest 后追加 certificatePolicy（0 固定、1 信任）。
 所有旧样本的字节、assigned、source 与既有字段期望保持不变，只按读取分支为 expected 添加 -1，并取消旧 current 标记。
 2026-11-05 的三个 v4 样本由生产序列化实际写出，分别覆盖固定、信任和默认值；赋值和期望手写，未从反序列化结果回填。
 source.commit 为 null，workingTreeBase 指向本轮工作基点；ProxyEntity 与 AbstractBean 层版本不变。
+
+## AnyTLS 策略来源与本地 SOCKS 覆写（v5）
+
+v5 在证书策略之后写入策略来源（int）和覆写是否用于本地 SOCKS 跳（boolean）。旧字节读取时来源为未知、SOCKS 标记为假。
+v0–v3 的数据库迁移和备份恢复会结合原核心补上这两项。v4 已保存策略但缺少来源，订阅明确改变策略时会报告冲突。
+v5 样本使用生产序列化入口写出，覆盖默认节点以及用户手动选择策略、持有本地 SOCKS 覆写的节点。

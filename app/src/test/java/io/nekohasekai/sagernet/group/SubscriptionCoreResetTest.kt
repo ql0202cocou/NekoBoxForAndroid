@@ -8,6 +8,8 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.CoreTestNodes
 import io.nekohasekai.sagernet.fmt.putBean
+import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertSame
@@ -57,7 +59,7 @@ class SubscriptionCoreResetTest {
     }
     @Test
     fun `AnyTLS 订阅刷新保留独立证书策略`() {
-        val old = CoreTestNodes.anytls { certificatePolicy = 1; certificates = "old-ca" }
+        val old = CoreTestNodes.anytls { certificatePolicy = 1; certificatePolicySource = AnyTLSBean.POLICY_MIGRATED; certificates = "old-ca" }
         val entity = existing(old, CORE_AUTO)
         val updated = CoreTestNodes.anytls { certificates = "new-ca" }
         entity.replaceSubscriptionBean(updated)
@@ -70,6 +72,7 @@ class SubscriptionCoreResetTest {
     fun `AnyTLS 本地策略与覆写不会造成虚假订阅变化`() {
         val previous = CoreTestNodes.anytls {
             certificatePolicy = 1
+            certificatePolicySource = AnyTLSBean.POLICY_LOCAL
             customOutboundJson = "{\"tag\":\"local\"}"
             customConfigJson = "{\"log\":{\"level\":\"debug\"}}"
         }
@@ -85,6 +88,7 @@ class SubscriptionCoreResetTest {
         val entity = existing(previous, CORE_SING_BOX)
         val incoming = CoreTestNodes.anytls { certificates = "new-ca"; serverPort = 9443 }
         incoming.preserveSubscriptionOverridesFrom(previous)
+        previous.certificatePolicySource = AnyTLSBean.POLICY_LOCAL
         previous.certificatePolicy = 0
         previous.customOutboundJson = "{\"tag\":\"edited\"}"
         previous.customConfigJson = "{\"log\":{\"level\":\"warn\"}}"
@@ -99,4 +103,25 @@ class SubscriptionCoreResetTest {
         assertEquals(CORE_SING_BOX, entity.core)
     }
 
+    @Test
+    fun `同一份证书跟随订阅的显式策略但保留本地手动覆写`() {
+        fun incoming(policy: Int) = CoreTestNodes.anytls {
+            certificates = CoreTestNodes.CERT
+            certificatePolicy = policy
+            certificatePolicySource = AnyTLSBean.POLICY_PUBLISHED
+        }
+        for (source in listOf(AnyTLSBean.POLICY_DEFAULT, AnyTLSBean.POLICY_PUBLISHED, AnyTLSBean.POLICY_MIGRATED, AnyTLSBean.POLICY_LOCAL)) {
+            val entity = existing(incoming(0).apply { certificatePolicySource = source }, CORE_AUTO)
+            val update = incoming(1)
+            entity.replaceSubscriptionBean(update)
+            assertEquals(if (source == AnyTLSBean.POLICY_LOCAL) 0 else 1, entity.anyTLSBean!!.certificatePolicy)
+            val again = incoming(1).apply { preserveSubscriptionOverridesFrom(entity.requireBean()) }
+            assertEquals(update, again)
+            entity.replaceSubscriptionBean(incoming(0))
+            assertEquals(0, entity.anyTLSBean!!.certificatePolicy)
+        }
+        val old = existing(incoming(0).apply { certificatePolicySource = AnyTLSBean.POLICY_SOURCE_UNKNOWN }, CORE_AUTO)
+        assertThrows(IllegalArgumentException::class.java) { old.replaceSubscriptionBean(incoming(1)) }
+        assertEquals(0, old.anyTLSBean!!.certificatePolicy)
+    }
 }

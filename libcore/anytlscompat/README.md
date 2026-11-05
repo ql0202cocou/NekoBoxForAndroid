@@ -4,7 +4,8 @@
 自动选核优先 sing-box，并按完整能力表匹配；手动选核只使用指定核心，有冲突就明确拒绝。
 升级到数据库 v11 时，一次性把全部 AnyTLS 的 core 重置为自动，包括旧手动核心与兼容测试节点。
 迁移先依据旧核心保存独立证书策略，再重置核心；节点材料、流量、链式引用与其他协议不变。
-此后编辑、订阅更新和恢复备份保留证书策略；恢复旧备份按原核心解析策略，不再次重置手动选择。
+Kryo v5 记录证书策略来源。订阅跟随发布方明确给出的策略，用户手动选择优先。历史 v4 记录来源不明时，遇到显式策略冲突会停止刷新。
+迁移前作用于 mihomo 本地 SOCKS 跳的 JSON 继续作用于该跳，AUTO 据此选择 mihomo。
 AnyTLSBean v4 新增 certificatePolicy；旧 v3 的 compatibilityTest 仅用于识别历史测试节点的固定策略，不再提供测试入口。
 旧私有类型 `neko-anytls-compat-experiment` 仍可读取；新生成的配置只使用正式名称。
 
@@ -13,7 +14,7 @@ Sing-box uses this implementation by default. Existing profiles with native outb
 `neko-anytls`. Automatic selection prefers sing-box and checks complete capabilities; manual selection never silently
 falls back. Database v11 resets all existing AnyTLS core choices to automatic once, including former test profiles.
 Before resetting cores, migration stores the original certificate policy independently. Parameters, traffic and references remain intact.
-Edits, subscription updates and backups preserve the policy. Old backups derive it from the original core while retaining manual choices.
+Kryo v5 records the policy source. Updates follow an explicit published policy and preserve local edits. A conflicting policy with unknown v4 provenance stops the update. Migrated mihomo SOCKS overrides continue to apply to the local hop under automatic core selection.
 AnyTLSBean v4 adds certificatePolicy; the historical v3 test marker only identifies former test profiles' pinning policy during migration.
 The old private type remains readable as an alias.
 
@@ -31,11 +32,11 @@ The old private type remains readable as an alias.
   每个新会话重新查询，缓存归 DNSRouter；握手必须实际接受 ECH，失败关闭连接、不降级。
 - TCP 和 UoT v2 共用受控 sing-box dialer；detour、网络接口保护和生命周期由既有框架负责。
   构造/trial 不启动会话或拨号；Scope 初始化时启动会话，关闭覆盖拨号、TLS、认证写入和复用连接。
-- 固定策略支持普通链接，信任策略通过 `sn://` 保留；备份保存独立策略。节点自定义 JSON 与其他内部出站一样参与 trial，未知字段或无效配置会拒绝。
+- 固定策略支持普通链接，信任策略及本地 SOCKS 覆写通过 `sn://anytls-v2?` 分享，旧版会拒绝该类型；备份保存独立策略。节点自定义 JSON 与其他内部出站一样参与 trial，未知字段或无效配置会拒绝。
 - 带原生 JSON 覆写的旧信任策略节点沿用 sing-box 原生的会话、TLS（含 uTLS 与 ECH）和导出行为。普通新节点没有固定材料、兼容指纹或 ECH 时也可用原生覆写。显式整证书固定、固定策略的 PEM、专用指纹或私有 TLS 字段仍由兼容实现处理。
 - 使用私有出站的配置不能作为通用 sing-box 配置导出；固定策略可改选 mihomo 再导出。
   该限制会拒绝整个导出，包括 AnyTLS 出现在规则目标或其链中时；不会靠删除规则生成一份成功结果。
-- 迁移不放宽指纹或证书校验；旧节点使用不支持的模板时明确拒绝，不能靠迁移删除安全字段。
+- 显式 ALPN 写入实际 ClientHello。未填写时使用模板的协议列表。标准 TLS 与 uTLS 握手的默认时限都是 15 秒，并响应调用方更早的取消。
 
 New profiles default to pinning. Explicit whole-certificate SHA-256 takes priority over the first PEM certificate.
 Leaf pins accept directly; non-leaf pins still validate the chain, name and time. Insecure never bypasses a pin mismatch.
@@ -45,8 +46,8 @@ explicit fingerprints still take priority. Former mihomo and test profiles retai
 trust certificates and is rejected for that policy. Without custom roots or a pin, the app certificate store supplies trust;
 equivalence with mihomo’s bundled CA set is not claimed.
 ECH requires acceptance and uses the controlled DNS router, including group DNS. Only the five verified TLS
-profile choices above are exposed with ECH. Dialing and cancellation follow the existing sing-box lifecycle.
-Trust-policy links use `sn://` to preserve the policy; pinning profiles support standard links. Backups preserve both policies.
+profile choices above are exposed with ECH. An explicit ALPN list overrides the template on the wire. Both TLS paths use a 15-second handshake timeout and honor earlier caller cancellation.
+Trust-policy profiles and local SOCKS overrides use the versioned `sn://anytls-v2?` share type. Older versions reject this type. Ordinary pinning profiles support standard links. Backups preserve both policies.
 Profile JSON overrides are trial-validated. Migrated native overrides retain sing-box's session, TLS (including uTLS
 and ECH), and export behavior. New profiles can also use native overrides when they have no pinning material,
 uTLS or ECH. Whole-certificate pins and extension fields continue to use the compatibility implementation.

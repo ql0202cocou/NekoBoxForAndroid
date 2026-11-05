@@ -12,12 +12,15 @@ import io.nekohasekai.sagernet.fmt.v2ray.requireXhttpComplete
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.utils.Util
 
+// 旧客户端必须在选择解码器前拒绝带独立策略的节点。
+private const val ANYTLS_SHARE_TYPE = "anytls-v2"
+
 // globalAllowInsecure：全局「允许不安全」，只在链接是 K1 之前生成的 StandardV2Ray 系节点时取值（见 universalBean）
 fun parseUniversal(link: String, globalAllowInsecure: () -> Boolean): AbstractBean {
     return if (link.contains("?")) {
         val type = link.substringAfter("sn://").substringBefore("?")
         universalBean(
-            TypeMap[type] ?: error("Type $type not found"),
+            if (type == ANYTLS_SHARE_TYPE) ProxyEntity.TYPE_ANYTLS else TypeMap[type] ?: error("Type $type not found"),
             Util.zlibDecompress(Util.b64Decode(link.substringAfter("?"))),
             globalAllowInsecure,
         )
@@ -34,7 +37,13 @@ fun parseUniversal(link: String, globalAllowInsecure: () -> Boolean): AbstractBe
 // 通用链接解码后的 bean 字节 → bean。纯函数部分（链接的 Base64 / zlib 解码在 parseUniversal 里）
 internal fun universalBean(type: Int, bytes: ByteArray, globalAllowInsecure: () -> Boolean): AbstractBean {
     val bean = ProxyEntity(type = type).apply { putByteArray(bytes) }.requireBean()
-    if (bean is AnyTLSBean) preserveLegacyAnyTLSCertificatePolicy(bean, CORE_AUTO)
+    if (bean is AnyTLSBean) {
+        if (bean.certificatePolicy == AnyTLSBean.CERTIFICATE_POLICY_LEGACY) {
+            preserveLegacyAnyTLSCertificatePolicy(bean, CORE_AUTO)
+        } else {
+            bean.certificatePolicySource = AnyTLSBean.POLICY_PUBLISHED
+        }
+    }
     // 通用链接是序列化好的 bean，传输方式与分享链接一样要在导入时拦下未知值。
     // 只有 VMess / VLESS / Trojan 按 type 构建传输层
     if (bean is StandardV2RayBean && (bean is VMessBean || bean is TrojanBean)) {
@@ -54,7 +63,7 @@ internal fun universalBean(type: Int, bytes: ByteArray, globalAllowInsecure: () 
 
 fun AbstractBean.toUniversalLink(): String {
     var link = "sn://"
-    link += TypeMap.reversed[ProxyEntity().putBean(this).type]
+    link += if (this is AnyTLSBean) ANYTLS_SHARE_TYPE else TypeMap.reversed[ProxyEntity().putBean(this).type]
     link += "?"
     link += Util.b64EncodeUrlSafe(Util.zlibCompress(KryoConverters.serialize(this), 9))
     return link

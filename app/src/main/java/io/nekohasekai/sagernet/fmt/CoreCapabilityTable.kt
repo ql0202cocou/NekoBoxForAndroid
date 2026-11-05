@@ -56,6 +56,7 @@ val CAPABILITY_TABLE: Map<Requirement, Map<DialCore, CapabilityCell>> = linkedMa
     ),
 
     // AnyTLS 的内部兼容实现与 mihomo 共用整证书固定语义。
+    Requirement.ANYTLS_LOCAL_SOCKS_OVERRIDE to row(unsupported(SB, CoreConflict.SING_BOX_ANYTLS_LOCAL_SOCKS_OVERRIDE), NA, supported(MH)),
     Requirement.ANYTLS_PIN to row(supported(SB, "mihomo 整证书固定语义"), NA, supported(MH)),
     Requirement.ANYTLS_TRUST to row(supported(SB, "独立信任池，验证证书链、域名和有效期"), NA, unsupported(MH, CoreConflict.MIHOMO_ANYTLS_TRUST)),
     Requirement.ANYTLS_CERTIFICATE_POLICY_INVALID to row(
@@ -208,15 +209,17 @@ class CombinationRule(
     val applies: (CoreRequirements) -> Boolean,
 )
 
+private fun unsupportedAnyTlsEch(r: CoreRequirements) =
+    r.protocol == CoreProtocol.ANYTLS && r.ech != null && r.utlsFingerprint != null &&
+        !ANYTLS_COMPAT_ECH_FINGERPRINTS.accepts(r.utlsFingerprint)
+
 val COMBINATION_RULES: List<CombinationRule> = listOf(
     CombinationRule(
         DialCore.SING_BOX, CoreConflict.SING_BOX_ANYTLS_ECH, verifiedAt(DialCore.SING_BOX),
         "内部 AnyTLS 只接受确定可用的 ECH 指纹组合",
-    ) {
-        // anyTlsRequirements 把空白指纹记成 null（Go 标准 TLS），不在此列
-        it.protocol == CoreProtocol.ANYTLS && !it.nativeAnyTlsOverrides && it.ech != null && it.utlsFingerprint != null &&
-            !ANYTLS_COMPAT_ECH_FINGERPRINTS.accepts(it.utlsFingerprint)
-    },
+    ) { !it.nativeAnyTlsOverrides && unsupportedAnyTlsEch(it) },
+    CombinationRule(MH, CoreConflict.MIHOMO_ANYTLS_ECH, verifiedAt(MH),
+        "mihomo AnyTLS 只接受确定可用的 ECH 指纹组合", ::unsupportedAnyTlsEch),
     // I1 §3.1（S-X3，T-B5 / T-A2 实测）：REALITY only supports RAW, XHTTP and gRPC。h2、quic 在传输行已报；
     // xhttp 在允许之列（K2），所以这条只挡 ws / httpupgrade
     CombinationRule(

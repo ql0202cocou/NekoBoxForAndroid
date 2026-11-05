@@ -16,6 +16,7 @@ import io.nekohasekai.sagernet.fmt.v2ray.resolveWsEarlyData
 import io.nekohasekai.sagernet.fmt.v2ray.v2rayTransportOrNull
 import io.nekohasekai.sagernet.fmt.v2ray.xhttpParametersLost
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
+import moe.matsuri.nb4a.proxy.anytls.hasLocalSocksOverride
 import moe.matsuri.nb4a.proxy.anytls.usesNativeAnyTLSOverrides
 
 // 节点对核心的要求：从 type、bean 与全局「允许不安全」提取，与核心无关。只描述「生成器会把什么写进配置」，
@@ -52,6 +53,7 @@ data class CoreRequirements(
     val certificatePin: Boolean = false,
     val customCa: Boolean = false,
     val anyTlsCertificatePolicy: Int = AnyTLSBean.CERTIFICATE_POLICY_PIN,
+    val localSocksOverride: Boolean = false,
     val nativeAnyTlsOverrides: Boolean = false,
     val allowInsecure: Boolean = false,
     // 生效的 uTLS 指纹（REALITY 没填时生成器补 chrome）；null 表示不用 uTLS
@@ -100,6 +102,7 @@ data class CoreRequirements(
         }
         if (mldsa65Verify) items += RequirementItem(Requirement.MLDSA65_VERIFY)
         if (anyTls) {
+            if (localSocksOverride) items += RequirementItem(Requirement.ANYTLS_LOCAL_SOCKS_OVERRIDE)
             if (anyTlsCertificatePolicy !in listOf(AnyTLSBean.CERTIFICATE_POLICY_PIN, AnyTLSBean.CERTIFICATE_POLICY_TRUST)) {
                 items += RequirementItem(Requirement.ANYTLS_CERTIFICATE_POLICY_INVALID)
             }
@@ -261,6 +264,7 @@ private fun anyTlsRequirements(
         certificatePin = certificatePin,
         customCa = !bean.certificates.isNullOrBlank(),
         anyTlsCertificatePolicy = bean.certificatePolicy ?: AnyTLSBean.CERTIFICATE_POLICY_PIN,
+        localSocksOverride = bean.hasLocalSocksOverride(),
         nativeAnyTlsOverrides = bean.usesNativeAnyTLSOverrides(),
         allowInsecure = !certificatePin && effectiveAllowInsecure(bean.allowInsecure, globalAllowInsecure),
         utlsFingerprint = bean.utlsFingerprint?.takeIf { it.isNotBlank() },

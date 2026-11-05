@@ -6,10 +6,15 @@ import androidx.preference.Preference
 import io.nekohasekai.sagernet.database.EditorCache
 import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.ProxyEntity
+import io.nekohasekai.sagernet.fmt.kryo.KryoSamples
+import io.nekohasekai.sagernet.fmt.TypeMap
+import io.nekohasekai.sagernet.fmt.parseUniversal
+import io.nekohasekai.sagernet.fmt.toUniversalLink
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import moe.matsuri.nb4a.proxy.anytls.toUri
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSSettingsActivity
+import moe.matsuri.nb4a.utils.Util
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -51,6 +56,9 @@ class AnyTLSCompatibilityEditorTest : UiTestBase() {
         val fixtures = UiFixtures.install()
         val entity = ui.bg { ProfileRepository.createProfile(fixtures.profiles.first().groupId, AnyTLSBean().apply {
             initializeDefaultValues(); serverAddress = "node.example.org"; certificatePolicy = AnyTLSBean.CERTIFICATE_POLICY_TRUST
+            certificatePolicySource = AnyTLSBean.POLICY_PUBLISHED
+            customOutboundJson = """{"min_idle_session":2}"""
+            utlsFingerprint = "chrome_psk"
         }) }
         val editor = ui.launchEditor(AnyTLSSettingsActivity::class.java, entity.id).get()
         assertEquals("1", editor.child!!.findPreference<ListPreference>("certificatePolicy")!!.value)
@@ -59,7 +67,47 @@ class AnyTLSCompatibilityEditorTest : UiTestBase() {
         UiSettle.settle()
         val saved = ui.bg { ProfileRepository.getProfilesByGroup(entity.groupId) }.single { it.id == entity.id }
         assertEquals(AnyTLSBean.CERTIFICATE_POLICY_TRUST, saved.anyTLSBean!!.certificatePolicy)
-        assertTrue(saved.anyTLSBean!!.toUri().startsWith("sn://"))
+        val bean = saved.anyTLSBean!!
+        assertEquals("renamed-trust", bean.name)
+        assertEquals("""{"min_idle_session":2}""", bean.customOutboundJson)
+        assertEquals(AnyTLSBean.POLICY_PUBLISHED, bean.certificatePolicySource)
+        bean.certificatePolicySource = AnyTLSBean.POLICY_LOCAL
+        val link = bean.toUri()
+        assertEquals(link, bean.toUniversalLink())
+        val type = link.removePrefix("sn://").substringBefore('?')
+        assertNull(TypeMap[type])
+        assertEquals("anytls-v2", type)
+        val imported = parseUniversal(link) { false } as AnyTLSBean
+        assertEquals(AnyTLSBean.CERTIFICATE_POLICY_TRUST, imported.certificatePolicy)
+        assertEquals(AnyTLSBean.POLICY_PUBLISHED, imported.certificatePolicySource)
+        val old = KryoSamples.samples.single { it.id == "AnyTLSBean/compat-v3/ordinary" }
+        val legacyLink = "sn://anytls?" + Util.b64EncodeUrlSafe(Util.zlibCompress(old.bytes, 9))
+        val legacy = parseUniversal(legacyLink) { false } as AnyTLSBean
+        assertEquals(AnyTLSBean.CERTIFICATE_POLICY_PIN, legacy.certificatePolicy)
+        assertEquals(AnyTLSBean.POLICY_MIGRATED, legacy.certificatePolicySource)
+        val scoped = AnyTLSBean().apply {
+            initializeDefaultValues()
+            customOutboundJson = """{"network":"tcp"}"""
+            localSocksOutboundJson = true
+        }
+        val localHop = parseUniversal(scoped.toUri()) { false } as AnyTLSBean
+        assertTrue(localHop.localSocksOutboundJson)
+        assertEquals(scoped.customOutboundJson, localHop.customOutboundJson)
     }
 
+    @Test
+    fun changingPolicyInEditorCreatesLocalOverride() {
+        val fixture = UiFixtures.install()
+        val profile = ui.bg { ProfileRepository.createProfile(fixture.profiles.first().groupId, AnyTLSBean().apply {
+            initializeDefaultValues()
+            certificatePolicySource = AnyTLSBean.POLICY_PUBLISHED
+        }) }
+        val editor = ui.launchEditor(AnyTLSSettingsActivity::class.java, profile.id).get()
+        editor.child!!.findPreference<ListPreference>("certificatePolicy")!!.value = "1"
+        runOnDefaultDispatcher { editor.saveAndExit() }
+        UiSettle.settle()
+        val bean = ui.bg { ProfileRepository.getProfile(profile.id) }!!.anyTLSBean!!
+        assertEquals(AnyTLSBean.CERTIFICATE_POLICY_TRUST, bean.certificatePolicy)
+        assertEquals(AnyTLSBean.POLICY_LOCAL, bean.certificatePolicySource)
+    }
 }

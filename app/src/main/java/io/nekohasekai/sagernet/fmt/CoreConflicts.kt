@@ -57,6 +57,14 @@ enum class CoreConflict(
         DialCore.SING_BOX, GapKind.GENERATOR, listOf(ProfileField.UTLS_FINGERPRINT, ProfileField.ENABLE_ECH),
         "sing-box AnyTLS ECH requires standard TLS, chrome, firefox, chrome120 or firefox120",
     ),
+    MIHOMO_ANYTLS_ECH(
+        DialCore.MIHOMO, GapKind.CORE, listOf(ProfileField.UTLS_FINGERPRINT, ProfileField.ENABLE_ECH),
+        "mihomo AnyTLS ECH requires standard TLS, chrome, firefox, chrome120 or firefox120",
+    ),
+    SING_BOX_ANYTLS_LOCAL_SOCKS_OVERRIDE(
+        DialCore.SING_BOX, GapKind.GENERATOR, listOf(ProfileField.CUSTOM_OUTBOUND_JSON),
+        "This outbound override applies to the local SOCKS hop created for mihomo",
+    ),
     MIHOMO_ANYTLS_TRUST(
         DialCore.MIHOMO, GapKind.GENERATOR, listOf(ProfileField.CERTIFICATES, ProfileField.CERTIFICATE_POLICY),
         "mihomo cannot preserve this profile's custom certificate trust policy; select sing-box",

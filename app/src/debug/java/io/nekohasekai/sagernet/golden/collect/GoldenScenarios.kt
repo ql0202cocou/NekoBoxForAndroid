@@ -10,6 +10,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.WS_EARLY_DATA_PROTOCOL_HEADER
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
+import io.nekohasekai.sagernet.fmt.preserveLegacyAnyTLSCertificatePolicy
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
 import io.nekohasekai.sagernet.fmt.ssh.SSHBean
 import io.nekohasekai.sagernet.fmt.v2ray.MUX_COOL
@@ -440,6 +441,13 @@ private fun ScenarioTable.mihomoNodes() {
     // 普通 AnyTLS 自动选核优先 sing-box；这里显式指定 mihomo，钉住各特性与合并生成器。
     // 单节点测速时 TestInstance 给 mihomo 开 Clash API
     single("mihomo-anytls", "AnyTLS：SNI 留空，兜底为服务器域名", core = CORE_MIHOMO) { anytls("golden-anytls") }
+    single("mihomo-anytls-local-override", "旧 mihomo AnyTLS 恢复自动：TCP 限制继续作用于本地 SOCKS 跳") {
+        anytls("golden-local-override").apply {
+            certificatePolicy = AnyTLSBean.CERTIFICATE_POLICY_LEGACY
+            customOutboundJson = """{"network":"tcp"}"""
+            preserveLegacyAnyTLSCertificatePolicy(this, CORE_MIHOMO)
+        }
+    }
     single("mihomo-anytls-full", "AnyTLS：SNI、多行 ALPN、uTLS", core = CORE_MIHOMO) {
         anytls("golden-anytls-full", sni = "anytls.example.com", alpn = "h2\nhttp/1.1", utls = "chrome")
     }

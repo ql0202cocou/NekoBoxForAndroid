@@ -19,6 +19,7 @@ import io.nekohasekai.sagernet.golden.GoldenJvmScenario
 import io.nekohasekai.sagernet.golden.dir
 import io.nekohasekai.sagernet.ui.profile.settingActivityOf
 import java.io.File
+import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.proxy.config.ConfigBean
 import moe.matsuri.nb4a.proxy.shadowtls.ShadowTLSBean
 import org.junit.Assert.assertEquals
@@ -274,6 +275,8 @@ class ProtocolContractTest {
             for (bean in fixtures(proto)) {
                 val back = runCatching { universalBean(TypeMap.getValue(name), KryoConverters.serialize(bean)) { false } }
                     .getOrElse { failures += "${proto.name}：universalBean 抛出 $it"; continue }
+                // 链接中的策略由发布方给出；接收端只有在编辑器里修改后才产生本地覆写。
+                if (bean is AnyTLSBean) bean.certificatePolicySource = AnyTLSBean.POLICY_PUBLISHED
                 failures += ProtocolInventory.diff("${proto.name}/${bean.javaClass.simpleName}（通用链接）", bean, back)
             }
         }

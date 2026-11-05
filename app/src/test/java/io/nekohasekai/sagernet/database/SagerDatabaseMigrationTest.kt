@@ -337,7 +337,15 @@ class SagerDatabaseMigrationTest {
                 }
                 val bytes = (migrated["anyTLSBean"] as Blob).hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
                 val bean = io.nekohasekai.sagernet.fmt.KryoConverters.deserialize(moe.matsuri.nb4a.proxy.anytls.AnyTLSBean(), bytes)
-                val expected = sample.expected.deepCopy().apply { addProperty("certificatePolicy", expectedPolicy) }
+                val expected = sample.expected.deepCopy().apply {
+                    addProperty("certificatePolicy", expectedPolicy)
+                    if (sample.versions.getValue("AnyTLSBean") < 4) {
+                        addProperty("certificatePolicySource", 2)
+                        addProperty("localSocksOutboundJson", !get("compatibilityTest").asBoolean &&
+                            get("customOutboundJson").asString.isNotBlank() &&
+                            (oldCore == CORE_MIHOMO || oldCore == CORE_AUTO && expectedPolicy == 0))
+                    }
+                }
                 assertEquals(emptyList<String>(), KryoSamples.diff(sample.id, bean, expected))
             }
             assertEquals(listOf(group), db.table("proxy_groups"))

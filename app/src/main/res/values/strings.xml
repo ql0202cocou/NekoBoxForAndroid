@@ -633,6 +633,8 @@
 
     <string name="anytls_certificate_description">Auto selection prefers sing-box. PEM certificates use the selected policy; an explicit certificate fingerprint takes priority.</string>
     <string name="core_conflict_sing_box_anytls_utls">Unsupported client fingerprint for the sing-box AnyTLS.</string>
+    <string name="core_conflict_mihomo_anytls_ech">mihomo AnyTLS ECH requires standard TLS, chrome, firefox, chrome120 or firefox120.</string>
+    <string name="core_conflict_sing_box_anytls_local_socks_override">This outbound override applies to the local SOCKS hop created for mihomo.</string>
     <string name="core_conflict_sing_box_anytls_ech">sing-box AnyTLS ECH require standard TLS, chrome, firefox, chrome120 or firefox120.</string>
     <string name="anytls_certificate_policy">Certificate policy</string>
     <string name="anytls_certificate_policy_pin">Pin the first PEM certificate</string>

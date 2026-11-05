@@ -177,7 +177,10 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         ?.toIntOrNull() ?: ProxyEntity.CORE_AUTO
 
     // 用编辑器当前内容拼一个临时 bean（serialize 逐字段读缓存库），给选核判定用，不落库
-    protected fun editorBean(): T = createEntity().apply { serialize() }.applyDefaultValues()
+    protected fun editorBean(): T {
+        val bean = proxyEntity?.requireBean()?.clone() as T? ?: createEntity()
+        return bean.apply { serialize() }.applyDefaultValues()
+    }
 
     // 按能力表判定这个 bean 配上 core 的结果（D14）；全局「允许不安全」取 DataStore 当前值
     protected fun decideEditorCore(bean: T, core: Int): CoreDecision =
@@ -226,7 +229,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
         if (editingId == 0L) {
             val editingGroup = EditorCache.editingGroup
             ProfileRepository.createProfile(
-                editingGroup, createEntity().apply { serialize() }, profileCore
+                editingGroup, probe, profileCore
             )
         } else {
             val entity = awaitProxyEntity()
@@ -239,7 +242,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             }
             val saved = ProfileRepository.updateProfile(entity.apply {
                 core = profileCore
-                (requireBean() as T).serialize()
+                putBean(probe)
             })
             // proxyEntity 是打开编辑器时读的缓存：节点在编辑期间被删掉时更新 0 行，
             // 不提示的话修改就悄悄丢了

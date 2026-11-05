@@ -19,6 +19,8 @@ import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 // 冲突的原因
 @StringRes
 fun coreConflictReason(id: CoreConflict): Int = when (id) {
+    CoreConflict.MIHOMO_ANYTLS_ECH -> R.string.core_conflict_mihomo_anytls_ech
+    CoreConflict.SING_BOX_ANYTLS_LOCAL_SOCKS_OVERRIDE -> R.string.core_conflict_sing_box_anytls_local_socks_override
     CoreConflict.MIHOMO_ANYTLS_TRUST -> R.string.core_conflict_mihomo_anytls_trust
     CoreConflict.ANYTLS_CERTIFICATE_POLICY_INVALID -> R.string.core_conflict_anytls_certificate_policy_invalid
     CoreConflict.XRAY_ANYTLS -> R.string.core_conflict_xray_anytls

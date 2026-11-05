@@ -195,6 +195,7 @@ enum class Requirement(val label: String, val fields: List<ProfileField>, val is
     CERTIFICATE_PIN("整证书 SHA-256 固定（certificateFingerprint）", listOf(ProfileField.CERTIFICATE_FINGERPRINT)),
     CUSTOM_CA("自定义 CA（certificates，非 REALITY）", listOf(ProfileField.CERTIFICATES)),
     ANYTLS_PIN("AnyTLS 证书固定", listOf(ProfileField.CERTIFICATE_FINGERPRINT, ProfileField.CERTIFICATES)),
+    ANYTLS_LOCAL_SOCKS_OVERRIDE("AnyTLS 本地 SOCKS 出站覆写", listOf(ProfileField.CUSTOM_OUTBOUND_JSON)),
     ANYTLS_TRUST("AnyTLS 信任证书", listOf(ProfileField.CERTIFICATES, ProfileField.CERTIFICATE_POLICY)),
     ANYTLS_CERTIFICATE_POLICY_INVALID("AnyTLS 证书策略无效", listOf(ProfileField.CERTIFICATE_POLICY)),
     ALLOW_INSECURE(

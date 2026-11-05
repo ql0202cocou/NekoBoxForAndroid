@@ -34,8 +34,10 @@ class AnyTLSCertificatePolicyTest {
         assertEquals(listOf(CoreConflict.MIHOMO_ANYTLS_TRUST), (entity.coreDecision(false) as CoreDecision.Rejected).conflicts.map { it.id })
         bean.enableECH = true; bean.utlsFingerprint = "safari"; entity.core = ProxyEntity.CORE_AUTO
         assertTrue(entity.coreDecision(false) is CoreDecision.Rejected)
+        bean.enableECH = false
         bean.certificateFingerprint = CoreTestNodes.PIN
-        assertEquals(CoreDecision.Selected(DialCore.MIHOMO, false), entity.coreDecision(false))
+        entity.core = ProxyEntity.CORE_MIHOMO
+        assertEquals(CoreDecision.Selected(DialCore.MIHOMO, true), entity.coreDecision(false))
     }
 
     @Test

@@ -19,7 +19,7 @@ const val ANYTLS_COMPAT_OUTBOUND_TYPE = "neko-anytls"
 // 旧 sing-box 节点迁移后为信任策略。覆写继续交给原生出站，保留它完整的会话与 TLS 配置语义。
 // 新节点没有用到固定、兼容指纹或 ECH 时也可使用原生覆写；含私有字段的配置始终由兼容实现解释。
 internal fun AnyTLSBean.usesNativeAnyTLSOverrides(): Boolean {
-    if (customOutboundJson.isNullOrBlank() || !certificateFingerprint.isNullOrBlank()) return false
+    if (localSocksOutboundJson || customOutboundJson.isNullOrBlank() || !certificateFingerprint.isNullOrBlank()) return false
     val trust = certificatePolicy == AnyTLSBean.CERTIFICATE_POLICY_TRUST
     if (!trust) {
         if (certificatePolicy != AnyTLSBean.CERTIFICATE_POLICY_PIN || !certificates.isNullOrBlank()) return false
@@ -76,9 +76,11 @@ fun buildSingBoxOutboundAnyTLSBean(bean: AnyTLSBean, globalAllowInsecure: Boolea
     }
 }
 
+internal fun AnyTLSBean.hasLocalSocksOverride() = localSocksOutboundJson && !customOutboundJson.isNullOrBlank()
+
 fun AnyTLSBean.toUri(): String {
     // 专属链接无法表达自定义信任策略，用通用链接完整保留，避免接收方按固定解释。
-    if (certificatePolicy == AnyTLSBean.CERTIFICATE_POLICY_TRUST) return toUniversalLink()
+    if (certificatePolicy == AnyTLSBean.CERTIFICATE_POLICY_TRUST || hasLocalSocksOverride()) return toUniversalLink()
     require(certificatePolicy == AnyTLSBean.CERTIFICATE_POLICY_PIN) { "unresolved AnyTLS certificate policy" }
     val builder = linkBuilder()
         .host(serverAddress)

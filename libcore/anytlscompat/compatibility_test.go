@@ -116,7 +116,8 @@ func TestUTLSWireDifferential(t *testing.T) {
 			cfg := &stdtls.Config{Certificates: []stdtls.Certificate{anytlstest.TLSCertificate(t, p.Leaf)}, NextProtos: []string{"h2", "http/1.1"}}
 			prototypeServer := startServer(t, cfg)
 			oracleServer := startServer(t, cfg)
-			opts := SecurityOptions{ServerName: testName, Fingerprint: anytlstest.Pin(p.Leaf), ClientFingerprint: fp, ALPN: []string{"h2", "http/1.1"}}
+			// 无显式 ALPN 时应保留完整模板；节点覆写的扩展在 TestConfiguredClientHelloALPN 单独核对。
+			opts := SecurityOptions{ServerName: testName, Fingerprint: anytlstest.Pin(p.Leaf), ClientFingerprint: fp}
 			if err := prototypeExchange(t, prototypeServer.addr, opts); err != nil {
 				t.Fatal("prototype", err)
 			}

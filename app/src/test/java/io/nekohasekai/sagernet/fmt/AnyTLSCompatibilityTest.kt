@@ -244,10 +244,13 @@ class AnyTLSCompatibilityTest {
     }
 
     @Test
-    fun `自动选核在内部 ECH 组合不支持时尝试 mihomo 且保留参数`() {
+    fun `自动与手动选核都拒绝无法握手的 Safari ECH`() {
         val entity = node().apply { anyTLSBean!!.apply { enableECH = true; utlsFingerprint = "safari" } }
         val original = KryoConverters.serialize(entity.requireBean())
-        assertEquals(CoreDecision.Selected(DialCore.MIHOMO, false), entity.coreDecision(false))
+        assertEquals(listOf(CoreConflict.SING_BOX_ANYTLS_ECH, CoreConflict.MIHOMO_ANYTLS_ECH),
+            (entity.coreDecision(false) as CoreDecision.Rejected).conflicts.map { it.id })
+        entity.core = ProxyEntity.CORE_MIHOMO
+        assertEquals(listOf(CoreConflict.MIHOMO_ANYTLS_ECH), (entity.coreDecision(false) as CoreDecision.Rejected).conflicts.map { it.id })
         assertArrayEquals(original, KryoConverters.serialize(entity.requireBean()))
         entity.core = ProxyEntity.CORE_SING_BOX
         val rejected = entity.coreDecision(false) as CoreDecision.Rejected
@@ -268,5 +271,58 @@ class AnyTLSCompatibilityTest {
         val entity = node(core = ProxyEntity.CORE_SING_BOX).apply { anyTLSBean!!.utlsFingerprint = "chrome_psk" }
         val rejected = entity.coreDecision(false) as CoreDecision.Rejected
         assertEquals(listOf(Conflict(DialCore.SING_BOX, CoreConflict.SING_BOX_ANYTLS_UTLS, "chrome_psk")), rejected.conflicts)
+    }
+
+    @Test
+    fun `坏规则目标与含坏跳的链在运行和导出都按相同原因跳过`() {
+        val main = ProxyEntity(id = 10, groupId = 1).putBean(SOCKSBean().apply { initializeDefaultValues() })
+        val bad = node().apply { anyTLSBean!!.certificateFingerprint = "invalid" }
+        val valid = node().apply { id = 2 }
+        val chain = ProxyEntity(id = 3, groupId = 1).putBean(ChainBean().apply {
+            initializeDefaultValues()
+            // 先规划出口的合法 AnyTLS，再试建坏跳。
+            proxies = listOf(bad.id, valid.id)
+        })
+        fun platform() = FakeConfigPlatform(trials = { _, json ->
+            if (json.contains("\"invalid\"")) SingBoxTrialFailure(SingBoxTrialCategory.TLS_CERTIFICATE, null) else null
+        })
+        val selected = platform()
+        val failure = assertThrows(ProfileBuildException::class.java) {
+            buildConfig(input(listOf(bad), ConfigBuildMode.EXPORT, selected))
+        }
+        assertTrue(failure.cause is SingBoxTrialException)
+        assertTrue(selected.ports.isEmpty())
+        for (target in listOf(bad, chain)) {
+            val rule = RuleEntity(id = 1, enabled = true, domains = "audit.example", outbound = target.id)
+            for (mode in listOf(ConfigBuildMode.RUN, ConfigBuildMode.EXPORT)) {
+                val platform = platform()
+                val result = buildConfig(input(listOf(main, valid, bad, chain), mode, platform, listOf(rule)))
+                assertFalse(result.config.contains("audit.example"))
+                assertFalse(result.config.contains("neko-anytls"))
+                assertEquals(listOf("ProfileSkipped", "RuleOutboundMissing"), result.diagnostics.map { it.javaClass.simpleName })
+                assertTrue(platform.trialQueries.any { it.second.contains("\"invalid\"") })
+            }
+        }
+    }
+
+    @Test
+    fun `自动选核保留旧 mihomo 的本地 SOCKS 覆写直到清空`() {
+        val entity = node().apply { anyTLSBean!!.apply {
+            certificatePolicy = AnyTLSBean.CERTIFICATE_POLICY_LEGACY
+            customOutboundJson = """{"network":"tcp"}"""
+            preserveLegacyAnyTLSCertificatePolicy(this, ProxyEntity.CORE_MIHOMO)
+        } }
+        assertEquals(CoreDecision.Selected(DialCore.MIHOMO, false), entity.coreDecision(false))
+        for (mode in ConfigBuildMode.entries) {
+            val result = buildConfig(input(listOf(entity), mode, FakeConfigPlatform()))
+            val outbounds = JsonParser.parseString(result.config).asJsonObject["outbounds"].asJsonArray
+            val override = outbounds.single { it.asJsonObject["network"]?.asString == "tcp" }.asJsonObject
+            assertEquals("socks", override["type"].asString)
+        }
+        entity.core = ProxyEntity.CORE_SING_BOX
+        assertEquals(listOf(CoreConflict.SING_BOX_ANYTLS_LOCAL_SOCKS_OVERRIDE),
+            (entity.coreDecision(false) as CoreDecision.Rejected).conflicts.map { it.id })
+        entity.anyTLSBean!!.customOutboundJson = ""
+        assertEquals(CoreDecision.Selected(DialCore.SING_BOX, true), entity.coreDecision(false))
     }
 }

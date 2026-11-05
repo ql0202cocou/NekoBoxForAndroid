@@ -213,7 +213,7 @@
       "core": 3,
       "beanColumn": "anyTLSBean",
       "beanClass": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
-      "beanKryoBase64": "BAAAAG1paG9tby0xLmV4YW1wbGUuY2/t/CAAAGdvbGRlbi1wYXNzLWFueXRs821paG9tby0xLmV4YW1wbGUub3LngYGBAIGBAAAAAAAAAQAAAGdvbGRlbi1tdWx0aS1mbC1taWhvbW8tsYGB"
+      "beanKryoBase64": "BQAAAG1paG9tby0xLmV4YW1wbGUuY2/t/CAAAGdvbGRlbi1wYXNzLWFueXRs821paG9tby0xLmV4YW1wbGUub3LngYGBAIGBAAAAAAAAAAAAAAABAAAAZ29sZGVuLW11bHRpLWZsLW1paG9tby2xgYE="
     },
     {
       "id": 4,
@@ -261,7 +261,7 @@
       "core": 3,
       "beanColumn": "anyTLSBean",
       "beanClass": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
-      "beanKryoBase64": "BAAAAG1paG9tby0yLmV4YW1wbGUuY2/t/SAAAGdvbGRlbi1wYXNzLWFueXRs821paG9tby0yLmV4YW1wbGUub3LngYGBAIGBAAAAAAAAAQAAAGdvbGRlbi1tdWx0aS1mbC1sYW5kaW7ngYE="
+      "beanKryoBase64": "BQAAAG1paG9tby0yLmV4YW1wbGUuY2/t/SAAAGdvbGRlbi1wYXNzLWFueXRs821paG9tby0yLmV4YW1wbGUub3LngYGBAIGBAAAAAAAAAAAAAAABAAAAZ29sZGVuLW11bHRpLWZsLWxhbmRpbueBgQ=="
     }
   ],
   "rules": [],

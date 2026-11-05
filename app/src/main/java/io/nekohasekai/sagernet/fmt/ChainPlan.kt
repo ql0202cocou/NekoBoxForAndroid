@@ -307,11 +307,6 @@ internal fun planChain(entity: ProxyEntity, context: ChainPlanContext, checkHop:
     val hops = profileList.mapIndexed { index, hopEntity ->
         val bean = hopEntity.requireBean()
         withProfileName(bean) {
-            val decision = choices[index].decision
-            val internalAnyTls = bean is AnyTLSBean && decision is CoreDecision.Selected && decision.core == DialCore.SING_BOX
-            if (context.forExport && internalAnyTls && !choices[index].requirements.nativeAnyTlsOverrides) {
-                throw ConfigExportException("sing-box AnyTLS uses a NekoBox extension; select mihomo to export a portable configuration")
-            }
             val hop = planHop(
                 hopEntity, bean, choices[index], index == profileList.lastIndex, muxApplied, globalAllowInsecure,
                 context.plugins, context.trials,
@@ -319,6 +314,15 @@ internal fun planChain(entity: ProxyEntity, context: ChainPlanContext, checkHop:
             if ((hop.core as? HopCore.Internal)?.multiplex != null) muxApplied = true
             checkHop(hop)
             hop
+        }
+    }
+    // 只有能纳入运行配置的整条链才检查可移植性；坏成员与坏规则目标仍按原检查原因跳过。
+    if (context.forExport) {
+        val privateHop = hops.firstOrNull {
+            it.bean is AnyTLSBean && it.core is HopCore.Internal && !it.choice.requirements.nativeAnyTlsOverrides
+        }
+        if (privateHop != null) withProfileName(privateHop.bean) {
+            throw ConfigExportException("sing-box AnyTLS uses a NekoBox extension; select mihomo to export a portable configuration")
         }
     }
     return ChainPlan(entity, hops)

@@ -566,6 +566,8 @@
 
     <string name="anytls_certificate_description">自动选核优先使用 sing-box。PEM 证书按所选策略校验；显式证书指纹优先。</string>
     <string name="core_conflict_sing_box_anytls_utls">sing-box 的 AnyTLS 不支持这个客户端指纹。</string>
+    <string name="core_conflict_mihomo_anytls_ech">mihomo 的 AnyTLS 开启 ECH 时只支持标准 TLS、chrome、firefox、chrome120 或 firefox120。</string>
+    <string name="core_conflict_sing_box_anytls_local_socks_override">此出站覆写作用于 mihomo 的本地 SOCKS 跳。</string>
     <string name="core_conflict_sing_box_anytls_ech">sing-box 的 AnyTLS 开启 ECH 时只支持标准 TLS、chrome、firefox、chrome120 或 firefox120。</string>
     <string name="anytls_certificate_policy">证书策略</string>
     <string name="anytls_certificate_policy_pin">固定 PEM 中的第一张证书</string>

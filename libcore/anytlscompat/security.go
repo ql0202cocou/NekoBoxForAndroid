@@ -15,6 +15,7 @@ import (
 
 	tls "github.com/metacubex/tls"
 	utls "github.com/metacubex/utls"
+	C "github.com/sagernet/sing-box/constant"
 )
 
 var (
@@ -166,6 +167,8 @@ func (s *Security) Handshake(ctx context.Context, raw net.Conn) (conn net.Conn, 
 	if err = ctx.Err(); err != nil {
 		return
 	}
+	ctx, cancel := context.WithTimeout(ctx, C.TCPTimeout)
+	defer cancel()
 	o := &s.options
 	ech := s.ech
 	if o.ECH.Enabled && o.ECH.Config == "" {
@@ -204,7 +207,10 @@ func (s *Security) Handshake(ctx context.Context, raw net.Conn) (conn net.Conn, 
 			cfg.InsecureSkipVerify = true
 			cfg.VerifyConnection = func(state utls.ConnectionState) error { return s.verify(state.PeerCertificates, state.ServerName) }
 		}
-		tc := utls.UClient(raw, cfg, *s.hello)
+		tc, buildErr := clientWithALPN(raw, cfg, *s.hello, o.ALPN)
+		if buildErr != nil {
+			return nil, buildErr
+		}
 		if err = tc.HandshakeContext(ctx); err != nil {
 			return
 		}
@@ -215,4 +221,29 @@ func (s *Security) Handshake(ctx context.Context, raw net.Conn) (conn net.Conn, 
 		conn = nil
 	}
 	return
+}
+
+// 有显式 ALPN 时在每条连接自己的模板上设置扩展，外层和 ECH 内层使用同一顺序。
+func clientWithALPN(raw net.Conn, cfg *utls.Config, id utls.ClientHelloID, protocols []string) (*utls.UConn, error) {
+	if len(protocols) == 0 {
+		return utls.UClient(raw, cfg, id), nil
+	}
+	spec, err := utls.UTLSIdToSpec(id)
+	if err != nil {
+		return nil, err
+	}
+	var alpn *utls.ALPNExtension
+	for _, ext := range spec.Extensions {
+		if v, ok := ext.(*utls.ALPNExtension); ok {
+			alpn = v
+			break
+		}
+	}
+	if alpn == nil {
+		alpn = &utls.ALPNExtension{}
+		spec.Extensions = append(spec.Extensions, alpn)
+	}
+	alpn.AlpnProtocols = protocols
+	conn := utls.UClient(raw, cfg, utls.HelloCustom)
+	return conn, conn.ApplyPreset(&spec)
 }

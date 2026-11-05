@@ -16,6 +16,9 @@ fun preserveLegacyAnyTLSCertificatePolicy(bean: AnyTLSBean, core: Int) {
             (bean.utlsFingerprint.isNullOrBlank() || bean.utlsFingerprint in LEGACY_MIHOMO_FINGERPRINTS) -> false
         else -> bean.utlsFingerprint.isNullOrBlank() || bean.utlsFingerprint in LEGACY_SING_BOX_FINGERPRINTS
     }
+    bean.localSocksOutboundJson = bean.compatibilityTest != true && !bean.customOutboundJson.isNullOrBlank() &&
+        (core == ProxyEntity.CORE_MIHOMO || core == ProxyEntity.CORE_AUTO && !trust)
+    bean.certificatePolicySource = AnyTLSBean.POLICY_MIGRATED
     bean.certificatePolicy = if (trust) AnyTLSBean.CERTIFICATE_POLICY_TRUST else AnyTLSBean.CERTIFICATE_POLICY_PIN
 }
 

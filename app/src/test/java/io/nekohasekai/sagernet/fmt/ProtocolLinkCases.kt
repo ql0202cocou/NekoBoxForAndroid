@@ -515,6 +515,8 @@ object ProtocolLinkCases {
         fixedByFormat = mapOf(
             "compatibilityTest" to "历史兼容测试标记不进入专属链接，已不再影响选核或运行",
             "certificatePolicy" to "专属链接只表达固定策略，信任策略使用通用链接完整保留",
+            "certificatePolicySource" to "专属链接的接收端使用协议的默认策略来源",
+            "localSocksOutboundJson" to "有本地 SOCKS 覆写时使用通用链接，专属链接只表达普通节点",
         ),
         cases = listOf(
             // ECH 配置与「只开启 ECH」是两种写法：链接里 ech=<配置> 解析回来只有 echConfig，enableECH 不置位
