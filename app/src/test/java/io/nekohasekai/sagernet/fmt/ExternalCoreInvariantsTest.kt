@@ -54,8 +54,8 @@ class ExternalCoreInvariantsTest {
     private fun assemble(plan: ExternalRunPlan) =
         plan.assemble(::noCacheFile, settings).associate { it.group.pluginId to it.config }
 
-    private fun noViolations(label: String, report: InvariantReport) =
-        assertTrue("$label 违反不变量：\n${report.violations.joinToString("\n")}", report.violations.isEmpty())
+    private fun noViolations(label: String, violations: List<String>) =
+        assertTrue("$label 违反不变量：\n${violations.joinToString("\n")}", violations.isEmpty())
 
     // ---- 生成器现在的输出
 
@@ -90,9 +90,7 @@ class ExternalCoreInvariantsTest {
         }
         // 全部放进同一份合并配置
         val merged = assemble(plan(*xrayBeans.toTypedArray())).getValue("xray-plugin")
-        val report = ExternalCoreInvariants.xray(merged)
-        noViolations("Xray 合并配置", report)
-        assertTrue("没有例外", report.exceptions.isEmpty())
+        noViolations("Xray 合并配置", ExternalCoreInvariants.xray(merged))
     }
 
     // Xray 的 Trojan 出站还没有生成器（K1 接入）：用与 buildXrayOutbound 同形的手写出站走 buildXrayConfig，
@@ -166,7 +164,7 @@ class ExternalCoreInvariantsTest {
 
     private fun expectXray(name: String, fragment: String, mutate: JsonObject.() -> Unit) {
         val config = xrayBase().apply(mutate)
-        val violations = ExternalCoreInvariants.xray(gson.toJson(config)).violations
+        val violations = ExternalCoreInvariants.xray(gson.toJson(config))
         assertTrue("$name：应报出「$fragment」，实际：$violations", violations.any { fragment in it })
     }
 
@@ -226,7 +224,7 @@ class ExternalCoreInvariantsTest {
 
     private fun expectXhttp(name: String, fragment: String, mutate: JsonObject.() -> Unit) {
         val config = xhttpBase().apply(mutate)
-        val violations = ExternalCoreInvariants.xray(gson.toJson(config)).violations
+        val violations = ExternalCoreInvariants.xray(gson.toJson(config))
         assertTrue("$name：应报出「$fragment」，实际：$violations", violations.any { fragment in it })
     }
 

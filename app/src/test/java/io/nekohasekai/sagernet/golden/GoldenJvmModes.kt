@@ -37,7 +37,7 @@ import java.util.Random
 // 与模拟器采集的差别：
 // - 不经过 Android 外壳（captureConfigInput 的 DataStore、Room 读取事务、PackageCache），输入由下面的 configInput
 //   按 input.json 拼出，与外壳共用的只有两处模式判断（packagesToResolve、needsClashApiSecret）；
-// - 平台换成假实现：地址解析查语料、端口从 50001 起递增、本机 socks 凭据用固定种子、测速控制 secret 是固定值，
+// - 平台换成假实现：地址解析查语料、端口从 50001 起递增、本机 socks 凭据用固定种子，
 //   这些都是比较工具按 dynamic 替换的动态值；sing-box 逐出站试建查试建语料（GoldenTrialCorpus），语料里没有的一律通过；
 // - 组装时不做插件安装确认（BoxInstance 传给 assemble 的 beforeHop），也没有内置核心的启动前校验（只进 manifest）
 

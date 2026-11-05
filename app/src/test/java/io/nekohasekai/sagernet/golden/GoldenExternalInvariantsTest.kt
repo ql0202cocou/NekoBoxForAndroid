@@ -1,6 +1,5 @@
 package io.nekohasekai.sagernet.golden
 
-import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.fmt.ExternalCoreInvariants
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -27,31 +26,21 @@ class GoldenExternalInvariantsTest {
                     val text = File(modeDir, group.file).readText()
                     xrayRunTest++
                     check(group.controller == null) { "$where ${group.file}：Xray 配置记录了控制器" }
-                    val report = ExternalCoreInvariants.xray(text)
-                    for (violation in report.violations) failures += "$where ${group.file}：$violation"
-                    check(report.exceptions.isEmpty()) { "$where ${group.file}：Xray 不应有例外" }
+                    for (violation in ExternalCoreInvariants.xray(text)) failures += "$where ${group.file}：$violation"
                 }
             }
             val export = File(baseline.root, "scenarios/$id/export/export.txt")
             if (export.isFile) {
                 // 导出：第 0 段是 sing-box 配置，其后每段一份外核配置
                 export.readText().split("\n\n").drop(1).forEachIndexed { n, segment ->
-                    if (!isXray(segment)) return@forEachIndexed
+                    if (detectExternalCore(segment) != "xray-plugin") return@forEachIndexed
                     xrayExport++
-                    val report = ExternalCoreInvariants.xray(segment)
-                    for (violation in report.violations) failures += "$id / export#${n + 1}：$violation"
+                    for (violation in ExternalCoreInvariants.xray(segment)) failures += "$id / export#${n + 1}：$violation"
                 }
             }
         }
         println("哑管道不变量：Xray run / test $xrayRunTest 份、export $xrayExport 份")
         assertTrue(failures.take(40).joinToString("\n", "违反不变量 ${failures.size} 处：\n"), failures.isEmpty())
         assertTrue("基线里应有 Xray 配置", xrayRunTest > 0 && xrayExport > 0)
-    }
-
-    private fun isXray(segment: String): Boolean {
-        val json = runCatching { JsonParser.parseString(segment) }.getOrNull()
-        if (json == null || !json.isJsonObject) return false
-        val obj = json.asJsonObject
-        return obj.has("routing") && obj.has("inbounds")
     }
 }

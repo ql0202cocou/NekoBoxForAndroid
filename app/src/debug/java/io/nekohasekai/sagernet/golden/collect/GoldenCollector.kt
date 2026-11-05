@@ -144,15 +144,13 @@ class GoldenCollector(private val args: CollectArgs) {
             "external plugin apps are installed (${unexpected.values.joinToString()}); " +
                 "the baseline assumes none, uninstall them first"
         )
-        for ((id, core) in listOf("xray-plugin" to args.xray)) {
-            val file = File(nativeDir, BUILTIN_CORES.getValue(id))
-            if (!file.isFile) throw CollectRefusedException("built-in core ${file.name} is missing from the APK")
-            val actual = sha256(file)
-            if (actual != core.packagedSha256) throw CollectRefusedException(
-                "installed ${file.name} has sha256 $actual but the APK collect.sh used carries " +
-                    "${core.packagedSha256}; reinstall the APK that was just built"
-            )
-        }
+        val xray = File(nativeDir, BUILTIN_CORES.getValue("xray-plugin"))
+        if (!xray.isFile) throw CollectRefusedException("built-in core ${xray.name} is missing from the APK")
+        val actual = sha256(xray)
+        if (actual != args.xray.packagedSha256) throw CollectRefusedException(
+            "installed ${xray.name} has sha256 $actual but the APK collect.sh used carries " +
+                "${args.xray.packagedSha256}; reinstall the APK that was just built"
+        )
         return plugins
     }
 

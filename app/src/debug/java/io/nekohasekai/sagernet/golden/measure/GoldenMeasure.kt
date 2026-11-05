@@ -14,7 +14,6 @@ import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.bg.SagerConnection
 import io.nekohasekai.sagernet.bg.stateOrStopped
 import io.nekohasekai.sagernet.database.DataStore
-import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
 import io.nekohasekai.sagernet.fmt.AbstractBean
@@ -24,7 +23,6 @@ import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean.FLOW_VISION
 import io.nekohasekai.sagernet.golden.collect.CollectRefusedException
 import io.nekohasekai.sagernet.golden.collect.GoldenCollector
 import io.nekohasekai.sagernet.golden.collect.ScenarioBuilder
-import io.nekohasekai.sagernet.golden.collect.anytls
 import io.nekohasekai.sagernet.golden.collect.reality
 import io.nekohasekai.sagernet.golden.collect.shadowsocks
 import io.nekohasekai.sagernet.golden.collect.tls
@@ -157,7 +155,7 @@ object GoldenMeasure {
         val plan = ExternalRunPlan.from(buildConfig(selected))
         val external = linkedMapOf<String, Int>()
         for (hop in plan.hops) external[hop.pluginId] = (external[hop.pluginId] ?: 0) + 1
-        val expected = linkedMapOf("xray-plugin" to xray).filterValues { it > 0 }
+        val expected = if (xray > 0) mapOf("xray-plugin" to xray) else emptyMap()
         if (external != expected) throw CollectRefusedException(
             "the fixture maps to external cores $external, expected $expected"
         )

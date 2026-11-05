@@ -30,9 +30,6 @@ class GoldenExternalWiringTest {
         val auth: Pair<String, String>? = null,
     )
 
-    // 入站支持本机认证的核心
-    private val authCores = setOf("xray-plugin")
-
     private val failures = ArrayList<String>()
     private var checkedSocks = 0
     private var checkedHops = 0
@@ -110,7 +107,7 @@ class GoldenExternalWiringTest {
         val cores = ArrayList<String>()
         segments.drop(1).forEachIndexed { i, segment ->
             val at = "$where export.txt#${i + 1}"
-            val core = detectCore(segment)
+            val core = detectExternalCore(segment)
             if (core == null) {
                 expect(false, at) { "认不出是哪个外核的配置" }
                 return@forEachIndexed
@@ -120,9 +117,8 @@ class GoldenExternalWiringTest {
             inbounds += parseExternal(at, core, segment)
         }
         // 合并后导出里 Xray 最多一段
-        for (merged in listOf("xray-plugin")) {
-            expect(cores.count { it == merged } <= 1, where) { "$merged 有 ${cores.count { it == merged }} 段" }
-        }
+        val xraySegments = cores.count { it == "xray-plugin" }
+        expect(xraySegments <= 1, where) { "xray-plugin 有 $xraySegments 段" }
         checkWiring(where, singBox, inbounds)
     }
 
@@ -141,7 +137,8 @@ class GoldenExternalWiringTest {
             val inbound = matched.singleOrNull() ?: continue
             val user = outbound.str("username")
             val pass = outbound.str("password")
-            if (inbound.core in authCores) {
+            // 只有 Xray 的入站支持本机认证
+            if (inbound.core == "xray-plugin") {
                 checkedAuthSocks++
                 expect(!user.isNullOrEmpty() && !pass.isNullOrEmpty(), where) { "socks 出站 $port 接 ${inbound.core}，没带凭据" }
                 expect(inbound.auth != null && inbound.auth == user to pass, where) {
@@ -165,20 +162,6 @@ class GoldenExternalWiringTest {
                     "${inbound.core} 入站 ${inbound.port} 拨向本机 ${inbound.dialPort}，sing-box 没有监听它的映射入站"
                 }
             }
-        }
-    }
-
-    private fun detectCore(text: String): String? {
-        val json = runCatching { JsonParser.parseString(text) }.getOrNull()
-        if (json == null || !json.isJsonObject) return null
-        val obj = json.asJsonObject
-        return when {
-            obj.has("routing") && obj.has("inbounds") -> "xray-plugin"
-            obj.has("run_type") -> "trojan-go-plugin"
-            obj.has("socks5Port") -> "mieru-plugin"
-            obj.has("socks5") -> "hysteria-plugin"
-            obj.has("listen") && obj.has("proxy") -> "naive-plugin"
-            else -> null
         }
     }
 
@@ -277,4 +260,19 @@ class GoldenExternalWiringTest {
 
     private fun JsonObject.objects(key: String): List<JsonObject> =
         (get(key) as? JsonArray)?.map { it.asJsonObject }.orEmpty()
+}
+
+// 从 export.txt 的一段认出是哪个外核的配置（段里没有记录插件 id），认不出为 null
+internal fun detectExternalCore(text: String): String? {
+    val json = runCatching { JsonParser.parseString(text) }.getOrNull()
+    if (json == null || !json.isJsonObject) return null
+    val obj = json.asJsonObject
+    return when {
+        obj.has("routing") && obj.has("inbounds") -> "xray-plugin"
+        obj.has("run_type") -> "trojan-go-plugin"
+        obj.has("socks5Port") -> "mieru-plugin"
+        obj.has("socks5") -> "hysteria-plugin"
+        obj.has("listen") && obj.has("proxy") -> "naive-plugin"
+        else -> null
+    }
 }

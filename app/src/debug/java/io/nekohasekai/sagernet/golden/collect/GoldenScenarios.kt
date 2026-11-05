@@ -53,9 +53,6 @@ private fun ScenarioTable.single(
     if (global) settings { copy(globalAllowInsecure = true) }
 }
 
-// AnyTLS 节点固定走 sing-box 内部兼容实现；旧场景 ID 与节点名里的 mihomo 仅为保持基线兼容。
-private fun ScenarioBuilder.anyTls(id: Long, bean: AbstractBean, group: Long = 1L) = node(id, bean, group, CORE_AUTO)
-
 // 一份自洽的完整 sing-box 配置（全配置型自定义节点）
 private const val FULL_CONFIG = """{
   "log": {
@@ -436,8 +433,9 @@ private fun ScenarioTable.xrayNodes() {
     }
 }
 
+// AnyTLS 节点固定走 sing-box 内部兼容实现；旧场景 ID 与节点名里的 mihomo 仅为保持基线兼容。
 private fun ScenarioTable.anyTlsNodes() {
-    single("mihomo-anytls", "AnyTLS：SNI 留空，兜底为服务器域名", core = CORE_AUTO) { anytls("golden-anytls") }
+    single("mihomo-anytls", "AnyTLS：SNI 留空，兜底为服务器域名") { anytls("golden-anytls") }
     single("mihomo-anytls-local-override", "旧 mihomo AnyTLS 恢复自动：旧本地 SOCKS 覆写应明确报错") {
         anytls("golden-local-override").apply {
             certificatePolicy = AnyTLSBean.CERTIFICATE_POLICY_LEGACY
@@ -445,31 +443,31 @@ private fun ScenarioTable.anyTlsNodes() {
             preserveLegacyAnyTLSCertificatePolicy(this, CORE_MIHOMO)
         }
     }
-    single("mihomo-anytls-full", "AnyTLS：SNI、多行 ALPN、uTLS", core = CORE_AUTO) {
+    single("mihomo-anytls-full", "AnyTLS：SNI、多行 ALPN、uTLS") {
         anytls("golden-anytls-full", sni = "anytls.example.com", alpn = "h2\nhttp/1.1", utls = "chrome")
     }
-    single("mihomo-anytls-certpin", "AnyTLS 证书指纹（带冒号、大写）", core = CORE_AUTO) {
+    single("mihomo-anytls-certpin", "AnyTLS 证书指纹（带冒号、大写）") {
         anytls("golden-anytls-pin", sni = "anytls.example.com", pin = Fx.CERT_PIN)
     }
-    single("mihomo-anytls-certificates", "AnyTLS 自定义 CA", core = CORE_AUTO) {
+    single("mihomo-anytls-certificates", "AnyTLS 自定义 CA") {
         anytls("golden-anytls-ca", sni = "golden.example.com", certificates = Fx.CERT_PEM)
     }
-    single("mihomo-anytls-certpin-over-insecure", "证书指纹优先于 allowInsecure", core = CORE_AUTO) {
+    single("mihomo-anytls-certpin-over-insecure", "证书指纹优先于 allowInsecure") {
         anytls("golden-anytls-pin-insecure", pin = Fx.CERT_PIN, insecure = true)
     }
-    single("mihomo-anytls-insecure", "AnyTLS allowInsecure", core = CORE_AUTO) { anytls("golden-anytls-insecure", insecure = true) }
-    single("mihomo-anytls-ech-config", "AnyTLS ECH 内联配置", core = CORE_AUTO) { anytls("golden-anytls-ech", echConfig = Fx.ECH_CONFIG) }
-    single("mihomo-anytls-ech-enable", "AnyTLS 只开 ECH", core = CORE_AUTO) { anytls("golden-anytls-ech-on", enableEch = true) }
-    single("mihomo-anytls-ip-server", "AnyTLS IPv4 服务器", core = CORE_AUTO) { anytls("golden-anytls-ip", server = "203.0.113.60") }
-    single("mihomo-anytls-ipv6-server", "AnyTLS IPv6 服务器", core = CORE_AUTO) { anytls("golden-anytls-v6", server = "2001:db8::60") }
-    single("mihomo-anytls-bad-certificate", "AnyTLS 证书解析失败：应报错", core = CORE_AUTO) {
+    single("mihomo-anytls-insecure", "AnyTLS allowInsecure") { anytls("golden-anytls-insecure", insecure = true) }
+    single("mihomo-anytls-ech-config", "AnyTLS ECH 内联配置") { anytls("golden-anytls-ech", echConfig = Fx.ECH_CONFIG) }
+    single("mihomo-anytls-ech-enable", "AnyTLS 只开 ECH") { anytls("golden-anytls-ech-on", enableEch = true) }
+    single("mihomo-anytls-ip-server", "AnyTLS IPv4 服务器") { anytls("golden-anytls-ip", server = "203.0.113.60") }
+    single("mihomo-anytls-ipv6-server", "AnyTLS IPv6 服务器") { anytls("golden-anytls-v6", server = "2001:db8::60") }
+    single("mihomo-anytls-bad-certificate", "AnyTLS 证书解析失败：应报错") {
         anytls("golden-anytls-bad-ca", certificates = "-----BEGIN CERTIFICATE-----\ngolden-not-a-cert\n-----END CERTIFICATE-----")
     }
-    single("mihomo-anytls-certpin-invalid", "AnyTLS 证书指纹格式不对：应报错", core = CORE_AUTO) {
+    single("mihomo-anytls-certpin-invalid", "AnyTLS 证书指纹格式不对：应报错") {
         anytls("golden-anytls-bad-pin", pin = Fx.CERT_PIN_INVALID)
     }
     scenario("mihomo-anytls-group-missing", "AnyTLS 所在分组不存在") {
-        anyTls(1, anytls("golden-anytls-orphan"), group = 9)
+        node(1, anytls("golden-anytls-orphan"), group = 9)
         missingGroups += 9L
     }
 }
@@ -580,7 +578,7 @@ private fun ScenarioTable.chains() {
     )) scenario("chain-3-$suffix", "三跳混合链，顺序 $suffix") {
         node(2, shadowsocks("golden-chain-ss"))
         node(3, vless("golden-chain-xray").reality())
-        anyTls(4, anytls("golden-chain-anytls"))
+        node(4, anytls("golden-chain-anytls"))
         chain(1, *order)
     }
     scenario("chain-2-xray-xray", "两跳都走 Xray") {
@@ -594,7 +592,7 @@ private fun ScenarioTable.chains() {
     scenario("chain-nested", "链里嵌套链") {
         node(2, shadowsocks("golden-nested-ss"))
         node(3, vless("golden-nested-xray").reality())
-        anyTls(4, anytls("golden-nested-anytls"))
+        node(4, anytls("golden-nested-anytls"))
         chain(5, 3, 4, name = "golden-inner-chain")
         chain(1, 2, 5)
     }
@@ -608,7 +606,7 @@ private fun ScenarioTable.chains() {
     scenario("chain-shared-node", "同一个 Xray 节点被两条链共享（主链与路由目标链）") {
         node(2, vmess("golden-shared-exit-a"))
         node(3, vless("golden-shared-xray").reality())
-        anyTls(4, anytls("golden-shared-exit-b"))
+        node(4, anytls("golden-shared-exit-b"))
         chain(1, 3, 2)
         chain(5, 3, 4, name = "golden-shared-chain-b")
         rule(1, outbound = 5) { domains = "domain:shared.example.org" }
@@ -677,7 +675,7 @@ private fun ScenarioBuilder.allExternalChain() {
     node(4, mieru("golden-ext-mieru"))
     node(5, hysteria1("golden-ext-hy1", protocol = HysteriaBean.PROTOCOL_WECHAT_VIDEO, ca = Fx.CERT_PEM))
     node(6, vless("golden-ext-xray").reality())
-    anyTls(7, anytls("golden-ext-anytls"))
+    node(7, anytls("golden-ext-anytls"))
     chain(1, 2, 3, 4, 5, 6, 7, name = "golden-all-external")
 }
 
@@ -719,12 +717,12 @@ private fun ScenarioTable.frontAndLanding() {
         group(1, landing = 11)
         group(2)
         node(1, vless("golden-lm-main").reality())
-        anyTls(11, anytls("golden-lm-landing"), group = 2)
+        node(11, anytls("golden-lm-landing"), group = 2)
     }
     scenario("group-front-anytls-main", "AnyTLS 走 sing-box 且分组有前置") {
         group(1, front = 10)
         group(2)
-        anyTls(1, anytls("golden-fa-main"))
+        node(1, anytls("golden-fa-main"))
         node(10, shadowsocks("golden-fa-front"), group = 2)
     }
     scenario("group-front-plugin", "前置是 Trojan-Go 节点") {
@@ -758,7 +756,7 @@ private fun ScenarioTable.selectors() {
         group(1, selector = true)
         node(1, vmess("golden-sel-vmess").ws().tls(sni = "cdn.example.org"))
         node(2, vless("golden-sel-xray").reality())
-        anyTls(3, anytls("golden-sel-anytls"))
+        node(3, anytls("golden-sel-anytls"))
         node(4, trojan("golden-sel-trojan").tls(sni = "trojan.example.com"))
         node(5, hysteria2("golden-sel-hy2", ports = "20000-20100"))
     }
@@ -780,7 +778,7 @@ private fun ScenarioTable.selectors() {
         node(5, vless("golden-sel-mldsa").reality(mldsa65Verify = Fx.MLDSA65_VERIFY), core = CORE_SING_BOX)
         node(6, customBean("golden-sel-custom-broken", 1, "{golden-broken"))
         node(7, vmess("golden-sel-kcp").transport("kcp"))
-        node(8, anytls("golden-sel-anytls-bad-ca", certificates = "golden-not-a-cert"), core = CORE_AUTO)
+        node(8, anytls("golden-sel-anytls-bad-ca", certificates = "golden-not-a-cert"))
     }
     scenario("selector-main-bad", "选择器：选中的节点本身构建失败（不预检，照常报错）") {
         group(1, selector = true)
@@ -843,7 +841,7 @@ private fun ScenarioTable.selectors() {
         node(1, vmess("golden-selr-vmess").ws())
         node(2, vless("golden-selr-xray").reality())
         node(10, shadowsocks("golden-selr-outside"), group = 2)
-        anyTls(11, anytls("golden-selr-outside-mihomo"), group = 2)
+        node(11, anytls("golden-selr-outside-mihomo"), group = 2)
         rule(1, outbound = 2) { domains = "domain:member.example.org" }
         rule(2, outbound = 10) { domains = "domain:outside.example.org" }
         rule(3, outbound = 11) { domains = "domain:outside-mihomo.example.org" }
@@ -915,7 +913,7 @@ private fun ScenarioTable.routeRules() {
     }
     scenario("rules-to-node-mihomo", "规则目标是 AnyTLS 节点") {
         node(1, vmess("golden-rtm-main").ws())
-        anyTls(2, anytls("golden-rtm-anytls"))
+        node(2, anytls("golden-rtm-anytls"))
         rule(1, outbound = 2) { ip = "198.51.100.0/24" }
     }
     scenario("rules-to-node-anytls", "规则目标是内部 AnyTLS：运行保留规则，导出整体拒绝") {
@@ -1157,7 +1155,7 @@ private fun ScenarioTable.groupNameservers() {
         group(1, selector = true, nameserver = nameservers)
         node(1, vmess("golden-gdnss-vmess").ws())
         node(2, vless("golden-gdnss-xray").reality())
-        anyTls(3, anytls("golden-gdnss-anytls"))
+        node(3, anytls("golden-gdnss-anytls"))
     }
     scenario("group-dns-domain-strategy", "分组 DNS + 显式 domain strategy") {
         group(1, nameserver = "https://dns.example.org/dns-query\n192.0.2.1")
@@ -1204,8 +1202,8 @@ private fun ScenarioBuilder.multiSelectorMembers() {
     node(1, xrayNode("golden-multi-xray-1", 1))
     node(2, xrayNode("golden-multi-xray-2", 2))
     node(3, xrayWsNode("golden-multi-xray-3", 3), core = CORE_XRAY)
-    anyTls(4, anyTlsNode("golden-multi-mihomo-1", 1))
-    anyTls(5, anyTlsNode("golden-multi-mihomo-2", 2))
+    node(4, anyTlsNode("golden-multi-mihomo-1", 1))
+    node(5, anyTlsNode("golden-multi-mihomo-2", 2))
     node(6, ssNode("golden-multi-ss-1", 1))
     node(7, vmess("golden-multi-vmess-1", server = "vmess-1.example.com").ws().tls(sni = "cdn.example.org"))
 }
@@ -1227,8 +1225,8 @@ private fun ScenarioTable.multiExternal() {
         node(1, xrayNode("golden-multi-rt-main", 1))
         node(2, xrayNode("golden-multi-rt-xray-2", 2))
         node(3, xrayWsNode("golden-multi-rt-xray-3", 3), core = CORE_XRAY)
-        anyTls(4, anyTlsNode("golden-multi-rt-mihomo-1", 1))
-        anyTls(5, anyTlsNode("golden-multi-rt-mihomo-2", 2))
+        node(4, anyTlsNode("golden-multi-rt-mihomo-1", 1))
+        node(5, anyTlsNode("golden-multi-rt-mihomo-2", 2))
         node(6, ssNode("golden-multi-rt-ss", 1))
         rule(1, outbound = 2) { domains = "domain:xray-2.example.org" }
         rule(2, outbound = 3) { domains = "domain:xray-3.example.org" }
@@ -1237,9 +1235,9 @@ private fun ScenarioTable.multiExternal() {
         rule(5, outbound = 6) { domains = "domain:ss.example.org" }
     }
     scenario("multi-chain-mihomo-xray-mihomo", "一条链：AnyTLS、Xray、AnyTLS，再接内核出口") {
-        anyTls(2, anyTlsNode("golden-multi-cm-mihomo-1", 1))
+        node(2, anyTlsNode("golden-multi-cm-mihomo-1", 1))
         node(3, xrayNode("golden-multi-cm-xray", 1))
-        anyTls(4, anyTlsNode("golden-multi-cm-mihomo-2", 2))
+        node(4, anyTlsNode("golden-multi-cm-mihomo-2", 2))
         node(5, ssNode("golden-multi-cm-ss", 1))
         chain(1, 2, 3, 4, 5)
     }
@@ -1253,7 +1251,7 @@ private fun ScenarioTable.multiExternal() {
         node(2, ssNode("golden-multi-sh-ss-1", 1))
         node(3, ssNode("golden-multi-sh-ss-2", 2))
         node(4, xrayNode("golden-multi-sh-xray", 1))
-        anyTls(5, anyTlsNode("golden-multi-sh-mihomo", 1))
+        node(5, anyTlsNode("golden-multi-sh-mihomo", 1))
         chain(1, 2, 4, 5)
         chain(6, 3, 4, 5, name = "golden-multi-sh-chain-b")
         rule(1, outbound = 6) { domains = "domain:chain-b.example.org" }
@@ -1262,7 +1260,7 @@ private fun ScenarioTable.multiExternal() {
         node(2, ssNode("golden-multi-sw-ss-1", 1))
         node(3, ssNode("golden-multi-sw-ss-2", 2))
         node(4, xrayNode("golden-multi-sw-xray-shared", 1))
-        anyTls(5, anyTlsNode("golden-multi-sw-mihomo-shared", 1))
+        node(5, anyTlsNode("golden-multi-sw-mihomo-shared", 1))
         node(6, xrayNode("golden-multi-sw-xray-own", 2))
         chain(1, 2, 4, 5, 6)
         chain(7, 3, 5, 4, name = "golden-multi-sw-chain-b")
@@ -1273,18 +1271,18 @@ private fun ScenarioTable.multiExternal() {
         group(2)
         node(1, xrayNode("golden-multi-fl-xray-1", 1))
         node(2, xrayNode("golden-multi-fl-xray-2", 2))
-        anyTls(3, anyTlsNode("golden-multi-fl-mihomo-1", 1))
+        node(3, anyTlsNode("golden-multi-fl-mihomo-1", 1))
         node(4, ssNode("golden-multi-fl-ss", 1))
         node(10, xrayNode("golden-multi-fl-front", 3), group = 2)
-        anyTls(11, anyTlsNode("golden-multi-fl-landing", 2), group = 2)
+        node(11, anyTlsNode("golden-multi-fl-landing", 2), group = 2)
     }
     scenario("multi-selector-chain-members", "选择器成员本身是链，链里有多个 Xray 与 AnyTLS 节点（节点在别的分组）") {
         group(1, selector = true)
         group(2)
         node(2, xrayNode("golden-multi-sc-xray-1", 1), group = 2)
         node(3, xrayNode("golden-multi-sc-xray-2", 2), group = 2)
-        anyTls(4, anyTlsNode("golden-multi-sc-mihomo-1", 1), group = 2)
-        anyTls(5, anyTlsNode("golden-multi-sc-mihomo-2", 2), group = 2)
+        node(4, anyTlsNode("golden-multi-sc-mihomo-1", 1), group = 2)
+        node(5, anyTlsNode("golden-multi-sc-mihomo-2", 2), group = 2)
         node(6, ssNode("golden-multi-sc-ss", 1), group = 2)
         node(7, ssNode("golden-multi-sc-ss-member", 2))
         chain(1, 2, 4, name = "golden-multi-sc-chain-a")
@@ -1295,10 +1293,10 @@ private fun ScenarioTable.multiExternal() {
         node(2, trojanGo("golden-multi-pm-trojan-go"))
         node(3, xrayNode("golden-multi-pm-xray-1", 1))
         node(4, naive("golden-multi-pm-naive"))
-        anyTls(5, anyTlsNode("golden-multi-pm-mihomo-1", 1))
+        node(5, anyTlsNode("golden-multi-pm-mihomo-1", 1))
         node(6, mieru("golden-multi-pm-mieru"))
         node(7, xrayNode("golden-multi-pm-xray-2", 2))
-        anyTls(8, anyTlsNode("golden-multi-pm-mihomo-2", 2))
+        node(8, anyTlsNode("golden-multi-pm-mihomo-2", 2))
         chain(1, 2, 3, 4, 5, 6, 7, 8, name = "golden-multi-pm-chain")
     }
     scenario("multi-selector-plugin-chain-members", "选择器成员是链：外核节点与要装插件 app 的节点混合（模拟器上无插件）") {
@@ -1307,9 +1305,9 @@ private fun ScenarioTable.multiExternal() {
         node(2, trojanGo("golden-multi-sp-trojan-go"), group = 2)
         node(3, naive("golden-multi-sp-naive"), group = 2)
         node(4, xrayNode("golden-multi-sp-xray-1", 1), group = 2)
-        anyTls(5, anyTlsNode("golden-multi-sp-mihomo-1", 1), group = 2)
+        node(5, anyTlsNode("golden-multi-sp-mihomo-1", 1), group = 2)
         node(6, xrayNode("golden-multi-sp-xray-2", 2))
-        anyTls(7, anyTlsNode("golden-multi-sp-mihomo-2", 2))
+        node(7, anyTlsNode("golden-multi-sp-mihomo-2", 2))
         chain(1, 2, 4, name = "golden-multi-sp-chain-a")
         chain(8, 4, 3, 5, name = "golden-multi-sp-chain-b")
         chain(9, 4, 5, name = "golden-multi-sp-chain-c")
@@ -1319,7 +1317,7 @@ private fun ScenarioTable.multiExternal() {
         group(2)
         node(1, xrayNode("golden-multi-fcl-main", 1))
         node(10, xrayNode("golden-multi-fcl-front-xray", 2), group = 2)
-        anyTls(13, anyTlsNode("golden-multi-fcl-front-mihomo", 1), group = 2)
+        node(13, anyTlsNode("golden-multi-fcl-front-mihomo", 1), group = 2)
         node(11, xrayNode("golden-multi-fcl-landing", 3), group = 2)
         chain(12, 10, 13, group = 2, name = "golden-multi-fcl-front-chain")
     }
@@ -1328,7 +1326,7 @@ private fun ScenarioTable.multiExternal() {
         group(2, front = 10)
         node(1, xrayNode("golden-multi-rf-main", 1))
         node(2, xrayNode("golden-multi-rf-xray", 2), group = 2)
-        anyTls(3, anyTlsNode("golden-multi-rf-mihomo", 1), group = 2)
+        node(3, anyTlsNode("golden-multi-rf-mihomo", 1), group = 2)
         node(4, ssNode("golden-multi-rf-ss", 1), group = 2)
         node(10, xrayNode("golden-multi-rf-front", 3), group = 2)
         rule(1, outbound = 2) { domains = "domain:xray.example.org" }
@@ -1415,7 +1413,6 @@ private fun ScenarioTable.k1Selection() {
     single(
         "k1-anytls-randomized-mihomo-manual",
         "AnyTLS 使用兼容实现不支持的 randomized：应报错",
-        core = CORE_AUTO,
     ) {
         anytls("golden-k1-anytls-randomized-mihomo", sni = "anytls.example.com", utls = "randomized")
     }

@@ -39,9 +39,6 @@ class XrayOutboundSpec(
     val checkUser: (Map<String, Any?>) -> List<String> = { emptyList() },
 )
 
-/** 检查结果：violations 是违例；exceptions 是命中了表里显式列出的例外（如 ECH 的 DNS 获取），由调用方核对。 */
-class InvariantReport(val violations: List<String>, val exceptions: List<String>)
-
 object ExternalCoreInvariants {
 
     // ================= Xray 的表 =================
@@ -144,19 +141,19 @@ object ExternalCoreInvariants {
 
     // ================= 入口 =================
 
-    /** 检查一份合并后的 Xray 配置（JSON 文本）。 */
+    /** 检查一份合并后的 Xray 配置（JSON 文本），返回违例。 */
     @Suppress("UNCHECKED_CAST")
-    fun xray(text: String): InvariantReport {
-        val out = ArrayList<String>()
+    fun xray(text: String): List<String> {
         val root = runCatching { JsonParser.parseString(text) }.getOrNull()
-        if (root == null || !root.isJsonObject) return InvariantReport(listOf("不是 JSON 对象"), emptyList())
+        if (root == null || !root.isJsonObject) return listOf("不是 JSON 对象")
+        val out = ArrayList<String>()
         XrayCheck(out).config(toTree(root) as Map<String, Any?>)
-        return InvariantReport(out, emptyList())
+        return out
     }
 
     // ================= 公共：键集与树 =================
 
-    // JSON 与 YAML 都转成 Map / List / String / Long / Double / Boolean / null，检查逻辑只面对这一种树
+    // JSON 转成 Map / List / String / Long / Double / Boolean / null，检查逻辑只面对这一种树
     private fun toTree(element: JsonElement): Any? = when {
         element.isJsonNull -> null
         element is JsonObject -> element.entrySet().associateTo(LinkedHashMap()) { (k, v) -> k to toTree(v) }
