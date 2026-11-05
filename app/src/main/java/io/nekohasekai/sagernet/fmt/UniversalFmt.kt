@@ -37,12 +37,8 @@ fun parseUniversal(link: String, globalAllowInsecure: () -> Boolean): AbstractBe
 // 通用链接解码后的 bean 字节 → bean。纯函数部分（链接的 Base64 / zlib 解码在 parseUniversal 里）
 internal fun universalBean(type: Int, bytes: ByteArray, globalAllowInsecure: () -> Boolean): AbstractBean {
     val bean = ProxyEntity(type = type).apply { putByteArray(bytes) }.requireBean()
-    if (bean is AnyTLSBean) {
-        if (bean.certificatePolicy == AnyTLSBean.CERTIFICATE_POLICY_LEGACY) {
-            preserveLegacyAnyTLSCertificatePolicy(bean, CORE_AUTO)
-        } else {
-            bean.certificatePolicySource = AnyTLSBean.POLICY_PUBLISHED
-        }
+    if (bean is AnyTLSBean && !preserveLegacyAnyTLSCertificatePolicy(bean, CORE_AUTO)) {
+        bean.certificatePolicySource = AnyTLSBean.POLICY_PUBLISHED
     }
     // 通用链接是序列化好的 bean，传输方式与分享链接一样要在导入时拦下未知值。
     // 只有 VMess / VLESS / Trojan 按 type 构建传输层

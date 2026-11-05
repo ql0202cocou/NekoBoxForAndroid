@@ -124,17 +124,8 @@ abstract class SagerDatabase : RoomDatabase() {
         // 只执行一次；之后用户手动选择的核心以及备份恢复的选择照常保留。
         private val MIGRATION_10_11 = object : Migration(10, 11) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.query("SELECT `id`, `core`, `anyTLSBean` FROM `proxy_entities` WHERE `type` = ${ProxyEntity.TYPE_ANYTLS}").use { cursor ->
-                    while (cursor.moveToNext()) {
-                        if (cursor.isNull(2)) continue
-                        // 损坏字节保持原样；未解析的策略在能力匹配处拒绝，不能猜成固定。
-                        val bean = runCatching { KryoConverters.deserialize(AnyTLSBean(), cursor.getBlob(2)) }.getOrNull() ?: continue
-                        if (bean.certificatePolicy != AnyTLSBean.CERTIFICATE_POLICY_LEGACY) continue
-                        preserveLegacyAnyTLSCertificatePolicy(bean, cursor.getInt(1))
-                        db.execSQL("UPDATE `proxy_entities` SET `anyTLSBean` = ? WHERE `id` = ?",
-                            arrayOf<Any>(KryoConverters.serialize(bean), cursor.getLong(0)))
-                    }
-                }
+                // 损坏行保留的未解析策略在能力匹配处拒绝，不能猜成固定。
+                rewriteAnyTLSBeans(db, "`type` = ${ProxyEntity.TYPE_ANYTLS}", ::preserveLegacyAnyTLSCertificatePolicy)
                 db.execSQL(
                     "UPDATE `proxy_entities` SET `core` = ? WHERE `type` = ? AND `core` != ?",
                     arrayOf<Any>(ProxyEntity.CORE_AUTO, ProxyEntity.TYPE_ANYTLS, ProxyEntity.CORE_AUTO),
@@ -145,20 +136,31 @@ abstract class SagerDatabase : RoomDatabase() {
         // mihomo 已移除：先保留旧覆写的目标，再恢复自动，不能把本机 SOCKS JSON 静默套到 AnyTLS 上。
         private val MIGRATION_11_12 = object : Migration(11, 12) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.query("SELECT `id`, `core`, `anyTLSBean` FROM `proxy_entities` WHERE `type` = ${ProxyEntity.TYPE_ANYTLS} AND `core` = ${ProxyEntity.CORE_MIHOMO}").use { cursor ->
-                    while (cursor.moveToNext()) {
-                        if (cursor.isNull(2)) continue
-                        // 损坏字节保留原样；没有补标记的行不重写 bean，证书策略与来源都不变。
-                        val bean = runCatching { KryoConverters.deserialize(AnyTLSBean(), cursor.getBlob(2)) }.getOrNull() ?: continue
-                        if (!preserveRemovedMihomoAnyTLSOverride(bean, cursor.getInt(1))) continue
-                        db.execSQL("UPDATE `proxy_entities` SET `anyTLSBean` = ? WHERE `id` = ?",
-                            arrayOf<Any>(KryoConverters.serialize(bean), cursor.getLong(0)))
-                    }
-                }
+                // 没有补标记的行不重写 bean，证书策略与来源都不变。
+                rewriteAnyTLSBeans(
+                    db,
+                    "`type` = ${ProxyEntity.TYPE_ANYTLS} AND `core` = ${ProxyEntity.CORE_MIHOMO}",
+                    ::preserveRemovedMihomoAnyTLSOverride,
+                )
                 db.execSQL(
                     "UPDATE `proxy_entities` SET `core` = ? WHERE `type` = ? AND `core` = ?",
                     arrayOf<Any>(ProxyEntity.CORE_AUTO, ProxyEntity.TYPE_ANYTLS, ProxyEntity.CORE_MIHOMO),
                 )
+            }
+        }
+
+        // 逐行改写 AnyTLS bean：损坏字节保持原样，transform（bean、core 列）返回 false 的行不写回。
+        private fun rewriteAnyTLSBeans(db: SupportSQLiteDatabase, where: String, transform: (AnyTLSBean, Int) -> Boolean) {
+            db.query("SELECT `id`, `core`, `anyTLSBean` FROM `proxy_entities` WHERE $where").use { cursor ->
+                while (cursor.moveToNext()) {
+                    if (cursor.isNull(2)) continue
+                    val bean = runCatching { KryoConverters.deserialize(AnyTLSBean(), cursor.getBlob(2)) }.getOrNull() ?: continue
+                    if (!transform(bean, cursor.getInt(1))) continue
+                    db.execSQL(
+                        "UPDATE `proxy_entities` SET `anyTLSBean` = ? WHERE `id` = ?",
+                        arrayOf<Any>(KryoConverters.serialize(bean), cursor.getLong(0)),
+                    )
+                }
             }
         }
 

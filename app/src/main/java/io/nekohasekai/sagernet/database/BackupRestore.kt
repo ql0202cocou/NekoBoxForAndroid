@@ -16,7 +16,6 @@ import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.canonicalizeXhttp
 import io.nekohasekai.sagernet.ktx.app
-import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.utils.Util
 import org.json.JSONObject
 import java.io.File
@@ -135,23 +134,18 @@ object BackupRestore {
         val global by lazy(globalAllowInsecure)
         var changed = 0
         for (entity in profiles) {
-            var beanChanged = false
-            entity.anyTLSBean?.let { bean ->
-                // 在旧策略迁移前区分 v3 与 v4+，并在改 core 前保存旧覆写的作用对象。
-                beanChanged = preserveRemovedMihomoAnyTLSOverride(bean, entity.core)
-                if (bean.certificatePolicy == AnyTLSBean.CERTIFICATE_POLICY_LEGACY) {
-                    // 与逐版本数据库迁移保持顺序一致：K1 之前的无效核心值原本由 sing-box 承载。
-                    preserveLegacyAnyTLSCertificatePolicy(bean, normalizedLegacyCore(entity.type, entity.core))
-                    beanChanged = true
-                }
-            }
-            // mihomo 移除后，旧备份里的手动 AnyTLS 核心回到自动；证书策略仍按上面的旧核心保存。
-            val removedMihomo = entity.type == ProxyEntity.TYPE_ANYTLS && entity.core == ProxyEntity.CORE_MIHOMO
-            if (removedMihomo) entity.core = ProxyEntity.CORE_AUTO
+            // 两条规则互斥且都读改 core 前的值：v3 及更早走旧策略迁移（K1 之前的无效核心值原本由 sing-box 承载），
+            // v4+ 才补旧覆写的作用对象。
+            val beanChanged = entity.anyTLSBean?.let { bean ->
+                preserveLegacyAnyTLSCertificatePolicy(bean, normalizedLegacyCore(entity.type, entity.core)) ||
+                    preserveRemovedMihomoAnyTLSOverride(bean, entity.core)
+            } ?: false
             val bean = entity.beanForType() as? StandardV2RayBean
             if (bean == null) {
-                val normalized = normalizedLegacyCore(entity.type, entity.core)
-                if (normalized != entity.core || beanChanged || removedMihomo) {
+                // mihomo 移除后，旧备份里的手动 AnyTLS 核心回到自动。
+                val removedMihomo = entity.type == ProxyEntity.TYPE_ANYTLS && entity.core == ProxyEntity.CORE_MIHOMO
+                val normalized = if (removedMihomo) ProxyEntity.CORE_AUTO else normalizedLegacyCore(entity.type, entity.core)
+                if (normalized != entity.core || beanChanged) {
                     entity.core = normalized
                     changed++
                 }
