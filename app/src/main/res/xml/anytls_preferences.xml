@@ -13,6 +13,13 @@
         app:title="@string/action_anytls"
         app:summary="@string/anytls_certificate_description" />
 
+    <Preference
+        app:key="confirmAnyTlsOverride"
+        app:icon="@drawable/ic_image_edit"
+        app:title="@string/anytls_override_rewritten"
+        app:summary="@string/anytls_override_rewritten_summary"
+        app:persistent="false" />
+
     <PreferenceCategory app:title="@string/proxy_cat">
         <EditTextPreference
             app:icon="@drawable/ic_hardware_router"

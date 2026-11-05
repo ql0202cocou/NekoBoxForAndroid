@@ -2,8 +2,11 @@ package moe.matsuri.nb4a.proxy.anytls
 
 import android.os.Bundle
 import androidx.preference.EditTextPreference
+import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.database.EditorCache
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import io.nekohasekai.sagernet.ui.profile.ProfileSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.bindCertificateFingerprintPreference
@@ -35,6 +38,7 @@ class AnyTLSSettingsActivity : ProfileSettingsActivity<AnyTLSBean>() {
     private val utlsFingerprint = pbm.add(PreferenceBinding(Type.Text, "utlsFingerprint"))
     private val echConfig = pbm.add(PreferenceBinding(Type.Text, "echConfig"))
     private val enableECH = pbm.add(PreferenceBinding(Type.Bool, "enableECH"))
+    private val localSocksOverride = pbm.add(PreferenceBinding(Type.Bool, "localSocksOutboundJson"))
 
     override fun AnyTLSBean.init() {
         pbm.writeToCacheAll(this)
@@ -56,5 +60,25 @@ class AnyTLSSettingsActivity : ProfileSettingsActivity<AnyTLSBean>() {
         findPreference<EditTextPreference>("password")!!.bindPasswordPreference()
         findPreference<EditTextPreference>("certificateFingerprint")!!
             .bindCertificateFingerprintPreference()
+        findPreference<Preference>("confirmAnyTlsOverride")!!.apply {
+            isVisible = localSocksOverride.readBoolFromCache()
+            setOnPreferenceClickListener {
+                MaterialAlertDialogBuilder(this@AnyTLSSettingsActivity)
+                    .setTitle(R.string.anytls_override_rewritten)
+                    .setMessage(R.string.anytls_override_rewritten_confirm)
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .setPositiveButton(R.string.confirm) { _, _ ->
+                        launchInSession {
+                            // 确认只属于当前编辑会话；旋转保留缓存，放弃编辑不改数据库。
+                            onMain {
+                                EditorCache.profileCacheStore.putBoolean(localSocksOverride.cacheName, false)
+                                EditorCache.dirty = true
+                                isVisible = false
+                            }
+                        }
+                    }.show()
+                true
+            }
+        }
     }
 }

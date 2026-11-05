@@ -629,7 +629,10 @@
 
     <string name="anytls_certificate_description">AnyTLS runs on sing-box. PEM certificates use the selected policy; an explicit certificate fingerprint takes priority.</string>
     <string name="core_conflict_sing_box_anytls_utls">Unsupported client fingerprint for the sing-box AnyTLS.</string>
-    <string name="core_conflict_sing_box_anytls_local_socks_override">This outbound override targets the local SOCKS hop of the removed mihomo core. Remove or rewrite it.</string>
+    <string name="core_conflict_sing_box_anytls_local_socks_override">This outbound override targets the local SOCKS hop of the removed mihomo core. Remove it, or rewrite it for AnyTLS and select “Confirm rewritten override” in the profile editor.</string>
+    <string name="anytls_override_rewritten">Confirm rewritten override</string>
+    <string name="anytls_override_rewritten_summary">After rewriting the old SOCKS override, confirm that it now applies to the AnyTLS outbound.</string>
+    <string name="anytls_override_rewritten_confirm">Confirm only after rewriting the JSON for an AnyTLS outbound. This changes which outbound the override applies to; it does not convert the old content. Save the profile to apply the change.</string>
     <string name="core_conflict_sing_box_anytls_ech">sing-box AnyTLS ECH require standard TLS, chrome, firefox, chrome120 or firefox120.</string>
     <string name="anytls_certificate_policy">Certificate policy</string>
     <string name="anytls_certificate_policy_pin">Pin the first PEM certificate</string>
