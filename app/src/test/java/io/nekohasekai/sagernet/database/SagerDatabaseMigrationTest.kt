@@ -13,6 +13,9 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_SOCKS
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_TROJAN
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_VMESS
 import io.nekohasekai.sagernet.fmt.kryo.KryoSamples
+import io.nekohasekai.sagernet.fmt.KryoConverters
+import io.nekohasekai.sagernet.fmt.LegacyAnyTLSV4
+import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import io.nekohasekai.sagernet.ktx.Logs
 import java.io.File
 import java.lang.reflect.Modifier
@@ -366,6 +369,7 @@ class SagerDatabaseMigrationTest {
             schema.row("proxy_entities", "id" to 3, "groupId" to 7, "type" to TYPE_ANYTLS, "core" to CORE_SING_BOX, "anyTLSBean" to bean),
             schema.row("proxy_entities", "id" to 4, "groupId" to 7, "type" to TYPE_VMESS, "core" to CORE_MIHOMO, "vmessBean" to blobOf(2)),
             schema.row("proxy_entities", "id" to 5, "groupId" to 7, "type" to TYPE_ANYTLS, "core" to CORE_MIHOMO, "anyTLSBean" to blobOf(1)),
+            schema.row("proxy_entities", "id" to 6, "groupId" to 7, "type" to TYPE_ANYTLS, "core" to CORE_MIHOMO),
         )
         open(11).use { db ->
             rows.forEach { db.insert("proxy_entities", it) }
@@ -387,6 +391,49 @@ class SagerDatabaseMigrationTest {
             }
             assertEquals(listOf(group), db.table("proxy_groups"))
             assertEquals(listOf(rule), db.table("rules"))
+        }
+    }
+
+    @Test
+    fun `11 到 12 保留历史覆写目标而不改变原 JSON 证书语义与其它列`() {
+        val schema = Schema.load(11)
+        val sample = KryoSamples.samples.single { it.id == "AnyTLSBean/policy-v4/pin" }
+        open(11).use { db ->
+            var id = 1L
+            val expectedBeans = mutableMapOf<Long, ByteArray>()
+            val rows = buildList {
+                for (version in listOf(4, 5)) for (core in listOf(CORE_AUTO, CORE_SING_BOX, CORE_MIHOMO)) {
+                    for (json in listOf("", "  ", """{"server":"socks-bridge.example.org","server_port":1080}""")) {
+                        for (marked in listOf(false, true)) {
+                            val bean = (KryoSamples.read(sample) as AnyTLSBean).apply {
+                                customOutboundJson = json
+                                localSocksOutboundJson = marked
+                            }
+                            val bytes = if (version == 4) LegacyAnyTLSV4.bytes(bean) else KryoConverters.serialize(bean)
+                            val expected = KryoConverters.deserialize(AnyTLSBean(), bytes)
+                            val changed = core == CORE_MIHOMO && json.isNotBlank() && !expected.localSocksOutboundJson
+                            if (changed) expected.localSocksOutboundJson = true
+                            expectedBeans[id] = if (changed) KryoConverters.serialize(expected) else bytes
+                            add(schema.row("proxy_entities", "id" to id++, "groupId" to 7, "type" to TYPE_ANYTLS,
+                                "core" to core, "tx" to 42, "rx" to 84, "anyTLSBean" to bytes.toBlob()))
+                        }
+                    }
+                }
+            }
+            rows.forEach { db.insert("proxy_entities", it) }
+            db.migrate(migrationFrom(11))
+            db.assertSchema(12)
+            val actual = db.table("proxy_entities").associateBy { it["id"] }
+            for (row in rows) {
+                val expectedCore = if (row["core"] == CORE_MIHOMO.toLong()) CORE_AUTO.toLong() else row["core"]
+                val migrated = actual.getValue(row["id"])
+                assertEquals(row - "core" - "anyTLSBean", migrated - "core" - "anyTLSBean")
+                assertEquals(expectedCore, migrated["core"])
+                assertEquals(expectedBeans.getValue(row["id"] as Long).toBlob(), migrated["anyTLSBean"])
+            }
+            // 相同入口意外再次执行也不能重写数据或重新标记自动核心。
+            db.migrate(migrationFrom(11))
+            assertEquals(actual.values.toList(), db.table("proxy_entities"))
         }
     }
 

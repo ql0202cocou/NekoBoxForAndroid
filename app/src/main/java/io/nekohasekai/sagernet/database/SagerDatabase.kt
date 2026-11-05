@@ -11,6 +11,7 @@ import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.fmt.KryoConverters
 import io.nekohasekai.sagernet.fmt.preserveLegacyAnyTLSCertificatePolicy
+import io.nekohasekai.sagernet.fmt.preserveRemovedMihomoAnyTLSOverride
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import io.nekohasekai.sagernet.fmt.gson.GsonConverters
 import io.nekohasekai.sagernet.ktx.Logs
@@ -141,9 +142,19 @@ abstract class SagerDatabase : RoomDatabase() {
             }
         }
 
-        // mihomo 已移除：旧版手动选择它的 AnyTLS 节点回到自动选核，其余字段不变。
+        // mihomo 已移除：先保留旧覆写的目标，再恢复自动，不能把本机 SOCKS JSON 静默套到 AnyTLS 上。
         private val MIGRATION_11_12 = object : Migration(11, 12) {
             override fun migrate(db: SupportSQLiteDatabase) {
+                db.query("SELECT `id`, `core`, `anyTLSBean` FROM `proxy_entities` WHERE `type` = ${ProxyEntity.TYPE_ANYTLS} AND `core` = ${ProxyEntity.CORE_MIHOMO}").use { cursor ->
+                    while (cursor.moveToNext()) {
+                        if (cursor.isNull(2)) continue
+                        // 损坏字节保留原样；没有补标记的行不重写 bean，证书策略与来源都不变。
+                        val bean = runCatching { KryoConverters.deserialize(AnyTLSBean(), cursor.getBlob(2)) }.getOrNull() ?: continue
+                        if (!preserveRemovedMihomoAnyTLSOverride(bean, cursor.getInt(1))) continue
+                        db.execSQL("UPDATE `proxy_entities` SET `anyTLSBean` = ? WHERE `id` = ?",
+                            arrayOf<Any>(KryoConverters.serialize(bean), cursor.getLong(0)))
+                    }
+                }
                 db.execSQL(
                     "UPDATE `proxy_entities` SET `core` = ? WHERE `type` = ? AND `core` = ?",
                     arrayOf<Any>(ProxyEntity.CORE_AUTO, ProxyEntity.TYPE_ANYTLS, ProxyEntity.CORE_MIHOMO),

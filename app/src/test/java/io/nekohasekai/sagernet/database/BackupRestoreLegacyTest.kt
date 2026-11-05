@@ -11,6 +11,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_VMESS
 import io.nekohasekai.sagernet.database.preference.KeyValuePair
 import io.nekohasekai.sagernet.fmt.KryoConverters
 import io.nekohasekai.sagernet.fmt.LegacyV6Bytes
+import io.nekohasekai.sagernet.fmt.LegacyAnyTLSV4
 import io.nekohasekai.sagernet.fmt.kryo.KryoSamples
 import io.nekohasekai.sagernet.fmt.putBean
 import io.nekohasekai.sagernet.fmt.putByteArray
@@ -19,6 +20,7 @@ import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -37,6 +39,55 @@ class BackupRestoreLegacyTest {
     private val ProxyEntity.standard get() = requireBean() as StandardV2RayBean
 
     private fun noGlobal(): Boolean = error("没有待标注的节点时不该读全局设置")
+
+    @Test
+    fun `v4 和 v5 备份在移除手动 mihomo 前保留覆写目标及全部证书字段`() {
+        val sample = KryoSamples.samples.single { it.id == "AnyTLSBean/policy-v4/pin" }
+        for (version in listOf(4, 5)) for (core in listOf(CORE_AUTO, CORE_SING_BOX, CORE_MIHOMO)) {
+            for (json in listOf("", "  ", """{"server":"socks-bridge.example.org","server_port":1080}""")) {
+                for (policy in listOf(AnyTLSBean.CERTIFICATE_POLICY_PIN, AnyTLSBean.CERTIFICATE_POLICY_TRUST)) {
+                    val original = (KryoSamples.read(sample) as AnyTLSBean).apply {
+                        customOutboundJson = json
+                        certificatePolicy = policy
+                    }
+                    val bytes = if (version == 4) LegacyAnyTLSV4.bytes(original) else KryoConverters.serialize(original)
+                    val restored = entity(ProxyEntity.TYPE_ANYTLS, core, bytes)
+                    val expected = (restored.requireBean().clone() as AnyTLSBean).apply {
+                        localSocksOutboundJson = core == CORE_MIHOMO && json.isNotBlank()
+                    }
+                    assertEquals(if (core == CORE_MIHOMO) 1 else 0, BackupRestore.upgradeLegacyProfiles(listOf(restored), ::noGlobal))
+                    assertEquals(if (core == CORE_MIHOMO) CORE_AUTO else core, restored.core)
+                    assertArrayEquals(KryoConverters.serialize(expected), KryoConverters.serialize(restored.requireBean()))
+                    assertEquals(0, BackupRestore.upgradeLegacyProfiles(listOf(restored), ::noGlobal))
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `v3 兼容测试的内部覆写不被误标且已有本地 SOCKS 标记不丢`() {
+        for (testing in listOf(false, true)) {
+            val sample = KryoSamples.samples.single { it.id == "AnyTLSBean/compat-v3/ordinary" }
+            val bean = (KryoSamples.read(sample) as AnyTLSBean).apply {
+                compatibilityTest = testing
+                customOutboundJson = """{"network":"tcp"}"""
+            }
+            val restored = ProxyEntity(core = CORE_MIHOMO).putBean(bean)
+            BackupRestore.upgradeLegacyProfiles(listOf(restored), ::noGlobal)
+            assertEquals(!testing, bean.localSocksOutboundJson)
+            assertEquals(AnyTLSBean.CERTIFICATE_POLICY_PIN, bean.certificatePolicy)
+            assertEquals(AnyTLSBean.POLICY_MIGRATED, bean.certificatePolicySource)
+        }
+        val marked = ProxyEntity(core = CORE_AUTO).putBean(AnyTLSBean().apply {
+            initializeDefaultValues()
+            localSocksOutboundJson = true
+            customOutboundJson = """{"network":"tcp"}"""
+            certificatePolicySource = AnyTLSBean.POLICY_LOCAL
+        })
+        val before = KryoConverters.serialize(marked.requireBean())
+        assertEquals(0, BackupRestore.upgradeLegacyProfiles(listOf(marked), ::noGlobal))
+        assertArrayEquals(before, KryoConverters.serialize(marked.requireBean()))
+    }
 
     @Test
     fun `备份里的实体按自己的 core 列标注，标注后清掉标记`() {
