@@ -93,30 +93,6 @@ newer_releases() {
 
 NEWER=0
 FAILED=0
-LATEST=""
-
-report_core() {
-  local name="$1" repo="$2" pin="$3" list
-  LATEST=""
-  echo "== $name: 固定 $pin"
-  if ! list=$(newer_releases "$repo" "$pin"); then
-    FAILED=1
-    return
-  fi
-  if [ -z "$list" ]; then
-    echo "   没有比 $pin 更新的发布"
-    return
-  fi
-  NEWER=1
-  local latest
-  latest=$(printf '%s\n' "$list" | head -n 1 | cut -f1)
-  echo "   更新的发布（tag / pre-release / 发布日期）："
-  printf '%s\n' "$list" | while IFS=$'\t' read -r tag pre date; do
-    echo "     $tag  prerelease=$pre  $date"
-  done
-  echo "   对比：https://github.com/$repo/compare/$pin...$latest"
-  LATEST="$latest"
-}
 
 # Xray：固定版本到最新 tag 之间、标题含关键字的提交（compare 一页最多 250 条，要翻页）
 xray_commits() {
@@ -139,9 +115,20 @@ xray_commits() {
   done
 }
 
-report_core "Xray" XTLS/Xray-core "$XRAY_PINNED"
-if [ -n "$LATEST" ]; then
-  xray_commits "$XRAY_PINNED" "$LATEST" || FAILED=1
+echo "== Xray: 固定 $XRAY_PINNED"
+if ! list=$(newer_releases XTLS/Xray-core "$XRAY_PINNED"); then
+  FAILED=1
+elif [ -z "$list" ]; then
+  echo "   没有比 $XRAY_PINNED 更新的发布"
+else
+  NEWER=1
+  latest=$(printf '%s\n' "$list" | head -n 1 | cut -f1)
+  echo "   更新的发布（tag / pre-release / 发布日期）："
+  printf '%s\n' "$list" | while IFS=$'\t' read -r tag pre date; do
+    echo "     $tag  prerelease=$pre  $date"
+  done
+  echo "   对比：https://github.com/XTLS/Xray-core/compare/$XRAY_PINNED...$latest"
+  xray_commits "$XRAY_PINNED" "$latest" || FAILED=1
 fi
 
 # sing-box：只提示最新稳定版，不影响退出码

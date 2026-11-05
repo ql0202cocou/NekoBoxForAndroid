@@ -90,8 +90,7 @@ golden_select_apk
 golden_install_apk "$INSTALL"
 # 打包时 AGP 会 strip 原生库，装进设备的文件与上游二进制不再逐字节相同：取 APK 里那份的
 # sha256 交给采集入口，与设备上实际安装的文件核对
-packaged() { unzip -p "$APK" "lib/$ABI/$1" | shasum -a 256 | awk '{print $1}'; }
-XRAY_PACKAGED=$(packaged libxray.so)
+XRAY_PACKAGED=$(unzip -p "$APK" "lib/$ABI/libxray.so" | shasum -a 256 | awk '{print $1}')
 
 if [ "$GOLDEN" = 1 ]; then
   DEST=app/src/test/resources/golden

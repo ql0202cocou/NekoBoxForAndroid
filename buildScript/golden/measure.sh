@@ -709,12 +709,11 @@ if start_block["requested"]:
         print("启动：未连接（%s）" % json.dumps(start_block.get("failure"), ensure_ascii=False))
 else:
     print("启动：请求失败（%s）" % start_block["error"])
-for core in ("xray",):
-    st = result["processes"][core]
-    if st:
-        print("%s：最多 %d 个（%s），结束时 %d 个，后半段 %s–%s 个，出现过 %d 个不同 pid（节点 %d 个，应有进程 %d 个）"
-              % (core, st["max"], fmt_ms(st["maxAtMs"]), st["final"], st["secondHalfMin"], st["secondHalfMax"],
-                 st["distinctPids"], st["nodes"], st["expected"]))
+st = result["processes"]["xray"]
+if st:
+    print("xray：最多 %d 个（%s），结束时 %d 个，后半段 %s–%s 个，出现过 %d 个不同 pid（节点 %d 个，应有进程 %d 个）"
+          % (st["max"], fmt_ms(st["maxAtMs"]), st["final"], st["secondHalfMin"], st["secondHalfMax"],
+             st["distinctPids"], st["nodes"], st["expected"]))
 pb = phantom_block
 print("系统清理：phantom 进程被杀 %d 次（本应用外核 %d 次），%d 批，首次 %s，末次 %s，批间隔 %s"
       % (pb["killCount"], pb["killCountOurCores"], len(pb["bursts"]), fmt_ms(pb["firstKillMs"]),

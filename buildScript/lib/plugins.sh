@@ -30,7 +30,8 @@ check_pinned() {
   verify_sha256 "$1" "$expect" "pinned "
 }
 
-ROOT=$(pwd)
+# 老工作区里已下载的 mihomo 仍会被 jniLibs 打包，必须清掉。
+for abi in $ABIS; do rm -f "$DIR/$abi/libmihomo.so"; done
 
 # 已安装核心匹配时跳过；版本戳与 ELF 头识别不了缓存损坏或替换，因此仍核对固定哈希。
 if [ "$(cat "$STAMP" 2>/dev/null)" = "$WANT" ] \
@@ -38,40 +39,38 @@ if [ "$(cat "$STAMP" 2>/dev/null)" = "$WANT" ] \
   && check_pinned "$DIR/arm64-v8a/libxray.so" arm64-v8a \
   && check_pinned "$DIR/x86_64/libxray.so" x86_64; then
   echo ">> plugin core up to date ($WANT)"
-else
-  mkdir -p $DIR/arm64-v8a $DIR/x86_64
-  rm -f "$STAMP"
-
-  TMP=$(mktemp -d)
-  trap 'rm -rf "$TMP"' EXIT
-  cd $TMP
-
-  check_sha256() {
-    # $1: file, $2: dgst content with "SHA2-256= <hash>"
-    local expect=$(echo "$2" | grep 'SHA2-256=' | awk '{print $2}')
-    [ -n "$expect" ] || { echo "no SHA2-256 in dgst"; exit 1; }
-    verify_sha256 "$1" "$expect" || exit 1
-  }
-
-  upstream_arch() {
-    if [ "$1" = x86_64 ]; then echo amd64; else echo arm64-v8a; fi
-  }
-
-  for abi in $ABIS; do
-    zip="Xray-android-$(upstream_arch $abi).zip"
-    curl -fLSsO "https://github.com/XTLS/Xray-core/releases/download/$XRAY_VERSION/$zip"
-    dgst=$(curl -fLSs "https://github.com/XTLS/Xray-core/releases/download/$XRAY_VERSION/$zip.dgst")
-    check_sha256 "$zip" "$dgst"
-    unzip -o -q "$zip" xray
-    is_elf xray || { echo "xray is not an ELF binary"; exit 1; }
-    check_pinned xray "$abi"
-    cp xray "$OLDPWD/$DIR/$abi/libxray.so"
-    rm -f xray "$zip"
-  done
-
-  echo "$WANT" > "$OLDPWD/$STAMP"
-  echo ">> plugin core installed to $DIR (xray $XRAY_VERSION)"
+  exit 0
 fi
 
-# 老工作区里已下载的 mihomo 仍会被 jniLibs 打包，必须清掉。
-rm -f "$ROOT/$DIR/arm64-v8a/libmihomo.so" "$ROOT/$DIR/x86_64/libmihomo.so"
+mkdir -p $DIR/arm64-v8a $DIR/x86_64
+rm -f "$STAMP"
+
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+cd $TMP
+
+check_sha256() {
+  # $1: file, $2: dgst content with "SHA2-256= <hash>"
+  local expect=$(echo "$2" | grep 'SHA2-256=' | awk '{print $2}')
+  [ -n "$expect" ] || { echo "no SHA2-256 in dgst"; exit 1; }
+  verify_sha256 "$1" "$expect" || exit 1
+}
+
+upstream_arch() {
+  if [ "$1" = x86_64 ]; then echo amd64; else echo arm64-v8a; fi
+}
+
+for abi in $ABIS; do
+  zip="Xray-android-$(upstream_arch $abi).zip"
+  curl -fLSsO "https://github.com/XTLS/Xray-core/releases/download/$XRAY_VERSION/$zip"
+  dgst=$(curl -fLSs "https://github.com/XTLS/Xray-core/releases/download/$XRAY_VERSION/$zip.dgst")
+  check_sha256 "$zip" "$dgst"
+  unzip -o -q "$zip" xray
+  is_elf xray || { echo "xray is not an ELF binary"; exit 1; }
+  check_pinned xray "$abi"
+  cp xray "$OLDPWD/$DIR/$abi/libxray.so"
+  rm -f xray "$zip"
+done
+
+echo "$WANT" > "$OLDPWD/$STAMP"
+echo ">> plugin core installed to $DIR (xray $XRAY_VERSION)"
