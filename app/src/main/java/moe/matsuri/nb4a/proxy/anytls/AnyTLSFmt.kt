@@ -1,6 +1,10 @@
 package moe.matsuri.nb4a.proxy.anytls
 
+import com.google.gson.JsonParseException
+import com.google.gson.JsonParser
+import io.nekohasekai.sagernet.fmt.SING_BOX_UTLS_FINGERPRINTS
 import io.nekohasekai.sagernet.fmt.buildAnyTLSCompatibilityTLS
+import io.nekohasekai.sagernet.fmt.buildSingBoxOutboundTLS
 import io.nekohasekai.sagernet.fmt.toUniversalLink
 import io.nekohasekai.sagernet.ktx.linkBuilder
 import io.nekohasekai.sagernet.ktx.toLink
@@ -12,14 +16,63 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 // 私有兼容出站的类型名，必须与 libcore/anytlscompat/boxadapter/outbound.go 的 boxadapter.Type 相同
 const val ANYTLS_COMPAT_OUTBOUND_TYPE = "neko-anytls"
 
+// 旧 sing-box 节点迁移后为信任策略。覆写继续交给原生出站，保留它完整的会话与 TLS 配置语义。
+// 新节点没有用到固定、兼容指纹或 ECH 时也可使用原生覆写；含私有字段的配置始终由兼容实现解释。
+internal fun AnyTLSBean.usesNativeAnyTLSOverrides(): Boolean {
+    if (customOutboundJson.isNullOrBlank() || !certificateFingerprint.isNullOrBlank()) return false
+    val trust = certificatePolicy == AnyTLSBean.CERTIFICATE_POLICY_TRUST
+    if (!trust) {
+        if (certificatePolicy != AnyTLSBean.CERTIFICATE_POLICY_PIN || !certificates.isNullOrBlank()) return false
+        if (!utlsFingerprint.isNullOrBlank() || enableECH == true || !echConfig.isNullOrBlank()) return false
+    }
+    if (!utlsFingerprint.isNullOrBlank() && !SING_BOX_UTLS_FINGERPRINTS.accepts(utlsFingerprint)) return false
+
+    // 这里只辨认实现；JSON 错误仍在规划和 trial 的原有入口报告。
+    val json = try {
+        JsonParser.parseString(customOutboundJson)
+    } catch (_: JsonParseException) {
+        return false
+    }
+    if (!json.isJsonObject) return false
+    for ((key, value) in json.asJsonObject.entrySet()) {
+        if (key.equals("type", ignoreCase = true)) {
+            if (!value.isJsonPrimitive) return false
+            when (value.asString) {
+                ANYTLS_COMPAT_OUTBOUND_TYPE, "neko-anytls-compat-experiment" -> return false
+            }
+        }
+        if (!key.equals("tls", ignoreCase = true) || !value.isJsonObject) continue
+        for ((field, setting) in value.asJsonObject.entrySet()) {
+            when (field.trim('+').lowercase()) {
+                "certificate_policy", "certificate_fingerprint" -> return false
+                "certificate", "ech" -> if (!trust) return false
+                "utls" -> {
+                    if (!trust) return false
+                    if (!setting.isJsonObject) continue
+                    val utls = setting.asJsonObject
+                    val enabled = utls["enabled"]?.takeIf { it.isJsonPrimitive }?.asBoolean ?: !utlsFingerprint.isNullOrBlank()
+                    val fp = utls["fingerprint"]?.takeIf { it.isJsonPrimitive }?.asString
+                    if (enabled && !fp.isNullOrBlank() && !SING_BOX_UTLS_FINGERPRINTS.accepts(fp)) return false
+                }
+            }
+        }
+    }
+    return true
+}
+
 fun buildSingBoxOutboundAnyTLSBean(bean: AnyTLSBean, globalAllowInsecure: Boolean): SingBoxOptions.Outbound_AnyTLSOptions {
+    val native = bean.usesNativeAnyTLSOverrides()
     return SingBoxOptions.Outbound_AnyTLSOptions().apply {
-        type = ANYTLS_COMPAT_OUTBOUND_TYPE
+        type = if (native) "anytls" else ANYTLS_COMPAT_OUTBOUND_TYPE
         server = bean.serverAddress
         server_port = bean.serverPort
         password = bean.password
 
-        tls = buildAnyTLSCompatibilityTLS(bean, globalAllowInsecure)
+        tls = if (native) {
+            buildSingBoxOutboundTLS(bean, globalAllowInsecure)
+        } else {
+            buildAnyTLSCompatibilityTLS(bean, globalAllowInsecure)
+        }
     }
 }
 

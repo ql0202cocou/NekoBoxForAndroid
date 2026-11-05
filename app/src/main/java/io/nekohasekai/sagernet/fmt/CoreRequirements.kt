@@ -16,6 +16,7 @@ import io.nekohasekai.sagernet.fmt.v2ray.resolveWsEarlyData
 import io.nekohasekai.sagernet.fmt.v2ray.v2rayTransportOrNull
 import io.nekohasekai.sagernet.fmt.v2ray.xhttpParametersLost
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
+import moe.matsuri.nb4a.proxy.anytls.usesNativeAnyTLSOverrides
 
 // 节点对核心的要求：从 type、bean 与全局「允许不安全」提取，与核心无关。只描述「生成器会把什么写进配置」，
 // 生成器本来就不输出的（vision 流控下的 mux、REALITY 下的 allowInsecure 与 certificates、Trojan 的 packetEncoding）
@@ -51,6 +52,7 @@ data class CoreRequirements(
     val certificatePin: Boolean = false,
     val customCa: Boolean = false,
     val anyTlsCertificatePolicy: Int = AnyTLSBean.CERTIFICATE_POLICY_PIN,
+    val nativeAnyTlsOverrides: Boolean = false,
     val allowInsecure: Boolean = false,
     // 生效的 uTLS 指纹（REALITY 没填时生成器补 chrome）；null 表示不用 uTLS
     val utlsFingerprint: String? = null,
@@ -111,7 +113,10 @@ data class CoreRequirements(
             if (customCa) items += RequirementItem(Requirement.CUSTOM_CA)
         }
         if (allowInsecure) items += RequirementItem(Requirement.ALLOW_INSECURE)
-        utlsFingerprint?.let { items += RequirementItem(if (anyTls) Requirement.ANYTLS_UTLS else Requirement.UTLS_FINGERPRINT, it) }
+        utlsFingerprint?.let {
+            val requirement = if (anyTls && !nativeAnyTlsOverrides) Requirement.ANYTLS_UTLS else Requirement.UTLS_FINGERPRINT
+            items += RequirementItem(requirement, it)
+        }
         when (ech) {
             null -> Unit
             EchMode.INLINE -> items += RequirementItem(Requirement.ECH_INLINE)
@@ -256,6 +261,7 @@ private fun anyTlsRequirements(
         certificatePin = certificatePin,
         customCa = !bean.certificates.isNullOrBlank(),
         anyTlsCertificatePolicy = bean.certificatePolicy ?: AnyTLSBean.CERTIFICATE_POLICY_PIN,
+        nativeAnyTlsOverrides = bean.usesNativeAnyTLSOverrides(),
         allowInsecure = !certificatePin && effectiveAllowInsecure(bean.allowInsecure, globalAllowInsecure),
         utlsFingerprint = bean.utlsFingerprint?.takeIf { it.isNotBlank() },
         // 与两个生成器相同：填了配置就启用 ECH

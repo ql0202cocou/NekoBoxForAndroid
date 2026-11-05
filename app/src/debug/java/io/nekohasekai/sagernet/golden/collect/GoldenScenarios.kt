@@ -318,6 +318,12 @@ private fun ScenarioTable.singBoxNodes() {
     single("sb-anytls-certpin", "AnyTLS 手动指定 sing-box：整证书指纹固定", core = CORE_SING_BOX) {
         anytls("golden-sb-anytls-pin", pin = Fx.CERT_PIN)
     }
+    single("sb-anytls-native-overrides", "旧 AnyTLS 自动选核：原生会话参数、TLS 分片和最低版本") {
+        anytls("golden-sb-anytls-native", certificates = Fx.CERT_PEM).apply {
+            certificatePolicy = AnyTLSBean.CERTIFICATE_POLICY_TRUST
+            customOutboundJson = """{"idle_session_timeout":"90s","min_idle_session":2,"tls":{"fragment":true,"min_version":"1.3"}}"""
+        }
+    }
 
     single("sb-shadowtls-v3", "ShadowTLS v3：ALPN、uTLS") { shadowtls("golden-shadowtls", alpn = "h2", utls = "chrome") }
     single("sb-shadowtls-v2", "ShadowTLS v2") { shadowtls("golden-shadowtls-v2", version = 2) }

@@ -101,13 +101,21 @@ class AnyTLSCompatibilityTest {
     }
 
     @Test
-    fun `合法 AnyTLS 规则目标及嵌套链在运行时保留且让整个导出失败`() {
+    fun `合法 AnyTLS 规则目标及嵌套链保留规则且私有出站使整个导出失败`() {
         val main = ProxyEntity(id = 10, groupId = 1).putBean(SOCKSBean().apply {
             initializeDefaultValues(); serverAddress = "main.example.org"; serverPort = 1080
         })
-        for (core in listOf(ProxyEntity.CORE_AUTO, ProxyEntity.CORE_SING_BOX, ProxyEntity.CORE_MIHOMO)) {
+        val native = node().apply { anyTLSBean!!.apply {
+            certificateFingerprint = ""
+            utlsFingerprint = ""
+            certificatePolicy = AnyTLSBean.CERTIFICATE_POLICY_TRUST
+            customOutboundJson = """{"idle_session_timeout":"90s"}"""
+        } }
+        val cases = listOf(node() to false, node(core = ProxyEntity.CORE_SING_BOX) to false,
+            node(core = ProxyEntity.CORE_MIHOMO) to true, native to true)
+        for ((anyTls, portable) in cases) {
+            anyTls.anyTLSBean!!.name = "rule-anytls"
             for (nested in listOf(false, true)) {
-                val anyTls = node(core = core).apply { anyTLSBean!!.name = "rule-anytls" }
                 val inner = ProxyEntity(id = 2, groupId = 1).putBean(ChainBean().apply {
                     initializeDefaultValues(); proxies = listOf(1L)
                 })
@@ -129,7 +137,7 @@ class AnyTLSCompatibilityTest {
                 val platform = FakeConfigPlatform()
                 val diagnostics = ArrayList<ConfigBuildDiagnostic>()
                 val exportInput = input(nodes, ConfigBuildMode.EXPORT, platform, rules)
-                if (core == ProxyEntity.CORE_MIHOMO) {
+                if (portable) {
                     val exported = buildConfig(exportInput, diagnostics)
                     assertRulePreserved(exported)
                     val text = exportConfigText(exported, "test", platform::createTempFile).first
@@ -145,6 +153,76 @@ class AnyTLSCompatibilityTest {
                 assertTrue(diagnostics.isEmpty())
             }
         }
+    }
+
+    @Test
+    fun `旧 sing-box 节点的 JSON 在迁移后仍由原生出站试建运行测速和导出`() {
+        val overrides = """{"idle_session_timeout":"90s","min_idle_session":2,"tls":{"fragment":true,"min_version":"1.3"}}"""
+        val entity = node().apply {
+            anyTLSBean!!.apply {
+                certificatePolicy = AnyTLSBean.CERTIFICATE_POLICY_LEGACY
+                certificateFingerprint = ""
+                utlsFingerprint = ""
+                certificates = CoreTestNodes.CERT
+                customOutboundJson = overrides
+                preserveLegacyAnyTLSCertificatePolicy(this, ProxyEntity.CORE_SING_BOX)
+            }
+        }
+        for (mode in ConfigBuildMode.entries) {
+            val platform = FakeConfigPlatform()
+            val result = buildConfig(input(listOf(entity), mode, platform))
+            val trial = JsonParser.parseString(platform.trialQueries.single().second).asJsonObject
+            val outbound = JsonParser.parseString(result.config).asJsonObject["outbounds"].asJsonArray
+                .map { it.asJsonObject }.single { it["type"].asString == "anytls" }
+            for (options in listOf(trial, outbound)) {
+                assertEquals("anytls", options["type"].asString)
+                assertEquals("90s", options["idle_session_timeout"].asString)
+                assertEquals(2, options["min_idle_session"].asInt)
+                val tls = options["tls"].asJsonObject
+                assertTrue(tls["fragment"].asBoolean)
+                assertEquals("1.3", tls["min_version"].asString)
+                assertEquals(CoreTestNodes.CERT, tls["certificate"].asString)
+                assertFalse(tls.has("certificate_policy"))
+            }
+        }
+        assertEquals(overrides, entity.anyTLSBean!!.customOutboundJson)
+    }
+
+    @Test
+    fun `原生覆写使用原生指纹表且显式固定优先`() {
+        val entity = node().apply { anyTLSBean!!.apply {
+            certificatePolicy = AnyTLSBean.CERTIFICATE_POLICY_TRUST
+            certificateFingerprint = ""
+            utlsFingerprint = "chrome_psk"
+            customOutboundJson = """{"idle_session_check_interval":"10s"}"""
+        } }
+        assertEquals(DialCore.SING_BOX, (entity.coreDecision(false) as CoreDecision.Selected).core)
+        assertEquals("anytls", buildSingBoxOutbound(entity.requireBean(), false).asMap()["type"])
+        entity.anyTLSBean!!.certificateFingerprint = CoreTestNodes.PIN
+        assertTrue(entity.coreDecision(false) is CoreDecision.Rejected)
+        entity.anyTLSBean!!.utlsFingerprint = "chrome"
+        val compat = buildSingBoxOutbound(entity.requireBean(), false).asMap()
+        assertEquals("neko-anytls", compat["type"])
+        assertEquals(CoreTestNodes.PIN, (compat["tls"] as Map<*, *>)["certificate_fingerprint"])
+    }
+
+    @Test
+    fun `普通覆写可用原生字段且不能把固定证书解释为信任根`() {
+        val bean = CoreTestNodes.anytls { utlsFingerprint = ""; customOutboundJson = """{"min_idle_session":2}""" }
+        fun type() = buildSingBoxOutbound(bean, false).asMap()["type"]
+        assertEquals("anytls", type())
+        bean.certificates = CoreTestNodes.CERT
+        assertEquals("neko-anytls", type())
+        bean.certificates = ""
+        bean.customOutboundJson = """{"tls":{"certificate":"test-pem"}}"""
+        assertEquals("neko-anytls", type())
+        bean.certificatePolicy = AnyTLSBean.CERTIFICATE_POLICY_TRUST
+        bean.customOutboundJson = """{"tls":{"utls":{"enabled":true,"fingerprint":"chrome120"}}}"""
+        assertEquals("neko-anytls", type())
+        bean.customOutboundJson = """{"tls":{"certificate_fingerprint":"test-pin"}}"""
+        assertEquals("neko-anytls", type())
+        bean.customOutboundJson = """{"type":"neko-anytls-compat-experiment"}"""
+        assertEquals("neko-anytls", type())
     }
 
     @Test

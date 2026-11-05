@@ -214,7 +214,7 @@ val COMBINATION_RULES: List<CombinationRule> = listOf(
         "内部 AnyTLS 只接受确定可用的 ECH 指纹组合",
     ) {
         // anyTlsRequirements 把空白指纹记成 null（Go 标准 TLS），不在此列
-        it.protocol == CoreProtocol.ANYTLS && it.ech != null && it.utlsFingerprint != null &&
+        it.protocol == CoreProtocol.ANYTLS && !it.nativeAnyTlsOverrides && it.ech != null && it.utlsFingerprint != null &&
             !ANYTLS_COMPAT_ECH_FINGERPRINTS.accepts(it.utlsFingerprint)
     },
     // I1 §3.1（S-X3，T-B5 / T-A2 实测）：REALITY only supports RAW, XHTTP and gRPC。h2、quic 在传输行已报；

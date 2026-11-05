@@ -309,7 +309,7 @@ internal fun planChain(entity: ProxyEntity, context: ChainPlanContext, checkHop:
         withProfileName(bean) {
             val decision = choices[index].decision
             val internalAnyTls = bean is AnyTLSBean && decision is CoreDecision.Selected && decision.core == DialCore.SING_BOX
-            if (context.forExport && internalAnyTls) {
+            if (context.forExport && internalAnyTls && !choices[index].requirements.nativeAnyTlsOverrides) {
                 throw ConfigExportException("sing-box AnyTLS uses a NekoBox extension; select mihomo to export a portable configuration")
             }
             val hop = planHop(

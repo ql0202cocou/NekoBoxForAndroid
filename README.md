@@ -46,7 +46,7 @@ The core can be chosen per profile for VMess / VLESS / Trojan and AnyTLS; if the
 普通 AnyTLS 节点自动选核优先 sing-box，使用内置兼容实现，支持整证书固定、uTLS 和 ECH；仍可手动选择 mihomo。
 升级时所有现存 AnyTLS 节点（含原手动核心与兼容测试节点）一次性恢复自动选核，节点参数、流量与链式引用不变；之后可重新手动选择核心。
 证书策略独立保存：旧 sing-box 节点保留自定义信任证书及域名、有效期校验；旧 mihomo 和兼容测试节点保留首张 PEM 固定。新节点默认固定，显式证书指纹优先。
-信任策略使用 sing-box；携带信任证书时不能静默改用 mihomo 固定。信任策略通过 `sn://` 分享；sing-box 的 AnyTLS 配置包含 NekoBox 扩展，不能导出为通用配置。固定策略可改选 mihomo 后导出。
+信任策略通过 `sn://` 分享。旧 sing-box 节点的自定义出站 JSON 继续由原生 `anytls` 解释，可导出通用配置。使用 `neko-anytls` 扩展的节点会拒绝通用配置导出，固定策略也可选择 mihomo 后导出。
 详见 [AnyTLS 支持说明](libcore/anytlscompat/README.md)。
 
 Ordinary AnyTLS profiles can now select sing-box's built-in compatibility implementation, with whole-certificate pinning,
@@ -55,8 +55,9 @@ choices and former test profiles, to automatic selection once, preserving profil
 Manual core selection remains available afterwards. Certificate policy is stored independently: former sing-box profiles retain
 custom trust certificates with hostname and validity checks; former mihomo and test profiles retain first-PEM pinning.
 New profiles default to pinning, and explicit fingerprints take priority. Profiles with trust certificates cannot silently switch
-to mihomo pinning. Trust-policy links use `sn://`. Sing-box AnyTLS uses a NekoBox extension and cannot export portable
-configurations; pinning profiles may select mihomo for export. See the [support notes](libcore/anytlscompat/README.md).
+to mihomo pinning. Trust-policy links use `sn://`. Existing sing-box profiles with native outbound JSON overrides use
+the native `anytls` outbound and can export their configuration. Profiles using the `neko-anytls` extension reject portable
+export. Pinning profiles can also select mihomo for export. See the [support notes](libcore/anytlscompat/README.md).
 
 ## 支持的订阅格式 / Supported Subscription Format
 

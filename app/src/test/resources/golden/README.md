@@ -499,3 +499,6 @@ raw/             原始数据：device.txt、host.txt、prepare/start/finish(.tx
 `export.txt`；不能将合法规则当作坏节点删除。原六个 AnyTLS 导出拒绝场景仅将原因类改为 `ConfigExportException`，状态与
 消息不变。全部 358 个场景在专用 Android 37.2 ARM64 / 16 KB 模拟器重新采集并逐项核对；只更新上述文件与 manifest 的
 场景数、结果计数，保留历史采集元数据，诊断预期没有回填。
+
+`sb-anytls-native-overrides` 覆盖迁移后使用原生 JSON 的信任策略节点。运行、测速和导出均应生成 `anytls`，
+保留 `idle_session_timeout`、`min_idle_session`、`tls.fragment`、`tls.min_version` 和信任证书。原有 358 个场景输出不变。
