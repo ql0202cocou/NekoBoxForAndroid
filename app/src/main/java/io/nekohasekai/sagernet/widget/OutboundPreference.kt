@@ -43,7 +43,7 @@ class OutboundPreference
         val scope = pageScopeOrNull() ?: return
         loadingId = profileId
         scope.launch {
-            val name = withContext(Dispatchers.Default) { ProfileRepository.getProfile(profileId)?.displayName() }
+            val name = withContext(Dispatchers.IO) { ProfileRepository.getProfile(profileId)?.displayName() }
             // 查库期间又选了别的节点：这次结果作废，由新的那次查询刷新
             if (loadingId != profileId) return@launch
             loadingId = 0L

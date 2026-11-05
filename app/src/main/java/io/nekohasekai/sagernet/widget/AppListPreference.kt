@@ -37,7 +37,7 @@ class AppListPreference : Preference {
                     try {
                         // 加载失败（如包读取权限被拒）时不再刷新，下次绑定自然重试，
                         // 避免「刷新-重试」自激循环
-                        val loaded = withContext(Dispatchers.Default) { PackageCache.tryAwaitLoad() }
+                        val loaded = withContext(Dispatchers.IO) { PackageCache.tryAwaitLoad() }
                         if (loaded) notifyChanged()
                     } finally {
                         // 失败或页面销毁（取消）也要复位标志，否则之后永远不再等待

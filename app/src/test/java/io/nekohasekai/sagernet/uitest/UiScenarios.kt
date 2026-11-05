@@ -464,6 +464,8 @@ class UiScenarios(private val ui: UiTestRule) {
         if (destroyFirst) {
             IoGate().use {
                 preference.summary
+                shadowOf(Looper.getMainLooper()).idle()
+                check(loaded() == null) { "前置条件：查询必须仍在 IO 门后排队" }
                 ui.destroyNow(host)
             }
         } else {
@@ -492,6 +494,7 @@ class UiScenarios(private val ui: UiTestRule) {
             IoGate().use {
                 preference.summary
                 if (!waiting()) error("前置条件：取摘要后没有进入等待")
+                shadowOf(Looper.getMainLooper()).idle()
                 ui.destroyNow(host)
             }
             UiSettle.settle()

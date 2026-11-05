@@ -119,7 +119,23 @@ jobs:
               "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
           fi
       - name: Unit Test and Lint
+        id: checks
         run: |
           echo "sdk.dir=${ANDROID_HOME}" > local.properties
           ./run init action gradle
-          ./gradlew app:testOssDebugUnitTest app:lintOssRelease
+          # 单测失败后仍完成独立的 lint 检查，任何失败都保留非零退出码。
+          ./gradlew app:testOssDebugUnitTest app:lintOssRelease --continue
+      - name: Upload failed check reports
+        if: ${{ failure() && steps.checks.outcome == 'failure' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: app-check-reports-${{ github.run_id }}-${{ github.run_attempt }}
+          # 只收集明确的报告目录；不包含工作区、签名文件或本地配置。
+          path: |
+            app/build/reports/tests/testOssDebugUnitTest/
+            app/build/test-results/testOssDebugUnitTest/*.xml
+            app/build/reports/lint-results-ossRelease.*
+            app/build/outputs/screenshots/actual/
+            app/build/outputs/screenshots/diff/
+          retention-days: 14
+          if-no-files-found: warn
