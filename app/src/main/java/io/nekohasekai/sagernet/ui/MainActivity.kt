@@ -23,13 +23,11 @@ import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceDataStore
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceScreen
-import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import androidx.transition.Slide
 import androidx.transition.Transition
 import androidx.transition.TransitionListenerAdapter
 import androidx.transition.Visibility
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.motion.MotionUtils
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.transition.MaterialFadeThrough
 import com.google.android.material.transition.MaterialSharedAxis
@@ -49,6 +47,7 @@ import io.nekohasekai.sagernet.databinding.LayoutMainBinding
 import io.nekohasekai.sagernet.fmt.PluginEntry
 import io.nekohasekai.sagernet.group.GroupInterfaceAdapter
 import io.nekohasekai.sagernet.ktx.motionDuration
+import io.nekohasekai.sagernet.ktx.motionEasingStandard
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.widget.MainContentHost
 import io.nekohasekai.sagernet.widget.MainContentHostOwner
@@ -82,24 +81,20 @@ class MainActivity : ThemedActivity(),
     // Fragment 提交是异步的；连续点击时按最近的目标页判断，避免把返回原页误当作重复点击。
     private var pendingFragment: ToolbarFragment? = null
 
-    private data class PageRequest(val fragment: ToolbarFragment, val backToHub: Boolean)
+    private class PageRequest(val fragment: ToolbarFragment, val backToHub: Boolean)
 
     // 提交完成不等于转场完成；动画期间只保留最后一个请求，不提前移除仍在滑动的页面。
     private var queuedPage: PageRequest? = null
-    private var activePageTransition: Any? = null
+    private var activePageTransition: Transition.TransitionListener? = null
+    private val canCommitPage get() = activePageTransition == null && !supportFragmentManager.isStateSaved
     private val continueNavigation = Runnable {
-        if (activePageTransition == null && !isFinishing && !isDestroyed &&
-            !supportFragmentManager.isStateSaved
-        ) {
-            val request = queuedPage
-            queuedPage = null
-            if (request != null) {
-                val current = currentFragment()
-                val samePage = current?.javaClass == request.fragment.javaClass &&
-                    (current as? SettingsFragment)?.sectionKey == (request.fragment as? SettingsFragment)?.sectionKey
-                if (!samePage) displayFragment(request.fragment, request.backToHub)
-            }
-        }
+        if (!canCommitPage || isFinishing) return@Runnable
+        val request = queuedPage ?: return@Runnable
+        queuedPage = null
+        val current = currentFragment()
+        val samePage = current?.javaClass == request.fragment.javaClass &&
+            (current as? SettingsFragment)?.sectionKey == (request.fragment as? SettingsFragment)?.sectionKey
+        if (!samePage) displayFragment(request.fragment, request.backToHub)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -134,9 +129,17 @@ class MainActivity : ThemedActivity(),
         if (savedInstanceState == null) {
             displayFragmentWithId(R.id.nav_configuration)
         } else {
+            // 转场中旋转或进程重建时，保留尚未提交的最后目标及设置分类参数。
+            savedInstanceState.getBundle("queuedPage")?.let { state ->
+                val fragment = supportFragmentManager.fragmentFactory.instantiate(
+                    classLoader, state.getString("class")!!
+                ) as ToolbarFragment
+                fragment.arguments = state.getBundle("arguments")
+                queuedPage = PageRequest(fragment, state.getBoolean("backToHub"))
+            }
             // 重建时 FragmentManager 已自行恢复了当前页面，不经过 displayFragment()，
-            // Dock 的选中项在这里按恢复出来的页面设置（二级页面选中「设置」）
-            binding.dock.select(dockItemOf(currentFragment()))
+            // Dock 的选中项在这里按最终目标页设置（二级页面选中「设置」）
+            binding.dock.select(dockItemOf(navigationFragment()))
         }
         // 返回：二级页面回设置页，其它一级页面回配置页，配置页退到后台
         onBackPressedDispatcher.addCallback {
@@ -161,16 +164,6 @@ class MainActivity : ThemedActivity(),
         connection.connect(this, this)
         DataStore.configurationStore.registerChangeListener(this)
         GroupRepository.userInterface = GroupInterfaceAdapter(this)
-
-        // 转场中旋转或进程重建时，保留尚未提交的最后目标及设置分类参数。
-        savedInstanceState?.getBundle("queuedPage")?.let { state ->
-            val fragment = supportFragmentManager.fragmentFactory.instantiate(
-                classLoader, state.getString("class")!!
-            ) as ToolbarFragment
-            fragment.arguments = state.getBundle("arguments")
-            queuedPage = PageRequest(fragment, state.getBoolean("backToHub"))
-            binding.dock.select(dockItemOf(fragment))
-        }
 
         if (savedInstanceState == null && intent?.action == Intent.ACTION_VIEW) {
             onNewIntent(intent)
@@ -265,7 +258,7 @@ class MainActivity : ThemedActivity(),
 
     @SuppressLint("CommitTransaction")
     fun displayFragment(fragment: ToolbarFragment, backToHub: Boolean = false) {
-        if (activePageTransition != null || supportFragmentManager.isStateSaved) {
+        if (!canCommitPage) {
             queuedPage = PageRequest(fragment, backToHub)
             binding.dock.select(dockItemOf(fragment))
             return
@@ -283,6 +276,7 @@ class MainActivity : ThemedActivity(),
                 if (pendingFragment === fragment) pendingFragment = null
             }
             .commitAllowingStateLoss()
+        // 必须在提交之后：Dock 请求重绘会插入同步屏障，先选中会把页面提交推迟到下一帧。
         binding.dock.select(dockItemOf(fragment))
         if (fragment.opensFromSettings) {
             // 从设置页进二级页面：记下设置列表的滚动位置（替换是异步提交的，此时设置页还在）
@@ -301,55 +295,40 @@ class MainActivity : ThemedActivity(),
      * Dock、状态卡片、连接按钮在 Activity 布局里，不参与。
      */
     private fun applyPageTransition(previous: Fragment, next: ToolbarFragment, backToHub: Boolean) {
-        val fromHub = previous is SettingsFragment && previous.sectionKey == null
-        val toHub = next is SettingsFragment && next.sectionKey == null
-        val pages = listOf(R.id.nav_configuration, R.id.nav_group, R.id.nav_route, R.id.nav_settings)
-        val fromIndex = pages.indexOf(pageIdOf(previous))
-        val toIndex = pages.indexOf(pageIdOf(next))
-        when {
-            fromIndex >= 0 && fromIndex == toIndex -> {
-                // 同一帧点回原页时取消尚未开始的转场，不让相同页面再滑入或闪一次。
-                previous.exitTransition = null
-                next.enterTransition = null
-            }
+        val fromIndex = binding.dock.indexOf(pageIdOf(previous))
+        val toIndex = binding.dock.indexOf(pageIdOf(next))
+        val (exit, enter) = when {
+            // 同一帧点回原页时取消尚未开始的转场，不让相同页面再滑入或闪一次。
+            fromIndex >= 0 && fromIndex == toIndex -> null to null
 
-            fromIndex >= 0 && toIndex >= 0 && fromIndex != toIndex -> {
+            fromIndex >= 0 && toIndex >= 0 -> {
                 val forward = toIndex > fromIndex
                 // 两页同速、同时移动一个容器宽度，不叠加淡变或按子视图位置错开启动。
-                previous.exitTransition = pageSlide(if (forward) Gravity.START else Gravity.END)
-                next.enterTransition = pageSlide(if (forward) Gravity.END else Gravity.START)
-                next.allowEnterTransitionOverlap = true
+                pageSlide(if (forward) Gravity.START else Gravity.END) to
+                    pageSlide(if (forward) Gravity.END else Gravity.START)
             }
 
-            fromHub && next.opensFromSettings -> {
-                previous.exitTransition = sharedAxisX(true)
-                next.enterTransition = sharedAxisX(true)
-            }
+            // 目标不在 Dock 上：从设置一级页出发只可能是进入二级页面
+            pageIdOf(previous) == R.id.nav_settings -> sharedAxisX(true) to sharedAxisX(true)
 
-            backToHub && toHub && (previous as? ToolbarFragment)?.opensFromSettings == true -> {
-                previous.exitTransition = sharedAxisX(false)
-                next.enterTransition = sharedAxisX(false)
-            }
+            // 起点不在 Dock 上：只有二级页面能经返回操作回到设置一级页
+            backToHub -> sharedAxisX(false) to sharedAxisX(false)
 
-            else -> {
-                previous.exitTransition = themedDuration(MaterialFadeThrough())
-                next.enterTransition = themedDuration(MaterialFadeThrough())
-            }
+            else -> themedDuration(MaterialFadeThrough()) to themedDuration(MaterialFadeThrough())
         }
-        (next.enterTransition as? Transition)?.addListener(object : TransitionListenerAdapter() {
-            private val token = Any()
-
+        previous.exitTransition = exit
+        next.enterTransition = enter
+        enter?.addListener(object : TransitionListenerAdapter() {
             override fun onTransitionStart(transition: Transition) {
-                activePageTransition = token
+                activePageTransition = this
             }
 
-            override fun onTransitionEnd(transition: Transition) = finished(transition)
+            override fun onTransitionEnd(transition: Transition) = finished()
 
-            override fun onTransitionCancel(transition: Transition) = finished(transition)
+            override fun onTransitionCancel(transition: Transition) = finished()
 
-            private fun finished(transition: Transition) {
-                transition.removeListener(this)
-                if (activePageTransition !== token) return
+            private fun finished() {
+                if (activePageTransition !== this) return
                 activePageTransition = null
                 // 下一轮消息才提交，让 FragmentManager 先清理本轮转场的视图和覆盖层。
                 binding.root.post(continueNavigation)
@@ -359,10 +338,7 @@ class MainActivity : ThemedActivity(),
 
     private fun pageSlide(edge: Int): Slide = Slide(edge).apply {
         duration = motionDuration(com.google.android.material.R.attr.motionDurationMedium1, 250)
-        interpolator = MotionUtils.resolveThemeInterpolator(
-            this@MainActivity, com.google.android.material.R.attr.motionEasingStandardInterpolator,
-            FastOutSlowInInterpolator()
-        )
+        interpolator = motionEasingStandard()
         propagation = null
     }
 
@@ -586,8 +562,6 @@ class MainActivity : ThemedActivity(),
     }
 
     override fun onDestroy() {
-        queuedPage = null
-        activePageTransition = null
         binding.root.removeCallbacks(continueNavigation)
         super.onDestroy()
         GroupRepository.userInterface = null

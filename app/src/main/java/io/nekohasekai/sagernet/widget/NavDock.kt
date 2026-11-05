@@ -21,13 +21,12 @@ import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.dynamicanimation.animation.DynamicAnimation
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
-import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import com.google.android.material.card.MaterialCardView
-import com.google.android.material.motion.MotionUtils
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.ktx.animatorsEnabled
 import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.ktx.motionDuration
+import io.nekohasekai.sagernet.ktx.motionEasingStandard
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -57,6 +56,9 @@ class NavDock @JvmOverloads constructor(
         Item(R.id.nav_route, R.drawable.ic_maps_directions, R.drawable.ic_outline_directions_24, R.string.menu_route),
         Item(R.id.nav_settings, R.drawable.ic_action_settings, R.drawable.ic_outline_settings_24, R.string.settings),
     )
+
+    /** [id] 在 Dock 上从左到右的位置，不在 Dock 上为 -1 */
+    fun indexOf(@IdRes id: Int): Int = items.indexOfFirst { it.id == id }
 
     private val itemViews = mutableMapOf<Int, View>()
 
@@ -158,12 +160,7 @@ class NavDock @JvmOverloads constructor(
             com.google.android.material.R.attr.motionDurationMedium3, ICON_FILL_DURATION_MS
         )
         fill.animate().alpha(target).setDuration(duration)
-            .setInterpolator(
-                MotionUtils.resolveThemeInterpolator(
-                    context, com.google.android.material.R.attr.motionEasingStandardInterpolator,
-                    FastOutSlowInInterpolator()
-                )
-            ).start()
+            .setInterpolator(context.motionEasingStandard()).start()
         if (filled) {
             val pulse = ValueAnimator.ofFloat(0f, 1f).setDuration(duration)
             pulse.addUpdateListener {

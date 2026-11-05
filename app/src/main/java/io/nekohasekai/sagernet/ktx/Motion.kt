@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.ktx
 
+import android.animation.TimeInterpolator
 import android.animation.ValueAnimator
 import android.content.Context
 import android.os.Build
@@ -7,6 +8,7 @@ import android.provider.Settings
 import android.view.View
 import androidx.annotation.AttrRes
 import androidx.core.view.isVisible
+import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.motion.MotionUtils
@@ -23,6 +25,11 @@ fun Context.animatorsEnabled(): Boolean =
 /** 主题里的动效时长（ms），如 motionDurationMedium2 */
 fun Context.motionDuration(@AttrRes attr: Int, default: Int): Long =
     MotionUtils.resolveThemeDuration(this, attr, default).toLong()
+
+/** 主题的标准缓动曲线（motionEasingStandardInterpolator） */
+fun Context.motionEasingStandard(): TimeInterpolator = MotionUtils.resolveThemeInterpolator(
+    this, com.google.android.material.R.attr.motionEasingStandardInterpolator, FastOutSlowInInterpolator()
+)
 
 /** 主题里的自定义整数属性（如时长，ms）；未定义时取 [default] */
 fun Context.themeInteger(@AttrRes attr: Int, default: Int): Int {
