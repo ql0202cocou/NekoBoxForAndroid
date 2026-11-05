@@ -26,6 +26,8 @@ class StunActivity : ThemedActivity() {
         super.onCreate(savedInstanceState)
 
         setContentView(binding.root)
+        // 颜色状态列表不能写成布局里的 android:background：API 29 以下加载时崩溃。
+        binding.root.setBackgroundColor(getColor(R.color.profile_list_background))
         setSupportActionBar(binding.appbar.toolbar)
         supportActionBar?.apply {
             setTitle(R.string.stun_test)
