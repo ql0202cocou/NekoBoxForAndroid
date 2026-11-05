@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Parcelable
 import android.os.RemoteException
+import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
 import androidx.activity.addCallback
@@ -22,8 +23,13 @@ import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceDataStore
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceScreen
+import androidx.interpolator.view.animation.FastOutSlowInInterpolator
+import androidx.transition.Slide
+import androidx.transition.Transition
+import androidx.transition.TransitionListenerAdapter
 import androidx.transition.Visibility
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.motion.MotionUtils
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.transition.MaterialFadeThrough
 import com.google.android.material.transition.MaterialSharedAxis
@@ -73,6 +79,29 @@ class MainActivity : ThemedActivity(),
     // 设置一级页的滚动状态等页面外状态。第一次取要在 super.onCreate() 之后（SavedStateHandle）
     private val mainModel: MainViewModel by viewModels()
 
+    // Fragment 提交是异步的；连续点击时按最近的目标页判断，避免把返回原页误当作重复点击。
+    private var pendingFragment: ToolbarFragment? = null
+
+    private data class PageRequest(val fragment: ToolbarFragment, val backToHub: Boolean)
+
+    // 提交完成不等于转场完成；动画期间只保留最后一个请求，不提前移除仍在滑动的页面。
+    private var queuedPage: PageRequest? = null
+    private var activePageTransition: Any? = null
+    private val continueNavigation = Runnable {
+        if (activePageTransition == null && !isFinishing && !isDestroyed &&
+            !supportFragmentManager.isStateSaved
+        ) {
+            val request = queuedPage
+            queuedPage = null
+            if (request != null) {
+                val current = currentFragment()
+                val samePage = current?.javaClass == request.fragment.javaClass &&
+                    (current as? SettingsFragment)?.sectionKey == (request.fragment as? SettingsFragment)?.sectionKey
+                if (!samePage) displayFragment(request.fragment, request.backToHub)
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -80,7 +109,7 @@ class MainActivity : ThemedActivity(),
         binding.fab.initProgress(binding.fabProgress)
         binding.dock.onItemSelected = { id ->
             // 已在该页时不重建页面；二级页面（含设置的分类页）上点「设置」回到设置一级页
-            if (pageIdOf(currentFragment()) != id) displayFragmentWithId(id)
+            if (pageIdOf(navigationFragment()) != id) displayFragmentWithId(id)
         }
 
         // Dock、连接按钮、状态卡片悬浮在导航栏上方，横屏时也避开侧边的导航栏与刘海。插入区在
@@ -111,7 +140,7 @@ class MainActivity : ThemedActivity(),
         }
         // 返回：二级页面回设置页，其它一级页面回配置页，配置页退到后台
         onBackPressedDispatcher.addCallback {
-            val fragment = currentFragment()
+            val fragment = navigationFragment()
             when {
                 fragment is ConfigurationFragment -> moveTaskToBack(true)
                 (fragment as? ToolbarFragment)?.opensFromSettings == true -> backToSettings()
@@ -132,6 +161,16 @@ class MainActivity : ThemedActivity(),
         connection.connect(this, this)
         DataStore.configurationStore.registerChangeListener(this)
         GroupRepository.userInterface = GroupInterfaceAdapter(this)
+
+        // 转场中旋转或进程重建时，保留尚未提交的最后目标及设置分类参数。
+        savedInstanceState?.getBundle("queuedPage")?.let { state ->
+            val fragment = supportFragmentManager.fragmentFactory.instantiate(
+                classLoader, state.getString("class")!!
+            ) as ToolbarFragment
+            fragment.arguments = state.getBundle("arguments")
+            queuedPage = PageRequest(fragment, state.getBoolean("backToHub"))
+            binding.dock.select(dockItemOf(fragment))
+        }
 
         if (savedInstanceState == null && intent?.action == Intent.ACTION_VIEW) {
             onNewIntent(intent)
@@ -225,13 +264,24 @@ class MainActivity : ThemedActivity(),
     private val navDockClearance by lazy { resources.getDimensionPixelSize(R.dimen.nav_dock_clearance) }
 
     @SuppressLint("CommitTransaction")
-    fun displayFragment(fragment: ToolbarFragment) {
+    fun displayFragment(fragment: ToolbarFragment, backToHub: Boolean = false) {
+        if (activePageTransition != null || supportFragmentManager.isStateSaved) {
+            queuedPage = PageRequest(fragment, backToHub)
+            binding.dock.select(dockItemOf(fragment))
+            return
+        }
+        queuedPage = null
+        // 多次提交合并时，中间目标可能根本没显示；转场从实际页面出发。
         val previous = currentFragment()
         // 冷启动第一次显示没有旧页面，不做转场
-        if (previous != null) applyPageTransition(previous, fragment)
+        if (previous != null) applyPageTransition(previous, fragment, backToHub)
+        pendingFragment = fragment
         supportFragmentManager.beginTransaction()
             .setReorderingAllowed(true)
             .replace(R.id.fragment_holder, fragment)
+            .runOnCommit {
+                if (pendingFragment === fragment) pendingFragment = null
+            }
             .commitAllowingStateLoss()
         binding.dock.select(dockItemOf(fragment))
         if (fragment.opensFromSettings) {
@@ -247,15 +297,30 @@ class MainActivity : ThemedActivity(),
     /**
      * 页面替换的转场：选哪种转场都在这里决定。从设置一级页压栈进入二级页面（七个分类页和末尾四个
      * 入口）用 X 轴共享轴向前，经返回箭头 / 返回键（[backToSettings]）回设置一级页用向后；
-     * 其余切换（含在二级页上点 Dock）都是交叉淡变（MaterialFadeThrough）。
-     * Dock、状态卡片、连接按钮在 Activity 布局里，不参与。时长读主题的 motionDurationMedium2
+     * 四个一级页面按 Dock 顺序同步左右平移，其余切换沿用交叉淡变。
+     * Dock、状态卡片、连接按钮在 Activity 布局里，不参与。
      */
-    private fun applyPageTransition(previous: Fragment, next: ToolbarFragment) {
-        val backToHub = returningToSettings
-        returningToSettings = false
+    private fun applyPageTransition(previous: Fragment, next: ToolbarFragment, backToHub: Boolean) {
         val fromHub = previous is SettingsFragment && previous.sectionKey == null
         val toHub = next is SettingsFragment && next.sectionKey == null
+        val pages = listOf(R.id.nav_configuration, R.id.nav_group, R.id.nav_route, R.id.nav_settings)
+        val fromIndex = pages.indexOf(pageIdOf(previous))
+        val toIndex = pages.indexOf(pageIdOf(next))
         when {
+            fromIndex >= 0 && fromIndex == toIndex -> {
+                // 同一帧点回原页时取消尚未开始的转场，不让相同页面再滑入或闪一次。
+                previous.exitTransition = null
+                next.enterTransition = null
+            }
+
+            fromIndex >= 0 && toIndex >= 0 && fromIndex != toIndex -> {
+                val forward = toIndex > fromIndex
+                // 两页同速、同时移动一个容器宽度，不叠加淡变或按子视图位置错开启动。
+                previous.exitTransition = pageSlide(if (forward) Gravity.START else Gravity.END)
+                next.enterTransition = pageSlide(if (forward) Gravity.END else Gravity.START)
+                next.allowEnterTransitionOverlap = true
+            }
+
             fromHub && next.opensFromSettings -> {
                 previous.exitTransition = sharedAxisX(true)
                 next.enterTransition = sharedAxisX(true)
@@ -271,6 +336,34 @@ class MainActivity : ThemedActivity(),
                 next.enterTransition = themedDuration(MaterialFadeThrough())
             }
         }
+        (next.enterTransition as? Transition)?.addListener(object : TransitionListenerAdapter() {
+            private val token = Any()
+
+            override fun onTransitionStart(transition: Transition) {
+                activePageTransition = token
+            }
+
+            override fun onTransitionEnd(transition: Transition) = finished(transition)
+
+            override fun onTransitionCancel(transition: Transition) = finished(transition)
+
+            private fun finished(transition: Transition) {
+                transition.removeListener(this)
+                if (activePageTransition !== token) return
+                activePageTransition = null
+                // 下一轮消息才提交，让 FragmentManager 先清理本轮转场的视图和覆盖层。
+                binding.root.post(continueNavigation)
+            }
+        })
+    }
+
+    private fun pageSlide(edge: Int): Slide = Slide(edge).apply {
+        duration = motionDuration(com.google.android.material.R.attr.motionDurationMedium1, 250)
+        interpolator = MotionUtils.resolveThemeInterpolator(
+            this@MainActivity, com.google.android.material.R.attr.motionEasingStandardInterpolator,
+            FastOutSlowInInterpolator()
+        )
+        propagation = null
     }
 
     // 方向用库默认的 Gravity.END，RTL 下自动镜像
@@ -281,13 +374,9 @@ class MainActivity : ThemedActivity(),
         duration = motionDuration(com.google.android.material.R.attr.motionDurationMedium2, 300)
     }
 
-    // 下一次 displayFragment 是返回设置一级页（返回箭头 / 返回键），不是 Dock 切换
-    private var returningToSettings = false
-
     /** 二级页返回设置一级页：转场用 X 轴共享轴向后 */
     fun backToSettings() {
-        returningToSettings = true
-        displayFragmentWithId(R.id.nav_settings)
+        displayFragment(SettingsFragment.hub(), backToHub = true)
     }
 
     /** 新的设置列表取走进入二级页面前保存的滚动状态，只取一次（状态在 [MainViewModel] 里，旋转与进程重建后仍在） */
@@ -303,6 +392,8 @@ class MainActivity : ThemedActivity(),
 
     private fun currentFragment(): Fragment? =
         supportFragmentManager.findFragmentById(R.id.fragment_holder)
+
+    private fun navigationFragment(): Fragment? = queuedPage?.fragment ?: pendingFragment ?: currentFragment()
 
     // 页面在 Dock 上对应的项：二级页面（分类页、日志、工具、关于、仪表板）都从设置页进入，选中「设置」
     @IdRes
@@ -478,7 +569,26 @@ class MainActivity : ThemedActivity(),
         super.onStop()
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        queuedPage?.let { request ->
+            outState.putBundle("queuedPage", Bundle().apply {
+                putString("class", request.fragment.javaClass.name)
+                putBundle("arguments", request.fragment.arguments)
+                putBoolean("backToHub", request.backToHub)
+            })
+        }
+        super.onSaveInstanceState(outState)
+    }
+
+    override fun onResumeFragments() {
+        super.onResumeFragments()
+        binding.root.post(continueNavigation)
+    }
+
     override fun onDestroy() {
+        queuedPage = null
+        activePageTransition = null
+        binding.root.removeCallbacks(continueNavigation)
         super.onDestroy()
         GroupRepository.userInterface = null
         DataStore.configurationStore.unregisterChangeListener(this)

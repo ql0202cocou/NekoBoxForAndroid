@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.ui
 import android.os.Bundle
 import android.os.Parcelable
 import android.view.View
+import android.view.ViewGroup
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.R
 
@@ -21,6 +22,8 @@ class SettingsFragment : ToolbarFragment(R.layout.layout_config_settings) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        view.setBackgroundResource(R.color.profile_list_background)
+        (view as ViewGroup).isTransitionGroup = true
 
         val key = sectionKey
         val title = SettingsPreferenceFragment.sections.firstOrNull { it.first == key }?.second

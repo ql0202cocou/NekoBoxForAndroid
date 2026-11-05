@@ -9,6 +9,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.core.view.ViewCompat
+import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.recyclerview.widget.RecyclerView
@@ -133,7 +134,7 @@ fun View.largestRecyclerView(): RecyclerView? {
  * 加上列表顶边在根视图里的位置——不用 computeVerticalScrollRange，它在子项高度不一时只是估计值，会少几行。
  * 内容比窗口短时保持窗口高度。
  */
-fun View.drawFullLength(): Bitmap {
+fun View.drawFullLength(scroll: NestedScrollView? = null): Bitmap {
     val decor = rootView
     val width = decor.width
     val windowHeight = decor.height
@@ -145,17 +146,24 @@ fun View.drawFullLength(): Bitmap {
         decor.layout(0, 0, width, h)
     }
     var height = windowHeight
-    relayout(TALL)
-    val list = decor.largestRecyclerView()
-    if (list != null) {
-        val manager = list.layoutManager as androidx.recyclerview.widget.LinearLayoutManager
-        check(manager.findLastVisibleItemPosition() == list.adapter!!.itemCount - 1) {
-            "撑到 $TALL px 高仍有列表项没有布局出来"
+    if (scroll != null) {
+        // 备份页由 ViewPager2 托管，不能把分页器内部的 RecyclerView 当成内容列表。
+        // NestedScrollView 已测量了完整内容；先读高度，避免 fillViewport 被临时撑高。
+        height = maxOf(windowHeight, topInRoot(scroll, decor) + scroll.paddingTop +
+            scroll.getChildAt(0).height + scroll.paddingBottom)
+    } else {
+        relayout(TALL)
+        val list = decor.largestRecyclerView()
+        if (list != null) {
+            val manager = list.layoutManager as androidx.recyclerview.widget.LinearLayoutManager
+            check(manager.findLastVisibleItemPosition() == list.adapter!!.itemCount - 1) {
+                "撑到 $TALL px 高仍有列表项没有布局出来"
+            }
+            // 内容底边（含列表底部内边距，Dock 要让出的空白在里面）换算到根视图坐标，就是需要的窗口高度；
+            // 列表本身可能是 wrap_content（编辑器），不能用「撑高后的列表高度」去减
+            val contentBottom = list.getChildAt(list.childCount - 1).bottom + list.paddingBottom
+            height = maxOf(windowHeight, topInRoot(list, decor) + contentBottom)
         }
-        // 内容底边（含列表底部内边距，Dock 要让出的空白在里面）换算到根视图坐标，就是需要的窗口高度；
-        // 列表本身可能是 wrap_content（编辑器），不能用「撑高后的列表高度」去减
-        val contentBottom = list.getChildAt(list.childCount - 1).bottom + list.paddingBottom
-        height = maxOf(windowHeight, topInRoot(list, decor) + contentBottom)
     }
     relayout(height)
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)

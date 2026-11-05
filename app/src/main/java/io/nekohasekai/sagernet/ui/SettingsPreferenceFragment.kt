@@ -5,10 +5,13 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Parcelable
 import android.view.View
+import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.app.ActivityCompat
 import androidx.preference.*
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
@@ -39,6 +42,10 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         super.onViewCreated(view, savedInstanceState)
 
         listView.layoutManager = FixedLinearLayoutManager(listView)
+        val spacing = resources.getDimensionPixelSize(R.dimen.settings_card_spacing)
+        listView.setPadding(spacing, spacing, spacing, listView.paddingBottom)
+        listView.clipToPadding = false
+        setDivider(null)
         hostMainScrollable(listView, liftAncestorAppBar = true)
         // 从二级页面返回一级页：恢复进入前的滚动位置（页面入口在列表末尾）
         if (arguments?.getString(ARG_PREFERENCE_ROOT) == null) {
@@ -47,6 +54,27 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
             }
         }
     }
+
+    // 只替换全局设置行的底色和外边距，保留各类偏好的布局、控件与绑定行为。
+    override fun onCreateAdapter(preferenceScreen: PreferenceScreen): RecyclerView.Adapter<*> =
+        object : PreferenceGroupAdapter(preferenceScreen) {
+            override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PreferenceViewHolder {
+                return super.onCreateViewHolder(parent, viewType).apply {
+                    val spacing = parent.resources.getDimensionPixelSize(R.dimen.settings_card_spacing)
+                    (itemView.layoutParams as RecyclerView.LayoutParams).setMargins(spacing, spacing, spacing, spacing)
+                }
+            }
+
+            override fun onBindViewHolder(holder: PreferenceViewHolder, position: Int) {
+                super.onBindViewHolder(holder, position)
+                // 分类标题留在页面底色上；普通行每次绑定后恢复卡片，避免回收时被默认背景覆盖。
+                if (getItem(position) !is PreferenceCategory) {
+                    holder.itemView.background = AppCompatResources.getDrawable(
+                        holder.itemView.context, R.drawable.settings_preference_background
+                    )
+                }
+            }
+        }
 
     /** 一级列表当前的滚动状态，由 MainActivity 经 SettingsFragment 在进入二级页面前保存 */
     fun listState(): Parcelable? = view?.let { listView.layoutManager?.onSaveInstanceState() }

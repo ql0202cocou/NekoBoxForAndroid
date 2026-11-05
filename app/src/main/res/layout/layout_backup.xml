@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 外层可滚动：主界面底部为 Dock 与状态卡片留白后，矮屏上也能滚到最后的按钮，
-     滚动时状态卡片随之收起 -->
+<!-- 外层可滚动：主界面底部留白后仍能滚到最后的操作，滚动时状态卡片随之收起。 -->
 <androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/profile_list_background"
     android:clipToPadding="false"
     android:fillViewport="true">
 
@@ -11,71 +11,131 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
-        <!-- 按主次分：导出用填充按钮（M3 主题下 Button 默认就是），其余用 Tonal -->
+        android:padding="8dp">
 
-        <Button
-            android:id="@+id/reset_settings"
-            style="@style/Widget.Material3.Button.TonalButton"
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.NekoBox.ContentCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/backup"
+                    android:textAppearance="?attr/textAppearanceTitleMedium"
+                    android:textColor="?attr/colorOnSurface" />
+
+                <CheckBox
+                    android:id="@+id/backup_configurations"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:minHeight="48dp"
+                    android:checked="true"
+                    android:text="@string/backup_groups_and_configurations"
+                    android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+                <CheckBox
+                    android:id="@+id/backup_rules"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:checked="true"
+                    android:text="@string/backup_rules"
+                    android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+                <CheckBox
+                    android:id="@+id/backup_settings"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:checked="true"
+                    android:text="@string/backup_settings"
+                    android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/backup_summary"
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
+
+                <!-- 导出保持主要操作，分享使用次级按钮；竖排可容纳大字号和长翻译。 -->
+                <Button
+                    android:id="@+id/action_export"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="@string/action_export" />
+
+                <Button
+                    android:id="@+id/action_share"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/share" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.NekoBox.ContentCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/reset_settings" />
+            android:layout_marginTop="8dp">
 
-        <CheckBox
-            android:id="@+id/backup_configurations"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:checked="true"
-            android:text="@string/backup_groups_and_configurations"
-            android:textAppearance="?attr/textAppearanceBodyLarge" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
 
-        <CheckBox
-            android:id="@+id/backup_rules"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:checked="true"
-            android:text="@string/backup_rules"
-            android:textAppearance="?attr/textAppearanceBodyLarge" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/backup_import"
+                    android:textAppearance="?attr/textAppearanceTitleMedium"
+                    android:textColor="?attr/colorOnSurface" />
 
+                <Button
+                    android:id="@+id/action_import_file"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/action_import_file" />
 
-        <CheckBox
-            android:id="@+id/backup_settings"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:checked="true"
-            android:text="@string/backup_settings"
-            android:textAppearance="?attr/textAppearanceBodyLarge" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
-        <Button
-            android:id="@+id/action_export"
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.NekoBox.ContentCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/action_export" />
+            android:layout_marginTop="8dp">
 
-        <Button
-            android:id="@+id/action_share"
-            style="@style/Widget.Material3.Button.TonalButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/share" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/backup_summary"
-            android:textAppearance="?attr/textAppearanceBodyMedium"
-            android:textColor="?attr/colorOnSurfaceVariant" />
+                <Button
+                    android:id="@+id/reset_settings"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/reset_settings" />
 
-        <Button
-            android:id="@+id/action_import_file"
-            style="@style/Widget.Material3.Button.TonalButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/action_import_file" />
-
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
     </LinearLayout>
-
 </androidx.core.widget.NestedScrollView>

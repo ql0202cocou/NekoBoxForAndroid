@@ -4,15 +4,20 @@ import android.app.Activity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.core.widget.NestedScrollView
 import androidx.preference.EditTextPreference
+import androidx.viewpager2.widget.ViewPager2
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.EditorCache
 import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.ui.SettingsFragment
 import io.nekohasekai.sagernet.ui.SettingsPreferenceFragment
+import io.nekohasekai.sagernet.ui.StunActivity
+import io.nekohasekai.sagernet.ui.ToolsFragment
 import io.nekohasekai.sagernet.ui.profile.ShadowsocksSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.VMessSettingsActivity
 import io.nekohasekai.sagernet.utils.Theme
@@ -21,6 +26,7 @@ import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.android.controller.ActivityController
+import java.io.File
 
 /**
  * 截图基线用例：[ScreenshotMatrix] 的每个档位一个用例（参数化），各自：写夹具 → 设备配置（宽度、字号、夜间）与主题
@@ -56,6 +62,41 @@ class ScreenshotTest(private val shot: Shot) : UiTestBase() {
             Screen.GROUPS -> mainActivity().apply { page(R.id.nav_group) }.shot()
             Screen.ROUTES -> mainActivity().apply { page(R.id.nav_route) }.shot()
             Screen.SETTINGS_HUB -> mainActivity().apply { page(R.id.nav_settings) }.shot()
+            Screen.ABOUT -> {
+                // 版本号属于发布数据，截图固定为夹具值，升级应用不需要重录布局。
+                val version = SagerNet.appVersionNameForDisplay
+                try {
+                    SagerNet.appVersionNameForDisplay = "1.0.0-test"
+                    mainActivity().apply { page(R.id.nav_about) }.shot()
+                } finally {
+                    SagerNet.appVersionNameForDisplay = version
+                }
+            }
+            Screen.TOOLS_NETWORK -> mainActivity().apply { page(R.id.nav_tools) }.shot()
+            Screen.TOOLS_BACKUP -> {
+                val main = mainActivity().apply { page(R.id.nav_tools) }
+                main.get().findViewById<ViewPager2>(R.id.tools_pager).setCurrentItem(1, false)
+                UiSettle.settle()
+                val tools = main.hostedFragment<ToolsFragment>()
+                val scroll = tools.childFragmentManager.findFragmentByTag("f1")!!.requireView() as NestedScrollView
+                Screenshots.check(shot, main.get().window.decorView.drawFullLength(scroll))
+            }
+            Screen.STUN -> Screenshots.check(shot, ui.launch<StunActivity>().get().window.decorView)
+            Screen.LOGS -> {
+                // 固定日志内容，避免缺文件异常中的临时目录和线程栈进入基线。
+                val log = File(SagerNet.application.cacheDir, "neko.log")
+                try {
+                    log.writeText("""
+                        INFO[0000] network: default interface updated
+                        INFO[0000] sing-box started
+                        WARN[0001] outbound: connection timed out
+                        ERROR[0002] dns: lookup example.com failed
+                    """.trimIndent())
+                    mainActivity().apply { page(R.id.nav_logcat) }.shot()
+                } finally {
+                    log.delete()
+                }
+            }
 
             // 设置的七个分类页，截全长
             Screen.SETTINGS_SERVICE -> settingsSection(0)

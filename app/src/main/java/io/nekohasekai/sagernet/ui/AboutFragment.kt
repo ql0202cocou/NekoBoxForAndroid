@@ -66,6 +66,9 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
 
     class AboutContent : MaterialAboutFragment() {
 
+        // 页面转场由 MainActivity 负责，内容列表不再叠加组件自带的淡入。
+        override fun shouldAnimate() = false
+
         val requestIgnoreBatteryOptimizations = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { (resultCode, _) ->
@@ -81,6 +84,7 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                 .addCard(
                     MaterialAboutCard.Builder()
                         .outline(true)
+                        .cardColor(activityContext.getColor(R.color.profile_card_background))
                         .addItem(
                             MaterialAboutActionItem.Builder()
                                 .icon(R.drawable.ic_baseline_update_24)
@@ -156,6 +160,7 @@ class AboutFragment : ToolbarFragment(R.layout.layout_about) {
                 .addCard(
                     MaterialAboutCard.Builder()
                         .outline(true)
+                        .cardColor(activityContext.getColor(R.color.profile_card_background))
                         .title(R.string.project)
                         .addItem(
                             MaterialAboutActionItem.Builder()

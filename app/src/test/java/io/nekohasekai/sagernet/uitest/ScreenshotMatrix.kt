@@ -15,6 +15,13 @@ enum class Screen(val dir: String) {
     ROUTES("routes"),
     SETTINGS_HUB("settings-hub"),
 
+    // 设置里的独立内容页，以及网络工具的测试表单
+    ABOUT("about"),
+    TOOLS_NETWORK("tools-network"),
+    TOOLS_BACKUP("tools-backup"),
+    STUN("stun"),
+    LOGS("logs"),
+
     // 配置页「已连接」态（服务在测试里不会连上，用例直接调 MainActivity.stateChanged）
     CONFIG_CONNECTED("config-connected"),
 
@@ -88,11 +95,11 @@ data class Shot(
 }
 
 /**
- * 分层矩阵（114 张）。每个轴的每个取值都至少覆盖到；宽度 × 字号的四个组合在配置页和设置一级页上齐全。
- * - A 主题层：7 个画面 × 粉 / 灰 / 黑 × 亮 / 暗，411dp、字号 1.0（42 张）
- * - B 布局层：除 [defaultOnlyScreens] 外的 19 个画面，粉亮，360dp、字号 1.3（最挤的一档，19 张）
+ * 分层矩阵（139 张）。每个轴的每个取值都至少覆盖到；宽度 × 字号的四个组合在配置页和设置一级页上齐全。
+ * - A 主题层：10 个画面 × 粉 / 灰 / 黑 × 亮 / 暗，411dp、字号 1.0（60 张）
+ * - B 布局层：除 [defaultOnlyScreens] 外的 24 个画面，粉亮，360dp、字号 1.3（最挤的一档，24 张）
  * - C 补角：配置页与设置一级页，粉亮，360dp / 1.0 与 411dp / 1.3（4 张）
- * - D 默认层：不在 A 层的 13 个画面，粉亮，411dp / 1.0（13 张）
+ * - D 默认层：不在 A 层的 15 个画面，粉亮，411dp / 1.0（15 张）
  * - E 完整色板：其余 18 种主题的配置页 × 亮 / 暗（36 张）
  */
 object ScreenshotMatrix {
@@ -101,6 +108,7 @@ object ScreenshotMatrix {
     val themeScreens: List<Screen> = listOf(
         Screen.CONFIG_LIST, Screen.CONFIG_CONNECTED, Screen.GROUPS, Screen.ROUTES,
         Screen.SETTINGS_HUB, Screen.EDITOR_VMESS, Screen.DIALOG_THEME_PICKER,
+        Screen.ABOUT, Screen.TOOLS_NETWORK, Screen.TOOLS_BACKUP,
     )
 
     private val cornerScreens = listOf(Screen.CONFIG_LIST, Screen.SETTINGS_HUB)

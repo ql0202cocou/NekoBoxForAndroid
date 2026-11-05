@@ -3,8 +3,10 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/profile_list_background"
+    android:transitionGroup="true"
     android:orientation="vertical"
-    tools:context=".ui.ToolsFragment">
+    tools:context=".ui.LogcatFragment">
 
     <include
         layout="@layout/layout_appbar"
@@ -13,14 +15,16 @@
         android:layout_height="wrap_content" />
 
     <!-- 日志之上叠一个空状态占位（没有日志时） -->
-    <FrameLayout
+    <com.google.android.material.card.MaterialCardView
+        style="@style/Widget.NekoBox.ContentCard"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:padding="8dp">
+        android:layout_margin="8dp">
 
         <!-- NestedScrollView：滚动时主界面的状态卡片随之收起 / 拉出 -->
         <androidx.core.widget.NestedScrollView
             android:id="@+id/scroolview"
+            android:padding="16dp"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
@@ -50,7 +54,7 @@
             android:textColor="?attr/colorOnSurface"
             android:visibility="gone"
             tools:visibility="visible" />
-    </FrameLayout>
+    </com.google.android.material.card.MaterialCardView>
 
 
 </LinearLayout>

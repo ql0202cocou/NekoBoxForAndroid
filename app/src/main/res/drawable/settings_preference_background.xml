@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 设置行沿用配置卡片的底色和主题圆角，按压反馈限制在卡片内部。 -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="?attr/colorControlHighlight">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/profile_card_background" />
+            <corners android:radius="?attr/shapeCornerSizeMedium" />
+        </shape>
+    </item>
+</ripple>

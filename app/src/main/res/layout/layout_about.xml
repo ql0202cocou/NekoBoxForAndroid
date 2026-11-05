@@ -2,6 +2,8 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/profile_list_background"
+    android:transitionGroup="true"
     android:orientation="vertical">
 
     <include
@@ -22,6 +24,7 @@
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/title_card"
+                style="@style/Widget.NekoBox.ContentCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="8dp"
@@ -59,6 +62,7 @@
                 android:layout_height="match_parent" />
 
             <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.NekoBox.ContentCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginLeft="8dp"
