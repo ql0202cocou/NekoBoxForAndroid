@@ -8,8 +8,10 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 
-import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.app.ActivityCompat
+import androidx.core.view.setMargins
+import androidx.core.view.updateLayoutParams
+import androidx.core.view.updatePadding
 import androidx.preference.*
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -43,8 +45,7 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
 
         listView.layoutManager = FixedLinearLayoutManager(listView)
         val spacing = resources.getDimensionPixelSize(R.dimen.settings_card_spacing)
-        listView.setPadding(spacing, spacing, spacing, listView.paddingBottom)
-        listView.clipToPadding = false
+        listView.updatePadding(left = spacing, top = spacing, right = spacing)
         setDivider(null)
         hostMainScrollable(listView, liftAncestorAppBar = true)
         // 从二级页面返回一级页：恢复进入前的滚动位置（页面入口在列表末尾）
@@ -60,18 +61,17 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         object : PreferenceGroupAdapter(preferenceScreen) {
             override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PreferenceViewHolder {
                 return super.onCreateViewHolder(parent, viewType).apply {
-                    val spacing = parent.resources.getDimensionPixelSize(R.dimen.settings_card_spacing)
-                    (itemView.layoutParams as RecyclerView.LayoutParams).setMargins(spacing, spacing, spacing, spacing)
+                    itemView.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+                        setMargins(parent.resources.getDimensionPixelSize(R.dimen.settings_card_spacing))
+                    }
                 }
             }
 
             override fun onBindViewHolder(holder: PreferenceViewHolder, position: Int) {
                 super.onBindViewHolder(holder, position)
-                // 分类标题留在页面底色上；普通行每次绑定后恢复卡片，避免回收时被默认背景覆盖。
+                // 基类每次绑定都恢复行的原始背景，普通行要换回卡片；分类标题留在页面底色上。
                 if (getItem(position) !is PreferenceCategory) {
-                    holder.itemView.background = AppCompatResources.getDrawable(
-                        holder.itemView.context, R.drawable.settings_preference_background
-                    )
+                    holder.itemView.setBackgroundResource(R.drawable.settings_preference_background)
                 }
             }
         }

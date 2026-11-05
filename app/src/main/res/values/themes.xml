@@ -138,6 +138,11 @@
         <item name="android:textColorHint">@color/theme_text_hint</item>
     </style>
 
+    <!-- 独立内容页和列表项的填充卡片，靠底色区分层级 -->
+    <style name="Widget.SagerNet.ContentCard" parent="Widget.Material3.CardView.Filled">
+        <item name="cardBackgroundColor">@color/profile_card_background</item>
+    </style>
+
     <style name="Widget.SagerNet.TabLayout" parent="Widget.Material3.TabLayout">
         <item name="tabTextColor">@color/theme_text_appbar</item>
         <item name="tabIconTint">@color/theme_text_appbar</item>

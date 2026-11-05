@@ -14,7 +14,7 @@
 
     <!-- 日志之上叠一个空状态占位（没有日志时） -->
     <com.google.android.material.card.MaterialCardView
-        style="@style/Widget.NekoBox.ContentCard"
+        style="@style/Widget.SagerNet.ContentCard"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_margin="8dp">

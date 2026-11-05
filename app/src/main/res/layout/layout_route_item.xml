@@ -2,13 +2,11 @@
 <com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    style="@style/Widget.SagerNet.ContentCard"
     android:id="@+id/content"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="4dp"
-    app:cardBackgroundColor="@color/profile_card_background"
-    app:cardElevation="0dp"
-    app:strokeWidth="0dp">
+    android:layout_margin="4dp">
 
     <LinearLayout
         android:id="@+id/content_lin"

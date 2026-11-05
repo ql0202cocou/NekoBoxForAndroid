@@ -2,15 +2,13 @@
 <com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    style="@style/Widget.SagerNet.ContentCard"
     android:id="@+id/content"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="4dp"
     android:clickable="true"
-    android:focusable="true"
-    app:cardBackgroundColor="@color/profile_card_background"
-    app:cardElevation="0dp"
-    app:strokeWidth="0dp">
+    android:focusable="true">
 
     <!-- clickable / focusable 只为按压 ripple：卡片本身不处理点击，但 MaterialCardView
          只在可点击时才画 ripple -->

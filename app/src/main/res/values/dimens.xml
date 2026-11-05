@@ -1,5 +1,7 @@
 <resources>
     <dimen name="settings_card_spacing">4dp</dimen>
+    <!-- 关于页组件绑定时会重设描边，覆盖它的宽度以保持无边框样式。 -->
+    <dimen name="mal_stroke_width">0dp</dimen>
     <dimen name="qrcode_size">264dp</dimen>
     <!-- 主界面底部悬浮 Dock：高 64dp，全圆角，内边距 4dp，项高 56dp；底边在导航栏上方 2dp；
          右侧让出连接按钮：12（右边距）+ 56（按钮）+ 8（间隙） -->

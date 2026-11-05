@@ -13,7 +13,7 @@
         android:padding="8dp">
 
         <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.NekoBox.ContentCard"
+            style="@style/Widget.SagerNet.ContentCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
 
@@ -35,7 +35,6 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:minHeight="48dp"
                     android:checked="true"
                     android:text="@string/backup_groups_and_configurations"
                     android:textAppearance="?attr/textAppearanceBodyLarge" />
@@ -44,7 +43,6 @@
                     android:id="@+id/backup_rules"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:minHeight="48dp"
                     android:checked="true"
                     android:text="@string/backup_rules"
                     android:textAppearance="?attr/textAppearanceBodyLarge" />
@@ -53,7 +51,6 @@
                     android:id="@+id/backup_settings"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:minHeight="48dp"
                     android:checked="true"
                     android:text="@string/backup_settings"
                     android:textAppearance="?attr/textAppearanceBodyLarge" />
@@ -85,7 +82,7 @@
         </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.NekoBox.ContentCard"
+            style="@style/Widget.SagerNet.ContentCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp">
@@ -115,25 +112,18 @@
         </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.NekoBox.ContentCard"
+            style="@style/Widget.SagerNet.ContentCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp">
 
-            <LinearLayout
+            <Button
+                android:id="@+id/reset_settings"
+                style="@style/Widget.Material3.Button.TonalButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <Button
-                    android:id="@+id/reset_settings"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/reset_settings" />
-
-            </LinearLayout>
+                android:layout_margin="16dp"
+                android:text="@string/reset_settings" />
         </com.google.android.material.card.MaterialCardView>
 
     </LinearLayout>
