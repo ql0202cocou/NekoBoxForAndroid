@@ -168,14 +168,10 @@ fun ProxyEntity.haveLink(): Boolean {
 fun StandardV2RayBean.realityMldsa65VerifyActive(): Boolean =
     security == "tls" && !realityPubKey.isNullOrBlank() && !realityMldsa65Verify.isNullOrBlank()
 
-// 该节点是否跑在外部核心进程上，跟着能力表的判定（ProxyEntity.coreDecision，CoreSelection.kt）走：
-// - 能选核的协议（VMess / VLESS / Trojan / AnyTLS）：选中 Xray 为真，选中 sing-box 为假；
+// 该节点是否跑在外部核心进程上，跟着能力表的判定（CoreSelection.kt）走；构建的规划每跳只算一次判定，见 HopCoreChoice：
+// - 匹配能力表的协议（VMess / VLESS / Trojan，以及固定 sing-box 的 AnyTLS）：选中 Xray 为真，选中 sing-box 为假；
 // - 不能选核的协议：承载方式沿用现状，插件协议与 Neko 为真，hysteria 看 sing-box 能不能承载，其余为假；
 // - 被拒绝的节点为假：拒绝由 requireBuildableHop（ChainPlan.kt）报出，在那之前的整链检查不把它算作外核节点。
-// globalAllowInsecure 是设置快照里的全局「允许不安全」，影响判定
-fun ProxyEntity.needExternal(globalAllowInsecure: Boolean): Boolean = needExternal(coreDecision(globalAllowInsecure))
-
-// 同上，判定已经算好（构建的规划每跳只算一次，见 HopCoreChoice）
 fun ProxyEntity.needExternal(decision: CoreDecision): Boolean =
     when (decision) {
         is CoreDecision.Selected -> decision.core != DialCore.SING_BOX

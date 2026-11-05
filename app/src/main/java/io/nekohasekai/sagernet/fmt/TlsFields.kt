@@ -35,6 +35,12 @@ class TlsFields(
 fun effectiveAllowInsecure(allowInsecure: Boolean?, globalAllowInsecure: Boolean): Boolean =
     allowInsecure == true || globalAllowInsecure
 
+// 整证书 SHA-256 固定值：去冒号并忽略首尾空白后，必须恰好解码为 32 字节。
+fun isCertificateFingerprint(value: String): Boolean {
+    val hex = value.replace(":", "").trim()
+    return hex.length == 64 && hex.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }
+}
+
 // bean -> sing-box 出站的 tls 块，不用 TLS 的 bean 返回 null；globalAllowInsecure 是全局「允许不安全」
 fun buildSingBoxOutboundTLS(bean: AbstractBean, globalAllowInsecure: Boolean): OutboundTLSOptions? {
     val tls = tlsFields(bean) ?: return null

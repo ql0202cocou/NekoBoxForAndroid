@@ -319,7 +319,7 @@ internal fun planChain(entity: ProxyEntity, context: ChainPlanContext, checkHop:
     // 只有能纳入运行配置的整条链才检查可移植性；坏成员与坏规则目标仍按原检查原因跳过。
     if (context.forExport) {
         val privateHop = hops.firstOrNull {
-            it.bean is AnyTLSBean && it.core is HopCore.Internal && !it.choice.requirements.nativeAnyTlsOverrides
+            it.bean is AnyTLSBean && !it.choice.requirements.nativeAnyTlsOverrides
         }
         if (privateHop != null) withProfileName(privateHop.bean) {
             throw ConfigExportException("sing-box AnyTLS uses a NekoBox extension and cannot be exported as a portable configuration")

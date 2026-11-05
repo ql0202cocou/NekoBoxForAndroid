@@ -17,6 +17,7 @@ import io.nekohasekai.sagernet.fmt.endpointProblem
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
+import io.nekohasekai.sagernet.fmt.isCertificateFingerprint
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
 import io.nekohasekai.sagernet.fmt.tlsFields
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
@@ -35,7 +36,6 @@ import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import io.nekohasekai.sagernet.fmt.wireguard.isWireGuardLocalAddressList
 import io.nekohasekai.sagernet.ktx.isIpAddress
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
-import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 import org.yaml.snakeyaml.error.YAMLException
 
 // clash 订阅的 YAML 根节点。SafeConstructor：远端订阅绝不能实例化任意类

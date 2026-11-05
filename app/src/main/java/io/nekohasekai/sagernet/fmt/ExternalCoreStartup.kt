@@ -51,7 +51,7 @@ class ExternalCoreCheck(
 
     /**
      * 校验进程跑完后的结论。exitCode 为 null 表示超时被杀。退出码 0 即通过；被信号杀掉不算配置的问题；
-     * 其余非 0 都按配置被拒绝处理：两个核心的校验与启动走同一段加载，这里没过，启动时进程也会立刻退出。
+     * 其余非 0 都按配置被拒绝处理：校验与启动走同一段加载，这里没过，启动时进程也会立刻退出。
      */
     fun result(group: ExternalCoreGroup, exitCode: Int?, output: String): ExternalCheckResult {
         if (exitCode == null) return ExternalCheckResult.Inconclusive("$coreName config check timed out")

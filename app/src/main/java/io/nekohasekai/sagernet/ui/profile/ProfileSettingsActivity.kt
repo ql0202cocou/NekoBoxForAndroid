@@ -53,8 +53,8 @@ import io.nekohasekai.sagernet.ui.EditorActivity
 import io.nekohasekai.sagernet.ui.InlineValidation
 import io.nekohasekai.sagernet.ui.InlineValidations
 import kotlinx.parcelize.Parcelize
-import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 import io.nekohasekai.sagernet.database.EditorCache
+import io.nekohasekai.sagernet.fmt.isCertificateFingerprint
 
 @Suppress("UNCHECKED_CAST")
 abstract class ProfileSettingsActivity<T : AbstractBean>(
@@ -546,8 +546,7 @@ fun EditTextPreference.bindValidatedPreference(
     return this
 }
 
-// Every pin-capable protocol editor shares one rule: blank means no pinning, and
-// mihomo's only consumer of the value hex-decodes it into 32 bytes.
+// 所有支持证书固定的编辑器共用一条规则：留空表示不固定，否则必须是整证书 SHA-256。
 fun EditTextPreference.bindCertificateFingerprintPreference(): EditTextPreference =
     bindValidatedPreference(R.string.certificate_fingerprint_error) {
         it.isBlank() || isCertificateFingerprint(it)

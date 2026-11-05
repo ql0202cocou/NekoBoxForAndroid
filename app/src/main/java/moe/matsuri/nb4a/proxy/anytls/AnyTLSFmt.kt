@@ -78,12 +78,6 @@ fun buildSingBoxOutboundAnyTLSBean(bean: AnyTLSBean, globalAllowInsecure: Boolea
 
 internal fun AnyTLSBean.hasLocalSocksOverride() = localSocksOutboundJson && !customOutboundJson.isNullOrBlank()
 
-// 整证书 SHA-256 固定值：去冒号并忽略首尾空白后，必须恰好解码为 32 字节。
-fun isCertificateFingerprint(value: String): Boolean {
-    val hex = value.replace(":", "").trim()
-    return hex.length == 64 && hex.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }
-}
-
 fun AnyTLSBean.toUri(): String {
     // 专属链接无法表达自定义信任策略，用通用链接完整保留，避免接收方按固定解释。
     if (certificatePolicy == AnyTLSBean.CERTIFICATE_POLICY_TRUST || hasLocalSocksOverride()) return toUniversalLink()
@@ -147,8 +141,7 @@ fun parseAnytls(url: String): AnyTLSBean {
             certificateFingerprint = it
         }
         (link.queryParameter("ech") ?: link.queryParameter("echConfig"))?.let {
-            // "1" marks enable-only; storing it as a config would make both
-            // cores reject the profile
+            // "1" 只表示启用；当配置存下会让节点被核心拒绝
             if (it == "1") enableECH = true else echConfig = it
         }
     }

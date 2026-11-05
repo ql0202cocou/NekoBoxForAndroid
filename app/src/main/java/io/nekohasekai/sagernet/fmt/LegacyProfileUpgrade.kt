@@ -76,7 +76,7 @@ class LegacyProfileUpgrade(
 // Xray 的 ws 客户端用这个头携带 early data（transport/internet/websocket/dialer.go，v26.3.27）
 const val WS_EARLY_DATA_PROTOCOL_HEADER = "Sec-WebSocket-Protocol"
 
-// 规则 d 补写的 uTLS 指纹，三个核心的名单里都有（CoreCapabilities.kt）
+// 规则 d 补写的 uTLS 指纹，sing-box 与 Xray 的名单里都有（CoreCapabilities.kt）
 const val LEGACY_UTLS_FINGERPRINT = "firefox"
 
 fun upgradeLegacyProfile(

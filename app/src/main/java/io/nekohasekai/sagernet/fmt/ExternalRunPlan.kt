@@ -262,23 +262,6 @@ fun exportConfigText(
     return text.toString() to name
 }
 
-// 合并配置的生成器共用：同一份配置里的监听端口与标识各不相同，也不占用核心的保留名。
-// 重复的端口两个核心都不报错，重复或保留的标识要么让核心启动失败、要么让流量走错节点，所以在生成时拒绝
-internal fun requireDistinctHops(hops: List<ExternalHop>, reserved: Set<String>) {
-    require(hops.isNotEmpty()) { "an external core config needs at least one hop" }
-    fun requireUnique(what: String, values: List<Any>) {
-        values.groupBy { it }.values.firstOrNull { it.size > 1 }?.let {
-            throw IllegalStateException("duplicate $what ${it[0]} in one external core config")
-        }
-    }
-    requireUnique("local port", hops.map { it.localPort })
-    requireUnique("inbound tag", hops.map { it.inboundTag })
-    requireUnique("outbound tag", hops.map { it.outboundTag })
-    hops.flatMap { listOf(it.inboundTag, it.outboundTag) }.firstOrNull { it in reserved }?.let {
-        throw IllegalStateException("tag $it is reserved by the external core")
-    }
-}
-
 // 合并配置的生成器共用：入站一律要求认证，跳实例没有凭据时不生成配置，而不是写出不认证的入站
 internal fun ExternalHop.requireLocalAuth(): LocalSocksAuth =
     localAuth ?: throw IllegalStateException("external hop $index ($pluginId) has no local socks credentials")

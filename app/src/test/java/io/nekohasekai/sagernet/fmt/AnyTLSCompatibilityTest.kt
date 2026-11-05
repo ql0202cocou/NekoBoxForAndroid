@@ -43,7 +43,7 @@ class AnyTLSCompatibilityTest {
             assertTrue(node(testing, ProxyEntity.CORE_XRAY).coreDecision(false) is CoreDecision.Rejected)
             assertTrue(node(testing, ProxyEntity.CORE_MIHOMO).coreDecision(false) is CoreDecision.Rejected)
         }
-        assertFalse(node().needExternal(false))
+        assertFalse(node().let { it.needExternal(it.coreDecision(false)) })
     }
 
     @Test

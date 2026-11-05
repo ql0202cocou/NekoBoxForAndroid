@@ -12,6 +12,7 @@ import io.nekohasekai.sagernet.ui.profile.ProfileSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.bindCertificateFingerprintPreference
 import io.nekohasekai.sagernet.ui.profile.bindPasswordPreference
 import io.nekohasekai.sagernet.ui.profile.certificateFingerprintError
+import kotlinx.coroutines.Dispatchers
 import moe.matsuri.nb4a.proxy.PreferenceBinding
 import moe.matsuri.nb4a.proxy.PreferenceBindingManager
 import moe.matsuri.nb4a.proxy.Type
@@ -49,7 +50,7 @@ class AnyTLSSettingsActivity : ProfileSettingsActivity<AnyTLSBean>() {
         val priorPolicy = this.certificatePolicy
         pbm.fromCacheAll(this)
         if (this.certificatePolicy != priorPolicy) certificatePolicySource = AnyTLSBean.POLICY_LOCAL
-        localSocksOutboundJson = !customOutboundJson.isNullOrBlank() && localSocksOutboundJson
+        localSocksOutboundJson = hasLocalSocksOverride()
     }
 
     override fun PreferenceFragmentCompat.createPreferences(
@@ -68,13 +69,10 @@ class AnyTLSSettingsActivity : ProfileSettingsActivity<AnyTLSBean>() {
                     .setMessage(R.string.anytls_override_rewritten_confirm)
                     .setNegativeButton(android.R.string.cancel, null)
                     .setPositiveButton(R.string.confirm) { _, _ ->
-                        launchInSession {
-                            // 确认只属于当前编辑会话；旋转保留缓存，放弃编辑不改数据库。
-                            onMain {
-                                EditorCache.profileCacheStore.putBoolean(localSocksOverride.cacheName, false)
-                                EditorCache.dirty = true
-                                isVisible = false
-                            }
+                        // 确认只属于当前编辑会话；旋转保留缓存，放弃编辑不改数据库。
+                        launchInSession(context = Dispatchers.Main.immediate) {
+                            EditorCache.profileCacheStore.putBoolean(localSocksOverride.cacheName, false)
+                            isVisible = false
                         }
                     }.show()
                 true

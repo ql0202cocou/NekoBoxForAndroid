@@ -299,7 +299,8 @@ class HopPlanTest {
             e.message,
         )
         // 被拒的节点不算外核节点（整链检查里的「外核节点出现两次」不把它算进去）
-        assertFalse(vless(core = ProxyEntity.CORE_MIHOMO).needExternal(false))
+        val rejected = vless(core = ProxyEntity.CORE_MIHOMO)
+        assertFalse(rejected.needExternal(rejected.coreDecision(false)))
     }
 
     @Test

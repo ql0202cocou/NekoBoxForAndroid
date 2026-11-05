@@ -9,11 +9,10 @@ import io.nekohasekai.sagernet.fmt.ExternalHop
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import io.nekohasekai.sagernet.fmt.decideCore
 import io.nekohasekai.sagernet.fmt.fieldText
-import io.nekohasekai.sagernet.fmt.requireDistinctHops
+import io.nekohasekai.sagernet.fmt.isCertificateFingerprint
 import io.nekohasekai.sagernet.fmt.requireLocalAuth
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.ktx.wrapIPV6Host
-import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 import moe.matsuri.nb4a.utils.JavaUtil.gson
 import moe.matsuri.nb4a.utils.echAsBase64
 import moe.matsuri.nb4a.utils.listByLineOrComma
@@ -22,13 +21,27 @@ import moe.matsuri.nb4a.utils.listByLineOrComma
 // 不会串到某个节点
 const val XRAY_BLOCK_TAG = "block"
 
+// 同一份配置里的监听端口与标识各不相同。重复的端口 Xray 不报错，重复的标识要么让它启动失败、要么让流量走错节点，
+// 所以在生成时拒绝
+private fun requireDistinctHops(hops: List<ExternalHop>) {
+    require(hops.isNotEmpty()) { "an external core config needs at least one hop" }
+    fun requireUnique(what: String, values: List<Any>) {
+        values.groupBy { it }.values.firstOrNull { it.size > 1 }?.let {
+            throw IllegalStateException("duplicate $what ${it[0]} in one external core config")
+        }
+    }
+    requireUnique("local port", hops.map { it.localPort })
+    requireUnique("inbound tag", hops.map { it.inboundTag })
+    requireUnique("outbound tag", hops.map { it.outboundTag })
+}
+
 // 一组跳实例的 Xray 配置：每个跳实例一个本机 socks 入站，routing 按入站 tag 把它的
 // TCP 与 UDP 都指到它自己的出站。outbounds 与 hops 一一对应，是 buildXrayOutbound 的结果。
 // 规则指向不存在的出站、端口重复时 Xray 都不报错，tag 重复则整份配置启动失败：都在这里先保证。
 // 每个入站都要求跳实例的本机 socks 凭据（ExternalHop.localAuth），拿不到就报错，不生成不认证的入站
 fun buildXrayConfig(hops: List<ExternalHop>, outbounds: List<Map<String, Any?>>, settings: ExternalCoreSettings): String {
     require(hops.size == outbounds.size) { "${hops.size} hops but ${outbounds.size} outbounds" }
-    requireDistinctHops(hops, setOf(XRAY_BLOCK_TAG))
+    requireDistinctHops(hops)
     val auths = hops.map { it.requireLocalAuth() }
     // 用共用的 gson 直接序列化集合；它不输出值为 null 的键，与 org.json put(键, null) 删键的结果一致
     return gson.toJson(LinkedHashMap<String, Any?>().apply {

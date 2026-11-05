@@ -27,6 +27,7 @@ import io.nekohasekai.sagernet.fmt.shownKeyPath
 import io.nekohasekai.sagernet.fmt.clashShownValueAt
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
+import io.nekohasekai.sagernet.fmt.isCertificateFingerprint
 import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
@@ -37,7 +38,6 @@ import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import io.nekohasekai.sagernet.ktx.blankAsNull
 import io.nekohasekai.sagernet.ktx.isIpAddress
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
-import moe.matsuri.nb4a.proxy.anytls.isCertificateFingerprint
 
 // Clash 节点的字段记录（K3a）：解析完成后，拿输入的 map 与解析出的 bean 对照，给输入里每个非空键
 // （含解析器读到的嵌套对象的子键）一个结果。只读不写：不改 bean，不影响导入结果。

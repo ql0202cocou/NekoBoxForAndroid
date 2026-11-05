@@ -297,7 +297,7 @@ abstract class BoxInstance(
         // 这个时限只在进程活着却不监听（例如端口被占用但只记错误日志）时才会等满
         private const val READY_TIMEOUT_MS = 5_000L
 
-        // 认证检查一次握手的读时限：两个核心拒绝时都立即应答并断开，只有异常情况才会等满；比就绪探测宽，
+        // 认证检查一次握手的读时限：Xray 拒绝时立即应答并断开，只有异常情况才会等满；比就绪探测宽，
         // 免得负载高时把还没来得及的应答当成没有被接受
         private const val AUTH_CHECK_TIMEOUT_MS = 1_000L
     }
