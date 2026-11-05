@@ -102,6 +102,8 @@ class XhttpExtraTest {
     fun `拒绝未知键与非 ASCII 键`() {
         reject("""{"unknownKey":1}""")
         reject("""{"xPaddingBytesX":1}""")
+        // Xray v26.10.31 新增，只在服务端生效，客户端的 extra 不收
+        reject("""{"h2Params":{"MaxConcurrentStreams":16}}""")
         // Go 的 encoding/json 会把 U+212A（开尔文符号）折叠成 k，所以必须按非 ASCII 拒绝
         reject("{\"Key\":1}")
         reject("""{"xPaddıngBytes":1}""")

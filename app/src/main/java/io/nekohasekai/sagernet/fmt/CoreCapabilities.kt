@@ -18,6 +18,11 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //   官方二进制改用 Go 1.27.3 编译（Vision 读 TLS 缓冲的新分支生效）、socks 入站临时 UDP 连接的计时器改为创建时初始化——其余按 diff
 //   未变；run -test 144 条、回环 80 条与 XHTTP 的 129 条与 v26.10.17 一致，新补的 Vision 回环 6 条（TLS / REALITY，内层明文与
 //   TLS 1.3 直拷，UDP 经 XUDP）新旧二进制都通；结论见维护者本地 doc/agent/core-wip/reports/N11-xray.md）；
+//   N13（v26.10.31 复核，2026-11-05：对比 v26.10.21 的 diff 只碰第 12 / 13 / 14 / 20 条——run 检查配置扩展名时不再解析符号链接、
+//   inbound 模块改到最后初始化，明文禁令的 IP 字面量不再查文档地址段名单，监听器默认关闭 MPTCP，XHTTP 服务端接受 OPTIONS 上行并新增只在
+//   服务端生效的 h2Params——本应用的 Xray 跳一律拨 127.0.0.1，生成器写的配置不受影响，其余按 diff 未变；run -test 148 条（新增 4 条）只有
+//   明文判定的两条按预期改变，回环 80 条、XHTTP 的 133 条（新增 4 条）、Vision 回环 6 条与传输 26 条的判定与 v26.10.21 一致；
+//   结论见维护者本地 doc/agent/core-wip/reports/N13-xray.md）；
 // - sing-box：I2b（vendored libcore/sing-box，1.14.2 + 1.14.2-neko-1）；现为 1.14.4-neko-2，此后的补丁（SOCKS5 出站的
 //   UDP ASSOCIATE 握手、WireGuard 启动报错去掉密钥、WireGuard 选 bind 与 ClientBind 退避、ICMP 不选接口）与 1.14.3、
 //   1.14.4 的上游改动都不涉及本表各项；sing-vmess 随 1.14.3、1.14.4 升级（1.14.4 只改 vless/vision.go 的关闭与竞争），
@@ -57,10 +62,12 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //     所以生成器里每个键名的拼写要靠测试保证。
 // 12. run -test 的退出码与「Failed to start: … with tag out-N > …」的报错格式（ExternalCoreStartup.kt 依赖它）。
 //     JSON 解码错误由 Go 1.27 改成「Config.outbounds.<下标>.…」（下标把首位的 block 也算在内），仍没有 tag。
-//     v26.10.17 起 run 只接受 .json / .jsonc / .yml / .yaml / .toml / .pb / .protobuf 扩展名的配置文件（本应用写 .json）。
-// 13. 公网明文禁令（v26.7.11 起）：不带 TLS 的 VLESS（没有 VLESS Encryption）/ Trojan 出站，服务端地址不在 Xray
-//     的私有名单里时 run -test 报错。私有名单含 127/8、::1、localhost 与 203.0.113.0/24、198.51.100.0/24 等文档
-//     地址段，所以测拒绝要用 2001:db8::/32 或普通域名；本应用的 Xray 跳一律拨 127.0.0.1，确认仍不触发。
+//     v26.10.17 起 run 只接受 .json / .jsonc / .yml / .yaml / .toml / .pb / .protobuf 扩展名的配置文件（本应用写 .json），
+//     v26.10.31 起按传入的文件名判断，不再解析符号链接。
+// 13. 公网明文禁令（v26.7.11 起）：不带 TLS 的 VLESS（没有 VLESS Encryption）/ Trojan 出站，服务端地址不算私有时
+//     run -test 报错。v26.10.31 起 IP 字面量只看 IsPrivate / IsLoopback / IsLinkLocalUnicast（127/8、::1、RFC 1918、
+//     fc00::/7、链路本地），203.0.113.0/24、198.51.100.0/24 等文档地址段与 100.64.0.0/10 都算公网；域名仍查私有域名名单
+//     （localhost、无点域名、.internal）。本应用的 Xray 跳一律拨 127.0.0.1，确认仍不触发。
 // 14. socks 入站的 UDP ASSOCIATE 语义（K0b）：入站端口本身是否收 UDP；每次通过认证的 ASSOCIATE 是否另开临时端口、
 //     只收声明的来源 IP、由第一个包锁定来源端口、随 TCP 控制连接关闭（v26.9.30 都是）。用回环逐项验证，并对照
 //     sing 的 SOCKS5 客户端在 ASSOCIATE 里写的地址。
@@ -90,7 +97,9 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //     XHTTP 与 Vision 流控（proxy/vless/outbound 要求 TLS / REALITY 直连）、与 Mux.Cool（新版服务端只接受纯 XUDP）的
 //     冲突是否仍成立；REALITY 是否仍能配 xhttp；单值 ALPN h3 的行为。sing-box 一侧：vendored 版本有了 XHTTP 传输时，
 //     改 TRANSPORT_XHTTP 一行与 SING_BOX_TRANSPORT_XHTTP。
-//     v26.10.17 的回环实测（doc/agent/k1b-wip/probe-plan/xray/xhttp/，v26.10.21 重跑相同）：Vision 每次连接都报「XTLS only supports TLS and
+//     v26.10.31 新增的 h2Params 只有服务端的 ListenXH 读，客户端写了不生效（XL-99），白名单不收，extra 里写了按未知键拒绝；
+//     同版本服务端把不带 Access-Control-Request-Method 的 OPTIONS 当上行（XL-96），uplinkHTTPMethod 的校验本来就放行。
+//     v26.10.17 的回环实测（doc/agent/k1b-wip/probe-plan/xray/xhttp/，v26.10.21、v26.10.31 重跑相同）：Vision 每次连接都报「XTLS only supports TLS and
 //     REALITY directly for now」；Mux.Cool 的 TCP 子连接被服务端拒（common/mux: unexpected network TCP），XUDP 承载的
 //     UDP 正常；单值 h3 的客户端改拨 UDP（QUIC），经 TCP+UDP 转发入口可用、只转发 TCP 的入口不通 —— 映射入站
 //     （ConfigBuilder.addMappingInbound）没有 network 限制，两者都收，所以 h3 不记冲突；将来若给映射入站加 network 限制，
@@ -102,14 +111,14 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 // Vision 流控的传输（XRAY_VISION_TRANSPORT / SING_BOX_VISION_TRANSPORT）：
 // 21. Xray 的 proxy/vless/outbound（与 inbound）是否仍只认直接的 TLS / REALITY 连接（VLESS Encryption 例外，本应用不支持）；
 //     sing-vmess 的 NewVisionConn 是否仍只认 TLS 连接本身（tlsRegistry），httpupgrade 是否仍把 TLS 连接原样交出。用
-//     doc/agent/k1b-wip/probe-plan/xray/vision/ 的 gen-transports.py + run-transports.sh 重跑（v26.10.21 / 1.14.3-neko-3：26 条，1.14.4-neko-1 重跑判定相同；
+//     doc/agent/k1b-wip/probe-plan/xray/vision/ 的 gen-transports.py + run-transports.sh 重跑（v26.10.21 / 1.14.3-neko-3：26 条，1.14.4-neko-1 与 v26.10.31 / 1.14.4-neko-2 重跑判定相同；
 //     Xray 客户端在 ws / grpc / httpupgrade / http 伪装 / 不带 TLS 上每次连接都失败，UDP 由 Xray 服务端拒收；sing-box 在 ws / grpc /
 //     h2 / quic / http 伪装 / 不带 TLS 上初始化 Vision 失败，httpupgrade 对 sing-box 服务端能通、对 Xray 服务端被拒）。
 
 // 能替节点拨号的核心。value 与 ProxyEntity.CORE_* 相同；version 是这张表核实时的版本
 enum class DialCore(val value: Int, val displayName: String, val version: String) {
     SING_BOX(CORE_SING_BOX, "sing-box", "1.14.4"),
-    XRAY(CORE_XRAY, "Xray", "v26.10.21");
+    XRAY(CORE_XRAY, "Xray", "v26.10.31");
 
     companion object {
         fun of(value: Int): DialCore? = entries.firstOrNull { it.value == value }

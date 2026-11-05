@@ -36,7 +36,7 @@ sing-box / universal proxy toolchain for Android.
 | 核心 / Core | 版本 / Version | 用途 / Used for |
 | --- | --- | --- |
 | [sing-box](https://github.com/SagerNet/sing-box) | v1.14.4（附带本仓库补丁及 uTLS v1.8.8 / with local patches and uTLS v1.8.8） | 基础内核，承载多数协议；AnyTLS 自动选核的首选 / Base core for most protocols; preferred for automatic AnyTLS selection |
-| [Xray-core](https://github.com/XTLS/Xray-core) | v26.10.21 | XHTTP 节点仅使用 Xray；带 REALITY 或 mldsa65Verify 的 VMess / VLESS / Trojan 优先使用；节点带证书指纹、Mux.Cool，或只有 Xray 认的 flow / 指纹时也走 Xray / Required for XHTTP profiles; preferred for VMess / VLESS / Trojan with REALITY or mldsa65Verify; also used when the profile has a certificate fingerprint, Mux.Cool, or a flow / fingerprint only Xray accepts |
+| [Xray-core](https://github.com/XTLS/Xray-core) | v26.10.31 | XHTTP 节点仅使用 Xray；带 REALITY 或 mldsa65Verify 的 VMess / VLESS / Trojan 优先使用；节点带证书指纹、Mux.Cool，或只有 Xray 认的 flow / 指纹时也走 Xray / Required for XHTTP profiles; preferred for VMess / VLESS / Trojan with REALITY or mldsa65Verify; also used when the profile has a certificate fingerprint, Mux.Cool, or a flow / fingerprint only Xray accepts |
 
 VMess / VLESS / Trojan 节点可在编辑页手动指定核心；指定的核心承载不了节点的设置时报错并列出冲突字段，不再回落到其他核心。AnyTLS 统一由 sing-box 的内置兼容实现承载。Trojan-Go、NaïveProxy、Mieru 以及 faketcp / wechat-video 模式的 Hysteria 1 需要另外安装对应插件。
 

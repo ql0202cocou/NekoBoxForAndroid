@@ -7,11 +7,11 @@ set -eo pipefail
 
 source buildScript/init/verify_sha256.sh
 
-XRAY_VERSION="v26.10.21"
+XRAY_VERSION="v26.10.31"
 
 # 解包后二进制（即 APK 中那份）的 sha256。与版本一起更新，防止同一 tag 下的发布资产被替换。
-XRAY_SHA256_arm64_v8a=c50408346deb5e38dbacb31e37aa09c64b7dd6eaf3c050c8cbac47e816464143
-XRAY_SHA256_x86_64=1e265a36411e2066d43c6f182068b63f46849ae2261fdcab912103e5458a7ce2
+XRAY_SHA256_arm64_v8a=ce8f18c44eb40cbd4563433109e0ede36c38b89c2fe71d1e583b4332ebefb622
+XRAY_SHA256_x86_64=894651c1de4e2b9cb51775c13ed168e8c8148be7220d2b5db15a42362c5b3263
 
 ABIS="arm64-v8a x86_64"
 DIR=app/executableSo
