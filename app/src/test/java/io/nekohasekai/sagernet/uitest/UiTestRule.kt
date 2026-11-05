@@ -212,9 +212,9 @@ class UiTestRule : TestRule {
         controller.pause().stop().destroy()
     }
 
-    /** 打开动画（规则默认把动画时长缩放设为 0）：只有要验证动画是否播放的用例用 */
-    fun enableAnimations() {
-        ValueAnimator::class.java.getMethod("setDurationScale", Float::class.javaPrimitiveType).invoke(null, 1f)
+    /** 打开动画（规则默认把动画时长缩放设为 0）：只有要验证动画是否播放的用例用；[scale] 对应系统的动画时长缩放 */
+    fun enableAnimations(scale: Float = 1f) {
+        ValueAnimator::class.java.getMethod("setDurationScale", Float::class.javaPrimitiveType).invoke(null, scale)
     }
 
     /** 在后台线程跑 [block]：SagerDatabase 不开 allowMainThreadQueries，主线程不能查库 */

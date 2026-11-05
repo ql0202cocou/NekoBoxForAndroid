@@ -9,6 +9,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.core.view.ViewCompat
+import androidx.core.view.descendants
 import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
@@ -16,6 +17,7 @@ import androidx.recyclerview.widget.RecyclerView
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ui.EditorActivity
+import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.widget.safeDrawingTypes
 import org.robolectric.android.controller.ActivityController
 import org.robolectric.shadows.ShadowDialog
@@ -35,6 +37,12 @@ inline fun <reified F : Fragment> FragmentActivity.hostedFragment(): F =
     supportFragmentManager.findFragmentById(R.id.fragment_holder) as F
 
 inline fun <reified F : Fragment> ActivityController<out FragmentActivity>.hostedFragment(): F = get().hostedFragment()
+
+/** Dock 里当前选中项的文字（选中项的外层视图 isSelected） */
+fun MainActivity.dockSelection(): String =
+    binding.dock.descendants.filterIsInstance<TextView>()
+        .filter { it.id == R.id.nav_dock_label && (it.parent as View).isSelected }
+        .joinToString { it.text }
 
 /**
  * Snackbar 上的「撤销」按钮，没有就报前置条件错误。默认先等界面安静；IO 门关着时不能 settle（见 IoGate），
@@ -134,41 +142,47 @@ fun View.largestRecyclerView(): RecyclerView? {
  * 加上列表顶边在根视图里的位置——不用 computeVerticalScrollRange，它在子项高度不一时只是估计值，会少几行。
  * 内容比窗口短时保持窗口高度。
  */
-fun View.drawFullLength(scroll: NestedScrollView? = null): Bitmap {
+fun View.drawFullLength(): Bitmap {
     val decor = rootView
-    val width = decor.width
     val windowHeight = decor.height
-    fun relayout(h: Int) {
-        decor.measure(
-            MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
-            MeasureSpec.makeMeasureSpec(h, MeasureSpec.EXACTLY),
-        )
-        decor.layout(0, 0, width, h)
-    }
     var height = windowHeight
-    if (scroll != null) {
-        // 备份页由 ViewPager2 托管，不能把分页器内部的 RecyclerView 当成内容列表。
-        // NestedScrollView 已测量了完整内容；先读高度，避免 fillViewport 被临时撑高。
-        height = maxOf(windowHeight, topInRoot(scroll, decor) + scroll.paddingTop +
-            scroll.getChildAt(0).height + scroll.paddingBottom)
-    } else {
-        relayout(TALL)
-        val list = decor.largestRecyclerView()
-        if (list != null) {
-            val manager = list.layoutManager as androidx.recyclerview.widget.LinearLayoutManager
-            check(manager.findLastVisibleItemPosition() == list.adapter!!.itemCount - 1) {
-                "撑到 $TALL px 高仍有列表项没有布局出来"
-            }
-            // 内容底边（含列表底部内边距，Dock 要让出的空白在里面）换算到根视图坐标，就是需要的窗口高度；
-            // 列表本身可能是 wrap_content（编辑器），不能用「撑高后的列表高度」去减
-            val contentBottom = list.getChildAt(list.childCount - 1).bottom + list.paddingBottom
-            height = maxOf(windowHeight, topInRoot(list, decor) + contentBottom)
+    decor.relayout(TALL)
+    val list = decor.largestRecyclerView()
+    if (list != null) {
+        val manager = list.layoutManager as androidx.recyclerview.widget.LinearLayoutManager
+        check(manager.findLastVisibleItemPosition() == list.adapter!!.itemCount - 1) {
+            "撑到 $TALL px 高仍有列表项没有布局出来"
         }
+        // 内容底边（含列表底部内边距，Dock 要让出的空白在里面）换算到根视图坐标，就是需要的窗口高度；
+        // 列表本身可能是 wrap_content（编辑器），不能用「撑高后的列表高度」去减
+        val contentBottom = list.getChildAt(list.childCount - 1).bottom + list.paddingBottom
+        height = maxOf(windowHeight, topInRoot(list, decor) + contentBottom)
     }
-    relayout(height)
-    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-    decor.draw(Canvas(bitmap))
-    return bitmap
+    return decor.drawAtHeight(height)
+}
+
+/**
+ * 滚动页的全长截图：备份页由 ViewPager2 托管，不能把分页器内部的 RecyclerView 当成内容列表（[drawFullLength] 的算法）。
+ * NestedScrollView 已测量了完整内容；先读高度，避免 fillViewport 被临时撑高。
+ */
+fun NestedScrollView.drawFullContent(): Bitmap {
+    val decor = rootView
+    return decor.drawAtHeight(
+        maxOf(decor.height, topInRoot(this, decor) + paddingTop + getChildAt(0).height + paddingBottom)
+    )
+}
+
+private fun View.relayout(h: Int) {
+    measure(
+        MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
+        MeasureSpec.makeMeasureSpec(h, MeasureSpec.EXACTLY),
+    )
+    layout(0, 0, width, h)
+}
+
+private fun View.drawAtHeight(h: Int): Bitmap {
+    relayout(h)
+    return Bitmap.createBitmap(width, h, Bitmap.Config.ARGB_8888).also { draw(Canvas(it)) }
 }
 
 /** 系统栏 / 刘海等「安全绘制区」插入的底部高度 */

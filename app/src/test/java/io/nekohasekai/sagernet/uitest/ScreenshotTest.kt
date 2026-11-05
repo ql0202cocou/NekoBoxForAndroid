@@ -59,43 +59,38 @@ class ScreenshotTest(private val shot: Shot) : UiTestBase() {
                 UiSettle.settle(advanceMs = 500)
                 main.shot()
             }
-            Screen.GROUPS -> mainActivity().apply { page(R.id.nav_group) }.shot()
-            Screen.ROUTES -> mainActivity().apply { page(R.id.nav_route) }.shot()
-            Screen.SETTINGS_HUB -> mainActivity().apply { page(R.id.nav_settings) }.shot()
+            Screen.GROUPS -> pageShot(R.id.nav_group)
+            Screen.ROUTES -> pageShot(R.id.nav_route)
+            Screen.SETTINGS_HUB -> pageShot(R.id.nav_settings)
             Screen.ABOUT -> {
                 // 版本号属于发布数据，截图固定为夹具值，升级应用不需要重录布局。
                 val version = SagerNet.appVersionNameForDisplay
                 try {
                     SagerNet.appVersionNameForDisplay = "1.0.0-test"
-                    mainActivity().apply { page(R.id.nav_about) }.shot()
+                    pageShot(R.id.nav_about)
                 } finally {
                     SagerNet.appVersionNameForDisplay = version
                 }
             }
-            Screen.TOOLS_NETWORK -> mainActivity().apply { page(R.id.nav_tools) }.shot()
+            Screen.TOOLS_NETWORK -> pageShot(R.id.nav_tools)
             Screen.TOOLS_BACKUP -> {
                 val main = mainActivity().apply { page(R.id.nav_tools) }
                 main.get().findViewById<ViewPager2>(R.id.tools_pager).setCurrentItem(1, false)
                 UiSettle.settle()
                 val tools = main.hostedFragment<ToolsFragment>()
                 val scroll = tools.childFragmentManager.findFragmentByTag("f1")!!.requireView() as NestedScrollView
-                Screenshots.check(shot, main.get().window.decorView.drawFullLength(scroll))
+                Screenshots.check(shot, scroll.drawFullContent())
             }
-            Screen.STUN -> Screenshots.check(shot, ui.launch<StunActivity>().get().window.decorView)
+            Screen.STUN -> ui.launch<StunActivity>().shot()
             Screen.LOGS -> {
-                // 固定日志内容，避免缺文件异常中的临时目录和线程栈进入基线。
-                val log = File(SagerNet.application.cacheDir, "neko.log")
-                try {
-                    log.writeText("""
-                        INFO[0000] network: default interface updated
-                        INFO[0000] sing-box started
-                        WARN[0001] outbound: connection timed out
-                        ERROR[0002] dns: lookup example.com failed
-                    """.trimIndent())
-                    mainActivity().apply { page(R.id.nav_logcat) }.shot()
-                } finally {
-                    log.delete()
-                }
+                // 固定日志内容，避免缺文件异常中的临时目录和线程栈进入基线。缓存目录每个用例一份，不用清理。
+                File(SagerNet.application.cacheDir, "neko.log").writeText("""
+                    INFO[0000] network: default interface updated
+                    INFO[0000] sing-box started
+                    WARN[0001] outbound: connection timed out
+                    ERROR[0002] dns: lookup example.com failed
+                """.trimIndent())
+                pageShot(R.id.nav_logcat)
             }
 
             // 设置的七个分类页，截全长
@@ -162,9 +157,11 @@ class ScreenshotTest(private val shot: Shot) : UiTestBase() {
         UiSettle.settle()
     }
 
-    private fun ActivityController<MainActivity>.shot() {
+    private fun ActivityController<*>.shot() {
         Screenshots.check(shot, get().window.decorView)
     }
+
+    private fun pageShot(id: Int) = mainActivity().apply { page(id) }.shot()
 
     private fun settingsSection(index: Int) {
         val main = mainActivity()

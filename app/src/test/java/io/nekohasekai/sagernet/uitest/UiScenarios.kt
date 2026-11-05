@@ -17,8 +17,6 @@ import java.io.File
 import android.content.Intent
 import android.os.Looper
 import android.view.View
-import android.view.ViewGroup
-import android.widget.TextView
 import androidx.preference.EditTextPreference
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -73,8 +71,11 @@ class Check(val ok: Boolean, val detail: String = "") {
 
 enum class Change { RECREATE, ROTATE }
 
-enum class Page(val navId: Int) {
-    CONFIG(R.id.nav_configuration), GROUPS(R.id.nav_group), ROUTES(R.id.nav_route), SETTINGS(R.id.nav_settings),
+enum class Page(val navId: Int, val title: Int) {
+    CONFIG(R.id.nav_configuration, R.string.menu_configuration),
+    GROUPS(R.id.nav_group, R.string.menu_group),
+    ROUTES(R.id.nav_route, R.string.menu_route),
+    SETTINGS(R.id.nav_settings, R.string.settings),
 }
 
 /**
@@ -114,21 +115,6 @@ class UiScenarios(private val ui: UiTestRule) {
         }
         UiSettle.settle()
     }
-
-    private fun View.textViewsById(id: Int): List<TextView> {
-        val found = ArrayList<TextView>()
-        fun walk(v: View) {
-            if (v is TextView && v.id == id) found += v
-            if (v is ViewGroup) for (i in 0 until v.childCount) walk(v.getChildAt(i))
-        }
-        walk(this)
-        return found
-    }
-
-    // Dock 里当前选中项的文字（选中项的外层视图 isSelected）
-    private fun MainActivity.dockSelection(): String =
-        binding.dock.textViewsById(R.id.nav_dock_label).filter { (it.parent as View).isSelected }
-            .joinToString { it.text }
 
     private data class PageState(val fragment: String, val dock: String, val title: String)
 
