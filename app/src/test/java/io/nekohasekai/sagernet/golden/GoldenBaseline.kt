@@ -42,7 +42,7 @@ enum class GoldenBoxMode(val dir: String) {
 class GoldenExternalCase(
     val scenarioId: String,
     val mode: GoldenBoxMode,
-    /** 配置原文的文件名 ext-<n>.<pluginId>.<json|yaml>（n 即组序号），也是比较报告里的文档名。 */
+    /** 配置原文的文件名 ext-<n>.<pluginId>.json（n 即组序号），也是比较报告里的文档名。 */
     val file: String,
     val groupIndex: Int,
     val pluginId: String,
@@ -54,7 +54,6 @@ class GoldenExternalCase(
     val tempFiles: List<String>,
     val settings: ExternalCoreSettings,
     val expected: String,
-    val format: GoldenFormat,
 ) {
     val group: ExternalCoreGroup get() = plan.groups[groupIndex]
 
@@ -349,11 +348,7 @@ class GoldenBaseline private constructor(val root: File) {
         resultWhere: String,
     ): GoldenExternalCase {
         val group = groups[groupIndex]
-        val format = when (group.file.substringAfterLast('.')) {
-            "json" -> GoldenFormat.JSON
-            "yaml" -> GoldenFormat.YAML
-            else -> error("$resultWhere external ${group.file}：不认识的文件扩展名")
-        }
+        check(group.file.endsWith(".json")) { "$resultWhere external ${group.file}：不认识的文件扩展名" }
         return GoldenExternalCase(
             scenarioId = input.id,
             mode = mode,
@@ -365,7 +360,6 @@ class GoldenBaseline private constructor(val root: File) {
             tempFiles = group.tempFiles,
             settings = input.externalCoreSettings,
             expected = File(modeDir, group.file).readText(),
-            format = format,
         )
     }
 

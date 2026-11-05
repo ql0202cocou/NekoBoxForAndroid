@@ -58,7 +58,6 @@ class GoldenExternalCoreCheckTest {
     @Test
     fun `Xray 用例带上了拨号目标与设置`() {
         val cases = GoldenBaseline.load().externalCases("xray-plugin")
-        assertTrue(cases.all { it.format == GoldenFormat.JSON })
         val hops = cases.flatMap { it.group.hops }
         assertTrue(hops.all { it.bean is VMessBean || it.bean is TrojanBean })
         // Xray 的跳实例都经映射（只有 hysteria 1 会免映射），拨号目标是本机的映射端口

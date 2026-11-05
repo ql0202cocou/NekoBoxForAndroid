@@ -10,9 +10,6 @@ class GoldenCompareDocumentTest {
     private fun json(e: String, a: String, eDyn: GoldenDynamic = GoldenDynamic.NONE, aDyn: GoldenDynamic = GoldenDynamic.NONE) =
         GoldenCompare.compareDocuments(e, a, GoldenFormat.JSON, eDyn, aDyn)
 
-    private fun yaml(e: String, a: String, eDyn: GoldenDynamic = GoldenDynamic.NONE, aDyn: GoldenDynamic = GoldenDynamic.NONE) =
-        GoldenCompare.compareDocuments(e, a, GoldenFormat.YAML, eDyn, aDyn)
-
     private fun assertSame(r: GoldenCompareResult) = assertTrue(r.diffs.joinToString("\n"), r.same)
 
     private fun assertDiffer(r: GoldenCompareResult, vararg contains: String) {
@@ -93,45 +90,6 @@ class GoldenCompareDocumentTest {
     fun `顶层要求对象时不接受数组`() {
         val r = GoldenCompare.compareDocuments("[]", "[]", GoldenFormat.JSON_OBJECT)
         assertDiffer(r, "顶层不是 JSON 对象")
-    }
-
-    // ---- YAML
-
-    @Test
-    fun `YAML 键序与写法不计`() {
-        assertSame(yaml("a: 1\nb:\n  - x\n  - 'y'\n", "b: [x, \"y\"]\na: 1\n"))
-    }
-
-    @Test
-    fun `YAML 区分字符串与数字、整数与小数`() {
-        assertDiffer(yaml("port: 443\n", "port: \"443\"\n"), "预期 443，实际 \"443\"")
-        assertDiffer(yaml("port: 443\n", "port: 443.0\n"))
-        assertSame(yaml("port: 443\nr: 1.50\n", "port: +443\nr: 1.5\n"))
-    }
-
-    @Test
-    fun `YAML 不把 yes 和十六进制当成同值`() {
-        assertDiffer(yaml("a: true\n", "a: yes\n"))
-        assertDiffer(yaml("a: 443\n", "a: 0x1BB\n"))
-        assertSame(yaml("a: yes\nb: ~\n", "a: yes\nb: null\n"))
-    }
-
-    @Test
-    fun `YAML 重复键与解析失败报错`() {
-        val dup = "a: 1\na: 2\n"
-        assertDiffer(yaml(dup, dup), "重复的对象键 \"a\"")
-        val bad = "a: [1, 2\n"
-        assertDiffer(yaml(bad, bad), "解析失败")
-        assertDiffer(yaml("", ""), "YAML 文档为空")
-        val multi = "a: 1\n---\na: 2\n"
-        assertDiffer(yaml(multi, multi), "解析失败")
-    }
-
-    @Test
-    fun `先 JSON 后 YAML 的文档两种都不是就报错`() {
-        val r = GoldenCompare.compareDocuments("a: [", "a: [", GoldenFormat.JSON_OR_YAML)
-        assertDiffer(r, "既不是 JSON", "也不是 YAML")
-        assertSame(GoldenCompare.compareDocuments("a: 1\n", "{\"a\": 1}", GoldenFormat.JSON_OR_YAML))
     }
 
     // ---- 动态值

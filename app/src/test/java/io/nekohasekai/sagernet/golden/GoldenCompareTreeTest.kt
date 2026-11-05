@@ -18,13 +18,12 @@ class GoldenCompareTreeTest {
         val socks: Int,
         val mapping: Int,
         val socks2: Int,
-        val controller: Int,
+        val spare: Int,
         val ca: String,
-        val secret: String,
     )
 
-    private val first = Dyn(41001, 41002, 41003, 41004, "/data/user/0/moe.nb4a.debug/cache/hysteria_111.ca", "c0ffee11")
-    private val second = Dyn(52011, 52012, 52013, 52014, "/data/user/0/moe.nb4a.debug/cache/hysteria_999.ca", "beef9922")
+    private val first = Dyn(41001, 41002, 41003, 41004, "/data/user/0/moe.nb4a.debug/cache/hysteria_111.ca")
+    private val second = Dyn(52011, 52012, 52013, 52014, "/data/user/0/moe.nb4a.debug/cache/hysteria_999.ca")
 
     private fun singBox(d: Dyn) = """
         {
@@ -47,58 +46,57 @@ class GoldenCompareTreeTest {
         }
     """.trimIndent()
 
-    private fun mihomo(d: Dyn, controller: Boolean) = buildString {
-        append("mixed-port: ${d.socks2}\n")
-        append("proxies:\n- name: anytls\n  type: anytls\n  server: example.org\n  port: 8443\n  password: fake-password\n  udp: true\n")
-        if (controller) append("external-controller: 127.0.0.1:${d.controller}\nsecret: ${d.secret}\n")
-    }
+    // 第二组外核是插件核心：单节点格式，入站不认证
+    private fun plugin(d: Dyn) = """
+        {
+          "local_port": ${d.socks2},
+          "remote_addr": "example.org",
+          "remote_port": 8443,
+          "udp": true
+        }
+    """.trimIndent()
 
-    private fun external(d: Dyn, controller: Boolean) = """
+    private fun external(d: Dyn) = """
         [
           {"file": "ext-0.xray-plugin.json", "pluginId": "xray-plugin", "controller": null, "tempFiles": ["${d.ca}"],
            "hops": [{"index": 0, "chainIndex": 0, "profileId": 3, "port": ${d.socks}, "finalAddress": "127.0.0.1",
                      "finalPort": ${d.mapping}, "inboundTag": "in-0", "outboundTag": "out-0"}]},
-          {"file": "ext-1.mihomo-plugin.yaml", "pluginId": "mihomo-plugin",
-           "controller": ${if (controller) """{"port": ${d.controller}, "secret": "${d.secret}"}""" else "null"}, "tempFiles": [],
+          {"file": "ext-1.trojan-go-plugin.json", "pluginId": "trojan-go-plugin", "controller": null, "tempFiles": [],
            "hops": [{"index": 1, "chainIndex": 1, "profileId": 4, "port": ${d.socks2}, "finalAddress": "example.org",
-                     "finalPort": 8443, "inboundTag": "in-1", "outboundTag": "out-1"}]}
+                     "finalPort": 8443, "inboundTag": null, "outboundTag": null}]}
         ]
     """.trimIndent()
 
-    private fun okResult(d: Dyn, controller: Boolean): String {
-        val ports = listOfNotNull(d.socks, d.mapping, d.socks2, d.controller.takeIf { controller })
-        val secrets = if (controller) """["${d.secret}"]""" else "[]"
-        return """
-            {
-              "status": "ok",
-              "build": {"mainEntId": 1, "selectorGroupId": -1, "profileTagMap": {"3": "g-3", "4": "g-4"},
-                        "trafficMap": {"g-3": [3], "g-4": [4]}, "boxIndexNames": {}, "boxTagNames": {}},
-              "external": ${external(d, controller)},
-              "dynamic": {"ports": $ports, "paths": ["${d.ca}"], "secrets": $secrets}
-            }
-        """.trimIndent()
-    }
+    private fun okResult(d: Dyn) = """
+        {
+          "status": "ok",
+          "build": {"mainEntId": 1, "selectorGroupId": -1, "profileTagMap": {"3": "g-3", "4": "g-4"},
+                    "trafficMap": {"g-3": [3], "g-4": [4]}, "boxIndexNames": {}, "boxTagNames": {}},
+          "external": ${external(d)},
+          "dynamic": {"ports": ${listOf(d.socks, d.mapping, d.socks2)}, "paths": ["${d.ca}"], "secrets": []}
+        }
+    """.trimIndent()
 
     private fun manifest(commit: String, dirty: String = """"dirty": {"count": 0, "top": [], "codeCount": 0, "codeTop": []}""") = """
         {"formatVersion": 2, "commit": "$commit", $dirty,
          "app": {"versionName": "1.8.0-a1", "versionCode": 525},
-         "cores": {"sing-box": {"version": "1.14.2-neko-1"}, "xray": {"version": "v26.3.27"}, "mihomo": {"version": "v1.19.31"}},
+         "cores": {"sing-box": {"version": "1.14.2-neko-1"}, "xray": {"version": "v26.3.27"}},
          "system": {"sdkInt": 37, "release": "17"}, "collectedAt": "2026-10-04T14:11:54Z"}
     """.trimIndent()
 
     // 一棵完整的采集产物；键是相对路径
     private fun sample(d: Dyn, commit: String = "abc1234"): MutableMap<String, String> = linkedMapOf(
         "manifest.json" to manifest(commit),
-        "scenarios/mixed-chain/input.json" to """{"settings": {"mixedPort": 2080}, "profiles": [{"id": 3, "type": "vless"}, {"id": 4, "type": "anytls"}]}""",
+        "scenarios/mixed-chain/input.json" to """{"settings": {"mixedPort": 2080}, "profiles": [{"id": 3, "type": "vless"}, {"id": 4, "type": "trojan-go"}]}""",
         "scenarios/mixed-chain/run/sing-box.json" to singBox(d),
         "scenarios/mixed-chain/run/ext-0.xray-plugin.json" to xray(d),
-        "scenarios/mixed-chain/run/ext-1.mihomo-plugin.yaml" to mihomo(d, false),
-        "scenarios/mixed-chain/run/result.json" to okResult(d, false),
+        "scenarios/mixed-chain/run/ext-1.trojan-go-plugin.json" to plugin(d),
+        "scenarios/mixed-chain/run/result.json" to okResult(d),
         "scenarios/mixed-chain/test/sing-box.json" to singBox(d),
         "scenarios/mixed-chain/test/ext-0.xray-plugin.json" to xray(d),
-        "scenarios/mixed-chain/test/ext-1.mihomo-plugin.yaml" to mihomo(d, true),
-        "scenarios/mixed-chain/test/result.json" to okResult(d, true),
-        "scenarios/mixed-chain/export/export.txt" to singBox(d) + "\n\n" + xray(d) + "\n\n" + mihomo(d, false),
+        "scenarios/mixed-chain/test/ext-1.trojan-go-plugin.json" to plugin(d),
+        "scenarios/mixed-chain/test/result.json" to okResult(d),
+        "scenarios/mixed-chain/export/export.txt" to singBox(d) + "\n\n" + xray(d) + "\n\n" + plugin(d),
         "scenarios/mixed-chain/export/result.json" to
             """{"status": "ok", "exportName": "profiles.txt", "dynamic": {"ports": [${d.socks}, ${d.mapping}, ${d.socks2}], "paths": ["${d.ca}"], "secrets": []}}""",
         "scenarios/broken/input.json" to """{"profiles": [{"id": 9, "type": "vless", "uuid": "bad"}]}""",
@@ -138,7 +136,7 @@ class GoldenCompareTreeTest {
         assertSame(r)
         assertTrue(r.render(), r.warnings.isEmpty())
         val text = r.render()
-        assertTrue(text, "预期：提交 abc1234，工作区干净，应用 1.8.0-a1，sing-box 1.14.2-neko-1，Xray v26.3.27，mihomo v1.19.31，系统 API 37（Android 17），采集于 2026-10-04T14:11:54Z\n" in text)
+        assertTrue(text, "预期：提交 abc1234，工作区干净，应用 1.8.0-a1，sing-box 1.14.2-neko-1，Xray v26.3.27，系统 API 37（Android 17），采集于 2026-10-04T14:11:54Z\n" in text)
         assertTrue(text, "实际：提交 def5678，" in text)
         assertTrue(text, text.endsWith("结论：一致\n"))
     }
@@ -189,8 +187,8 @@ class GoldenCompareTreeTest {
     fun `映射入站与外核拨号端口对不上能发现`() {
         // 外核出站拨的不是 sing-box 的映射入站端口，而是另一个动态端口
         val a = sample(second).apply {
-            put("scenarios/mixed-chain/run/ext-0.xray-plugin.json", xray(second).replace("\"port\": ${second.mapping}", "\"port\": ${second.controller}"))
-            put("scenarios/mixed-chain/run/result.json", okResult(second, false).replace("\"ports\": [", "\"ports\": [${second.controller}, "))
+            put("scenarios/mixed-chain/run/ext-0.xray-plugin.json", xray(second).replace("\"port\": ${second.mapping}", "\"port\": ${second.spare}"))
+            put("scenarios/mixed-chain/run/result.json", okResult(second).replace("\"ports\": [", "\"ports\": [${second.spare}, "))
         }
         assertDiffer(
             compare(sample(first), a),
@@ -202,9 +200,9 @@ class GoldenCompareTreeTest {
     @Test
     fun `外核配置里的普通字段变化能发现`() {
         val a = sample(second).apply {
-            put("scenarios/mixed-chain/test/ext-1.mihomo-plugin.yaml", mihomo(second, true).replace("port: 8443", "port: \"8443\""))
+            put("scenarios/mixed-chain/test/ext-1.trojan-go-plugin.json", plugin(second).replace("\"remote_port\": 8443", "\"remote_port\": \"8443\""))
         }
-        assertDiffer(compare(sample(first), a), "$.proxies[0].port：预期 8443，实际 \"8443\"")
+        assertDiffer(compare(sample(first), a), "$.remote_port：预期 8443，实际 \"8443\"")
     }
 
     @Test
@@ -224,8 +222,8 @@ class GoldenCompareTreeTest {
     @Test
     fun `单侧缺文件、模式或场景算差异`() {
         assertDiffer(
-            compare(sample(first), sample(second).apply { remove("scenarios/mixed-chain/run/ext-1.mihomo-plugin.yaml") }),
-            "scenarios/mixed-chain/run/ext-1.mihomo-plugin.yaml：只在预期一侧存在",
+            compare(sample(first), sample(second).apply { remove("scenarios/mixed-chain/run/ext-1.trojan-go-plugin.json") }),
+            "scenarios/mixed-chain/run/ext-1.trojan-go-plugin.json：只在预期一侧存在",
         )
         assertDiffer(
             compare(sample(first), sample(second).apply { keys.removeAll { it.startsWith("scenarios/mixed-chain/test/") } }),
@@ -293,9 +291,9 @@ class GoldenCompareTreeTest {
     @Test
     fun `export 按空行拆段并逐段比较`() {
         val a = sample(second).apply {
-            put("scenarios/mixed-chain/export/export.txt", singBox(second) + "\n\n" + xray(second) + "\n\n" + mihomo(second, false).replace("udp: true", "udp: false"))
+            put("scenarios/mixed-chain/export/export.txt", singBox(second) + "\n\n" + xray(second) + "\n\n" + plugin(second).replace("\"udp\": true", "\"udp\": false"))
         }
-        assertDiffer(compare(sample(first), a), "scenarios/mixed-chain/export/export.txt#2（1 处）", "$.proxies[0].udp：预期 true，实际 false")
+        assertDiffer(compare(sample(first), a), "scenarios/mixed-chain/export/export.txt#2（1 处）", "$.udp：预期 true，实际 false")
     }
 
     @Test
@@ -309,8 +307,8 @@ class GoldenCompareTreeTest {
         val bad = singBox(first) + "\n\n" + "a: [1\n"
         assertDiffer(compare(sample(first).apply { put("scenarios/mixed-chain/export/export.txt", bad) }, sample(second)), "export.txt#1：预期一侧解析失败")
         // 第 0 段必须是 JSON 对象
-        val yamlFirst = "a: 1\n\n" + xray(first)
-        assertDiffer(compare(sample(first), sample(second).apply { put("scenarios/mixed-chain/export/export.txt", yamlFirst) }), "export.txt#0：实际一侧解析失败")
+        val notJson = "a: 1\n\n" + xray(first)
+        assertDiffer(compare(sample(first), sample(second).apply { put("scenarios/mixed-chain/export/export.txt", notJson) }), "export.txt#0：实际一侧解析失败")
         // 多出的空段
         val empty = singBox(first) + "\n\n\n\n" + xray(first)
         assertDiffer(compare(sample(first), sample(second).apply { put("scenarios/mixed-chain/export/export.txt", empty) }), "第 1 段为空")
@@ -409,7 +407,7 @@ class GoldenCompareTreeTest {
     private fun reformatted(d: Dyn, commit: String = "abc1234"): MutableMap<String, String> = sample(d, commit).apply {
         val merged = xray(d).replace("\"outbounds\"", "\"routing\": {\"rules\": []}, \"outbounds\"")
         for (mode in listOf("run", "test")) {
-            remove("scenarios/mixed-chain/$mode/ext-1.mihomo-plugin.yaml")
+            remove("scenarios/mixed-chain/$mode/ext-1.trojan-go-plugin.json")
             put("scenarios/mixed-chain/$mode/ext-0.xray-plugin.json", merged)
             put("scenarios/mixed-chain/$mode/result.json", get("scenarios/mixed-chain/$mode/result.json")!!
                 .replace("\"external\": [", "\"external\": [{\"file\": \"ext-0.xray-plugin.json\", \"groups\": 1}, "))
@@ -423,13 +421,13 @@ class GoldenCompareTreeTest {
     fun `只比 sing-box 一侧时外核一侧与格式版本的变化都不算差异`() {
         val r = compareSingBox(sample(first), reformatted(second, commit = "def5678"))
         assertSame(r)
-        // 外核一侧的动态值（测速控制端口、CA 路径、secret）本来就不比较，不给「没出现」的警告
+        // 外核一侧的动态值（CA 路径）本来就不比较，不给「没出现」的警告
         assertTrue(r.render(), r.warnings.isEmpty())
         assertTrue(r.render(), "比较范围：只比 sing-box 一侧\n" in r.render())
         // 同样的两棵树做完整比较就不一致
         assertDiffer(
             GoldenCompareTree.compare(write(sample(first)), write(reformatted(second))),
-            "ext-1.mihomo-plugin.yaml：只在预期一侧存在", "export.txt#2：只在预期一侧存在", "address/corpus.json",
+            "ext-1.trojan-go-plugin.json：只在预期一侧存在", "export.txt#2：只在预期一侧存在", "address/corpus.json",
         )
     }
 
@@ -484,7 +482,7 @@ class GoldenCompareTreeTest {
 
     private fun creds(auth: Auth?) = if (auth == null) "" else """, "username": "${auth.user}", "password": "${auth.pass}""""
 
-    // g-3 接 Xray、g-4 接 mihomo（都是本机 socks 出站）；g-5 是用户自己的 socks 节点，凭据是夹具里固定的
+    // g-3 接 Xray、g-4 接插件核心（都是本机 socks 出站，只有 g-3 带本机认证）；g-5 是用户自己的 socks 节点，凭据是夹具里固定的
     private fun ilaSingBox(d: Dyn, auth: Auth?) = """
         {
           "inbounds": [
@@ -493,7 +491,7 @@ class GoldenCompareTreeTest {
           ],
           "outbounds": [
             {"type": "socks", "tag": "g-3", "server": "127.0.0.1", "server_port": ${d.socks}${creds(auth)}},
-            {"type": "socks", "tag": "g-4", "server": "127.0.0.1", "server_port": ${d.socks2}${creds(auth)}},
+            {"type": "socks", "tag": "g-4", "server": "127.0.0.1", "server_port": ${d.socks2}},
             {"type": "socks", "tag": "g-5", "server": "198.51.100.7", "server_port": 1080, "username": "node-user", "password": "node-pass"},
             {"type": "direct", "tag": "direct"}
           ]
@@ -517,24 +515,16 @@ class GoldenCompareTreeTest {
         """.trimIndent()
     }
 
-    private fun ilaMihomo(d: Dyn, auth: Auth?, controller: Boolean) = buildString {
-        append("log-level: warning\nmode: rule\n")
-        if (controller) append("external-controller: 127.0.0.1:${d.controller}\nsecret: ${d.secret}\n")
-        append("listeners:\n- name: in-1\n  type: socks\n  listen: 127.0.0.1\n  port: ${d.socks2}\n  udp: true\n  proxy: out-1\n")
-        if (auth != null) append("  users:\n  - {username: ${auth.user}, password: ${auth.pass}}\n")
-        append("proxies:\n- {name: out-1, type: anytls, server: example.org, port: 8443, password: fake-password, udp: true}\n")
-        append("rules: ['MATCH,REJECT']\n")
-    }
-
-    // 格式 3 起每个跳实例都有 localAuth；旧格式没有这个键
-    private fun ilaResult(d: Dyn, auth: Auth?, version: Int, controller: Boolean): String {
+    // 格式 3 起每个跳实例都有 localAuth（插件核心恒为 null）；旧格式没有这个键
+    private fun ilaResult(d: Dyn, auth: Auth?, version: Int): String {
         fun local() = when {
             version < 3 -> ""
             auth == null -> """, "localAuth": null"""
             else -> """, "localAuth": {"username": "${auth.user}", "password": "${auth.pass}"}"""
         }
-        val ports = listOfNotNull(d.socks, d.mapping, d.socks2, d.controller.takeIf { controller })
-        val secrets = listOfNotNull(d.secret.takeIf { controller }, auth?.user, auth?.pass).joinToString(", ") { "\"$it\"" }
+        val pluginLocal = if (version < 3) "" else """, "localAuth": null"""
+        val ports = listOf(d.socks, d.mapping, d.socks2)
+        val secrets = listOfNotNull(auth?.user, auth?.pass).joinToString(", ") { "\"$it\"" }
         return """
             {
               "status": "ok",
@@ -543,10 +533,9 @@ class GoldenCompareTreeTest {
                 {"file": "ext-0.xray-plugin.json", "pluginId": "xray-plugin", "controller": null, "tempFiles": [],
                  "hops": [{"index": 0, "chainIndex": 0, "profileId": 3, "port": ${d.socks}, "finalAddress": "127.0.0.1",
                            "finalPort": ${d.mapping}, "inboundTag": "in-0", "outboundTag": "out-0"${local()}}]},
-                {"file": "ext-1.mihomo-plugin.yaml", "pluginId": "mihomo-plugin",
-                 "controller": ${if (controller) """{"port": ${d.controller}, "secret": "${d.secret}"}""" else "null"}, "tempFiles": [],
+                {"file": "ext-1.trojan-go-plugin.json", "pluginId": "trojan-go-plugin", "controller": null, "tempFiles": [],
                  "hops": [{"index": 1, "chainIndex": 1, "profileId": 4, "port": ${d.socks2}, "finalAddress": "example.org",
-                           "finalPort": 8443, "inboundTag": "in-1", "outboundTag": "out-1"${local()}}]}
+                           "finalPort": 8443, "inboundTag": null, "outboundTag": null$pluginLocal}]}
               ],
               "dynamic": {"ports": $ports, "paths": [], "secrets": [$secrets]}
             }
@@ -559,16 +548,16 @@ class GoldenCompareTreeTest {
         val exportSecrets = listOfNotNull(auth?.user, auth?.pass).joinToString(", ") { "\"$it\"" }
         return linkedMapOf(
             "manifest.json" to manifest("abc1234"),
-            "$s/input.json" to """{"formatVersion": $version, "profiles": [{"id": 3, "type": "vless"}, {"id": 4, "type": "anytls"}]}""",
+            "$s/input.json" to """{"formatVersion": $version, "profiles": [{"id": 3, "type": "vless"}, {"id": 4, "type": "trojan-go"}]}""",
             "$s/run/sing-box.json" to ilaSingBox(d, auth),
             "$s/run/ext-0.xray-plugin.json" to ilaXray(d, auth),
-            "$s/run/ext-1.mihomo-plugin.yaml" to ilaMihomo(d, auth, false),
-            "$s/run/result.json" to ilaResult(d, auth, version, false),
+            "$s/run/ext-1.trojan-go-plugin.json" to plugin(d),
+            "$s/run/result.json" to ilaResult(d, auth, version),
             "$s/test/sing-box.json" to ilaSingBox(d, auth),
             "$s/test/ext-0.xray-plugin.json" to ilaXray(d, auth),
-            "$s/test/ext-1.mihomo-plugin.yaml" to ilaMihomo(d, auth, true),
-            "$s/test/result.json" to ilaResult(d, auth, version, true),
-            "$s/export/export.txt" to ilaSingBox(d, auth) + "\n\n" + ilaXray(d, auth) + "\n\n" + ilaMihomo(d, auth, false),
+            "$s/test/ext-1.trojan-go-plugin.json" to plugin(d),
+            "$s/test/result.json" to ilaResult(d, auth, version),
+            "$s/export/export.txt" to ilaSingBox(d, auth) + "\n\n" + ilaXray(d, auth) + "\n\n" + plugin(d),
             "$s/export/result.json" to """{"status": "ok", "exportName": "profiles.txt", "dynamic": {"ports": [${d.socks}, ${d.mapping}, ${d.socks2}], "paths": [], "secrets": [$exportSecrets]}}""",
             "address/corpus.json" to """{"formatVersion": $version, "entries": [{"input": "1.1.1.1", "numeric": true}]}""",
         )
@@ -586,7 +575,7 @@ class GoldenCompareTreeTest {
         // 完整比较就不一致：认证本身、格式版本号都算差异
         assertDiffer(
             compare(ilaTree(first, null), ilaTree(second, auth2)),
-            "$.outbounds[0].username", "$.inbounds[0].settings.auth", "$.log.access", "$.listeners[0].users",
+            "$.outbounds[0].username", "$.inbounds[0].settings.auth", "$.log.access",
             "$.external[0].hops[0].localAuth", "$.dynamic.secrets", "input.json", "address/corpus.json",
         )
         // 两次加了认证的采集：凭据按 dynamic.secrets 换成占位符，完整比较一致
@@ -627,14 +616,14 @@ class GoldenCompareTreeTest {
             compareIgnoringAuth(base, changed("$run/ext-0.xray-plugin.json") { it.replace("\"loglevel\": \"warning\"", "\"loglevel\": \"info\"") }),
             "$.log.loglevel",
         )
-        // mihomo：代理里的同名键、listener 的其它键
+        // 插件核心：配置里的同名键与其它键
         assertDiffer(
-            compareIgnoringAuth(base, changed("$run/ext-1.mihomo-plugin.yaml") { it.replace("udp: true}", "udp: true, users: []}") }),
-            "$.proxies[0].users",
+            compareIgnoringAuth(base, changed("$run/ext-1.trojan-go-plugin.json") { it.replace("\"udp\": true", "\"udp\": true, \"accounts\": []") }),
+            "$.accounts",
         )
         assertDiffer(
-            compareIgnoringAuth(base, changed("$run/ext-1.mihomo-plugin.yaml") { it.replace("  proxy: out-1\n", "  proxy: out-0\n") }),
-            "$.listeners[0].proxy",
+            compareIgnoringAuth(base, changed("$run/ext-1.trojan-go-plugin.json") { it.replace("example.org", "example.net") }),
+            "$.remote_addr",
         )
         // result.json：组上（不在跳实例里）的同名键、多出来的别的 secret
         assertDiffer(
@@ -652,8 +641,8 @@ class GoldenCompareTreeTest {
         )
         // export.txt 的外核段同样只去掉约定的位置
         assertDiffer(
-            compareIgnoringAuth(base, changed("scenarios/mixed-chain/export/export.txt") { it.replace("udp: true}", "udp: false}") }),
-            "export.txt#2", "$.proxies[0].udp",
+            compareIgnoringAuth(base, changed("scenarios/mixed-chain/export/export.txt") { it.replace("\"remote_port\": 8443", "\"remote_port\": 8444") }),
+            "export.txt#2", "$.remote_port",
         )
     }
 

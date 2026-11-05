@@ -3,19 +3,12 @@ package io.nekohasekai.sagernet.golden
 import com.google.gson.Strictness
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonToken
-import org.yaml.snakeyaml.Yaml
-import org.yaml.snakeyaml.error.YAMLException
-import org.yaml.snakeyaml.nodes.MappingNode
-import org.yaml.snakeyaml.nodes.Node
-import org.yaml.snakeyaml.nodes.ScalarNode
-import org.yaml.snakeyaml.nodes.SequenceNode
-import org.yaml.snakeyaml.nodes.Tag
 import java.io.IOException
 import java.io.StringReader
 import java.math.BigDecimal
 import java.math.BigInteger
 
-// 配置结构比较：把 JSON / YAML 文档解析成统一的值树，按采集产物里的动态值换成占位符后逐项比较。
+// 配置结构比较：把 JSON 文档解析成统一的值树，按采集产物里的动态值换成占位符后逐项比较。
 // 规则：对象键序与空白不计；数组顺序与长度严格；整数与小数的写法分开；字符串与数字分开；
 // 键缺失与 null 不同；重复键、解析失败一律报错。宁可误报，不可漏报。
 
@@ -28,7 +21,7 @@ sealed class GoldenValue {
     /** 整数写法：按数值比较。 */
     data class Integer(val value: BigInteger) : GoldenValue()
 
-    /** 小数或指数写法：按数值比较（1.5 与 1.50 相等），保留原文用于展示。YAML 的 .inf / .nan 归入 [Raw]。 */
+    /** 小数或指数写法：按数值比较（1.5 与 1.50 相等），保留原文用于展示。 */
     class Decimal(val text: String, val value: BigDecimal) : GoldenValue() {
         override fun equals(other: Any?) = other is Decimal && value.compareTo(other.value) == 0
         override fun hashCode(): Int = value.stripTrailingZeros().hashCode()
@@ -36,9 +29,6 @@ sealed class GoldenValue {
 
     data class Bool(val value: Boolean) : GoldenValue()
     data object Null : GoldenValue()
-
-    /** YAML 里不按普通类型解释的标量（yes / on、0x1BB、时间戳、自定义标签等），按标签与原文比较。 */
-    data class Raw(val tag: String, val text: String) : GoldenValue()
 
     /** 被替换成占位符的整数（动态端口）。 */
     data class Ref(val name: String) : GoldenValue()
@@ -60,10 +50,6 @@ enum class GoldenFormat {
 
     /** JSON，且顶层必须是对象。 */
     JSON_OBJECT,
-    YAML,
-
-    /** 先按 JSON，再按 YAML。 */
-    JSON_OR_YAML,
 }
 
 object GoldenParser {
@@ -72,17 +58,6 @@ object GoldenParser {
         GoldenFormat.JSON -> parseJson(text)
         GoldenFormat.JSON_OBJECT -> parseJson(text).also {
             if (it !is GoldenValue.Obj) throw GoldenParseException("顶层不是 JSON 对象")
-        }
-
-        GoldenFormat.YAML -> parseYaml(text)
-        GoldenFormat.JSON_OR_YAML -> try {
-            parseJson(text)
-        } catch (json: GoldenParseException) {
-            try {
-                parseYaml(text)
-            } catch (yaml: GoldenParseException) {
-                throw GoldenParseException("既不是 JSON（${json.message}），也不是 YAML（${yaml.message}）")
-            }
         }
     }
 
@@ -141,60 +116,6 @@ object GoldenParser {
         } else {
             GoldenValue.Integer(BigInteger(text))
         }
-
-    // YAML 只做组合（compose）不做构造：拿到每个标量的原文与解析出的标签，
-    // 由这里决定类型，避免 1.1 规则把 yes / on、0x1BB 之类与 true、443 混为一谈
-    fun parseYaml(text: String): GoldenValue {
-        val node = try {
-            Yaml().compose(StringReader(text))
-        } catch (e: YAMLException) {
-            throw GoldenParseException("YAML 解析失败：${e.message?.replace('\n', ' ')}")
-        } ?: throw GoldenParseException("YAML 文档为空")
-        return fromYaml(node, 0)
-    }
-
-    private val yamlInt = Regex("[-+]?(0|[1-9][0-9]*)")
-    private val yamlDec = Regex("[-+]?([0-9]+(\\.[0-9]*)?|\\.[0-9]+)([eE][-+]?[0-9]+)?")
-    private val yamlBool = mapOf("true" to true, "True" to true, "TRUE" to true, "false" to false, "False" to false, "FALSE" to false)
-    private val yamlNull = setOf("", "~", "null", "Null", "NULL")
-
-    private fun fromYaml(node: Node, depth: Int): GoldenValue {
-        if (depth > 512) throw GoldenParseException("YAML 嵌套过深（可能有循环引用）")
-        return when (node) {
-            is MappingNode -> {
-                val fields = LinkedHashMap<String, GoldenValue>()
-                for (tuple in node.value) {
-                    val key = yamlKey(tuple.keyNode)
-                    if (key in fields) throw GoldenParseException("重复的对象键 \"$key\"（第 ${tuple.keyNode.startMark.line + 1} 行）")
-                    fields[key] = fromYaml(tuple.valueNode, depth + 1)
-                }
-                GoldenValue.Obj(fields)
-            }
-
-            is SequenceNode -> GoldenValue.Arr(node.value.map { fromYaml(it, depth + 1) })
-            is ScalarNode -> yamlScalar(node)
-            else -> throw GoldenParseException("不支持的 YAML 节点 ${node.nodeId}")
-        }
-    }
-
-    private fun yamlKey(node: Node): String {
-        if (node !is ScalarNode) throw GoldenParseException("YAML 对象键不是标量（第 ${node.startMark.line + 1} 行）")
-        // 非字符串键带上标签，免得 443 与 "443" 两个键被当成同一个
-        return if (node.tag == Tag.STR) node.value else "${node.tag.value}:${node.value}"
-    }
-
-    private fun yamlScalar(node: ScalarNode): GoldenValue {
-        val text = node.value
-        val raw = GoldenValue.Raw(node.tag.value, text)
-        return when (node.tag) {
-            Tag.STR -> GoldenValue.str(text)
-            Tag.INT -> if (yamlInt.matches(text)) GoldenValue.Integer(BigInteger(text.removePrefix("+"))) else raw
-            Tag.FLOAT -> if (yamlDec.matches(text)) GoldenValue.Decimal(text, BigDecimal(text.removePrefix("+"))) else raw
-            Tag.BOOL -> yamlBool[text]?.let { GoldenValue.Bool(it) } ?: raw
-            Tag.NULL -> if (text in yamlNull) GoldenValue.Null else raw
-            else -> raw
-        }
-    }
 }
 
 /** 一次构建里每次运行都可能不同的取值，来自 result.json 的 dynamic，或由黄金测试的调用方直接给出。 */
@@ -517,7 +438,6 @@ object GoldenCompare {
             is GoldenValue.Decimal -> sb.append(value.text)
             is GoldenValue.Bool -> sb.append(value.value)
             GoldenValue.Null -> sb.append("null")
-            is GoldenValue.Raw -> sb.append("!<${value.tag}> ").append(value.text)
             is GoldenValue.Ref -> sb.append(value.name)
         }
     }

@@ -8,7 +8,7 @@ import java.nio.charset.CodingErrorAction
 
 // 比较两棵采集产物目录树（格式 v3，v1 / v2 的布局相同）：
 // <根>/manifest.json（只打印）、scenarios/<id>/input.json、scenarios/<id>/<mode>/{result.json, sing-box.json,
-// ext-<n>.<pluginId>.<json|yaml>, export.txt}、address/corpus.json。
+// ext-<n>.<pluginId>.json, export.txt}、address/corpus.json。
 // 每个场景的每个模式单独编号占位符；格式之外的文件按字节比较并给出警告。
 
 /** 比较范围。 */
@@ -34,7 +34,6 @@ enum class GoldenCompareScope(val label: String) {
  * [GoldenCompareScope.IGNORE_LOCAL_AUTH] 去掉的位置，正好是这些，别处同名的键照常比较：
  * - sing-box 配置（sing-box.json、export.txt 第 0 段）里指向本机的 socks 出站的 username / password；
  * - Xray 配置里各入站 settings 的 auth 与 accounts，以及 log 的 access；
- * - mihomo 配置里各 listener 的 users；
  * - result.json 里 external[].hops[] 的 localAuth，以及 dynamic.secrets 里本机认证的值（取自前两处：跳实例的
  *   记录与 sing-box 配置里本机 socks 出站的凭据）。
  * 解析不了或结构不符的文档原样返回，由比较本身报告。
@@ -84,24 +83,15 @@ object GoldenLocalAuth {
         return root.with("log", log.without("access"))
     }
 
-    fun stripMihomo(config: GoldenValue): GoldenValue = config.mapArray("listeners") { listener ->
-        (listener as? GoldenValue.Obj)?.without("users") ?: listener
-    }
-
-    /** 认不出插件 id 时（export.txt 的外核段）按结构认：Xray 有 inbounds 与 routing，mihomo 有 listeners。 */
+    /** 认不出插件 id 时（export.txt 的外核段）按结构认：Xray 有 inbounds 与 routing。 */
     fun stripExternal(config: GoldenValue, pluginId: String?): GoldenValue {
         val obj = config as? GoldenValue.Obj ?: return config
-        return when (pluginId) {
-            "xray-plugin" -> stripXray(obj)
-            "mihomo-plugin" -> stripMihomo(obj)
-            null -> when {
-                obj.fields["inbounds"] is GoldenValue.Arr && obj.fields["routing"] is GoldenValue.Obj -> stripXray(obj)
-                obj.fields["listeners"] is GoldenValue.Arr -> stripMihomo(obj)
-                else -> obj
-            }
-
-            else -> obj
+        val xray = when (pluginId) {
+            "xray-plugin" -> true
+            null -> obj.fields["inbounds"] is GoldenValue.Arr && obj.fields["routing"] is GoldenValue.Obj
+            else -> false
         }
+        return if (xray) stripXray(obj) else obj
     }
 
     // result.json 里 external[].hops[] 逐个变换
@@ -166,8 +156,8 @@ object GoldenCompareTree {
 
     private const val SIDE_E = "预期"
     private const val SIDE_A = "实际"
-    // ext-<组序号>.<pluginId>.<json|yaml>
-    private val extName = Regex("ext-(0|[1-9][0-9]*)\\.([^/]+)\\.(json|yaml)")
+    // ext-<组序号>.<pluginId>.json
+    private val extName = Regex("ext-(0|[1-9][0-9]*)\\.([^/]+)\\.json")
 
     fun compare(expectedRoot: File, actualRoot: File, scope: GoldenCompareScope = GoldenCompareScope.ALL): GoldenTreeReport =
         Run(expectedRoot, actualRoot, scope).run()
@@ -296,8 +286,7 @@ object GoldenCompareTree {
                         handled.add("$rel/$name")
                         return@forEach
                     }
-                    val format = if (match.groupValues[3] == "json") GoldenFormat.JSON else GoldenFormat.YAML
-                    docs.add(externalDocument(document(root, "$rel/$name", name, format), match.groupValues[2]))
+                    docs.add(externalDocument(document(root, "$rel/$name", name, GoldenFormat.JSON), match.groupValues[2]))
                 }
             if ("export.txt" in names) {
                 val segments = exportSegments(root, "$rel/export.txt")
@@ -334,7 +323,7 @@ object GoldenCompareTree {
                 when {
                     segment.isBlank() -> GoldenDocument.ofError(name, "第 $i 段为空")
                     i == 0 -> GoldenDocument(name, segment, GoldenFormat.JSON_OBJECT)
-                    else -> GoldenDocument(name, segment, GoldenFormat.JSON_OR_YAML)
+                    else -> GoldenDocument(name, segment, GoldenFormat.JSON)
                 }
             }
         }
@@ -481,7 +470,7 @@ object GoldenCompareTree {
         dirtyText(m)?.let { parts.add(it) }
         text("app", "versionName")?.let { parts.add("应用 $it") }
         // 旧格式里 cores.<核心> 下是对象，核心版本在其 version 字段
-        for ((key, label) in listOf("sing-box" to "sing-box", "xray" to "Xray", "mihomo" to "mihomo")) {
+        for ((key, label) in listOf("sing-box" to "sing-box", "xray" to "Xray")) {
             text("cores", key, "version")?.let { parts.add("$label $it") }
         }
         val api = int("system", "sdkInt")

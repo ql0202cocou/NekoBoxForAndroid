@@ -74,7 +74,7 @@ object GoldenExternalCoreCheck {
         return GoldenCompare.compareDocuments(
             expected = case.expected,
             actual = actual,
-            format = case.format,
+            format = GoldenFormat.JSON,
             expectedDynamic = GoldenDynamic(paths = case.tempFiles),
             actualDynamic = GoldenDynamic(paths = allocated),
             name = case.file,
