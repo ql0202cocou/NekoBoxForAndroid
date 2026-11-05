@@ -1,22 +1,15 @@
 {
-  "status": "ok",
-  "build": {
-    "mainEntId": 1,
-    "selectorGroupId": -1,
-    "profileTagMap": {},
-    "trafficMap": {
-      "proxy": [
-        1
-      ]
-    },
-    "boxIndexNames": {
-      "outbound[0]": "golden-k1-vmess-mihomo"
-    },
-    "boxTagNames": {
-      "proxy": "golden-k1-vmess-mihomo"
-    }
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-k1-vmess-mihomo: the manually chosen core 3 cannot run this profile: [profileCore] Unknown core (3)",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "the manually chosen core 3 cannot run this profile: [profileCore] Unknown core (3)"
+      }
+    ]
   },
-  "external": [],
   "dynamic": {
     "ports": [],
     "paths": [],

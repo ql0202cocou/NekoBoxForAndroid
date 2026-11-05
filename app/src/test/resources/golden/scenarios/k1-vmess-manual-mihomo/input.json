@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "k1-vmess-manual-mihomo",
-  "description": "旧手动 mihomo 的 VMess 恢复自动：TLS 节点走 sing-box",
+  "description": "VMess 保留旧手动核心值 3：核心已移除，应报 CORE_VALUE_UNKNOWN",
   "mainProfileId": 1,
   "settings": [
     {
@@ -166,7 +166,7 @@
       "ping": 0,
       "uuid": "",
       "error": null,
-      "core": 0,
+      "core": 3,
       "beanColumn": "vmessBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
       "beanKryoBase64": "CAAAAHZtZXNzLmV4YW1wbGUuY2/tuwEAAKU1YTBjMWUyZi0zYjRkLTRlNmYtOGE5Yi0wYzFkMmUzZjRhNWJhdXTvAAAAAHRj8HRs83ZtZXNzLmV4YW1wbGUuY2/tgYEAgYGBAIEAAAAAAAAAAAAAAQAAAIGBAQAAAGdvbGRlbi1rMS12bWVzcy1taWhvbe+BgQ=="

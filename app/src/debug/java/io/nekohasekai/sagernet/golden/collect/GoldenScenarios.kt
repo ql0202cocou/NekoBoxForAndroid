@@ -1420,14 +1420,14 @@ private fun ScenarioTable.k1Selection() {
         anytls("golden-k1-anytls-randomized-mihomo", sni = "anytls.example.com", utls = "randomized")
     }
 
-    // ---- 旧手动 mihomo 场景恢复自动，以及仍不支持的手动 Xray
-    single("k1-vmess-manual-mihomo", "旧手动 mihomo 的 VMess 恢复自动：TLS 节点走 sing-box", core = CORE_AUTO) {
+    // ---- 已移除的手动核心值，以及仍不支持的手动 Xray
+    single("k1-vmess-manual-mihomo", "VMess 保留旧手动核心值 3：核心已移除，应报 CORE_VALUE_UNKNOWN", core = CORE_MIHOMO) {
         vmess("golden-k1-vmess-mihomo").tls(sni = "vmess.example.com")
     }
     single("k1-anytls-manual-xray", "AnyTLS 手动指定 Xray：Xray 没有 AnyTLS，应报错", core = CORE_XRAY) {
         anytls("golden-k1-anytls-xray", sni = "anytls.example.com")
     }
-    single("k1-trojan-manual-mihomo", "旧手动 mihomo 的 Trojan 恢复自动：TLS 节点走 sing-box", core = CORE_AUTO) {
+    single("k1-trojan-manual-mihomo", "Trojan 保留旧手动核心值 3：核心已移除，应报 CORE_VALUE_UNKNOWN", core = CORE_MIHOMO) {
         trojan("golden-k1-trojan-mihomo").tls(sni = "trojan.example.com")
     }
 

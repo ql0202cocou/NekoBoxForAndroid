@@ -505,3 +505,8 @@ raw/             原始数据：device.txt、host.txt、prepare/start/finish(.tx
 
 2026-11-05 的迁移复验增加 `mihomo-anytls-local-override`。旧 mihomo 节点在 AUTO 下的运行、测速与导出均将
 `network: tcp` 写入本机 SOCKS 跳。已有 65 份输入中的 74 条 AnyTLS 记录升级到 Kryo v5，逐条核对只增加策略来源和覆写目标字段。
+
+移除 mihomo 后复核：`k1-vmess-manual-mihomo`、`k1-trojan-manual-mihomo` 继续保留手动 `core=3` 的输入。
+11→12 迁移只规范 AnyTLS，不会把 VMess / Trojan 的旧核心值改成自动；这两个负例的 RUN / TEST / EXPORT
+必须全部以 `CORE_VALUE_UNKNOWN` 拒绝，无配置产物、无跳过诊断。只更新这两个场景及 manifest 的结果计数，
+并由 `GoldenJvmBuildTest` 单独断言原核心值与失败原因，防止通过修改输入将负例变成正例。

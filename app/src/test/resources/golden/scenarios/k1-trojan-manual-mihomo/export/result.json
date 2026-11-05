@@ -1,6 +1,15 @@
 {
-  "status": "ok",
-  "exportName": "golden-k1-trojan-mihomo.json",
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-k1-trojan-mihomo: the manually chosen core 3 cannot run this profile: [profileCore] Unknown core (3)",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "the manually chosen core 3 cannot run this profile: [profileCore] Unknown core (3)"
+      }
+    ]
+  },
   "dynamic": {
     "ports": [],
     "paths": [],

@@ -145,12 +145,12 @@
   },
   "scenarios": 360,
   "counts": {
-    "runOk": 296,
-    "runError": 64,
-    "testOk": 302,
-    "testError": 58,
-    "exportOk": 247,
-    "exportError": 113
+    "runOk": 294,
+    "runError": 66,
+    "testOk": 300,
+    "testError": 60,
+    "exportOk": 245,
+    "exportError": 115
   },
   "externalChecks": {
     "checked": 211,

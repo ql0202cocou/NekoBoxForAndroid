@@ -4,6 +4,7 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.fmt.ConfigBuildDiagnostic
 import io.nekohasekai.sagernet.fmt.ConfigBuildMode
+import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.golden.GoldenAddressCorpus.Companion.quoted
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -28,6 +29,25 @@ class GoldenJvmBuildTest {
 
         // 当前没有平台相关的比较放宽；新增放宽必须写明原因，并保证每个场景每种模式都真的用到。
         private val RELAXATIONS = emptyList<GoldenJvmRelaxation>()
+    }
+
+    @Test
+    fun `已移除的手动核心负例保持原输入且三种模式都拒绝`() {
+        val baseline = GoldenBaseline.load()
+        for (id in listOf("k1-vmess-manual-mihomo", "k1-trojan-manual-mihomo")) {
+            val input = baseline.input(id)
+            val profile = input.dataSource().profile(input.mainProfileId)!!
+            assertEquals("$id 不能改成普通自动选核正例", ProxyEntity.CORE_MIHOMO, profile.core)
+            for (mode in ConfigBuildMode.entries) {
+                val output = tree.outputs.getValue(id to mode)
+                assertEquals("$id/$mode", "error", output.result["status"])
+                val error = output.result["error"] as Map<*, *>
+                assertEquals("io.nekohasekai.sagernet.fmt.ProfileBuildException", error["class"])
+                assertEquals("${profile.requireBean().displayName()}: the manually chosen core 3 cannot run this profile: [profileCore] Unknown core (3)", error["message"])
+                assertTrue(output.files.isEmpty())
+                assertTrue(output.diagnostics.isEmpty())
+            }
+        }
     }
 
     @Test

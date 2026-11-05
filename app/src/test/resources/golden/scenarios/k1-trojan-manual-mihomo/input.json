@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "k1-trojan-manual-mihomo",
-  "description": "旧手动 mihomo 的 Trojan 恢复自动：TLS 节点走 sing-box",
+  "description": "Trojan 保留旧手动核心值 3：核心已移除，应报 CORE_VALUE_UNKNOWN",
   "mainProfileId": 1,
   "settings": [
     {
@@ -166,7 +166,7 @@
       "ping": 0,
       "uuid": "",
       "error": null,
-      "core": 0,
+      "core": 3,
       "beanColumn": "trojanBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.trojan.TrojanBean",
       "beanKryoBase64": "AgAAAAgAAAB0cm9qYW4uZXhhbXBsZS5jb+27AQAAgYB0Y/B0bPN0cm9qYW4uZXhhbXBsZS5jb+2BgQCBgYEAgQAAAAAAAAAAAAABAAAAgYFnb2xkZW4tcGFzcy10cm9qYe4BAAAAZ29sZGVuLWsxLXRyb2phbi1taWhvbe+BgQ=="
