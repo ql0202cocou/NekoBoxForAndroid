@@ -6,11 +6,11 @@
 
 基线现状与沿用的约定：
 
-- `manifest.json` 是 K1b 那次整体采集（sing-box 1.14.2-neko-2、Xray v26.9.30、mihomo v1.19.32），早于当前固定的核心
-  版本：之后升级核心只做对照、没有整体重采。
-- 格式 v3：接 Xray / mihomo 的本机 socks 出站带本次构建的凭据，Xray 各入站（`auth` / `accounts`，关掉 `log.access`）与
-  mihomo 各 listener（`users`）要求同一组凭据；跳实例记录 `localAuth`，凭据登记进 `dynamic.secrets`。四种插件核心的
-  入站不认证，sing-box 接它们的 socks 出站也不带凭据。
+- `manifest.json` 记录移除 mihomo 时（2026-11-05）的采集：sing-box 1.14.4-neko-2、Xray v26.10.21。升级核心时只做对照、
+  不整体重采。
+- 格式 v3：接 Xray 的本机 socks 出站带本次构建的凭据，Xray 各入站（`auth` / `accounts`，关掉 `log.access`）要求同一组
+  凭据；跳实例记录 `localAuth`，凭据登记进 `dynamic.secrets`。四种插件核心的入站不认证，sing-box 接它们的 socks 出站
+  也不带凭据。
 - 测某个核心上的特性或合并配置的场景，夹具手动指定原来的核心（自动选核会换核时只改 `input.json` 的 `core`）。
 - 局部的有意变化：按审查过的差异修改受影响的文件，再在模拟器上重采集、对照一致；不整体替换基线，`manifest.json`
   保持上一次整体采集。逐次的经过见 git 历史。
@@ -40,7 +40,7 @@ ANDROID_SERIAL=emulator-5554 ./run golden collect --golden   # 写到本目录�
 ANDROID_SERIAL=emulator-5554 ./run golden collect --out <目录> # 写到指定的空目录
 ```
 
-脚本（`buildScript/golden/collect.sh`）依次：核对 `app/executableSo/<abi>/` 下的 Xray / mihomo 与
+脚本（`buildScript/golden/collect.sh`）依次：核对 `app/executableSo/<abi>/` 下的 Xray 与
 `buildScript/lib/plugins.sh` 固定的 sha256 → 构建并安装 oss debug 包（`adb install -r`，保留数据）→
 执行
 
@@ -49,7 +49,6 @@ adb shell content call --uri content://moe.nb4a.debug.golden --method collect \
   --extra commit:s:<提交> --extra dirtyCount:i:<N> --extra dirtyTop:s:<前若干条> \
   --extra codeDirtyCount:i:<M> --extra codeDirtyTop:s:<前若干条> \
   --extra xrayVersion:s:<…> --extra xrayPinnedSha256:s:<…> --extra xrayPackagedSha256:s:<…> \
-  --extra mihomoVersion:s:<…> --extra mihomoPinnedSha256:s:<…> --extra mihomoPackagedSha256:s:<…> \
   [--extra allowWipe:b:true]
 ```
 
@@ -70,11 +69,11 @@ APK 只按 `app/build/outputs/apk/oss/debug/output-metadata.json`（Gradle 每�
 采集入口的约束：
 
 - 只接受 adb shell（uid 2000）与 root 的调用；不启动 VPN / 代理服务，不发起网络连接。唯一启动的外部进程是内置
-  Xray / mihomo 的校验入口（`run -test` / `-t`，只加载配置、不监听不连接，见「三种模式」），不启动外核本身。
+  Xray 的校验入口（`run -test`，只加载配置、不监听不连接，见「三种模式」），不启动外核本身。
 - 防误伤：数据库里有不是采集入口建的节点 / 分组 / 规则时拒绝运行，除非带 `--allow-wipe`。采集结束后清空
   节点 / 分组 / 规则三张表，并把 `configuration.db` 的设置恢复成采集前的样子。
 - 环境检查：装了 Trojan-Go / Naive / Mieru / Hysteria 的外部插件 app 时拒绝（结果会变，见下文）；
-  设备上的 `libxray.so` / `libmihomo.so` 必须就是脚本刚装的 APK 里那份。
+  设备上的 `libxray.so` 必须就是脚本刚装的 APK 里那份。
 
 ## 比较
 
@@ -93,7 +92,7 @@ APK 只按 `app/build/outputs/apk/oss/debug/output-metadata.json`（Gradle 每�
 `--ignore-local-auth` 比较全部产物，但比较前从两侧去掉本机 socks 认证，去掉的正好是这些位置（实现在
 `GoldenCompareTree.kt` 的 `GoldenLocalAuth`，别处同名的键照常比较）：sing-box 配置（`sing-box.json` 与 `export.txt`
 第 0 段）里指向 127.0.0.1 的 socks 出站的 `username` / `password`；Xray 配置里各入站 `settings` 的 `auth` 与
-`accounts`、`log` 的 `access`；mihomo 配置里各 listener 的 `users`（`export.txt` 的外核段按结构认核心）；`result.json`
+`accounts`、`log` 的 `access`（`export.txt` 的外核段按结构认核心）；`result.json`
 里 `external[].hops[]` 的 `localAuth`，以及 `dynamic.secrets` 里这些凭据的值（取自跳实例的记录与 sing-box 配置里本机
 socks 出站的凭据）。`input.json` 与 `address/corpus.json` 顶层的 `formatVersion` 不比较。它用来证明加认证的改动只多出
 了认证：两侧可以一侧带认证（v3）、一侧不带（v2）。
@@ -117,11 +116,10 @@ socks 出站的凭据）。`input.json` 与 `address/corpus.json` 顶层的 `for
 - 不经过 Android 外壳（`captureConfigInput`：DataStore、Room 读取事务、PackageCache）：输入由 `GoldenJvmModes.kt`
   按 `input.json` 拼出，与外壳共用的只有两处模式判断（要解析的包名 `packagesToResolve`、是否取 Clash API secret
   `needsClashApiSecret`）。
-- 组装时不做插件安装确认（`BoxInstance` 传给 `assemble` 的 `beforeHop`），也没有内置 Xray / mihomo 的启动前校验
+- 组装时不做插件安装确认（`BoxInstance` 传给 `assemble` 的 `beforeHop`），也没有内置 Xray 的启动前校验
   （只进 `manifest.json`）。
-- 平台换成假实现（`FakeConfigPlatform`）。端口从 50001 起递增、本机 socks 凭据用固定种子、测速控制 secret 是固定值：
-  都是 `dynamic` 里按出现次序替换的值；测速是否开 mihomo 的控制器取构建结果的
-  `delayTestOnMihomo`（构建按生产的 `mihomoDelayTestApplies` 用采集到的主分组行与设置算出）。
+- 平台换成假实现（`FakeConfigPlatform`）。端口从 50001 起递增、本机 socks 凭据用固定种子：
+  都是 `dynamic` 里按出现次序替换的值。
 - 数字地址解析（生产走 `Os.inet_pton`）先查 `address/corpus.json`，语料之外的输入走 `StrictNumericAddress`
   （按 bionic `inet_pton` 的规则：IPv4 四段十进制、前导零按十进制，IPv6 每组至多 4 位十六进制、不接受 zone）。
   `GoldenAddressCorpusTest` 要求它在全部语料上与设备结果一致。基线构建会查到的语料之外的输入只列在
@@ -129,11 +127,8 @@ socks 出站的凭据）。`input.json` 与 `address/corpus.json` 顶层的 `for
   `GoldenJvmBuildTest` 跑完全部场景后核对查到的正好是这些。多出新输入时测试失败，要么把它补进语料（重新采集），
   要么核对回退实现在它上的结果后加进名单。
 
-只有一处按名单放宽（`GoldenJvmBuildTest` 的 `RELAXATIONS`，写明原因）：`mihomo-anytls-bad-certificate` 的三种模式里，
-错误证书的 cause 链随平台的 X.509 实现而变（Android 的 Conscrypt 共 5 个 cause，JDK 共 3 个，`CertificateException`
-的消息也不同）。顶层异常的类与消息、第一个 cause、第二个 cause 的类照常比较，只放宽 cause 的个数、第二个 cause 的
-消息与第三个起的 cause；这三个文件的其余部分与其它产物都照常比较。名单上的放宽没有用到时测试同样失败，平台差异消失
-后要删掉。不许为放宽改生产代码或整场景跳过。
+放宽只能按名单（`GoldenJvmBuildTest` 的 `RELAXATIONS`，写明原因），目前名单为空。名单上的放宽没有用到时测试同样失败，
+平台差异消失后要删掉。不许为放宽改生产代码或整场景跳过。
 
 诊断与警告基线里没有，另按 `app/src/test/resources/golden-jvm/expected-diagnostics.json` 断言（放在本目录之外：
 `./run golden collect --golden` 会整体替换本目录；同目录的 `singbox-trial-corpus.json` 是 sing-box 逐出站试建的语料，见「场景与夹具」）：只列有诊断（`ConfigBuildDiagnostic`，类型与字段）或警告
@@ -169,26 +164,26 @@ manifest.json                                              采集元数据，不
 scenarios/<场景 id>/input.json                              输入：设置、分组、节点、规则
 scenarios/<场景 id>/<mode>/result.json                      mode 为 run、test、export
 scenarios/<场景 id>/<mode>/sing-box.json                    run / test 成功时：sing-box 配置原文
-scenarios/<场景 id>/<mode>/ext-<n>.<pluginId>.<json|yaml>   run / test 成功时：第 n 组外核的配置原文（n 从 0 起，按组的顺序）
+scenarios/<场景 id>/<mode>/ext-<n>.<pluginId>.json          run / test 成功时：第 n 组外核的配置原文（n 从 0 起，按组的顺序）
 scenarios/<场景 id>/export/export.txt                       export 成功时：exportConfig() 返回的整段原文
 address/corpus.json                                        地址解析语料与旧实现的结果
 ```
 
 「组」来自外核运行计划（`fmt/ExternalRunPlan.kt`）：一次构建里每个走外核的跳实例（某条链上的一个外核节点；同一个
-节点在不同链里是不同的跳实例）按构建登记的顺序（`ConfigBuildResult.externalChains`：链的顺序，链内按跳的顺序）编号，Xray 的全部跳实例一组、mihomo 的全部跳实例一组，
+节点在不同链里是不同的跳实例）按构建登记的顺序（`ConfigBuildResult.externalChains`：链的顺序，链内按跳的顺序）编号，Xray 的全部跳实例一组，
 插件核心每个跳实例一组；组的顺序按各组第一个跳实例。一组一份配置、一个进程。v1 是一个跳实例一份配置（`ext-<n>`
 的 n 是跳实例序号），`result.json` 的 `external` 逐跳实例记录；其余布局与 v2 相同。v3（K0b）的布局与 v2 相同，
 只是跳实例记录多了 `localAuth`、`dynamic.secrets` 多了本机 socks 凭据，配置里多了认证（见文首）。
 
 场景 id 只用小写字母、数字和连字符。配置原文按 UTF-8 原样写入，一个字节都不改；其余 JSON 由采集入口
-用 Gson 输出（缩进两格，末尾一个换行）。外核配置只有 mihomo 是 YAML。
+用 Gson 输出（缩进两格，末尾一个换行）。外核配置都是 JSON。
 
 ## 三种模式
 
 | mode | 走的路径 | 说明 |
 | --- | --- | --- |
-| `run` | 真实的 `BoxInstance.init()` | `buildConfig(profile)`，再由构建结果建外核运行计划，经运行 / 测速 / 导出共用的组装入口 `ExternalRunPlan.assemble` 逐个跳实例 `initPlugin`、生成每组的配置，最后做启动前校验：用内置 Xray / mihomo 的校验入口把每组合并配置加载一遍（与真实启动同一段代码；插件核心不校验）。只把 `loadConfig` 换成空操作（不建会启动的 libcore box），不调 `launch` |
-| `test` | 同上，`buildConfig` 与 `mihomoTestController` 经反射调用一个真实 `TestInstance` 的实现 | 即 `buildConfig(profile, true)`；单节点 AnyTLS 走 mihomo 且分组没有前置 / 落地时，mihomo 配置带 Clash API 端口与随机 secret |
+| `run` | 真实的 `BoxInstance.init()` | `buildConfig(profile)`，再由构建结果建外核运行计划，经运行 / 测速 / 导出共用的组装入口 `ExternalRunPlan.assemble` 逐个跳实例 `initPlugin`、生成每组的配置，最后做启动前校验：用内置 Xray 的校验入口把每组合并配置加载一遍（与真实启动同一段代码；插件核心不校验）。只把 `loadConfig` 换成空操作（不建会启动的 libcore box），不调 `launch` |
+| `test` | 同上，`buildConfig` 经反射调用一个真实 `TestInstance` 的实现 | 即 `buildConfig(profile, true)` |
 | `export` | 直接调 `ProxyEntity.exportConfig()` | sing-box 配置后接每组一段外核配置（同一个组装入口），段间一个空行 |
 
 与真实运行的差别只有两处：不建会启动的 libcore box（构建里的逐出站试建会在进程里建一个从不启动的 sing-box 实例，只解析与构造，不监听、不拨号）；Trojan-Go / Naive / Mieru / Hysteria 插件在模拟器上都没装，
@@ -201,7 +196,7 @@ address/corpus.json                                        地址解析语料与
 
 ## 依赖模拟器条件的结果
 
-基线在只有内置 Xray 与 mihomo、没有任何外部插件 app 的模拟器上采集（`manifest.json` 的 `plugins` 记录了
+基线在只有内置 Xray、没有任何外部插件 app 的模拟器上采集（`manifest.json` 的 `plugins` 记录了
 实际状态），以下结果随这个条件而定：
 
 - 选择器成员的规划检查（`ConfigBuild.checkMemberHop` 确认插件可用）会跳过需要插件 app 的成员，路由规则指向这类
@@ -222,11 +217,11 @@ address/corpus.json                                        地址解析语料与
 | `dirty` | 工作区的改动：`count` 是有改动的路径总数（含未跟踪文件，0 即干净），`top` 是排序后的前 50 条；`codeCount` / `codeTop` 是其中不在 `app/src/debug/`、`app/src/test/`、`buildScript/golden/`、`doc/` 之下的路径，`codeCount` 非 0 说明有可能影响配置输出的代码改动。（旧格式的 manifest 没有 `dirty`，只有全部路径的数组 `dirtyPaths`） |
 | `app` | applicationId、versionName、versionCode、flavor、buildType |
 | `cores.sing-box` | `Libcore.versionBox()` 的原文（逐行）与其中的版本号 |
-| `cores.xray` / `cores.mihomo` | `version`、`pinnedSha256` 取自 `plugins.sh`（上游二进制）；`installedSha256` 是设备上那份文件的实算值（打包时经 AGP strip，与上游文件不同） |
-| `plugins` | 六个外核插件 id 的状态：`builtin`、`missing` 或 `external:<包名>` |
+| `cores.xray` | `version`、`pinnedSha256` 取自 `plugins.sh`（上游二进制）；`installedSha256` 是设备上那份文件的实算值（打包时经 AGP strip，与上游文件不同） |
+| `plugins` | 五个外核插件 id 的状态：`builtin`、`missing` 或 `external:<包名>` |
 | `system` | API 级别（`sdkInt`、`sdkIntFull`）、系统版本、build fingerprint、ABI、页大小、语言 |
 | `scenarios` / `counts` | 场景数与各模式成功 / 失败的数量 |
-| `externalChecks` | run / test 模式里启动前校验的次数（每组 Xray / mihomo 合并配置一次）：`checked`、`failed`、`inconclusive`（超时、被信号杀掉、进程起不来，照常继续）的总数，`byPlugin` 按插件 id 分开计（另有 `passed`），`problems` 逐条列出没过与没有结论的场景、模式、插件与原因。基线全部场景的合并配置（Xray 211 份、mihomo 91 份）都应被校验且全部通过 |
+| `externalChecks` | run / test 模式里启动前校验的次数（每组 Xray 合并配置一次）：`checked`、`failed`、`inconclusive`（超时、被信号杀掉、进程起不来，照常继续）的总数，`byPlugin` 按插件 id 分开计（另有 `passed`），`problems` 逐条列出没过与没有结论的场景、模式、插件与原因。基线全部场景的合并配置（Xray 211 份）都应被校验且全部通过 |
 | `collectedAt` | 采集时间（UTC）；两次采集之间只有它允许不同 |
 
 ## input.json
@@ -249,28 +244,24 @@ address/corpus.json                                        地址解析语料与
 外核配置的 JVM 黄金测试也从这里取输入：`GoldenBaseline` 列出某个 pluginId 在 run / test 下的全部外核配置（一组一个
 用例），每个用例按 `result.json` 的 `external` 重建这个模式的完整运行计划（bean 每个用例新建一份；拨号目标按记录的
 `finalAddress` / `finalPort` 还原：本机地址是经映射、端口即映射端口，其余是不映射，记录的必须正是节点的
-`serverAddress` / `serverPort`，服务器地址本身是本机的节点分不清两者，重建时直接报错；本机 socks 凭据用跳实例记录的 `localAuth`，计划自己检查 Xray / mihomo 的跳实例必须有、
+`serverAddress` / `serverPort`，服务器地址本身是本机的节点分不清两者，重建时直接报错；本机 socks 凭据用跳实例记录的 `localAuth`，计划自己检查 Xray 的跳实例必须有、
 插件核心的不能有；解析服务器用记录的 `resolver`；核对计划分出的组与标识和记录的一致；设置取 `effectiveSettings` 的 `logLevel`、
 `ipv6Mode`、`globalAllowInsecure`），`GoldenExternalCoreCheck.assertMatchesBaseline(pluginId)` 经组装入口
 `assemble` 重新生成，取这一组的配置与原文做结构比较。端口直接用记录的值；`tempFiles` 与本次 `cacheFile` 分到的路径
-按动态路径比较。每个核心一个测试类（如 `GoldenMihomoTest`）。
+按动态路径比较。每个核心一个测试类（如 `GoldenXrayTest`）。
 
 `GoldenExternalWiringTest` 直接在基线上核对两端接得上：每个场景每种模式里，sing-box 配置中每个指向本机的 socks
 出站端口都恰好是某份外核配置里一个入站的端口（反过来每个外核入站也恰好被一个 socks 出站用到）；该入站绑定的出站拨向
 的地址端口等于跳实例的映射目标（hysteria 1 免映射时按 `serverPorts` 拨号，只核对地址）；映射目标是本机时，sing-box
-配置里有监听这个端口的映射入站。Xray 另核对第一个出站是 blackhole、每个入站恰有一条规则且指向存在的出站，mihomo
-另核对 `rules` 是 `MATCH,REJECT`、每个 listener 的 `proxy` 指向存在的代理、没有全局的 `authentication` /
-`skip-auth-prefixes`。认证上两端也要一致：接 Xray / mihomo 的 socks 出站与对应的入站都有凭据且相同、非空，Xray 入站的
-`auth` 是 `"password"`、`accounts` 恰好一项、`udp` 仍为 true，mihomo listener 的 `users` 恰好一项；接插件核心的
+配置里有监听这个端口的映射入站。Xray 另核对第一个出站是 blackhole、每个入站恰有一条规则且指向存在的出站。认证上两端也要一致：接 Xray 的 socks 出站与
+对应的入站都有凭据且相同、非空，入站的 `auth` 是 `"password"`、`accounts` 恰好一项、`udp` 仍为 true；接插件核心的
 socks 出站与入站都没有；同一份 sing-box 配置里本机凭据只有一组；运行 / 测速另核对跳实例记录的 `localAuth` 就是入站要求
-的。导出模式没有 `external` 记录，外核配置从 `export.txt` 的各段里取，并核对 Xray、mihomo 各最多一段。
+的。导出模式没有 `external` 记录，外核配置从 `export.txt` 的各段里取，并核对 Xray 最多一段。
 
-`GoldenExternalInvariantsTest` 在同一批合并配置上核对外核的「哑管道」不变量：Xray 与 mihomo 只承担节点拨号
-与本机端口绑定，不启用 tun、sniffing、DNS 或用户分流规则。检查在测试源集的 `ExternalCoreInvariants`：Xray 与 mihomo
-各一张键集白名单加取值约束（各级键的必填 / 可选 / 点名禁用，出站按协议、代理按类型），两张表互不套用，以后加协议只改
-表。范围是全部场景 run / test 的 `ext-*` 配置与 `export.txt` 里的 Xray / mihomo 段；测速控制器（`external-controller`
-与 `secret`）按 `result.json` 的记录单独断言：测速且开了控制器的才有，端口与 secret 对得上，运行与导出不许有。命中表里
-显式列出的例外要一个不多一个不少（目前只有 mihomo 只开 ECH、没有内联配置时自己查 DNS 这一项）。这是独立于基线的一层：
+`GoldenExternalInvariantsTest` 在同一批合并配置上核对外核的「哑管道」不变量：Xray 只承担节点拨号
+与本机端口绑定，不启用 tun、sniffing、DNS 或用户分流规则。检查在测试源集的 `ExternalCoreInvariants`：一张键集白名单加
+取值约束（各级键的必填 / 可选 / 点名禁用，出站按协议），以后加协议只改表。范围是全部场景 run / test 的 `ext-*` 配置与
+`export.txt` 里的 Xray 段。这是独立于基线的一层：
 重新采集基线时新增的键会被一起接受，却过不了这里。生成器侧的同一套检查与反例在 `ExternalCoreInvariantsTest`。
 
 ## result.json
@@ -298,22 +289,22 @@ socks 出站与入站都没有；同一份 sing-box 配置里本机凭据只有�
   `finalPort` 记跳实例的拨号目标：经映射时是 `127.0.0.1` 与映射入站的端口；不映射时是节点的 `serverAddress` 与
   `serverPort`，其中 hysteria 1（免映射的最先拨号的一跳）实际按 `serverPorts` 拨号，`finalPort` 只是节点的
   `serverPort` 字段，不参与拨号）。
-  `inboundTag` / `outboundTag` 是跳实例在 Xray 配置里的入站 / 出站 tag、在 mihomo 配置里的 listener / 代理名
+  `inboundTag` / `outboundTag` 是跳实例在 Xray 配置里的入站 / 出站 tag
   （`in-<index>` / `out-<index>`）；插件核心的配置沿用单节点格式，不带标识，记为 null。`localAuth` 是这个跳实例的
   外核入站要求的本机 socks 凭据（与 sing-box 里接它的 socks 出站带的是同一组），入站不认证的（插件核心）记为 null。
   `resolver` 是不映射的跳实例自己解析服务器域名用的 DNS（`ExternalServerResolver`：sing-box 的本机 DNS 入站
   `plugin-dns-in`，udp、127.0.0.1、本次构建分的端口；只给服务器写域名、核心接受它的跳实例，导出不带；目前只有
   hysteria 1 插件写进配置的 `resolver`）；没有时不写这个键，加它之前采集的记录都没有（7 个 hysteria 1 场景有：
   `ext-hy1-`、`chain-hy1-`、`group-dns-hy1-` 开头且有不映射的域名节点的）。
-- `external[].controller` 是写进这份 mihomo 配置的测速控制端口与 secret（其余组为 null）；`tempFiles` 是组装期间经
+- `external[].controller` 是 mihomo 测速控制器留下的字段，现在恒为 null，等下一次审查过的重采再去掉；`tempFiles` 是组装期间经
   `cacheFile` 领到、且出现在这份外核配置里的文件（hysteria 1 的 CA），采集结束即删除。
 - `dynamic` 列出本模式这一次构建里每次运行都可能不同的全部取值，比较工具只按它替换：
   - `ports`：`mkPort()` 分到的端口。先按 sing-box 配置的结构找——指向 127.0.0.1 的 socks 出站的
     `server_port`（按 outbounds 顺序），再是 tag 含 `-mapping-` 的映射入站与 tag 为 `plugin-dns-in` 的本机 DNS
-    入站的 `listen_port`（按 inbounds 顺序）；run / test 再补上运行计划里各跳实例的本机端口与测速控制端口。
+    入站的 `listen_port`（按 inbounds 顺序）；run / test 再补上运行计划里各跳实例的本机端口。
     两次采集同一位置一一对应。
   - `paths`：临时文件的绝对路径（run / test 来自 `tempFiles`，export 按 cacheDir 前缀从原文里找）。
-  - `secrets`：测速时随机生成的 mihomo Clash API secret；本次构建随机生成的本机 socks 凭据（用户名、密码各一项）。
+  - `secrets`：本次构建随机生成的本机 socks 凭据（用户名、密码各一项）。
     run / test 取自构建结果与运行计划，export 按 sing-box 配置的结构找（指向 127.0.0.1 的 socks 出站的 `username` /
     `password`）。比较时按出现次序换成 `SECRET#n`。
   - 夹具与设置固定下来的值（mixed 端口、预先写好的 Clash API secret、节点的服务器端口等）不算动态值。
@@ -329,10 +320,10 @@ socks 出站与入站都没有；同一份 sing-box 配置里本机凭据只有�
 ## 场景与夹具
 
 场景表在 `app/src/debug/java/io/nekohasekai/sagernet/golden/collect/GoldenScenarios.kt`，按类别分组：
-单节点（sing-box、Xray、mihomo、插件核心）、自定义配置、链、分组前置 / 落地、选择器、路由规则、设置变体、
+单节点（sing-box、Xray、AnyTLS、插件核心）、自定义配置、链、分组前置 / 落地、选择器、路由规则、设置变体、
 分组 DNS、同核心多节点（`multi-` 前缀）、K1 选核（`k1-` 前缀）、BUG-001 短期预检（`bug001-` 前缀）、K2 XHTTP（`k2-` 前缀）。新增场景只往
-表里加；场景 id 入库后不要改名。目前 357 个场景（281 个按单项特性分类的，加 14 个 `multi-` 场景、33 个 `k1-` 场景、
-14 个 `bug001-` 场景、15 个 `k2-` 场景）。
+表里加；场景 id 入库后不要改名：id 与节点名里的 mihomo 是历史命名，这些 AnyTLS 节点现在走 sing-box。目前 360 个场景（284 个按
+单项特性分类的，加 14 个 `multi-` 场景、33 个 `k1-` 场景、14 个 `bug001-` 场景、15 个 `k2-` 场景）。
 
 `k2-` 场景钉住 XHTTP 传输（只走 Xray，手动选 sing-box 拒绝），成功的场景在采集时同样经 Xray 的 `run -test` 校验：
 `k2-vless-xhttp-none-empty-host`（无 TLS、host 为空：`xhttpSettings.host` 用服务器地址补上）、`k2-xhttp-ipv6-none`（同，IPv6
@@ -370,9 +361,9 @@ Go 测试 `TestTrialCorpus` 用真实的 vendored sing-box 逐条核对，不从
 `GoldenJvmBuildTest` 跑完全部场景后核对语料的每一条都被查中过（「正好是这些」）；`TestTrialGoldenOutbounds` 另在主机上核对基线里
 每个出站 / 端点都能通过试建，等于验证「语料之外一律通过」的回退。这 12 个场景的产物取自 JVM 黄金管线，待模拟器重采确认。
 
-`multi-` 场景专门覆盖「一次构建里同一种外核（Xray 或 mihomo）有多个节点」，也就是 K0 把同核心节点合进一份配置、
+`multi-` 场景专门覆盖「一次构建里同一种外核（Xray）有多个节点」，也就是 K0 把同核心节点合进一份配置、
 一个进程时要改变的情形；在 K0 之前采集，记下每个节点各占一个进程、各有一份配置的旧输出。来路包括：选择器分组里
-多个 Xray / mihomo 成员（分别选中内核、Xray、mihomo 成员）、路由规则指向多个外核节点、一条链里有多个同核心节点、
+多个 Xray 成员（分别选中内核、Xray 成员）、路由规则指向多个外核节点、一条链里有多个同核心节点、
 同一个外核节点出现在两条链里（都不是最先拨号的一跳；顺序相同与相反各一个）、选择器的前置与落地各是外核节点（落地在
 每个成员的链里各出现一次）、选择器成员本身是链、外核节点与 Trojan-Go / Naive / Mieru 混在同一条链里（含选择器成员
 是这类链）、分组前置是外核链、规则目标所在分组带外核前置。节点用各自的服务器域名与 SNI，便于在合并后的配置里分辨。
@@ -391,11 +382,11 @@ K0（每种核心一个进程）动手前后的对照数据：用一个外核节
 
 ```bash
 export ANDROID_HOME=$HOME/Library/Android/sdk
-ANDROID_SERIAL=emulator-5554 ./run golden measure --out <空目录>            # 默认：38 Xray + 2 mihomo + 2 sing-box，取样 120 秒
+ANDROID_SERIAL=emulator-5554 ./run golden measure --out <空目录>            # 默认：38 Xray + 2 sing-box，取样 120 秒
 ANDROID_SERIAL=emulator-5554 ./run golden measure --xray 8 --out <空目录>   # 低于 32 个上限的对照
 ```
 
-选项：`--xray` / `--mihomo` / `--singbox <N>`（各类节点个数，默认 38 / 2 / 2）、`--duration <秒>`（默认 120）、
+选项：`--xray` / `--singbox <N>`（各类节点个数，默认 38 / 2）、`--duration <秒>`（默认 120）、
 `--interval <秒>`（取样间隔，默认 3）、`--mem-at <秒>`（第一次记内存，默认 30，结束前再记一次）、
 `--mode vpn|proxy`（默认 vpn）、`--log-level <N>`（默认 1，见下）、`--settle <秒>`（拉起界面后等多久再启动，默认 5）、
 `--out`、`--allow-wipe`、`--no-build`、`--no-install`（与采集相同）。`./run golden measure --help` 列出全部选项。
@@ -433,9 +424,8 @@ ANDROID_SERIAL=emulator-5554 ./run golden measure --xray 8 --out <空目录>   #
   与 `https://192.0.2.53/dns-query`，连不上，不向真实服务器发查询）——外加进程启动时会写回的 `legacyAssetsMigrated`；
   其余取代码默认值。
 - 日志等级默认 1（warn）：0 会让 `Logs` 整体关闭，看不到 `GuardedProcessPool` 的「was killed / restart process」。
-  这也会让 Xray / mihomo 以 warning 级别输出日志，与等级 0 的用户略有不同。
-- 夹具：一个选择器分组（id 1），成员依次是 VLESS + REALITY（`xtls-rprx-vision`，uTLS chrome，自动选核走 Xray）、AnyTLS
-  （手动指定 mihomo：K1 起不带证书指纹的 AnyTLS 自动选核走 sing-box）、sing-box 内核节点（Shadowsocks 与 VMess + WS + TLS
+  这也会让 Xray 以 warning 级别输出日志，与等级 0 的用户略有不同。
+- 夹具：一个选择器分组（id 1），成员依次是 VLESS + REALITY（`xtls-rprx-vision`，uTLS chrome，自动选核走 Xray）、sing-box 内核节点（Shadowsocks 与 VMess + WS + TLS
   交替），选中第一个成员。服务器地址按顺序取
   192.0.2.0/24、198.51.100.0/24、203.0.113.0/24 的 IP 字面量，凭据沿用采集夹具的虚构值。`measurePrepare` 会用生产代码
   构建一次选中节点的配置，核对外核数量与参数一致，否则报错（并照常清理）。
@@ -453,18 +443,18 @@ raw/             原始数据：device.txt、host.txt、prepare/start/finish(.tx
 | 字段 | 内容 |
 | --- | --- |
 | `args` | 本次参数 |
-| `app` | 包名、APK、versionCode、提交与工作区改动数、Xray / mihomo 版本（取自 `plugins.sh`） |
+| `app` | 包名、APK、versionCode、提交与工作区改动数、Xray 版本（取自 `plugins.sh`） |
 | `device` | 系统版本、API 级别、build 类型、fingerprint、型号、ABI、`memTotalKb`、`cpus`；`maxPhantomProcesses` / `monitorPhantomProcs` 的原值与生效值；`processCountBeforeStart`（发出启动前 `ps -A` 的进程数）；`vpnAppopBefore`；`topActivityAtStart`（发出启动时前台的界面） |
 | `fixture` | `measurePrepare` 的返回：各类成员数、选中节点、按生产代码构建出的外核跳实例分布 `externalIndex` 与按运行计划应起的进程数 `externalProcesses`（都按插件 id 计） |
 | `start` | `connectedMs`：从发出启动到服务报 `Connected` 的毫秒数（主进程收到状态回调的时刻）；`transitions`：取样期间收到的全部状态变化（含消息）；没连上时 `failure` 给出状态与原因；请求本身失败时 `error` |
-| `processes.xray` / `.mihomo` | `expected`（按运行计划应有的进程数，取自 `fixture.externalProcesses`；K0 起 Xray、mihomo 各 1 个）、`nodes`（节点数）、`max` 与 `maxAtMs`、`final`（最后一个样本）、`secondHalfMin` / `secondHalfMax`（后半段的范围）、`distinctPids`（取样期间出现过的不同 pid）、`pidsBeyondExpected`、`pidsNewAfterConnected`（连接后才出现的 pid，即重启出来的）、`pidsGoneBeforeEnd`。取样间隔内生灭的进程看不到，这些数只是下限 |
+| `processes.xray` | `expected`（按运行计划应有的进程数，取自 `fixture.externalProcesses`；K0 起 Xray 1 个）、`nodes`（节点数）、`max` 与 `maxAtMs`、`final`（最后一个样本）、`secondHalfMin` / `secondHalfMax`（后半段的范围）、`distinctPids`（取样期间出现过的不同 pid）、`pidsBeyondExpected`、`pidsNewAfterConnected`（连接后才出现的 pid，即重启出来的）、`pidsGoneBeforeEnd`。取样间隔内生灭的进程看不到，这些数只是下限 |
 | `processes.bgPids` / `mainPids` | 取样期间出现过的 `:bg` / 主进程 pid（多于一个说明进程重启过） |
 | `phantom` | 取样期间 logcat 里 ActivityManager 的 `Killing PhantomProcessRecord … : <原因>`：`killCount`、其中本应用外核的 `killCountOurCores`、按进程名与原因的计数、首末次时刻、`bursts`（2 秒内的算一批，带设备 epoch 秒与被杀 pid）与 `burstIntervalsMs`；`amKillEvents`（events 缓冲区的 `am_kill`）；`knownAtEnd` / `knownAtEndOurCores`（取样结束时系统登记的 phantom process 数）；`sampleLines`（含 phantom 字样的原文，前 12 条） |
-| `appLogs` | `neko.log` 里 `GuardedProcessPool` 的日志：`counts`（`startProcess`、`killed`、`unexpectedExit`、`exitsTooFast`、`restartProcess`、`stopGuard`，各分 Xray / mihomo）、`samples`（每类前 5 条原文）、`events`（时刻按 Go 日志前缀算，只精确到秒） |
-| `memory` | 两次内存快照（`t<秒>` 与 `end`）：`main`、`bg`、`xray`、`mihomo`、`externalCores`（含正在 fork 的子进程）、`total` 各给 `count`、`pids`、`pssKb`、`rssKb`、`swapPssKb`；`memAvailableKb`。PSS 已按共享页摊分，可直接相加；RSS 合计重复计入了共享的代码页，只作参考 |
+| `appLogs` | `neko.log` 里 `GuardedProcessPool` 的日志：`counts`（`startProcess`、`killed`、`unexpectedExit`、`exitsTooFast`、`restartProcess`、`stopGuard`，各给总数 `all` 与其中 Xray 的 `xray`）、`samples`（每类前 5 条原文）、`events`（时刻按 Go 日志前缀算，只精确到秒） |
+| `memory` | 两次内存快照（`t<秒>` 与 `end`）：`main`、`bg`、`xray`、`externalCores`（含正在 fork 的子进程）、`total` 各给 `count`、`pids`、`pssKb`、`rssKb`、`swapPssKb`；`memAvailableKb`。PSS 已按共享页摊分，可直接相加；RSS 合计重复计入了共享的代码页，只作参考 |
 | `final` | 取样结束时的服务状态、是否仍在运行、取样期间是否停过及停止消息（例如外核反复退出太快被守护放弃） |
 | `stop` | 停止是否成功、停止前状态、`stopMs`、是否强行停止了应用、恢复的设置条数、三张表是否已清空、`leftoverProcesses`（停止 2 秒后残留的外核进程数） |
-| `samples` | 每个样本：`tMs`、`systemProcesses`（全系统进程数）、`xray` / `mihomo`（pid 列表）、`mainPid`、`bgPid`、`forkingChildren`（fork 之后、exec 之前仍叫「包名:bg」的子进程，即正在启动的外核）、`orphanCores`（父进程不是 `:bg` 的外核进程数）、`state` |
+| `samples` | 每个样本：`tMs`、`systemProcesses`（全系统进程数）、`xray`（pid 列表）、`mainPid`、`bgPid`、`forkingChildren`（fork 之后、exec 之前仍叫「包名:bg」的子进程，即正在启动的外核）、`orphanCores`（父进程不是 `:bg` 的外核进程数）、`state` |
 
 ### 读数时注意
 
@@ -475,7 +465,7 @@ raw/             原始数据：device.txt、host.txt、prepare/start/finish(.tx
   已由界面绑定服务而启动，不计入 `connectedMs`。
 - `connectedMs` 含外核的启动前校验与启动就绪等待（`BoxInstance.init` / `launch`）。二者各自的耗时记在 `raw/neko.log`
   的 Info 行里：`<插件 id>: config of <N> hops checked in <毫秒> ms`（每组一行）与
-  `external cores: <N> local inbounds ready in <毫秒> ms`；汇总不解析它们。K0b 起就绪等待对内置 Xray / mihomo 的每个入站做带用户名 / 密码的 SOCKS5
+  `external cores: <N> local inbounds ready in <毫秒> ms`；汇总不解析它们。K0b 起就绪等待对内置 Xray 的每个入站做带用户名 / 密码的 SOCKS5
   握手（凭据取自运行计划）；Xray 配置关掉了访问日志（`log.access` 为 `none`），探测与正常连接都不再留 accepted 行。
 
 ## 2026-11-05 AnyTLS 正式支持与默认 sing-box
