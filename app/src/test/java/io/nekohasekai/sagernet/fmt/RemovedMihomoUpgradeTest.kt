@@ -20,13 +20,7 @@ class RemovedMihomoUpgradeTest {
 
     @Test
     fun `旧 SOCKS 覆写在三种构建模式都明确拒绝而不改为 AnyTLS 目标`() {
-        val bytes = LegacyAnyTLSV4.bytes(AnyTLSBean().apply {
-            initializeDefaultValues()
-            serverAddress = "anytls.example.org"
-            serverPort = 443
-            password = "fake-password"
-            customOutboundJson = """{"server":"socks-bridge.example.org","server_port":1080}"""
-        })
+        val bytes = LegacyAnyTLSV4.bytes(CoreTestNodes.anytls { customOutboundJson = LegacyAnyTLSV4.SOCKS_OVERRIDE_JSON })
         val profile = ProxyEntity(id = 1, groupId = 1, type = ProxyEntity.TYPE_ANYTLS, core = ProxyEntity.CORE_MIHOMO)
             .apply { putByteArray(bytes) }
         BackupRestore.upgradeLegacyProfiles(listOf(profile)) { error("不读取全局设置") }

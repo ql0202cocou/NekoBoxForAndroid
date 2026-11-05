@@ -2,7 +2,6 @@ package io.nekohasekai.sagernet.uitest
 
 import android.app.Activity
 import android.content.Intent
-import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.preference.EditTextPreference
 import androidx.preference.Preference
@@ -10,7 +9,7 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.EditorCache
 import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.ProxyEntity
-import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
+import io.nekohasekai.sagernet.fmt.CoreTestNodes
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSSettingsActivity
 import moe.matsuri.nb4a.proxy.anytls.buildSingBoxOutboundAnyTLSBean
@@ -26,12 +25,8 @@ class AnyTLSOverrideEditorTest : UiTestBase() {
 
     private fun profile(marked: Boolean = true): ProxyEntity {
         val fixture = UiFixtures.install()
-        return ui.bg { ProfileRepository.createProfile(fixture.profiles.first().groupId, AnyTLSBean().apply {
-            initializeDefaultValues()
+        return ui.bg { ProfileRepository.createProfile(fixture.profiles.first().groupId, CoreTestNodes.anytls {
             name = "old-override"
-            serverAddress = "anytls.example.org"
-            serverPort = 443
-            password = "fake-password"
             certificatePolicy = AnyTLSBean.CERTIFICATE_POLICY_TRUST
             certificatePolicySource = AnyTLSBean.POLICY_PUBLISHED
             localSocksOutboundJson = marked
@@ -59,11 +54,6 @@ class AnyTLSOverrideEditorTest : UiTestBase() {
         return ShadowDialog.getLatestDialog() as AlertDialog
     }
 
-    private fun save(editor: AnyTLSSettingsActivity) {
-        runOnDefaultDispatcher { editor.saveAndExit() }
-        UiSettle.settle()
-    }
-
     @Test
     fun rewrittenOverrideRequiresExplicitConfirmationAndSurvivesRecreation() {
         val profile = profile()
@@ -82,7 +72,7 @@ class AnyTLSOverrideEditorTest : UiTestBase() {
         UiSettle.settle()
         val recreated = controller.get()
         assertFalse(recreated.child!!.findPreference<Preference>("confirmAnyTlsOverride")!!.isVisible)
-        save(recreated)
+        saveEditor(recreated)
         val bean = saved(profile)
         assertFalse(bean.localSocksOutboundJson)
         assertEquals(newJson, bean.customOutboundJson)
@@ -99,9 +89,8 @@ class AnyTLSOverrideEditorTest : UiTestBase() {
         editor.editOutbound(newJson)
         editor.confirmation().getButton(AlertDialog.BUTTON_NEGATIVE).performClick()
         UiSettle.settle()
-        save(editor)
-        val rejection = ShadowDialog.getLatestDialog() as AlertDialog
-        assertTrue(rejection.findViewById<TextView>(android.R.id.message)!!.text.toString().contains("Confirm rewritten override"))
+        saveEditor(editor)
+        assertTrue(latestDialogMessage().contains("Confirm rewritten override"))
         assertTrue(saved(profile).localSocksOutboundJson)
         assertEquals(oldJson, saved(profile).customOutboundJson)
         assertEquals("old-override", saved(profile).name)
@@ -112,7 +101,7 @@ class AnyTLSOverrideEditorTest : UiTestBase() {
         val profile = profile()
         val editor = ui.launchEditor(AnyTLSSettingsActivity::class.java, profile.id).get()
         editor.editOutbound("")
-        save(editor)
+        saveEditor(editor)
         assertEquals("", saved(profile).customOutboundJson)
         assertFalse(saved(profile).localSocksOutboundJson)
     }

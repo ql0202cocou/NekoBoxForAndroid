@@ -10,7 +10,6 @@ import io.nekohasekai.sagernet.fmt.kryo.KryoSamples
 import io.nekohasekai.sagernet.fmt.TypeMap
 import io.nekohasekai.sagernet.fmt.parseUniversal
 import io.nekohasekai.sagernet.fmt.toUniversalLink
-import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import moe.matsuri.nb4a.proxy.anytls.toUri
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSSettingsActivity
@@ -29,8 +28,7 @@ class AnyTLSCompatibilityEditorTest : UiTestBase() {
             "serverPort" to "443", "password" to "fake-password", "certificateFingerprint" to "ab".repeat(32))) {
             editor.child!!.findPreference<EditTextPreference>(key)!!.text = value
         }
-        runOnDefaultDispatcher { editor.saveAndExit() }
-        UiSettle.settle()
+        saveEditor(editor)
         val saved = ui.bg { ProfileRepository.getProfilesByGroup(group) }.single { it.requireBean().name == "formal-anytls" }
         assertEquals(ProxyEntity.CORE_AUTO, saved.core)
         assertEquals("ab".repeat(32), saved.anyTLSBean!!.certificateFingerprint)
@@ -44,8 +42,7 @@ class AnyTLSCompatibilityEditorTest : UiTestBase() {
         }, core = ProxyEntity.CORE_MIHOMO) }
         val editor = ui.launchEditor(AnyTLSSettingsActivity::class.java, entity.id).get()
         assertNull(editor.child!!.findPreference<Preference>("profileCore"))
-        runOnDefaultDispatcher { editor.saveAndExit() }
-        UiSettle.settle()
+        saveEditor(editor)
         val saved = ui.bg { ProfileRepository.getProfilesByGroup(entity.groupId) }.single { it.id == entity.id }
         assertEquals(ProxyEntity.CORE_AUTO, saved.core)
     }
@@ -61,8 +58,7 @@ class AnyTLSCompatibilityEditorTest : UiTestBase() {
         val editor = ui.launchEditor(AnyTLSSettingsActivity::class.java, entity.id).get()
         assertEquals("1", editor.child!!.findPreference<ListPreference>("certificatePolicy")!!.value)
         editor.child!!.findPreference<EditTextPreference>("name")!!.text = "renamed-trust"
-        runOnDefaultDispatcher { editor.saveAndExit() }
-        UiSettle.settle()
+        saveEditor(editor)
         val saved = ui.bg { ProfileRepository.getProfilesByGroup(entity.groupId) }.single { it.id == entity.id }
         assertEquals(AnyTLSBean.CERTIFICATE_POLICY_TRUST, saved.anyTLSBean!!.certificatePolicy)
         val bean = saved.anyTLSBean!!
@@ -102,8 +98,7 @@ class AnyTLSCompatibilityEditorTest : UiTestBase() {
         }) }
         val editor = ui.launchEditor(AnyTLSSettingsActivity::class.java, profile.id).get()
         editor.child!!.findPreference<ListPreference>("certificatePolicy")!!.value = "1"
-        runOnDefaultDispatcher { editor.saveAndExit() }
-        UiSettle.settle()
+        saveEditor(editor)
         val bean = ui.bg { ProfileRepository.getProfile(profile.id) }!!.anyTLSBean!!
         assertEquals(AnyTLSBean.CERTIFICATE_POLICY_TRUST, bean.certificatePolicy)
         assertEquals(AnyTLSBean.POLICY_LOCAL, bean.certificatePolicySource)

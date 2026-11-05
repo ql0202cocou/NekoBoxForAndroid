@@ -403,13 +403,13 @@ class SagerDatabaseMigrationTest {
             val expectedBeans = mutableMapOf<Long, ByteArray>()
             val rows = buildList {
                 for (version in listOf(4, 5)) for (core in listOf(CORE_AUTO, CORE_SING_BOX, CORE_MIHOMO)) {
-                    for (json in listOf("", "  ", """{"server":"socks-bridge.example.org","server_port":1080}""")) {
+                    for (json in LegacyAnyTLSV4.OVERRIDE_JSONS) {
                         for (marked in listOf(false, true)) {
                             val bean = (KryoSamples.read(sample) as AnyTLSBean).apply {
                                 customOutboundJson = json
                                 localSocksOutboundJson = marked
                             }
-                            val bytes = if (version == 4) LegacyAnyTLSV4.bytes(bean) else KryoConverters.serialize(bean)
+                            val bytes = LegacyAnyTLSV4.bytes(bean, version)
                             val expected = KryoConverters.deserialize(AnyTLSBean(), bytes)
                             val changed = core == CORE_MIHOMO && json.isNotBlank() && !expected.localSocksOutboundJson
                             if (changed) expected.localSocksOutboundJson = true

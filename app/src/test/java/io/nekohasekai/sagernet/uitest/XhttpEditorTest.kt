@@ -1,7 +1,6 @@
 package io.nekohasekai.sagernet.uitest
 
 import android.content.Intent
-import android.widget.TextView
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
 import androidx.preference.Preference
@@ -12,7 +11,6 @@ import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.database.EditorCache
 import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
-import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ui.EditorActivity
 import io.nekohasekai.sagernet.ui.profile.ConfigEditActivity
 import io.nekohasekai.sagernet.ui.profile.StandardV2RaySettingsActivity
@@ -26,7 +24,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.android.controller.ActivityController
-import org.robolectric.shadows.ShadowDialog
 import org.robolectric.shadows.ShadowToast
 
 /**
@@ -53,18 +50,9 @@ class XhttpEditorTest : UiTestBase() {
 
     private fun cached(key: String) = EditorCache.profileCacheStore.getString(key)
 
-    private fun latestDialogMessage(): String =
-        (ShadowDialog.getLatestDialog() as androidx.appcompat.app.AlertDialog)
-            .findViewById<TextView>(android.R.id.message)!!.text.toString()
-
     private val xhttpKeys = listOf("host", "path", "xhttpMode", "xhttpExtra")
 
     private fun savedBean(id: Long) = ui.bg { ProfileRepository.getProfile(id)!!.requireBean() as VMessBean }
-
-    private fun save(activity: EditorActivity) {
-        runOnDefaultDispatcher { activity.saveAndExit() }
-        UiSettle.settle()
-    }
 
     // ---- 行的显示
 
@@ -195,7 +183,7 @@ class XhttpEditorTest : UiTestBase() {
         (editor.pref("xhttpMode") as ListPreference).value = "stream-one"
         EditorCache.profileCacheStore.putString(Key.XHTTP_EXTRA, """{"noSSEHeader":true}""")
         UiSettle.settle()
-        save(editor)
+        saveEditor(editor)
         val bean = savedBean(id)
         assertEquals("xhttp", bean.type)
         assertEquals("/", bean.path)
@@ -212,7 +200,7 @@ class XhttpEditorTest : UiTestBase() {
         // 导入（通用链接、备份）带进来的值没过输入校验：直接写缓存模拟
         EditorCache.profileCacheStore.putString(Key.XHTTP_EXTRA, """{"downloadSettings":{"address":"secret-dl.example.com"}}""")
         ShadowToast.reset()
-        save(editor)
+        saveEditor(editor)
         val toast = ShadowToast.getTextOfLatestToast()
         assertEquals(rejected(R.string.xhttp_reject_download_settings, "downloadSettings"), toast)
         assertEquals("不合格的 extra 不能存库", "ws", savedBean(id).type)
@@ -226,7 +214,7 @@ class XhttpEditorTest : UiTestBase() {
         editor.selectNetwork("xhttp")
         EditorCache.profileCacheStore.putString("xhttpMode", "Fast-Mode")
         ShadowToast.reset()
-        save(editor)
+        saveEditor(editor)
         assertEquals(rejected(R.string.xhttp_reject_unsupported_mode), ShadowToast.getTextOfLatestToast())
         assertEquals("ws", savedBean(id).type)
     }
@@ -239,7 +227,7 @@ class XhttpEditorTest : UiTestBase() {
         editor.selectNetwork("xhttp")
         EditorCache.profileCacheStore.putString(Key.XHTTP_EXTRA, """{"downloadSettings":{}}""")
         editor.selectNetwork("grpc")
-        save(editor)
+        saveEditor(editor)
         assertEquals("grpc", savedBean(id).type)
     }
 
@@ -250,7 +238,7 @@ class XhttpEditorTest : UiTestBase() {
         // Mux.Cool 与 XHTTP 冲突：保存时弹出选核被拒的对话框，其中有 XHTTP 的字段名与原因
         EditorCache.profileCacheStore.putBoolean("enableMux", true)
         EditorCache.profileCacheStore.putString("muxType", "3")
-        save(editor)
+        saveEditor(editor)
         val message = latestDialogMessage()
         assertTrue(message, message.contains(app.getString(R.string.core_conflict_xray_xhttp_mux_cool)))
     }
@@ -278,7 +266,7 @@ class XhttpEditorTest : UiTestBase() {
         val id = editor.proxyEntity!!.id
         assertEquals("xhttp", cached("type"))
         ShadowToast.reset()
-        save(editor)
+        saveEditor(editor)
         assertEquals(app.getString(R.string.core_conflict_xhttp_parameters_lost), ShadowToast.getTextOfLatestToast())
         assertTrue("不能替用户补斜杠", savedBean(id).path.isNullOrEmpty())
         assertEquals("xhttp", savedBean(id).type)
@@ -290,7 +278,7 @@ class XhttpEditorTest : UiTestBase() {
         val id = editor.proxyEntity!!.id
         (editor.pref("path") as EditTextPreference).text = "/"
         UiSettle.settle()
-        save(editor)
+        saveEditor(editor)
         assertEquals("/", savedBean(id).path)
         assertEquals("xhttp", savedBean(id).type)
     }
@@ -300,7 +288,7 @@ class XhttpEditorTest : UiTestBase() {
         val editor = staleEditor().get()
         val id = editor.proxyEntity!!.id
         editor.selectNetwork("grpc")
-        save(editor)
+        saveEditor(editor)
         assertEquals("grpc", savedBean(id).type)
     }
 
@@ -312,7 +300,7 @@ class XhttpEditorTest : UiTestBase() {
         UiSettle.settle()
         val recreated = controller.get()
         ShadowToast.reset()
-        save(recreated)
+        saveEditor(recreated)
         assertEquals(app.getString(R.string.core_conflict_xhttp_parameters_lost), ShadowToast.getTextOfLatestToast())
         assertTrue(savedBean(id).path.isNullOrEmpty())
     }
@@ -328,7 +316,7 @@ class XhttpEditorTest : UiTestBase() {
         editor.selectNetwork("xhttp")
         (editor.pref("path") as EditTextPreference).text = ""
         UiSettle.settle()
-        save(editor)
+        saveEditor(editor)
         val created = ui.bg {
             ProfileRepository.getProfilesByGroup(EditorCache.editingGroup).first { it.requireBean().serverAddress == "198.51.100.77" }
         }

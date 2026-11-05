@@ -6,13 +6,28 @@ import android.graphics.Canvas
 import android.view.View
 import android.view.View.MeasureSpec
 import android.view.ViewGroup
+import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.core.view.ViewCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.recyclerview.widget.RecyclerView
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
+import io.nekohasekai.sagernet.ui.EditorActivity
 import io.nekohasekai.sagernet.widget.safeDrawingTypes
 import org.robolectric.android.controller.ActivityController
+import org.robolectric.shadows.ShadowDialog
+
+/** 在后台保存编辑器，等界面安静 */
+fun saveEditor(editor: EditorActivity) {
+    runOnDefaultDispatcher { editor.saveAndExit() }
+    UiSettle.settle()
+}
+
+/** 最新一个对话框的正文 */
+fun latestDialogMessage(): String =
+    (ShadowDialog.getLatestDialog() as AlertDialog).findViewById<TextView>(android.R.id.message)!!.text.toString()
 
 /** 主界面 fragment_holder 里当前显示的页面，按 [F] 取 */
 inline fun <reified F : Fragment> FragmentActivity.hostedFragment(): F =

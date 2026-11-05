@@ -44,13 +44,13 @@ class BackupRestoreLegacyTest {
     fun `v4 和 v5 备份在移除手动 mihomo 前保留覆写目标及全部证书字段`() {
         val sample = KryoSamples.samples.single { it.id == "AnyTLSBean/policy-v4/pin" }
         for (version in listOf(4, 5)) for (core in listOf(CORE_AUTO, CORE_SING_BOX, CORE_MIHOMO)) {
-            for (json in listOf("", "  ", """{"server":"socks-bridge.example.org","server_port":1080}""")) {
+            for (json in LegacyAnyTLSV4.OVERRIDE_JSONS) {
                 for (policy in listOf(AnyTLSBean.CERTIFICATE_POLICY_PIN, AnyTLSBean.CERTIFICATE_POLICY_TRUST)) {
                     val original = (KryoSamples.read(sample) as AnyTLSBean).apply {
                         customOutboundJson = json
                         certificatePolicy = policy
                     }
-                    val bytes = if (version == 4) LegacyAnyTLSV4.bytes(original) else KryoConverters.serialize(original)
+                    val bytes = LegacyAnyTLSV4.bytes(original, version)
                     val restored = entity(ProxyEntity.TYPE_ANYTLS, core, bytes)
                     val expected = (restored.requireBean().clone() as AnyTLSBean).apply {
                         localSocksOutboundJson = core == CORE_MIHOMO && json.isNotBlank()

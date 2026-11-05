@@ -1,6 +1,5 @@
 package io.nekohasekai.sagernet.fmt
 
-import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import moe.matsuri.nb4a.utils.Util
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -153,19 +152,14 @@ class LocalSocksAuthTest {
     }
 
     private fun plan(): ExternalRunPlan {
-        val xray = VMessBean().apply {
+        val xray = CoreTestNodes.vless {
             serverAddress = "x.example.com"
-            serverPort = 443
             uuid = "00000000-0000-0000-0000-000000000001"
-            alterId = -1
-            initializeDefaultValues()
         }
-        val other = VMessBean().apply {
+        val other = CoreTestNodes.vless {
             serverAddress = "other.example.com"
             serverPort = 8443
             uuid = "00000000-0000-0000-0000-000000000002"
-            alterId = -1
-            initializeDefaultValues()
         }
         return ExternalRunPlan(
             listOf(
