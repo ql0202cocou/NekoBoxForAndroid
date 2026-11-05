@@ -176,9 +176,7 @@ enum class Requirement(val label: String, val fields: List<ProfileField>, val is
     MLDSA65_VERIFY("REALITY mldsa65Verify", listOf(ProfileField.MLDSA65_VERIFY)),
     CERTIFICATE_PIN("整证书 SHA-256 固定（certificateFingerprint）", listOf(ProfileField.CERTIFICATE_FINGERPRINT)),
     CUSTOM_CA("自定义 CA（certificates，非 REALITY）", listOf(ProfileField.CERTIFICATES)),
-    ANYTLS_PIN("AnyTLS 证书固定", listOf(ProfileField.CERTIFICATE_FINGERPRINT, ProfileField.CERTIFICATES)),
     ANYTLS_LOCAL_SOCKS_OVERRIDE("AnyTLS 本地 SOCKS 出站覆写", listOf(ProfileField.CUSTOM_OUTBOUND_JSON)),
-    ANYTLS_TRUST("AnyTLS 信任证书", listOf(ProfileField.CERTIFICATES, ProfileField.CERTIFICATE_POLICY)),
     ANYTLS_CERTIFICATE_POLICY_INVALID("AnyTLS 证书策略无效", listOf(ProfileField.CERTIFICATE_POLICY)),
     ALLOW_INSECURE(
         "生效的 allowInsecure（节点或全局，非 REALITY、没有证书指纹）",
@@ -210,24 +208,19 @@ class CoreNames(val names: Set<String>, val ignoreCase: Boolean) {
     }
 }
 
-// 限名单的格子里单独拒绝的一组取值，命中时报 conflict
-class RejectedValues(val names: CoreNames, val conflict: CoreConflict)
-
 // 能力表的一格：某核心对某项要求的声明
 sealed class CapabilityCell {
     // 支持；note 写换算方式或限制（限制本身在组合规则或已知差异里）
     class Supported(val since: Since, val note: String? = null) : CapabilityCell()
 
-    // 只支持 names 里的取值，之外报 outside；rejected 是核心认识、但用了就跑不通的取值，先于 outside 判断，
-    // 报它自己的冲突（与 names 不相交，CoreCapabilitiesTest 检查）。showOnlyListed 为真时，outside 冲突不回显取值
-    // （names 与 rejected 里的名字照常回显）：这一行的取值只该是枚举名，名单外的多半是误填进来的凭据，不进诊断
+    // 只支持 names 里的取值，之外报 outside。shownOutside 非空时，outside 冲突只回显其中的名字：
+    // 这一行的取值只该是枚举名，其余的多半是误填进来的凭据，不进诊断
     class SupportedValues(
         val since: Since,
         val names: CoreNames,
         val outside: CoreConflict,
         val note: String? = null,
-        val rejected: RejectedValues? = null,
-        val showOnlyListed: Boolean = false,
+        val shownOutside: CoreNames? = null,
     ) : CapabilityCell()
 
     class Unsupported(val since: Since, val conflict: CoreConflict) : CapabilityCell()
@@ -253,12 +246,9 @@ fun coreConflicts(core: DialCore, requirements: CoreRequirements): List<Conflict
         val shown = shownConflictValue(item.value)
         when (val cell = CAPABILITY_TABLE.getValue(item.requirement).getValue(core)) {
             is CapabilityCell.Supported -> Unit
-            is CapabilityCell.SupportedValues -> when {
-                cell.rejected?.names?.accepts(item.value) == true ->
-                    conflicts += Conflict(core, cell.rejected.conflict, shown)
-
-                !cell.names.accepts(item.value) ->
-                    conflicts += Conflict(core, cell.outside, if (cell.showOnlyListed) CONFLICT_VALUE_NOT_SHOWN else shown)
+            is CapabilityCell.SupportedValues -> if (!cell.names.accepts(item.value)) {
+                val value = if (cell.shownOutside?.accepts(item.value) == false) CONFLICT_VALUE_NOT_SHOWN else shown
+                conflicts += Conflict(core, cell.outside, value)
             }
 
             is CapabilityCell.Unsupported -> conflicts += Conflict(core, cell.conflict, shown)

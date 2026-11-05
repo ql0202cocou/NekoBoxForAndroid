@@ -100,7 +100,7 @@ class CoreCapabilitiesTest {
         for ((requirement, cells) in CAPABILITY_TABLE) for ((core, cell) in cells) {
             val conflicts = when (cell) {
                 is CapabilityCell.Unsupported -> listOf(cell.conflict)
-                is CapabilityCell.SupportedValues -> listOfNotNull(cell.outside, cell.rejected?.conflict)
+                is CapabilityCell.SupportedValues -> listOf(cell.outside)
                 else -> emptyList()
             }
             for (conflict in conflicts) {
@@ -114,8 +114,8 @@ class CoreCapabilitiesTest {
     @Test
     fun `NotApplicable 只出现在承载不了协议的核心上`() {
         val anyTlsOnlyRows = setOf(
-            Requirement.ANYTLS_PIN, Requirement.ANYTLS_LOCAL_SOCKS_OVERRIDE, Requirement.ANYTLS_UTLS,
-            Requirement.ANYTLS_TRUST, Requirement.ANYTLS_CERTIFICATE_POLICY_INVALID,
+            Requirement.ANYTLS_LOCAL_SOCKS_OVERRIDE, Requirement.ANYTLS_UTLS,
+            Requirement.ANYTLS_CERTIFICATE_POLICY_INVALID,
         )
         for ((requirement, cells) in CAPABILITY_TABLE) {
             assertFalse("$requirement × sing-box", cells.getValue(DialCore.SING_BOX) == CapabilityCell.NotApplicable)
@@ -146,10 +146,7 @@ class CoreCapabilitiesTest {
         val used = HashSet<CoreConflict>()
         for (cells in CAPABILITY_TABLE.values) for (cell in cells.values) when (cell) {
             is CapabilityCell.Unsupported -> used += cell.conflict
-            is CapabilityCell.SupportedValues -> {
-                used += cell.outside
-                cell.rejected?.let { used += it.conflict }
-            }
+            is CapabilityCell.SupportedValues -> used += cell.outside
 
             else -> Unit
         }
@@ -243,7 +240,7 @@ class CoreCapabilitiesTest {
         assertFalse(ANYTLS_COMPAT_UTLS_FINGERPRINTS_BROKEN.ignoreCase)
         val cell = CAPABILITY_TABLE.getValue(Requirement.ANYTLS_UTLS).getValue(DialCore.SING_BOX)
             as CapabilityCell.SupportedValues
-        assertTrue(cell.rejected?.names === ANYTLS_COMPAT_UTLS_FINGERPRINTS_BROKEN)
+        assertTrue(cell.shownOutside === ANYTLS_COMPAT_UTLS_FINGERPRINTS_BROKEN)
         for (name in broken) {
             val requirements = coreRequirements(
                 ProxyEntity.TYPE_ANYTLS, CoreTestNodes.anytls { utlsFingerprint = name }, false,
@@ -327,8 +324,9 @@ class CoreCapabilitiesTest {
             is CapabilityCell.Supported -> "✔" + (cell.note?.let { "：$it" } ?: "") + "（${cell.since}）"
             is CapabilityCell.SupportedValues -> "✔ 限名单 ${cell.names.names.size} 个" +
                 (if (cell.names.ignoreCase) "，不区分大小写" else "，区分大小写") +
-                (cell.rejected?.let { "；${it.names.names.sorted().joinToString("、")} 报 `${it.conflict}`" } ?: "") +
-                "；名单外 `${cell.outside}`（${cell.since}）"
+                "；名单外 `${cell.outside}`" +
+                (cell.shownOutside?.let { "，只回显 ${it.names.sorted().joinToString("、")}" } ?: "") +
+                "（${cell.since}）"
 
             is CapabilityCell.Unsupported -> "✘ ${cell.conflict.kind} `${cell.conflict}`（${cell.since}）"
             CapabilityCell.NotApplicable -> "—"

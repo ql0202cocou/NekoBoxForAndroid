@@ -21,9 +21,8 @@ private fun values(
     names: CoreNames,
     outside: CoreConflict,
     note: String? = null,
-    rejected: RejectedValues? = null,
-    showOnlyListed: Boolean = false,
-) = CapabilityCell.SupportedValues(verifiedAt(core), names, outside, note, rejected, showOnlyListed)
+    shownOutside: CoreNames? = null,
+) = CapabilityCell.SupportedValues(verifiedAt(core), names, outside, note, shownOutside)
 
 private val NA = CapabilityCell.NotApplicable
 
@@ -48,19 +47,14 @@ val CAPABILITY_TABLE: Map<Requirement, Map<DialCore, CapabilityCell>> = linkedMa
     Requirement.ANYTLS_LOCAL_SOCKS_OVERRIDE to row(
         unsupported(SB, CoreConflict.SING_BOX_ANYTLS_LOCAL_SOCKS_OVERRIDE), NA,
     ),
-    Requirement.ANYTLS_PIN to row(supported(SB, "内部兼容实现的整证书固定语义"), NA),
-    Requirement.ANYTLS_TRUST to row(
-        supported(SB, "独立信任池，验证证书链、域名和有效期"), NA,
-    ),
     Requirement.ANYTLS_CERTIFICATE_POLICY_INVALID to row(
         unsupported(SB, CoreConflict.ANYTLS_CERTIFICATE_POLICY_INVALID), NA,
     ),
-    // 兼容出站拦下的四个名字见 fingerprint.go；名单外的取值不回显
+    // 兼容出站拦下的四个名字见 fingerprint.go；除它们外，名单外的取值不回显
     Requirement.ANYTLS_UTLS to row(
         values(
             SB, ANYTLS_COMPAT_UTLS_FINGERPRINTS, CoreConflict.SING_BOX_ANYTLS_UTLS,
-            rejected = RejectedValues(ANYTLS_COMPAT_UTLS_FINGERPRINTS_BROKEN, CoreConflict.SING_BOX_ANYTLS_UTLS),
-            showOnlyListed = true,
+            shownOutside = ANYTLS_COMPAT_UTLS_FINGERPRINTS_BROKEN,
         ),
         NA,
     ),
@@ -180,15 +174,14 @@ class CombinationRule(
     val applies: (CoreRequirements) -> Boolean,
 )
 
-private fun unsupportedAnyTlsEch(r: CoreRequirements) =
-    r.protocol == CoreProtocol.ANYTLS && r.ech != null && r.utlsFingerprint != null &&
-        !ANYTLS_COMPAT_ECH_FINGERPRINTS.accepts(r.utlsFingerprint)
-
 val COMBINATION_RULES: List<CombinationRule> = listOf(
     CombinationRule(
         DialCore.SING_BOX, CoreConflict.SING_BOX_ANYTLS_ECH, verifiedAt(DialCore.SING_BOX),
         "内部 AnyTLS 只接受确定可用的 ECH 指纹组合",
-    ) { !it.nativeAnyTlsOverrides && unsupportedAnyTlsEch(it) },
+    ) {
+        !it.nativeAnyTlsOverrides && it.protocol == CoreProtocol.ANYTLS && it.ech != null &&
+            it.utlsFingerprint != null && !ANYTLS_COMPAT_ECH_FINGERPRINTS.accepts(it.utlsFingerprint)
+    },
     // I1 §3.1（S-X3，T-B5 / T-A2 实测）：REALITY only supports RAW, XHTTP and gRPC。h2、quic 在传输行已报；
     // xhttp 在允许之列（K2），所以这条只挡 ws / httpupgrade
     CombinationRule(

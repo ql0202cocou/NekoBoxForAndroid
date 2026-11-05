@@ -56,7 +56,7 @@ val ANYTLS_COMPAT_UTLS_FINGERPRINTS_BROKEN = CoreNames(
 // AnyTLS 内部兼容实现（libcore 私有出站）接受的 uTLS 指纹，区分大小写。Go 侧的同一份名单在
 // libcore/anytlscompat/fingerprint.go：fingerprints 的键，加上 fingerprint() 单独处理的 random 与 none（空串与 none 都是
 // Go 标准 TLS）；那里的映射冻结在 mihomo v1.19.33 的 component/tls/utls.go。fingerprint() 另外拦下的四个名字（拦截的
-// switch）与 ANYTLS_COMPAT_UTLS_FINGERPRINTS_BROKEN 相同，能力表把它们作为 rejected 报同一个冲突。
+// switch）与 ANYTLS_COMPAT_UTLS_FINGERPRINTS_BROKEN 相同，能力表报同一个冲突，并只回显这四个名字。
 // Go 的副本不变，这里就不变（AnyTLSCompatFingerprintWireTest 钉住）
 val ANYTLS_COMPAT_UTLS_FINGERPRINTS = CoreNames(
     setOf(

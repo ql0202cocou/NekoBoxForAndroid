@@ -106,11 +106,6 @@ data class CoreRequirements(
             if (anyTlsCertificatePolicy !in listOf(AnyTLSBean.CERTIFICATE_POLICY_PIN, AnyTLSBean.CERTIFICATE_POLICY_TRUST)) {
                 items += RequirementItem(Requirement.ANYTLS_CERTIFICATE_POLICY_INVALID)
             }
-            if (certificatePin || customCa && anyTlsCertificatePolicy == AnyTLSBean.CERTIFICATE_POLICY_PIN) {
-                items += RequirementItem(Requirement.ANYTLS_PIN)
-            } else if (customCa) {
-                items += RequirementItem(Requirement.ANYTLS_TRUST)
-            }
         } else {
             if (certificatePin) items += RequirementItem(Requirement.CERTIFICATE_PIN)
             if (customCa) items += RequirementItem(Requirement.CUSTOM_CA)
@@ -257,17 +252,15 @@ private fun anyTlsRequirements(
     protocol: CoreProtocol,
     globalAllowInsecure: Boolean,
 ): CoreRequirements {
-    val certificatePin = !bean.certificateFingerprint.isNullOrBlank()
     return CoreRequirements(
         type = type,
         protocol = protocol,
         tls = TlsMode.TLS,
-        certificatePin = certificatePin,
-        customCa = !bean.certificates.isNullOrBlank(),
         anyTlsCertificatePolicy = bean.certificatePolicy ?: AnyTLSBean.CERTIFICATE_POLICY_PIN,
         localSocksOverride = bean.hasLocalSocksOverride(),
         nativeAnyTlsOverrides = bean.usesNativeAnyTLSOverrides(),
-        allowInsecure = !certificatePin && effectiveAllowInsecure(bean.allowInsecure, globalAllowInsecure),
+        allowInsecure = bean.certificateFingerprint.isNullOrBlank() &&
+            effectiveAllowInsecure(bean.allowInsecure, globalAllowInsecure),
         utlsFingerprint = bean.utlsFingerprint?.takeIf { it.isNotBlank() },
         // 与两个生成器相同：填了配置就启用 ECH
         ech = when {
