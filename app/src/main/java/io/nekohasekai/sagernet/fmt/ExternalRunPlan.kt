@@ -1,7 +1,6 @@
 package io.nekohasekai.sagernet.fmt
 
 import io.nekohasekai.sagernet.database.ProxyEntity
-import io.nekohasekai.sagernet.database.ProxyGroup
 import java.io.File
 
 // 外核运行计划：一次构建里全部的外核跳实例，以及它们按核心分成的组。
@@ -26,7 +25,7 @@ sealed interface ExternalDialTarget {
 }
 
 /**
- * 按节点 serverPort 拨号的核心（Xray、mihomo、Trojan-Go、Mieru、Naive）连的地址：经映射时是本机，不映射时是节点的
+ * 按节点 serverPort 拨号的核心（Xray、Trojan-Go、Mieru、Naive）连的地址：经映射时是本机，不映射时是节点的
  * 服务器地址。
  */
 fun ExternalDialTarget.dialAddress(bean: AbstractBean): String? = when (this) {
@@ -108,15 +107,15 @@ class ExternalHop(
 ) {
     val pluginId get() = core.pluginId
 
-    /** 合并配置里这个跳实例的入站 tag（Xray）/ listener 名（mihomo）。插件核心的配置沿用单节点格式，不带标识。 */
+    /** 合并配置里这个跳实例的入站 tag。插件核心的配置沿用单节点格式，不带标识。 */
     val inboundTag = "in-$index"
 
-    /** 合并配置里这个跳实例的出站 tag（Xray）/ 代理名（mihomo）。 */
+    /** 合并配置里这个跳实例的出站 tag。 */
     val outboundTag = "out-$index"
 }
 
 /**
- * 一组跳实例：一份外核配置、一个进程。合并核心（Xray、mihomo）一个计划里每种只有一组，
+ * 一组跳实例：一份外核配置、一个进程。Xray 在一个计划里只有一组，
  * 其余（要装插件 app 的核心）每个跳实例单独一组。
  */
 class ExternalCoreGroup(val core: ExternalCore, val hops: List<ExternalHop>) {
@@ -130,7 +129,7 @@ class ExternalRunPlan(val hops: List<ExternalHop>) {
             require(hop.index == position) { "external hop ${hop.index} is listed at position $position" }
             require(hop.localPort in 1..65535) { "external hop ${hop.index} has local port ${hop.localPort}" }
         }
-        // Xray、mihomo 对重复的监听端口都不报错，只有一个监听生效，另一个跳实例的流量无处可去：由计划保证
+        // Xray 对重复的监听端口不报错，只有一个监听生效，另一个跳实例的流量无处可去：由计划保证
         hops.groupBy { it.localPort }.values.firstOrNull { it.size > 1 }?.let { same ->
             throw IllegalStateException(
                 "external hops ${same.joinToString { it.index.toString() }} share local port ${same[0].localPort}"
@@ -205,18 +204,16 @@ class ExternalCoreProcess(val group: ExternalCoreGroup, val config: String) {
 
 /**
  * 运行、测速、导出共用的组装入口：计划 → 每组一份外核配置，顺序同 [ExternalRunPlan.groups]。
- * 结果只取决于计划、设置与 mihomoController，与调用方无关。
+ * 结果只取决于计划与设置，与调用方无关。
  *
  * 先按计划顺序逐个跳实例生成它在配置里的部分，出错时带上该节点名，报的是遍历顺序上第一个出错的节点
  * （与合并前逐节点生成时相同）；beforeHop 在每个跳实例之前调用（运行 / 测速用它确认插件已安装）。
- * cacheFile(prefix, ext) 分配配置可能引用的临时文件（hysteria 的 CA）；mihomoController 是测速时
- * mihomo 的 Clash API 端口与 secret，其余情况为 null。settings 没有默认值：运行、测速、导出传构建结果带出的
- * 那份（ConfigBuildResult.externalCoreSettings），成员检查的试生成（probeExternalHop）传构建自己的设置快照，
+ * cacheFile(prefix, ext) 分配配置可能引用的临时文件（hysteria 的 CA）。settings 没有默认值：运行、测速、导出传构建结果
+ * 带出的那份（ConfigBuildResult.externalCoreSettings），成员检查的试生成（probeExternalHop）传构建自己的设置快照，
  * 测试传固定值。
  */
 fun ExternalRunPlan.assemble(
     cacheFile: (String, String) -> File,
-    mihomoController: Pair<Int, String>?,
     settings: ExternalCoreSettings,
     beforeHop: (ExternalHop) -> Unit = {},
 ): List<ExternalCoreProcess> {
@@ -234,7 +231,7 @@ fun ExternalRunPlan.assemble(
     return groups.map { group ->
         val config = when (val core = group.core) {
             is ExternalCore.Merged ->
-                core.config(group.hops, group.hops.map { entries.getValue(it.index) }, mihomoController, settings)
+                core.config(group.hops, group.hops.map { entries.getValue(it.index) }, settings)
 
             is ExternalCore.PerHop -> configs.getValue(group.hops.single().index)
         }
@@ -257,25 +254,12 @@ fun exportConfigText(
     val text = StringBuilder(config.config)
     val plan = ExternalRunPlan.from(config)
     if (plan.hops.isNotEmpty()) {
-        for (process in plan.assemble(cacheFile, null, config.requireExternalCoreSettings())) {
+        for (process in plan.assemble(cacheFile, config.requireExternalCoreSettings())) {
             text.append("\n\n")
             text.append(process.config)
         }
     }
     return text.toString() to name
-}
-
-/**
- * 测速时是否让 mihomo 自己测延迟（在它的配置里开 Clash API，见 [assemble] 的 mihomoController）：主节点本身是 AnyTLS
- * 且跑在 mihomo 上（needExternal），并且主节点所在分组的行存在、前置与落地都不大于 0，即主节点自己就是那条链唯一的
- * 一跳；链上的节点仍走 sing-box 测。分组的行不存在、前置 / 落地 id 大于 0 却指向已删除的节点时都为否（构建会忽略
- * 后者，这里照旧按 id 判断）。构建用它算出 [ConfigBuildResult.delayTestOnMihomo]：main 是构建的主节点，mainGroup 是
- * 快照里主节点所在分组的行，globalAllowInsecure 取构建时采集的设置，不读 DataStore、不另查数据库。
- */
-internal fun mihomoDelayTestApplies(main: ProxyEntity, mainGroup: ProxyGroup?, globalAllowInsecure: Boolean): Boolean {
-    if (main.type != ProxyEntity.TYPE_ANYTLS || !main.needExternal(globalAllowInsecure)) return false
-    val group = mainGroup ?: return false
-    return group.frontProxy <= 0 && group.landingProxy <= 0
 }
 
 // 合并配置的生成器共用：同一份配置里的监听端口与标识各不相同，也不占用核心的保留名。

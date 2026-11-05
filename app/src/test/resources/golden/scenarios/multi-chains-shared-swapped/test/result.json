@@ -37,50 +37,28 @@
           "index": 0,
           "chainIndex": 0,
           "profileId": 6,
-          "port": 37005,
+          "port": 33475,
           "finalAddress": "127.0.0.1",
-          "finalPort": 42843,
+          "finalPort": 41335,
           "inboundTag": "in-0",
           "outboundTag": "out-0",
           "localAuth": {
-            "username": "uc6a70051079d0d0a",
-            "password": "p3e6385f668a12eeb2afc720b48bfbcd4"
+            "username": "uba447063de833600",
+            "password": "pd2eac14feded05b6cffbd37342faa4a7"
           }
         },
         {
-          "index": 2,
-          "chainIndex": 0,
-          "profileId": 4,
-          "port": 33371,
-          "finalAddress": "127.0.0.1",
-          "finalPort": 45993,
-          "inboundTag": "in-2",
-          "outboundTag": "out-2",
-          "localAuth": {
-            "username": "uc6a70051079d0d0a",
-            "password": "p3e6385f668a12eeb2afc720b48bfbcd4"
-          }
-        }
-      ]
-    },
-    {
-      "file": "ext-1.mihomo-plugin.yaml",
-      "pluginId": "mihomo-plugin",
-      "controller": null,
-      "tempFiles": [],
-      "hops": [
-        {
           "index": 1,
           "chainIndex": 0,
-          "profileId": 5,
-          "port": 37359,
+          "profileId": 4,
+          "port": 41947,
           "finalAddress": "127.0.0.1",
-          "finalPort": 37309,
+          "finalPort": 40883,
           "inboundTag": "in-1",
           "outboundTag": "out-1",
           "localAuth": {
-            "username": "uc6a70051079d0d0a",
-            "password": "p3e6385f668a12eeb2afc720b48bfbcd4"
+            "username": "uba447063de833600",
+            "password": "pd2eac14feded05b6cffbd37342faa4a7"
           }
         }
       ]
@@ -88,17 +66,15 @@
   ],
   "dynamic": {
     "ports": [
-      37005,
-      37359,
-      33371,
-      42843,
-      37309,
-      45993
+      33475,
+      41947,
+      41335,
+      40883
     ],
     "paths": [],
     "secrets": [
-      "uc6a70051079d0d0a",
-      "p3e6385f668a12eeb2afc720b48bfbcd4"
+      "uba447063de833600",
+      "pd2eac14feded05b6cffbd37342faa4a7"
     ]
   }
 }

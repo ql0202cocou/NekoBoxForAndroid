@@ -17,7 +17,7 @@ assignees: ''
 
 - 应用版本：
 - Android 版本与 ABI（例如 Android 15、arm64-v8a）：
-- 协议与所用核心（自动 / sing-box / Xray / mihomo）：
+- 协议与所用核心（自动 / sing-box / Xray）：
 
 ## 如何复现
 

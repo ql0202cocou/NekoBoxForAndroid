@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceFragmentCompat
 import io.nekohasekai.sagernet.R
-import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_MIHOMO
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import io.nekohasekai.sagernet.ui.profile.ProfileSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.bindCertificateFingerprintPreference
@@ -46,7 +45,7 @@ class AnyTLSSettingsActivity : ProfileSettingsActivity<AnyTLSBean>() {
         val priorPolicy = this.certificatePolicy
         pbm.fromCacheAll(this)
         if (this.certificatePolicy != priorPolicy) certificatePolicySource = AnyTLSBean.POLICY_LOCAL
-        localSocksOutboundJson = !customOutboundJson.isNullOrBlank() && (localSocksOutboundJson || editorCore() == CORE_MIHOMO)
+        localSocksOutboundJson = !customOutboundJson.isNullOrBlank() && localSocksOutboundJson
     }
 
     override fun PreferenceFragmentCompat.createPreferences(

@@ -5,6 +5,6 @@ set -e
 #### Download assets
 bash buildScript/lib/assets.sh
 
-#### Download built-in plugin cores (xray / mihomo)
+#### 下载内置 Xray 核心
 bash buildScript/lib/plugins.sh
 

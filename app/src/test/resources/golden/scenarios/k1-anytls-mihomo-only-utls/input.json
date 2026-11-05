@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "k1-anytls-mihomo-only-utls",
-  "description": "对照表 13 的例外：AnyTLS 使用 chrome120，默认走 sing-box、手动 mihomo 也支持",
+  "description": "AnyTLS 使用兼容实现支持的 chrome120，走 sing-box",
   "mainProfileId": 1,
   "settings": [
     {
@@ -176,7 +176,6 @@
   "packageUids": {},
   "plugins": {
     "xray-plugin": "builtin",
-    "mihomo-plugin": "builtin",
     "trojan-go-plugin": "missing",
     "naive-plugin": "missing",
     "mieru-plugin": "missing",

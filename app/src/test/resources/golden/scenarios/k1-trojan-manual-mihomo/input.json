@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "k1-trojan-manual-mihomo",
-  "description": "Trojan 手动指定 mihomo：应报错",
+  "description": "旧手动 mihomo 的 Trojan 恢复自动：TLS 节点走 sing-box",
   "mainProfileId": 1,
   "settings": [
     {
@@ -166,7 +166,7 @@
       "ping": 0,
       "uuid": "",
       "error": null,
-      "core": 3,
+      "core": 0,
       "beanColumn": "trojanBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.trojan.TrojanBean",
       "beanKryoBase64": "AgAAAAgAAAB0cm9qYW4uZXhhbXBsZS5jb+27AQAAgYB0Y/B0bPN0cm9qYW4uZXhhbXBsZS5jb+2BgQCBgYEAgQAAAAAAAAAAAAABAAAAgYFnb2xkZW4tcGFzcy10cm9qYe4BAAAAZ29sZGVuLWsxLXRyb2phbi1taWhvbe+BgQ=="
@@ -176,7 +176,6 @@
   "packageUids": {},
   "plugins": {
     "xray-plugin": "builtin",
-    "mihomo-plugin": "builtin",
     "trojan-go-plugin": "missing",
     "naive-plugin": "missing",
     "mieru-plugin": "missing",

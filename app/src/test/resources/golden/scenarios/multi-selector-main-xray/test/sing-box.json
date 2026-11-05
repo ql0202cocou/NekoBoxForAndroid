@@ -22,7 +22,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 38737,
+      "listen_port": 36375,
       "override_address": "xray-2.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-2",
@@ -34,10 +34,10 @@
   },
   "outbounds": [
     {
-      "password": "pd458e9fc155d6ff3467033a6599c46c0",
+      "password": "p46ecccf2287d63c886d8aab33f8ae6a3",
       "server": "127.0.0.1",
-      "server_port": 38959,
-      "username": "u7c407a75d77e4f83",
+      "server_port": 41319,
+      "username": "uf2e3238ae0cfd3f4",
       "tag": "proxy",
       "type": "socks"
     },

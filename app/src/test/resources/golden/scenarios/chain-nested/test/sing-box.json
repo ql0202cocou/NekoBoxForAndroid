@@ -22,15 +22,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 41289,
-      "override_address": "anytls.example.com",
-      "override_port": 8443,
-      "tag": "c-0-mapping-4",
-      "type": "direct"
-    },
-    {
-      "listen": "127.0.0.1",
-      "listen_port": 35757,
+      "listen_port": 45677,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-3",
@@ -42,18 +34,22 @@
   },
   "outbounds": [
     {
-      "password": "p9cbed4b4f1dd77e56cce77e6dfeb4cbe",
-      "server": "127.0.0.1",
-      "server_port": 41397,
-      "username": "u03dd84fcd39b462d",
+      "detour": "c-0-3",
+      "password": "golden-pass-anytls",
+      "server": "anytls.example.com",
+      "server_port": 8443,
+      "tls": {
+        "enabled": true,
+        "insecure": false
+      },
       "tag": "proxy",
-      "type": "socks"
+      "type": "neko-anytls"
     },
     {
-      "password": "p9cbed4b4f1dd77e56cce77e6dfeb4cbe",
+      "password": "p7bae83c6f4aaf8568ffdc1568ce185a2",
       "server": "127.0.0.1",
-      "server_port": 40389,
-      "username": "u03dd84fcd39b462d",
+      "server_port": 37025,
+      "username": "ua9d079f8e261513a",
       "tag": "c-0-3",
       "type": "socks"
     },
@@ -81,12 +77,6 @@
     },
     "rule_set": [],
     "rules": [
-      {
-        "inbound": [
-          "c-0-mapping-4"
-        ],
-        "outbound": "c-0-3"
-      },
       {
         "inbound": [
           "c-0-mapping-3"

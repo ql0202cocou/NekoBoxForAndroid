@@ -1,15 +1,18 @@
 {
-  "status": "ok",
-  "exportName": "profiles.txt",
-  "dynamic": {
-    "ports": [
-      46361,
-      35469
-    ],
-    "paths": [],
-    "secrets": [
-      "u7cb6bf3f389cbaf4",
-      "pee4f829a9729bda30c2b7e087a82411a"
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-anytls-pin-insecure: sing-box AnyTLS uses a NekoBox extension and cannot be exported as a portable configuration",
+    "causes": [
+      {
+        "class": "io.nekohasekai.sagernet.fmt.ConfigExportException",
+        "message": "sing-box AnyTLS uses a NekoBox extension and cannot be exported as a portable configuration"
+      }
     ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
   }
 }

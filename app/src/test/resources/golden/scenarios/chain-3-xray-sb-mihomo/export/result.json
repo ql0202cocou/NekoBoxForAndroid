@@ -1,17 +1,18 @@
 {
-  "status": "ok",
-  "exportName": "profiles.txt",
-  "dynamic": {
-    "ports": [
-      36361,
-      46457,
-      40497,
-      39625
-    ],
-    "paths": [],
-    "secrets": [
-      "u9f349b28f037b93c",
-      "pe6bae30d0c9f5c80ce5039f244d7a2e7"
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-chain-anytls: sing-box AnyTLS uses a NekoBox extension and cannot be exported as a portable configuration",
+    "causes": [
+      {
+        "class": "io.nekohasekai.sagernet.fmt.ConfigExportException",
+        "message": "sing-box AnyTLS uses a NekoBox extension and cannot be exported as a portable configuration"
+      }
     ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
   }
 }

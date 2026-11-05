@@ -66,14 +66,6 @@
       "listen_port": 2080,
       "tag": "mixed-in",
       "type": "mixed"
-    },
-    {
-      "listen": "127.0.0.1",
-      "listen_port": 32899,
-      "override_address": "anytls.example.com",
-      "override_port": 8443,
-      "tag": "c-0-mapping-1",
-      "type": "direct"
     }
   ],
   "log": {
@@ -81,12 +73,17 @@
   },
   "outbounds": [
     {
-      "password": "pbafcd2f9fc3cba32919ba441184ef0b4",
-      "server": "127.0.0.1",
-      "server_port": 36133,
-      "username": "uab2a2a17b78001b6",
+      "password": "golden-pass-anytls",
+      "server": "anytls.example.com",
+      "server_port": 8443,
+      "tls": {
+        "certificate": "-----BEGIN CERTIFICATE-----\nMIIBbDCCARICCQCmY4oC6BBYATAKBggqhkjOPQQDAjA+MRswGQYDVQQDDBJnb2xk\nZW4uZXhhbXBsZS5jb20xHzAdBgNVBAoMFk5la29Cb3ggR29sZGVuIEZpeHR1cmUw\nHhcNMjYxMDA0MTMzMjU0WhcNMzYxMDAxMTMzMjU0WjA+MRswGQYDVQQDDBJnb2xk\nZW4uZXhhbXBsZS5jb20xHzAdBgNVBAoMFk5la29Cb3ggR29sZGVuIEZpeHR1cmUw\nWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAASeYqbyaY6yV8EGYEXQtL2PX5SornWo\n0ZTko/KUH3bpfGxSc7wK6QoAlMV3SQhOVqFXtKFpT4u802J7Pe5BEbR7MAoGCCqG\nSM49BAMCA0gAMEUCIDSZKyuWEIam0/XT22j5huf3hclcKZaffyNM1n5NAP5UAiEA\ntaGTp3i+MsV/Dm9ZoX08QkQTOVZRnkIJs7xSOM98agY=\n-----END CERTIFICATE-----",
+        "enabled": true,
+        "insecure": false,
+        "server_name": "golden.example.com"
+      },
       "tag": "proxy",
-      "type": "socks"
+      "type": "neko-anytls"
     },
     {
       "tag": "direct",
@@ -119,12 +116,6 @@
         "protocol": [
           "dns"
         ]
-      },
-      {
-        "inbound": [
-          "c-0-mapping-1"
-        ],
-        "outbound": "direct"
       },
       {
         "action": "reject",

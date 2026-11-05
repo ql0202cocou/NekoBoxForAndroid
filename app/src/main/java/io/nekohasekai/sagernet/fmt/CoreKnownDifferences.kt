@@ -168,31 +168,9 @@ enum class KnownDifference(
         mapOf(
             DialCore.SING_BOX to "合并进协议出站本身",
             DialCore.XRAY to "合并进 sing-box 连外核的本机 socks 出站",
-            DialCore.MIHOMO to "合并进 sing-box 连外核的本机 socks 出站",
         ),
         "外核节点在 sing-box 里只有本机 socks 出站，这是现有设计",
         DifferenceDecision.DECIDED,
-    ),
-    ANYTLS_CERTIFICATES(
-        listOf(ProfileField.CERTIFICATES, ProfileField.CERTIFICATE_FINGERPRINT, ProfileField.ALLOW_INSECURE, ProfileField.CERTIFICATE_POLICY),
-        mapOf(
-            DialCore.SING_BOX to "按独立策略：固定时与 mihomo 相同；信任时只信任 PEM 中的证书并校验域名与有效期，allowInsecure 可关闭校验",
-            DialCore.MIHOMO to "取第一张证书的 SHA-256 作证书固定（命中叶子时不查域名与有效期；CA 证书只有服务端发出才命中）；" +
-                "填了证书指纹时忽略 certificates；有固定时 allowInsecure 不生效",
-        ),
-        "旧节点迁移保留原策略；信任策略不能在 mihomo 上表达时按冲突拒绝，不能静默换成固定",
-        DifferenceDecision.DECIDED,
-    ),
-    ECH_AUTO_QUERY_RESOLVER(
-        listOf(ProfileField.ENABLE_ECH),
-        mapOf(
-            DialCore.SING_BOX to "经 sing-box 自己的 DNS 路由查 HTTPS 记录",
-            DialCore.MIHOMO to "mihomo 进程自己发 DNS 查询：本应用不写 dns 段，发布版没有 cmfa 构建标签，读 " +
-                "/etc/resolv.conf；Android 上没有这个文件（模拟器实测），退到内置的 114.114.114.114 / 8.8.8.8（UDP 53）",
-        ),
-        "两边都能自动查询；mihomo 一侧只有源码依据（K1b M1 S2-M3、S2-M12），查询的实际走向没有实测（即外核「哑管道」" +
-            "不变量里 ECH 的 DNS 例外），待维护者定",
-        DifferenceDecision.OPEN,
     ),
     WS_EARLY_DATA_SIZE(
         listOf(ProfileField.WS_MAX_EARLY_DATA),
@@ -235,7 +213,6 @@ enum class KnownDifference(
         mapOf(
             DialCore.SING_BOX to "metacubex/utls v1.8.7；random 从当前常见指纹里选一个",
             DialCore.XRAY to "Xray 自带的 uTLS；random 启动时从 ModernFingerprints 里选一个",
-            DialCore.MIHOMO to "metacubex/utls；random 按 chrome / safari / ios / firefox 加权选",
         ),
         "同名指纹都是 uTLS 模板，具体版本与随机取样不同，不影响安全校验",
         DifferenceDecision.BY_PRINCIPLE,
@@ -244,11 +221,9 @@ enum class KnownDifference(
         listOf(ProfileField.UTLS_FINGERPRINT),
         mapOf(
             DialCore.SING_BOX to "randomized 每个进程只生成一次随机种子：约 0.71 的进程把 X25519MLKEM768 列进 supported_groups，" +
-                "其中一半不给它 key share；Go 1.24 以上的 TLS 服务端（sing-box、Xray、mihomo 的服务端都是）对它发 " +
-                "HelloRetryRequest，uTLS 报 CurvePreferences includes unsupported curve，所以约 0.71×0.5 的进程每次拨号都失败；" +
-                "影响 sing-box 上所有带 TLS 的协议，K1b 之前就如此",
-            DialCore.MIHOMO to "同一家 uTLS（metacubex/utls），同样失败（K1b M1 L2-MF-randomized 实测多数进程失败），" +
-                "能力表已把 randomized 列为 mihomo 的冲突（MIHOMO_UTLS_HANDSHAKE_FAILS）",
+                "其中一半不给它 key share；Go 1.24 以上的 TLS 服务端对它发 HelloRetryRequest，uTLS 报 " +
+                "CurvePreferences includes unsupported curve，所以约 0.71×0.5 的进程每次拨号都失败",
+            DialCore.XRAY to "使用 Xray 自带的 uTLS，不经 metacubex/utls 的这个随机种子路径",
         ),
         "只有源码推断、未实测（K1b R2 复核 R2-F1）：vendored common/tls/utls_client.go:353-370 每进程一次种子；utls v1.8.7 " +
             "u_parrots.go:3058（0.71 的概率列入 X25519MLKEM768）与 :3118（0.5 的概率给 key share）；Go 1.26 " +

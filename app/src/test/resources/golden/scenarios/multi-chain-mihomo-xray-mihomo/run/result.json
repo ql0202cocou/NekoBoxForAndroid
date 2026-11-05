@@ -28,59 +28,23 @@
   },
   "external": [
     {
-      "file": "ext-0.mihomo-plugin.yaml",
-      "pluginId": "mihomo-plugin",
+      "file": "ext-0.xray-plugin.json",
+      "pluginId": "xray-plugin",
       "controller": null,
       "tempFiles": [],
       "hops": [
         {
           "index": 0,
           "chainIndex": 0,
-          "profileId": 4,
-          "port": 43717,
+          "profileId": 3,
+          "port": 33867,
           "finalAddress": "127.0.0.1",
-          "finalPort": 34183,
+          "finalPort": 35865,
           "inboundTag": "in-0",
           "outboundTag": "out-0",
           "localAuth": {
-            "username": "u70d69e18c6941478",
-            "password": "p45588767c7342e97caa4bbf6c80e6bd9"
-          }
-        },
-        {
-          "index": 2,
-          "chainIndex": 0,
-          "profileId": 2,
-          "port": 35459,
-          "finalAddress": "127.0.0.1",
-          "finalPort": 37293,
-          "inboundTag": "in-2",
-          "outboundTag": "out-2",
-          "localAuth": {
-            "username": "u70d69e18c6941478",
-            "password": "p45588767c7342e97caa4bbf6c80e6bd9"
-          }
-        }
-      ]
-    },
-    {
-      "file": "ext-1.xray-plugin.json",
-      "pluginId": "xray-plugin",
-      "controller": null,
-      "tempFiles": [],
-      "hops": [
-        {
-          "index": 1,
-          "chainIndex": 0,
-          "profileId": 3,
-          "port": 39505,
-          "finalAddress": "127.0.0.1",
-          "finalPort": 46275,
-          "inboundTag": "in-1",
-          "outboundTag": "out-1",
-          "localAuth": {
-            "username": "u70d69e18c6941478",
-            "password": "p45588767c7342e97caa4bbf6c80e6bd9"
+            "username": "u602c669a975f7d88",
+            "password": "p0781e4a75dae27ce84661c69b99505a1"
           }
         }
       ]
@@ -88,17 +52,13 @@
   ],
   "dynamic": {
     "ports": [
-      43717,
-      39505,
-      35459,
-      34183,
-      46275,
-      37293
+      33867,
+      35865
     ],
     "paths": [],
     "secrets": [
-      "u70d69e18c6941478",
-      "p45588767c7342e97caa4bbf6c80e6bd9"
+      "u602c669a975f7d88",
+      "p0781e4a75dae27ce84661c69b99505a1"
     ]
   }
 }

@@ -47,7 +47,7 @@ abstract class BoxInstance(
 
     val pluginPath = hashMapOf<String, PluginManager.InitResult>()
 
-    // 外核运行计划与按它组装出的外核进程（每组一个：Xray、mihomo 各一个，插件核心每个跳实例一个）。
+    // 外核运行计划与按它组装出的外核进程（Xray 每组一个，插件核心每个跳实例一个）。
     // init 生成并校验，launch 逐个启动
     lateinit var externalPlan: ExternalRunPlan
         private set
@@ -93,9 +93,6 @@ abstract class BoxInstance(
         return pluginPath.getOrPut(name) { PluginManager.init(name)!! }
     }
 
-    // TestInstance 覆盖它，为延迟自测开启 mihomo 的 Clash API。
-    protected open fun mihomoTestController(): Pair<Int, String>? = null
-
     // 构建诊断的收集器：构建抛异常时这里仍有已收集的部分。只有运行路径
     // （ProxyInstance）把它显示给用户
     protected val buildDiagnostics = ArrayList<ConfigBuildDiagnostic>()
@@ -116,10 +113,9 @@ abstract class BoxInstance(
             buildConfig()
             val plan = ExternalRunPlan.from(config)
             externalPlan = plan
-            // 与逐节点生成时一样，计划里有外核才取测速控制端口；设置用构建时采集的那份
+            // 设置用构建时采集的那份
             externalProcesses = if (plan.hops.isEmpty()) emptyList() else plan.assemble(
                 { prefix, ext -> newCacheFile(prefix, ext, app.cacheDir) },
-                mihomoTestController(),
                 config.requireExternalCoreSettings(),
                 beforeHop = { initPlugin(it.pluginId) },
             )
@@ -137,7 +133,7 @@ abstract class BoxInstance(
         }
     }
 
-    // 内置的 Xray / mihomo 才有核实过的校验入口与就绪握手；外部插件 app 提供的版本与插件核心返回 null
+    // 只有内置的 Xray 有核实过的校验入口与就绪握手；外部插件 app 提供的版本与插件核心返回 null
     private fun verifiedCheck(process: ExternalCoreProcess): ExternalCoreCheck? =
         process.group.core.check?.takeIf { initPlugin(process.group.pluginId).builtin }
 
@@ -219,7 +215,7 @@ abstract class BoxInstance(
     }
 
     // 启动就绪：外核进程起来之后、box.start() 之前，等计划里每个跳实例的本机入站就绪。
-    // 内置 Xray / mihomo 逐个端口用跳实例的本机 socks 凭据完成 SOCKS5 用户名 / 密码握手，等不到或守护放弃
+    // 内置 Xray 逐个端口用跳实例的本机 socks 凭据完成 SOCKS5 用户名 / 密码握手，等不到或守护放弃
     // 进程就失败（进程退出后被守护重启不算失败，等监听回来）；其余核心只等端口能连上，等不到记警告照常启动。
     // 实例被关闭或协程被取消时立即停止等待（抛 CancellationException）
     private suspend fun awaitExternalCores(targets: List<Pair<ExternalHop, LocalPortTarget>>) {
@@ -238,7 +234,7 @@ abstract class BoxInstance(
         Logs.i("external cores: ${targets.size} local inbounds ready in $elapsed ms")
     }
 
-    // 认证检查（K0b）：入站全部就绪之后，对每个内置 Xray / mihomo 进程抽第一个跳实例，用正确的用户名与错误的
+    // 认证检查（K0b）：入站全部就绪之后，对每个内置 Xray 进程抽第一个跳实例，用正确的用户名与错误的
     // 密码握手一次。错误的密码被接受就不启动（入站的认证没有生效）；没有明确拒绝的记警告照常启动。
     // 实例被关闭或协程被取消时立即停止（抛 CancellationException）
     private suspend fun checkExternalAuth() {
@@ -298,7 +294,7 @@ abstract class BoxInstance(
         private const val CHECK_TIMEOUT_MS = 10_000L
 
         // 模拟器上外核起来后几十毫秒内各入站就绪；5 秒约为百倍余量，覆盖低端机冷启动。进程退出会立即报错，
-        // 这个时限只在进程活着却不监听（例如 mihomo 的端口被占用只记一行错误）时才会等满
+        // 这个时限只在进程活着却不监听（例如端口被占用但只记错误日志）时才会等满
         private const val READY_TIMEOUT_MS = 5_000L
 
         // 认证检查一次握手的读时限：两个核心拒绝时都立即应答并断开，只有异常情况才会等满；比就绪探测宽，

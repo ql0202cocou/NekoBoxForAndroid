@@ -126,14 +126,9 @@ class GoldenJvmScenario(
     ): Pair<Map<String, Any?>, Map<String, String>> {
         val config = build()
         val plan = ExternalRunPlan.from(config)
-        var controller: Pair<Int, String>? = null
         val created = ArrayList<String>()
         val processes = if (plan.hops.isEmpty()) emptyList() else plan.assemble(
             { prefix, ext -> File.createTempFile(prefix + "_", ".$ext", tempDir).also { created += it.absolutePath } },
-            // 同 TestInstance.mihomoController：条件取构建结果，端口来自平台（生产是 mkPort），secret 固定
-            if (mode == ConfigBuildMode.TEST && config.delayTestOnMihomo) {
-                (platform.newPort() to TEST_CONTROLLER_SECRET).also { controller = it }
-            } else null,
             config.requireExternalCoreSettings(),
         )
         val files = LinkedHashMap<String, String>()
@@ -142,16 +137,14 @@ class GoldenJvmScenario(
         val paths = ArrayList<String>()
         processes.forEachIndexed { n, process ->
             val group = process.group
-            val mihomo = group.pluginId == MIHOMO_PLUGIN
-            val file = "ext-$n.${group.pluginId}.${if (mihomo) "yaml" else "json"}"
+            val file = "ext-$n.${group.pluginId}.json"
             files[file] = process.config
             val tempFiles = created.filter { process.config.contains(it) }
             paths += tempFiles
-            val ctl = controller?.takeIf { mihomo }
             external += linkedMapOf(
                 "file" to file,
                 "pluginId" to group.pluginId,
-                "controller" to ctl?.let { linkedMapOf("port" to it.first, "secret" to it.second) },
+                "controller" to null,
                 "tempFiles" to tempFiles,
                 "hops" to group.hops.map { hop ->
                     linkedMapOf(
@@ -180,9 +173,7 @@ class GoldenJvmScenario(
         val ports = LinkedHashSet<Int>()
         ports += structuralPorts(parseFirstJson(config.config))
         ports += plan.hops.map { it.localPort }
-        controller?.let { ports += it.first }
         val secrets = LinkedHashSet<String>()
-        controller?.let { secrets += it.second }
         for (auth in listOfNotNull(config.localAuth) + plan.hops.mapNotNull { it.localAuth }) {
             secrets += auth.username
             secrets += auth.password
@@ -235,9 +226,6 @@ class GoldenJvmScenario(
     }
 
     companion object {
-        const val MIHOMO_PLUGIN = "mihomo-plugin"
-        const val TEST_CONTROLLER_SECRET = "0123456789abcdef0123456789abcdef"
-
         private val gson = GsonBuilder().setPrettyPrinting().disableHtmlEscaping().serializeNulls().create()
 
         /** 按采集入口的目录结构写一种模式的产物（result.json 与原文文件）。 */

@@ -10,7 +10,6 @@
 #   ANDROID_SERIAL=emulator-5554 ./run golden measure [选项]
 # 选项：
 #   --xray <N>        选择器里走 Xray 的 VLESS + REALITY 节点数（默认 38）
-#   --mihomo <N>      走 mihomo 的 AnyTLS 节点数（默认 2）
 #   --singbox <N>     sing-box 内核节点数（默认 2）
 #   --duration <秒>   从发出启动起取样多久（默认 120）
 #   --interval <秒>   取样间隔（默认 3）
@@ -36,7 +35,6 @@ usage() {
 }
 
 XRAY=38
-MIHOMO=2
 SINGBOX=2
 DURATION=120
 INTERVAL=3
@@ -51,12 +49,11 @@ INSTALL=1
 need_value() { [ -n "$2" ] || { echo "$1 needs a value" >&2; exit 2; }; }
 while [ $# -gt 0 ]; do
   case "$1" in
-  --xray | --mihomo | --singbox | --duration | --interval | --mem-at | --log-level | --settle)
+  --xray | --singbox | --duration | --interval | --mem-at | --log-level | --settle)
     need_value "$1" "$2"
     case "$2" in '' | *[!0-9]*) echo "$1 needs a non-negative integer" >&2; exit 2 ;; esac
     case "$1" in
     --xray) XRAY=$2 ;;
-    --mihomo) MIHOMO=$2 ;;
     --singbox) SINGBOX=$2 ;;
     --duration) DURATION=$2 ;;
     --interval) INTERVAL=$2 ;;
@@ -121,7 +118,7 @@ is_ok() { printf '%s' "$1" | grep -q 'status=ok'; }
 json_number() { sed -n "s/.*\"$1\":\([0-9-]*\).*/\1/p"; }
 
 # 设备 uptime（毫秒，与 SystemClock.elapsedRealtime 同一时钟）和进程表放在同一条 adb shell 里取
-PROC_FILTER='$3 ~ /(^|\/)(libxray|libmihomo)\.so$/ || $3 == pkg || $3 == pkg ":bg"'
+PROC_FILTER='$3 ~ /(^|\/)libxray\.so$/ || $3 == pkg || $3 == pkg ":bg"'
 snapshot_processes() {
   "$ADB" shell 'cat /proc/uptime; ps -A -o PID,PPID,NAME' | tr -d '\r'
 }
@@ -207,7 +204,6 @@ APPOP_BEFORE=$("$ADB" shell appops get "$PACKAGE" ACTIVATE_VPN | tr -d '\r' | se
   echo "commit=$COMMIT"
   echo "dirtyCount=$DIRTY_COUNT"
   echo "xrayVersion=$(golden_pinned XRAY_VERSION)"
-  echo "mihomoVersion=$(golden_pinned MIHOMO_VERSION)"
   echo "startedAt=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 } > "$RAW/host.txt"
 
@@ -219,11 +215,11 @@ fi
 
 # ---- 准备：写夹具与实测设置 ----
 
-echo ">> preparing fixture: xray=$XRAY mihomo=$MIHOMO singbox=$SINGBOX mode=$MODE"
+echo ">> preparing fixture: xray=$XRAY singbox=$SINGBOX mode=$MODE"
 # 先停掉应用：上次被打断的实测若还留着服务，这里一并结束
 "$ADB" shell am force-stop "$PACKAGE"
 EXTRAS=(
-  --extra "xray:i:$XRAY" --extra "mihomo:i:$MIHOMO" --extra "singbox:i:$SINGBOX"
+  --extra "xray:i:$XRAY" --extra "singbox:i:$SINGBOX"
   --extra "mode:s:$MODE" --extra "logLevel:i:$LOG_LEVEL"
 )
 [ "$ALLOW_WIPE" = 1 ] && EXTRAS+=(--extra "allowWipe:b:true")
@@ -297,9 +293,8 @@ else
       fi
     } >> "$RAW/samples.txt"
     XN=$(printf '%s\n' "$PS" | awk 'NR > 2 && $3 ~ /(^|\/)libxray\.so$/' | wc -l | tr -d ' ')
-    MN=$(printf '%s\n' "$PS" | awk 'NR > 2 && $3 ~ /(^|\/)libmihomo\.so$/' | wc -l | tr -d ' ')
     STATE=$(printf '%s' "$STATUS" | decode_result 2> /dev/null | sed -n 's/^{"state":"\([A-Za-z]*\)".*/\1/p')
-    printf '   t=%6.1fs  xray=%-3s mihomo=%-3s state=%s\n' "$(echo "$T" | awk '{print $1 / 1000}')" "$XN" "$MN" "${STATE:-?}"
+    printf '   t=%6.1fs  xray=%-3s state=%s\n' "$(echo "$T" | awk '{print $1 / 1000}')" "$XN" "${STATE:-?}"
     if [ "$MEM_DONE" = 0 ] && [ "$T" -ge $((MEM_AT * 1000)) ]; then
       mem_snapshot "t$MEM_AT"
       MEM_DONE=1
@@ -334,12 +329,12 @@ LOGCAT_PID=""
 
 # ---- 汇总 ----
 
-python3 - "$OUT" "$PACKAGE" "$XRAY" "$MIHOMO" "$SINGBOX" "$DURATION" "$INTERVAL" "$MEM_AT" "$MODE" "$LOG_LEVEL" "$SETTLE" << 'PY'
+python3 - "$OUT" "$PACKAGE" "$XRAY" "$SINGBOX" "$DURATION" "$INTERVAL" "$MEM_AT" "$MODE" "$LOG_LEVEL" "$SETTLE" << 'PY'
 import base64, calendar, json, os, re, sys
 
 out, package = sys.argv[1], sys.argv[2]
-xray, mihomo, singbox, duration, interval, mem_at = (int(v) for v in sys.argv[3:9])
-mode, log_level, settle = sys.argv[9], int(sys.argv[10]), int(sys.argv[11])
+xray, singbox, duration, interval, mem_at = (int(v) for v in sys.argv[3:8])
+mode, log_level, settle = sys.argv[8], int(sys.argv[9]), int(sys.argv[10])
 raw = os.path.join(out, "raw")
 
 
@@ -373,7 +368,7 @@ def split_bg(candidates):
 
 def core_of(name):
     base = name.rsplit("/", 1)[-1]
-    return {"libxray.so": "xray", "libmihomo.so": "mihomo"}.get(base)
+    return "xray" if base == "libxray.so" else None
 
 
 device, host = kv("device.txt"), kv("host.txt")
@@ -396,7 +391,7 @@ for line in (read("samples.txt") or "").splitlines():
     if line.startswith("## sample "):
         fields = dict(f.split("=", 1) for f in line[len("## sample "):].split())
         cur = {"tMs": int(fields["t"]), "systemProcesses": int(fields["total"]),
-               "xray": [], "mihomo": [], "mainPid": None, "bgPid": None, "forkingChildren": 0, "orphanCores": 0,
+               "xray": [], "mainPid": None, "bgPid": None, "forkingChildren": 0, "orphanCores": 0,
                "state": None, "statusError": None, "_ppids": {}, "_bg": {}}
         samples.append(cur)
     elif line.startswith("## status-error "):
@@ -418,7 +413,6 @@ for s in samples:
     s["bgPid"], s["forkingChildren"] = split_bg(s.pop("_bg"))
     s["orphanCores"] = sum(1 for p, pp in s.pop("_ppids").items() if pp != s["bgPid"])
     s["xray"].sort()
-    s["mihomo"].sort()
 
 last_status = next((s["_status"] for s in reversed(samples) if "_status" in s), None)
 for s in samples:
@@ -577,11 +571,10 @@ for key, needle in APP_PATTERNS.items():
     hits = [l for l in app_lines if needle in l]
     for l in hits:
         app_block["events"].append({"tMs": app_rel_ms(l), "kind": key,
-                                    "core": "xray" if "libxray" in l else "mihomo" if "libmihomo" in l else None})
+                                    "core": "xray" if "libxray" in l else None})
     app_block["counts"][key] = {
         "all": len(hits),
         "xray": sum(1 for l in hits if "libxray" in l),
-        "mihomo": sum(1 for l in hits if "libmihomo" in l),
     }
     app_block["samples"][key] = [l[:300] for l in hits[:5]]
 app_block["events"].sort(key=lambda e: (e["tMs"] is None, e["tMs"] or 0))
@@ -616,7 +609,7 @@ def mem(label):
                 "pssKb": sum(r.get("Pss", 0) for r in rows), "rssKb": sum(r.get("Rss", 0) for r in rows),
                 "swapPssKb": sum(r.get("SwapPss", 0) for r in rows)}
 
-    by = {"main": [], "bg": [], "xray": [], "mihomo": [], "forking": []}
+    by = {"main": [], "bg": [], "xray": [], "forking": []}
     bg_candidates = {p: ppids[p] for p, n in procs.items() if n == package + ":bg"}
     bg_pid, _ = split_bg(bg_candidates)
     for pid, name in procs.items():
@@ -631,7 +624,7 @@ def mem(label):
     for k, pids in by.items():
         result[k] = group(pids)
     allp = [p for pids in by.values() for p in pids]
-    result["externalCores"] = group(by["xray"] + by["mihomo"] + by["forking"])
+    result["externalCores"] = group(by["xray"] + by["forking"])
     result["total"] = group(allp)
     result["memAvailableKb"] = info.get("MemAvailable")
     return result
@@ -640,7 +633,7 @@ def mem(label):
 memory = [m for m in (mem("t%d" % mem_at), mem("end")) if m]
 
 # ---- 停止与残留 ----
-leftover = {"xray": 0, "mihomo": 0}
+leftover = {"xray": 0}
 ps_after = (read("ps-after.txt") or "").splitlines()
 for line in ps_after[2:]:
     parts = line.split(None, 2)
@@ -664,11 +657,11 @@ monitor = device.get("monitorPhantomProcs")
 result = {
     "formatVersion": 1,
     "startedAt": host.get("startedAt"),
-    "args": {"xray": xray, "mihomo": mihomo, "singbox": singbox, "durationSec": duration,
+    "args": {"xray": xray, "singbox": singbox, "durationSec": duration,
              "intervalSec": interval, "memAtSec": mem_at, "mode": mode, "logLevel": log_level, "settleSec": settle},
     "app": {"package": package, "apk": host.get("apk"), "versionCode": as_int(host.get("versionCode")),
             "commit": host.get("commit"), "dirtyCount": as_int(host.get("dirtyCount")),
-            "xrayVersion": host.get("xrayVersion"), "mihomoVersion": host.get("mihomoVersion")},
+            "xrayVersion": host.get("xrayVersion")},
     "device": {
         "serial": host.get("serial"), "release": device.get("release"), "sdk": as_int(device.get("sdk")),
         "buildType": device.get("buildType"), "fingerprint": device.get("fingerprint"), "model": device.get("model"),
@@ -681,7 +674,7 @@ result = {
     },
     "fixture": prepare["result"] if prepare and prepare["status"] == "ok" else {"error": (prepare or {}).get("message")},
     "start": start_block,
-    "processes": {"xray": core_stats("xray", xray), "mihomo": core_stats("mihomo", mihomo),
+    "processes": {"xray": core_stats("xray", xray),
                   "bgPids": sorted({s["bgPid"] for s in samples if s["bgPid"]}),
                   "mainPids": sorted({s["mainPid"] for s in samples if s["mainPid"]})},
     "phantom": phantom_block,
@@ -708,7 +701,7 @@ print("设备：Android %s（API %s，%s），内存 %s MB，%s 核；phantom �
          d["maxPhantomProcesses"]["effective"], d["maxPhantomProcesses"]["raw"],
          "开" if d["monitorPhantomProcs"]["effective"] else "关", d["monitorPhantomProcs"]["raw"],
          d["processCountBeforeStart"]))
-print("夹具：Xray %d、mihomo %d、sing-box %d，模式 %s，日志等级 %d" % (xray, mihomo, singbox, mode, log_level))
+print("夹具：Xray %d、sing-box %d，模式 %s，日志等级 %d" % (xray, singbox, mode, log_level))
 if start_block["requested"]:
     if start_block["connectedMs"] is not None:
         print("启动：%s 后已连接" % fmt_ms(start_block["connectedMs"]))
@@ -716,7 +709,7 @@ if start_block["requested"]:
         print("启动：未连接（%s）" % json.dumps(start_block.get("failure"), ensure_ascii=False))
 else:
     print("启动：请求失败（%s）" % start_block["error"])
-for core in ("xray", "mihomo"):
+for core in ("xray",):
     st = result["processes"][core]
     if st:
         print("%s：最多 %d 个（%s），结束时 %d 个，后半段 %s–%s 个，出现过 %d 个不同 pid（节点 %d 个，应有进程 %d 个）"

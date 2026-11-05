@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "k1-anytls-psk-fingerprint-certificates",
-  "description": "AnyTLS 带 certificates、指纹 chrome_psk：两个核心均拒绝，不再退回旧原生实现",
+  "description": "AnyTLS 带 certificates、指纹 chrome_psk：兼容实现明确拒绝，不退回旧原生实现",
   "mainProfileId": 1,
   "settings": [
     {
@@ -176,7 +176,6 @@
   "packageUids": {},
   "plugins": {
     "xray-plugin": "builtin",
-    "mihomo-plugin": "builtin",
     "trojan-go-plugin": "missing",
     "naive-plugin": "missing",
     "mieru-plugin": "missing",

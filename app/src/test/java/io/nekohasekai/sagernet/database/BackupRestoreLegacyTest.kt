@@ -89,8 +89,8 @@ class BackupRestoreLegacyTest {
             serverPort = 1080
             initializeDefaultValues()
         }).apply { this.core = core }
-        // AnyTLS 能选 0 / 1 / 3，其余值（Xray、非法值）当时落到 sing-box，规范成手动 sing-box
-        val anyTlsCases = listOf(CORE_AUTO to CORE_AUTO, CORE_SING_BOX to CORE_SING_BOX, CORE_MIHOMO to CORE_MIHOMO,
+        // mihomo 已移除：旧备份里的 core=3 回到自动；更早的非法值仍按历史规则规范成 sing-box
+        val anyTlsCases = listOf(CORE_AUTO to CORE_AUTO, CORE_SING_BOX to CORE_SING_BOX, CORE_MIHOMO to CORE_AUTO,
             CORE_XRAY to CORE_SING_BOX, 7 to CORE_SING_BOX, -1 to CORE_SING_BOX)
         for ((before, after) in anyTlsCases) {
             val entity = anytls(before)
@@ -105,8 +105,8 @@ class BackupRestoreLegacyTest {
             assertEquals(if (before == CORE_AUTO) 0 else 1, BackupRestore.upgradeLegacyProfiles(listOf(entity), ::noGlobal))
             assertEquals(CORE_AUTO, entity.core)
         }
-        // K1 写出的备份：取值都在范围内，什么都不改
-        val current = listOf(anytls(CORE_AUTO), anytls(CORE_SING_BOX), anytls(CORE_MIHOMO), socks(CORE_AUTO))
+        // 当前写出的备份：有效取值不变
+        val current = listOf(anytls(CORE_AUTO), anytls(CORE_SING_BOX), socks(CORE_AUTO))
         assertEquals(0, BackupRestore.upgradeLegacyProfiles(current, ::noGlobal))
     }
 

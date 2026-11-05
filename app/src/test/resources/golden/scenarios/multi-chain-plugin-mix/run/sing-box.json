@@ -75,15 +75,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 41887,
-      "override_address": "mihomo-2.example.com",
-      "override_port": 8445,
-      "tag": "c-0-mapping-8",
-      "type": "direct"
-    },
-    {
-      "listen": "127.0.0.1",
-      "listen_port": 46325,
+      "listen_port": 45757,
       "override_address": "xray-2.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-7",
@@ -91,7 +83,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 43497,
+      "listen_port": 38275,
       "override_address": "mieru.example.com",
       "override_port": 2999,
       "tag": "c-0-mapping-6",
@@ -99,15 +91,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 37933,
-      "override_address": "mihomo-1.example.com",
-      "override_port": 8444,
-      "tag": "c-0-mapping-5",
-      "type": "direct"
-    },
-    {
-      "listen": "127.0.0.1",
-      "listen_port": 33335,
+      "listen_port": 44023,
       "override_address": "naive.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-4",
@@ -115,7 +99,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 41185,
+      "listen_port": 42105,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-3",
@@ -123,7 +107,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 40609,
+      "listen_port": 40555,
       "override_address": "trojan-go.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-2",
@@ -135,52 +119,62 @@
   },
   "outbounds": [
     {
-      "password": "p0ede9b4d14e4c590faff37485bb01a0f",
-      "server": "127.0.0.1",
-      "server_port": 43525,
-      "username": "u82f0b09b383bc1ce",
+      "detour": "c-0-7",
+      "password": "golden-pass-anytls",
+      "server": "mihomo-2.example.com",
+      "server_port": 8445,
+      "tls": {
+        "enabled": true,
+        "insecure": false,
+        "server_name": "mihomo-2.example.org"
+      },
       "tag": "proxy",
-      "type": "socks"
+      "type": "neko-anytls"
     },
     {
-      "password": "p0ede9b4d14e4c590faff37485bb01a0f",
+      "password": "p1b4e20b01271c23c220de52ad2015f6d",
       "server": "127.0.0.1",
-      "server_port": 33697,
-      "username": "u82f0b09b383bc1ce",
+      "server_port": 32793,
+      "username": "u477ab9ee690c8ac7",
       "tag": "c-0-7",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 39995,
+      "server_port": 41997,
       "tag": "c-0-6",
       "type": "socks"
     },
     {
-      "password": "p0ede9b4d14e4c590faff37485bb01a0f",
-      "server": "127.0.0.1",
-      "server_port": 34175,
-      "username": "u82f0b09b383bc1ce",
+      "detour": "c-0-4",
+      "password": "golden-pass-anytls",
+      "server": "mihomo-1.example.com",
+      "server_port": 8444,
+      "tls": {
+        "enabled": true,
+        "insecure": false,
+        "server_name": "mihomo-1.example.org"
+      },
       "tag": "c-0-5",
-      "type": "socks"
+      "type": "neko-anytls"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 41725,
+      "server_port": 43967,
       "tag": "c-0-4",
       "type": "socks"
     },
     {
-      "password": "p0ede9b4d14e4c590faff37485bb01a0f",
+      "password": "p1b4e20b01271c23c220de52ad2015f6d",
       "server": "127.0.0.1",
-      "server_port": 33647,
-      "username": "u82f0b09b383bc1ce",
+      "server_port": 44485,
+      "username": "u477ab9ee690c8ac7",
       "tag": "c-0-3",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 39011,
+      "server_port": 34929,
       "tag": "g-2",
       "type": "socks"
     },
@@ -218,12 +212,6 @@
       },
       {
         "inbound": [
-          "c-0-mapping-8"
-        ],
-        "outbound": "c-0-7"
-      },
-      {
-        "inbound": [
           "c-0-mapping-7"
         ],
         "outbound": "c-0-6"
@@ -233,12 +221,6 @@
           "c-0-mapping-6"
         ],
         "outbound": "c-0-5"
-      },
-      {
-        "inbound": [
-          "c-0-mapping-5"
-        ],
-        "outbound": "c-0-4"
       },
       {
         "inbound": [

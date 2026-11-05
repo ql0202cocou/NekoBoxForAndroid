@@ -8,9 +8,6 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_SING_BOX
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_TROJAN
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.TYPE_VMESS
-import io.nekohasekai.sagernet.fmt.CoreConflict.MIHOMO_UTLS_FINGERPRINT
-import io.nekohasekai.sagernet.fmt.CoreConflict.MIHOMO_UTLS_HANDSHAKE_FAILS
-import io.nekohasekai.sagernet.fmt.CoreConflict.MIHOMO_V2RAY_PROTOCOL
 import io.nekohasekai.sagernet.fmt.CoreConflict.PROTOCOL_CERTIFICATE_PIN
 import io.nekohasekai.sagernet.fmt.CoreConflict.PROTOCOL_MLDSA65_VERIFY
 import io.nekohasekai.sagernet.fmt.CoreConflict.SING_BOX_CERTIFICATE_PIN
@@ -41,7 +38,6 @@ import io.nekohasekai.sagernet.fmt.CoreTestNodes.reality
 import io.nekohasekai.sagernet.fmt.CoreTestNodes.trojan
 import io.nekohasekai.sagernet.fmt.CoreTestNodes.vless
 import io.nekohasekai.sagernet.fmt.CoreTestNodes.vmess
-import io.nekohasekai.sagernet.fmt.DialCore.MIHOMO
 import io.nekohasekai.sagernet.fmt.DialCore.SING_BOX
 import io.nekohasekai.sagernet.fmt.DialCore.XRAY
 import io.nekohasekai.sagernet.fmt.http.HttpBean
@@ -186,9 +182,9 @@ class CoreSelectionTest {
     }
 
     @Test
-    fun `AnyTLS 的证书固定默认 sing-box 也可手动 mihomo`() {
+    fun `AnyTLS 的证书固定使用 sing-box`() {
         assertSelected(SING_BOX, decide(anytls { certificateFingerprint = CoreTestNodes.PIN }))
-        assertSelected(MIHOMO, decide(anytls { certificateFingerprint = CoreTestNodes.PIN }, CORE_MIHOMO))
+        assertSelected(SING_BOX, decide(anytls { certificateFingerprint = CoreTestNodes.PIN }, CORE_SING_BOX))
     }
 
     // ---- ECH
@@ -221,9 +217,9 @@ class CoreSelectionTest {
     }
 
     @Test
-    fun `AnyTLS 的 ECH 自动查询默认 sing-box 也可手动 mihomo`() {
+    fun `AnyTLS 的 ECH 自动查询使用 sing-box`() {
         assertSelected(SING_BOX, decide(anytls { enableECH = true }))
-        assertSelected(MIHOMO, decide(anytls { enableECH = true }, CORE_MIHOMO))
+        assertSelected(SING_BOX, decide(anytls { enableECH = true }, CORE_SING_BOX))
     }
 
     // ---- mldsa65Verify
@@ -304,7 +300,7 @@ class CoreSelectionTest {
         assertRejected(decide(vless { utlsFingerprint = "netscape" }), SING_BOX_UTLS_FINGERPRINT, XRAY_UTLS_FINGERPRINT)
         assertSelected(SING_BOX, decide(anytls { utlsFingerprint = "chrome120" }))
         assertSelected(SING_BOX, decide(anytls { utlsFingerprint = "none" }))
-        assertRejected(decide(anytls { utlsFingerprint = "netscape" }), SING_BOX_ANYTLS_UTLS, MIHOMO_UTLS_FINGERPRINT)
+        assertRejected(decide(anytls { utlsFingerprint = "netscape" }), SING_BOX_ANYTLS_UTLS)
         // REALITY 不能用 unsafe：Xray 拒绝，sing-box 不认
         assertRejected(
             decide(vless { reality(); utlsFingerprint = "unsafe" }), XRAY_REALITY_UTLS_FINGERPRINT, SING_BOX_UTLS_FINGERPRINT,
@@ -313,26 +309,18 @@ class CoreSelectionTest {
         assertSelected(SING_BOX, decide(vless { security = "none"; utlsFingerprint = "netscape" }))
     }
 
-    // K1b 待决定项 D：mihomo 认识、但握手必败的指纹（chrome_psk、chrome_pq_psk、chrome_padding_psk_shuffle、randomized）
     @Test
-    fun `mihomo 握手必败的 uTLS 指纹`() {
+    fun `内部 AnyTLS 拒绝未支持的 uTLS 指纹`() {
         for (name in listOf("chrome_psk", "chrome_pq_psk", "chrome_padding_psk_shuffle", "randomized")) {
-            // 两个核心都拒绝这四个未支持的模板，不能借自动选核降级伪装。
-            assertRejected(decide(anytls { utlsFingerprint = name }), MIHOMO_UTLS_HANDSHAKE_FAILS, SING_BOX_ANYTLS_UTLS)
-            assertRejected(decide(anytls { utlsFingerprint = name; certificates = CoreTestNodes.CERT }), MIHOMO_UTLS_HANDSHAKE_FAILS, SING_BOX_ANYTLS_UTLS)
-            val pinned = assertRejected(
-                decide(anytls { utlsFingerprint = name; certificateFingerprint = CoreTestNodes.PIN }),
-                MIHOMO_UTLS_HANDSHAKE_FAILS, SING_BOX_ANYTLS_UTLS,
-            )
-            assertEquals(name, pinned.conflicts.single { it.id == MIHOMO_UTLS_HANDSHAKE_FAILS }.value)
-            // 手动指定任一核心也明确拒绝
-            val manual = assertRejected(decide(anytls { utlsFingerprint = name }, CORE_MIHOMO), MIHOMO_UTLS_HANDSHAKE_FAILS)
-            assertEquals(
-                "the manually chosen core mihomo cannot run this profile: " +
-                    "[utlsFingerprint] mihomo's TLS handshake fails (always, or for most process seeds) with this fingerprint ($name)",
-                manual.message(CORE_MIHOMO),
-            )
-            assertRejected(decide(anytls { utlsFingerprint = name }, CORE_SING_BOX), SING_BOX_ANYTLS_UTLS)
+            for (bean in listOf(
+                anytls { utlsFingerprint = name },
+                anytls { utlsFingerprint = name; certificates = CoreTestNodes.CERT },
+                anytls { utlsFingerprint = name; certificateFingerprint = CoreTestNodes.PIN },
+            )) {
+                val rejected = assertRejected(decide(bean), SING_BOX_ANYTLS_UTLS)
+                assertEquals(name, rejected.conflicts.single().value)
+                assertRejected(decide(bean, CORE_SING_BOX), SING_BOX_ANYTLS_UTLS)
+            }
         }
     }
 
@@ -365,10 +353,9 @@ class CoreSelectionTest {
     fun `AnyTLS 选核`() {
         assertSelected(SING_BOX, decide(anytls()))
         assertSelected(SING_BOX, decide(anytls { allowInsecure = true }))
-        // 带 certificates 时同样优先 sing-box，手动选哪个都允许
         assertSelected(SING_BOX, decide(anytls { certificates = CoreTestNodes.CERT }))
-        assertSelected(MIHOMO, decide(anytls { certificates = CoreTestNodes.CERT }, CORE_MIHOMO))
-        assertSelected(MIHOMO, decide(anytls(), CORE_MIHOMO))
+        assertSelected(SING_BOX, decide(anytls(), CORE_SING_BOX))
+        assertRejected(decide(anytls(), CORE_MIHOMO), CoreConflict.CORE_VALUE_UNKNOWN)
         val rejected = assertRejected(decide(anytls(), CORE_XRAY), XRAY_ANYTLS)
         assertEquals(setOf(ProfileField.CORE), rejected.fields)
     }
@@ -377,8 +364,8 @@ class CoreSelectionTest {
 
     @Test
     fun `手动值不是该协议的候选核心`() {
-        assertRejected(decide(vmess(), CORE_MIHOMO), MIHOMO_V2RAY_PROTOCOL)
-        assertRejected(decide(trojan(), CORE_MIHOMO), MIHOMO_V2RAY_PROTOCOL)
+        assertRejected(decide(vmess(), CORE_MIHOMO), CoreConflict.CORE_VALUE_UNKNOWN)
+        assertRejected(decide(trojan(), CORE_MIHOMO), CoreConflict.CORE_VALUE_UNKNOWN)
         assertRejected(decide(vless(), 7), CoreConflict.CORE_VALUE_UNKNOWN)
         assertRejected(decide(vless(), -1), CoreConflict.CORE_VALUE_UNKNOWN)
         assertSelected(XRAY, decide(trojan(), CORE_XRAY))
@@ -412,8 +399,8 @@ class CoreSelectionTest {
             assertEquals(setOf(ProfileField.TRANSPORT), rejected.fields)
             assertEquals(true, rejected.manual)
         }
-        // mihomo 不承载这三个协议
-        assertRejected(decide(vless { xhttp() }, CORE_MIHOMO), MIHOMO_V2RAY_PROTOCOL)
+        // 已移除的 core=3 按未知核心拒绝
+        assertRejected(decide(vless { xhttp() }, CORE_MIHOMO), CoreConflict.CORE_VALUE_UNKNOWN)
     }
 
     @Test
@@ -600,12 +587,11 @@ class CoreSelectionTest {
                 "[packetEncoding] Xray has no packetaddr packet encoding",
             rejected.message(CORE_XRAY),
         )
-        // 协议本身不能用这个核心
+        // 已移除的核心值按未知核心报告
         assertEquals(
-            "the manually chosen core mihomo cannot run this profile: [profileCore] This app cannot run VMess, VLESS or Trojan on mihomo",
-            assertRejected(decide(vmess(), CORE_MIHOMO), MIHOMO_V2RAY_PROTOCOL).message(CORE_MIHOMO),
+            "the manually chosen core 3 cannot run this profile: [profileCore] Unknown core (3)",
+            assertRejected(decide(vmess(), CORE_MIHOMO), CoreConflict.CORE_VALUE_UNKNOWN).message(CORE_MIHOMO),
         )
-        // 不认识的核心值
         assertEquals(
             "the manually chosen core 7 cannot run this profile: [profileCore] Unknown core (7)",
             assertRejected(decide(vless(), 7), CoreConflict.CORE_VALUE_UNKNOWN).message(7),
@@ -625,11 +611,10 @@ class CoreSelectionTest {
                 "Xray: [type] Xray removed the QUIC transport",
             rejected.message(CORE_AUTO),
         )
-        val fingerprint = assertRejected(decide(anytls { utlsFingerprint = "netscape" }), SING_BOX_ANYTLS_UTLS, MIHOMO_UTLS_FINGERPRINT)
+        val fingerprint = assertRejected(decide(anytls { utlsFingerprint = "netscape" }), SING_BOX_ANYTLS_UTLS)
         assertEquals(
-            "no core can fully run this profile. " +
-                "sing-box: [utlsFingerprint] Unsupported client fingerprint for sing-box AnyTLS (value not shown). " +
-                "mihomo: [utlsFingerprint] mihomo does not know this uTLS fingerprint and would silently use plain Go TLS (value not shown)",
+            "no core can fully run this profile. sing-box: [utlsFingerprint] " +
+                "Unsupported client fingerprint for sing-box AnyTLS (value not shown)",
             fingerprint.message(CORE_AUTO),
         )
     }

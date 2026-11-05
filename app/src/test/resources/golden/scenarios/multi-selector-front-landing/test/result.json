@@ -24,59 +24,37 @@
   },
   "external": [
     {
-      "file": "ext-0.mihomo-plugin.yaml",
-      "pluginId": "mihomo-plugin",
+      "file": "ext-0.xray-plugin.json",
+      "pluginId": "xray-plugin",
       "controller": null,
       "tempFiles": [],
       "hops": [
         {
           "index": 0,
           "chainIndex": 0,
-          "profileId": 11,
-          "port": 36909,
+          "profileId": 1,
+          "port": 39849,
           "finalAddress": "127.0.0.1",
-          "finalPort": 34737,
+          "finalPort": 33875,
           "inboundTag": "in-0",
           "outboundTag": "out-0",
           "localAuth": {
-            "username": "ue02d1f870f7ae7c8",
-            "password": "pcef1b2a9247a0c61914eaeca1e0df91a"
-          }
-        }
-      ]
-    },
-    {
-      "file": "ext-1.xray-plugin.json",
-      "pluginId": "xray-plugin",
-      "controller": null,
-      "tempFiles": [],
-      "hops": [
-        {
-          "index": 1,
-          "chainIndex": 0,
-          "profileId": 1,
-          "port": 43309,
-          "finalAddress": "127.0.0.1",
-          "finalPort": 46177,
-          "inboundTag": "in-1",
-          "outboundTag": "out-1",
-          "localAuth": {
-            "username": "ue02d1f870f7ae7c8",
-            "password": "pcef1b2a9247a0c61914eaeca1e0df91a"
+            "username": "u916e5b3a6e39c341",
+            "password": "p24a94659348bd59c07153b6f26b39454"
           }
         },
         {
-          "index": 2,
+          "index": 1,
           "chainIndex": 0,
           "profileId": 10,
-          "port": 40101,
+          "port": 42513,
           "finalAddress": "127.0.0.1",
-          "finalPort": 43193,
-          "inboundTag": "in-2",
-          "outboundTag": "out-2",
+          "finalPort": 35129,
+          "inboundTag": "in-1",
+          "outboundTag": "out-1",
           "localAuth": {
-            "username": "ue02d1f870f7ae7c8",
-            "password": "pcef1b2a9247a0c61914eaeca1e0df91a"
+            "username": "u916e5b3a6e39c341",
+            "password": "p24a94659348bd59c07153b6f26b39454"
           }
         }
       ]
@@ -84,17 +62,15 @@
   ],
   "dynamic": {
     "ports": [
-      36909,
-      43309,
-      40101,
-      34737,
-      46177,
-      43193
+      39849,
+      42513,
+      33875,
+      35129
     ],
     "paths": [],
     "secrets": [
-      "ue02d1f870f7ae7c8",
-      "pcef1b2a9247a0c61914eaeca1e0df91a"
+      "u916e5b3a6e39c341",
+      "p24a94659348bd59c07153b6f26b39454"
     ]
   }
 }

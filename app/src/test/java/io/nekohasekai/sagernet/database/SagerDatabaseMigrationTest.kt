@@ -356,6 +356,40 @@ class SagerDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun `11 到 12 只把手动 mihomo 的 AnyTLS 恢复自动`() {
+        val schema = Schema.load(11)
+        val bean = KryoSamples.samples.first { it.id.startsWith("AnyTLSBean/") }.bytes.toBlob()
+        val rows = listOf(
+            schema.row("proxy_entities", "id" to 1, "groupId" to 7, "type" to TYPE_ANYTLS, "core" to CORE_MIHOMO, "tx" to 10, "rx" to 20, "anyTLSBean" to bean),
+            schema.row("proxy_entities", "id" to 2, "groupId" to 7, "type" to TYPE_ANYTLS, "core" to CORE_AUTO, "anyTLSBean" to bean),
+            schema.row("proxy_entities", "id" to 3, "groupId" to 7, "type" to TYPE_ANYTLS, "core" to CORE_SING_BOX, "anyTLSBean" to bean),
+            schema.row("proxy_entities", "id" to 4, "groupId" to 7, "type" to TYPE_VMESS, "core" to CORE_MIHOMO, "vmessBean" to blobOf(2)),
+            schema.row("proxy_entities", "id" to 5, "groupId" to 7, "type" to TYPE_ANYTLS, "core" to CORE_MIHOMO, "anyTLSBean" to blobOf(1)),
+        )
+        open(11).use { db ->
+            rows.forEach { db.insert("proxy_entities", it) }
+            val group = schema.row("proxy_groups", "id" to 7, "frontProxy" to 1, "landingProxy" to 2, "isSelector" to 1)
+            val rule = schema.row("rules", "id" to 1, "outbound" to 1)
+            db.insert("proxy_groups", group)
+            db.insert("rules", rule)
+            db.migrate(migrationFrom(11))
+            db.assertSchema(12)
+            val actual = db.table("proxy_entities")
+            for (row in rows) {
+                val migrated = actual.single { it["id"] == row["id"] }
+                val expectedCore = if (row["type"] == TYPE_ANYTLS.toLong() && row["core"] == CORE_MIHOMO.toLong()) {
+                    CORE_AUTO.toLong()
+                } else {
+                    row["core"]
+                }
+                assertEquals(row + ("core" to expectedCore), migrated)
+            }
+            assertEquals(listOf(group), db.table("proxy_groups"))
+            assertEquals(listOf(rule), db.table("rules"))
+        }
+    }
+
     // ---- 从每个旧版本一路升到最新版：每一级之后都比对 schema，旧数据不丢，新增列取默认值，新增的表为空。
     // 3 → 8 是 Room 生成的 AutoMigration（实现类只在 SQLiteConnection 入口上执行 ALTER TABLE），8 → 9 因取不到
     // DataStore 只能带读不出 / 为空的 bean，这里种的行都是 SOCKS 类型、core = 自动，不受 8 → 9 的规范化影响

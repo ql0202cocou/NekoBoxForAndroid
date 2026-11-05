@@ -1,23 +1,18 @@
 {
-  "status": "ok",
-  "exportName": "profiles.txt",
-  "dynamic": {
-    "ports": [
-      44159,
-      41669,
-      43833,
-      36081,
-      43021,
-      38039,
-      36479,
-      42933,
-      40531,
-      46445
-    ],
-    "paths": [],
-    "secrets": [
-      "u037ec109f6d85aa5",
-      "p8d75864e39696fe8b9ccc2b29d30894d"
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-multi-sw-mihomo-shared: sing-box AnyTLS uses a NekoBox extension and cannot be exported as a portable configuration",
+    "causes": [
+      {
+        "class": "io.nekohasekai.sagernet.fmt.ConfigExportException",
+        "message": "sing-box AnyTLS uses a NekoBox extension and cannot be exported as a portable configuration"
+      }
     ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
   }
 }

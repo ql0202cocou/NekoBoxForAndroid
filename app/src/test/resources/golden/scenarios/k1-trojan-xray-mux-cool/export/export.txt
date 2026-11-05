@@ -76,7 +76,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 39703,
+      "listen_port": 42655,
       "override_address": "trojan.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-1",
@@ -88,10 +88,10 @@
   },
   "outbounds": [
     {
-      "password": "p5a5b1e486c9734d723b1fb68e98d581d",
+      "password": "p08af9bc2965c87a96c8ee743b4e469e9",
       "server": "127.0.0.1",
-      "server_port": 33635,
-      "username": "u4abaec231110966d",
+      "server_port": 46551,
+      "username": "u69eaf323633faf4e",
       "tag": "proxy",
       "type": "socks"
     },
@@ -156,14 +156,14 @@
     {
       "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 33635,
+      "port": 46551,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "u4abaec231110966d",
-            "pass": "p5a5b1e486c9734d723b1fb68e98d581d"
+            "user": "u69eaf323633faf4e",
+            "pass": "p08af9bc2965c87a96c8ee743b4e469e9"
           }
         ],
         "udp": true
@@ -182,7 +182,7 @@
         "servers": [
           {
             "address": "127.0.0.1",
-            "port": 39703,
+            "port": 42655,
             "password": "golden-pass-trojan"
           }
         ]

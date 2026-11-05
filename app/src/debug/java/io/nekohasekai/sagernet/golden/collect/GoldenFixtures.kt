@@ -25,7 +25,7 @@ import java.util.Base64
 // 字符串里尽量不留连续五位以上的数字，免得和动态端口在文本上撞车
 object Fx {
 
-    // 自签的虚构证书（CN=golden.example.com，P-256），只为让 X.509 解析与 mihomo 指纹换算能跑通
+    // 自签的虚构证书（CN=golden.example.com，P-256），只为让 X.509 解析与证书固定能跑通
     const val CERT_PEM = """-----BEGIN CERTIFICATE-----
 MIIBbDCCARICCQCmY4oC6BBYATAKBggqhkjOPQQDAjA+MRswGQYDVQQDDBJnb2xk
 ZW4uZXhhbXBsZS5jb20xHzAdBgNVBAoMFk5la29Cb3ggR29sZGVuIEZpeHR1cmUw
@@ -37,7 +37,7 @@ SM49BAMCA0gAMEUCIDSZKyuWEIam0/XT22j5huf3hclcKZaffyNM1n5NAP5UAiEA
 taGTp3i+MsV/Dm9ZoX08QkQTOVZRnkIJs7xSOM98agY=
 -----END CERTIFICATE-----"""
 
-    // 编造的证书 SHA-256 指纹，带冒号、大写，覆盖 mihomo / Xray 的格式归一
+    // 编造的证书 SHA-256 指纹，带冒号、大写，覆盖 Xray 的格式归一
     const val CERT_PIN = "AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89"
 
     // 格式不对的指纹（63 位十六进制），触发校验报错

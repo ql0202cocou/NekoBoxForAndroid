@@ -5,7 +5,7 @@
 # 基线默认 app/src/test/resources/golden/。--sing-box-only 只比 sing-box 一侧（input.json、sing-box.json、
 # export.txt 第 0 段、result.json 除 external 之外的部分），用来证明外核一侧的改动没有动到 sing-box 一侧。
 # --ignore-local-auth 比较全部产物，但两侧先去掉本机 socks 认证（sing-box 本机 socks 出站的凭据、Xray 入站的
-# auth / accounts 与 log.access、mihomo listener 的 users、result.json 跳实例的 localAuth 与对应的 dynamic.secrets），
+# auth / accounts 与 log.access、result.json 跳实例的 localAuth 与对应的 dynamic.secrets），
 # 并容忍格式版本号不同，用来证明加认证的改动只多出了认证。
 # 比较逻辑在 JVM 单测 GoldenCompareBaselineTest 里，这里负责传参、强制重跑，并取回测试写出的报告。
 

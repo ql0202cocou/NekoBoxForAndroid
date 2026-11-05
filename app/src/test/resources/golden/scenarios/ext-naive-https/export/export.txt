@@ -76,7 +76,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 34927,
+      "listen_port": 39483,
       "override_address": "naive.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-1",
@@ -89,7 +89,7 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 38305,
+      "server_port": 34737,
       "tag": "proxy",
       "type": "socks"
     },
@@ -147,8 +147,8 @@
 
 {
   "host-resolver-rules": "MAP naive-sni.example.com 127.0.0.1",
-  "listen": "socks://127.0.0.1:38305",
-  "proxy": "https://golden-user:golden-pass-naive@naive-sni.example.com:34927/",
+  "listen": "socks://127.0.0.1:34737",
+  "proxy": "https://golden-user:golden-pass-naive@naive-sni.example.com:39483/",
   "extra-headers": "X-Golden: a\r\nX-Fixture: b",
   "insecure-concurrency": 2
 }

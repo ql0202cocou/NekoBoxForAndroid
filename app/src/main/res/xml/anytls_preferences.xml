@@ -29,14 +29,6 @@
             app:icon="@drawable/ic_settings_password"
             app:key="password"
             app:title="@string/password" />
-        <ListPreference
-            app:defaultValue="0"
-            app:entries="@array/proxy_core_anytls_entry"
-            app:entryValues="@array/proxy_core_anytls_value"
-            app:icon="@drawable/ic_baseline_stream_24"
-            app:key="profileCore"
-            app:title="@string/proxy_core"
-            app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/security_settings">

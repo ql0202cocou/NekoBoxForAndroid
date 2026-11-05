@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "k1-anytls-randomized-mihomo-manual",
-  "description": "对照表 14：AnyTLS 手动指定 mihomo、uTLS 指纹是 mihomo 握手必败的 randomized：应报错",
+  "description": "AnyTLS 使用兼容实现不支持的 randomized：应报错",
   "mainProfileId": 1,
   "settings": [
     {
@@ -166,7 +166,7 @@
       "ping": 0,
       "uuid": "",
       "error": null,
-      "core": 3,
+      "core": 0,
       "beanColumn": "anyTLSBean",
       "beanClass": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
       "beanKryoBase64": "BQAAAGFueXRscy5leGFtcGxlLmNv7fsgAABnb2xkZW4tcGFzcy1hbnl0bPNhbnl0bHMuZXhhbXBsZS5jb+2BgXJhbmRvbWl6ZeQAgYEAAAAAAAAAAAAAAAEAAACjZ29sZGVuLWsxLWFueXRscy1yYW5kb21pemVkLW1paG9tb4GB"
@@ -176,7 +176,6 @@
   "packageUids": {},
   "plugins": {
     "xray-plugin": "builtin",
-    "mihomo-plugin": "builtin",
     "trojan-go-plugin": "missing",
     "naive-plugin": "missing",
     "mieru-plugin": "missing",

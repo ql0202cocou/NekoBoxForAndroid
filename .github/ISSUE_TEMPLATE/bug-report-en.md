@@ -17,7 +17,7 @@ Actual behavior:
 
 - App version:
 - Android version and ABI (e.g. Android 15, arm64-v8a):
-- Protocol and core (auto / sing-box / Xray / mihomo):
+- Protocol and core (auto / sing-box / Xray):
 
 ## How to reproduce
 

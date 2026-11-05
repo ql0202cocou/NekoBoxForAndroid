@@ -107,9 +107,8 @@ object GoldenMeasure {
             if (it < 0) throw CollectRefusedException("negative $key")
         }
         val xray = count("xray", 38)
-        val mihomo = count("mihomo", 2)
         val singbox = count("singbox", 2)
-        val total = xray + mihomo + singbox
+        val total = xray + singbox
         if (total == 0) throw CollectRefusedException("the selector group needs at least one member")
         if (total > MAX_NODES) throw CollectRefusedException("at most $MAX_NODES members")
         val mode = extras.getString("mode") ?: Key.MODE_VPN
@@ -132,7 +131,7 @@ object GoldenMeasure {
             ?: kvDao.all()
         ownedMarker.writeText(GoldenCollector.encodeSettings(savedSettings))
 
-        val fixture = fixture(xray, mihomo, singbox)
+        val fixture = fixture(xray, singbox)
         SagerDatabase.instance.runInTransaction {
             SagerDatabase.rulesDao.reset()
             SagerDatabase.proxyDao.reset()
@@ -158,7 +157,7 @@ object GoldenMeasure {
         val plan = ExternalRunPlan.from(buildConfig(selected))
         val external = linkedMapOf<String, Int>()
         for (hop in plan.hops) external[hop.pluginId] = (external[hop.pluginId] ?: 0) + 1
-        val expected = linkedMapOf("xray-plugin" to xray, "mihomo-plugin" to mihomo).filterValues { it > 0 }
+        val expected = linkedMapOf("xray-plugin" to xray).filterValues { it > 0 }
         if (external != expected) throw CollectRefusedException(
             "the fixture maps to external cores $external, expected $expected"
         )
@@ -170,7 +169,7 @@ object GoldenMeasure {
             "formatVersion" to FORMAT_VERSION,
             "groupId" to GROUP_ID,
             "mainProfileId" to fixture.mainProfileId,
-            "members" to linkedMapOf("xray" to xray, "mihomo" to mihomo, "singbox" to singbox),
+            "members" to linkedMapOf("xray" to xray, "singbox" to singbox),
             "externalIndex" to external,
             "externalProcesses" to processes,
             "serviceMode" to mode,
@@ -179,25 +178,19 @@ object GoldenMeasure {
         )
     }
 
-    // 选择器分组：先 Xray（VLESS + REALITY，自动选核走 Xray），再 mihomo（AnyTLS，手动指定 mihomo：K1 起不带证书
-    // 指纹的 AnyTLS 自动选核走 sing-box），最后 sing-box 内核节点（Shadowsocks 与 VMess + WS + TLS 交替）。选中第一个
-    // 成员。地址按顺序取 192.0.2.0/24、198.51.100.0/24、203.0.113.0/24 的主机地址：IP 字面量，不触发域名解析，也连不上
-    private fun fixture(xray: Int, mihomo: Int, singbox: Int) = ScenarioBuilder("measure", "K0 实测").apply {
+    // 选择器分组：先 Xray（VLESS + REALITY，自动选核走 Xray），再 sing-box 内核节点
+    // （Shadowsocks 与 VMess + WS + TLS 交替）。选中第一个成员。地址按顺序取 192.0.2.0/24、198.51.100.0/24、
+    // 203.0.113.0/24 的主机地址：IP 字面量，不触发域名解析，也连不上
+    private fun fixture(xray: Int, singbox: Int) = ScenarioBuilder("measure", "K0 实测").apply {
         group(GROUP_ID, name = "measure-selector", selector = true)
         var next = 0L
-        fun add(bean: AbstractBean, core: Int = ProxyEntity.CORE_AUTO) {
+        fun add(bean: AbstractBean) {
             next++
-            node(next, bean, group = GROUP_ID, core = core)
+            node(next, bean, group = GROUP_ID)
         }
         for (i in 1..xray) {
             add(vless("measure-xray-$i", server = address(next.toInt()), port = 443, flow = FLOW_VISION)
                 .reality(utls = "chrome"))
-        }
-        for (i in 1..mihomo) {
-            add(
-                anytls("measure-anytls-$i", server = address(next.toInt()), port = 8443, sni = "anytls.example.com"),
-                ProxyEntity.CORE_MIHOMO,
-            )
         }
         for (i in 1..singbox) {
             val server = address(next.toInt())

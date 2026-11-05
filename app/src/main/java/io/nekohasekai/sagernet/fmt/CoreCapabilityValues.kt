@@ -45,26 +45,10 @@ val XRAY_UTLS_FINGERPRINTS = CoreNames(
     ignoreCase = true,
 )
 
-// mihomo v1.19.32 的 client-fingerprint（component/tls/utls.go 的 GetFingerprint 与 fingerprints，v1.19.33 未变），区分大小写。
-// none 表示 Go 标准 TLS；名单外 -t 不报错，运行时只打 warning 并改用 Go 标准 TLS。
-// mihomo 认识的名字共 19 个，这里只收能完成握手的 15 个，其余 4 个见 MIHOMO_UTLS_FINGERPRINTS_BROKEN
-val MIHOMO_UTLS_FINGERPRINTS = CoreNames(
-    setOf(
-        "none", "chrome", "firefox", "safari", "ios", "android", "edge", "360", "qq", "random",
-        "chrome120", "firefox120", "safari16",
-        "chrome_psk_shuffle", "chrome_pq",
-    ),
-    ignoreCase = false,
-)
-
-// mihomo 认识、-t 也不报错，但握手跑不通的名字（v1.19.31、v1.19.32 与 v1.19.33 相同，K1b M1 L2-MF-* 与 N12 回环实测）。维护者 2026-10-06
-// 定（K1b 待决定项 D）：从名单剔除，作为冲突 MIHOMO_UTLS_HANDSHAKE_FAILS。
-// - chrome_psk、chrome_pq_psk、chrome_padding_psk_shuffle：每次拨号都报 tls: empty psk detected。uTLS 在没有可恢复的
-//   会话时对带 PSK 扩展的模板直接报这个错，mihomo 没设 OmitEmptyPsk（M1 S2-U2）；
-// - randomized：同一进程里要么每次都失败（tls: CurvePreferences includes unsupported curve），要么每次都通，取决于进程
-//   启动时的随机种子，6 个进程里 4 个失败（M1 S2-U3，原因是推断）。
-// sing-box 认这 4 个名字（psk 三个在 sing-box 里等同 chrome），不受影响
-val MIHOMO_UTLS_FINGERPRINTS_BROKEN = CoreNames(
+// AnyTLS 内部兼容实现明确拒绝的四个 uTLS 指纹。名单冻结自 mihomo v1.19.33 的对照结果，不再跟随上游升级：
+// - chrome_psk、chrome_pq_psk、chrome_padding_psk_shuffle：每次拨号都报 tls: empty psk detected；
+// - randomized：是否失败取决于进程启动时的随机种子。
+val ANYTLS_COMPAT_UTLS_FINGERPRINTS_BROKEN = CoreNames(
     setOf("chrome_psk", "chrome_pq_psk", "chrome_padding_psk_shuffle", "randomized"),
     ignoreCase = false,
 )
@@ -72,8 +56,8 @@ val MIHOMO_UTLS_FINGERPRINTS_BROKEN = CoreNames(
 // AnyTLS 内部兼容实现（libcore 私有出站）接受的 uTLS 指纹，区分大小写。Go 侧的同一份名单在
 // libcore/anytlscompat/fingerprint.go：fingerprints 的键，加上 fingerprint() 单独处理的 random 与 none（空串与 none 都是
 // Go 标准 TLS）；那里的映射冻结在 mihomo v1.19.33 的 component/tls/utls.go。fingerprint() 另外拦下的四个名字（拦截的
-// switch）与 MIHOMO_UTLS_FINGERPRINTS_BROKEN 相同，能力表把它们作为 rejected 报同一个冲突。现在与
-// MIHOMO_UTLS_FINGERPRINTS 取值相同，但不跟随 mihomo 升级：Go 的副本不变，这里就不变（AnyTLSCompatFingerprintWireTest 钉住）
+// switch）与 ANYTLS_COMPAT_UTLS_FINGERPRINTS_BROKEN 相同，能力表把它们作为 rejected 报同一个冲突。
+// Go 的副本不变，这里就不变（AnyTLSCompatFingerprintWireTest 钉住）
 val ANYTLS_COMPAT_UTLS_FINGERPRINTS = CoreNames(
     setOf(
         "none", "chrome", "firefox", "safari", "ios", "android", "edge", "360", "qq", "random",

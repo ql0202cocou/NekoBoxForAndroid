@@ -94,7 +94,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 38525,
+      "listen_port": 36007,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-2-mapping-2",
@@ -128,10 +128,10 @@
       "type": "vmess"
     },
     {
-      "password": "p4d1790e8120efaad3f11fd3db071d92f",
+      "password": "p4c7566da8dc19cdcc086f2dfeb0c79dc",
       "server": "127.0.0.1",
-      "server_port": 43347,
-      "username": "u439a4bad798de143",
+      "server_port": 46313,
+      "username": "u16416bc72ee09e9d",
       "tag": "g-2",
       "type": "socks"
     },
@@ -224,14 +224,14 @@
     {
       "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 43347,
+      "port": 46313,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "u439a4bad798de143",
-            "pass": "p4d1790e8120efaad3f11fd3db071d92f"
+            "user": "u16416bc72ee09e9d",
+            "pass": "p4c7566da8dc19cdcc086f2dfeb0c79dc"
           }
         ],
         "udp": true
@@ -250,7 +250,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 38525,
+            "port": 36007,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",

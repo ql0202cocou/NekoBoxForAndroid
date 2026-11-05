@@ -67,14 +67,6 @@
       "listen_port": 2080,
       "tag": "mixed-in",
       "type": "mixed"
-    },
-    {
-      "listen": "127.0.0.1",
-      "listen_port": 41869,
-      "override_address": "anytls.example.com",
-      "override_port": 8443,
-      "tag": "c-0-mapping-1",
-      "type": "direct"
     }
   ],
   "log": {
@@ -82,12 +74,16 @@
   },
   "outbounds": [
     {
-      "password": "p0974831816afbeb1e5bcc102e1da1fc9",
-      "server": "127.0.0.1",
-      "server_port": 36585,
-      "username": "u7d54aa2270fe6eea",
+      "detour": "g-10",
+      "password": "golden-pass-anytls",
+      "server": "anytls.example.com",
+      "server_port": 8443,
+      "tls": {
+        "enabled": true,
+        "insecure": false
+      },
       "tag": "proxy",
-      "type": "socks"
+      "type": "neko-anytls"
     },
     {
       "method": "aes-256-gcm",
@@ -128,12 +124,6 @@
         "protocol": [
           "dns"
         ]
-      },
-      {
-        "inbound": [
-          "c-0-mapping-1"
-        ],
-        "outbound": "g-10"
       },
       {
         "action": "reject",

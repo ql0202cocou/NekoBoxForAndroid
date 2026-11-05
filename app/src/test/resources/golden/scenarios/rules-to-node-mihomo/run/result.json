@@ -23,39 +23,10 @@
       "proxy": "golden-rtm-main"
     }
   },
-  "external": [
-    {
-      "file": "ext-0.mihomo-plugin.yaml",
-      "pluginId": "mihomo-plugin",
-      "controller": null,
-      "tempFiles": [],
-      "hops": [
-        {
-          "index": 0,
-          "chainIndex": 1,
-          "profileId": 2,
-          "port": 45937,
-          "finalAddress": "127.0.0.1",
-          "finalPort": 41903,
-          "inboundTag": "in-0",
-          "outboundTag": "out-0",
-          "localAuth": {
-            "username": "u28c566cabfe590ff",
-            "password": "p8bbab41d4049af6d826c30ecd933401f"
-          }
-        }
-      ]
-    }
-  ],
+  "external": [],
   "dynamic": {
-    "ports": [
-      45937,
-      41903
-    ],
+    "ports": [],
     "paths": [],
-    "secrets": [
-      "u28c566cabfe590ff",
-      "p8bbab41d4049af6d826c30ecd933401f"
-    ]
+    "secrets": []
   }
 }

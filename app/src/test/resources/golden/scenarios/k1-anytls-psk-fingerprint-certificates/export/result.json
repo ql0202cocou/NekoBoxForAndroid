@@ -2,11 +2,11 @@
   "status": "error",
   "error": {
     "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
-    "message": "golden-k1-anytls-psk-ca: no core can fully run this profile. sing-box: [utlsFingerprint] Unsupported client fingerprint for sing-box AnyTLS (chrome_psk). mihomo: [utlsFingerprint] mihomo's TLS handshake fails (always, or for most process seeds) with this fingerprint (chrome_psk)",
+    "message": "golden-k1-anytls-psk-ca: no core can fully run this profile. sing-box: [utlsFingerprint] Unsupported client fingerprint for sing-box AnyTLS (chrome_psk)",
     "causes": [
       {
         "class": "java.lang.IllegalStateException",
-        "message": "no core can fully run this profile. sing-box: [utlsFingerprint] Unsupported client fingerprint for sing-box AnyTLS (chrome_psk). mihomo: [utlsFingerprint] mihomo's TLS handshake fails (always, or for most process seeds) with this fingerprint (chrome_psk)"
+        "message": "no core can fully run this profile. sing-box: [utlsFingerprint] Unsupported client fingerprint for sing-box AnyTLS (chrome_psk)"
       }
     ]
   },

@@ -73,18 +73,10 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 44613,
+      "listen_port": 35659,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-2-mapping-2",
-      "type": "direct"
-    },
-    {
-      "listen": "127.0.0.1",
-      "listen_port": 33399,
-      "override_address": "anytls.example.com",
-      "override_port": 8443,
-      "tag": "c-3-mapping-3",
       "type": "direct"
     }
   ],
@@ -127,20 +119,23 @@
       "type": "vmess"
     },
     {
-      "password": "p2f248b7803828320c2c52bc7b73884d0",
+      "password": "p87cde42a150722d9ae79554ae0412788",
       "server": "127.0.0.1",
-      "server_port": 38341,
-      "username": "u964a464e38b98b48",
+      "server_port": 40641,
+      "username": "u9e8028a1344afb5e",
       "tag": "golden-sel-xray",
       "type": "socks"
     },
     {
-      "password": "p2f248b7803828320c2c52bc7b73884d0",
-      "server": "127.0.0.1",
-      "server_port": 38695,
-      "username": "u964a464e38b98b48",
+      "password": "golden-pass-anytls",
+      "server": "anytls.example.com",
+      "server_port": 8443,
+      "tls": {
+        "enabled": true,
+        "insecure": false
+      },
       "tag": "golden-sel-anytls",
-      "type": "socks"
+      "type": "neko-anytls"
     },
     {
       "password": "golden-pass-trojan",
@@ -208,12 +203,6 @@
       {
         "inbound": [
           "c-2-mapping-2"
-        ],
-        "outbound": "direct"
-      },
-      {
-        "inbound": [
-          "c-3-mapping-3"
         ],
         "outbound": "direct"
       },

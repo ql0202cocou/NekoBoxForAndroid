@@ -78,7 +78,6 @@ class HopPlanTest {
         configure()
     }, core)
 
-    // AnyTLS 带证书指纹，显式指定 mihomo 以验证外核计划
     private fun anytls() = entity(AnyTLSBean().apply {
         name = "anytls"
         serverAddress = "a.example.net"
@@ -86,7 +85,7 @@ class HopPlanTest {
         password = "fake-password"
         initializeDefaultValues()
         certificateFingerprint = CoreTestNodes.PIN
-    }, ProxyEntity.CORE_MIHOMO)
+    })
 
     private fun trojanGo() = entity(TrojanGoBean().apply {
         name = "trojan-go"
@@ -175,7 +174,7 @@ class HopPlanTest {
     }
 
     @Test
-    fun `Xray 与 mihomo 节点经映射，入站转到节点服务器，本机入站要凭据`() {
+    fun `Xray 节点经映射，入站转到节点服务器，本机入站要凭据`() {
         val reality = vless {
             realityPubKey = CoreTestNodes.REALITY_KEY
             realityShortId = CoreTestNodes.SHORT_ID
@@ -188,12 +187,10 @@ class HopPlanTest {
             initializeDefaultValues()
             security = "tls"
         }, core = ProxyEntity.CORE_XRAY)
-        for ((entity, pluginId) in listOf(
-            reality to "xray-plugin", trojanOnXray to "xray-plugin", anytls() to "mihomo-plugin",
-        )) {
+        for (entity in listOf(reality, trojanOnXray)) {
             for (firstDialing in listOf(false, true)) {
                 val core = plan(entity, firstDialing = firstDialing).core as HopCore.External
-                assertEquals(pluginId, core.core!!.pluginId)
+                assertEquals("xray-plugin", core.core!!.pluginId)
                 assertTrue(core.needsLocalAuth)
                 val bean = entity.requireBean()
                 assertEquals(bean.serverAddress, core.mapping!!.address)
@@ -206,7 +203,7 @@ class HopPlanTest {
 
     @Test
     fun `能选核的协议由选核判定决定内核还是外核`() {
-        // 普通 VLESS 与 AnyTLS 自动走 sing-box；手动 mihomo 仍使用外核。
+        // 普通 VLESS 与 AnyTLS 自动走 sing-box；已移除的 mihomo 值会被拒绝。
         val auto = plan(vless()).core as HopCore.Internal
         assertEquals("vless", auto.outbound.asMap()["type"])
         val anytlsAuto = entity(AnyTLSBean().apply {
@@ -218,7 +215,7 @@ class HopPlanTest {
         })
         assertEquals("neko-anytls", (plan(anytlsAuto).core as HopCore.Internal).outbound.asMap()["type"])
         anytlsAuto.core = ProxyEntity.CORE_MIHOMO
-        assertEquals("mihomo-plugin", (plan(anytlsAuto).core as HopCore.External).core!!.pluginId)
+        assertThrows(IllegalStateException::class.java) { plan(anytlsAuto) }
         // 手动指定 Xray：外核
         assertEquals("xray-plugin", (plan(vless(core = ProxyEntity.CORE_XRAY)).core as HopCore.External).core!!.pluginId)
         assertTrue(platform.pluginQueries.isEmpty())
@@ -298,7 +295,7 @@ class HopPlanTest {
     fun `拒绝手动值与协议不匹配的节点`() {
         val e = assertThrows(IllegalStateException::class.java) { plan(vless(core = ProxyEntity.CORE_MIHOMO)) }
         assertEquals(
-            "the manually chosen core mihomo cannot run this profile: [profileCore] This app cannot run VMess, VLESS or Trojan on mihomo",
+            "the manually chosen core 3 cannot run this profile: [profileCore] Unknown core (3)",
             e.message,
         )
         // 被拒的节点不算外核节点（整链检查里的「外核节点出现两次」不把它算进去）
@@ -403,8 +400,7 @@ class HopPlanTest {
         assertFalse(firstJson.has("detour"))
         assertEquals(SING_BOX_TRIAL_DETOUR, middleJson["detour"].asString)
         assertTrue(middleJson.has("multiplex"))
-        // 外核跳（Xray、插件核心）不试建
-        plan(anytls())
+        // 外核跳（插件核心）不试建
         plan(trojanGo())
         plan(hysteria(HysteriaBean.PROTOCOL_WECHAT_VIDEO), firstDialing = true)
         assertEquals(2, platform.trialQueries.size)

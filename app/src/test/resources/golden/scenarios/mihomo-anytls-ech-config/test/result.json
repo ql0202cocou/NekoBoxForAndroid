@@ -1,59 +1,18 @@
 {
-  "status": "ok",
-  "build": {
-    "mainEntId": 1,
-    "selectorGroupId": -1,
-    "profileTagMap": {},
-    "trafficMap": {
-      "proxy": [
-        1
-      ]
-    },
-    "boxIndexNames": {
-      "outbound[0]": "golden-anytls-ech"
-    },
-    "boxTagNames": {
-      "proxy": "golden-anytls-ech"
-    }
-  },
-  "external": [
-    {
-      "file": "ext-0.mihomo-plugin.yaml",
-      "pluginId": "mihomo-plugin",
-      "controller": {
-        "port": 35881,
-        "secret": "8190fb93323143e2a5b27b0753bf70d9"
-      },
-      "tempFiles": [],
-      "hops": [
-        {
-          "index": 0,
-          "chainIndex": 0,
-          "profileId": 1,
-          "port": 32957,
-          "finalAddress": "127.0.0.1",
-          "finalPort": 45463,
-          "inboundTag": "in-0",
-          "outboundTag": "out-0",
-          "localAuth": {
-            "username": "ua32381bfde97a2bd",
-            "password": "p3786c35226714fa041967b77da134aea"
-          }
-        }
-      ]
-    }
-  ],
-  "dynamic": {
-    "ports": [
-      32957,
-      45463,
-      35881
-    ],
-    "paths": [],
-    "secrets": [
-      "8190fb93323143e2a5b27b0753bf70d9",
-      "ua32381bfde97a2bd",
-      "p3786c35226714fa041967b77da134aea"
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-anytls-ech: sing-box rejected the outbound options: ECH config is not a valid ECH CONFIGS PEM block",
+    "causes": [
+      {
+        "class": "io.nekohasekai.sagernet.fmt.SingBoxTrialException",
+        "message": "sing-box rejected the outbound options: ECH config is not a valid ECH CONFIGS PEM block"
+      }
     ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
   }
 }

@@ -16,44 +16,10 @@
       "proxy": "golden-multi-mihomo-2"
     }
   },
-  "external": [
-    {
-      "file": "ext-0.mihomo-plugin.yaml",
-      "pluginId": "mihomo-plugin",
-      "controller": {
-        "port": 40899,
-        "secret": "a185013a95214a48926f665d439998d9"
-      },
-      "tempFiles": [],
-      "hops": [
-        {
-          "index": 0,
-          "chainIndex": 0,
-          "profileId": 5,
-          "port": 45001,
-          "finalAddress": "127.0.0.1",
-          "finalPort": 37905,
-          "inboundTag": "in-0",
-          "outboundTag": "out-0",
-          "localAuth": {
-            "username": "u6665acbf997b08b5",
-            "password": "p1a3bf26af61f50d08d3c1b3270015e97"
-          }
-        }
-      ]
-    }
-  ],
+  "external": [],
   "dynamic": {
-    "ports": [
-      45001,
-      37905,
-      40899
-    ],
+    "ports": [],
     "paths": [],
-    "secrets": [
-      "a185013a95214a48926f665d439998d9",
-      "u6665acbf997b08b5",
-      "p1a3bf26af61f50d08d3c1b3270015e97"
-    ]
+    "secrets": []
   }
 }

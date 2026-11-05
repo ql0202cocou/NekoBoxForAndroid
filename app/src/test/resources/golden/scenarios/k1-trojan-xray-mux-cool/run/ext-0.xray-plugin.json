@@ -7,14 +7,14 @@
     {
       "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 46353,
+      "port": 41917,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "uf63c6dc639adaa6a",
-            "pass": "p0bafa1c468d83690308448943c304268"
+            "user": "u1af0834432020da6",
+            "pass": "p15254d3dde4e42b7f2f4297a3a83c9a8"
           }
         ],
         "udp": true
@@ -33,7 +33,7 @@
         "servers": [
           {
             "address": "127.0.0.1",
-            "port": 37755,
+            "port": 35315,
             "password": "golden-pass-trojan"
           }
         ]

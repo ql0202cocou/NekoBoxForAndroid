@@ -7,14 +7,14 @@
     {
       "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 45077,
+      "port": 39889,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "uf55d0a42b2e9cf79",
-            "pass": "p9793c287b87e2d73cb93cff1a5fb90ef"
+            "user": "u1ad05cbccde63624",
+            "pass": "p5c2ac9ea298f37d8b929db9939da20b7"
           }
         ],
         "udp": true
@@ -23,14 +23,14 @@
     {
       "tag": "in-1",
       "listen": "127.0.0.1",
-      "port": 46281,
+      "port": 46483,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "uf55d0a42b2e9cf79",
-            "pass": "p9793c287b87e2d73cb93cff1a5fb90ef"
+            "user": "u1ad05cbccde63624",
+            "pass": "p5c2ac9ea298f37d8b929db9939da20b7"
           }
         ],
         "udp": true
@@ -39,14 +39,14 @@
     {
       "tag": "in-2",
       "listen": "127.0.0.1",
-      "port": 36325,
+      "port": 40697,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "uf55d0a42b2e9cf79",
-            "pass": "p9793c287b87e2d73cb93cff1a5fb90ef"
+            "user": "u1ad05cbccde63624",
+            "pass": "p5c2ac9ea298f37d8b929db9939da20b7"
           }
         ],
         "udp": true
@@ -55,14 +55,14 @@
     {
       "tag": "in-3",
       "listen": "127.0.0.1",
-      "port": 44575,
+      "port": 36941,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "uf55d0a42b2e9cf79",
-            "pass": "p9793c287b87e2d73cb93cff1a5fb90ef"
+            "user": "u1ad05cbccde63624",
+            "pass": "p5c2ac9ea298f37d8b929db9939da20b7"
           }
         ],
         "udp": true
@@ -81,7 +81,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 46571,
+            "port": 38871,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
@@ -109,7 +109,7 @@
         "servers": [
           {
             "address": "127.0.0.1",
-            "port": 34853,
+            "port": 41115,
             "password": "golden-pass-trojan"
           }
         ]
@@ -132,7 +132,7 @@
         "servers": [
           {
             "address": "127.0.0.1",
-            "port": 42729,
+            "port": 38473,
             "password": "golden-pass-trojan"
           }
         ]
@@ -153,7 +153,7 @@
         "servers": [
           {
             "address": "127.0.0.1",
-            "port": 45483,
+            "port": 34949,
             "password": "golden-pass-trojan"
           }
         ]

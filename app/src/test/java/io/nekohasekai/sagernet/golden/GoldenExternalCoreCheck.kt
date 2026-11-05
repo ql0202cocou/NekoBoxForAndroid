@@ -18,7 +18,7 @@ object GoldenExternalCoreCheck {
 
     /** 生产路径：整个计划经共用的组装入口 assemble 生成，取这一组的配置；设置显式传入，不读 DataStore。 */
     val PRODUCTION = GoldenExternalGenerator { case, cacheFile ->
-        val process = case.plan.assemble(cacheFile, case.controller, case.settings)[case.groupIndex]
+        val process = case.plan.assemble(cacheFile, case.settings)[case.groupIndex]
         check(process.group.pluginId == case.pluginId) { "组装入口给出的是 ${process.group.pluginId}" }
         process.config
     }

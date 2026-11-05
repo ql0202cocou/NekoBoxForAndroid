@@ -69,7 +69,7 @@ class ExternalServerResolverTest {
     // 运行计划组装出的 hysteria 插件配置，按节点 id
     private fun ConfigBuildResult.hysteriaConfigs(): Map<Long, JsonObject> {
         val plan = ExternalRunPlan.from(this)
-        val processes = plan.assemble({ _, _ -> error("no temp files expected") }, null, requireExternalCoreSettings())
+        val processes = plan.assemble({ _, _ -> error("no temp files expected") }, requireExternalCoreSettings())
         return processes.associate { it.group.hops.single().profileId to JsonParser.parseString(it.config).asJsonObject }
     }
 

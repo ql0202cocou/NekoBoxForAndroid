@@ -39,73 +39,37 @@
   },
   "external": [
     {
-      "file": "ext-0.mihomo-plugin.yaml",
-      "pluginId": "mihomo-plugin",
+      "file": "ext-0.xray-plugin.json",
+      "pluginId": "xray-plugin",
       "controller": null,
       "tempFiles": [],
       "hops": [
         {
           "index": 0,
           "chainIndex": 0,
-          "profileId": 5,
-          "port": 44439,
+          "profileId": 4,
+          "port": 33575,
           "finalAddress": "127.0.0.1",
-          "finalPort": 35263,
+          "finalPort": 41143,
           "inboundTag": "in-0",
           "outboundTag": "out-0",
           "localAuth": {
-            "username": "u9b37dd3c8240dc02",
-            "password": "p7fb9ceaabfad2ed95d520adada3783a6"
+            "username": "u575316bb70e8e7e4",
+            "password": "p303b768d06e7faa0d203c31de12906e8"
           }
         },
         {
-          "index": 2,
-          "chainIndex": 1,
-          "profileId": 5,
-          "port": 36229,
-          "finalAddress": "127.0.0.1",
-          "finalPort": 46059,
-          "inboundTag": "in-2",
-          "outboundTag": "out-2",
-          "localAuth": {
-            "username": "u9b37dd3c8240dc02",
-            "password": "p7fb9ceaabfad2ed95d520adada3783a6"
-          }
-        }
-      ]
-    },
-    {
-      "file": "ext-1.xray-plugin.json",
-      "pluginId": "xray-plugin",
-      "controller": null,
-      "tempFiles": [],
-      "hops": [
-        {
           "index": 1,
-          "chainIndex": 0,
+          "chainIndex": 1,
           "profileId": 4,
-          "port": 40527,
+          "port": 37877,
           "finalAddress": "127.0.0.1",
-          "finalPort": 45027,
+          "finalPort": 43155,
           "inboundTag": "in-1",
           "outboundTag": "out-1",
           "localAuth": {
-            "username": "u9b37dd3c8240dc02",
-            "password": "p7fb9ceaabfad2ed95d520adada3783a6"
-          }
-        },
-        {
-          "index": 3,
-          "chainIndex": 1,
-          "profileId": 4,
-          "port": 42401,
-          "finalAddress": "127.0.0.1",
-          "finalPort": 45135,
-          "inboundTag": "in-3",
-          "outboundTag": "out-3",
-          "localAuth": {
-            "username": "u9b37dd3c8240dc02",
-            "password": "p7fb9ceaabfad2ed95d520adada3783a6"
+            "username": "u575316bb70e8e7e4",
+            "password": "p303b768d06e7faa0d203c31de12906e8"
           }
         }
       ]
@@ -113,19 +77,15 @@
   ],
   "dynamic": {
     "ports": [
-      44439,
-      40527,
-      36229,
-      42401,
-      35263,
-      45027,
-      46059,
-      45135
+      33575,
+      37877,
+      41143,
+      43155
     ],
     "paths": [],
     "secrets": [
-      "u9b37dd3c8240dc02",
-      "p7fb9ceaabfad2ed95d520adada3783a6"
+      "u575316bb70e8e7e4",
+      "p303b768d06e7faa0d203c31de12906e8"
     ]
   }
 }

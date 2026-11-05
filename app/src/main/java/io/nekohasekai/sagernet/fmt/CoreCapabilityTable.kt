@@ -27,168 +27,139 @@ private fun values(
 
 private val NA = CapabilityCell.NotApplicable
 
-private fun row(sb: CapabilityCell, xray: CapabilityCell, mihomo: CapabilityCell) =
-    mapOf(DialCore.SING_BOX to sb, DialCore.XRAY to xray, DialCore.MIHOMO to mihomo)
+private fun row(sb: CapabilityCell, xray: CapabilityCell) =
+    mapOf(DialCore.SING_BOX to sb, DialCore.XRAY to xray)
 
 private val SB = DialCore.SING_BOX
 private val XR = DialCore.XRAY
-private val MH = DialCore.MIHOMO
 
-// 每一行都必须给三个核心各一格（CoreCapabilitiesTest 检查）。mihomo 只承载 AnyTLS，Xray 不承载 AnyTLS：
+// 每一行都必须给两个核心各一格（CoreCapabilitiesTest 检查）。Xray 不承载 AnyTLS：
 // 协议行已经报了冲突的格子写 NotApplicable
 val CAPABILITY_TABLE: Map<Requirement, Map<DialCore, CapabilityCell>> = linkedMapOf(
-    // I2b §2.1；I1 §7 矩阵（vmess / vless / trojan 三行）。mihomo 二进制有这三种协议（S-M11），本应用没有对应生成器
-    Requirement.PROTOCOL_VMESS to row(
-        supported(SB), supported(XR), unsupported(MH, CoreConflict.MIHOMO_V2RAY_PROTOCOL),
-    ),
-    Requirement.PROTOCOL_VLESS to row(
-        supported(SB), supported(XR), unsupported(MH, CoreConflict.MIHOMO_V2RAY_PROTOCOL),
-    ),
+    Requirement.PROTOCOL_VMESS to row(supported(SB), supported(XR)),
+    Requirement.PROTOCOL_VLESS to row(supported(SB), supported(XR)),
     // D10：Xray 的 Trojan 出站经 run -test 与回环验证（I1 §2）；生成器是 buildXrayOutbound 的 Trojan 重载
     Requirement.PROTOCOL_TROJAN to row(
-        supported(SB),
-        supported(XR, "Xray 的 Trojan 出站（servers 只放一项、不写 flow）"),
-        unsupported(MH, CoreConflict.MIHOMO_V2RAY_PROTOCOL),
+        supported(SB), supported(XR, "Xray 的 Trojan 出站（servers 只放一项、不写 flow）"),
     ),
     // Xray 没有 anytls 出站（实测 unknown config id: anytls，I1 §7）
-    Requirement.PROTOCOL_ANYTLS to row(
-        supported(SB), unsupported(XR, CoreConflict.XRAY_ANYTLS), supported(MH),
-    ),
+    Requirement.PROTOCOL_ANYTLS to row(supported(SB), unsupported(XR, CoreConflict.XRAY_ANYTLS)),
 
-    // AnyTLS 的内部兼容实现与 mihomo 共用整证书固定语义。
-    Requirement.ANYTLS_LOCAL_SOCKS_OVERRIDE to row(unsupported(SB, CoreConflict.SING_BOX_ANYTLS_LOCAL_SOCKS_OVERRIDE), NA, supported(MH)),
-    Requirement.ANYTLS_PIN to row(supported(SB, "mihomo 整证书固定语义"), NA, supported(MH)),
-    Requirement.ANYTLS_TRUST to row(supported(SB, "独立信任池，验证证书链、域名和有效期"), NA, unsupported(MH, CoreConflict.MIHOMO_ANYTLS_TRUST)),
-    Requirement.ANYTLS_CERTIFICATE_POLICY_INVALID to row(
-        unsupported(SB, CoreConflict.ANYTLS_CERTIFICATE_POLICY_INVALID), NA, unsupported(MH, CoreConflict.ANYTLS_CERTIFICATE_POLICY_INVALID),
+    Requirement.ANYTLS_LOCAL_SOCKS_OVERRIDE to row(
+        unsupported(SB, CoreConflict.SING_BOX_ANYTLS_LOCAL_SOCKS_OVERRIDE), NA,
     ),
-    // 兼容出站拦下的四个名字（fingerprint.go）与 mihomo 握手必败的名单相同，照常回显；名单外的取值不回显
+    Requirement.ANYTLS_PIN to row(supported(SB, "内部兼容实现的整证书固定语义"), NA),
+    Requirement.ANYTLS_TRUST to row(
+        supported(SB, "独立信任池，验证证书链、域名和有效期"), NA,
+    ),
+    Requirement.ANYTLS_CERTIFICATE_POLICY_INVALID to row(
+        unsupported(SB, CoreConflict.ANYTLS_CERTIFICATE_POLICY_INVALID), NA,
+    ),
+    // 兼容出站拦下的四个名字见 fingerprint.go；名单外的取值不回显
     Requirement.ANYTLS_UTLS to row(
         values(
             SB, ANYTLS_COMPAT_UTLS_FINGERPRINTS, CoreConflict.SING_BOX_ANYTLS_UTLS,
-            rejected = RejectedValues(MIHOMO_UTLS_FINGERPRINTS_BROKEN, CoreConflict.SING_BOX_ANYTLS_UTLS),
+            rejected = RejectedValues(ANYTLS_COMPAT_UTLS_FINGERPRINTS_BROKEN, CoreConflict.SING_BOX_ANYTLS_UTLS),
             showOnlyListed = true,
         ),
-        NA, values(
-            MH, MIHOMO_UTLS_FINGERPRINTS, CoreConflict.MIHOMO_UTLS_FINGERPRINT,
-            rejected = RejectedValues(MIHOMO_UTLS_FINGERPRINTS_BROKEN, CoreConflict.MIHOMO_UTLS_HANDSHAKE_FAILS),
-            showOnlyListed = true,
-        ),
+        NA,
     ),
 
     // 传输：I1 §2.2、S-X4；I2b §1.2.1、§2.6
-    Requirement.TRANSPORT_TCP to row(supported(SB), supported(XR), NA),
+    Requirement.TRANSPORT_TCP to row(supported(SB), supported(XR)),
     Requirement.TRANSPORT_HTTP_HEADER to row(
         supported(SB, "HTTP/1.1 传输：只发 Host 头、要求回 200（见已知差异 HTTP_HEADER_CAMOUFLAGE）"),
         supported(XR, "tcp + header.type = http"),
-        NA,
     ),
-    Requirement.TRANSPORT_H2 to row(supported(SB), unsupported(XR, CoreConflict.XRAY_TRANSPORT_H2), NA),
-    Requirement.TRANSPORT_WS to row(supported(SB), supported(XR), NA),
+    Requirement.TRANSPORT_H2 to row(supported(SB), unsupported(XR, CoreConflict.XRAY_TRANSPORT_H2)),
+    Requirement.TRANSPORT_WS to row(supported(SB), supported(XR)),
     Requirement.TRANSPORT_QUIC to row(
         supported(SB, "必须带 TLS，不能配 uTLS 指纹或 REALITY（见组合规则）"),
         unsupported(XR, CoreConflict.XRAY_TRANSPORT_QUIC),
-        NA,
     ),
-    Requirement.TRANSPORT_GRPC to row(supported(SB, "lite 实现，路径固定为 /<service_name>/Tun"), supported(XR), NA),
-    Requirement.TRANSPORT_HTTPUPGRADE to row(supported(SB), supported(XR), NA),
+    Requirement.TRANSPORT_GRPC to row(supported(SB, "lite 实现，路径固定为 /<service_name>/Tun"), supported(XR)),
+    Requirement.TRANSPORT_HTTPUPGRADE to row(supported(SB), supported(XR)),
     // K2：Xray 的 xhttp（旧名 splithttp）；vendored sing-box 没有这个传输（libcore/sing-box 的 option/v2ray_transport.go 与
     // transport/v2ray 都没有 xhttp / splithttp）。host / path / mode / extra 在 StandardV2RayBean；与 Vision、Mux.Cool 的冲突见组合规则
     Requirement.TRANSPORT_XHTTP to row(
         unsupported(SB, CoreConflict.SING_BOX_TRANSPORT_XHTTP),
         supported(XR, "xhttpSettings（host / path / mode / extra）；REALITY 可用"),
-        NA,
     ),
     // 参数已丢失的残缺节点：不拿它匹配核心，两个核心都报同一条与核心无关的冲突（要求重新导入）
     Requirement.TRANSPORT_XHTTP_LOST to row(
         unsupported(SB, CoreConflict.XHTTP_PARAMETERS_LOST),
         unsupported(XR, CoreConflict.XHTTP_PARAMETERS_LOST),
-        NA,
     ),
     Requirement.TRANSPORT_UNKNOWN to row(
-        unsupported(SB, CoreConflict.TRANSPORT_UNKNOWN), unsupported(XR, CoreConflict.TRANSPORT_UNKNOWN), NA,
+        unsupported(SB, CoreConflict.TRANSPORT_UNKNOWN), unsupported(XR, CoreConflict.TRANSPORT_UNKNOWN),
     ),
 
     // 安全层：AnyTLS 总是 TLS
-    Requirement.SECURITY_TLS to row(supported(SB), supported(XR), supported(MH)),
+    Requirement.SECURITY_TLS to row(supported(SB), supported(XR)),
     Requirement.SECURITY_REALITY to row(
         // I2b §2.3、§2.4：没有 mldsa65；固定自报 1.8.1、去掉 X25519MLKEM768
         supported(SB, "固定自报客户端版本 1.8.1，去掉 X25519MLKEM768；不能配 ECH"),
         // I1 §3.1：只限 tcp / grpc / xhttp
         supported(XR, "只能配 tcp / grpc / xhttp"),
-        NA,
     ),
     // I1 §3.3、L-X21/23/24；I2b §2.3（sing-box 的 reality 选项没有 mldsa65）
     Requirement.MLDSA65_VERIFY to row(
-        unsupported(SB, CoreConflict.SING_BOX_MLDSA65_VERIFY), supported(XR), NA,
+        unsupported(SB, CoreConflict.SING_BOX_MLDSA65_VERIFY), supported(XR),
     ),
-    // I1 §4.1（pinnedPeerCertSha256）、§6.3（mihomo fingerprint）；I2b §2.3（sing-box 只有 SPKI 固定）。D11 若给
+    // I1 §4.1（pinnedPeerCertSha256）；I2b §2.3（sing-box 只有 SPKI 固定）。D11 若给
     // sing-box 补整证书固定补丁，改这一格
     Requirement.CERTIFICATE_PIN to row(
         unsupported(SB, CoreConflict.SING_BOX_CERTIFICATE_PIN),
         supported(XR, "pinnedPeerCertSha256；REALITY 下不写（见已知差异）"),
-        supported(MH, "fingerprint"),
     ),
-    // I1 §4.2（Xray 追加到信任库，v26.10.10 起底座是内置根证书包）；I2b §2.3（sing-box 替换系统根证书）；I1 §6.3（mihomo 换算成第一张证书的固定）
+    // I1 §4.2（Xray 追加到信任库，v26.10.10 起底座是内置根证书包）；I2b §2.3（sing-box 替换系统根证书）
     Requirement.CUSTOM_CA to row(
         supported(SB, "只信任这些证书"),
         supported(XR, "追加到 Xray 内置根证书包（v26.10.10 起；此前追加到系统根证书）"),
-        supported(MH, "换算成第一张证书的 SHA-256 固定，含义不同（见已知差异 ANYTLS_CERTIFICATES）"),
     ),
     // I1 §4.1；X1 S2-X5、X2 T2-81：Xray 自 v26.6.22 起 run -test 无条件拒绝 allowInsecure（写 false 不报错）
-    Requirement.ALLOW_INSECURE to row(
-        supported(SB), unsupported(XR, CoreConflict.XRAY_ALLOW_INSECURE), supported(MH, "skip-cert-verify"),
-    ),
+    Requirement.ALLOW_INSECURE to row(supported(SB), unsupported(XR, CoreConflict.XRAY_ALLOW_INSECURE)),
     Requirement.UTLS_FINGERPRINT to row(
         values(SB, SING_BOX_UTLS_FINGERPRINTS, CoreConflict.SING_BOX_UTLS_FINGERPRINT),
         values(XR, XRAY_UTLS_FINGERPRINTS, CoreConflict.XRAY_UTLS_FINGERPRINT),
-        values(
-            MH, MIHOMO_UTLS_FINGERPRINTS, CoreConflict.MIHOMO_UTLS_FINGERPRINT,
-            rejected = RejectedValues(
-                MIHOMO_UTLS_FINGERPRINTS_BROKEN, CoreConflict.MIHOMO_UTLS_HANDSHAKE_FAILS,
-            ),
-        ),
     ),
-    // I1 §4.3、S-M3；I2b §2.3
+    // I1 §4.3；I2b §2.3
     Requirement.ECH_INLINE to row(
-        supported(SB, "转成 PEM"), supported(XR, "echConfigList（标准 base64）；REALITY 下不写"), supported(MH),
+        supported(SB, "转成 PEM"), supported(XR, "echConfigList（标准 base64）；REALITY 下不写"),
     ),
     Requirement.ECH_AUTO_QUERY to row(
         supported(SB, "经 sing-box 自己的 DNS 路由查 HTTPS 记录"),
         // 二进制能用查询写法表达，但必须给查询服务器，且查询由 Xray 进程直接发出（I1 §4.3）
         unsupported(XR, CoreConflict.XRAY_ECH_AUTO_QUERY),
-        supported(MH, "mihomo 自己的解析器查询"),
     ),
     // D15；I1 §5.3（Xray 没有任何 sing-mux）；I2b §2.2（sing-box 没有 Mux.Cool）
-    Requirement.MUX_SING_MUX to row(supported(SB), unsupported(XR, CoreConflict.XRAY_SING_MUX), NA),
-    Requirement.MUX_COOL to row(unsupported(SB, CoreConflict.SING_BOX_MUX_COOL), supported(XR), NA),
+    Requirement.MUX_SING_MUX to row(supported(SB), unsupported(XR, CoreConflict.XRAY_SING_MUX)),
+    Requirement.MUX_COOL to row(unsupported(SB, CoreConflict.SING_BOX_MUX_COOL), supported(XR)),
     Requirement.MUX_UNKNOWN to row(
-        unsupported(SB, CoreConflict.MUX_TYPE_UNKNOWN), unsupported(XR, CoreConflict.MUX_TYPE_UNKNOWN), NA,
+        unsupported(SB, CoreConflict.MUX_TYPE_UNKNOWN), unsupported(XR, CoreConflict.MUX_TYPE_UNKNOWN),
     ),
     // I1 §5.2（Xray 没有 packetaddr）；I2b §2.1
     Requirement.PACKET_ENCODING_PACKETADDR to row(
-        supported(SB), unsupported(XR, CoreConflict.XRAY_PACKETADDR), NA,
+        supported(SB), unsupported(XR, CoreConflict.XRAY_PACKETADDR),
     ),
     Requirement.PACKET_ENCODING_XUDP to row(
-        supported(SB), supported(XR, "mux.xudpConcurrency，TCP 不复用（concurrency -1）"), NA,
+        supported(SB), supported(XR, "mux.xudpConcurrency，TCP 不复用（concurrency -1）"),
     ),
     Requirement.PACKET_ENCODING_UNKNOWN to row(
-        unsupported(SB, CoreConflict.PACKET_ENCODING_UNKNOWN), unsupported(XR, CoreConflict.PACKET_ENCODING_UNKNOWN), NA,
+        unsupported(SB, CoreConflict.PACKET_ENCODING_UNKNOWN), unsupported(XR, CoreConflict.PACKET_ENCODING_UNKNOWN),
     ),
     Requirement.VLESS_FLOW to row(
         values(SB, SING_BOX_VLESS_FLOWS, CoreConflict.SING_BOX_VLESS_FLOW),
         values(XR, XRAY_VLESS_FLOWS, CoreConflict.XRAY_VLESS_FLOW),
-        NA,
     ),
     // sing-box：transport/v2raywebsocket/conn.go 头名为空时 early data 拼在路径后；Xray：dialer.go 只放进
     // Sec-WebSocket-Protocol 头，生成器把上限写成 ?ed=N
     Requirement.WS_EARLY_DATA_PATH to row(
-        supported(SB), unsupported(XR, CoreConflict.XRAY_WS_EARLY_DATA_PATH), NA,
+        supported(SB), unsupported(XR, CoreConflict.XRAY_WS_EARLY_DATA_PATH),
     ),
     Requirement.WS_EARLY_DATA_HEADER to row(
         supported(SB, "任意头名"),
         values(XR, XRAY_WS_EARLY_DATA_HEADERS, CoreConflict.XRAY_WS_EARLY_DATA_HEADER),
-        NA,
     ),
 )
 
@@ -218,8 +189,6 @@ val COMBINATION_RULES: List<CombinationRule> = listOf(
         DialCore.SING_BOX, CoreConflict.SING_BOX_ANYTLS_ECH, verifiedAt(DialCore.SING_BOX),
         "内部 AnyTLS 只接受确定可用的 ECH 指纹组合",
     ) { !it.nativeAnyTlsOverrides && unsupportedAnyTlsEch(it) },
-    CombinationRule(MH, CoreConflict.MIHOMO_ANYTLS_ECH, verifiedAt(MH),
-        "mihomo AnyTLS 只接受确定可用的 ECH 指纹组合", ::unsupportedAnyTlsEch),
     // I1 §3.1（S-X3，T-B5 / T-A2 实测）：REALITY only supports RAW, XHTTP and gRPC。h2、quic 在传输行已报；
     // xhttp 在允许之列（K2），所以这条只挡 ws / httpupgrade
     CombinationRule(

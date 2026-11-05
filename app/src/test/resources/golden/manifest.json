@@ -1,42 +1,130 @@
 {
   "formatVersion": 3,
-  "commit": "faf07e3a79a406f9e509c347b71d590485155f7d",
+  "commit": "3761a4f24d13dbb398adc7000cbad64824b39474",
   "dirty": {
-    "count": 0,
-    "top": [],
-    "codeCount": 0,
-    "codeTop": []
+    "count": 1914,
+    "top": [
+      ".github/ISSUE_TEMPLATE/bug-report-en.md",
+      ".github/ISSUE_TEMPLATE/bug-report-zh_cn.md",
+      "README.md",
+      "app/schemas/io.nekohasekai.sagernet.database.SagerDatabase/12.json",
+      "app/src/debug/java/io/nekohasekai/sagernet/golden/collect/GoldenCollectProvider.kt",
+      "app/src/debug/java/io/nekohasekai/sagernet/golden/collect/GoldenCollector.kt",
+      "app/src/debug/java/io/nekohasekai/sagernet/golden/collect/GoldenFixtures.kt",
+      "app/src/debug/java/io/nekohasekai/sagernet/golden/collect/GoldenModes.kt",
+      "app/src/debug/java/io/nekohasekai/sagernet/golden/collect/GoldenScenario.kt",
+      "app/src/debug/java/io/nekohasekai/sagernet/golden/collect/GoldenScenarios.kt",
+      "app/src/debug/java/io/nekohasekai/sagernet/golden/measure/GoldenMeasure.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/bg/Executable.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/bg/ExternalCoreProbes.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/bg/proto/BoxInstance.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/bg/proto/TestInstance.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/database/BackupRestore.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/database/ProxyEntity.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/database/SagerDatabase.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/ChainPlan.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/ConfigBuilder.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/CoreCapabilities.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/CoreCapabilityTable.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/CoreCapabilityValues.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/CoreConflicts.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/CoreKnownDifferences.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/CoreRequirements.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/CoreSelection.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/ExternalCoreSettings.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/ExternalCoreStartup.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/ExternalRunPlan.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/ProtocolHandlers.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/TlsFields.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/v2ray/V2RayFmt.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/v2ray/XrayConfig.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/plugin/PluginManager.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/ui/profile/CoreConflictText.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/ui/profile/MuxTypeChoices.kt",
+      "app/src/main/java/moe/matsuri/nb4a/proxy/anytls/AnyTLSFmt.kt",
+      "app/src/main/java/moe/matsuri/nb4a/proxy/anytls/AnyTLSSettingsActivity.kt",
+      "app/src/main/java/moe/matsuri/nb4a/proxy/anytls/MihomoConfig.kt",
+      "app/src/main/java/moe/matsuri/nb4a/utils/Util.kt",
+      "app/src/main/res/values-zh-rCN/strings.xml",
+      "app/src/main/res/values/arrays.xml",
+      "app/src/main/res/values/strings.xml",
+      "app/src/main/res/xml/anytls_preferences.xml",
+      "app/src/test/java/io/nekohasekai/sagernet/database/BackupRestoreLegacyTest.kt",
+      "app/src/test/java/io/nekohasekai/sagernet/database/SagerDatabaseMigrationTest.kt",
+      "app/src/test/java/io/nekohasekai/sagernet/fmt/AnyTLSCertificatePolicyTest.kt",
+      "app/src/test/java/io/nekohasekai/sagernet/fmt/AnyTLSCompatibilityTest.kt",
+      "app/src/test/java/io/nekohasekai/sagernet/fmt/ChainCommitTest.kt"
+    ],
+    "codeCount": 42,
+    "codeTop": [
+      ".github/ISSUE_TEMPLATE/bug-report-en.md",
+      ".github/ISSUE_TEMPLATE/bug-report-zh_cn.md",
+      "README.md",
+      "app/schemas/io.nekohasekai.sagernet.database.SagerDatabase/12.json",
+      "app/src/main/java/io/nekohasekai/sagernet/bg/Executable.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/bg/ExternalCoreProbes.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/bg/proto/BoxInstance.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/bg/proto/TestInstance.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/database/BackupRestore.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/database/ProxyEntity.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/database/SagerDatabase.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/ChainPlan.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/ConfigBuilder.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/CoreCapabilities.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/CoreCapabilityTable.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/CoreCapabilityValues.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/CoreConflicts.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/CoreKnownDifferences.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/CoreRequirements.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/CoreSelection.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/ExternalCoreSettings.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/ExternalCoreStartup.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/ExternalRunPlan.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/ProtocolHandlers.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/TlsFields.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/v2ray/V2RayFmt.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/fmt/v2ray/XrayConfig.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/plugin/PluginManager.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/ui/profile/CoreConflictText.kt",
+      "app/src/main/java/io/nekohasekai/sagernet/ui/profile/MuxTypeChoices.kt",
+      "app/src/main/java/moe/matsuri/nb4a/proxy/anytls/AnyTLSFmt.kt",
+      "app/src/main/java/moe/matsuri/nb4a/proxy/anytls/AnyTLSSettingsActivity.kt",
+      "app/src/main/java/moe/matsuri/nb4a/proxy/anytls/MihomoConfig.kt",
+      "app/src/main/java/moe/matsuri/nb4a/utils/Util.kt",
+      "app/src/main/res/values-zh-rCN/strings.xml",
+      "app/src/main/res/values/arrays.xml",
+      "app/src/main/res/values/strings.xml",
+      "app/src/main/res/xml/anytls_preferences.xml",
+      "buildScript/init/action/gradle.sh",
+      "buildScript/lib/check_core_releases.sh",
+      "buildScript/lib/plugins.sh",
+      "libcore/anytlscompat/README.md"
+    ]
   },
   "app": {
     "applicationId": "moe.nb4a.debug",
-    "versionName": "1.8.0-a4",
-    "versionCode": 545,
+    "versionName": "1.9.0-a10",
+    "versionCode": 665,
     "flavor": "oss",
     "buildType": "debug"
   },
   "cores": {
     "sing-box": {
-      "version": "1.14.2-neko-2",
+      "version": "1.14.4-neko-2",
       "versionBox": [
-        "sing-box: 1.14.2-neko-2",
-        "go1.26.0@android/arm64",
+        "sing-box: 1.14.4-neko-2",
+        "go1.26.10@android/arm64",
         "with_conntrack,with_gvisor,with_quic,with_wireguard,with_utls,with_clash_api"
       ]
     },
     "xray": {
-      "version": "v26.9.30",
-      "pinnedSha256": "6de04c5f5492c0d050f520a1aad10b68ec6fd21907599b95572ad8807dd833cb",
-      "installedSha256": "674f49abbc757e9767cf5b337842c960f31f31b25174a48bf7fd76943855e7c0"
-    },
-    "mihomo": {
-      "version": "v1.19.32",
-      "pinnedSha256": "bb9afbd48717f92d59e07da35fb694b83d40d6edb63eb9033c2ee4174137d195",
-      "installedSha256": "a60729cec3f1b0f995c05df3ea7587584122278fb719dc9e90f6eeb54dc86c77"
+      "version": "v26.10.21",
+      "pinnedSha256": "c50408346deb5e38dbacb31e37aa09c64b7dd6eaf3c050c8cbac47e816464143",
+      "installedSha256": "428810b453e6e634567a09a3a462b4dffdb33d7a7677953afc9cf9664aeaead0"
     }
   },
   "plugins": {
     "xray-plugin": "builtin",
-    "mihomo-plugin": "builtin",
     "trojan-go-plugin": "missing",
     "naive-plugin": "missing",
     "mieru-plugin": "missing",
@@ -46,7 +134,7 @@
     "sdkInt": 37,
     "sdkIntFull": 3700002,
     "release": "17",
-    "fingerprint": "google/sdk_gphone16k_arm64/emu64a16k:17/CP41.260828.004.A7/16296984:userdebug/dev-keys",
+    "fingerprint": "google/sdk_gphone16k_arm64/emu64a16k:17/CP41.260831.015/16516427:userdebug/dev-keys",
     "abi": "arm64-v8a",
     "supportedAbis": [
       "arm64-v8a"
@@ -61,11 +149,11 @@
     "runError": 64,
     "testOk": 302,
     "testError": 58,
-    "exportOk": 289,
-    "exportError": 71
+    "exportOk": 247,
+    "exportError": 113
   },
   "externalChecks": {
-    "checked": 302,
+    "checked": 211,
     "failed": 0,
     "inconclusive": 0,
     "byPlugin": {
@@ -74,15 +162,9 @@
         "passed": 211,
         "failed": 0,
         "inconclusive": 0
-      },
-      "mihomo-plugin": {
-        "checked": 91,
-        "passed": 91,
-        "failed": 0,
-        "inconclusive": 0
       }
     },
     "problems": []
   },
-  "collectedAt": "2026-10-06T16:46:39Z"
+  "collectedAt": "2026-11-05T07:20:27Z"
 }

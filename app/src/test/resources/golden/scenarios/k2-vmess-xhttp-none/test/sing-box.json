@@ -22,7 +22,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 45351,
+      "listen_port": 33563,
       "override_address": "vmess.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-1",
@@ -34,10 +34,10 @@
   },
   "outbounds": [
     {
-      "password": "pc6cb7774ee2685049857f8ba0800d880",
+      "password": "p8ce9ad928158d4f1eb0dfdbdfbab87b2",
       "server": "127.0.0.1",
-      "server_port": 37139,
-      "username": "u2df34ad8a80f1356",
+      "server_port": 41295,
+      "username": "ua494749174930bc7",
       "tag": "proxy",
       "type": "socks"
     },

@@ -30,8 +30,6 @@ import java.util.IdentityHashMap
 // 「插件未安装」；运行 / 测速模式预先把占位结果放进 pluginPath 绕过（生成配置用不到插件路径）
 val PLUGINS_WITHOUT_APP = listOf("trojan-go-plugin", "naive-plugin", "mieru-plugin", "hysteria-plugin")
 
-private const val MIHOMO_PLUGIN = "mihomo-plugin"
-
 // 一种模式的产物：result.json 的内容与其它原文文件（文件名 → 内容）；checks 是这一次 init() 里跑过的
 // 启动前校验（只进 manifest，不进 result.json）
 class ModeOutput(
@@ -45,18 +43,14 @@ class ModeOutput(
 // 一次启动前校验：outcome 为 passed / failed / inconclusive，message 是没过或没有结论时的原因
 class CheckRecord(val pluginId: String, val outcome: String, val message: String?)
 
-// TestInstance 的 buildConfig / mihomoTestController 是 protected，测速模式经反射调用真实实现，
-// 不在这里复刻。采集开始前先解析一次，签名变了直接让整次采集失败
+// TestInstance 的 buildConfig 是 protected，测速模式经反射调用真实实现，不在这里复刻。
+// 采集开始前先解析一次，签名变了直接让整次采集失败
 private val boxBuildConfig: Method by lazy {
     BoxInstance::class.java.getDeclaredMethod("buildConfig").apply { isAccessible = true }
-}
-private val boxMihomoTestController: Method by lazy {
-    BoxInstance::class.java.getDeclaredMethod("mihomoTestController").apply { isAccessible = true }
 }
 
 fun requireReflectionTargets() {
     boxBuildConfig
-    boxMihomoTestController
 }
 
 // 反射调用抛出的业务异常原样交给场景记录，不能被 InvocationTargetException 包一层
@@ -67,14 +61,10 @@ private fun Method.invokeUnwrapped(target: Any): Any? = try {
 }
 
 // 运行 / 测速模式直接跑真实的 BoxInstance.init()：buildConfig 后建外核运行计划，经共用的组装入口
-// 逐个跳实例 initPlugin 并生成每组的配置，再用内置 Xray / mihomo 的校验入口把每组合并配置加载一遍
+// 逐个跳实例 initPlugin 并生成每组的配置，再用内置 Xray 的校验入口把每组合并配置加载一遍
 // （校验进程不监听、不联网）。这里只把 loadConfig 换成空操作（不建 libcore box，不启动外核本身），
-// 另按 PLUGINS_WITHOUT_APP 预填 pluginPath。测速模式的 buildConfig 与 mihomoTestController 转给一个
-// 真实的 TestInstance
+// 另按 PLUGINS_WITHOUT_APP 预填 pluginPath。测速模式的 buildConfig 转给一个真实的 TestInstance
 private class GoldenBoxInstance(profile: ProxyEntity, private val test: TestInstance?) : BoxInstance(profile) {
-
-    var controller: Pair<Int, String>? = null
-        private set
 
     val checks = ArrayList<CheckRecord>()
 
@@ -89,12 +79,6 @@ private class GoldenBoxInstance(profile: ProxyEntity, private val test: TestInst
         }
         boxBuildConfig.invokeUnwrapped(test)
         config = test.config
-    }
-
-    override fun mihomoTestController(): Pair<Int, String>? {
-        if (test == null) return super.mihomoTestController()
-        @Suppress("UNCHECKED_CAST")
-        return (boxMihomoTestController.invokeUnwrapped(test) as Pair<Int, String>?).also { controller = it }
     }
 
     override suspend fun loadConfig() {
@@ -132,17 +116,14 @@ fun runBoxMode(profile: ProxyEntity, forTest: Boolean): ModeOutput {
         // 一组一个文件，顺序同 BoxInstance.init 组装出的外核进程（即计划的分组顺序）
         instance.externalProcesses.forEachIndexed { n, process ->
             val group = process.group
-            val mihomo = group.pluginId == MIHOMO_PLUGIN
-            val file = "ext-$n.${group.pluginId}.${if (mihomo) "yaml" else "json"}"
+            val file = "ext-$n.${group.pluginId}.json"
             files[file] = process.config
             val tempFiles = created.filter { process.config.contains(it) }
             paths += tempFiles
-            // 测速控制端口只进 mihomo 的配置
-            val controller = instance.controller?.takeIf { mihomo }
             external += linkedMapOf(
                 "file" to file,
                 "pluginId" to group.pluginId,
-                "controller" to controller?.let { linkedMapOf("port" to it.first, "secret" to it.second) },
+                "controller" to null,
                 "tempFiles" to tempFiles,
                 "hops" to group.hops.map { hop ->
                     linkedMapOf(
@@ -173,10 +154,8 @@ fun runBoxMode(profile: ProxyEntity, forTest: Boolean): ModeOutput {
         val dynamicPorts = LinkedHashSet<Int>()
         dynamicPorts += structuralPorts(parseFirstJson(config.config))
         dynamicPorts += instance.externalPlan.hops.map { it.localPort }
-        instance.controller?.let { dynamicPorts += it.first }
         // 本机 socks 凭据每次构建随机生成：sing-box 一侧（构建结果）与运行计划里的都登记
         val secrets = LinkedHashSet<String>()
-        instance.controller?.let { secrets += it.second }
         for (auth in listOfNotNull(config.localAuth) + instance.externalPlan.hops.mapNotNull { it.localAuth }) {
             secrets += auth.username
             secrets += auth.password

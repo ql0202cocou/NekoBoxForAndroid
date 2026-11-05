@@ -27,7 +27,7 @@ enum class MuxTypeChoices(
     // 手动 Xray：只有 Mux.Cool
     XRAY(listOf(MUX_COOL), R.array.mux_type_xray_entry, R.array.mux_type_xray_value),
 
-    // 自动：四项都列，名称后注明所属核心。编辑器不提供的核心取值（例如残留的 mihomo）也列全，由保存检查报冲突
+    // 自动：四项都列，名称后注明所属核心。编辑器不提供的核心取值也列全，由保存检查报冲突
     ALL(listOf(MUX_H2MUX, MUX_SMUX, MUX_YAMUX, MUX_COOL), R.array.mux_type_auto_entry, R.array.int_array_4),
 }
 
@@ -38,11 +38,10 @@ fun muxTypeChoices(core: Int): MuxTypeChoices = when (core) {
     else -> MuxTypeChoices.ALL
 }
 
-// 核心的默认 mux 协议族；mihomo 不承载 V2Ray 系协议，没有
-fun defaultMuxType(core: DialCore): Int? = when (core) {
+// 核心的默认 mux 协议族
+fun defaultMuxType(core: DialCore): Int = when (core) {
     DialCore.SING_BOX -> MUX_H2MUX
     DialCore.XRAY -> MUX_COOL
-    DialCore.MIHOMO -> null
 }
 
 // 切换核心后的 muxType：当前值在新列表里就不动，否则改成新列表的第一项（sing-box 为 h2mux，Xray 为 Mux.Cool）
@@ -58,7 +57,7 @@ fun muxTypeForCore(core: Int, muxType: Int): Int {
 fun muxTypeOnEnable(core: Int, muxType: Int, coreWithoutMux: DialCore?): Int {
     if (core != CORE_AUTO) return muxTypeForCore(core, muxType)
     val target = coreWithoutMux ?: return muxType
-    val default = defaultMuxType(target) ?: return muxType
+    val default = defaultMuxType(target)
     return if (muxFamilyOf(muxType) == muxFamilyOf(default)) muxType else default
 }
 

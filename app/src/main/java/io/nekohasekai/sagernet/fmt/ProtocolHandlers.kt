@@ -68,8 +68,6 @@ import moe.matsuri.nb4a.SingBoxOptions.SingBoxOption
 import moe.matsuri.nb4a.proxy.anytls.hasLocalSocksOverride
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.proxy.anytls.buildSingBoxOutboundAnyTLSBean
-import moe.matsuri.nb4a.proxy.anytls.buildMihomoConfig
-import moe.matsuri.nb4a.proxy.anytls.buildMihomoProxy
 import moe.matsuri.nb4a.proxy.anytls.toUri
 import moe.matsuri.nb4a.proxy.config.ConfigBean
 import moe.matsuri.nb4a.proxy.neko.NekoBean
@@ -171,7 +169,7 @@ fun StandardV2RayBean.realityMldsa65VerifyActive(): Boolean =
     security == "tls" && !realityPubKey.isNullOrBlank() && !realityMldsa65Verify.isNullOrBlank()
 
 // 该节点是否跑在外部核心进程上，跟着能力表的判定（ProxyEntity.coreDecision，CoreSelection.kt）走：
-// - 能选核的协议（VMess / VLESS / Trojan / AnyTLS）：选中 Xray 或 mihomo 为真，选中 sing-box 为假；
+// - 能选核的协议（VMess / VLESS / Trojan / AnyTLS）：选中 Xray 为真，选中 sing-box 为假；
 // - 不能选核的协议：承载方式沿用现状，插件协议与 Neko 为真，hysteria 看 sing-box 能不能承载，其余为假；
 // - 被拒绝的节点为假：拒绝由 requireBuildableHop（ChainPlan.kt）报出，在那之前的整链检查不把它算作外核节点。
 // globalAllowInsecure 是设置快照里的全局「允许不安全」，影响判定
@@ -534,7 +532,7 @@ sealed class ExternalCore(
         config: String,
         writeCacheFile: (String, String, String) -> File,
     ) -> ExternalCoreLaunch,
-    // 启动前校验入口（见 ExternalCoreStartup.kt），只有 Xray、mihomo 有。只在用的是 APK 内置的二进制时生效：
+    // 启动前校验入口（见 ExternalCoreStartup.kt），只有 Xray 有。只在用的是 APK 内置的二进制时生效：
     // 内置的才核实过校验入口、报错格式与就绪时的 SOCKS5 握手，外部插件 app 提供的同名核心照旧不校验
     val check: ExternalCoreCheck? = null,
     // 本机 socks 入站是否要求用户名 / 密码认证（LocalSocksAuth）。构建（sing-box 的 socks 出站带不带凭据）与
@@ -555,7 +553,7 @@ sealed class ExternalCore(
         settings: ExternalCoreSettings,
     ): ExternalCoreLaunch = buildLaunch(settings, pluginPath, config, writeCacheFile)
 
-    // Xray、mihomo：先逐个跳实例生成出站（Xray）/ 代理（mihomo），再把一组合成一份配置，标识在合成时写入
+    // Xray：先逐个跳实例生成出站，再把一组合成一份配置，标识在合成时写入
     class Merged(
         pluginId: String,
         private val buildEntry: (settings: ExternalCoreSettings, hop: ExternalHop) -> Map<String, Any?>,
@@ -563,7 +561,6 @@ sealed class ExternalCore(
             settings: ExternalCoreSettings,
             hops: List<ExternalHop>,
             entries: List<Map<String, Any?>>,
-            mihomoController: Pair<Int, String>?,
         ) -> String,
         buildLaunch: (ExternalCoreSettings, String, String, (String, String, String) -> File) -> ExternalCoreLaunch,
         check: ExternalCoreCheck,
@@ -572,13 +569,12 @@ sealed class ExternalCore(
 
         fun entry(hop: ExternalHop, settings: ExternalCoreSettings): Map<String, Any?> = buildEntry(settings, hop)
 
-        // entries 与 hops 一一对应；mihomoController 是测速时的 Clash API 端口与 secret，只有 mihomo 用
+        // entries 与 hops 一一对应
         fun config(
             hops: List<ExternalHop>,
             entries: List<Map<String, Any?>>,
-            mihomoController: Pair<Int, String>?,
             settings: ExternalCoreSettings,
-        ): String = buildConfig(settings, hops, entries, mihomoController)
+        ): String = buildConfig(settings, hops, entries)
     }
 
     // 要装插件 app 的核心：每个跳实例一份配置、一个进程，配置与 K0 之前相同。入站认证能力没有核实过，不声明。
@@ -686,32 +682,6 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
         buildXrayOutbound(bean, hop.target.dialAddress(bean).orEmpty(), hop.target.dialPort(bean), settings)
     }
 
-    is AnyTLSBean -> ExternalCore.Merged(
-        "mihomo-plugin",
-        buildEntry = { settings, hop ->
-            buildMihomoProxy(bean, hop.target.dialAddress(bean).orEmpty(), hop.target.dialPort(bean), settings)
-        },
-        buildConfig = { settings, hops, proxies, controller ->
-            buildMihomoConfig(hops, proxies, settings, controller?.first, controller?.second ?: "")
-        },
-        buildLaunch = { _, pluginPath, config, writeCacheFile ->
-            val configFile = writeCacheFile("mihomo", "yaml", config)
-            ExternalCoreLaunch(
-                listOf(pluginPath, "-d", app.noBackupFilesDir.absolutePath, "-f", configFile.absolutePath)
-            )
-        },
-        // -t 只解析配置、不监听不连接，失败时退出码 1。-f 指向的文件不存在时它会自己写一份默认配置并返回 0，
-        // 所以先写好文件；不带 -d 会在 $HOME/.config/mihomo 建目录，-d 与启动时相同
-        check = ExternalCoreCheck("mihomo", { pluginPath, config, writeCacheFile ->
-            val configFile = writeCacheFile("mihomo", "yaml", config)
-            ExternalCoreLaunch(
-                listOf(pluginPath, "-t", "-d", app.noBackupFilesDir.absolutePath, "-f", configFile.absolutePath)
-            )
-        }, ::mihomoCheckErrors),
-        // listener 自己的 users（见 buildMihomoConfig）
-        inboundAuth = true,
-    )
-
     else -> null
 }
 
@@ -720,7 +690,7 @@ private fun xrayCore(buildEntry: (settings: ExternalCoreSettings, hop: ExternalH
     ExternalCore.Merged(
         "xray-plugin",
         buildEntry = buildEntry,
-        buildConfig = { settings, hops, outbounds, _ -> buildXrayConfig(hops, outbounds, settings) },
+        buildConfig = { settings, hops, outbounds -> buildXrayConfig(hops, outbounds, settings) },
         buildLaunch = { _, pluginPath, config, writeCacheFile ->
             val configFile = writeCacheFile("xray", "json", config)
             ExternalCoreLaunch(listOf(pluginPath, "run", "-c", configFile.absolutePath))

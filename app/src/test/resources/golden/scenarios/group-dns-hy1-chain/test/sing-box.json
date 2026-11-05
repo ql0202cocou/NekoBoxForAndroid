@@ -78,7 +78,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 35919,
+      "listen_port": 42483,
       "override_address": "hy1-exit.example.org",
       "override_port": 8443,
       "tag": "c-0-mapping-4",
@@ -86,7 +86,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 35497,
+      "listen_port": 36405,
       "network": "udp",
       "tag": "plugin-dns-in",
       "type": "direct"
@@ -98,20 +98,20 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 32915,
+      "server_port": 42783,
       "tag": "proxy",
       "type": "socks"
     },
     {
       "detour": "g-2",
       "server": "127.0.0.1",
-      "server_port": 35643,
+      "server_port": 37521,
       "tag": "c-0-3",
       "type": "socks"
     },
     {
       "server": "127.0.0.1",
-      "server_port": 34073,
+      "server_port": 41327,
       "tag": "g-2",
       "type": "socks"
     },

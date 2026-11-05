@@ -17,12 +17,12 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_AUTO
 // 能为该协议选的核心（不能选核的协议为空）；优先级统一由 preferenceOrder 决定。
 fun candidateCores(protocol: CoreProtocol): List<DialCore> = when (protocol) {
     CoreProtocol.VMESS, CoreProtocol.VLESS, CoreProtocol.TROJAN -> listOf(DialCore.SING_BOX, DialCore.XRAY)
-    CoreProtocol.ANYTLS -> listOf(DialCore.SING_BOX, DialCore.MIHOMO)
+    CoreProtocol.ANYTLS -> listOf(DialCore.SING_BOX)
     CoreProtocol.OTHER -> emptyList()
 }
 
-// 自动选核的偏好顺序：REALITY 或 mldsa65Verify 生效时 Xray 优先（REALITY 由 Xray 定义，sing-box 与 mihomo 都是
-// 跟随实现，sing-box 一侧的限制见 libcore/sing-box/NEKO.md）；其余（含 AnyTLS）sing-box 优先
+// 自动选核的偏好顺序：REALITY 或 mldsa65Verify 生效时 Xray 优先（sing-box 一侧的限制见
+// libcore/sing-box/NEKO.md）；其余 sing-box 优先。AnyTLS 只有 sing-box 一个候选。
 fun preferenceOrder(requirements: CoreRequirements): List<DialCore> {
     val candidates = candidateCores(requirements.protocol)
     val first = when {

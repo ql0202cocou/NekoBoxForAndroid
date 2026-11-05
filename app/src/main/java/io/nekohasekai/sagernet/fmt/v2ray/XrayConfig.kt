@@ -316,7 +316,7 @@ private fun buildXrayStreamSettings(bean: StandardV2RayBean): Map<String, Any?> 
                 if (bean.alpn.isNotBlank()) {
                     put("alpn", bean.alpn.listByLineOrComma())
                 }
-                // 证书固定优先于 allowInsecure，取舍与 buildMihomoConfig 相同。Xray 与 mihomo 一样按十六进制解码
+                // 证书固定优先于 allowInsecure。Xray 按十六进制解码
                 // pinnedPeerCertSha256，比对在 transport/internet/tls/config.go 的 verifyPeerCert / verifyChain 里
                 // （pin.go 只负责求哈希）：命中叶子证书时跳过校验；命中链上 IsCA 的证书时仍按 serverName 与有效期
                 // 校验；命中非 CA 的中间证书不算命中

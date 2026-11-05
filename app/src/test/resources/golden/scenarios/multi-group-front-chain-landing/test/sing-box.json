@@ -22,7 +22,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 44883,
+      "listen_port": 40943,
       "override_address": "xray-3.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-11",
@@ -30,7 +30,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 42873,
+      "listen_port": 40011,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-1",
@@ -38,15 +38,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 43271,
-      "override_address": "mihomo-1.example.com",
-      "override_port": 8444,
-      "tag": "c-0-mapping-13",
-      "type": "direct"
-    },
-    {
-      "listen": "127.0.0.1",
-      "listen_port": 44407,
+      "listen_port": 39581,
       "override_address": "xray-2.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-10",
@@ -58,34 +50,39 @@
   },
   "outbounds": [
     {
-      "password": "p6ee6ab5a5cd769257a8aba68a1a89fa4",
+      "password": "p2bd8dd76d279cb5b345406d1bdfee6bf",
       "server": "127.0.0.1",
-      "server_port": 33101,
-      "username": "ue714ec51a6129f6a",
+      "server_port": 43335,
+      "username": "uaf13c8950d110d62",
       "tag": "proxy",
       "type": "socks"
     },
     {
-      "password": "p6ee6ab5a5cd769257a8aba68a1a89fa4",
+      "password": "p2bd8dd76d279cb5b345406d1bdfee6bf",
       "server": "127.0.0.1",
-      "server_port": 44007,
-      "username": "ue714ec51a6129f6a",
+      "server_port": 38545,
+      "username": "uaf13c8950d110d62",
       "tag": "c-0-1",
       "type": "socks"
     },
     {
-      "password": "p6ee6ab5a5cd769257a8aba68a1a89fa4",
-      "server": "127.0.0.1",
-      "server_port": 40397,
-      "username": "ue714ec51a6129f6a",
+      "detour": "g-10",
+      "password": "golden-pass-anytls",
+      "server": "mihomo-1.example.com",
+      "server_port": 8444,
+      "tls": {
+        "enabled": true,
+        "insecure": false,
+        "server_name": "mihomo-1.example.org"
+      },
       "tag": "c-0-13",
-      "type": "socks"
+      "type": "neko-anytls"
     },
     {
-      "password": "p6ee6ab5a5cd769257a8aba68a1a89fa4",
+      "password": "p2bd8dd76d279cb5b345406d1bdfee6bf",
       "server": "127.0.0.1",
-      "server_port": 35599,
-      "username": "ue714ec51a6129f6a",
+      "server_port": 38843,
+      "username": "uaf13c8950d110d62",
       "tag": "g-10",
       "type": "socks"
     },
@@ -116,12 +113,6 @@
           "c-0-mapping-1"
         ],
         "outbound": "c-0-13"
-      },
-      {
-        "inbound": [
-          "c-0-mapping-13"
-        ],
-        "outbound": "g-10"
       },
       {
         "inbound": [

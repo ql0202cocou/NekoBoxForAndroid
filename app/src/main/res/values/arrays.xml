@@ -513,18 +513,6 @@
         <item>2</item>
     </string-array>
 
-    <string-array name="proxy_core_anytls_entry">
-        <item>@string/auto</item>
-        <item>sing-box</item>
-        <item>mihomo</item>
-    </string-array>
-
-    <string-array name="proxy_core_anytls_value" translatable="false">
-        <item>0</item>
-        <item>1</item>
-        <item>3</item>
-    </string-array>
-
     <string-array name="box_shadowsocks_plugins" translatable="false">
         <item></item>
         <item>obfs-local</item>

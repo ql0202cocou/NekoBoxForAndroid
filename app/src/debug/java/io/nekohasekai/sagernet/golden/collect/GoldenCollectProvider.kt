@@ -131,7 +131,6 @@ class GoldenCollectProvider : ContentProvider() {
                 codeTop = paths("codeDirtyTop"),
             ),
             xray = core("xray"),
-            mihomo = core("mihomo"),
             allowWipe = extras.getBoolean("allowWipe", false),
         )
     }

@@ -117,9 +117,6 @@ class ConfigBuildResult(
     // 构建时随 ConfigSettings 采集的外核设置：成员检查的试生成用的就是它，组装、启动外核也用它（运行、测速、导出）。
     // 完整配置节点不采集设置，为 null，它也没有外核跳实例
     val externalCoreSettings: ExternalCoreSettings? = null,
-    // 测速时是否让 mihomo 自己测延迟（TestInstance 的 mihomoController）：构建按 mihomoDelayTestApplies 用它采集的
-    // 主分组行与设置算出，只有测速构建用到。完整配置节点为 false
-    val delayTestOnMihomo: Boolean = false,
     // 统计关联里的节点有 hysteria faketcp（以 root 运行）：VpnService 要放行 root uid
     val needsRootUidBypass: Boolean = false,
     // 本次构建里 REALITY 且跑在 sing-box 上的节点，按提交的次序、每个节点一项；只读，见 withRealityHint
@@ -436,7 +433,6 @@ private class ConfigBuild(
             diagnostics.toList(),
             localAuth,
             settings.externalCore,
-            delayTestOnMihomo = mihomoDelayTestApplies(proxy, group, globalAllowInsecure),
             needsRootUidBypass = needsRootUidBypass(trafficMap),
             realityOnSingBox = realityOnSingBox.values.toList(),
         )

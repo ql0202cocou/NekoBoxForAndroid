@@ -187,7 +187,7 @@ object Util {
         }
     }
 
-    // 值是凭据的键：JSON 里用下划线，YAML（如 mihomo 配置）里同名换连字符。
+    // 值是凭据的键：JSON 里用下划线，YAML（如 Clash 配置）里同名换连字符。
     // obfs 是 hysteria1 的混淆密码（hysteria2 的 obfs 是对象，其中 password 已覆盖）。
     // username / user / pass：socks / http 入站与出站的用户名和密码（Xray 的 accounts 用 user / pass）
     // short_id / shortId：REALITY 的 shortId（sing-box 出站 / Xray realitySettings），private_key_passphrase：SSH 私钥口令。
@@ -206,7 +206,7 @@ object Util {
     // JSON 的一个标量值：字符串，或数字 / true / false / null
     private const val JSON_SCALAR = """(?:$JSON_STRING|[^\s,{}\[\]"]+)"""
 
-    // mieru 的用户名写在 "user": {"name": …} 里（MieruFmt）。name 太常见（mihomo 的 listener / proxy 靠它对应），
+    // mieru 的用户名写在 "user": {"name": …} 里（MieruFmt）。name 太常见（Clash 的 listener / proxy 靠它对应），
     // 不进名单，只遮 user 对象里的；name 前面有别的标量成员时也能找到
     private val USER_OBJECT_NAME = Regex(
         """("user"\s*:\s*\{(?:\s*$JSON_STRING\s*:\s*$JSON_SCALAR\s*,)*\s*"name"\s*:\s*)$JSON_STRING""",

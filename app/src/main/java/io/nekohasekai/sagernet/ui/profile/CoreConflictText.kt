@@ -19,14 +19,11 @@ import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 // 冲突的原因
 @StringRes
 fun coreConflictReason(id: CoreConflict): Int = when (id) {
-    CoreConflict.MIHOMO_ANYTLS_ECH -> R.string.core_conflict_mihomo_anytls_ech
     CoreConflict.SING_BOX_ANYTLS_LOCAL_SOCKS_OVERRIDE -> R.string.core_conflict_sing_box_anytls_local_socks_override
-    CoreConflict.MIHOMO_ANYTLS_TRUST -> R.string.core_conflict_mihomo_anytls_trust
     CoreConflict.ANYTLS_CERTIFICATE_POLICY_INVALID -> R.string.core_conflict_anytls_certificate_policy_invalid
     CoreConflict.XRAY_ANYTLS -> R.string.core_conflict_xray_anytls
     CoreConflict.SING_BOX_ANYTLS_UTLS -> R.string.core_conflict_sing_box_anytls_utls
     CoreConflict.SING_BOX_ANYTLS_ECH -> R.string.core_conflict_sing_box_anytls_ech
-    CoreConflict.MIHOMO_V2RAY_PROTOCOL -> R.string.core_conflict_mihomo_v2ray_protocol
     CoreConflict.XRAY_TRANSPORT_H2 -> R.string.core_conflict_xray_transport_h2
     CoreConflict.XRAY_TRANSPORT_QUIC -> R.string.core_conflict_xray_transport_quic
     CoreConflict.XRAY_REALITY_TRANSPORT -> R.string.core_conflict_xray_reality_transport
@@ -46,8 +43,6 @@ fun coreConflictReason(id: CoreConflict): Int = when (id) {
     CoreConflict.SING_BOX_UTLS_FINGERPRINT -> R.string.core_conflict_sing_box_utls_fingerprint
     CoreConflict.XRAY_UTLS_FINGERPRINT -> R.string.core_conflict_xray_utls_fingerprint
     CoreConflict.XRAY_REALITY_UTLS_FINGERPRINT -> R.string.core_conflict_xray_reality_utls_fingerprint
-    CoreConflict.MIHOMO_UTLS_FINGERPRINT -> R.string.core_conflict_mihomo_utls_fingerprint
-    CoreConflict.MIHOMO_UTLS_HANDSHAKE_FAILS -> R.string.core_conflict_mihomo_utls_handshake_fails
     CoreConflict.SING_BOX_MUX_COOL -> R.string.core_conflict_sing_box_mux_cool
     CoreConflict.XRAY_SING_MUX -> R.string.core_conflict_xray_sing_mux
     CoreConflict.XRAY_PACKETADDR -> R.string.core_conflict_xray_packetaddr

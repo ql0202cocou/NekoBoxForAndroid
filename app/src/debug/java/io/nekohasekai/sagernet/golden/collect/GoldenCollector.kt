@@ -38,7 +38,6 @@ class CollectArgs(
     val commit: String,
     val dirty: DirtyArgs,
     val xray: CoreArgs,
-    val mihomo: CoreArgs,
     val allowWipe: Boolean,
 )
 
@@ -47,7 +46,7 @@ class CollectRefusedException(message: String) : Exception(message)
 
 class CollectSummary(val outDir: File, val scenarios: Int, val counts: Map<String, Int>)
 
-// 全部场景里跑过的启动前校验（内置 Xray / mihomo 的校验入口，见 BoxInstance.init）：按插件与结论计数，
+// 全部场景里跑过的启动前校验（内置 Xray 的校验入口，见 BoxInstance.init）：按插件与结论计数，
 // 没过与没有结论的逐条记下场景、模式与原因。只进 manifest
 private class CheckStats {
     private val byPlugin = LinkedHashMap<String, LinkedHashMap<String, Int>>()
@@ -132,7 +131,7 @@ class GoldenCollector(private val args: CollectArgs) {
     private fun checkEnvironment(): Map<String, String> {
         val plugins = linkedMapOf<String, String>()
         val nativeDir = File(app.applicationInfo.nativeLibraryDir)
-        for (id in listOf("xray-plugin", "mihomo-plugin") + PLUGINS_WITHOUT_APP) {
+        for (id in listOf("xray-plugin") + PLUGINS_WITHOUT_APP) {
             val external = Plugins.getPluginExternal(id)
             plugins[id] = when {
                 external != null -> "external:${external.packageName}"
@@ -145,7 +144,7 @@ class GoldenCollector(private val args: CollectArgs) {
             "external plugin apps are installed (${unexpected.values.joinToString()}); " +
                 "the baseline assumes none, uninstall them first"
         )
-        for ((id, core) in listOf("xray-plugin" to args.xray, "mihomo-plugin" to args.mihomo)) {
+        for ((id, core) in listOf("xray-plugin" to args.xray)) {
             val file = File(nativeDir, BUILTIN_CORES.getValue(id))
             if (!file.isFile) throw CollectRefusedException("built-in core ${file.name} is missing from the APK")
             val actual = sha256(file)
@@ -419,7 +418,6 @@ class GoldenCollector(private val args: CollectArgs) {
                 // version / pinnedSha256 取自 plugins.sh（主机侧已核对 app/executableSo 下的源文件）；
                 // installedSha256 是设备上那份文件的实算值（经 AGP strip）
                 "xray" to coreManifest(args.xray, File(nativeDir, BUILTIN_CORES.getValue("xray-plugin"))),
-                "mihomo" to coreManifest(args.mihomo, File(nativeDir, BUILTIN_CORES.getValue("mihomo-plugin"))),
             ),
             "plugins" to plugins,
             "system" to system,
@@ -468,7 +466,6 @@ class GoldenCollector(private val args: CollectArgs) {
         // 包里内置的核心（PluginManager.initNativeInternal 认的文件名）
         val BUILTIN_CORES = mapOf(
             "xray-plugin" to "libxray.so",
-            "mihomo-plugin" to "libmihomo.so",
             "hysteria-plugin" to "libhysteria.so",
         )
 

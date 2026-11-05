@@ -1,7 +1,8 @@
 package io.nekohasekai.sagernet.golden
 
 import io.nekohasekai.sagernet.fmt.ExternalDialTarget
-import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
+import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
+import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -15,7 +16,7 @@ import java.util.IdentityHashMap
 class GoldenExternalCoreCheckTest {
 
     private val pluginIds = listOf(
-        "xray-plugin", "mihomo-plugin", "trojan-go-plugin", "naive-plugin", "mieru-plugin", "hysteria-plugin",
+        "xray-plugin", "trojan-go-plugin", "naive-plugin", "mieru-plugin", "hysteria-plugin",
     )
 
     private fun assertContains(text: String, vararg parts: String) {
@@ -55,23 +56,22 @@ class GoldenExternalCoreCheckTest {
     }
 
     @Test
-    fun `mihomo 用例带上了拨号目标、测速控制端口与设置`() {
-        val cases = GoldenBaseline.load().externalCases("mihomo-plugin")
-        assertTrue(cases.all { it.format == GoldenFormat.YAML })
+    fun `Xray 用例带上了拨号目标与设置`() {
+        val cases = GoldenBaseline.load().externalCases("xray-plugin")
+        assertTrue(cases.all { it.format == GoldenFormat.JSON })
         val hops = cases.flatMap { it.group.hops }
-        assertTrue(hops.all { it.bean is AnyTLSBean })
-        // mihomo 的跳实例都经映射（只有 hysteria 1 会免映射），拨号目标是本机的映射端口
+        assertTrue(hops.all { it.bean is VMessBean || it.bean is TrojanBean })
+        // Xray 的跳实例都经映射（只有 hysteria 1 会免映射），拨号目标是本机的映射端口
         assertTrue(hops.all { (it.target as? ExternalDialTarget.Mapped)?.port?.let { port -> port > 0 } == true })
-        assertTrue(cases.filter { it.mode == GoldenBoxMode.RUN }.all { it.controller == null })
-        assertTrue(cases.any { it.mode == GoldenBoxMode.TEST && it.controller != null })
+        assertTrue(cases.all { it.controller == null })
         assertTrue("应当覆盖不同的日志级别", cases.map { it.settings.logLevel }.distinct().size > 1)
     }
 
     @Test
     fun `输出被改动时失败，消息带场景 id、模式与差异，并只列前几个`() {
-        val cases = GoldenBaseline.load().externalCases("mihomo-plugin")
-        val message = failureOf("mihomo-plugin") { case, cacheFile ->
-            GoldenExternalCoreCheck.PRODUCTION.generate(case, cacheFile).replace("mode: rule", "mode: global")
+        val cases = GoldenBaseline.load().externalCases("xray-plugin")
+        val message = failureOf("xray-plugin") { case, cacheFile ->
+            GoldenExternalCoreCheck.PRODUCTION.generate(case, cacheFile).replace("\"access\": \"none\"", "\"access\": \"deleted\"")
         }
         val first = cases.first()
         assertContains(
@@ -79,7 +79,7 @@ class GoldenExternalCoreCheckTest {
             "${cases.size} 个用例中 ${cases.size} 个与基线不一致",
             "只列前",
             "[$first]",
-            "${first.file} $.mode：预期 \"rule\"，实际 \"global\"",
+            "${first.file} $.log.access：预期 \"none\"，实际 \"deleted\"",
         )
         // 排在后面的用例不展开
         assertTrue(message, "[${cases.last()}]" !in message)
@@ -87,22 +87,22 @@ class GoldenExternalCoreCheckTest {
 
     @Test
     fun `只有一个用例不同时只报这一个`() {
-        val cases = GoldenBaseline.load().externalCases("mihomo-plugin")
+        val cases = GoldenBaseline.load().externalCases("xray-plugin")
         val target = cases.last()
-        val message = failureOf("mihomo-plugin") { case, cacheFile ->
+        val message = failureOf("xray-plugin") { case, cacheFile ->
             val text = GoldenExternalCoreCheck.PRODUCTION.generate(case, cacheFile)
             if (case.scenarioId == target.scenarioId && case.mode == target.mode && case.file == target.file) {
-                text.replace("udp: true", "udp: false")
+                text.replace("\"access\": \"none\"", "\"access\": \"deleted\"")
             } else {
                 text
             }
         }
-        assertContains(message, "${cases.size} 个用例中 1 个与基线不一致", "[$target]", ".udp：预期 true，实际 false")
+        assertContains(message, "${cases.size} 个用例中 1 个与基线不一致", "[$target]", ".access：预期 \"none\"，实际 \"deleted\"")
     }
 
     @Test
     fun `生成抛异常时失败并带上异常`() {
-        val message = failureOf("mihomo-plugin") { _, _ -> throw IllegalStateException("故意失败") }
+        val message = failureOf("xray-plugin") { _, _ -> throw IllegalStateException("故意失败") }
         assertContains(message, "生成时抛出 java.lang.IllegalStateException：故意失败")
     }
 

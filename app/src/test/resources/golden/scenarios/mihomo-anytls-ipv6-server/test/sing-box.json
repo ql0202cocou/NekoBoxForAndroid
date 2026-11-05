@@ -19,27 +19,21 @@
     "strategy": "prefer_ipv4"
   },
   "endpoints": [],
-  "inbounds": [
-    {
-      "listen": "127.0.0.1",
-      "listen_port": 46815,
-      "override_address": "2001:db8::60",
-      "override_port": 8443,
-      "tag": "c-0-mapping-1",
-      "type": "direct"
-    }
-  ],
+  "inbounds": [],
   "log": {
     "level": "panic"
   },
   "outbounds": [
     {
-      "password": "p08dd63b0d30d325dc5240cdeed6971ad",
-      "server": "127.0.0.1",
-      "server_port": 42065,
-      "username": "u0c4dd65d14e73680",
+      "password": "golden-pass-anytls",
+      "server": "2001:db8::60",
+      "server_port": 8443,
+      "tls": {
+        "enabled": true,
+        "insecure": false
+      },
       "tag": "proxy",
-      "type": "socks"
+      "type": "neko-anytls"
     },
     {
       "tag": "direct",
@@ -56,13 +50,6 @@
       "server": "dns-direct"
     },
     "rule_set": [],
-    "rules": [
-      {
-        "inbound": [
-          "c-0-mapping-1"
-        ],
-        "outbound": "direct"
-      }
-    ]
+    "rules": []
   }
 }

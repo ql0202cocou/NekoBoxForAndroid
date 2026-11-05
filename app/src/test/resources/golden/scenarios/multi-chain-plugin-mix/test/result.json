@@ -37,90 +37,73 @@
   },
   "external": [
     {
-      "file": "ext-0.mihomo-plugin.yaml",
-      "pluginId": "mihomo-plugin",
+      "file": "ext-0.xray-plugin.json",
+      "pluginId": "xray-plugin",
       "controller": null,
       "tempFiles": [],
       "hops": [
         {
           "index": 0,
           "chainIndex": 0,
-          "profileId": 8,
-          "port": 36755,
+          "profileId": 7,
+          "port": 36335,
           "finalAddress": "127.0.0.1",
-          "finalPort": 39223,
+          "finalPort": 34259,
           "inboundTag": "in-0",
           "outboundTag": "out-0",
           "localAuth": {
-            "username": "ub1d98b33818172d1",
-            "password": "p0f9ca8671b40ddd0cdbafd5710413609"
+            "username": "u622dc0fdfe14bb70",
+            "password": "p4bfb454f8e46f1a366fadb7c6ec7cbaf"
           }
         },
         {
           "index": 3,
           "chainIndex": 0,
-          "profileId": 5,
-          "port": 42531,
+          "profileId": 3,
+          "port": 34757,
           "finalAddress": "127.0.0.1",
-          "finalPort": 35033,
+          "finalPort": 39279,
           "inboundTag": "in-3",
           "outboundTag": "out-3",
           "localAuth": {
-            "username": "ub1d98b33818172d1",
-            "password": "p0f9ca8671b40ddd0cdbafd5710413609"
+            "username": "u622dc0fdfe14bb70",
+            "password": "p4bfb454f8e46f1a366fadb7c6ec7cbaf"
           }
         }
       ]
     },
     {
-      "file": "ext-1.xray-plugin.json",
-      "pluginId": "xray-plugin",
+      "file": "ext-1.mieru-plugin.json",
+      "pluginId": "mieru-plugin",
       "controller": null,
       "tempFiles": [],
       "hops": [
         {
           "index": 1,
           "chainIndex": 0,
-          "profileId": 7,
-          "port": 41343,
+          "profileId": 6,
+          "port": 33169,
           "finalAddress": "127.0.0.1",
-          "finalPort": 43503,
-          "inboundTag": "in-1",
-          "outboundTag": "out-1",
-          "localAuth": {
-            "username": "ub1d98b33818172d1",
-            "password": "p0f9ca8671b40ddd0cdbafd5710413609"
-          }
-        },
-        {
-          "index": 5,
-          "chainIndex": 0,
-          "profileId": 3,
-          "port": 43183,
-          "finalAddress": "127.0.0.1",
-          "finalPort": 39293,
-          "inboundTag": "in-5",
-          "outboundTag": "out-5",
-          "localAuth": {
-            "username": "ub1d98b33818172d1",
-            "password": "p0f9ca8671b40ddd0cdbafd5710413609"
-          }
+          "finalPort": 43271,
+          "inboundTag": null,
+          "outboundTag": null,
+          "localAuth": null
         }
       ]
     },
     {
-      "file": "ext-2.mieru-plugin.json",
-      "pluginId": "mieru-plugin",
+      "file": "ext-2.naive-plugin.json",
+      "pluginId": "naive-plugin",
       "controller": null,
       "tempFiles": [],
       "hops": [
         {
           "index": 2,
           "chainIndex": 0,
-          "profileId": 6,
-          "port": 39997,
+          "profileId": 4,
+          "port": 38265,
           "finalAddress": "127.0.0.1",
-          "finalPort": 36143,
+          "finalPort": 44613,
           "inboundTag": null,
           "outboundTag": null,
           "localAuth": null
@@ -128,37 +111,18 @@
       ]
     },
     {
-      "file": "ext-3.naive-plugin.json",
-      "pluginId": "naive-plugin",
+      "file": "ext-3.trojan-go-plugin.json",
+      "pluginId": "trojan-go-plugin",
       "controller": null,
       "tempFiles": [],
       "hops": [
         {
           "index": 4,
           "chainIndex": 0,
-          "profileId": 4,
-          "port": 41195,
-          "finalAddress": "127.0.0.1",
-          "finalPort": 46701,
-          "inboundTag": null,
-          "outboundTag": null,
-          "localAuth": null
-        }
-      ]
-    },
-    {
-      "file": "ext-4.trojan-go-plugin.json",
-      "pluginId": "trojan-go-plugin",
-      "controller": null,
-      "tempFiles": [],
-      "hops": [
-        {
-          "index": 6,
-          "chainIndex": 0,
           "profileId": 2,
-          "port": 42559,
+          "port": 44345,
           "finalAddress": "127.0.0.1",
-          "finalPort": 42189,
+          "finalPort": 34955,
           "inboundTag": null,
           "outboundTag": null,
           "localAuth": null
@@ -168,25 +132,21 @@
   ],
   "dynamic": {
     "ports": [
-      36755,
-      41343,
-      39997,
-      42531,
-      41195,
-      43183,
-      42559,
-      39223,
-      43503,
-      36143,
-      35033,
-      46701,
-      39293,
-      42189
+      36335,
+      33169,
+      38265,
+      34757,
+      44345,
+      34259,
+      43271,
+      44613,
+      39279,
+      34955
     ],
     "paths": [],
     "secrets": [
-      "ub1d98b33818172d1",
-      "p0f9ca8671b40ddd0cdbafd5710413609"
+      "u622dc0fdfe14bb70",
+      "p4bfb454f8e46f1a366fadb7c6ec7cbaf"
     ]
   }
 }

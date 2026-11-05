@@ -67,14 +67,6 @@
       "listen_port": 2080,
       "tag": "mixed-in",
       "type": "mixed"
-    },
-    {
-      "listen": "127.0.0.1",
-      "listen_port": 41903,
-      "override_address": "anytls.example.com",
-      "override_port": 8443,
-      "tag": "c-2-mapping-2",
-      "type": "direct"
     }
   ],
   "log": {
@@ -99,12 +91,15 @@
       "type": "vmess"
     },
     {
-      "password": "p8bbab41d4049af6d826c30ecd933401f",
-      "server": "127.0.0.1",
-      "server_port": 45937,
-      "username": "u28c566cabfe590ff",
+      "password": "golden-pass-anytls",
+      "server": "anytls.example.com",
+      "server_port": 8443,
+      "tls": {
+        "enabled": true,
+        "insecure": false
+      },
       "tag": "g-2",
-      "type": "socks"
+      "type": "neko-anytls"
     },
     {
       "tag": "direct",
@@ -137,12 +132,6 @@
         "protocol": [
           "dns"
         ]
-      },
-      {
-        "inbound": [
-          "c-2-mapping-2"
-        ],
-        "outbound": "direct"
       },
       {
         "ip_cidr": [

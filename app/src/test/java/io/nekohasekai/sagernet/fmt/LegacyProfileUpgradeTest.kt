@@ -341,11 +341,10 @@ class LegacyProfileUpgradeTest {
     }
 
     @Test
-    fun `规则 d：firefox 在三个核心的 uTLS 名单里都认`() {
+    fun `规则 d：firefox 在两个核心的 uTLS 名单里都认`() {
         assertEquals("firefox", LEGACY_UTLS_FINGERPRINT)
         assertTrue(SING_BOX_UTLS_FINGERPRINTS.accepts(LEGACY_UTLS_FINGERPRINT))
         assertTrue(XRAY_UTLS_FINGERPRINTS.accepts(LEGACY_UTLS_FINGERPRINT))
-        assertTrue(MIHOMO_UTLS_FINGERPRINTS.accepts(LEGACY_UTLS_FINGERPRINT))
     }
 
     // ---- 规则 e：越界取值规范化

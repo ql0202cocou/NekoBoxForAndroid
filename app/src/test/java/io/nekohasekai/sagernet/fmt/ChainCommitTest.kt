@@ -12,7 +12,6 @@ import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.fmt.trojan_go.TrojanGoBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import moe.matsuri.nb4a.SingBoxOptions.MyOptions
-import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
@@ -52,17 +51,6 @@ class ChainCommitTest {
             sni = "x$id.example.com"
             realityPubKey = CoreTestNodes.REALITY_KEY
             realityShortId = CoreTestNodes.SHORT_ID
-        })
-
-    // 显式指定 mihomo，保持外核端口分配与失败原子性的测试条件。
-    private fun anytls(id: Long, groupId: Long = 1) = ProxyEntity(id = id, groupId = groupId, userOrder = id, core = ProxyEntity.CORE_MIHOMO)
-        .putBean(AnyTLSBean().apply {
-            name = "anytls-$id"
-            serverAddress = "a$id.example.net"
-            serverPort = 9443
-            password = "fake-password-$id"
-            initializeDefaultValues()
-            certificateFingerprint = CoreTestNodes.PIN
         })
 
     private fun hysteria(id: Long, groupId: Long = 1) = ProxyEntity(id = id, groupId = groupId, userOrder = id)
@@ -226,7 +214,7 @@ class ChainCommitTest {
         val main = chain(1, 5, 4, 3, 2)
         val result = build(
             main,
-            MemoryConfigDataSource(listOf(ProxyGroup(id = 1)), listOf(main, vless(2), socks(3), anytls(4), hysteria(5)), emptyList()),
+            MemoryConfigDataSource(listOf(ProxyGroup(id = 1)), listOf(main, vless(2), socks(3), vless(4), hysteria(5)), emptyList()),
             platform, auths = auths,
         )
         assertEquals(listOf(50001, 50002, 50003, 50004, 50005, 50006), platform.ports)
@@ -349,12 +337,12 @@ class ChainCommitTest {
     fun `提交时分不到端口：异常与以前相同，包上分端口的那一跳的节点名；每跳先本机端口、再凭据、后映射端口`() {
         // 主节点是链 1：3 AnyTLS（最先拨号）→ 2 vless（出口）。第 3 次分端口（AnyTLS 的本机端口）失败
         val main = chain(1, 3, 2)
-        val source = MemoryConfigDataSource(listOf(ProxyGroup(id = 1)), listOf(main, vless(2), anytls(3)), emptyList())
+        val source = MemoryConfigDataSource(listOf(ProxyGroup(id = 1)), listOf(main, vless(2), vless(3)), emptyList())
         val failing = FailingPorts(FakeConfigPlatform(), failAt = 3)
         val diagnostics = ArrayList<ConfigBuildDiagnostic>()
         val auths = Auths()
         val e = assertThrows(ProfileBuildException::class.java) { build(main, source, failing, diagnostics, auths) }
-        assertEquals("anytls-3", e.profileName)
+        assertEquals("vless-3", e.profileName)
         assertSame(failing.failure, e.cause)
         assertEquals(3, failing.calls)
         // 凭据已在出口 vless 处生成
@@ -376,7 +364,7 @@ class ChainCommitTest {
         // 失败：成员 2 已提交，链 5 的端口分到一半。以前链 5 的出口此时已写进配置
         val groups = listOf(ProxyGroup(id = 1, isSelector = true), ProxyGroup(id = 2))
         val members = listOf(socks(1, userOrder = 1), vless(2, userOrder = 2), chain(5, 7, 6, userOrder = 3))
-        val others = listOf(vless(6, groupId = 2), anytls(7, groupId = 2))
+        val others = listOf(vless(6, groupId = 2), vless(7, groupId = 2))
         val main = members[0]
 
         val failing = FailingPorts(FakeConfigPlatform(), failAt = 5)
@@ -386,7 +374,7 @@ class ChainCommitTest {
         probe.step("initRoute")
         val e = assertThrows(InvocationTargetException::class.java) { probe.step("buildOutbounds") }.targetException
         assertTrue(e is ProfileBuildException)
-        assertEquals("anytls-7", (e as ProfileBuildException).profileName)
+        assertEquals("vless-7", (e as ProfileBuildException).profileName)
         assertSame(failing.failure, e.cause)
         assertEquals(5, failing.calls)
 

@@ -5,7 +5,7 @@
 
 sing-box / universal proxy toolchain for Android.
 
-一款使用 sing-box 的 Android 通用代理软件，内置 mihomo 和 Xray 插件.
+一款使用 sing-box 的 Android 通用代理软件，内置 Xray 插件.
 
 ## 下载与系统要求 / Download & Requirements
 
@@ -37,27 +37,23 @@ sing-box / universal proxy toolchain for Android.
 | --- | --- | --- |
 | [sing-box](https://github.com/SagerNet/sing-box) | v1.14.4（附带本仓库补丁及 uTLS v1.8.8 / with local patches and uTLS v1.8.8） | 基础内核，承载多数协议；AnyTLS 自动选核的首选 / Base core for most protocols; preferred for automatic AnyTLS selection |
 | [Xray-core](https://github.com/XTLS/Xray-core) | v26.10.21 | XHTTP 节点仅使用 Xray；带 REALITY 或 mldsa65Verify 的 VMess / VLESS / Trojan 优先使用；节点带证书指纹、Mux.Cool，或只有 Xray 认的 flow / 指纹时也走 Xray / Required for XHTTP profiles; preferred for VMess / VLESS / Trojan with REALITY or mldsa65Verify; also used when the profile has a certificate fingerprint, Mux.Cool, or a flow / fingerprint only Xray accepts |
-| [mihomo](https://github.com/MetaCubeX/mihomo) | v1.19.33 | AnyTLS 可选核心；可按节点手动选择 / Optional AnyTLS core; can be selected per profile |
 
-VMess / VLESS / Trojan 与 AnyTLS 节点可在编辑页手动指定核心；指定的核心承载不了节点的设置时报错并列出冲突字段，不再回落到其他核心。Trojan-Go、NaïveProxy、Mieru 以及 faketcp / wechat-video 模式的 Hysteria 1 需要另外安装对应插件。
+VMess / VLESS / Trojan 节点可在编辑页手动指定核心；指定的核心承载不了节点的设置时报错并列出冲突字段，不再回落到其他核心。AnyTLS 统一由 sing-box 的内置兼容实现承载。Trojan-Go、NaïveProxy、Mieru 以及 faketcp / wechat-video 模式的 Hysteria 1 需要另外安装对应插件。
 
-The core can be chosen per profile for VMess / VLESS / Trojan and AnyTLS; if the chosen core cannot run the profile's settings, it fails with the conflicting fields listed instead of falling back to another core. Trojan-Go, NaïveProxy, Mieru and Hysteria 1 in faketcp / wechat-video mode need their plugin installed separately.
+The core can be chosen per profile for VMess / VLESS / Trojan; if the chosen core cannot run the profile's settings, it fails with the conflicting fields listed instead of falling back to another core. AnyTLS always uses sing-box's built-in compatibility implementation. Trojan-Go, NaïveProxy, Mieru and Hysteria 1 in faketcp / wechat-video mode need their plugin installed separately.
 
-普通 AnyTLS 节点自动选核优先 sing-box，使用内置兼容实现，支持整证书固定、uTLS 和 ECH；仍可手动选择 mihomo。
-升级时所有现存 AnyTLS 节点（含原手动核心与兼容测试节点）一次性恢复自动选核，节点参数、流量与链式引用不变；之后可重新手动选择核心。
-证书策略独立保存：旧 sing-box 节点保留自定义信任证书及域名、有效期校验；旧 mihomo 和兼容测试节点保留首张 PEM 固定。新节点默认固定，显式证书指纹优先。
-信任策略通过 `sn://anytls-v2?` 分享，旧客户端会拒绝此类链接。订阅刷新优先保留用户手动修改的策略。旧 mihomo 节点带有本地 SOCKS 出站覆写时，自动选核会选择 mihomo。旧 sing-box 节点的自定义出站 JSON 继续由原生 `anytls` 解释，可导出通用配置。使用 `neko-anytls` 扩展的节点会拒绝通用配置导出，固定策略也可选择 mihomo 后导出。
+AnyTLS 使用内置兼容实现，支持整证书固定、独立证书信任策略、uTLS 和 ECH。
+移除 mihomo 后，升级会把旧的手动 mihomo AnyTLS 节点恢复为自动选核，节点参数、证书策略、流量与链式引用不变；仍作用于旧本地 SOCKS 跳的自定义覆写会明确报错，需删除或改写。
+信任策略通过 `sn://anytls-v2?` 分享，旧客户端会拒绝此类链接。订阅刷新优先保留用户手动修改的策略。旧 sing-box 节点的自定义出站 JSON 继续由原生 `anytls` 解释，可导出通用配置；使用 `neko-anytls` 扩展的节点仍拒绝通用配置导出。
 详见 [AnyTLS 支持说明](libcore/anytlscompat/README.md)。
 
-Ordinary AnyTLS profiles can now select sing-box's built-in compatibility implementation, with whole-certificate pinning,
-uTLS and ECH. Automatic selection prefers sing-box; mihomo remains selectable. Upgrading resets every existing AnyTLS profile, including manual core
-choices and former test profiles, to automatic selection once, preserving profile parameters, traffic and chain references.
-Manual core selection remains available afterwards. Certificate policy is stored independently: former sing-box profiles retain
-custom trust certificates with hostname and validity checks; former mihomo and test profiles retain first-PEM pinning.
-New profiles default to pinning, and explicit fingerprints take priority. Profiles with trust certificates cannot silently switch
-to mihomo pinning. Trust-policy links use `sn://anytls-v2?`, which older clients reject. Subscription updates preserve manual policy edits. Automatic selection uses mihomo when a migrated override targets its local SOCKS hop. Existing sing-box profiles with native outbound JSON overrides use
-the native `anytls` outbound and can export their configuration. Profiles using the `neko-anytls` extension reject portable
-export. Pinning profiles can also select mihomo for export. See the [support notes](libcore/anytlscompat/README.md).
+AnyTLS uses the built-in compatibility implementation, including whole-certificate pinning, independent certificate trust policies,
+uTLS and ECH. After mihomo's removal, upgrading resets former manually selected mihomo AnyTLS profiles to automatic selection while
+preserving parameters, certificate policy, traffic and chain references. Custom overrides that still target its old local SOCKS hop
+are rejected until removed or rewritten. Trust-policy links use `sn://anytls-v2?`, which older clients reject. Subscription updates
+preserve manual policy edits. Existing sing-box profiles with native outbound JSON overrides use the native `anytls` outbound and can
+export their configuration. Profiles using the `neko-anytls` extension reject portable export. See the
+[support notes](libcore/anytlscompat/README.md).
 
 ## 支持的订阅格式 / Supported Subscription Format
 
@@ -83,7 +79,7 @@ Only resolving outbound, i.e. nodes, is supported. Information such as diversion
 ```bash
 ./run lib core      # 构建 libcore.aar / build libcore.aar
 ./run lib assets    # 下载 geo 数据库 / download geo databases
-./run lib plugins   # 下载 Xray / mihomo 核心 / download Xray / mihomo cores
+./run lib plugins   # 下载 Xray 核心 / download the Xray core
 ./gradlew app:assembleOssRelease
 ```
 

@@ -2,11 +2,11 @@
   "status": "error",
   "error": {
     "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
-    "message": "golden-anytls-bad-pin: Invalid AnyTLS certificate fingerprint: expected a SHA-256 digest of 64 hex characters (colons allowed)",
+    "message": "golden-anytls-bad-pin: sing-box rejected the outbound options: certificate is not a valid PEM certificate",
     "causes": [
       {
-        "class": "java.lang.IllegalArgumentException",
-        "message": "Invalid AnyTLS certificate fingerprint: expected a SHA-256 digest of 64 hex characters (colons allowed)"
+        "class": "io.nekohasekai.sagernet.fmt.SingBoxTrialException",
+        "message": "sing-box rejected the outbound options: certificate is not a valid PEM certificate"
       }
     ]
   },

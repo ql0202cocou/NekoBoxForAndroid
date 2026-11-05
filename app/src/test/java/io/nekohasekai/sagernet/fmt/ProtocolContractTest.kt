@@ -90,7 +90,7 @@ class ProtocolContractTest {
         ProxyEntity.TYPE_WG to Expect(true, Share.UNIVERSAL, false, singBox = true, external = false),
         ProxyEntity.TYPE_TUIC to Expect(true, Share.DEDICATED, true, singBox = true, external = false),
         ProxyEntity.TYPE_SHADOWTLS to Expect(true, Share.UNIVERSAL, false, singBox = true, external = false),
-        ProxyEntity.TYPE_ANYTLS to Expect(true, Share.DEDICATED, true, singBox = true, external = true),
+        ProxyEntity.TYPE_ANYTLS to Expect(true, Share.DEDICATED, true, singBox = true, external = false),
         // 链：不分享（haveLink 为 false）；成员由规划展开，自己没有出站；没有通用链接类型，toUniversalLink 对它无意义
         ProxyEntity.TYPE_CHAIN to Expect(
             false, Share.NONE, true, singBox = false, external = false, universalType = false,

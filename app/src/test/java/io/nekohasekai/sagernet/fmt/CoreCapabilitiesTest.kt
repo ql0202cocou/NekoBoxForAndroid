@@ -30,7 +30,6 @@ class CoreCapabilitiesTest {
     @Test
     fun `声明的核心版本等于仓库固定的版本`() {
         assertEquals(pinnedInPluginsSh("XRAY_VERSION"), DialCore.XRAY.version)
-        assertEquals(pinnedInPluginsSh("MIHOMO_VERSION"), DialCore.MIHOMO.version)
         // vendored sing-box 的版本声明形如 1.14.4-neko-1，能力表只记上游版本
         val goVersion = Regex("""var Version = "([^"]+)"""")
             .find(repoFile("libcore/sing-box/constant/version.go").readText())!!.groupValues[1]
@@ -59,7 +58,6 @@ class CoreCapabilitiesTest {
         }
         assertEquals("v" + DialCore.SING_BOX.version, readmeVersion("sing-box"))
         assertEquals(DialCore.XRAY.version, readmeVersion("Xray-core"))
-        assertEquals(DialCore.MIHOMO.version, readmeVersion("mihomo"))
     }
 
     @Test
@@ -90,7 +88,7 @@ class CoreCapabilitiesTest {
     // ---- 表的结构
 
     @Test
-    fun `每一行给三个核心各一格`() {
+    fun `每一行给两个核心各一格`() {
         assertEquals(Requirement.entries.toSet(), CAPABILITY_TABLE.keys)
         for ((requirement, cells) in CAPABILITY_TABLE) {
             assertEquals("$requirement", DialCore.entries.toSet(), cells.keys)
@@ -112,20 +110,18 @@ class CoreCapabilitiesTest {
         for (rule in COMBINATION_RULES) assertEquals(rule.description, rule.core, rule.conflict.core)
     }
 
-    // 协议行已报冲突的核心，其余行写 NotApplicable：只有 mihomo 有（它只承载 AnyTLS），sing-box 与 Xray 每行都有声明
+    // Xray 不承载 AnyTLS：协议行已报冲突的格子写 NotApplicable，sing-box 每行都有声明
     @Test
     fun `NotApplicable 只出现在承载不了协议的核心上`() {
-        val anyTlsRows = setOf(
-            Requirement.SECURITY_TLS, Requirement.CERTIFICATE_PIN, Requirement.CUSTOM_CA, Requirement.ANYTLS_PIN, Requirement.ANYTLS_LOCAL_SOCKS_OVERRIDE, Requirement.ANYTLS_UTLS, Requirement.ANYTLS_TRUST, Requirement.ANYTLS_CERTIFICATE_POLICY_INVALID,
-            Requirement.ALLOW_INSECURE, Requirement.UTLS_FINGERPRINT, Requirement.ECH_INLINE, Requirement.ECH_AUTO_QUERY,
+        val anyTlsOnlyRows = setOf(
+            Requirement.ANYTLS_PIN, Requirement.ANYTLS_LOCAL_SOCKS_OVERRIDE, Requirement.ANYTLS_UTLS,
+            Requirement.ANYTLS_TRUST, Requirement.ANYTLS_CERTIFICATE_POLICY_INVALID,
         )
         for ((requirement, cells) in CAPABILITY_TABLE) {
             assertFalse("$requirement × sing-box", cells.getValue(DialCore.SING_BOX) == CapabilityCell.NotApplicable)
-            assertEquals("$requirement × Xray", requirement in setOf(Requirement.ANYTLS_PIN, Requirement.ANYTLS_LOCAL_SOCKS_OVERRIDE, Requirement.ANYTLS_UTLS, Requirement.ANYTLS_TRUST, Requirement.ANYTLS_CERTIFICATE_POLICY_INVALID),
-                cells.getValue(DialCore.XRAY) == CapabilityCell.NotApplicable)
             assertEquals(
-                "$requirement × mihomo", !requirement.isProtocol && requirement !in anyTlsRows,
-                cells.getValue(DialCore.MIHOMO) == CapabilityCell.NotApplicable,
+                "$requirement × Xray", requirement in anyTlsOnlyRows,
+                cells.getValue(DialCore.XRAY) == CapabilityCell.NotApplicable,
             )
         }
     }
@@ -191,10 +187,9 @@ class CoreCapabilitiesTest {
         return Regex("""<item>(.*?)</item>|<item\s*/>""").findAll(body).map { it.groupValues[1] }.toList()
     }
 
-    // 编辑器下拉框里能选到的 uTLS 指纹（空表示不用）：sing-box 与 Xray 都认；mihomo 除 randomized 外都认，randomized
-    // 在 mihomo 上握手时常失败，是冲突（K1b 待决定项 D）
+    // 编辑器下拉框里能选到的 uTLS 指纹（空表示不用）：sing-box 与 Xray 都认
     @Test
-    fun `编辑器下拉框的 uTLS 指纹 sing-box 与 Xray 都认，mihomo 只拒绝 randomized`() {
+    fun `编辑器下拉框的 uTLS 指纹 sing-box 与 Xray 都认`() {
         val entries = stringArray("utls_fingerprint_entry")
         assertEquals(
             listOf("", "chrome", "firefox", "edge", "safari", "360", "qq", "ios", "android", "random", "randomized"),
@@ -203,8 +198,6 @@ class CoreCapabilitiesTest {
         for (name in entries.filter { it.isNotEmpty() }) {
             assertTrue(name, SING_BOX_UTLS_FINGERPRINTS.accepts(name))
             assertTrue(name, XRAY_UTLS_FINGERPRINTS.accepts(name))
-            assertEquals(name, name != "randomized", MIHOMO_UTLS_FINGERPRINTS.accepts(name))
-            assertEquals(name, name == "randomized", MIHOMO_UTLS_FINGERPRINTS_BROKEN.accepts(name))
         }
     }
 
@@ -229,29 +222,12 @@ class CoreCapabilitiesTest {
 
     @Test
     fun `名单之间的已知差别`() {
-        // 只有 Xray 认的
         for (name in listOf("randomizednoalpn", "hellochrome_131", "unsafe", "Chrome", "FIREFOX")) {
             assertTrue(name, XRAY_UTLS_FINGERPRINTS.accepts(name))
             assertFalse(name, SING_BOX_UTLS_FINGERPRINTS.accepts(name))
-            assertFalse(name, MIHOMO_UTLS_FINGERPRINTS.accepts(name))
         }
-        // 只有 mihomo 认的（none 表示 Go 标准 TLS）
-        for (name in listOf("chrome120", "firefox120", "safari16", "none")) {
-            assertTrue(name, MIHOMO_UTLS_FINGERPRINTS.accepts(name))
-            assertFalse(name, SING_BOX_UTLS_FINGERPRINTS.accepts(name))
-            assertFalse(name, XRAY_UTLS_FINGERPRINTS.accepts(name))
-        }
-        // sing-box 与 mihomo 认、Xray 不认的
         for (name in listOf("chrome_pq", "chrome_psk_shuffle")) {
             assertTrue(name, SING_BOX_UTLS_FINGERPRINTS.accepts(name))
-            assertTrue(name, MIHOMO_UTLS_FINGERPRINTS.accepts(name))
-            assertFalse(name, XRAY_UTLS_FINGERPRINTS.accepts(name))
-        }
-        // sing-box 认；mihomo 认识但握手必败，记在单独的名单里（K1b M1 L2-MF-*）；Xray 不认
-        for (name in listOf("chrome_psk", "chrome_pq_psk", "chrome_padding_psk_shuffle")) {
-            assertTrue(name, SING_BOX_UTLS_FINGERPRINTS.accepts(name))
-            assertFalse(name, MIHOMO_UTLS_FINGERPRINTS.accepts(name))
-            assertTrue(name, MIHOMO_UTLS_FINGERPRINTS_BROKEN.accepts(name))
             assertFalse(name, XRAY_UTLS_FINGERPRINTS.accepts(name))
         }
         assertFalse(SING_BOX_VLESS_FLOWS.accepts("xtls-rprx-vision-udp443"))
@@ -260,38 +236,23 @@ class CoreCapabilitiesTest {
         assertFalse(XRAY_WS_EARLY_DATA_HEADERS.accepts("X-Early-Data"))
     }
 
-    // K1b 待决定项 D：mihomo 认识、但握手必败的 4 个名字是单独的冲突，先于「名单外」命中；sing-box 照常接受
     @Test
-    fun `mihomo 握手必败的指纹与内部 AnyTLS 各自明确拒绝`() {
+    fun `内部 AnyTLS 明确拒绝未支持的指纹`() {
         val broken = listOf("chrome_psk", "chrome_pq_psk", "chrome_padding_psk_shuffle", "randomized")
-        assertEquals(broken.toSet(), MIHOMO_UTLS_FINGERPRINTS_BROKEN.names)
-        assertFalse(MIHOMO_UTLS_FINGERPRINTS_BROKEN.ignoreCase)
-        // 与能完成握手的名单不相交，合起来正是 mihomo 认识的 19 个名字（K1b M1 §3.3）
-        assertEquals(emptySet<String>(), MIHOMO_UTLS_FINGERPRINTS.names intersect MIHOMO_UTLS_FINGERPRINTS_BROKEN.names)
-        assertEquals(19, (MIHOMO_UTLS_FINGERPRINTS.names + MIHOMO_UTLS_FINGERPRINTS_BROKEN.names).size)
-        val cell = CAPABILITY_TABLE.getValue(Requirement.UTLS_FINGERPRINT).getValue(DialCore.MIHOMO)
+        assertEquals(broken.toSet(), ANYTLS_COMPAT_UTLS_FINGERPRINTS_BROKEN.names)
+        assertFalse(ANYTLS_COMPAT_UTLS_FINGERPRINTS_BROKEN.ignoreCase)
+        val cell = CAPABILITY_TABLE.getValue(Requirement.ANYTLS_UTLS).getValue(DialCore.SING_BOX)
             as CapabilityCell.SupportedValues
-        assertEquals(CoreConflict.MIHOMO_UTLS_HANDSHAKE_FAILS, cell.rejected?.conflict)
-        assertTrue(cell.rejected?.names === MIHOMO_UTLS_FINGERPRINTS_BROKEN)
+        assertTrue(cell.rejected?.names === ANYTLS_COMPAT_UTLS_FINGERPRINTS_BROKEN)
         for (name in broken) {
             val requirements = coreRequirements(
-                ProxyEntity.TYPE_ANYTLS,
-                CoreTestNodes.anytls { utlsFingerprint = name }, false,
+                ProxyEntity.TYPE_ANYTLS, CoreTestNodes.anytls { utlsFingerprint = name }, false,
             )
             assertEquals(
-                name, listOf(Conflict(DialCore.MIHOMO, CoreConflict.MIHOMO_UTLS_HANDSHAKE_FAILS, name)),
-                coreConflicts(DialCore.MIHOMO, requirements),
+                name, listOf(Conflict(DialCore.SING_BOX, CoreConflict.SING_BOX_ANYTLS_UTLS, name)),
+                coreConflicts(DialCore.SING_BOX, requirements),
             )
-            assertEquals(name, listOf(Conflict(DialCore.SING_BOX, CoreConflict.SING_BOX_ANYTLS_UTLS, name)), coreConflicts(DialCore.SING_BOX, requirements))
         }
-        // 大小写不同的写法 mihomo 不认识，仍是原来的「名单外」冲突
-        val upper = coreRequirements(
-            ProxyEntity.TYPE_ANYTLS, CoreTestNodes.anytls { utlsFingerprint = "Randomized" }, false,
-        )
-        assertEquals(
-            listOf(Conflict(DialCore.MIHOMO, CoreConflict.MIHOMO_UTLS_FINGERPRINT, CONFLICT_VALUE_NOT_SHOWN)),
-            coreConflicts(DialCore.MIHOMO, upper),
-        )
     }
 
     // ---- 字段
@@ -329,8 +290,6 @@ class CoreCapabilitiesTest {
                 KnownDifference.VISION_MUX to DifferenceDecision.DECIDED,
                 KnownDifference.CERTIFICATES_TRUST to DifferenceDecision.DECIDED,
                 KnownDifference.CUSTOM_OUTBOUND_JSON_EXTERNAL to DifferenceDecision.DECIDED,
-                KnownDifference.ANYTLS_CERTIFICATES to DifferenceDecision.DECIDED,
-                KnownDifference.ECH_AUTO_QUERY_RESOLVER to DifferenceDecision.OPEN,
                 KnownDifference.WS_EARLY_DATA_SIZE to DifferenceDecision.BY_PRINCIPLE,
                 KnownDifference.VMESS_ALTER_ID to DifferenceDecision.OPEN,
                 KnownDifference.HTTP_HEADER_CAMOUFLAGE to DifferenceDecision.OPEN,
@@ -377,12 +336,11 @@ class CoreCapabilitiesTest {
         val md = StringBuilder()
         md.appendLine("## 能力表")
         md.appendLine()
-        md.appendLine("| 要求 | sing-box ${DialCore.SING_BOX.version} | Xray ${DialCore.XRAY.version} | mihomo ${DialCore.MIHOMO.version} |")
-        md.appendLine("| --- | --- | --- | --- |")
+        md.appendLine("| 要求 | sing-box ${DialCore.SING_BOX.version} | Xray ${DialCore.XRAY.version} |")
+        md.appendLine("| --- | --- | --- |")
         for ((requirement, cells) in CAPABILITY_TABLE) {
             md.appendLine(
-                "| ${requirement.label} | ${cell(cells.getValue(DialCore.SING_BOX))} | ${cell(cells.getValue(DialCore.XRAY))} | " +
-                    "${cell(cells.getValue(DialCore.MIHOMO))} |",
+                "| ${requirement.label} | ${cell(cells.getValue(DialCore.SING_BOX))} | ${cell(cells.getValue(DialCore.XRAY))} |",
             )
         }
         md.appendLine()

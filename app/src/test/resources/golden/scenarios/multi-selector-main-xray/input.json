@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "multi-selector-main-xray",
-  "description": "选择器：多个 Xray 与 mihomo 成员，选中 Xray 成员",
+  "description": "选择器：多个 Xray 与 AnyTLS 成员，选中 Xray 成员",
   "mainProfileId": 2,
   "settings": [
     {
@@ -214,7 +214,7 @@
       "ping": 0,
       "uuid": "",
       "error": null,
-      "core": 3,
+      "core": 0,
       "beanColumn": "anyTLSBean",
       "beanClass": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
       "beanKryoBase64": "BQAAAG1paG9tby0xLmV4YW1wbGUuY2/t/CAAAGdvbGRlbi1wYXNzLWFueXRs821paG9tby0xLmV4YW1wbGUub3LngYGBAIGBAAAAAAAAAAAAAAABAAAAZ29sZGVuLW11bHRpLW1paG9tby2xgYE="
@@ -230,7 +230,7 @@
       "ping": 0,
       "uuid": "",
       "error": null,
-      "core": 3,
+      "core": 0,
       "beanColumn": "anyTLSBean",
       "beanClass": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
       "beanKryoBase64": "BQAAAG1paG9tby0yLmV4YW1wbGUuY2/t/SAAAGdvbGRlbi1wYXNzLWFueXRs821paG9tby0yLmV4YW1wbGUub3LngYGBAIGBAAAAAAAAAAAAAAABAAAAZ29sZGVuLW11bHRpLW1paG9tby2ygYE="
@@ -272,7 +272,6 @@
   "packageUids": {},
   "plugins": {
     "xray-plugin": "builtin",
-    "mihomo-plugin": "builtin",
     "trojan-go-plugin": "missing",
     "naive-plugin": "missing",
     "mieru-plugin": "missing",

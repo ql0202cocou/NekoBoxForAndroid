@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "mihomo-anytls-local-override",
-  "description": "旧 mihomo AnyTLS 恢复自动：TCP 限制继续作用于本地 SOCKS 跳",
+  "description": "旧 mihomo AnyTLS 恢复自动：旧本地 SOCKS 覆写应明确报错",
   "mainProfileId": 1,
   "settings": [
     {
@@ -176,7 +176,6 @@
   "packageUids": {},
   "plugins": {
     "xray-plugin": "builtin",
-    "mihomo-plugin": "builtin",
     "trojan-go-plugin": "missing",
     "naive-plugin": "missing",
     "mieru-plugin": "missing",

@@ -34,64 +34,42 @@
   },
   "external": [
     {
-      "file": "ext-0.mihomo-plugin.yaml",
-      "pluginId": "mihomo-plugin",
+      "file": "ext-0.xray-plugin.json",
+      "pluginId": "xray-plugin",
       "controller": null,
       "tempFiles": [],
       "hops": [
         {
           "index": 0,
           "chainIndex": 0,
-          "profileId": 7,
-          "port": 45707,
+          "profileId": 6,
+          "port": 41847,
           "finalAddress": "127.0.0.1",
-          "finalPort": 36589,
+          "finalPort": 39359,
           "inboundTag": "in-0",
           "outboundTag": "out-0",
           "localAuth": {
-            "username": "ue2f18dbc79c62675",
-            "password": "p65b11cd20ae3950f4f5701cd5490a34c"
+            "username": "u91eca06c3f2610c9",
+            "password": "pa6a88615f683fb731a3af599ebdf0346"
           }
         }
       ]
     },
     {
-      "file": "ext-1.xray-plugin.json",
-      "pluginId": "xray-plugin",
+      "file": "ext-1.hysteria-plugin.json",
+      "pluginId": "hysteria-plugin",
       "controller": null,
-      "tempFiles": [],
+      "tempFiles": [
+        "/data/user/0/moe.nb4a.debug/cache/hysteria_8542656443513032916.ca"
+      ],
       "hops": [
         {
           "index": 1,
           "chainIndex": 0,
-          "profileId": 6,
-          "port": 45677,
-          "finalAddress": "127.0.0.1",
-          "finalPort": 38957,
-          "inboundTag": "in-1",
-          "outboundTag": "out-1",
-          "localAuth": {
-            "username": "ue2f18dbc79c62675",
-            "password": "p65b11cd20ae3950f4f5701cd5490a34c"
-          }
-        }
-      ]
-    },
-    {
-      "file": "ext-2.hysteria-plugin.json",
-      "pluginId": "hysteria-plugin",
-      "controller": null,
-      "tempFiles": [
-        "/data/user/0/moe.nb4a.debug/cache/hysteria_1178564026386077995.ca"
-      ],
-      "hops": [
-        {
-          "index": 2,
-          "chainIndex": 0,
           "profileId": 5,
-          "port": 41497,
+          "port": 40565,
           "finalAddress": "127.0.0.1",
-          "finalPort": 41959,
+          "finalPort": 44935,
           "inboundTag": null,
           "outboundTag": null,
           "localAuth": null
@@ -99,18 +77,37 @@
       ]
     },
     {
-      "file": "ext-3.mieru-plugin.json",
+      "file": "ext-2.mieru-plugin.json",
       "pluginId": "mieru-plugin",
+      "controller": null,
+      "tempFiles": [],
+      "hops": [
+        {
+          "index": 2,
+          "chainIndex": 0,
+          "profileId": 4,
+          "port": 41063,
+          "finalAddress": "127.0.0.1",
+          "finalPort": 42499,
+          "inboundTag": null,
+          "outboundTag": null,
+          "localAuth": null
+        }
+      ]
+    },
+    {
+      "file": "ext-3.naive-plugin.json",
+      "pluginId": "naive-plugin",
       "controller": null,
       "tempFiles": [],
       "hops": [
         {
           "index": 3,
           "chainIndex": 0,
-          "profileId": 4,
-          "port": 42463,
+          "profileId": 3,
+          "port": 46365,
           "finalAddress": "127.0.0.1",
-          "finalPort": 33277,
+          "finalPort": 42725,
           "inboundTag": null,
           "outboundTag": null,
           "localAuth": null
@@ -118,37 +115,18 @@
       ]
     },
     {
-      "file": "ext-4.naive-plugin.json",
-      "pluginId": "naive-plugin",
+      "file": "ext-4.trojan-go-plugin.json",
+      "pluginId": "trojan-go-plugin",
       "controller": null,
       "tempFiles": [],
       "hops": [
         {
           "index": 4,
           "chainIndex": 0,
-          "profileId": 3,
-          "port": 40179,
-          "finalAddress": "127.0.0.1",
-          "finalPort": 42245,
-          "inboundTag": null,
-          "outboundTag": null,
-          "localAuth": null
-        }
-      ]
-    },
-    {
-      "file": "ext-5.trojan-go-plugin.json",
-      "pluginId": "trojan-go-plugin",
-      "controller": null,
-      "tempFiles": [],
-      "hops": [
-        {
-          "index": 5,
-          "chainIndex": 0,
           "profileId": 2,
-          "port": 33383,
+          "port": 46769,
           "finalAddress": "127.0.0.1",
-          "finalPort": 36657,
+          "finalPort": 34289,
           "inboundTag": null,
           "outboundTag": null,
           "localAuth": null
@@ -158,25 +136,23 @@
   ],
   "dynamic": {
     "ports": [
-      45707,
-      45677,
-      41497,
-      42463,
-      40179,
-      33383,
-      36589,
-      38957,
-      41959,
-      33277,
-      42245,
-      36657
+      41847,
+      40565,
+      41063,
+      46365,
+      46769,
+      39359,
+      44935,
+      42499,
+      42725,
+      34289
     ],
     "paths": [
-      "/data/user/0/moe.nb4a.debug/cache/hysteria_1178564026386077995.ca"
+      "/data/user/0/moe.nb4a.debug/cache/hysteria_8542656443513032916.ca"
     ],
     "secrets": [
-      "ue2f18dbc79c62675",
-      "p65b11cd20ae3950f4f5701cd5490a34c"
+      "u91eca06c3f2610c9",
+      "pa6a88615f683fb731a3af599ebdf0346"
     ]
   }
 }

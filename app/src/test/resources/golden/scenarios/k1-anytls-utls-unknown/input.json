@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "k1-anytls-utls-unknown",
-  "description": "对照表 3：AnyTLS 的 uTLS 指纹 sing-box 与 mihomo 都不认（netscape）：应报错",
+  "description": "AnyTLS 的 uTLS 指纹不在兼容实现名单里（netscape）：应报错",
   "mainProfileId": 1,
   "settings": [
     {
@@ -176,7 +176,6 @@
   "packageUids": {},
   "plugins": {
     "xray-plugin": "builtin",
-    "mihomo-plugin": "builtin",
     "trojan-go-plugin": "missing",
     "naive-plugin": "missing",
     "mieru-plugin": "missing",

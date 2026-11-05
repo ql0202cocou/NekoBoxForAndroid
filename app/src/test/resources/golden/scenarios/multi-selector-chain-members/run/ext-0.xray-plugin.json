@@ -1,0 +1,172 @@
+{
+  "log": {
+    "loglevel": "warning",
+    "access": "none"
+  },
+  "inbounds": [
+    {
+      "tag": "in-0",
+      "listen": "127.0.0.1",
+      "port": 34729,
+      "protocol": "socks",
+      "settings": {
+        "auth": "password",
+        "accounts": [
+          {
+            "user": "ubbbe11757e5a67d5",
+            "pass": "p6ac9c2f560180b69652d8a8cc4febc64"
+          }
+        ],
+        "udp": true
+      }
+    },
+    {
+      "tag": "in-1",
+      "listen": "127.0.0.1",
+      "port": 40971,
+      "protocol": "socks",
+      "settings": {
+        "auth": "password",
+        "accounts": [
+          {
+            "user": "ubbbe11757e5a67d5",
+            "pass": "p6ac9c2f560180b69652d8a8cc4febc64"
+          }
+        ],
+        "udp": true
+      }
+    },
+    {
+      "tag": "in-2",
+      "listen": "127.0.0.1",
+      "port": 36651,
+      "protocol": "socks",
+      "settings": {
+        "auth": "password",
+        "accounts": [
+          {
+            "user": "ubbbe11757e5a67d5",
+            "pass": "p6ac9c2f560180b69652d8a8cc4febc64"
+          }
+        ],
+        "udp": true
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "block",
+      "protocol": "blackhole"
+    },
+    {
+      "tag": "out-0",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "127.0.0.1",
+            "port": 34815,
+            "users": [
+              {
+                "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "reality-1.example.org",
+          "publicKey": "Z29sZGVuLXJlYWxpdHktcHVibGljLWtleS0wMDAwMDE",
+          "shortId": "0a1b2c3d4e5f6a7b",
+          "fingerprint": "chrome"
+        }
+      }
+    },
+    {
+      "tag": "out-1",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "127.0.0.1",
+            "port": 46829,
+            "users": [
+              {
+                "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "reality-2.example.org",
+          "publicKey": "Z29sZGVuLXJlYWxpdHktcHVibGljLWtleS0wMDAwMDE",
+          "shortId": "0a1b2c3d4e5f6a7b",
+          "fingerprint": "chrome"
+        }
+      }
+    },
+    {
+      "tag": "out-2",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "127.0.0.1",
+            "port": 39127,
+            "users": [
+              {
+                "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "reality-2.example.org",
+          "publicKey": "Z29sZGVuLXJlYWxpdHktcHVibGljLWtleS0wMDAwMDE",
+          "shortId": "0a1b2c3d4e5f6a7b",
+          "fingerprint": "chrome"
+        }
+      }
+    }
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": [
+          "in-0"
+        ],
+        "outboundTag": "out-0"
+      },
+      {
+        "type": "field",
+        "inboundTag": [
+          "in-1"
+        ],
+        "outboundTag": "out-1"
+      },
+      {
+        "type": "field",
+        "inboundTag": [
+          "in-2"
+        ],
+        "outboundTag": "out-2"
+      }
+    ]
+  }
+}

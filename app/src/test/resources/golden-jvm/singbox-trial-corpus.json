@@ -337,6 +337,90 @@
       },
       "category": "WG_PRIVATE_KEY",
       "note": "主节点的 WireGuard 私钥只有 31 字节，试建补查"
+    },
+    {
+      "scenario": "mihomo-anytls-bad-certificate",
+      "server": "anytls.example.com",
+      "kind": "outbound",
+      "json": {
+        "server": "anytls.example.com",
+        "server_port": 8443,
+        "tls": {
+          "enabled": true,
+          "insecure": false,
+          "certificate": "-----BEGIN CERTIFICATE-----\ngolden-not-a-cert\n-----END CERTIFICATE-----"
+        },
+        "password": "golden-pass-anytls",
+        "type": "neko-anytls",
+        "tag": "neko-trial"
+      },
+      "category": "TLS_CERTIFICATE",
+      "note": "旧 mihomo 节点迁到内部 AnyTLS 后，PEM 外壳里的内容不是 DER 证书，兼容实现应在试建时拒绝"
+    },
+    {
+      "scenario": "mihomo-anytls-certpin-invalid",
+      "server": "anytls.example.com",
+      "kind": "outbound",
+      "json": {
+        "server": "anytls.example.com",
+        "server_port": 8443,
+        "tls": {
+          "certificate_fingerprint": "abababababababababababababababababababababababababababababababc",
+          "enabled": true,
+          "insecure": false
+        },
+        "password": "golden-pass-anytls",
+        "type": "neko-anytls",
+        "tag": "neko-trial"
+      },
+      "category": "TLS_CERTIFICATE",
+      "note": "旧 mihomo 节点的显式证书固定只有 63 位十六进制字符，兼容实现应在试建时拒绝"
+    },
+    {
+      "scenario": "mihomo-anytls-ech-config",
+      "server": "anytls.example.com",
+      "kind": "outbound",
+      "json": {
+        "server": "anytls.example.com",
+        "server_port": 8443,
+        "tls": {
+          "enabled": true,
+          "insecure": false,
+          "ech": {
+            "enabled": true,
+            "config": [
+              "-----BEGIN ECH CONFIGS-----",
+              "Z29sZGVuLWVjaC1jb25maWctbGlzdC1maXh0dXJlLWJ5dGVzLWZvci10ZXN0cy1v",
+              "bmx5",
+              "-----END ECH CONFIGS-----"
+            ]
+          }
+        },
+        "password": "golden-pass-anytls",
+        "type": "neko-anytls",
+        "tag": "neko-trial"
+      },
+      "category": "TLS_ECH_CONFIG",
+      "note": "旧 mihomo 节点的 ECH 配置不是合法的 ECHConfigList，兼容实现应在试建时拒绝"
+    },
+    {
+      "scenario": "selector-bad-members",
+      "server": "anytls.example.com",
+      "kind": "outbound",
+      "json": {
+        "server": "anytls.example.com",
+        "server_port": 8443,
+        "tls": {
+          "enabled": true,
+          "insecure": false,
+          "certificate": "golden-not-a-cert"
+        },
+        "password": "golden-pass-anytls",
+        "type": "neko-anytls",
+        "tag": "neko-trial"
+      },
+      "category": "TLS_CERTIFICATE",
+      "note": "选择器成员 8 迁到内部 AnyTLS 后，坏 PEM 在真实试建时失败，运行模式跳过该成员"
     }
   ]
 }

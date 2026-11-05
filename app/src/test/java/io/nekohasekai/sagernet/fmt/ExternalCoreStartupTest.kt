@@ -2,7 +2,6 @@ package io.nekohasekai.sagernet.fmt
 
 import io.nekohasekai.sagernet.fmt.naive.NaiveBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
-import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -11,8 +10,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 // 启动前校验的报错解析、结论与就绪等待的报错文案。报错样例取自模拟器上内置的
-// Xray v26.3.27（run -test）与 mihomo v1.19.31 / v1.19.32（-t）对坏配置的真实输出。升级后的格式与这些样例逐字相同
-// （Xray v26.9.30 见 K1b X2 §4.1，mihomo v1.19.32 见 K1b M1 §3.6）
+// Xray v26.3.27（run -test）对坏配置的真实输出。升级后的格式与这些样例逐字相同（v26.9.30 见 K1b X2 §4.1）
 class ExternalCoreStartupTest {
 
     private fun vless(name: String) = VMessBean().apply {
@@ -21,14 +19,6 @@ class ExternalCoreStartupTest {
         serverPort = 443
         uuid = "00000000-0000-0000-0000-000000000001"
         alterId = -1
-        initializeDefaultValues()
-    }
-
-    private fun anytls(name: String) = AnyTLSBean().apply {
-        this.name = name
-        serverAddress = "$name.example.com"
-        serverPort = 8443
-        password = "fake-password"
         initializeDefaultValues()
     }
 
@@ -43,9 +33,7 @@ class ExternalCoreStartupTest {
     })
 
     private val xrayGroup = plan(vless("x0"), vless("x1"), vless("x2")).groups.single()
-    private val mihomoGroup = plan(anytls("m0"), anytls("m1"), anytls("m2")).groups.single()
     private val xray get() = xrayGroup.core.check!!
-    private val mihomo get() = mihomoGroup.core.check!!
 
     // ---- Xray 报错解析
 
@@ -108,7 +96,6 @@ class ExternalCoreStartupTest {
     fun `Xray 找不到 tag 的报错原文照给`() {
         val error = xrayCheckErrors(xraySyntax).single()
         assertNull(error.tag)
-        assertNull(error.position)
         assertTrue(error.reason, error.reason.startsWith("main: failed to load config files: [xray_1.json] > "))
         assertTrue(error.reason.endsWith("> unexpected EOF"))
     }
@@ -208,85 +195,6 @@ class ExternalCoreStartupTest {
         assertTrue(xrayCheckErrors("").isEmpty())
     }
 
-    // ---- mihomo 报错解析
-
-    private fun mihomoOutput(vararg messages: String) = buildString {
-        appendLine("time=\"2026-10-05T03:12:23.727378664+08:00\" level=info msg=\"Start initial configuration in progress\"")
-        for (message in messages) appendLine("time=\"2026-10-05T03:12:23.727465748+08:00\" level=error msg=\"$message\"")
-        append("configuration file /data/user/0/moe.nb4a.debug/cache/tmpcfg/mihomo_1.yaml test failed")
-    }
-
-    @Test
-    fun `mihomo 按 0 起算的代理序号定位，原因去掉序号前缀`() {
-        mihomoCheckErrors(mihomoOutput("proxy 1: unsupport proxy type: anytlsx")).single().let {
-            assertEquals(1, it.position)
-            assertNull(it.tag)
-            assertEquals("unsupport proxy type: anytlsx", it.reason)
-        }
-        assertEquals(
-            "'' has unset fields: password",
-            mihomoCheckErrors(mihomoOutput("proxy 2: '' has unset fields: password")).single().reason,
-        )
-        assertEquals(
-            "base64 decode ech config string failed: illegal base64 data at input byte 0",
-            mihomoCheckErrors(
-                mihomoOutput("proxy 1: base64 decode ech config string failed: illegal base64 data at input byte 0")
-            ).single().reason,
-        )
-    }
-
-    @Test
-    fun `mihomo 消息里转义的引号还原`() {
-        val error = mihomoCheckErrors(
-            mihomoOutput("proxy 1: cannot parse 'port' as int: strconv.ParseInt: parsing \\\"abc\\\": invalid syntax")
-        ).single()
-        assertEquals("cannot parse 'port' as int: strconv.ParseInt: parsing \"abc\": invalid syntax", error.reason)
-    }
-
-    @Test
-    fun `mihomo 的 listener 序号同样定位，原因里留着 listener`() {
-        mihomoCheckErrors(mihomoOutput("listener 1: unsupport proxy type: sockz")).single().let {
-            assertEquals(1, it.position)
-            assertEquals("listener: unsupport proxy type: sockz", it.reason)
-        }
-        // v1.19.32 的真实输出（users 写成字符串，K1b M1 T2-E7）
-        mihomoCheckErrors(mihomoOutput("listener 0: 'users' is not a slice")).single().let {
-            assertEquals(0, it.position)
-            assertNull(it.tag)
-            assertEquals("listener: 'users' is not a slice", it.reason)
-        }
-    }
-
-    @Test
-    fun `mihomo 名字重复时按名字定位`() {
-        mihomoCheckErrors(mihomoOutput("proxy out-0 is the duplicate name")).single().let {
-            assertEquals("out-0", it.tag)
-            assertEquals("proxy out-0 is the duplicate name", it.reason)
-        }
-        assertEquals("in-2", mihomoCheckErrors(mihomoOutput("listener in-2 is the duplicate name")).single().tag)
-    }
-
-    @Test
-    fun `mihomo 对不回节点的报错原文照给`() {
-        val unbound = "rules[0] [MATCH,node-missing] error: proxy [node-missing] not found"
-        mihomoCheckErrors(mihomoOutput(unbound)).single().let {
-            assertNull(it.tag)
-            assertNull(it.position)
-            assertEquals(unbound, it.reason)
-        }
-        // dialer-proxy 的报错不带序号，名字也不在「is the duplicate name」的形式里（v1.19.32 的真实输出，K1b M1 T2-E5）
-        val dialerProxy = "proxy [out-1] dialer-proxy [nope] not found"
-        mihomoCheckErrors(mihomoOutput(dialerProxy)).single().let {
-            assertNull(it.tag)
-            assertNull(it.position)
-            assertEquals(dialerProxy, it.reason)
-        }
-        assertEquals(
-            "yaml: line 23: did not find expected key",
-            mihomoCheckErrors(mihomoOutput("yaml: line 23: did not find expected key")).single().reason,
-        )
-    }
-
     // ---- 结论与报错文案
 
     @Test
@@ -295,8 +203,8 @@ class ExternalCoreStartupTest {
         (xray.result(xrayGroup, null, "") as ExternalCheckResult.Inconclusive).let {
             assertEquals("Xray config check timed out", it.reason)
         }
-        (mihomo.result(mihomoGroup, 137, "") as ExternalCheckResult.Inconclusive).let {
-            assertEquals("mihomo config check was killed (exit code 137)", it.reason)
+        (xray.result(xrayGroup, 137, "") as ExternalCheckResult.Inconclusive).let {
+            assertEquals("Xray config check was killed (exit code 137)", it.reason)
         }
     }
 
@@ -326,17 +234,10 @@ class ExternalCoreStartupTest {
             xrayError.message,
         )
         assertTrue(xrayError.cause is ExternalCoreCheckException)
-
-        val mihomoError = failure(mihomo.result(mihomoGroup, 1, mihomoOutput("proxy 1: unsupport proxy type: anytlsx")))
-        assertEquals("m1: unsupport proxy type: anytlsx", mihomoError.message)
-        assertEquals(
-            "m0: proxy out-0 is the duplicate name",
-            failure(mihomo.result(mihomoGroup, 1, mihomoOutput("proxy out-0 is the duplicate name"))).message,
-        )
     }
 
     @Test
-    fun `组里没有的 tag 与越界的序号对不回节点，写明核心与原文`() {
+    fun `组里没有的 tag 对不回节点，写明核心与原文`() {
         // 标识只在本组里找：out-5 不在这一组
         val xrayError = failure(
             xray.result(
@@ -347,19 +248,10 @@ class ExternalCoreStartupTest {
         assertTrue(xrayError is ExternalCoreCheckException)
         assertEquals("Xray config check failed: existing tag found: out-5", xrayError.message)
         assertEquals(
-            "mihomo config check failed: unsupport proxy type: anytlsx",
-            failure(mihomo.result(mihomoGroup, 1, mihomoOutput("proxy 3: unsupport proxy type: anytlsx"))).message,
-        )
-        assertEquals(
             "Xray config check failed: main: failed to load config files: [xray_1.json] > infra/conf/serial: " +
                 "failed to decode config: &{Name:xray_1.json Format:json} > infra/conf/serial: failed to read config " +
                 "file > unexpected EOF",
             failure(xray.result(xrayGroup, 23, xraySyntax)).message,
-        )
-        val unbound = "rules[0] [MATCH,node-missing] error: proxy [node-missing] not found"
-        assertEquals(
-            "mihomo config check failed: $unbound",
-            failure(mihomo.result(mihomoGroup, 1, mihomoOutput(unbound))).message,
         )
     }
 
@@ -368,10 +260,6 @@ class ExternalCoreStartupTest {
         assertEquals(
             "Xray config check failed with exit code 23 and no output",
             failure(xray.result(xrayGroup, 23, "")).message,
-        )
-        assertEquals(
-            "mihomo config check failed with exit code 1 and no output",
-            failure(mihomo.result(mihomoGroup, 1, " \n\n")).message,
         )
         // 退出码异常（Go 的 panic 是 2）：不是约定的退出码，同样按没过处理
         val panic = """
@@ -386,10 +274,6 @@ class ExternalCoreStartupTest {
                 "/ goroutine 1 [running]: / main.main()",
             failure(xray.result(xrayGroup, 2, panic)).message,
         )
-        // 没有 level=error 行：取最后几行原文
-        val noErrorLine = failure(mihomo.result(mihomoGroup, 1, mihomoOutput())).message!!
-        assertTrue(noErrorLine, noErrorLine.startsWith("mihomo config check failed with exit code 1: time="))
-        assertTrue(noErrorLine.endsWith(" / configuration file /data/user/0/moe.nb4a.debug/cache/tmpcfg/mihomo_1.yaml test failed"))
         // 很长的输出只留末尾
         val long = failure(xray.result(xrayGroup, 23, "x".repeat(2000))).message!!
         assertTrue(long, long.startsWith("Xray config check failed with exit code 23: …"))
@@ -425,8 +309,8 @@ class ExternalCoreStartupTest {
     @Test
     fun `内置核心多个节点未就绪时列出节点名`() {
         assertEquals(
-            "local inbounds of 2 profiles not ready after 5000 ms: m0, m2",
-            externalReadyOutcome(readiness(mihomoGroup, true, ready = setOf(1)), 5000).failure!!.message,
+            "local inbounds of 2 profiles not ready after 5000 ms: x0, x2",
+            externalReadyOutcome(readiness(xrayGroup, true, ready = setOf(1)), 5000).failure!!.message,
         )
         val many = plan(*Array(8) { vless("n$it") }).groups.single()
         assertEquals(
@@ -448,9 +332,9 @@ class ExternalCoreStartupTest {
     fun `就绪等待的报错文案里没有凭据`() {
         val texts = listOf(
             externalReadyOutcome(readiness(xrayGroup, true, ready = setOf(0, 2), error = "unexpected SOCKS5 reply 05 ff"), 5000),
-            externalReadyOutcome(readiness(mihomoGroup, true), 5000),
+            externalReadyOutcome(readiness(xrayGroup, true), 5000),
             externalReadyOutcome(readiness(xrayGroup, true, exited = mapOf(0 to 23)), 5000),
-            externalReadyOutcome(readiness(mihomoGroup, false), 5000),
+            externalReadyOutcome(readiness(xrayGroup, false), 5000),
         ).flatMap { listOfNotNull(it.failure?.message) + it.warnings }
         assertTrue(texts.isNotEmpty())
         for (text in texts) {
@@ -460,12 +344,7 @@ class ExternalCoreStartupTest {
 
     @Test
     fun `插件核心未就绪或退出只警告`() {
-        val group = plan(NaiveBean().apply {
-            name = "nv"
-            serverAddress = "naive.example.com"
-            serverPort = 443
-            initializeDefaultValues()
-        }, anytls("m0")).groups
+        val group = plan(naive("nv"), naive("nw")).groups
         val results = listOf(
             HopReadiness(group[0].hops[0], false, false, null, "Connection refused"),
             HopReadiness(group[1].hops[0], false, false, 1, null),
@@ -475,7 +354,7 @@ class ExternalCoreStartupTest {
         assertEquals(
             listOf(
                 "naive-plugin: nv (127.0.0.1:21000) not ready after 5000 ms (Connection refused); starting anyway",
-                "mihomo-plugin exited with code 1 before m0 (127.0.0.1:21001) was ready; starting anyway",
+                "naive-plugin exited with code 1 before nw (127.0.0.1:21001) was ready; starting anyway",
             ),
             outcome.warnings,
         )
@@ -492,15 +371,13 @@ class ExternalCoreStartupTest {
 
     @Test
     fun `每个 strict 进程恰好查第一个跳实例，非 strict 的不查`() {
-        val processes = plan(vless("x0"), anytls("m0"), naive("nv"), vless("x1"), anytls("m1"), naive("nw"))
+        val processes = plan(vless("x0"), naive("nv"), vless("x1"), naive("nw"))
             .groups.map { ExternalCoreProcess(it, "") }
-        assertEquals(listOf("xray-plugin", "mihomo-plugin", "naive-plugin", "naive-plugin"), processes.map { it.group.pluginId })
-        // 内置的 Xray、mihomo 都是 strict
+        assertEquals(listOf("xray-plugin", "naive-plugin", "naive-plugin"), processes.map { it.group.pluginId })
         assertEquals(
-            listOf("x0", "m0"),
+            listOf("x0"),
             localAuthCheckHops(processes) { it.group.core.check != null }.map { it.bean.displayName() },
         )
-        // 外部插件 app 提供的 mihomo 不是 strict
         assertEquals(
             listOf("x0"),
             localAuthCheckHops(processes) { it.group.pluginId == "xray-plugin" }.map { it.bean.displayName() },
@@ -511,12 +388,7 @@ class ExternalCoreStartupTest {
 
     @Test
     fun `错误的密码被接受时失败，消息写明核心、不带节点名与凭据`() {
-        val outcome = externalAuthOutcome(
-            listOf(
-                xrayGroup.hops[0] to WrongPasswordReply.Accepted,
-                mihomoGroup.hops[0] to WrongPasswordReply.Rejected("05 02 01 01"),
-            )
-        )
+        val outcome = externalAuthOutcome(listOf(xrayGroup.hops[0] to WrongPasswordReply.Accepted))
         val failure = outcome.failure
         assertTrue("$failure", failure is ExternalCoreAuthException)
         val message = failure!!.message!!
@@ -527,32 +399,16 @@ class ExternalCoreStartupTest {
         )
         assertFalse(message, "x0" in message || auth.username in message || auth.password in message)
         assertTrue(outcome.warnings.isEmpty())
-        // 两个核心都被接受时都列出
-        assertEquals(
-            "Xray, mihomo: local inbound accepted a wrong password, so local SOCKS authentication is not in effect; " +
-                "refusing to start",
-            externalAuthOutcome(
-                listOf(xrayGroup.hops[0] to WrongPasswordReply.Accepted, mihomoGroup.hops[0] to WrongPasswordReply.Accepted)
-            ).failure!!.message,
-        )
     }
 
     @Test
     fun `明确拒绝即通过，其它情况只警告`() {
-        externalAuthOutcome(
-            listOf(
-                xrayGroup.hops[0] to WrongPasswordReply.Rejected("05 02 01 ff"),
-                mihomoGroup.hops[0] to WrongPasswordReply.Rejected("05 02 01 01"),
-            )
-        ).let {
+        externalAuthOutcome(listOf(xrayGroup.hops[0] to WrongPasswordReply.Rejected("05 02 01 ff"))).let {
             assertNull(it.failure)
             assertTrue(it.warnings.isEmpty())
         }
         val outcome = externalAuthOutcome(
-            listOf(
-                xrayGroup.hops[0] to WrongPasswordReply.Unclear("unexpected SOCKS5 reply 05 ff (connection closed)"),
-                mihomoGroup.hops[0] to WrongPasswordReply.Rejected("05 02 01 01"),
-            )
+            listOf(xrayGroup.hops[0] to WrongPasswordReply.Unclear("unexpected SOCKS5 reply 05 ff (connection closed)"))
         )
         assertNull(outcome.failure)
         assertEquals(
@@ -573,21 +429,18 @@ class ExternalCoreStartupTest {
         val creds = "user ${auth.username} password ${auth.password}"
         val outputs = listOf(
             // 对得回节点
-            xray to "Failed to start: main: failed to load config files: [xray_1.json] > infra/conf: failed to build " +
+            "Failed to start: main: failed to load config files: [xray_1.json] > infra/conf: failed to build " +
                 "inbound config with tag in-0 > infra/conf: invalid $creds",
-            mihomo to mihomoOutput("listener 1: bad users: $creds"),
             // 对不回节点
-            xray to "Failed to start: main: failed to load config files: [xray_1.json] > infra/conf/serial: $creds",
-            mihomo to mihomoOutput("yaml: $creds"),
+            "Failed to start: main: failed to load config files: [xray_1.json] > infra/conf/serial: $creds",
             // 认不出的输出，取最后几行
-            xray to "panic: $creds",
+            "panic: $creds",
         )
-        for ((check, output) in outputs) {
-            val group = if (check === xray) xrayGroup else mihomoGroup
+        for (output in outputs) {
             // 不遮蔽时凭据会进消息：这条用例确实覆盖了回显的情况
-            val raw = failure(check.result(group, if (check === xray) 23 else 1, output)).message!!
+            val raw = failure(xray.result(xrayGroup, 23, output)).message!!
             assertTrue(raw, auth.password in raw)
-            val message = failure(check.result(group, if (check === xray) 23 else 1, result.redactLocalAuth(output))).message!!
+            val message = failure(xray.result(xrayGroup, 23, result.redactLocalAuth(output))).message!!
             assertFalse(message, auth.username in message || auth.password in message)
             assertTrue(message, "***" in message)
         }

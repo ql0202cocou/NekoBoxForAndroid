@@ -7,14 +7,14 @@
     {
       "tag": "in-0",
       "listen": "127.0.0.1",
-      "port": 38899,
+      "port": 43965,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "u317e15f544828d32",
-            "pass": "p3a0aea9f4091a0344a2b2592e7287f91"
+            "user": "u952b0295de54579a",
+            "pass": "p7ae05b9bb3ca181991f48b20559cb756"
           }
         ],
         "udp": true
@@ -23,14 +23,14 @@
     {
       "tag": "in-1",
       "listen": "127.0.0.1",
-      "port": 39493,
+      "port": 42281,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "u317e15f544828d32",
-            "pass": "p3a0aea9f4091a0344a2b2592e7287f91"
+            "user": "u952b0295de54579a",
+            "pass": "p7ae05b9bb3ca181991f48b20559cb756"
           }
         ],
         "udp": true
@@ -39,14 +39,14 @@
     {
       "tag": "in-2",
       "listen": "127.0.0.1",
-      "port": 33913,
+      "port": 39651,
       "protocol": "socks",
       "settings": {
         "auth": "password",
         "accounts": [
           {
-            "user": "u317e15f544828d32",
-            "pass": "p3a0aea9f4091a0344a2b2592e7287f91"
+            "user": "u952b0295de54579a",
+            "pass": "p7ae05b9bb3ca181991f48b20559cb756"
           }
         ],
         "udp": true
@@ -65,7 +65,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 45559,
+            "port": 34537,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
@@ -93,7 +93,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 45277,
+            "port": 44387,
             "users": [
               {
                 "id": "6b1d2f3a-4c5e-4f7a-9b0c-1d2e3f4a5b6c",
@@ -121,7 +121,7 @@
         "vnext": [
           {
             "address": "127.0.0.1",
-            "port": 45787,
+            "port": 33263,
             "users": [
               {
                 "id": "5a0c1e2f-3b4d-4e6f-8a9b-0c1d2e3f4a5b",

@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "rules-to-node-mihomo",
-  "description": "规则目标是 mihomo 节点",
+  "description": "规则目标是 AnyTLS 节点",
   "mainProfileId": 1,
   "settings": [
     {
@@ -182,7 +182,7 @@
       "ping": 0,
       "uuid": "",
       "error": null,
-      "core": 3,
+      "core": 0,
       "beanColumn": "anyTLSBean",
       "beanClass": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
       "beanKryoBase64": "BQAAAGFueXRscy5leGFtcGxlLmNv7fsgAABnb2xkZW4tcGFzcy1hbnl0bPOBgYGBAIGBAAAAAAAAAAAAAAABAAAAZ29sZGVuLXJ0bS1hbnl0bPOBgQ=="
@@ -209,7 +209,6 @@
   "packageUids": {},
   "plugins": {
     "xray-plugin": "builtin",
-    "mihomo-plugin": "builtin",
     "trojan-go-plugin": "missing",
     "naive-plugin": "missing",
     "mieru-plugin": "missing",

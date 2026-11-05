@@ -47,7 +47,6 @@ class CoreSelectionChangeTableTest {
             is CoreDecision.Selected -> when (decision.core) {
                 DialCore.SING_BOX -> Result.SING_BOX
                 DialCore.XRAY -> Result.XRAY
-                DialCore.MIHOMO -> Result.MIHOMO
             }
 
             is CoreDecision.Rejected -> Result.REJECTED
@@ -143,9 +142,9 @@ class CoreSelectionChangeTableTest {
             "AnyTLS 正式支持与统一自动选核",
             "所有旧 AnyTLS，含原手动核心与测试标记；升级先保留旧证书策略，再将 core 改为自动",
             "按冻结规则走 sing-box 或 mihomo，或因旧能力限制拒绝",
-            "自动优先 sing-box 兼容实现；能力不匹配时尝试 mihomo；两核均不支持则拒绝；之后仍可手动选核",
-            "保留节点材料、引用与独立证书策略；信任模式不变为固定，未知或未支持指纹不静默降级",
-            setOf(Result.SING_BOX, Result.MIHOMO, Result.REJECTED), setOf(Result.SING_BOX, Result.MIHOMO, Result.REJECTED),
+            "使用 sing-box 兼容实现；它不支持的取值明确拒绝",
+            "保留节点材料、引用与独立证书策略；未知或未支持指纹不静默降级",
+            setOf(Result.SING_BOX, Result.MIHOMO, Result.REJECTED), setOf(Result.SING_BOX, Result.REJECTED),
         ) { it.isAnyTls },
         Row(
             "sing-box 本来就跑不起来的取值",

@@ -27,14 +27,14 @@
           "index": 0,
           "chainIndex": 0,
           "profileId": 1,
-          "port": 34745,
+          "port": 37003,
           "finalAddress": "127.0.0.1",
-          "finalPort": 45527,
+          "finalPort": 40813,
           "inboundTag": "in-0",
           "outboundTag": "out-0",
           "localAuth": {
-            "username": "u5553d2dc582f5535",
-            "password": "p119e3052626cb40c5f175579b9cb6ff8"
+            "username": "u7ab43cdd15f0f1e4",
+            "password": "p123d584d3acd3f7a4fda7b5b0da4a358"
           }
         }
       ]
@@ -42,13 +42,13 @@
   ],
   "dynamic": {
     "ports": [
-      34745,
-      45527
+      37003,
+      40813
     ],
     "paths": [],
     "secrets": [
-      "u5553d2dc582f5535",
-      "p119e3052626cb40c5f175579b9cb6ff8"
+      "u7ab43cdd15f0f1e4",
+      "p123d584d3acd3f7a4fda7b5b0da4a358"
     ]
   }
 }

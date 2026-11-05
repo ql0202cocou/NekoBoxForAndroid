@@ -7,12 +7,10 @@ import io.nekohasekai.sagernet.fmt.v2ray.MUX_COOL
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.buildXrayConfig
 import io.nekohasekai.sagernet.fmt.v2ray.buildXrayOutbound
-import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.utils.JavaUtil.gson
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.yaml.snakeyaml.Yaml
 import java.io.File
 import java.util.Random
 
@@ -45,15 +43,6 @@ class ExternalCoreInvariantsTest {
         initializeDefaultValues()
     }
 
-    private fun anytls(block: AnyTLSBean.() -> Unit = {}) = AnyTLSBean().apply {
-        name = "at"
-        serverAddress = "anytls.example.com"
-        serverPort = 8443
-        password = "fake-password"
-        block()
-        initializeDefaultValues()
-    }
-
     // 每个节点一个跳实例：本机端口 21000 + 序号、映射端口 31000 + 序号；偶数序号不映射（外核直接拨服务器）
     private fun plan(vararg beans: AbstractBean) = ExternalRunPlan(beans.mapIndexed { i, bean ->
         val target = if (i % 2 == 0) ExternalDialTarget.Mapped(31000 + i) else ExternalDialTarget.Direct
@@ -62,8 +51,8 @@ class ExternalCoreInvariantsTest {
 
     private fun noCacheFile(prefix: String, ext: String): File = error("不应申请临时文件：$prefix.$ext")
 
-    private fun assemble(plan: ExternalRunPlan, controller: Pair<Int, String>? = null) =
-        plan.assemble(::noCacheFile, controller, settings).associate { it.group.pluginId to it.config }
+    private fun assemble(plan: ExternalRunPlan) =
+        plan.assemble(::noCacheFile, settings).associate { it.group.pluginId to it.config }
 
     private fun noViolations(label: String, report: InvariantReport) =
         assertTrue("$label 违反不变量：\n${report.violations.joinToString("\n")}", report.violations.isEmpty())
@@ -93,14 +82,6 @@ class ExternalCoreInvariantsTest {
         vmess { type = "xhttp"; path = "/vm"; security = "tls"; packetEncoding = 2 },
     )
 
-    private val mihomoBeans: List<AnyTLSBean> = listOf(
-        anytls { },
-        anytls { sni = "node.example.com"; alpn = "h2"; utlsFingerprint = "chrome" },
-        anytls { allowInsecure = true },
-        anytls { certificateFingerprint = "d2fd6f6b04f88cb7cf03ce84064d413aeefc44b6dad87d0900cb90aeca364325" },
-        anytls { enableECH = true; echConfig = "ZmFrZS1lY2gtY29uZmln" },
-    )
-
     @Test
     fun `Xray 生成器的输出全部满足不变量`() {
         for ((i, bean) in xrayBeans.withIndex()) {
@@ -112,31 +93,6 @@ class ExternalCoreInvariantsTest {
         val report = ExternalCoreInvariants.xray(merged)
         noViolations("Xray 合并配置", report)
         assertTrue("没有例外", report.exceptions.isEmpty())
-    }
-
-    @Test
-    fun `mihomo 生成器的输出全部满足不变量，测速控制器单独断言`() {
-        for ((i, bean) in mihomoBeans.withIndex()) {
-            val config = assemble(plan(bean)).getValue("mihomo-plugin")
-            noViolations("mihomo 节点 #$i", ExternalCoreInvariants.mihomo(config, ControllerExpectation.Absent))
-        }
-        val all = plan(*mihomoBeans.toTypedArray())
-        noViolations("mihomo 合并配置", ExternalCoreInvariants.mihomo(assemble(all).getValue("mihomo-plugin"), ControllerExpectation.Absent))
-        // 测速：控制器只在这时出现
-        val withController = assemble(all, 29090 to "fake-secret").getValue("mihomo-plugin")
-        noViolations("mihomo 测速配置", ExternalCoreInvariants.mihomo(withController, ControllerExpectation.Present(29090, "fake-secret")))
-        assertTrue("运行 / 导出的配置里不该有控制器", ExternalCoreInvariants.mihomo(withController, ControllerExpectation.Absent).violations.isNotEmpty())
-    }
-
-    @Test
-    fun `mihomo 只开 ECH 没有内联配置时命中 ECH 的 DNS 例外`() {
-        val config = assemble(plan(anytls { enableECH = true })).getValue("mihomo-plugin")
-        val report = ExternalCoreInvariants.mihomo(config, ControllerExpectation.Absent)
-        noViolations("mihomo ECH enable-only", report)
-        assertEquals(listOf(ExternalCoreInvariants.ECH_DNS_EXCEPTION), report.exceptions)
-        // 带内联配置的不算例外
-        val inline = assemble(plan(anytls { enableECH = true; echConfig = "ZmFrZQ==" })).getValue("mihomo-plugin")
-        assertTrue(ExternalCoreInvariants.mihomo(inline, ControllerExpectation.Absent).exceptions.isEmpty())
     }
 
     // Xray 的 Trojan 出站还没有生成器（K1 接入）：用与 buildXrayOutbound 同形的手写出站走 buildXrayConfig，
@@ -190,8 +146,6 @@ class ExternalCoreInvariantsTest {
     @Test
     fun `白名单表列出的协议与类型`() {
         assertEquals(setOf("vmess", "vless", "trojan"), ExternalCoreInvariants.XRAY_OUTBOUND_PROTOCOLS.keys)
-        assertEquals(setOf("anytls"), ExternalCoreInvariants.MIHOMO_PROXIES.keys)
-        assertEquals(setOf("socks"), ExternalCoreInvariants.MIHOMO_LISTENER_TYPES)
         // Trojan 的 settings 是 servers，三个键，没有 flow
         val trojan = ExternalCoreInvariants.XRAY_OUTBOUND_PROTOCOLS.getValue("trojan")
         assertEquals("servers", trojan.listKey)
@@ -306,65 +260,4 @@ class ExternalCoreInvariantsTest {
         expectXhttp("network 不是 xhttp 却有 xhttpSettings", "不该有 xhttpSettings") { outbound(1).sub("streamSettings").addProperty("network", "tcp") }
     }
 
-    private fun mihomoBase(): MutableMap<String, Any?> {
-        val config = assemble(plan(anytls { }, anytls { })).getValue("mihomo-plugin")
-        @Suppress("UNCHECKED_CAST")
-        return Yaml().load<Any?>(config) as MutableMap<String, Any?>
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private fun Map<String, Any?>.first(key: String) = (this[key] as List<MutableMap<String, Any?>>)[0]
-
-    private fun expectMihomo(
-        name: String,
-        fragment: String,
-        controller: ControllerExpectation = ControllerExpectation.Absent,
-        mutate: MutableMap<String, Any?>.() -> Unit,
-    ) {
-        val config = mihomoBase().apply(mutate)
-        val violations = ExternalCoreInvariants.mihomo(Yaml().dump(config), controller).violations
-        assertTrue("$name：应报出「$fragment」，实际：$violations", violations.any { fragment in it })
-    }
-
-    @Test
-    fun `mihomo 反例：每种违例都被抓到`() {
-        noViolations("反例的基础配置", ExternalCoreInvariants.mihomo(Yaml().dump(mihomoBase()), ControllerExpectation.Absent))
-        expectMihomo("dns", "禁用的键 dns") { put("dns", mapOf("enable" to true)) }
-        expectMihomo("tun", "禁用的键 tun") { put("tun", mapOf("enable" to true)) }
-        expectMihomo("sniffer", "禁用的键 sniffer") { put("sniffer", mapOf("enable" to true)) }
-        expectMihomo("hosts", "禁用的键 hosts") { put("hosts", mapOf("a.example.com" to "192.0.2.1")) }
-        expectMihomo("proxy-groups", "禁用的键 proxy-groups") { put("proxy-groups", emptyList<Any>()) }
-        expectMihomo("rule-providers", "禁用的键 rule-providers") { put("rule-providers", emptyMap<String, Any>()) }
-        expectMihomo("mixed-port", "禁用的键 mixed-port") { put("mixed-port", 7890) }
-        expectMihomo("allow-lan", "禁用的键 allow-lan") { put("allow-lan", true) }
-        expectMihomo("全局认证", "禁用的键 authentication") { put("authentication", listOf("u:p")) }
-        expectMihomo("interface-name", "禁用的键 interface-name") { put("interface-name", "en0") }
-        expectMihomo("未知顶层键", "表外的键 ipv6") { put("ipv6", true) }
-        expectMihomo("模式不是 rule", "mode") { put("mode", "global") }
-        expectMihomo("规则直接绑定代理", "rules") { put("rules", listOf("MATCH,out-0")) }
-        expectMihomo("规则多一条", "rules") { put("rules", listOf("DOMAIN,example.com,out-0", "MATCH,REJECT")) }
-        expectMihomo("规则为空", "rules") { put("rules", emptyList<String>()) }
-        expectMihomo("运行时出现控制器", "不是测速") {
-            put("external-controller", "127.0.0.1:9090")
-            put("secret", "s")
-        }
-        expectMihomo("控制器监听全部地址", "127.0.0.1", ControllerExpectation.Either) {
-            put("external-controller", "0.0.0.0:9090")
-            put("secret", "s")
-        }
-        expectMihomo("控制器缺 secret", "成对", ControllerExpectation.Either) { put("external-controller", "127.0.0.1:9090") }
-        expectMihomo("测速却没有控制器", "external-controller", ControllerExpectation.Present(9090, "s")) { }
-        expectMihomo("listener 是 tun", "只许") { first("listeners")["type"] = "tun" }
-        expectMihomo("listener 挂规则", "禁用的键 rule") { first("listeners")["rule"] = "sub" }
-        expectMihomo("listener 监听全部地址", "listen") { first("listeners")["listen"] = "0.0.0.0" }
-        expectMihomo("listener 不认证", "应恰好一项") { first("listeners")["users"] = emptyList<Any>() }
-        expectMihomo("listener 指向不存在的代理", "指向不存在的代理") { first("listeners")["proxy"] = "nobody" }
-        expectMihomo("代理 dialer-proxy", "禁用的键 dialer-proxy") { first("proxies")["dialer-proxy"] = "out-1" }
-        expectMihomo("代理 interface-name", "禁用的键 interface-name") { first("proxies")["interface-name"] = "en0" }
-        expectMihomo("代理 routing-mark", "禁用的键 routing-mark") { first("proxies")["routing-mark"] = 1 }
-        expectMihomo("代理 ip-version", "禁用的键 ip-version") { first("proxies")["ip-version"] = "ipv4" }
-        expectMihomo("代理类型不在表里", "只许") { first("proxies")["type"] = "vless" }
-        // Xray 的键集不能套到 mihomo 上：mihomo 的 listener 写 Xray 式的 tag / settings 要被拒绝
-        expectMihomo("套用 Xray 键", "表外的键 tag") { first("listeners")["tag"] = "in-0" }
-    }
 }

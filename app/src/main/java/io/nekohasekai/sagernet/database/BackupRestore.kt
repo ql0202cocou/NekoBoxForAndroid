@@ -142,10 +142,13 @@ object BackupRestore {
                     policyChanged = true
                 }
             }
+            // mihomo 移除后，旧备份里的手动 AnyTLS 核心回到自动；证书策略仍按上面的旧核心保存。
+            val removedMihomo = entity.type == ProxyEntity.TYPE_ANYTLS && entity.core == ProxyEntity.CORE_MIHOMO
+            if (removedMihomo) entity.core = ProxyEntity.CORE_AUTO
             val bean = entity.beanForType() as? StandardV2RayBean
             if (bean == null) {
                 val normalized = normalizedLegacyCore(entity.type, entity.core)
-                if (normalized != entity.core || policyChanged) {
+                if (normalized != entity.core || policyChanged || removedMihomo) {
                     entity.core = normalized
                     changed++
                 }

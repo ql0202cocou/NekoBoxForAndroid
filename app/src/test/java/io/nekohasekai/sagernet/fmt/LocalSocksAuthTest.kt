@@ -1,7 +1,6 @@
 package io.nekohasekai.sagernet.fmt
 
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
-import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.utils.Util
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -161,33 +160,32 @@ class LocalSocksAuthTest {
             alterId = -1
             initializeDefaultValues()
         }
-        val mihomo = AnyTLSBean().apply {
-            serverAddress = "m.example.com"
+        val other = VMessBean().apply {
+            serverAddress = "other.example.com"
             serverPort = 8443
-            password = "fake-password"
+            uuid = "00000000-0000-0000-0000-000000000002"
+            alterId = -1
             initializeDefaultValues()
         }
         return ExternalRunPlan(
             listOf(
                 ExternalHop(0, 0, 1L, xray, 21000, ExternalDialTarget.Mapped(31000), localAuth = auth),
-                ExternalHop(1, 0, 2L, mihomo, 21001, ExternalDialTarget.Mapped(31001), localAuth = auth),
+                ExternalHop(1, 0, 2L, other, 21001, ExternalDialTarget.Mapped(31001), localAuth = auth),
                 ExternalHop(2, 1, 3L, xray, 21002, ExternalDialTarget.Mapped(31002), localAuth = auth),
             )
         )
     }
 
     @Test
-    fun `Xray 与 mihomo 配置经遮蔽后搜不到凭据`() {
+    fun `Xray 配置经遮蔽后搜不到凭据`() {
         val settings = ExternalCoreSettings(logLevel = 4, ipv6Mode = 0, globalAllowInsecure = false)
-        val processes = plan().assemble({ _, _ -> error("不应申请临时文件") }, null, settings)
-        assertEquals(listOf("xray-plugin", "mihomo-plugin"), processes.map { it.pluginId })
+        val processes = plan().assemble({ _, _ -> error("不应申请临时文件") }, settings)
+        assertEquals(listOf("xray-plugin"), processes.map { it.pluginId })
         for (process in processes) {
             assertRedacted(process.config)
             // 与 ProxyInstance.init 相同的顺序
             assertClean(Util.redactSecrets(result.redactLocalAuth(process.config)))
         }
-        // mihomo 的 users 是行内写法：{username: …, password: …}
-        assertTrue(processes[1].config, "- {username: ${auth.username}, password: ${auth.password}}" in processes[1].config)
     }
 
     private val ExternalCoreProcess.pluginId get() = group.pluginId

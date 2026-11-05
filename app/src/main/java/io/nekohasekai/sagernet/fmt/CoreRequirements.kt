@@ -166,8 +166,9 @@ private fun coreProtocolOf(type: Int, bean: AbstractBean): CoreProtocol = when {
     else -> CoreProtocol.OTHER
 }
 
-// 能否选核：编辑器据此显示核心选项、保存时决定用不用它的值，与能力表同一个划分
-fun coreSelectable(type: Int, bean: AbstractBean): Boolean = coreProtocolOf(type, bean) != CoreProtocol.OTHER
+// 有多个候选核心时才提供选择；编辑器据此显示核心选项，保存时决定用不用它的值
+fun coreSelectable(type: Int, bean: AbstractBean): Boolean =
+    candidateCores(coreProtocolOf(type, bean)).size > 1
 
 // 不能选核的协议只留两条跨协议检查要用的：整证书固定（与 tlsFields 的取法相同）和生效的 mldsa65Verify
 private fun otherRequirements(type: Int, bean: AbstractBean) = CoreRequirements(

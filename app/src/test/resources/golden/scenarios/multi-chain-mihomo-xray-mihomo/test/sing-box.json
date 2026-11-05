@@ -22,26 +22,10 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 43355,
-      "override_address": "mihomo-2.example.com",
-      "override_port": 8445,
-      "tag": "c-0-mapping-4",
-      "type": "direct"
-    },
-    {
-      "listen": "127.0.0.1",
-      "listen_port": 44341,
+      "listen_port": 40557,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-3",
-      "type": "direct"
-    },
-    {
-      "listen": "127.0.0.1",
-      "listen_port": 35433,
-      "override_address": "mihomo-1.example.com",
-      "override_port": 8444,
-      "tag": "c-0-mapping-2",
       "type": "direct"
     }
   ],
@@ -59,28 +43,37 @@
       "type": "shadowsocks"
     },
     {
-      "password": "pd5d39ecda88a73293220f1aa73c1fe45",
-      "server": "127.0.0.1",
-      "server_port": 33111,
-      "username": "u6b0698f644caad7e",
+      "detour": "c-0-3",
+      "password": "golden-pass-anytls",
+      "server": "mihomo-2.example.com",
+      "server_port": 8445,
+      "tls": {
+        "enabled": true,
+        "insecure": false,
+        "server_name": "mihomo-2.example.org"
+      },
       "tag": "c-0-4",
-      "type": "socks"
+      "type": "neko-anytls"
     },
     {
-      "password": "pd5d39ecda88a73293220f1aa73c1fe45",
+      "password": "pb042fa198c2102daaebf6ac9f5241979",
       "server": "127.0.0.1",
-      "server_port": 39485,
-      "username": "u6b0698f644caad7e",
+      "server_port": 37669,
+      "username": "u2b813f5a3871d472",
       "tag": "c-0-3",
       "type": "socks"
     },
     {
-      "password": "pd5d39ecda88a73293220f1aa73c1fe45",
-      "server": "127.0.0.1",
-      "server_port": 37257,
-      "username": "u6b0698f644caad7e",
+      "password": "golden-pass-anytls",
+      "server": "mihomo-1.example.com",
+      "server_port": 8444,
+      "tls": {
+        "enabled": true,
+        "insecure": false,
+        "server_name": "mihomo-1.example.org"
+      },
       "tag": "g-2",
-      "type": "socks"
+      "type": "neko-anytls"
     },
     {
       "tag": "direct",
@@ -100,21 +93,9 @@
     "rules": [
       {
         "inbound": [
-          "c-0-mapping-4"
-        ],
-        "outbound": "c-0-3"
-      },
-      {
-        "inbound": [
           "c-0-mapping-3"
         ],
         "outbound": "g-2"
-      },
-      {
-        "inbound": [
-          "c-0-mapping-2"
-        ],
-        "outbound": "direct"
       }
     ]
   }

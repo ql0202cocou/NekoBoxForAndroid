@@ -1,15 +1,18 @@
 {
-  "status": "ok",
-  "exportName": "profiles.txt",
-  "dynamic": {
-    "ports": [
-      38471,
-      46745
-    ],
-    "paths": [],
-    "secrets": [
-      "u4e75f9024d45c1f5",
-      "pbb2cd0b3ddd720fb311e133b42ab71c7"
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-local-override: no core can fully run this profile. sing-box: [customOutboundJson] This outbound override targets the local SOCKS hop of the removed mihomo core; remove or rewrite it",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "no core can fully run this profile. sing-box: [customOutboundJson] This outbound override targets the local SOCKS hop of the removed mihomo core; remove or rewrite it"
+      }
     ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
   }
 }

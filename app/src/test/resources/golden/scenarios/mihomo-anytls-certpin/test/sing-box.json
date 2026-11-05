@@ -19,27 +19,23 @@
     "strategy": "prefer_ipv4"
   },
   "endpoints": [],
-  "inbounds": [
-    {
-      "listen": "127.0.0.1",
-      "listen_port": 46479,
-      "override_address": "anytls.example.com",
-      "override_port": 8443,
-      "tag": "c-0-mapping-1",
-      "type": "direct"
-    }
-  ],
+  "inbounds": [],
   "log": {
     "level": "panic"
   },
   "outbounds": [
     {
-      "password": "p5dfd368e6d488bca69d946cd35aebaec",
-      "server": "127.0.0.1",
-      "server_port": 46373,
-      "username": "u08b8f56f5d5a9b47",
+      "password": "golden-pass-anytls",
+      "server": "anytls.example.com",
+      "server_port": 8443,
+      "tls": {
+        "certificate_fingerprint": "AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89",
+        "enabled": true,
+        "insecure": false,
+        "server_name": "anytls.example.com"
+      },
       "tag": "proxy",
-      "type": "socks"
+      "type": "neko-anytls"
     },
     {
       "tag": "direct",
@@ -56,13 +52,6 @@
       "server": "dns-direct"
     },
     "rule_set": [],
-    "rules": [
-      {
-        "inbound": [
-          "c-0-mapping-1"
-        ],
-        "outbound": "direct"
-      }
-    ]
+    "rules": []
   }
 }

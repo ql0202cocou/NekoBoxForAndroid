@@ -754,7 +754,7 @@ const val MUX_SMUX = 1
 const val MUX_YAMUX = 2
 const val MUX_COOL = 3
 
-// StandardV2RayBean.muxType -> sing-mux 的协议名（sing-box 与 mihomo 写法相同）；0 是 h2mux，即 mihomo 的默认值。
+// StandardV2RayBean.muxType -> sing-mux 的协议名；0 是 h2mux。
 // Mux.Cool 与不认识的取值抛异常，不再当作 h2mux：这是 sing-box 一侧的最后防线，面向用户的拒绝由能力表在规划时报出
 fun muxProtocolName(type: Int): String = when (type) {
     MUX_H2MUX -> "h2mux"

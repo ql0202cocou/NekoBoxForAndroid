@@ -5,15 +5,14 @@ import java.io.IOException
 
 // 外核启动前校验与启动就绪的纯逻辑：校验报错怎样对回节点、校验与就绪等待的结论、
 // 给用户的报错文案。跑进程、连端口的部分在 bg/ExternalCoreProbes.kt，由 BoxInstance 串起来。
-// 校验入口、退出码与报错格式只对固定版本的内置 Xray（run -test）、mihomo（-t）核实过：外部插件 app
+// 校验入口、退出码与报错格式只对固定版本的内置 Xray（run -test）核实过：外部插件 app
 // 提供的版本与要装插件 app 的核心不校验，就绪也只等端口能连上
 
 /**
- * 核心校验报错里的一条失败。tag（Xray 的出站 / 入站 tag、mihomo 的代理 / listener 名）或 position（mihomo
- * 按 0 起算的代理 / listener 序号，与组内跳实例的顺序相同）指向出错的跳实例，都为 null 表示对不回节点。
+ * 核心校验报错里的一条失败。tag（Xray 的出站 / 入站 tag）指向出错的跳实例，为 null 表示对不回节点。
  * reason 是给用户看的原因：对得回时保留核心原文，只去掉定位用的前缀与 Go 包路径。
  */
-class ExternalCheckError(val reason: String, val tag: String? = null, val position: Int? = null)
+class ExternalCheckError(val reason: String, val tag: String? = null)
 
 /** 一次校验的结论。 */
 sealed class ExternalCheckResult {
@@ -64,7 +63,6 @@ class ExternalCoreCheck(
         val first = errors.firstOrNull()
             ?: return ExternalCheckResult.Failed(ExternalCoreCheckException(unrecognized(exitCode, output)))
         val hop = first.tag?.let { tag -> group.hops.firstOrNull { it.inboundTag == tag || it.outboundTag == tag } }
-            ?: first.position?.let { group.hops.getOrNull(it) }
         return ExternalCheckResult.Failed(
             if (hop != null) {
                 ProfileBuildException(hop.bean.displayName(), ExternalCoreCheckException(first.reason))
@@ -134,46 +132,8 @@ fun xrayCheckErrors(output: String): List<ExternalCheckError> = output.lineSeque
     ExternalCheckError(reason, tag = tag)
 }.toList()
 
-// mihomo v1.19.32 的 -t（v1.19.33 实测相同，N12）：失败时退出码 1，先输出 logrus 格式的错误行再输出「… test failed」，都在标准输出。
-// 代理 / listener 按 0 起算的序号报（level=error msg="proxy 1: unsupport proxy type: anytlsx"），
-// 名字重复时报名字（msg="proxy out-0 is the duplicate name"）
-private val LOGRUS_ERROR = Regex("""\blevel=(?:error|fatal) msg="((?:[^"\\]|\\.)*)"""")
-private val MIHOMO_INDEXED = Regex("""^(proxy|listener) (\d+): (.*)$""")
-private val MIHOMO_DUPLICATE = Regex("""^(?:proxy|listener) (\S+) is the duplicate name$""")
-
-fun mihomoCheckErrors(output: String): List<ExternalCheckError> = output.lineSequence().mapNotNull { line ->
-    val message = LOGRUS_ERROR.find(line)?.groupValues?.get(1)?.let(::unquoteLogrus) ?: return@mapNotNull null
-    MIHOMO_INDEXED.matchEntire(message)?.let { match ->
-        val (kind, index, rest) = match.destructured
-        // listener 由应用生成，出错时把「listener」留在原因里，免得看成节点本身的问题
-        val reason = if (kind == "listener") "listener: $rest" else rest
-        return@mapNotNull ExternalCheckError(reason, position = index.toInt())
-    }
-    MIHOMO_DUPLICATE.matchEntire(message)?.let { match ->
-        return@mapNotNull ExternalCheckError(message, tag = match.groupValues[1])
-    }
-    ExternalCheckError(message)
-}.toList()
-
-// logrus 按 Go 的 %q 转义引号里的内容；还原引号与反斜杠，其余转义原样保留
-private fun unquoteLogrus(text: String): String {
-    val out = StringBuilder(text.length)
-    var i = 0
-    while (i < text.length) {
-        val c = text[i]
-        if (c == '\\' && i + 1 < text.length && (text[i + 1] == '"' || text[i + 1] == '\\')) {
-            out.append(text[i + 1])
-            i += 2
-        } else {
-            out.append(c)
-            i++
-        }
-    }
-    return out.toString()
-}
-
 /**
- * 一个跳实例的就绪等待结果。strict 为真表示它跑在内置的 Xray / mihomo 上：要求用本机 socks 凭据完成 SOCKS5 握手，
+ * 一个跳实例的就绪等待结果。strict 为真表示它跑在内置的 Xray 上：要求用本机 socks 凭据完成 SOCKS5 握手，
  * 等不到就失败；否则（插件核心、外部插件 app 提供的核心）只等端口能连上，等不到只警告。exitCode 非空只表示监听
  * 它的进程已退出且当时没有在跑（守护放弃了它，或到期时仍未重启），值是退出码；退出后被守护重启、等待期间一直
  * 在跑的进程为 null，lastError 是最后一次探测失败的原因。
@@ -239,8 +199,8 @@ private const val READY_FAILURE_NAMES = 5
 
 private fun localInbound(hop: ExternalHop) = "$LOCALHOST:${hop.localPort}"
 
-// 启动时确认入站认证生效（K0b）：内置 Xray / mihomo 的入站全部就绪之后、启动 box 之前，对每个这样的进程抽一个
-// 入站，用正确的用户名与错误的密码握手一次。认证生效时两个核心都立即拒绝；错误的密码被接受，说明入站实际上
+// 启动时确认入站认证生效（K0b）：内置 Xray 的入站全部就绪之后、启动 box 之前，对每个这样的进程抽一个
+// 入站，用正确的用户名与错误的密码握手一次。认证生效时立即拒绝；错误的密码被接受，说明入站实际上
 // 不认证，不启动。只看握手的应答，不解析日志
 
 /** 用错误的密码握手一次的结果。原因与应答里只有应答的字节与套接字的错误，不含凭据。 */
@@ -259,7 +219,7 @@ sealed class WrongPasswordReply {
 class ExternalCoreAuthException(message: String) : IllegalStateException(message)
 
 /**
- * 要做认证检查的跳实例：strict 的进程（内置的 Xray / mihomo）各取它的第一个跳实例，其余进程不查。
+ * 要做认证检查的跳实例：strict 的进程（内置的 Xray）各取它的第一个跳实例，其余进程不查。
  * 同一进程的入站出自同一段配置生成，抽一个就能发现整个进程的认证没有生效；顺序同 processes。
  */
 fun localAuthCheckHops(

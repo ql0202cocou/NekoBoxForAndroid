@@ -130,18 +130,10 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 41809,
+      "listen_port": 41277,
       "override_address": "vless.example.com",
       "override_port": 443,
       "tag": "c-2-mapping-2",
-      "type": "direct"
-    },
-    {
-      "listen": "127.0.0.1",
-      "listen_port": 46073,
-      "override_address": "anytls.example.com",
-      "override_port": 8443,
-      "tag": "c-3-mapping-3",
       "type": "direct"
     }
   ],
@@ -181,20 +173,27 @@
       }
     },
     {
-      "password": "p9ba263766f498b836fdf45c2b0cc799f",
+      "password": "p5405a3b5ac2e72a4e5bf503f265c7971",
       "server": "127.0.0.1",
-      "server_port": 40167,
-      "username": "uc6228b371283a322",
+      "server_port": 41093,
+      "username": "ueb2d8ddaac0b58f2",
       "tag": "golden-gdnss-xray",
       "type": "socks"
     },
     {
-      "password": "p9ba263766f498b836fdf45c2b0cc799f",
-      "server": "127.0.0.1",
-      "server_port": 36121,
-      "username": "uc6228b371283a322",
+      "password": "golden-pass-anytls",
+      "server": "anytls.example.com",
+      "server_port": 8443,
+      "tls": {
+        "enabled": true,
+        "insecure": false
+      },
       "tag": "golden-gdnss-anytls",
-      "type": "socks"
+      "type": "neko-anytls",
+      "domain_resolver": {
+        "server": "dns-node-1",
+        "strategy": "prefer_ipv4"
+      }
     },
     {
       "tag": "direct",
@@ -239,20 +238,6 @@
       {
         "inbound": [
           "c-2-mapping-2"
-        ],
-        "outbound": "direct"
-      },
-      {
-        "action": "resolve",
-        "inbound": [
-          "c-3-mapping-3"
-        ],
-        "server": "dns-node-1",
-        "strategy": "prefer_ipv4"
-      },
-      {
-        "inbound": [
-          "c-3-mapping-3"
         ],
         "outbound": "direct"
       },

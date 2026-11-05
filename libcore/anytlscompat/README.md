@@ -1,22 +1,18 @@
 # AnyTLS 内部兼容实现 / Internal AnyTLS implementation
 
-普通 AnyTLS 节点在 sing-box 上默认使用本实现，运行、测速和 trial 共用 `neko-anytls`。旧原生节点带自定义出站 JSON 时继续使用 `anytls`。
-自动选核优先 sing-box，并按完整能力表匹配；手动选核只使用指定核心，有冲突就明确拒绝。
-升级到数据库 v11 时，一次性把全部 AnyTLS 的 core 重置为自动，包括旧手动核心与兼容测试节点。
-迁移先依据旧核心保存独立证书策略，再重置核心；节点材料、流量、链式引用与其他协议不变。
+AnyTLS 统一在 sing-box 上使用本实现，运行、测速和 trial 共用 `neko-anytls`。旧原生节点带自定义出站 JSON 时继续使用 `anytls`。
+数据库 v11 曾一次性重置全部 AnyTLS 核心；v12 再把移除 mihomo 前的手动 `core=3` 恢复为自动。
+迁移保留独立证书策略、节点材料、流量与链式引用。仍指向旧 mihomo 本地 SOCKS 跳的覆写会明确拒绝，需删除或改写，不会静默改挂到协议出站。
 Kryo v5 记录证书策略来源。订阅跟随发布方明确给出的策略，用户手动选择优先。历史 v4 记录来源不明时，遇到显式策略冲突会停止刷新。
-迁移前作用于 mihomo 本地 SOCKS 跳的 JSON 继续作用于该跳，AUTO 据此选择 mihomo。
 AnyTLSBean v4 新增 certificatePolicy；旧 v3 的 compatibilityTest 仅用于识别历史测试节点的固定策略，不再提供测试入口。
 旧私有类型 `neko-anytls-compat-experiment` 仍可读取；新生成的配置只使用正式名称。
 
-Sing-box uses this implementation by default. Existing profiles with native outbound JSON overrides use the native
-`anytls` outbound. For profiles using the extension, runtime, URL testing and trial share
-`neko-anytls`. Automatic selection prefers sing-box and checks complete capabilities; manual selection never silently
-falls back. Database v11 resets all existing AnyTLS core choices to automatic once, including former test profiles.
-Before resetting cores, migration stores the original certificate policy independently. Parameters, traffic and references remain intact.
-Kryo v5 records the policy source. Updates follow an explicit published policy and preserve local edits. A conflicting policy with unknown v4 provenance stops the update. Migrated mihomo SOCKS overrides continue to apply to the local hop under automatic core selection.
-AnyTLSBean v4 adds certificatePolicy; the historical v3 test marker only identifies former test profiles' pinning policy during migration.
-The old private type remains readable as an alias.
+Sing-box always carries AnyTLS. Existing profiles with native outbound JSON overrides use the native `anytls` outbound;
+runtime, URL testing and trial otherwise share `neko-anytls`. Database v12 resets the removed mihomo core choice to automatic,
+preserving certificate policy, parameters, traffic and references. Overrides targeting its old local SOCKS hop are rejected until
+removed or rewritten; they are never silently applied to the protocol outbound. Kryo v5 records policy provenance and subscription
+updates preserve local edits. AnyTLSBean v4 adds certificatePolicy; the historical v3 marker only identifies former test profiles'
+pinning policy. The old private type remains readable as an alias.
 
 ## 行为 / Behavior
 
@@ -25,7 +21,7 @@ The old private type remains readable as an alias.
 - 旧原生 sing-box 节点保留信任策略：PEM 全部加入独立根池并替换默认根池，继续校验证书链、域名与有效期；
   服务端无需发送根证书。insecure 的原有含义不变；显式证书指纹仍优先。旧 mihomo 与测试节点保留固定策略。
 - 未指定信任证书或固定时使用应用 CertificateStore（缺省为系统根），不内置 mihomo CA 集合；不声称默认信任集合完全相同。
-- mihomo 无法表达带 PEM 的信任策略，能力匹配和生成器均明确拒绝；自动选核也不能以固定策略代替信任。
+- 独立信任策略始终由 sing-box 承载，不会因字段组合而静默换成固定策略。
 - uTLS 使用 MetaCubeX v1.8.8 的 mihomo 模板；保留现有四个被拒绝的名字，未知名字也拒绝。
   ECH 只开放标准 TLS、chrome、firefox、chrome120、firefox120，拒绝 random 等未经确定支持的组合。
 - ECH 自动查询使用 sing-box DNSRouter 与节点的 domain_resolver（含分组 DNS）；没有进程级备用解析器。
@@ -34,7 +30,7 @@ The old private type remains readable as an alias.
   构造/trial 不启动会话或拨号；Scope 初始化时启动会话，关闭覆盖拨号、TLS、认证写入和复用连接。
 - 固定策略支持普通链接，信任策略及本地 SOCKS 覆写通过 `sn://anytls-v2?` 分享，旧版会拒绝该类型；备份保存独立策略。节点自定义 JSON 与其他内部出站一样参与 trial，未知字段或无效配置会拒绝。
 - 带原生 JSON 覆写的旧信任策略节点沿用 sing-box 原生的会话、TLS（含 uTLS 与 ECH）和导出行为。普通新节点没有固定材料、兼容指纹或 ECH 时也可用原生覆写。显式整证书固定、固定策略的 PEM、专用指纹或私有 TLS 字段仍由兼容实现处理。
-- 使用私有出站的配置不能作为通用 sing-box 配置导出；固定策略可改选 mihomo 再导出。
+- 使用私有出站的配置不能作为通用 sing-box 配置导出；mihomo 移除后不再提供替代导出路径。
   该限制会拒绝整个导出，包括 AnyTLS 出现在规则目标或其链中时；不会靠删除规则生成一份成功结果。
 - 显式 ALPN 写入实际 ClientHello。未填写时使用模板的协议列表。标准 TLS 与 uTLS 握手的默认时限都是 15 秒，并响应调用方更早的取消。
 

@@ -34,9 +34,9 @@
           "index": 0,
           "chainIndex": 0,
           "profileId": 4,
-          "port": 44271,
+          "port": 46553,
           "finalAddress": "127.0.0.1",
-          "finalPort": 43107,
+          "finalPort": 46225,
           "inboundTag": null,
           "outboundTag": null,
           "localAuth": null
@@ -53,7 +53,7 @@
           "index": 1,
           "chainIndex": 0,
           "profileId": 3,
-          "port": 43155,
+          "port": 44491,
           "finalAddress": "hy1-faketcp.example.net",
           "finalPort": 1080,
           "inboundTag": null,
@@ -62,7 +62,7 @@
           "resolver": {
             "network": "udp",
             "address": "127.0.0.1",
-            "port": 38873
+            "port": 41869
           }
         }
       ]
@@ -77,7 +77,7 @@
           "index": 2,
           "chainIndex": 0,
           "profileId": 2,
-          "port": 45915,
+          "port": 41541,
           "finalAddress": "hy1-first.example.com",
           "finalPort": 1080,
           "inboundTag": null,
@@ -86,7 +86,7 @@
           "resolver": {
             "network": "udp",
             "address": "127.0.0.1",
-            "port": 38873
+            "port": 41869
           }
         }
       ]
@@ -94,11 +94,11 @@
   ],
   "dynamic": {
     "ports": [
-      44271,
-      43155,
-      45915,
-      43107,
-      38873
+      46553,
+      44491,
+      41541,
+      46225,
+      41869
     ],
     "paths": [],
     "secrets": []

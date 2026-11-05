@@ -73,7 +73,6 @@ class MuxTypeChoicesTest {
         assertEquals(MuxFamily.UNKNOWN, muxFamilyOf(7))
         assertEquals(MUX_H2MUX, defaultMuxType(DialCore.SING_BOX))
         assertEquals(MUX_COOL, defaultMuxType(DialCore.XRAY))
-        assertEquals(null, defaultMuxType(DialCore.MIHOMO))
     }
 
     @Test
@@ -100,7 +99,6 @@ class MuxTypeChoicesTest {
         assertEquals(MUX_H2MUX, muxTypeOnEnable(CORE_AUTO, 7, DialCore.SING_BOX))
         // 不开 mux 也被拒（或不能选核）时不改
         assertEquals(MUX_SMUX, muxTypeOnEnable(CORE_AUTO, MUX_SMUX, null))
-        assertEquals(MUX_SMUX, muxTypeOnEnable(CORE_AUTO, MUX_SMUX, DialCore.MIHOMO))
         // 手动：只保证取值在列表里
         assertEquals(MUX_COOL, muxTypeOnEnable(CORE_XRAY, MUX_H2MUX, null))
         assertEquals(MUX_YAMUX, muxTypeOnEnable(CORE_SING_BOX, MUX_YAMUX, null))

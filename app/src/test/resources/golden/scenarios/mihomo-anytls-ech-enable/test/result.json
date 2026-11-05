@@ -16,44 +16,10 @@
       "proxy": "golden-anytls-ech-on"
     }
   },
-  "external": [
-    {
-      "file": "ext-0.mihomo-plugin.yaml",
-      "pluginId": "mihomo-plugin",
-      "controller": {
-        "port": 39241,
-        "secret": "bfc1b2aeb0034659bd80976ec45a858c"
-      },
-      "tempFiles": [],
-      "hops": [
-        {
-          "index": 0,
-          "chainIndex": 0,
-          "profileId": 1,
-          "port": 43333,
-          "finalAddress": "127.0.0.1",
-          "finalPort": 37129,
-          "inboundTag": "in-0",
-          "outboundTag": "out-0",
-          "localAuth": {
-            "username": "uf50b2e7fcc9c11ac",
-            "password": "p1c2040e3b03f6fe760b3fbfe0a963901"
-          }
-        }
-      ]
-    }
-  ],
+  "external": [],
   "dynamic": {
-    "ports": [
-      43333,
-      37129,
-      39241
-    ],
+    "ports": [],
     "paths": [],
-    "secrets": [
-      "bfc1b2aeb0034659bd80976ec45a858c",
-      "uf50b2e7fcc9c11ac",
-      "p1c2040e3b03f6fe760b3fbfe0a963901"
-    ]
+    "secrets": []
   }
 }

@@ -56,14 +56,11 @@ golden_setup_device
 source buildScript/init/verify_sha256.sh
 ABI_VAR=${ABI//-/_}
 XRAY_VERSION=$(golden_pinned XRAY_VERSION)
-MIHOMO_VERSION=$(golden_pinned MIHOMO_VERSION)
 XRAY_PINNED=$(golden_pinned "XRAY_SHA256_$ABI_VAR")
-MIHOMO_PINNED=$(golden_pinned "MIHOMO_SHA256_$ABI_VAR")
-for v in XRAY_VERSION MIHOMO_VERSION XRAY_PINNED MIHOMO_PINNED; do
+for v in XRAY_VERSION XRAY_PINNED; do
   [ -n "${!v}" ] || { echo "cannot read $v for ABI $ABI from buildScript/lib/plugins.sh" >&2; exit 1; }
 done
 verify_sha256 "app/executableSo/$ABI/libxray.so" "$XRAY_PINNED" || { echo "run ./run lib plugins first" >&2; exit 1; }
-verify_sha256 "app/executableSo/$ABI/libmihomo.so" "$MIHOMO_PINNED" || { echo "run ./run lib plugins first" >&2; exit 1; }
 
 # 采集所基于的提交；工作区不干净时记下有改动的路径（含未跟踪文件）。路径可能多达数千条，
 # 而 content call 的命令行有长度上限，所以只传总数与排序后的前 DIRTY_TOP 条（换行分隔后
@@ -95,7 +92,6 @@ golden_install_apk "$INSTALL"
 # sha256 交给采集入口，与设备上实际安装的文件核对
 packaged() { unzip -p "$APK" "lib/$ABI/$1" | shasum -a 256 | awk '{print $1}'; }
 XRAY_PACKAGED=$(packaged libxray.so)
-MIHOMO_PACKAGED=$(packaged libmihomo.so)
 
 if [ "$GOLDEN" = 1 ]; then
   DEST=app/src/test/resources/golden
@@ -115,9 +111,6 @@ EXTRAS=(
   --extra "xrayVersion:s:$XRAY_VERSION"
   --extra "xrayPinnedSha256:s:$XRAY_PINNED"
   --extra "xrayPackagedSha256:s:$XRAY_PACKAGED"
-  --extra "mihomoVersion:s:$MIHOMO_VERSION"
-  --extra "mihomoPinnedSha256:s:$MIHOMO_PINNED"
-  --extra "mihomoPackagedSha256:s:$MIHOMO_PACKAGED"
 )
 [ "$ALLOW_WIPE" = 1 ] && EXTRAS+=(--extra "allowWipe:b:true")
 

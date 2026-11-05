@@ -12,9 +12,6 @@ import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.XRAY_BLOCK_TAG
 import io.nekohasekai.sagernet.fmt.v2ray.buildXrayConfig
 import io.nekohasekai.sagernet.fmt.v2ray.buildXrayOutbound
-import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
-import moe.matsuri.nb4a.proxy.anytls.buildMihomoConfig
-import moe.matsuri.nb4a.proxy.anytls.buildMihomoProxy
 import moe.matsuri.nb4a.utils.JavaUtil.gson
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -25,7 +22,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
-import org.yaml.snakeyaml.Yaml
 import java.io.File
 import java.util.Random
 
@@ -57,14 +53,6 @@ class ExternalRunPlanTest {
         type = "ws"
         path = "/ws"
         host = "cdn.example.com"
-    }
-
-    private fun anytls(name: String, server: String) = AnyTLSBean().apply {
-        this.name = name
-        serverAddress = server
-        serverPort = 8443
-        password = "fake-password-$name"
-        initializeDefaultValues()
     }
 
     private fun trojanGo(name: String) = TrojanGoBean().apply {
@@ -127,13 +115,9 @@ class ExternalRunPlanTest {
 
     private fun noCacheFile(prefix: String, ext: String): File = error("不应申请临时文件：$prefix.$ext")
 
-    private fun ExternalRunPlan.configs(controller: Pair<Int, String>? = null) =
-        assemble(::noCacheFile, controller, settings).map { it.config }
+    private fun ExternalRunPlan.configs() = assemble(::noCacheFile, settings).map { it.config }
 
     private fun json(text: String): JsonObject = JsonParser.parseString(text).asJsonObject
-
-    @Suppress("UNCHECKED_CAST")
-    private fun yaml(text: String): Map<String, Any?> = Yaml().load<Any?>(text) as Map<String, Any?>
 
     // ---- Xray
 
@@ -207,109 +191,32 @@ class ExternalRunPlanTest {
     fun `一组多个跳实例：每个跳实例独立的入站，端口与映射目标同计划`() {
         val plan = plan(
             Spec(vless("a", "a.example.com"), 21000, 31000, chainIndex = 0),
-            Spec(anytls("m", "m.example.com"), 21001, 31001, chainIndex = 0),
+            Spec(vless("m", "m.example.com"), 21001, 31001, chainIndex = 0),
             Spec(vmessWs("b", "b.example.com"), 21002, 31002, chainIndex = 1),
             // 首跳不经映射：外核直接拨服务器
             Spec(vless("c", "c.example.com"), 21003, null, chainIndex = 2),
         )
-        val processes = plan.assemble(::noCacheFile, null, settings)
-        assertEquals(listOf("xray-plugin", "mihomo-plugin"), processes.map { it.group.pluginId })
-        assertEquals(listOf(0, 2, 3), processes[0].group.hops.map { it.index })
+        val processes = plan.assemble(::noCacheFile, settings)
+        assertEquals(listOf("xray-plugin"), processes.map { it.group.pluginId })
+        assertEquals(listOf(0, 1, 2, 3), processes[0].group.hops.map { it.index })
 
         val bound = checkXray(json(processes[0].config))
         assertEquals(
-            mapOf(21000 to (LOCALHOST to 31000), 21002 to (LOCALHOST to 31002), 21003 to ("c.example.com" to 443)),
+            mapOf(
+                21000 to (LOCALHOST to 31000), 21001 to (LOCALHOST to 31001),
+                21002 to (LOCALHOST to 31002), 21003 to ("c.example.com" to 443),
+            ),
             bound,
         )
         val config = json(processes[0].config)
-        assertEquals(listOf("in-0", "in-2", "in-3"), config.getAsJsonArray("inbounds").map { it.asJsonObject["tag"].asString })
+        assertEquals(listOf("in-0", "in-1", "in-2", "in-3"), config.getAsJsonArray("inbounds").map { it.asJsonObject["tag"].asString })
         assertEquals(
-            listOf(XRAY_BLOCK_TAG, "out-0", "out-2", "out-3"),
+            listOf(XRAY_BLOCK_TAG, "out-0", "out-1", "out-2", "out-3"),
             config.getAsJsonArray("outbounds").map { it.asJsonObject["tag"].asString },
         )
         // 各跳实例自己的出站内容（传输方式）没有串
-        assertEquals("ws", config.getAsJsonArray("outbounds")[2].asJsonObject.getAsJsonObject("streamSettings")["network"].asString)
+        assertEquals("ws", config.getAsJsonArray("outbounds")[3].asJsonObject.getAsJsonObject("streamSettings")["network"].asString)
         assertEquals("tcp", config.getAsJsonArray("outbounds")[1].asJsonObject.getAsJsonObject("streamSettings")["network"].asString)
-    }
-
-    // ---- mihomo
-
-    // 核对一份合并的 mihomo 配置，返回「listener 端口 → 绑定的代理拨向的地址端口」
-    @Suppress("UNCHECKED_CAST")
-    private fun checkMihomo(config: Map<String, Any?>): Map<Int, Pair<String, Int>> {
-        // 没绑定代理的 listener 不能走直连
-        assertEquals(listOf("MATCH,REJECT"), config["rules"])
-        // 认证只写在各 listener 上
-        assertFalse(config.containsKey("authentication"))
-        assertFalse(config.containsKey("skip-auth-prefixes"))
-        val reserved = setOf("DIRECT", "REJECT", "REJECT-DROP", "PASS", "PASS-RULE", "COMPATIBLE", "GLOBAL")
-        val listeners = config["listeners"] as List<Map<String, Any?>>
-        val proxies = config["proxies"] as List<Map<String, Any?>>
-        val proxyNames = proxies.map { it["name"] as String }
-        val listenerNames = listeners.map { it["name"] as String }
-        assertEquals("代理名不重复", proxyNames.size, proxyNames.toSet().size)
-        assertEquals("listener 名不重复", listenerNames.size, listenerNames.toSet().size)
-        assertTrue((proxyNames + listenerNames).none { it in reserved })
-        assertTrue("标识只用 ASCII", (proxyNames + listenerNames).all { name -> name.all { it.code < 128 } })
-        val ports = listeners.map { it["port"] as Int }
-        assertEquals("listener 端口不重复", ports.size, ports.toSet().size)
-        val bound = LinkedHashMap<Int, Pair<String, Int>>()
-        for (listener in listeners) {
-            assertEquals("socks", listener["type"])
-            assertEquals(LOCALHOST, listener["listen"])
-            assertEquals(true, listener["udp"])
-            // users 恰好一项，就是计划里的凭据
-            assertEquals(listOf(mapOf("username" to auth.username, "password" to auth.password)), listener["users"])
-            val target = listener["proxy"] as String
-            assertTrue("listener 指向的代理 $target 不存在", target in proxyNames)
-            val proxy = proxies.single { it["name"] == target }
-            bound[listener["port"] as Int] = proxy["server"] as String to proxy["port"] as Int
-        }
-        assertEquals("代理数等于 listener 数", listeners.size, proxies.size)
-        return bound
-    }
-
-    @Test
-    fun `一组一个跳实例：mihomo listener 绑定唯一的代理`() {
-        val plan = plan(Spec(anytls("solo", "m.example.com"), 25000, 35000))
-        val config = yaml(plan.configs().single())
-        assertEquals(mapOf(25000 to (LOCALHOST to 35000)), checkMihomo(config))
-        assertEquals("rule", config["mode"])
-        assertNull(config["external-controller"])
-    }
-
-    @Test
-    fun `一组多个跳实例：mihomo 每个 listener 绑定自己的代理`() {
-        val plan = plan(
-            Spec(anytls("a", "a.example.com"), 25000, 35000),
-            Spec(vless("x", "x.example.com"), 25001, 35001),
-            Spec(anytls("b", "b.example.com"), 25002, 35002, chainIndex = 1),
-            Spec(anytls("c", "c.example.com"), 25003, null, chainIndex = 2),
-        )
-        val processes = plan.assemble(::noCacheFile, null, settings)
-        assertEquals(listOf("mihomo-plugin", "xray-plugin"), processes.map { it.group.pluginId })
-        val config = yaml(processes[0].config)
-        assertEquals(
-            mapOf(25000 to (LOCALHOST to 35000), 25002 to (LOCALHOST to 35002), 25003 to ("c.example.com" to 8443)),
-            checkMihomo(config),
-        )
-        @Suppress("UNCHECKED_CAST")
-        val proxies = config["proxies"] as List<Map<String, Any?>>
-        assertEquals(listOf("out-0", "out-2", "out-3"), proxies.map { it["name"] })
-        assertEquals(listOf("fake-password-a", "fake-password-b", "fake-password-c"), proxies.map { it["password"] })
-        // SNI 兜底取各自的服务器地址
-        assertEquals(listOf("a.example.com", "b.example.com", "c.example.com"), proxies.map { it["sni"] })
-    }
-
-    @Test
-    fun `测速的 Clash API 只进 mihomo 的配置，按计划里的代理名查延迟`() {
-        val plan = plan(Spec(anytls("solo", "m.example.com"), 25000, 35000), Spec(vless("x", "x.example.com"), 25001, 35001))
-        val (mihomo, xray) = plan.configs(29090 to "fake-secret")
-        val config = yaml(mihomo)
-        assertEquals("$LOCALHOST:29090", config["external-controller"])
-        assertEquals("fake-secret", config["secret"])
-        assertTrue("fake-secret" !in xray && "29090" !in xray)
-        assertEquals("out-0", plan.hops.single { it.profileId == 25000L }.outboundTag)
     }
 
     // ---- 同一个节点、分组与标识
@@ -319,32 +226,26 @@ class ExternalRunPlanTest {
         // 不同链各自从数据库取实体，bean 是两份；节点 id 相同
         val plan = plan(
             Spec(vless("shared", "s.example.com"), 21000, 31000, chainIndex = 0, profileId = 3),
-            Spec(anytls("shared-m", "sm.example.com"), 25000, 35000, chainIndex = 0, profileId = 4),
             Spec(vless("shared", "s.example.com"), 21001, 31001, chainIndex = 1, profileId = 3),
-            Spec(anytls("shared-m", "sm.example.com"), 25001, 35001, chainIndex = 1, profileId = 4),
         )
-        val (xray, mihomo) = plan.configs()
+        val xray = plan.configs().single()
         assertEquals(mapOf(21000 to (LOCALHOST to 31000), 21001 to (LOCALHOST to 31001)), checkXray(json(xray)))
-        assertEquals(mapOf(25000 to (LOCALHOST to 35000), 25001 to (LOCALHOST to 35001)), checkMihomo(yaml(mihomo)))
-        assertEquals(listOf(0, 2), plan.groups[0].hops.map { it.index })
+        assertEquals(listOf(0, 1), plan.groups[0].hops.map { it.index })
         assertEquals(listOf(3L, 3L), plan.groups[0].hops.map { it.profileId })
     }
 
     @Test
-    fun `分组：Xray 与 mihomo 各一组，插件核心每个跳实例一组，组序按首个跳实例`() {
+    fun `分组：Xray 合并一组，插件核心每个跳实例一组，组序按首个跳实例`() {
         val plan = plan(
-            Spec(anytls("m1", "m1.example.com"), 20000, 30000),
+            Spec(vless("x1", "x1.example.com"), 20000, 30000),
             Spec(trojanGo("t1"), 20001, 30001),
-            Spec(vless("x1", "x1.example.com"), 20002, 30002),
+            Spec(vless("x2", "x2.example.com"), 20002, 30002, chainIndex = 1),
             Spec(trojanGo("t2"), 20003, 30003, chainIndex = 1),
-            Spec(anytls("m2", "m2.example.com"), 20004, 30004, chainIndex = 1),
-            Spec(vless("x2", "x2.example.com"), 20005, 30005, chainIndex = 1),
         )
         assertEquals(
             listOf(
-                "mihomo-plugin" to listOf(0, 4),
+                "xray-plugin" to listOf(0, 2),
                 "trojan-go-plugin" to listOf(1),
-                "xray-plugin" to listOf(2, 5),
                 "trojan-go-plugin" to listOf(3),
             ),
             plan.groups.map { group -> group.pluginId to group.hops.map { it.index } },
@@ -352,7 +253,7 @@ class ExternalRunPlanTest {
         // 插件核心的配置就是单节点生成器的结果，格式不变
         val configs = plan.configs()
         assertEquals((plan.hops[1].bean as TrojanGoBean).buildTrojanGoConfig(20001, plan.hops[1].target, settings), configs[1])
-        assertEquals((plan.hops[3].bean as TrojanGoBean).buildTrojanGoConfig(20003, plan.hops[3].target, settings), configs[3])
+        assertEquals((plan.hops[3].bean as TrojanGoBean).buildTrojanGoConfig(20003, plan.hops[3].target, settings), configs[2])
     }
 
     @Test
@@ -360,7 +261,7 @@ class ExternalRunPlanTest {
         val plan = plan(
             Spec(vless("x", "x.example.com"), 21000, 31000, profileId = 7),
             Spec(trojanGo("t"), 21001, 31001, profileId = 8),
-            Spec(anytls("m", "m.example.com"), 21002, 31002, profileId = 9),
+            Spec(vless("y", "y.example.com"), 21002, 31002, profileId = 9),
         )
         assertEquals(listOf("in-0", "in-1", "in-2"), plan.hops.map { it.inboundTag })
         assertEquals(listOf("out-0", "out-1", "out-2"), plan.hops.map { it.outboundTag })
@@ -456,7 +357,7 @@ class ExternalRunPlanTest {
         assertSame(hy, plan.hops[1].bean)
         assertEquals(listOf("in-0", "in-1", "in-2"), plan.hops.map { it.inboundTag })
         // 不映射的 hysteria 1 按 serverPorts 直拨服务器，经映射的 Trojan-Go 拨本机的映射端口
-        val configs = plan.assemble({ prefix, ext -> tmp.newFile("$prefix.$ext") }, null, settings).map { it.config }
+        val configs = plan.assemble({ prefix, ext -> tmp.newFile("$prefix.$ext") }, settings).map { it.config }
         assertEquals("hy1.example.com:8443", json(configs[1])["server"].asString)
         assertEquals(LOCALHOST, json(configs[2])["remote_addr"].asString)
         assertEquals(31003, json(configs[2])["remote_port"].asInt)
@@ -492,21 +393,23 @@ class ExternalRunPlanTest {
         val result = buildResult(
             auth,
             listOf(record(1, vless("x", "x.example.com"), 21000, 31000, auth), record(2, trojanGo("t"), 21001, 31001, auth)),
-            listOf(record(3, anytls("m", "m.example.com"), 21002, 31002, auth), record(4, naive("n"), 21003, 31003, auth)),
+            listOf(record(3, vless("y", "y.example.com"), 21002, 31002, auth), record(4, naive("n"), 21003, 31003, auth)),
         )
         val plan = ExternalRunPlan.from(result)
-        assertEquals(listOf("xray-plugin", "trojan-go-plugin", "mihomo-plugin", "naive-plugin"), plan.hops.map { it.pluginId })
+        assertEquals(listOf("xray-plugin", "trojan-go-plugin", "xray-plugin", "naive-plugin"), plan.hops.map { it.pluginId })
         assertEquals(listOf(true, false, true, false), plan.hops.map { it.core.inboundAuth })
         assertSame(auth, plan.hops[0].localAuth)
         assertSame(auth, plan.hops[2].localAuth)
         assertNull(plan.hops[1].localAuth)
         assertNull(plan.hops[3].localAuth)
-        // 生成的配置里两端是同一组：Xray / mihomo 入站要求的就是构建结果的凭据，插件核心的配置不变
-        val configs = plan.assemble(::noCacheFile, null, settings).map { it.config }
-        assertEquals(mapOf(21000 to (LOCALHOST to 31000)), checkXray(json(configs[0])))
-        assertEquals(mapOf(21002 to (LOCALHOST to 31002)), checkMihomo(yaml(configs[2])))
+        // Xray 入站要求的就是构建结果的凭据，插件核心的配置不变
+        val configs = plan.assemble(::noCacheFile, settings).map { it.config }
+        assertEquals(
+            mapOf(21000 to (LOCALHOST to 31000), 21002 to (LOCALHOST to 31002)),
+            checkXray(json(configs[0])),
+        )
         assertEquals((plan.hops[1].bean as TrojanGoBean).buildTrojanGoConfig(21001, plan.hops[1].target, settings), configs[1])
-        for (plugin in listOf(configs[1], configs[3])) {
+        for (plugin in listOf(configs[1], configs[2])) {
             assertFalse(auth.username in plugin)
             assertFalse(auth.password in plugin)
         }
@@ -516,10 +419,10 @@ class ExternalRunPlanTest {
     fun `核心需要认证而构建结果里没有凭据时建计划即抛错`() {
         val result = buildResult(
             null,
-            listOf(record(1, trojanGo("t"), 21000, 31000, null), record(2, anytls("m", "m.example.com"), 21001, 31001, null)),
+            listOf(record(1, trojanGo("t"), 21000, 31000, null), record(2, vless("x", "x.example.com"), 21001, 31001, null)),
         )
         val e = assertThrows(IllegalStateException::class.java) { ExternalRunPlan.from(result) }
-        assertTrue(e.message!!, "external hop 1 (mihomo-plugin) needs local socks credentials" in e.message!!)
+        assertTrue(e.message!!, "external hop 1 (xray-plugin) needs local socks credentials" in e.message!!)
         // 只有插件核心时不需要凭据
         val plugins = buildResult(null, listOf(record(1, trojanGo("t"), 21000, 31000, null)))
         assertNull(ExternalRunPlan.from(plugins).hops.single().localAuth)
@@ -538,7 +441,7 @@ class ExternalRunPlanTest {
             ExternalRunPlan(
                 listOf(
                     ExternalHop(0, 0, 1L, vless("x", "x.example.com"), 21000, ExternalDialTarget.Mapped(31000), localAuth = auth),
-                    ExternalHop(1, 0, 2L, anytls("m", "m.example.com"), 21001, ExternalDialTarget.Mapped(31001), localAuth = other),
+                    ExternalHop(1, 0, 2L, vless("y", "y.example.com"), 21001, ExternalDialTarget.Mapped(31001), localAuth = other),
                 )
             )
         }
@@ -551,7 +454,6 @@ class ExternalRunPlanTest {
     @Test
     fun `合并生成器拿不到凭据时直接报错，生成不出不认证的配置`() {
         val xray = vless("x", "x.example.com")
-        val mihomo = anytls("m", "m.example.com")
         val xrayHops = listOf(
             ExternalHop(0, 0, 1L, xray, 21000, ExternalDialTarget.Mapped(31000), localAuth = auth),
             ExternalHop(1, 0, 2L, xray, 21001, ExternalDialTarget.Mapped(31001)),
@@ -561,10 +463,6 @@ class ExternalRunPlanTest {
             buildXrayConfig(xrayHops, listOf(xrayEntry, xrayEntry), settings)
         }
         assertEquals("external hop 1 (xray-plugin) has no local socks credentials", e.message)
-        val mihomoHop = ExternalHop(0, 0, 1L, mihomo, 21000, ExternalDialTarget.Mapped(31000))
-        assertThrows(IllegalStateException::class.java) {
-            buildMihomoConfig(listOf(mihomoHop), listOf(buildMihomoProxy(mihomo, LOCALHOST, 31000, settings)), settings)
-        }
     }
 
     // ---- 报错与调用顺序
@@ -573,12 +471,11 @@ class ExternalRunPlanTest {
     fun `生成出错时带节点名，报计划顺序上第一个出错的节点`() {
         val plan = plan(
             Spec(vless("ok", "ok.example.com"), 21000, 31000),
-            Spec(anytls("bad-mihomo", "m.example.com").apply { certificateFingerprint = "abc" }, 21001, 31001),
-            Spec(vless("bad-xray", "x.example.com").apply { type = "quic" }, 21002, 31002),
+            Spec(vless("bad-xray", "x.example.com").apply { type = "quic" }, 21001, 31001),
+            Spec(vless("later", "later.example.com"), 21002, 31002),
         )
         val e = assertThrows(ProfileBuildException::class.java) { plan.configs() }
-        assertEquals("bad-mihomo", e.profileName)
-        assertTrue(e.message!!, e.message!!.startsWith("bad-mihomo: Invalid AnyTLS certificate fingerprint"))
+        assertEquals("bad-xray", e.profileName)
     }
 
     @Test
@@ -587,11 +484,11 @@ class ExternalRunPlanTest {
             Spec(vless("x", "x.example.com"), 21000, 31000),
             Spec(trojanGo("t"), 21001, 31001),
             Spec(vless("bad", "x.example.com").apply { type = "quic" }, 21002, 31002),
-            Spec(anytls("m", "m.example.com"), 21003, 31003),
+            Spec(vless("later", "later.example.com"), 21003, 31003),
         )
         val seen = ArrayList<Int>()
         assertThrows(ProfileBuildException::class.java) {
-            plan.assemble(::noCacheFile, null, settings, beforeHop = { seen += it.index })
+            plan.assemble(::noCacheFile, settings, beforeHop = { seen += it.index })
         }
         assertEquals("出错的跳实例之后不再继续", listOf(0, 1, 2), seen)
     }
@@ -600,16 +497,14 @@ class ExternalRunPlanTest {
 
     @Test
     fun `运行、测速、导出三种调用方对同一个计划得到相同的外核配置`() {
-        // 六种外核都在：Xray、mihomo 各两个跳实例，hysteria 带 CA（经 cacheFile 领临时文件）
+        // Xray 两个跳实例，hysteria 带 CA（经 cacheFile 领临时文件）
         fun newPlan() = plan(
             Spec(vless("x1", "x1.example.com"), 21000, 31000),
-            Spec(anytls("m1", "m1.example.com"), 21001, 31001),
             Spec(trojanGo("t"), 21002, 31002),
             Spec(naive("n"), 21003, 31003),
             Spec(mieru("u"), 21004, 31004, chainIndex = 1),
             Spec(hysteria("h"), 21005, 31005, chainIndex = 1),
             Spec(vmessWs("x2", "x2.example.com"), 21006, 31006, chainIndex = 2),
-            Spec(anytls("m2", "m2.example.com"), 21007, 31007, chainIndex = 2),
         )
 
         // 三个调用方各用自己的临时文件目录；BoxInstance（运行 / 测速）另在每个跳实例之前确认插件
@@ -618,7 +513,6 @@ class ExternalRunPlanTest {
             val checked = ArrayList<String>()
             fun run(plan: ExternalRunPlan) = plan.assemble(
                 { prefix, ext -> File.createTempFile(prefix + "_", ".$ext", dir) },
-                null,
                 settings,
                 beforeHop = { if (checksPlugins) checked += it.pluginId },
             )
@@ -637,13 +531,13 @@ class ExternalRunPlanTest {
         assertEquals(plan.hops.map { it.pluginId }, callers[0].checked)
         assertEquals(callers[0].checked, callers[1].checked)
         assertTrue(callers[2].checked.isEmpty())
-        // 每组一份：Xray、mihomo 各一份，插件核心各一份
+        // Xray 合并一份，插件核心各一份
         assertEquals(
-            listOf("xray-plugin", "mihomo-plugin", "trojan-go-plugin", "naive-plugin", "mieru-plugin", "hysteria-plugin"),
+            listOf("xray-plugin", "trojan-go-plugin", "naive-plugin", "mieru-plugin", "hysteria-plugin"),
             plan.groups.map { it.pluginId },
         )
-        assertEquals(6, results[0].size)
-        assertTrue(results[0][5].contains("\"ca\": \"<CA>\""))
+        assertEquals(5, results[0].size)
+        assertTrue(results[0][4].contains("\"ca\": \"<CA>\""))
         // 新建的同一个计划（bean 也是新的）结果相同：只取决于计划与设置
         assertEquals(results[0], callers[2].configs(newPlan()))
         // 同一个计划的组与组装结果里的组是同一个对象

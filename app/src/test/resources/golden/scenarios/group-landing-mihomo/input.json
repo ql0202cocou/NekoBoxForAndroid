@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "group-landing-mihomo",
-  "description": "主节点走 Xray，落地是 mihomo 节点",
+  "description": "主节点走 Xray，落地是 AnyTLS 节点",
   "mainProfileId": 1,
   "settings": [
     {
@@ -194,7 +194,7 @@
       "ping": 0,
       "uuid": "",
       "error": null,
-      "core": 3,
+      "core": 0,
       "beanColumn": "anyTLSBean",
       "beanClass": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
       "beanKryoBase64": "BQAAAGFueXRscy5leGFtcGxlLmNv7fsgAABnb2xkZW4tcGFzcy1hbnl0bPOBgYGBAIGBAAAAAAAAAAAAAAABAAAAZ29sZGVuLWxtLWxhbmRpbueBgQ=="
@@ -204,7 +204,6 @@
   "packageUids": {},
   "plugins": {
     "xray-plugin": "builtin",
-    "mihomo-plugin": "builtin",
     "trojan-go-plugin": "missing",
     "naive-plugin": "missing",
     "mieru-plugin": "missing",

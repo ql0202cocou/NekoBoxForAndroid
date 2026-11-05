@@ -72,15 +72,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 35263,
-      "override_address": "mihomo-1.example.com",
-      "override_port": 8444,
-      "tag": "c-0-mapping-5",
-      "type": "direct"
-    },
-    {
-      "listen": "127.0.0.1",
-      "listen_port": 45027,
+      "listen_port": 41143,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-4",
@@ -88,15 +80,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 46059,
-      "override_address": "mihomo-1.example.com",
-      "override_port": 8444,
-      "tag": "c-6-mapping-5",
-      "type": "direct"
-    },
-    {
-      "listen": "127.0.0.1",
-      "listen_port": 45135,
+      "listen_port": 43155,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-6-mapping-4",
@@ -108,18 +92,23 @@
   },
   "outbounds": [
     {
-      "password": "p7fb9ceaabfad2ed95d520adada3783a6",
-      "server": "127.0.0.1",
-      "server_port": 44439,
-      "username": "u9b37dd3c8240dc02",
+      "detour": "c-0-4",
+      "password": "golden-pass-anytls",
+      "server": "mihomo-1.example.com",
+      "server_port": 8444,
+      "tls": {
+        "enabled": true,
+        "insecure": false,
+        "server_name": "mihomo-1.example.org"
+      },
       "tag": "proxy",
-      "type": "socks"
+      "type": "neko-anytls"
     },
     {
-      "password": "p7fb9ceaabfad2ed95d520adada3783a6",
+      "password": "p303b768d06e7faa0d203c31de12906e8",
       "server": "127.0.0.1",
-      "server_port": 40527,
-      "username": "u9b37dd3c8240dc02",
+      "server_port": 33575,
+      "username": "u575316bb70e8e7e4",
       "tag": "c-0-4",
       "type": "socks"
     },
@@ -132,18 +121,23 @@
       "type": "shadowsocks"
     },
     {
-      "password": "p7fb9ceaabfad2ed95d520adada3783a6",
-      "server": "127.0.0.1",
-      "server_port": 36229,
-      "username": "u9b37dd3c8240dc02",
+      "detour": "c-6-4",
+      "password": "golden-pass-anytls",
+      "server": "mihomo-1.example.com",
+      "server_port": 8444,
+      "tls": {
+        "enabled": true,
+        "insecure": false,
+        "server_name": "mihomo-1.example.org"
+      },
       "tag": "c-6-5",
-      "type": "socks"
+      "type": "neko-anytls"
     },
     {
-      "password": "p7fb9ceaabfad2ed95d520adada3783a6",
+      "password": "p303b768d06e7faa0d203c31de12906e8",
       "server": "127.0.0.1",
-      "server_port": 42401,
-      "username": "u9b37dd3c8240dc02",
+      "server_port": 37877,
+      "username": "u575316bb70e8e7e4",
       "tag": "c-6-4",
       "type": "socks"
     },
@@ -189,21 +183,9 @@
       },
       {
         "inbound": [
-          "c-0-mapping-5"
-        ],
-        "outbound": "c-0-4"
-      },
-      {
-        "inbound": [
           "c-0-mapping-4"
         ],
         "outbound": "g-2"
-      },
-      {
-        "inbound": [
-          "c-6-mapping-5"
-        ],
-        "outbound": "c-6-4"
       },
       {
         "inbound": [

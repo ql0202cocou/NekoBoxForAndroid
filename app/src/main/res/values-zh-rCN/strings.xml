@@ -513,7 +513,6 @@
     <string name="core_conflict_field_global_allow_insecure">全局设置里的「总是跳过 TLS 证书验证」</string>
     <string name="enable_ech">启用 ECH</string>
     <string name="core_conflict_xray_anytls">Xray 没有 AnyTLS 出站</string>
-    <string name="core_conflict_mihomo_v2ray_protocol">本应用不能用 mihomo 运行 VMess、VLESS 或 Trojan</string>
     <string name="core_conflict_xray_transport_h2">Xray 已移除 HTTP/2（h2）传输</string>
     <string name="core_conflict_xray_transport_quic">Xray 已移除 QUIC 传输</string>
     <string name="core_conflict_xray_reality_transport">Xray 只能在 TCP、gRPC 或 XHTTP 传输上使用 REALITY</string>
@@ -533,8 +532,6 @@
     <string name="core_conflict_sing_box_utls_fingerprint">sing-box 不认识这个 uTLS 指纹</string>
     <string name="core_conflict_xray_utls_fingerprint">Xray 不认识这个 uTLS 指纹</string>
     <string name="core_conflict_xray_reality_utls_fingerprint">Xray 的 REALITY 需要 uTLS 指纹（不能是 unsafe 或 hellogolang）</string>
-    <string name="core_conflict_mihomo_utls_fingerprint">mihomo 不认识这个 uTLS 指纹，会悄悄改用 Go 标准 TLS</string>
-    <string name="core_conflict_mihomo_utls_handshake_fails">mihomo 用此指纹握手必败或多数时候失败</string>
     <string name="core_conflict_sing_box_mux_cool">sing-box 没有 Mux.Cool（Xray 的多路复用）</string>
     <string name="core_conflict_xray_sing_mux">Xray 只有 Mux.Cool，没有 sing-mux（h2mux / smux / yamux）</string>
     <string name="core_conflict_xray_packetaddr">Xray 没有 packetaddr 包编码</string>
@@ -564,14 +561,12 @@
     <string name="restore_pending">备份恢复尚未完成，完成后再启动服务。</string>
     <string name="restore_replay_failed">中断的备份恢复未能完成，请查看日志并重新导入备份。</string>
 
-    <string name="anytls_certificate_description">自动选核优先使用 sing-box。PEM 证书按所选策略校验；显式证书指纹优先。</string>
+    <string name="anytls_certificate_description">AnyTLS 使用 sing-box。PEM 证书按所选策略校验；显式证书指纹优先。</string>
     <string name="core_conflict_sing_box_anytls_utls">sing-box 的 AnyTLS 不支持这个客户端指纹。</string>
-    <string name="core_conflict_mihomo_anytls_ech">mihomo 的 AnyTLS 开启 ECH 时只支持标准 TLS、chrome、firefox、chrome120 或 firefox120。</string>
-    <string name="core_conflict_sing_box_anytls_local_socks_override">此出站覆写作用于 mihomo 的本地 SOCKS 跳。</string>
+    <string name="core_conflict_sing_box_anytls_local_socks_override">此出站覆写作用于已移除的 mihomo 的本地 SOCKS 跳，请删除或改写它。</string>
     <string name="core_conflict_sing_box_anytls_ech">sing-box 的 AnyTLS 开启 ECH 时只支持标准 TLS、chrome、firefox、chrome120 或 firefox120。</string>
     <string name="anytls_certificate_policy">证书策略</string>
     <string name="anytls_certificate_policy_pin">固定 PEM 中的第一张证书</string>
     <string name="anytls_certificate_policy_trust">信任 PEM 证书（校验域名和有效期）</string>
-    <string name="core_conflict_mihomo_anytls_trust">mihomo 无法保留此节点的自定义信任策略。请选择 sing-box，或明确修改证书策略。</string>
     <string name="core_conflict_anytls_certificate_policy_invalid">AnyTLS 的证书策略未解析或无效。请恢复节点或明确选择证书策略。</string>
 </resources>

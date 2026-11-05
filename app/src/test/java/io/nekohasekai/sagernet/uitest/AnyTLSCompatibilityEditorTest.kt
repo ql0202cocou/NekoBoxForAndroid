@@ -24,32 +24,30 @@ class AnyTLSCompatibilityEditorTest : UiTestBase() {
         UiFixtures.install()
         val editor = ui.launchEditor(AnyTLSSettingsActivity::class.java, 0).get()
         val group = EditorCache.editingGroup
-        assertTrue(editor.child!!.findPreference<Preference>("profileCore")!!.isVisible)
+        assertNull(editor.child!!.findPreference<Preference>("profileCore"))
         for ((key, value) in mapOf("name" to "formal-anytls", "serverAddress" to "node.example.org",
             "serverPort" to "443", "password" to "fake-password", "certificateFingerprint" to "ab".repeat(32))) {
             editor.child!!.findPreference<EditTextPreference>(key)!!.text = value
         }
-        editor.child!!.findPreference<ListPreference>("profileCore")!!.value = ProxyEntity.CORE_SING_BOX.toString()
         runOnDefaultDispatcher { editor.saveAndExit() }
         UiSettle.settle()
         val saved = ui.bg { ProfileRepository.getProfilesByGroup(group) }.single { it.requireBean().name == "formal-anytls" }
-        assertEquals(ProxyEntity.CORE_SING_BOX, saved.core)
+        assertEquals(ProxyEntity.CORE_AUTO, saved.core)
         assertEquals("ab".repeat(32), saved.anyTLSBean!!.certificateFingerprint)
     }
 
     @Test
-    fun historicalTestNodeCanChooseMihomo() {
+    fun historicalMihomoChoiceSavesAsAuto() {
         val fixtures = UiFixtures.install()
         val entity = ui.bg { ProfileRepository.createProfile(fixtures.profiles.first().groupId, AnyTLSBean().apply {
             initializeDefaultValues(); serverAddress = "node.example.org"; compatibilityTest = true
-        }) }
+        }, core = ProxyEntity.CORE_MIHOMO) }
         val editor = ui.launchEditor(AnyTLSSettingsActivity::class.java, entity.id).get()
-        assertTrue(editor.child!!.findPreference<Preference>("profileCore")!!.isVisible)
-        editor.child!!.findPreference<ListPreference>("profileCore")!!.value = ProxyEntity.CORE_MIHOMO.toString()
+        assertNull(editor.child!!.findPreference<Preference>("profileCore"))
         runOnDefaultDispatcher { editor.saveAndExit() }
         UiSettle.settle()
         val saved = ui.bg { ProfileRepository.getProfilesByGroup(entity.groupId) }.single { it.id == entity.id }
-        assertEquals(ProxyEntity.CORE_MIHOMO, saved.core)
+        assertEquals(ProxyEntity.CORE_AUTO, saved.core)
     }
     @Test
     fun trustPolicySurvivesEditingAndUsesUniversalLink() {

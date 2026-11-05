@@ -87,7 +87,7 @@ data class ProxyEntity(
     var ping: Int = 0,
     var uuid: String = "",
     var error: String? = null,
-    // 0 = auto (by protocol), 1 = sing-box, 2 = xray, 3 = mihomo
+    // 0 = auto (by protocol), 1 = sing-box, 2 = xray；3 是已移除的 mihomo，仅供旧数据迁移
     @ColumnInfo(defaultValue = "0") var core: Int = 0,
     var socksBean: SOCKSBean? = null,
     var httpBean: HttpBean? = null,

@@ -1,4 +1,4 @@
 {
-  "listen": "socks://127.0.0.1:37585",
-  "proxy": "https://golden-user:golden-pass-naive@127.0.0.1:36743/"
+  "listen": "socks://127.0.0.1:43223",
+  "proxy": "https://golden-user:golden-pass-naive@127.0.0.1:44457/"
 }

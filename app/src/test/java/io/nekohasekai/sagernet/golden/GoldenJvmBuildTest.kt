@@ -26,27 +26,8 @@ class GoldenJvmBuildTest {
         // 全部场景 × 三种模式只跑一次，本类的测试共用
         private val tree: GoldenJvmTree by lazy { GoldenJvmTree.build(GoldenBaseline.load(), temp.newFolder()) }
 
-        /**
-         * 按名单放宽的比较。只对列出的场景与模式的 result.json，只放宽 error 里随平台变化的位置；这些场景的其余产物
-         * （status、error 的类与消息、dynamic）照常比较。名单上的每个场景每种模式都必须真的用到放宽，不再需要时删掉。
-         */
-        private val RELAXATIONS = listOf(
-            GoldenJvmRelaxation(
-                scenarioId = "mihomo-anytls-bad-certificate",
-                modes = ConfigBuildMode.entries,
-                reason = "错误证书的 cause 链随平台的 X.509 实现而变：Android 的 Conscrypt 是 CertificateException 包两层 " +
-                    "OpenSSLX509CertificateFactory\$ParsingException 再包 RuntimeException（共 5 个 cause），JDK 只有 " +
-                    "CertificateException 包 IOException（共 3 个），CertificateException 的消息也不同。两个平台一致的最大部分是" +
-                    "顶层异常的类与消息、第一个 cause（MihomoConfig 抛的 IllegalArgumentException，类与消息）与第二个 cause 的类，" +
-                    "这些照常比较；放宽的只有 cause 的个数、第二个 cause 的消息与第三个起的 cause",
-                allowed = listOf(
-                    // 个数不同只放宽这一种消息；同一位置的其它差异（例如不是数组）照常报
-                    Regex("""\$\.error\.causes""") to { message: String -> message.startsWith("数组长度不同") },
-                    Regex("""\$\.error\.causes\[1]\.message""") to { _: String -> true },
-                    Regex("""\$\.error\.causes\[([2-9]|[1-9][0-9]+)](\..+)?""") to { _: String -> true },
-                ),
-            ),
-        )
+        // 当前没有平台相关的比较放宽；新增放宽必须写明原因，并保证每个场景每种模式都真的用到。
+        private val RELAXATIONS = emptyList<GoldenJvmRelaxation>()
     }
 
     @Test

@@ -7,13 +7,12 @@ import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.fmt.v2ray.XRAY_BLOCK_TAG
 import io.nekohasekai.sagernet.fmt.v2ray.canonicalXhttpExtra
 import moe.matsuri.nb4a.utils.JavaUtil.gson
-import org.yaml.snakeyaml.Yaml
 
-// 外核「哑管道」不变量：Xray 与 mihomo 在本应用里只是 sing-box 的出站插件，只承担节点拨号与本机端口
-// 绑定，不启用 tun、sniffing、DNS 或用户分流规则。这里把它写成两张白名单加取值约束，同一套检查用在生成器的单测
+// 外核「哑管道」不变量：Xray 在本应用里只是 sing-box 的出站插件，只承担节点拨号与本机端口
+// 绑定，不启用 tun、sniffing、DNS 或用户分流规则。这套白名单与取值约束用在生成器的单测
 // （ExternalCoreInvariantsTest）与基线里全部合并配置（GoldenExternalInvariantsTest）。
 //
-// 白名单按核心各写各的：Xray 的键集不能套到 mihomo 上，反过来也一样。每一级的键集分三类：required 必须出现，
+// 每一级的键集分三类：required 必须出现，
 // optional 可以出现，其余一律不许；forbidden 是点了名要禁的键（报错里带原因），不在白名单里的键同样会被拒绝，
 // forbidden 只是让报错说得清楚。以后加协议只改下面的表，不动检查逻辑。
 
@@ -42,18 +41,6 @@ class XrayOutboundSpec(
 
 /** 检查结果：violations 是违例；exceptions 是命中了表里显式列出的例外（如 ECH 的 DNS 获取），由调用方核对。 */
 class InvariantReport(val violations: List<String>, val exceptions: List<String>)
-
-/** mihomo 的 Clash API（external-controller）是否应出现在配置里。 */
-sealed class ControllerExpectation {
-    /** 运行、导出：不许出现。 */
-    object Absent : ControllerExpectation()
-
-    /** 手工构造的计划里不关心：出现的话也要符合形状。 */
-    object Either : ControllerExpectation()
-
-    /** 测速：必须是 127.0.0.1:port，secret 一致。 */
-    class Present(val port: Int, val secret: String) : ControllerExpectation()
-}
 
 object ExternalCoreInvariants {
 
@@ -155,49 +142,6 @@ object ExternalCoreInvariants {
     // xudpProxyUDP443 必须写且为 allow：不写时 Xray 缺省 reject，外核自己丢掉 UDP/443（K1b D16），哑管道不许替路由做决定
     val XRAY_MUX = keys("enabled", "concurrency", "xudpProxyUDP443", optional = setOf("xudpConcurrency"))
 
-    // ================= mihomo 的表 =================
-
-    // 顶层：listeners / proxies / rules 加必要的模式设置；控制器（external-controller + secret）只在测速时出现，单独断言
-    val MIHOMO_TOP = keys(
-        "log-level", "mode", "listeners", "proxies", "rules",
-        optional = setOf("external-controller", "secret"),
-        forbidden = forbid("DNS 由 sing-box 接管", "dns", "hosts") +
-            forbid("不启用 tun", "tun") +
-            forbid("不嗅探", "sniffer") +
-            forbid("分流由 sing-box 负责", "proxy-groups", "rule-providers", "proxy-providers", "sub-rules", "tunnels") +
-            forbid("不下载地理数据", "geodata-mode", "geox-url", "geo-auto-update") +
-            forbid("只许 listeners 绑定端口，不开别的入口", "port", "socks-port", "mixed-port", "redir-port", "tproxy-port", "allow-lan", "bind-address") +
-            forbid("认证只写在各 listener 的 users 上", "authentication", "skip-auth-prefixes", "lan-allowed-ips", "lan-disallowed-ips") +
-            forbid("不改出口网卡或路由标记", "interface-name", "routing-mark") +
-            forbid("不写 profile、ntp、experimental 这类杂项", "profile", "ntp", "experimental", "external-ui", "external-controller-tls"),
-    )
-    val MIHOMO_LOG_LEVELS = setOf("warning", "info", "debug")
-
-    // listener 只能是本机 socks，用 proxy 字段固定绑定到自己的代理（不经 rules）
-    val MIHOMO_LISTENER = keys(
-        "name", "type", "listen", "port", "udp", "proxy", "users",
-        forbidden = forbid("listener 不挂自己的规则", "rule"),
-    )
-    val MIHOMO_LISTENER_TYPES = setOf("socks")
-    val MIHOMO_USER = keys("username", "password")
-
-    // 代理按类型，键集各写各的；除下面点名的，dialer-proxy 之类会引入额外拨号路径的键一律不许
-    private val MIHOMO_PROXY_FORBIDDEN = forbid(
-        "会引入额外拨号路径或改变出口", "dialer-proxy", "interface-name", "routing-mark", "ip-version", "tfo", "mptcp", "smux",
-    )
-    val MIHOMO_PROXIES: Map<String, Keys> = mapOf(
-        "anytls" to keys(
-            "name", "type", "server", "port", "password", "udp",
-            optional = setOf("sni", "alpn", "fingerprint", "skip-cert-verify", "client-fingerprint", "ech-opts"),
-            forbidden = MIHOMO_PROXY_FORBIDDEN,
-        ),
-    )
-
-    // ech-opts：带 config 是内联配置；只有 enable 时 mihomo 自己去查 DNS，是有意放行的 ECH 的 DNS 例外，
-    // 命中时记进 InvariantReport.exceptions，由调用方核对是哪些场景
-    val MIHOMO_ECH_OPTS = keys("enable", optional = setOf("config"))
-    const val ECH_DNS_EXCEPTION = "mihomo ech-opts 只有 enable、没有内联 config：mihomo 自己查 DNS 取 ECH 配置"
-
     // ================= 入口 =================
 
     /** 检查一份合并后的 Xray 配置（JSON 文本）。 */
@@ -208,17 +152,6 @@ object ExternalCoreInvariants {
         if (root == null || !root.isJsonObject) return InvariantReport(listOf("不是 JSON 对象"), emptyList())
         XrayCheck(out).config(toTree(root) as Map<String, Any?>)
         return InvariantReport(out, emptyList())
-    }
-
-    /** 检查一份合并后的 mihomo 配置（YAML 文本）。 */
-    @Suppress("UNCHECKED_CAST")
-    fun mihomo(text: String, controller: ControllerExpectation): InvariantReport {
-        val out = ArrayList<String>()
-        val exceptions = ArrayList<String>()
-        val root = runCatching { normalize(Yaml().load<Any?>(text)) }.getOrNull()
-        if (root !is Map<*, *>) return InvariantReport(listOf("不是 YAML 映射"), emptyList())
-        MihomoCheck(out, exceptions).config(root as Map<String, Any?>, controller)
-        return InvariantReport(out, exceptions)
     }
 
     // ================= 公共：键集与树 =================
@@ -516,82 +449,4 @@ object ExternalCoreInvariants {
         }
     }
 
-    // ================= mihomo =================
-
-    private class MihomoCheck(out: MutableList<String>, val exceptions: MutableList<String>) : Walker(out) {
-
-        fun config(config: Map<String, Any?>, controller: ControllerExpectation) {
-            checkKeys("顶层", config, MIHOMO_TOP)
-            if (config["log-level"] !in MIHOMO_LOG_LEVELS) bad("log-level", "是 ${config["log-level"]}，应在 $MIHOMO_LOG_LEVELS 里")
-            // 规则只有拒绝兜底：listener 靠 proxy 字段绑定，不经 rules；兜底不是 MATCH,<代理>，也没有任何用户分流规则
-            requireEquals("mode", config["mode"], "rule")
-            requireEquals("rules", config["rules"], listOf("MATCH,REJECT"))
-            controller(config, controller)
-            val proxies = config["proxies"]?.let { list("proxies", it) }.orEmpty()
-            val names = proxies.mapIndexedNotNull { i, proxy -> proxy(i, proxy) }
-            val listeners = config["listeners"]?.let { list("listeners", it) }.orEmpty()
-            listeners.forEachIndexed { i, listener -> listener(i, listener, names) }
-        }
-
-        // external-controller 与 secret 成对，只在测速时出现；出现时必须是 127.0.0.1:<端口>
-        fun controller(config: Map<String, Any?>, expectation: ControllerExpectation) {
-            val address = config["external-controller"]
-            val secret = config["secret"]
-            if ((address == null) != (secret == null)) bad("顶层", "external-controller 与 secret 应成对出现")
-            when (expectation) {
-                is ControllerExpectation.Absent -> if (address != null || secret != null) bad("顶层", "不是测速，不该有 external-controller / secret")
-                is ControllerExpectation.Present -> {
-                    requireEquals("external-controller", address, "$LOCALHOST:${expectation.port}")
-                    requireEquals("secret", secret, expectation.secret)
-                }
-                is ControllerExpectation.Either -> Unit
-            }
-            if (address != null && (address !is String || !Regex("""127\.0\.0\.1:\d+""").matches(address))) {
-                bad("external-controller", "是 $address，应为 127.0.0.1:<端口>")
-            }
-            if (secret != null && (secret !is String || secret.isEmpty())) bad("secret", "应是非空字符串")
-        }
-
-        // 返回代理名
-        fun proxy(i: Int, value: Any?): String? {
-            val path = "proxies[$i]"
-            val proxy = obj(path, value) ?: return null
-            val spec = MIHOMO_PROXIES[proxy["type"]]
-            if (spec == null) {
-                bad("$path.type", "是 ${proxy["type"]}，只许 ${MIHOMO_PROXIES.keys}")
-            } else {
-                checkKeys(path, proxy, spec)
-            }
-            if (!isInt(proxy["port"])) bad("$path.port", "不是整数")
-            requireEquals("$path.udp", proxy["udp"], true)
-            if (proxy["server"] !is String || proxy["server"] == "") bad("$path.server", "不是非空字符串")
-            proxy["ech-opts"]?.let { echOpts ->
-                objectWithKeys("$path.ech-opts", echOpts, MIHOMO_ECH_OPTS)?.let { ech ->
-                    requireEquals("$path.ech-opts.enable", ech["enable"], true)
-                    if (ech["config"] == null) exceptions += ECH_DNS_EXCEPTION
-                }
-            }
-            return proxy["name"] as? String
-        }
-
-        fun listener(i: Int, value: Any?, proxyNames: List<String>) {
-            val path = "listeners[$i]"
-            val listener = objectWithKeys(path, value, MIHOMO_LISTENER) ?: return
-            if (listener["type"] !in MIHOMO_LISTENER_TYPES) bad("$path.type", "是 ${listener["type"]}，只许 $MIHOMO_LISTENER_TYPES")
-            requireEquals("$path.listen", listener["listen"], LOCALHOST)
-            requireEquals("$path.udp", listener["udp"], true)
-            if (!isInt(listener["port"])) bad("$path.port", "不是整数")
-            if (listener["proxy"] !in proxyNames) bad("$path.proxy", "指向不存在的代理 ${listener["proxy"]}")
-            // users 恰好一项：为空或不写时 listener 不认证，-t 也不报错
-            val users = listener["users"]?.let { list("$path.users", it) } ?: return
-            if (users.size != 1) bad("$path.users", "有 ${users.size} 项，应恰好一项")
-            users.forEachIndexed { n, user ->
-                objectWithKeys("$path.users[$n]", user, MIHOMO_USER)?.let { u ->
-                    if (u["username"] !is String || u["username"] == "" || u["password"] !is String || u["password"] == "") {
-                        bad("$path.users[$n]", "用户名或密码不是非空字符串")
-                    }
-                }
-            }
-        }
-    }
 }

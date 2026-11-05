@@ -1,9 +1,8 @@
 #!/bin/bash
 
-# 检查内置核心（Xray、mihomo）与 sing-box 上游是否有新版本，只读、不下载任何二进制。
+# 检查内置 Xray 与 sing-box 上游是否有新版本，只读、不下载任何二进制。
 # 固定版本读自 buildScript/lib/plugins.sh（用 sed 读，不 source：它的主体是下载逻辑）。
-#   - 不用 /releases/latest：Xray 自 v26.4.13 起所有发布都标成 pre-release，
-#     latest 仍停在固定的那一版；mihomo 列表第一项是常驻的 Prerelease-Alpha。
+#   - 不用 /releases/latest：Xray 自 v26.4.13 起所有发布都标成 pre-release，latest 仍可能停在固定的一版；
 #     所以拉 releases 列表，在本地按版本号过滤、比较。
 #   - Xray 另列出固定版本到最新 tag 之间与 REALITY / XHTTP / 版本门槛 / mux /
 #     Trojan / VLESS / VMess 有关的提交（发布正文没有更新日志，只能看提交标题）。
@@ -23,10 +22,9 @@ command -v jq >/dev/null || { echo "ERROR: 需要 jq" >&2; exit 2; }
 pinned() { sed -n "s/^$1=\"\{0,1\}\([^\"]*\)\"\{0,1\}\$/\1/p" buildScript/lib/plugins.sh; }
 
 XRAY_PINNED=$(pinned XRAY_VERSION)
-MIHOMO_PINNED=$(pinned MIHOMO_VERSION)
 SINGBOX_PINNED=$(sed -n 's/^var Version = "\([^"]*\)".*/\1/p' libcore/sing-box/constant/version.go | sed 's/-neko-[0-9]*$//')
-if [ -z "$XRAY_PINNED" ] || [ -z "$MIHOMO_PINNED" ] || [ -z "$SINGBOX_PINNED" ]; then
-  echo "ERROR: 读不到固定版本 (xray='$XRAY_PINNED' mihomo='$MIHOMO_PINNED' sing-box='$SINGBOX_PINNED')" >&2
+if [ -z "$XRAY_PINNED" ] || [ -z "$SINGBOX_PINNED" ]; then
+  echo "ERROR: 读不到固定版本 (xray='$XRAY_PINNED' sing-box='$SINGBOX_PINNED')" >&2
   exit 2
 fi
 
@@ -145,7 +143,6 @@ report_core "Xray" XTLS/Xray-core "$XRAY_PINNED"
 if [ -n "$LATEST" ]; then
   xray_commits "$XRAY_PINNED" "$LATEST" || FAILED=1
 fi
-report_core "mihomo" MetaCubeX/mihomo "$MIHOMO_PINNED"
 
 # sing-box：只提示最新稳定版，不影响退出码
 echo "== sing-box: 固定 v${SINGBOX_PINNED}（仅提示，不影响退出码）"

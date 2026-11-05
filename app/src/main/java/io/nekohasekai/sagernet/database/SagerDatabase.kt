@@ -18,7 +18,7 @@ import java.util.concurrent.Executors
 
 @Database(
     entities = [ProxyGroup::class, ProxyEntity::class, RuleEntity::class, DataGeneration::class],
-    version = 11,
+    version = 12,
     autoMigrations = [
         AutoMigration(from = 3, to = 4),
         AutoMigration(from = 4, to = 5),
@@ -141,10 +141,20 @@ abstract class SagerDatabase : RoomDatabase() {
             }
         }
 
+        // mihomo 已移除：旧版手动选择它的 AnyTLS 节点回到自动选核，其余字段不变。
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "UPDATE `proxy_entities` SET `core` = ? WHERE `type` = ? AND `core` = ?",
+                    arrayOf<Any>(ProxyEntity.CORE_AUTO, ProxyEntity.TYPE_ANYTLS, ProxyEntity.CORE_MIHOMO),
+                )
+            }
+        }
+
         val instance by lazy {
             SagerNet.application.getDatabasePath(Key.DB_PROFILE).parentFile?.mkdirs()
             Room.databaseBuilder(SagerNet.application, SagerDatabase::class.java, Key.DB_PROFILE)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_8_9, MIGRATION_10_11)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_8_9, MIGRATION_10_11, MIGRATION_11_12)
                 .setJournalMode(JournalMode.TRUNCATE)
                 .enableMultiInstanceInvalidation()
                 // 不用 destructive fallback：缺迁移时它会静默丢掉所有配置、分组和规则——

@@ -57,25 +57,13 @@ enum class CoreConflict(
         DialCore.SING_BOX, GapKind.GENERATOR, listOf(ProfileField.UTLS_FINGERPRINT, ProfileField.ENABLE_ECH),
         "sing-box AnyTLS ECH requires standard TLS, chrome, firefox, chrome120 or firefox120",
     ),
-    MIHOMO_ANYTLS_ECH(
-        DialCore.MIHOMO, GapKind.CORE, listOf(ProfileField.UTLS_FINGERPRINT, ProfileField.ENABLE_ECH),
-        "mihomo AnyTLS ECH requires standard TLS, chrome, firefox, chrome120 or firefox120",
-    ),
     SING_BOX_ANYTLS_LOCAL_SOCKS_OVERRIDE(
         DialCore.SING_BOX, GapKind.GENERATOR, listOf(ProfileField.CUSTOM_OUTBOUND_JSON),
-        "This outbound override applies to the local SOCKS hop created for mihomo",
-    ),
-    MIHOMO_ANYTLS_TRUST(
-        DialCore.MIHOMO, GapKind.GENERATOR, listOf(ProfileField.CERTIFICATES, ProfileField.CERTIFICATE_POLICY),
-        "mihomo cannot preserve this profile's custom certificate trust policy; select sing-box",
+        "This outbound override targets the local SOCKS hop of the removed mihomo core; remove or rewrite it",
     ),
     ANYTLS_CERTIFICATE_POLICY_INVALID(
         null, GapKind.GENERATOR, listOf(ProfileField.CERTIFICATE_POLICY),
         "AnyTLS certificate policy is unresolved or invalid; restore or select its certificate policy explicitly",
-    ),
-    MIHOMO_V2RAY_PROTOCOL(
-        DialCore.MIHOMO, GapKind.GENERATOR, listOf(ProfileField.CORE),
-        "This app cannot run VMess, VLESS or Trojan on mihomo",
     ),
 
     // ---- 传输
@@ -157,15 +145,6 @@ enum class CoreConflict(
         DialCore.XRAY, GapKind.CORE, listOf(ProfileField.UTLS_FINGERPRINT, ProfileField.REALITY_PUBLIC_KEY),
         "Xray REALITY needs a uTLS fingerprint (not unsafe or hellogolang)",
     ),
-    MIHOMO_UTLS_FINGERPRINT(
-        DialCore.MIHOMO, GapKind.CORE, listOf(ProfileField.UTLS_FINGERPRINT),
-        "mihomo does not know this uTLS fingerprint and would silently use plain Go TLS",
-    ),
-    MIHOMO_UTLS_HANDSHAKE_FAILS(
-        DialCore.MIHOMO, GapKind.CORE, listOf(ProfileField.UTLS_FINGERPRINT),
-        "mihomo's TLS handshake fails (always, or for most process seeds) with this fingerprint",
-    ),
-
     // ---- 多路复用（mux）
     SING_BOX_MUX_COOL(
         DialCore.SING_BOX, GapKind.CORE, listOf(ProfileField.ENABLE_MUX, ProfileField.MUX_TYPE),

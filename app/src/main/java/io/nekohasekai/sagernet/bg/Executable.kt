@@ -12,7 +12,7 @@ import androidx.core.text.isDigitsOnly
 object Executable {
     private val EXECUTABLES = setOf(
         "libtrojan.so", "libtrojan-go.so", "libnaive.so", "libtuic.so", "libhysteria.so",
-        "libxray.so", "libmihomo.so"
+        "libxray.so"
     )
 
     fun killAll() {

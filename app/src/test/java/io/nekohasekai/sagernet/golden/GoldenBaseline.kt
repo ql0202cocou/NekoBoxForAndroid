@@ -48,7 +48,7 @@ class GoldenExternalCase(
     val pluginId: String,
     /** 跳实例的 bean 由 input.json 的 Kryo 字节新建，拨号目标按记录还原；用例之间不共享。 */
     val plan: ExternalRunPlan,
-    /** 测速时 mihomo 的 Clash API 端口与 secret，其余情况为 null。 */
+    /** 旧基线里测速时的 Clash API 端口与 secret，其余情况为 null。 */
     val controller: Pair<Int, String>?,
     /** 采集时经 cacheFile 领到、且出现在配置原文里的临时文件路径（hysteria 1 的 CA），比较时按动态路径处理。 */
     val tempFiles: List<String>,

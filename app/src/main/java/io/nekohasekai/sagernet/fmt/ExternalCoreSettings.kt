@@ -1,6 +1,6 @@
 package io.nekohasekai.sagernet.fmt
 
-// 外核配置生成器（Xray、mihomo、Trojan-Go、Mieru、Naive）与 ExternalCore.launch 读到的全部设置。
+// 外核配置生成器（Xray、Trojan-Go、Mieru、Naive）与 ExternalCore.launch 读到的全部设置。
 // 生成器只从这里取设置、不碰 DataStore，测试可传固定值；生产上是构建时采集的 ConfigSettings 的投影
 // （ConfigSettings.externalCore），经 ConfigBuildResult.externalCoreSettings 交给组装与启动。只放确实被读到的设置，不预留字段
 data class ExternalCoreSettings(

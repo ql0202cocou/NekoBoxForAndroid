@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "selector-main-anytls",
-  "description": "选择器：选中 mihomo 成员（测速时单节点开 Clash API）",
+  "description": "选择器：选中内部 AnyTLS 成员",
   "mainProfileId": 3,
   "settings": [
     {
@@ -198,7 +198,7 @@
       "ping": 0,
       "uuid": "",
       "error": null,
-      "core": 3,
+      "core": 0,
       "beanColumn": "anyTLSBean",
       "beanClass": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
       "beanKryoBase64": "BQAAAGFueXRscy5leGFtcGxlLmNv7fsgAABnb2xkZW4tcGFzcy1hbnl0bPOBgYGBAIGBAAAAAAAAAAAAAAABAAAAZ29sZGVuLXNlbC1hbnl0bPOBgQ=="
@@ -240,7 +240,6 @@
   "packageUids": {},
   "plugins": {
     "xray-plugin": "builtin",
-    "mihomo-plugin": "builtin",
     "trojan-go-plugin": "missing",
     "naive-plugin": "missing",
     "mieru-plugin": "missing",

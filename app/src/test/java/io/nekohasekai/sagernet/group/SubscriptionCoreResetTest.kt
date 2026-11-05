@@ -47,7 +47,7 @@ class SubscriptionCoreResetTest {
             Triple(CoreTestNodes.vmess(), CORE_XRAY, CoreTestNodes.vmess { serverPort = 8443 }),
             // VMess 与 VLESS 同属 TYPE_VMESS
             Triple(CoreTestNodes.vmess(), CORE_XRAY, CoreTestNodes.vless()),
-            Triple(CoreTestNodes.anytls(), CORE_MIHOMO, CoreTestNodes.anytls { serverPort = 9443 }),
+            Triple(CoreTestNodes.anytls(), CORE_SING_BOX, CoreTestNodes.anytls { serverPort = 9443 }),
             Triple(CoreTestNodes.trojan(), CORE_AUTO, CoreTestNodes.trojan { sni = "other.example.org" }),
         )
         for ((old, core, new) in cases) {

@@ -71,7 +71,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 38843,
+      "listen_port": 35225,
       "override_address": "xray-3.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-4",
@@ -79,7 +79,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 42375,
+      "listen_port": 36273,
       "override_address": "xray-ws-2.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-3",
@@ -87,7 +87,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 45501,
+      "listen_port": 40691,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-2",
@@ -99,26 +99,26 @@
   },
   "outbounds": [
     {
-      "password": "pc712a2b24ac291bae0065a0adfe3cc28",
+      "password": "p6ffa17cb6ea56eca297d554968ea8dc6",
       "server": "127.0.0.1",
-      "server_port": 41019,
-      "username": "u5444b147d854e4dd",
+      "server_port": 38035,
+      "username": "uda7b13e91716a0fa",
       "tag": "proxy",
       "type": "socks"
     },
     {
-      "password": "pc712a2b24ac291bae0065a0adfe3cc28",
+      "password": "p6ffa17cb6ea56eca297d554968ea8dc6",
       "server": "127.0.0.1",
-      "server_port": 36721,
-      "username": "u5444b147d854e4dd",
+      "server_port": 40389,
+      "username": "uda7b13e91716a0fa",
       "tag": "c-0-3",
       "type": "socks"
     },
     {
-      "password": "pc712a2b24ac291bae0065a0adfe3cc28",
+      "password": "p6ffa17cb6ea56eca297d554968ea8dc6",
       "server": "127.0.0.1",
-      "server_port": 37303,
-      "username": "u5444b147d854e4dd",
+      "server_port": 39197,
+      "username": "uda7b13e91716a0fa",
       "tag": "g-2",
       "type": "socks"
     },

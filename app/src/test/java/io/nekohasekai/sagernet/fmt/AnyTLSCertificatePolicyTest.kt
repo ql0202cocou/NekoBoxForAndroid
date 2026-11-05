@@ -26,18 +26,15 @@ class AnyTLSCertificatePolicyTest {
     }
 
     @Test
-    fun `信任模式不回退为 mihomo 固定且显式固定仍优先`() {
+    fun `信任模式与显式固定都由 sing-box 承载`() {
         val bean = CoreTestNodes.anytls { certificates = CoreTestNodes.CERT; certificatePolicy = 1 }
         val entity = ProxyEntity(core = ProxyEntity.CORE_AUTO).putBean(bean)
         assertEquals(CoreDecision.Selected(DialCore.SING_BOX, false), entity.coreDecision(false))
-        entity.core = ProxyEntity.CORE_MIHOMO
-        assertEquals(listOf(CoreConflict.MIHOMO_ANYTLS_TRUST), (entity.coreDecision(false) as CoreDecision.Rejected).conflicts.map { it.id })
-        bean.enableECH = true; bean.utlsFingerprint = "safari"; entity.core = ProxyEntity.CORE_AUTO
+        bean.enableECH = true; bean.utlsFingerprint = "safari"
         assertTrue(entity.coreDecision(false) is CoreDecision.Rejected)
         bean.enableECH = false
         bean.certificateFingerprint = CoreTestNodes.PIN
-        entity.core = ProxyEntity.CORE_MIHOMO
-        assertEquals(CoreDecision.Selected(DialCore.MIHOMO, true), entity.coreDecision(false))
+        assertEquals(CoreDecision.Selected(DialCore.SING_BOX, false), entity.coreDecision(false))
     }
 
     @Test
@@ -52,7 +49,7 @@ class AnyTLSCertificatePolicyTest {
             val restored = ProxyEntity(type = ProxyEntity.TYPE_ANYTLS, core = core).apply { putByteArray(legacy.bytes) }
             BackupRestore.upgradeLegacyProfiles(listOf(restored)) { error("AnyTLS 不读取全局设置") }
             assertEquals(if (core == ProxyEntity.CORE_SING_BOX) 1 else 0, restored.anyTLSBean!!.certificatePolicy)
-            assertEquals(core, restored.core)
+            assertEquals(ProxyEntity.CORE_AUTO.takeIf { core == ProxyEntity.CORE_MIHOMO } ?: core, restored.core)
         }
     }
 

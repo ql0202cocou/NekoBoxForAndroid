@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "multi-chains-shared-nonfirst",
-  "description": "两条链共用中间的 Xray 与出口的 mihomo，都不是最先拨号的一跳",
+  "description": "两条链共用中间的 Xray 与出口的 AnyTLS，都不是最先拨号的一跳",
   "mainProfileId": 1,
   "settings": [
     {
@@ -230,7 +230,7 @@
       "ping": 0,
       "uuid": "",
       "error": null,
-      "core": 3,
+      "core": 0,
       "beanColumn": "anyTLSBean",
       "beanClass": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
       "beanKryoBase64": "BQAAAG1paG9tby0xLmV4YW1wbGUuY2/t/CAAAGdvbGRlbi1wYXNzLWFueXRs821paG9tby0xLmV4YW1wbGUub3LngYGBAIGBAAAAAAAAAAAAAAABAAAAZ29sZGVuLW11bHRpLXNoLW1paG9t74GB"
@@ -273,7 +273,6 @@
   "packageUids": {},
   "plugins": {
     "xray-plugin": "builtin",
-    "mihomo-plugin": "builtin",
     "trojan-go-plugin": "missing",
     "naive-plugin": "missing",
     "mieru-plugin": "missing",

@@ -322,7 +322,7 @@ internal fun planChain(entity: ProxyEntity, context: ChainPlanContext, checkHop:
             it.bean is AnyTLSBean && it.core is HopCore.Internal && !it.choice.requirements.nativeAnyTlsOverrides
         }
         if (privateHop != null) withProfileName(privateHop.bean) {
-            throw ConfigExportException("sing-box AnyTLS uses a NekoBox extension; select mihomo to export a portable configuration")
+            throw ConfigExportException("sing-box AnyTLS uses a NekoBox extension and cannot be exported as a portable configuration")
         }
     }
     return ChainPlan(entity, hops)
@@ -351,7 +351,7 @@ internal fun probeExternalHop(
         )
         ExternalRunPlan(listOf(probe)).assemble({ prefix, ext ->
             createTempFile(prefix, ext).also { tempFiles.add(it) }
-        }, null, settings)
+        }, settings)
     } finally {
         tempFiles.forEach { runCatching { it.delete() } }
     }

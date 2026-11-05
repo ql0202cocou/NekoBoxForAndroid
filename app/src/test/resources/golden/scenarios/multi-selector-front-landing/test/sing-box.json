@@ -22,15 +22,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 34737,
-      "override_address": "mihomo-2.example.com",
-      "override_port": 8445,
-      "tag": "c-0-mapping-11",
-      "type": "direct"
-    },
-    {
-      "listen": "127.0.0.1",
-      "listen_port": 46177,
+      "listen_port": 33875,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-1",
@@ -38,7 +30,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 43193,
+      "listen_port": 35129,
       "override_address": "xray-3.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-10",
@@ -50,26 +42,31 @@
   },
   "outbounds": [
     {
-      "password": "pcef1b2a9247a0c61914eaeca1e0df91a",
-      "server": "127.0.0.1",
-      "server_port": 36909,
-      "username": "ue02d1f870f7ae7c8",
+      "detour": "c-0-1",
+      "password": "golden-pass-anytls",
+      "server": "mihomo-2.example.com",
+      "server_port": 8445,
+      "tls": {
+        "enabled": true,
+        "insecure": false,
+        "server_name": "mihomo-2.example.org"
+      },
       "tag": "proxy",
-      "type": "socks"
+      "type": "neko-anytls"
     },
     {
-      "password": "pcef1b2a9247a0c61914eaeca1e0df91a",
+      "password": "p24a94659348bd59c07153b6f26b39454",
       "server": "127.0.0.1",
-      "server_port": 43309,
-      "username": "ue02d1f870f7ae7c8",
+      "server_port": 39849,
+      "username": "u916e5b3a6e39c341",
       "tag": "c-0-1",
       "type": "socks"
     },
     {
-      "password": "pcef1b2a9247a0c61914eaeca1e0df91a",
+      "password": "p24a94659348bd59c07153b6f26b39454",
       "server": "127.0.0.1",
-      "server_port": 40101,
-      "username": "ue02d1f870f7ae7c8",
+      "server_port": 42513,
+      "username": "u916e5b3a6e39c341",
       "tag": "g-10",
       "type": "socks"
     },
@@ -89,12 +86,6 @@
     },
     "rule_set": [],
     "rules": [
-      {
-        "inbound": [
-          "c-0-mapping-11"
-        ],
-        "outbound": "c-0-1"
-      },
       {
         "inbound": [
           "c-0-mapping-1"

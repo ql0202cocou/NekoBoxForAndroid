@@ -29,7 +29,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 37155,
+      "listen_port": 40353,
       "network": "udp",
       "tag": "plugin-dns-in",
       "type": "direct"
@@ -41,7 +41,7 @@
   "outbounds": [
     {
       "server": "127.0.0.1",
-      "server_port": 36181,
+      "server_port": 41751,
       "tag": "proxy",
       "type": "socks"
     },

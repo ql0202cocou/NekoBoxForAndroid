@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "k1-vmess-manual-mihomo",
-  "description": "VMess 手动指定 mihomo：本应用不能在 mihomo 上跑 VMess，应报错",
+  "description": "旧手动 mihomo 的 VMess 恢复自动：TLS 节点走 sing-box",
   "mainProfileId": 1,
   "settings": [
     {
@@ -166,7 +166,7 @@
       "ping": 0,
       "uuid": "",
       "error": null,
-      "core": 3,
+      "core": 0,
       "beanColumn": "vmessBean",
       "beanClass": "io.nekohasekai.sagernet.fmt.v2ray.VMessBean",
       "beanKryoBase64": "CAAAAHZtZXNzLmV4YW1wbGUuY2/tuwEAAKU1YTBjMWUyZi0zYjRkLTRlNmYtOGE5Yi0wYzFkMmUzZjRhNWJhdXTvAAAAAHRj8HRs83ZtZXNzLmV4YW1wbGUuY2/tgYEAgYGBAIEAAAAAAAAAAAAAAQAAAIGBAQAAAGdvbGRlbi1rMS12bWVzcy1taWhvbe+BgQ=="
@@ -176,7 +176,6 @@
   "packageUids": {},
   "plugins": {
     "xray-plugin": "builtin",
-    "mihomo-plugin": "builtin",
     "trojan-go-plugin": "missing",
     "naive-plugin": "missing",
     "mieru-plugin": "missing",

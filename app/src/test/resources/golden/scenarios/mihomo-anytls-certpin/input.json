@@ -166,7 +166,7 @@
       "ping": 0,
       "uuid": "",
       "error": null,
-      "core": 3,
+      "core": 0,
       "beanColumn": "anyTLSBean",
       "beanClass": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
       "beanKryoBase64": "BQAAAGFueXRscy5leGFtcGxlLmNv7fsgAABnb2xkZW4tcGFzcy1hbnl0bPNhbnl0bHMuZXhhbXBsZS5jb+2BgYEAgeABQUI6Q0Q6RUY6MDE6MjM6NDU6Njc6ODk6QUI6Q0Q6RUY6MDE6MjM6NDU6Njc6ODk6QUI6Q0Q6RUY6MDE6MjM6NDU6Njc6ODk6QUI6Q0Q6RUY6MDE6MjM6NDU6Njc6ODkAAAAAAAAAAAAAAAEAAABnb2xkZW4tYW55dGxzLXBp7oGB"
@@ -176,7 +176,6 @@
   "packageUids": {},
   "plugins": {
     "xray-plugin": "builtin",
-    "mihomo-plugin": "builtin",
     "trojan-go-plugin": "missing",
     "naive-plugin": "missing",
     "mieru-plugin": "missing",

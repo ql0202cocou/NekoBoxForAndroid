@@ -1,27 +1,18 @@
 {
-  "status": "ok",
-  "exportName": "profiles.txt",
-  "dynamic": {
-    "ports": [
-      46273,
-      46635,
-      33157,
-      40441,
-      40075,
-      45673,
-      38315,
-      39419,
-      42807,
-      44317,
-      40235,
-      43537
-    ],
-    "paths": [
-      "/data/user/0/moe.nb4a.debug/cache/hysteria_6884899323715347846.ca"
-    ],
-    "secrets": [
-      "u229eb244402aaeb1",
-      "pdbce82bb3b6f68972615132b1ce7925e"
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-ext-anytls: sing-box AnyTLS uses a NekoBox extension and cannot be exported as a portable configuration",
+    "causes": [
+      {
+        "class": "io.nekohasekai.sagernet.fmt.ConfigExportException",
+        "message": "sing-box AnyTLS uses a NekoBox extension and cannot be exported as a portable configuration"
+      }
     ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
   }
 }

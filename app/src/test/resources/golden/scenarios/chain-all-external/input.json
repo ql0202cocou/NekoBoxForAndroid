@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "chain-all-external",
-  "description": "全外核链：Trojan-Go、Naive、Mieru、Hysteria 1、Xray、mihomo",
+  "description": "混合链：Trojan-Go、Naive、Mieru、Hysteria 1、Xray、AnyTLS",
   "mainProfileId": 1,
   "settings": [
     {
@@ -262,7 +262,7 @@
       "ping": 0,
       "uuid": "",
       "error": null,
-      "core": 3,
+      "core": 0,
       "beanColumn": "anyTLSBean",
       "beanClass": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
       "beanKryoBase64": "BQAAAGFueXRscy5leGFtcGxlLmNv7fsgAABnb2xkZW4tcGFzcy1hbnl0bPOBgYGBAIGBAAAAAAAAAAAAAAABAAAAZ29sZGVuLWV4dC1hbnl0bPOBgQ=="
@@ -272,7 +272,6 @@
   "packageUids": {},
   "plugins": {
     "xray-plugin": "builtin",
-    "mihomo-plugin": "builtin",
     "trojan-go-plugin": "missing",
     "naive-plugin": "missing",
     "mieru-plugin": "missing",

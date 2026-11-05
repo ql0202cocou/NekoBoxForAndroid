@@ -1,15 +1,18 @@
 {
-  "status": "ok",
-  "exportName": "profiles.txt",
-  "dynamic": {
-    "ports": [
-      37215,
-      36125
-    ],
-    "paths": [],
-    "secrets": [
-      "ue9ebe96259617ced",
-      "p63899a501bbafd2dc6fd53a1df063291"
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-anytls-ech: sing-box rejected the outbound options: ECH config is not a valid ECH CONFIGS PEM block",
+    "causes": [
+      {
+        "class": "io.nekohasekai.sagernet.fmt.SingBoxTrialException",
+        "message": "sing-box rejected the outbound options: ECH config is not a valid ECH CONFIGS PEM block"
+      }
     ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
   }
 }

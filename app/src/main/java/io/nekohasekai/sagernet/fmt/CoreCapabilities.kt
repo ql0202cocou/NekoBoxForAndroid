@@ -1,10 +1,9 @@
 package io.nekohasekai.sagernet.fmt
 
-import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_MIHOMO
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_SING_BOX
 import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 
-// K1 能力表：三个能替节点拨号的核心，各自对节点每项要求的声明，以及组合规则。
+// K1 能力表：两个能替节点拨号的核心，各自对节点每项要求的声明，以及组合规则。
 // 选核（CoreSelection.kt）只读这里；节点的要求由 CoreRequirements.kt 提取。
 //
 // 依据（证据编号沿用报告；K1 的调查报告存于维护者本地 doc/agent/k1b-wip/k1-reports/，K1b 的 M1 / X1 / X2 存于维护者
@@ -19,22 +18,17 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //   官方二进制改用 Go 1.27.3 编译（Vision 读 TLS 缓冲的新分支生效）、socks 入站临时 UDP 连接的计时器改为创建时初始化——其余按 diff
 //   未变；run -test 144 条、回环 80 条与 XHTTP 的 129 条与 v26.10.17 一致，新补的 Vision 回环 6 条（TLS / REALITY，内层明文与
 //   TLS 1.3 直拷，UDP 经 XUDP）新旧二进制都通；结论见维护者本地 doc/agent/core-wip/reports/N11-xray.md）；
-// - mihomo：I1（v1.19.31 源码 S-M*、-t 实测 T-M*、回环 L-MA*）；M1（v1.19.32 复核：源码 S2-M*、-t 实测 T2-*、回环
-//   L2-*）；N12（v1.19.33 复核，2026-10-24：对比 v1.19.32 的 diff 不碰第 16–21 条——AnyTLS、component/tls / ca / ech、listener
-//   逐字节相同，metacubex/tls v0.1.9 只改服务端 ECH，utls 不变——-t 116 份（K1 的 24 份、dialer-proxy 成环、golden 的 91 份）、
-//   AnyTLS 回环 10 条、client-fingerprint 名单 19 个逐个拨号、socks listener 握手与 UDP 与 v1.19.32 一致；结论见维护者本地
-//   doc/agent/core-wip/reports/N12-mihomo.md）；
 // - sing-box：I2b（vendored libcore/sing-box，1.14.2 + 1.14.2-neko-1）；现为 1.14.4-neko-2，此后的补丁（SOCKS5 出站的
 //   UDP ASSOCIATE 握手、WireGuard 启动报错去掉密钥、WireGuard 选 bind 与 ClientBind 退避、ICMP 不选接口）与 1.14.3、
 //   1.14.4 的上游改动都不涉及本表各项；sing-vmess 随 1.14.3、1.14.4 升级（1.14.4 只改 vless/vision.go 的关闭与竞争），
 //   引用路径未变；1.14.4 的 REALITY 客户端只改伪装请求的 IPv6 主机写法，自报版本与曲线过滤不变；
-// - 生成器：I2b 的逐字段真值表（buildSingBoxOutbound*、buildXrayOutbound、buildMihomoProxy）。
+// - 生成器：I2b 的逐字段真值表（buildSingBoxOutbound*、buildXrayOutbound）。
 // uTLS 指纹名单、VLESS flow、ws early data 另读了上游固定 tag 的源码，位置写在各常量上。
 //
 // 升级任何一个核心都要回到这里逐条复核：DialCore.version 与 buildScript/lib/plugins.sh、vendored sing-box 的版本
 // 由单测绑定，不改表测试就不过（CoreCapabilitiesTest）。
 //
-// 升级核心时必须重测的条目（I1 §8 与 I4 §4；用 run -test / -t 与本机回环验证，结论写回本表、组合规则、已知差异
+// 升级核心时必须重测的条目（I1 §8；用 run -test 与本机回环验证，结论写回本表、组合规则、已知差异
 // CoreKnownDifferences.kt 与相关生成器）：
 //
 // Xray：
@@ -73,35 +67,24 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 // 15. 顶层新键（env 改进程环境变量、geodata 会定时下载文件）：生成器不写，ExternalCoreInvariants 的 XRAY_TOP 把
 //     它们列为禁止项；再有新的顶层键同样列进去。
 //
-// mihomo：
-// 16. AnyTLSOption 的字段全集（是否新增自定义 CA、reality、mldsa 等）。
-// 17. fingerprint 的匹配语义（命中叶子跳过校验、命中非叶子按名字校验、是否要求 IsCA），用回环验证；-t 是否开始
-//     检查指纹格式。
-// 18. client-fingerprint 名单（MIHOMO_UTLS_FINGERPRINTS），以及名字不认识时是否仍静默退回 Go 标准 TLS；认识但握手
-//     必败的名字（MIHOMO_UTLS_FINGERPRINTS_BROKEN）用回环逐个拨号复核：psk 三个看 mihomo 是否开始设 OmitEmptyPsk，
-//     randomized 要起多个进程（失败与否取决于进程的随机种子）。
-// 19. ech-opts：解码方式、只开开关时自动查询所用的解析器。
-// 20. tls.custom-certifactes 的键名（含拼写）、作用范围、加载失败时的行为；内置证书包是否仍默认开启。
-// 21. -t 的退出码与 logrus 报错格式（「proxy N: …」；dialer-proxy 的报错不带序号）。
-//
 // sing-box（vendored，libcore/sing-box）：
-// 22. common/tls/reality_client.go 的 REALITY 客户端：自报的客户端版本（SessionId 前三字节，现在固定 1.8.1）与
+// 16. common/tls/reality_client.go 的 REALITY 客户端：自报的客户端版本（SessionId 前三字节，现在固定 1.8.1）与
 //     去掉 X25519MLKEM768 的过滤是否还在、「reality verification failed」原文是否不变；对照最新 Xray 服务端对
 //     ClientHello 的要求（第 3 条），复核 NEKO.md「Accepted upstream behavior」的 REALITY 一条与测速提示
 //     （withRealityHint）。libcore/reality_client_canary_test.go 在这些内容变化时先红。顺带看它有没有加 mldsa65Verify
 //     （抗量子校验，现在只有 Xray 有，能力表按 Requirement 记）。
-// 23. common/tls/utls_client.go 的 uTLS 指纹名单（uTLSClientHelloID，SING_BOX_UTLS_FINGERPRINTS），区分大小写、
+// 17. common/tls/utls_client.go 的 uTLS 指纹名单（uTLSClientHelloID，SING_BOX_UTLS_FINGERPRINTS），区分大小写、
 //     名单外加载配置时报错这两点是否不变。
-// 24. SingBoxValueSets.kt 的四个名单（Shadowsocks 加密方式与插件名、VMess 加密方式、TUIC 拥塞控制）：升级 vendored
+// 18. SingBoxValueSets.kt 的四个名单（Shadowsocks 加密方式与插件名、VMess 加密方式、TUIC 拥塞控制）：升级 vendored
 //     sing-box 或 sing-shadowsocks2 / sing-vmess / sing-quic 时逐项对照上游源码复核（取值、大小写、空串的处理），
 //     改名单与 SING_BOX_VALUE_SETS_VERSION / SING_BOX_VALUE_SET_MODULES。CoreCapabilitiesTest 的版本绑定会先红。
 //
 // Clash 订阅导入（K3a）：
-// 25. mihomo 升级后核对 group/ClashImportFields.kt 的键表（adapter/outbound/*.go 的 proxy 标签）、clashRejection 的
+// 19. 对照 mihomo 更新时核对 group/ClashImportFields.kt 的键表（adapter/outbound/*.go 的 proxy 标签）、clashRejection 的
 //     生效条件（各 *Options.Parse 返回 nil 的条件）与 CLASH_NO_EFFECT_KEYS。
 //
 // XHTTP（K2）：
-// 26. Xray 的 SplitHTTPConfig（infra/conf/transport_method.go）：客户端键是否有增减，fmt/v2ray/XhttpExtra.kt 的白名单与
+// 20. Xray 的 SplitHTTPConfig（infra/conf/transport_method.go）：客户端键是否有增减，fmt/v2ray/XhttpExtra.kt 的白名单与
 //     数值上限按它重对；mode 的取值（auto / packet-up / stream-up / stream-one）、extra 存在时是否仍只保留外层的
 //     host / path / mode、headers 不许含 host、xmux 里 maxConnections 与 maxConcurrency 互斥是否不变。
 //     XHTTP 与 Vision 流控（proxy/vless/outbound 要求 TLS / REALITY 直连）、与 Mux.Cool（新版服务端只接受纯 XUDP）的
@@ -117,7 +100,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //     方括号，裸写会让客户端构造不出请求。
 //
 // Vision 流控的传输（XRAY_VISION_TRANSPORT / SING_BOX_VISION_TRANSPORT）：
-// 27. Xray 的 proxy/vless/outbound（与 inbound）是否仍只认直接的 TLS / REALITY 连接（VLESS Encryption 例外，本应用不支持）；
+// 21. Xray 的 proxy/vless/outbound（与 inbound）是否仍只认直接的 TLS / REALITY 连接（VLESS Encryption 例外，本应用不支持）；
 //     sing-vmess 的 NewVisionConn 是否仍只认 TLS 连接本身（tlsRegistry），httpupgrade 是否仍把 TLS 连接原样交出。用
 //     doc/agent/k1b-wip/probe-plan/xray/vision/ 的 gen-transports.py + run-transports.sh 重跑（v26.10.21 / 1.14.3-neko-3：26 条，1.14.4-neko-1 重跑判定相同；
 //     Xray 客户端在 ws / grpc / httpupgrade / http 伪装 / 不带 TLS 上每次连接都失败，UDP 由 Xray 服务端拒收；sing-box 在 ws / grpc /
@@ -126,8 +109,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 // 能替节点拨号的核心。value 与 ProxyEntity.CORE_* 相同；version 是这张表核实时的版本
 enum class DialCore(val value: Int, val displayName: String, val version: String) {
     SING_BOX(CORE_SING_BOX, "sing-box", "1.14.4"),
-    XRAY(CORE_XRAY, "Xray", "v26.10.21"),
-    MIHOMO(CORE_MIHOMO, "mihomo", "v1.19.33");
+    XRAY(CORE_XRAY, "Xray", "v26.10.21");
 
     companion object {
         fun of(value: Int): DialCore? = entries.firstOrNull { it.value == value }

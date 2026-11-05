@@ -6,8 +6,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.yaml.snakeyaml.Yaml
 
-// redactSecrets 对外核配置与日志里凭据的遮蔽。YAML 输入都由 snakeyaml 按 MihomoConfig 的方式
-// （Yaml().dump，默认选项）实际生成，不手写；JSON 输入由 JavaUtil.gson 生成
+// redactSecrets 对外核配置与日志里凭据的遮蔽。YAML 输入都由 snakeyaml 用默认选项
+// （Yaml().dump）实际生成，不手写；JSON 输入由 JavaUtil.gson 生成
 class RedactSecretsTest {
 
     private val defaultUser = "nb4a-3f9c2e7d1a6b4c8e"

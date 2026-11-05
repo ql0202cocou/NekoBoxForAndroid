@@ -22,15 +22,7 @@
   "inbounds": [
     {
       "listen": "127.0.0.1",
-      "listen_port": 33005,
-      "override_address": "mihomo-1.example.com",
-      "override_port": 8444,
-      "tag": "c-0-mapping-4",
-      "type": "direct"
-    },
-    {
-      "listen": "127.0.0.1",
-      "listen_port": 36441,
+      "listen_port": 35759,
       "override_address": "xray-1.example.com",
       "override_port": 443,
       "tag": "c-0-mapping-2",
@@ -42,18 +34,23 @@
   },
   "outbounds": [
     {
-      "password": "pddc8f896b285f64d746797dd6c1d023f",
-      "server": "127.0.0.1",
-      "server_port": 33555,
-      "username": "ude6b4b596825a997",
+      "detour": "g-2",
+      "password": "golden-pass-anytls",
+      "server": "mihomo-1.example.com",
+      "server_port": 8444,
+      "tls": {
+        "enabled": true,
+        "insecure": false,
+        "server_name": "mihomo-1.example.org"
+      },
       "tag": "proxy",
-      "type": "socks"
+      "type": "neko-anytls"
     },
     {
-      "password": "pddc8f896b285f64d746797dd6c1d023f",
+      "password": "p3b7ab21994a28e0a76b3be5976eb7b76",
       "server": "127.0.0.1",
-      "server_port": 43001,
-      "username": "ude6b4b596825a997",
+      "server_port": 46393,
+      "username": "u10ada2a56e02b7fe",
       "tag": "g-2",
       "type": "socks"
     },
@@ -73,12 +70,6 @@
     },
     "rule_set": [],
     "rules": [
-      {
-        "inbound": [
-          "c-0-mapping-4"
-        ],
-        "outbound": "g-2"
-      },
       {
         "inbound": [
           "c-0-mapping-2"

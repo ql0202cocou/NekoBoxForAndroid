@@ -6,15 +6,14 @@ import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.fmt.LOCALHOST
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.yaml.snakeyaml.Yaml
 import java.io.File
 import java.net.URI
 
 // 直接在基线上核对 sing-box 与外核两端接得上（手工构造的计划见 ExternalRunPlanTest）：每个场景每种模式里，sing-box 配置中
 // 每个指向本机的 socks 出站端口，都恰好是某份外核配置里一个入站的端口（反过来每个外核入站也恰好被一个 socks 出站用到）；
 // 该入站绑定的出站拨向的地址端口等于这个跳实例的映射目标；映射目标是本机时，sing-box 配置里有监听这个端口的映射入站。
-// 认证上也要一致（K0b）：入站支持认证的合并核心（Xray、mihomo）的跳实例两端都有凭据且相同、非空，Xray 入站的 auth 是
-// "password" 且 accounts 恰好一项，mihomo listener 的 users 恰好一项；插件核心的跳实例两端都没有；同一份 sing-box 配置里
+// 认证上也要一致（K0b）：Xray 的跳实例两端都有凭据且相同、非空，Xray 入站的 auth 是
+// "password" 且 accounts 恰好一项；插件核心的跳实例两端都没有；同一份 sing-box 配置里
 // 本机凭据只有一组。运行 / 测速按 result.json 的 external 逐个跳实例核对（含记录的凭据）；导出没有这份记录，外核配置
 // 从 export.txt 的各段里取
 class GoldenExternalWiringTest {
@@ -32,7 +31,7 @@ class GoldenExternalWiringTest {
     )
 
     // 入站支持本机认证的核心
-    private val authCores = setOf("xray-plugin", "mihomo-plugin")
+    private val authCores = setOf("xray-plugin")
 
     private val failures = ArrayList<String>()
     private var checkedSocks = 0
@@ -120,8 +119,8 @@ class GoldenExternalWiringTest {
             checkedExportSegments++
             inbounds += parseExternal(at, core, segment)
         }
-        // 合并后导出里 Xray、mihomo 各最多一段
-        for (merged in listOf("xray-plugin", "mihomo-plugin")) {
+        // 合并后导出里 Xray 最多一段
+        for (merged in listOf("xray-plugin")) {
             expect(cores.count { it == merged } <= 1, where) { "$merged 有 ${cores.count { it == merged }} 段" }
         }
         checkWiring(where, singBox, inbounds)
@@ -171,11 +170,7 @@ class GoldenExternalWiringTest {
 
     private fun detectCore(text: String): String? {
         val json = runCatching { JsonParser.parseString(text) }.getOrNull()
-        if (json == null || !json.isJsonObject) {
-            @Suppress("UNCHECKED_CAST")
-            val yaml = runCatching { Yaml().load<Any?>(text) as? Map<String, Any?> }.getOrNull()
-            return if (yaml?.containsKey("listeners") == true) "mihomo-plugin" else null
-        }
+        if (json == null || !json.isJsonObject) return null
         val obj = json.asJsonObject
         return when {
             obj.has("routing") && obj.has("inbounds") -> "xray-plugin"
@@ -187,7 +182,7 @@ class GoldenExternalWiringTest {
         }
     }
 
-    // 一份外核配置里的全部入站；合并配置另核对绑定关系本身（Xray 的 blackhole 兜底与逐入站规则，mihomo 的拒绝兜底）
+    // 一份外核配置里的全部入站；Xray 合并配置另核对 blackhole 兜底与逐入站规则的绑定关系
     private fun parseExternal(where: String, core: String, text: String): List<Inbound> = when (core) {
         "xray-plugin" -> {
             val config = JsonParser.parseString(text).asJsonObject
@@ -218,27 +213,6 @@ class GoldenExternalWiringTest {
                 Inbound(
                     core, inbound["port"].asInt, server?.str("address").orEmpty(), server?.get("port")?.asInt, tag, target,
                     xrayInboundAuth("$where 入站 $tag", inbound.getAsJsonObject("settings")),
-                )
-            }
-        }
-
-        "mihomo-plugin" -> {
-            @Suppress("UNCHECKED_CAST")
-            val config = Yaml().load<Any?>(text) as Map<String, Any?>
-            expect(config["rules"] == listOf("MATCH,REJECT"), where) { "rules 是 ${config["rules"]}" }
-            // 认证只在各 listener 上，不写全局的
-            expect("authentication" !in config && "skip-auth-prefixes" !in config, where) { "有全局的认证设置" }
-            @Suppress("UNCHECKED_CAST")
-            val proxies = config["proxies"] as List<Map<String, Any?>>
-            @Suppress("UNCHECKED_CAST")
-            (config["listeners"] as List<Map<String, Any?>>).map { listener ->
-                expect(listener["listen"] == LOCALHOST && listener["type"] == "socks", where) { "listener 不是本机 socks" }
-                val proxy = proxies.singleOrNull { it["name"] == listener["proxy"] }
-                expect(proxy != null, where) { "listener ${listener["name"]} 指向的代理 ${listener["proxy"]} 不存在" }
-                Inbound(
-                    core, listener["port"] as Int, proxy?.get("server") as String? ?: "", proxy?.get("port") as Int?,
-                    listener["name"] as String?, listener["proxy"] as String?,
-                    mihomoListenerAuth("$where listener ${listener["name"]}", listener["users"]),
                 )
             }
         }
@@ -291,16 +265,6 @@ class GoldenExternalWiringTest {
         val user = accounts.singleOrNull()?.str("user")
         val pass = accounts.singleOrNull()?.str("pass")
         expect(!user.isNullOrEmpty() && !pass.isNullOrEmpty(), where) { "账户的用户名或密码为空" }
-        return if (user != null && pass != null) user to pass else null
-    }
-
-    // mihomo listener 要求的凭据：users 恰好一项且用户名与密码都非空
-    private fun mihomoListenerAuth(where: String, users: Any?): Pair<String, String>? {
-        val list = users as? List<*>
-        expect(list?.size == 1, where) { if (list == null) "没有 users" else "users 有 ${list.size} 项" }
-        val user = (list?.singleOrNull() as? Map<*, *>)?.get("username") as? String
-        val pass = (list?.singleOrNull() as? Map<*, *>)?.get("password") as? String
-        expect(!user.isNullOrEmpty() && !pass.isNullOrEmpty(), where) { "users 的用户名或密码为空" }
         return if (user != null && pass != null) user to pass else null
     }
 

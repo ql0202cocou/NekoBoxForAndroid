@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "multi-chains-shared-swapped",
-  "description": "两条链共用 Xray 与 mihomo 节点但顺序相反，主链另带一个独占的 Xray",
+  "description": "两条链共用 Xray 与 AnyTLS 节点但顺序相反，主链另带一个独占的 Xray",
   "mainProfileId": 1,
   "settings": [
     {
@@ -230,7 +230,7 @@
       "ping": 0,
       "uuid": "",
       "error": null,
-      "core": 3,
+      "core": 0,
       "beanColumn": "anyTLSBean",
       "beanClass": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
       "beanKryoBase64": "BQAAAG1paG9tby0xLmV4YW1wbGUuY2/t/CAAAGdvbGRlbi1wYXNzLWFueXRs821paG9tby0xLmV4YW1wbGUub3LngYGBAIGBAAAAAAAAAAAAAAABAAAAZ29sZGVuLW11bHRpLXN3LW1paG9tby1zaGFyZeSBgQ=="
@@ -289,7 +289,6 @@
   "packageUids": {},
   "plugins": {
     "xray-plugin": "builtin",
-    "mihomo-plugin": "builtin",
     "trojan-go-plugin": "missing",
     "naive-plugin": "missing",
     "mieru-plugin": "missing",

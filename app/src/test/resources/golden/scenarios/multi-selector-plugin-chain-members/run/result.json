@@ -55,95 +55,59 @@
           "index": 0,
           "chainIndex": 0,
           "profileId": 6,
-          "port": 46233,
+          "port": 33801,
           "finalAddress": "127.0.0.1",
-          "finalPort": 39147,
+          "finalPort": 38795,
           "inboundTag": "in-0",
           "outboundTag": "out-0",
           "localAuth": {
-            "username": "u8e1346233b757cef",
-            "password": "pb5a26d1cc12d6821f5a167778babb991"
+            "username": "u434eed07991ba5ac",
+            "password": "ped2988cbc4d9f1bd6934b9fd8bac90a3"
           }
         },
-        {
-          "index": 2,
-          "chainIndex": 2,
-          "profileId": 4,
-          "port": 42799,
-          "finalAddress": "127.0.0.1",
-          "finalPort": 42259,
-          "inboundTag": "in-2",
-          "outboundTag": "out-2",
-          "localAuth": {
-            "username": "u8e1346233b757cef",
-            "password": "pb5a26d1cc12d6821f5a167778babb991"
-          }
-        },
-        {
-          "index": 5,
-          "chainIndex": 3,
-          "profileId": 4,
-          "port": 35821,
-          "finalAddress": "127.0.0.1",
-          "finalPort": 42149,
-          "inboundTag": "in-5",
-          "outboundTag": "out-5",
-          "localAuth": {
-            "username": "u8e1346233b757cef",
-            "password": "pb5a26d1cc12d6821f5a167778babb991"
-          }
-        }
-      ]
-    },
-    {
-      "file": "ext-1.mihomo-plugin.yaml",
-      "pluginId": "mihomo-plugin",
-      "controller": null,
-      "tempFiles": [],
-      "hops": [
         {
           "index": 1,
-          "chainIndex": 1,
-          "profileId": 7,
-          "port": 35445,
+          "chainIndex": 2,
+          "profileId": 4,
+          "port": 38785,
           "finalAddress": "127.0.0.1",
-          "finalPort": 41833,
+          "finalPort": 40627,
           "inboundTag": "in-1",
           "outboundTag": "out-1",
           "localAuth": {
-            "username": "u8e1346233b757cef",
-            "password": "pb5a26d1cc12d6821f5a167778babb991"
+            "username": "u434eed07991ba5ac",
+            "password": "ped2988cbc4d9f1bd6934b9fd8bac90a3"
           }
         },
         {
-          "index": 4,
+          "index": 3,
           "chainIndex": 3,
-          "profileId": 5,
-          "port": 38761,
+          "profileId": 4,
+          "port": 38221,
           "finalAddress": "127.0.0.1",
-          "finalPort": 34933,
-          "inboundTag": "in-4",
-          "outboundTag": "out-4",
+          "finalPort": 34869,
+          "inboundTag": "in-3",
+          "outboundTag": "out-3",
           "localAuth": {
-            "username": "u8e1346233b757cef",
-            "password": "pb5a26d1cc12d6821f5a167778babb991"
+            "username": "u434eed07991ba5ac",
+            "password": "ped2988cbc4d9f1bd6934b9fd8bac90a3"
           }
         }
       ]
     },
     {
-      "file": "ext-2.trojan-go-plugin.json",
+      "file": "ext-1.trojan-go-plugin.json",
       "pluginId": "trojan-go-plugin",
       "controller": null,
       "tempFiles": [],
       "hops": [
         {
-          "index": 3,
+          "index": 2,
           "chainIndex": 2,
           "profileId": 2,
-          "port": 45057,
+          "port": 35763,
           "finalAddress": "127.0.0.1",
-          "finalPort": 44823,
+          "finalPort": 45667,
           "inboundTag": null,
           "outboundTag": null,
           "localAuth": null
@@ -153,23 +117,19 @@
   ],
   "dynamic": {
     "ports": [
-      46233,
-      35445,
-      42799,
-      45057,
-      38761,
-      35821,
-      39147,
-      41833,
-      42259,
-      44823,
-      34933,
-      42149
+      33801,
+      38785,
+      35763,
+      38221,
+      38795,
+      40627,
+      45667,
+      34869
     ],
     "paths": [],
     "secrets": [
-      "u8e1346233b757cef",
-      "pb5a26d1cc12d6821f5a167778babb991"
+      "u434eed07991ba5ac",
+      "ped2988cbc4d9f1bd6934b9fd8bac90a3"
     ]
   }
 }

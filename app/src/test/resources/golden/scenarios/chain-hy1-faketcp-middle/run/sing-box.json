@@ -78,7 +78,7 @@
     },
     {
       "listen": "127.0.0.1",
-      "listen_port": 41185,
+      "listen_port": 39971,
       "network": "udp",
       "tag": "plugin-dns-in",
       "type": "direct"
@@ -102,7 +102,7 @@
     {
       "detour": "g-2",
       "server": "127.0.0.1",
-      "server_port": 33869,
+      "server_port": 37095,
       "tag": "c-0-3",
       "type": "socks"
     },

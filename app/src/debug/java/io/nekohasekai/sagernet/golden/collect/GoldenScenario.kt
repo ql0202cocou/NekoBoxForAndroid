@@ -27,7 +27,7 @@ const val KEY_DOMAIN_STRATEGY_SERVER = "domain_strategy_for_server"
 // 也只会取代码里的默认值，不会受上一个场景或设备原有设置影响。
 // 键的来源（沿调用链核对过）：ConfigBuilder 直接读的 17 项；SingBoxOptionsUtil.domainStrategy
 // 读的三个 domain_strategy 键；TlsFields.effectiveAllowInsecure 读 globalAllowInsecure
-// （也经 ProxyEntity.coreDecision 的能力表判定影响选核）；Xray / mihomo /
+// （也经 ProxyEntity.coreDecision 的能力表判定影响选核）；Xray /
 // Trojan-Go / naive / mieru 生成器与 hysteria 的 ExternalCore.launch 读 logLevel，
 // Trojan-Go 生成器另读 ipv6Mode
 data class GoldenSettings(
@@ -132,7 +132,7 @@ class ScenarioBuilder(private val id: String, private val description: String) {
         )
     }
 
-    // core：0 自动、1 sing-box、2 Xray、3 mihomo（ProxyEntity.CORE_*）
+    // core：0 自动、1 sing-box、2 Xray（ProxyEntity.CORE_*）
     fun node(id: Long, bean: AbstractBean, group: Long = 1L, core: Int = ProxyEntity.CORE_AUTO): Long {
         require(profiles.none { it.id == id }) { "duplicate profile $id" }
         val order = (orderInGroup[group] ?: 0L) + 1

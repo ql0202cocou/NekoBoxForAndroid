@@ -81,8 +81,7 @@
     <string name="allow_insecure_sum">Disable certificate checking. When enabled, this configuration
         is as secure as plaintext</string>
     <string name="anytls_allow_insecure_sum">Disable certificate checking. When enabled, this
-        configuration is as secure as plaintext. Ignored when a certificate fingerprint is pinned
-        (mihomo core)</string>
+        configuration is as secure as plaintext. Ignored when a certificate fingerprint is pinned</string>
     <string name="certificate_fingerprint">Certificate Fingerprint (SHA-256)</string>
     <string name="traffic" translatable="false">%1$s↑ %2$s↓</string>
     <string name="speed_detail">Proxy： %1$s↑ %2$s↓\nDirect： %3$s↑ %4$s↓</string>
@@ -576,7 +575,6 @@
     <string name="reality_public_key" translatable="false">Reality Public Key</string>
     <string name="reality_mldsa65_verify" translatable="false">Reality mldsa65Verify</string>
     <string name="core_conflict_xray_anytls">Xray has no AnyTLS outbound</string>
-    <string name="core_conflict_mihomo_v2ray_protocol">This app cannot run VMess, VLESS or Trojan on mihomo</string>
     <string name="core_conflict_xray_transport_h2">Xray removed the HTTP/2 (h2) transport</string>
     <string name="core_conflict_xray_transport_quic">Xray removed the QUIC transport</string>
     <string name="core_conflict_xray_reality_transport">Xray only runs REALITY over TCP, gRPC or XHTTP</string>
@@ -596,8 +594,6 @@
     <string name="core_conflict_sing_box_utls_fingerprint">sing-box does not know this uTLS fingerprint</string>
     <string name="core_conflict_xray_utls_fingerprint">Xray does not know this uTLS fingerprint</string>
     <string name="core_conflict_xray_reality_utls_fingerprint">Xray REALITY needs a uTLS fingerprint (not unsafe or hellogolang)</string>
-    <string name="core_conflict_mihomo_utls_fingerprint">mihomo does not know this uTLS fingerprint and would silently use plain Go TLS</string>
-    <string name="core_conflict_mihomo_utls_handshake_fails">mihomo\'s TLS handshake fails (always, or for most process seeds) with this fingerprint</string>
     <string name="core_conflict_sing_box_mux_cool">sing-box has no Mux.Cool (Xray\'s multiplexing)</string>
     <string name="core_conflict_xray_sing_mux">Xray only has Mux.Cool, not sing-mux (h2mux / smux / yamux)</string>
     <string name="core_conflict_xray_packetaddr">Xray has no packetaddr packet encoding</string>
@@ -631,14 +627,12 @@
     <string name="insert_tab">Insert tab</string>
     <string name="format">Format</string>
 
-    <string name="anytls_certificate_description">Auto selection prefers sing-box. PEM certificates use the selected policy; an explicit certificate fingerprint takes priority.</string>
+    <string name="anytls_certificate_description">AnyTLS runs on sing-box. PEM certificates use the selected policy; an explicit certificate fingerprint takes priority.</string>
     <string name="core_conflict_sing_box_anytls_utls">Unsupported client fingerprint for the sing-box AnyTLS.</string>
-    <string name="core_conflict_mihomo_anytls_ech">mihomo AnyTLS ECH requires standard TLS, chrome, firefox, chrome120 or firefox120.</string>
-    <string name="core_conflict_sing_box_anytls_local_socks_override">This outbound override applies to the local SOCKS hop created for mihomo.</string>
+    <string name="core_conflict_sing_box_anytls_local_socks_override">This outbound override targets the local SOCKS hop of the removed mihomo core. Remove or rewrite it.</string>
     <string name="core_conflict_sing_box_anytls_ech">sing-box AnyTLS ECH require standard TLS, chrome, firefox, chrome120 or firefox120.</string>
     <string name="anytls_certificate_policy">Certificate policy</string>
     <string name="anytls_certificate_policy_pin">Pin the first PEM certificate</string>
     <string name="anytls_certificate_policy_trust">Trust PEM certificates (verify name and validity)</string>
-    <string name="core_conflict_mihomo_anytls_trust">mihomo cannot preserve this profile’s custom certificate trust policy. Select sing-box or explicitly change the certificate policy.</string>
     <string name="core_conflict_anytls_certificate_policy_invalid">The AnyTLS certificate policy is unresolved or invalid. Restore the profile or select its certificate policy explicitly.</string>
 </resources>

@@ -25,45 +25,23 @@
   },
   "external": [
     {
-      "file": "ext-0.mihomo-plugin.yaml",
-      "pluginId": "mihomo-plugin",
+      "file": "ext-0.xray-plugin.json",
+      "pluginId": "xray-plugin",
       "controller": null,
       "tempFiles": [],
       "hops": [
         {
           "index": 0,
           "chainIndex": 0,
-          "profileId": 4,
-          "port": 41165,
+          "profileId": 3,
+          "port": 39485,
           "finalAddress": "127.0.0.1",
-          "finalPort": 41255,
+          "finalPort": 40057,
           "inboundTag": "in-0",
           "outboundTag": "out-0",
           "localAuth": {
-            "username": "u6c4b2404ec834ae5",
-            "password": "p6bb3ad259b3e7fc437d9398d7a4d495a"
-          }
-        }
-      ]
-    },
-    {
-      "file": "ext-1.xray-plugin.json",
-      "pluginId": "xray-plugin",
-      "controller": null,
-      "tempFiles": [],
-      "hops": [
-        {
-          "index": 1,
-          "chainIndex": 0,
-          "profileId": 3,
-          "port": 36045,
-          "finalAddress": "127.0.0.1",
-          "finalPort": 32779,
-          "inboundTag": "in-1",
-          "outboundTag": "out-1",
-          "localAuth": {
-            "username": "u6c4b2404ec834ae5",
-            "password": "p6bb3ad259b3e7fc437d9398d7a4d495a"
+            "username": "ufb15b072d7bc2c73",
+            "password": "p9ee710ed386343cb028b8c10231471d4"
           }
         }
       ]
@@ -71,15 +49,13 @@
   ],
   "dynamic": {
     "ports": [
-      41165,
-      36045,
-      41255,
-      32779
+      39485,
+      40057
     ],
     "paths": [],
     "secrets": [
-      "u6c4b2404ec834ae5",
-      "p6bb3ad259b3e7fc437d9398d7a4d495a"
+      "ufb15b072d7bc2c73",
+      "p9ee710ed386343cb028b8c10231471d4"
     ]
   }
 }

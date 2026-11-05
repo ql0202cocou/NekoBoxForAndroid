@@ -1,118 +1,77 @@
 #!/bin/bash
 
-# Downloads the built-in plugin cores (Xray / mihomo) from upstream releases
-# into app/executableSo/<abi>/lib*.so (gitignored, packaged via jniLibs).
-# Pinned versions; bump here when upgrading.
+# 将上游发布的内置 Xray 下载到 app/executableSo/<abi>/libxray.so（gitignored，经 jniLibs 打包）。
+# 版本固定；升级时同时更新版本与哈希。
 
 set -eo pipefail
 
 source buildScript/init/verify_sha256.sh
 
 XRAY_VERSION="v26.10.21"
-MIHOMO_VERSION="v1.19.33"
 
-# sha256 of the extracted binaries (exactly what ships in the APK), frozen when
-# the versions above were bumped — recompute and update them together. Guards
-# against a release asset being swapped under the same tag: mihomo publishes no
-# checksums at all, and Xray's .dgst sits next to the asset it describes.
+# 解包后二进制（即 APK 中那份）的 sha256。与版本一起更新，防止同一 tag 下的发布资产被替换。
 XRAY_SHA256_arm64_v8a=c50408346deb5e38dbacb31e37aa09c64b7dd6eaf3c050c8cbac47e816464143
 XRAY_SHA256_x86_64=1e265a36411e2066d43c6f182068b63f46849ae2261fdcab912103e5458a7ce2
-MIHOMO_SHA256_arm64_v8a=cfa0be78846bfef7272fe5a73089f8cf0e1f15a6ffb601f5cc809f457f712f67
-MIHOMO_SHA256_x86_64=fd1fb2773a0b723dbdc7d5f7e81aec8358b43d2674f689edc8f87d453e8687c7
 
 ABIS="arm64-v8a x86_64"
 DIR=app/executableSo
 STAMP="$DIR/.versions"
-WANT="xray=$XRAY_VERSION mihomo=$MIHOMO_VERSION"
+WANT="xray=$XRAY_VERSION"
 
 is_elf() {
   [ "$(head -c 4 "$1" 2>/dev/null | od -An -tx1 | tr -d ' \n')" = "7f454c46" ]
 }
 
 check_pinned() {
-  # $1: file, $2: core (XRAY|MIHOMO), $3: abi
-  local var="$2_SHA256_${3//-/_}"
+  # $1: file, $2: abi
+  local var="XRAY_SHA256_${2//-/_}"
   local expect="${!var}"
-  [ -n "$expect" ] || { echo "no pinned sha256 for $2 $3"; return 1; }
+  [ -n "$expect" ] || { echo "no pinned sha256 for Xray $2"; return 1; }
   verify_sha256 "$1" "$expect" "pinned "
 }
 
-# skip when the installed cores already match the pinned versions
-# Verify cached bytes too: the version stamp and ELF header do not detect
-# corruption or replacement of a cached binary.
+ROOT=$(pwd)
+
+# 已安装核心匹配时跳过；版本戳与 ELF 头识别不了缓存损坏或替换，因此仍核对固定哈希。
 if [ "$(cat "$STAMP" 2>/dev/null)" = "$WANT" ] \
   && is_elf "$DIR/arm64-v8a/libxray.so" && is_elf "$DIR/x86_64/libxray.so" \
-  && is_elf "$DIR/arm64-v8a/libmihomo.so" && is_elf "$DIR/x86_64/libmihomo.so" \
-  && check_pinned "$DIR/arm64-v8a/libxray.so" XRAY arm64-v8a \
-  && check_pinned "$DIR/x86_64/libxray.so" XRAY x86_64 \
-  && check_pinned "$DIR/arm64-v8a/libmihomo.so" MIHOMO arm64-v8a \
-  && check_pinned "$DIR/x86_64/libmihomo.so" MIHOMO x86_64; then
-  echo ">> plugin cores up to date ($WANT)"
-  exit 0
-fi
+  && check_pinned "$DIR/arm64-v8a/libxray.so" arm64-v8a \
+  && check_pinned "$DIR/x86_64/libxray.so" x86_64; then
+  echo ">> plugin core up to date ($WANT)"
+else
+  mkdir -p $DIR/arm64-v8a $DIR/x86_64
+  rm -f "$STAMP"
 
-mkdir -p $DIR/arm64-v8a $DIR/x86_64
-rm -f "$STAMP"
+  TMP=$(mktemp -d)
+  trap 'rm -rf "$TMP"' EXIT
+  cd $TMP
 
-TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
-cd $TMP
+  check_sha256() {
+    # $1: file, $2: dgst content with "SHA2-256= <hash>"
+    local expect=$(echo "$2" | grep 'SHA2-256=' | awk '{print $2}')
+    [ -n "$expect" ] || { echo "no SHA2-256 in dgst"; exit 1; }
+    verify_sha256 "$1" "$expect" || exit 1
+  }
 
-check_sha256() {
-  # $1: file, $2: dgst content with "SHA2-256= <hash>"
-  local expect=$(echo "$2" | grep 'SHA2-256=' | awk '{print $2}')
-  [ -n "$expect" ] || { echo "no SHA2-256 in dgst"; exit 1; }
-  verify_sha256 "$1" "$expect" || exit 1
-}
+  upstream_arch() {
+    if [ "$1" = x86_64 ]; then echo amd64; else echo arm64-v8a; fi
+  }
 
-check_elf() {
-  is_elf "$1" || { echo "$1 is not an ELF binary"; exit 1; }
-}
-
-
-upstream_arch() {
-  # $1: abi, $2: the upstream's name for arm64-v8a (both use amd64 for x86_64)
-  if [ "$1" = x86_64 ]; then echo amd64; else echo "$2"; fi
-}
-
-fetch_xray() {
-  local abi zip dgst
   for abi in $ABIS; do
-    zip="Xray-android-$(upstream_arch $abi arm64-v8a).zip"
+    zip="Xray-android-$(upstream_arch $abi).zip"
     curl -fLSsO "https://github.com/XTLS/Xray-core/releases/download/$XRAY_VERSION/$zip"
     dgst=$(curl -fLSs "https://github.com/XTLS/Xray-core/releases/download/$XRAY_VERSION/$zip.dgst")
     check_sha256 "$zip" "$dgst"
     unzip -o -q "$zip" xray
-    check_elf xray
-    check_pinned xray XRAY "$abi"
+    is_elf xray || { echo "xray is not an ELF binary"; exit 1; }
+    check_pinned xray "$abi"
     cp xray "$OLDPWD/$DIR/$abi/libxray.so"
     rm -f xray "$zip"
   done
-}
 
-# upstream publishes no checksums; gzip integrity + ELF magic + the pinned sha256
-fetch_mihomo() {
-  local abi gz bin
-  for abi in $ABIS; do
-    gz="mihomo-android-$(upstream_arch $abi arm64-v8)-$MIHOMO_VERSION.gz"
-    curl -fLSsO "https://github.com/MetaCubeX/mihomo/releases/download/$MIHOMO_VERSION/$gz"
-    gzip -t "$gz"
-    gunzip -f "$gz"
-    bin="${gz%.gz}"
-    check_elf "$bin"
-    check_pinned "$bin" MIHOMO "$abi"
-    cp "$bin" "$OLDPWD/$DIR/$abi/libmihomo.so"
-    rm -f "$bin"
-  done
-}
+  echo "$WANT" > "$OLDPWD/$STAMP"
+  echo ">> plugin core installed to $DIR (xray $XRAY_VERSION)"
+fi
 
-# the two upstreams are independent; download them concurrently
-fetch_xray & xray_pid=$!
-fetch_mihomo & mihomo_pid=$!
-status=0
-wait $xray_pid || status=1
-wait $mihomo_pid || status=1
-[ $status -eq 0 ] || exit 1
-
-echo "$WANT" > "$OLDPWD/$STAMP"
-echo ">> plugin cores installed to $DIR (xray $XRAY_VERSION, mihomo $MIHOMO_VERSION)"
+# 老工作区里已下载的 mihomo 仍会被 jniLibs 打包，必须清掉。
+rm -f "$ROOT/$DIR/arm64-v8a/libmihomo.so" "$ROOT/$DIR/x86_64/libmihomo.so"

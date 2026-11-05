@@ -58,78 +58,42 @@
           "index": 0,
           "chainIndex": 0,
           "profileId": 1,
-          "port": 40123,
+          "port": 43819,
           "finalAddress": "127.0.0.1",
-          "finalPort": 45525,
+          "finalPort": 42113,
           "inboundTag": "in-0",
           "outboundTag": "out-0",
           "localAuth": {
-            "username": "u8555054348dc2f88",
-            "password": "p664036ea198c6e80e3f24b76d852a495"
+            "username": "u56c793a9ea673c28",
+            "password": "p7f3475034ee816581e8c85fdde3beb0e"
           }
         },
         {
           "index": 1,
           "chainIndex": 1,
           "profileId": 2,
-          "port": 43927,
+          "port": 45731,
           "finalAddress": "127.0.0.1",
-          "finalPort": 36349,
+          "finalPort": 37129,
           "inboundTag": "in-1",
           "outboundTag": "out-1",
           "localAuth": {
-            "username": "u8555054348dc2f88",
-            "password": "p664036ea198c6e80e3f24b76d852a495"
+            "username": "u56c793a9ea673c28",
+            "password": "p7f3475034ee816581e8c85fdde3beb0e"
           }
         },
         {
           "index": 2,
           "chainIndex": 2,
           "profileId": 3,
-          "port": 40849,
+          "port": 46319,
           "finalAddress": "127.0.0.1",
-          "finalPort": 43485,
+          "finalPort": 43759,
           "inboundTag": "in-2",
           "outboundTag": "out-2",
           "localAuth": {
-            "username": "u8555054348dc2f88",
-            "password": "p664036ea198c6e80e3f24b76d852a495"
-          }
-        }
-      ]
-    },
-    {
-      "file": "ext-1.mihomo-plugin.yaml",
-      "pluginId": "mihomo-plugin",
-      "controller": null,
-      "tempFiles": [],
-      "hops": [
-        {
-          "index": 3,
-          "chainIndex": 3,
-          "profileId": 4,
-          "port": 45419,
-          "finalAddress": "127.0.0.1",
-          "finalPort": 42647,
-          "inboundTag": "in-3",
-          "outboundTag": "out-3",
-          "localAuth": {
-            "username": "u8555054348dc2f88",
-            "password": "p664036ea198c6e80e3f24b76d852a495"
-          }
-        },
-        {
-          "index": 4,
-          "chainIndex": 4,
-          "profileId": 5,
-          "port": 36009,
-          "finalAddress": "127.0.0.1",
-          "finalPort": 34273,
-          "inboundTag": "in-4",
-          "outboundTag": "out-4",
-          "localAuth": {
-            "username": "u8555054348dc2f88",
-            "password": "p664036ea198c6e80e3f24b76d852a495"
+            "username": "u56c793a9ea673c28",
+            "password": "p7f3475034ee816581e8c85fdde3beb0e"
           }
         }
       ]
@@ -137,21 +101,17 @@
   ],
   "dynamic": {
     "ports": [
-      40123,
-      43927,
-      40849,
-      45419,
-      36009,
-      45525,
-      36349,
-      43485,
-      42647,
-      34273
+      43819,
+      45731,
+      46319,
+      42113,
+      37129,
+      43759
     ],
     "paths": [],
     "secrets": [
-      "u8555054348dc2f88",
-      "p664036ea198c6e80e3f24b76d852a495"
+      "u56c793a9ea673c28",
+      "p7f3475034ee816581e8c85fdde3beb0e"
     ]
   }
 }

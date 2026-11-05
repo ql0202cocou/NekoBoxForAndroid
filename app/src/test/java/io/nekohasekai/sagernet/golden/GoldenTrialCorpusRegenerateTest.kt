@@ -46,8 +46,8 @@ class GoldenTrialCorpusRegenerateTest {
             assertTrue("语料条目 $entry 的场景不在基线里", entry.scenario in baseline.scenarioIds)
             assertTrue("语料条目 $entry 的 json 里没有 server", containsString(entry.json, entry.server))
         }
-        // 每个 server 在语料里只出现一次：它是回填时找节点的唯一依据
-        assertEquals(corpus.entries.size, corpus.entries.map { it.server }.distinct().size)
+        // 同一场景内每个 server 只出现一次：回填按场景与 server 找唯一节点
+        assertEquals(corpus.entries.size, corpus.entries.map { it.scenario to it.server }.distinct().size)
     }
 
     @Test

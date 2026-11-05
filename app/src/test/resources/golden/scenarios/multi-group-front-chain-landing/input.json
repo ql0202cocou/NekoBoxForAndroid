@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "multi-group-front-chain-landing",
-  "description": "分组前置是 Xray 加 mihomo 的链、落地是 Xray，主节点走 Xray",
+  "description": "分组前置是 Xray 加 AnyTLS 的链、落地是 Xray，主节点走 Xray",
   "mainProfileId": 1,
   "settings": [
     {
@@ -242,7 +242,7 @@
       "ping": 0,
       "uuid": "",
       "error": null,
-      "core": 3,
+      "core": 0,
       "beanColumn": "anyTLSBean",
       "beanClass": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
       "beanKryoBase64": "BQAAAG1paG9tby0xLmV4YW1wbGUuY2/t/CAAAGdvbGRlbi1wYXNzLWFueXRs821paG9tby0xLmV4YW1wbGUub3LngYGBAIGBAAAAAAAAAAAAAAABAAAAZ29sZGVuLW11bHRpLWZjbC1mcm9udC1taWhvbe+BgQ=="
@@ -252,7 +252,6 @@
   "packageUids": {},
   "plugins": {
     "xray-plugin": "builtin",
-    "mihomo-plugin": "builtin",
     "trojan-go-plugin": "missing",
     "naive-plugin": "missing",
     "mieru-plugin": "missing",

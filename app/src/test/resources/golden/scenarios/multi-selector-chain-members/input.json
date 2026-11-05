@@ -1,7 +1,7 @@
 {
   "formatVersion": 3,
   "id": "multi-selector-chain-members",
-  "description": "选择器成员本身是链，链里有多个 Xray 与 mihomo 节点（节点在别的分组）",
+  "description": "选择器成员本身是链，链里有多个 Xray 与 AnyTLS 节点（节点在别的分组）",
   "mainProfileId": 1,
   "settings": [
     {
@@ -226,7 +226,7 @@
       "ping": 0,
       "uuid": "",
       "error": null,
-      "core": 3,
+      "core": 0,
       "beanColumn": "anyTLSBean",
       "beanClass": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
       "beanKryoBase64": "BQAAAG1paG9tby0xLmV4YW1wbGUuY2/t/CAAAGdvbGRlbi1wYXNzLWFueXRs821paG9tby0xLmV4YW1wbGUub3LngYGBAIGBAAAAAAAAAAAAAAABAAAAZ29sZGVuLW11bHRpLXNjLW1paG9tby2xgYE="
@@ -242,7 +242,7 @@
       "ping": 0,
       "uuid": "",
       "error": null,
-      "core": 3,
+      "core": 0,
       "beanColumn": "anyTLSBean",
       "beanClass": "moe.matsuri.nb4a.proxy.anytls.AnyTLSBean",
       "beanKryoBase64": "BQAAAG1paG9tby0yLmV4YW1wbGUuY2/t/SAAAGdvbGRlbi1wYXNzLWFueXRs821paG9tby0yLmV4YW1wbGUub3LngYGBAIGBAAAAAAAAAAAAAAABAAAAZ29sZGVuLW11bHRpLXNjLW1paG9tby2ygYE="
@@ -316,7 +316,6 @@
   "packageUids": {},
   "plugins": {
     "xray-plugin": "builtin",
-    "mihomo-plugin": "builtin",
     "trojan-go-plugin": "missing",
     "naive-plugin": "missing",
     "mieru-plugin": "missing",
