@@ -83,10 +83,15 @@ class NavDock @JvmOverloads constructor(
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private val itemBounds = Rect()
     private var downX = 0f
-    private var activePointerId = MotionEvent.INVALID_POINTER_ID
+    private var tracking = false
     private var dragging = false
     private var dragTargetId = View.NO_ID
-    private val displayedId get() = if (dragging && dragTargetId != View.NO_ID) dragTargetId else selectedId
+    private val displayedId get() = if (dragging) dragTargetId else selectedId
+    // 拖选时每次换目标都要用；主题解析每次都会重读 XML，只解析一次（主题变化时 Activity 重建）
+    private val iconFillDuration by lazy {
+        context.motionDuration(com.google.android.material.R.attr.motionDurationMedium3, ICON_FILL_DURATION_MS)
+    }
+    private val iconFillEasing by lazy { context.motionEasingStandard() }
     // 胶囊是否已经放到过位；没有就不做动画
     private var pillPlaced = false
     // 胶囊当前的目标位置（选中项的左边），用来判断布局是否真的变了
@@ -142,34 +147,23 @@ class NavDock @JvmOverloads constructor(
         showSelection()
     }
 
-    private fun showSelection(animate: Boolean = true) {
+    private fun showSelection() {
         // 首次放位（还没有胶囊位置）不做动画；系统动画关闭时 setIconFilled 直接切换
         for ((itemId, view) in itemViews) {
             val selected = itemId == displayedId
             val wasSelected = view.isSelected
             view.isSelected = selected
-            if (!animate || selected != wasSelected || !pillPlaced) setIconFilled(view, selected, animate && pillPlaced)
+            if (selected != wasSelected || !pillPlaced) setIconFilled(view, selected, pillPlaced)
         }
-        alignPill(animate = animate && pillPlaced)
+        alignPill(animate = pillPlaced)
     }
 
     // 整个 Dock 都可命中；内侧留白归最近的项，按实际位置兼容窗口尺寸与 RTL 排列。
-    private fun itemAt(x: Float, y: Float, allowOutside: Boolean = false): Int {
-        if (!allowOutside && (x < 0 || x >= width || y < 0 || y >= height)) return View.NO_ID
-        var closestId = View.NO_ID
-        var closestDistance = Float.POSITIVE_INFINITY
-        for ((id, view) in itemViews) {
-            if (view.visibility != VISIBLE || view.width == 0) continue
-            view.getDrawingRect(itemBounds)
-            offsetDescendantRectToMyCoords(view, itemBounds)
-            val distance = abs(x - itemBounds.exactCenterX())
-            if (distance < closestDistance) {
-                closestDistance = distance
-                closestId = if (view.isEnabled) id else View.NO_ID
-            }
-        }
-        return closestId
-    }
+    private fun itemAt(x: Float): Int = itemViews.minBy { (_, view) ->
+        view.getDrawingRect(itemBounds)
+        offsetDescendantRectToMyCoords(view, itemBounds)
+        abs(x - itemBounds.exactCenterX())
+    }.key
 
     // 从 DOWN 起统一接管，避免子按钮的点击与 Dock 的拖选各自保留一份触摸状态。
     override fun onInterceptTouchEvent(event: MotionEvent): Boolean = true
@@ -178,32 +172,22 @@ class NavDock @JvmOverloads constructor(
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
-            if (activePointerId != MotionEvent.INVALID_POINTER_ID) finishTouch(commit = false, animate = false)
-            if (!isEnabled) return false
-            val target = itemAt(event.x, event.y)
-            if (target == View.NO_ID) return false
-            activePointerId = event.getPointerId(0)
+            if (tracking) abortTouch()
+            tracking = true
             downX = event.x
-            dragTargetId = target
+            dragTargetId = itemAt(event.x)
             parent?.requestDisallowInterceptTouchEvent(true)
             return true
         }
-        if (activePointerId == MotionEvent.INVALID_POINTER_ID) return false
-        val pointerIndex = event.findPointerIndex(activePointerId)
-        if (!isEnabled || pointerIndex < 0) {
-            finishTouch(commit = false)
-            return true
-        }
+        if (!tracking) return false
         when (event.actionMasked) {
-            MotionEvent.ACTION_MOVE -> previewTouch(event.getX(pointerIndex), event.getY(pointerIndex))
+            MotionEvent.ACTION_MOVE -> previewTouch(event.x, event.y)
             MotionEvent.ACTION_UP -> {
-                previewTouch(event.getX(pointerIndex), event.getY(pointerIndex))
+                previewTouch(event.x, event.y)
                 finishTouch(commit = true)
             }
+            // 第二指落在 Dock 上就结束手势；落在 Dock 外时由父容器拆分，这里只会看到一指。
             MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_CANCEL -> finishTouch(commit = false)
-            MotionEvent.ACTION_POINTER_UP -> if (event.getPointerId(event.actionIndex) == activePointerId) {
-                finishTouch(commit = false)
-            }
         }
         return true
     }
@@ -211,19 +195,37 @@ class NavDock @JvmOverloads constructor(
     private fun previewTouch(x: Float, y: Float) {
         if (abs(x - downX) > touchSlop) dragging = true
         // 横向拖选一旦开始就只跟随 x；滑到手势线附近仍可继续，取消由触摸流的 CANCEL 决定。
-        dragTargetId = itemAt(x, y, allowOutside = dragging)
+        val inside = x >= 0 && x < width && y >= 0 && y < height
+        dragTargetId = if (dragging || inside) itemAt(x) else View.NO_ID
         showSelection()
     }
 
-    private fun finishTouch(commit: Boolean, animate: Boolean = true) {
-        val target = itemViews[dragTargetId]
-        activePointerId = MotionEvent.INVALID_POINTER_ID
+    private fun resetTouch() {
+        tracking = false
         dragging = false
         dragTargetId = View.NO_ID
         parent?.requestDisallowInterceptTouchEvent(false)
+    }
+
+    private fun finishTouch(commit: Boolean) {
+        val target = itemViews[dragTargetId]
+        resetTouch()
         if (commit) target?.performClick()
         // 宿主可能拒绝导航；最终显示仍以 select 收到的实际页面为准。
-        showSelection(animate)
+        showSelection()
+    }
+
+    // 触摸流被打断：丢弃进行中的动画，图标和胶囊直接写成实际页面的终值。
+    private fun abortTouch() {
+        resetTouch()
+        for ((itemId, view) in itemViews) {
+            val selected = itemId == selectedId
+            view.isSelected = selected
+            setIconFilled(view, selected, animate = false)
+        }
+        // 终点相同也要停止回程中的弹簧，所以清掉目标让 alignPill 重新放位。
+        pillTarget = Float.NaN
+        alignPill(animate = false)
     }
 
     /**
@@ -243,13 +245,10 @@ class NavDock @JvmOverloads constructor(
             box.scaleY = 1f
             return
         }
-        val duration = context.motionDuration(
-            com.google.android.material.R.attr.motionDurationMedium3, ICON_FILL_DURATION_MS
-        )
-        fill.animate().alpha(target).setDuration(duration)
-            .setInterpolator(context.motionEasingStandard()).start()
+        fill.animate().alpha(target).setDuration(iconFillDuration)
+            .setInterpolator(iconFillEasing).start()
         if (filled) {
-            val pulse = ValueAnimator.ofFloat(0f, 1f).setDuration(duration)
+            val pulse = ValueAnimator.ofFloat(0f, 1f).setDuration(iconFillDuration)
             pulse.addUpdateListener {
                 val scale = 1f + ICON_PULSE * sin(PI * it.animatedFraction).toFloat()
                 box.scaleX = scale
@@ -267,22 +266,21 @@ class NavDock @JvmOverloads constructor(
     }
 
     /**
-     * 把胶囊对到选中项下面。[animate] 为 true 且胶囊已放过位、系统动画开着时弹簧滑过去，
+     * 把胶囊对到选中项下面。[animate] 为 true（只在胶囊已放过位时传）且系统动画开着时弹簧滑过去，
      * 否则直接放到位。四项等宽，宽度变化（尺寸变化后）也一并直接设置
      */
     private fun alignPill(animate: Boolean) {
         val target = itemViews[displayedId] ?: return
         if (target.width == 0) return
         val left = target.left.toFloat()
-        // 目标相同不重启动画；要求立即复位时仍要停止回程中的弹簧，不能只比较终点。
-        if (pillPlaced && left == pillTarget && pill.layoutParams.width == target.width &&
-            (animate || !pillSpring.isRunning)) return
+        // 布局回调里每次都会走到这里：位置没变就什么也不做，别打断正在滑的弹簧
+        if (pillPlaced && left == pillTarget && pill.layoutParams.width == target.width) return
         pillTarget = left
         if (pill.layoutParams.width != target.width) {
             pill.layoutParams.width = target.width
             pill.requestLayout()
         }
-        if (animate && pillPlaced && pill.isLaidOut && context.animatorsEnabled()) {
+        if (animate && pill.isLaidOut && context.animatorsEnabled()) {
             pillSpring.animateToFinalPosition(left)
         } else {
             pillSpring.cancel()
@@ -295,11 +293,11 @@ class NavDock @JvmOverloads constructor(
     override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
         super.onWindowFocusChanged(hasWindowFocus)
         // 系统手势或其它窗口接管后，旧触摸流作废；回到应用时高亮与实际页面一致。
-        if (!hasWindowFocus) finishTouch(commit = false, animate = false)
+        if (!hasWindowFocus) abortTouch()
     }
 
     override fun onDetachedFromWindow() {
-        finishTouch(commit = false, animate = false)
+        abortTouch()
         pillSpring.cancel()
         super.onDetachedFromWindow()
     }
