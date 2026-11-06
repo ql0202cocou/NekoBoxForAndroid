@@ -78,20 +78,15 @@ class MainActivity : ThemedActivity(),
     // Fragment 提交是异步的；连续点击时按最近的目标页判断，避免把返回原页误当作重复点击。
     private var pendingFragment: ToolbarFragment? = null
 
-    private class PageRequest(val fragment: ToolbarFragment, val backToHub: Boolean)
-
     // 提交完成不等于转场完成；动画期间只保留最后一个请求，不提前移除仍在滑动的页面。
-    private var queuedPage: PageRequest? = null
+    private var queuedPage: ToolbarFragment? = null
     private var activePageTransition: Transition.TransitionListener? = null
     private val canCommitPage get() = activePageTransition == null && !supportFragmentManager.isStateSaved
     private val continueNavigation = Runnable {
         if (!canCommitPage || isFinishing) return@Runnable
-        val request = queuedPage ?: return@Runnable
+        val next = queuedPage ?: return@Runnable
         queuedPage = null
-        val current = currentFragment()
-        val samePage = current?.javaClass == request.fragment.javaClass &&
-            (current as? SettingsFragment)?.sectionKey == (request.fragment as? SettingsFragment)?.sectionKey
-        if (!samePage) displayFragment(request.fragment, request.backToHub)
+        if (!isSamePage(currentFragment(), next)) displayFragment(next)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -101,7 +96,8 @@ class MainActivity : ThemedActivity(),
         binding.fab.initProgress(binding.fabProgress)
         binding.dock.onItemSelected = { id ->
             // 已在该页时不重建页面；二级页面（含设置的分类页）上点「设置」回到设置一级页
-            if (pageIdOf(navigationFragment()) != id) displayFragmentWithId(id)
+            val current = navigationFragment() as? ToolbarFragment
+            if (current == null || current.opensFromSettings || dockItemOf(current) != id) displayFragmentWithId(id)
         }
 
         // Dock、连接按钮、状态卡片悬浮在导航栏上方，横屏时也避开侧边的导航栏与刘海。插入区在
@@ -132,7 +128,7 @@ class MainActivity : ThemedActivity(),
                     classLoader, state.getString("class")!!
                 ) as ToolbarFragment
                 fragment.arguments = state.getBundle("arguments")
-                queuedPage = PageRequest(fragment, state.getBoolean("backToHub"))
+                queuedPage = fragment
             }
             // 重建时 FragmentManager 已自行恢复了当前页面，不经过 displayFragment()，
             // Dock 的选中项在这里按最终目标页设置（二级页面选中「设置」）
@@ -254,9 +250,9 @@ class MainActivity : ThemedActivity(),
     private val navDockClearance by lazy { resources.getDimensionPixelSize(R.dimen.nav_dock_clearance) }
 
     @SuppressLint("CommitTransaction")
-    fun displayFragment(fragment: ToolbarFragment, backToHub: Boolean = false) {
+    fun displayFragment(fragment: ToolbarFragment) {
         if (!canCommitPage) {
-            queuedPage = PageRequest(fragment, backToHub)
+            queuedPage = fragment
             binding.dock.select(dockItemOf(fragment))
             return
         }
@@ -264,7 +260,7 @@ class MainActivity : ThemedActivity(),
         // 多次提交合并时，中间目标可能根本没显示；转场从实际页面出发。
         val previous = currentFragment()
         // 冷启动第一次显示没有旧页面，不做转场
-        if (previous != null) applyPageTransition(previous, fragment, backToHub)
+        if (previous != null) applyPageTransition(previous, fragment)
         pendingFragment = fragment
         supportFragmentManager.beginTransaction()
             .setReorderingAllowed(true)
@@ -292,23 +288,21 @@ class MainActivity : ThemedActivity(),
      * 二级页切换到其它一级页时，按所属的「设置」入口计算方向；RTL 由 START / END 自动镜像。
      * Dock、状态卡片、连接按钮在 Activity 布局里，不参与。
      */
-    private fun applyPageTransition(previous: Fragment, next: ToolbarFragment, backToHub: Boolean) {
+    private fun applyPageTransition(previous: Fragment, next: ToolbarFragment) {
+        // 同一帧回到原页时不再滑入。
+        if (isSamePage(previous, next)) {
+            previous.exitTransition = null
+            next.enterTransition = null
+            return
+        }
         val fromIndex = binding.dock.indexOf(dockItemOf(previous))
         val toIndex = binding.dock.indexOf(dockItemOf(next))
-        val samePage = previous.javaClass == next.javaClass &&
-            (previous as? SettingsFragment)?.sectionKey == (next as? SettingsFragment)?.sectionKey
-        val forward = when {
-            fromIndex != toIndex -> toIndex > fromIndex
-            // 点 Dock 的「设置」也算返回，不能只依赖返回箭头传入的 backToHub。
-            backToHub || ((previous as? ToolbarFragment)?.opensFromSettings == true && !next.opensFromSettings) -> false
-            else -> true
-        }
-        // 同一帧回到原页时不再滑入；设置首页与分类页虽是同一类，仍是不同页面。
-        val exit = if (samePage) null else pageSlide(if (forward) Gravity.START else Gravity.END)
-        val enter = if (samePage) null else pageSlide(if (forward) Gravity.END else Gravity.START)
-        previous.exitTransition = exit
+        // 同属「设置」入口时，进入二级页向前，回一级页（返回箭头或点 Dock）向后。
+        val forward = if (fromIndex != toIndex) toIndex > fromIndex else next.opensFromSettings
+        previous.exitTransition = pageSlide(if (forward) Gravity.START else Gravity.END)
+        val enter = pageSlide(if (forward) Gravity.END else Gravity.START)
         next.enterTransition = enter
-        enter?.addListener(object : TransitionListenerAdapter() {
+        enter.addListener(object : TransitionListenerAdapter() {
             override fun onTransitionStart(transition: Transition) {
                 activePageTransition = this
             }
@@ -334,7 +328,7 @@ class MainActivity : ThemedActivity(),
 
     /** 二级页返回设置一级页，页面反向平移 */
     fun backToSettings() {
-        displayFragment(SettingsFragment.hub(), backToHub = true)
+        displayFragment(SettingsFragment.hub())
     }
 
     /** 新的设置列表取走进入二级页面前保存的滚动状态，只取一次（状态在 [MainViewModel] 里，旋转与进程重建后仍在） */
@@ -351,7 +345,7 @@ class MainActivity : ThemedActivity(),
     private fun currentFragment(): Fragment? =
         supportFragmentManager.findFragmentById(R.id.fragment_holder)
 
-    private fun navigationFragment(): Fragment? = queuedPage?.fragment ?: pendingFragment ?: currentFragment()
+    private fun navigationFragment(): Fragment? = queuedPage ?: pendingFragment ?: currentFragment()
 
     // 页面在 Dock 上对应的项：二级页面（分类页、日志、工具、关于、仪表板）都从设置页进入，选中「设置」
     @IdRes
@@ -362,20 +356,9 @@ class MainActivity : ThemedActivity(),
         else -> R.id.nav_settings
     }
 
-    // 当前页面自己的 id（与 displayFragmentWithId 的分发一致），未知页面为 0
-    @IdRes
-    private fun pageIdOf(fragment: Fragment?): Int = when (fragment) {
-        is ConfigurationFragment -> R.id.nav_configuration
-        is GroupFragment -> R.id.nav_group
-        is RouteFragment -> R.id.nav_route
-        // 只有一级页算「设置」；分类页为 0，所以在分类页上点 Dock 的「设置」会回到一级页
-        is SettingsFragment -> if (fragment.sectionKey == null) R.id.nav_settings else 0
-        is WebviewFragment -> R.id.nav_traffic
-        is ToolsFragment -> R.id.nav_tools
-        is LogcatFragment -> R.id.nav_logcat
-        is AboutFragment -> R.id.nav_about
-        else -> 0
-    }
+    // 设置首页与分类页虽是同一类，仍是不同页面。
+    private fun isSamePage(a: Fragment?, b: Fragment): Boolean = a?.javaClass == b.javaClass &&
+        (a as? SettingsFragment)?.sectionKey == (b as? SettingsFragment)?.sectionKey
 
     fun displayFragmentWithId(@IdRes id: Int): Boolean {
         when (id) {
@@ -528,11 +511,10 @@ class MainActivity : ThemedActivity(),
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
-        queuedPage?.let { request ->
+        queuedPage?.let { page ->
             outState.putBundle("queuedPage", Bundle().apply {
-                putString("class", request.fragment.javaClass.name)
-                putBundle("arguments", request.fragment.arguments)
-                putBoolean("backToHub", request.backToHub)
+                putString("class", page.javaClass.name)
+                putBundle("arguments", page.arguments)
             })
         }
         super.onSaveInstanceState(outState)

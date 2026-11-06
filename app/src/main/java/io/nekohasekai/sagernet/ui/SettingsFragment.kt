@@ -39,12 +39,9 @@ class SettingsFragment : ToolbarFragment(R.layout.layout_config_settings) {
         }
     }
 
-    /** 一级列表当前的滚动状态，由 MainActivity 在进入二级页面前保存；二级页恒为 null */
-    fun listState(): Parcelable? {
-        if (sectionKey != null) return null
-        return (childFragmentManager.findFragmentById(R.id.settings) as? SettingsPreferenceFragment)
-            ?.listState()
-    }
+    /** 一级列表当前的滚动状态，由 MainActivity 在进入二级页面前保存 */
+    fun listState(): Parcelable? =
+        (childFragmentManager.findFragmentById(R.id.settings) as? SettingsPreferenceFragment)?.listState()
 
     companion object {
         private const val ARG_SECTION = "section"
