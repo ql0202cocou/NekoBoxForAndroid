@@ -4,6 +4,7 @@ import android.graphics.Rect
 import android.os.Looper
 import android.os.SystemClock
 import android.view.InputDevice
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -15,6 +16,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.descendants
 import androidx.fragment.app.Fragment
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.ui.ConfigurationFragment
 import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.ui.RouteFragment
 import org.junit.After
@@ -32,10 +34,17 @@ class NavDockTouchTest : UiTestBase() {
 
     @After
     fun restoreFrameClock() {
+        // 取消后的弹簧回调要在本用例内清理，不能留到 Robolectric 重置时钟之后。
+        ui.finishActivities()
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(32))
         ShadowChoreographer.setPaused(false)
     }
 
-    private class Gesture(val main: MainActivity, private val throughWindow: Boolean = false) {
+    private class Gesture(
+        val main: MainActivity,
+        private val throughWindow: Boolean = false,
+        private val settleAfterEvent: Boolean = true,
+    ) {
         val dock = main.binding.dock
         val requests = mutableListOf<Int>()
         private var downTime = 0L
@@ -88,7 +97,7 @@ class NavDockTouchTest : UiTestBase() {
             } finally {
                 event.recycle()
             }
-            UiSettle.settle()
+            if (settleAfterEvent) UiSettle.settle()
         }
 
         fun addSecondPointer(page: Page) {
@@ -133,16 +142,21 @@ class NavDockTouchTest : UiTestBase() {
 
     private fun gesture() = Gesture(ui.launchMain().get())
 
-    private fun windowGesture(): Gesture {
+    private fun windowGesture(settleAfterEvent: Boolean = true): Gesture {
         val main = ui.launchMain().get()
         // 底部保留真实窗口内的手势线区域，事件经 Activity 和父容器分发给 Dock。
         val bottom = (24 * main.resources.displayMetrics.density).toInt()
-        ViewCompat.dispatchApplyWindowInsets(main.binding.coordinator, WindowInsetsCompat.Builder()
-            .setInsets(WindowInsetsCompat.Type.navigationBars(), Insets.of(0, 0, 0, bottom))
-            .setInsets(WindowInsetsCompat.Type.mandatorySystemGestures(), Insets.of(0, 0, 0, bottom))
-            .build())
+        val content = main.findViewById<View>(android.R.id.content)
+        // 页面转场会重新申请插入区，必须在窗口入口持续提供，而不是只分发一次。
+        ViewCompat.setOnApplyWindowInsetsListener(content) { _, insets ->
+            WindowInsetsCompat.Builder(insets)
+                .setInsets(WindowInsetsCompat.Type.navigationBars(), Insets.of(0, 0, 0, bottom))
+                .setInsets(WindowInsetsCompat.Type.mandatorySystemGestures(), Insets.of(0, 0, 0, bottom))
+                .build()
+        }
+        ViewCompat.dispatchApplyWindowInsets(content, WindowInsetsCompat.Builder().build())
         UiSettle.settle()
-        return Gesture(main, throughWindow = true)
+        return Gesture(main, throughWindow = true, settleAfterEvent = settleAfterEvent)
     }
 
     private fun Gesture.gestureLine(page: Page): Pair<Float, Float> {
@@ -152,22 +166,24 @@ class NavDockTouchTest : UiTestBase() {
     }
 
     @Test
-    fun bottomExitReleaseCancelsAndTheNextDragWorks() {
+    fun bottomExitReleaseCommitsAndTheNextDragWorks() {
         val g = windowGesture()
         val original = g.main.hostedFragment<Fragment>()
         g.send(MotionEvent.ACTION_DOWN, Page.CONFIG)
         g.send(MotionEvent.ACTION_MOVE, Page.SETTINGS)
         g.assertSelected(Page.SETTINGS)
         g.send(MotionEvent.ACTION_MOVE, g.gestureLine(Page.SETTINGS))
-        g.assertSelected(Page.CONFIG)
-        g.send(MotionEvent.ACTION_UP, g.gestureLine(Page.GROUPS))
-        assertTrue("边界外松手不导航", g.requests.isEmpty())
+        g.assertSelected(Page.SETTINGS)
+        assertTrue("越界仍只预览，松手才导航", g.requests.isEmpty())
         assertSame(original, g.main.hostedFragment<Fragment>())
+        g.send(MotionEvent.ACTION_UP, g.gestureLine(Page.GROUPS))
+        g.assertSelected(Page.GROUPS)
+        assertEquals(listOf(Page.GROUPS.navId), g.requests)
         g.send(MotionEvent.ACTION_DOWN, Page.GROUPS)
         g.send(MotionEvent.ACTION_MOVE, Page.ROUTES)
         g.send(MotionEvent.ACTION_UP, Page.ROUTES)
         g.assertSelected(Page.ROUTES)
-        assertEquals(listOf(Page.ROUTES.navId), g.requests)
+        assertEquals(listOf(Page.GROUPS.navId, Page.ROUTES.navId), g.requests)
         assertTrue(g.main.hostedFragment<Fragment>() is RouteFragment)
     }
 
@@ -178,8 +194,9 @@ class NavDockTouchTest : UiTestBase() {
         g.send(MotionEvent.ACTION_MOVE, Page.SETTINGS)
         repeat(3) {
             g.send(MotionEvent.ACTION_MOVE, g.gestureLine(Page.SETTINGS))
+            g.assertSelected(Page.SETTINGS)
             g.send(MotionEvent.ACTION_MOVE, g.gestureLine(Page.GROUPS))
-            g.assertSelected(Page.CONFIG)
+            g.assertSelected(Page.GROUPS)
             g.send(MotionEvent.ACTION_MOVE, Page.GROUPS)
             g.assertSelected(Page.GROUPS)
             assertTrue("滑出、滑回期间都不导航", g.requests.isEmpty())
@@ -187,6 +204,140 @@ class NavDockTouchTest : UiTestBase() {
         g.send(MotionEvent.ACTION_UP, Page.ROUTES)
         g.assertSelected(Page.ROUTES)
         assertEquals(listOf(Page.ROUTES.navId), g.requests)
+    }
+
+    @Test
+    fun downwardExitBeforeDragCanResumeOnReentry() {
+        val g = windowGesture()
+        val original = g.main.hostedFragment<Fragment>()
+        g.send(MotionEvent.ACTION_DOWN, Page.CONFIG)
+        g.send(MotionEvent.ACTION_MOVE, g.gestureLine(Page.CONFIG))
+        g.send(MotionEvent.ACTION_MOVE, g.gestureLine(Page.SETTINGS))
+        g.assertSelected(Page.SETTINGS)
+        g.send(MotionEvent.ACTION_MOVE, Page.GROUPS)
+        g.assertSelected(Page.GROUPS)
+        assertTrue("滑回前后都只预览", g.requests.isEmpty())
+        assertSame(original, g.main.hostedFragment<Fragment>())
+        g.send(MotionEvent.ACTION_UP, Page.ROUTES)
+        g.assertSelected(Page.ROUTES)
+        assertEquals(listOf(Page.ROUTES.navId), g.requests)
+    }
+
+    @Test
+    fun draggingAlongTheGestureLineKeepsFollowingWithoutReentry() {
+        val g = windowGesture()
+        val original = g.main.hostedFragment<Fragment>()
+        ShadowChoreographer.setPaused(true)
+        ui.enableAnimations()
+        val pill = (g.dock.getChildAt(0) as ViewGroup).getChildAt(0)
+        g.send(MotionEvent.ACTION_DOWN, Page.CONFIG)
+        g.send(MotionEvent.ACTION_MOVE, Page.SETTINGS)
+        repeat(2) {
+            for (page in listOf(Page.SETTINGS, Page.GROUPS, Page.CONFIG, Page.ROUTES)) {
+                g.send(MotionEvent.ACTION_MOVE, g.gestureLine(page))
+                g.assertSelected(page)
+                assertTrue("手指留在手势区域来回拖动时不提前切页", g.requests.isEmpty())
+                assertSame(original, g.main.hostedFragment<Fragment>())
+                repeat(45) { shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(16)) }
+                assertEquals("胶囊跟随横向目标，不跳回当前页", g.item(page).left.toFloat(), pill.translationX, 1f)
+            }
+        }
+        g.send(MotionEvent.ACTION_UP, g.gestureLine(Page.GROUPS))
+        repeat(90) { shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(16)) }
+        g.assertSelected(Page.GROUPS)
+        assertEquals(listOf(Page.GROUPS.navId), g.requests)
+        g.send(MotionEvent.ACTION_DOWN, Page.GROUPS)
+        g.send(MotionEvent.ACTION_MOVE, Page.ROUTES)
+        g.send(MotionEvent.ACTION_UP, Page.ROUTES)
+        repeat(90) { shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(16)) }
+        g.assertSelected(Page.ROUTES)
+        assertTrue(g.main.hostedFragment<Fragment>() is RouteFragment)
+        assertEquals(listOf(Page.GROUPS.navId, Page.ROUTES.navId), g.requests)
+    }
+
+    @Test
+    fun diagonalMotionInsideAnItemDoesNotDisableLaterDrag() {
+        val g = windowGesture()
+        val (x, y) = g.center(Page.GROUPS)
+        val slop = ViewConfiguration.get(g.main).scaledTouchSlop
+        g.send(MotionEvent.ACTION_DOWN, Page.GROUPS)
+        // 起手在按钮内略偏向下，后续才明确横向拖动。
+        g.send(MotionEvent.ACTION_MOVE, x + slop + 1f to y + slop + 2f)
+        g.send(MotionEvent.ACTION_MOVE, Page.SETTINGS)
+        g.assertSelected(Page.SETTINGS)
+        g.send(MotionEvent.ACTION_MOVE, Page.ROUTES)
+        g.send(MotionEvent.ACTION_UP, Page.ROUTES)
+        g.assertSelected(Page.ROUTES)
+        assertEquals(listOf(Page.ROUTES.navId), g.requests)
+    }
+
+    @Test
+    fun tapsInTheDockPaddingStillReachTheAdjacentItem() {
+        val g = windowGesture()
+        val top = g.center(Page.GROUPS).first to 1f
+        g.send(MotionEvent.ACTION_DOWN, top)
+        g.send(MotionEvent.ACTION_UP, top)
+        g.assertSelected(Page.GROUPS)
+        val bottom = g.center(Page.ROUTES).first to g.dock.height - 1f
+        g.send(MotionEvent.ACTION_DOWN, bottom)
+        g.send(MotionEvent.ACTION_UP, bottom)
+        g.assertSelected(Page.ROUTES)
+        val end = g.dock.width - 1f to g.dock.height / 2f
+        g.send(MotionEvent.ACTION_DOWN, end)
+        g.send(MotionEvent.ACTION_UP, end)
+        g.assertSelected(Page.SETTINGS)
+        assertEquals(listOf(Page.GROUPS.navId, Page.ROUTES.navId, Page.SETTINGS.navId), g.requests)
+    }
+
+    @Test
+    fun secondFingerBeforeDragCancelsThePendingTap() {
+        val g = windowGesture()
+        g.send(MotionEvent.ACTION_DOWN, Page.GROUPS)
+        g.addSecondPointer(Page.GROUPS)
+        g.send(MotionEvent.ACTION_UP, Page.GROUPS)
+        g.assertSelected(Page.CONFIG)
+        assertTrue("第二指取消整个触摸，不能落回子按钮的点击", g.requests.isEmpty())
+        g.tap(Page.ROUTES)
+        assertEquals(listOf(Page.ROUTES.navId), g.requests)
+    }
+
+    @Test
+    fun focusLossBeforeDragCancelsThePendingTap() {
+        val g = windowGesture()
+        g.send(MotionEvent.ACTION_DOWN, Page.GROUPS)
+        g.main.window.decorView.dispatchWindowFocusChanged(false)
+        g.main.window.decorView.dispatchWindowFocusChanged(true)
+        g.send(MotionEvent.ACTION_UP, Page.GROUPS)
+        g.assertSelected(Page.CONFIG)
+        assertTrue("恢复焦点不能提交失焦前的按压", g.requests.isEmpty())
+        g.tap(Page.ROUTES)
+        assertEquals(listOf(Page.ROUTES.navId), g.requests)
+    }
+
+    @Test
+    fun rapidTapsAndBottomReentryDuringTransitionKeepTheLastPage() {
+        val g = windowGesture(settleAfterEvent = false)
+        ShadowChoreographer.setPaused(true)
+        ui.enableAnimations()
+        g.tap(Page.GROUPS)
+        UiSettle.settle()
+        repeat(6) { shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(16)) }
+        assertTrue("前置条件：页面还在转场", g.main.hostedFragment<Fragment>().requireView().translationX != 0f)
+        // 连续事件之间不等待消息队列清空，覆盖转场中的点击、滑出、滑回及再次点击。
+        g.tap(Page.SETTINGS)
+        g.send(MotionEvent.ACTION_DOWN, Page.SETTINGS)
+        g.send(MotionEvent.ACTION_MOVE, g.gestureLine(Page.SETTINGS))
+        g.send(MotionEvent.ACTION_MOVE, Page.ROUTES)
+        g.send(MotionEvent.ACTION_UP, Page.ROUTES)
+        g.tap(Page.CONFIG)
+        UiSettle.settle()
+        repeat(90) { shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(16)) }
+        g.assertSelected(Page.CONFIG)
+        assertEquals(listOf(Page.GROUPS, Page.SETTINGS, Page.ROUTES, Page.CONFIG).map { it.navId }, g.requests)
+        assertTrue(g.main.hostedFragment<Fragment>() is ConfigurationFragment)
+        assertEquals(1, g.main.binding.fragmentHolder.childCount)
+        val pill = (g.dock.getChildAt(0) as ViewGroup).getChildAt(0)
+        assertEquals(g.item(Page.CONFIG).left.toFloat(), pill.translationX, 0.1f)
     }
 
     @Test
@@ -200,9 +351,11 @@ class NavDockTouchTest : UiTestBase() {
         g.send(MotionEvent.ACTION_UP, Page.ROUTES)
         g.assertSelected(Page.CONFIG)
         assertTrue(g.requests.isEmpty())
-        g.tap(Page.GROUPS)
-        g.assertSelected(Page.GROUPS)
-        assertEquals(listOf(Page.GROUPS.navId), g.requests)
+        g.send(MotionEvent.ACTION_DOWN, Page.GROUPS)
+        g.send(MotionEvent.ACTION_MOVE, Page.ROUTES)
+        g.send(MotionEvent.ACTION_UP, Page.ROUTES)
+        g.assertSelected(Page.ROUTES)
+        assertEquals(listOf(Page.ROUTES.navId), g.requests)
     }
 
     @Test
@@ -265,7 +418,7 @@ class NavDockTouchTest : UiTestBase() {
         repeat(8) { shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(16)) }
         g.send(MotionEvent.ACTION_MOVE, g.gestureLine(Page.SETTINGS))
         repeat(2) { shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(16)) }
-        assertTrue("前置条件：滑出时胶囊还在回程中", abs(pill.translationX - g.item(Page.CONFIG).left) > 1f)
+        assertTrue("前置条件：滑出后胶囊仍在预选项一侧", abs(pill.translationX - g.item(Page.CONFIG).left) > 1f)
         g.main.window.decorView.dispatchWindowFocusChanged(false)
         g.main.window.decorView.dispatchWindowFocusChanged(true)
         g.assertSelected(Page.CONFIG)
@@ -280,7 +433,7 @@ class NavDockTouchTest : UiTestBase() {
     }
 
     @Test
-    fun tapLongPressAndAccessibilityClickStillNavigate() {
+    fun tapLongPressKeyboardAndAccessibilityClickStillNavigate() {
         val g = gesture()
         g.tap(Page.GROUPS)
         g.assertSelected(Page.GROUPS)
@@ -292,6 +445,13 @@ class NavDockTouchTest : UiTestBase() {
         UiSettle.settle()
         g.assertSelected(Page.SETTINGS)
         assertEquals(listOf(Page.GROUPS.navId, Page.ROUTES.navId, Page.SETTINGS.navId), g.requests)
+        val config = g.item(Page.CONFIG)
+        assertTrue(config.requestFocusFromTouch())
+        g.main.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_CENTER))
+        g.main.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DPAD_CENTER))
+        UiSettle.settle()
+        g.assertSelected(Page.CONFIG)
+        assertEquals(Page.CONFIG.navId, g.requests.last())
     }
 
     @Test
@@ -313,19 +473,20 @@ class NavDockTouchTest : UiTestBase() {
     }
 
     @Test
-    fun releasingOutsideCancelsAndTheNextTapWorks() {
+    fun releasingAboveTheDockCommitsAndTheNextTapWorks() {
         val g = gesture()
         val original = g.main.hostedFragment<Fragment>()
         g.send(MotionEvent.ACTION_DOWN, Page.CONFIG)
         g.send(MotionEvent.ACTION_MOVE, Page.SETTINGS)
         val outside = g.center(Page.SETTINGS).first to -1f
         g.send(MotionEvent.ACTION_MOVE, outside)
-        g.assertSelected(Page.CONFIG)
-        g.send(MotionEvent.ACTION_UP, outside)
+        g.assertSelected(Page.SETTINGS)
         assertTrue(g.requests.isEmpty())
         assertSame(original, g.main.hostedFragment<Fragment>())
+        g.send(MotionEvent.ACTION_UP, outside)
+        g.assertSelected(Page.SETTINGS)
         g.tap(Page.GROUPS)
-        assertEquals(listOf(Page.GROUPS.navId), g.requests)
+        assertEquals(listOf(Page.SETTINGS.navId, Page.GROUPS.navId), g.requests)
     }
 
     @Test
@@ -334,7 +495,7 @@ class NavDockTouchTest : UiTestBase() {
         g.send(MotionEvent.ACTION_DOWN, Page.CONFIG)
         g.send(MotionEvent.ACTION_MOVE, Page.SETTINGS)
         g.send(MotionEvent.ACTION_MOVE, g.dock.width + 1f to g.dock.height / 2f)
-        g.assertSelected(Page.CONFIG)
+        g.assertSelected(Page.SETTINGS)
         g.send(MotionEvent.ACTION_MOVE, Page.GROUPS)
         g.assertSelected(Page.GROUPS)
         // 最后的 UP 也要重新命中，不能提交上一个 MOVE 的旧目标。
@@ -365,13 +526,12 @@ class NavDockTouchTest : UiTestBase() {
     }
 
     @Test
-    fun verticalSwipeDoesNotBecomeNavigationWhenItTurnsSideways() {
-        val g = gesture()
+    fun verticalExitReleaseDoesNotNavigate() {
+        val g = windowGesture()
         val (x, y) = g.center(Page.CONFIG)
         g.send(MotionEvent.ACTION_DOWN, Page.CONFIG)
         g.send(MotionEvent.ACTION_MOVE, x to y - g.dock.height)
-        g.send(MotionEvent.ACTION_MOVE, Page.SETTINGS)
-        g.send(MotionEvent.ACTION_UP, Page.SETTINGS)
+        g.send(MotionEvent.ACTION_UP, x to y - g.dock.height)
         assertTrue(g.requests.isEmpty())
         g.assertSelected(Page.CONFIG)
     }

@@ -83,10 +83,8 @@ class NavDock @JvmOverloads constructor(
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private val itemBounds = Rect()
     private var downX = 0f
-    private var downY = 0f
-    private var trackingDrag = false
+    private var activePointerId = MotionEvent.INVALID_POINTER_ID
     private var dragging = false
-    private var dragCancelled = false
     private var dragTargetId = View.NO_ID
     private val displayedId get() = if (dragging && dragTargetId != View.NO_ID) dragTargetId else selectedId
     // 胶囊是否已经放到过位；没有就不做动画
@@ -155,76 +153,73 @@ class NavDock @JvmOverloads constructor(
         alignPill(animate = animate && pillPlaced)
     }
 
-    // 按实际子视图边界命中，自动兼容内边距、窗口尺寸与 RTL 排列。
-    private fun itemAt(x: Float, y: Float): Int {
-        if (x < 0 || x >= width || y < 0 || y >= height) return View.NO_ID
+    // 整个 Dock 都可命中；内侧留白归最近的项，按实际位置兼容窗口尺寸与 RTL 排列。
+    private fun itemAt(x: Float, y: Float, allowOutside: Boolean = false): Int {
+        if (!allowOutside && (x < 0 || x >= width || y < 0 || y >= height)) return View.NO_ID
+        var closestId = View.NO_ID
+        var closestDistance = Float.POSITIVE_INFINITY
         for ((id, view) in itemViews) {
-            if (!view.isEnabled || view.visibility != VISIBLE) continue
+            if (view.visibility != VISIBLE || view.width == 0) continue
             view.getDrawingRect(itemBounds)
             offsetDescendantRectToMyCoords(view, itemBounds)
-            if (x >= itemBounds.left && x < itemBounds.right && y >= itemBounds.top && y < itemBounds.bottom) return id
+            val distance = abs(x - itemBounds.exactCenterX())
+            if (distance < closestDistance) {
+                closestDistance = distance
+                closestId = if (view.isEnabled) id else View.NO_ID
+            }
         }
-        return View.NO_ID
+        return closestId
     }
 
-    override fun onInterceptTouchEvent(event: MotionEvent): Boolean {
-        when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                // 新触摸独立开始，不能沿用系统手势打断后未收到 UP / CANCEL 的预选状态。
-                if (trackingDrag || dragging) finishDrag(commit = false, animate = false)
-                downX = event.x
-                downY = event.y
-                trackingDrag = isEnabled && itemAt(downX, downY) != View.NO_ID
-            }
-            MotionEvent.ACTION_MOVE -> if (trackingDrag) {
-                val dx = abs(event.x - downX)
-                val dy = abs(event.y - downY)
-                if (dx > touchSlop && dx > dy) {
-                    trackingDrag = false
-                    dragging = true
-                    parent?.requestDisallowInterceptTouchEvent(true)
-                    previewDrag(event)
-                    // 框架会向原按钮发 CANCEL，松手时不会再误点起始项。
-                    return true
-                }
-                if (dy > touchSlop) trackingDrag = false
-            }
-            MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> trackingDrag = false
-        }
-        return super.onInterceptTouchEvent(event)
-    }
+    // 从 DOWN 起统一接管，避免子按钮的点击与 Dock 的拖选各自保留一份触摸状态。
+    override fun onInterceptTouchEvent(event: MotionEvent): Boolean = true
 
-    // 拖选的点击交给目标按钮 performClick；按钮原有的键盘和无障碍点击入口保持一致。
+    // 触摸结束仍通过目标按钮 performClick；键盘与无障碍直接使用按钮的原有入口。
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (!dragging) return super.onTouchEvent(event)
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+            if (activePointerId != MotionEvent.INVALID_POINTER_ID) finishTouch(commit = false, animate = false)
+            if (!isEnabled) return false
+            val target = itemAt(event.x, event.y)
+            if (target == View.NO_ID) return false
+            activePointerId = event.getPointerId(0)
+            downX = event.x
+            dragTargetId = target
+            parent?.requestDisallowInterceptTouchEvent(true)
+            return true
+        }
+        if (activePointerId == MotionEvent.INVALID_POINTER_ID) return false
+        val pointerIndex = event.findPointerIndex(activePointerId)
+        if (!isEnabled || pointerIndex < 0) {
+            finishTouch(commit = false)
+            return true
+        }
         when (event.actionMasked) {
-            MotionEvent.ACTION_MOVE -> previewDrag(event)
+            MotionEvent.ACTION_MOVE -> previewTouch(event.getX(pointerIndex), event.getY(pointerIndex))
             MotionEvent.ACTION_UP -> {
-                previewDrag(event)
-                finishDrag(commit = true)
+                previewTouch(event.getX(pointerIndex), event.getY(pointerIndex))
+                finishTouch(commit = true)
             }
-            MotionEvent.ACTION_POINTER_DOWN -> {
-                dragCancelled = true
-                previewDrag(event)
+            MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_CANCEL -> finishTouch(commit = false)
+            MotionEvent.ACTION_POINTER_UP -> if (event.getPointerId(event.actionIndex) == activePointerId) {
+                finishTouch(commit = false)
             }
-            MotionEvent.ACTION_CANCEL -> finishDrag(commit = false)
         }
         return true
     }
 
-    private fun previewDrag(event: MotionEvent) {
-        dragTargetId = if (isEnabled && !dragCancelled) itemAt(event.x, event.y) else View.NO_ID
+    private fun previewTouch(x: Float, y: Float) {
+        if (abs(x - downX) > touchSlop) dragging = true
+        // 横向拖选一旦开始就只跟随 x；滑到手势线附近仍可继续，取消由触摸流的 CANCEL 决定。
+        dragTargetId = itemAt(x, y, allowOutside = dragging)
         showSelection()
     }
 
-    private fun finishDrag(commit: Boolean, animate: Boolean = true) {
+    private fun finishTouch(commit: Boolean, animate: Boolean = true) {
         val target = itemViews[dragTargetId]
-        trackingDrag = false
+        activePointerId = MotionEvent.INVALID_POINTER_ID
         dragging = false
-        dragCancelled = false
         dragTargetId = View.NO_ID
-        for (view in itemViews.values) view.isPressed = false
         parent?.requestDisallowInterceptTouchEvent(false)
         if (commit) target?.performClick()
         // 宿主可能拒绝导航；最终显示仍以 select 收到的实际页面为准。
@@ -300,11 +295,11 @@ class NavDock @JvmOverloads constructor(
     override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
         super.onWindowFocusChanged(hasWindowFocus)
         // 系统手势或其它窗口接管后，旧触摸流作废；回到应用时高亮与实际页面一致。
-        if (!hasWindowFocus) finishDrag(commit = false, animate = false)
+        if (!hasWindowFocus) finishTouch(commit = false, animate = false)
     }
 
     override fun onDetachedFromWindow() {
-        finishDrag(commit = false, animate = false)
+        finishTouch(commit = false, animate = false)
         pillSpring.cancel()
         super.onDetachedFromWindow()
     }
