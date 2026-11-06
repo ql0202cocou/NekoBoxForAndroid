@@ -189,8 +189,7 @@ class UiScenarios(private val ui: UiTestRule) {
         RuntimeEnvironment.setQualifiers("en-rUS-w411dp-h300dp-port-notnight-xhdpi")
         val main = main()
         main.go(Page.SETTINGS)
-        fun hubList() = (main.get().fragment() as SettingsFragment).childFragmentManager
-            .findFragmentById(R.id.settings).let { (it as SettingsPreferenceFragment).listView }
+        fun hubList() = main.get().settingsList().listView
         hubList().scrollBy(0, 300)
         UiSettle.settle()
         val before = hubList().computeVerticalScrollOffset()

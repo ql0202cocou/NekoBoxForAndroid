@@ -33,6 +33,11 @@ object UiSettle {
         }
     }
 
+    /** 按 16ms 一帧推进主 looper 的虚拟时钟，配合 [UiTestRule.enableAnimationFrames] 检查动画中间帧 */
+    fun advanceFrames(count: Int) {
+        repeat(count) { shadowOf(Looper.getMainLooper()).idleFor(16, TimeUnit.MILLISECONDS) }
+    }
+
     private fun settleOnce() {
         val looper = shadowOf(Looper.getMainLooper())
         val deadline = System.nanoTime() + TIMEOUT_NANOS

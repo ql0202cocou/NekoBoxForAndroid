@@ -54,8 +54,7 @@ internal object InlineValidationHarness {
         val main = ui.launch<MainActivity>()
         main.get().displayFragment(SettingsFragment.section(SettingsPreferenceFragment.sections[sectionIndex].first))
         UiSettle.settle()
-        val host = main.hostedFragment<SettingsFragment>()
-        return host.childFragmentManager.findFragmentById(R.id.settings) as SettingsPreferenceFragment
+        return main.get().settingsList()
     }
 
     fun SettingsPreferenceFragment.openDialog(key: String): AlertDialog {

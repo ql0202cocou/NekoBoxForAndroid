@@ -15,7 +15,6 @@ import io.nekohasekai.sagernet.ui.LogcatFragment
 import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.ui.RouteFragment
 import io.nekohasekai.sagernet.ui.SettingsFragment
-import io.nekohasekai.sagernet.ui.SettingsPreferenceFragment
 import io.nekohasekai.sagernet.ui.ToolsFragment
 import io.nekohasekai.sagernet.ui.WebviewFragment
 import io.nekohasekai.sagernet.widget.ContentListener
@@ -97,9 +96,8 @@ class MainContentHostTest : UiTestBase() {
     @Test
     fun settingsListIsHosted() {
         val main = ui.launchMain(30)
-        val settings = main.go(Page.SETTINGS.navId) as SettingsFragment
-        val list = (settings.childFragmentManager.findFragmentById(R.id.settings) as SettingsPreferenceFragment).listView
-        assertHosted(main.get(), list, 0)
+        main.go(Page.SETTINGS.navId)
+        assertHosted(main.get(), main.get().settingsList().listView, 0)
     }
 
     @Test
@@ -171,7 +169,7 @@ class MainContentHostTest : UiTestBase() {
         shortScreen()
         val main = ui.launchMain(30)
         val settings = main.go(Page.SETTINGS.navId) as SettingsFragment
-        val list = (settings.childFragmentManager.findFragmentById(R.id.settings) as SettingsPreferenceFragment).listView
+        val list = main.get().settingsList().listView
         val bar = settings.appBar()
         assertFalse(bar.isLifted)
         list.scrollBy(0, 300)

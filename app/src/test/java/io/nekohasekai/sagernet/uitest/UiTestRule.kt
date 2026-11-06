@@ -24,6 +24,7 @@ import org.junit.runner.Description
 import org.junit.runners.model.Statement
 import org.robolectric.Robolectric
 import org.robolectric.android.controller.ActivityController
+import org.robolectric.shadows.ShadowChoreographer
 import java.util.Locale
 import java.util.TimeZone
 import java.util.concurrent.CopyOnWriteArrayList
@@ -42,6 +43,7 @@ class UiTestRule : TestRule {
 
     private val uncaught = CopyOnWriteArrayList<Pair<Thread, Throwable>>()
     private val controllers = ArrayList<ActivityController<*>>()
+    private var framesPaused = false
 
     override fun apply(base: Statement, description: Description) = object : Statement() {
         override fun evaluate() {
@@ -99,7 +101,15 @@ class UiTestRule : TestRule {
         check(crashed == null) { "应用启动阶段崩溃过（CrashHandler 拉起了 $crashed）" }
     }
 
-    private fun after() = finishActivities()
+    private fun after() {
+        try {
+            finishActivities()
+            // 取消后的弹簧回调要在本用例内清理，不能留到 Robolectric 重置时钟之后。
+            if (framesPaused) UiSettle.advanceFrames(2)
+        } finally {
+            if (framesPaused) ShadowChoreographer.setPaused(false)
+        }
+    }
 
     /** 销毁用例启动过的全部 Activity（后启动的先销毁），再等界面安静。同一用例里换设备配置前也用它 */
     fun finishActivities() {
@@ -215,6 +225,16 @@ class UiTestRule : TestRule {
     /** 打开动画（规则默认把动画时长缩放设为 0）：只有要验证动画是否播放的用例用；[scale] 对应系统的动画时长缩放 */
     fun enableAnimations(scale: Float = 1f) {
         ValueAnimator::class.java.getMethod("setDurationScale", Float::class.javaPrimitiveType).invoke(null, scale)
+    }
+
+    /**
+     * 打开动画并暂停绘制时钟，用 [UiSettle.advanceFrames] 逐帧检查：默认时钟会在 idle() 内跑完整段动画。
+     * 用例结束时由规则恢复时钟
+     */
+    fun enableAnimationFrames(scale: Float = 1f) {
+        ShadowChoreographer.setPaused(true)
+        framesPaused = true
+        enableAnimations(scale)
     }
 
     /** 在后台线程跑 [block]：SagerDatabase 不开 allowMainThreadQueries，主线程不能查库 */

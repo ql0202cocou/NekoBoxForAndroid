@@ -18,7 +18,11 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ui.EditorActivity
 import io.nekohasekai.sagernet.ui.MainActivity
+import io.nekohasekai.sagernet.ui.SettingsFragment
+import io.nekohasekai.sagernet.ui.SettingsPreferenceFragment
 import io.nekohasekai.sagernet.widget.safeDrawingTypes
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.robolectric.android.controller.ActivityController
 import org.robolectric.shadows.ShadowDialog
 
@@ -38,11 +42,23 @@ inline fun <reified F : Fragment> FragmentActivity.hostedFragment(): F =
 
 inline fun <reified F : Fragment> ActivityController<out FragmentActivity>.hostedFragment(): F = get().hostedFragment()
 
+inline fun <reified F : Fragment> assertHosted(main: MainActivity) {
+    assertTrue("当前页面应为 ${F::class.simpleName}", main.hostedFragment<Fragment>() is F)
+}
+
+/** 当前设置页（一级页或分类页）的偏好列表 */
+fun MainActivity.settingsList(): SettingsPreferenceFragment =
+    hostedFragment<SettingsFragment>().childFragmentManager.findFragmentById(R.id.settings) as SettingsPreferenceFragment
+
 /** Dock 里当前选中项的文字（选中项的外层视图 isSelected） */
 fun MainActivity.dockSelection(): String =
     binding.dock.descendants.filterIsInstance<TextView>()
         .filter { it.id == R.id.nav_dock_label && (it.parent as View).isSelected }
         .joinToString { it.text }
+
+fun assertDockSelected(main: MainActivity, page: Page) {
+    assertEquals("Dock 选中最后的目标", main.getString(page.title), main.dockSelection())
+}
 
 /**
  * Snackbar 上的「撤销」按钮，没有就报前置条件错误。默认先等界面安静；IO 门关着时不能 settle（见 IoGate），

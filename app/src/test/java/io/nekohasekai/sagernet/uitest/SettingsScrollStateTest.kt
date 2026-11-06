@@ -1,6 +1,5 @@
 package io.nekohasekai.sagernet.uitest
 
-import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.ui.SettingsFragment
 import io.nekohasekai.sagernet.ui.SettingsPreferenceFragment
@@ -21,19 +20,15 @@ class SettingsScrollStateTest : UiTestBase() {
 
     private val scenarios by lazy { UiScenarios(ui) }
 
-    private fun hubOf(main: MainActivity) =
-        main.hostedFragment<SettingsFragment>()
-            .childFragmentManager.findFragmentById(R.id.settings) as SettingsPreferenceFragment
-
     private fun scrolledHub(): Pair<org.robolectric.android.controller.ActivityController<MainActivity>, Int> {
         RuntimeEnvironment.setQualifiers("en-rUS-w411dp-h300dp-port-notnight-xhdpi")
         UiFixtures.install()
         val main = ui.launch<MainActivity>()
         main.get().displayFragmentWithId(Page.SETTINGS.navId)
         UiSettle.settle()
-        hubOf(main.get()).listView.scrollBy(0, 300)
+        main.get().settingsList().listView.scrollBy(0, 300)
         UiSettle.settle()
-        val offset = hubOf(main.get()).listView.computeVerticalScrollOffset()
+        val offset = main.get().settingsList().listView.computeVerticalScrollOffset()
         assertTrue("前置条件：设置一级页没有滚动", offset > 0)
         return main to offset
     }
@@ -55,7 +50,7 @@ class SettingsScrollStateTest : UiTestBase() {
         UiSettle.settle()
 
         assertEquals("进程重建后返回一级页，滚动位置经 SavedStateHandle 带回",
-            offset, hubOf(restored.get()).listView.computeVerticalScrollOffset())
+            offset, restored.get().settingsList().listView.computeVerticalScrollOffset())
     }
 
     @Test
@@ -65,13 +60,13 @@ class SettingsScrollStateTest : UiTestBase() {
         UiSettle.settle()
         main.get().backToSettings()
         UiSettle.settle()
-        assertEquals("第一次回一级页恢复位置", offset, hubOf(main.get()).listView.computeVerticalScrollOffset())
+        assertEquals("第一次回一级页恢复位置", offset, main.get().settingsList().listView.computeVerticalScrollOffset())
 
         // 状态已被取走：换到别的页面再回设置一级页，从顶部开始
         main.get().displayFragmentWithId(Page.GROUPS.navId)
         UiSettle.settle()
         main.get().displayFragmentWithId(Page.SETTINGS.navId)
         UiSettle.settle()
-        assertEquals(0, hubOf(main.get()).listView.computeVerticalScrollOffset())
+        assertEquals(0, main.get().settingsList().listView.computeVerticalScrollOffset())
     }
 }

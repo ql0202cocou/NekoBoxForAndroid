@@ -1,6 +1,5 @@
 package io.nekohasekai.sagernet.uitest
 
-import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
@@ -15,47 +14,21 @@ import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.ui.RouteFragment
 import io.nekohasekai.sagernet.ui.SettingsFragment
 import io.nekohasekai.sagernet.ui.SettingsPreferenceFragment
-import org.junit.After
+import io.nekohasekai.sagernet.uitest.UiSettle.advanceFrames
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.robolectric.Shadows.shadowOf
 import org.robolectric.RuntimeEnvironment
-import org.robolectric.shadows.ShadowChoreographer
-import java.time.Duration
 
 /** 打开动画检查中间帧：相邻页面必须始终不透明、边缘相接，快速切换后只留下最终页面。 */
 class PageSlideTest : UiTestBase() {
 
-    @After
-    fun restoreFrameClock() {
-        ShadowChoreographer.setPaused(false)
-    }
-
-    private fun enableAnimationFrames(scale: Float = 1f) {
-        // 默认绘制时钟会在 idle() 内跑完整段动画；暂停自动推进，逐帧检查真实转场。
-        ShadowChoreographer.setPaused(true)
-        ui.enableAnimations(scale)
-    }
-
     private fun page(main: MainActivity): View = main.hostedFragment<Fragment>().requireView()
-
-    private fun advanceFrames(count: Int) {
-        repeat(count) { shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(16)) }
-    }
 
     private fun select(main: MainActivity, destination: Page) {
         main.binding.dock.onItemSelected!!.invoke(destination.navId)
         UiSettle.settle()
-    }
-
-    private fun assertDockSelected(main: MainActivity, destination: Page) {
-        assertEquals("Dock 选中最后的目标", main.getString(destination.title), main.dockSelection())
-    }
-
-    private inline fun <reified F : Fragment> assertHosted(main: MainActivity) {
-        assertTrue("当前页面应为 ${F::class.simpleName}", main.hostedFragment<Fragment>() is F)
     }
 
     // 转场结束：容器里只留下最终页面，停在原位且不透明
@@ -77,8 +50,8 @@ class PageSlideTest : UiTestBase() {
 
     private fun assertCoveredWhile(main: MainActivity, overlay: ViewGroup? = null, action: () -> Unit) {
         val holder = main.binding.fragmentHolder
-        val pages = holder.children.toMutableSet().apply { overlay?.children?.let { addAll(it) } }
-        val overlays = mutableSetOf<ViewGroup>().apply { if (overlay != null) add(overlay) }
+        val pages = (holder.children + overlay?.children.orEmpty()).toMutableSet()
+        val overlays = listOfNotNull(overlay).toMutableSet()
         var frames = 0
         val gaps = mutableListOf<String>()
         // 在布局完成的绘制阶段检查；消息队列刚提交的新页面可能尚未测量，不是已显示的画面。
@@ -105,7 +78,7 @@ class PageSlideTest : UiTestBase() {
                     gaps += "frame=$frames 设置列表尚未显示"
                 }
             }
-            val intervals = attached.filter { it.alpha > .99f }
+            val intervals = attached
                 .map { (it.left + it.translationX) to (it.left + it.translationX + it.width) }
                 .sortedBy { it.first }
             var covered = 0f
@@ -130,7 +103,7 @@ class PageSlideTest : UiTestBase() {
 
     private inline fun <reified F : Fragment> assertInterruptedSlide(destination: Page, scale: Float = 1f) {
         val main = ui.launchMain().get()
-        enableAnimationFrames(scale)
+        ui.enableAnimationFrames(scale)
         val overlay = startGroupSlide(main)
         assertCoveredWhile(main, overlay) {
             select(main, destination)
@@ -152,7 +125,7 @@ class PageSlideTest : UiTestBase() {
     @Test
     fun repeatedRequestsKeepOnlyTheLastDestination() {
         val main = ui.launchMain().get()
-        enableAnimationFrames()
+        ui.enableAnimationFrames()
         val overlay = startGroupSlide(main)
         val incoming = page(main)
         assertCoveredWhile(main, overlay) {
@@ -169,7 +142,7 @@ class PageSlideTest : UiTestBase() {
     @Test
     fun selectingTheIncomingPageCancelsTheQueuedDestination() {
         val main = ui.launchMain().get()
-        enableAnimationFrames()
+        ui.enableAnimationFrames()
         val overlay = startGroupSlide(main)
         val incoming = page(main)
         assertCoveredWhile(main, overlay) {
@@ -184,7 +157,7 @@ class PageSlideTest : UiTestBase() {
     @Test
     fun rotationKeepsTheLastQueuedDestination() {
         val controller = ui.launchMain()
-        enableAnimationFrames()
+        ui.enableAnimationFrames()
         startGroupSlide(controller.get())
         select(controller.get(), Page.ROUTES)
         controller.rotate()
@@ -197,7 +170,7 @@ class PageSlideTest : UiTestBase() {
     @Test
     fun processRecreationKeepsQueuedSettingsSectionArguments() {
         val controller = ui.launchMain()
-        enableAnimationFrames()
+        ui.enableAnimationFrames()
         startGroupSlide(controller.get())
         val section = SettingsPreferenceFragment.sections[0].first
         controller.get().displayFragment(SettingsFragment.section(section))
@@ -221,7 +194,7 @@ class PageSlideTest : UiTestBase() {
     }
 
     private fun assertSlide(main: MainActivity, destination: Page, forward: Boolean) {
-        assertSlide(main, forward) { main.binding.dock.onItemSelected!!.invoke(destination.navId) }
+        assertSlide(main, forward) { select(main, destination) }
     }
 
     private fun assertSlide(main: MainActivity, forward: Boolean, scale: Float = 1f, navigate: () -> Unit) {
@@ -251,11 +224,8 @@ class PageSlideTest : UiTestBase() {
         assertSettled(main)
     }
 
-    private fun settingsPreferences(main: MainActivity): SettingsPreferenceFragment =
-        main.hostedFragment<SettingsFragment>().childFragmentManager.findFragmentById(R.id.settings) as SettingsPreferenceFragment
-
     private fun openSection(main: MainActivity, key: String) {
-        settingsPreferences(main).findPreference<PreferenceScreen>(key)!!.performClick()
+        main.settingsList().findPreference<PreferenceScreen>(key)!!.performClick()
     }
 
     private fun returnViaToolbar(main: MainActivity) {
@@ -268,13 +238,30 @@ class PageSlideTest : UiTestBase() {
         UiSettle.settle()
     }
 
+    private fun scrolledSettingsHub(): Pair<MainActivity, Int> {
+        RuntimeEnvironment.setQualifiers("en-rUS-w411dp-h300dp-port-notnight-xhdpi")
+        val main = settingsHub()
+        main.settingsList().listView.scrollBy(0, 300)
+        UiSettle.settle()
+        val offset = main.settingsList().listView.computeVerticalScrollOffset()
+        assertTrue("前置条件：设置首页已滚动", offset > 0)
+        return main to offset
+    }
+
+    private fun startSectionSlide(main: MainActivity, key: String): View {
+        openSection(main, key)
+        UiSettle.settle()
+        advanceFrames(6)
+        return page(main).also { assertTrue("前置条件：分类页还在进入", it.translationX > 0f) }
+    }
+
     private fun assertSettingsRoundTrips(rtl: Boolean = false, scale: Float = 1f) {
         val main = settingsHub()
         if (rtl) {
             main.window.decorView.layoutDirection = View.LAYOUT_DIRECTION_RTL
             UiSettle.settle()
         }
-        enableAnimationFrames(scale)
+        ui.enableAnimationFrames(scale)
         assertCoveredWhile(main) {
             for ((index, section) in SettingsPreferenceFragment.sections.withIndex()) {
                 assertSlide(main, forward = !rtl, scale = scale) { openSection(main, section.first) }
@@ -314,45 +301,27 @@ class PageSlideTest : UiTestBase() {
 
     @Test
     fun returningDuringSettingsEntryRestoresTheScrolledHubWithoutGaps() {
-        RuntimeEnvironment.setQualifiers("en-rUS-w411dp-h300dp-port-notnight-xhdpi")
-        val main = settingsHub()
-        settingsPreferences(main).listView.scrollBy(0, 300)
-        UiSettle.settle()
-        val offset = settingsPreferences(main).listView.computeVerticalScrollOffset()
-        assertTrue("前置条件：设置首页已滚动", offset > 0)
-        enableAnimationFrames()
+        val (main, offset) = scrolledSettingsHub()
+        ui.enableAnimationFrames()
         assertCoveredWhile(main) {
-            openSection(main, SettingsPreferenceFragment.sections[0].first)
-            UiSettle.settle()
-            advanceFrames(6)
-            val incoming = page(main)
-            assertTrue("前置条件：分类页还在进入", incoming.translationX > 0f)
+            val incoming = startSectionSlide(main, SettingsPreferenceFragment.sections[0].first)
             returnViaToolbar(main)
             UiSettle.settle()
             assertSame("返回请求等当前转场结束", incoming, page(main))
             advanceFrames(60)
         }
         assertEquals(null, main.hostedFragment<SettingsFragment>().sectionKey)
-        assertEquals(offset, settingsPreferences(main).listView.computeVerticalScrollOffset())
+        assertEquals(offset, main.settingsList().listView.computeVerticalScrollOffset())
     }
 
     @Test
     fun repeatedSettingsAndDockRequestsKeepTheLastCategoryWithoutGaps() {
-        RuntimeEnvironment.setQualifiers("en-rUS-w411dp-h300dp-port-notnight-xhdpi")
-        val main = settingsHub()
-        settingsPreferences(main).listView.scrollBy(0, 300)
-        UiSettle.settle()
-        val offset = settingsPreferences(main).listView.computeVerticalScrollOffset()
-        assertTrue("前置条件：设置首页已滚动", offset > 0)
+        val (main, offset) = scrolledSettingsHub()
         val first = SettingsPreferenceFragment.sections[0].first
         val last = SettingsPreferenceFragment.sections[1].first
-        enableAnimationFrames()
+        ui.enableAnimationFrames()
         assertCoveredWhile(main) {
-            openSection(main, first)
-            UiSettle.settle()
-            advanceFrames(6)
-            val incoming = page(main)
-            assertTrue("前置条件：分类页还在进入", incoming.translationX > 0f)
+            val incoming = startSectionSlide(main, first)
             main.onBackPressedDispatcher.onBackPressed()
             select(main, Page.ROUTES)
             main.displayFragment(SettingsFragment.section(last))
@@ -363,14 +332,14 @@ class PageSlideTest : UiTestBase() {
             assertSlide(main, forward = false) { returnViaToolbar(main) }
         }
         assertEquals(null, main.hostedFragment<SettingsFragment>().sectionKey)
-        assertEquals("连续切换分类后仍回到原滚动位置", offset, settingsPreferences(main).listView.computeVerticalScrollOffset())
+        assertEquals("连续切换分类后仍回到原滚动位置", offset, main.settingsList().listView.computeVerticalScrollOffset())
         assertDockSelected(main, Page.SETTINGS)
     }
 
     @Test
     fun leavingSettingsCategoriesThroughDockUsesTheSettingsPosition() {
         val main = settingsHub()
-        enableAnimationFrames()
+        ui.enableAnimationFrames()
         assertCoveredWhile(main) {
             for (destination in listOf(Page.CONFIG, Page.GROUPS, Page.ROUTES, Page.SETTINGS)) {
                 assertSlide(main, forward = true) { openSection(main, SettingsPreferenceFragment.sections[0].first) }
@@ -384,7 +353,7 @@ class PageSlideTest : UiTestBase() {
     @Test
     fun returningBeforeSettingsEntryStartsDoesNotReplayTheHubAnimation() {
         val main = settingsHub()
-        enableAnimationFrames()
+        ui.enableAnimationFrames()
         openSection(main, SettingsPreferenceFragment.sections[0].first)
         main.onBackPressedDispatcher.onBackPressed()
         UiSettle.settle()
@@ -400,7 +369,7 @@ class PageSlideTest : UiTestBase() {
     @Test
     fun primaryPagesSlideInBothDirectionsWithoutFadingOrGaps() {
         val main = ui.launchMain().get()
-        enableAnimationFrames()
+        ui.enableAnimationFrames()
         assertSlide(main, Page.GROUPS, true)
         assertSlide(main, Page.ROUTES, true)
         assertSlide(main, Page.SETTINGS, true)
@@ -410,7 +379,7 @@ class PageSlideTest : UiTestBase() {
     @Test
     fun rapidSelectionReturnsToTheLastRequestedPage() {
         val main = ui.launchMain().get()
-        enableAnimationFrames()
+        ui.enableAnimationFrames()
         // 两次点击落在同一条消息里，中间不能 settle
         main.binding.dock.onItemSelected!!.invoke(Page.GROUPS.navId)
         main.binding.dock.onItemSelected!!.invoke(Page.CONFIG.navId)
@@ -429,7 +398,7 @@ class PageSlideTest : UiTestBase() {
         val main = ui.launchMain().get()
         main.window.decorView.layoutDirection = View.LAYOUT_DIRECTION_RTL
         UiSettle.settle()
-        enableAnimationFrames()
+        ui.enableAnimationFrames()
         assertSlide(main, Page.SETTINGS, false)
         assertSlide(main, Page.CONFIG, true)
     }
