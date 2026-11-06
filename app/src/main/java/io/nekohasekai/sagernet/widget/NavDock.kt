@@ -150,7 +150,7 @@ class NavDock @JvmOverloads constructor(
             val selected = itemId == displayedId
             val wasSelected = view.isSelected
             view.isSelected = selected
-            if (selected != wasSelected || !pillPlaced) setIconFilled(view, selected, animate && pillPlaced)
+            if (!animate || selected != wasSelected || !pillPlaced) setIconFilled(view, selected, animate && pillPlaced)
         }
         alignPill(animate = animate && pillPlaced)
     }
@@ -170,10 +170,11 @@ class NavDock @JvmOverloads constructor(
     override fun onInterceptTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                // 新触摸独立开始，不能沿用系统手势打断后未收到 UP / CANCEL 的预选状态。
+                if (trackingDrag || dragging) finishDrag(commit = false, animate = false)
                 downX = event.x
                 downY = event.y
                 trackingDrag = isEnabled && itemAt(downX, downY) != View.NO_ID
-                dragCancelled = false
             }
             MotionEvent.ACTION_MOVE -> if (trackingDrag) {
                 val dx = abs(event.x - downX)
@@ -221,6 +222,7 @@ class NavDock @JvmOverloads constructor(
         val target = itemViews[dragTargetId]
         trackingDrag = false
         dragging = false
+        dragCancelled = false
         dragTargetId = View.NO_ID
         for (view in itemViews.values) view.isPressed = false
         parent?.requestDisallowInterceptTouchEvent(false)
@@ -277,8 +279,9 @@ class NavDock @JvmOverloads constructor(
         val target = itemViews[displayedId] ?: return
         if (target.width == 0) return
         val left = target.left.toFloat()
-        // 布局回调里每次都会走到这里：位置没变就什么也不做，别打断正在滑的弹簧
-        if (pillPlaced && left == pillTarget && pill.layoutParams.width == target.width) return
+        // 目标相同不重启动画；要求立即复位时仍要停止回程中的弹簧，不能只比较终点。
+        if (pillPlaced && left == pillTarget && pill.layoutParams.width == target.width &&
+            (animate || !pillSpring.isRunning)) return
         pillTarget = left
         if (pill.layoutParams.width != target.width) {
             pill.layoutParams.width = target.width
@@ -292,6 +295,12 @@ class NavDock @JvmOverloads constructor(
         }
         pill.visibility = VISIBLE
         pillPlaced = true
+    }
+
+    override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+        super.onWindowFocusChanged(hasWindowFocus)
+        // 系统手势或其它窗口接管后，旧触摸流作废；回到应用时高亮与实际页面一致。
+        if (!hasWindowFocus) finishDrag(commit = false, animate = false)
     }
 
     override fun onDetachedFromWindow() {
