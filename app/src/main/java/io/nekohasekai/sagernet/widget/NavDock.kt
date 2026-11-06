@@ -115,7 +115,7 @@ class NavDock @JvmOverloads constructor(
 
         val content = FrameLayout(context)
         addView(content, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-        // 胶囊在前、各项在后：项的涟漪与图标画在胶囊之上
+        // 胶囊在前、各项在后：项的焦点提示与图标画在胶囊之上
         content.addView(pill, FrameLayout.LayoutParams(0, FrameLayout.LayoutParams.MATCH_PARENT))
         val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
         content.addView(row, FrameLayout.LayoutParams(
@@ -214,7 +214,6 @@ class NavDock @JvmOverloads constructor(
 
     private fun previewDrag(event: MotionEvent) {
         dragTargetId = if (isEnabled && !dragCancelled) itemAt(event.x, event.y) else View.NO_ID
-        for ((id, view) in itemViews) view.isPressed = id == dragTargetId
         showSelection()
     }
 

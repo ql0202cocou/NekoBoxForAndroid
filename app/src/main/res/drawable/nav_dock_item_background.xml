@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Dock 项的背景：只有按压涟漪，限在与选中胶囊同形的全圆角内。
-     选中胶囊本身是 NavDock 里的共享视图（nav_dock_pill），选中时弹簧滑到该项下面 -->
-<ripple xmlns:android="http://schemas.android.com/apk/res/android"
-    android:color="?attr/colorControlHighlight">
-    <item android:id="@android:id/mask">
+<!-- 触控反馈由共享选中胶囊负责；项背景只保留键盘焦点提示，避免原位置的按压涟漪残留。 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true">
         <shape android:shape="rectangle">
             <corners android:radius="@dimen/nav_dock_item_radius" />
-            <solid android:color="@android:color/white" />
+            <solid android:color="?attr/colorControlHighlight" />
         </shape>
     </item>
-</ripple>
+</selector>

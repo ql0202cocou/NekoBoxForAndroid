@@ -12,7 +12,7 @@ import javax.xml.parsers.DocumentBuilderFactory
  * - 设置页末尾的页面入口与 [SettingsPreferenceFragment.navEntries] 一一对应：XML 里 key 写错，
  *   打开设置页时 findPreference(...)!! 会直接崩溃；
  * - dimens.xml 里由其它尺寸算出来的值（改了 Dock 高度等却忘了跟着改，位置就对不上）；
- * - Dock 的资源只用主题角色色，不写死颜色（涟漪蒙版只取透明度，不算）。
+ * - Dock 的资源只用主题角色色，不写死颜色。
  */
 class NavDockResourcesTest {
 
@@ -50,7 +50,7 @@ class NavDockResourcesTest {
         val height = d.getValue("nav_dock_height")
         // 右侧让出连接按钮：右边距 12 + 按钮 56 + 间隙 8
         assertEquals(12 + 56 + 8, d["nav_dock_margin_end"])
-        // 选中胶囊（nav_dock_pill）与项涟漪蒙版是项高（Dock 高减去上下内边距）的全圆角
+        // 选中胶囊（nav_dock_pill）与项焦点背景是项高（Dock 高减去上下内边距）的全圆角
         assertEquals((height - 2 * d.getValue("nav_dock_padding")) / 2, d["nav_dock_item_radius"])
         assertEquals(height / 2, d["nav_dock_radius"])
         val marginBottom = d.getValue("nav_dock_margin_bottom")
@@ -74,10 +74,6 @@ class NavDockResourcesTest {
             val text = File(res, path).readText()
             assertTrue("$path 里有写死的颜色", literal.find(text) == null)
         }
-        // 唯一允许的固定颜色：涟漪蒙版，只取它的透明度，不会画出来
-        val mask = File(res, "drawable/nav_dock_item_background.xml").readText()
-        assertEquals(1, Regex("@android:color/").findAll(mask).count())
-        assertTrue(mask.contains("@android:color/white"))
     }
 
     @Test
@@ -96,9 +92,11 @@ class NavDockResourcesTest {
 
     @Test
     fun selectedPillLivesInDockNotInItemBackground() {
-        // 选中胶囊是 NavDock 里的共享视图（弹簧滑动）；项背景只留按压涟漪，不能再画一份选中态胶囊
+        // 选中胶囊是 NavDock 里的共享视图（弹簧滑动）；项背景只留静态焦点提示。
         val background = File(res, "drawable/nav_dock_item_background.xml").readText()
         assertTrue("项背景里不应再有选中态", !background.contains("state_selected"))
+        assertTrue("项背景不再播放按压涟漪", !background.contains("<ripple"))
+        assertTrue("保留键盘焦点提示", background.contains("android:state_focused=\"true\""))
         val pill = File(res, "drawable/nav_dock_pill.xml").readText()
         assertTrue(pill.contains("?attr/colorSecondaryContainer"))
         assertTrue(pill.contains("@dimen/nav_dock_item_radius"))
