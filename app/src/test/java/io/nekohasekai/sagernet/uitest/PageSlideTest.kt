@@ -5,7 +5,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import androidx.core.view.children
+import androidx.core.view.descendants
 import androidx.fragment.app.Fragment
+import androidx.preference.PreferenceScreen
+import androidx.recyclerview.widget.RecyclerView
+import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.ui.ConfigurationFragment
 import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.ui.RouteFragment
@@ -17,6 +21,7 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.shadows.ShadowChoreographer
 import java.time.Duration
 
@@ -70,15 +75,37 @@ class PageSlideTest : UiTestBase() {
         return outgoing.parent as ViewGroup
     }
 
-    private fun assertCoveredWhile(main: MainActivity, overlay: ViewGroup, action: () -> Unit) {
+    private fun assertCoveredWhile(main: MainActivity, overlay: ViewGroup? = null, action: () -> Unit) {
         val holder = main.binding.fragmentHolder
+        val pages = holder.children.toMutableSet().apply { overlay?.children?.let { addAll(it) } }
+        val overlays = mutableSetOf<ViewGroup>().apply { if (overlay != null) add(overlay) }
         var frames = 0
         val gaps = mutableListOf<String>()
         // 在布局完成的绘制阶段检查；消息队列刚提交的新页面可能尚未测量，不是已显示的画面。
         val check = ViewTreeObserver.OnPreDrawListener {
             frames++
-            val intervals = (holder.children + overlay.children)
-                .filter { it.visibility == View.VISIBLE && it.alpha > .99f }
+            pages.addAll(holder.children)
+            // 连续切换可能创建新的退出覆盖层；保留画过的页面引用，跟踪其真实父容器到移除为止。
+            val attached = pages.filter { it.parent != null && it.visibility == View.VISIBLE }
+            for (view in attached) {
+                val parent = view.parent as ViewGroup
+                if (parent !== holder) overlays += parent
+                if (view.alpha != 1f || view.scaleX != 1f || view.scaleY != 1f) {
+                    gaps += "frame=$frames 页面透明或缩放 alpha=${view.alpha}"
+                }
+                if (view.top + view.translationY != 0f || view.height != holder.height) {
+                    gaps += "frame=$frames 页面未覆盖容器全高"
+                }
+                val toolbar = view.findViewById<View>(R.id.toolbar)
+                if (toolbar == null || toolbar.visibility != View.VISIBLE || toolbar.alpha != 1f || toolbar.height == 0) {
+                    gaps += "frame=$frames 标题栏缺失或透明"
+                }
+                val settings = view.findViewById<ViewGroup>(R.id.settings)
+                if (settings != null && settings.descendants.filterIsInstance<RecyclerView>().none { it.childCount > 0 }) {
+                    gaps += "frame=$frames 设置列表尚未显示"
+                }
+            }
+            val intervals = attached.filter { it.alpha > .99f }
                 .map { (it.left + it.translationX) to (it.left + it.translationX + it.width) }
                 .sortedBy { it.first }
             var covered = 0f
@@ -97,7 +124,7 @@ class PageSlideTest : UiTestBase() {
         }
         assertTrue("必须检查多个滑动中间帧", frames > 10)
         assertTrue("页面与退出覆盖层应连续铺满容器：$gaps", gaps.isEmpty())
-        assertEquals("转场结束后覆盖层清空", 0, overlay.childCount)
+        for (layer in overlays) assertEquals("转场结束后覆盖层清空", 0, layer.childCount)
         assertSettled(main)
     }
 
@@ -194,13 +221,21 @@ class PageSlideTest : UiTestBase() {
     }
 
     private fun assertSlide(main: MainActivity, destination: Page, forward: Boolean) {
+        assertSlide(main, forward) { main.binding.dock.onItemSelected!!.invoke(destination.navId) }
+    }
+
+    private fun assertSlide(main: MainActivity, forward: Boolean, scale: Float = 1f, navigate: () -> Unit) {
         val previous = page(main)
-        select(main, destination)
+        navigate()
+        UiSettle.settle()
+        // 同一 Dock 项内切换时没有胶囊重绘；暂停时钟下提交仍可能等下一帧的同步屏障放行。
+        repeat(5) { if (page(main) === previous) advanceFrames(1) }
         val next = page(main)
+        assertTrue("必须实际替换页面", next !== previous)
         // 前进时新页从右侧进入（正偏移）、旧页向左退出；后退相反。
         val direction = if (forward) 1 else -1
         var movingFrames = 0
-        repeat(24) {
+        repeat((32 * scale).toInt()) {
             advanceFrames(1)
             assertEquals("旧页保持不透明", 1f, previous.alpha, 0f)
             assertEquals("新页保持不透明", 1f, next.alpha, 0f)
@@ -213,6 +248,152 @@ class PageSlideTest : UiTestBase() {
             }
         }
         assertTrue("必须实际经过多个滑动中间帧", movingFrames > 2)
+        assertSettled(main)
+    }
+
+    private fun settingsPreferences(main: MainActivity): SettingsPreferenceFragment =
+        main.hostedFragment<SettingsFragment>().childFragmentManager.findFragmentById(R.id.settings) as SettingsPreferenceFragment
+
+    private fun openSection(main: MainActivity, key: String) {
+        settingsPreferences(main).findPreference<PreferenceScreen>(key)!!.performClick()
+    }
+
+    private fun returnViaToolbar(main: MainActivity) {
+        val toolbar = main.hostedFragment<SettingsFragment>().toolbar
+        toolbar.descendants.single { it.contentDescription == toolbar.navigationContentDescription }.performClick()
+    }
+
+    private fun settingsHub(): MainActivity = ui.launchMain().get().apply {
+        displayFragmentWithId(Page.SETTINGS.navId)
+        UiSettle.settle()
+    }
+
+    private fun assertSettingsRoundTrips(rtl: Boolean = false, scale: Float = 1f) {
+        val main = settingsHub()
+        if (rtl) {
+            main.window.decorView.layoutDirection = View.LAYOUT_DIRECTION_RTL
+            UiSettle.settle()
+        }
+        enableAnimationFrames(scale)
+        assertCoveredWhile(main) {
+            for ((index, section) in SettingsPreferenceFragment.sections.withIndex()) {
+                assertSlide(main, forward = !rtl, scale = scale) { openSection(main, section.first) }
+                assertEquals(section.first, main.hostedFragment<SettingsFragment>().sectionKey)
+                assertSlide(main, forward = rtl, scale = scale) {
+                    if (index % 2 == 0) returnViaToolbar(main) else main.onBackPressedDispatcher.onBackPressed()
+                }
+                assertEquals(null, main.hostedFragment<SettingsFragment>().sectionKey)
+            }
+        }
+        assertDockSelected(main, Page.SETTINGS)
+    }
+
+    @Test
+    fun everySettingsCategoryEntersAndReturnsWithoutBlankFrames() = assertSettingsRoundTrips()
+
+    @Test
+    fun rtlSettingsEntryAndReturnMirrorDirectionsWithoutBlankFrames() = assertSettingsRoundTrips(rtl = true)
+
+    @Test
+    fun slowerSettingsEntryAndReturnStayCovered() = assertSettingsRoundTrips(scale = 2f)
+
+    @Test
+    fun settingsNavigationWithDisabledAnimationsSettlesImmediately() {
+        val main = settingsHub()
+        for ((key, _) in SettingsPreferenceFragment.sections) {
+            openSection(main, key)
+            UiSettle.settle()
+            assertEquals(key, main.hostedFragment<SettingsFragment>().sectionKey)
+            assertSettled(main)
+            main.onBackPressedDispatcher.onBackPressed()
+            UiSettle.settle()
+            assertEquals(null, main.hostedFragment<SettingsFragment>().sectionKey)
+            assertSettled(main)
+        }
+    }
+
+    @Test
+    fun returningDuringSettingsEntryRestoresTheScrolledHubWithoutGaps() {
+        RuntimeEnvironment.setQualifiers("en-rUS-w411dp-h300dp-port-notnight-xhdpi")
+        val main = settingsHub()
+        settingsPreferences(main).listView.scrollBy(0, 300)
+        UiSettle.settle()
+        val offset = settingsPreferences(main).listView.computeVerticalScrollOffset()
+        assertTrue("前置条件：设置首页已滚动", offset > 0)
+        enableAnimationFrames()
+        assertCoveredWhile(main) {
+            openSection(main, SettingsPreferenceFragment.sections[0].first)
+            UiSettle.settle()
+            advanceFrames(6)
+            val incoming = page(main)
+            assertTrue("前置条件：分类页还在进入", incoming.translationX > 0f)
+            returnViaToolbar(main)
+            UiSettle.settle()
+            assertSame("返回请求等当前转场结束", incoming, page(main))
+            advanceFrames(60)
+        }
+        assertEquals(null, main.hostedFragment<SettingsFragment>().sectionKey)
+        assertEquals(offset, settingsPreferences(main).listView.computeVerticalScrollOffset())
+    }
+
+    @Test
+    fun repeatedSettingsAndDockRequestsKeepTheLastCategoryWithoutGaps() {
+        RuntimeEnvironment.setQualifiers("en-rUS-w411dp-h300dp-port-notnight-xhdpi")
+        val main = settingsHub()
+        settingsPreferences(main).listView.scrollBy(0, 300)
+        UiSettle.settle()
+        val offset = settingsPreferences(main).listView.computeVerticalScrollOffset()
+        assertTrue("前置条件：设置首页已滚动", offset > 0)
+        val first = SettingsPreferenceFragment.sections[0].first
+        val last = SettingsPreferenceFragment.sections[1].first
+        enableAnimationFrames()
+        assertCoveredWhile(main) {
+            openSection(main, first)
+            UiSettle.settle()
+            advanceFrames(6)
+            val incoming = page(main)
+            assertTrue("前置条件：分类页还在进入", incoming.translationX > 0f)
+            main.onBackPressedDispatcher.onBackPressed()
+            select(main, Page.ROUTES)
+            main.displayFragment(SettingsFragment.section(last))
+            UiSettle.settle()
+            assertSame("连续请求不提前移除进入中的页面", incoming, page(main))
+            advanceFrames(60)
+            assertEquals(last, main.hostedFragment<SettingsFragment>().sectionKey)
+            assertSlide(main, forward = false) { returnViaToolbar(main) }
+        }
+        assertEquals(null, main.hostedFragment<SettingsFragment>().sectionKey)
+        assertEquals("连续切换分类后仍回到原滚动位置", offset, settingsPreferences(main).listView.computeVerticalScrollOffset())
+        assertDockSelected(main, Page.SETTINGS)
+    }
+
+    @Test
+    fun leavingSettingsCategoriesThroughDockUsesTheSettingsPosition() {
+        val main = settingsHub()
+        enableAnimationFrames()
+        assertCoveredWhile(main) {
+            for (destination in listOf(Page.CONFIG, Page.GROUPS, Page.ROUTES, Page.SETTINGS)) {
+                assertSlide(main, forward = true) { openSection(main, SettingsPreferenceFragment.sections[0].first) }
+                assertSlide(main, destination, forward = false)
+                assertDockSelected(main, destination)
+                if (destination != Page.SETTINGS) assertSlide(main, Page.SETTINGS, forward = true)
+            }
+        }
+    }
+
+    @Test
+    fun returningBeforeSettingsEntryStartsDoesNotReplayTheHubAnimation() {
+        val main = settingsHub()
+        enableAnimationFrames()
+        openSection(main, SettingsPreferenceFragment.sections[0].first)
+        main.onBackPressedDispatcher.onBackPressed()
+        UiSettle.settle()
+        repeat(40) {
+            advanceFrames(1)
+            assertEquals("同一帧返回首页不再滑入", 0f, page(main).translationX, 0f)
+            assertEquals("首页不淡出", 1f, page(main).alpha, 0f)
+        }
+        assertEquals(null, main.hostedFragment<SettingsFragment>().sectionKey)
         assertSettled(main)
     }
 

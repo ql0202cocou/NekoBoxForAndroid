@@ -26,11 +26,8 @@ import androidx.preference.PreferenceScreen
 import androidx.transition.Slide
 import androidx.transition.Transition
 import androidx.transition.TransitionListenerAdapter
-import androidx.transition.Visibility
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
-import com.google.android.material.transition.MaterialFadeThrough
-import com.google.android.material.transition.MaterialSharedAxis
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
@@ -280,8 +277,10 @@ class MainActivity : ThemedActivity(),
         binding.dock.select(dockItemOf(fragment))
         if (fragment.opensFromSettings) {
             // 从设置页进二级页面：记下设置列表的滚动位置（替换是异步提交的，此时设置页还在）
-            // （只有一级页有非空状态；分类页间不互相进入）
-            mainModel.settingsListState = (currentFragment() as? SettingsFragment)?.listState()
+            // 连续请求可能从一个分类直接进入另一个分类，不能用分类页的空状态覆盖首页位置。
+            if (previous is SettingsFragment && previous.sectionKey == null) {
+                mainModel.settingsListState = previous.listState()
+            }
         } else if (fragment !is SettingsFragment) {
             // 回到设置一级页时留着，交给新的设置列表恢复（takeSettingsListState）；去别的页就作废
             mainModel.settingsListState = null
@@ -289,33 +288,24 @@ class MainActivity : ThemedActivity(),
     }
 
     /**
-     * 页面替换的转场：选哪种转场都在这里决定。从设置一级页压栈进入二级页面（七个分类页和末尾四个
-     * 入口）用 X 轴共享轴向前，经返回箭头 / 返回键（[backToSettings]）回设置一级页用向后；
-     * 四个一级页面按 Dock 顺序同步左右平移，其余切换沿用交叉淡变。
+     * 页面替换统一为不透明的同步左右平移：一级页面按 Dock 顺序；设置进入二级页向前，返回向后。
+     * 二级页切换到其它一级页时，按所属的「设置」入口计算方向；RTL 由 START / END 自动镜像。
      * Dock、状态卡片、连接按钮在 Activity 布局里，不参与。
      */
     private fun applyPageTransition(previous: Fragment, next: ToolbarFragment, backToHub: Boolean) {
-        val fromIndex = binding.dock.indexOf(pageIdOf(previous))
-        val toIndex = binding.dock.indexOf(pageIdOf(next))
-        val (exit, enter) = when {
-            // 同一帧点回原页时取消尚未开始的转场，不让相同页面再滑入或闪一次。
-            fromIndex >= 0 && fromIndex == toIndex -> null to null
-
-            fromIndex >= 0 && toIndex >= 0 -> {
-                val forward = toIndex > fromIndex
-                // 两页同速、同时移动一个容器宽度，不叠加淡变或按子视图位置错开启动。
-                pageSlide(if (forward) Gravity.START else Gravity.END) to
-                    pageSlide(if (forward) Gravity.END else Gravity.START)
-            }
-
-            // 目标不在 Dock 上：从设置一级页出发只可能是进入二级页面
-            pageIdOf(previous) == R.id.nav_settings -> sharedAxisX(true) to sharedAxisX(true)
-
-            // 起点不在 Dock 上：只有二级页面能经返回操作回到设置一级页
-            backToHub -> sharedAxisX(false) to sharedAxisX(false)
-
-            else -> themedDuration(MaterialFadeThrough()) to themedDuration(MaterialFadeThrough())
+        val fromIndex = binding.dock.indexOf(dockItemOf(previous))
+        val toIndex = binding.dock.indexOf(dockItemOf(next))
+        val samePage = previous.javaClass == next.javaClass &&
+            (previous as? SettingsFragment)?.sectionKey == (next as? SettingsFragment)?.sectionKey
+        val forward = when {
+            fromIndex != toIndex -> toIndex > fromIndex
+            // 点 Dock 的「设置」也算返回，不能只依赖返回箭头传入的 backToHub。
+            backToHub || ((previous as? ToolbarFragment)?.opensFromSettings == true && !next.opensFromSettings) -> false
+            else -> true
         }
+        // 同一帧回到原页时不再滑入；设置首页与分类页虽是同一类，仍是不同页面。
+        val exit = if (samePage) null else pageSlide(if (forward) Gravity.START else Gravity.END)
+        val enter = if (samePage) null else pageSlide(if (forward) Gravity.END else Gravity.START)
         previous.exitTransition = exit
         next.enterTransition = enter
         enter?.addListener(object : TransitionListenerAdapter() {
@@ -342,15 +332,7 @@ class MainActivity : ThemedActivity(),
         propagation = null
     }
 
-    // 方向用库默认的 Gravity.END，RTL 下自动镜像
-    private fun sharedAxisX(forward: Boolean): MaterialSharedAxis =
-        themedDuration(MaterialSharedAxis(MaterialSharedAxis.X, forward))
-
-    private fun <T : Visibility> themedDuration(transition: T): T = transition.apply {
-        duration = motionDuration(com.google.android.material.R.attr.motionDurationMedium2, 300)
-    }
-
-    /** 二级页返回设置一级页：转场用 X 轴共享轴向后 */
+    /** 二级页返回设置一级页，页面反向平移 */
     fun backToSettings() {
         displayFragment(SettingsFragment.hub(), backToHub = true)
     }

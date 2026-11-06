@@ -3,10 +3,14 @@ package io.nekohasekai.sagernet.widget
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
+import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Rect
 import android.util.AttributeSet
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -28,6 +32,7 @@ import io.nekohasekai.sagernet.ktx.getColorAttr
 import io.nekohasekai.sagernet.ktx.motionDuration
 import io.nekohasekai.sagernet.ktx.motionEasingStandard
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.sin
 
 /**
@@ -37,7 +42,7 @@ import kotlin.math.sin
  * 选中胶囊是一个共享的视图（`nav_dock_pill`，secondaryContainer），放在四个项之下，选中变化时
  * 用弹簧（刚度 380、阻尼比 0.8，M3 默认的空间弹簧）滑到新选中项下面；首次布局、尺寸变化与系统动画
  * 关闭时直接放到位。选中哪一项由宿主按当前页面调用 [select]，
- * 点击只通过 [onItemSelected] 交给宿主，自己不改选中状态。
+ * 点击或拖选松手时通过 [onItemSelected] 交给宿主；拖动期间只预览目标，不切换页面。
  */
 class NavDock @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null,
@@ -75,6 +80,15 @@ class NavDock @JvmOverloads constructor(
         }
     }
     private var selectedId = View.NO_ID
+    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+    private val itemBounds = Rect()
+    private var downX = 0f
+    private var downY = 0f
+    private var trackingDrag = false
+    private var dragging = false
+    private var dragCancelled = false
+    private var dragTargetId = View.NO_ID
+    private val displayedId get() = if (dragging && dragTargetId != View.NO_ID) dragTargetId else selectedId
     // 胶囊是否已经放到过位；没有就不做动画
     private var pillPlaced = false
     // 胶囊当前的目标位置（选中项的左边），用来判断布局是否真的变了
@@ -88,7 +102,7 @@ class NavDock @JvmOverloads constructor(
         }
     }
 
-    /** 点击某一项时回调，参数是该项对应的页面 id */
+    /** 点击或拖选松手时回调，参数是该项对应的页面 id */
     var onItemSelected: ((Int) -> Unit)? = null
 
     init {
@@ -126,17 +140,94 @@ class NavDock @JvmOverloads constructor(
 
     /** 把 [id] 对应的项设为选中（无障碍也据此报「已选中」），其余取消 */
     fun select(@IdRes id: Int) {
-        val changed = selectedId != id
         selectedId = id
+        showSelection()
+    }
+
+    private fun showSelection(animate: Boolean = true) {
         // 首次放位（还没有胶囊位置）不做动画；系统动画关闭时 setIconFilled 直接切换
-        val animate = changed && pillPlaced
         for ((itemId, view) in itemViews) {
-            val selected = itemId == id
+            val selected = itemId == displayedId
             val wasSelected = view.isSelected
             view.isSelected = selected
-            if (selected != wasSelected || !pillPlaced) setIconFilled(view, selected, animate)
+            if (selected != wasSelected || !pillPlaced) setIconFilled(view, selected, animate && pillPlaced)
         }
-        if (changed) alignPill(animate = pillPlaced)
+        alignPill(animate = animate && pillPlaced)
+    }
+
+    // 按实际子视图边界命中，自动兼容内边距、窗口尺寸与 RTL 排列。
+    private fun itemAt(x: Float, y: Float): Int {
+        if (x < 0 || x >= width || y < 0 || y >= height) return View.NO_ID
+        for ((id, view) in itemViews) {
+            if (!view.isEnabled || view.visibility != VISIBLE) continue
+            view.getDrawingRect(itemBounds)
+            offsetDescendantRectToMyCoords(view, itemBounds)
+            if (x >= itemBounds.left && x < itemBounds.right && y >= itemBounds.top && y < itemBounds.bottom) return id
+        }
+        return View.NO_ID
+    }
+
+    override fun onInterceptTouchEvent(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                downX = event.x
+                downY = event.y
+                trackingDrag = isEnabled && itemAt(downX, downY) != View.NO_ID
+                dragCancelled = false
+            }
+            MotionEvent.ACTION_MOVE -> if (trackingDrag) {
+                val dx = abs(event.x - downX)
+                val dy = abs(event.y - downY)
+                if (dx > touchSlop && dx > dy) {
+                    trackingDrag = false
+                    dragging = true
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                    previewDrag(event)
+                    // 框架会向原按钮发 CANCEL，松手时不会再误点起始项。
+                    return true
+                }
+                if (dy > touchSlop) trackingDrag = false
+            }
+            MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> trackingDrag = false
+        }
+        return super.onInterceptTouchEvent(event)
+    }
+
+    // 拖选的点击交给目标按钮 performClick；按钮原有的键盘和无障碍点击入口保持一致。
+    @SuppressLint("ClickableViewAccessibility")
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (!dragging) return super.onTouchEvent(event)
+        when (event.actionMasked) {
+            MotionEvent.ACTION_MOVE -> previewDrag(event)
+            MotionEvent.ACTION_UP -> {
+                previewDrag(event)
+                finishDrag(commit = true)
+            }
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                dragCancelled = true
+                previewDrag(event)
+            }
+            MotionEvent.ACTION_CANCEL -> finishDrag(commit = false)
+        }
+        return true
+    }
+
+    private fun previewDrag(event: MotionEvent) {
+        dragTargetId = if (isEnabled && !dragCancelled) itemAt(event.x, event.y) else View.NO_ID
+        for ((id, view) in itemViews) view.isPressed = id == dragTargetId
+        showSelection()
+    }
+
+    private fun finishDrag(commit: Boolean, animate: Boolean = true) {
+        val target = itemViews[dragTargetId]
+        trackingDrag = false
+        dragging = false
+        dragTargetId = View.NO_ID
+        for (view in itemViews.values) view.isPressed = false
+        parent?.requestDisallowInterceptTouchEvent(false)
+        if (commit) target?.performClick()
+        // 宿主可能拒绝导航；最终显示仍以 select 收到的实际页面为准。
+        showSelection(animate)
     }
 
     /**
@@ -184,7 +275,7 @@ class NavDock @JvmOverloads constructor(
      * 否则直接放到位。四项等宽，宽度变化（尺寸变化后）也一并直接设置
      */
     private fun alignPill(animate: Boolean) {
-        val target = itemViews[selectedId] ?: return
+        val target = itemViews[displayedId] ?: return
         if (target.width == 0) return
         val left = target.left.toFloat()
         // 布局回调里每次都会走到这里：位置没变就什么也不做，别打断正在滑的弹簧
@@ -205,6 +296,7 @@ class NavDock @JvmOverloads constructor(
     }
 
     override fun onDetachedFromWindow() {
+        finishDrag(commit = false, animate = false)
         pillSpring.cancel()
         super.onDetachedFromWindow()
     }
