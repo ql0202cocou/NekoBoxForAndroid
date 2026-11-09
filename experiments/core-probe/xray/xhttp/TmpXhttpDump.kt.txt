@@ -1,0 +1,75 @@
+package io.nekohasekai.sagernet.fmt.v2ray
+
+import io.nekohasekai.sagernet.fmt.CoreTestNodes
+import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
+import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
+import moe.matsuri.nb4a.utils.JavaUtil.gson
+import org.junit.Test
+import java.io.File
+import java.security.MessageDigest
+import java.security.cert.CertificateFactory
+
+private const val PROBE_UUID = "64d988ac-52d8-4e06-8fff-a5120f441a72"
+
+// 按 ../../README.md 临时放入 JVM 测试目录，将当前生成器输出导出到显式指定的目录。
+class TmpXhttpDump {
+    private val settings = ExternalCoreSettings(logLevel = 2, ipv6Mode = 0, globalAllowInsecure = false)
+    private val probeDir = File(checkNotNull(System.getenv("CORE_PROBE_DIR")) { "CORE_PROBE_DIR is required" })
+    private val out = File(checkNotNull(System.getenv("CORE_PROBE_GENOUT")) { "CORE_PROBE_GENOUT is required" })
+    private val pin = File(probeDir, "fixtures/pki/leaf.pem").inputStream().use {
+        val der = CertificateFactory.getInstance("X.509").generateCertificate(it).encoded
+        MessageDigest.getInstance("SHA-256").digest(der).joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
+    }
+    private val pub = File(probeDir, "fixtures/x25519.txt").useLines { lines ->
+        lines.first { it.startsWith("Password (PublicKey): ") }.substringAfter(": ").trim()
+    }
+    private val extra = """{"xmux":{"maxConcurrency":"8-16","cMaxReuseTimes":64,"hMaxRequestTimes":"700-800","hMaxReusableSecs":"1900-2900","hKeepAlivePeriod":30},
+        "xPaddingBytes":"200-400","headers":{"X-K2-Probe":"k2-probe-value"}}"""
+
+    private fun vless() = CoreTestNodes.vless { uuid = PROBE_UUID }
+    private fun vmess() = CoreTestNodes.vmess { uuid = PROBE_UUID }
+    private fun trojan() = CoreTestNodes.trojan { password = "tp-3a38db6d347563d9" }
+
+    private fun export(
+        name: String, b: StandardV2RayBean, sec: String,
+        address: String = "node.example.com", mode: String = "auto", alpn: String = "", port: Int = 32000,
+    ) {
+        b.serverAddress = address
+        b.serverPort = 443
+        b.type = "xhttp"
+        b.path = "/xh"
+        b.xhttpMode = mode
+        b.xhttpExtra = extra
+        b.sni = ""
+        when (sec) {
+            "tls" -> { b.security = "tls"; b.certificateFingerprint = pin; b.alpn = alpn }
+            "reality" -> { b.security = "tls"; b.realityPubKey = pub; b.realityShortId = CoreTestNodes.SHORT_ID }
+            else -> b.security = "none"
+        }
+        val outbound = when (b) {
+            is TrojanBean -> buildXrayOutbound(b, "127.0.0.1", port, settings)
+            is VMessBean -> buildXrayOutbound(b, "127.0.0.1", port, settings)
+            else -> error("unexpected bean ${b.javaClass.simpleName}")
+        }
+        out.mkdirs()
+        File(out, "$name.json").writeText(gson.toJson(outbound))
+    }
+
+    @Test
+    fun dump() {
+        for (sec in listOf("none", "tls", "reality")) {
+            val mode = if (sec == "reality") "stream-one" else "auto"
+            export("vless-$sec", vless(), sec, mode = mode)
+            export("vmess-$sec", vmess(), sec, mode = mode)
+            export("trojan-$sec", trojan(), sec, mode = mode)
+        }
+        // IPv6 服务器、无 TLS（host 补成带方括号的字面量）
+        export("vless-none-v6", vless(), "none", address = "2001:db8::1")
+        // alpn h3
+        export("vless-tls-h3", vless(), "tls", alpn = "h3", port = 32500)
+        // 各 mode（TLS）
+        for (m in listOf("packet-up", "stream-up", "stream-one")) {
+            export("vless-tls-$m", vless(), "tls", mode = m)
+        }
+    }
+}

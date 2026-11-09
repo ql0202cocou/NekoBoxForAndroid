@@ -1,0 +1,42 @@
+{
+  "protocol": "vless",
+  "settings": {
+    "vnext": [
+      {
+        "address": "127.0.0.1",
+        "port": 32000,
+        "users": [
+          {
+            "id": "64d988ac-52d8-4e06-8fff-a5120f441a72",
+            "encryption": "none"
+          }
+        ]
+      }
+    ]
+  },
+  "streamSettings": {
+    "network": "xhttp",
+    "xhttpSettings": {
+      "path": "/xh",
+      "mode": "stream-one",
+      "extra": {
+        "headers": {
+          "X-K2-Probe": "k2-probe-value"
+        },
+        "xPaddingBytes": "200-400",
+        "xmux": {
+          "maxConcurrency": "8-16",
+          "cMaxReuseTimes": 64,
+          "hMaxRequestTimes": "700-800",
+          "hMaxReusableSecs": "1900-2900",
+          "hKeepAlivePeriod": 30
+        }
+      }
+    },
+    "security": "tls",
+    "tlsSettings": {
+      "serverName": "node.example.com",
+      "pinnedPeerCertSha256": "7cad5a2d1f8193d409be3e0961e2fb0e0e1546f093683635ac756c500161fc6d"
+    }
+  }
+}

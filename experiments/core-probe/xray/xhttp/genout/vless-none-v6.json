@@ -1,0 +1,38 @@
+{
+  "protocol": "vless",
+  "settings": {
+    "vnext": [
+      {
+        "address": "127.0.0.1",
+        "port": 32000,
+        "users": [
+          {
+            "id": "64d988ac-52d8-4e06-8fff-a5120f441a72",
+            "encryption": "none"
+          }
+        ]
+      }
+    ]
+  },
+  "streamSettings": {
+    "network": "xhttp",
+    "xhttpSettings": {
+      "host": "[2001:db8::1]",
+      "path": "/xh",
+      "mode": "auto",
+      "extra": {
+        "headers": {
+          "X-K2-Probe": "k2-probe-value"
+        },
+        "xPaddingBytes": "200-400",
+        "xmux": {
+          "maxConcurrency": "8-16",
+          "cMaxReuseTimes": 64,
+          "hMaxRequestTimes": "700-800",
+          "hMaxReusableSecs": "1900-2900",
+          "hKeepAlivePeriod": 30
+        }
+      }
+    }
+  }
+}

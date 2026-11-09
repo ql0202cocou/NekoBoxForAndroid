@@ -1,0 +1,12 @@
+__pycache__/
+/bin/
+/results/
+/xray/test/
+/xray/loopback/
+/xray/xhttp/test/
+/xray/xhttp/loopback/
+/xray/xhttp/loopback-gen/
+/xray/vision/loopback/
+/xray/vision/transports/
+*.log
+*-results.txt
