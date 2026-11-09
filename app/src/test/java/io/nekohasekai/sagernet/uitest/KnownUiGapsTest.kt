@@ -32,7 +32,7 @@ class KnownUiGapsTest(private val gap: KnownUiGap) : UiBehaviorBase() {
 
     @Test
     fun entryIsDocumented() {
-        assertTrue("${gap.id} 没写出处", gap.source.contains("open-issues.md") || gap.source.contains("实测"))
+        assertTrue("${gap.id} 没写出处", gap.source.contains("审计") || gap.source.contains("实测"))
         assertTrue("${gap.id} 没写验收内容", gap.acceptance.isNotBlank())
     }
 }
