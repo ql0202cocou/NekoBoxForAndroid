@@ -9,7 +9,7 @@
   - `id`：`<类名>/<来源提交前 8 位>/<变体>`；
   - `class`：完整类名；`form`：`storage`（Room 列、备份里的格式）或 `share`（`ProxyGroup` 的分享链接格式，`export = true`）；
   - `source`：来源提交的完整哈希、所属版本 tag（该提交没有 tag 时是包含它的最早一个 tag；HEAD 尚未发版，为 `null`）、
-    该提交 `nb4a.properties`（早期为 `sager.properties`）里的 `VERSION_NAME`。整理历史后，部分来源提交可能已在
+    该提交元数据中的 `VERSION_NAME`（当前路径 `gradle/nb4a.properties`；历史路径为根目录 `nb4a.properties`，更早为 `sager.properties`）。部分来源提交可能已在
     仓库里查不到，tag 记的是生成样本时的状态；样本字节不受影响；
   - `versions`：字节里各层写出的版本号（`AbstractBean` 指 `serialize` 之后的 extraVersion；嵌套的 bean / 订阅也列在内）；
   - `assigned`：生成时旧对象持有的全部字段值（`initializeDefaultValues` 之后再赋样例值；`default` 变体只做前者）；

@@ -21,16 +21,15 @@ import java.util.Properties
 
 private val Project.android get() = extensions.getByName<ApplicationExtension>("android")
 
-// Read on every call. buildSrc classes outlive a single build inside the Gradle daemon, so holding
-// these in file-scope state made an edited nb4a.properties / local.properties invisible until the
-// daemon was restarted — a bumped version silently produced APKs labelled with the previous one.
+// 每次调用都重新读取；buildSrc 类会跨构建留在 Gradle daemon 中，不能把元数据缓存在文件级状态。
+// 否则修改 gradle/nb4a.properties 后，APK 可能继续使用旧版本号。
 fun Project.requireMetadata(): Properties = Properties().apply {
-    rootProject.file("nb4a.properties").inputStream().use { load(it) }
+    rootProject.file("gradle/nb4a.properties").inputStream().use { load(it) }
 }
 
-// nb4a.properties 里的必填项，缺失时报错；同样每次调用都重新读取
+// gradle/nb4a.properties 里的必填项，缺失时报错；同样每次调用都重新读取
 fun Project.metadata(key: String): String = requireNotNull(requireMetadata().getProperty(key)) {
-    "$key is missing in nb4a.properties"
+    "$key is missing in gradle/nb4a.properties"
 }
 
 fun Project.requireLocalProperties(): Properties = Properties().apply {
@@ -64,6 +63,7 @@ fun Project.setupCommon() {
             targetCompatibility = JavaVersion.VERSION_11
         }
         lint {
+            lintConfig = rootProject.file("gradle/lint.xml")
             showAll = true
             checkAllWarnings = true
             checkReleaseBuilds = true

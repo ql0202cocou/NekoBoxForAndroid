@@ -21,7 +21,7 @@ golden_setup_device() {
 
   "$ADB" get-state > /dev/null 2>&1 || { echo "device $ANDROID_SERIAL is not reachable" >&2; exit 1; }
 
-  PACKAGE="$(sed -n 's/^PACKAGE_NAME=//p' nb4a.properties).debug"
+  PACKAGE="$(sed -n 's/^PACKAGE_NAME=//p' gradle/nb4a.properties).debug"
   AUTHORITY="$PACKAGE.golden"
   ABI=$("$ADB" shell getprop ro.product.cpu.abi | tr -d '\r')
 }

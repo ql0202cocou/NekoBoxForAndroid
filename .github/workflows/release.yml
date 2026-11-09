@@ -33,14 +33,14 @@ jobs:
           ref: ${{ inputs.tag }}
       - name: Check VERSION_NAME matches the tag
         # tag 必须等于该提交上的 VERSION_NAME，否则发布出的 release 名与 APK 版本不符。
-        # 预览 tag（如 1.7.2-a1）同理，其 nb4a.properties 里就是预览版的 VERSION_NAME。
+        # 预览 tag（如 1.7.2-a1）同理，其 gradle/nb4a.properties 里就是预览版的 VERSION_NAME。
         # tag 只经 env 传入，不插值进脚本正文
         env:
           TAG: ${{ inputs.tag }}
         run: |
-          VERSION=$(grep '^VERSION_NAME=' nb4a.properties | cut -d= -f2 | tr -d '[:space:]')
+          VERSION=$(grep '^VERSION_NAME=' gradle/nb4a.properties | cut -d= -f2 | tr -d '[:space:]')
           if [ "$VERSION" != "$TAG" ]; then
-            echo "::error::inputs.tag ($TAG) does not match VERSION_NAME ($VERSION) in nb4a.properties"
+            echo "::error::inputs.tag ($TAG) does not match VERSION_NAME ($VERSION) in gradle/nb4a.properties"
             exit 1
           fi
       - name: Check y/empty inputs

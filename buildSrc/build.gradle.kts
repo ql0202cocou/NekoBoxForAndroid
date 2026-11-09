@@ -3,7 +3,7 @@ plugins {
     `kotlin-dsl`
 }
 
-apply(from = "../repositories.gradle.kts")
+apply(from = "../gradle/repositories.gradle.kts")
 
 dependencies {
     // Gradle Plugins
