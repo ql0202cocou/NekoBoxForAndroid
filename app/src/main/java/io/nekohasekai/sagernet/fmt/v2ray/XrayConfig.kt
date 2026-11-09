@@ -223,7 +223,7 @@ private fun StandardV2RayBean.xrayMuxConcurrency(): Int = if (muxConcurrency > 0
 
 // 有 mux 块时 UDP/443 怎么走（VMess / VLESS / Trojan 一致）：写 allow，与其它 UDP 一样经 mux（XUDP），与 sing-box 一致。
 // Xray 缺省（不写）是 reject：只开 Mux.Cool 时 UDP/443 被丢，拒绝记录只在 info 级，应用缺省的 warning 级下看不到
-// （K1b X2 L2-48…51、L2-S08 回环实测，v26.3.27 与 v26.9.30 相同；取值 reject / allow / skip 见 X1 S2-X11、X2 T2-119…123）。
+// （回环实测 v26.3.27 与 v26.9.30 相同；reject / allow / skip 的解析见 Xray infra/conf/xray.go 的 MuxConfig）。
 // 要不要挡 QUIC 由路由规则（缺省的「屏蔽 QUIC」）决定，不该由外核替用户决定。维护者 2026-10-06 定（K1b D16）
 private fun LinkedHashMap<String, Any?>.xrayMuxUdp443() {
     put("xudpProxyUDP443", "allow")

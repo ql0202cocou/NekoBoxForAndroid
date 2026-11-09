@@ -58,9 +58,9 @@ enum class KnownDifference(
                 "reality verification failed（目标证书不受信时是 x509 错误）；连更早的服务端照常",
             DialCore.XRAY to "用带 X25519MLKEM768 的指纹（chrome / firefox / safari 一类，空值即 chrome）新旧服务端都能连",
         ),
-        "维护者 2026-10-06 定（K1b 待决定项 C）：只记差异并在测速失败时提示（withRealityHint、libcore/sing-box/NEKO.md），" +
+        "维护者 2026-10-06 定：只记差异并在测速失败时提示（withRealityHint、libcore/sing-box/NEKO.md），" +
             "不拒绝手动选 sing-box 的 REALITY 节点，因为对 v26.9.8 以前的服务端仍可用；自动选核本来就让 REALITY 优先走 Xray" +
-            "（K1b X2 L2-M01…M08、M17…M20 实测）",
+            "（新旧服务端回环实测）",
         DifferenceDecision.DECIDED,
     ),
     REALITY_FINGERPRINT_MLKEM(
@@ -72,9 +72,7 @@ enum class KnownDifference(
             DialCore.SING_BOX to "任何指纹都不带 X25519MLKEM768，同样连不上这类服务端（见 REALITY_SERVER_MLKEM）",
         ),
         "失败只取决于服务端版本与指纹，与客户端核心新旧无关：v26.3.27 客户端用 edge 连新服务端同样失败，新客户端用 edge " +
-            "连旧服务端能通（K1b X2 指纹清单 T2-55…80、L2-01…26 实测，新旧对比 L2-M09…M16、L2-64/66 实测）。维护者 2026-10-06 定" +
-            "（K1b 待决定项 C）：只记差异，不做冲突、" +
-            "不加编辑器提示",
+            "连旧服务端能通（指纹矩阵与新旧服务端回环实测）。维护者 2026-10-06 定：只记差异，不做冲突、不加编辑器提示",
         DifferenceDecision.DECIDED,
     ),
     UTLS_DEFAULT(
@@ -94,7 +92,7 @@ enum class KnownDifference(
             DialCore.XRAY to "不写编码；VMess / VLESS 的 UDP（53、443 端口除外）默认走 XUDP（cone）",
         ),
         "UDP 封装不同但都能用，不涉及安全校验（Xray 一侧已在回环实测：不开 mux 时 5353 端口走 XUDP、53 端口走原生，" +
-            "v26.3.27 与 v26.9.30 相同，K1b X2 L2-52…54）",
+            "v26.3.27 与 v26.9.30 相同）",
         DifferenceDecision.DECIDED,
     ),
     VMESS_SECURITY_AUTO(
@@ -104,8 +102,8 @@ enum class KnownDifference(
                 "不带 TLS 时照写 auto",
             DialCore.XRAY to "auto 按平台选：有 AES 硬件加速时 AES-128-GCM，否则 ChaCha20-Poly1305",
         ),
-        "维护者 2026-10-06 定（K1b 待决定项 A）：Xray 服务端自 v26.7.11 起删掉了 none / zero，sing-box 带 TLS 时换出的 " +
-            "zero 连这类服务端静默失败（K1b X2 L2-V07/V08 实测，X1 S2-X22 源码），生成器改写 aes-128-gcm 后对新旧服务端都能通；" +
+        "维护者 2026-10-06 定：Xray 服务端自 v26.7.11 起删掉了 none / zero，sing-box 带 TLS 时换出的 " +
+            "zero 连这类服务端静默失败（回环实测与 Xray VMess 源码确认），生成器改写 aes-128-gcm 后对新旧服务端都能通；" +
             "两边只在没有 AES 硬件加速的设备上选的加密不同，不影响连通",
         DifferenceDecision.DECIDED,
     ),
@@ -115,9 +113,8 @@ enum class KnownDifference(
             DialCore.XRAY to "none / zero 被静默改成 AUTO（不报错、不警告），连新旧服务端都能通",
             DialCore.SING_BOX to "照写 none / zero，连 v26.7.11 以上的 Xray 服务端失败",
         ),
-        "同一节点换核后一个能通一个不通，取决于服务端的 Xray 版本（K1b X2 T2-28/30、L2-42/43 实测 Xray 客户端，" +
-            "L2-V01/V03/V11 实测 sing-box 客户端）。维护者 2026-10-06 定（K1b 待决定项 A）：none / zero 是用户显式选的，" +
-            "生成器照写，不改写、不拦",
+        "同一节点换核后一个能通一个不通，取决于服务端的 Xray 版本（分别实测 Xray 与 sing-box 客户端）。" +
+            "维护者 2026-10-06 定：none / zero 是用户显式选的，生成器照写，不改写、不拦",
         DifferenceDecision.DECIDED,
     ),
     V2RAY_ID_MAPPING(
@@ -131,7 +128,7 @@ enum class KnownDifference(
         ),
         "1–30 字节的串两边映射结果相同；其余写法不同：Xray 报错的（空串、过长、带花括号或 urn 前缀）sing-box 照样能连，" +
             "Xray 能读出 UUID 的 33–35 字节写法或 36 字节的非标准写法 sing-box 映射成另一个 UUID，换核后静默连不上" +
-            "（K1b 本地用两边的解析函数逐例核对；源码：X2 S2-X42，Xray common/uuid/uuid.go:67-83；sing-vmess v0.2.8 " +
+            "（本地用两边的解析函数逐例核对；源码：Xray common/uuid/uuid.go:67-83；sing-vmess v0.2.8 " +
             "client.go:37、vless/client.go:28）。待维护者定",
         DifferenceDecision.OPEN,
     ),
@@ -225,7 +222,7 @@ enum class KnownDifference(
                 "CurvePreferences includes unsupported curve，所以约 0.71×0.5 的进程每次拨号都失败",
             DialCore.XRAY to "使用 Xray 自带的 uTLS，不经 metacubex/utls 的这个随机种子路径",
         ),
-        "只有源码推断、未实测（K1b R2 复核 R2-F1）：vendored common/tls/utls_client.go:353-370 每进程一次种子；utls v1.8.7 " +
+        "只有源码推断、未实测：vendored common/tls/utls_client.go:353-370 每进程一次种子；utls v1.8.7 " +
             "u_parrots.go:3058（0.71 的概率列入 X25519MLKEM768）与 :3118（0.5 的概率给 key share）；Go 1.26 " +
             "crypto/tls/handshake_server_tls13.go:209-243 对客户端支持的 PQ 组发 HRR；utls handshake_client_tls13.go:339-346 " +
             "报 CurvePreferences includes unsupported curve。待维护者定是否在 sing-box 上也作冲突",
@@ -247,8 +244,8 @@ enum class KnownDifference(
                 "转发；不写时 Xray 缺省 reject，且拒绝记录只在 info 级",
             DialCore.SING_BOX to "sing-mux 照常转发 UDP/443",
         ),
-        "维护者 2026-10-06 定（K1b D16）：生成器写 allow，与 sing-box 一致，要不要挡 QUIC 由路由规则决定（I1 §5.1；" +
-            "K1b X2 L2-48…51 回环实测 reject / 不写 / allow / skip，v26.3.27 与 v26.9.30 相同，L2-S08 实测 warning 级下没有拒绝记录）",
+        "维护者 2026-10-06 定：生成器写 allow，与 sing-box 一致，要不要挡 QUIC 由路由规则决定" +
+            "（回环实测 reject / 不写 / allow / skip，v26.3.27 与 v26.9.30 相同，实测 warning 级下没有拒绝记录）",
         DifferenceDecision.DECIDED,
     ),
 }

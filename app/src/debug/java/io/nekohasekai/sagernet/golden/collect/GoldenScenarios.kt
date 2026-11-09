@@ -1428,7 +1428,7 @@ private fun ScenarioTable.k1Selection() {
         trojan("golden-k1-trojan-mihomo").tls(sni = "trojan.example.com")
     }
 
-    // ---- mux 协议族与核心（D15）
+    // ---- mux 协议族与核心
     single("k1-vmess-sb-mux-cool", "VMess 手动指定 sing-box 却用 Mux.Cool：sing-box 没有 Mux.Cool，应报错", core = CORE_SING_BOX) {
         vmess("golden-k1-sb-mux-cool").tls(sni = "vmess.example.com").mux(type = MUX_COOL)
     }

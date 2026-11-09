@@ -252,7 +252,7 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
             }
         }
 
-        // mux 协议的可选项按核心显示（D15）
+        // mux 协议的可选项按核心显示
         updateMuxType(editorCore(), null)
         muxType.preference.setOnPreferenceChangeListener { _, newValue ->
             muxPadding.preference.isVisible =

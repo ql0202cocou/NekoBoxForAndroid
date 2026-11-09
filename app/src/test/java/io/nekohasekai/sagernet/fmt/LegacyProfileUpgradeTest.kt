@@ -47,7 +47,7 @@ class LegacyProfileUpgradeTest {
         muxType = MUX_SMUX
     }
 
-    // ---- 规则 a：mux 协议族。I3 报告 §4「逐类推演」表逐行一个用例（enableMux = true、不是 vision 流控）
+    // ---- 规则 a：mux 协议族。按旧默认核心与 mux 值逐类覆盖（enableMux = true、不是 vision 流控）
 
     private class MuxCase(val name: String, val core: Int, val global: Boolean, val marked: Boolean, val bean: () -> VMessBean)
 
@@ -109,7 +109,7 @@ class LegacyProfileUpgradeTest {
         assertEquals(MUX_SMUX, bean.muxType)
     }
 
-    // vision 流控时两个核心都不写 mux，标不标都不影响运行；照常标注，以后关掉 vision 时就是 Mux.Cool（I3 §4）
+    // vision 流控时两个核心都不写 mux，标不标都不影响运行；照常标注，以后关掉 vision 时就是 Mux.Cool
     @Test
     fun `规则 a：vision 流控也照常标注`() {
         val bean = muxed(CoreTestNodes.vless { reality(); encryption = StandardV2RayBean.FLOW_VISION })

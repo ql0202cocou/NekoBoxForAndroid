@@ -25,7 +25,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
-// 编辑器 mux 协议按核心显示（D15，方案 E1）的纯函数
+// 编辑器 mux 协议按核心显示的纯函数
 class MuxTypeChoicesTest {
 
     private fun appFile(path: String): File =

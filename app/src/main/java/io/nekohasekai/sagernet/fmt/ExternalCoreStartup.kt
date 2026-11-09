@@ -89,7 +89,7 @@ class ExternalCoreCheck(
     }
 }
 
-// Xray v26.9.30 的 run -test（v26.10.10、v26.10.17、v26.10.21、v26.10.31 实测格式相同，K1c N9 / N10 / N11 / N13）：配置有错时退出码 23，标准输出里一行
+// Xray v26.9.30 的 run -test（v26.10.10、v26.10.17、v26.10.21、v26.10.31 实测格式相同）：配置有错时退出码 23，标准输出里一行
 // 「Failed to start: main: failed to load config files: [<文件>] > infra/conf: failed to build outbound config
 // with tag out-2 > infra/conf: …」，各层用 " > " 连接、每层前面是 Go 包路径；tag 重复时是
 // 「Failed to start: main: failed to create server > app/proxyman/outbound: existing tag found: out-1」

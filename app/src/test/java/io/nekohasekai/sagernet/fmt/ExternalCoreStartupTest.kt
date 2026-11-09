@@ -10,7 +10,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 // 启动前校验的报错解析、结论与就绪等待的报错文案。报错样例取自模拟器上内置的
-// Xray v26.3.27（run -test）对坏配置的真实输出。升级后的格式与这些样例逐字相同（v26.9.30 见 K1b X2 §4.1）
+// Xray v26.3.27（run -test）对坏配置的真实输出。升级后的格式与这些样例逐字相同（v26.9.30 复核）
 class ExternalCoreStartupTest {
 
     private fun vless(name: String) = VMessBean().apply {
@@ -100,7 +100,7 @@ class ExternalCoreStartupTest {
         assertTrue(error.reason.endsWith("> unexpected EOF"))
     }
 
-    // v26.9.30 对不合法 id 的真实输出（K1b X2 附录 A6 的 T2-S06、T2-S08）：common/uuid 把整串带进报错
+    // v26.9.30 对不合法 id 的真实输出：common/uuid 把整串带进报错
     private val xrayLongUuid = "Failed to start: main: failed to load config files: [sup/T2-S06-k0-vless-uuid-long.json] " +
         "> infra/conf: failed to build outbound config with tag out-1 > infra/conf: failed to build outbound handler " +
         "for protocol vless > common/uuid: invalid UUID: this-string-is-longer-than-thirty-bytes-x"
@@ -152,7 +152,7 @@ class ExternalCoreStartupTest {
         assertEquals("main: failed to create server > encoding/hex: invalid byte: ***", xrayCheckErrors(unbound).single().reason)
     }
 
-    // v26.9.30 与 v26.10.10 对不合法 REALITY shortId 的真实输出（K1c N9 E4、K1b T2-68 / T2-69）：infra/conf 把值原样带出
+    // v26.9.30 与 v26.10.10 对不合法 REALITY shortId 的真实输出：infra/conf 把值原样带出
     private val xrayShortIdPrefix = "Failed to start: main: failed to load config files: [E4-reality-shortid-nonhex.json] " +
         "> infra/conf: failed to build outbound config with tag out-1 > infra/conf: failed to build stream settings " +
         "for outbound detour > infra/conf: Failed to build REALITY config. > infra/conf: "

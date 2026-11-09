@@ -18,8 +18,8 @@ val SING_BOX_UTLS_FINGERPRINTS = CoreNames(
 // Xray v26.9.30 的 fingerprint：infra/conf/transport_internet.go 先转小写，再查 transport/internet/tls/tls.go 的
 // PresetFingerprints / ModernFingerprints / OtherFingerprints，名单外 run -test 报 unknown "fingerprint"。
 // unsafe 表示 Go 标准 TLS；REALITY 另外拒绝 unsafe 与 hellogolang（见组合规则）。
-// v26.9.30 比 v26.3.27 多了 hellochrome_133、hellofirefox_148、hellosafari_26_3（X2 T2-94/95/76 实测，旧版拒绝），
-// 没有删除；Modern / Other 两组按 v26.6.1（455f6bc2）的新表分组（X1 S2-X8）
+// v26.9.30 比 v26.3.27 多了 hellochrome_133、hellofirefox_148、hellosafari_26_3（配置检查实测，旧版拒绝），
+// 没有删除；Modern / Other 两组按 v26.6.1（455f6bc2）的新表分组（transport/internet/tls/tls.go）
 val XRAY_UTLS_FINGERPRINTS = CoreNames(
     setOf(
         // PresetFingerprints（预设名单）

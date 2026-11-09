@@ -6,34 +6,16 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 // K1 能力表：两个能替节点拨号的核心，各自对节点每项要求的声明，以及组合规则。
 // 选核（CoreSelection.kt）只读这里；节点的要求由 CoreRequirements.kt 提取。
 //
-// 依据（证据编号沿用报告；K1 的调查报告存于维护者本地 doc/agent/k1b-wip/k1-reports/，K1b 的 M1 / X1 / X2 存于维护者
-// 本地 doc/agent/k1b-wip/）：
-// - Xray：I1（v26.3.27 源码 S-X*、run -test 实测 T-*、本机回环 L-*）；K1b（v26.9.30 复核：X1 源码 S2-X*，X2 实测
-//   T2-* / L2-*）；N9（v26.10.10 复核，2026-10-11：对比 v26.9.30 的 diff 只碰第 6 / 9 / 12 / 14 / 15 条，其余按 diff
-//   未变，结论见维护者本地 doc/agent/core-wip/reports/N9-xray.md）；N10（v26.10.17 复核，2026-10-20：对比 v26.10.10 的
-//   diff 只碰第 3 / 10 / 12 条——REALITY 模块随 Go 1.27 同步、ML-DSA-65 改用标准库，Vision 读 TLS 缓冲改为反射，run 读
-//   配置文件时检查扩展名——服务端对 ClientHello 的要求与 min/maxClientVer 不变，其余按 diff 未变；run -test 144 条与
-//   回环 80 条与 v26.10.10 一致，Vision 的数据通路没有回环实测；结论见维护者本地 doc/agent/core-wip/reports/N10-xray.md）；
-//   N11（v26.10.21 复核，2026-10-24：对比 v26.10.17 的 diff 只碰第 6 / 10 / 14 条——内置根证书包删掉 eMudhra 的三张 emSign 根、
-//   官方二进制改用 Go 1.27.3 编译（Vision 读 TLS 缓冲的新分支生效）、socks 入站临时 UDP 连接的计时器改为创建时初始化——其余按 diff
-//   未变；run -test 144 条、回环 80 条与 XHTTP 的 129 条与 v26.10.17 一致，新补的 Vision 回环 6 条（TLS / REALITY，内层明文与
-//   TLS 1.3 直拷，UDP 经 XUDP）新旧二进制都通；结论见维护者本地 doc/agent/core-wip/reports/N11-xray.md）；
-//   N13（v26.10.31 复核，2026-11-05：对比 v26.10.21 的 diff 只碰第 12 / 13 / 14 / 20 条——run 检查配置扩展名时不再解析符号链接、
-//   inbound 模块改到最后初始化，明文禁令的 IP 字面量不再查文档地址段名单，监听器默认关闭 MPTCP，XHTTP 服务端接受 OPTIONS 上行并新增只在
-//   服务端生效的 h2Params——本应用的 Xray 跳一律拨 127.0.0.1，生成器写的配置不受影响，其余按 diff 未变；run -test 148 条（新增 4 条）只有
-//   明文判定的两条按预期改变，回环 80 条、XHTTP 的 133 条（新增 4 条）、Vision 回环 6 条与传输 26 条的判定与 v26.10.21 一致；
-//   结论见维护者本地 doc/agent/core-wip/reports/N13-xray.md）；
-// - sing-box：I2b（vendored libcore/sing-box，1.14.2 + 1.14.2-neko-1）；现为 1.14.4-neko-2，此后的补丁（SOCKS5 出站的
-//   UDP ASSOCIATE 握手、WireGuard 启动报错去掉密钥、WireGuard 选 bind 与 ClientBind 退避、ICMP 不选接口）与 1.14.3、
-//   1.14.4 的上游改动都不涉及本表各项；sing-vmess 随 1.14.3、1.14.4 升级（1.14.4 只改 vless/vision.go 的关闭与竞争），
-//   引用路径未变；1.14.4 的 REALITY 客户端只改伪装请求的 IPv6 主机写法，自报版本与曲线过滤不变；
-// - 生成器：I2b 的逐字段真值表（buildSingBoxOutbound*、buildXrayOutbound）。
-// uTLS 指纹名单、VLESS flow、ws early data 另读了上游固定 tag 的源码，位置写在各常量上。
+// 核实依据是固定版本源码、run -test 与真实核心回环；可复用工具在 experiments/core-probe/。
+// 当前行为及源码位置直接写在本表、组合规则、已知差异和相关测试中。
+// 测试配置生成成功不等于核心回环通过；MISMATCH / ANY 的判读边界见工具 README。
+// sing-box 以 vendored libcore/sing-box、NEKO.md 与 libcore/go.mod 为准；生成器以 buildSingBoxOutbound*、
+// buildXrayOutbound 及其测试为准。uTLS 指纹名单、VLESS flow、ws early data 的上游源码位置写在各常量上。
 //
 // 升级任何一个核心都要回到这里逐条复核：DialCore.version 与 buildScript/lib/plugins.sh、vendored sing-box 的版本
 // 由单测绑定，不改表测试就不过（CoreCapabilitiesTest）。
 //
-// 升级核心时必须重测的条目（I1 §8；用 run -test 与本机回环验证，结论写回本表、组合规则、已知差异
+// 升级核心时必须重测的条目（用 run -test 与本机回环验证，结论写回本表、组合规则、已知差异
 // CoreKnownDifferences.kt 与相关生成器）：
 //
 // Xray：
@@ -50,6 +32,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //     certificates 只放另一张 CA，用 SSL_CERT_FILE 把服务端证书的 CA 放进 Go 的系统根时能通，加 disableSystemRoot
 //     或不设 SSL_CERT_FILE 时不通）；v26.10.10 起默认底座是 Xray 内置的根证书包，tlsSettings.useSystemCa 为真才用
 //     系统库（加载失败也退回内置包），certificates 追加在所选池的副本上，disableSystemRoot 仍是只信任自带证书。
+//     v26.10.10 起的根池来源切换按源码确认，未用 SSL_CERT_FILE 专门重跑新旧默认信任集合的握手对照。
 //  7. fingerprint 的名单（XRAY_UTLS_FINGERPRINTS）、空值的默认（现在是 chrome）、不认识的名字是否报错；uTLS 下
 //     alpn 是否生效：预设模板盖掉用户的 alpn，randomized 系列用用户写的 alpn；ws 外层缺省 http/1.1，写
 //     h2,http/1.1 时保留。
@@ -99,7 +82,8 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //     改 TRANSPORT_XHTTP 一行与 SING_BOX_TRANSPORT_XHTTP。
 //     v26.10.31 新增的 h2Params 只有服务端的 ListenXH 读，客户端写了不生效（XL-99），白名单不收，extra 里写了按未知键拒绝；
 //     同版本服务端把不带 Access-Control-Request-Method 的 OPTIONS 当上行（XL-96），uplinkHTTPMethod 的校验本来就放行。
-//     v26.10.17 的回环实测（doc/agent/k1b-wip/probe-plan/xray/xhttp/，v26.10.21、v26.10.31 重跑相同）：Vision 每次连接都报「XTLS only supports TLS and
+//     这两条当时的回环用例（XL-96…99）未随 experiments/core-probe 保留，下次升级要补用例或按源码复核。
+//     v26.10.17 的回环实测（experiments/core-probe/xray/xhttp/，v26.10.21、v26.10.31 重跑相同）：Vision 每次连接都报「XTLS only supports TLS and
 //     REALITY directly for now」；Mux.Cool 的 TCP 子连接被服务端拒（common/mux: unexpected network TCP），XUDP 承载的
 //     UDP 正常；单值 h3 的客户端改拨 UDP（QUIC），经 TCP+UDP 转发入口可用、只转发 TCP 的入口不通 —— 映射入站
 //     （ConfigBuilder.addMappingInbound）没有 network 限制，两者都收，所以 h3 不记冲突；将来若给映射入站加 network 限制，
@@ -111,7 +95,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 // Vision 流控的传输（XRAY_VISION_TRANSPORT / SING_BOX_VISION_TRANSPORT）：
 // 21. Xray 的 proxy/vless/outbound（与 inbound）是否仍只认直接的 TLS / REALITY 连接（VLESS Encryption 例外，本应用不支持）；
 //     sing-vmess 的 NewVisionConn 是否仍只认 TLS 连接本身（tlsRegistry），httpupgrade 是否仍把 TLS 连接原样交出。用
-//     doc/agent/k1b-wip/probe-plan/xray/vision/ 的 gen-transports.py + run-transports.sh 重跑（v26.10.21 / 1.14.3-neko-3：26 条，1.14.4-neko-1 与 v26.10.31 / 1.14.4-neko-2 重跑判定相同；
+//     experiments/core-probe/xray/vision/ 的 gen-transports.py + run-transports.sh 重跑（v26.10.21 / 1.14.3-neko-3：26 条，1.14.4-neko-1 与 v26.10.31 / 1.14.4-neko-2 重跑判定相同；
 //     Xray 客户端在 ws / grpc / httpupgrade / http 伪装 / 不带 TLS 上每次连接都失败，UDP 由 Xray 服务端拒收；sing-box 在 ws / grpc /
 //     h2 / quic / http 伪装 / 不带 TLS 上初始化 Vision 失败，httpupgrade 对 sing-box 服务端能通、对 Xray 服务端被拒）。
 

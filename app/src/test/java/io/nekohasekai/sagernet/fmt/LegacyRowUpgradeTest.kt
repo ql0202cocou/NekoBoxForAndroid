@@ -71,7 +71,7 @@ class LegacyRowUpgradeTest {
     private fun upgrade(type: Int, core: Int, bytes: ByteArray?, global: Boolean = false) =
         upgradeLegacyRow(type, core, bytes) { global }
 
-    // ---- I3 §3a 点名的两个实体样本
+    // ---- 手动与自动选核的两个旧实体样本
 
     @Test
     fun `实体样本 dd8f56d3：手动 Xray、开了 smux 的 VMess 标为 Mux Cool`() {

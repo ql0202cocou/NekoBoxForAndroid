@@ -37,11 +37,11 @@ private val XR = DialCore.XRAY
 val CAPABILITY_TABLE: Map<Requirement, Map<DialCore, CapabilityCell>> = linkedMapOf(
     Requirement.PROTOCOL_VMESS to row(supported(SB), supported(XR)),
     Requirement.PROTOCOL_VLESS to row(supported(SB), supported(XR)),
-    // D10：Xray 的 Trojan 出站经 run -test 与回环验证（I1 §2）；生成器是 buildXrayOutbound 的 Trojan 重载
+    // D10：Xray 的 Trojan 出站经 run -test 与回环验证；生成器是 buildXrayOutbound 的 Trojan 重载
     Requirement.PROTOCOL_TROJAN to row(
         supported(SB), supported(XR, "Xray 的 Trojan 出站（servers 只放一项、不写 flow）"),
     ),
-    // Xray 没有 anytls 出站（实测 unknown config id: anytls，I1 §7）
+    // Xray 没有 anytls 出站（实测 unknown config id: anytls）
     Requirement.PROTOCOL_ANYTLS to row(supported(SB), unsupported(XR, CoreConflict.XRAY_ANYTLS)),
 
     Requirement.ANYTLS_LOCAL_SOCKS_OVERRIDE to row(
@@ -59,7 +59,7 @@ val CAPABILITY_TABLE: Map<Requirement, Map<DialCore, CapabilityCell>> = linkedMa
         NA,
     ),
 
-    // 传输：I1 §2.2、S-X4；I2b §1.2.1、§2.6
+    // 传输：按两个核心的配置解析与应用生成器逐项核实
     Requirement.TRANSPORT_TCP to row(supported(SB), supported(XR)),
     Requirement.TRANSPORT_HTTP_HEADER to row(
         supported(SB, "HTTP/1.1 传输：只发 Host 头、要求回 200（见已知差异 HTTP_HEADER_CAMOUFLAGE）"),
@@ -91,48 +91,40 @@ val CAPABILITY_TABLE: Map<Requirement, Map<DialCore, CapabilityCell>> = linkedMa
     // 安全层：AnyTLS 总是 TLS
     Requirement.SECURITY_TLS to row(supported(SB), supported(XR)),
     Requirement.SECURITY_REALITY to row(
-        // I2b §2.3、§2.4：没有 mldsa65；固定自报 1.8.1、去掉 X25519MLKEM768
         supported(SB, "固定自报客户端版本 1.8.1，去掉 X25519MLKEM768；不能配 ECH"),
-        // I1 §3.1：只限 tcp / grpc / xhttp
         supported(XR, "只能配 tcp / grpc / xhttp"),
     ),
-    // I1 §3.3、L-X21/23/24；I2b §2.3（sing-box 的 reality 选项没有 mldsa65）
     Requirement.MLDSA65_VERIFY to row(
         unsupported(SB, CoreConflict.SING_BOX_MLDSA65_VERIFY), supported(XR),
     ),
-    // I1 §4.1（pinnedPeerCertSha256）；I2b §2.3（sing-box 只有 SPKI 固定）。D11 若给
-    // sing-box 补整证书固定补丁，改这一格
+    // sing-box 只有 SPKI 固定。若给 sing-box 补整证书固定补丁，改这一格
     Requirement.CERTIFICATE_PIN to row(
         unsupported(SB, CoreConflict.SING_BOX_CERTIFICATE_PIN),
         supported(XR, "pinnedPeerCertSha256；REALITY 下不写（见已知差异）"),
     ),
-    // I1 §4.2（Xray 追加到信任库，v26.10.10 起底座是内置根证书包）；I2b §2.3（sing-box 替换系统根证书）
     Requirement.CUSTOM_CA to row(
         supported(SB, "只信任这些证书"),
         supported(XR, "追加到 Xray 内置根证书包（v26.10.10 起；此前追加到系统根证书）"),
     ),
-    // I1 §4.1；X1 S2-X5、X2 T2-81：Xray 自 v26.6.22 起 run -test 无条件拒绝 allowInsecure（写 false 不报错）
+    // Xray 自 v26.6.22 起 run -test 无条件拒绝 allowInsecure（写 false 不报错）
     Requirement.ALLOW_INSECURE to row(supported(SB), unsupported(XR, CoreConflict.XRAY_ALLOW_INSECURE)),
     Requirement.UTLS_FINGERPRINT to row(
         values(SB, SING_BOX_UTLS_FINGERPRINTS, CoreConflict.SING_BOX_UTLS_FINGERPRINT),
         values(XR, XRAY_UTLS_FINGERPRINTS, CoreConflict.XRAY_UTLS_FINGERPRINT),
     ),
-    // I1 §4.3；I2b §2.3
     Requirement.ECH_INLINE to row(
         supported(SB, "转成 PEM"), supported(XR, "echConfigList（标准 base64）；REALITY 下不写"),
     ),
     Requirement.ECH_AUTO_QUERY to row(
         supported(SB, "经 sing-box 自己的 DNS 路由查 HTTPS 记录"),
-        // 二进制能用查询写法表达，但必须给查询服务器，且查询由 Xray 进程直接发出（I1 §4.3）
+        // 二进制能用查询写法表达，但必须给查询服务器，且查询由 Xray 进程直接发出
         unsupported(XR, CoreConflict.XRAY_ECH_AUTO_QUERY),
     ),
-    // D15；I1 §5.3（Xray 没有任何 sing-mux）；I2b §2.2（sing-box 没有 Mux.Cool）
     Requirement.MUX_SING_MUX to row(supported(SB), unsupported(XR, CoreConflict.XRAY_SING_MUX)),
     Requirement.MUX_COOL to row(unsupported(SB, CoreConflict.SING_BOX_MUX_COOL), supported(XR)),
     Requirement.MUX_UNKNOWN to row(
         unsupported(SB, CoreConflict.MUX_TYPE_UNKNOWN), unsupported(XR, CoreConflict.MUX_TYPE_UNKNOWN),
     ),
-    // I1 §5.2（Xray 没有 packetaddr）；I2b §2.1
     Requirement.PACKET_ENCODING_PACKETADDR to row(
         supported(SB), unsupported(XR, CoreConflict.XRAY_PACKETADDR),
     ),
@@ -182,28 +174,27 @@ val COMBINATION_RULES: List<CombinationRule> = listOf(
         !it.nativeAnyTlsOverrides && it.protocol == CoreProtocol.ANYTLS && it.ech != null &&
             it.utlsFingerprint != null && !ANYTLS_COMPAT_ECH_FINGERPRINTS.accepts(it.utlsFingerprint)
     },
-    // I1 §3.1（S-X3，T-B5 / T-A2 实测）：REALITY only supports RAW, XHTTP and gRPC。h2、quic 在传输行已报；
+    // Xray 配置检查实测：REALITY only supports RAW, XHTTP and gRPC。h2、quic 在传输行已报；
     // xhttp 在允许之列（K2），所以这条只挡 ws / httpupgrade
     CombinationRule(
         DialCore.XRAY, CoreConflict.XRAY_REALITY_TRANSPORT, verifiedAt(DialCore.XRAY),
         "REALITY + ws / httpupgrade",
     ) { it.tls == TlsMode.REALITY && it.transport in setOf(CoreTransport.WS, CoreTransport.HTTPUPGRADE) },
-    // I1 §3.3：REALITY 的 fingerprint 不能是 unsafe / hellogolang
     CombinationRule(
         DialCore.XRAY, CoreConflict.XRAY_REALITY_UTLS_FINGERPRINT, verifiedAt(DialCore.XRAY),
         "REALITY + fingerprint unsafe / hellogolang",
     ) { it.tls == TlsMode.REALITY && XRAY_REALITY_FORBIDDEN_FINGERPRINTS.accepts(it.utlsFingerprint) },
-    // I2b §2.3：utls_client.go「Reality is conflict with ECH」，加载配置时报错
+    // sing-box 的 common/tls/utls_client.go「Reality is conflict with ECH」，加载配置时报错
     CombinationRule(
         DialCore.SING_BOX, CoreConflict.SING_BOX_REALITY_ECH, verifiedAt(DialCore.SING_BOX),
         "REALITY + ECH",
     ) { it.tls == TlsMode.REALITY && it.ech != null },
-    // I2b §2.6：transport/v2ray/transport.go，quic 不带 TLS 加载报 TLS required
+    // sing-box 的 transport/v2ray/transport.go，quic 不带 TLS 加载报 TLS required
     CombinationRule(
         DialCore.SING_BOX, CoreConflict.SING_BOX_QUIC_WITHOUT_TLS, verifiedAt(DialCore.SING_BOX),
         "quic 不带 TLS",
     ) { it.transport == CoreTransport.QUIC && it.tls == TlsMode.NONE },
-    // I2b §2.6 / 结论 5：QUIC 取 STDConfig()，uTLS 与 REALITY 的 STDConfig() 直接报错，每次拨号都失败
+    // sing-box 的 QUIC 取 STDConfig()，uTLS 与 REALITY 的 STDConfig() 直接报错，每次拨号都失败
     CombinationRule(
         DialCore.SING_BOX, CoreConflict.SING_BOX_QUIC_REALITY, verifiedAt(DialCore.SING_BOX),
         "quic + REALITY",
@@ -225,7 +216,7 @@ val COMBINATION_RULES: List<CombinationRule> = listOf(
         DialCore.XRAY, CoreConflict.XRAY_XHTTP_MUX_COOL, verifiedAt(DialCore.XRAY),
         "xhttp + Mux.Cool",
     ) { it.transport == CoreTransport.XHTTP && it.mux?.family == MuxFamily.MUX_COOL },
-    // Vision 流控的其余传输（v26.10.21 回环实测，维护者本地 doc/agent/k1b-wip/probe-plan/xray/vision/ 的 VT-*）：客户端出站要求底层
+    // Vision 流控的其余传输（v26.10.21 回环实测，experiments/core-probe/xray/vision/ 的 VT-*）：客户端出站要求底层
     // 直接是 TLS / REALITY（同上「XTLS only supports TLS and REALITY directly for now.」），ws、grpc（含 REALITY）、httpupgrade、
     // tcp 的 http 头伪装（带 TLS 也不行）与不带 TLS 的 tcp 每次连接都失败，run -test 都不报错。xhttp、h2、quic、未知传输各有
     // 自己的冲突，这里不重复报。UDP 由客户端发出、Xray 服务端拒收（服务端入站同样的检查），不单列

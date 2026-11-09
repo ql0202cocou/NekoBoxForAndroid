@@ -50,7 +50,7 @@ class XrayConfigTest {
 
     private val realityKey = "A".repeat(43)
 
-    // 与 gen-xhttp.py 的 EXTRA_CANON 逐字一致（回环验证用的 extra）
+    // 回环验证用的 extra：与 experiments/core-probe/xray/xhttp/genout/ 样本里的 extra 逐字一致
     private val XHTTP_LOOPBACK_EXTRA = """{"headers":{"X-K2-Probe":"k2-probe-value"},"xPaddingBytes":"200-400",""" +
         """"xmux":{"maxConcurrency":"8-16","cMaxReuseTimes":64,"hMaxRequestTimes":"700-800","hMaxReusableSecs":"1900-2900","hKeepAlivePeriod":30}}"""
 
@@ -232,7 +232,7 @@ class XrayConfigTest {
         )
     }
 
-    // ---- XHTTP（K2）。预期值来自 K2 在模拟器上对 Xray v26.10.17 的回环验证（doc/agent/k1b-wip/probe-plan/xray/xhttp/）
+    // ---- XHTTP（K2）。预期值来自 K2 在模拟器上对 Xray v26.10.17 的回环验证（experiments/core-probe/xray/xhttp/）
 
     private val xhttpPin = "ab".repeat(32)
 
@@ -359,7 +359,7 @@ class XrayConfigTest {
 
     @Test
     fun `xhttp 的 extra 规范形态与回环验证用的是同一份`() {
-        // doc/agent/k1b-wip/probe-plan/xray/xhttp/gen-xhttp.py 的 EXTRA_CANON：回环验证的就是生成器会写的内容
+        // experiments/core-probe/xray/xhttp/gen-xhttp.py 的回环配置直接读 genout/ 样本里的 extra：回环验证的就是生成器会写的内容
         assertEquals(
             XHTTP_LOOPBACK_EXTRA,
             canonicalXhttpExtra(

@@ -12,9 +12,9 @@ import io.nekohasekai.sagernet.fmt.v2ray.MUX_H2MUX
 import io.nekohasekai.sagernet.fmt.v2ray.MUX_SMUX
 import io.nekohasekai.sagernet.fmt.v2ray.MUX_YAMUX
 
-// 编辑器里 mux 协议（muxType）的可选项按核心显示（D15，方案 E1）。纯函数：输入核心取值与当前 muxType，
+// 编辑器里 mux 协议（muxType）的可选项按核心显示。纯函数：输入核心取值与当前 muxType，
 // 输出可选项、要改成的值和 padding 是否显示；StandardV2RaySettingsActivity 只负责调用。能不能保存仍由保存时的
-// 选核判定决定（D14），这里只让下拉框不给出注定冲突的选项
+// 选核判定决定，这里只让下拉框不给出注定冲突的选项
 
 enum class MuxTypeChoices(
     val values: List<Int>,

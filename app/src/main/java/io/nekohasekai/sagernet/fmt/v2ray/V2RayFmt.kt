@@ -826,8 +826,8 @@ fun buildSingBoxOutboundStandardV2RayBean(bean: StandardV2RayBean, globalAllowIn
                 alter_id = bean.alterId
                 // 带 TLS（含 REALITY）时 auto 写成 aes-128-gcm（维护者 2026-10-06 定，K1b 待决定项 A）：vendored
                 // sing-box 在有 TLS 时把 auto 换成 zero（libcore/sing-box/protocol/vmess/outbound.go:99-100），而 Xray
-                // 服务端自 v26.7.11 起删掉了 none / zero，这样的节点连新服务端静默失败（K1b X2 L2-V07，写 aes-128-gcm 能通）。
-                // Xray 客户端的 AUTO 在有 AES 硬件加速时取 AES-128-GCM（K1b X1 S2-X22），arm64 / amd64 设备上与这里相同。
+                // 服务端自 v26.7.11 起删掉了 none / zero，这样的节点连新服务端静默失败（回环实测，写 aes-128-gcm 能通）。
+                // Xray 客户端的 AUTO 在有 AES 硬件加速时取 AES-128-GCM（Xray common/protocol/headers.go），arm64 / amd64 设备上与这里相同。
                 // 不带 TLS 时 auto 照写（sing-box 自己选加密）；用户显式选的 none / zero 等照写，见已知差异
                 // VMESS_SECURITY_NONE_ZERO
                 security = if (vmessTls != null && vmessSecurity == "auto") "aes-128-gcm" else vmessSecurity
