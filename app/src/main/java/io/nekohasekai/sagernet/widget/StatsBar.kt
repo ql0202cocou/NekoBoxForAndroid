@@ -44,15 +44,14 @@ class StatsBar @JvmOverloads constructor(
     private val behavior = Behavior { allowShow }
 
     /**
-     * 卡片给列表底部留白的贡献比例：0 = 不占（未连接、被滚动收起），1 = 全占（卡片展开）。
-     * 跟着卡片的滑入 / 滑出走（同一档时长与缓动），列表底部留白逐帧跟随，不再在连接 / 断开 / 收起时突跳
+     * 卡片收放进度：0 = 收起，1 = 展开。Snackbar 用它跟随卡片；列表留白独立于动画进度。
      */
     var clearanceFraction = 0f
         private set
 
     /**
-     * [clearanceFraction] 每次变化（逐帧）的回调，宿主据此重算列表底部留白。settled 为假表示滑动还在进行中
-     * （宿主可只重算屏幕上的视图），为真表示终值已到位（滑动结束，或没有动画一步到位）
+     * [clearanceFraction] 每次变化的回调；只有 settled 为真时宿主才更新列表目标留白。
+     * 动画被反向打断不算到位，避免在两段动画之间释放留白。
      */
     var onClearanceChanged: ((settled: Boolean) -> Unit)? = null
 
@@ -71,7 +70,7 @@ class StatsBar @JvmOverloads constructor(
     init {
         // 初始收起：此时还没布局，位移由 Behavior.onLayoutChild 补上
         behavior.slideDown(this, false)
-        // 卡片的展开 / 收起（连接、断开、滚动都经父类的状态变化）带动留白；监听在初始收起之后才接上
+        // 连接、断开和滚动都经父类状态变化：跟踪卡片进度，到位后通知宿主处理留白。
         behavior.addOnScrollStateChangedListener { _, state ->
             followSlide(expanded = state == HideBottomViewOnScrollBehavior.STATE_SCROLLED_UP)
         }
@@ -79,8 +78,7 @@ class StatsBar @JvmOverloads constructor(
 
     private fun followSlide(expanded: Boolean) {
         val target = if (expanded) 1f else 0f
-        clearanceAnimator?.cancel()
-        clearanceAnimator = null
+        cancelClearanceAnimator()
         if (!slideAnimated || !context.animatorsEnabled() || target == clearanceFraction) {
             setClearanceFraction(target, settled = true)
             return
@@ -99,22 +97,31 @@ class StatsBar @JvmOverloads constructor(
                 AccelerateDecelerateInterpolator(),
             )
             addUpdateListener { setClearanceFraction(it.animatedValue as Float, settled = false) }
-            // 结束（含被取消）时按当前值再通知一次「已到位」：滑动期间宿主只重算屏幕上的视图，缓存的分页在这里补上
             doOnEnd { onClearanceChanged?.invoke(true) }
             start()
         }
     }
 
+    // 先摘掉监听再取消：被打断不算到位，不能发 settled
+    private fun cancelClearanceAnimator() {
+        clearanceAnimator?.run {
+            removeAllListeners()
+            cancel()
+        }
+        clearanceAnimator = null
+    }
+
     private fun setClearanceFraction(value: Float, settled: Boolean) {
-        if (value == clearanceFraction) return
+        if (value == clearanceFraction && !settled) return
         clearanceFraction = value
         onClearanceChanged?.invoke(settled)
     }
 
     override fun onDetachedFromWindow() {
-        // 动画里的更新回调拿着本视图，离开窗口就停；终值在重新连接 / 重建后由状态变化补上
-        clearanceAnimator?.cancel()
-        clearanceAnimator = null
+        // 离开窗口时停止两段动画并落在当前状态的终点，重新挂回时不能保留半途的位置。
+        cancelClearanceAnimator()
+        behavior.stopAnimation(this)
+        setClearanceFraction(if (isExpanded) 1f else 0f, settled = true)
         super.onDetachedFromWindow()
     }
 
@@ -122,17 +129,51 @@ class StatsBar @JvmOverloads constructor(
 
     class Behavior(val getAllowShow: () -> Boolean) : HideBottomViewOnScrollBehavior<StatsBar>() {
 
+        private var sliding = false
+
+        private val StatsBar.host get() = context.unwrapTo<MainContentHostOwner>().contentHost
+
+        private fun hiddenY(child: StatsBar): Float =
+            (child.measuredHeight + (child.layoutParams as MarginLayoutParams).bottomMargin).toFloat()
+
+        private fun followAnimation(child: StatsBar, animate: Boolean) {
+            sliding = animate && child.context.animatorsEnabled()
+            if (sliding) child.animate().withEndAction {
+                sliding = false
+                // 动画期间高度或插入区可能变化，收起完成后才校准到新的底边。
+                if (isScrolledDown) child.translationY = hiddenY(child)
+            }
+        }
+
+        internal fun stopAnimation(child: StatsBar) {
+            child.animate().cancel()
+            sliding = false
+            child.translationY = if (isScrolledDown) hiddenY(child) else 0f
+        }
+
         override fun onLayoutChild(
             parent: CoordinatorLayout, child: StatsBar, layoutDirection: Int,
         ): Boolean {
             val handled = super.onLayoutChild(parent, child, layoutDirection)
-            // 父类只在滑动时设位移：收起状态下高度或底边距变了（首次布局、插入区变化），
-            // 这里把卡片重新放到底边之下，之后的滑出动画才从正确位置开始
-            if (isScrolledDown) {
-                val lp = child.layoutParams as MarginLayoutParams
-                child.translationY = (child.measuredHeight + lp.bottomMargin).toFloat()
+            // 初次布局和收起后的尺寸变化需要校准位置；动画中不能把当前位置改成终点。
+            if (isScrolledDown && !sliding) {
+                child.translationY = hiddenY(child)
             }
             return handled
+        }
+
+        override fun onStartNestedScroll(
+            coordinatorLayout: CoordinatorLayout, child: StatsBar, directTargetChild: View,
+            target: View, nestedScrollAxes: Int, type: Int,
+        ): Boolean {
+            val accepted = super.onStartNestedScroll(coordinatorLayout, child, directTargetChild, target, nestedScrollAxes, type)
+            if (accepted) child.host.scrollStarted(target, type)
+            return accepted
+        }
+
+        override fun onStopNestedScroll(coordinatorLayout: CoordinatorLayout, child: StatsBar, target: View, type: Int) {
+            super.onStopNestedScroll(coordinatorLayout, child, target, type)
+            child.host.scrollStopped(target, type)
         }
 
         override fun onNestedScroll(
@@ -155,8 +196,16 @@ class StatsBar @JvmOverloads constructor(
         }
 
         override fun slideUp(child: StatsBar, animate: Boolean) {
-            if (!getAllowShow()) return
+            if (!getAllowShow() || isScrolledUp) return
             super.slideUp(child, animate)
+            followAnimation(child, animate)
+        }
+
+        override fun slideDown(child: StatsBar, animate: Boolean) {
+            if (isScrolledDown) return
+            super.slideDown(child, animate)
+            // 触摸探索模式可能拒绝收起，只有实际切换了状态才跟踪动画。
+            if (isScrolledDown) followAnimation(child, animate)
         }
     }
 

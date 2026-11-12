@@ -1,6 +1,6 @@
 package io.nekohasekai.sagernet.uitest
 
-import android.view.View
+import androidx.core.widget.NestedScrollView
 import androidx.recyclerview.widget.RecyclerView
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.bg.BaseService
@@ -14,21 +14,33 @@ import org.junit.Test
 import org.robolectric.android.controller.ActivityController
 
 /**
- * U5e E2：状态卡片的出现 / 消失 / 被滚动收起时，主界面列表的底部留白跟着卡片平滑变化，而不是突跳：
- * - 留白里卡片的那一份 = （卡片高度 + 间隔）× [io.nekohasekai.sagernet.widget.StatsBar.clearanceFraction]，
- *   展开为 1，未连接 / 被滚动收起为 0（原先卡片被收起后列表底部仍多留一块约 100dp 的空白）；
+ * 状态卡片收放与列表留白分离：
+ * - 卡片展开时目标留白包含卡片高度与间隔，收起后在安全位置回收；
  * - 每种状态下列表的最后一项都能完整滚到可见控件（展开时是卡片，否则是 Dock）上方；
- * - 带动画时留白逐帧过渡、单调变化、最终到位；动画关闭时一步到终态。
+ * - 卡片保持动画中间帧，列表留白到位后更新；动画关闭时直接更新。
+ * 滚动期间的冻结与接近底部的延迟回收另见 SettingsScrollAnimationTest。
  * 不截图，所有平台都跑。
  */
 class StatsClearanceTest : UiTestBase() {
 
     private val ActivityController<MainActivity>.stats get() = get().binding.stats
 
-    private fun ActivityController<MainActivity>.connect(advanceMs: Long = 500) {
-        get().stateChanged(BaseService.State.Connected, null, null)
-        // 状态卡片在 delay(100) 之后才展开
-        UiSettle.settle(advanceMs = advanceMs)
+    private fun ActivityController<MainActivity>.connect(advanceMs: Long = 500) = get().connect(advanceMs)
+
+    /** 打开关于页，返回它的滚动视图 */
+    private fun ActivityController<MainActivity>.aboutScroll(): NestedScrollView {
+        get().displayFragmentWithId(R.id.nav_about)
+        UiSettle.settle()
+        return hostedFragment<AboutFragment>().requireView().findViewById(R.id.about_scroll)
+    }
+
+    /** 在宿主处理完卡片进度回调之后再调 [block] */
+    private fun ActivityController<MainActivity>.afterEachClearanceChange(block: () -> Unit) {
+        val original = stats.onClearanceChanged
+        stats.onClearanceChanged = { settled ->
+            original?.invoke(settled)
+            block()
+        }
     }
 
     private fun ActivityController<MainActivity>.list(): RecyclerView {
@@ -122,10 +134,7 @@ class StatsClearanceTest : UiTestBase() {
     @Test
     fun otherPagesFollowTheCardToo() {
         val main = ui.launchMain(30)
-        main.get().displayFragmentWithId(R.id.nav_about)
-        UiSettle.settle()
-        val about = main.hostedFragment<AboutFragment>()
-        val scroll = about.view!!.findViewById<View>(R.id.about_scroll)
+        val scroll = main.aboutScroll()
         val base = scroll.paddingBottom - insetBottom(scroll) - dockClearance(main.get())
         main.connect()
         assertEquals(base + insetBottom(scroll) + expectedClearance(main.get(), true), scroll.paddingBottom)
@@ -135,30 +144,54 @@ class StatsClearanceTest : UiTestBase() {
     }
 
     @Test
-    fun clearanceGlidesWhenAnimationsAreOn() {
+    fun nestedScrollViewNearBottomRetainsItsPositionUntilSafeToReclaim() {
+        val main = ui.launchMain(30)
+        val scroll = main.aboutScroll()
+        val base = scroll.paddingBottom - insetBottom(scroll) - dockClearance(main.get())
+        main.connect()
+        scroll.scrollBy(0, 100_000)
+        UiSettle.settle()
+        scroll.scrollBy(0, -20)
+        val offset = scroll.scrollY
+        assertTrue("前置条件：关于页已滚离顶部", offset > 0)
+        ui.enableAnimationFrames()
+        main.stats.behavior.slideDown(main.stats, true)
+        UiSettle.advanceFrames(50)
+        assertEquals("回收留白不能把 NestedScrollView 推回", offset, scroll.scrollY)
+        val hidden = base + insetBottom(scroll) + expectedClearance(main.get(), false)
+        assertTrue("末端保留必要空间", scroll.paddingBottom > hidden)
+        scroll.scrollTo(0, 0)
+        UiSettle.advanceFrames(3)
+        assertEquals("回到安全位置后释放", hidden, scroll.paddingBottom)
+    }
+
+    @Test
+    fun cardGlidesWhilePaddingUpdatesAfterItSettles() {
         ui.enableAnimations()
         val main = ui.launchMain(30)
         val list = main.list()
         val seen = ArrayList<Int>()
-        main.get().binding.stats.onClearanceChanged.let { original ->
-            // 宿主已接了回调：在它之后再记录每一帧的列表底部留白
-            main.get().binding.stats.onClearanceChanged = { settled ->
-                original?.invoke(settled)
-                seen += clearanceIn(list)
-            }
+        val progress = ArrayList<Float>()
+        // 同时观察卡片进度与列表留白，不能把平滑进度等同于安全的列表布局。
+        main.afterEachClearanceChange {
+            seen += clearanceIn(list)
+            progress += main.stats.clearanceFraction
         }
         main.connect(advanceMs = 1000)
         assertEquals("最终到位", expectedClearance(main.get(), true), clearanceIn(list))
         val dock = expectedClearance(main.get(), false)
-        assertTrue("至少有一个中间帧（$seen）", seen.any { it > dock && it < expectedClearance(main.get(), true) })
-        assertEquals("单调不减", seen.sorted(), seen)
+        assertTrue("卡片保留动画中间帧", progress.any { it > 0f && it < 1f })
+        assertEquals("卡片单调展开", progress.sorted(), progress)
+        assertEquals("留白只在到位后更新", listOf(dock, expectedClearance(main.get(), true)), seen.distinct())
 
         seen.clear()
+        progress.clear()
         main.stats.behavior.slideDown(main.stats, true)
         UiSettle.settle(advanceMs = 1000)
         assertEquals(dock, clearanceIn(list))
-        assertTrue("收起也有中间帧（$seen）", seen.any { it > dock && it < expectedClearance(main.get(), true) })
-        assertEquals("单调不增", seen.sortedDescending(), seen)
+        assertTrue("收起也保留动画中间帧", progress.any { it > 0f && it < 1f })
+        assertEquals("卡片单调收起", progress.sortedDescending(), progress)
+        assertEquals("安全位置的留白在到位后回收", listOf(expectedClearance(main.get(), true), dock), seen.distinct())
     }
 
     @Test
@@ -167,11 +200,7 @@ class StatsClearanceTest : UiTestBase() {
         val main = ui.launchMain(30)
         val list = main.list()
         val seen = ArrayList<Int>()
-        val original = main.stats.onClearanceChanged
-        main.stats.onClearanceChanged = { settled ->
-            original?.invoke(settled)
-            seen += clearanceIn(list)
-        }
+        main.afterEachClearanceChange { seen += clearanceIn(list) }
         main.connect()
         assertEquals("一步到位，没有中间帧", listOf(expectedClearance(main.get(), true)), seen)
     }

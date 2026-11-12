@@ -15,6 +15,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.recyclerview.widget.RecyclerView
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ui.EditorActivity
 import io.nekohasekai.sagernet.ui.MainActivity
@@ -44,6 +45,12 @@ inline fun <reified F : Fragment> ActivityController<out FragmentActivity>.hoste
 
 inline fun <reified F : Fragment> assertHosted(main: MainActivity) {
     assertTrue("当前页面应为 ${F::class.simpleName}", main.hostedFragment<Fragment>() is F)
+}
+
+/** 切到已连接并等状态卡片展开（卡片在 delay(100) 之后才动） */
+fun MainActivity.connect(advanceMs: Long = 500) {
+    stateChanged(BaseService.State.Connected, null, null)
+    UiSettle.settle(advanceMs = advanceMs)
 }
 
 /** 当前设置页（一级页或分类页）的偏好列表 */

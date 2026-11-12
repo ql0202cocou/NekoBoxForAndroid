@@ -2,12 +2,15 @@ package io.nekohasekai.sagernet.widget
 
 import android.graphics.Rect
 import android.view.View
+import android.view.ViewGroup
 import androidx.core.view.NestedScrollingChild
 import androidx.core.view.ViewCompat
+import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.AppBarLayout
 import io.nekohasekai.sagernet.BuildConfig
-import java.util.Collections
 import java.util.WeakHashMap
 
 /*
@@ -31,44 +34,110 @@ interface MainContentHostOwner {
  * 主界面托管内容的登记处，一个 MainActivity 一个。
  *
  * [bottomClearance]：滚动视图底部要为悬浮的 Dock 与状态卡片让出的高度（px）。宿主在它变化时
- * 调 [refreshClearance]，各登记过的滚动视图（[register]，经 [hostMainScrollable]）的 padForSystemBars 随之更新。
- * 滚动事件不经这里：顶部栏抬升直接订阅各视图自己的 [ScrollHub]。只在主线程使用。
+ * 调 [refreshClearance]。实际留白在手势和惯性期间冻结，缩小时只回收不会推动当前内容的部分；
+ * 剩余部分经 [ScrollHub] 在滚回安全位置后重试。只在主线程使用。
  */
 class MainContentHost(private val clearance: () -> Int) {
 
-    // 登记过的视图；弱引用：从未挂上窗口的视图不会被这里拖住
-    private val registered: MutableSet<View> = Collections.newSetFromMap(WeakHashMap())
-
-    private val visibleRect = Rect()
+    // 值不持有视图，避免 WeakHashMap 的值反过来把弱键留住。
+    private class PaddingState(var extra: Int, var nestedTypes: Int = 0)
+    private val registered = WeakHashMap<View, PaddingState>()
+    private val bounds = Rect()
 
     fun bottomClearance(): Int = clearance()
 
-    /**
-     * 让位高度变了（状态卡片滑入 / 滑出的每一帧、卡片高度变化）：挂在窗口上的托管视图按最近一次的插入区重算底部留白，
-     * 不重新分发整棵树的插入区。[onlyVisible] 为真（滑动进行中的每一帧）时只重算屏幕上看得见的视图——ViewPager
-     * 缓存的分页每帧跟着重新布局是白做，等终值到位再补；脱离窗口的缓存页不用管，挂回时会请求分发、读到当时的值
-     */
-    fun refreshClearance(onlyVisible: Boolean = false) {
-        for (view in registered.toTypedArray()) {
-            if (!view.isAttachedToWindow) continue
-            if (onlyVisible && !view.getGlobalVisibleRect(visibleRect)) continue
-            view.reapplySystemBarPadding()
+    /** 卡片到位或高度变化后，按各列表的位置重算；不重新分发整棵树的插入区。 */
+    fun refreshClearance() = hostedViews.forEach { it.reapplySystemBarPadding() }
+
+    /** 系统栏仍照常适配，只有悬浮控件的额外留白参与冻结和安全回收。 */
+    internal fun bottomClearance(view: View): Int {
+        val state = registered[view] ?: return clearance()
+        if (state.nestedTypes != 0 ||
+            view is RecyclerView && view.scrollState != RecyclerView.SCROLL_STATE_IDLE) return state.extra
+        val target = clearance()
+        state.extra = if (target >= state.extra || !view.isLaidOut || !view.canScrollVertically(-1)) {
+            target
+        } else {
+            // 缩小留白相当于增加可见高度。末端内容必须仍填满新增区域，才能避免布局器向回补空隙。
+            maxOf(target, state.extra - contentBelowViewport(view))
         }
+        return state.extra
     }
 
-    /** 当前挂在窗口上的托管视图（测试用） */
+    /** 末端内容超出可视下沿的高度（px）；认不出布局方式时为 0，即不回收 */
+    private fun contentBelowViewport(view: View): Int {
+        val edge = view.height - view.paddingBottom
+        val bottom = when (view) {
+            is RecyclerView -> {
+                val manager = view.layoutManager as? LinearLayoutManager
+                if (manager == null || manager.reverseLayout || manager.stackFromEnd) return 0
+                (0 until view.childCount).maxOfOrNull {
+                    manager.getDecoratedBoundsWithMargins(view.getChildAt(it), bounds)
+                    bounds.bottom
+                }
+            }
+            is NestedScrollView -> view.getChildAt(0)?.let { child ->
+                val margin = (child.layoutParams as? ViewGroup.MarginLayoutParams)?.bottomMargin ?: 0
+                child.bottom + margin - view.scrollY
+            }
+            else -> null
+        } ?: return 0
+        return (bottom - edge).coerceAtLeast(0)
+    }
+
+    internal fun scrollStarted(view: View, type: Int) {
+        registered[view]?.let { it.nestedTypes = it.nestedTypes or (1 shl type) }
+    }
+
+    internal fun scrollStopped(view: View, type: Int) {
+        val state = registered[view] ?: return
+        state.nestedTypes = state.nestedTypes and (1 shl type).inv()
+        // 另一种类型（触摸 / 惯性）还在滚动时留白仍冻结，等它结束再算。
+        if (state.nestedTypes != 0) return
+        // 触摸结束和惯性开始可能在同一轮消息里，下一轮再读状态，不能在两者之间释放留白。
+        view.post { view.reapplyIfAttached() }
+    }
+
+    /** 当前挂在窗口上的托管视图 */
     internal val hostedViews: List<View>
-        get() = registered.filter { it.isAttachedToWindow }
+        get() = registered.keys.filter { it.isAttachedToWindow }
 
     /** 登记一个托管视图；重复登记无效 */
     internal fun register(view: View) {
-        registered += view
+        if (registered.containsKey(view)) return
+        val state = PaddingState(clearance())
+        registered[view] = state
+        val retry = Runnable { view.reapplyIfAttached() }
+        fun retryIfNeeded() {
+            if (state.nestedTypes != 0 || state.extra == clearance()) return
+            view.removeCallbacks(retry)
+            view.post(retry)
+        }
+        ScrollHub.of(view).addListener { retryIfNeeded() }
+        // 没有位移的滚动（到头后的程序滚动）不发滚动回调，冻结只能靠回到空闲来解除。
+        (view as? RecyclerView)?.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                if (newState == RecyclerView.SCROLL_STATE_IDLE) retryIfNeeded()
+            }
+        })
+        view.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> retryIfNeeded() }
+        view.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) = retryIfNeeded()
+            override fun onViewDetachedFromWindow(v: View) {
+                state.nestedTypes = 0
+                view.removeCallbacks(retry)
+            }
+        })
     }
+}
+
+private fun View.reapplyIfAttached() {
+    if (isAttachedToWindow) reapplySystemBarPadding()
 }
 
 /**
  * 把 [scroll] 作为本页的滚动视图放进 MainActivity 托管的主界面：
- * - 底部留白 = 系统栏 + Dock + 状态卡片（[MainContentHost.bottomClearance]），键盘弹出时去掉后两者，
+ * - 底部留白 = 系统栏 + Dock + 状态卡片（滚动期间冻结，接近底部时暂留必要空间），键盘弹出时去掉后两者，
  *   即 `padForSystemBars(bottomExtra = …)`；[ime]、[consume] 原样传给它；
  * - 顶部栏抬升，三选一（都不传则不管顶部栏）：[appBar] 单页直接绑；[lift] 分页宿主持有的控制器
  *   （由它按当前页取滚动视图，本页的滚动视图只负责 follow）；[liftAncestorAppBar] 从 [scroll] 往上
@@ -96,11 +165,12 @@ fun Fragment.hostMainScrollable(
     require(listOf(appBar != null, lift != null, liftAncestorAppBar).count { it } <= 1) {
         "appBar / lift / liftAncestorAppBar 只能传一个"
     }
+    (activity as? MainContentHostOwner)?.contentHost?.register(scroll)
     // 每次分发插入区时才取宿主：页面脱离 Activity 或宿主不是 MainActivity 时为 0
     scroll.padForSystemBars(
         ime = ime,
         consume = consume,
-        bottomExtra = { (activity as? MainContentHostOwner)?.contentHost?.bottomClearance() ?: 0 },
+        bottomExtra = { (activity as? MainContentHostOwner)?.contentHost?.bottomClearance(scroll) ?: 0 },
     )
 
     if (nestedScrolling) {
@@ -118,6 +188,4 @@ fun Fragment.hostMainScrollable(
         lift != null -> lift.follow(scroll)
         liftAncestorAppBar -> scroll.liftAncestorAppBar()
     }
-
-    (activity as? MainContentHostOwner)?.contentHost?.register(scroll)
 }

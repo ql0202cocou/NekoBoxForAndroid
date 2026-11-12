@@ -51,7 +51,6 @@ import io.nekohasekai.sagernet.widget.MainContentHostOwner
 import io.nekohasekai.sagernet.widget.safeDrawingTypes
 import io.nekohasekai.sagernet.widget.systemBarMargins
 import io.nekohasekai.sagernet.bg.ServiceRegistry
-import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -109,10 +108,10 @@ class MainActivity : ThemedActivity(),
             for (apply in floatingMargins) apply(safeDrawing)
             insets
         }
-        // 列表底部留白含状态卡片的贡献（bottomControlsClearance）：卡片滑入 / 滑出时逐帧重算，
-        // 卡片高度变了也重算；只改列表的内边距，不重新分发整棵树的插入区
+        // 卡片到位后才更新列表目标留白；宿主会冻结滚动中的列表，并安全回收接近底部的留白。
+        // Snackbar 仍逐帧跟随卡片，不重新分发整棵树的插入区。
         binding.stats.onClearanceChanged = { settled ->
-            contentHost.refreshClearance(onlyVisible = !settled)
+            if (settled) contentHost.refreshClearance()
             followSnackbarAnchor()
         }
         binding.stats.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
@@ -234,15 +233,12 @@ class MainActivity : ThemedActivity(),
 
     /**
      * 主界面列表底部在导航栏插入区之外要让出的高度（px）：Dock 区（底边距、Dock、8dp 间隔），
-     * 再加状态卡片的贡献：（卡片高度 + 8dp 间隔）乘以 [StatsBar.clearanceFraction]。比例随卡片的
-     * 滑入 / 滑出平滑变化，所以连接、断开、列表滚动把卡片收起 / 拉出时留白都不突跳；
-     * 卡片被滑走之后不再多留一块空白。变化时 [StatsBar.onClearanceChanged] 带动各滚动视图
-     * （hostMainScrollable）重算底部留白
+     * 再加展开状态卡片的高度与 8dp 间隔。这是目标值，实际留白由 contentHost 按滚动状态和
+     * 当前可见内容安全更新，不能把卡片每一帧的位移变成列表滚动范围的变化。
      */
     fun bottomControlsClearance(): Int {
         val stats = binding.stats
-        val card = (stats.height + statsBarGap) * stats.clearanceFraction
-        return navDockClearance + card.roundToInt()
+        return navDockClearance + if (stats.isExpanded) stats.height + statsBarGap else 0
     }
 
     // 逐帧调用，尺寸只查一次（配置变化时 Activity 重建）
@@ -418,7 +414,7 @@ class MainActivity : ThemedActivity(),
         }
     }
 
-    // 卡片露出了一部分（留白比例大于 0）就锚卡片，否则锚 Dock。Snackbar 按锚点在屏幕上的实际位置
+    // 卡片露出了一部分（收放进度大于 0）就锚卡片，否则锚 Dock。Snackbar 按锚点在屏幕上的实际位置
     // （含滑动中的平移）算底部间距，所以锚卡片时会跟着卡片的位置走
     private fun snackbarAnchor(): View =
         if (binding.stats.clearanceFraction > 0f) binding.stats else binding.dock
