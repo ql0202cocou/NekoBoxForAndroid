@@ -1,5 +1,5 @@
 # Vision 传输矩阵：VLESS + xtls-rprx-vision 跑在 RAW 以外的传输、或不带 TLS 时，核实两个核心的连接行为。
-# 服务端一律是 Xray（用户带 vision 流控，模拟服务端也这样配的节点）。客户端：
+# 默认服务端是 Xray；矩阵后半另有 sing-box 独有传输与同核对照。客户端：
 #   xray-*：同一个 Xray 进程里放客户端出站（入口 dokodemo :31000 / socks :31080）
 #   sb-*：vendored sing-box（libcore/sing-box，标签同 libcore build_tags.sh）编的 linux/arm64 命令行，入口与应用的映射入站同形
 #         （direct 入站 :31000，override 到 127.0.0.1:40000）；UDP 用 mixed 入站 :31080。出站按 ProtocolHandlers 的 vision 形状
@@ -11,7 +11,7 @@ import copy, itertools, os, shutil, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-from probe_common import (ALLOW_LOOP, CA, LEAF, LEAF_KEY, LEAF_PIN, P, PRIV, PUB, SID, U, UDP_ARGS, UUID, entry_inbound, reality_target,
+from probe_common import (ALLOW_LOOP, CA, FULL, LEAF, LEAF_KEY, LEAF_PIN, P, PRIV, PUB, SID, U, UDP_ARGS, UUID, entry_inbound, reality_target,
                           tls_server, vless, write_json, write_manifest)
 
 OUT = os.path.join(HERE, "transports")
@@ -115,7 +115,9 @@ def case(core, net, sec, udp, expect, note):
 
 for core in ("xray", "sb"):
     case(core, "tcp", "tls", False, "PASS", "对照：RAW + TLS")
-    case(core, "tcp", "reality", False, "PASS", "对照：RAW + REALITY")
+    case(core, "tcp", "reality", False, "PASS" if core == "xray" else "FAIL",
+         "对照：RAW + REALITY" if core == "xray" else
+         "跨核负例：sing-box 去掉 X25519MLKEM768，被 Xray >=26.9.8 转发到 target；26.10.31 / 26.11.9 差分复核均失败")
     for net in ("ws", "grpc", "httpupgrade"):
         case(core, net, "tls", False, "FAIL", "待核实：非 RAW 传输 + TLS")
     case(core, "grpc", "reality", False, "FAIL", "待核实：gRPC + REALITY（Xray 允许 REALITY 配 gRPC）")
@@ -152,6 +154,21 @@ srv = sb_server_cfg(NETS["httpupgrade"][1], "tls")
 srv["inbounds"][0]["users"][0]["flow"] = VISION
 cid = new_case("sb-httpupgrade-tls-sbserver", {"sing-box-server": srv, "sing-box": sb_cfg("httpupgrade", "tls")})
 CASES.append((cid, "sb-tcp", "-", "-", "sing-box 客户端 + sing-box 服务端（带 vision），httpupgrade + TLS：只记录实际结果"))
+
+# 与跨核负例 VT-11 对照：同一 sing-box 客户端改连 sing-box REALITY 服务端，确认 RAW + REALITY 的 Vision 本身可用。
+srv = sb_server_cfg(None, "none")
+del srv["inbounds"][0]["transport"]
+srv["inbounds"][0]["users"][0]["flow"] = VISION
+srv["inbounds"][0]["tls"] = {
+    "enabled": True, "server_name": "node.example.com",
+    "reality": {"enabled": True, "handshake": {"server": "127.0.0.1", "server_port": 32100},
+                "private_key": PRIV, "short_id": [SID]},
+}
+srv["inbounds"].append({"type": "trojan", "tag": "target", "listen": "127.0.0.1", "listen_port": 32100,
+                        "users": [{"password": "example-target-pass"}],
+                        "tls": {"enabled": True, "certificate": FULL, "key": LEAF_KEY, "alpn": ["h2", "http/1.1"]}})
+cid = new_case("sb-tcp-reality-sbserver", {"sing-box-server": srv, "sing-box": sb_cfg("tcp", "reality")})
+CASES.append((cid, "sb-tcp", "-", "PASS", "同核对照：sing-box 客户端与服务端，RAW + REALITY + Vision"))
 
 write_manifest(OUT, ("id", "kind", "args", "expect", "note"), CASES)
 print(len(CASES), "cases")

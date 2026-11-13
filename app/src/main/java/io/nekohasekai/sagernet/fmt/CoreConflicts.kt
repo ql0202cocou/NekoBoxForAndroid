@@ -22,6 +22,7 @@ enum class ProfileField(val key: String) {
     ECH_CONFIG("echConfig"),
     ENABLE_MUX("enableMux"),
     MUX_TYPE("muxType"),
+    MUX_CONCURRENCY("muxConcurrency"),
     MUX_PADDING("muxPadding"),
     PACKET_ENCODING("packetEncoding"),
 

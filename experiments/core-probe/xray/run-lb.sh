@@ -31,7 +31,7 @@ once() { # $1 file $2 kind $3 args $4 log → 把 socksprobe 的输出写到标�
     udp) "$PROBE" udp $3 -user "$U" -pass "$P" 2>&1 ;;
     hs) "$PROBE" hs $3 -user "$U" -pass "$P" 2>&1 ;;
   esac
-  sleep "${POST_WAIT:-1}"   # 探针结束后多等一会再杀进程；服务端 processed invalid connection 要等 target 连接结束才打印，POST_WAIT=4 可稳定看到
+  sleep "${POST_WAIT:-1}"   # 日志受 target 双向连接关闭时序影响，按实际需要设置 POST_WAIT；握手负例不依赖清理阶段日志
   kill $x $t1 $t2 2>/dev/null
   wait $x $t1 $t2 2>/dev/null
 }

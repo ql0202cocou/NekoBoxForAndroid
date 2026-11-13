@@ -294,6 +294,14 @@ for m in ("packet-up", "stream-up", "stream-one"):
 extra_samples = {f.removesuffix(".json") for f in os.listdir(GENOUT)} - {g[0] for g in G}
 assert not extra_samples, f"genout/ 里这些样本没有用例：{sorted(extra_samples)}"
 
+# v26.11.9 复核 v26.10.31 引入的行为；追加编号，不改应用 extra 白名单。
+for sec in ("none", "tls"):
+    l(f"options-uplink-{sec}", lb(sec=sec, cx=cli_xhttp(mode="packet-up", extra={"uplinkHTTPMethod": "OPTIONS"})),
+      "tcp", "PASS", "20", "不带 Access-Control-Request-Method 的 OPTIONS 作为正常上行")
+for sec in ("tls", "reality"):
+    l(f"h2params-client-ignored-{sec}", lb(sec=sec, cx=cli_xhttp(extra={"h2Params": "invalid-type"})),
+      "tcp", "PASS", "20", "客户端连不可解码为 HTTP2Config 的 h2Params 也忽略；仅服务端 ListenXH 读取")
+
 write_suite(LBGEN, "XG", LOOPBACK_COLUMNS, G)
 write_suite(TEST, "XT", TEST_COLUMNS, T)
 write_suite(LB, "XL", LOOPBACK_COLUMNS, L)

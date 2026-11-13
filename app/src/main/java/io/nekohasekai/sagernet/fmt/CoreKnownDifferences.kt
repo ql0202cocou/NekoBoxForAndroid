@@ -78,7 +78,8 @@ enum class KnownDifference(
     UTLS_DEFAULT(
         listOf(ProfileField.UTLS_FINGERPRINT),
         mapOf(
-            DialCore.XRAY to "没填指纹时用 uTLS chrome（GetFingerprint(\"\")）",
+            DialCore.XRAY to "没填指纹时用 uTLS chrome（GetFingerprint(\"\")）；v26.11.9 的 chrome / hellochrome_auto 为 Chrome 155，" +
+                "显式 hellochrome_133 仍使用旧模板",
             DialCore.SING_BOX to "没填指纹时用 Go 标准 TLS（REALITY 除外：生成器补 chrome）",
         ),
         "不影响安全校验与连通；维护者 2026-10-06 定：只有迁移时换到 sing-box 的存量节点由升级标注规则 d 补写 firefox，" +
@@ -140,6 +141,17 @@ enum class KnownDifference(
         ),
         "Mux.Cool 下没有对应项；编辑器在选 Mux.Cool 时隐藏它",
         DifferenceDecision.DECIDED,
+    ),
+    XRAY_MUX_CONCURRENCY(
+        listOf(ProfileField.ENABLE_MUX, ProfileField.MUX_TYPE, ProfileField.MUX_CONCURRENCY),
+        mapOf(
+            DialCore.XRAY to "v26.11.9 的 Mux.Cool 把 concurrency 0–128 都提升为 128，显式 1–127 也不保留；负数仍关闭 TCP 复用。" +
+                "xudpConcurrency 不抬高，TCP / XUDP 的单连接累计复用上限为 1024",
+            DialCore.SING_BOX to "sing-mux 将 muxConcurrency 写成 max_streams，不做 Xray 的最低 128 调整；两者协议族不能互换",
+        ),
+        "连接复用策略差异，不改变安全校验与协议族。生成器保留配置原值，不为规避上游行为而自动换核或改写节点；" +
+            "上游 #7375 的修复尚未进入此固定版本，后续升级须复核",
+        DifferenceDecision.BY_PRINCIPLE,
     ),
     VISION_MUX(
         listOf(ProfileField.ENABLE_MUX, ProfileField.ENCRYPTION),

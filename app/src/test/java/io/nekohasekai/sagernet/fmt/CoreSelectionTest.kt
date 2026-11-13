@@ -294,6 +294,24 @@ class CoreSelectionTest {
     // ---- uTLS 指纹
 
     @Test
+    fun `Chrome 155 仅扩展 Xray 能力且手动 sing-box 不回落`() {
+        for (fingerprint in listOf("hellochrome_155", "HeLLoChRoMe_155")) {
+            for (bean in listOf(vmess {}, vless {}, trojan {})) {
+                bean.utlsFingerprint = fingerprint
+                assertSelected(XRAY, decide(bean))
+                assertSelected(XRAY, decide(bean, CORE_XRAY))
+                assertRejected(decide(bean, CORE_SING_BOX), SING_BOX_UTLS_FINGERPRINT)
+                bean.reality()
+                assertSelected(XRAY, decide(bean))
+                assertRejected(decide(bean, CORE_SING_BOX), SING_BOX_UTLS_FINGERPRINT)
+            }
+        }
+        assertSelected(SING_BOX, decide(vless { utlsFingerprint = "chrome" }))
+        assertSelected(XRAY, decide(vless { reality(); utlsFingerprint = "chrome" }))
+        assertRejected(decide(anytls { utlsFingerprint = "hellochrome_155" }), SING_BOX_ANYTLS_UTLS)
+    }
+
+    @Test
     fun `uTLS 指纹按各核心的名单`() {
         assertSelected(XRAY, decide(vless { utlsFingerprint = "randomizednoalpn" }))
         assertSelected(XRAY, decide(vless { utlsFingerprint = "Chrome" }))

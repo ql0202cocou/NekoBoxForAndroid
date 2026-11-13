@@ -24,6 +24,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //  3. realitySettings 客户端字段的校验：publicKey / password、shortId、fingerprint 的禁用名与默认值、mldsa65Verify
 //     的长度、spiderX；客户端上报的版本号。服务端（v26.9.8 起）要求 ClientHello 带 X25519MLKEM768 且排在 X25519
 //     之前，minClientVer 不能放宽：用新旧服务端 × 指纹的分进程矩阵验证（客户端、服务端各一个进程）。
+//     v26.10.31 / v26.11.9 的分进程矩阵已复核默认、chrome、133 / 155 指纹；旧客户端不识别 155，其他组合均可连。
 //  4. allowInsecure：v26.6.22 起无条件拒绝（不再看设备时钟），原文「… migrated to "pinnedPeerCertSha256"(pcs) and
 //     "verifyPeerCertByName"(vcn). …」；写 false 不报错。
 //  5. pinnedPeerCertSha256 的格式（十六进制、冒号、逗号）与匹配语义（命中叶子跳过校验；命中 IsCA 的链上证书按
@@ -33,13 +34,14 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //     或不设 SSL_CERT_FILE 时不通）；v26.10.10 起默认底座是 Xray 内置的根证书包，tlsSettings.useSystemCa 为真才用
 //     系统库（加载失败也退回内置包），certificates 追加在所选池的副本上，disableSystemRoot 仍是只信任自带证书。
 //     v26.10.10 起的根池来源切换按源码确认，未用 SSL_CERT_FILE 专门重跑新旧默认信任集合的握手对照。
-//  7. fingerprint 的名单（XRAY_UTLS_FINGERPRINTS）、空值的默认（现在是 chrome）、不认识的名字是否报错；uTLS 下
+//  7. fingerprint 的名单（XRAY_UTLS_FINGERPRINTS）、空值的默认（现在是 chrome，v26.11.9 为 Chrome 155）、不认识的名字是否报错；uTLS 下
 //     alpn 是否生效：预设模板盖掉用户的 alpn，randomized 系列用用户写的 alpn；ws 外层缺省 http/1.1，写
 //     h2,http/1.1 时保留。
 //  8. echConfigList 支持的形式；echForceQuery 已删（写了被静默忽略），查询失败一律不通（用拒绝连接的本机 DoH
 //     地址验证）；查询从哪里发出（Xray 进程自己）。
-//  9. MuxConfig 的字段与缺省值（concurrency 0 按 8、负数关闭；xudpProxyUDP443 缺省 reject，生成器写 allow）、handler 的
-//     分派顺序。
+//  9. MuxConfig 的字段与缺省值、handler 的分派顺序。v26.11.9 的 handler 把 concurrency 0–128 都按 128，负数仍关闭；
+//     TCP / XUDP 的单连接累计复用上限从 128 改成 1024，xudpConcurrency 不抬高；xudpProxyUDP443 缺省 reject，生成器写 allow。
+//     上游 #7375 已将最低 128 限于 XDRIVE，但不在 v26.11.9 内；升级包含该修复的版本时复核 XRAY_MUX_CONCURRENCY。
 // 10. VMess / VLESS 的 UDP 默认走 cone XUDP；vision 与 mux 同开时的处理。
 // 11. 未知 JSON 键是否仍被静默忽略（XRAY_JSON_STRICT=true 也不拒绝）。键名大小写不敏感，只有拼错的键才丢，
 //     所以生成器里每个键名的拼写要靠测试保证。
@@ -80,10 +82,10 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //     XHTTP 与 Vision 流控（proxy/vless/outbound 要求 TLS / REALITY 直连）、与 Mux.Cool（新版服务端只接受纯 XUDP）的
 //     冲突是否仍成立；REALITY 是否仍能配 xhttp；单值 ALPN h3 的行为。sing-box 一侧：vendored 版本有了 XHTTP 传输时，
 //     改 TRANSPORT_XHTTP 一行与 SING_BOX_TRANSPORT_XHTTP。
-//     v26.10.31 新增的 h2Params 只有服务端的 ListenXH 读，客户端写了不生效（XL-99），白名单不收，extra 里写了按未知键拒绝；
-//     同版本服务端把不带 Access-Control-Request-Method 的 OPTIONS 当上行（XL-96），uplinkHTTPMethod 的校验本来就放行。
-//     这两条当时的回环用例（XL-96…99）未随 experiments/core-probe 保留，下次升级要补用例或按源码复核。
-//     v26.10.17 的回环实测（experiments/core-probe/xray/xhttp/，v26.10.21、v26.10.31 重跑相同）：Vision 每次连接都报「XTLS only supports TLS and
+//     v26.10.31 新增的 h2Params 只有服务端的 ListenXH 读，客户端写了不生效（XL-98 / 99），白名单不收，extra 里写了按未知键拒绝；
+//     同版本服务端把不带 Access-Control-Request-Method 的 OPTIONS 当上行（XL-96 / 97），uplinkHTTPMethod 的校验本来就放行。
+//     v26.11.9 已按源码复核并补齐这四条回环；TLS / REALITY 客户端连错误类型的 h2Params 也忽略，OPTIONS 上行在明文 / TLS 下可用。
+//     v26.10.17 的回环实测（experiments/core-probe/xray/xhttp/，v26.10.21、v26.10.31、v26.11.9 重跑相同）：Vision 每次连接都报「XTLS only supports TLS and
 //     REALITY directly for now」；Mux.Cool 的 TCP 子连接被服务端拒（common/mux: unexpected network TCP），XUDP 承载的
 //     UDP 正常；单值 h3 的客户端改拨 UDP（QUIC），经 TCP+UDP 转发入口可用、只转发 TCP 的入口不通 —— 映射入站
 //     （ConfigBuilder.addMappingInbound）没有 network 限制，两者都收，所以 h3 不记冲突；将来若给映射入站加 network 限制，
@@ -95,14 +97,16 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 // Vision 流控的传输（XRAY_VISION_TRANSPORT / SING_BOX_VISION_TRANSPORT）：
 // 21. Xray 的 proxy/vless/outbound（与 inbound）是否仍只认直接的 TLS / REALITY 连接（VLESS Encryption 例外，本应用不支持）；
 //     sing-vmess 的 NewVisionConn 是否仍只认 TLS 连接本身（tlsRegistry），httpupgrade 是否仍把 TLS 连接原样交出。用
-//     experiments/core-probe/xray/vision/ 的 gen-transports.py + run-transports.sh 重跑（v26.10.21 / 1.14.3-neko-3：26 条，1.14.4-neko-1 与 v26.10.31 / 1.14.4-neko-2 重跑判定相同；
+//     experiments/core-probe/xray/vision/ 的 gen-transports.py + run-transports.sh 验证；v26.11.9 / 1.14.4-neko-2 为 27 条。
+//     VT-11 的旧 PASS 预期已按 v26.10.31 / v26.11.9 差分修正：sing-box 的 REALITY 缺少 X25519MLKEM768，两个 Xray 服务端均拒绝；
+//     VT-27 同核对照证明 sing-box 的 RAW + REALITY + Vision 可用。此跨核边界不作为 Vision 传输冲突。
 //     Xray 客户端在 ws / grpc / httpupgrade / http 伪装 / 不带 TLS 上每次连接都失败，UDP 由 Xray 服务端拒收；sing-box 在 ws / grpc /
-//     h2 / quic / http 伪装 / 不带 TLS 上初始化 Vision 失败，httpupgrade 对 sing-box 服务端能通、对 Xray 服务端被拒）。
+//     h2 / quic / http 伪装 / 不带 TLS 上初始化 Vision 失败，httpupgrade 对 sing-box 服务端能通、对 Xray 服务端被拒。
 
 // 能替节点拨号的核心。value 与 ProxyEntity.CORE_* 相同；version 是这张表核实时的版本
 enum class DialCore(val value: Int, val displayName: String, val version: String) {
     SING_BOX(CORE_SING_BOX, "sing-box", "1.14.4"),
-    XRAY(CORE_XRAY, "Xray", "v26.10.31");
+    XRAY(CORE_XRAY, "Xray", "v26.11.9");
 
     companion object {
         fun of(value: Int): DialCore? = entries.firstOrNull { it.value == value }

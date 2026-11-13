@@ -19,14 +19,15 @@ val SING_BOX_UTLS_FINGERPRINTS = CoreNames(
 // PresetFingerprints / ModernFingerprints / OtherFingerprints，名单外 run -test 报 unknown "fingerprint"。
 // unsafe 表示 Go 标准 TLS；REALITY 另外拒绝 unsafe 与 hellogolang（见组合规则）。
 // v26.9.30 比 v26.3.27 多了 hellochrome_133、hellofirefox_148、hellosafari_26_3（配置检查实测，旧版拒绝），
-// 没有删除；Modern / Other 两组按 v26.6.1（455f6bc2）的新表分组（transport/internet/tls/tls.go）
+// 没有删除；v26.11.9 新增 hellochrome_155，chrome / hellochrome_auto 与空指纹改用 Chrome 155。
+// Modern / Other 两组按 v26.6.1（455f6bc2）的新表分组（transport/internet/tls/tls.go）
 val XRAY_UTLS_FINGERPRINTS = CoreNames(
     setOf(
         // PresetFingerprints（预设名单）
         "chrome", "firefox", "safari", "ios", "android", "edge", "360", "qq",
         "random", "randomized", "randomizednoalpn", "unsafe",
         // ModernFingerprints（random 在启动时从这一组里抽一个）
-        "hellofirefox_120", "hellofirefox_148", "hellochrome_120", "hellochrome_131", "hellochrome_133",
+        "hellofirefox_120", "hellofirefox_148", "hellochrome_120", "hellochrome_131", "hellochrome_133", "hellochrome_155",
         "helloios_13", "helloios_14", "helloedge_106", "hellosafari_26_3", "hello360_11_0", "helloqq_11_1",
         // OtherFingerprints：Go 标准、随机、auto 与过旧的模板
         "hellogolang", "hellorandomized", "hellorandomizedalpn", "hellorandomizednoalpn",

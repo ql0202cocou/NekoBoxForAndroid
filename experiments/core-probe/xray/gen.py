@@ -28,10 +28,10 @@ BFULL, BLEAF_KEY = pki("bfull.pem"), pki("bleaf.pk8")
 mk = load_kv("mldsa.txt")
 SEED, VERIFY = mk["Seed"], mk["Verify"]
 
-# Xray v26.9.30 transport/internet/tls/tls.go 的三张表（PresetFingerprints / ModernFingerprints / OtherFingerprints）
+# Xray v26.11.9 transport/internet/tls/tls.go 的三张表（PresetFingerprints / ModernFingerprints / OtherFingerprints）
 FP_ALL = [
     "chrome", "firefox", "safari", "ios", "android", "edge", "360", "qq", "random", "randomized", "randomizednoalpn", "unsafe",
-    "hellofirefox_120", "hellofirefox_148", "hellochrome_120", "hellochrome_131", "hellochrome_133", "helloios_13", "helloios_14",
+    "hellofirefox_120", "hellofirefox_148", "hellochrome_120", "hellochrome_131", "hellochrome_133", "hellochrome_155", "helloios_13", "helloios_14",
     "helloedge_106", "hellosafari_26_3", "hello360_11_0", "helloqq_11_1",
     "hellogolang", "hellorandomized", "hellorandomizedalpn", "hellorandomizednoalpn", "hellofirefox_auto", "hellofirefox_55",
     "hellofirefox_56", "hellofirefox_63", "hellofirefox_65", "hellofirefox_99", "hellofirefox_102", "hellofirefox_105",
@@ -41,7 +41,7 @@ FP_ALL = [
     "hello360_auto", "hello360_7_5", "helloqq_auto", "hellochrome_100_psk", "hellochrome_112_psk_shuf",
     "hellochrome_114_padding_psk_shuf", "hellochrome_115_pq", "hellochrome_115_pq_psk", "hellochrome_120_pq",
 ]
-assert len(FP_ALL) == 63 and len(set(FP_ALL)) == 63
+assert len(FP_ALL) == 64 and len(set(FP_ALL)) == 64
 
 # ---------------- 生成器同形的构件（buildXrayConfig / buildXrayOutbound）
 
@@ -179,7 +179,7 @@ t("reality-fp-unsafe", merged(vless(stream=st("tcp", "reality", fingerprint="uns
 t("reality-fp-hellogolang", merged(vless(stream=st("tcp", "reality", fingerprint="HelloGolang"))), 'ERR:invalid "fingerprint": hellogolang', "3", "infra/conf/transport_security.go", "先转小写再比")
 t("reality-fp-netscape", merged(vless(stream=st("tcp", "reality", fingerprint="netscape"))), 'ERR:unknown "fingerprint": netscape', "3", "infra/conf/transport_security.go")
 t("reality-fp-empty", merged(vless(stream=st("tcp", "reality", fingerprint=None))), "OK", "3", "infra/conf/transport_security.go,transport/internet/tls/tls.go", "空＝chrome")
-t("reality-fp-all-allowed", merged(*[vless(stream=st("tcp", "reality", fingerprint=f)) for f in FP_ALL if f not in ("unsafe", "hellogolang")]), "OK", "3/7", "infra/conf/transport_security.go,transport/internet/tls/tls.go", "61 个名字 run -test 全接受（运行时能否连新服务端另见 L2-R*）")
+t("reality-fp-all-allowed", merged(*[vless(stream=st("tcp", "reality", fingerprint=f)) for f in FP_ALL if f not in ("unsafe", "hellogolang")]), "OK", "3/7", "infra/conf/transport_security.go,transport/internet/tls/tls.go", "62 个名字 run -test 全接受（运行时能否连新服务端另见 L2-R*）")
 t("reality-mldsa-ok", merged(vless(stream=st("tcp", "reality", mldsa65Verify=MLDSA_FAKE))), "OK", "3", "infra/conf/transport_security.go")
 t("reality-mldsa-short", merged(vless(stream=st("tcp", "reality", mldsa65Verify=MLDSA_FAKE[:-10]))), 'ERR:invalid "mldsa65Verify": ', "3", "infra/conf/transport_security.go")
 t("reality-spiderx-ok", merged(vless(stream=st("tcp", "reality", spiderX="/path?p=1-3&c=2"))), "OK", "3", "infra/conf/transport_security.go")
@@ -200,7 +200,7 @@ t("tls-verifypeercertbyname", merged(vless(stream=st("tcp", "tls", verifyPeerCer
 t("tls-ca-badpem", merged(vless(stream=st("tcp", "tls", certificates=[{"usage": "verify", "certificate": FAKE_PEM}]))), "OK", "6", "transport/internet/tls/config_other.go", "run -test 不解析 PEM")
 t("tls-ca-usage-unknown", merged(vless(stream=st("tcp", "tls", certificates=[{"usage": "nope", "certificate": CA}]))), "OK", "6", "infra/conf/transport_security.go")
 t("tls-ca-disablesystemroot", merged(vless(stream=st("tcp", "tls", certificates=[{"usage": "verify", "certificate": CA}], disableSystemRoot=True))), "OK", "6", "transport/internet/tls/config_other.go")
-t("tls-fp-all", merged(*[vless(stream=st("tcp", "tls", fingerprint=f)) for f in FP_ALL] + [vless(stream=st("tcp", "tls", fingerprint="Chrome")), vless(stream=st("tcp", "tls"))]), "OK", "7/Q3", "infra/conf/transport_security.go,transport/internet/tls/tls.go", "63 个名字 + 大写 + 不写")
+t("tls-fp-all", merged(*[vless(stream=st("tcp", "tls", fingerprint=f)) for f in FP_ALL] + [vless(stream=st("tcp", "tls", fingerprint="Chrome")), vless(stream=st("tcp", "tls"))]), "OK", "7/Q3", "infra/conf/transport_security.go,transport/internet/tls/tls.go", "64 个名字 + 大写 + 不写")
 t("tls-fp-new3", merged(*[vless(stream=st("tcp", "tls", fingerprint=f)) for f in ("hellochrome_133", "hellofirefox_148", "hellosafari_26_3")]), "OK", "7", "transport/internet/tls/tls.go", "比 v26.3.27 新增的 3 个")
 t("tls-fp-netscape", merged(vless(stream=st("tcp", "tls", fingerprint="netscape"))), 'ERR:unknown "fingerprint": netscape', "7", "infra/conf/transport_security.go")
 t("tls-alpn-forms", merged(vless(stream=st("tcp", "tls", alpn=["h2", "http/1.1"])), vless(stream=st("tcp", "tls", alpn="http/1.1")), vless(stream=st("tcp", "tls", alpn=["h3", "foo"]))), "OK", "7", "infra/conf/transport_security.go")
@@ -306,7 +306,7 @@ SRV_NETS = {
     "grpc": {"network": "grpc", "grpcSettings": {"serviceName": "svc"}},
 }
 # 被测 Xray 的版本：REALITY 客户端自报的版本、minClientVer / maxClientVer 的相对阈值都由它推出。改这里后仍要逐条复核预期。
-XRAY_VER = (26, 10, 31)
+XRAY_VER = (26, 11, 9)
 CV_LOG = "[%d %d %d" % XRAY_VER                                     # 服务端 show 日志里 hs.c.ClientVer 的开头
 CV_STR = "%d.%d.%d" % XRAY_VER
 CV_ABOVE = "%d.%d.%d" % (XRAY_VER[0], XRAY_VER[1], XRAY_VER[2] + 1)  # 比客户端新的最小版本
@@ -364,7 +364,8 @@ def l(slug, cfg, kind, expect, item, src, note="", args=""):
 l("reality-chrome", lb(sec="reality"), "tcp", "PASS && log:+hs.c.ClientVer: " + CV_LOG, "3/Q2", "transport/internet/reality/reality.go,infra/conf/transport_security.go,xtls/reality/tls.go", "新客户端自报 " + CV_STR + "；服务端缺省不设 minClientVer")
 for fp, ok in [("firefox", True), ("safari", True), ("hellochrome_131", True), ("hellochrome_133", True), ("hellofirefox_148", True), ("hellosafari_26_3", True),
                ("ios", False), ("edge", False), ("qq", False), ("hellochrome_120", False), ("hellofirefox_120", False), ("helloios_14", False), ("hello360_11_0", False)]:
-    exp = "PASS && log:+hs.c.ClientVer: " + CV_LOG if ok else "FAIL && log:-hs.c.ClientVer && log:+forwarded SNI && log:+processed invalid connection"
+    # 只断言握手阶段：processed invalid connection 要等 target 双向连接关闭后才打印，不是拒绝握手的稳定时点。
+    exp = "PASS && log:+hs.c.ClientVer: " + CV_LOG if ok else "FAIL && log:-hs.c.ClientVer && log:+forwarded SNI"
     l(f"reality-fp-{fp}", lb(sec="reality", client_reality={"fingerprint": fp}), "tcp", exp, "7/Q2", "xtls/reality/tls.go,utls/u_parrots.go",
       "uTLS 模板带 X25519MLKEM768 且排在 X25519 前才放行" if ok else "模板没有 X25519MLKEM768（或排在后面）：新服务端当陌生人转发给 target，客户端报 x509 错误")
 for fp in ("android", "360"):
@@ -442,7 +443,7 @@ def hs_tls(net="tcp", **kw):
 
 
 for slug, stream, exp, note in [
-    ("chrome-noalpn", hs_tls(), "hello:+alpn=[h2 http/1.1] && hello:+X25519MLKEM768", "不写 fingerprint＝chrome（Chrome 133 模板）"),
+    ("chrome-noalpn", hs_tls(), "hello:+alpn=[h2 http/1.1] && hello:+X25519MLKEM768", "不写 fingerprint＝chrome（Chrome 155 模板）"),
     ("chrome-alpn-h2", hs_tls(alpn=["h2"]), "hello:+alpn=[h2 http/1.1]", "uTLS 模板的 ALPN 盖过用户写的 alpn"),
     ("chrome-alpn-http11", hs_tls(alpn=["http/1.1"]), "hello:+alpn=[http/1.1]", "只写 http/1.1 时 RAW 走 WebsocketHandshakeContext，按用户的来"),
     ("unsafe-alpn-h2", hs_tls(fingerprint="unsafe", alpn=["h2"]), "hello:+alpn=[h2]", "Go 标准 TLS 按用户 alpn"),
@@ -483,6 +484,17 @@ l("socks-udp-after-tcp-close", socks_cfg, "udp", "UDP:TIMEOUT", "Q8", "proxy/soc
 l("socks-udp-to-inbound-port", socks_cfg, "udp", "UDP:TIMEOUT", "Q8", "proxy/socks/protocol.go", "变：入站端口本身不再收 UDP（v26.3.27 收）", args=A + " -assoc 0.0.0.0:0 -raw 21000")
 
 # ---------------- 写文件
+# v26.11.9 新指纹：追加用例，保留既有编号；配置接受与真实握手分别验证。
+for sec in ("tls", "reality"):
+    t(f"chrome155-{sec}-case", merged(vless(stream=st("tcp", sec, fingerprint="HeLLoChRoMe_155"))),
+      "OK", "7", "transport/internet/tls/tls.go", "显式 Chrome 155 名称不区分大小写")
+    for proto in ("vmess", "vless", "trojan"):
+        l(f"chrome155-{proto}-{sec}", lb(proto=proto, sec=sec,
+          client_tls={"serverName": "node.example.com", "pinnedPeerCertSha256": LEAF_PIN, "fingerprint": "hellochrome_155"},
+          client_reality={"fingerprint": "hellochrome_155"}),
+          "tcp", "PASS", "7", "transport/internet/tls/tls.go,transport/internet/reality/reality.go",
+          "Chrome 155 与三个协议的真实连接")
+
 write_suite(TEST, "T2", TEST_COLUMNS, T)
 write_suite(LB, "L2", LOOPBACK_COLUMNS, L)
 print(len(T), "test configs,", len(L), "loopback configs")

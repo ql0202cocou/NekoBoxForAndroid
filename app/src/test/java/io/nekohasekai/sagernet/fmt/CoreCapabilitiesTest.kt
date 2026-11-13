@@ -219,7 +219,7 @@ class CoreCapabilitiesTest {
 
     @Test
     fun `名单之间的已知差别`() {
-        for (name in listOf("randomizednoalpn", "hellochrome_131", "unsafe", "Chrome", "FIREFOX")) {
+        for (name in listOf("randomizednoalpn", "hellochrome_131", "hellochrome_155", "HeLLoChRoMe_155", "unsafe", "Chrome", "FIREFOX")) {
             assertTrue(name, XRAY_UTLS_FINGERPRINTS.accepts(name))
             assertFalse(name, SING_BOX_UTLS_FINGERPRINTS.accepts(name))
         }
@@ -284,6 +284,7 @@ class CoreCapabilitiesTest {
                 KnownDifference.VMESS_SECURITY_NONE_ZERO to DifferenceDecision.DECIDED,
                 KnownDifference.V2RAY_ID_MAPPING to DifferenceDecision.OPEN,
                 KnownDifference.MUX_COOL_PADDING to DifferenceDecision.DECIDED,
+                KnownDifference.XRAY_MUX_CONCURRENCY to DifferenceDecision.BY_PRINCIPLE,
                 KnownDifference.VISION_MUX to DifferenceDecision.DECIDED,
                 KnownDifference.CERTIFICATES_TRUST to DifferenceDecision.DECIDED,
                 KnownDifference.CUSTOM_OUTBOUND_JSON_EXTERNAL to DifferenceDecision.DECIDED,

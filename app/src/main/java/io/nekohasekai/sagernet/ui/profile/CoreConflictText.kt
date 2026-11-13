@@ -97,6 +97,7 @@ fun profileFieldTitle(field: ProfileField, bean: AbstractBean): Int {
         ProfileField.ECH_CONFIG -> R.string.ech_config
         ProfileField.ENABLE_MUX -> R.string.enable_mux
         ProfileField.MUX_TYPE -> R.string.mux_type
+        ProfileField.MUX_CONCURRENCY -> R.string.mux_concurrency
         ProfileField.MUX_PADDING -> R.string.padding
         ProfileField.PACKET_ENCODING -> R.string.packet_encoding
         ProfileField.ENCRYPTION -> if (bean is StandardV2RayBean && bean.isVLESS) R.string.xtls_flow else R.string.encryption

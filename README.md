@@ -27,7 +27,7 @@ Trojan-Go、NaïveProxy、Mieru 分别需要安装 `trojan-go-plugin`、`naive-p
 | 核心 | 版本 | 用途 |
 | --- | --- | --- |
 | [sing-box](https://github.com/SagerNet/sing-box) | v1.14.4，附带本仓库补丁及 uTLS v1.8.8 | 承载多数协议及全部 AnyTLS 节点 |
-| [Xray-core](https://github.com/XTLS/Xray-core) | v26.10.31 | XHTTP 必需；优先承载带 REALITY 或 mldsa65Verify 的 VMess / VLESS / Trojan，并支持 Xray 特有参数 |
+| [Xray-core](https://github.com/XTLS/Xray-core) | v26.11.9 | XHTTP 必需；优先承载带 REALITY 或 mldsa65Verify 的 VMess / VLESS / Trojan，并支持 Xray 特有参数 |
 
 VMess / VLESS / Trojan 可手动指定核心；若所选核心不支持节点设置，会列出冲突字段，不自动回落到其他核心。
 
