@@ -52,9 +52,7 @@ check() { # $1 子句 $2 探针输出 $3 日志文件
 
 open_manifest
 while IFS='	' read -r id file kind args expect item src note <&3; do
-  if [ -n "$1" ]; then
-    case "$id $file" in *"$1"*) ;; *) continue ;; esac
-  fi
+  selected "$1" "$id $file" || continue
   log="${file%.json}.log"
   [ "$args" = - ] && args=""
   out=$(once "$file" "$kind" "$args" "$log")

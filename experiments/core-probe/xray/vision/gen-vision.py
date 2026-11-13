@@ -6,8 +6,8 @@ import os, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-from probe_common import (ALLOW_LOOP, LEAF_PIN, LOOPBACK_COLUMNS, PRIV, PUB, SID, TPW, UDP_ARGS, UUID, entry_inbound, reality_target,
-                          reset_dir, tls_server, trojan, vless, write_suite)
+from probe_common import (LOOPBACK_COLUMNS, TPW, UDP_ARGS, UUID, direct_out, entry_inbound, pinned_tls_client, reality_client,
+                          reality_server, reality_target, reset_dir, tls_server, trojan, vless, write_suite)
 
 LB = os.path.join(HERE, "loopback")
 reset_dir(LB)
@@ -22,15 +22,10 @@ def cfg(sec="tls", inner_tls=False, udp=False, fp=None):
     cli = {"network": "tcp"}
     if sec == "tls":
         srv.update(tls_server())
-        ct = {"serverName": "node.example.com", "pinnedPeerCertSha256": LEAF_PIN}
-        if fp:
-            ct["fingerprint"] = fp
-        cli.update({"security": "tls", "tlsSettings": ct})
+        cli.update({"security": "tls", "tlsSettings": pinned_tls_client(fp)})
     else:
-        srv.update({"security": "reality", "realitySettings": {
-            "target": "127.0.0.1:32100", "serverNames": ["node.example.com"], "privateKey": PRIV, "shortIds": [SID]}})
-        cli.update({"security": "reality", "realitySettings": {
-            "serverName": "node.example.com", "publicKey": PUB, "shortId": SID, "fingerprint": fp or "chrome"}})
+        srv.update(reality_server())
+        cli.update({"security": "reality", "realitySettings": reality_client(fp or "chrome")})
         inb.append(reality_target())
     inb.append({"tag": "in-s", "listen": "127.0.0.1", "port": 32000, "protocol": "vless",
                 "settings": {"users": [{"id": UUID, "flow": "xtls-rprx-vision"}], "decryption": "none"}, "streamSettings": srv})
@@ -42,13 +37,10 @@ def cfg(sec="tls", inner_tls=False, udp=False, fp=None):
                     "settings": {"users": [{"password": TPW}]}, "streamSettings": {"network": "tcp", **tls_server()}})
         outs.append({"tag": "inner", **trojan("127.0.0.1", 33000, stream={
             "network": "tcp", "security": "tls",
-            "tlsSettings": {"serverName": "node.example.com", "pinnedPeerCertSha256": LEAF_PIN},
+            "tlsSettings": pinned_tls_client(),
             "sockopt": {"dialerProxy": "out-c"}})})
         first = "inner"
-    fr = dict(ALLOW_LOOP)
-    if udp:
-        fr["redirect"] = "127.0.0.1:40053"
-    outs.append({"tag": "direct", "protocol": "freedom", "settings": fr})
+    outs.append(direct_out("127.0.0.1:40053" if udp else None))
     return {"log": {"loglevel": "debug", "access": "none"}, "inbounds": inb, "outbounds": outs,
             "routing": {"rules": [{"type": "field", "inboundTag": ["in-c"], "outboundTag": first},
                                   {"type": "field", "inboundTag": ["in-s", "in-target", "in-inner"], "outboundTag": "direct"}]}}

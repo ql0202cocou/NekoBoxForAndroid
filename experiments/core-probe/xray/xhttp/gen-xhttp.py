@@ -5,8 +5,8 @@ import json, os, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-from probe_common import (ALLOW_LOOP, DEFAULT_ALPN, LEAF_PIN, LOOPBACK_COLUMNS, PRIV, PUB, SID, TEST_COLUMNS, TPW, UDP_ARGS, UUID,
-                          entry_inbound, reality_target, reset_dir, tls_server, trojan, vless, vmess, write_suite)
+from probe_common import (DEFAULT_ALPN, LEAF_PIN, LOOPBACK_COLUMNS, SNI, TEST_COLUMNS, TPW, UDP_ARGS, UUID, direct_out, entry_inbound,
+                          reality_client, reality_server, reality_target, reset_dir, tls_server, trojan, vless, vmess, write_suite)
 
 TEST = os.path.join(HERE, "test")
 LB = os.path.join(HERE, "loopback")
@@ -14,8 +14,6 @@ LBGEN = os.path.join(HERE, "loopback-gen")      # 生成器（Kotlin 的 buildXr
 GENOUT = os.path.join(HERE, "genout")           # Kotlin 导出器写出的样本；更新方法见 ../../README.md
 for d in (TEST, LB, LBGEN):
     reset_dir(d)
-
-SNI = "node.example.com"
 
 # 规范 extra 直接取自 Kotlin 生成器的样本（canonicalXhttpExtra 的输出形态：规范键名、白名单顺序、范围两端相等写整数），
 # 回环验证的就是生成器会写的内容；XrayConfigTest 另外断言 canonicalXhttpExtra 的结果就是这一份
@@ -44,10 +42,7 @@ def stream(x, sec="none", sni=SNI, alpn=None, fp=None):
             t["fingerprint"] = fp
         s.update({"security": "tls", "tlsSettings": t})
     elif sec == "reality":
-        r = {"serverName": sni, "publicKey": PUB, "shortId": SID}
-        if fp:
-            r["fingerprint"] = fp
-        s.update({"security": "reality", "realitySettings": r})
+        s.update({"security": "reality", "realitySettings": reality_client(fp, sni)})
     return s
 
 
@@ -73,7 +68,7 @@ def server_in(proto, sx, sec="none", alpn=DEFAULT_ALPN, flow=None):
     if sec == "tls":
         strm.update(tls_server(alpn=alpn))
     elif sec == "reality":
-        strm.update({"security": "reality", "realitySettings": {"target": "127.0.0.1:32100", "serverNames": [SNI], "privateKey": PRIV, "shortIds": [SID], "show": True}})
+        strm.update(reality_server(show=True))
     return {"tag": "in-s", "listen": "127.0.0.1", "port": 32000, "protocol": proto, "settings": st, "streamSettings": strm}
 
 
@@ -98,10 +93,7 @@ def lb(proto="vless", sec="none", sx=None, cx=None, cli_kw=None, strm_kw=None, s
         inb.append(server_in(proto, sx, sec, flow=server_flow, **(srv_kw or {})))
         if sec == "reality":
             inb.append(reality_target())
-        fr = dict(ALLOW_LOOP)
-        if redirect:
-            fr["redirect"] = redirect
-        outs.append({"tag": "direct", "protocol": "freedom", "settings": fr})
+        outs.append(direct_out(redirect))
         tags = ["in-s", "in-target"] if sec == "reality" else ["in-s"]
         rules.append({"type": "field", "inboundTag": tags, "outboundTag": "direct"})
     if mapping:

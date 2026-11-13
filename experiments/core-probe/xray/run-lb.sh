@@ -48,16 +48,14 @@ check() { # $1 子句 $2 探针输出 $3 日志文件
 
 open_manifest
 while IFS='	' read -r id file kind args expect item src note <&3; do
-  if [ -n "$1" ]; then
-    case "$id $file" in *"$1"*) ;; *) continue ;; esac
-  fi
+  selected "$1" "$id $file" || continue
   log="${file%.json}.log"
   [ "$args" = - ] && args=""
   if [ "$expect" = ANY ]; then
     n=0
     for i in 1 2 3 4 5; do
       o=$(once "$file" "$kind" "$args" "$log")
-      case "$o" in *"TCP-REPLY=TARGET-REPLY-OK"*) n=$((n + 1)) ;; esac
+      tcp_ok "$o" && n=$((n + 1))
     done
     echo "### $id [$item] ANY passes=$n/5 file=$file"
     echo "    note: $note"

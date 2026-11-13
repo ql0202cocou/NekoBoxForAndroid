@@ -6,11 +6,7 @@ cd "$(dirname "$0")/test" || exit 1
 
 open_manifest
 while IFS='	' read -r id file cmd expect item src note <&3; do
-  case "$cmd" in
-    test) out=$("$XRAY" run -test -c "$file" 2>&1); code=$? ;;
-    pb) out=$("$XRAY" convert pb -debug "$file" 2>&1); code=$? ;;
-    *) out="unknown cmd $cmd"; code=99 ;;
-  esac
+  run_config_cmd "$cmd" "$file"
   eval_expect check_config "$expect" "$out" "$code"
   echo "### $id [$item] $verdict exit=$code cmd=$cmd file=$file"
   echo "    expect: $expect"

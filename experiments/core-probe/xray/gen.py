@@ -4,8 +4,9 @@
 # 用法：python3 gen.py  （在本目录生成 test/ 与 loopback/，覆盖旧文件）
 import base64, copy, os
 
-from probe_common import (ALLOW_LOOP, CA, FULL, LEAF, LEAF_KEY, LEAF_PIN, LOOPBACK_COLUMNS, P, PRIV, PUB, SID, TEST_COLUMNS, TPW, U, UDP_ARGS, UUID,
-                          der_sha256, entry_inbound, load_kv, pki, reality_target, reset_dir, tls_server, trojan, vless, vmess, write_suite)
+from probe_common import (CA, FULL, LEAF, LEAF_KEY, LEAF_PIN, LOOPBACK_COLUMNS, P, SID, TEST_COLUMNS, TPW, U, UDP_ARGS, UUID,
+                          der_sha256, direct_out, entry_inbound, load_kv, pinned_tls_client, pki, reality_client, reality_server,
+                          reality_target, reset_dir, tls_server, trojan, vless, vmess, write_suite)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TEST = os.path.join(HERE, "test")
@@ -332,12 +333,10 @@ def lb(proto="trojan", net="tcp", sec="tls", chain=LEAF, client_tls=None, client
     if sec == "tls":
         srv_stream.update(tls_server(chain))
         cli_stream["security"] = "tls"
-        cli_stream["tlsSettings"] = client_tls or {"serverName": "node.example.com", "pinnedPeerCertSha256": LEAF_PIN}
+        cli_stream["tlsSettings"] = client_tls or pinned_tls_client()
     elif sec == "reality":
-        rs = {"target": "127.0.0.1:32100", "serverNames": ["node.example.com"], "privateKey": PRIV, "shortIds": [SID], "show": True}
-        rs.update(server_reality or {})
-        srv_stream.update({"security": "reality", "realitySettings": rs})
-        rc = {"serverName": "node.example.com", "publicKey": PUB, "shortId": SID}
+        srv_stream.update(reality_server(**{"show": True, **(server_reality or {})}))
+        rc = reality_client()
         rc.update(client_reality or {})
         cli_stream.update({"security": "reality", "realitySettings": {k: v for k, v in rc.items() if v is not None}})
         inb.append(reality_target(target_chain, target_key))
@@ -346,11 +345,8 @@ def lb(proto="trojan", net="tcp", sec="tls", chain=LEAF, client_tls=None, client
     cli["streamSettings"] = cli_stream
     if mux:
         cli["mux"] = mux
-    fr = dict(ALLOW_LOOP)
-    if server_freedom_redirect:
-        fr["redirect"] = server_freedom_redirect
     return {"log": {"loglevel": loglevel, "access": "none"}, "inbounds": inb,
-            "outbounds": [{"tag": "block", "protocol": "blackhole"}, cli, {"tag": "direct", "protocol": "freedom", "settings": fr}],
+            "outbounds": [{"tag": "block", "protocol": "blackhole"}, cli, direct_out(server_freedom_redirect)],
             "routing": {"rules": [{"type": "field", "inboundTag": ["in-c"], "outboundTag": "out-c"},
                                   {"type": "field", "inboundTag": ["in-s", "in-target"], "outboundTag": "direct"}]}}
 
@@ -453,17 +449,16 @@ for slug, stream, exp, note in [
     ("ws-chrome-alpn-h2h1", hs_tls("ws", alpn=["h2", "http/1.1"]), "hello:+alpn=[h2 http/1.1]", "ws 写 h2,http/1.1 时允许作伪装（v26.5.3 起）"),
     ("firefox-curves", hs_tls(fingerprint="firefox"), "hello:+X25519MLKEM768", "Firefox 148 模板"),
     ("ios-curves", hs_tls(fingerprint="ios"), "hello:-X25519MLKEM768", "iOS 14 模板没有 X25519MLKEM768"),
-    ("reality-chrome", {"network": "tcp", "security": "reality", "realitySettings": {"serverName": "node.example.com", "publicKey": PUB, "shortId": SID}}, "hello:+X25519MLKEM768", "REALITY 客户端的 ClientHello"),
-    ("reality-edge", {"network": "tcp", "security": "reality", "realitySettings": {"serverName": "node.example.com", "publicKey": PUB, "shortId": SID, "fingerprint": "edge"}}, "hello:-X25519MLKEM768", "Edge 85 模板：新 REALITY 服务端会拒"),
+    ("reality-chrome", {"network": "tcp", "security": "reality", "realitySettings": reality_client()}, "hello:+X25519MLKEM768", "REALITY 客户端的 ClientHello"),
+    ("reality-edge", {"network": "tcp", "security": "reality", "realitySettings": reality_client("edge")}, "hello:-X25519MLKEM768", "Edge 85 模板：新 REALITY 服务端会拒"),
 ]:
     l(f"hello-{slug}", hello_cfg(stream), "hello", exp, "7/Q2/Q3", "transport/internet/tls/tls.go,utls/u_parrots.go", note)
 
 # --- socks 入站本身（Q8）：入站 → freedom → 本机 UDP 回显 / TCP 目标
+AUTH_TYPO_INBOUND = inbound(1)
+AUTH_TYPO_INBOUND["settings"]["auth"] = "Password"   # 故意拼错：核实核心静默不认证
 socks_cfg = {"log": {"loglevel": "debug", "access": "none"},
-             "inbounds": [{"tag": "in-0", "listen": "127.0.0.1", "port": 21000, "protocol": "socks",
-                           "settings": {"auth": "password", "accounts": [{"user": U, "pass": P}], "udp": True}},
-                          {"tag": "in-1", "listen": "127.0.0.1", "port": 21001, "protocol": "socks",
-                           "settings": {"auth": "Password", "accounts": [{"user": U, "pass": P}], "udp": True}}],
+             "inbounds": [inbound(0), AUTH_TYPO_INBOUND],
              "outbounds": [{"tag": "block", "protocol": "blackhole"}, {"tag": "out-0", "protocol": "freedom"}],
              "routing": {"domainStrategy": "AsIs", "rules": [{"type": "field", "inboundTag": ["in-0", "in-1"], "outboundTag": "out-0"}]}}
 A = "-addr 127.0.0.1:21000"

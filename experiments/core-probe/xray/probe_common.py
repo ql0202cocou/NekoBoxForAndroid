@@ -11,6 +11,7 @@ SID = "0123abcd"
 UDP_ARGS = "-addr 127.0.0.1:31080 -target 127.0.0.1:5353"
 ALLOW_LOOP = {"finalRules": [{"action": "allow", "ip": ["127.0.0.0/8", "::1/128"]}]}  # v26.9.30 freedom 对代理入站缺省拦私有地址（proxy/freedom/freedom.go）
 DEFAULT_ALPN = ["h2", "http/1.1"]
+SNI = "node.example.com"
 
 TEST_COLUMNS = ("cmd", "expect", "item", "src", "note")
 LOOPBACK_COLUMNS = ("kind", "args", "expect", "item", "src", "note")
@@ -48,6 +49,36 @@ def reality_target(chain=FULL, key=LEAF_KEY, alpn=DEFAULT_ALPN):
     return {"tag": "in-target", "listen": "127.0.0.1", "port": 32100, "protocol": "trojan",
             "settings": {"users": [{"password": "example-target-pass"}]},
             "streamSettings": {"network": "tcp", **tls_server(chain, key, alpn)}}
+
+
+def reality_server(**over):
+    # REALITY 服务端：陌生人转发到 reality_target()；over 覆盖或追加字段
+    r = {"target": "127.0.0.1:32100", "serverNames": [SNI], "privateKey": PRIV, "shortIds": [SID]}
+    r.update(over)
+    return {"security": "reality", "realitySettings": r}
+
+
+def reality_client(fp=None, sni=SNI):
+    r = {"serverName": sni, "publicKey": PUB, "shortId": SID}
+    if fp:
+        r["fingerprint"] = fp
+    return r
+
+
+def pinned_tls_client(fp=None):
+    # 客户端 TLS：用证书指纹固定叶子证书（测试 CA 不在系统信任库里）
+    t = {"serverName": SNI, "pinnedPeerCertSha256": LEAF_PIN}
+    if fp:
+        t["fingerprint"] = fp
+    return t
+
+
+def direct_out(redirect=None):
+    # 服务端一侧的 freedom 出站；redirect 把流量改投到本机探针
+    fr = dict(ALLOW_LOOP)
+    if redirect:
+        fr["redirect"] = redirect
+    return {"tag": "direct", "protocol": "freedom", "settings": fr}
 
 
 def entry_inbound(udp=False):

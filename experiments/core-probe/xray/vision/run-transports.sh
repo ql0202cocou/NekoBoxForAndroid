@@ -31,12 +31,11 @@ while IFS='	' read -r id kind args expect note <&3; do
   sleep 1
   kill $x $t1 $t2 $s 2>/dev/null
   wait $x $t1 $t2 $s 2>/dev/null
-  case "$out" in
-    *"TCP-REPLY=TARGET-REPLY-OK"*) got=PASS ;;
-    *"R1 REPLY="*) got=UDP:REPLY ;;
-    *"R1 TIMEOUT"*) got=UDP:TIMEOUT ;;
-    *) got=FAIL ;;
-  esac
+  if tcp_ok "$out"; then got=PASS
+  elif has "$out" "R1 REPLY="; then got=UDP:REPLY
+  elif has "$out" "R1 TIMEOUT"; then got=UDP:TIMEOUT
+  else got=FAIL
+  fi
   if [ "$expect" = - ]; then verdict=RECORD; elif [ "$expect" = "$got" ]; then verdict=PASS; else verdict=MISMATCH; fi
   echo "### $id [$kind] $verdict got=$got expect=$expect"
   echo "    note: $note"

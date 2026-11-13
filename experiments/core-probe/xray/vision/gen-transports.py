@@ -11,8 +11,8 @@ import copy, itertools, os, shutil, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-from probe_common import (ALLOW_LOOP, CA, FULL, LEAF, LEAF_KEY, LEAF_PIN, P, PRIV, PUB, SID, U, UDP_ARGS, UUID, entry_inbound, reality_target,
-                          tls_server, vless, write_json, write_manifest)
+from probe_common import (CA, FULL, LEAF, LEAF_KEY, P, PRIV, PUB, SID, U, UDP_ARGS, UUID, direct_out, entry_inbound, pinned_tls_client, reality_client,
+                          reality_server, reality_target, tls_server, vless, write_json, write_manifest)
 
 OUT = os.path.join(HERE, "transports")
 shutil.rmtree(OUT, ignore_errors=True)
@@ -36,24 +36,19 @@ def server(net, sec, udp=False):
     if sec == "tls":
         s.update(tls_server(alpn=None))
     elif sec == "reality":
-        s.update({"security": "reality", "realitySettings": {
-            "target": "127.0.0.1:32100", "serverNames": ["node.example.com"], "privateKey": PRIV, "shortIds": [SID]}})
+        s.update(reality_server())
         inb.append(reality_target(alpn=None))
     inb.append({"tag": "in-s", "listen": "127.0.0.1", "port": 32000, "protocol": "vless",
                 "settings": {"users": [{"id": UUID, "flow": VISION}], "decryption": "none"}, "streamSettings": s})
-    fr = dict(ALLOW_LOOP)
-    if udp:
-        fr["redirect"] = "127.0.0.1:40053"
-    return inb, {"tag": "direct", "protocol": "freedom", "settings": fr}
+    return inb, direct_out("127.0.0.1:40053" if udp else None)
 
 
 def xray_client_stream(net, sec):
     s = copy.deepcopy(NETS[net][0])
     if sec == "tls":
-        s.update({"security": "tls", "tlsSettings": {"serverName": "node.example.com", "pinnedPeerCertSha256": LEAF_PIN}})
+        s.update({"security": "tls", "tlsSettings": pinned_tls_client()})
     elif sec == "reality":
-        s.update({"security": "reality", "realitySettings": {"serverName": "node.example.com", "publicKey": PUB, "shortId": SID,
-                                                             "fingerprint": "chrome"}})
+        s.update({"security": "reality", "realitySettings": reality_client("chrome")})
     return s
 
 

@@ -24,6 +24,15 @@ has() { # $1 文本 $2 片段
   return 1
 }
 
+# 清单行过滤：没给过滤串，或「id 文件名」里含它
+selected() { # $1 过滤串 $2 「id 文件名」
+  [ -z "$1" ] || has "$2" "$1"
+}
+
+tcp_ok() { # $1 探针输出
+  has "$1" "TCP-REPLY=TARGET-REPLY-OK"
+}
+
 # 拆开「 && 」连接的期望子句逐条判读，结果写到 verdict
 eval_expect() { # $1 判读函数 $2 期望，其余参数原样传给判读函数
   checker=$1
@@ -37,7 +46,16 @@ eval_expect() { # $1 判读函数 $2 期望，其余参数原样传给判读函�
   done
 }
 
-# run -test / convert pb -debug 组
+# run -test / convert pb -debug 组：执行一条，输出写到 out、退出码写到 code
+run_config_cmd() { # $1 cmd $2 配置文件
+  case "$1" in
+    test) out=$("$XRAY" run -test -c "$2" 2>&1); code=$? ;;
+    pb) out=$("$XRAY" convert pb -debug "$2" 2>&1); code=$? ;;
+    test+env:*) out=$(env "${1#test+env:}" "$XRAY" run -test -c "$2" 2>&1); code=$? ;;
+    *) out="unknown cmd $1"; code=99 ;;
+  esac
+}
+
 check_config() { # $1 子句 $2 输出 $3 退出码
   case "$1" in
     OK) [ "$3" = 0 ] && has "$2" "Configuration OK." ;;
@@ -51,8 +69,8 @@ check_config() { # $1 子句 $2 输出 $3 退出码
 # 回环组的公共子句
 check_traffic() { # $1 子句 $2 探针输出 $3 日志文件
   case "$1" in
-    PASS) has "$2" "TCP-REPLY=TARGET-REPLY-OK" ;;
-    FAIL) ! has "$2" "TCP-REPLY=TARGET-REPLY-OK" ;;
+    PASS) tcp_ok "$2" ;;
+    FAIL) ! tcp_ok "$2" ;;
     UDP:REPLY) has "$2" "R1 REPLY=" ;;
     UDP:TIMEOUT) has "$2" "R1 TIMEOUT" ;;
     log:+*) has "$(cat "$3")" "${1#log:+}" ;;
