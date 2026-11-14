@@ -1,6 +1,5 @@
 package io.nekohasekai.sagernet.widget
 
-import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.text.format.Formatter
@@ -8,14 +7,11 @@ import android.util.AttributeSet
 import android.view.View
 import android.widget.TextView
 import androidx.appcompat.widget.TooltipCompat
-import androidx.core.animation.doOnEnd
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.withStarted
 import com.google.android.material.behavior.HideBottomViewOnScrollBehavior
 import com.google.android.material.card.MaterialCardView
-import com.google.android.material.motion.MotionUtils
-import android.view.animation.AccelerateDecelerateInterpolator
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.database.DataStore
@@ -44,21 +40,15 @@ class StatsBar @JvmOverloads constructor(
     private val behavior = Behavior { allowShow }
 
     /**
-     * 卡片收放进度：0 = 收起，1 = 展开。Snackbar 用它跟随卡片；列表留白独立于动画进度。
+     * 卡片收放进度：0 = 收起，1 = 展开，滑动中取卡片的实际位置。Snackbar 用它跟随卡片；列表留白独立于动画进度。
      */
-    var clearanceFraction = 0f
-        private set
+    val clearanceFraction get() = behavior.shownFraction(this)
 
     /**
-     * [clearanceFraction] 每次变化的回调；只有 settled 为真时宿主才更新列表目标留白。
+     * 卡片滑动的每一帧和到位时的回调；只有 settled 为真时宿主才更新列表目标留白。
      * 动画被反向打断不算到位，避免在两段动画之间释放留白。
      */
     var onClearanceChanged: ((settled: Boolean) -> Unit)? = null
-
-    private var clearanceAnimator: ValueAnimator? = null
-
-    // 当前这次滑动是否带动画：由 performShow / performHide 设，滚动触发的滑动恒带动画
-    private var slideAnimated = true
 
     /** 只有已连接时为真，由 [changeState] 维护；为假时卡片保持收起 */
     var allowShow = false
@@ -70,58 +60,12 @@ class StatsBar @JvmOverloads constructor(
     init {
         // 初始收起：此时还没布局，位移由 Behavior.onLayoutChild 补上
         behavior.slideDown(this, false)
-        // 连接、断开和滚动都经父类状态变化：跟踪卡片进度，到位后通知宿主处理留白。
-        behavior.addOnScrollStateChangedListener { _, state ->
-            followSlide(expanded = state == HideBottomViewOnScrollBehavior.STATE_SCROLLED_UP)
-        }
-    }
-
-    private fun followSlide(expanded: Boolean) {
-        val target = if (expanded) 1f else 0f
-        cancelClearanceAnimator()
-        if (!slideAnimated || !context.animatorsEnabled() || target == clearanceFraction) {
-            setClearanceFraction(target, settled = true)
-            return
-        }
-        // 时长与缓动取父类滑动用的同一组主题属性（Material 默认：进 500ms、出 400ms）
-        val duration = context.motionDuration(
-            if (expanded) com.google.android.material.R.attr.motionDurationLong2
-            else com.google.android.material.R.attr.motionDurationMedium4,
-            if (expanded) 500 else 400,
-        )
-        clearanceAnimator = ValueAnimator.ofFloat(clearanceFraction, target).apply {
-            this.duration = duration
-            interpolator = MotionUtils.resolveThemeInterpolator(
-                context,
-                com.google.android.material.R.attr.motionEasingEmphasizedInterpolator,
-                AccelerateDecelerateInterpolator(),
-            )
-            addUpdateListener { setClearanceFraction(it.animatedValue as Float, settled = false) }
-            doOnEnd { onClearanceChanged?.invoke(true) }
-            start()
-        }
-    }
-
-    // 先摘掉监听再取消：被打断不算到位，不能发 settled
-    private fun cancelClearanceAnimator() {
-        clearanceAnimator?.run {
-            removeAllListeners()
-            cancel()
-        }
-        clearanceAnimator = null
-    }
-
-    private fun setClearanceFraction(value: Float, settled: Boolean) {
-        if (value == clearanceFraction && !settled) return
-        clearanceFraction = value
-        onClearanceChanged?.invoke(settled)
     }
 
     override fun onDetachedFromWindow() {
-        // 离开窗口时停止两段动画并落在当前状态的终点，重新挂回时不能保留半途的位置。
-        cancelClearanceAnimator()
+        // 离开窗口时停止动画并落在当前状态的终点，重新挂回时不能保留半途的位置。
         behavior.stopAnimation(this)
-        setClearanceFraction(if (isExpanded) 1f else 0f, settled = true)
+        onClearanceChanged?.invoke(true)
         super.onDetachedFromWindow()
     }
 
@@ -136,13 +80,28 @@ class StatsBar @JvmOverloads constructor(
         private fun hiddenY(child: StatsBar): Float =
             (child.measuredHeight + (child.layoutParams as MarginLayoutParams).bottomMargin).toFloat()
 
+        /** 卡片露出的比例：静止时由状态决定，滑动中按实际位移算 */
+        internal fun shownFraction(child: StatsBar): Float {
+            if (!sliding) return if (isScrolledUp) 1f else 0f
+            val hidden = hiddenY(child)
+            return if (hidden > 0f) (1f - child.translationY / hidden).coerceIn(0f, 1f) else 0f
+        }
+
+        // 进度和到位都取自父类驱动卡片的同一个动画；被反向打断时结束动作不会执行，不算到位。
         private fun followAnimation(child: StatsBar, animate: Boolean) {
             sliding = animate && child.context.animatorsEnabled()
-            if (sliding) child.animate().withEndAction {
-                sliding = false
-                // 动画期间高度或插入区可能变化，收起完成后才校准到新的底边。
-                if (isScrolledDown) child.translationY = hiddenY(child)
+            if (!sliding) {
+                child.onClearanceChanged?.invoke(true)
+                return
             }
+            child.animate()
+                .setUpdateListener { if (sliding) child.onClearanceChanged?.invoke(false) }
+                .withEndAction {
+                    sliding = false
+                    // 动画期间高度或插入区可能变化，收起完成后才校准到新的底边。
+                    if (isScrolledDown) child.translationY = hiddenY(child)
+                    child.onClearanceChanged?.invoke(true)
+                }
         }
 
         internal fun stopAnimation(child: StatsBar) {
@@ -209,21 +168,15 @@ class StatsBar @JvmOverloads constructor(
         }
     }
 
-    private fun performShow(animate: Boolean) {
-        slideAnimated = animate
-        behavior.slideUp(this, animate)
-        slideAnimated = true
-    }
+    private fun performShow(animate: Boolean) = behavior.slideUp(this, animate)
 
     private fun performHide(animate: Boolean) {
-        slideAnimated = animate
         // 触摸浏览（TalkBack）开启时父类的 slideDown 直接返回，让滚动收不起卡片；断开连接时卡片
         // 必须收起（否则一直显示「未连接」并盖住列表底部），这里临时关掉这条豁免。之后重新连接
         // 照常经 slideUp 展开，滚动收起在触摸浏览下仍不生效
         behavior.disableOnTouchExploration(false)
         behavior.slideDown(this, animate)
         behavior.disableOnTouchExploration(true)
-        slideAnimated = true
     }
 
     private fun setStatus(text: CharSequence) {
