@@ -45,6 +45,12 @@ class StatsBar @JvmOverloads constructor(
     val clearanceFraction get() = behavior.shownFraction(this)
 
     /**
+     * 卡片顶边是否高过同一父布局里 [other] 的顶边。卡片从 Dock 后面进出屏幕，滑动中有一段整张都在 Dock 顶边以下。
+     * 静止时按当前状态的终点算：不播动画时位移要到下一帧才落定。
+     */
+    fun risesAbove(other: View): Boolean = behavior.shownTop(this) < other.top
+
+    /**
      * 卡片滑动的每一帧和到位时的回调；只有 settled 为真时宿主才更新列表目标留白。
      * 动画被反向打断不算到位，避免在两段动画之间释放留白。
      */
@@ -86,6 +92,8 @@ class StatsBar @JvmOverloads constructor(
             val hidden = hiddenY(child)
             return if (hidden > 0f) (1f - child.translationY / hidden).coerceIn(0f, 1f) else 0f
         }
+
+        internal fun shownTop(child: StatsBar): Float = child.top + hiddenY(child) * (1f - shownFraction(child))
 
         // 进度和到位都取自父类驱动卡片的同一个动画；被反向打断时结束动作不会执行，不算到位。
         private fun followAnimation(child: StatsBar, animate: Boolean) {

@@ -68,7 +68,7 @@ class MainActivity : ThemedActivity(),
      */
     override val contentHost = MainContentHost { bottomControlsClearance() }
 
-    // 正在显示的 Snackbar：显示期间状态卡片滑入 / 滑出时，它要跟着换锚点（followSnackbarAnchor）
+    // 挂在窗口上的 Snackbar（含入场 / 退场动画期间）：状态卡片滑入 / 滑出时，它要跟着换锚点（followSnackbarAnchor）
     private var shownSnackbar: Snackbar? = null
 
     // 设置一级页的滚动状态等页面外状态。第一次取要在 super.onCreate() 之后（SavedStateHandle）
@@ -401,23 +401,25 @@ class MainActivity : ThemedActivity(),
             anchorView = snackbarAnchor()
             // 默认关闭：打开后锚点所在窗口每次全局布局，Snackbar 都按锚点当前位置重算底部间距
             isAnchorViewLayoutListenerEnabled = true
-            addCallback(object : Snackbar.Callback() {
-                override fun onShown(sb: Snackbar) {
-                    shownSnackbar = sb
+            // 从视图挂上窗口起就跟随，不等入场动画播完：出错断开时提示和卡片收起几乎同时发生
+            val snackbar = this
+            view.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(v: View) {
+                    shownSnackbar = snackbar
                     followSnackbarAnchor()
                 }
 
-                override fun onDismissed(sb: Snackbar, event: Int) {
-                    if (shownSnackbar === sb) shownSnackbar = null
+                override fun onViewDetachedFromWindow(v: View) {
+                    if (shownSnackbar === snackbar) shownSnackbar = null
                 }
             })
         }
     }
 
-    // 卡片露出了一部分（收放进度大于 0）就锚卡片，否则锚 Dock。Snackbar 按锚点在屏幕上的实际位置
-    // （含滑动中的平移）算底部间距，所以锚卡片时会跟着卡片的位置走
+    // 卡片顶边高过 Dock 顶边时锚卡片，否则锚 Dock：卡片从 Dock 后面进出屏幕，那一段不能带着 Snackbar 盖住 Dock。
+    // Snackbar 按锚点在屏幕上的实际位置（含滑动中的平移）算底部间距，所以锚卡片时会跟着卡片的位置走
     private fun snackbarAnchor(): View =
-        if (binding.stats.clearanceFraction > 0f) binding.stats else binding.dock
+        if (binding.stats.risesAbove(binding.dock)) binding.stats else binding.dock
 
     // 状态卡片逐帧变化时调用：换到当前该锚的控件，并请求一次布局。卡片滑动只改平移、不触发布局，
     // Snackbar 的锚点监听要等下一次全局布局才按当前位置重算底部间距
