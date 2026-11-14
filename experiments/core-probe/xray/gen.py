@@ -4,9 +4,10 @@
 # 用法：python3 gen.py  （在本目录生成 test/ 与 loopback/，覆盖旧文件）
 import base64, copy, os
 
-from probe_common import (CA, FULL, LEAF, LEAF_KEY, LEAF_PIN, LOOPBACK_COLUMNS, P, SID, TEST_COLUMNS, TPW, U, UDP_ARGS, UUID,
-                          der_sha256, direct_out, entry_inbound, load_kv, pinned_tls_client, pki, reality_client, reality_server,
-                          reality_target, reset_dir, tls_server, trojan, vless, vmess, write_suite)
+from probe_common import (CA, FULL, LEAF, LEAF_KEY, LEAF_PIN, LOOPBACK_COLUMNS, P, SID, SNI, TEST_COLUMNS, TPW, U, UDP_ARGS,
+                          block_out, der_sha256, direct_out, entry_inbound, load_kv, pinned_tls_client, pki, reality_client,
+                          reality_server, reality_target, reset_dir, rule, server_inbound, tls_server, trojan, vless, vmess, write_suite,
+                          xray_config)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TEST = os.path.join(HERE, "test")
@@ -79,7 +80,7 @@ NETS = {
 def st(net="tcp", sec=None, **kw):
     s = copy.deepcopy(NETS[net])
     if sec == "tls":
-        t = {"serverName": "node.example.com"}
+        t = {"serverName": SNI}
         t.update(kw)
         s["security"] = "tls"
         s["tlsSettings"] = t
@@ -302,10 +303,6 @@ t("q1-vless-none-v6-ula", merged(vless("fd00::10")), "OK", "Q1", "N13", "fc00::/
 L = []  # (slug, config, kind, args, expect, item, src, note)
 
 
-SRV_NETS = {
-    "tcp": {"network": "tcp"},
-    "grpc": {"network": "grpc", "grpcSettings": {"serviceName": "svc"}},
-}
 # 被测 Xray 的版本：REALITY 客户端自报的版本、minClientVer / maxClientVer 的相对阈值都由它推出。改这里后仍要逐条复核预期。
 XRAY_VER = (26, 11, 9)
 CV_LOG = "[%d %d %d" % XRAY_VER                                     # 服务端 show 日志里 hs.c.ClientVer 的开头
@@ -315,21 +312,17 @@ CV_BELOW = "%d.%d.%d" % (XRAY_VER[0], XRAY_VER[1], XRAY_VER[2] - 1)  # 比客户
 
 
 def lb(proto="trojan", net="tcp", sec="tls", chain=LEAF, client_tls=None, client_reality=None, server_reality=None,
-       mux=None, vmess_sec="auto", loglevel="info", target_chain=FULL, target_key=LEAF_KEY, udp_client=False,
-       server_freedom_redirect=None):
-    """服务端入站（in-s :32000）+ 客户端出站（out-c）同进程；客户端入口是 dokodemo（TCP :31000 → 127.0.0.1:40000）或 socks（:31080，带凭据、开 UDP）。"""
+       mux=None, vmess_sec="auto", loglevel="info", target_chain=FULL, target_key=LEAF_KEY, udp_client=False):
+    """服务端入站（in-s :32000）+ 客户端出站（out-c）同进程；客户端入口是 dokodemo（TCP :31000 → 127.0.0.1:40000）或 socks（:31080，带凭据、开 UDP，服务端出站改投 UDP 回显）。"""
     inb = [entry_inbound(udp_client)]
     if proto == "trojan":
-        srv_settings = {"users": [{"password": TPW}]}
         cli = trojan("127.0.0.1", 32000)
     elif proto == "vmess":
-        srv_settings = {"users": [{"id": UUID}]}
         cli = vmess("127.0.0.1", 32000, security=vmess_sec)
     else:
-        srv_settings = {"users": [{"id": UUID}], "decryption": "none"}
         cli = vless("127.0.0.1", 32000)
-    srv_stream = copy.deepcopy(SRV_NETS[net])
-    cli_stream = copy.deepcopy(SRV_NETS[net])
+    srv_stream = copy.deepcopy(NETS[net])
+    cli_stream = copy.deepcopy(NETS[net])
     if sec == "tls":
         srv_stream.update(tls_server(chain))
         cli_stream["security"] = "tls"
@@ -340,15 +333,13 @@ def lb(proto="trojan", net="tcp", sec="tls", chain=LEAF, client_tls=None, client
         rc.update(client_reality or {})
         cli_stream.update({"security": "reality", "realitySettings": {k: v for k, v in rc.items() if v is not None}})
         inb.append(reality_target(target_chain, target_key))
-    inb.append({"tag": "in-s", "listen": "127.0.0.1", "port": 32000, "protocol": proto, "settings": srv_settings, "streamSettings": srv_stream})
+    inb.append(server_inbound(proto, srv_stream))
     cli["tag"] = "out-c"
     cli["streamSettings"] = cli_stream
     if mux:
         cli["mux"] = mux
-    return {"log": {"loglevel": loglevel, "access": "none"}, "inbounds": inb,
-            "outbounds": [{"tag": "block", "protocol": "blackhole"}, cli, direct_out(server_freedom_redirect)],
-            "routing": {"rules": [{"type": "field", "inboundTag": ["in-c"], "outboundTag": "out-c"},
-                                  {"type": "field", "inboundTag": ["in-s", "in-target"], "outboundTag": "direct"}]}}
+    return xray_config(inb, [block_out(), cli, direct_out(udp_client)],
+                       [rule(["in-c"], "out-c"), rule(["in-s", "in-target"], "direct")], loglevel)
 
 
 def l(slug, cfg, kind, expect, item, src, note="", args=""):
@@ -409,23 +400,21 @@ for v in ("reject", "allow", "skip", None):
     if v:
         m["xudpProxyUDP443"] = v
     exp = {"reject": "UDP:TIMEOUT && log:+XUDP rejected UDP/443 traffic", "allow": "UDP:REPLY && log:+common/mux", "skip": "UDP:REPLY && log:-XUDP rejected", None: "UDP:TIMEOUT && log:+XUDP rejected UDP/443 traffic"}[v]
-    l(f"mux-udp443-{v or 'unset'}", lb(proto="vless", sec="tls", mux=m, udp_client=True, loglevel="debug", server_freedom_redirect="127.0.0.1:40053"),
+    l(f"mux-udp443-{v or 'unset'}", lb(proto="vless", sec="tls", mux=m, udp_client=True, loglevel="debug"),
       "udp", exp, "9/Q5", "infra/conf/xray.go,app/proxyman/outbound/handler.go", "只开 mux：UDP/443 先按 xudpProxyUDP443 处理", args="-addr 127.0.0.1:31080 -target 127.0.0.1:443")
-l("cone-xudp-5353", lb(proto="vless", sec="tls", udp_client=True, loglevel="debug", server_freedom_redirect="127.0.0.1:40053"), "udp", "UDP:REPLY && log:+v1.mux.cool", "10", "proxy/vless/outbound/outbound.go,proxy/vmess/outbound/outbound.go",
+l("cone-xudp-5353", lb(proto="vless", sec="tls", udp_client=True, loglevel="debug"), "udp", "UDP:REPLY && log:+v1.mux.cool", "10", "proxy/vless/outbound/outbound.go,proxy/vmess/outbound/outbound.go",
   "不开 mux：53/443 以外的 UDP 走 XUDP（cone）", args=UDP_ARGS)
-l("cone-native-53", lb(proto="vless", sec="tls", udp_client=True, loglevel="debug", server_freedom_redirect="127.0.0.1:40053"), "udp", "UDP:REPLY && log:-v1.mux.cool", "10", "proxy/vless/outbound/outbound.go,proxy/vmess/outbound/outbound.go",
+l("cone-native-53", lb(proto="vless", sec="tls", udp_client=True, loglevel="debug"), "udp", "UDP:REPLY && log:-v1.mux.cool", "10", "proxy/vless/outbound/outbound.go,proxy/vmess/outbound/outbound.go",
   "53 端口不走 XUDP", args="-addr 127.0.0.1:31080 -target 127.0.0.1:53")
-l("cone-vmess-5353", lb(proto="vmess", sec="tls", udp_client=True, loglevel="debug", server_freedom_redirect="127.0.0.1:40053"), "udp", "UDP:REPLY && log:+v1.mux.cool", "10", "proxy/vmess/outbound/outbound.go",
+l("cone-vmess-5353", lb(proto="vmess", sec="tls", udp_client=True, loglevel="debug"), "udp", "UDP:REPLY && log:+v1.mux.cool", "10", "proxy/vmess/outbound/outbound.go",
   "VMess 同样默认 XUDP", args=UDP_ARGS)
 
 # --- 客户端 ClientHello 实际内容（清单 7 的 alpn、新 REALITY 服务端要的 X25519MLKEM768）：客户端直连 socksprobe tlshello（:32000），只看它打印的 ClientHello
 
 
 def hello_cfg(stream):
-    return {"log": {"loglevel": "info", "access": "none"},
-            "inbounds": [entry_inbound()],
-            "outbounds": [{"tag": "block", "protocol": "blackhole"}, dict(vless("127.0.0.1", 32000, stream=stream), tag="out-c")],
-            "routing": {"rules": [{"type": "field", "inboundTag": ["in-c"], "outboundTag": "out-c"}]}}
+    return xray_config([entry_inbound()], [block_out(), dict(vless("127.0.0.1", 32000, stream=stream), tag="out-c")],
+                       [rule(["in-c"], "out-c")])
 
 
 def hs_tls(net="tcp", **kw):

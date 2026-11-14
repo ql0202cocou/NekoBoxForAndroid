@@ -6,8 +6,9 @@ import os, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-from probe_common import (LOOPBACK_COLUMNS, TPW, UDP_ARGS, UUID, direct_out, entry_inbound, pinned_tls_client, reality_client,
-                          reality_server, reality_target, reset_dir, tls_server, trojan, vless, write_suite)
+from probe_common import (LOOPBACK_COLUMNS, TPW, UDP_ARGS, block_out, direct_out, entry_inbound, pinned_tls_client, reality_client,
+                          reality_server, reality_target, reset_dir, rule, server_inbound, tls_server, trojan, vless, write_suite,
+                          xray_config)
 
 LB = os.path.join(HERE, "loopback")
 reset_dir(LB)
@@ -27,10 +28,8 @@ def cfg(sec="tls", inner_tls=False, udp=False, fp=None):
         srv.update(reality_server())
         cli.update({"security": "reality", "realitySettings": reality_client(fp or "chrome")})
         inb.append(reality_target())
-    inb.append({"tag": "in-s", "listen": "127.0.0.1", "port": 32000, "protocol": "vless",
-                "settings": {"users": [{"id": UUID, "flow": "xtls-rprx-vision"}], "decryption": "none"}, "streamSettings": srv})
-    outs = [{"tag": "block", "protocol": "blackhole"},
-            {"tag": "out-c", **vless("127.0.0.1", 32000, stream=cli, flow="xtls-rprx-vision")}]
+    inb.append(server_inbound("vless", srv, "xtls-rprx-vision"))
+    outs = [block_out(), {"tag": "out-c", **vless("127.0.0.1", 32000, stream=cli, flow="xtls-rprx-vision")}]
     first = "out-c"
     if inner_tls:
         inb.append({"tag": "in-inner", "listen": "127.0.0.1", "port": 33000, "protocol": "trojan",
@@ -40,10 +39,8 @@ def cfg(sec="tls", inner_tls=False, udp=False, fp=None):
             "tlsSettings": pinned_tls_client(),
             "sockopt": {"dialerProxy": "out-c"}})})
         first = "inner"
-    outs.append(direct_out("127.0.0.1:40053" if udp else None))
-    return {"log": {"loglevel": "debug", "access": "none"}, "inbounds": inb, "outbounds": outs,
-            "routing": {"rules": [{"type": "field", "inboundTag": ["in-c"], "outboundTag": first},
-                                  {"type": "field", "inboundTag": ["in-s", "in-target", "in-inner"], "outboundTag": "direct"}]}}
+    outs.append(direct_out(udp))
+    return xray_config(inb, outs, [rule(["in-c"], first), rule(["in-s", "in-target", "in-inner"], "direct")], "debug")
 
 
 # 判读子句同上一级 run-lb.sh；v26.11.9 的 CommandPaddingDirect=2，核对发送与接收的 Vision 命令。

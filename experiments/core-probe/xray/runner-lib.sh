@@ -49,6 +49,19 @@ start_child() { # $1 日志文件，其余为命令；结果写到 child
   children="$children $child"
 }
 
+start_logged() { # 同 start_child，先清空日志
+  : > "$1"
+  start_child "$@"
+}
+
+# 回环用例共用的两个目标：TCP :40000 与 UDP 回显 :40053；PID 写到 t1、t2
+start_targets() { # $1 TCP 目标的日志 $2 回显的日志
+  start_logged "$1" "$PROBE" tcpserve -listen 127.0.0.1:40000
+  t1=$child
+  start_logged "$2" "$PROBE" echo -listen 127.0.0.1:40053
+  t2=$child
+}
+
 wait_child() { # 已完成的短命令不再参与清理
   wait "$1"
   child_code=$?
@@ -116,6 +129,15 @@ run_probe() { # $1 日志，其余为探针参数；保留退出码，不能用�
   esac
 }
 
+probe_tcp() { # $1 日志：经 dokodemo 入口 :31000 发一行
+  run_probe "$1" tcp -addr 127.0.0.1:31000 -wait 5s
+}
+
+probe_socks() { # $1 日志 $2 udp / hs $3 清单里的探针参数：经带凭据的 socks 入口
+  # shellcheck disable=SC2086
+  run_probe "$1" "$2" $3 -user "$U" -pass "$P"
+}
+
 traffic_verdict() { # $1 判读函数 $2 期望 $3 日志
   if [ -n "$run_error" ]; then
     verdict=ERROR
@@ -141,7 +163,19 @@ eval_expect() { # $1 判读函数 $2 期望，其余参数原样传给判读函�
   done
 }
 
-# run -test / convert pb -debug 组：执行一条，输出写到 out、退出码写到 code
+# run -test / convert pb -debug 组：逐条执行 test/manifest.tsv 并与期望对照；print_config_output（读 cmd、out、note）由执行器定义
+run_test_suite() {
+  open_manifest
+  while IFS='	' read -r id file cmd expect item src note <&3; do
+    run_config_cmd "$cmd" "$file"
+    eval_expect check_config "$expect" "$out" "$code"
+    echo "### $id [$item] $verdict exit=$code cmd=$cmd file=$file"
+    echo "    expect: $expect"
+    print_config_output
+  done
+}
+
+# 执行一条，输出写到 out、退出码写到 code
 run_config_cmd() { # $1 cmd $2 配置文件
   case "$1" in
     test) out=$("$XRAY" run -test -c "$2" 2>&1); code=$? ;;

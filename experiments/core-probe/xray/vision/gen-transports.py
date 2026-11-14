@@ -11,8 +11,9 @@ import copy, itertools, os, shutil, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-from probe_common import (CA, FULL, LEAF, LEAF_KEY, P, PRIV, PUB, SID, U, UDP_ARGS, UUID, direct_out, entry_inbound, pinned_tls_client, reality_client,
-                          reality_server, reality_target, tls_server, vless, write_json, write_manifest)
+from probe_common import (CA, DEFAULT_ALPN, FULL, LEAF, LEAF_KEY, P, PRIV, PUB, SID, SNI, TARGET_PW, U, UDP_ARGS, UUID, block_out, direct_out,
+                          entry_inbound, pinned_tls_client, reality_client, reality_server, reality_target, rule, server_inbound, tls_server,
+                          vless, write_json, write_manifest, xray_config)
 
 OUT = os.path.join(HERE, "transports")
 shutil.rmtree(OUT, ignore_errors=True)
@@ -38,9 +39,8 @@ def server(net, sec, udp=False):
     elif sec == "reality":
         s.update(reality_server())
         inb.append(reality_target(alpn=None))
-    inb.append({"tag": "in-s", "listen": "127.0.0.1", "port": 32000, "protocol": "vless",
-                "settings": {"users": [{"id": UUID, "flow": VISION}], "decryption": "none"}, "streamSettings": s})
-    return inb, direct_out("127.0.0.1:40053" if udp else None)
+    inb.append(server_inbound("vless", s, VISION))
+    return inb, direct_out(udp)
 
 
 def xray_client_stream(net, sec):
@@ -55,25 +55,22 @@ def xray_client_stream(net, sec):
 def xray_cfg(net, sec, udp=False):
     inb, direct = server(net, sec, udp)
     out = {"tag": "out-c", **vless("127.0.0.1", 32000, stream=xray_client_stream(net, sec), flow=VISION)}
-    return {"log": {"loglevel": "debug", "access": "none"}, "inbounds": [entry_inbound(udp)] + inb,
-            "outbounds": [{"tag": "block", "protocol": "blackhole"}, out, direct],
-            "routing": {"rules": [{"type": "field", "inboundTag": ["in-c"], "outboundTag": "out-c"},
-                                  {"type": "field", "inboundTag": ["in-s", "in-target"], "outboundTag": "direct"}]}}
+    return xray_config([entry_inbound(udp)] + inb, [block_out(), out, direct],
+                       [rule(["in-c"], "out-c"), rule(["in-s", "in-target"], "direct")], "debug")
 
 
 def xray_server_cfg(net, sec, udp=False):
     inb, direct = server(net, sec, udp)
-    return {"log": {"loglevel": "debug", "access": "none"}, "inbounds": inb, "outbounds": [direct],
-            "routing": {"rules": [{"type": "field", "inboundTag": ["in-s", "in-target"], "outboundTag": "direct"}]}}
+    return xray_config(inb, [direct], [rule(["in-s", "in-target"], "direct")], "debug")
 
 
 def sb_cfg(net, sec, udp=False):
     out = {"type": "vless", "tag": "out", "server": "127.0.0.1", "server_port": 32000, "uuid": UUID, "flow": VISION,
            "packet_encoding": "xudp"}
     if sec == "tls":
-        out["tls"] = {"enabled": True, "server_name": "node.example.com", "certificate": CA}
+        out["tls"] = {"enabled": True, "server_name": SNI, "certificate": CA}
     elif sec == "reality":
-        out["tls"] = {"enabled": True, "server_name": "node.example.com", "utls": {"enabled": True, "fingerprint": "chrome"},
+        out["tls"] = {"enabled": True, "server_name": SNI, "utls": {"enabled": True, "fingerprint": "chrome"},
                       "reality": {"enabled": True, "public_key": PUB, "short_id": SID}}
     if NETS[net][1]:
         out["transport"] = NETS[net][1]
@@ -129,7 +126,7 @@ SB_NETS = {"h2": ({"type": "http", "path": "/h2"}, "tls"), "quic": ({"type": "qu
 def sb_server_cfg(transport, sec):
     inb = {"type": "vless", "tag": "in-s", "listen": "127.0.0.1", "listen_port": 32000, "users": [{"uuid": UUID}], "transport": transport}
     if sec == "tls":
-        inb["tls"] = {"enabled": True, "server_name": "node.example.com", "certificate": LEAF, "key": LEAF_KEY}
+        inb["tls"] = {"enabled": True, "server_name": SNI, "certificate": LEAF, "key": LEAF_KEY}
     return {"log": {"level": "debug"}, "inbounds": [inb], "outbounds": [{"type": "direct", "tag": "direct"}], "route": {"final": "direct"}}
 
 
@@ -155,13 +152,13 @@ srv = sb_server_cfg(None, "none")
 del srv["inbounds"][0]["transport"]
 srv["inbounds"][0]["users"][0]["flow"] = VISION
 srv["inbounds"][0]["tls"] = {
-    "enabled": True, "server_name": "node.example.com",
+    "enabled": True, "server_name": SNI,
     "reality": {"enabled": True, "handshake": {"server": "127.0.0.1", "server_port": 32100},
                 "private_key": PRIV, "short_id": [SID]},
 }
 srv["inbounds"].append({"type": "trojan", "tag": "target", "listen": "127.0.0.1", "listen_port": 32100,
-                        "users": [{"password": "example-target-pass"}],
-                        "tls": {"enabled": True, "certificate": FULL, "key": LEAF_KEY, "alpn": ["h2", "http/1.1"]}})
+                        "users": [{"password": TARGET_PW}],
+                        "tls": {"enabled": True, "certificate": FULL, "key": LEAF_KEY, "alpn": DEFAULT_ALPN}})
 cid = new_case("sb-tcp-reality-sbserver", {"sing-box-server": srv, "sing-box": sb_cfg("tcp", "reality")})
 CASES.append((cid, "sb-tcp", "-", "PASS", "同核对照：sing-box 客户端与服务端，RAW + REALITY + Vision"))
 

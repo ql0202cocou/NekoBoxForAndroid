@@ -11,12 +11,7 @@
 require_bins XRAY
 cd "$(dirname "$0")/test" || exit 1
 
-open_manifest
-while IFS='	' read -r id file cmd expect item src note <&3; do
-  run_config_cmd "$cmd" "$file"
-  eval_expect check_config "$expect" "$out" "$code"
-  echo "### $id [$item] $verdict exit=$code cmd=$cmd file=$file"
-  echo "    expect: $expect"
+print_config_output() {
   # 原始输出：去掉版本横幅、Reading config 行与弃用警告（警告只记一个标记）；pb 输出只留匹配期望的行
   if [ "$cmd" = pb ]; then
     printf '%s\n' "$out" | grep -E 'type|authType|accessLogType|udpEnabled|xudpProxyUDP443|echConfigList|echForceQuery|pinnedPeerCertSha256|mldsa65Verify|serviceName|protocolName|"ed"|"path"|"host"|"address"|Host|example' | sed 's/^/    | /' | head -40
@@ -24,4 +19,6 @@ while IFS='	' read -r id file cmd expect item src note <&3; do
     printf '%s\n' "$out" | grep -v -E '^Xray [0-9]|^A unified platform|Reading config|^$' \
       | sed -E 's/^[0-9\/]+ [0-9:.]+ \[Warning\] common\/errors: The feature ([^(]*[^ (]) *\(.*deprecated.*/[W: \1 deprecated]/; s/^/    | /' | head -20
   fi
-done
+}
+
+run_test_suite

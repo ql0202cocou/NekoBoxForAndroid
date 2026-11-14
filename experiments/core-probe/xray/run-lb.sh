@@ -25,29 +25,24 @@ check_services() {
 once() { # $1 file $2 kind $3 args $4 log → 结果写到 out、run_error
   run_error=""
   out=""
-  : > "$4.tcp"
-  start_child "$4.tcp" "$PROBE" tcpserve -listen 127.0.0.1:40000
-  t1=$child
   if [ "$2" = hello ]; then
     helper_log="$4.hello"; helper_ready='TLS-LISTEN='
-    : > "$helper_log"
-    start_child "$helper_log" "$PROBE" tlshello -listen 127.0.0.1:32000
+    start_logged "$4.tcp" "$PROBE" tcpserve -listen 127.0.0.1:40000
+    t1=$child
+    start_logged "$helper_log" "$PROBE" tlshello -listen 127.0.0.1:32000
+    t2=$child
   else
     helper_log="$4.echo"; helper_ready='ECHO-LISTEN='
-    : > "$helper_log"
-    start_child "$helper_log" "$PROBE" echo -listen 127.0.0.1:40053
+    start_targets "$4.tcp" "$helper_log"
   fi
-  t2=$child
-  : > "$4"
-  start_child "$4" "$XRAY" run -c "$1"
+  start_logged "$4" "$XRAY" run -c "$1"
   x=$child
   pause_children 2
   check_services
   if [ -z "$run_error" ]; then
     case "$2" in
-      tcp|hello) run_probe "$4.probe" tcp -addr 127.0.0.1:31000 -wait 5s ;;
-      udp) run_probe "$4.probe" udp $3 -user "$U" -pass "$P" ;;
-      hs) run_probe "$4.probe" hs $3 -user "$U" -pass "$P" ;;
+      tcp|hello) probe_tcp "$4.probe" ;;
+      udp|hs) probe_socks "$4.probe" "$2" "$3" ;;
       *) case_error "unknown kind: $2" ;;
     esac
     pause_children "${POST_WAIT:-1}" # 保留日志等待窗口；握手负例不依赖清理阶段日志

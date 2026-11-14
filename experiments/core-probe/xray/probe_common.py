@@ -12,6 +12,8 @@ UDP_ARGS = "-addr 127.0.0.1:31080 -target 127.0.0.1:5353"
 ALLOW_LOOP = {"finalRules": [{"action": "allow", "ip": ["127.0.0.0/8", "::1/128"]}]}  # v26.9.30 freedom 对代理入站缺省拦私有地址（proxy/freedom/freedom.go）
 DEFAULT_ALPN = ["h2", "http/1.1"]
 SNI = "node.example.com"
+TARGET_PW = "example-target-pass"
+ECHO = "127.0.0.1:40053"  # UDP 回显探针
 
 TEST_COLUMNS = ("cmd", "expect", "item", "src", "note")
 LOOPBACK_COLUMNS = ("kind", "args", "expect", "item", "src", "note")
@@ -47,7 +49,7 @@ def tls_server(chain=LEAF, key=LEAF_KEY, alpn=DEFAULT_ALPN):
 def reality_target(chain=FULL, key=LEAF_KEY, alpn=DEFAULT_ALPN):
     # REALITY 的 target：一个 TLS 服务端（陌生人会被转发到这里）
     return {"tag": "in-target", "listen": "127.0.0.1", "port": 32100, "protocol": "trojan",
-            "settings": {"users": [{"password": "example-target-pass"}]},
+            "settings": {"users": [{"password": TARGET_PW}]},
             "streamSettings": {"network": "tcp", **tls_server(chain, key, alpn)}}
 
 
@@ -65,20 +67,49 @@ def reality_client(fp=None, sni=SNI):
     return r
 
 
-def pinned_tls_client(fp=None):
+def pinned_tls_client(fp=None, sni=SNI, alpn=None):
     # 客户端 TLS：用证书指纹固定叶子证书（测试 CA 不在系统信任库里）
-    t = {"serverName": SNI, "pinnedPeerCertSha256": LEAF_PIN}
+    t = {"serverName": sni} if sni else {}
+    t["pinnedPeerCertSha256"] = LEAF_PIN
+    if alpn:
+        t["alpn"] = alpn
     if fp:
         t["fingerprint"] = fp
     return t
 
 
-def direct_out(redirect=None):
-    # 服务端一侧的 freedom 出站；redirect 把流量改投到本机探针
+def direct_out(udp=False):
+    # 服务端一侧的 freedom 出站；udp 时把流量改投到本机的 UDP 回显探针
     fr = dict(ALLOW_LOOP)
-    if redirect:
-        fr["redirect"] = redirect
+    if udp:
+        fr["redirect"] = ECHO
     return {"tag": "direct", "protocol": "freedom", "settings": fr}
+
+
+def block_out():
+    return {"tag": "block", "protocol": "blackhole"}
+
+
+def server_inbound(proto, stream, flow=None):
+    # 服务端入站 in-s :32000；flow 只对 VLESS 有意义
+    if proto == "trojan":
+        settings = {"users": [{"password": TPW}]}
+    elif proto == "vmess":
+        settings = {"users": [{"id": UUID}]}
+    else:
+        user = {"id": UUID}
+        if flow:
+            user["flow"] = flow
+        settings = {"users": [user], "decryption": "none"}
+    return {"tag": "in-s", "listen": "127.0.0.1", "port": 32000, "protocol": proto, "settings": settings, "streamSettings": stream}
+
+
+def rule(inbound_tags, outbound_tag):
+    return {"type": "field", "inboundTag": inbound_tags, "outboundTag": outbound_tag}
+
+
+def xray_config(inbounds, outbounds, rules, loglevel="info"):
+    return {"log": {"loglevel": loglevel, "access": "none"}, "inbounds": inbounds, "outbounds": outbounds, "routing": {"rules": rules}}
 
 
 def entry_inbound(udp=False):

@@ -18,34 +18,26 @@ open_manifest
 while IFS='	' read -r id kind args expect note <&3; do
   run_error=""
   out=""
-  : > "$id/tcp.log"
-  : > "$id/echo.log"
-  start_child "$id/tcp.log" "$PROBE" tcpserve -listen 127.0.0.1:40000
-  t1=$child
-  start_child "$id/echo.log" "$PROBE" echo -listen 127.0.0.1:40053
-  t2=$child
+  start_targets "$id/tcp.log" "$id/echo.log"
   if [ -f "$id/sing-box-server.json" ]; then
     server_log="$id/sing-box-server.log"; server_ready='sing-box started'
-    : > "$server_log"
-    start_child "$server_log" "$SINGBOX" run -c "$id/sing-box-server.json"
+    start_logged "$server_log" "$SINGBOX" run -c "$id/sing-box-server.json"
   else
     server_log="$id/xray.log"; server_ready='core: Xray .* started'
-    : > "$server_log"
-    start_child "$server_log" "$XRAY" run -c "$id/xray.json"
+    start_logged "$server_log" "$XRAY" run -c "$id/xray.json"
   fi
   x=$child
   s=""
   if [ -f "$id/sing-box.json" ]; then
-    : > "$id/sing-box.log"
-    start_child "$id/sing-box.log" "$SINGBOX" run -c "$id/sing-box.json"
+    start_logged "$id/sing-box.log" "$SINGBOX" run -c "$id/sing-box.json"
     s=$child
   fi
   pause_children 2
   check_services
   if [ -z "$run_error" ]; then
     case "$kind" in
-      *-udp) run_probe "$id/probe.log" udp $args -user "$U" -pass "$P" ;;
-      *-tcp) run_probe "$id/probe.log" tcp -addr 127.0.0.1:31000 -wait 5s ;;
+      *-udp) probe_socks "$id/probe.log" udp "$args" ;;
+      *-tcp) probe_tcp "$id/probe.log" ;;
       *) case_error "unknown kind: $kind" ;;
     esac
     pause_children 1

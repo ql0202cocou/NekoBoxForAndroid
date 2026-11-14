@@ -4,16 +4,13 @@
 require_bins XRAY
 cd "$(dirname "$0")/test" || exit 1
 
-open_manifest
-while IFS='	' read -r id file cmd expect item src note <&3; do
-  run_config_cmd "$cmd" "$file"
-  eval_expect check_config "$expect" "$out" "$code"
-  echo "### $id [$item] $verdict exit=$code cmd=$cmd file=$file"
-  echo "    expect: $expect"
+print_config_output() {
   echo "    note: $note"
   if [ "$cmd" = pb ]; then
     printf '%s\n' "$out" | grep -E '"(path|host|mode|from|to|X-K2|address)"|dl.example|extra|Stream' | sed 's/^/    out| /' | head -14
   else
     printf '%s\n' "$out" | grep -v -E '^Xray |^A unified|Reading config|deprecated' | sed 's/^[0-9\/]* [0-9:.]* //; s/^/    out| /' | cut -c1-300 | head -6
   fi
-done
+}
+
+run_test_suite

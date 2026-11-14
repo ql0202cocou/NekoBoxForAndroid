@@ -5,8 +5,9 @@ import json, os, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-from probe_common import (DEFAULT_ALPN, LEAF_PIN, LOOPBACK_COLUMNS, SNI, TEST_COLUMNS, TPW, UDP_ARGS, UUID, direct_out, entry_inbound,
-                          reality_client, reality_server, reality_target, reset_dir, tls_server, trojan, vless, vmess, write_suite)
+from probe_common import (DEFAULT_ALPN, LOOPBACK_COLUMNS, SNI, TEST_COLUMNS, UDP_ARGS, block_out, direct_out, entry_inbound,
+                          pinned_tls_client, reality_client, reality_server, reality_target, reset_dir, rule, server_inbound, tls_server,
+                          trojan, vless, vmess, write_suite, xray_config)
 
 TEST = os.path.join(HERE, "test")
 LB = os.path.join(HERE, "loopback")
@@ -34,13 +35,7 @@ def cli_xhttp(path="/xh", host=None, mode=None, extra=None):
 def stream(x, sec="none", sni=SNI, alpn=None, fp=None):
     s = {"network": "xhttp", "xhttpSettings": x}
     if sec == "tls":
-        t = {"serverName": sni} if sni else {}
-        t["pinnedPeerCertSha256"] = LEAF_PIN
-        if alpn:
-            t["alpn"] = alpn
-        if fp:
-            t["fingerprint"] = fp
-        s.update({"security": "tls", "tlsSettings": t})
+        s.update({"security": "tls", "tlsSettings": pinned_tls_client(fp, sni, alpn)})
     elif sec == "reality":
         s.update({"security": "reality", "realitySettings": reality_client(fp, sni)})
     return s
@@ -55,26 +50,17 @@ def client_out(proto, strm, port=32000, flow=None, mux=None):
 
 
 def server_in(proto, sx, sec="none", alpn=DEFAULT_ALPN, flow=None):
-    if proto == "trojan":
-        st = {"users": [{"password": TPW}]}
-    elif proto == "vmess":
-        st = {"users": [{"id": UUID}]}
-    else:
-        u = {"id": UUID}
-        if flow:
-            u["flow"] = flow
-        st = {"users": [u], "decryption": "none"}
     strm = {"network": "xhttp", "xhttpSettings": sx}
     if sec == "tls":
         strm.update(tls_server(alpn=alpn))
     elif sec == "reality":
         strm.update(reality_server(show=True))
-    return {"tag": "in-s", "listen": "127.0.0.1", "port": 32000, "protocol": proto, "settings": st, "streamSettings": strm}
+    return server_inbound(proto, strm, flow)
 
 
 def lb(proto="vless", sec="none", sx=None, cx=None, cli_kw=None, strm_kw=None, srv_kw=None, udp_client=False, loglevel="info",
-       server=True, mapping=None, redirect=None, server_flow=None):
-    """服务端入站 in-s :32000（server=False 时不起，客户端拨向探针）+ 客户端出站 out-c；客户端入口 dokodemo :31000（或 socks :31080）。
+       server=True, mapping=None, server_flow=None):
+    """服务端入站 in-s :32000（server=False 时不起，客户端拨向探针）+ 客户端出站 out-c；客户端入口 dokodemo :31000（或 socks :31080，服务端出站改投 UDP 回显）。
     mapping：None 不映射；"tcp" / "udp" / "tcp,udp" 起一个 dokodemo 模拟映射入站 :32500 → 127.0.0.1:32000，客户端拨 :32500。"""
     inb = [entry_inbound(udp_client)]
     sx = sx if sx is not None else {"path": "/xh"}
@@ -87,19 +73,18 @@ def lb(proto="vless", sec="none", sx=None, cx=None, cli_kw=None, strm_kw=None, s
                     "settings": {"address": "127.0.0.1", "port": 32000, "network": mapping}})
     out = client_out(proto, strm, port=dial_port, **(cli_kw or {}))
     out["tag"] = "out-c"
-    rules = [{"type": "field", "inboundTag": ["in-c"], "outboundTag": "out-c"}]
-    outs = [{"tag": "block", "protocol": "blackhole"}, out]
+    rules = [rule(["in-c"], "out-c")]
+    outs = [block_out(), out]
     if server:
         inb.append(server_in(proto, sx, sec, flow=server_flow, **(srv_kw or {})))
         if sec == "reality":
             inb.append(reality_target())
-        outs.append(direct_out(redirect))
-        tags = ["in-s", "in-target"] if sec == "reality" else ["in-s"]
-        rules.append({"type": "field", "inboundTag": tags, "outboundTag": "direct"})
+        outs.append(direct_out(udp_client))
+        rules.append(rule(["in-s", "in-target"] if sec == "reality" else ["in-s"], "direct"))
     if mapping:
         outs.append({"tag": "direct-map", "protocol": "freedom"})
-        rules.append({"type": "field", "inboundTag": ["in-map"], "outboundTag": "direct-map"})
-    return {"log": {"loglevel": loglevel, "access": "none"}, "inbounds": inb, "outbounds": outs, "routing": {"rules": rules}}
+        rules.append(rule(["in-map"], "direct-map"))
+    return xray_config(inb, outs, rules, loglevel)
 
 
 L = []
@@ -183,12 +168,12 @@ for proto in ("vless", "vmess", "trojan"):
     l(f"mux-cool-{proto}", lb(proto=proto, cli_kw={"mux": MUXC}, loglevel="debug"), "tcp", "FAIL", "5", f"{proto} + xhttp + Mux.Cool：TCP 能不能通（服务端的反应见日志）")
     l(f"mux-cool-tls-{proto}", lb(proto=proto, sec="tls", sx=SH, cli_kw={"mux": MUXC}, loglevel="debug"), "tcp", "FAIL", "5", f"{proto} + xhttp + TLS + Mux.Cool")
     l(f"mux-xudponly-tcp-{proto}", lb(proto=proto, sec="tls", sx=SH, cli_kw={"mux": XUDP}, loglevel="debug"), "tcp", "PASS", "5", f"{proto}：只开 XUDP（concurrency=-1），TCP 不复用 → 通")
-l("mux-xudponly-udp-vless", lb(proto="vless", sec="tls", sx=SH, cli_kw={"mux": XUDP}, udp_client=True, loglevel="debug", redirect="127.0.0.1:40053"), "udp", "UDP:REPLY", "5", "VLESS：XUDP 承载 UDP，经 xhttp → 服务端 → 回显",
+l("mux-xudponly-udp-vless", lb(proto="vless", sec="tls", sx=SH, cli_kw={"mux": XUDP}, udp_client=True, loglevel="debug"), "udp", "UDP:REPLY", "5", "VLESS：XUDP 承载 UDP，经 xhttp → 服务端 → 回显",
   args=UDP_ARGS)
-l("mux-xudponly-udp-vmess", lb(proto="vmess", sec="tls", sx=SH, cli_kw={"mux": XUDP}, udp_client=True, loglevel="debug", redirect="127.0.0.1:40053"), "udp", "UDP:REPLY", "5", "VMess：同",
+l("mux-xudponly-udp-vmess", lb(proto="vmess", sec="tls", sx=SH, cli_kw={"mux": XUDP}, udp_client=True, loglevel="debug"), "udp", "UDP:REPLY", "5", "VMess：同",
   args=UDP_ARGS)
-l("nomux-udp-vless", lb(proto="vless", sec="tls", sx=SH, udp_client=True, loglevel="debug", redirect="127.0.0.1:40053"), "udp", "UDP:REPLY", "5", "对照：不写 mux，UDP（5353）默认走 XUDP", args=UDP_ARGS)
-l("mux-cool-udp-vless", lb(proto="vless", sec="tls", sx=SH, cli_kw={"mux": MUXC}, udp_client=True, loglevel="debug", redirect="127.0.0.1:40053"), "udp", "UDP:REPLY", "5", "Mux.Cool 下的 UDP 仍由 XUDP 承载，能通（失败的是 Mux.Cool 里的 TCP 子连接）", args=UDP_ARGS)
+l("nomux-udp-vless", lb(proto="vless", sec="tls", sx=SH, udp_client=True, loglevel="debug"), "udp", "UDP:REPLY", "5", "对照：不写 mux，UDP（5353）默认走 XUDP", args=UDP_ARGS)
+l("mux-cool-udp-vless", lb(proto="vless", sec="tls", sx=SH, cli_kw={"mux": MUXC}, udp_client=True, loglevel="debug"), "udp", "UDP:REPLY", "5", "Mux.Cool 下的 UDP 仍由 XUDP 承载，能通（失败的是 Mux.Cool 里的 TCP 子连接）", args=UDP_ARGS)
 
 # ============ 6. extra 往返
 l("extra-canonical-vless", lb(sec="tls", sx=SH, cx=cli_xhttp(extra=EXTRA_CANON)), "tcp", "PASS", "6", "规范 extra（headers + xPaddingBytes + xmux）× 默认服务端：通")

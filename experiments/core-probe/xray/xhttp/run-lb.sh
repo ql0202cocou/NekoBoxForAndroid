@@ -21,36 +21,30 @@ check_services() {
 once() { # $1 file $2 kind $3 args $4 log → 结果写到 out、run_error
   run_error=""
   out=""
-  : > "$4.tcp"
-  : > "$4.echo"
-  start_child "$4.tcp" "$PROBE" tcpserve -listen 127.0.0.1:40000
-  t1=$child
-  start_child "$4.echo" "$PROBE" echo -listen 127.0.0.1:40053
-  t2=$child
+  start_targets "$4.tcp" "$4.echo"
   t3=""
   t4=""
   case "$2" in
     dump|dumpudp)
-      : > "$4.dump"
       # args 为空时 httpdump 用自己的缺省监听地址 127.0.0.1:32000
       # shellcheck disable=SC2086
-      start_child "$4.dump" "$HTTPDUMP" $3
+      start_logged "$4.dump" "$HTTPDUMP" $3
       t3=$child
       if [ "$2" = dumpudp ]; then
+        # 与 httpdump 共用一份日志，接着写
         start_child "$4.dump" "$PROBE" echo -listen 127.0.0.1:32000
         t4=$child
       fi
       ;;
   esac
-  : > "$4"
-  start_child "$4" "$XRAY" run -c "$1"
+  start_logged "$4" "$XRAY" run -c "$1"
   x=$child
   pause_children 2
   check_services
   if [ -z "$run_error" ]; then
     case "$2" in
-      tcp|dump|dumpudp) run_probe "$4.probe" tcp -addr 127.0.0.1:31000 -wait 5s ;;
-      udp) run_probe "$4.probe" udp $3 -user "$U" -pass "$P" ;;
+      tcp|dump|dumpudp) probe_tcp "$4.probe" ;;
+      udp) probe_socks "$4.probe" udp "$3" ;;
       *) case_error "unknown kind: $2" ;;
     esac
     pause_children "${POST_WAIT:-2}"
