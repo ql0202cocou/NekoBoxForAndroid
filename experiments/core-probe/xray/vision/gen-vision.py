@@ -46,14 +46,17 @@ def cfg(sec="tls", inner_tls=False, udp=False, fp=None):
                                   {"type": "field", "inboundTag": ["in-s", "in-target", "in-inner"], "outboundTag": "direct"}]}}
 
 
-# 判读子句同上一级 run-lb.sh；直拷的证据是 Vision 的调试日志
-DIRECT = "log:+XtlsFilterTls found tls 1.3! && log:+CopyRawConn"
+# 判读子句同上一级 run-lb.sh；v26.11.9 的 CommandPaddingDirect=2，核对发送与接收的 Vision 命令。
+# CopyRawConn 是 freedom 等路径共用的拷贝日志；不能据此断言 Vision 已切换或仍在 padding。
+# 源码：https://github.com/XTLS/Xray-core/blob/v26.11.9/proxy/proxy.go
+PADDED = "PASS && vision:PADDED"
+DIRECT = "PASS && vision:DIRECT"
 L = [
-    ("tls-inner-plain", cfg("tls"), "tcp", "-", "PASS && log:-CopyRawConn", "TLS（缺省指纹 chrome）+ vision，内层明文：只走 padding，不切直拷"),
-    ("tls-inner-tls13", cfg("tls", inner_tls=True), "tcp", "-", "PASS && " + DIRECT, "TLS + vision，内层 TLS 1.3：切直拷，读外层 TLS 缓冲（客户端 uTLS、服务端标准库 tls.Conn）"),
-    ("reality-inner-plain", cfg("reality"), "tcp", "-", "PASS && log:-CopyRawConn", "REALITY + vision，内层明文"),
-    ("reality-inner-tls13", cfg("reality", inner_tls=True), "tcp", "-", "PASS && " + DIRECT, "REALITY + vision，内层 TLS 1.3：切直拷（服务端 reality.Conn）"),
-    ("tls-gotls-inner-tls13", cfg("tls", inner_tls=True, fp="unsafe"), "tcp", "-", "PASS && " + DIRECT,
+    ("tls-inner-plain", cfg("tls"), "tcp", "-", PADDED, "TLS（缺省指纹 chrome）+ vision，内层明文：只走 padding，不切直拷"),
+    ("tls-inner-tls13", cfg("tls", inner_tls=True), "tcp", "-", DIRECT, "TLS + vision，内层 TLS 1.3：切直拷，读外层 TLS 缓冲（客户端 uTLS、服务端标准库 tls.Conn）"),
+    ("reality-inner-plain", cfg("reality"), "tcp", "-", PADDED, "REALITY + vision，内层明文"),
+    ("reality-inner-tls13", cfg("reality", inner_tls=True), "tcp", "-", DIRECT, "REALITY + vision，内层 TLS 1.3：切直拷（服务端 reality.Conn）"),
+    ("tls-gotls-inner-tls13", cfg("tls", inner_tls=True, fp="unsafe"), "tcp", "-", DIRECT,
      "客户端 fingerprint=unsafe（标准库 TLS，不是 uTLS）：客户端一侧也走 Go 1.27.3 rawInput 是指针的分支；应用不生成这个值，只为覆盖代码路径"),
     ("tls-udp-xudp", cfg("tls", udp=True), "udp", UDP_ARGS, "UDP:REPLY", "TLS + vision，UDP 经 XUDP（生成器的缺省形状）"),
 ]

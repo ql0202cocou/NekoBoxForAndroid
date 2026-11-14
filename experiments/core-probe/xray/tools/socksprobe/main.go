@@ -19,6 +19,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -160,15 +161,24 @@ func runTCP(args []string) error {
 		return err
 	}
 	defer c.Close()
-	c.Write([]byte("ping-from-client\n"))
-	c.SetReadDeadline(time.Now().Add(*wait))
-	b := make([]byte, 4096)
-	n, _ := io.ReadAtLeast(c, b, 1)
-	if n > 0 {
-		fmt.Println("TCP-REPLY=" + string(bytes.TrimSpace(b[:n])))
-	} else {
-		fmt.Println("TCP-NOREPLY")
+	return probeTCP(c, *wait, os.Stdout)
+}
+
+func probeTCP(c net.Conn, wait time.Duration, output io.Writer) error {
+	c.SetDeadline(time.Now().Add(wait))
+	if _, err := c.Write([]byte("ping-from-client\n")); err != nil {
+		return err
 	}
+	// 一行最多 4096 字节；短读继续等待，残缺回复不能变成预期的连接失败。
+	b, err := bufio.NewReaderSize(c, 4096).ReadSlice('\n')
+	if err != nil {
+		if len(b) > 0 {
+			return fmt.Errorf("incomplete TCP reply: %w", err)
+		}
+		fmt.Fprintln(output, "TCP-NOREPLY")
+		return nil
+	}
+	fmt.Fprintln(output, "TCP-REPLY="+string(bytes.TrimSpace(b)))
 	return nil
 }
 

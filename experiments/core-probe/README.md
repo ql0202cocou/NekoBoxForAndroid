@@ -14,6 +14,7 @@ Manual probes for core upgrades: Xray configuration checks and real SOCKS, TLS /
 | `xray/vision/` | Vision 数据通路和传输矩阵 / Vision data paths and transport matrix |
 | `xray/tools/` | 仅用 Go 标准库的 SOCKS、TCP / HTTP 探针 / Go standard-library probes |
 | `fixtures/` | 虚构的测试证书及 REALITY 材料 / Synthetic certificates and REALITY inputs |
+| `tests/`、`xray/tools/*/*_test.go` | 执行器与探针的回归测试 / Runner and probe regression tests |
 
 只保留工具和必要输入。生成配置、二进制和运行日志已忽略；结果按需保存到 `results/`，不要把旧结果当成新版本验证。用例 ID 保持稳定；`gen.py` 的 `src` 是最初核实版本的上游源码路径，升级时需重新定位。
 
@@ -57,6 +58,18 @@ sh run-transports.sh
 
 Runner headers list required variables and filters.
 
+## 工具回归测试 / Tool regression tests
+
+在仓库根目录执行以下命令，Go 使用项目要求的 1.26.x（完整补丁版本取 `.github/workflows/libcore.yml`）。测试用临时目录、可控子进程与内存连接，不需要外核、模拟器或固定端口；它们验证判读、TCP 分段读取、HTTP 头边界及中断清理，不替代上面的真实核心矩阵。可通过 `PROBE_TEST_SHELL` 指定本机的其它 shell。
+
+Run these commands from the repository root using Go 1.26.x (the full patch version is pinned in `.github/workflows/libcore.yml`). Tests use temporary directories, controlled processes and in-memory connections, without external cores, an emulator or fixed ports. They cover verdicts, fragmented TCP reads, HTTP header boundaries and interruption cleanup, and do not replace the real-core matrix. Set `PROBE_TEST_SHELL` to test another locally executable shell.
+
+```sh
+python3 -m unittest discover -s experiments/core-probe/tests -v
+(cd experiments/core-probe/xray/tools/socksprobe && go test -race ./...)
+(cd experiments/core-probe/xray/tools/httpdump && go test -race ./...)
+```
+
 ## 更新输入 / Refresh inputs
 
 `xray/xhttp/genout/` 的 JSON 是从 Kotlin 生成器导出的测试输入，`gen-xhttp.py` 的规范 `extra` 也直接取自这里；样本与用例必须一一对应，缺失或多余时生成器直接报错。修改应用生成器或测试材料后，需要重新导出并审查。`TmpXhttpDump.kt.txt` 保留可重用的 JVM 导出器，输出目录需显式提供：
@@ -81,5 +94,7 @@ CORE_PROBE_GENOUT="/absolute/path/to/new-output" \
 
 - 配置生成、`run -test`、真实连接是不同的验证层；前两项不能证明连接成功。 / Generation and configuration checks do not prove connectivity.
 - `MISMATCH` 只表示与预期不同，需查看对应连接日志；`ANY` / `RECORD` 不代表稳定可用。不要自动重写预期。 / Inspect connection logs for mismatches; `ANY` and `RECORD` are not reliability guarantees. Never automatically rebaseline.
+- `PB:+` / `PB:-` 要求转换成功退出。回环的 `ERROR` 表示核心或辅助服务未就绪、进程异常退出、探针失败或观测不完整；不能作为协议负例通过。`hello:-` 要求确实捕获 ClientHello；`dump:-` 允许无连接，但收集器必须就绪且不能读到残缺 HTTP 头。执行器在正常结束及 INT / TERM 中断时回收本次启动的进程。 / PB assertions require successful conversion. Loopback `ERROR` means setup, process, probe or observation failure, never an expected protocol rejection. Negative hello assertions require a captured ClientHello; negative dump assertions allow no connection but require a ready collector without incomplete HTTP headers. Runners reap their children on normal completion and INT / TERM.
+- Vision 明文用例要求观察到 `command 0` 的发送与接收，且没有 `command 2`；TLS 直拷用例要求 TLS 1.3 识别及 `command 2` 的发送与接收。依据固定 Xray v26.11.9 的 `CommandPaddingDirect`，通用的 `CopyRawConn` / readv / splice 日志不能替代 Vision 协议状态证据；这也不证明内核零拷贝。 / Plaintext Vision cases require sent and received command 0 with no command 2; direct-copy cases require TLS 1.3 recognition plus sent and received command 2, matching `CommandPaddingDirect` in pinned Xray v26.11.9. Generic CopyRawConn / readv / splice logs do not prove a Vision transition or kernel zero-copy.
 - REALITY 日志有时序差异；`POST_WAIT` 只改变等待时间。回环服务端必须允许 `127.0.0.0/8` 与 `::1/128`，否则目标可能被核心拦截。 / Account for REALITY log timing and allow loopback targets on the test server.
 - 这里不能证明真实系统根证书的信任集合、服务商端到端表现或所有 DNS 行为。源码推断仍须与实测区分。 / These probes do not establish real system trust stores, provider connectivity or all DNS behavior. Keep source inference distinct from runtime evidence.

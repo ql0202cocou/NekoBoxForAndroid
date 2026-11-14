@@ -8,38 +8,58 @@
 . "$(dirname "$0")/../runner-lib.sh"
 require_bins XRAY PROBE HTTPDUMP
 cd "$(dirname "$0")/${LBDIR:-loopback}" || exit 1
+init_children
 
-once() { # $1 file $2 kind $3 args $4 log → 把探针的输出写到标准输出
-  "$PROBE" tcpserve -listen 127.0.0.1:40000 > /dev/null 2>&1 &
-  t1=$!
-  "$PROBE" echo -listen 127.0.0.1:40053 > "$4.echo" 2>&1 &
-  t2=$!
+check_services() {
+  check_service "$t1" "$log.tcp" 'TCP-LISTEN='
+  check_service "$t2" "$log.echo" 'ECHO-LISTEN='
+  check_service "$x" "$log" 'core: Xray .* started'
+  [ -z "$t3" ] || check_service "$t3" "$log.dump" 'HTTPDUMP-LISTEN='
+  [ -z "$t4" ] || check_service "$t4" "$log.dump" 'ECHO-LISTEN='
+}
+
+once() { # $1 file $2 kind $3 args $4 log → 结果写到 out、run_error
+  run_error=""
+  out=""
+  : > "$4.tcp"
+  : > "$4.echo"
+  start_child "$4.tcp" "$PROBE" tcpserve -listen 127.0.0.1:40000
+  t1=$child
+  start_child "$4.echo" "$PROBE" echo -listen 127.0.0.1:40053
+  t2=$child
   t3=""
+  t4=""
   case "$2" in
     dump|dumpudp)
       : > "$4.dump"
       # args 为空时 httpdump 用自己的缺省监听地址 127.0.0.1:32000
       # shellcheck disable=SC2086
-      "$HTTPDUMP" $3 >> "$4.dump" 2>&1 &
-      t3=$!
+      start_child "$4.dump" "$HTTPDUMP" $3
+      t3=$child
       if [ "$2" = dumpudp ]; then
-        "$PROBE" echo -listen 127.0.0.1:32000 >> "$4.dump" 2>&1 &
-        t3="$t3 $!"
+        start_child "$4.dump" "$PROBE" echo -listen 127.0.0.1:32000
+        t4=$child
       fi
       ;;
   esac
-  "$XRAY" run -c "$1" > "$4" 2>&1 &
-  x=$!
-  sleep 2
-  case "$2" in
-    tcp|dump|dumpudp) "$PROBE" tcp -addr 127.0.0.1:31000 -wait 5s 2>&1 ;;
-    udp) "$PROBE" udp $3 -user "$U" -pass "$P" 2>&1 ;;
-  esac
-  sleep "${POST_WAIT:-2}"
-  # shellcheck disable=SC2086
-  kill $x $t1 $t2 $t3 2>/dev/null
-  # shellcheck disable=SC2086
-  wait $x $t1 $t2 $t3 2>/dev/null
+  : > "$4"
+  start_child "$4" "$XRAY" run -c "$1"
+  x=$child
+  pause_children 2
+  check_services
+  if [ -z "$run_error" ]; then
+    case "$2" in
+      tcp|dump|dumpudp) run_probe "$4.probe" tcp -addr 127.0.0.1:31000 -wait 5s ;;
+      udp) run_probe "$4.probe" udp $3 -user "$U" -pass "$P" ;;
+      *) case_error "unknown kind: $2" ;;
+    esac
+    pause_children "${POST_WAIT:-2}"
+    check_services
+    if [ -n "$t3" ] && grep -q '^HTTPDUMP-ERROR=' "$4.dump"; then
+      case_error 'incomplete HTTP observation'
+    fi
+  fi
+  cleanup_children
 }
 
 check() { # $1 子句 $2 探针输出 $3 日志文件
@@ -55,11 +75,12 @@ while IFS='	' read -r id file kind args expect item src note <&3; do
   selected "$1" "$id $file" || continue
   log="${file%.json}.log"
   [ "$args" = - ] && args=""
-  out=$(once "$file" "$kind" "$args" "$log")
-  eval_expect check "$expect" "$out" "$log"
+  once "$file" "$kind" "$args" "$log"
+  traffic_verdict check "$expect" "$log"
   echo "### $id [$item] $verdict kind=$kind file=$file"
   echo "    expect: $expect"
   echo "    note: $note"
+  print_run_error
   printf '%s\n' "$out" | sed 's/^/    probe| /'
   case "$kind" in dump|dumpudp) grep -E 'REQLINE|HOST=|ECHO-GOT|^RAW\| (GET|POST|PRI|\\x16)|X-K2|Referer' "$log.dump" | sed 's/^/    dump| /' | head -16 ;; esac
   grep -E 'XHTTP is dialing|XTLS|padding|Failed|failed|error|rejected|invalid|unrecognized|peer cert|x509|mux|XUDP|does not support|blocked|splithttp|mismatch|unauthorized|forbidden|not allowed|host' "$log" \

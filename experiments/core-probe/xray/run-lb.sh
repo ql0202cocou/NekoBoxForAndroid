@@ -9,31 +9,54 @@
 #   HS=<十六进制>         握手时服务端回的字节
 #   log:+<片段> / log:-<片段>   Xray 进程输出（含 REALITY show 打印）里应有 / 不应有
 #   hello:+<片段> / hello:-<片段>   socksprobe tlshello 打印的 ClientHello（SNI / ALPN / 曲线）里应有 / 不应有
+#   vision:PADDED / vision:DIRECT   核对 Vision 的 padding / 直拷命令，不能用通用 CopyRawConn 日志替代
 #   ANY                  不判定：跑 5 次，记 TCP 通的次数（random / randomized 指纹）
 . "$(dirname "$0")/runner-lib.sh"
 require_bins XRAY PROBE
 cd "$(dirname "$0")/${LBDIR:-loopback}" || exit 1
+init_children
 
-once() { # $1 file $2 kind $3 args $4 log → 把 socksprobe 的输出写到标准输出
-  "$PROBE" tcpserve -listen 127.0.0.1:40000 > /dev/null 2>&1 &
-  t1=$!
+check_services() {
+  check_service "$t1" "$log.tcp" 'TCP-LISTEN='
+  check_service "$t2" "$helper_log" "$helper_ready"
+  check_service "$x" "$log" 'core: Xray .* started'
+}
+
+once() { # $1 file $2 kind $3 args $4 log → 结果写到 out、run_error
+  run_error=""
+  out=""
+  : > "$4.tcp"
+  start_child "$4.tcp" "$PROBE" tcpserve -listen 127.0.0.1:40000
+  t1=$child
   if [ "$2" = hello ]; then
-    "$PROBE" tlshello -listen 127.0.0.1:32000 > "$4.hello" 2>&1 &
+    helper_log="$4.hello"; helper_ready='TLS-LISTEN='
+    : > "$helper_log"
+    start_child "$helper_log" "$PROBE" tlshello -listen 127.0.0.1:32000
   else
-    "$PROBE" echo -listen 127.0.0.1:40053 > "$4.echo" 2>&1 &
+    helper_log="$4.echo"; helper_ready='ECHO-LISTEN='
+    : > "$helper_log"
+    start_child "$helper_log" "$PROBE" echo -listen 127.0.0.1:40053
   fi
-  t2=$!
-  "$XRAY" run -c "$1" > "$4" 2>&1 &
-  x=$!
-  sleep 2
-  case "$2" in
-    tcp|hello) "$PROBE" tcp -addr 127.0.0.1:31000 -wait 5s 2>&1 ;;
-    udp) "$PROBE" udp $3 -user "$U" -pass "$P" 2>&1 ;;
-    hs) "$PROBE" hs $3 -user "$U" -pass "$P" 2>&1 ;;
-  esac
-  sleep "${POST_WAIT:-1}"   # 日志受 target 双向连接关闭时序影响，按实际需要设置 POST_WAIT；握手负例不依赖清理阶段日志
-  kill $x $t1 $t2 2>/dev/null
-  wait $x $t1 $t2 2>/dev/null
+  t2=$child
+  : > "$4"
+  start_child "$4" "$XRAY" run -c "$1"
+  x=$child
+  pause_children 2
+  check_services
+  if [ -z "$run_error" ]; then
+    case "$2" in
+      tcp|hello) run_probe "$4.probe" tcp -addr 127.0.0.1:31000 -wait 5s ;;
+      udp) run_probe "$4.probe" udp $3 -user "$U" -pass "$P" ;;
+      hs) run_probe "$4.probe" hs $3 -user "$U" -pass "$P" ;;
+      *) case_error "unknown kind: $2" ;;
+    esac
+    pause_children "${POST_WAIT:-1}" # 保留日志等待窗口；握手负例不依赖清理阶段日志
+    check_services
+    if [ "$2" = hello ] && ! grep -q '^HELLO ' "$helper_log"; then
+      case_error 'missing ClientHello observation'
+    fi
+  fi
+  cleanup_children
 }
 
 check() { # $1 子句 $2 探针输出 $3 日志文件
@@ -54,19 +77,27 @@ while IFS='	' read -r id file kind args expect item src note <&3; do
   if [ "$expect" = ANY ]; then
     n=0
     for i in 1 2 3 4 5; do
-      o=$(once "$file" "$kind" "$args" "$log")
-      tcp_ok "$o" && n=$((n + 1))
+      once "$file" "$kind" "$args" "$log"
+      [ -n "$run_error" ] && break
+      tcp_ok "$out" && n=$((n + 1))
     done
-    echo "### $id [$item] ANY passes=$n/5 file=$file"
+    verdict=ANY
+    [ -n "$run_error" ] && verdict=ERROR
+    echo "### $id [$item] $verdict passes=$n/5 file=$file"
     echo "    note: $note"
+    print_run_error
     continue
   fi
-  out=$(once "$file" "$kind" "$args" "$log")
-  eval_expect check "$expect" "$out" "$log"
+  once "$file" "$kind" "$args" "$log"
+  traffic_verdict check "$expect" "$log"
   echo "### $id [$item] $verdict kind=$kind file=$file"
   echo "    expect: $expect"
+  print_run_error
   printf '%s\n' "$out" | sed 's/^/    probe| /'
   [ "$kind" = hello ] && sed 's/^/    hello| /' "$log.hello" | head -3
+  case "$expect" in
+    *vision:*) grep -E 'proxy: (Xtls|CopyRawConn)' "$log" | sed -E 's/^[0-9\/]+ [0-9:.]+ //; s/^/    vision| /' | head -20 ;;
+  esac
   # Xray 输出只留与判读有关的行
   grep -E 'Failed|failed|error|rejected|invalid|unrecognized|peer cert|ECH|x509|REALITY remoteAddr: .*(ClientVer|conn == conn|forwarded SNI)|processed invalid|mux|XUDP|received request|does not support|blocked|finalRules' "$log" \
     | grep -v 'deprecated' | sed -E 's/^[0-9\/]+ [0-9:.]+ //; s/^/    xray| /' | head -12

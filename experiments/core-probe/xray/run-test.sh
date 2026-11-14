@@ -5,7 +5,7 @@
 # 判读：
 #   OK            退出码 0 且输出有「Configuration OK.」
 #   ERR:<原文>    退出码 23 且输出含 <原文>
-#   PB:+<片段>    convert pb -debug 的输出含 <片段>；PB:-<片段> 不含
+#   PB:+<片段>    convert pb -debug 成功退出且输出含 <片段>；PB:-<片段> 成功退出且不含
 #   多个条件用「 && 」连接，全部满足才算 PASS
 . "$(dirname "$0")/runner-lib.sh"
 require_bins XRAY

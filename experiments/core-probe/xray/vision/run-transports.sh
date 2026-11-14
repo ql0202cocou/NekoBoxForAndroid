@@ -5,40 +5,67 @@
 . "$(dirname "$0")/../runner-lib.sh"
 require_bins XRAY SINGBOX PROBE
 cd "$(dirname "$0")/transports" || exit 1
+init_children
+
+check_services() {
+  check_service "$t1" "$id/tcp.log" 'TCP-LISTEN='
+  check_service "$t2" "$id/echo.log" 'ECHO-LISTEN='
+  check_service "$x" "$server_log" "$server_ready"
+  [ -z "$s" ] || check_service "$s" "$id/sing-box.log" 'sing-box started'
+}
 
 open_manifest
 while IFS='	' read -r id kind args expect note <&3; do
-  "$PROBE" tcpserve -listen 127.0.0.1:40000 > /dev/null 2>&1 &
-  t1=$!
-  "$PROBE" echo -listen 127.0.0.1:40053 > "$id/echo.log" 2>&1 &
-  t2=$!
+  run_error=""
+  out=""
+  : > "$id/tcp.log"
+  : > "$id/echo.log"
+  start_child "$id/tcp.log" "$PROBE" tcpserve -listen 127.0.0.1:40000
+  t1=$child
+  start_child "$id/echo.log" "$PROBE" echo -listen 127.0.0.1:40053
+  t2=$child
   if [ -f "$id/sing-box-server.json" ]; then
-    "$SINGBOX" run -c "$id/sing-box-server.json" > "$id/sing-box-server.log" 2>&1 &
+    server_log="$id/sing-box-server.log"; server_ready='sing-box started'
+    : > "$server_log"
+    start_child "$server_log" "$SINGBOX" run -c "$id/sing-box-server.json"
   else
-    "$XRAY" run -c "$id/xray.json" > "$id/xray.log" 2>&1 &
+    server_log="$id/xray.log"; server_ready='core: Xray .* started'
+    : > "$server_log"
+    start_child "$server_log" "$XRAY" run -c "$id/xray.json"
   fi
-  x=$!
+  x=$child
   s=""
   if [ -f "$id/sing-box.json" ]; then
-    "$SINGBOX" run -c "$id/sing-box.json" > "$id/sing-box.log" 2>&1 &
-    s=$!
+    : > "$id/sing-box.log"
+    start_child "$id/sing-box.log" "$SINGBOX" run -c "$id/sing-box.json"
+    s=$child
   fi
-  sleep 2
-  case "$kind" in
-    *-udp) out=$("$PROBE" udp $args -user "$U" -pass "$P" 2>&1) ;;
-    *) out=$("$PROBE" tcp -addr 127.0.0.1:31000 -wait 5s 2>&1) ;;
-  esac
-  sleep 1
-  kill $x $t1 $t2 $s 2>/dev/null
-  wait $x $t1 $t2 $s 2>/dev/null
-  if tcp_ok "$out"; then got=PASS
+  pause_children 2
+  check_services
+  if [ -z "$run_error" ]; then
+    case "$kind" in
+      *-udp) run_probe "$id/probe.log" udp $args -user "$U" -pass "$P" ;;
+      *-tcp) run_probe "$id/probe.log" tcp -addr 127.0.0.1:31000 -wait 5s ;;
+      *) case_error "unknown kind: $kind" ;;
+    esac
+    pause_children 1
+    check_services
+  fi
+  cleanup_children
+  if [ -n "$run_error" ]; then got=ERROR
+  elif tcp_ok "$out"; then got=PASS
   elif has "$out" "R1 REPLY="; then got=UDP:REPLY
   elif has "$out" "R1 TIMEOUT"; then got=UDP:TIMEOUT
   else got=FAIL
   fi
-  if [ "$expect" = - ]; then verdict=RECORD; elif [ "$expect" = "$got" ]; then verdict=PASS; else verdict=MISMATCH; fi
+  if [ "$got" = ERROR ]; then verdict=ERROR
+  elif [ "$expect" = - ]; then verdict=RECORD
+  elif [ "$expect" = "$got" ]; then verdict=PASS
+  else verdict=MISMATCH
+  fi
   echo "### $id [$kind] $verdict got=$got expect=$expect"
   echo "    note: $note"
+  print_run_error
   echo "$out" | sed 's/^/    probe| /'
   # 两个核心各自的关键报错（去掉时间戳与连接编号，同类合并计数）
   for f in "$id/xray.log" "$id/sing-box-server.log" "$id/sing-box.log"; do
