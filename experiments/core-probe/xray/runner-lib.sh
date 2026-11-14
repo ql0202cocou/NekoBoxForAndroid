@@ -73,6 +73,9 @@ wait_child() { # 已完成的短命令不再参与清理
   return "$child_code"
 }
 
+# 回环执行器起完服务后固定等 2 秒再探测，不能换成轮询就绪标志：REALITY 服务端在监听建立之后才异步探测 target
+#（xtls/reality tls.go：NewListener 里 go DetectPostHandshakeRecordsLens），探测结果出来前到达的连接握手成功后
+# 每 5 秒才重查一次（同文件 Server），探针的 5 秒等待会先超时。这 2 秒同时也是「核心就绪后自行退出」的观察窗口。
 pause_children() { # 后台 wait 可及时响应只发给执行器的信号
   start_child /dev/null sleep "$1"
   wait_child "$child"
