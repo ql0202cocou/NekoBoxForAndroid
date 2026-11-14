@@ -30,8 +30,7 @@ class SnackbarAnchorTest : UiTestBase() {
         val bottomAboveDock = bottom(snackbar.view)
 
         // 显示期间连上：卡片滑入，Snackbar 换到卡片之上（卡片在 delay(100) 之后才展开）
-        main.stateChanged(BaseService.State.Connected, null, null)
-        UiSettle.settle(advanceMs = 500)
+        main.connect()
         assertTrue("前置条件：卡片已展开", stats.isExpanded)
         assertSame(stats, snackbar.anchorView)
         assertTrue(

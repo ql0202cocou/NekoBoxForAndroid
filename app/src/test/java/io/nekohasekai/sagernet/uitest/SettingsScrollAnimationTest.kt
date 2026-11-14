@@ -6,7 +6,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import androidx.core.view.ViewCompat
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import io.nekohasekai.sagernet.ui.MainActivity
 import org.junit.Assert.assertEquals
@@ -279,16 +278,10 @@ class SettingsScrollAnimationTest : UiTestBase() {
     fun lastSettingCanStillScrollAboveTheCardAndDock() {
         val main = settings()
         val list = main.settingsList().listView
-        fun above(control: View) {
-            list.scrollBy(0, 100_000)
-            UiSettle.settle()
-            val manager = list.layoutManager as LinearLayoutManager
-            val last = manager.findViewByPosition(list.adapter!!.itemCount - 1)!!
-            assertTrue("最后一项必须完整露出", top(last) + last.height <= top(control))
-        }
-        above(main.binding.stats)
+        gapAboveControls(main, list)
         main.binding.stats.behavior.slideDown(main.binding.stats, false)
         UiSettle.settle()
-        above(main.binding.dock)
+        assertFalse("前置条件：卡片已收起，改由 Dock 挡在下方", main.binding.stats.isExpanded)
+        gapAboveControls(main, list)
     }
 }

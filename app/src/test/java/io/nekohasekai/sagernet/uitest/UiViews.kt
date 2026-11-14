@@ -13,6 +13,7 @@ import androidx.core.view.descendants
 import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.bg.BaseService
@@ -51,6 +52,20 @@ inline fun <reified F : Fragment> assertHosted(main: MainActivity) {
 fun MainActivity.connect(advanceMs: Long = 500) {
     stateChanged(BaseService.State.Connected, null, null)
     UiSettle.settle(advanceMs = advanceMs)
+}
+
+/** 列表滚到底后，最后一项的底边在可见控件（卡片展开时是卡片，否则是 Dock）顶边之上；返回两者的距离（px） */
+fun gapAboveControls(main: MainActivity, list: RecyclerView): Int {
+    list.scrollBy(0, 1_000_000)
+    UiSettle.settle()
+    val manager = list.layoutManager as LinearLayoutManager
+    assertEquals("前置条件：滚到了最后一项", list.adapter!!.itemCount - 1, manager.findLastVisibleItemPosition())
+    val last = list.getChildAt(list.childCount - 1)
+    val lastBottom = top(last) + last.height
+    val stats = main.binding.stats
+    val controlsTop = if (stats.isExpanded) top(stats) else top(main.binding.dock)
+    assertTrue("最后一项（底边 $lastBottom）被控件（顶边 $controlsTop）盖住", lastBottom <= controlsTop)
+    return controlsTop - lastBottom
 }
 
 /** 当前设置页（一级页或分类页）的偏好列表 */
@@ -172,7 +187,7 @@ fun View.drawFullLength(): Bitmap {
     decor.relayout(TALL)
     val list = decor.largestRecyclerView()
     if (list != null) {
-        val manager = list.layoutManager as androidx.recyclerview.widget.LinearLayoutManager
+        val manager = list.layoutManager as LinearLayoutManager
         check(manager.findLastVisibleItemPosition() == list.adapter!!.itemCount - 1) {
             "撑到 $TALL px 高仍有列表项没有布局出来"
         }

@@ -57,20 +57,6 @@ class StatsClearanceTest : UiTestBase() {
     private fun expectedClearance(main: MainActivity, expanded: Boolean) =
         dockClearance(main) + if (expanded) main.binding.stats.height + gap(main) else 0
 
-    /** 列表滚到底后，最后一项的底边在可见控件顶边之上；返回控件顶边与最后一项底边的距离（px） */
-    private fun gapAboveControls(main: MainActivity, list: RecyclerView): Int {
-        list.scrollBy(0, 1_000_000)
-        UiSettle.settle()
-        val manager = list.layoutManager as androidx.recyclerview.widget.LinearLayoutManager
-        assertEquals("前置条件：滚到了最后一项", list.adapter!!.itemCount - 1, manager.findLastVisibleItemPosition())
-        val last = list.getChildAt(list.childCount - 1)
-        val lastBottom = top(last) + last.height
-        val stats = main.binding.stats
-        val controlsTop = if (stats.isExpanded) top(stats) else top(main.binding.dock)
-        assertTrue("最后一项（底边 $lastBottom）被控件（顶边 $controlsTop）盖住", lastBottom <= controlsTop)
-        return controlsTop - lastBottom
-    }
-
     @Test
     fun hiddenCardLeavesOnlyTheDockClearance() {
         val main = ui.launchMain(30)
