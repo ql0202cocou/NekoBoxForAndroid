@@ -4,7 +4,8 @@
 //
 //	echo   -listen 127.0.0.1:40053                  UDP 回显服务（回 "ECHO:" + 原文），前台运行
 //	tcpserve -listen 127.0.0.1:40000                TCP 目标：每个连接读到一行后回 TARGET-REPLY-OK 并关闭，前台运行
-//	tcp    -addr 127.0.0.1:31000 [-wait 5s]         连上后发一行，等回复：TCP-REPLY=… 或 TCP-NOREPLY
+//	tcp    -addr 127.0.0.1:31000 [-wait 5s]         连上后发一行，等回复：TCP-REPLY=… 或 TCP-NOREPLY；
+//	                                                对端接受后复位连接时先多打一行 TCP-RESET=dial|write|read（撞上的阶段）
 //	tlshello -listen 127.0.0.1:32000               TLS 服务端（临时自签证书），只打印每个 ClientHello 的 SNI / ALPN / 曲线 / 版本，前台运行
 //	hs     -addr A -user U -pass P -mode M          SOCKS5 握手，打印服务端回的字节（十六进制）
 //	                                                M = nocred（只报 00，也用来看是否静默不认证）| wrong（错密码）| ok（正确凭据）
@@ -15,7 +16,7 @@
 //	                                                -closetcp：先关掉 TCP 控制连接再发（应收不到）
 //	                                                -raw P：不用 BND 端口，直接把数据报发到 127.0.0.1:P（例如入站自己的端口号）
 //
-// 输出一行一事实，供 run-lb.sh 判读：BND=…、R1 REPLY=… / R1 TIMEOUT（-second 时另有 R2、R3）、TCP-REPLY=…、HS=…、ERR=…
+// 输出一行一事实，供 run-lb.sh 判读：BND=…、R1 REPLY=… / R1 TIMEOUT（-second 时另有 R2、R3）、TCP-REPLY=…、TCP-RESET=…、HS=…、ERR=…
 package main
 
 import (
@@ -38,6 +39,7 @@ import (
 	"net/netip"
 	"os"
 	"strconv"
+	"syscall"
 	"time"
 )
 
@@ -156,17 +158,40 @@ func runTCP(args []string) error {
 	addr := fs.String("addr", "127.0.0.1:31000", "")
 	wait := fs.Duration("wait", 5*time.Second, "")
 	fs.Parse(args)
-	c, err := net.DialTimeout("tcp", *addr, 3*time.Second)
+	return dialAndProbeTCP(func() (net.Conn, error) {
+		return net.DialTimeout("tcp", *addr, 3*time.Second)
+	}, *wait, os.Stdout)
+}
+
+func dialAndProbeTCP(dial func() (net.Conn, error), wait time.Duration, output io.Writer) error {
+	c, err := dial()
 	if err != nil {
+		if resetByPeer(err, "dial", output) {
+			return nil
+		}
 		return err
 	}
 	defer c.Close()
-	return probeTCP(c, *wait, os.Stdout)
+	return probeTCP(c, wait, output)
+}
+
+// 对端接受连接后主动复位（如 sing-box 出站初始化失败时对入口连接 SetLinger(0) 再关）是一次有效观测：没有回复。
+// 复位可能抢在连接完成、发送或读取任一阶段之前到达，三处都按同一结果输出；没有监听（connection refused）等其它错误不算。
+func resetByPeer(err error, stage string, output io.Writer) bool {
+	if !errors.Is(err, syscall.ECONNRESET) {
+		return false
+	}
+	fmt.Fprintln(output, "TCP-RESET="+stage)
+	fmt.Fprintln(output, "TCP-NOREPLY")
+	return true
 }
 
 func probeTCP(c net.Conn, wait time.Duration, output io.Writer) error {
 	c.SetDeadline(time.Now().Add(wait))
 	if _, err := c.Write([]byte("ping-from-client\n")); err != nil {
+		if resetByPeer(err, "write", output) {
+			return nil
+		}
 		return err
 	}
 	// 一行最多 4096 字节；短读继续等待，残缺回复不能变成预期的连接失败。
@@ -175,7 +200,9 @@ func probeTCP(c net.Conn, wait time.Duration, output io.Writer) error {
 		if len(b) > 0 {
 			return fmt.Errorf("incomplete TCP reply: %w", err)
 		}
-		fmt.Fprintln(output, "TCP-NOREPLY")
+		if !resetByPeer(err, "read", output) {
+			fmt.Fprintln(output, "TCP-NOREPLY")
+		}
 		return nil
 	}
 	fmt.Fprintln(output, "TCP-REPLY="+string(bytes.TrimSpace(b)))

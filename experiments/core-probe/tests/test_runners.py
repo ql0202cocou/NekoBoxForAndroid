@@ -164,6 +164,8 @@ class RunnersTest(unittest.TestCase):
         for runner in ("general", "xhttp", "vision"):
             for expect, output, kind in (("PASS", "TCP-REPLY=TARGET-REPLY-OK", "tcp"),
                                          ("FAIL", "TCP-NOREPLY", "tcp"),
+                                         # 对端接受后复位：探针多报一行撞上的阶段，仍是「无回复」
+                                         ("FAIL", "TCP-RESET=dial\nTCP-NOREPLY", "tcp"),
                                          ("UDP:TIMEOUT", "R1 TIMEOUT", "udp"),
                                          ("UDP:REPLY", "R1 REPLY=ECHO:ok", "udp")):
                 with self.subTest(runner=runner, expect=expect):
@@ -171,6 +173,7 @@ class RunnersTest(unittest.TestCase):
                                          CORE_OUTPUT="initialize vision: vision: not a valid supported TLS connection")
                     self.assertIn("] PASS ", out)
             self.assertIn("] MISMATCH ", self.run_suite(runner, "PASS", PROBE_OUTPUT="TCP-REPLY=TARGET-REPLY-OK-extra"))
+            self.assertIn("] MISMATCH ", self.run_suite(runner, "PASS", PROBE_OUTPUT="TCP-RESET=write\nTCP-NOREPLY"))
 
     def test_absence_assertions_require_observation(self):
         self.assertIn("] ERROR ", self.run_suite("general", "hello:-X25519MLKEM768", "hello"))
