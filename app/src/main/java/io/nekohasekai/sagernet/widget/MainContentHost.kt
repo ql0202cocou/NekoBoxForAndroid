@@ -40,7 +40,11 @@ interface MainContentHostOwner {
 class MainContentHost(private val clearance: () -> Int) {
 
     // 值不持有视图，避免 WeakHashMap 的值反过来把弱键留住。
-    private class PaddingState(var extra: Int, var nestedTypes: Int = 0)
+    private class PaddingState(var extra: Int, var nestedTypes: Int = 0) {
+        /** 手势、惯性或程序滚动进行中：留白保持不变 */
+        fun frozen(view: View) =
+            nestedTypes != 0 || view is RecyclerView && view.scrollState != RecyclerView.SCROLL_STATE_IDLE
+    }
     private val registered = WeakHashMap<View, PaddingState>()
     private val bounds = Rect()
 
@@ -52,8 +56,7 @@ class MainContentHost(private val clearance: () -> Int) {
     /** 系统栏仍照常适配，只有悬浮控件的额外留白参与冻结和安全回收。 */
     internal fun bottomClearance(view: View): Int {
         val state = registered[view] ?: return clearance()
-        if (state.nestedTypes != 0 ||
-            view is RecyclerView && view.scrollState != RecyclerView.SCROLL_STATE_IDLE) return state.extra
+        if (state.frozen(view)) return state.extra
         val target = clearance()
         state.extra = if (target >= state.extra || !view.isLaidOut || !view.canScrollVertically(-1)) {
             target
@@ -109,7 +112,8 @@ class MainContentHost(private val clearance: () -> Int) {
         registered[view] = state
         val retry = Runnable { view.reapplyIfAttached() }
         fun retryIfNeeded() {
-            if (state.nestedTypes != 0 || state.extra == clearance()) return
+            // 冻结期间重试也改不了留白，等嵌套滚动结束或回到空闲时再来。
+            if (state.frozen(view) || state.extra == clearance()) return
             view.removeCallbacks(retry)
             view.post(retry)
         }
