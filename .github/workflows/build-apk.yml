@@ -118,6 +118,8 @@ jobs:
             yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
               "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
           fi
+      - name: Build script tests
+        run: python3 -m unittest discover -s buildScript/tests -v
       - name: Unit Test and Lint
         id: checks
         run: |

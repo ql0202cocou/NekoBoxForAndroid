@@ -51,6 +51,13 @@ class GoldenJvmBuildTest {
     }
 
     @Test
+    fun `全部场景三种模式忽略本机认证后仍与基线一致`() {
+        val report = GoldenCompareTree.compare(GoldenBaseline.load().root, tree.root, GoldenCompareScope.IGNORE_LOCAL_AUTH)
+        assertTrue(report.render(), report.same)
+        assertTrue(report.render(), report.warnings.isEmpty())
+    }
+
+    @Test
     fun `全部场景三种模式的产物与基线一致`() {
         val baseline = GoldenBaseline.load()
         // 基线目录里的场景一个都不能少：与采集时 manifest 记的场景数核对

@@ -32,7 +32,7 @@ enum class GoldenCompareScope(val label: String) {
 
 /**
  * [GoldenCompareScope.IGNORE_LOCAL_AUTH] 去掉的位置，正好是这些，别处同名的键照常比较：
- * - sing-box 配置（sing-box.json、export.txt 第 0 段）里指向本机的 socks 出站的 username / password；
+ * - sing-box 配置（sing-box.json、export.txt 第 0 段）里经外核端口确认的本机 socks 出站的 username / password；
  * - Xray 配置里各入站 settings 的 auth 与 accounts，以及 log 的 access；
  * - result.json 里 external[].hops[] 的 localAuth，以及 dynamic.secrets 里本机认证的值（取自前两处：跳实例的
  *   记录与 sing-box 配置里本机 socks 出站的凭据）。
@@ -60,16 +60,27 @@ object GoldenLocalAuth {
     private fun isLocalSocks(outbound: GoldenValue): Boolean = outbound is GoldenValue.Obj &&
         outbound.fields["type"]?.text() == "socks" && outbound.fields["server"]?.text() == LOCALHOST
 
-    /** sing-box 配置里指向本机的 socks 出站带的 username / password 的值。 */
-    fun singBoxValues(config: GoldenValue): Set<String> {
+    private fun GoldenValue.port(): BigInteger? = (this as? GoldenValue.Integer)?.value
+        ?.takeIf { it >= BigInteger.ONE && it <= BigInteger.valueOf(65535) }
+
+    // 仅凭回环地址不能区分用户节点；端口须有外核记录，且只能对应一个本机 SOCKS 出站。
+    private fun localSocks(config: GoldenValue, ports: Set<BigInteger>): Set<GoldenValue.Obj> {
         val outbounds = ((config as? GoldenValue.Obj)?.fields?.get("outbounds") as? GoldenValue.Arr)?.items.orEmpty()
-        return outbounds.filter(::isLocalSocks).flatMap { outbound ->
-            listOf("username", "password").mapNotNull { (outbound as GoldenValue.Obj).fields[it]?.text() }
-        }.toSet()
+        return outbounds.filter(::isLocalSocks).filterIsInstance<GoldenValue.Obj>()
+            .filter { it.fields["server_port"]?.port() in ports }
+            .groupBy { it.fields["server_port"] }.values.mapNotNull { it.singleOrNull() }.toSet()
     }
 
-    fun stripSingBox(config: GoldenValue): GoldenValue = config.mapArray("outbounds") { outbound ->
-        if (isLocalSocks(outbound)) (outbound as GoldenValue.Obj).without("username", "password") else outbound
+    /** 返回去掉本机认证的配置，以及已确认接外核的本机 SOCKS 出站中移除的凭据值。 */
+    fun stripSingBox(config: GoldenValue, ports: Set<BigInteger>): Pair<GoldenValue, Set<String>> {
+        val local = localSocks(config, ports)
+        val values = local.flatMap { outbound ->
+            listOf("username", "password").mapNotNull { outbound.fields[it]?.text() }
+        }.toSet()
+        val stripped = config.mapArray("outbounds") { outbound ->
+            if (outbound in local) (outbound as GoldenValue.Obj).without("username", "password") else outbound
+        }
+        return stripped to values
     }
 
     fun stripXray(config: GoldenValue): GoldenValue {
@@ -83,32 +94,49 @@ object GoldenLocalAuth {
         return root.with("log", log.without("access"))
     }
 
-    /** 认不出插件 id 时（export.txt 的外核段）按结构认：Xray 有 inbounds 与 routing。 */
-    fun stripExternal(config: GoldenValue, pluginId: String?): GoldenValue {
-        val obj = config as? GoldenValue.Obj ?: return config
-        val xray = when (pluginId) {
+    private fun isXray(config: GoldenValue, pluginId: String?): Boolean = config is GoldenValue.Obj &&
+        when (pluginId) {
             "xray-plugin" -> true
-            null -> obj.fields["inbounds"] is GoldenValue.Arr && obj.fields["routing"] is GoldenValue.Obj
+            null -> config.fields["inbounds"] is GoldenValue.Arr && config.fields["routing"] is GoldenValue.Obj
             else -> false
         }
-        return if (xray) stripXray(obj) else obj
+
+    /** 导出没有跳实例记录；目前仅 Xray 启用认证，按外核段中的本机 SOCKS 入站识别端口。 */
+    fun exportPorts(config: GoldenValue): Set<BigInteger> {
+        if (!isXray(config, null)) return emptySet()
+        val inbounds = ((config as GoldenValue.Obj).fields["inbounds"] as GoldenValue.Arr).items
+        return inbounds.filterIsInstance<GoldenValue.Obj>().filter {
+            it.fields["protocol"]?.text() == "socks" && it.fields["listen"]?.text() == LOCALHOST
+        }.mapNotNull { it.fields["port"]?.port() }.toSet()
     }
+
+    /** 认不出插件 id 时（export.txt 的外核段）按结构认：Xray 有 inbounds 与 routing。 */
+    fun stripExternal(config: GoldenValue, pluginId: String?): GoldenValue =
+        if (isXray(config, pluginId)) stripXray(config) else config
 
     // result.json 里 external[].hops[] 逐个变换
     private fun GoldenValue.mapHops(transform: (GoldenValue.Obj) -> GoldenValue): GoldenValue =
         mapArray("external") { group -> group.mapArray("hops") { hop -> (hop as? GoldenValue.Obj)?.let(transform) ?: hop } }
 
-    /** result.json 里跳实例记录的本机认证的值。 */
-    fun resultValues(result: GoldenValue): Set<String> {
-        val values = LinkedHashSet<String>()
-        result.mapHops { hop ->
-            (hop.fields["localAuth"] as? GoldenValue.Obj)?.let { auth ->
-                listOf("username", "password").mapNotNullTo(values) { auth.fields[it]?.text() }
-            }
-            hop
-        }
-        return values
+    // 只读遍历跳实例，结构不符的项与 mapHops 一样跳过。
+    private fun GoldenValue.hops(): Sequence<GoldenValue.Obj> {
+        val groups = ((this as? GoldenValue.Obj)?.fields?.get("external") as? GoldenValue.Arr)?.items.orEmpty()
+        return groups.asSequence().flatMap { group ->
+            ((group as? GoldenValue.Obj)?.fields?.get("hops") as? GoldenValue.Arr)?.items.orEmpty()
+        }.filterIsInstance<GoldenValue.Obj>()
     }
+
+    /** 运行 / 测速的端口只取外核跳实例记录，不把 dynamic.ports 中的映射端口当作 SOCKS 入站。 */
+    fun resultPorts(result: GoldenValue): Set<BigInteger> =
+        result.hops().mapNotNull { it.fields["port"]?.port() }.toSet()
+
+    /** result.json 里跳实例记录的本机认证的值。 */
+    fun resultValues(result: GoldenValue): Set<String> =
+        result.hops().mapNotNull { it.fields["localAuth"] as? GoldenValue.Obj }
+            .flatMap { auth ->
+                listOf("username", "password").mapNotNull { auth.fields[it]?.text() }
+            }
+            .toSet()
 
     fun stripResult(result: GoldenValue): GoldenValue = result.mapHops { it.without("localAuth") }
 }
@@ -266,18 +294,27 @@ object GoldenCompareTree {
         fun modeDocuments(root: File, rel: String, side: String): Pair<List<GoldenDocument>, GoldenDynamic> {
             val names = File(root, rel).listFiles()?.filter { it.isFile }?.map { it.name }.orEmpty()
             val docs = ArrayList<GoldenDocument>()
-            // 忽略本机认证时 sing-box 配置里本机 socks 出站的凭据，result.json 的 dynamic.secrets 里随之去掉
+            val localPorts = LinkedHashSet<BigInteger>()
+            val result = if ("result.json" !in names) null else {
+                val doc = document(root, "$rel/result.json", "result.json", GoldenFormat.JSON)
+                if (!ignoreLocalAuth) doc else doc.mapValue {
+                    localPorts += GoldenLocalAuth.resultPorts(it)
+                    it
+                }
+            }
+            // 只移除已确认的内部连接凭据；用户本机节点的凭据和动态值登记照常比较。
             val localValues = LinkedHashSet<String>()
-            fun singBoxDocument(doc: GoldenDocument) = if (!ignoreLocalAuth) doc else doc.mapValue {
-                localValues += GoldenLocalAuth.singBoxValues(it)
-                GoldenLocalAuth.stripSingBox(it)
+            fun singBoxDocument(doc: GoldenDocument, ports: Set<BigInteger>) = if (!ignoreLocalAuth) doc else doc.mapValue {
+                val (stripped, values) = GoldenLocalAuth.stripSingBox(it, ports)
+                localValues += values
+                stripped
             }
 
             fun externalDocument(doc: GoldenDocument, pluginId: String?) =
                 if (!ignoreLocalAuth) doc else doc.mapValue { GoldenLocalAuth.stripExternal(it, pluginId) }
 
             if ("sing-box.json" in names) {
-                docs.add(singBoxDocument(document(root, "$rel/sing-box.json", "sing-box.json", GoldenFormat.JSON_OBJECT)))
+                docs.add(singBoxDocument(document(root, "$rel/sing-box.json", "sing-box.json", GoldenFormat.JSON_OBJECT), localPorts))
             }
             names.mapNotNull { name -> extName.matchEntire(name)?.let { Triple(it.groupValues[1].toInt(), name, it) } }
                 .sortedWith(compareBy({ it.first }, { it.second }))
@@ -289,12 +326,18 @@ object GoldenCompareTree {
                     docs.add(externalDocument(document(root, "$rel/$name", name, GoldenFormat.JSON), match.groupValues[2]))
                 }
             if ("export.txt" in names) {
-                val segments = exportSegments(root, "$rel/export.txt")
+                val exportPorts = LinkedHashSet<BigInteger>()
+                val segments = exportSegments(root, "$rel/export.txt").mapIndexed { i, doc ->
+                    if (!ignoreLocalAuth || i == 0) doc else doc.mapValue {
+                        exportPorts += GoldenLocalAuth.exportPorts(it)
+                        it
+                    }
+                }
                 docs.addAll(
                     when {
                         singBoxOnly -> segments.take(1)
                         ignoreLocalAuth -> segments.mapIndexed { i, doc ->
-                            if (i == 0) singBoxDocument(doc) else externalDocument(doc, null)
+                            if (i == 0) singBoxDocument(doc, exportPorts) else externalDocument(doc, null)
                         }
 
                         else -> segments
@@ -302,8 +345,8 @@ object GoldenCompareTree {
                 )
             }
             var dynamic = GoldenDynamic.NONE
-            if ("result.json" in names) {
-                val (doc, dyn) = resultDocument(root, "$rel/result.json", side, localValues.takeIf { ignoreLocalAuth })
+            if (result != null) {
+                val (doc, dyn) = resultDocument(result, "$rel/result.json", side, localValues.takeIf { ignoreLocalAuth })
                 docs.add(doc)
                 dynamic = dyn
             }
@@ -331,13 +374,13 @@ object GoldenCompareTree {
         // 取出 dynamic 供占位符使用；dynamic 本身只比较各类的个数。localValues 不为 null 时忽略本机认证：
         // 跳实例的 localAuth 去掉，dynamic.secrets 里去掉这些值与跳实例记录的凭据
         fun resultDocument(
-            root: File,
+            source: GoldenDocument,
             rel: String,
             side: String,
             localValues: Set<String>?,
         ): Pair<GoldenDocument, GoldenDynamic> {
             val parsed = try {
-                GoldenParser.parseJson(readUtf8(File(root, rel)))
+                source.parsed()
             } catch (ex: GoldenParseException) {
                 return GoldenDocument.ofError("result.json", ex.message!!) to GoldenDynamic.NONE
             }

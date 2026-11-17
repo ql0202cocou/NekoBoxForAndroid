@@ -563,6 +563,10 @@ class GoldenCompareTreeTest {
         )
     }
 
+    private fun localTree(d: Dyn, auth: Auth?) = ilaTree(d, auth).apply {
+        replaceAll { _, text -> text.replace("198.51.100.7", "127.0.0.1") }
+    }
+
     private fun compareIgnoringAuth(e: Map<String, String>, a: Map<String, String>) =
         GoldenCompareTree.compare(write(e), write(a), GoldenCompareScope.IGNORE_LOCAL_AUTH)
 
@@ -582,6 +586,85 @@ class GoldenCompareTreeTest {
         val both = compare(ilaTree(first, auth1), ilaTree(second, auth2))
         assertSame(both)
         assertTrue(both.render(), both.warnings.isEmpty())
+    }
+
+    @Test
+    fun `忽略本机认证仍比较用户本机 socks 节点的凭据`() {
+        val base = localTree(first, null)
+        assertSame(compareIgnoringAuth(base, localTree(second, auth2)))
+        for (file in listOf("run/sing-box.json", "test/sing-box.json", "export/export.txt")) {
+            for (credential in listOf("username" to "node-user", "password" to "node-pass")) {
+                val changed = localTree(second, auth2).apply {
+                    val path = "scenarios/mixed-chain/$file"
+                    put(path, getValue(path).replace(credential.second, "${credential.second}-changed"))
+                }
+                val report = compareIgnoringAuth(base, changed)
+                assertTrue(report.render(), report.diffs.any {
+                    it.file == "scenarios/mixed-chain/$file" + (if (file.endsWith(".txt")) "#0" else "") &&
+                        it.path == "$.outbounds[2].${credential.first}"
+                })
+            }
+        }
+    }
+
+    @Test
+    fun `用户本机 socks 凭据不会从动态值登记中误删`() {
+        val base = localTree(first, null)
+        for (mode in listOf("run", "test", "export")) {
+            val changed = localTree(second, auth2).apply {
+                val path = "scenarios/mixed-chain/$mode/result.json"
+                put(path, getValue(path).replace("\"secrets\": [", "\"secrets\": [\"node-user\", "))
+            }
+            assertDiffer(compareIgnoringAuth(base, changed), "$.dynamic.secrets：预期 0，实际 1")
+        }
+    }
+
+    @Test
+    fun `同端口存在多个本机 socks 出站时保留凭据比较`() {
+        fun tree(d: Dyn, auth: Auth?) = localTree(d, auth).apply {
+            replaceAll { _, text -> text.replace("\"server_port\": 1080", "\"server_port\": ${d.socks}") }
+        }
+        val changed = tree(second, auth2).apply {
+            replaceAll { _, text -> text.replace("node-pass", "node-pass-changed") }
+        }
+        val report = compareIgnoringAuth(tree(first, null), changed)
+        for (file in listOf("run/sing-box.json", "test/sing-box.json", "export/export.txt#0")) {
+            assertTrue(report.render(), report.diffs.any {
+                it.file == "scenarios/mixed-chain/$file" && it.path == "$.outbounds[2].password"
+            })
+        }
+    }
+
+    @Test
+    fun `外核识别记录损坏时仍报告解析错误并保留凭据比较`() {
+        for (mode in listOf("run", "test")) {
+            fun tree(d: Dyn, auth: Auth?) = ilaTree(d, auth).apply {
+                put("scenarios/mixed-chain/$mode/result.json", "{")
+            }
+            assertDiffer(compareIgnoringAuth(tree(first, null), tree(second, auth2)), "result.json", "$.outbounds[0].username")
+        }
+        fun tree(d: Dyn, auth: Auth?) = ilaTree(d, auth).apply {
+            val path = "scenarios/mixed-chain/export/export.txt"
+            put(path, getValue(path).replace(ilaXray(d, auth), "{"))
+        }
+        assertDiffer(compareIgnoringAuth(tree(first, null), tree(second, auth2)), "export.txt#1", "$.outbounds[0].username")
+    }
+
+    @Test
+    fun `未被外核记录确认的端口不忽略凭据`() {
+        for (mode in listOf("run", "test")) {
+            fun tree(d: Dyn, auth: Auth?) = ilaTree(d, auth).apply {
+                val path = "scenarios/mixed-chain/$mode/result.json"
+                put(path, getValue(path).replace("\"port\": ${d.socks},", "\"port\": 12345,"))
+            }
+            assertDiffer(compareIgnoringAuth(tree(first, null), tree(second, auth2)), "$.outbounds[0].username")
+        }
+        // 导出没有跳实例记录，必须由外核段的本机 SOCKS 监听端口确认。
+        fun exportTree(d: Dyn, auth: Auth?) = ilaTree(d, auth).apply {
+            val path = "scenarios/mixed-chain/export/export.txt"
+            put(path, getValue(path).replace("\"port\": ${d.socks},", "\"port\": 12345,"))
+        }
+        assertDiffer(compareIgnoringAuth(exportTree(first, null), exportTree(second, auth2)), "$.outbounds[0].username")
     }
 
     @Test

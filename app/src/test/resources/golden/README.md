@@ -91,10 +91,12 @@ APK 只按 `app/build/outputs/apk/oss/debug/output-metadata.json`（Gradle 每�
 
 `--ignore-local-auth` 比较全部产物，但比较前从两侧去掉本机 socks 认证，去掉的正好是这些位置（实现在
 `GoldenCompareTree.kt` 的 `GoldenLocalAuth`，别处同名的键照常比较）：sing-box 配置（`sing-box.json` 与 `export.txt`
-第 0 段）里指向 127.0.0.1 的 socks 出站的 `username` / `password`；Xray 配置里各入站 `settings` 的 `auth` 与
+第 0 段）里指向 127.0.0.1 且端口经外核确认的 socks 出站的 `username` / `password`：运行 / 测速按
+`result.json` 的 `external[].hops[].port`，导出按外核段中 Xray 的本机 SOCKS 入站端口；同一端口对应多个
+本机 SOCKS 出站或缺少有效记录时不忽略凭据，用户自己的本机节点照常比较。Xray 配置里各入站 `settings` 的 `auth` 与
 `accounts`、`log` 的 `access`（`export.txt` 的外核段按结构认核心）；`result.json`
 里 `external[].hops[]` 的 `localAuth`，以及 `dynamic.secrets` 里这些凭据的值（取自跳实例的记录与 sing-box 配置里本机
-socks 出站的凭据）。`input.json` 与 `address/corpus.json` 顶层的 `formatVersion` 不比较。它用来证明加认证的改动只多出
+socks 出站中经上述规则确认的凭据）。`input.json` 与 `address/corpus.json` 顶层的 `formatVersion` 不比较。它用来证明加认证的改动只多出
 了认证：两侧可以一侧带认证（v3）、一侧不带（v2）。
 
 ## JVM 黄金测试

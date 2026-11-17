@@ -94,13 +94,13 @@ newer_releases() {
 NEWER=0
 FAILED=0
 
-# Xray：固定版本到最新 tag 之间、标题含关键字的提交（compare 一页最多 250 条，要翻页）
+# Xray：固定版本到最新 tag 之间、标题含关键字的提交（compare 分页每页最多 100 条）
 xray_commits() {
-  local base="$1" head="$2" page=1 total file count
+  local base="$1" head="$2" page=1 per_page=100 total file count
   echo "   固定版本之后与 REALITY / XHTTP / 版本门槛 / mux / 协议有关的提交（标题，不分大小写）："
   while :; do
     file="$TMP/cmp-$page.json"
-    gh_get "repos/XTLS/Xray-core/compare/$base...$head?per_page=250&page=$page" "$file" || return 1
+    gh_get "repos/XTLS/Xray-core/compare/$base...$head?per_page=$per_page&page=$page" "$file" || return 1
     jq -r '.commits[]? | [.sha[0:8], (.commit.committer.date[0:10]),
       (.commit.message | split("\n")[0])] | @tsv' "$file" |
       grep -iE 'reality|xhttp|splithttp|minClientVer|mux|trojan|vless|vmess' |
@@ -108,7 +108,7 @@ xray_commits() {
     count=$(jq '.commits | length' "$file")
     total=$(jq '.total_commits // 0' "$file")
     # 少于一页即到头；total_commits 兜底，防止空页死循环
-    if [ "$count" -lt 250 ] || [ $((page * 250)) -ge "$total" ]; then
+    if [ "$count" -lt "$per_page" ] || [ $((page * per_page)) -ge "$total" ]; then
       break
     fi
     page=$((page + 1))
