@@ -61,6 +61,9 @@ abstract class BoxInstance(
 
     private val cacheFiles = InstanceConfigFiles()
     private val pluginConfigDir = File(app.cacheDir, "tmpcfg")
+    private val redactExternalOutput by lazy {
+        config.externalOutputRedactor(externalProcesses.map { it.config })
+    }
 
     private fun writeCacheFile(prefix: String, ext: String, content: String): File =
         cacheFiles.write(pluginConfigDir) { newFile -> newFile(prefix, ext).apply { writeText(content) } }
@@ -133,12 +136,11 @@ abstract class BoxInstance(
                 val launch = check.command(initPlugin(group.pluginId).path, process.config) { prefix, ext, content ->
                     writeCacheFile(prefix, ext, content).also { files.add(it) }
                 }
-                val run = runCheckProcess(launch, app.noBackupFilesDir, CHECK_TIMEOUT_MS, ::isClosed)
-                // 核心可能在报错里回显配置原文：解析前按值遮蔽本次构建的凭据，免得进异常消息与日志
-                check.result(group, run.exitCode, config.redactLocalAuth(run.output))
+                val run = runCheckProcess(launch, app.noBackupFilesDir, CHECK_TIMEOUT_MS, ::isClosed, redactExternalOutput)
+                check.result(group, run.exitCode, run.output)
             } catch (e: IOException) {
                 // 进程起不来：启动时同样会失败，照旧交给启动路径报错
-                ExternalCheckResult.Inconclusive("${check.coreName} config check could not run: ${e.readableMessage}")
+                ExternalCheckResult.Inconclusive("${check.coreName} config check could not run: ${redactExternalOutput(e.readableMessage)}")
             } finally {
                 files.forEach(cacheFiles::delete)
             }
@@ -171,7 +173,7 @@ abstract class BoxInstance(
             )
             context.ensureActive()
             if (isClosed()) return
-            val processState = processes.start(launch.commands, launch.env)
+            val processState = processes.start(launch.commands, launch.env, redactExternalOutput)
             val strict = verifiedCheck(process) != null
             for (hop in process.group.hops) {
                 targets += hop to LocalPortTarget(hop.localPort, strict, hop.localAuth, processState)

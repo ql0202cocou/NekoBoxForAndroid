@@ -6,9 +6,11 @@ import android.util.Base64
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
+import com.google.gson.JsonPrimitive
 import libcore.StringBox
 import org.yaml.snakeyaml.Yaml
 import java.io.ByteArrayOutputStream
+import java.net.URI
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
@@ -196,7 +198,7 @@ object Util {
         "password", "uuid", "id", "private_key", "pre_shared_key", "auth", "auth_str",
         "token", "secret", "key", "authorization", "cookie", "obfs",
         "username", "user", "pass",
-        "short_id", "shortId", "private_key_passphrase",
+        "short_id", "shortId", "private_key_passphrase", "extra-headers",
     )
 
     // 一个 JSON 字符串字面量（结尾的 ["] 就是引号：raw string 不能以 " 结尾）。
@@ -293,7 +295,10 @@ object Util {
     // 按值遮蔽：sources（本次生成的配置原文，JSON 或 YAML）里敏感键（SENSITIVE_KEYS，连字符当下划线）下的字符串值，
     // 在 text 里出现就换成 ***；敏感键下的映射与列表整个算进去。给没有键名可依的自由文本用（核心的报错原文），
     // redactSecrets 只认「键: 值」的写法。长的值先换，免得短值先截断它；解析不了的原文跳过
-    fun redactSecretValues(text: String, sources: List<String>): String {
+    fun redactSecretValues(text: String, sources: List<String>): String = secretValueRedactor(sources)(text)
+
+    // 外核的两个输出流以及重启后的进程复用同一份只读表，不逐行解析配置或编译正则。
+    fun secretValueRedactor(sources: List<String>): (String) -> String {
         val values = HashSet<String>()
         for (source in sources) {
             val root = runCatching {
@@ -302,11 +307,20 @@ object Util {
             }.getOrNull()
             collectSecretValues(root, false, values)
         }
-        val (long, short) = values.filter { it.isNotEmpty() }.partition { it.length >= SECRET_VALUE_MIN_LENGTH }
-        val masked = long.sortedByDescending { it.length }.fold(text) { result, value -> result.replace(value, "***") }
+        // 外核可逐行回显多行值，也可能回显配置中的 JSON 转义写法。
+        val forms = mutableSetOf<String>()
+        for (value in values) {
+            forms.add(value)
+            value.lineSequence().filter { it.isNotBlank() }.forEach(forms::add)
+            forms.add(JsonPrimitive(value).toString().removeSurrounding("\""))
+        }
+        val (long, short) = forms.filter { it.isNotEmpty() }.sortedByDescending { it.length }
+            .partition { it.length >= SECRET_VALUE_MIN_LENGTH }
         // 短值两侧不能是字母或数字：「192.0.2.123:443」里的 123 会遮蔽，「41234」里的不会
-        return short.sortedByDescending { it.length }.fold(masked) { result, value ->
-            Regex("(?<![A-Za-z0-9])${Regex.escape(value)}(?![A-Za-z0-9])").replace(result, "***")
+        val shortPatterns = short.map { Regex("(?<![A-Za-z0-9])${Regex.escape(it)}(?![A-Za-z0-9])") }
+        return { text ->
+            val masked = long.fold(text) { result, value -> result.replace(value, "***") }
+            shortPatterns.fold(masked) { result, pattern -> pattern.replace(result, "***") }
         }
     }
 
@@ -322,6 +336,16 @@ object Util {
                         value.forEach { (headerName, headerValue) ->
                             if ((headerName as? String)?.lowercase() != "host") collectSecretValues(headerValue, true, out)
                         }
+                    } else if (!sensitive && name == "proxy" && value is String) {
+                        // Naive 的用户名和密码位于上游 URI 中，日志可能显示解码后的单个字段。
+                        val userInfo = runCatching { URI(value).rawUserInfo }.getOrNull()
+                        userInfo?.split(':', limit = 2)?.forEach {
+                            out += it
+                            out += URLDecoder.decode(it.replace("+", "%2B"), "UTF-8")
+                        }
+                    } else if (!sensitive && name == "extra_headers" && value is String) {
+                        value.lineSequence().filter { ':' in it && !it.substringBefore(':').trim().equals("Host", true) }
+                            .forEach { out += it.substringAfter(':').trim() }
                     } else if (!(socksSettings && name == "auth" && value in SOCKS_AUTH_METHODS)) {
                         collectSecretValues(value, sensitive || name in SENSITIVE_KEY_NAMES, out, socks && name == "settings")
                     }

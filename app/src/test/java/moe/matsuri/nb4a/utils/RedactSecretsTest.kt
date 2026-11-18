@@ -646,6 +646,23 @@ class RedactSecretsTest {
     }
 
     @Test
+    fun preparedValuesCoverLineOutputEscapingAndNaiveCredentials() {
+        val sources = mutableListOf(JavaUtil.gson.toJson(mapOf(
+            "private_key" to "first-secret\nsecond-secret",
+            "password" to "escaped\"secret",
+            "proxy" to "quic://user%3Aname:a%2Fb+c@example.com:443",
+            "extra-headers" to "Host: example.com\r\nX-Token: header-value",
+        )))
+        assertFalse("header-value" in Util.redactSecrets(sources.single()))
+        val redact = Util.secretValueRedactor(sources)
+        sources.clear()
+        for (value in listOf("first-secret", "second-secret", """first-secret\nsecond-secret""",
+            "escaped\"secret", """escaped\"secret""", "user%3Aname", "user:name", "a%2Fb+c", "a/b+c", "header-value")) {
+            assertEquals("rejected *** at example.com", redact("rejected $value at example.com"))
+        }
+    }
+
+    @Test
     fun longerValueIsMaskedBeforeItsPrefix() {
         val config = JavaUtil.gson.toJson(mapOf("password" to "abcdef", "token" to "abcdef-ghijkl"))
         assertEquals("got *** and ***", Util.redactSecretValues("got abcdef-ghijkl and abcdef", listOf(config)))

@@ -43,6 +43,7 @@ suspend fun runCheckProcess(
     workDir: File?,
     timeoutMs: Long,
     isCancelled: () -> Boolean,
+    redactOutput: (String) -> String = { it },
 ): CheckProcessResult {
     val context = currentCoroutineContext()
     fun checkCancelled() {
@@ -60,8 +61,10 @@ suspend fun runCheckProcess(
     val reader = thread(name = "check-out-$name", isDaemon = true) {
         try {
             process.inputStream.bufferedReader().forEachLine { line ->
+                // 先遮蔽再截断，跨过保留长度上限的凭据也不会留下半截。
+                val safeLine = redactOutput(line).take(CHECK_OUTPUT_LINE_CHARS)
                 synchronized(lines) {
-                    lines.addLast(line.take(CHECK_OUTPUT_LINE_CHARS))
+                    lines.addLast(safeLine)
                     if (lines.size > CHECK_OUTPUT_LINES) lines.removeFirst()
                 }
             }

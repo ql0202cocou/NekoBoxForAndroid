@@ -57,8 +57,8 @@ class GuardedProcessPoolTest {
     private fun newGuard(pool: GuardedProcessPool, process: FakeProcess, looperStarted: Boolean): Any {
         val guardClass = Class.forName("io.nekohasekai.sagernet.bg.GuardedProcessPool\$Guard")
         val guard = guardClass.getDeclaredConstructor(
-            GuardedProcessPool::class.java, List::class.java, Map::class.java
-        ).apply { isAccessible = true }.newInstance(pool, listOf("fake"), emptyMap<String, String>())
+            GuardedProcessPool::class.java, List::class.java, Map::class.java, Function1::class.java
+        ).apply { isAccessible = true }.newInstance(pool, listOf("fake"), emptyMap<String, String>(), { s: String -> s })
         guardClass.getDeclaredField("process").apply { isAccessible = true }.set(guard, process)
         guardClass.getDeclaredField("looperStarted").apply { isAccessible = true }
             .setBoolean(guard, looperStarted)

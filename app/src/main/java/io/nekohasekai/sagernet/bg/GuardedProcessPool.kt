@@ -30,7 +30,8 @@ import kotlin.concurrent.thread
 class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : CoroutineScope {
     private inner class Guard(
         private val cmd: List<String>,
-        private val env: Map<String, String> = mapOf()
+        private val env: Map<String, String>,
+        private val redactOutput: (String) -> String,
     ) {
         private lateinit var process: Process
 
@@ -43,8 +44,12 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
         // 守护与重启逻辑不看它
         val state = GuardedProcessState()
 
-        private fun streamLogger(input: InputStream, logger: (String) -> Unit) = try {
-            input.bufferedReader().use { it.forEachLine(logger) }
+        private fun streamLogger(input: InputStream) = try {
+            input.bufferedReader().use { lines ->
+                lines.forEachLine {
+                    if (Logs.enabled) Libcore.nekoLogPrintln("[$cmdName] ${redactOutput(it)}")
+                }
+            }
         } catch (_: IOException) {
         }    // 忽略
 
@@ -85,10 +90,10 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
             fun spawnLoggers() {
                 val child = process
                 thread(name = "stderr-$cmdName", isDaemon = true) {
-                    streamLogger(child.errorStream) { Libcore.nekoLogPrintln("[$cmdName] $it") }
+                    streamLogger(child.errorStream)
                 }
                 thread(name = "stdout-$cmdName", isDaemon = true) {
-                    streamLogger(child.inputStream) { Libcore.nekoLogPrintln("[$cmdName] $it") }
+                    streamLogger(child.inputStream)
                 }
                 // 子进程退出后，它的后代进程可能仍继承着 stdout/stderr。
                 // 回收（reap）不能等这些管道到达 EOF。
@@ -119,7 +124,7 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
                         killed -> Logs.w("$cmdName was killed")
                         else -> Logs.w(IOException("$cmdName unexpectedly exits with code $exitCode"))
                     }
-                    Logs.i("restart process: ${Commandline.toString(cmd)} (last exit code: $exitCode)")
+                    Logs.i("restart process: ${redactOutput(Commandline.toString(cmd))} (last exit code: $exitCode)")
                     start()
                     state.onStarted()
                     running = true
@@ -131,7 +136,7 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
                 // IOException 是进程退得太快 / 重启失败；其余意外异常同样按守护失败
                 // 处理：逃逸出协程会崩溃 :bg（池没有 CoroutineExceptionHandler），
                 // 吞掉则 start() 已失败的 guard 会永远挂在 exitChannel.receive() 上不再守护
-                Logs.w("error occurred. stop guard: ${Commandline.toString(cmd)}")
+                Logs.w("error occurred. stop guard: ${redactOutput(Commandline.toString(cmd))}")
                 if (coroutineContext.isActive) {
                     appScope.launch(Dispatchers.Main) {
                         if (this@GuardedProcessPool.coroutineContext.isActive) {
@@ -166,9 +171,10 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
     fun start(
         cmd: List<String>,
         env: Map<String, String> = emptyMap(),
+        redactOutput: (String) -> String,
     ): ProcessState {
-        Logs.i("start process: ${Commandline.toString(cmd)}")
-        val guard = Guard(cmd, env).apply {
+        Logs.i("start process: ${redactOutput(Commandline.toString(cmd))}")
+        val guard = Guard(cmd, env, redactOutput).apply {
             start() // 启动失败会直接抛出 IOException
             guards.add(this)
             if (!coroutineContext.isActive) {

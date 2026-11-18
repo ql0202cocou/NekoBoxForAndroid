@@ -1,6 +1,11 @@
 package io.nekohasekai.sagernet.bg.proto
 
+import io.nekohasekai.sagernet.bg.GuardedProcessPool
 import io.nekohasekai.sagernet.database.ProxyEntity
+import io.nekohasekai.sagernet.fmt.ConfigBuildResult
+import io.nekohasekai.sagernet.fmt.LocalSocksAuth
+import io.nekohasekai.sagernet.fmt.TrafficBindings
+import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.appScope
 import io.nekohasekai.sagernet.uitest.UiTestBase
 import kotlinx.coroutines.CoroutineStart
@@ -19,6 +24,7 @@ import org.robolectric.annotation.Implementation
 import org.robolectric.annotation.Implements
 import org.robolectric.shadow.api.Shadow
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CyclicBarrier
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -54,6 +60,39 @@ class BoxInstanceLifecycleTest : UiTestBase() {
         }
         fun awaitEntered() = assertTrue("必须到达受控的生命周期阶段", entered.await(10, TimeUnit.SECONDS))
         override fun close() = release.countDown()
+    }
+
+    @Test
+    fun `外核的两个输出流写到日志前均已遮蔽凭据`() {
+        val auth = LocalSocksAuth("synthetic-user", "synthetic-password")
+        val config = ConfigBuildResult(
+            """{"password":"main-secret"}""", emptyList(), 1L, TrafficBindings(emptyMap(), emptyMap(), emptySet()),
+            emptyMap(), -1L, localAuth = auth,
+        )
+        val redact = config.externalOutputRedactor(listOf("""{"user":{"password":"plugin-secret"}}"""))
+        val received = CountDownLatch(2)
+        val lines = CopyOnWriteArrayList<String>()
+        ShadowLifecycleLibcore.log = {
+            if (it.startsWith("[sh] ")) {
+                lines.add(it)
+                received.countDown()
+            }
+        }
+        val pool = GuardedProcessPool { fail("模拟外核意外退出") }
+        Logs.enabled = true
+        try {
+            // 等标准输入使两个输出线程都读完后才关闭进程。
+            pool.start(
+                listOf("/bin/sh", "-c", """echo "out ${'$'}OUT"; echo "err ${'$'}ERR" >&2; read -r stop"""),
+                mapOf("OUT" to "main-secret ${auth.password}", "ERR" to "plugin-secret ${auth.withWrongPassword().password}"),
+                redact,
+            )
+            assertTrue(received.await(10, TimeUnit.SECONDS))
+            assertEquals(setOf("[sh] out *** ***", "[sh] err *** ***"), lines.toSet())
+        } finally {
+            ui.viaWorker { runBlocking { withTimeout(10_000) { pool.close(this).join() } } }
+            Logs.enabled = false
+        }
     }
 
     @Test
@@ -227,11 +266,16 @@ class BoxInstanceLifecycleTest : UiTestBase() {
         companion object {
             var create: () -> CoreBox = { error("未设置测试核心") }
             var test: (CoreBox) -> Int = { error("不应进入测速") }
+            var log: (String) -> Unit = {}
             var urlTests = 0
 
             @JvmStatic
             @Implementation
             fun __staticInitializer__() {}
+
+            @JvmStatic
+            @Implementation
+            fun nekoLogPrintln(message: String) = log(message)
 
             @JvmStatic
             @Implementation
@@ -247,6 +291,7 @@ class BoxInstanceLifecycleTest : UiTestBase() {
             }
 
             fun reset() {
+                log = {}
                 create = { error("未设置测试核心") }
                 test = { error("不应进入测速") }
                 urlTests = 0

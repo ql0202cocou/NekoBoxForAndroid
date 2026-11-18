@@ -550,7 +550,7 @@ class ExternalCoreProbesTest {
     @Test
     fun `校验父进程退出后继承输出管道的后代不会拖住调用方`() = runBlocking {
         val start = System.nanoTime()
-        val result = runCheckProcess(sh("sleep 3 & echo synthetic-done; exit 0"), null, 1000) { false }
+        val result = runCheckProcess(sh("sleep 3 & echo synthetic-done; exit 0"), null, 1000, { false })
         assertEquals(0, result.exitCode)
         assertTrue("继承的管道不应阻塞清理", (System.nanoTime() - start) / 1_000_000 < 1500)
     }
@@ -563,6 +563,18 @@ class ExternalCoreProbesTest {
         assertEquals(23, result.exitCode)
         assertEquals(listOf("out", "err", "env-ok"), result.output.lines())
         assertEquals(0, runCheckProcess(sh("true"), null, 5000, { false }).exitCode)
+    }
+
+    @Test
+    fun `校验长行先脱敏再截断`() = runBlocking {
+        val secret = "synthetic-check-password"
+        val launch = ExternalCoreLaunch(
+            listOf("/bin/sh", "-c", """echo "${'$'}LINE" >&2; exit 23"""),
+            mapOf("LINE" to "a".repeat(8190) + secret),
+        )
+        val result = runCheckProcess(launch, null, 5000, { false }) { it.replace(secret, "***") }
+        assertEquals(23, result.exitCode)
+        assertEquals("a".repeat(8190) + "**", result.output)
     }
 
     @Test
