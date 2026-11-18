@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.uitest
 
 import io.nekohasekai.sagernet.database.ProxyEntity
+import io.nekohasekai.sagernet.fmt.mieru.MieruBean
 import io.nekohasekai.sagernet.fmt.putBean
 import io.nekohasekai.sagernet.fmt.parseUniversal
 import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
@@ -36,5 +37,13 @@ class ShareLinkVersionTest : UiTestBase() {
         val imported = parseShadowsocks(standard).apply { initializeDefaultValues() }
         assertEquals(true, imported.sUoT)
         assertEquals(2, imported.sUoTVersion)
+    }
+
+    @Test
+    fun mieruOnlyOffersItsUniversalFormat() {
+        val bean = MieruBean().apply { initializeDefaultValues() }
+        val row = ProxyEntity().putBean(bean)
+        assertFalse(row.haveStandardLink())
+        assertTrue(parseUniversal(row.toStdLink()) { false } is MieruBean)
     }
 }

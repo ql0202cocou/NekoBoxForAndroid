@@ -400,6 +400,7 @@ fun protocolColorAttr(): Int = com.google.android.material.R.attr.colorOnSurface
 fun hasStandardLink(bean: AbstractBean): Boolean = when (bean) {
     is AnyTLSBean -> bean.certificatePolicy == AnyTLSBean.CERTIFICATE_POLICY_PIN && !bean.hasLocalSocksOverride()
     is ShadowsocksBean -> bean.sUoTVersion != 1
+    is MieruBean -> false
     is SSHBean -> false
     is WireGuardBean -> false
     is ShadowTLSBean -> false

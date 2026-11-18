@@ -79,11 +79,7 @@ class ProtocolContractTest {
         ProxyEntity.TYPE_VMESS to Expect(true, Share.DEDICATED, true, singBox = true, external = true),
         ProxyEntity.TYPE_TROJAN to Expect(true, Share.DEDICATED, true, singBox = true, external = true),
         ProxyEntity.TYPE_TROJAN_GO to Expect(true, Share.DEDICATED, true, singBox = false, external = true),
-        // Mieru 没有专属链接，standardLink 回落到 sn://，hasStandardLink 却是 true：「标准」菜单项与「SN Link」重复
-        ProxyEntity.TYPE_MIERU to Expect(
-            true, Share.UNIVERSAL, true, singBox = false, external = true,
-            note = "hasStandardLink 为 true 但没有专属链接（已知缺口）",
-        ),
+        ProxyEntity.TYPE_MIERU to Expect(true, Share.UNIVERSAL, false, singBox = false, external = true),
         ProxyEntity.TYPE_NAIVE to Expect(true, Share.DEDICATED, true, singBox = false, external = true),
         ProxyEntity.TYPE_HYSTERIA to Expect(true, Share.DEDICATED, true, singBox = true, external = true),
         ProxyEntity.TYPE_SSH to Expect(true, Share.UNIVERSAL, false, singBox = true, external = false),
@@ -229,7 +225,7 @@ class ProtocolContractTest {
             if ((expect.share == Share.DEDICATED) != isDedicated) {
                 failures += "${proto.name}：预期表写 ${expect.share}，ProtocolLinkCases 里${if (isDedicated) "有" else "没有"}它的专属链接规格"
             }
-            // hasStandardLink 为真却没有专属链接：必须在预期表里带 note 说明（Mieru、Chain），修好后要把 note 一并删掉
+            // hasStandardLink 为真却没有专属链接：必须在预期表里带 note 说明（Chain），修好后要把 note 一并删掉
             val gap = expect.hasStandardLink && !isDedicated
             if (gap && expect.note.isEmpty()) failures += "${proto.name}：hasStandardLink 为真但没有专属链接，预期表没有说明"
             if (!gap && expect.note.isNotEmpty() && proto.constructible && proto.type != TYPE_NEKO) {
