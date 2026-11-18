@@ -5,6 +5,7 @@ import io.nekohasekai.sagernet.bg.AbstractInstance
 import io.nekohasekai.sagernet.bg.GuardedProcessPool
 import io.nekohasekai.sagernet.bg.LocalPortTarget
 import io.nekohasekai.sagernet.bg.awaitLocalPorts
+import io.nekohasekai.sagernet.bg.localReadinessSummary
 import io.nekohasekai.sagernet.bg.probeWrongPassword
 import io.nekohasekai.sagernet.bg.runCheckProcess
 import io.nekohasekai.sagernet.database.ProxyEntity
@@ -210,7 +211,7 @@ abstract class BoxInstance(
         outcome.warnings.forEach { Logs.w(it) }
         outcome.failure?.let { throw it }
         val elapsed = SystemClock.elapsedRealtime() - startedAt
-        Logs.i("external cores: ${targets.size} local inbounds ready in $elapsed ms")
+        Logs.i(localReadinessSummary(statuses, elapsed))
     }
 
     // 认证检查（K0b）：入站全部就绪之后，对每个内置 Xray 进程抽第一个跳实例，用正确的用户名与错误的

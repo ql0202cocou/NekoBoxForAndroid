@@ -120,6 +120,9 @@ class LocalPortTarget(val port: Int, val strict: Boolean, val auth: LocalSocksAu
  */
 class LocalPortStatus(val ready: Boolean, val exitCode: Int?, val lastError: String?)
 
+internal fun localReadinessSummary(statuses: List<LocalPortStatus>, elapsedMs: Long): String =
+    "external cores: ${statuses.count { it.ready }}/${statuses.size} local inbounds ready in $elapsedMs ms"
+
 private const val READY_POLL_MS = 20L
 private const val PROBE_TIMEOUT_MS = 200
 

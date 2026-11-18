@@ -341,6 +341,7 @@ class ExternalCoreProbesTest {
         assertEquals(1, lenient[0].exitCode)
         assertFalse(lenient[0].ready)
         assertTrue(lenient[1].ready)
+        assertEquals("external cores: 1/2 local inbounds ready in 42 ms", localReadinessSummary(lenient, 42))
     }
 
     @Test

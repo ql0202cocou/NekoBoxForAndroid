@@ -482,7 +482,7 @@ raw/             原始数据：device.txt、host.txt、prepare/start/finish(.tx
   已由界面绑定服务而启动，不计入 `connectedMs`。
 - `connectedMs` 含外核的启动前校验与启动就绪等待（`BoxInstance.init` / `launch`）。二者各自的耗时记在 `raw/neko.log`
   的 Info 行里：`<插件 id>: config of <N> hops checked in <毫秒> ms`（每组一行）与
-  `external cores: <N> local inbounds ready in <毫秒> ms`；汇总不解析它们。K0b 起就绪等待对内置 Xray 的每个入站做带用户名 / 密码的 SOCKS5
+  `external cores: <已就绪数>/<总数> local inbounds ready in <毫秒> ms`；汇总不解析它们。K0b 起就绪等待对内置 Xray 的每个入站做带用户名 / 密码的 SOCKS5
   握手（凭据取自运行计划）；Xray 配置关掉了访问日志（`log.access` 为 `none`），探测与正常连接都不再留 accepted 行。
 
 ## 2026-11-05 AnyTLS 正式支持与默认 sing-box
