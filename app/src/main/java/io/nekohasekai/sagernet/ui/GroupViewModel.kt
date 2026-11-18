@@ -58,6 +58,8 @@ class GroupViewModel(private val handle: SavedStateHandle) : ListViewModel<Group
     private var dragging = false
     private var reloadAfterDrag = false
 
+    private var reloadGen = 0L
+
     init {
         GroupRepository.addListener(this)
         reload()
@@ -89,12 +91,14 @@ class GroupViewModel(private val handle: SavedStateHandle) : ListViewModel<Group
     /** 整表重读。可从任意线程调用（监听回调、撤销提交、进程级协程）；ViewModel 清除后什么也不做 */
     fun reload() {
         viewModelScope.launch {
+            val gen = ++reloadGen
             val groups = withContext(Dispatchers.IO) {
                 val groups = GroupRepository.getAllGroups().toMutableList()
                 val ungrouped = groups.find { it.ungrouped }
                 if (ungrouped != null && groups.size > 1 && ProfileRepository.countProfilesByGroup(ungrouped.id) == 0L) groups.removeAll { it.ungrouped }
                 groups
             }
+            if (gen != reloadGen) return@launch
             if (dragging) {
                 reloadAfterDrag = true
                 return@launch

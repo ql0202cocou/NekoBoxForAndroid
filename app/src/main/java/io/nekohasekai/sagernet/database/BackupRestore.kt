@@ -169,6 +169,11 @@ object BackupRestore {
             local()
         }
 
+    fun replayPending(retry: Boolean = false): RestoreJournal.Result =
+        RestoreJournal.default.completePending(retry) { content, profile, rule, setting ->
+            commit(decode(content, profile, rule, setting), null)
+        }
+
     // Debug-only fault injection for the window between the two commits:
     // `adb shell run-as <package> touch files/debug.restore-crash`.
     private val crashBetweenCommits
@@ -236,7 +241,6 @@ object BackupRestore {
                 // mergeSettings 走，不在此处理
                 DataStore.rulesFirstCreate = true
             }
-            journal?.clear()
         } catch (failure: Throwable) {
             // Room makes each database transaction atomic. Compensate the
             // already-committed other database if the second commit fails.
@@ -252,6 +256,8 @@ object BackupRestore {
             }
             throw failure
         }
+        // 两库均已提交。即使清日志失败也只能重放，不能单独补偿首库。
+        journal?.clear()
     }
 
     // Imported selections may reference rows that do not exist here (e.g. a

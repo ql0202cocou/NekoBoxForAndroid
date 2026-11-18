@@ -11,11 +11,17 @@ import android.os.Build
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
+import android.widget.ImageButton
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.TorchState
+import androidx.camera.view.PreviewView
 import androidx.core.content.getSystemService
+import androidx.core.view.ViewCompat
 import androidx.core.net.toUri
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.switchMap
 import com.google.zxing.Result
 import com.king.camera.scan.AnalyzeResult
 import com.king.camera.scan.BaseCameraScan
@@ -62,7 +68,14 @@ class ScannerActivity : ThemedActivity(),
         // 二维码库
         initCameraScan()
         startCamera()
-        binding.ivFlashlight.setOnClickListener { toggleTorchState() }
+        // 相机异步绑定，预览重启时订阅新相机的实际状态；请求失败时不会误报已开启。
+        binding.previewView.previewStreamState.switchMap { stream ->
+            val camera = cameraScan.camera
+            if (stream == PreviewView.StreamState.STREAMING && camera?.cameraInfo?.hasFlashUnit() == true) {
+                camera.cameraInfo.torchState
+            } else MutableLiveData<Int?>(null)
+        }.observe(this) { binding.ivFlashlight.displayTorchState(it) }
+        binding.ivFlashlight.setOnClickListener { cameraScan.enableTorch(!cameraScan.isTorchEnabled) }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -242,15 +255,6 @@ class ScannerActivity : ThemedActivity(),
         cameraScan.release()
     }
 
-    /**
-     * 切换闪光灯状态（开启/关闭）
-     */
-    protected fun toggleTorchState() {
-        val isTorch = cameraScan.isTorchEnabled
-        cameraScan.enableTorch(!isTorch)
-        binding.ivFlashlight.isSelected = !isTorch
-    }
-
     val CAMERA_PERMISSION_REQUEST_CODE = 0X86
 
     companion object {
@@ -286,4 +290,10 @@ class ScannerActivity : ThemedActivity(),
         releaseCamera()
         super.onDestroy()
     }
+}
+
+internal fun ImageButton.displayTorchState(state: Int?) {
+    isEnabled = state != null
+    isSelected = state == TorchState.ON
+    ViewCompat.setStateDescription(this, context.getString(if (isSelected) R.string.on else R.string.off))
 }

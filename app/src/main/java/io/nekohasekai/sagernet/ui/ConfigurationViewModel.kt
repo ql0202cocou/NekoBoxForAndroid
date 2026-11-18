@@ -43,9 +43,11 @@ class ConfigurationViewModel(private val handle: SavedStateHandle) : HostedViewM
     interface Host {
         /**
          * 读库结果到了：[groups] 是新列表，[selectedGroup] 大于 0 时要切到该分组。
-         * 适配器做差量刷新，最后用 [commitGroups] 把新列表交回 ViewModel。[now] 为真时直接应用，否则等 ViewPager 挂上之后
+         * 适配器做差量刷新，并用 [commitGroups] 把新列表交回 ViewModel。
          */
-        fun applyGroups(groups: ArrayList<ProxyGroup>, selectedGroup: Long, now: Boolean)
+        fun applyGroups(groups: ArrayList<ProxyGroup>, selectedGroup: Long)
+
+        fun postWhenAttached(block: () -> Unit)
 
         /** 新分组已追加到 [groupList] 末尾：补 tab、通知插入并选中它 */
         fun groupInserted(group: ProxyGroup)
@@ -93,6 +95,8 @@ class ConfigurationViewModel(private val handle: SavedStateHandle) : HostedViewM
     // 批量删除提交后才逐条发 onRemoved，ungrouped 被删空时每条都会看到 0：
     // 已排上一次 reload 就不再查数、不再重复 reload，reload 换完列表后复位
     private val emptyUngroupedReloadPending = AtomicBoolean(false)
+
+    private var reloadGen = 0L
 
     private class Loaded(val groups: ArrayList<ProxyGroup>, val selectedGroup: Long)
 
@@ -149,6 +153,7 @@ class ConfigurationViewModel(private val handle: SavedStateHandle) : HostedViewM
     fun reload(now: Boolean = false) {
         viewModelScope.launch {
             // arguments 里的已选节点（选择模式）所在分组和用户翻到的分组是页面状态，在主线程取；读库兜底的部分才进 IO
+            val gen = ++reloadGen
             val preferred = selectedGroupId.takeIf { it > 0L } ?: argGroupId
             var handedOver = false
             try {
@@ -166,28 +171,26 @@ class ConfigurationViewModel(private val handle: SavedStateHandle) : HostedViewM
                         }
                     }
 
-                    val selectedGroup = preferred ?: GroupRepository.currentGroupId()
-                    val set = selectedGroup > 0L
-                    if (!set && newGroupList.size == 1) {
-                        val onlyGroup = newGroupList[0].id
-                        if (DataStore.selectedGroup != onlyGroup) {
-                            DataStore.selectedGroup = onlyGroup
-                        }
-                    }
-                    Loaded(newGroupList, if (set) selectedGroup else 0L)
+                    Loaded(newGroupList, preferred ?: GroupRepository.currentGroupId())
                 }
+                fun applyLatest() {
+                    if (gen != reloadGen) return
+                    // 读库以及等待 ViewPager 挂载期间，用户都可能已经切到了另一页。
+                    val selected = selectedGroupId.takeIf { it > 0L } ?: argGroupId
+                        ?: DataStore.selectedGroup.takeIf { it > 0L } ?: loaded.selectedGroup
+                    if (selected <= 0 && loaded.groups.size == 1) DataStore.selectedGroup = loaded.groups.single().id
+                    val currentHost = host
+                    if (currentHost == null) commitGroups(loaded.groups)
+                    else currentHost.applyGroups(loaded.groups, selected)
+                }
+                if (gen != reloadGen) return@launch
+                val currentHost = host
+                if (now || currentHost == null) applyLatest() else currentHost.postWhenAttached(::applyLatest)
                 handedOver = true
-                val host = host
-                if (host == null) {
-                    // 旋转的空档：只换列表，新适配器建好时直接取
-                    commitGroups(loaded.groups)
-                } else {
-                    host.applyGroups(loaded.groups, loaded.selectedGroup, now)
-                }
             } finally {
                 // 正常路径由 commitGroups 复位；读库期间被取消（ViewModel 清除）或失败时在这里兜底，
                 // 免得标记一直挂着、之后的空分组 reload 全被跳过
-                if (!handedOver) emptyUngroupedReloadPending.set(false)
+                if (!handedOver && gen == reloadGen) emptyUngroupedReloadPending.set(false)
             }
         }
     }

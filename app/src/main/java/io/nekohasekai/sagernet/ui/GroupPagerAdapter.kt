@@ -57,18 +57,11 @@ class GroupPagerAdapter(private val fragment: ConfigurationFragment) : FragmentS
     }
 
     // ConfigurationViewModel.Host
-    override fun applyGroups(groups: ArrayList<ProxyGroup>, selectedGroup: Long, now: Boolean) {
-        if (now) {
-            applyLoaded(groups, selectedGroup)
-        } else {
-            fragment.groupPager.post {
-                // 视图销毁（或已换成新适配器）之后只把读到的列表交给 ViewModel，不再碰 View
-                if (model.isAttached(this)) applyLoaded(groups, selectedGroup) else model.commitGroups(groups)
-            }
-        }
+    override fun postWhenAttached(block: () -> Unit) {
+        fragment.groupPager.post(block)
     }
 
-    private fun applyLoaded(groups: ArrayList<ProxyGroup>, selectedGroup: Long) {
+    override fun applyGroups(groups: ArrayList<ProxyGroup>, selectedGroup: Long) {
         // 回调只在主线程增删：reload 也会从后台的监听器（onAdd / onRemoved）
         // 调用，主线程这时可能正在分发回调。数据集变化和 setCurrentItem
         // 期间摘掉它，免得把 selectedGroup 写成过渡中的页

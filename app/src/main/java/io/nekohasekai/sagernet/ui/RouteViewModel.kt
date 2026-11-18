@@ -81,6 +81,7 @@ class RouteViewModel : ListViewModel<RouteViewModel.Host>() {
                 val rules = RuleRepository.getRules()
                 rules to RuleRepository.outboundProfileNames(rules)
             }
+            if (gen != reloadGen) return@launch
             // 列表变更的统一入口：先提交撤销窗口，再换列表（撤销下标只对删除当时的列表有效）
             mutateList {
                 // 提交只是把删除交给后台，读库可能早于它，所以过滤不能省

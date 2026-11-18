@@ -116,6 +116,14 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
             }
         }
 
+        binding.retryRestore.setOnClickListener {
+            runImport {
+                if (!stopServiceAndWait()) throw ServiceStopTimeoutException()
+                if (BackupRestore.replayPending(retry = true) == RestoreJournal.Result.PENDING) {
+                    throw ReplayPendingException()
+                }
+            }
+        }
         binding.actionImportFile.setOnClickListener {
             startFilesForResult(importFile, "*/*")
         }
@@ -235,41 +243,15 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                     val profile = import.backupConfigurations.isChecked
                     val rule = import.backupRules.isChecked
                     val setting = import.backupSettings.isChecked
-                    // 对话框属于 Activity 的窗口，不属于本页的视图：收尾按 Activity 是否还活着判断
-                    val host = requireActivity()
-                    val binding = LayoutProgressBinding.inflate(layoutInflater)
-                    binding.content.text = getString(R.string.backup_importing)
-                    val dialog = AlertDialog.Builder(requireContext())
-                        .setView(binding.root)
-                        .setCancelable(false)
-                        .show()
-                    // 放在进程级的作用域里：下面要先停服务再等它停稳，等待期间页面被重建（旋转等）
-                    // 不能取消这次恢复，否则服务已停、备份却没导入，也没有任何提示。
-                    // 进程级：界面收尾（失败提示、关进度框）只在页面存活时做，其余不碰 View
-                    runOnDefaultDispatcher {
-                        runCatching {
-                            // 先解码并校验（备份损坏、引用断链在这里就中止），此时服务还没动
-                            val decoded = BackupRestore.decode(content, profile, rule, setting)
-                            // 服务在跑时先停，等它确认停止（最终流量已落库）再写库；
-                            // 否则旧服务收尾时按 id 写的 tx / rx 会盖掉恢复值，或写到复用同 id 的别的节点
-                            if (!stopServiceAndWait()) throw ServiceStopTimeoutException()
-                            val skipped = finishImport(content, decoded, profile, rule, setting)
-                            if (skipped > 0) {
-                                Logs.w("Backup import skipped $skipped invalid record(s)")
-                                showSnackbar(app.getString(R.string.backup_import_skipped, skipped))
-                            }
-                            // 恢复绕过 GroupManager 事件，重启也不会重排持久化的
-                            // WorkManager 任务：导入后按新的分组集合重排一次订阅调度，
-                            // 排期失败只记日志，不会拦住下面的重启
-                            SubscriptionUpdater.reconfigureUpdater()
-                            triggerFullRestart(app)
-                        }.onFailure {
-                            Logs.w(it)
-                            onLiveView { alert(importFailureMessage(it)).tryToShow() }
+                    runImport {
+                        // 先校验，文件无效时不打断正在运行的服务。
+                        val decoded = BackupRestore.decode(content, profile, rule, setting)
+                        if (!stopServiceAndWait()) throw ServiceStopTimeoutException()
+                        val skipped = finishImport(content, decoded, profile, rule, setting)
+                        if (skipped > 0) {
+                            Logs.w("Backup import skipped $skipped invalid record(s)")
+                            showSnackbar(app.getString(R.string.backup_import_skipped, skipped))
                         }
-
-                        // 页面期间被重建过时，旧窗口已随旧 Activity 移除，不再 dismiss
-                        host.onLiveActivity { dialog.dismiss() }
                     }
                 }
                 .setNegativeButton(android.R.string.cancel, null)
@@ -277,6 +259,38 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         }
     }
 
+    // 恢复一旦开始就跨过页面重建执行；只有反馈与进度框依附于原窗口。
+    private fun runImport(restore: suspend () -> Unit) {
+        val host = requireActivity()
+        val binding = LayoutProgressBinding.inflate(layoutInflater)
+        binding.content.text = getString(R.string.backup_importing)
+        val dialog = AlertDialog.Builder(host).setView(binding.root).setCancelable(false).show()
+        runOnDefaultDispatcher {
+            runCatching {
+                restore()
+                SubscriptionUpdater.reconfigureUpdater()
+                triggerFullRestart(app)
+            }.onFailure { failure ->
+                Logs.w("Backup import failed: ${failure.javaClass.simpleName}")
+                onLiveView {
+                    updateRetryVisibility()
+                    alert(importFailureMessage(failure)).tryToShow()
+                }
+            }
+            host.onLiveActivity { dialog.dismiss() }
+        }
+    }
+
+    private fun updateRetryVisibility() {
+        LayoutBackupBinding.bind(requireView()).retryRestore.isVisible = RestoreJournal.default.isPending()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateRetryVisibility()
+    }
+
+    private class ReplayPendingException : Exception()
     private class ServiceStopTimeoutException : Exception()
 
     // 请求停止并等 :bg 报告已停止。:bg 的 stopRunner 在最终流量落库之后才报 Stopped（BaseService.killProcesses），
@@ -290,6 +304,8 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
 
     // 引用断链只显示类别与数量（BackupIntegrity），不带 id 与字段值
     private fun importFailureMessage(failure: Throwable): String {
+        if (failure is RestoreJournal.IncompleteReplacementException) return getString(R.string.restore_missing_sections)
+        if (failure is ReplayPendingException) return getString(R.string.restore_replay_failed)
         if (failure is ServiceStopTimeoutException) return getString(R.string.backup_import_service_timeout)
         if (failure !is BackupIntegrityException) return failure.readableMessage
         val lines = failure.breaks.map {
@@ -315,8 +331,14 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         // 或在这里提交失败回滚之后把备份又写一遍，清日志也会互相抢先
         return journal.withLock {
             // 第一次提交之前先暂存：两次数据库提交之间进程被杀时，下次启动会重放这份备份（RestoreJournal）
-            journal.stage(content, profile, rule, setting)
-            BackupRestore.commit(decoded, journal)
+            val wasPending = journal.stage(content, profile, rule, setting)
+            // 已有中断恢复时，补偿只能退回导入前的混合状态，仍需保留恢复来源。
+            if (wasPending) {
+                BackupRestore.commit(decoded, null)
+                journal.clear()
+            } else {
+                BackupRestore.commit(decoded, journal)
+            }
             decoded.skipped
         }
     }

@@ -302,6 +302,94 @@ class ConfigListDiffTest : UiTestBase() {
     }
 
     @Test
+    fun incrementalEditsUpdateHiddenRowsAndKeepTheActiveSort() {
+        val s = open()
+        val group = s.fixtures.normalGroup.id
+        setOrder(group, GroupOrder.BY_NAME)
+        s.adapter.filter("match-")
+        val first = s.fixtures.profiles.first().id
+        val second = s.fixtures.profiles[1].id
+
+        fun rename(id: Long, name: String) {
+            ui.viaWorker {
+                runBlocking {
+                    val profile = ProfileRepository.getProfile(id)!!
+                    profile.requireBean().name = name
+                    ProfileRepository.updateProfile(profile)
+                }
+            }
+            assertEquals(name, s.page.profileModel.latestEntity(id)!!.displayName())
+        }
+        rename(first, "match-z")
+        rename(second, "match-a")
+        val added = ui.viaWorker {
+            runBlocking {
+                ProfileRepository.createProfile(group, SOCKSBean().apply {
+                    name = "match-m"
+                    serverAddress = "192.0.2.19"
+                    serverPort = 1080
+                })
+            }
+        }
+        assertEquals(listOf(second, added.id, first), s.ids())
+        rename(first, "match-0")
+        assertEquals(listOf(first, second, added.id), s.ids())
+        rename(second, "hidden")
+        assertEquals(listOf(first, added.id), s.ids())
+        s.adapter.filter("hidden")
+        assertEquals(listOf(second), s.ids())
+        ui.viaWorker { runBlocking { ProfileRepository.deleteProfile(first) } }
+        assertNull(s.page.profileModel.latestEntity(first))
+    }
+
+    @Test
+    fun incrementalDelayUpdatesMoveRowsAndPreserveEqualDelayOrder() {
+        val s = open()
+        val group = s.fixtures.normalGroup.id
+        setOrder(group, GroupOrder.BY_DELAY)
+        val older = s.fixtures.profiles[3].id
+        val newer = s.fixtures.profiles[4].id
+        fun update(id: Long, ping: Int) = ui.viaWorker {
+            SagerDatabase.proxyDao.updateStatus(id, 1, ping, null)
+            runBlocking { ProfileRepository.postUpdate(id) }
+        }
+        update(newer, 1)
+        assertEquals(newer, s.ids().first())
+        update(older, 1)
+        assertEquals(listOf(older, newer), s.ids().take(2))
+        update(older, 3)
+        assertEquals(listOf(newer, older), s.ids().take(2))
+    }
+
+    @Test
+    fun equalNamesPreserveGroupOrderAfterDeletionAndInsertion() {
+        val s = open()
+        val group = s.fixtures.normalGroup.id
+        val p = s.fixtures.profiles
+        ui.viaWorker {
+            runBlocking {
+                for (profile in listOf(p[4], p[5], p[6])) {
+                    profile.requireBean().name = "Same name"
+                    ProfileRepository.updateProfile(profile)
+                }
+            }
+        }
+        setOrder(group, GroupOrder.BY_NAME)
+        s.adapter.filter("same name")
+        ui.viaWorker { runBlocking { ProfileRepository.deleteProfiles(p.take(3)) } }
+        val added = ui.viaWorker {
+            runBlocking {
+                ProfileRepository.createProfile(group, SOCKSBean().apply {
+                    name = "Same name"
+                    serverAddress = "192.0.2.30"
+                    serverPort = 1080
+                })
+            }
+        }
+        assertEquals(listOf(p[4].id, p[5].id, p[6].id, added.id), s.ids())
+    }
+
+    @Test
     fun filterMatchesNameTypeAndAddress() {
         val s = open()
         val p = s.fixtures.profiles

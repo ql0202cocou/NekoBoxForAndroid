@@ -89,11 +89,9 @@ class SagerNet : Application(),
             val restoreReplayed = try {
                 val journal = RestoreJournal.default
                 val result = if (!journal.isPending()) RestoreJournal.Result.NONE else runBlocking(Dispatchers.IO) {
-                    journal.completePending { content, profile, rule, setting ->
-                        BackupRestore.commit(BackupRestore.decode(content, profile, rule, setting), null)
-                    }
+                    BackupRestore.replayPending()
                 }
-                if (result == RestoreJournal.Result.GAVE_UP && isMainProcess) {
+                if (result == RestoreJournal.Result.PENDING && isMainProcess) {
                     Toast.makeText(this, R.string.restore_replay_failed, Toast.LENGTH_LONG).show()
                 }
                 if (InstallMarker.isMissing()) runBlocking(Dispatchers.IO) {

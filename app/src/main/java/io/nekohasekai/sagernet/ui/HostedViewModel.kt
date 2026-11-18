@@ -27,8 +27,6 @@ abstract class HostedViewModel<H : Any> : ViewModel() {
         onDetached()
     }
 
-    fun isAttached(host: H) = this.host === host
-
     protected open fun onAttached(host: H) = Unit
 
     protected open fun onDetached() = Unit

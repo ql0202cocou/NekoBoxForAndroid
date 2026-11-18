@@ -17,9 +17,9 @@ import io.nekohasekai.sagernet.fmt.displayType
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.moveUserOrder
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
-import io.nekohasekai.sagernet.widget.insertClamped
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * 配置页里一个分组页（[ProfileListFragment]）的页面级状态，旋转时留存、页面真正关闭时随 [onCleared] 清掉：
@@ -37,7 +37,7 @@ import kotlinx.coroutines.launch
  *
  * 搜索键：缓存里每一项是 [CachedProfile]，节点实例与它的搜索键（[searchKey]：名称、类型、地址三段逐字符折叠后拼起来）
  * 放在同一个对象里，一起放进、一起替换、一起删掉，不会出现「实例换了、键还是旧的」。键在节点进缓存时算一次
- * （整组重读、新增、单行更新在回调线程算好再回主线程，撤销插回在主线程算），之后每次按键只是每个节点一次
+ * （整组重读、新增、单行更新在回调线程算好再回主线程，撤销插回复用缓存），之后每次按键只是每个节点一次
  * `contains`、不再分配。实时流量只改实例上的 tx/rx，与搜索无关，键不用跟着变。取不到 bean 的坏行不缓存键，
  * 匹配时照旧现算（与原先一样在 displayName 处抛）。
  */
@@ -90,7 +90,7 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
     // 可见列表的可变工作副本，同时就是 differ 持有的那一个实例。
     // 整组重读经 submitItems 提交一份新副本，由 DiffUtil 发通知；
     // 其余路径都在主线程就地改它并紧跟精确的 notify：搜索过滤（applyFilter，沿完整顺序走一遍，不做 Myers 差量）、
-    // 拖动换位、删除、撤销插回、新增追加、单行更新（ItemTouchHelper 要求当场可见，撤销下标只对删除当时的列表有效）。
+    // 拖动换位、删除、撤销插回、新增、单行更新（ItemTouchHelper 要求当场可见）。
     // 主线程之外不碰
     var items = ArrayList<ProxyEntity>()
         private set
@@ -126,6 +126,11 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
     var listLoaded = false
 
     private var started = false
+    private val reloadGen = AtomicLong()
+    // 新排序的整组结果提交之前，增量通知按当前列表的顺序插入。
+    private var listOrder = order
+    // 组内原始次序只表示相对位置。删行后 DAO 会压紧 userOrder，不能把新读出的值与旧实体的值混排。
+    private var nextSourceOrder = 0
 
     private val updated = HashSet<ProxyEntity>()
 
@@ -229,8 +234,7 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
             reloadAsync()
             return
         }
-        // 与 onAdd / reloadProfiles 一样先提交撤销窗口：undo 按删除时的可见位置
-        // 插回，过滤后列表变短就会越界
+        // 过滤与其它列表变动经过同一撤销窗口。
         mutateList {
             applyFilter()
         }
@@ -324,7 +328,13 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
         val updated = HashSet(updated)
         this.updated.clear()
         dragging = false
-        val deferredReload = reloadAfterDrag
+        // 拖动期间按屏幕顺序工作。落库后若启用了名称或延迟排序，再按该排序载入。
+        if (updated.isNotEmpty()) {
+            allProfileIds.forEachIndexed { index, id -> configurationList.getValue(id).sourceOrder = index }
+            nextSourceOrder = allProfileIds.size
+            listOrder = GroupOrder.ORIGIN
+        }
+        val deferredReload = reloadAfterDrag || (updated.isNotEmpty() && order != GroupOrder.ORIGIN)
         reloadAfterDrag = false
         // 进程级：拖动排序的落库，页面随后离开也要写完
         runOnDefaultDispatcher {
@@ -346,25 +356,13 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
         host?.notifyRemoved(pos)
     }
 
-    // 撤销插回：就地改，下标夹在当前范围内
+    // 按当前排序和过滤插回。整组重读可能已恢复该行，外部删除也可能已清掉缓存。
     fun undo(actions: List<Pair<Int, ProxyEntity>>) {
-        for ((index, item) in actions) {
+        for ((_, item) in actions) {
             postToMain {
-                // 点撤销到这个 post 执行之间若有整组重读，它已经把这一行读回来了（库里还没删），不能再插一次
                 if (item.id in allProfileIds) return@postToMain
-                configurationList[item.id] = CachedProfile.of(item)
-                // 下标夹在当前范围内：窗口期间列表被改短也不越界
-                val at = items.insertClamped(index, item)
-                // back into the search source, anchored on the row it was
-                // restored above: deleting is allowed while filtering, and
-                // `index` is then a visible position the full list has never
-                // shared
-                val anchor = items.getOrNull(at + 1)?.id
-                allProfileIds.add(
-                    anchor?.let { allProfileIds.indexOf(it) }?.takeIf { it >= 0 }
-                        ?: allProfileIds.size, item.id
-                )
-                host?.notifyInserted(at)
+                val cached = configurationList[item.id] ?: return@postToMain
+                insertProfile(cached, -1)
             }
         }
     }
@@ -379,45 +377,66 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
 
     // ------------------------------------------------------------- 仓库通知
 
-    // 新增：就地追加到末尾。导入一批节点会逐个来到这里，每个都做一次整表差量是 O(n²)
+    // 同名或同延迟时按库中的原始顺序。整组重读和增量插入共用同一比较规则。
+    private fun profileOrder(order: Int): Comparator<CachedProfile> = when (order) {
+        GroupOrder.BY_NAME -> compareBy<CachedProfile> { it.entity.displayName() }.then(sourceOrder)
+        GroupOrder.BY_DELAY -> compareBy<CachedProfile> { if (it.entity.status == 1) it.entity.ping else 114514 }
+            .then(sourceOrder)
+        else -> sourceOrder
+    }
+
+    private fun insertProfile(cached: CachedProfile, previous: Int) {
+        val profile = cached.entity
+        configurationList[profile.id] = cached
+        val comparator = profileOrder(listOrder)
+        val fullIndex = allProfileIds.binarySearch { comparator.compare(configurationList.getValue(it), cached) }.inv()
+        allProfileIds.add(fullIndex, profile.id)
+        if (previous >= 0) items.removeAt(previous)
+        if (!matchesQuery(cached)) {
+            if (previous >= 0) host?.notifyRemoved(previous)
+            return
+        }
+        val pos = if (items.size == allProfileIds.size - 1) fullIndex
+            else items.binarySearch { comparator.compare(configurationList.getValue(it.id), cached) }.inv()
+        items.add(pos, profile)
+        if (previous < 0) {
+            host?.notifyInserted(pos)
+        } else {
+            if (previous != pos) host?.notifyMoved(previous, pos)
+            host?.notifyChanged(pos, PAYLOAD_UPDATED)
+        }
+    }
+
     override suspend fun onAdd(profile: ProxyEntity) {
         if (profile.groupId != groupId) return
-        // 搜索键在回调线程算好
         val cached = CachedProfile.of(profile)
-
         postToMain {
             mutateList {
-                // 并发的整组重读可能已经把这一行读进来了（先落库、重读先到、onAdd 后到）：
-                // 重读的数据不旧于这次通知，按 id 去重，在就不再追加
-                if (profile.id in allProfileIds) return@mutateList
-                configurationList[profile.id] = cached
-                allProfileIds.add(profile.id)
-                // 搜索中只把命中的新节点放进可见列表，与 visibleItems() 的过滤一致
-                if (!matchesQuery(cached)) return@mutateList
-                val pos = items.size
-                items.add(profile)
-                host?.notifyInserted(pos)
+                if (dragging) {
+                    reloadAfterDrag = true
+                } else if (profile.id !in configurationList) {
+                    cached.sourceOrder = nextSourceOrder++
+                    insertProfile(cached, -1)
+                }
             }
         }
     }
 
-    // 单行更新（选中项切换、清除流量 / 测速结果的 postUpdate、编辑器保存）：内容可能没变
-    // （选中态不在卡片字段里），差量看不出，所以走定点通知而不是整表提交
     override suspend fun onUpdated(profile: ProxyEntity) {
         if (profile.groupId != groupId) return
-        // 搜索键在回调线程算好
         val cached = CachedProfile.of(profile)
         postToMain {
-            // compute the index here: this callback runs on a background
-            // dispatcher while the main thread mutates the list
-            val index = indexOfId(profile.id)
+            // 包含搜索时隐藏的行，但不能把正等待撤销或已删除的行插回来。
+            val index = allProfileIds.indexOf(profile.id)
             if (index < 0) return@postToMain
+            if (dragging) {
+                reloadAfterDrag = true
+                return@postToMain
+            }
             mutateList {
-                // 库里的 tx/rx 可能落后于实时流量，重绑时 bind 会优先取
-                // ProfileRepository.liveTraffic
-                configurationList[profile.id] = cached
-                items[index] = profile
-                host?.notifyChanged(index, PAYLOAD_UPDATED)
+                cached.sourceOrder = configurationList.getValue(profile.id).sourceOrder
+                allProfileIds.removeAt(index)
+                insertProfile(cached, indexOfId(profile.id))
             }
         }
     }
@@ -443,14 +462,13 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
         if (groupId != this.groupId) return
 
         postToMain {
-            // 别处删了节点（菜单批删、编辑器删除）：先提交撤销窗口。undo 按删除时的位置插回，列表变短会越界；
-            // 删的若正是窗口里待删的那个，撤销还会插回一行库里已没有的节点
+            // 别处删节点时先提交撤销窗口，同时清掉可见和隐藏行的缓存。
             mutateList {
                 allProfileIds.remove(profileId)
+                configurationList.remove(profileId)
                 val index = indexOfId(profileId)
                 if (index < 0) return@mutateList
                 items.removeAt(index)
-                configurationList.remove(profileId)
                 host?.notifyRemoved(index)
             }
         }
@@ -461,14 +479,11 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
 
     override suspend fun groupUpdated(group: ProxyGroup) {
         if (group.id != groupId) return
-        order = group.order
         reloadProfiles()
     }
 
     override suspend fun groupUpdated(groupId: Long) {
         if (groupId != this.groupId) return
-        // null when the group was deleted mid-update (e.g. subscription)
-        order = GroupRepository.getGroup(groupId)?.order ?: return
         reloadProfiles()
     }
 
@@ -481,28 +496,20 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
      * 只有首次载入才定位到选中节点
      */
     fun reloadProfiles() {
-        var newProfiles = ProfileRepository.getProfilesByGroup(groupId)
-        when (order) {
-            GroupOrder.BY_NAME -> {
-                newProfiles = newProfiles.sortedBy { it.displayName() }
-
-            }
-
-            GroupOrder.BY_DELAY -> {
-                newProfiles =
-                    newProfiles.sortedBy { if (it.status == 1) it.ping else 114514 }
-            }
-        }
-
-        val newProfileIds = newProfiles.map { it.id }
-        // 搜索键在这里（后台线程）算好，主线程只放进缓存
-        val newCached = newProfiles.map { CachedProfile.of(it) }
-
+        val gen = reloadGen.incrementAndGet()
+        // 读取同一轮的排序方式。旧的分组通知或清空搜索都不能带回已过时的排序。
+        val requestedOrder = GroupRepository.getGroup(groupId)?.order ?: order
+        val newCached = ProfileRepository.getProfilesByGroup(groupId).mapIndexed { index, profile ->
+            CachedProfile.of(profile, index)
+        }.let { if (requestedOrder == GroupOrder.ORIGIN) it else it.sortedWith(profileOrder(requestedOrder)) }
+        val newProfileIds = newCached.map { it.entity.id }
         val selectedProxy = if (selected) {
             selectedItemId ?: DataStore.selectedProxy
         } else null
 
         viewModelScope.launch(Dispatchers.Main) {
+            if (gen != reloadGen.get()) return@launch
+            order = requestedOrder
             // 拖动中不应用：库里还是拖动前的顺序。落下后 commitMove 会补读
             if (dragging) {
                 reloadAfterDrag = true
@@ -512,6 +519,8 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
             // mutate the lists on the main thread: this runs on a
             // background dispatcher while the main thread reads them
             mutateList {
+                listOrder = requestedOrder
+                nextSourceOrder = newCached.size
                 configurationList.clear()
                 newCached.associateByTo(configurationList) { it.entity.id }
                 allProfileIds.clear()
@@ -522,7 +531,7 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
             // 差量可能一条通知也不发（空分组载入空列表、内容没变）：载入完成与空状态仍要在这里确认
             host?.onListSubmitted()
 
-            scrollToInitialIfPending(selectedProxy, newProfiles.isNotEmpty())
+            scrollToInitialIfPending(selectedProxy, newCached.isNotEmpty())
         }
     }
 
@@ -548,6 +557,8 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
         const val ARG_SELECTED = "selected"
         const val NO_GROUP = -1L
 
+        private val sourceOrder = compareBy<CachedProfile>({ it.sourceOrder }, { it.entity.id })
+
         private const val KEY_INITIAL_SCROLL_DONE = "initialScrollDone"
 
         // 节点被更新（测试结果、编辑等）：就地重绑，不触发整卡的变更动画
@@ -559,11 +570,11 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
     }
 
     /** 缓存的一项：节点实例与按它算出的搜索键，成对放进、成对替换（见类注释） */
-    private class CachedProfile(val entity: ProxyEntity, val searchKey: String?) {
+    private class CachedProfile(val entity: ProxyEntity, val searchKey: String?, var sourceOrder: Int) {
         companion object {
             // 取不到 bean 的坏行不缓存键（null），匹配时照旧现算
-            fun of(profile: ProxyEntity) =
-                CachedProfile(profile, if (profile.beanForType() == null) null else profile.searchKey())
+            fun of(profile: ProxyEntity, sourceOrder: Int = 0) =
+                CachedProfile(profile, if (profile.beanForType() == null) null else profile.searchKey(), sourceOrder)
         }
     }
 }
