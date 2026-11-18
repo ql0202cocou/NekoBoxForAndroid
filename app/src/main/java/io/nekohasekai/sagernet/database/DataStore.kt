@@ -1,6 +1,6 @@
 package io.nekohasekai.sagernet.database
 
-import android.os.Binder
+import android.os.Process
 import io.nekohasekai.sagernet.CONNECTION_TEST_URL
 import io.nekohasekai.sagernet.IPv6Mode
 import io.nekohasekai.sagernet.Key
@@ -94,7 +94,8 @@ object DataStore {
     // 个 uid 段（UserHandle.getUserId 的内部实现，但该静态方法在 SDK 里
     // @hide 不可直接调，故用字面量除法）。替代依赖「hashCode==mHandle」
     // 这一未契约化实现的 getCallingUserHandle().hashCode()
-    private val userIndex by lazy { Binder.getCallingUid() / 100000 }
+    // 必须取本应用所属用户；Binder 调用线程上的 callingUid 可能属于另一个用户。
+    private val userIndex get() = Process.myUid() / 100000
     var mixedPort: Int
         get() = getLocalPort(Key.MIXED_PORT, 2080)
         set(value) = saveLocalPort(Key.MIXED_PORT, value)
