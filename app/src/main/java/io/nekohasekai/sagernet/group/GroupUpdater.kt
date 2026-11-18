@@ -50,7 +50,7 @@ abstract class GroupUpdater {
 
         // 同一订阅里的节点常共用域名：每个域名只解析一次，结果套用到所有同域名节点
         val byDomain = profiles.filter {
-            supportsAddressRewrite(it) && !it.serverAddress.isIpAddress()
+            supportsAddressRewrite(it) && it.serverAddress.isServerDomain()
         }.groupBy { it.serverAddress }
 
         resolveDomains(

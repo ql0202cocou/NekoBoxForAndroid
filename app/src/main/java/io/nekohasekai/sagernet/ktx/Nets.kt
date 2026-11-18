@@ -64,6 +64,9 @@ fun String.isIpAddress(): Boolean {
     return NGUtil.isIpv4Address(this) || NGUtil.isIpv6Address(this)
 }
 
+// 节点的域名才交给 DNS；含冒号的输入（包括带 zone 的 IPv6）由数值地址解析器处理。
+internal fun String.isServerDomain(): Boolean = ':' !in this && !NGUtil.isIpv4Address(this)
+
 // Editor check for a server host: a blank value would silently become 127.0.0.1 in
 // initializeDefaultValues, and whitespace or a path only fails later at dial time.
 // No host name or IP literal contains either, bracketed IPv6 included.

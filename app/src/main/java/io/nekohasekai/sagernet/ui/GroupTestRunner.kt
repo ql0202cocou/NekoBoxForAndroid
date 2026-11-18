@@ -14,7 +14,7 @@ import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.displayName
-import io.nekohasekai.sagernet.ktx.isIpAddress
+import io.nekohasekai.sagernet.ktx.isServerDomain
 import io.nekohasekai.sagernet.ktx.lookupServerAddress
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
 import io.nekohasekai.sagernet.ktx.readableMessage
@@ -32,8 +32,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import moe.matsuri.nb4a.ui.ConnectionTestNotification
 import moe.matsuri.nb4a.utils.Util
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.net.UnknownHostException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean
@@ -52,31 +54,15 @@ private val runningTest = AtomicBoolean(false)
 class GroupTestRunner(private val fragment: ConfigurationFragment) {
 
     fun pingTest() {
-        // 同组节点常共用一个域名，而下面的解析不带缓存、失败还要等满超时，
-        // 所以按本轮测试缓存结果（失败时缓存域名本身，后面照常报解析失败）。
-        // 缓存的是进行中的解析：并发 worker 碰上同一域名时等第一个的结果，不各解析一遍
-        val resolvedAddresses = ConcurrentHashMap<String, CompletableDeferred<String>>()
+        val addresses = PingAddressCache()
         runGroupTest({ it.requireBean().canTCPing() }) { group, profile ->
-            val domain = profile.requireBean().serverAddress
-            val address = if (domain.isIpAddress()) domain else {
-                val mine = CompletableDeferred<String>()
-                val existing = resolvedAddresses.putIfAbsent(domain, mine)
-                if (existing != null) existing.await() else try {
-                    // 组里配了节点解析 DNS（如 DoH）时优先使用，伪造域名也能解析
-                    // 测试不受 IPv6 模式限制（测速构建同样固定为启用），IPv4 优先
-                    (lookupServerAddress(
-                        domain, group.proxyServerNameserver, SagerNet.underlyingNetwork, IPv6Mode.ENABLE
-                    )
-                        .firstOrNull()?.hostAddress ?: domain).also { mine.complete(it) }
-                } catch (e: Throwable) {
-                    // 取消或意外异常都要让等待者拿到同一结果，否则它们会一直挂着
-                    mine.completeExceptionally(e)
-                    throw e
-                }
+            val address = addresses.resolve(profile.requireBean().serverAddress) { domain ->
+                // 测速与测速配置都启用双栈，IPv4 优先。
+                lookupServerAddress(domain, group.proxyServerNameserver, SagerNet.underlyingNetwork, IPv6Mode.ENABLE).firstOrNull()
             }
             if (!isActive) return@runGroupTest false
             // 在后台线程运行，fragment 可能已分离，getString() 会抛异常，所以用 app
-            if (!address.isIpAddress()) {
+            if (address == null) {
                 profile.status = 2
                 profile.error = app.getString(R.string.connection_test_domain_not_found)
                 return@runGroupTest true
@@ -244,6 +230,29 @@ class GroupTestRunner(private val fragment: ConfigurationFragment) {
                 "[${group.displayName()}] ${app.getString(R.string.connection_test)}"
             )
             test.hide()
+        }
+    }
+}
+
+// 每轮共用进行中的查询，保留解析结果的 IPv6 接口标识直到 socket.connect。
+internal class PingAddressCache {
+    private val pending = ConcurrentHashMap<String, CompletableDeferred<InetAddress?>>()
+
+    suspend fun resolve(host: String, lookup: suspend (String) -> InetAddress?): InetAddress? {
+        if (!host.isServerDomain()) {
+            return try {
+                InetAddress.getByName(host)
+            } catch (_: UnknownHostException) {
+                null
+            }
+        }
+        val mine = CompletableDeferred<InetAddress?>()
+        pending.putIfAbsent(host, mine)?.let { return it.await() }
+        return try {
+            lookup(host).also { mine.complete(it) }
+        } catch (e: Throwable) {
+            mine.completeExceptionally(e)
+            throw e
         }
     }
 }

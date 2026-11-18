@@ -6,6 +6,9 @@ import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.ui.ConfigurationFragment
 import io.nekohasekai.sagernet.ui.MainActivity
+import io.nekohasekai.sagernet.ui.PingAddressCache
+import java.net.Inet6Address
+import java.net.InetAddress
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -16,6 +19,17 @@ import org.robolectric.annotation.Implements
 import java.util.concurrent.atomic.AtomicInteger
 
 class GroupTestConcurrencyTest : UiTestBase() {
+
+    @Test
+    fun pingKeepsTheResolvedScopeAndCachesFailures() = ui.bg {
+        val cache = PingAddressCache()
+        val addr = Inet6Address.getByAddress(null, InetAddress.getByName("fe80::1").address, 2)
+        assertEquals(2, (cache.resolve("scoped.example") { addr } as Inet6Address).scopeId)
+        assertTrue(addr === cache.resolve("scoped.example") { error("duplicate lookup") })
+        assertEquals(2, (cache.resolve("fe80::1%2") { error("looked up numeric address") } as Inet6Address).scopeId)
+        assertEquals(null, cache.resolve("absent.example") { null })
+        assertEquals(null, cache.resolve("absent.example") { error("duplicate lookup") })
+    }
 
     @Test
     fun sizedForEligibleProfilesAndBoundedAfterRestore() {
