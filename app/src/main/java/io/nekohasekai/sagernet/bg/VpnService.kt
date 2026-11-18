@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.net.Network
 import android.net.ProxyInfo
 import android.os.Build
 import android.os.ParcelFileDescriptor
@@ -178,8 +179,6 @@ class VpnService : BaseVpnService(),
             }
         }
 
-        updateUnderlyingNetwork(builder)
-
         // app route
         val packageName = packageName
         val proxyApps = DataStore.proxyApps
@@ -247,6 +246,8 @@ class VpnService : BaseVpnService(),
         }
 
         if (Build.VERSION.SDK_INT >= 29) builder.setMetered(DataStore.meteredNetwork)
+        val initialNetworks = underlyingNetworks
+        builder.setUnderlyingNetworks(initialNetworks)
         val c = builder.establish() ?: throw NullConnectionException()
         // killProcesses (main thread) may null conn between establish() and
         // the fd read below; keep a local reference
@@ -261,17 +262,33 @@ class VpnService : BaseVpnService(),
             throw IOException("service is stopping")
         }
 
+        // establish 期间可能丢失或切换上游，重放最新一次观察。
+        synchronized(upstreamLock) {
+            if (underlyingNetworks !== initialNetworks) setUnderlyingNetworks(underlyingNetworks)
+        }
+
         // the VPN is up, so the permission-request notification is obsolete
         NotificationManagerCompat.from(this).cancel(NOTIFICATION_ID_VPN_REQUEST)
 
         return c.fd
     }
 
-    fun updateUnderlyingNetwork(builder: Builder? = null) {
-        SagerNet.underlyingNetwork?.let {
-            builder?.setUnderlyingNetworks(arrayOf(it))
-                ?: setUnderlyingNetworks(arrayOf(it))
+    private val upstreamLock = Any()
+    // null 表示还未观察到网络，交给系统选择；空数组表示已明确断网。
+    @Volatile
+    private var underlyingNetworks: Array<Network>? = null
+
+    override suspend fun preInit() {
+        synchronized(upstreamLock) { underlyingNetworks = null }
+        super.preInit()
+    }
+
+    override fun onDefaultNetworkChanged(network: Network?) {
+        synchronized(upstreamLock) {
+            underlyingNetworks = if (network == null) emptyArray() else arrayOf(network)
+            if (conn != null) setUnderlyingNetworks(underlyingNetworks)
         }
+        super.onDefaultNetworkChanged(network)
     }
 
     // A system-side revoke (another VPN taking the slot, OEM VPN features,

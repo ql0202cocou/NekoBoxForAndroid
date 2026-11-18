@@ -5,6 +5,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.Network
 import android.os.*
 import android.widget.Toast
 import androidx.core.content.ContextCompat
@@ -465,36 +466,30 @@ class BaseService {
         }
 
         suspend fun preInit() {
+            val owner = data.proxy
             DefaultNetworkListener.start(this) { network ->
-                // resetAllConnections is a blocking gomobile call; keep it off
-                // the DefaultNetworkListener actor, whose queue is fed from
-                // ConnectivityThread via runBlocking. The serial dispatcher
-                // keeps the callbacks ordered.
+                // 重置连接是阻塞 JNI，按顺序在监听 actor 之外处理。忽略上次运行排队的回调。
                 runOnSerialDispatcher {
-                    // Lost is reported with a null network; drop the stale
-                    // reference like the main-process listener does
-                    if (network == null) {
-                        SagerNet.underlyingNetwork = null
-                        data.upstreamInterfaceName = null
-                        return@runOnSerialDispatcher
-                    }
-                    SagerNet.connectivity.getLinkProperties(network)?.also { link ->
-                        SagerNet.underlyingNetwork = network
-                        ServiceRegistry.vpnService?.updateUnderlyingNetwork()
-                        //
-                        val oldName = data.upstreamInterfaceName
-                        val newName = link.interfaceName
-                        if (oldName != newName) {
-                            data.upstreamInterfaceName = newName
-                        }
-                        if (oldName != null && newName != null && oldName != newName) {
-                            Logs.d("Network changed: $oldName -> $newName")
-                            if (DataStore.networkChangeResetConnections) {
-                                Libcore.resetAllConnections()
-                            }
-                        }
+                    if (data.proxy === owner && ServiceRegistry.baseService === this@Interface) {
+                        onDefaultNetworkChanged(network)
                     }
                 }
+            }
+        }
+
+        fun onDefaultNetworkChanged(network: Network?) {
+            SagerNet.underlyingNetwork = network
+            if (network == null) {
+                data.upstreamInterfaceName = null
+                return
+            }
+            val link = SagerNet.connectivity.getLinkProperties(network) ?: return
+            val oldName = data.upstreamInterfaceName
+            val newName = link.interfaceName
+            data.upstreamInterfaceName = newName
+            if (oldName != null && newName != null && oldName != newName) {
+                Logs.d("Network changed: $oldName -> $newName")
+                if (DataStore.networkChangeResetConnections) Libcore.resetAllConnections()
             }
         }
 
