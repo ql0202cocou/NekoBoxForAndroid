@@ -94,6 +94,19 @@ class SubscriptionIdentityTest {
     }
 
     @Test
+    fun `手动更新沿用订阅原文也能识别明文 HTTP`() {
+        val subscription = group().subscription!!.apply { updateWhenConnectedOnly = false }
+        for (link in listOf("http://a.example/sub", "HtTp://a.example/sub")) {
+            subscription.link = link
+            assertTrue(needsDisconnectedUpdateConfirmation(subscription))
+        }
+        subscription.link = "HTTPS://a.example/sub"
+        assertFalse(needsDisconnectedUpdateConfirmation(subscription))
+        subscription.updateWhenConnectedOnly = true
+        assertTrue(needsDisconnectedUpdateConfirmation(subscription))
+    }
+
+    @Test
     fun `编辑器额外接受选择文件得到的 content 链接，深链规则不变`() {
         assertTrue(isEditableSubscriptionLink("https://a.example/sub"))
         assertTrue(isEditableSubscriptionLink("content://docs/x"))

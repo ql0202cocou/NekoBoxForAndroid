@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.group
 
+import io.nekohasekai.sagernet.database.SubscriptionBean
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.ktx.readableMessage
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -46,6 +47,10 @@ class SubscriptionSupersededException(groupId: Long) :
 /** [started] 是下载开始时的身份，[current] 是事务里重新读到的分组行（分组被删除的情况由调用方先处理）。 */
 fun isSubscriptionSuperseded(started: SubscriptionIdentity, current: ProxyGroup): Boolean =
     current.subscriptionIdentity() != started
+
+/** 断开代理时，手动更新明文订阅和指定仅连接时更新的订阅都要确认，包括旧库的混合大小写协议名。 */
+internal fun needsDisconnectedUpdateConfirmation(subscription: SubscriptionBean): Boolean =
+    subscription.updateWhenConnectedOnly == true || subscription.link?.substringBefore(':', "").equals("http", ignoreCase = true)
 
 /** 手填 / 深链订阅链接的统一规则：只接受 http(s)。scheme 取第一个冒号之前，不区分大小写。 */
 fun isHttpSubscriptionLink(link: String): Boolean {

@@ -157,7 +157,7 @@ abstract class GroupUpdater {
                             return@coroutineScope false
                         }
 
-                        if (byUser && (subscription.link?.startsWith("http://") == true || subscription.updateWhenConnectedOnly) && !connected) {
+                        if (byUser && !connected && needsDisconnectedUpdateConfirmation(subscription)) {
                             if (userInterface == null || !userInterface.confirm(app.getString(R.string.update_subscription_warning))) {
                                 return@coroutineScope true
                             }
