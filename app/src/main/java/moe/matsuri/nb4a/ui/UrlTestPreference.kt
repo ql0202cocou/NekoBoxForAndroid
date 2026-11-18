@@ -37,11 +37,7 @@ constructor(
 
         setOnPreferenceChangeListener { _, _ ->
             concurrent?.apply {
-                var newConcurrent = text?.toString()?.toIntOrNull()
-                if (newConcurrent == null || newConcurrent <= 0) {
-                    newConcurrent = 5
-                }
-                DataStore.connectionTestConcurrent = newConcurrent
+                DataStore.connectionTestConcurrent = text?.toString()?.toIntOrNull() ?: DataStore.DEFAULT_TEST_CONCURRENCY
             }
             // 对话框随即关闭，清掉引用以免连带持有视图树与 Activity
             concurrent = null

@@ -126,7 +126,20 @@ object DataStore {
 
     var appendHttpProxy by configurationStore.boolean(Key.APPEND_HTTP_PROXY)
     var connectionTestURL by configurationStore.string(Key.CONNECTION_TEST_URL) { CONNECTION_TEST_URL }
-    var connectionTestConcurrent by configurationStore.int("connectionTestConcurrent") { 5 }
+    const val DEFAULT_TEST_CONCURRENCY = 5
+    private const val MAX_TEST_CONCURRENCY = 16
+    private var storedTestConcurrency by configurationStore.long("connectionTestConcurrent") { DEFAULT_TEST_CONCURRENCY.toLong() }
+
+    private fun boundedTestConcurrency(value: Long): Int =
+        if (value <= 0) DEFAULT_TEST_CONCURRENCY else value.coerceAtMost(MAX_TEST_CONCURRENCY.toLong()).toInt()
+
+    // 恢复的设置会绕过界面，读取时也要限制并发数。
+    var connectionTestConcurrent: Int
+        get() = boundedTestConcurrency(storedTestConcurrency)
+        set(value) { storedTestConcurrency = boundedTestConcurrency(value.toLong()).toLong() }
+
+    fun groupTestWorkerCount(eligibleProfiles: Int) = minOf(connectionTestConcurrent, eligibleProfiles)
+
     var alwaysShowAddress by configurationStore.boolean(Key.ALWAYS_SHOW_ADDRESS)
 
     var tunImplementation by configurationStore.stringToInt(Key.TUN_IMPLEMENTATION) { TunImplementation.GVISOR }

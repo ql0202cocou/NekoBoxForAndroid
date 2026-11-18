@@ -24,11 +24,10 @@ import io.nekohasekai.sagernet.plugin.PluginManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import moe.matsuri.nb4a.ui.ConnectionTestNotification
@@ -179,14 +178,12 @@ class GroupTestRunner(private val fragment: ConfigurationFragment) {
     // 按并发数起 worker 逐个测组里 filter 通过的节点，结束或取消时把状态写回
     // 数据库。testOne 填好 profile 的测试结果，返回 false 表示已被取消、不要
     // 上报这一条
-    @OptIn(DelicateCoroutinesApi::class)
     private fun startGroupTest(
         group: ProxyGroup,
         filter: (ProxyEntity) -> Boolean,
         testOne: suspend CoroutineScope.(ProxyGroup, ProxyEntity) -> Boolean,
     ) {
         val test = TestDialog(fragment)
-        val testJobs = mutableListOf<Job>()
 
         // 进程级：测试任务设计成可比界面活得久（最小化、旋转），结果由 test.cancel 路径写库
         val mainJob = runOnDefaultDispatcher {
@@ -196,18 +193,18 @@ class GroupTestRunner(private val fragment: ConfigurationFragment) {
                 val profilesList = ProfileRepository.getProfilesByGroup(group.id).filter(filter)
                 test.proxyN = profilesList.size
                 val profiles = ConcurrentLinkedQueue(profilesList)
-                repeat(DataStore.connectionTestConcurrent) {
-                    testJobs.add(launch(Dispatchers.IO) {
-                        while (isActive) {
-                            val profile = profiles.poll() ?: break
-                            profile.status = 0
-                            if (!testOne(group, profile)) break
-                            test.update(profile)
+                coroutineScope {
+                    repeat(DataStore.groupTestWorkerCount(profilesList.size)) {
+                        launch(Dispatchers.IO) {
+                            while (isActive) {
+                                val profile = profiles.poll() ?: break
+                                profile.status = 0
+                                if (!testOne(group, profile)) break
+                                test.update(profile)
+                            }
                         }
-                    })
+                    }
                 }
-
-                testJobs.joinAll()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -219,13 +216,12 @@ class GroupTestRunner(private val fragment: ConfigurationFragment) {
                 test.cancel()
             }
         }
-        test.cancel = {
-            test.dialogStatus.set(2)
+        test.cancel = cancel@{
+            if (test.dialogStatus.getAndSet(2) == 2) return@cancel
             test.dismiss()
             // 进程级：取消 / 结束后把测试结果写库，页面已销毁也必须完成
             runOnDefaultDispatcher {
-                mainJob.cancel()
-                testJobs.forEach { it.cancel() }
+                mainJob.cancelAndJoin()
                 // 只写状态：快照是测试开始时读的，整行更新会把 :bg 之后
                 // 写入的 tx/rx 回滚；测试期间配置已变的行不写（旧结果对不上新配置）。
                 // 整批一个事务，随后整组重读一次刷新列表。
