@@ -12,7 +12,7 @@ import java.lang.reflect.Modifier
  *
  * - 配置类：type、core 与全部 bean 列，只经 `@Update(entity = ProxyEditableFields::class)` 写（编辑器保存、订阅更新）。
  * - 排序与归属类：userOrder、groupId（拖拽排序、订阅更新的排序、移动分组）。
- * - 流量类：tx、rx（:bg 落库的增量、界面清除流量的归零）。
+ * - 流量类：tx、rx、trafficEpoch（:bg 落库的增量、界面清除流量的归零）。
  * - 测试状态类：status、ping、error（延迟测试、配置变了之后的清零）。
  * - 插入后不再改的列：id、uuid。
  *
@@ -25,7 +25,7 @@ class ProxyEntityDaoContractTest {
         ProxyEditableFields::class.java.declaredFields.filter(::isColumn).map { it.name }.toSet() - "id"
 
     private val orderColumns = setOf("userOrder", "groupId")
-    private val trafficColumns = setOf("tx", "rx")
+    private val trafficColumns = setOf("tx", "rx", "trafficEpoch")
     private val statusColumns = setOf("status", "ping", "error")
     private val immutableColumns = setOf("id", "uuid")
 

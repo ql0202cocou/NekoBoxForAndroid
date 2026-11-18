@@ -129,6 +129,7 @@ class ProfileRecord private constructor(
     val userOrder: Long,
     val tx: Long,
     val rx: Long,
+    val trafficEpoch: Long,
     val status: Int,
     val ping: Int,
     val uuid: String,
@@ -138,13 +139,13 @@ class ProfileRecord private constructor(
     private val beanBytes: ByteArray,
 ) {
     fun newEntity(): ProxyEntity = ProxyEntity(
-        id = id, groupId = groupId, type = type, userOrder = userOrder, tx = tx, rx = rx,
+        id = id, groupId = groupId, type = type, userOrder = userOrder, tx = tx, rx = rx, trafficEpoch = trafficEpoch,
         status = status, ping = ping, uuid = uuid, error = error, core = core,
     ).apply { putByteArray(beanBytes) }
 
     companion object {
         fun of(entity: ProxyEntity) = ProfileRecord(
-            entity.id, entity.groupId, entity.type, entity.userOrder, entity.tx, entity.rx,
+            entity.id, entity.groupId, entity.type, entity.userOrder, entity.tx, entity.rx, entity.trafficEpoch,
             entity.status, entity.ping, entity.uuid, entity.error, entity.core,
             KryoConverters.serialize(entity.storedBean()),
         )

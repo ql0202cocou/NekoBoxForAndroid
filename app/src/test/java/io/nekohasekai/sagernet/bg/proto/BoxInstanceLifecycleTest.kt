@@ -88,21 +88,21 @@ class BoxInstanceLifecycleTest : UiTestBase() {
             emptyMap(), -1L,
         )
         val stats = TrafficAccountingTest.FakeStats(listOf(TAG_PROXY))
-        looper.clearStats(longArrayOf(1, 99))
-        looper.clearStats(longArrayOf(1, 2))
+        looper.applyClears(mapOf(1L to 1L, 99L to 1L))
+        looper.applyClears(mapOf(1L to 2L, 2L to 1L))
         val acc = looper.initializeAccounting(config, stats::query, 0L)
         val zero = TrafficTotals(0, 0)
         assertEquals(mapOf(1L to zero, 2L to zero, 3L to old), acc.snapshot())
-        assertTrue(stats.log.isEmpty())
-        assertTrue(acc.claim(listOf(1L, 2L, 3L)).increments.isEmpty())
+        assertEquals(listOf("$TAG_PROXY/uplink", "$TAG_PROXY/downlink"), stats.takeLog())
+        assertTrue(acc.claim(listOf(1L, 2L, 3L)).isEmpty())
 
         stats.route(TAG_PROXY, 10, 100)
         val round = acc.sweep(1000L)
         assertEquals(10L, round.txSession)
         assertEquals(100L, round.rxSession)
-        looper.clearStats(longArrayOf(1))
+        looper.applyClears(mapOf(1L to 3L))
         assertEquals(mapOf(1L to zero, 2L to TrafficTotals(100, 10), 3L to TrafficTotals(4100, 1010)), acc.snapshot())
-        assertEquals(listOf(TrafficIncrement(2, 100, 10), TrafficIncrement(3, 100, 10)), acc.claim(listOf(1L, 2L, 3L)).increments)
+        assertEquals(listOf(TrafficIncrement(2, 100, 10, 1), TrafficIncrement(3, 100, 10)), acc.claim(listOf(1L, 2L, 3L)))
     }
 
     private class Gate : AutoCloseable {

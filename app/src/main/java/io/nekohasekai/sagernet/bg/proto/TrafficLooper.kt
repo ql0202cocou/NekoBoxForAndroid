@@ -33,7 +33,8 @@ class TrafficLooper(private val data: BaseService.Data, private val owner: Proxy
     // 首轮建账与早期切换、清零共用这把锁。发布后由记账自己的锁保护计数与 JNI，落库在锁外。
     private val startupLock = Any()
     private var earlySelection: Long? = null
-    private var pendingClears: MutableSet<Long>? = HashSet()
+    private var pendingClears: MutableMap<Long, Long>? = HashMap()
+    private var nextCheckpointAt = 0L
     @Volatile
     private var accounting: TrafficAccounting? = null
 
@@ -73,29 +74,49 @@ class TrafficLooper(private val data: BaseService.Data, private val owner: Proxy
     }
 
     // ACTION_SHUTDOWN 不走正常关停，只在有限时间内保存已采样的增量。
-    suspend fun persistStats() {
-        flushStats()
+    suspend fun persistStats(): Unit = withContext(Dispatchers.IO) {
+        val active = accounting ?: return@withContext
+        if (DataStore.profileTrafficStatistics) persistIncrements(active)
     }
 
     // 销毁期间 data.proxy 可能已清空或换代，节点绑定与恢复世代始终取自这次运行。
     private suspend fun flushStats(): List<TrafficData> = withContext(Dispatchers.IO) {
         val accounting = accounting ?: return@withContext emptyList()
         if (!DataStore.profileTrafficStatistics) return@withContext emptyList()
-        val rows = TrafficAccounting.rowsToPersist(owner.config.traffic.tags, accounting.snapshot())
-        persistIncrements(accounting, rows.keys)
-        rows.toTrafficData()
+        persistIncrements(accounting)
+        TrafficAccounting.rowsToPersist(owner.config.traffic.tags, accounting.snapshot()).toTrafficData()
     }
 
     // 取走这些节点的增量并加到库里；库写失败把基线退回去再抛出，下次落库补上
-    private suspend fun persistIncrements(accounting: TrafficAccounting, ids: Collection<Long>) {
-        val claim = accounting.claim(ids)
-        if (claim.increments.isEmpty()) return
-        try {
-            ProfileManager.persistTrafficIncrements(claim.increments, owner.generation)
+    private fun persistIncrements(accounting: TrafficAccounting, ids: Collection<Long>? = null) {
+        val increments = accounting.claim(ids)
+        if (increments.isEmpty()) return
+        val stale = try {
+            ProfileManager.persistTrafficIncrements(increments, owner.generation)
         } catch (e: Throwable) {
-            accounting.release(claim)
+            accounting.release(increments)
             throw e
         }
+        if (stale.isNotEmpty()) accounting.clear(stale)
+    }
+
+    // 由采样循环串行调用，关闭速度显示时也经过这里。失败或长时间休眠后不会密集补写。
+    internal suspend fun sampleTraffic(accounting: TrafficAccounting, now: Long): TrafficAccounting.Round {
+        val round = accounting.sweep(now)
+        if (now >= nextCheckpointAt) {
+            nextCheckpointAt = now + CHECKPOINT_INTERVAL_MS
+            try {
+                withContext(Dispatchers.IO) {
+                    if (DataStore.profileTrafficStatistics) persistIncrements(accounting)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // 本轮速率与变化项照常推送，尚未写入的增量留给下一次结算。
+                Logs.w(e)
+            }
+        }
+        return round
     }
 
     fun start() = synchronized(jobLock) {
@@ -103,6 +124,8 @@ class TrafficLooper(private val data: BaseService.Data, private val owner: Proxy
     }
 
     companion object {
+        private const val CHECKPOINT_INTERVAL_MS = 60_000L
+
         // loop() 会不会跑：速度显示关闭且不统计节点流量时直接返回
         fun enabled() = DataStore.speedInterval != 0 || DataStore.profileTrafficStatistics
 
@@ -123,13 +146,20 @@ class TrafficLooper(private val data: BaseService.Data, private val owner: Proxy
     // 界面清除了这些节点在库里的流量列：本循环的累计与已落库基线也要清，否则清除前的累计还会按增量继续写
     // 进库。只清界面清除的那些 id（界面按分组清，本循环覆盖运行配置里的全部节点）；会话量不变
     fun clearStats(profileIds: LongArray) {
+        val epochs = ProfileManager.trafficClearEpochs(profileIds, owner.generation)
+        applyClears(epochs)
+    }
+
+    internal fun applyClears(epochs: Map<Long, Long>) {
         val active = synchronized(startupLock) {
             accounting ?: run {
-                pendingClears?.addAll(profileIds.asList())
+                pendingClears?.let { pending ->
+                    for ((id, epoch) in epochs) pending[id] = maxOf(epoch, pending[id] ?: 0L)
+                }
                 return
             }
         }
-        active.clear(profileIds)
+        active.clear(epochs)
     }
 
     // NativeInterface.selector_OnProxySelected 在串行调度器的协程里按事件顺序调用。切换前先把 proxy 上的字节结算给
@@ -152,8 +182,9 @@ class TrafficLooper(private val data: BaseService.Data, private val owner: Proxy
     internal fun initializeAccounting(config: ConfigBuildResult, query: (String, String) -> Long, startedAt: Long) =
         synchronized(startupLock) {
             TrafficAccounting.of(config, query, startedAt, earlySelection ?: config.mainEntId).also { active ->
-                pendingClears?.let { if (it.isNotEmpty()) active.clear(it.toLongArray()) }
+                pendingClears?.let { if (it.isNotEmpty()) active.clear(it) }
                 pendingClears = null
+                nextCheckpointAt = startedAt + CHECKPOINT_INTERVAL_MS
                 accounting = active
             }
         }
@@ -166,9 +197,7 @@ class TrafficLooper(private val data: BaseService.Data, private val owner: Proxy
         val delayMs = DataStore.speedInterval.toLong()
         val showDirectSpeed = DataStore.showDirectSpeed
         val profileTrafficStatistics = DataStore.profileTrafficStatistics
-        // speedInterval 0 (Disable) turns off the speed display only: keep a
-        // low-frequency counting loop so per-profile traffic statistics still
-        // accumulate and can persist on stop
+        // 关闭测速显示时仍每秒采样，节点累计与周期落库继续运行。
         val countingOnly = delayMs == 0L
         val loopDelay = if (countingOnly) 1000L else delayMs
 
@@ -180,13 +209,13 @@ class TrafficLooper(private val data: BaseService.Data, private val owner: Proxy
                 if (!proxy.isInitialized()) return
                 val config = proxy.config
                 if (Logs.enabled) config.traffic.tags.forEach { (tag, ids) -> Logs.d("traffic count $tag to $ids") }
-                // 这一轮只建记账、不查询：速率按轮间隔算，从这里起算；box 启动以来的字节留在计数器里，下一轮取走
+                // 首轮建立基线。已收到清零的出站先结算，其余计数留给下一轮采样。
                 initializeAccounting(config, proxy.box::queryStats, SystemClock.elapsedRealtime())
                 return
             }
 
             // 记账的锁覆盖整轮查询，与 selectMain / clearStats 互斥
-            val round = accounting.sweep(SystemClock.elapsedRealtime())
+            val round = sampleTraffic(accounting, SystemClock.elapsedRealtime())
             if (!coroutineContext.isActive) return
 
             if (countingOnly) return

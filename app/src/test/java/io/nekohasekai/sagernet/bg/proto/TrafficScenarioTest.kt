@@ -286,7 +286,7 @@ class TrafficScenarioTest {
     fun `运行中清除流量：节点从 0 继续累计，会话量不减`() {
         val p = Run(build("group-front"))
         p.rounds(2)
-        p.acc.clear(longArrayOf(1))
+        p.acc.clear(mapOf(1L to 1L))
         p.rounds(2)
         assertEquals(d(2000, 200), p.acc.snapshot().getValue(1))
         assertEquals(d(base(10).rx + 4000, base(10).tx + 400), p.acc.snapshot().getValue(10))
@@ -295,7 +295,7 @@ class TrafficScenarioTest {
         // 清前置 10：旧会话量从 200 / 2000 掉回 100 / 1000（清的是代表条目）
         val p2 = Run(build("group-front"))
         p2.rounds(2)
-        p2.acc.clear(longArrayOf(10))
+        p2.acc.clear(mapOf(10L to 1L))
         p2.rounds(2)
         assertEquals(d(2000, 200), p2.acc.snapshot().getValue(10))
         assertEquals(listOf(400L, 4000), p2.speed().drop(4))

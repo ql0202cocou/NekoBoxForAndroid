@@ -24,8 +24,7 @@ import io.nekohasekai.sagernet.fmt.TrafficTotals
  *
  * 落库是增量：每个节点另记一份「已落库的基线」（初始等于初始累计）。[claim] 在锁内取走「累计 - 基线」并把基线
  * 推到累计，调用方拿这份增量加到库里的值上；库写失败时 [release] 把基线退回去。界面清除流量时 [clear] 把累计与
- * 基线一起归零。这样库里的值被界面清零后，:bg 再落库写回的只是清零之后新增（和上次落库到清零之间还没落库）的
- * 那一点，清掉的旧累计不会回来。界面显示用的绝对值（初始值 + 本次累计）仍是 [snapshot] / [Round.changed]。
+ * 基线一起归零，取走的每笔增量携带当时的清零版本，数据库拒绝过期写入。界面仍用 [snapshot] / [Round.changed]。
  *
  * 线程：一把私有锁覆盖 [sweep]、[select]、[clear]、[claim]、[release]、[snapshot]，[query] 在锁内调用。查询是取走
  * 增量，每个字节只会被取走一次；锁要防的是切换插进「扫描取走 proxy 的增量」与「把它记给选中集合」之间，那样旧成员的
@@ -44,14 +43,6 @@ class TrafficAccounting(
     private val query: (tag: String, direction: String) -> Long,
     startedAt: Long,
 ) {
-
-    /**
-     * 一次 [claim] 取走的增量，[increments] 是要加到库里的值（累计有变化的节点才有）。库写失败时交回 [release]。
-     */
-    class Claim internal constructor(
-        val increments: List<TrafficIncrement>,
-        internal val epochs: Map<Long, Int>,
-    )
 
     /**
      * 一轮的结果：代理与直连的速率（字节 / 秒）、本次会话经代理出站的字节，以及上一轮之后累计有变化的节点
@@ -86,7 +77,8 @@ class TrafficAccounting(
     }
 
     // 节点 id → 清零次数。claim 记下取走时的次数，release 时次数变了说明期间清过零，基线不能再退
-    private val clearEpochs = HashMap<Long, Int>()
+    private val clearEpochs = HashMap(bindings.clearEpochs)
+    private val unpersisted = LinkedHashSet<Long>()
 
     private val queryTags: List<String> = buildList {
         if (selector != null) {
@@ -103,7 +95,7 @@ class TrafficAccounting(
 
     private var lastRound = startedAt
 
-    // 切换前结算、尚未计入哪一轮速率的 proxy 字节
+    // 自上一轮速率采样以来结算的代理字节，包括切换与清零时提前查询的出站。
     private var pendingTx = 0L
     private var pendingRx = 0L
     private var sessionTx = 0L
@@ -118,26 +110,13 @@ class TrafficAccounting(
 
     /** 一轮查询与记账；[now] 是单调时钟的毫秒数。 */
     fun sweep(now: Long): Round = synchronized(lock) {
-        var proxyTx = pendingTx
-        var proxyRx = pendingRx
+        for (tag in queryTags) if (tag != TAG_BYPASS) collectProxy(tag)
+        val directTx = query(TAG_BYPASS, UPLINK)
+        val directRx = query(TAG_BYPASS, DOWNLINK)
+        val proxyTx = pendingTx
+        val proxyRx = pendingRx
         pendingTx = 0
         pendingRx = 0
-        var directTx = 0L
-        var directRx = 0L
-        for (tag in queryTags) {
-            val tx = query(tag, UPLINK)
-            val rx = query(tag, DOWNLINK)
-            if (tag == TAG_BYPASS) {
-                directTx += tx
-                directRx += rx
-                continue
-            }
-            credit(if (selector != null && tag == TAG_PROXY) selectedSet else sets[tag] ?: EMPTY, rx, tx)
-            sessionTx += tx
-            sessionRx += rx
-            proxyTx += tx
-            proxyRx += rx
-        }
         val interval = now - lastRound
         lastRound = now
         fun rate(bytes: Long) = if (interval <= 0) 0L else bytes * 1000 / interval
@@ -153,60 +132,63 @@ class TrafficAccounting(
      */
     fun select(id: Long): Map<Long, TrafficTotals>? = synchronized(lock) {
         val tag = selector?.get(id) ?: return null
-        val tx = query(TAG_PROXY, UPLINK)
-        val rx = query(TAG_PROXY, DOWNLINK)
-        credit(selectedSet, rx, tx)
-        sessionTx += tx
-        sessionRx += rx
-        pendingTx += tx
-        pendingRx += rx
+        collectProxy(TAG_PROXY)
         val old = selectedSet
         selectedSet = memberSet(id, tag)
         old.associateWithTo(LinkedHashMap()) { totals.getValue(it).toTotals() }
     }
 
-    /**
-     * 界面清除了这些节点的流量：累计与已落库基线一起归零，之后照常累计。不在本次运行里的 id 忽略；会话量不变。
-     * 界面已经把库里的值写成 0，所以基线也是 0。
-     */
-    fun clear(ids: LongArray): Unit = synchronized(lock) {
-        for (id in ids) {
-            val t = totals[id] ?: continue
-            t.fill(0)
+    private fun recipients(tag: String): LongArray =
+        if (selector != null && tag == TAG_PROXY) selectedSet else sets[tag] ?: EMPTY
+
+    private fun collectProxy(tag: String) {
+        val tx = query(tag, UPLINK)
+        val rx = query(tag, DOWNLINK)
+        credit(recipients(tag), rx, tx)
+        sessionTx += tx
+        sessionRx += rx
+        pendingTx += tx
+        pendingRx += rx
+    }
+
+    /** 先结算受影响出站尚在核心里的字节，再归零目标节点。共享跳与会话总量保留该段流量。 */
+    fun clear(epochs: Map<Long, Long>): Unit = synchronized(lock) {
+        val newer = epochs.filter { (id, epoch) -> id in totals && epoch > (clearEpochs[id] ?: 0L) }
+        if (newer.isEmpty()) return
+        for (tag in queryTags) {
+            if (tag != TAG_BYPASS && recipients(tag).any { it in newer }) collectProxy(tag)
+        }
+        for ((id, epoch) in newer) {
+            totals.getValue(id).fill(0)
             baseline.getValue(id).fill(0)
-            clearEpochs[id] = (clearEpochs[id] ?: 0) + 1
+            clearEpochs[id] = epoch
+            unpersisted.remove(id)
             dirty += id
         }
     }
 
-    /**
-     * 取走 [ids] 各节点「累计 - 已落库基线」的增量（没有增量的节点不返回，不在本次运行里的 id 忽略，重复 id 取一次），
-     * 基线同时推到当前累计。调用方把 [Claim.increments] 加到库里；写失败要调 [release]，否则这一段不会再落库。
-     */
-    fun claim(ids: Collection<Long>): Claim = synchronized(lock) {
+    /** 取走尚未持久化的增量。切换只取旧成员，周期及停止结算取全部有变化的节点。 */
+    fun claim(ids: Collection<Long>? = null): List<TrafficIncrement> = synchronized(lock) {
         val increments = ArrayList<TrafficIncrement>()
-        val epochs = HashMap<Long, Int>()
-        for (id in ids.distinct()) {
-            val t = totals[id] ?: continue
+        for (id in ids ?: unpersisted.toList()) {
+            if (!unpersisted.remove(id)) continue
+            val t = totals.getValue(id)
             val b = baseline.getValue(id)
-            val rx = t[0] - b[0]
-            val tx = t[1] - b[1]
-            if (rx == 0L && tx == 0L) continue
+            increments += TrafficIncrement(id, rx = t[0] - b[0], tx = t[1] - b[1], epoch = clearEpochs[id] ?: 0)
             b[0] = t[0]
             b[1] = t[1]
-            increments += TrafficIncrement(id, rx = rx, tx = tx)
-            epochs[id] = clearEpochs[id] ?: 0
         }
-        Claim(increments, epochs)
+        increments
     }
 
-    /** [claim] 取走的增量没能写进库：把基线退回去，下次 [claim] 重新取到。取走之后清过零的节点不退（那段已被清掉）。 */
-    fun release(claim: Claim): Unit = synchronized(lock) {
-        for (inc in claim.increments) {
-            if ((clearEpochs[inc.id] ?: 0) != claim.epochs[inc.id]) continue
+    /** 事务失败时将整批交回；已清零节点的旧增量失效。 */
+    fun release(increments: List<TrafficIncrement>): Unit = synchronized(lock) {
+        for (inc in increments) {
+            if ((clearEpochs[inc.id] ?: 0L) != inc.epoch) continue
             val b = baseline.getValue(inc.id)
             b[0] -= inc.rx
             b[1] -= inc.tx
+            unpersisted += inc.id
         }
     }
 
@@ -226,6 +208,7 @@ class TrafficAccounting(
             val t = totals.getValue(id)
             t[0] += rx
             t[1] += tx
+            unpersisted += id
             dirty += id
         }
     }

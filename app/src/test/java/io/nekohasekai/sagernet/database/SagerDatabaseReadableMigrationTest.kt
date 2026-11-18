@@ -157,10 +157,11 @@ class SagerDatabaseReadableMigrationTest : UiTestBase() {
             assertEquals("迁移不得改写全局设置", settingBefore,
                 DataStore.configurationStore.getBoolean(Key.GLOBAL_ALLOW_INSECURE))
 
-            // 后续各级迁移不能再次改写这些 VMess / Trojan 行，旧引用和其它列也应保持原样。
+            // 后续各级保留历史行，13 版新增的流量清零版本从零开始。
             for (version in 9 until Schema.latestVersion()) {
                 db.migrateFrom(version)
-                assertEquals("$version → ${version + 1}", migrated, db.table("proxy_entities"))
+                val expected = if (version >= 12) migrated.map { it + ("trafficEpoch" to 0L) } else migrated
+                assertEquals("$version → ${version + 1}", expected, db.table("proxy_entities"))
                 assertEquals(listOf(group), db.table("proxy_groups"))
                 assertEquals(listOf(rule), db.table("rules"))
             }

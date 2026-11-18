@@ -12,7 +12,7 @@ import java.util.Collections
 data class TrafficTotals(val rx: Long, val tx: Long)
 
 /** 一个节点自上次落库以来新增的流量（字节），落库时加到库里的 rx / tx 上，不是绝对值。 */
-data class TrafficIncrement(val id: Long, val rx: Long, val tx: Long)
+data class TrafficIncrement(val id: Long, val rx: Long, val tx: Long, val epoch: Long = 0)
 
 /**
  * 一次构建的流量统计关联，构造时复制传入的集合，之后不再改变。
@@ -28,7 +28,10 @@ class TrafficBindings(
     initial: Map<Long, TrafficTotals>,
     ruleTags: Set<String>,
     excludedInbounds: Set<String> = emptySet(),
+    clearEpochs: Map<Long, Long> = emptyMap(),
 ) {
+    // 与初始累计取自同一个节点快照，只记录清零过的节点。
+    val clearEpochs: Map<Long, Long> = Collections.unmodifiableMap(LinkedHashMap(clearEpochs))
     val tags: Map<String, List<Long>> = Collections.unmodifiableMap(
         tags.entries.associateTo(LinkedHashMap()) { (tag, ids) -> tag to Collections.unmodifiableList(ids.toList()) }
     )
@@ -53,7 +56,11 @@ internal fun trafficBindingsOf(
     mappingInbounds: Set<String> = emptySet(),
 ): TrafficBindings {
     val initial = LinkedHashMap<Long, TrafficTotals>()
-    for (list in chains.values) for (ent in list) initial.getOrPut(ent.id) { TrafficTotals(rx = ent.rx, tx = ent.tx) }
+    val epochs = LinkedHashMap<Long, Long>()
+    for (list in chains.values) for (ent in list) initial.getOrPut(ent.id) {
+        if (ent.trafficEpoch != 0L) epochs[ent.id] = ent.trafficEpoch
+        TrafficTotals(rx = ent.rx, tx = ent.tx)
+    }
     val excluded = (configMap?.get("inbounds") as? List<*>)
         ?.mapNotNull { (it as? Map<*, *>)?.get("tag") as? String }
         ?.filterTo(LinkedHashSet()) { it in mappingInbounds } ?: emptySet()
@@ -61,7 +68,7 @@ internal fun trafficBindingsOf(
         chains.mapValues { (_, list) -> list.map { it.id } },
         initial,
         configMap?.let { ruleTrafficTags(it, chains.keys, excluded) } ?: emptySet(),
-        excluded,
+        excluded, epochs,
     )
 }
 

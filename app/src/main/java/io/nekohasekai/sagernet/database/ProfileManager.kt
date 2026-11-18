@@ -130,17 +130,27 @@ object ProfileManager {
     // Snapshot-safe partial writes: the entity may have been read at VPN/test
     // start, so only the columns this caller owns go back to the DB.
 
-    // 按节点 id 把新增的流量加到库里（运行中的统计不持有节点实体），整批一个事务。
-    // 写增量而不是绝对值：界面清零与 :bg 落库互不覆盖，清掉的旧累计不会被写回来
-    suspend fun persistTrafficIncrements(increments: Collection<TrafficIncrement>, generation: Long) {
-        if (increments.isEmpty()) return
-        SagerDatabase.instance.runInTransaction {
-            // 恢复会复用节点 id；旧服务的最终结算或排队切换不能给新节点加流量。
-            if (SagerDatabase.dataGeneration() != generation) return@runInTransaction
+    private fun readTrafficEpochs(ids: Collection<Long>): Map<Long, Long> =
+        ids.chunked(999).flatMap { SagerDatabase.proxyDao.getTrafficEpochs(it) }
+            .associate { it.id to it.trafficEpoch }
+
+    // 广播只提示哪些节点需要同步。延迟、重复或恢复前发出的广播都以当前库为准。
+    fun trafficClearEpochs(ids: LongArray, generation: Long): Map<Long, Long> =
+        SagerDatabase.instance.runInTransaction(Callable {
+            if (SagerDatabase.dataGeneration() == generation) readTrafficEpochs(ids.asList()) else emptyMap()
+        })
+
+    // 对整批增量只开一个事务。返回已清零节点的最新版本，即使广播丢失也能恢复后续记账。
+    fun persistTrafficIncrements(increments: Collection<TrafficIncrement>, generation: Long): Map<Long, Long> {
+        if (increments.isEmpty()) return emptyMap()
+        return SagerDatabase.instance.runInTransaction(Callable {
+            if (SagerDatabase.dataGeneration() != generation) return@Callable emptyMap()
+            val stale = ArrayList<Long>()
             for (t in increments) {
-                SagerDatabase.proxyDao.addTraffic(t.id, t.tx, t.rx)
+                if (SagerDatabase.proxyDao.addTraffic(t.id, t.tx, t.rx, t.epoch) == 0) stale += t.id
             }
-        }
+            readTrafficEpochs(stale)
+        })
     }
 
     // 节点与世代号在同一事务里读取，不能把恢复前的节点配上恢复后的世代号。

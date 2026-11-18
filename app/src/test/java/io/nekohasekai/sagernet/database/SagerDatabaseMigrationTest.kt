@@ -409,6 +409,17 @@ class SagerDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun `12 到 13 保留已有节点累计并将清零版本从零开始`() {
+        val row = Schema.load(12).row("proxy_entities", "id" to 7, "groupId" to 3, "tx" to 12345678901L, "rx" to 42)
+        open(12).use { db ->
+            db.insert("proxy_entities", row)
+            db.migrate(migrationFrom(12))
+            db.assertSchema(13)
+            assertEquals(listOf(row + ("trafficEpoch" to 0L)), db.table("proxy_entities"))
+        }
+    }
+
     // ---- 从每个旧版本一路升到最新版：每一级之后都比对 schema，旧数据不丢，新增列取默认值，新增的表为空。
     // 3 → 8 是 Room 生成的 AutoMigration（实现类只在 SQLiteConnection 入口上执行 ALTER TABLE）；这里种的行都是
     // SOCKS 类型、core = 自动，不受 8 → 9 的规范化影响；可读 bean 的逐级升级见 SagerDatabaseReadableMigrationTest。

@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.bg.proto
 import io.nekohasekai.sagernet.bg.proto.TrafficAccountingTest.FakeStats
 import io.nekohasekai.sagernet.fmt.TAG_BYPASS
 import io.nekohasekai.sagernet.fmt.TAG_PROXY
+import io.nekohasekai.sagernet.fmt.TrafficIncrement
 import io.nekohasekai.sagernet.fmt.TrafficBindings
 import io.nekohasekai.sagernet.fmt.TrafficTotals
 import org.junit.Assert.assertEquals
@@ -19,15 +20,21 @@ class TrafficIncrementTest {
     private class SimDb(initial: Map<Long, TrafficTotals>) {
         val rows = initial.mapValuesTo(LinkedHashMap()) { it.value }
 
-        fun apply(claim: TrafficAccounting.Claim) {
-            for (inc in claim.increments) {
+        private val epochs = HashMap<Long, Long>()
+
+        fun apply(claim: List<TrafficIncrement>) {
+            for (inc in claim) {
+                if (inc.epoch != (epochs[inc.id] ?: 0L)) continue
                 val old = rows.getValue(inc.id)
                 rows[inc.id] = TrafficTotals(rx = old.rx + inc.rx, tx = old.tx + inc.tx)
             }
         }
 
         fun clearFromUi(ids: Collection<Long>) {
-            for (id in ids) rows[id] = TrafficTotals(0, 0)
+            for (id in ids) {
+                rows[id] = TrafficTotals(0, 0)
+                epochs[id] = (epochs[id] ?: 0L) + 1
+            }
         }
     }
 
@@ -51,17 +58,17 @@ class TrafficIncrementTest {
         env.stats.route(TAG_PROXY, 100, 1000)
         env.sweep()
         val first = env.flush(listOf(1, 2))
-        assertEquals(listOf(1L, 2L), first.increments.map { it.id })
-        assertEquals(listOf(1000L), first.increments.map { it.rx }.distinct())
-        assertEquals(listOf(100L), first.increments.map { it.tx }.distinct())
+        assertEquals(listOf(1L, 2L), first.map { it.id })
+        assertEquals(listOf(1000L), first.map { it.rx }.distinct())
+        assertEquals(listOf(100L), first.map { it.tx }.distinct())
         assertEquals(base(1).rx + 1000, env.db.rows.getValue(1).rx)
-        assertTrue(env.acc.claim(listOf(1, 2)).increments.isEmpty())
+        assertTrue(env.acc.claim(listOf(1, 2)).isEmpty())
 
         env.stats.route(TAG_PROXY, 5, 50)
         env.sweep()
         val second = env.acc.claim(listOf(1, 2)).also(env.db::apply)
-        assertEquals(50L, second.increments.first().rx)
-        assertEquals(5L, second.increments.first().tx)
+        assertEquals(50L, second.first().rx)
+        assertEquals(5L, second.first().tx)
         // 库里的值始终等于界面显示的绝对值（初始 + 累计）
         assertEquals(env.acc.snapshot(), env.db.rows)
     }
@@ -76,17 +83,17 @@ class TrafficIncrementTest {
         env.sweep()
         // 界面先把库清零，广播还没到 :bg
         env.db.clearFromUi(listOf(1, 2))
-        // 这个窗口里落库：只写回上次落库之后的那一点（300 / 30），不是 1300 / 130 加初始值
+        // 数据库已经推进版本，广播到达前提交的旧增量也被拒绝。
         env.flush(listOf(1, 2))
-        assertEquals(TrafficTotals(300, 30), env.db.rows.getValue(1))
+        assertEquals(TrafficTotals(0, 0), env.db.rows.getValue(1))
         // 广播到了：累计与基线一起归零，之后的落库只加清零之后新增的
-        env.acc.clear(longArrayOf(1, 2))
+        env.acc.clear(mapOf(1L to 1L, 2L to 1L))
         assertEquals(TrafficTotals(0, 0), env.acc.snapshot().getValue(1))
-        assertTrue(env.acc.claim(listOf(1, 2)).increments.isEmpty())
+        assertTrue(env.acc.claim(listOf(1, 2)).isEmpty())
         env.stats.route(TAG_PROXY, 7, 70)
         env.sweep()
         env.flush(listOf(1, 2))
-        assertEquals(TrafficTotals(370, 37), env.db.rows.getValue(1))
+        assertEquals(TrafficTotals(70, 7), env.db.rows.getValue(1))
     }
 
     @Test
@@ -95,7 +102,7 @@ class TrafficIncrementTest {
         env.stats.route(TAG_PROXY, 100, 1000)
         env.sweep()
         env.flush(listOf(1))
-        env.acc.clear(longArrayOf(1))
+        env.acc.clear(mapOf(1L to 1L))
         env.db.clearFromUi(listOf(1))
         env.stats.route(TAG_PROXY, 7, 70)
         env.sweep()
@@ -110,7 +117,7 @@ class TrafficIncrementTest {
         env.stats.route(TAG_PROXY, 100, 1000)
         env.sweep()
         val failed = env.acc.claim(listOf(1, 2))
-        assertEquals(2, failed.increments.size)
+        assertEquals(2, failed.size)
         env.acc.release(failed)
         // 失败的那段下次照常取到，不丢也不重
         env.flush(listOf(1, 2))
@@ -120,12 +127,12 @@ class TrafficIncrementTest {
         env.stats.route(TAG_PROXY, 10, 100)
         env.sweep()
         val failed2 = env.acc.claim(listOf(1))
-        env.acc.clear(longArrayOf(1))
+        env.acc.clear(mapOf(1L to 1L))
         env.acc.release(failed2)
-        assertTrue(env.acc.claim(listOf(1)).increments.isEmpty())
+        assertTrue(env.acc.claim(listOf(1)).isEmpty())
         env.stats.route(TAG_PROXY, 1, 2)
         env.sweep()
-        assertEquals(listOf(TrafficTotals(2, 1)), env.acc.claim(listOf(1)).increments.map { TrafficTotals(it.rx, it.tx) })
+        assertEquals(listOf(TrafficTotals(2, 1)), env.acc.claim(listOf(1)).map { TrafficTotals(it.rx, it.tx) })
     }
 
     @Test
@@ -135,10 +142,10 @@ class TrafficIncrementTest {
         env.sweep()
         env.flush(listOf(1))
         val env2 = Env(bindings(mapOf(TAG_PROXY to listOf(1L))) { env.db.rows.getValue(it) })
-        assertTrue(env2.acc.claim(listOf(1)).increments.isEmpty())
+        assertTrue(env2.acc.claim(listOf(1)).isEmpty())
         env2.stats.route(TAG_PROXY, 1, 10)
         env2.sweep()
-        assertEquals(10L, env2.acc.claim(listOf(1)).increments.single().rx)
+        assertEquals(10L, env2.acc.claim(listOf(1)).single().rx)
     }
 
     @Test
@@ -150,9 +157,9 @@ class TrafficIncrementTest {
         env.stats.route(TAG_PROXY, 10, 100)
         val old1 = env.acc.select(2)!!
         val c1 = env.acc.claim(old1.keys).also(env.db::apply)
-        assertEquals(setOf(11L, 1L, 10L), c1.increments.map { it.id }.toSet())
+        assertEquals(setOf(11L, 1L, 10L), c1.map { it.id }.toSet())
         // 新成员 2 还没有增量
-        assertTrue(env.acc.claim(listOf(2)).increments.isEmpty())
+        assertTrue(env.acc.claim(listOf(2)).isEmpty())
         env.stats.route(TAG_PROXY, 20, 200)
         val old2 = env.acc.select(1)!!
         env.acc.claim(old2.keys).also(env.db::apply)
@@ -172,11 +179,11 @@ class TrafficIncrementTest {
         env.stats.route("c-5-4", 7, 70)
         env.sweep()
         val claim = env.acc.claim(b.tags.values.flatten()) // 列表里有重复的 3
-        assertEquals(listOf(2L, 3L, 1L, 4L, 5L), claim.increments.map { it.id })
-        assertEquals(1070L, claim.increments.single { it.id == 3L }.rx)
-        assertEquals(107L, claim.increments.single { it.id == 3L }.tx)
+        assertEquals(listOf(2L, 3L, 1L, 4L, 5L), claim.map { it.id })
+        assertEquals(1070L, claim.single { it.id == 3L }.rx)
+        assertEquals(107L, claim.single { it.id == 3L }.tx)
         // 不在本次运行里的 id 忽略
-        assertTrue(env.acc.claim(listOf(99L)).increments.isEmpty())
+        assertTrue(env.acc.claim(listOf(99L)).isEmpty())
     }
 
     @Test

@@ -28,6 +28,8 @@ import java.io.File
 // 删除只需整理分组与通知，按这两列投影读取，不解码节点内容。
 data class ProxyGroupRef(val id: Long, val groupId: Long)
 
+data class TrafficClearEpoch(val id: Long, val trafficEpoch: Long)
+
 // Fields owned by the profile editor. Room's partial-entity update keeps
 // runtime columns (order, traffic and test status) written while the editor is open.
 data class ProxyEditableFields(
@@ -109,6 +111,8 @@ data class ProxyEntity(
     var chainBean: ChainBean? = null,
     var nekoBean: NekoBean? = null,
     var configBean: ConfigBean? = null,
+    // 本库内的清零版本，不随节点备份或 Parcel 传递。
+    @ColumnInfo(defaultValue = "0") var trafficEpoch: Long = 0,
 ) : ParcelableSerializable() {
 
     companion object {
@@ -306,16 +310,18 @@ data class ProxyEntity(
             return profiles
         }
 
-        @Query("UPDATE proxy_entities SET tx = 0, rx = 0 WHERE groupId = :groupId AND (tx != 0 OR rx != 0)")
+        @Query("UPDATE proxy_entities SET tx = 0, rx = 0, trafficEpoch = trafficEpoch + 1 WHERE groupId = :groupId")
         fun resetGroupTrafficColumns(groupId: Long)
 
         @Query("UPDATE proxy_entities SET tx = :tx, rx = :rx WHERE id = :id")
         fun updateTraffic(id: Long, tx: Long, rx: Long)
 
-        // :bg 落库：把上次落库以来新增的字节加到库里的值上。界面清零后再落库，写回的只是清零之后
-        // 新增的那一点，不会把清掉的旧累计带回来
-        @Query("UPDATE proxy_entities SET tx = tx + :dtx, rx = rx + :drx WHERE id = :id")
-        fun addTraffic(id: Long, dtx: Long, drx: Long)
+        @Query("SELECT id, trafficEpoch FROM proxy_entities WHERE id IN (:ids)")
+        fun getTrafficEpochs(ids: List<Long>): List<TrafficClearEpoch>
+
+        // 只有同一清零版本的增量可以入账，已取走但晚于清零提交的旧增量直接失效。
+        @Query("UPDATE proxy_entities SET tx = tx + :dtx, rx = rx + :drx WHERE id = :id AND trafficEpoch = :epoch")
+        fun addTraffic(id: Long, dtx: Long, drx: Long, epoch: Long): Int
 
         @Query("UPDATE proxy_entities SET status = :status, ping = :ping, error = :error WHERE id = :id")
         fun updateStatus(id: Long, status: Int, ping: Int, error: String?)

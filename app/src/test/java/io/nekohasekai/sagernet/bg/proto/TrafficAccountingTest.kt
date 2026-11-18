@@ -318,7 +318,7 @@ class TrafficAccountingTest {
         s.route(TAG_PROXY, 100, 1000)
         s.route("c-5-4", 7, 70)
         assertEquals(1070, acc.sweep(1000).rxSession)
-        acc.clear(longArrayOf(10, 99))
+        acc.clear(mapOf(10L to 1L, 99L to 1L))
         assertEquals(TrafficTotals(0, 0), acc.snapshot().getValue(10))
         s.route(TAG_PROXY, 100, 1000)
         s.route("c-5-4", 7, 70)
@@ -344,7 +344,7 @@ class TrafficAccountingTest {
         (before as MutableMap<Long, TrafficTotals>).clear()
         assertEquals(3, acc.snapshot().size)
         s.route("g-2", 1, 10)
-        acc.clear(longArrayOf(3))
+        acc.clear(mapOf(3L to 1L))
         val second = acc.sweep(2000)
         assertEquals(setOf(2L, 3L), second.changed.keys)
         assertEquals(TrafficTotals(0, 0), second.changed.getValue(3))
@@ -441,7 +441,7 @@ class TrafficAccountingTest {
         task { s.route(TAG_PROXY, 1, 1); injected.addAndGet(1) }
         task { i -> acc.sweep(i.toLong()) }
         task { i -> acc.select(if (i % 2 == 0) 2L else 1L) }
-        task { acc.clear(longArrayOf(1, 10)) }
+        task { i -> acc.clear(mapOf(1L to i + 1L, 10L to i + 1L)) }
         task { acc.snapshot() }
         assertTrue(done.await(60, TimeUnit.SECONDS))
         pool.shutdown()

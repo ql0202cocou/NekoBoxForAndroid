@@ -20,7 +20,7 @@ import java.util.concurrent.Executors
 
 @Database(
     entities = [ProxyGroup::class, ProxyEntity::class, RuleEntity::class, DataGeneration::class],
-    version = 12,
+    version = 13,
     autoMigrations = [
         AutoMigration(from = 3, to = 4),
         AutoMigration(from = 4, to = 5),
@@ -28,7 +28,8 @@ import java.util.concurrent.Executors
         AutoMigration(from = 6, to = 7),
         AutoMigration(from = 7, to = 8),
         // 只新建 data_generation 表，不插行（读不到行按 0，见 DataGeneration）
-        AutoMigration(from = 9, to = 10)
+        AutoMigration(from = 9, to = 10),
+        AutoMigration(from = 12, to = 13)
     ]
 )
 @TypeConverters(value = [KryoConverters::class, GsonConverters::class])

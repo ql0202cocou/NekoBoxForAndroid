@@ -106,7 +106,12 @@ class BaseService {
                     // 扫描持锁做 JNI queryStats
                     val looper = proxy?.looper
                     if (ids != null && looper != null) runOnDefaultDispatcher {
-                        looper.clearStats(ids)
+                        try {
+                            looper.clearStats(ids)
+                        } catch (e: android.database.SQLException) {
+                            // 下一次带旧版本的增量落库时也会重新同步。
+                            Logs.w(e)
+                        }
                     }
                 }
 
