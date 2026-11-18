@@ -260,7 +260,7 @@ private const val AUTH_CHECK_READ_SLICE_MS = 50
 /**
  * 认证检查的一次握手（结论在 fmt/ExternalCoreStartup.kt 的 externalAuthOutcome）：用 auth 的用户名与
  * [LocalSocksAuth.withWrongPassword] 的错误密码，一次写入与就绪探测同构的 [socks5PasswordHandshake]，
- * 读满 4 字节、读到对端关闭或超过 timeoutMs 为止。正好是 05 02 01 00 为 Accepted；读满且是 05 02 后跟非 00 的
+ * 读满 4 字节、读到对端关闭或超过 timeoutMs 为止。正好是 05 02 01 00 为 Accepted；读满且是 05 02 01 后跟非 00 的
  * 状态为 Rejected；其余（别的应答、断开、超时、连接错误）为 Unclear。isCancelled 为真或协程被取消时抛
  * CancellationException。
  */
@@ -309,7 +309,8 @@ suspend fun probeWrongPassword(
             when {
                 ended != null -> WrongPasswordReply.Unclear(unexpectedReply(reply, read, ended))
                 reply.contentEquals(SOCKS5_AUTH_ACCEPTED) -> WrongPasswordReply.Accepted
-                reply[0] == SOCKS5_AUTH_ACCEPTED[0] && reply[1] == SOCKS5_AUTH_ACCEPTED[1] && reply[3] != 0.toByte() ->
+                reply[0] == SOCKS5_AUTH_ACCEPTED[0] && reply[1] == SOCKS5_AUTH_ACCEPTED[1] &&
+                    reply[2] == SOCKS5_AUTH_ACCEPTED[2] && reply[3] != 0.toByte() ->
                     WrongPasswordReply.Rejected(reply.toList().toHex())
 
                 else -> WrongPasswordReply.Unclear(unexpectedReply(reply, read, null))

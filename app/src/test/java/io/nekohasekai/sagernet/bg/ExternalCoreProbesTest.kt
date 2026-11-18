@@ -470,6 +470,8 @@ class ExternalCoreProbesTest {
         assertEquals("unexpected SOCKS5 reply 05 02 (timed out)", unclear(wrongPasswordProbe(byteArrayOf(5, 2), closeAfterReply = false)))
         // 状态为 00 但不是 05 02 01 00
         assertEquals("unexpected SOCKS5 reply 05 02 02 00", unclear(wrongPasswordProbe(byteArrayOf(5, 2, 2, 0))))
+        // 未知认证版本的失败状态也不能证明 RFC 1929 密码校验已生效。
+        assertEquals("unexpected SOCKS5 reply 05 02 02 01", unclear(wrongPasswordProbe(byteArrayOf(5, 2, 2, 1))))
         // 什么都不回：直接断开，或挂着
         unclear(wrongPasswordProbe(null, request = 0))
         assertEquals("no SOCKS5 reply (timed out)", unclear(wrongPasswordProbe(null, closeAfterReply = false)))
@@ -521,6 +523,14 @@ class ExternalCoreProbesTest {
     // ---- 校验进程
 
     private fun sh(script: String) = ExternalCoreLaunch(listOf("/bin/sh", "-c", script))
+
+    @Test
+    fun `校验父进程退出后继承输出管道的后代不会拖住调用方`() = runBlocking {
+        val start = System.nanoTime()
+        val result = runCheckProcess(sh("sleep 3 & echo synthetic-done; exit 0"), null, 1000) { false }
+        assertEquals(0, result.exitCode)
+        assertTrue("继承的管道不应阻塞清理", (System.nanoTime() - start) / 1_000_000 < 1500)
+    }
 
     @Test
     fun `校验进程的退出码与合并后的输出`() = runBlocking(Dispatchers.IO) {
