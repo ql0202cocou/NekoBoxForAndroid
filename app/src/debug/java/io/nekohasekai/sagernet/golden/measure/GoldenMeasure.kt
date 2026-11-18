@@ -22,6 +22,7 @@ import io.nekohasekai.sagernet.fmt.buildConfig
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean.FLOW_VISION
 import io.nekohasekai.sagernet.golden.collect.CollectRefusedException
 import io.nekohasekai.sagernet.golden.collect.GoldenCollector
+import io.nekohasekai.sagernet.golden.collect.GoldenSettingsJournal
 import io.nekohasekai.sagernet.golden.collect.ScenarioBuilder
 import io.nekohasekai.sagernet.golden.collect.reality
 import io.nekohasekai.sagernet.golden.collect.shadowsocks
@@ -124,10 +125,7 @@ object GoldenMeasure {
         checkOwnership(allowWipe)
 
         val kvDao = PublicDatabase.kvPairDao
-        val savedSettings = ownedMarker.takeIf { it.isFile }
-            ?.let { runCatching { GoldenCollector.decodeSettings(it.readText()) }.getOrNull() }
-            ?: kvDao.all()
-        ownedMarker.writeText(GoldenCollector.encodeSettings(savedSettings))
+        val savedSettings = GoldenSettingsJournal(ownedMarker).begin()
 
         val fixture = fixture(xray, singbox)
         SagerDatabase.instance.runInTransaction {
@@ -156,9 +154,7 @@ object GoldenMeasure {
         val external = linkedMapOf<String, Int>()
         for (hop in plan.hops) external[hop.pluginId] = (external[hop.pluginId] ?: 0) + 1
         val expected = if (xray > 0) mapOf("xray-plugin" to xray) else emptyMap()
-        if (external != expected) throw CollectRefusedException(
-            "the fixture maps to external cores $external, expected $expected"
-        )
+        check(external == expected) { "the fixture maps to external cores $external, expected $expected" }
         // 按运行计划应起的外核进程数（每组一个）
         val processes = linkedMapOf<String, Int>()
         for (group in plan.groups) processes[group.pluginId] = (processes[group.pluginId] ?: 0) + 1
@@ -240,7 +236,7 @@ object GoldenMeasure {
     // ---- start ----
 
     private fun start(): Map<String, Any?> {
-        if (!ownedMarker.exists()) throw CollectRefusedException("nothing prepared: call measurePrepare first")
+        GoldenSettingsJournal(ownedMarker).read()
         val service = bind()
         val before = service.stateOrStopped
         if (before != BaseService.State.Stopped) throw CollectRefusedException(
@@ -335,7 +331,19 @@ object GoldenMeasure {
 
     // ---- finish ----
 
+    private fun tablesEmpty() = SagerDatabase.groupDao.allGroups().isEmpty() &&
+        SagerDatabase.proxyDao.getAll().isEmpty() && SagerDatabase.rulesDao.allRules().isEmpty()
+
     private fun finish(extras: Bundle): Map<String, Any?> {
+        if (!ownedMarker.exists()) {
+            // 上次已恢复但主机未收到回执时，重复结束应成功；不能停止后来启动的普通服务。
+            if (runningServices().isNotEmpty()) throw CollectRefusedException("the running service has no measurement marker")
+            return mapOf("stopped" to true, "stateBefore" to BaseService.State.Stopped.name,
+                "stateAfter" to BaseService.State.Stopped.name, "stopMs" to null, "transitions" to emptyList<Any>(),
+                "restoredSettings" to null, "tablesEmpty" to tablesEmpty())
+        }
+        val journal = GoldenSettingsJournal(ownedMarker)
+        val saved = journal.read()
         val stopTimeout = extras.getLong("stopTimeoutMs", DEFAULT_STOP_TIMEOUT_MS)
         val result = linkedMapOf<String, Any?>()
         // 1. 停服务：与通知栏的停止按钮同一路径（Action.CLOSE 广播）
@@ -370,22 +378,14 @@ object GoldenMeasure {
         requestedAtWall = -1L
 
         // 2. 清夹具、恢复设置
-        if (ownedMarker.isFile) {
-            val saved = GoldenCollector.decodeSettings(ownedMarker.readText())
-            SagerDatabase.instance.runInTransaction {
-                SagerDatabase.rulesDao.reset()
-                SagerDatabase.proxyDao.reset()
-                SagerDatabase.groupDao.reset()
-            }
-            PublicDatabase.kvPairDao.reset()
-            PublicDatabase.kvPairDao.insert(saved)
-            ownedMarker.delete()
-            result["restoredSettings"] = saved.size
-        } else {
-            result["restoredSettings"] = null
+        SagerDatabase.instance.runInTransaction {
+            SagerDatabase.rulesDao.reset()
+            SagerDatabase.proxyDao.reset()
+            SagerDatabase.groupDao.reset()
         }
-        result["tablesEmpty"] = SagerDatabase.groupDao.allGroups().isEmpty() &&
-            SagerDatabase.proxyDao.getAll().isEmpty() && SagerDatabase.rulesDao.allRules().isEmpty()
+        journal.restore(saved)
+        result["restoredSettings"] = saved.size
+        result["tablesEmpty"] = tablesEmpty()
         return result
     }
 }

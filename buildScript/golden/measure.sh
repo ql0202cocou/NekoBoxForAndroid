@@ -151,13 +151,15 @@ finish_measurement() {
     FINISHED=1
     return
   fi
+  # 入口在确认标记、设置或独占权时拒绝，不能替其它会话强停应用。
+  if [[ "$result" == *"message=refused:"* ]]; then return 0; fi
   # 服务没在时限内停下（或入口报错）：强行停止应用后再调一次，那时服务已不在，只做清理
   echo ">> service did not stop cleanly, force-stopping $PACKAGE" >&2
   echo "forceStopped=1" >> "$RAW/host.txt"
   "$ADB" shell am force-stop "$PACKAGE" || true
   result=$(call_provider measureFinish) || true
   printf '%s\n' "$result" > "$RAW/finish-retry.txt"
-  is_ok "$result" && FINISHED=1
+  if is_ok "$result" && printf '%s' "$result" | decode_result | grep -q '"stopped":true'; then FINISHED=1; fi
   return 0
 }
 cleanup() {
@@ -226,7 +228,7 @@ EXTRAS=(
 RESULT=$(call_provider measurePrepare "${EXTRAS[@]}") || true
 printf '%s\n' "$RESULT" > "$RAW/prepare.txt"
 # 拒绝运行时入口没写任何东西；其余失败（例如夹具分核不符）可能已写了夹具，交给收尾清理
-if printf '%s' "$RESULT" | grep -Eq 'message=refused: (the database holds|the proxy service is running|an interrupted)'; then
+if [[ "$RESULT" == *"message=refused:"* ]]; then
   echo "measurement refused:" >&2
   printf '%s\n' "$RESULT" >&2
   exit 1

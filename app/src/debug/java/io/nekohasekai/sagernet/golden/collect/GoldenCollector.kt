@@ -4,7 +4,6 @@ import android.os.Build
 import android.system.Os
 import android.system.OsConstants
 import com.google.gson.GsonBuilder
-import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.database.DataStore
@@ -97,17 +96,14 @@ class GoldenCollector(private val args: CollectArgs) {
         val plugins = checkEnvironment()
         checkOwnership(scenarios)
 
-        val kvDao = PublicDatabase.kvPairDao
-        val savedSettings = ownedMarker.takeIf { it.isFile }
-            ?.let { runCatching { decodeSettings(it.readText()) }.getOrNull() }
-            ?: kvDao.all()
+        val journal = GoldenSettingsJournal(ownedMarker)
+        val savedSettings = journal.begin()
         val counts = linkedMapOf(
             "runOk" to 0, "runError" to 0,
             "testOk" to 0, "testError" to 0,
             "exportOk" to 0, "exportError" to 0,
         )
         val checks = CheckStats()
-        ownedMarker.writeText(encodeSettings(savedSettings))
         try {
             outDir.deleteRecursively()
             val preserved = savedSettings.filter { it.key in PRESERVED_SETTINGS }
@@ -118,9 +114,7 @@ class GoldenCollector(private val args: CollectArgs) {
             writeJson(File(outDir, "manifest.json"), manifest(scenarios.size, counts, checks, plugins))
         } finally {
             clearTables()
-            kvDao.reset()
-            kvDao.insert(savedSettings)
-            ownedMarker.delete()
+            journal.restore(savedSettings)
         }
         return CollectSummary(outDir, scenarios.size, counts)
     }
@@ -466,21 +460,5 @@ class GoldenCollector(private val args: CollectArgs) {
             "xray-plugin" to "libxray.so",
             "hysteria-plugin" to "libhysteria.so",
         )
-
-        // 标记文件里保存的设置（采集与实测入口共用）：[{key, valueType, value(Base64)}]
-        private val markerGson = GsonBuilder().disableHtmlEscaping().create()
-
-        fun encodeSettings(list: List<KeyValuePair>): String = markerGson.toJson(list.map {
-            linkedMapOf("key" to it.key, "valueType" to it.valueType, "value" to Base64.getEncoder().encodeToString(it.value))
-        })
-
-        fun decodeSettings(text: String): List<KeyValuePair> = JsonParser.parseString(text).asJsonArray.map {
-            val row = it.asJsonObject
-            KeyValuePair().apply {
-                key = row["key"].asString
-                valueType = row["valueType"].asInt
-                value = Base64.getDecoder().decode(row["value"].asString)
-            }
-        }
     }
 }

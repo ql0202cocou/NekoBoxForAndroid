@@ -437,7 +437,7 @@ ANDROID_SERIAL=emulator-5554 ./run golden measure --xray 8 --out <空目录>   #
   只接受 adb shell 与 root 的调用；与采集互斥（同一时刻只跑一个 call）。
 - 防误伤：数据库里有不是实测入口建的节点 / 分组 / 规则时拒绝，除非带 `--allow-wipe`；服务正在运行、或采集被打断留下了
   标记文件时也拒绝。夹具写入前建标记文件 `files/golden-measure.owned`（内容是原有设置表），清理完删除；中途被打断时，
-  下次运行据它认出夹具并按它恢复设置。
+  下次运行据它认出夹具并按它恢复设置。两个工具都先同步临时文件再原子发布标记，重试沿用首份快照；标记损坏即拒绝清理，设置在同一事务内恢复成功后才删除标记。
 - 设置：整表清空后只写实测需要的键——`serviceMode`、`logLevel`、选中的分组与节点、两个 DNS（`https://dns.example.net/dns-query`
   与 `https://192.0.2.53/dns-query`，连不上，不向真实服务器发查询）——外加进程启动时会写回的 `legacyAssetsMigrated`；
   其余取代码默认值。
