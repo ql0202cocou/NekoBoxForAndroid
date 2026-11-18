@@ -1,0 +1,18 @@
+{
+  "status": "error",
+  "error": {
+    "class": "io.nekohasekai.sagernet.fmt.ProfileBuildException",
+    "message": "golden-reality-psk-1: the manually chosen core Xray cannot run this profile: [utlsFingerprint, realityPubKey] This PSK fingerprint crashes Xray with REALITY; choose another fingerprint",
+    "causes": [
+      {
+        "class": "java.lang.IllegalStateException",
+        "message": "the manually chosen core Xray cannot run this profile: [utlsFingerprint, realityPubKey] This PSK fingerprint crashes Xray with REALITY; choose another fingerprint"
+      }
+    ]
+  },
+  "dynamic": {
+    "ports": [],
+    "paths": [],
+    "secrets": []
+  }
+}

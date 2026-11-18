@@ -40,6 +40,15 @@ fun goldenScenarios(): List<Scenario> = scenarioTable {
     bug001Precheck()
     bug001Trial()
     k2Xhttp()
+    realityPsk()
+}
+
+private fun ScenarioTable.realityPsk() {
+    for ((index, fingerprint) in listOf("hellochrome_100_psk", "hellochrome_112_psk_shuf", "hellochrome_114_padding_psk_shuf", "hellochrome_115_pq_psk").withIndex()) {
+        single("xray-reality-psk-${index + 1}", "REALITY 拒绝会让 Xray 崩溃的 PSK 模板", CORE_XRAY) {
+            vless("golden-reality-psk-${index + 1}").reality().apply { utlsFingerprint = fingerprint }
+        }
+    }
 }
 
 private fun ScenarioTable.single(
@@ -568,6 +577,26 @@ private fun ScenarioTable.chains() {
         node(3, trojan("golden-chain-trojan").tls(sni = "trojan.example.com"))
         chain(1, 2, 3)
     }
+    for (withExternal in listOf(false, true)) {
+        val id = if (withExternal) "chain-internal-mux-xray-internal-mux" else "chain-2-internal-mux"
+        val description = if (withExternal) "两个内部 mux 跳之间夹 Xray，只有出口保留 mux" else "两个内部 mux 跳，只有出口保留 mux"
+        scenario(id, description) {
+            // 两端用不同参数，防止仅检查 mux 数量时漏掉分配给错误节点的回归。
+            node(2, vmess("golden-chain-mux-entry").mux(type = 1, concurrency = 2), core = CORE_SING_BOX)
+            node(
+                3,
+                trojan("golden-chain-mux-exit").tls(sni = "trojan.example.com")
+                    .mux(type = 0, padding = true, concurrency = 4),
+                core = CORE_SING_BOX,
+            )
+            if (withExternal) {
+                node(4, vless("golden-chain-mux-middle").ws().tls(sni = "cdn.example.org"), core = CORE_XRAY)
+                chain(1, 2, 4, 3)
+            } else {
+                chain(1, 2, 3)
+            }
+        }
+    }
     // 三跳混合：2 Shadowsocks、3 Xray、4 AnyTLS，按不同顺序组链
     for ((suffix, order) in listOf(
         "sb-xray-mihomo" to longArrayOf(2, 3, 4),
@@ -888,6 +917,17 @@ private fun ScenarioBuilder.ruleTypeSamples() {
 }
 
 private fun ScenarioTable.routeRules() {
+    for (selector in listOf(false, true)) scenario(
+        if (selector) "selector-rule-reused-global" else "rules-reused-global",
+        "规则直接使用主链的内部前置，外核映射回流与用户分流共享该出站",
+    ) {
+        group(1, selector = selector)
+        group(2)
+        node(2, shadowsocks("golden-r2-front"), group = 2)
+        node(3, vmess("golden-r2-exit"), group = 2, core = CORE_XRAY)
+        chain(1, 2, 3)
+        rule(1, outbound = 2) { domains = "domain:r2.example.org" }
+    }
     scenario("rules-types", "各类规则（含 DNS 规则）") { ruleTypeSamples() }
     scenario("rules-types-dns-routing-off", "各类规则，关闭 DNS 分流") {
         ruleTypeSamples()

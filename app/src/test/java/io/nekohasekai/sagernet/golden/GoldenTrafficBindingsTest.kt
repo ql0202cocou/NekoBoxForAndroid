@@ -118,6 +118,8 @@ class GoldenTrafficBindingsTest {
 
         // 有启用规则的场景（settings-* 除外）逐个写出期望与理由
         private val EXPECTED_RULE_TAGS: Map<String, Pair<Set<String>, String>> = mapOf(
+            "rules-reused-global" to (setOf("g-2") to "规则复用主链前置 2，补登记独立用户流量；外核映射回流由 tracker 排除"),
+            "selector-rule-reused-global" to (setOf("g-2") to "选择器的组外规则复用前置 2；链内最先拨号跳保留全局 tag g-2，补登记统计"),
             "bug001-rule-target-bad" to (emptySet<String>() to "目标节点试建失败被跳过，规则因出站不存在没有应用"),
             "chain-shared-node" to (setOf("c-5-4") to "规则 → 链 5（出口是节点 4），链的出站 c-5-4 登记统计"),
             "group-dns" to (setOf("g-2", "g-3", "g-4") to "三条规则 → 单节点 2、3、4，各自的 g-<id>"),

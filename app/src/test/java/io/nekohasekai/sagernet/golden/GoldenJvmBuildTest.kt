@@ -5,8 +5,11 @@ import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.fmt.ConfigBuildDiagnostic
 import io.nekohasekai.sagernet.fmt.ConfigBuildMode
 import io.nekohasekai.sagernet.database.ProxyEntity
+import io.nekohasekai.sagernet.fmt.internal.ChainBean
+import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.golden.GoldenAddressCorpus.Companion.quoted
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.ClassRule
 import org.junit.Test
@@ -46,6 +49,64 @@ class GoldenJvmBuildTest {
                 assertEquals("${profile.requireBean().displayName()}: the manually chosen core 3 cannot run this profile: [profileCore] Unknown core (3)", error["message"])
                 assertTrue(output.files.isEmpty())
                 assertTrue(output.diagnostics.isEmpty())
+            }
+        }
+    }
+
+    @Test
+    fun `两个内部 mux 跳在纯内部链与夹外核链的三种模式中都只给出口保留 mux`() {
+        val baseline = GoldenBaseline.load()
+        // 期望来自链的既定语义；独立于采集输出，防止重采基线接受重复 mux 或拿错一跳的参数。
+        val exitMux = JsonParser.parseString(
+            """{"enabled":true,"protocol":"h2mux","max_streams":4,"padding":true}""",
+        )
+        for ((id, members) in listOf(
+            "chain-2-internal-mux" to listOf(2L, 3L),
+            "chain-internal-mux-xray-internal-mux" to listOf(2L, 4L, 3L),
+        )) {
+            val input = baseline.input(id)
+            val source = input.dataSource()
+            assertEquals(id, members, (input.newBean(input.mainProfileId) as ChainBean).proxies)
+            val entryBean = input.newBean(2) as StandardV2RayBean
+            val exitBean = input.newBean(3) as StandardV2RayBean
+            for (profileId in listOf(2L, 3L)) {
+                assertEquals(id, ProxyEntity.CORE_SING_BOX, source.profile(profileId)!!.core)
+            }
+            assertTrue(id, entryBean.enableMux)
+            assertTrue(id, exitBean.enableMux)
+            assertEquals(id, listOf(1, 2, false), listOf(entryBean.muxType, entryBean.muxConcurrency, entryBean.muxPadding))
+            assertEquals(id, listOf(0, 4, true), listOf(exitBean.muxType, exitBean.muxConcurrency, exitBean.muxPadding))
+            val withExternal = 4L in members
+            if (withExternal) assertEquals(id, ProxyEntity.CORE_XRAY, source.profile(4)!!.core)
+
+            for (mode in ConfigBuildMode.entries) {
+                val where = "$id/${mode.dir}"
+                val output = tree.outputs.getValue(id to mode)
+                assertEquals(where, "ok", output.result["status"])
+                val configs = if (mode == ConfigBuildMode.EXPORT) {
+                    output.files.getValue("export.txt").split("\n\n")
+                } else {
+                    listOf(output.files.getValue("sing-box.json")) +
+                        output.files.filterKeys { it.startsWith("ext-") }.values
+                }
+                assertEquals(where, if (withExternal) 2 else 1, configs.size)
+                val outbounds = JsonParser.parseString(configs.first()).asJsonObject
+                    .getAsJsonArray("outbounds").map { it.asJsonObject }
+                val entry = outbounds.single { it["type"].asString == "vmess" }
+                val exit = outbounds.single { it["type"].asString == "trojan" }
+                assertEquals(where, 1, outbounds.count { it.has("multiplex") })
+                assertEquals(where, exitMux, exit["multiplex"])
+                assertFalse(where, entry.has("multiplex"))
+                assertFalse(where, entry.has("detour"))
+                if (withExternal) {
+                    val middle = outbounds.single { it["type"].asString == "socks" }
+                    assertEquals(where, middle["tag"], exit["detour"])
+                    assertFalse(where, middle.has("multiplex"))
+                    val external = JsonParser.parseString(configs[1]).asJsonObject
+                    assertTrue(where, external.getAsJsonArray("outbounds").none { it.asJsonObject.has("mux") })
+                } else {
+                    assertEquals(where, entry["tag"], exit["detour"])
+                }
             }
         }
     }

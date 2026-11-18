@@ -106,7 +106,7 @@ socks 出站中经上述规则确认的凭据）。`input.json` 与 `address/cor
 ```
 
 配置构建只消费注入的输入（`fmt/ConfigInput.kt`）之后，整条构建能在普通 JVM 上跑。`GoldenJvmBuildTest` 对本目录
-每个场景的每种模式（357 × 3）：用 `input.json` 的 `groups` / `profiles` / `rules` 建内存数据源（查询语义同 DAO），
+每个场景的每种模式（368 × 3）：用 `input.json` 的 `groups` / `profiles` / `rules` 建内存数据源（查询语义同 DAO），
 设置取 `effectiveSettings`（Clash API secret 只在运行模式且开了 Clash API 时取，同生产外壳），包名 UID 取
 `packageUids`，插件状态按 `plugins` 回答（`missing` 即「plugin X is not installed」）；再走
 「采集引用闭包（`ConfigSnapshot.collect`）→ 纯构建入口 `buildConfig(input)` → `ExternalRunPlan.from` →
@@ -223,7 +223,7 @@ address/corpus.json                                        地址解析语料与
 | `plugins` | 五个外核插件 id 的状态：`builtin`、`missing` 或 `external:<包名>` |
 | `system` | API 级别（`sdkInt`、`sdkIntFull`）、系统版本、build fingerprint、ABI、页大小、语言 |
 | `scenarios` / `counts` | 场景数与各模式成功 / 失败的数量 |
-| `externalChecks` | run / test 模式里启动前校验的次数（每组 Xray 合并配置一次）：`checked`、`failed`、`inconclusive`（超时、被信号杀掉、进程起不来，照常继续）的总数，`byPlugin` 按插件 id 分开计（另有 `passed`），`problems` 逐条列出没过与没有结论的场景、模式、插件与原因。基线全部场景的合并配置（Xray 211 份）都应被校验且全部通过 |
+| `externalChecks` | run / test 模式里启动前校验的次数（每组 Xray 合并配置一次）：`checked`、`failed`、`inconclusive`（超时、被信号杀掉、进程起不来，照常继续）的总数，`byPlugin` 按插件 id 分开计（另有 `passed`），`problems` 逐条列出没过与没有结论的场景、模式、插件与原因。基线全部场景的合并配置（Xray 217 份）都应被校验且全部通过 |
 | `collectedAt` | 采集时间（UTC）；两次采集之间只有它允许不同 |
 
 ## input.json
@@ -324,8 +324,21 @@ socks 出站与入站都没有；同一份 sing-box 配置里本机凭据只有�
 场景表在 `app/src/debug/java/io/nekohasekai/sagernet/golden/collect/GoldenScenarios.kt`，按类别分组：
 单节点（sing-box、Xray、AnyTLS、插件核心）、自定义配置、链、分组前置 / 落地、选择器、路由规则、设置变体、
 分组 DNS、同核心多节点（`multi-` 前缀）、K1 选核（`k1-` 前缀）、BUG-001 短期预检（`bug001-` 前缀）、K2 XHTTP（`k2-` 前缀）。新增场景只往
-表里加；场景 id 入库后不要改名：id 与节点名里的 mihomo 是历史命名，这些 AnyTLS 节点现在走 sing-box。目前 360 个场景（284 个按
+表里加；场景 id 入库后不要改名：id 与节点名里的 mihomo 是历史命名，这些 AnyTLS 节点现在走 sing-box。目前 368 个场景（292 个按
 单项特性分类的，加 14 个 `multi-` 场景、33 个 `k1-` 场景、14 个 `bug001-` 场景、15 个 `k2-` 场景）。
+
+`chain-2-internal-mux` 与 `chain-internal-mux-xray-internal-mux` 覆盖两个内部节点都开 mux 的链，分别直接相连与中间夹
+一个 Xray 节点。入口 VMess 配 smux / 并发 2，出口 Trojan 配 h2mux / 并发 4 / padding，内部节点固定 sing-box。
+RUN / TEST / EXPORT 都只能在出口输出后一组 mux 参数；入口与中间的本机 SOCKS 出站不能带 multiplex，Xray 也不启用 mux。
+`GoldenJvmBuildTest` 除全树比较外，独立检查输入确实有两个 mux 跳、链顺序及上述输出约束，防止重采基线掩盖回归。
+
+`rules-reused-global` 和 `selector-rule-reused-global` 覆盖规则目标复用内部前置，且 Xray 映射回流指向同一出站。
+RUN 的 `g-2` 必须登记节点 2，TEST 不带该规则；普通模式与选择器的主链仍关联 3、2、1。
+`GoldenTrafficBindingsTest` 从外核映射端口独立核对被统计排除的入站，Go tracker 测试覆盖 TCP / UDP / flow。
+
+`xray-reality-psk-1` 至 `-4` 分别覆盖 Chrome 100 PSK、112 PSK Shuffle、114 Padding PSK Shuffle、115 PQ PSK
+与 REALITY 的组合。固定 Xray v26.11.9 的 `run -test` 接受配置，但首次真实拨号会 panic；三种构建模式均须先拒绝，
+不分配端口或凭据。普通 TLS 保持原能力，成员 / 规则目标的跳过行为另由 `ConfigPrecheckTest` 验证。
 
 `k2-` 场景钉住 XHTTP 传输（只走 Xray，手动选 sing-box 拒绝），成功的场景在采集时同样经 Xray 的 `run -test` 校验：
 `k2-vless-xhttp-none-empty-host`（无 TLS、host 为空：`xhttpSettings.host` 用服务器地址补上）、`k2-xhttp-ipv6-none`（同，IPv6

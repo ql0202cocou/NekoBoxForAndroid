@@ -143,23 +143,23 @@
     "pageSize": 16384,
     "locale": "en-US"
   },
-  "scenarios": 360,
+  "scenarios": 368,
   "counts": {
-    "runOk": 294,
-    "runError": 66,
-    "testOk": 300,
-    "testError": 60,
-    "exportOk": 245,
-    "exportError": 115
+    "runOk": 298,
+    "runError": 70,
+    "testOk": 304,
+    "testError": 64,
+    "exportOk": 249,
+    "exportError": 119
   },
   "externalChecks": {
-    "checked": 211,
+    "checked": 217,
     "failed": 0,
     "inconclusive": 0,
     "byPlugin": {
       "xray-plugin": {
-        "checked": 211,
-        "passed": 211,
+        "checked": 217,
+        "passed": 217,
         "failed": 0,
         "inconclusive": 0
       }
