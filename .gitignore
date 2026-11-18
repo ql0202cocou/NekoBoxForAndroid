@@ -11,6 +11,8 @@ local.properties
 /release.keystore
 /app/libs/
 /app/src/main/assets/sing-box
+# replace-assets.sh 的锁与暂存目录（进程被杀时残留，下次替换会恢复或清理）
+.asset-replacement.*
 /service_account_credentials.json
 jniLibs/
 /library/libcore_build/

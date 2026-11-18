@@ -30,24 +30,24 @@ check_pinned() {
   verify_sha256 "$1" "$expect" "pinned "
 }
 
-# 老工作区里已下载的 mihomo 仍会被 jniLibs 打包，必须清掉。
-for abi in $ABIS; do rm -f "$DIR/$abi/libmihomo.so"; done
-
 # 已安装核心匹配时跳过；版本戳与 ELF 头识别不了缓存损坏或替换，因此仍核对固定哈希。
 if [ "$(cat "$STAMP" 2>/dev/null)" = "$WANT" ] \
   && is_elf "$DIR/arm64-v8a/libxray.so" && is_elf "$DIR/x86_64/libxray.so" \
   && check_pinned "$DIR/arm64-v8a/libxray.so" arm64-v8a \
   && check_pinned "$DIR/x86_64/libxray.so" x86_64; then
+  # 老工作区里已下载的 mihomo 仍会被 jniLibs 打包，必须清掉。
+  for abi in $ABIS; do rm -f "$DIR/$abi/libmihomo.so"; done
   echo ">> plugin core up to date ($WANT)"
   exit 0
 fi
 
-mkdir -p $DIR/arm64-v8a $DIR/x86_64
-rm -f "$STAMP"
-
+# 候选目录只含本次下载并校验的核心；全部通过后交给 replace-assets.sh 原子替换，
+# 下载或校验失败不改动现有可用核心，旧目录里的 mihomo 也随替换一并移除。
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
-cd $TMP
+for abi in $ABIS; do mkdir -p "$TMP/next/$abi"; done
+ROOT=$PWD
+cd "$TMP"
 
 check_sha256() {
   # $1: file, $2: dgst content with "SHA2-256= <hash>"
@@ -68,9 +68,11 @@ for abi in $ABIS; do
   unzip -o -q "$zip" xray
   is_elf xray || { echo "xray is not an ELF binary"; exit 1; }
   check_pinned xray "$abi"
-  cp xray "$OLDPWD/$DIR/$abi/libxray.so"
-  rm -f xray "$zip"
+  mv xray "$TMP/next/$abi/libxray.so"
+  rm -f "$zip"
 done
 
-echo "$WANT" > "$OLDPWD/$STAMP"
+echo "$WANT" > "$TMP/next/.versions"
+cd "$ROOT"
+bash buildScript/lib/replace-assets.sh "$TMP/next" "$DIR"
 echo ">> plugin core installed to $DIR (xray $XRAY_VERSION)"
