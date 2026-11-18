@@ -25,7 +25,6 @@ import io.nekohasekai.sagernet.database.BackupRestore
 import io.nekohasekai.sagernet.bg.SubscriptionUpdater
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.GroupManager
-import io.nekohasekai.sagernet.database.ProfileManager
 import io.nekohasekai.sagernet.database.InstallMarker
 import io.nekohasekai.sagernet.database.RestoreJournal
 import io.nekohasekai.sagernet.ktx.Logs
@@ -353,14 +352,14 @@ class SagerNet : Application(),
         fun stopService() =
             application.sendBroadcast(Intent(Action.CLOSE).setPackage(application.packageName))
 
-        // see TrafficLooper.clearStats; a no-op when nothing is running
-        fun clearTrafficStatistics(profileIds: LongArray) {
-            // 主进程缓存的实时流量同样作废
-            for (id in profileIds) ProfileManager.liveTraffic.remove(id)
-            application.sendBroadcast(
-                Intent(Action.CLEAR_TRAFFIC_STATISTICS).setPackage(application.packageName)
-                    .putExtra(Action.EXTRA_PROFILE_IDS, profileIds)
-            )
+        fun notifyTrafficCleared(profileIds: List<Long>) {
+            // 每个广播最多携带 32 KiB 的 id，避免大订阅超过 Binder 事务限制。
+            profileIds.chunked(4096) { ids ->
+                application.sendBroadcast(
+                    Intent(Action.CLEAR_TRAFFIC_STATISTICS).setPackage(application.packageName)
+                        .putExtra(Action.EXTRA_PROFILE_IDS, ids.toLongArray())
+                )
+            }
         }
 
         @Volatile

@@ -7,6 +7,7 @@ import io.nekohasekai.sagernet.fmt.ConfigBuildResult
 import io.nekohasekai.sagernet.fmt.LocalSocksAuth
 import io.nekohasekai.sagernet.fmt.TAG_PROXY
 import io.nekohasekai.sagernet.fmt.TrafficBindings
+import io.nekohasekai.sagernet.fmt.TrafficIncrement
 import io.nekohasekai.sagernet.fmt.TrafficTotals
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.appScope
@@ -75,6 +76,33 @@ class BoxInstanceLifecycleTest : UiTestBase() {
             assertEquals(i * 100, round.rxSession)
         }
         assertEquals(mapOf(1L to TrafficTotals(0, 0), 2L to TrafficTotals(0, 0), 3L to TrafficTotals(200, 20)), acc.snapshot())
+    }
+
+    @Test
+    fun `建账前收到的多次分组清零按节点生效，下一轮只落新流量`() {
+        val looper = TrafficLooper(ProxyService().data, 0L)
+        val old = TrafficTotals(4000, 1000)
+        val config = ConfigBuildResult(
+            "{}", emptyList(), 1L,
+            TrafficBindings(mapOf(TAG_PROXY to listOf(1L, 2L, 3L)), (1L..3L).associateWith { old }, emptySet()),
+            emptyMap(), -1L,
+        )
+        val stats = TrafficAccountingTest.FakeStats(listOf(TAG_PROXY))
+        looper.clearStats(longArrayOf(1, 99))
+        looper.clearStats(longArrayOf(1, 2))
+        val acc = looper.initializeAccounting(config, stats::query, 0L)
+        val zero = TrafficTotals(0, 0)
+        assertEquals(mapOf(1L to zero, 2L to zero, 3L to old), acc.snapshot())
+        assertTrue(stats.log.isEmpty())
+        assertTrue(acc.claim(listOf(1L, 2L, 3L)).increments.isEmpty())
+
+        stats.route(TAG_PROXY, 10, 100)
+        val round = acc.sweep(1000L)
+        assertEquals(10L, round.txSession)
+        assertEquals(100L, round.rxSession)
+        looper.clearStats(longArrayOf(1))
+        assertEquals(mapOf(1L to zero, 2L to TrafficTotals(100, 10), 3L to TrafficTotals(4100, 1010)), acc.snapshot())
+        assertEquals(listOf(TrafficIncrement(2, 100, 10), TrafficIncrement(3, 100, 10)), acc.claim(listOf(1L, 2L, 3L)).increments)
     }
 
     private class Gate : AutoCloseable {

@@ -381,7 +381,8 @@ class ConfigurationFragment : ToolbarFragment(R.layout.layout_group_list),
             }
 
             R.id.action_clear_traffic_statistics -> {
-                maintenance.clearTraffic()
+                // 按点击时显示的分组清零，后台写库期间允许继续切页。
+                adapter.groupList.getOrNull(groupPager.currentItem)?.let { maintenance.clearTraffic(it.id) }
             }
 
             R.id.action_connection_test_clear_results -> {

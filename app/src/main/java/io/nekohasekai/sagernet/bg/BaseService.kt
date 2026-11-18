@@ -103,8 +103,9 @@ class BaseService {
                     val ids = intent.getLongArrayExtra(Action.EXTRA_PROFILE_IDS)
                     // 不在接收器的主线程上做：clearStats 与循环的统计扫描争记账的锁，
                     // 扫描持锁做 JNI queryStats
-                    if (ids != null) runOnDefaultDispatcher {
-                        proxy?.looper?.clearStats(ids)
+                    val looper = proxy?.looper
+                    if (ids != null && looper != null) runOnDefaultDispatcher {
+                        looper.clearStats(ids)
                     }
                 }
 

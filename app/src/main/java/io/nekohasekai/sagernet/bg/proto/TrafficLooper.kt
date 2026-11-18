@@ -31,9 +31,10 @@ class TrafficLooper(val data: BaseService.Data, private val generation: Long) {
     private var job: Job? = null
     private val stopped = AtomicBoolean(false)
 
-    // 首轮建账与早期切换共用这把锁。发布后由记账自己的锁保护计数与 JNI，落库在锁外。
+    // 首轮建账与早期切换、清零共用这把锁。发布后由记账自己的锁保护计数与 JNI，落库在锁外。
     private val startupLock = Any()
     private var earlySelection: Long? = null
+    private var pendingClears: MutableSet<Long>? = HashSet()
     @Volatile
     private var accounting: TrafficAccounting? = null
 
@@ -128,7 +129,13 @@ class TrafficLooper(val data: BaseService.Data, private val generation: Long) {
     // 界面清除了这些节点在库里的流量列：本循环的累计与已落库基线也要清，否则清除前的累计还会按增量继续写
     // 进库。只清界面清除的那些 id（界面按分组清，本循环覆盖运行配置里的全部节点）；会话量不变
     fun clearStats(profileIds: LongArray) {
-        accounting?.clear(profileIds)
+        val active = synchronized(startupLock) {
+            accounting ?: run {
+                pendingClears?.addAll(profileIds.asList())
+                return
+            }
+        }
+        active.clear(profileIds)
     }
 
     // NativeInterface.selector_OnProxySelected 在串行调度器的协程里按事件顺序调用。切换前先把 proxy 上的字节结算给
@@ -150,11 +157,18 @@ class TrafficLooper(val data: BaseService.Data, private val generation: Long) {
 
     internal fun initializeAccounting(config: ConfigBuildResult, query: (String, String) -> Long, startedAt: Long) =
         synchronized(startupLock) {
-            TrafficAccounting.of(config, query, startedAt, earlySelection ?: config.mainEntId).also { accounting = it }
+            TrafficAccounting.of(config, query, startedAt, earlySelection ?: config.mainEntId).also { active ->
+                pendingClears?.let { if (it.isNotEmpty()) active.clear(it.toLongArray()) }
+                pendingClears = null
+                accounting = active
+            }
         }
 
     private suspend fun loop() {
-        if (!enabled()) return
+        if (!enabled()) {
+            synchronized(startupLock) { pendingClears = null }
+            return
+        }
         val delayMs = DataStore.speedInterval.toLong()
         val showDirectSpeed = DataStore.showDirectSpeed
         val profileTrafficStatistics = DataStore.profileTrafficStatistics

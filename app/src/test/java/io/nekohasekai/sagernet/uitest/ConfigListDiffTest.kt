@@ -4,8 +4,10 @@ import android.view.View
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import android.widget.TextView
+import io.nekohasekai.sagernet.Action
 import io.nekohasekai.sagernet.GroupOrder
 import io.nekohasekai.sagernet.R
+import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.TrafficData
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.bg.ServiceRegistry
@@ -29,6 +31,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.android.controller.ActivityController
 
 /**
@@ -200,6 +203,39 @@ class ConfigListDiffTest : UiTestBase() {
         assertEquals("流量只重画该行的流量段，不发任何适配器通知", 0, events.total)
         assertTrue(holder.profileStatus.text.isNotEmpty())
         assertEquals(2048L, s.page.profileModel.latestEntity(target.id)!!.tx)
+    }
+
+    @Test
+    fun clearingGroupTrafficIncludesLiveOnlyAndUnreportedMembers() {
+        val s = open()
+        val id = s.fixtures.profiles[3].id
+        val other = s.fixtures.profiles[7].id
+        val dao = SagerDatabase.proxyDao
+        val savedOther = ui.offMain { dao.getById(other)!!.tx }
+        val liveOther = TrafficData(other, 3000, 4000)
+        ui.viaWorker {
+            runBlocking {
+                ProfileRepository.postUpdate(TrafficData(id, 2048, 4096))
+                ProfileRepository.postUpdate(liveOther)
+            }
+        }
+        assertEquals(0L, ui.offMain { dao.getById(id)!!.tx })
+        assertTrue(s.holderOf(id)!!.profileStatus.text.isNotEmpty())
+
+        s.config.onMenuItemClick(s.config.toolbar.menu.findItem(R.id.action_clear_traffic_statistics))
+        UiSettle.settle()
+
+        val group = ui.offMain { dao.getByGroup(s.fixtures.normalGroup.id) }
+        assertTrue(group.all { it.tx == 0L && it.rx == 0L })
+        assertEquals(86, group.first().ping)
+        assertNull(ProfileRepository.liveTraffic[id])
+        assertEquals("", s.holderOf(id)!!.profileStatus.text.toString())
+        val sentIds = shadowOf(SagerNet.application).broadcastIntents
+            .filter { it.action == Action.CLEAR_TRAFFIC_STATISTICS }
+            .flatMap { it.getLongArrayExtra(Action.EXTRA_PROFILE_IDS)!!.asList() }
+        assertEquals(group.map { it.id }.sorted(), sentIds.sorted())
+        assertSame(liveOther, ProfileRepository.liveTraffic[other])
+        assertEquals(savedOther, ui.offMain { dao.getById(other)!!.tx })
     }
 
     // ---------------------------------------------------------------- 搜索过滤（M5：不重播入场动画）

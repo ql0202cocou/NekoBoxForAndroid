@@ -25,17 +25,20 @@ import moe.matsuri.nb4a.Protocols
  */
 class GroupMaintenance(private val fragment: ConfigurationFragment) {
 
-    fun clearTraffic() {
+    fun clearTraffic(groupId: Long) {
         // 进程级：清除流量要写完并通知 :bg，页面离开也不能中断，不碰界面
         runOnDefaultDispatcher {
-            val toClear = ProfileRepository.getProfilesByGroup(GroupRepository.currentGroupId())
-                .filter { it.tx != 0L || it.rx != 0L }
-            if (toClear.isNotEmpty()) {
-                ProfileRepository.clearTraffic(toClear)
-                // :bg 自己也有一份计数；不通知它的话，运行中的 looper 会把清除前的总量又写回库里
-                SagerNet.clearTrafficStatistics(toClear.map { it.id }.toLongArray())
-                // 单列写库不会发通知，这里手动刷新列表
-                for (profile in toClear) ProfileRepository.postUpdate(profile)
+            val profiles = ProfileRepository.clearGroupTraffic(groupId)
+            // 库里为零的成员也要通知 :bg，后台可能还没推送或落库。
+            val toRefresh = profiles.filter { profile ->
+                val live = ProfileRepository.liveTraffic.remove(profile.id)
+                live != null || profile.tx != 0L || profile.rx != 0L
+            }
+            SagerNet.notifyTrafficCleared(profiles.map { it.id })
+            for (profile in toRefresh) {
+                profile.tx = 0
+                profile.rx = 0
+                ProfileRepository.postUpdate(profile)
             }
         }
     }

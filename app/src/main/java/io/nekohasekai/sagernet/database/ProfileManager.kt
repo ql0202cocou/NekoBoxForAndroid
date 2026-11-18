@@ -130,18 +130,7 @@ object ProfileManager {
     // Snapshot-safe partial writes: the entity may have been read at VPN/test
     // start, so only the columns this caller owns go back to the DB.
 
-    // 整批一个事务：数据库是 TRUNCATE 日志模式，逐行更新会各自提交一次。绝对值写入，现在只有界面清除流量
-    // （ProfileRepository.clearTraffic）调用；运行中的统计按节点 id 走 persistTrafficIncrements 写增量
-    suspend fun updateTraffic(profiles: List<ProxyEntity>) {
-        if (profiles.isEmpty()) return
-        SagerDatabase.instance.runInTransaction {
-            for (profile in profiles) {
-                SagerDatabase.proxyDao.updateTraffic(profile.id, profile.tx, profile.rx)
-            }
-        }
-    }
-
-    // 按节点 id 把新增的流量加到库里（运行中的统计不持有节点实体），整批一个事务，同 updateTraffic(List)。
+    // 按节点 id 把新增的流量加到库里（运行中的统计不持有节点实体），整批一个事务。
     // 写增量而不是绝对值：界面清零与 :bg 落库互不覆盖，清掉的旧累计不会被写回来
     suspend fun persistTrafficIncrements(increments: Collection<TrafficIncrement>, generation: Long) {
         if (increments.isEmpty()) return
@@ -161,7 +150,7 @@ object ProfileManager {
         })
     }
 
-    // 测速结果落库：逐行核对配置仍是被测时的才写（见 updateTestResult），整批一个事务（同 updateTraffic(List)）。
+    // 测速结果落库：逐行核对配置仍是被测时的才写（见 updateTestResult），整批一个事务。
     // 不发逐行更新：调用方测完整组后自己整组刷新一次
     suspend fun updateTestResults(results: List<ProxyEntity>) {
         if (results.isEmpty()) return

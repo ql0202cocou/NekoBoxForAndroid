@@ -10,16 +10,16 @@ import io.nekohasekai.sagernet.fmt.AbstractBean
 //   只能在后台线程调用：SagerDatabase 不开 allowMainThreadQueries，主线程调用会被 Room 拒绝（抛 IllegalStateException）。
 // - suspend 方法不自行换调度器，在调用方协程里完成读写库，随后在同一协程里逐个通知监听器；
 //   同样只能在后台调度器上调用。
-// - 非 suspend 的写入（updateUserOrders）同样是阻塞调用，应在后台线程调用。
+// - 非 suspend 的写入（updateUserOrders、clearGroupTraffic）同样是阻塞调用，应在后台线程调用。
 // - liveTraffic 是内存里的表，不查库，任意线程可读。
 //
-// 事务：批量写入（createProfiles、updateUserOrders、updateTestResults、clearTraffic、clearTestResults、
+// 事务：批量写入（createProfiles、updateUserOrders、updateTestResults、clearGroupTraffic、clearTestResults、
 // deleteProfiles）整批在一个 Room 事务里；监听器通知一律在事务提交之后。
 //
 // 通知（写操作是否通知监听器）：
 // - 通知：createProfile(s) 逐个 onAdd，updateProfile、moveProfile 与 postUpdate 发 onUpdated，
 //   deleteProfile(s) 逐个 onRemoved。
-// - 不通知：updateUserOrders、updateTestResults、clearTraffic、clearTestResults 只写列，由调用方
+// - 不通知：updateUserOrders、updateTestResults、clearGroupTraffic、clearTestResults 只写列，由调用方
 //   自己整组刷新（例如 GroupManager.postReload）。
 // - getProfile / getProfiles 只读，与 ProfileManager 同一语义：id 为 0 直接返回 null 不查库；库打不开抛
 //   IOException；其它 SQLException 记日志后当作「没有这一行」（null / 空列表），调用方按节点已删除处理。
@@ -76,13 +76,7 @@ object ProfileRepository {
     // 实时流量推送：记进 liveTraffic 再发 onUpdated(TrafficData)，不读库
     suspend fun postUpdate(data: TrafficData) = ProfileManager.postUpdate(data)
 
-    suspend fun clearTraffic(profiles: List<ProxyEntity>) {
-        for (profile in profiles) {
-            profile.tx = 0
-            profile.rx = 0
-        }
-        ProfileManager.updateTraffic(profiles)
-    }
+    fun clearGroupTraffic(groupId: Long): List<ProxyEntity> = SagerDatabase.proxyDao.clearGroupTraffic(groupId)
 
     suspend fun clearTestResults(profiles: List<ProxyEntity>) {
         for (profile in profiles) {

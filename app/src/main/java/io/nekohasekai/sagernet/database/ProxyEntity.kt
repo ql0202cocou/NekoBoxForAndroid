@@ -298,8 +298,17 @@ data class ProxyEntity(
         @Update(entity = ProxyEntity::class)
         fun updateEditableFields(fields: ProxyEditableFields): Int
 
-        // 只写 tx / rx：调用方持有 VPN / 测试开始时读的快照，整行 @Update 会把其它列上并发的修改回滚。
-        // 绝对值写入只给界面清除流量（归零）；:bg 的落库走 addTraffic 的增量
+        // 数据库为零的节点也可能有实时流量。事务返回清零时的成员和旧值，供界面刷新并通知后台。
+        @Transaction
+        fun clearGroupTraffic(groupId: Long): List<ProxyEntity> {
+            val profiles = getByGroup(groupId)
+            resetGroupTrafficColumns(groupId)
+            return profiles
+        }
+
+        @Query("UPDATE proxy_entities SET tx = 0, rx = 0 WHERE groupId = :groupId AND (tx != 0 OR rx != 0)")
+        fun resetGroupTrafficColumns(groupId: Long)
+
         @Query("UPDATE proxy_entities SET tx = :tx, rx = :rx WHERE id = :id")
         fun updateTraffic(id: Long, tx: Long, rx: Long)
 
