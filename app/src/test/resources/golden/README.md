@@ -74,8 +74,8 @@ APK 只按 `app/build/outputs/apk/oss/debug/output-metadata.json`（Gradle 每�
 - 防误伤：数据库里有不是采集入口建的节点 / 分组 / 规则时拒绝运行，除非带 `--allow-wipe`。采集结束后清空
   节点 / 分组 / 规则三张表，并把 `configuration.db` 的设置恢复成采集前的样子。
 - 已准备或中断的实测持有数据库时，先执行 `measureFinish` 恢复设置，再采集。`--allow-wipe` 只授权替换未知夹具。
-- 环境检查：装了 Trojan-Go / Naive / Mieru / Hysteria 的外部插件 app 时拒绝（结果会变，见下文）；
-  设备上的 `libxray.so` 必须就是脚本刚装的 APK 里那份。
+- 环境检查：Xray / Trojan-Go / Naive / Mieru / Hysteria 任一插件解析到可信外部提供方时拒绝。Xray 须选中 APK 内可执行的
+  `libxray.so`，文件哈希须与脚本使用的 APK 相符。
 
 ## 比较
 
