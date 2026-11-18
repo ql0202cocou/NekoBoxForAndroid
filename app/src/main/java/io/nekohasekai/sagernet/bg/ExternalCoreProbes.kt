@@ -44,6 +44,12 @@ suspend fun runCheckProcess(
     timeoutMs: Long,
     isCancelled: () -> Boolean,
 ): CheckProcessResult {
+    val context = currentCoroutineContext()
+    fun checkCancelled() {
+        context.ensureActive()
+        if (isCancelled()) throw CancellationException("external core check cancelled")
+    }
+    checkCancelled()
     val process = ProcessBuilder(launch.commands).directory(workDir).redirectErrorStream(true).apply {
         environment().putAll(launch.env)
     }.start()
@@ -74,9 +80,10 @@ suspend fun runCheckProcess(
             if (exitCode != null) {
                 // 进程已退出，管道写端随之关闭，读线程很快到 EOF；有继承了管道的子进程时也不无限等
                 reader.join(CHECK_DRAIN_MS)
+                checkCancelled()
                 return CheckProcessResult(exitCode, synchronized(lines) { lines.joinToString("\n") })
             }
-            if (isCancelled()) throw CancellationException("external core check cancelled")
+            checkCancelled()
             if (System.nanoTime() - deadline >= 0) {
                 return CheckProcessResult(null, synchronized(lines) { lines.joinToString("\n") })
             }
@@ -137,8 +144,15 @@ suspend fun awaitLocalPorts(
     val gaveUp = BooleanArray(targets.size)
     val exitCodes = arrayOfNulls<Int>(targets.size)
     val errors = arrayOfNulls<String>(targets.size)
-    fun statuses() = targets.indices.map { LocalPortStatus(ready[it], exitCodes[it], errors[it]) }
-    fun cancelled() = CancellationException("closed while waiting for external cores")
+    val context = currentCoroutineContext()
+    fun checkCancelled() {
+        context.ensureActive()
+        if (isCancelled()) throw CancellationException("closed while waiting for external cores")
+    }
+    fun statuses(): List<LocalPortStatus> {
+        checkCancelled()
+        return targets.indices.map { LocalPortStatus(ready[it], exitCodes[it], errors[it]) }
+    }
     fun giveUp(i: Int, state: ProcessState) {
         gaveUp[i] = true
         ready[i] = false
@@ -152,7 +166,7 @@ suspend fun awaitLocalPorts(
         var pending = false
         for ((i, target) in targets.withIndex()) {
             if (ready[i] || gaveUp[i]) continue
-            if (isCancelled()) throw cancelled()
+            checkCancelled()
             val state = target.process
             if (state.abandoned) {
                 giveUp(i, state)
@@ -175,7 +189,7 @@ suspend fun awaitLocalPorts(
                 pending = true
             }
         }
-        if (isCancelled()) throw cancelled()
+        checkCancelled()
         // 复核 strict 端口：进程被放弃，或就绪之后退出过（未重启、或已重启但应答可能来自旧进程）都不算就绪；
         // 已重启的回到待探测，由下一轮重新探测
         for ((i, target) in targets.withIndex()) {

@@ -28,6 +28,8 @@ import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.plugin.PluginManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.plus
 import libcore.BoxInstance
 import libcore.Libcore
@@ -186,10 +188,15 @@ abstract class BoxInstance(
 
         try {
             val targets = ArrayList<Pair<ExternalHop, LocalPortTarget>>()
+            val context = currentCoroutineContext()
             for (process in externalProcesses) {
+                context.ensureActive()
+                if (isClosed()) return
                 val launch = process.launch(
                     initPlugin(process.group.pluginId).path, ::writeCacheFile, config.requireExternalCoreSettings()
                 )
+                context.ensureActive()
+                if (isClosed()) return
                 val processState = processes.start(launch.commands, launch.env)
                 val strict = verifiedCheck(process) != null
                 for (hop in process.group.hops) {
@@ -200,6 +207,7 @@ abstract class BoxInstance(
             // 等待刚结束时被关闭：外核进程已由 close() 停掉，不再启动 box
             if (isClosed()) return
             checkExternalAuth()
+            context.ensureActive()
             if (isClosed()) return
 
             try {

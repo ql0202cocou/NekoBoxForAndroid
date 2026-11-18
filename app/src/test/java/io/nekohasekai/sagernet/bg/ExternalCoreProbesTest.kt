@@ -4,9 +4,12 @@ import io.nekohasekai.sagernet.fmt.ExternalCoreLaunch
 import io.nekohasekai.sagernet.fmt.LocalSocksAuth
 import io.nekohasekai.sagernet.fmt.WrongPasswordReply
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
@@ -284,6 +287,26 @@ class ExternalCoreProbesTest {
         }
         val elapsedMs = (System.nanoTime() - started) / 1_000_000
         assertTrue("关闭后很快停止：$elapsedMs ms", elapsedMs < 1000)
+    }
+
+    @Test
+    fun `探测成功时取消协程不再探测下个端口也不返回就绪`() = runBlocking {
+        for (count in listOf(1, 12)) {
+            var probes = 0
+            var returned = false
+            launch(start = CoroutineStart.UNDISPATCHED) {
+                val job = coroutineContext.job
+                val targets = List(count) { LocalPortTarget(1000 + it, false, null, alive()) }
+                awaitLocalPorts(targets, 5000, { false }) { _, _ ->
+                    probes++
+                    job.cancel()
+                    null
+                }
+                returned = true
+            }.join()
+            assertEquals(1, probes)
+            assertFalse(returned)
+        }
     }
 
     @Test
