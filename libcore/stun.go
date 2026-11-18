@@ -42,7 +42,7 @@ func StunTest(server string) (ret *StunResult) {
 	}
 
 	if fakeFullCone {
-		text += fmt.Sprintln("Fake fullcone (no endpoint IP change) detected!!")
+		text += fmt.Sprintln("Warning: STUN response endpoint did not match the request; NAT classification may be unreliable.")
 	}
 
 	if host != nil {
