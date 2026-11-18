@@ -3,6 +3,9 @@ package io.nekohasekai.sagernet.group
 import io.nekohasekai.sagernet.database.SubscriptionBean
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.ktx.readableMessage
+import java.net.URI
+import java.net.URISyntaxException
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.HttpUrl.Companion.toHttpUrl
 
 /**
@@ -52,10 +55,11 @@ fun isSubscriptionSuperseded(started: SubscriptionIdentity, current: ProxyGroup)
 internal fun needsDisconnectedUpdateConfirmation(subscription: SubscriptionBean): Boolean =
     subscription.updateWhenConnectedOnly == true || subscription.link?.substringBefore(':', "").equals("http", ignoreCase = true)
 
-/** 手填 / 深链订阅链接的统一规则：只接受 http(s)。scheme 取第一个冒号之前，不区分大小写。 */
-fun isHttpSubscriptionLink(link: String): Boolean {
-    val scheme = link.substringBefore(':', "").lowercase()
-    return scheme == "http" || scheme == "https"
+/** 深链原文交给 Go 下载。要求它本身带有 authority，避免 HTTP 解析器宽松补斜杠后看似可用。 */
+fun isHttpSubscriptionLink(link: String): Boolean = try {
+    !URI(link).rawAuthority.isNullOrEmpty() && link.toHttpUrlOrNull() != null
+} catch (_: URISyntaxException) {
+    false
 }
 
 /**

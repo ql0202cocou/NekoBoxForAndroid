@@ -41,7 +41,7 @@ class MainImporter(private val activity: MainActivity) {
         val group: ProxyGroup
 
         val url = uri.getQueryParameter("url")
-        if (!url.isNullOrBlank()) {
+        if (url != null) {
             group = ProxyGroup(type = GroupType.SUBSCRIPTION)
             val subscription = SubscriptionBean()
             group.subscription = subscription
@@ -69,19 +69,14 @@ class MainImporter(private val activity: MainActivity) {
         // 发起，订阅地址只接受 http(s)。content:// 等本地来源只供用户在应用内自己
         // 选择的文件使用，不能由外部链接指定
         val link = group.subscription?.link
-        if (!link.isNullOrBlank()) {
-            if (!isHttpSubscriptionLink(link)) {
-                activity.onLiveActivity {
-                    activity.alert(activity.getString(R.string.invalid_subscription_url)).show()
-                }
-                return
+        if (group.type != GroupType.SUBSCRIPTION || link.isNullOrBlank() || !isHttpSubscriptionLink(link)) {
+            activity.onLiveActivity {
+                activity.alert(activity.getString(R.string.invalid_subscription_url)).show()
             }
+            return
         }
 
-        val name = group.name.takeIf { !it.isNullOrBlank() } ?: link
-        ?: group.subscription?.token
-        if (name.isNullOrBlank()) return
-
+        val name = group.name.takeUnless { it.isNullOrBlank() } ?: link
         group.name = group.name.takeIf { !it.isNullOrBlank() }
             ?: ("Subscription #" + System.currentTimeMillis())
 
@@ -104,7 +99,7 @@ class MainImporter(private val activity: MainActivity) {
                 }
                 "$label: $value"
             }
-            val shownLink = link?.takeIf { it.isNotBlank() }?.let { truncateForDisplay(it, IMPORT_PREVIEW_LINK_MAX) }
+            val shownLink = truncateForDisplay(link, IMPORT_PREVIEW_LINK_MAX)
             val details = listOfNotNull(
                 shownLink,
                 presets.takeIf { it.isNotEmpty() }?.let { activity.getString(R.string.subscription_import_presets) + "\n" + it },
