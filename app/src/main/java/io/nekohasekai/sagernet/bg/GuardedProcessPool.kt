@@ -78,6 +78,7 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
         suspend fun looper() {
             looperStarted = true
             var running = true
+            val restartBudget = ProcessRestartBudget()
             val exitChannel = Channel<Int>(1) // 带缓冲：清理处可能放弃接收，而被阻塞的 send 会泄漏守护线程
             // 每个进程一启动就调用，中间不跨挂起点，所以活着的进程总有一个线程
             // 停在 waitFor 上，下面的清理也就总能收到它的退出码
@@ -106,12 +107,16 @@ class GuardedProcessPool(private val onFatal: suspend (IOException) -> Unit) : C
                     val exitCode = exitChannel.receive()
                     running = false
                     coroutineContext.ensureActive()
+                    val killed = exitCode == 128 + OsConstants.SIGKILL
+                    if (!restartBudget.allowRestart(killed, SystemClock.elapsedRealtime() - startTime)) {
+                        throw IOException("$cmdName repeatedly killed; stopping restarts")
+                    }
                     when {
                         SystemClock.elapsedRealtime() - startTime < 1000 -> throw IOException(
                             "$cmdName exits too fast (exit code: $exitCode)"
                         )
 
-                        exitCode == 128 + OsConstants.SIGKILL -> Logs.w("$cmdName was killed")
+                        killed -> Logs.w("$cmdName was killed")
                         else -> Logs.w(IOException("$cmdName unexpectedly exits with code $exitCode"))
                     }
                     Logs.i("restart process: ${Commandline.toString(cmd)} (last exit code: $exitCode)")
