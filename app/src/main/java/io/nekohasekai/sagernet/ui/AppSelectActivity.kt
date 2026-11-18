@@ -56,6 +56,10 @@ import kotlin.coroutines.coroutineContext
 // 应用勾选页。子类只提供布局、勾选结果的存放位置、剪贴板首行的含义和各自的额外控件
 abstract class AppSelectActivity : ThemedActivity() {
     companion object {
+        private val PACKAGE_SEGMENT = Regex("[A-Za-z][A-Za-z0-9_]*")
+        private fun isPackageName(name: String): Boolean =
+            name == "android" || ('.' in name && name.split('.').all(PACKAGE_SEGMENT::matches))
+
         private const val SWITCH = "switch"
         private const val SYS_APPS = "sys_apps"
     }
@@ -98,8 +102,9 @@ abstract class AppSelectActivity : ThemedActivity() {
     // 剪贴板导出格式的首行
     protected abstract val clipboardHeader: String
 
-    // 剪贴板导入时首行的处理；没有换行时整段都算首行
-    protected open fun onImportClipboardHeader(header: String) = Unit
+    protected open fun applyClipboardSelection(bypass: Boolean, packages: String) {
+        selectedPackages = packages
+    }
 
     // setContentView 之后、载入勾选状态之前调用；返回 false 则直接 finish
     protected open fun onViewsCreated(savedInstanceState: Bundle?): Boolean = true
@@ -384,27 +389,18 @@ abstract class AppSelectActivity : ThemedActivity() {
             }
 
             R.id.action_import_clipboard -> {
-                val proxiedAppString = SagerNet.getClipboardText()
-                if (proxiedAppString.isNotEmpty()) {
-                    val i = proxiedAppString.indexOf('\n')
-                    try {
-                        val (header, apps) = if (i < 0) {
-                            proxiedAppString to ""
-                        } else proxiedAppString.substring(
-                            0, i
-                        ) to proxiedAppString.substring(i + 1)
-                        onImportClipboardHeader(header)
-                        selectedPackages = apps
-                        Snackbar.make(
-                            views.list, R.string.action_import_msg, Snackbar.LENGTH_LONG
-                        ).show()
-                        initProxiedUids(apps)
-                        appsAdapter.notifyItemRangeChanged(0, appsAdapter.itemCount, SWITCH)
-                        return true
-                    } catch (_: IllegalArgumentException) {
-                    }
+                val lines = SagerNet.getClipboardText().lines()
+                val bypass = lines.first().toBooleanStrictOrNull()
+                val packages = lines.drop(1).dropLastWhile { it.isEmpty() }
+                if (lines.size < 2 || bypass == null || packages.any { !isPackageName(it) }) {
+                    Snackbar.make(views.list, R.string.action_import_err, Snackbar.LENGTH_LONG).show()
+                    return true
                 }
-                Snackbar.make(views.list, R.string.action_import_err, Snackbar.LENGTH_LONG).show()
+                val selection = packages.distinct().joinToString("\n")
+                applyClipboardSelection(bypass, selection)
+                initProxiedUids(selection)
+                appsAdapter.notifyItemRangeChanged(0, appsAdapter.itemCount, SWITCH)
+                Snackbar.make(views.list, R.string.action_import_msg, Snackbar.LENGTH_LONG).show()
                 return true
             }
         }

@@ -64,6 +64,12 @@ open class RoomPreferenceDataStore(private val kvPairDao: KeyValuePair.Dao) :
             fireChangeListener(key)
         }
 
+    // Room 批量插入共用一个事务；提交后再通知，监听器能读到成对的新设置。
+    fun putAll(values: List<KeyValuePair>) {
+        kvPairDao.putAll(values)
+        values.forEach { fireChangeListener(it.key) }
+    }
+
     fun remove(key: String) {
         kvPairDao.delete(key)
         fireChangeListener(key)

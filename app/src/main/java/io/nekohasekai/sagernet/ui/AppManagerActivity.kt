@@ -31,8 +31,9 @@ class AppManagerActivity : AppSelectActivity() {
     override val defaultShowSystemApps = true
     override val clipboardHeader get() = DataStore.bypass.toString()
 
-    override fun onImportClipboardHeader(header: String) {
-        binding.bypassGroup.check(if (header.toBoolean()) R.id.appProxyModeBypass else R.id.appProxyModeOn)
+    override fun applyClipboardSelection(bypass: Boolean, packages: String) {
+        DataStore.importAppSelection(bypass, packages)
+        binding.bypassGroup.check(if (bypass) R.id.appProxyModeBypass else R.id.appProxyModeOn)
     }
 
     override fun onViewsCreated(savedInstanceState: Bundle?): Boolean {
@@ -48,8 +49,8 @@ class AppManagerActivity : AppSelectActivity() {
                     finish()
                 }
 
-                R.id.appProxyModeOn -> DataStore.bypass = false
-                R.id.appProxyModeBypass -> DataStore.bypass = true
+                R.id.appProxyModeOn -> if (DataStore.bypass) DataStore.bypass = false
+                R.id.appProxyModeBypass -> if (!DataStore.bypass) DataStore.bypass = true
             }
         }
         binding.autoSelectProxyApps.setOnClickListener { selectProxyApp() }

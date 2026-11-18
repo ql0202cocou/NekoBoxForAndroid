@@ -5,6 +5,7 @@ import io.nekohasekai.sagernet.CONNECTION_TEST_URL
 import io.nekohasekai.sagernet.IPv6Mode
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.TunImplementation
+import io.nekohasekai.sagernet.database.preference.KeyValuePair
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
 import io.nekohasekai.sagernet.database.preference.RoomPreferenceDataStore
 import io.nekohasekai.sagernet.ktx.boolean
@@ -120,6 +121,13 @@ object DataStore {
     var proxyApps by configurationStore.boolean(Key.PROXY_APPS)
     var bypass by configurationStore.boolean(Key.BYPASS_MODE) { true }
     var individual by configurationStore.string(Key.INDIVIDUAL)
+    fun importAppSelection(bypassMode: Boolean, packages: String) {
+        configurationStore.putAll(listOf(
+            KeyValuePair(Key.INDIVIDUAL).put(packages),
+            KeyValuePair(Key.BYPASS_MODE).put(bypassMode),
+        ))
+    }
+
     var showDirectSpeed by configurationStore.boolean(Key.SHOW_DIRECT_SPEED) { true }
 
     val persistAcrossReboot by configurationStore.boolean(Key.PERSIST_ACROSS_REBOOT) { false }
