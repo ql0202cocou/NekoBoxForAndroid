@@ -19,6 +19,27 @@ class SubscriptionUpdateTest : UiTestBase() {
     }
 
     @Test
+    fun `WireGuard 导入验证接口和每个 peer 的有效范围`() {
+        val key = "A".repeat(43) + "="
+        val iface = "[Interface]\nAddress = 192.0.2.5/32\nPrivateKey = $key\n"
+        val peer = "[Peer]\nPublicKey = $key\nEndpoint = 192.0.2.2:51820\n"
+        val restricted = peer + "AllowedIPs = 192.0.2.0/24\nAllowedIPs = 2001:db8::/32\n"
+
+        for (bad in listOf(iface.replace("/32", "/99"), iface.replace(key, "invalid"))) {
+            assertThrows(IllegalArgumentException::class.java) { parseWireGuard(bad + peer) }
+        }
+        for (bad in listOf(
+            peer.replace(key, "invalid"), peer + "PresharedKey = invalid\n",
+            peer + "AllowedIPs = 192.0.2.0/24, invalid\n", peer + "AllowedIPs = ,\n",
+        )) {
+            assertTrue(runCatching { parseWireGuard(iface + bad) }.isFailure)
+            val imported = parseWireGuard(iface + bad + restricted).single()
+            assertEquals("192.0.2.0/24,2001:db8::/32", imported.peerAllowedIps)
+        }
+        assertEquals("", parseWireGuard(iface + peer).single().peerAllowedIps)
+    }
+
+    @Test
     fun `YAML 和链接订阅的首次导入重复更新及批量改动保持节点与本地状态`() = ui.bg {
         for (format in listOf("yaml", "links")) for (pattern in listOf("unique", "same-name", "duplicates")) {
             val fixture = SubscriptionUpdateFixture(format, pattern, 100)
@@ -75,6 +96,7 @@ class SubscriptionUpdateTest : UiTestBase() {
             DataStore.selectedProxy = SagerDatabase.proxyDao.getByGroup(fixture.groupId).last().id
             val before = fixture.snapshot()
             for (text in listOf(
+                "[Interface]\nAddress = 192.0.2.5/99\nPrivateKey = invalid\n[Peer]\nPublicKey = invalid\nEndpoint = 192.0.2.2:51820",
                 "proxies:\n  - {name: broken, type: trojan, server: test.example.com, port: invalid, password: fictional}\n",
                 "This file contains no proxy links.",
             )) {

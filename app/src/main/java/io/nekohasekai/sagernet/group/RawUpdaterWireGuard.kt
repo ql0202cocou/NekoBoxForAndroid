@@ -1,7 +1,8 @@
 package io.nekohasekai.sagernet.group
 
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
-import io.nekohasekai.sagernet.fmt.wireguard.sanitizeImportedAllowedIps
+import io.nekohasekai.sagernet.fmt.wireguard.isWireGuardKey
+import io.nekohasekai.sagernet.fmt.wireguard.isWireGuardLocalAddressList
 import io.nekohasekai.sagernet.ktx.*
 
 fun parseWireGuard(conf: String): List<WireGuardBean> {
@@ -9,14 +10,12 @@ fun parseWireGuard(conf: String): List<WireGuardBean> {
     val iface = ini["Interface"] ?: error("Missing 'Interface' selection")
     val bean = WireGuardBean().applyDefaultValues()
     val localAddresses = iface.getAll("Address")
-    if (localAddresses.isEmpty()) error("Empty address in 'Interface' selection")
     bean.localAddress = localAddresses.flatMap { it.split(",") }.joinToString("\n")
-    bean.privateKey = iface["PrivateKey"].orEmpty()
-    if (bean.privateKey.isBlank()) {
-        // an empty key only surfaced as an opaque error at start time
-        Logs.w("WireGuard profile skipped: missing PrivateKey in 'Interface' selection")
-        error("Missing PrivateKey in 'Interface' selection")
+    require(isWireGuardLocalAddressList(bean.localAddress, allowEmpty = false)) {
+        "Invalid WireGuard Interface Address"
     }
+    bean.privateKey = iface["PrivateKey"].orEmpty()
+    require(isWireGuardKey(bean.privateKey)) { "Invalid WireGuard Interface PrivateKey" }
     bean.mtu = iface["MTU"]?.toIntOrNull() ?: bean.mtu
     // The app has no per-profile DNS model; keep dropping the field but say so
     if (iface.getAll("DNS").isNotEmpty()) {
@@ -47,8 +46,16 @@ fun parseWireGuard(conf: String): List<WireGuardBean> {
         peerBean.serverPort = portText?.toIntOrNull()?.takeIf { it in 1..65535 } ?: continue
         peerBean.peerPublicKey = peer["PublicKey"] ?: continue
         peerBean.peerPreSharedKey = peer["PresharedKey"]
+        if (!isWireGuardKey(peerBean.peerPublicKey) || !isWireGuardKey(peerBean.peerPreSharedKey.orEmpty(), allowEmpty = true)) {
+            Logs.w("WireGuard peer skipped: invalid peer key")
+            continue
+        }
         peerBean.peerKeepalive = peer["PersistentKeepalive"]?.toIntOrNull() ?: 0
-        peerBean.peerAllowedIps = sanitizeImportedAllowedIps(peer["AllowedIPs"].orEmpty())
+        peerBean.peerAllowedIps = peer.getAll("AllowedIPs").joinToString(",")
+        if (!isWireGuardLocalAddressList(peerBean.peerAllowedIps, allowEmpty = peerBean.peerAllowedIps.isBlank())) {
+            Logs.w("WireGuard peer skipped: invalid AllowedIPs")
+            continue
+        }
         beans.add(peerBean.applyDefaultValues())
     }
     if (beans.isEmpty()) error("Empty available peer list")
@@ -74,13 +81,13 @@ private class Ini(text: String) {
             val line = rawLine.trim()
             if (line.isEmpty() || line.startsWith("#") || line.startsWith(";")) continue
             if (line.startsWith("[")) {
-                require(line.length > 2 && line.endsWith("]")) { "parse error: $line" }
+                require(line.length > 2 && line.endsWith("]")) { "Invalid WireGuard INI syntax" }
                 val section = Section()
                 sections.add(line.substring(1, line.length - 1).trim() to section)
                 current = section
             } else {
                 val separator = line.indexOfFirst { it == '=' || it == ':' }
-                require(separator > 0 && current != null) { "parse error: $line" }
+                require(separator > 0 && current != null) { "Invalid WireGuard INI syntax" }
                 val key = line.substring(0, separator).trim()
                 val value = line.substring(separator + 1).trim()
                 current.options.getOrPut(key) { mutableListOf() }.add(value)

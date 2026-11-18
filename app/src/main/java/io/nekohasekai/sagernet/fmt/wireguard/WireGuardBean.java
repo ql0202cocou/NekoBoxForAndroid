@@ -17,8 +17,7 @@ public class WireGuardBean extends AbstractBean {
     public String reserved;
     // seconds; 0 leaves the sing-box peer persistent_keepalive_interval unset
     public Integer peerKeepalive;
-    // stored for export round-trips only; the builder keeps the default route
-    // allowed_ips because a restricted list would break proxied traffic
+    // 对端允许的目的网段；构建时保留显式范围，留空沿用默认路由。
     public String peerAllowedIps;
 
     @Override

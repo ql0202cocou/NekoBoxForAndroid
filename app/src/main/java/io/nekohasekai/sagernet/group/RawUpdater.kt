@@ -423,21 +423,14 @@ object RawUpdater : GroupUpdater() {
             } catch (e: YAMLException) {
                 Logs.w("Subscription parsing failed: ${e.javaClass.simpleName}")
             }
-        } else if (text.contains("[Interface]")) {
-            // wireguard
-            try {
-                return parseWireGuard(text).also { beans ->
-                    if (fileName.isBlank()) return@also
-                    // one profile per [Peer], so the file name identifies the
-                    // tunnel rather than the profile; numbering keeps the peers
-                    // of a multi-peer config apart in the list
-                    val tunnel = fileName.removeSuffix(".conf")
-                    beans.forEachIndexed { index, bean ->
-                        bean.name = if (beans.size == 1) tunnel else "$tunnel (${index + 1})"
-                    }
+        } else if (text.contains("[Interface]") && text.lineSequence().any { it.trim() == "[Interface]" }) {
+            return parseWireGuard(text).also { beans ->
+                if (fileName.isBlank()) return@also
+                // 每个 peer 是一个节点，用序号区分同一个隧道文件的多个 peer。
+                val tunnel = fileName.removeSuffix(".conf")
+                beans.forEachIndexed { index, bean ->
+                    bean.name = if (beans.size == 1) tunnel else "$tunnel (${index + 1})"
                 }
-            } catch (e: Exception) {
-                Logs.w("Subscription parsing failed: ${e.javaClass.simpleName}")
             }
         }
 
