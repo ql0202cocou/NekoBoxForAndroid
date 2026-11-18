@@ -258,6 +258,20 @@ class ConfigPrecheckTest {
     }
 
     @Test
+    fun `自定义配置缺失时跳过未选成员，选中该行时构建失败`() {
+        val broken = ProxyEntity(id = 2, groupId = 1, userOrder = 2, type = ProxyEntity.TYPE_CONFIG)
+        val source = MemoryConfigDataSource(listOf(ProxyGroup(id = 1, isSelector = true)), listOf(main, broken), emptyList())
+        val result = build(main, source, FakeConfigPlatform())
+        assertEquals(setOf(main.id), result.profileTagMap.keys)
+        val skipped = result.diagnostics.single() as ConfigBuildDiagnostic.ProfileSkipped
+        assertEquals(broken.id, skipped.profileId)
+        assertEquals("profile 2", skipped.profileName)
+        for (mode in ConfigBuildMode.entries) {
+            assertThrows(IllegalStateException::class.java) { build(broken, source, FakeConfigPlatform(), mode = mode) }
+        }
+    }
+
+    @Test
     fun `REALITY PSK 崩溃组合在三种模式都先拒绝主节点且不分配外核资源`() {
         for (fingerprint in listOf(
             "hellochrome_100_psk", "hellochrome_112_psk_shuf",

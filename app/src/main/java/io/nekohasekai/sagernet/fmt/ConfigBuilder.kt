@@ -914,7 +914,8 @@ private class ConfigBuild(
             list.forEach {
                 // 完整配置型成员不是出站，塞进来会让整份配置被拒；选中它时
                 // selectorGroupIdOf 为 -1，走重启、由 buildConfig 开头单独运行
-                if (it.isFullConfig()) return@forEach
+                // 缺失的自定义 bean 交给 planOrSkip，与其它损坏成员走相同诊断。
+                if (it.configBean != null && it.isFullConfig()) return@forEach
                 val plan = planOrSkip(it) ?: return@forEach
                 // 每个成员都要记进 tagMap：profileTagMap 驱动选择器切换，缺了它
                 // 连接中选这个成员会解析成空 tag、什么都不做。中间跳只有链内 tag，
