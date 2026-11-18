@@ -282,11 +282,11 @@ object Util {
         return result
     }
 
-    // 按值遮蔽的最短长度：更短的值在报错里多半撞上端口、地址等普通片段，留给按键名的脱敏
+    // 短于这个长度的值只按完整片段遮蔽：子串替换会撞上端口、地址、时间等普通片段，整段诊断就没法读了。
     private const val SECRET_VALUE_MIN_LENGTH = 4
 
-    // 敏感键下不是凭据的值：Xray socks 入站的认证方式（auth: password / noauth）
-    private val NON_SECRET_VALUES = setOf("password", "noauth")
+    // Xray socks 入站 settings.auth 的取值是认证方式，由生成器写出，不是凭据
+    private val SOCKS_AUTH_METHODS = setOf("password", "noauth")
 
     private val SENSITIVE_KEY_NAMES = SENSITIVE_KEYS.mapTo(HashSet()) { it.lowercase() }
 
@@ -302,22 +302,29 @@ object Util {
             }.getOrNull()
             collectSecretValues(root, false, values)
         }
-        return values.filter { it.length >= SECRET_VALUE_MIN_LENGTH && it !in NON_SECRET_VALUES }
-            .sortedByDescending { it.length }
-            .fold(text) { result, value -> result.replace(value, "***") }
+        val (long, short) = values.filter { it.isNotEmpty() }.partition { it.length >= SECRET_VALUE_MIN_LENGTH }
+        val masked = long.sortedByDescending { it.length }.fold(text) { result, value -> result.replace(value, "***") }
+        // 短值两侧不能是字母或数字：「192.0.2.123:443」里的 123 会遮蔽，「41234」里的不会
+        return short.sortedByDescending { it.length }.fold(masked) { result, value ->
+            Regex("(?<![A-Za-z0-9])${Regex.escape(value)}(?![A-Za-z0-9])").replace(result, "***")
+        }
     }
 
-    private fun collectSecretValues(node: Any?, sensitive: Boolean, out: MutableSet<String>) {
+    // socksSettings：node 是 protocol 为 socks 的入站 / 出站的 settings，按结构豁免其中的认证方式
+    private fun collectSecretValues(node: Any?, sensitive: Boolean, out: MutableSet<String>, socksSettings: Boolean = false) {
         when (node) {
-            is Map<*, *> -> node.forEach { (key, value) ->
-                val name = (key as? String)?.lowercase()?.replace('-', '_')
-                if (name == "headers" && value is Map<*, *>) {
-                    // HTTP 头的值都算（见 JSON_HEADERS_OBJECT），Host 除外
-                    value.forEach { (headerName, headerValue) ->
-                        if ((headerName as? String)?.lowercase() != "host") collectSecretValues(headerValue, true, out)
+            is Map<*, *> -> {
+                val socks = (node["protocol"] as? String).equals("socks", ignoreCase = true)
+                node.forEach { (key, value) ->
+                    val name = (key as? String)?.lowercase()?.replace('-', '_')
+                    if (name == "headers" && value is Map<*, *>) {
+                        // HTTP 头的值都算（见 JSON_HEADERS_OBJECT），Host 除外
+                        value.forEach { (headerName, headerValue) ->
+                            if ((headerName as? String)?.lowercase() != "host") collectSecretValues(headerValue, true, out)
+                        }
+                    } else if (!(socksSettings && name == "auth" && value in SOCKS_AUTH_METHODS)) {
+                        collectSecretValues(value, sensitive || name in SENSITIVE_KEY_NAMES, out, socks && name == "settings")
                     }
-                } else {
-                    collectSecretValues(value, sensitive || name in SENSITIVE_KEY_NAMES, out)
                 }
             }
 

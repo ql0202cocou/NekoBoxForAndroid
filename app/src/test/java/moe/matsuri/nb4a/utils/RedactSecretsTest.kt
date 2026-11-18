@@ -623,7 +623,7 @@ class RedactSecretsTest {
     }
 
     @Test
-    fun shortAndModeValuesAreNotMaskedByValue() {
+    fun shortSecretsMaskWholeTokensAndOnlySocksAuthMethodIsExempt() {
         val config = JavaUtil.gson.toJson(
             mapOf(
                 "inbounds" to listOf(mapOf("protocol" to "socks", "settings" to mapOf("auth" to "password"))),
@@ -631,7 +631,18 @@ class RedactSecretsTest {
             )
         )
         val error = "dial 192.0.2.123:443: password authentication failed"
-        assertEquals(error, Util.redactSecretValues(error, listOf(config)))
+        // 生成的 socks 入站认证方式不是凭据；短密码只遮蔽完整片段
+        assertEquals("dial 192.0.2.***:443: password authentication failed", Util.redactSecretValues(error, listOf(config)))
+        assertEquals("port 41234 refused", Util.redactSecretValues("port 41234 refused", listOf(config)))
+        // 豁免只针对认证方式这一项：同一 settings 里账户的真实密码照样遮蔽
+        val socksWithAccount = """{"protocol":"socks","settings":{"auth":"password","accounts":[{"user":"local-user","pass":"password"}]}}"""
+        assertEquals("*** authentication failed", Util.redactSecretValues("password authentication failed", listOf(socksWithAccount)))
+        assertEquals("dial 192.0.2.123:443: *** authentication failed", Util.redactSecretValues(error, listOf("""{"auth":"password"}""")))
+        assertEquals("rejected ***", Util.redactSecretValues("rejected password", listOf("""{"password":"password"}""")))
+        assertEquals("rejected ***", Util.redactSecretValues("rejected noauth", listOf("""{"auth":"noauth"}""")))
+        for (secret in listOf("x", "xy", "xyz")) {
+            assertEquals("rejected *** (***)", Util.redactSecretValues("rejected $secret ($secret)", listOf("""{"password":"$secret"}""")))
+        }
     }
 
     @Test
