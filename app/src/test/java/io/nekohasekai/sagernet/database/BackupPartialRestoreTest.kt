@@ -24,6 +24,52 @@ class BackupPartialRestoreTest : UiTestBase() {
     }
 
     @Test
+    fun `服务写选择时只接受当前实例及恢复世代`() = ui.bg {
+        val group = GroupRepository.createGroup(ProxyGroup(name = "Original"))
+        val member = ProfileRepository.createProfile(group.id, SOCKSBean().apply {
+            serverAddress = "192.0.2.1"
+            serverPort = 1080
+        })
+        DataStore.selectedProxy = member.id
+        val generation = ProfileManager.selectedProfileForRun()!!.second
+        DataStore.selectedProxy = 0L
+        DataStore.currentProfile = 0L
+        assertNull(ProfileManager.recordRunningProfile(member.id, generation, selectorChange = true) { false })
+        val started = ProfileManager.recordRunningProfile(member.id, generation, selectorChange = false) { true }
+        assertEquals(0L, started!!.second)
+        assertEquals(0L, DataStore.selectedProxy)
+        assertEquals(member.id, DataStore.currentProfile)
+        val selected = ProfileManager.recordRunningProfile(member.id, generation, selectorChange = true) { true }
+        assertEquals(member.id, selected!!.second)
+        assertEquals(member.id, DataStore.selectedProxy)
+
+        BackupRestore.commit(BackupRestore.Decoded(emptyList(), emptyList(), null, null, 0), null)
+        assertNull(ProfileManager.recordRunningProfile(member.id, generation, selectorChange = true) { true })
+        assertEquals(0L, DataStore.selectedProxy)
+        member.requireBean().serverAddress = "192.0.2.2"
+        BackupRestore.commit(BackupRestore.Decoded(listOf(member), listOf(group), null, null, 0), null)
+        DataStore.currentProfile = 0L
+        for (selector in listOf(false, true)) {
+            assertNull(ProfileManager.recordRunningProfile(member.id, generation, selectorChange = selector) { true })
+        }
+        assertEquals(0L, DataStore.selectedProxy)
+        assertEquals(0L, DataStore.currentProfile)
+        DataStore.selectedProxy = member.id
+        val afterProfiles = ProfileManager.selectedProfileForRun()!!.second
+        BackupRestore.commit(BackupRestore.Decoded(null, null, null, emptyList(), 0), null)
+        assertEquals(afterProfiles.profiles, SagerDatabase.dataGeneration())
+        assertNull(ProfileManager.recordRunningProfile(member.id, afterProfiles, selectorChange = true) { true })
+        assertEquals(0L, DataStore.selectedProxy)
+        assertEquals(0L, DataStore.currentProfile)
+        DataStore.selectedProxy = member.id
+        val afterSettings = ProfileManager.selectedProfileForRun()!!.second
+        val restored = ProfileManager.recordRunningProfile(member.id, afterSettings, selectorChange = true) { true }
+        assertEquals("192.0.2.2", restored!!.first.requireBean().serverAddress)
+        assertEquals(member.id, DataStore.selectedProxy)
+        assertEquals(member.id, DataStore.currentProfile)
+    }
+
+    @Test
     fun `只恢复规则保留节点数据及世代号且不按名字重绑定出站`() = ui.bg {
         val group = GroupRepository.createGroup(ProxyGroup(name = "Local group"))
         val node = ProfileRepository.createProfile(group.id, SOCKSBean().apply {

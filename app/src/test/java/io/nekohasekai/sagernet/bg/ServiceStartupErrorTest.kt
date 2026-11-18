@@ -48,7 +48,7 @@ class ServiceStartupErrorTest : UiTestBase() {
                     if (msg != null) messages += msg
                 }
                 override fun missingPlugin(profileName: String?, pluginName: String?) {}
-                override fun cbSelectorUpdate(id: Long) {}
+                override fun cbSelectorUpdate(previousId: Long, id: Long) {}
                 override fun cbSpeedUpdate(stats: SpeedDisplayData?) {}
                 override fun cbTrafficUpdate(stats: TrafficData?) {}
             }, SagerConnection.CONNECTION_ID_MAIN_ACTIVITY_FOREGROUND)

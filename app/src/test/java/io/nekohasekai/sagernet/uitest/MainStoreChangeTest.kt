@@ -93,15 +93,18 @@ class MainStoreChangeTest : UiTestBase() {
         UiSettle.settle()
     }
 
-    /** binder 线程上的选中节点回调：写 DataStore 照常、不崩 */
+    /** 后台已提交更新；界面收到更早的切换通知时，只刷新行，不能再次写入选择。 */
     @Test
-    fun selectorUpdateFromBinderThreadIsSafe() {
+    fun delayedSelectorUpdatePreservesCurrentSelection() {
         val fixtures = UiFixtures.install()
         val main = ui.launch<MainActivity>()
-        val target = fixtures.profiles[1].id
-        ui.offMain { main.get().cbSelectorUpdate(target) }
+        val selected = fixtures.profiles.first().id
+        val stale = fixtures.profiles[1].id
+        DataStore.selectedProxy = selected
+        DataStore.currentProfile = selected
+        ui.offMain { main.get().cbSelectorUpdate(selected, stale) }
         UiSettle.settle()
-        assertEquals(target, DataStore.selectedProxy)
-        assertEquals(target, DataStore.currentProfile)
+        assertEquals(selected, DataStore.selectedProxy)
+        assertEquals(selected, DataStore.currentProfile)
     }
 }

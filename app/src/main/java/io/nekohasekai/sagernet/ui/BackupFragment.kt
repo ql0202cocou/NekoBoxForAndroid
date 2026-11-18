@@ -172,7 +172,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
             if (setting) {
                 put("settings", JSONArray().apply {
                     // the Clash API secret is per-install (InstallMarker), not a preference
-                    PublicDatabase.kvPairDao.all().filter { it.key != Key.CLASH_API_SECRET }.forEach {
+                    PublicDatabase.kvPairDao.all().filter { it.key != Key.CLASH_API_SECRET && it.key != Key.SETTINGS_RESTORE_GENERATION }.forEach {
                         put(it.toBase64Str())
                     }
                 })

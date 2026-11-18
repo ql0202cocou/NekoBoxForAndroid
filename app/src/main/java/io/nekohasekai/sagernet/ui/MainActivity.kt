@@ -466,13 +466,10 @@ class MainActivity : ThemedActivity(),
         }
     }
 
-    override fun cbSelectorUpdate(id: Long) {
-        val old = DataStore.selectedProxy
-        DataStore.selectedProxy = id
-        DataStore.currentProfile = id
-        // 进程级：通知旧 / 新选中节点的监听器，不碰 View（上面两行在 binder 线程写 DataStore，监听器对这两个键无界面动作）
+    override fun cbSelectorUpdate(previousId: Long, id: Long) {
+        // 后台已保存选择；晚到的通知只刷新行，不能覆盖恢复或下一次选择。
         runOnDefaultDispatcher {
-            ProfileRepository.postUpdate(old)
+            if (previousId != id) ProfileRepository.postUpdate(previousId)
             ProfileRepository.postUpdate(id)
         }
     }

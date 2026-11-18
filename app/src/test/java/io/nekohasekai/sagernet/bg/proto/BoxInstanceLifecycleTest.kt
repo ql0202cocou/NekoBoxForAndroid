@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.bg.proto
 
+import io.nekohasekai.sagernet.database.RunGeneration
 import io.nekohasekai.sagernet.bg.GuardedProcessPool
 import io.nekohasekai.sagernet.bg.ProxyService
 import io.nekohasekai.sagernet.database.ProxyEntity
@@ -65,7 +66,7 @@ class BoxInstanceLifecycleTest : UiTestBase() {
             (1L..3L).associateWith { "m$it" }, 1L,
         )
         val stats = TrafficAccountingTest.FakeStats(listOf(TAG_PROXY))
-        val looper = checkNotNull(ProxyInstance(profile, service, "selector", 0L).looper)
+        val looper = checkNotNull(ProxyInstance(profile, service, "selector", RunGeneration(0L, 0L)).looper)
         ui.bg { looper.selectMain(2); looper.selectMain(3) }
         val acc = looper.initializeAccounting(config, stats::query, 0L)
         assertTrue(stats.log.isEmpty())
@@ -80,7 +81,7 @@ class BoxInstanceLifecycleTest : UiTestBase() {
 
     @Test
     fun `建账前收到的多次分组清零按节点生效，下一轮只落新流量`() {
-        val looper = checkNotNull(ProxyInstance(profile(), ProxyService(), "traffic", 0L).looper)
+        val looper = checkNotNull(ProxyInstance(profile(), ProxyService(), "traffic", RunGeneration(0L, 0L)).looper)
         val old = TrafficTotals(4000, 1000)
         val config = ConfigBuildResult(
             "{}", emptyList(), 1L,

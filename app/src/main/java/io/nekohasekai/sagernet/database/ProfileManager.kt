@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.database
 import android.database.sqlite.SQLiteCantOpenDatabaseException
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.aidl.TrafficData
+import io.nekohasekai.sagernet.database.preference.PublicDatabase
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.TrafficIncrement
 import io.nekohasekai.sagernet.fmt.putBean
@@ -28,6 +29,9 @@ internal inline fun <T> guardedRead(fallback: T, read: () -> T): T = try {
     Logs.w(ex)
     fallback
 }
+
+// 流量和订阅只关心节点身份；运行选择还要识别只恢复设置时替换的选中节点。
+data class RunGeneration(val profiles: Long, val settings: Long)
 
 object ProfileManager {
 
@@ -158,6 +162,32 @@ object ProfileManager {
         SagerDatabase.instance.runInTransaction(Callable {
             SagerDatabase.proxyDao.getById(id)?.let { it to SagerDatabase.dataGeneration() }
         })
+    }
+
+    fun selectedProfileForRun(): Pair<ProxyEntity, RunGeneration>? = RestoreJournal.default.withLock {
+        getProfileForRun(DataStore.selectedProxy)?.let { (profile, generation) ->
+            profile to RunGeneration(generation, DataStore.settingsRestoreGeneration)
+        }
+    }
+
+    // 恢复会在两库之间复用节点 id。与暂存、提交和重放共用锁，在写入前复核实例和世代。
+    internal fun recordRunningProfile(
+        id: Long, generation: RunGeneration, selectorChange: Boolean, isCurrent: () -> Boolean,
+    ): Pair<ProxyEntity, Long>? {
+        val journal = RestoreJournal.default
+        return journal.withLock {
+            if (journal.isPending()) return@withLock null
+            val (profile, currentGeneration) = getProfileForRun(id) ?: return@withLock null
+            val storedGeneration = RunGeneration(currentGeneration, DataStore.settingsRestoreGeneration)
+            if (generation != storedGeneration || !isCurrent()) return@withLock null
+            val previous = PublicDatabase.instance.runInTransaction(Callable {
+                val previousId = DataStore.currentProfile
+                if (selectorChange) DataStore.selectedProxy = id
+                DataStore.currentProfile = id
+                previousId
+            })
+            profile to previous
+        }
     }
 
     // 测速结果落库：逐行核对配置仍是被测时的才写（见 updateTestResult），整批一个事务。

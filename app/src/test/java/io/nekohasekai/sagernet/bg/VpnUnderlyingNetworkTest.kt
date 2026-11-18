@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.bg
 
+import io.nekohasekai.sagernet.database.RunGeneration
 import android.net.Network
 import android.os.ParcelFileDescriptor
 import io.nekohasekai.sagernet.SagerNet
@@ -66,7 +67,7 @@ class VpnUnderlyingNetworkTest : UiTestBase() {
     fun `VPN 首次建立使用系统默认，建立期间断网及再次建立都能报告空上游`() {
         val controller = Robolectric.buildService(VpnService::class.java).create()
         val vpn = controller.get()
-        val proxy = ProxyInstance(ProxyEntity(), vpn, "vpn", 0L)
+        val proxy = ProxyInstance(ProxyEntity(), vpn, "vpn", RunGeneration(0L, 0L))
         proxy.config = ConfigBuildResult(
             "{}", emptyList(), 0L, TrafficBindings(emptyMap(), emptyMap(), emptySet()), emptyMap(), -1L,
         )

@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.bg.proto
 import android.widget.Toast
 import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.bg.BaseService
+import io.nekohasekai.sagernet.database.RunGeneration
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.configBuildNotices
 import io.nekohasekai.sagernet.ktx.Logs
@@ -15,7 +16,7 @@ import moe.matsuri.nb4a.utils.JavaUtil
 
 // title：ServiceNotification.genTitle(profile) 的结果。它可能查分组名（读库），由调用方在后台算好传进来，
 // 构造本身不查库（BaseService 在 :bg 主线程上构造）
-class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Interface, title: String, internal val generation: Long) :
+class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Interface, title: String, internal val generation: RunGeneration) :
     BoxInstance(profile) {
 
     // written on the serial dispatcher (NativeInterface selector callback),

@@ -24,6 +24,8 @@ object DataStore {
     // last used, but may not be running
     var currentProfile by configurationStore.long(Key.PROFILE_CURRENT)
 
+    internal var settingsRestoreGeneration by configurationStore.long(Key.SETTINGS_RESTORE_GENERATION)
+
     var selectedProxy by configurationStore.long(Key.PROFILE_ID)
     // 缺值时是 -1（还没选过分组），读它不查节点库：主线程（配置页）也在读。真正的当前分组由
     // GroupRepository.currentGroup / currentGroupId 在后台算出并写回这里（配置页首次载入分组列表时就会写）

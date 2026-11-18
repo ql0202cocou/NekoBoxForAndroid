@@ -72,6 +72,7 @@ object Key {
     const val PROFILE_GROUP = "profileGroup"
     const val PROFILE_CORE = "profileCore"
     const val PROFILE_CURRENT = "profileCurrent"
+    const val SETTINGS_RESTORE_GENERATION = "settingsRestoreGeneration"
     const val RULES_FIRST_CREATE = "rulesFirstCreate"
     const val LEGACY_ASSETS_MIGRATED = "legacyAssetsMigrated"
 

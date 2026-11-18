@@ -92,7 +92,7 @@ class TrafficLooper(private val data: BaseService.Data, private val owner: Proxy
         val increments = accounting.claim(ids)
         if (increments.isEmpty()) return
         val stale = try {
-            ProfileManager.persistTrafficIncrements(increments, owner.generation)
+            ProfileManager.persistTrafficIncrements(increments, owner.generation.profiles)
         } catch (e: Throwable) {
             accounting.release(increments)
             throw e
@@ -146,7 +146,7 @@ class TrafficLooper(private val data: BaseService.Data, private val owner: Proxy
     // 界面清除了这些节点在库里的流量列：本循环的累计与已落库基线也要清，否则清除前的累计还会按增量继续写
     // 进库。只清界面清除的那些 id（界面按分组清，本循环覆盖运行配置里的全部节点）；会话量不变
     fun clearStats(profileIds: LongArray) {
-        val epochs = ProfileManager.trafficClearEpochs(profileIds, owner.generation)
+        val epochs = ProfileManager.trafficClearEpochs(profileIds, owner.generation.profiles)
         applyClears(epochs)
     }
 

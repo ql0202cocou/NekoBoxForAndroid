@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.bg.proto
 
+import io.nekohasekai.sagernet.database.RunGeneration
 import io.nekohasekai.sagernet.bg.ProxyService
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
@@ -25,7 +26,7 @@ class TrafficCheckpointTest : UiTestBase() {
         private val rows = profiles.map { ProfileRecord.of(it).newEntity() }
         private val config = ConfigBuildResult("{}", emptyList(), rows.first().id,
             trafficBindingsOf(mapOf(TAG_PROXY to rows), null), emptyMap(), -1L)
-        val looper = ProxyInstance(profiles.first(), ProxyService(), "checkpoint", generation).also {
+        val looper = ProxyInstance(profiles.first(), ProxyService(), "checkpoint", RunGeneration(generation, 0L)).also {
             it.config = config
         }.looper!!
         val accounting = looper.initializeAccounting(config, stats::query, 0L)

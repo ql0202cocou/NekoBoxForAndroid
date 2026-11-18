@@ -113,12 +113,9 @@ class NativeInterface : BoxPlatformInterface, NB4AInterface {
                 val proxy = data.proxy?.takeIf { it === expectedProxy && it.acceptsSelectorCallback() }
                     ?: return@runOnSerialDispatcher
                 val id = proxy.config.profileIdForTag(tag, DataStore.selectedProxy) ?: return@runOnSerialDispatcher
-                val (ent, generation) = ProfileManager.getProfileForRun(id) ?: return@runOnSerialDispatcher
-                if (generation != proxy.generation) return@runOnSerialDispatcher
-                // persist here too: the binder broadcast below only reaches a
-                // bound MainActivity, and an unpersisted selection is rolled
-                // back to the stale selectedProxy on the next service reload
-                DataStore.selectedProxy = id
+                val (ent, previousId) = ProfileManager.recordRunningProfile(id, proxy.generation, selectorChange = true) {
+                    data.proxy === proxy && proxy.acceptsSelectorCallback()
+                } ?: return@runOnSerialDispatcher
                 // traffic & title
                 proxy.apply {
                     looper?.selectMain(id)
@@ -127,7 +124,7 @@ class NativeInterface : BoxPlatformInterface, NB4AInterface {
                 }
                 // post binder
                 data.binder.broadcast { b ->
-                    b.cbSelectorUpdate(id)
+                    b.cbSelectorUpdate(previousId, id)
                 }
             }
         }

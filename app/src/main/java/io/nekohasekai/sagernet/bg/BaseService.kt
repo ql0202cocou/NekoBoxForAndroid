@@ -18,6 +18,7 @@ import io.nekohasekai.sagernet.aidl.ISagerNetServiceCallback
 import io.nekohasekai.sagernet.bg.proto.ProxyInstance
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileManager
+import io.nekohasekai.sagernet.database.RunGeneration
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.RestoreJournal
 import io.nekohasekai.sagernet.fmt.selectorGroupIdOf
@@ -546,7 +547,7 @@ class BaseService {
                 try {
                     val loaded = try {
                         onIoDispatcher {
-                            ProfileManager.getProfileForRun(DataStore.selectedProxy)?.let { (profile, generation) ->
+                            ProfileManager.selectedProfileForRun()?.let { (profile, generation) ->
                                 Triple(profile, ServiceNotification.genTitle(profile), generation)
                             }
                         }
@@ -581,7 +582,7 @@ class BaseService {
         }
 
         // onStartCommand 读到节点之后的启动流程，在 connectingJob 里（主线程）运行
-        private suspend fun startConnecting(data: Data, profile: ProxyEntity, title: String, generation: Long) {
+        private suspend fun startConnecting(data: Data, profile: ProxyEntity, title: String, generation: RunGeneration) {
             val proxy = ProxyInstance(profile, this, title, generation)
             data.proxy = proxy
             BootReceiver.enabled = DataStore.persistAcrossReboot
@@ -618,7 +619,15 @@ class BaseService {
                 // 再 close；destroyRunner 不等，init 期间的 close 由
                 // ProxyInstance.init 补收，Go 侧 Start / Close 互斥
                 onIoDispatcher { proxy.init() }
-                DataStore.currentProfile = profile.id
+                val recorded = onIoDispatcher {
+                    ProfileManager.recordRunningProfile(profile.id, generation, selectorChange = false) {
+                        data.proxy === proxy && proxy.acceptsSelectorCallback()
+                    }
+                }
+                if (recorded == null) {
+                    if (data.proxy === proxy) stopRunner(false)
+                    return
+                }
 
                 proxy.processes = GuardedProcessPool {
                     val reason = proxy.reportServiceError(it)

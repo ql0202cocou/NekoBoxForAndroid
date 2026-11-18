@@ -43,7 +43,7 @@ object BackupRestore {
     ): List<KeyValuePair> {
         val retained = installationKeys +
             if (rulesImported) emptyList() else listOf(Key.RULES_FIRST_CREATE)
-        val dropped = retained + Key.PROFILE_CURRENT
+        val dropped = retained + Key.PROFILE_CURRENT + Key.SETTINGS_RESTORE_GENERATION
         return imported.filterNot { it.key in dropped } + local.filter { it.key in retained }
     }
 
@@ -226,9 +226,12 @@ object BackupRestore {
             if (settings != null) {
                 PublicDatabase.instance.runInTransaction {
                     val dao = PublicDatabase.kvPairDao
+                    // 只恢复设置也会替换选中节点；设置世代与这次替换一起提交，不能从备份带入。
+                    val nextGeneration = DataStore.settingsRestoreGeneration + 1
                     val merged = mergeSettings(settings, dao.all(), rules != null)
                     dao.reset()
                     dao.insert(merged)
+                    DataStore.settingsRestoreGeneration = nextGeneration
                     fixDanglingSelections()
                 }
             } else if (profiles != null) {

@@ -34,7 +34,7 @@ class TileService : BaseTileService(), SagerConnection.Callback {
     private var shownState = BaseService.State.Idle
     private var selectorUpdates = 0
 
-    override fun cbSelectorUpdate(id: Long) {
+    override fun cbSelectorUpdate(previousId: Long, id: Long) {
         // 节点名要查库，:bg 的主线程不能查：后台读完再回主线程更新。读库期间又切了节点、或服务已不在
         // Connected（停止的回调先到了），这次结果作废，不把旧名字或「已连接」盖回去
         val update = ++selectorUpdates

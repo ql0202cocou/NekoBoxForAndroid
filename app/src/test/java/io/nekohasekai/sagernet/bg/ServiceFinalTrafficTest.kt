@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.bg
 
+import io.nekohasekai.sagernet.database.RunGeneration
 import io.nekohasekai.sagernet.bg.proto.BoxInstanceLifecycleTest.ShadowCoreBox
 import io.nekohasekai.sagernet.bg.proto.ProxyInstance
 import io.nekohasekai.sagernet.database.DataStore
@@ -49,7 +50,7 @@ class ServiceFinalTrafficTest : UiTestBase() {
             DataStore.profileTrafficStatistics = true
             SagerDatabase.dataGeneration()
         }
-        val proxy = ProxyInstance(profile, service, "traffic", generation)
+        val proxy = ProxyInstance(profile, service, "traffic", RunGeneration(generation, 0L))
         val core = BoxInstance()
         val state = Shadow.extract<ShadowCoreBox>(core)
         val config = ConfigBuildResult(
