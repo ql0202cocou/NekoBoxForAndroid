@@ -35,7 +35,7 @@ func TestStartLookupHostsCancel(t *testing.T) {
 	address := "udp://" + packet.LocalAddr().String()
 
 	t.Run("cancel while waiting", func(t *testing.T) {
-		task := StartLookupHosts(address+"\n"+address, "timeout.test")
+		task := StartLookupHosts(address+"\n"+address, "timeout.test", "ip")
 		time.AfterFunc(50*time.Millisecond, task.Cancel)
 		start := time.Now()
 		_, err := task.Await()
@@ -47,7 +47,7 @@ func TestStartLookupHostsCancel(t *testing.T) {
 		}
 	})
 	t.Run("success then cancel is harmless", func(t *testing.T) {
-		task := StartLookupHosts(address, "fixture.test")
+		task := StartLookupHosts(address, "fixture.test", "ip")
 		got, err := task.Await()
 		if err != nil || got != "192.0.2.7" {
 			t.Fatalf("%q, %v", got, err)
@@ -58,7 +58,7 @@ func TestStartLookupHostsCancel(t *testing.T) {
 		}
 	})
 	t.Run("cancel before await", func(t *testing.T) {
-		task := StartLookupHosts(address, "timeout.test")
+		task := StartLookupHosts(address, "timeout.test", "ip")
 		task.Cancel()
 		if _, err := task.Await(); !errors.Is(err, context.Canceled) {
 			t.Fatalf("expected cancel: %v", err)

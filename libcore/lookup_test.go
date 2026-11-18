@@ -163,7 +163,7 @@ func TestLookupHostsSharedBudget(t *testing.T) {
 	t.Run("fallback and AAAA", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		got, err := lookupHosts(ctx, "\nunsupported://user:secret@fixture\n"+address+"\n", "fixture.test")
+		got, err := lookupHosts(ctx, "\nunsupported://user:secret@fixture\n"+address+"\n", "fixture.test", "ip")
 		if err != nil || got != "2001:db8::1" {
 			t.Fatalf("%q, %v", got, err)
 		}
@@ -176,7 +176,7 @@ func TestLookupHostsSharedBudget(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 		start := time.Now()
-		_, err := lookupHosts(ctx, address+"\n"+address, "timeout.test")
+		_, err := lookupHosts(ctx, address+"\n"+address, "timeout.test", "ip")
 		if !errors.Is(err, context.DeadlineExceeded) {
 			t.Fatalf("expected deadline: %v", err)
 		}
@@ -192,14 +192,14 @@ func TestLookupHostsSharedBudget(t *testing.T) {
 		before := queries.Load()
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err := lookupHosts(ctx, address, "fixture.test")
+		_, err := lookupHosts(ctx, address, "fixture.test", "ip")
 		if !errors.Is(err, context.Canceled) || queries.Load() != before {
 			t.Fatalf("cancel not respected: %v", err)
 		}
 	})
 	t.Run("empty and failed servers", func(t *testing.T) {
 		for _, servers := range []string{"", "  \n", "unsupported://user:secret@fixture"} {
-			_, err := lookupHosts(context.Background(), servers, "fixture.test")
+			_, err := lookupHosts(context.Background(), servers, "fixture.test", "ip")
 			if err == nil || strings.Contains(err.Error(), "secret") {
 				t.Fatalf("unsafe or absent error: %v", err)
 			}
@@ -216,7 +216,7 @@ type familyServer struct {
 	a, aaaa atomic.Int32
 }
 
-func startFamilyServer(t *testing.T, silent bool) *familyServer {
+func startFamilyServer(t *testing.T, silent bool, emptyType uint16) *familyServer {
 	t.Helper()
 	packet, err := net.ListenPacket("udp", "127.0.0.1:0")
 	if err != nil {
@@ -239,10 +239,14 @@ func startFamilyServer(t *testing.T, silent bool) *familyServer {
 		}
 		reply := new(dns.Msg)
 		reply.SetReply(q)
-		if strings.HasSuffix(mode, "ok") {
+		if question.Qtype != emptyType && strings.HasSuffix(mode, "ok") {
 			header := dns.RR_Header{Name: question.Name, Rrtype: question.Qtype, Class: dns.ClassINET}
 			if question.Qtype == dns.TypeAAAA {
-				reply.Answer = []dns.RR{&dns.AAAA{Hdr: header, AAAA: net.ParseIP("2001:db8::1")}}
+				ip := net.ParseIP("2001:db8::1")
+				if mode == "mapped-ok" {
+					ip = net.ParseIP("::ffff:192.0.2.8")
+				}
+				reply.Answer = []dns.RR{&dns.AAAA{Hdr: header, AAAA: ip}}
 			} else {
 				reply.Answer = []dns.RR{&dns.A{Hdr: header, A: net.ParseIP("192.0.2.1")}}
 			}
@@ -258,7 +262,7 @@ func startFamilyServer(t *testing.T, silent bool) *familyServer {
 }
 
 func TestLookupHostBothFamilies(t *testing.T) {
-	server := startFamilyServer(t, false)
+	server := startFamilyServer(t, false, 0)
 	for _, tc := range []struct {
 		name, domain, want string
 		fails              bool
@@ -272,7 +276,7 @@ func TestLookupHostBothFamilies(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 			beforeA, beforeAAAA := server.a.Load(), server.aaaa.Load()
-			got, err := lookupHost(ctx, server.address, tc.domain)
+			got, err := lookupHost(ctx, server.address, tc.domain, "ip")
 			if tc.fails != (err != nil) || got != tc.want {
 				t.Fatalf("%q, %v", got, err)
 			}
@@ -284,7 +288,7 @@ func TestLookupHostBothFamilies(t *testing.T) {
 }
 
 func TestLookupHostOneFamilyTimesOut(t *testing.T) {
-	server := startFamilyServer(t, false)
+	server := startFamilyServer(t, false, 0)
 	// 一类不回应、另一类有地址：只等宽限期就返回已有的结果，不等满单台超时
 	for domain, want := range map[string]string{
 		"a-ok.aaaa-drop.test": "192.0.2.1",
@@ -292,7 +296,7 @@ func TestLookupHostOneFamilyTimesOut(t *testing.T) {
 	} {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		start := time.Now()
-		got, err := lookupHost(ctx, server.address, domain)
+		got, err := lookupHost(ctx, server.address, domain, "ip")
 		cancel()
 		if err != nil || got != want {
 			t.Fatalf("%s: %q, %v", domain, got, err)
@@ -304,20 +308,20 @@ func TestLookupHostOneFamilyTimesOut(t *testing.T) {
 	// 一类不回应、另一类为空：没有可用地址，整台服务器算失败
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
-	if _, err := lookupHost(ctx, server.address, "a-drop.aaaa-empty.test"); err == nil {
+	if _, err := lookupHost(ctx, server.address, "a-drop.aaaa-empty.test", "ip"); err == nil {
 		t.Fatal("没有地址却成功")
 	}
 }
 
 func TestLookupHostsSilentFirstServer(t *testing.T) {
-	silent := startFamilyServer(t, true)
-	good := startFamilyServer(t, false)
+	silent := startFamilyServer(t, true, 0)
+	good := startFamilyServer(t, false, 0)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	start := time.Now()
 	// 第一台两类都不回应，只吃它自己的单台超时（A 与 AAAA 并行，不是 5 + 5 秒）；
 	// 第二台仍在总预算内被尝试，并返回两类地址的并集
-	got, err := lookupHosts(ctx, silent.address+"\n"+good.address, "a-ok.aaaa-ok.test")
+	got, err := lookupHosts(ctx, silent.address+"\n"+good.address, "a-ok.aaaa-ok.test", "ip")
 	if err != nil || got != "192.0.2.1\n2001:db8::1" {
 		t.Fatalf("%q, %v", got, err)
 	}
@@ -326,5 +330,43 @@ func TestLookupHostsSilentFirstServer(t *testing.T) {
 	}
 	if silent.a.Load() != 1 || silent.aaaa.Load() != 1 || good.a.Load() != 1 || good.aaaa.Load() != 1 {
 		t.Fatalf("每台服务器 A / AAAA 各应查一次: %d %d %d %d", silent.a.Load(), silent.aaaa.Load(), good.a.Load(), good.aaaa.Load())
+	}
+}
+
+func TestLookupHostsSingleFamilyFallback(t *testing.T) {
+	for _, tc := range []struct {
+		network string
+		qtype   uint16
+		want    string
+	}{
+		{"ip4", dns.TypeA, "192.0.2.1"},
+		{"ip6", dns.TypeAAAA, "2001:db8::1"},
+	} {
+		t.Run(tc.network, func(t *testing.T) {
+			first := startFamilyServer(t, false, tc.qtype)
+			second := startFamilyServer(t, false, 0)
+			task := StartLookupHosts(first.address+"\n"+second.address, "a-ok.aaaa-ok.test", tc.network)
+			got, err := task.Await()
+			if err != nil || got != tc.want {
+				t.Fatalf("got %q, %v", got, err)
+			}
+			for _, server := range []*familyServer{first, second} {
+				wantA := int32(0)
+				if tc.qtype == dns.TypeA {
+					wantA = 1
+				}
+				if server.a.Load() != wantA || server.aaaa.Load() != 1-wantA {
+					t.Fatalf("A=%d AAAA=%d", server.a.Load(), server.aaaa.Load())
+				}
+			}
+		})
+	}
+}
+
+func TestLookupIPv6OnlyIgnoresMappedIPv4(t *testing.T) {
+	server := startFamilyServer(t, false, 0)
+	got, err := StartLookupHosts(server.address, "a-empty.mapped-ok.test", "ip6").Await()
+	if got != "" || err == nil {
+		t.Fatalf("got %q, %v", got, err)
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"libcore/device"
 	"net"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -29,7 +30,7 @@ type LookupTask struct {
 	err    error
 }
 
-func StartLookupHosts(servers string, domain string) *LookupTask {
+func StartLookupHosts(servers, domain, network string) *LookupTask {
 	defer device.DeferPanicToError("StartLookupHosts", nil)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -38,7 +39,7 @@ func StartLookupHosts(servers string, domain string) *LookupTask {
 		defer close(task.done)
 		defer cancel()
 		defer device.DeferPanicToError("StartLookupHosts", func(err error) { task.err = err })
-		task.result, task.err = lookupHosts(ctx, servers, domain)
+		task.result, task.err = lookupHosts(ctx, servers, domain, network)
 	}()
 	return task
 }
@@ -59,7 +60,7 @@ func (t *LookupTask) Cancel() {
 	t.cancel()
 }
 
-func lookupHosts(ctx context.Context, servers string, domain string) (string, error) {
+func lookupHosts(ctx context.Context, servers, domain, network string) (string, error) {
 	for _, server := range strings.Split(servers, "\n") {
 		server = strings.TrimSpace(server)
 		if server == "" {
@@ -68,7 +69,7 @@ func lookupHosts(ctx context.Context, servers string, domain string) (string, er
 		if err := ctx.Err(); err != nil {
 			return "", err
 		}
-		addresses, err := lookupHost(ctx, server, domain)
+		addresses, err := lookupHost(ctx, server, domain, network)
 		if err == nil {
 			return addresses, nil
 		}
@@ -100,15 +101,23 @@ type familyResult struct {
 	err       error
 }
 
-// 同一台服务器的 A 与 AAAA 并行查询、共用这台服务器的单台超时，返回两类结果的并集
-// （A 在前）。任一类拿到地址就算这台服务器成功；两类都失败或都为空才返回错误，由
-// lookupHosts 换下一台。地址族的取舍（禁用 / 仅 IPv6 等）由调用方按 IPv6 模式处理，
-// 这里不做过滤。空应答（NOERROR 无记录、NXDOMAIN、REFUSED）不看 Rcode，一律按空处理
-func lookupHost(ctx context.Context, server string, domain string) (string, error) {
+// 单地址族只查询所需类型，空应答由 lookupHosts 继续试下一台服务器。
+// 双栈并行查询 A / AAAA，返回并集（A 在前），第一类成功后只再等一段宽限时间。
+func lookupHost(ctx context.Context, server, domain, network string) (string, error) {
 	serverCtx, cancel := context.WithTimeout(ctx, perServerTimeout)
 	defer cancel()
 
-	types := []uint16{mDNS.TypeA, mDNS.TypeAAAA}
+	var types []uint16
+	switch network {
+	case "ip4":
+		types = []uint16{mDNS.TypeA}
+	case "ip6":
+		types = []uint16{mDNS.TypeAAAA}
+	case "ip":
+		types = []uint16{mDNS.TypeA, mDNS.TypeAAAA}
+	default:
+		return "", errors.New("unknown lookup network")
+	}
 	results := make(chan familyResult, len(types))
 	for _, queryType := range types {
 		go func() {
@@ -116,6 +125,10 @@ func lookupHost(ctx context.Context, server string, domain string) (string, erro
 			defer func() { results <- result }()
 			defer device.DeferPanicToError("lookupHost", func(err error) { result.err = err })
 			result.addresses, result.err = lookupHostType(serverCtx, server, domain, queryType)
+			if network == "ip6" {
+				// IPv4 映射地址经 net.IP.String 和 Android 解析后是 IPv4，不能让它截断仅 IPv6 的回退。
+				result.addresses = slices.DeleteFunc(result.addresses, func(ip string) bool { return !strings.Contains(ip, ":") })
+			}
 		}()
 	}
 

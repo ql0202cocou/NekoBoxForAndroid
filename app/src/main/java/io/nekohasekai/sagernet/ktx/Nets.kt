@@ -143,10 +143,15 @@ fun String?.usableNameservers(
 // Cancelling the caller cancels the native context, so the blocking gomobile
 // call returns at once instead of running out the budget; callers on a
 // per-profile path should still memoize to avoid repeating failed lookups.
-suspend fun lookupViaNameserver(nameserver: String?, domain: String): List<InetAddress>? {
+private suspend fun lookupViaNameserver(nameserver: String?, domain: String, ipv6Mode: Int): List<InetAddress>? {
     val servers = nameserver.usableNameservers()
     if (servers.isEmpty()) return null
-    val task = Libcore.startLookupHosts(servers.joinToString("\n"), domain)
+    val network = when (ipv6Mode) {
+        IPv6Mode.DISABLE -> "ip4"
+        IPv6Mode.ONLY -> "ip6"
+        else -> "ip"
+    }
+    val task = Libcore.startLookupHosts(servers.joinToString("\n"), domain, network)
     return try {
         withContext(Dispatchers.IO) {
             val guard = launch { try { awaitCancellation() } finally { task.cancel() } }
@@ -214,7 +219,7 @@ fun List<InetAddress>.orderByIpv6Mode(ipv6Mode: Int): List<InetAddress> {
 suspend fun lookupServerAddress(
     domain: String, groupNameserver: String?, network: Network?, ipv6Mode: Int,
 ): List<InetAddress> =
-    lookupViaNameserver(groupNameserver, domain)?.orderByIpv6Mode(ipv6Mode)?.takeIf { it.isNotEmpty() }
+    lookupViaNameserver(groupNameserver, domain, ipv6Mode)?.orderByIpv6Mode(ipv6Mode)?.takeIf { it.isNotEmpty() }
         ?: lookupSystem(domain, network).orderByIpv6Mode(ipv6Mode)
 
 // 本机端口：向系统要一个临时端口，再经跨进程保留表（PortReservations）去重。主进程的测速与 :bg 的运行服务
