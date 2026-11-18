@@ -256,8 +256,8 @@ class TrafficAccounting(
             )
 
         /**
-         * 停止 / 持久化时写库的行：[bound]（当前运行实例的统计关联，tag → 节点 id）里的每个节点一行，按 id 去重、保持
-         * 列表顺序，值取记账快照 [totals]；快照里没有的节点（运行实例已换成新的、节点不在本次记账里）不写。
+         * 停止 / 持久化时写库的行：[bound]（所属运行实例的统计关联，tag → 节点 id）里的每个节点一行，按 id 去重、保持
+         * 列表顺序，值取记账快照 [totals]；快照里没有的节点不写。
          */
         fun rowsToPersist(bound: Map<String, List<Long>>, totals: Map<Long, TrafficTotals>): Map<Long, TrafficTotals> =
             bound.values.flatten().distinct().mapNotNull { id -> totals[id]?.let { id to it } }.toMap(LinkedHashMap())

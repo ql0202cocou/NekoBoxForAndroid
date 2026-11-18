@@ -7,8 +7,10 @@ import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.configBuildNotices
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
-import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
+import io.nekohasekai.sagernet.ktx.onIoDispatcher
 import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import moe.matsuri.nb4a.utils.JavaUtil
 
 // title：ServiceNotification.genTitle(profile) 的结果。它可能查分组名（读库），由调用方在后台算好传进来，
@@ -23,7 +25,7 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
 
     // 选择回调可能早于启动后的首次采样。每个实例从构造起接收切换，launch 成功后才启动循环。
     @Volatile
-    var looper: TrafficLooper? = TrafficLooper(service.data, generation)
+    var looper: TrafficLooper? = TrafficLooper(service.data, this)
         private set
 
     internal fun acceptsSelectorCallback(): Boolean = isInitialized() && !isClosed()
@@ -76,16 +78,34 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
         if (isClosed()) trafficLooper.stop()
     }
 
+    private val shutdownMutex = Mutex()
+
+    suspend fun closeWithTraffic(): Unit = onIoDispatcher {
+        shutdownMutex.withLock {
+            val traffic = looper ?: return@withLock
+            traffic.stopLoop()
+            try {
+                traffic.collectFinal()
+            } catch (e: Exception) {
+                Logs.w("Final traffic collection failed", e)
+            } finally {
+                close()
+            }
+            // 即使最终查询失败，之前已经采到的增量仍应落库。
+            try {
+                traffic.postFinalTraffic()
+            } catch (e: Exception) {
+                Logs.w("Final traffic persistence failed", e)
+            }
+        }
+    }
+
     override fun close() {
-        // 顺序契约：调用方（killProcesses / destroyRunner）先挂起等 stopLoop() 再 close()——
-        // 进行中的 queryStats 需要存活的 box，close() 不能阻塞等它。
-        // 兜底 launch() 启动循环与关闭并发的情况。只停循环
-        // 不做最终推送：重启后 data.proxy 可能已是新实例，flushStats 会把计数写到新实例的
-        // 节点上。box 已关时 queryStats 经 lockIfOpen 返回 0
+        // 服务关停由 closeWithTraffic 等采样完成；直接 close 时也要兜底停止循环。
         super.close()
         val trafficLooper = looper ?: return
         looper = null
-        runOnDefaultDispatcher { trafficLooper.stopLoop() }
+        trafficLooper.stop()
     }
 
 }

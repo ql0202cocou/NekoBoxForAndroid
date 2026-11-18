@@ -80,7 +80,7 @@ class BoxInstanceLifecycleTest : UiTestBase() {
 
     @Test
     fun `建账前收到的多次分组清零按节点生效，下一轮只落新流量`() {
-        val looper = TrafficLooper(ProxyService().data, 0L)
+        val looper = checkNotNull(ProxyInstance(profile(), ProxyService(), "traffic", 0L).looper)
         val old = TrafficTotals(4000, 1000)
         val config = ConfigBuildResult(
             "{}", emptyList(), 1L,
@@ -296,6 +296,13 @@ class BoxInstanceLifecycleTest : UiTestBase() {
         var closes = 0
             private set
         val closed = CountDownLatch(1)
+        val stats = TrafficAccountingTest.FakeStats(listOf(TAG_PROXY))
+
+        @Implementation
+        fun queryStats(tag: String, direction: String): Long {
+            check(closed.count > 0) { "核心关闭后不能再查询流量" }
+            return stats.query(tag, direction)
+        }
 
         @Implementation
         fun __constructor__() {}

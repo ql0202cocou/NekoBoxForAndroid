@@ -344,10 +344,7 @@ class BaseService {
         // 子类因此只需覆盖这一处；实现须幂等、可在非主线程调用
         fun releaseSubclassResources() {}
 
-        // wakeLock 与网络监听：两条释放路径里时序无差别的部分，共用一份。
-        // looper 与 box 不放进来，它们的时序两条路径本就不同：正常停止要等
-        // （stopLoop 的返回值决定是否落最后一笔流量，close 之后还要
-        // awaitProcessesClosed），而 onDestroy 不能阻塞，只能 detach。
+        // 两条释放路径共用 wakeLock 与网络监听的清理。
         // release() 包 runCatching：teardown 中途抛异常会让服务卡在
         // Stopping，wakeLock 与前台通知一直握着
         fun releaseWakeLockAndNetworkListener() {
@@ -363,22 +360,9 @@ class BaseService {
 
         suspend fun killProcesses() {
             releaseSubclassResources()
-            // only the loop has to stop before the box does — its queryStats needs a
-            // live box. The final counters and broadcast touch neither, so they run
-            // after the close instead of holding up the teardown.
-            val looper = data.proxy?.looper
-            val postFinalTraffic = looper?.stopLoop() == true
             data.proxy?.let {
-                // Go 侧 Box.Close 逐个关闭组件、没有总时限，放主线程会卡住 :bg
-                // （停止与每次重启都走这里），同 destroyRunner 放到后台
-                onIoDispatcher { it.close() } // 从不抛出，见 BoxInstance.close
+                it.closeWithTraffic()
                 it.awaitProcessesClosed()
-            }
-            if (postFinalTraffic) {
-                // A database write failure must not strand the service in
-                // Stopping with its wake lock and foreground notification held.
-                runCatching { looper.postFinalTraffic() }
-                    .onFailure { Logs.w("Final traffic persistence failed", it) }
             }
             // wakeLock 撑到这里再放：上面的等待期间设备不应休眠
             releaseWakeLockAndNetworkListener()
@@ -441,12 +425,7 @@ class BaseService {
             data.connectingJob?.cancel()
             unregisterCloseReceiver()
             destroyNotification()
-            // 流量循环与 box 也是 killProcesses 负责的运行期资源，这里同样兜底。
-            // onDestroy 不能阻塞：Go 侧 Close 与 Start 持同一把锁，Connecting 中
-            // 被销毁时 close 要等 box.start() 跑完，放主线程会 ANR，所以整段
-            // detach 到后台。顺序同 killProcesses：looper 先停（其 queryStats 需要
-            // 存活 box），且须先捕获引用——close() 会把 looper 字段置 null。
-            // stopLoop / close 都幂等，正常路径重复执行无害
+            // onDestroy 不能阻塞主线程。先捕获本次运行，再在后台结算流量并关闭核心。
             val proxy = data.proxy
             data.proxy = null
             // 框架直接 destroy 时没走 stopRunner，状态停在 Connected：:bg 内
@@ -458,8 +437,7 @@ class BaseService {
             if (proxy != null) {
                 if (!alreadyStopped) data.changeState(State.Stopping)
                 runOnIoDispatcher {
-                    proxy.looper?.stopLoop()
-                    proxy.close() // CAS 保证幂等，且从不抛出（见 BoxInstance.close）
+                    proxy.closeWithTraffic()
                     // 开头那次释放可能早于 box.start() 里的 startVpn：state 仍是 Connecting，
                     // startVpn 的守卫拦不住，新建的 tun fd 无人关闭（Go 侧只关自己 dup 的
                     // 副本）。close 返回时 startVpn 必已结束，这里再收一次

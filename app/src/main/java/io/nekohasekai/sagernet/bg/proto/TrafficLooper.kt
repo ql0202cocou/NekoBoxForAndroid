@@ -21,15 +21,14 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.coroutineContext
 
-class TrafficLooper(val data: BaseService.Data, private val generation: Long) {
+class TrafficLooper(private val data: BaseService.Data, private val owner: ProxyInstance) {
 
-    // start() 发布后台循环的任务，stopLoop() 在另一线程取消并等待；stopped 的 CAS 不能单独发布 job。
-    @Volatile
+    // 关停取得任务后，start 不能再发布新的采样任务。
+    private val jobLock = Any()
     private var job: Job? = null
-    private val stopped = AtomicBoolean(false)
+    private var stopped = false
 
     // 首轮建账与早期切换、清零共用这把锁。发布后由记账自己的锁保护计数与 JNI，落库在锁外。
     private val startupLock = Any()
@@ -41,47 +40,48 @@ class TrafficLooper(val data: BaseService.Data, private val generation: Long) {
     // 只在 loop 协程里用：前台回调收过哪些推送
     private val posts = TrafficPosts<IBinder>()
 
-    suspend fun stop() {
-        if (stopLoop()) postFinalTraffic()
+    private fun markStopped(): Job? = synchronized(jobLock) {
+        stopped = true
+        job
     }
 
-    // 只停循环：进行中的 queryStats 需要存活的 box，这是关停时唯一要在关 box 前等完的
-    // 部分。killProcesses / destroyRunner、ProxyInstance.launch 的关闭后复查和
-    // ProxyInstance.close 的兜底都会走到这里；返回 true 的那个调用方真正停了循环，
-    // 由它负责下面的最终推送
-    suspend fun stopLoop(): Boolean {
-        if (!stopped.compareAndSet(false, true)) return false
-        job?.cancelAndJoin()
-        return true
+    fun stop() {
+        markStopped()?.cancel()
     }
 
-    // Final counters and UI post. Reads in-memory state and writes the DB, so it needs
-    // no live box and must not sit between the loop and box.close().
-    suspend fun postFinalTraffic() {
-        if (accounting == null || !DataStore.profileTrafficStatistics) return
-        val traffic = flushStats()
-        data.binder.broadcast { b ->
-            for (t in traffic) {
-                b.cbTrafficUpdate(t)
-            }
+    suspend fun stopLoop() {
+        markStopped()?.cancelAndJoin()
+    }
+
+    // 停采样之后、关核心之前，把最后一段字节记给本次运行。快速停止时可能还没跑到首轮建账。
+    fun collectFinal() {
+        if (!DataStore.profileTrafficStatistics) return
+        val now = SystemClock.elapsedRealtime()
+        val active = accounting ?: run {
+            if (!owner.isInitialized()) return
+            initializeAccounting(owner.config, owner.box::queryStats, now)
         }
-        Logs.d("finally traffic post done")
+        active.sweep(now)
     }
 
-    // ACTION_SHUTDOWN 直接杀进程、不走 stopRunner，stop() 不会运行：不停循环，先把累计落库。
-    // 快照在记账的锁内取，与进行中的一轮互斥；之后的那一轮来不及落库，少一点总好过全丢
+    suspend fun postFinalTraffic() {
+        val traffic = flushStats()
+        if (traffic.isEmpty() || data.proxy !== owner) return
+        data.binder.broadcast { b ->
+            for (t in traffic) b.cbTrafficUpdate(t)
+        }
+    }
+
+    // ACTION_SHUTDOWN 不走正常关停，只在有限时间内保存已采样的增量。
     suspend fun persistStats() {
-        if (accounting == null || !DataStore.profileTrafficStatistics) return
         flushStats()
     }
 
-    // 当前累计的增量写库，每个节点一行、一个事务。写哪些节点仍按当前 data.proxy 的统计关联取（同以前：data.proxy
-    // 已置空时不写，已换成新实例时只写两边都有的节点），值取本循环的记账
+    // 销毁期间 data.proxy 可能已清空或换代，节点绑定与恢复世代始终取自这次运行。
     private suspend fun flushStats(): List<TrafficData> = withContext(Dispatchers.IO) {
         val accounting = accounting ?: return@withContext emptyList()
-        val bound = data.proxy?.config?.traffic?.tags ?: return@withContext emptyList()
-        // 推给界面的是绝对值，写库的是自上次落库以来的增量（见 TrafficAccounting）
-        val rows = TrafficAccounting.rowsToPersist(bound, accounting.snapshot())
+        if (!DataStore.profileTrafficStatistics) return@withContext emptyList()
+        val rows = TrafficAccounting.rowsToPersist(owner.config.traffic.tags, accounting.snapshot())
         persistIncrements(accounting, rows.keys)
         rows.toTrafficData()
     }
@@ -91,21 +91,15 @@ class TrafficLooper(val data: BaseService.Data, private val generation: Long) {
         val claim = accounting.claim(ids)
         if (claim.increments.isEmpty()) return
         try {
-            ProfileManager.persistTrafficIncrements(claim.increments, generation)
+            ProfileManager.persistTrafficIncrements(claim.increments, owner.generation)
         } catch (e: Throwable) {
             accounting.release(claim)
             throw e
         }
     }
 
-    fun start() {
-        // stop() may have already won the CAS (close() raced ProxyInstance.launch);
-        // launching now would leave a loop on a closed box that stop() can never cancel
-        if (stopped.get()) return
-        job = runOnDefaultDispatcher { loop() }
-        // stop() won the CAS between the check above and the job assignment, saw a
-        // null job and skipped cancelAndJoin; cancel here so the loop cannot leak
-        if (stopped.get()) job?.cancel()
+    fun start() = synchronized(jobLock) {
+        if (!stopped && job == null) job = runOnDefaultDispatcher { loop() }
     }
 
     companion object {
