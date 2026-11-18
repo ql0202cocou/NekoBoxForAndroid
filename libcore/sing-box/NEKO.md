@@ -2,7 +2,7 @@
 
 This directory is a vendored copy of upstream
 [SagerNet/sing-box](https://github.com/SagerNet/sing-box) **v1.14.4** plus the
-NekoBox patch set (`1.14.4-neko-2`). The patches originate from
+NekoBox patch set (`1.14.4-neko-3`). The patches originate from
 `MatsuriDayo/sing-box` (`aed32ee3066cdbc7d471e3e0415c5134088962df`,
 `1.12.19-neko-1`); upstream NekoBox is unmaintained, so this fork maintains and
 rebases the patches itself. When rebasing onto a newer upstream sing-box
@@ -211,7 +211,7 @@ Additional patches maintained by this fork (not from MatsuriDayo):
 ## Replayable patch artifact
 
 The whole patch set is materialized as a single replayable diff,
-`libcore/patches/sing-box-v1.14.4-neko-2.diff`: a clean clone of upstream tag
+`libcore/patches/sing-box-v1.14.4-neko-3.diff`: a clean clone of upstream tag
 v1.14.4 plus this file applied with `patch -p1` reproduces this directory
 exactly. Excluded from the artifact (and from the verification comparison):
 `.git`, the top-level `clients/` git submodule placeholders (not carried here;
@@ -233,7 +233,7 @@ git clone --depth 1 --branch v1.14.4 https://github.com/SagerNet/sing-box "$TMP/
 rm -rf "$TMP/a/clients"
 cp -R libcore/sing-box "$TMP/b"
 (cd "$TMP" && command diff -ruN --exclude=.git --exclude=NEKO.md a b) \
-  > libcore/patches/sing-box-v1.14.4-neko-2.diff
+  > libcore/patches/sing-box-v1.14.4-neko-3.diff
 ```
 
 The `a`/`b` directory names are load-bearing: they keep the diff header paths
@@ -311,17 +311,24 @@ requirements pull `x/term`, `x/text`, `x/mod` and `x/sync` up with them (see
 the go.mod section). The artifact was renamed with it
 (`sing-box-v1.14.4-neko-1.diff` → `sing-box-v1.14.4-neko-2.diff`).
 
+`1.14.4-neko-3` upgrades `github.com/klauspost/compress` to v1.20.2
+(GO-2026-6865) and `github.com/andybalholm/brotli` to v1.2.7
+(GO-2026-6888). Both libcore and the vendored sing-box module require at least
+Go 1.26.11 for the standard-library fix (GO-2026-6859).
+
 ## go.mod divergence from upstream
 
 `check_versions` requires every module shared with `libcore/go.mod` to sit at
 the same version in both files, so dependency bumps land here too. As of
-2026-10-24 this go.mod diverges from the upstream v1.14.4 one: the five
+2026-11-18 this go.mod diverges from the upstream v1.14.4 one: the five
 entries re-derived on the 1.14.4 files (the same set as on 1.14.2 and 1.14.3,
-because upstream left them where they were), plus the security bumps of
-`1.14.4-neko-2` and what they require. Drop each bump once upstream's
+because upstream left them where they were), plus the security updates in
+`1.14.4-neko-2` and `1.14.4-neko-3` and their dependencies. Drop each bump once upstream's
 go.mod reaches it:
 
-- `go` directive `1.26.0` (upstream `1.25.5`) — forced by `x/sys` below
+- `go` directive `1.26.11` (upstream `1.25.5`) — minimum patched standard library
+- `github.com/andybalholm/brotli v1.2.7` (upstream v1.1.0) and
+  `github.com/klauspost/compress v1.20.2` (upstream v1.19.1) — see neko-3 above
 - `github.com/miekg/dns v1.1.73` (upstream v1.1.72) — libcore requires it
   directly
 - `golang.org/x/mod v0.41.0` (upstream v0.37.0) — `miekg/dns v1.1.73`

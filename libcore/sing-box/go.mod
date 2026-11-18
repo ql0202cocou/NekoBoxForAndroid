@@ -1,6 +1,6 @@
 module github.com/sagernet/sing-box
 
-go 1.26.0
+go 1.26.11
 
 require (
 	filippo.io/age v1.3.1
@@ -90,7 +90,7 @@ require (
 	github.com/akutz/memconn v0.1.0 // indirect
 	github.com/alexbrainman/sspi v0.0.0-20231016080023-1a75b4708caa // indirect
 	github.com/anchore/go-lzo v0.1.0 // indirect
-	github.com/andybalholm/brotli v1.1.0 // indirect
+	github.com/andybalholm/brotli v1.2.7 // indirect
 	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be // indirect
 	github.com/axiomhq/hyperloglog v0.0.0-20240319100328-84253e514e02 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
@@ -124,7 +124,7 @@ require (
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
-	github.com/klauspost/compress v1.19.1 // indirect
+	github.com/klauspost/compress v1.20.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/koron/go-ssdp v0.0.4 // indirect
 	github.com/kr/fs v0.1.0 // indirect

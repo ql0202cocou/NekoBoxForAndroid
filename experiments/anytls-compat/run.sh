@@ -9,5 +9,5 @@ case "$MIHOMO_BIN" in
 esac
 cd "$(dirname "$0")/../../libcore"
 export REQUIRE_MIHOMO=1
-export GOTOOLCHAIN="${GOTOOLCHAIN:-go1.26.10}"
+export GOTOOLCHAIN="${GOTOOLCHAIN:-go1.26.11}"
 exec go test -mod=readonly -ldflags=-checklinkname=0 -timeout=300s "$@" ./anytlscompat/...

@@ -1,6 +1,6 @@
 module libcore
 
-go 1.26.0
+go 1.26.11
 
 require (
 	github.com/matsuridayo/libneko v1.0.0 // replaced
@@ -20,7 +20,7 @@ require (
 
 require (
 	github.com/ajg/form v1.5.1 // indirect
-	github.com/andybalholm/brotli v1.1.0 // indirect
+	github.com/andybalholm/brotli v1.2.7 // indirect
 	github.com/anytls/sing-anytls v0.0.11 // indirect
 	github.com/caddyserver/certmagic v0.25.3-0.20260421143802-60d9d8b415d6 // indirect
 	github.com/caddyserver/zerossl v0.1.5 // indirect
@@ -43,7 +43,7 @@ require (
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jsimonetti/rtnetlink v1.4.1 // indirect
-	github.com/klauspost/compress v1.19.1 // indirect
+	github.com/klauspost/compress v1.20.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/koron/go-ssdp v0.0.4 // indirect
 	github.com/libdns/acmedns v0.5.0 // indirect

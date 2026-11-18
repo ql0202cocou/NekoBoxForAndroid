@@ -6,10 +6,10 @@
 Implementation and regression tests now live in `libcore/anytlscompat/`, registered by libcore for runtime,
 URL testing and trial. This directory retains the real mihomo oracle runner, with no duplicate implementation or module.
 
-需要 Go 1.26.10 和经过官方资产 SHA-256 校验的本机 mihomo **v1.19.33**。服务只监听回环地址，
+需要 Go 1.26.11 和经过官方资产 SHA-256 校验的本机 mihomo **v1.19.33**。服务只监听回环地址，
 临时证书、私钥与 mihomo 配置在测试期间生成并清理。拒绝场景包含重试等待，全套约需数分钟。
 
-Requires Go 1.26.10 and a native mihomo **v1.19.33** binary verified against its official asset SHA-256.
+Requires Go 1.26.11 and a native mihomo **v1.19.33** binary verified against its official asset SHA-256.
 Fixtures bind to loopback and generate temporary PKI and configurations. Rejection cases include retry delays.
 
 ```sh
@@ -20,7 +20,7 @@ MIHOMO_BIN=/absolute/path/to/mihomo sh experiments/anytls-compat/run.sh -race \
 # 在 libcore 中执行，构建标签与 AAR 相同（trial 要构造的部分出站依赖这些标签）。
 cd libcore
 source build_tags.sh
-MIHOMO_BIN=/absolute/path/to/mihomo GOTOOLCHAIN=go1.26.10 go test -race -tags "$LIBCORE_BUILD_TAGS" \
+MIHOMO_BIN=/absolute/path/to/mihomo GOTOOLCHAIN=go1.26.11 go test -race -tags "$LIBCORE_BUILD_TAGS" \
   -ldflags=-checklinkname=0 -run 'Test(Compatibility|ConcurrentClose|CancelDuringAuthenticationWrite|ControlledDialDNSAndScope|ECHRefreshAndRecovery|HandshakeCancellation|Trial(ValidInputsPass|BadInputsClassified|ConcurrentCalls))' .
 ```
 

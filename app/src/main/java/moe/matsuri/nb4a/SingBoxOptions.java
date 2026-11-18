@@ -140,8 +140,6 @@ public class SingBoxOptions {
 
     }
 
-    // paste generate output here
-
     public static class ClashAPIOptions extends SingBoxOption {
 
         public String external_controller;
@@ -3905,7 +3903,7 @@ public class SingBoxOptions {
 
     }
 
-    // sing-box Options 生成器已经坏了，以下是从 husi 抄的
+    // 以下 AnyTLS 字段参考 husi。
 
     public static class Outbound_AnyTLSOptions extends Outbound {
 
