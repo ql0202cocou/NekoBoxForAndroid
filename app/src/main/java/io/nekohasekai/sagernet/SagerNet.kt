@@ -13,7 +13,6 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.os.Build
 import android.os.PowerManager
-import android.os.Process
 import android.os.StrictMode
 import android.os.UserManager
 import android.widget.Toast
@@ -182,13 +181,12 @@ class SagerNet : Application(),
         updateNotificationChannels()
     }
 
-    // One-time move of the external assets dir used up to 1.7.3. Both processes run this at
-    // start, so copy through a per-process temp file and rename; the legacy copy
-    // overwrites whatever initCore may have extracted on a start where external storage
-    // was not mounted yet (then the flag stays unset and the move is retried).
+    // 一次性迁移 1.7.3 及以前的外部资源。两个进程都可能启动迁移，使用独立临时文件再原子替换。
+    // 外部存储未挂载时不置完成标记；以后迁移的旧资源仍覆盖 initCore 曾解压的默认副本。
     private fun migrateLegacyAssets() {
         if (DataStore.legacyAssetsMigrated) return
         val legacy = getExternalFilesDir(null) ?: return
+        cleanupStaleLegacyAssetTemps(assetsDir)
         var failed = false
         for (file in legacy.listFiles { it.isFile } ?: emptyArray()) {
             // Two kinds of file do not cross the boundary, because any app holding
@@ -204,13 +202,7 @@ class SagerNet : Application(),
                 continue
             }
             try {
-                val tmp = File(assetsDir, "${file.name}.migrating-${Process.myPid()}")
-                file.inputStream().use { input -> tmp.outputStream().use { input.copyTo(it) } }
-                if (!tmp.renameTo(File(assetsDir, file.name))) {
-                    tmp.delete()
-                    error("rename failed")
-                }
-                file.delete()
+                migrateLegacyAsset(file, File(assetsDir, file.name))
             } catch (e: Exception) {
                 // keep the source: the next start retries
                 failed = true

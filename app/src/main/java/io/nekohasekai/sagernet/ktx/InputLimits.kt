@@ -3,19 +3,30 @@ package io.nekohasekai.sagernet.ktx
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
+import java.io.OutputStream
 
 // Match the HTTP subscription body limit, including all entries of a ZIP import.
 const val MAX_IMPORT_BYTES = 32 * 1024 * 1024
 
-fun InputStream.readBytesLimited(limit: Int = MAX_IMPORT_BYTES): ByteArray {
+fun InputStream.readBytesLimited(limit: Int = MAX_IMPORT_BYTES): ByteArray =
+    ByteArrayOutputStream().also { copyToLimited(it, limit.toLong()) }.toByteArray()
+
+// 流式复制，超过 limit 字节即抛出 IOException；目标里已写入的部分由调用方丢弃。
+fun InputStream.copyToLimited(
+    output: OutputStream,
+    limit: Long,
+    message: String = "Import exceeds size limit",
+): Long {
     require(limit >= 0)
-    val output = ByteArrayOutputStream()
     val buffer = ByteArray(8192)
+    var copied = 0L
     while (true) {
-        val count = read(buffer, 0, minOf(buffer.size, limit - output.size() + 1))
-        if (count < 0) return output.toByteArray()
-        if (count > limit - output.size()) throw IOException("Import exceeds size limit")
+        // 最多多读一个字节：恰好 limit 字节的输入不会误判，超出的输入读到这一字节就判定
+        val count = read(buffer, 0, minOf(buffer.size.toLong(), limit - copied + 1).toInt())
+        if (count < 0) return copied
+        if (count > limit - copied) throw IOException(message)
         output.write(buffer, 0, count)
+        copied += count
     }
 }
 
