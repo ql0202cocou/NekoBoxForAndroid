@@ -146,7 +146,18 @@ internal fun requireBuildableHop(proxyEntity: ProxyEntity, bean: AbstractBean, d
     }
     // 自定义出站 JSON 要到 build() 末尾序列化时才解析，在这里先解析一次，
     // 出错时才能带上节点名、预检才能跳过这个成员
-    if (!bean.customOutboundJson.isNullOrBlank()) Util.mergeJSON(HashMap<String, Any?>(), bean.customOutboundJson)
+    if (!bean.customOutboundJson.isNullOrBlank()) {
+        val overrides = HashMap<String, Any?>()
+        Util.mergeJSON(overrides, bean.customOutboundJson)
+        if (proxyEntity.needExternal(decision) && externalCore(bean)?.inboundAuth == true) {
+            // 按合并后的顶层键检查，覆盖空值或用数组合并语法写入也会破坏本机认证。
+            for (field in listOf("username", "password")) {
+                require(overrides.keys.none { it.equals(field, ignoreCase = true) }) {
+                    "custom outbound JSON cannot override local SOCKS authentication field: $field"
+                }
+            }
+        }
+    }
 }
 
 // 内部核心出站。ConfigBean（type 1）的 JSON 同理提前解析

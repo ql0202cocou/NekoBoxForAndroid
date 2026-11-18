@@ -92,6 +92,46 @@ class ConfigPrecheckTest {
     )
 
     @Test
+    fun `本机认证项在外核端口分配前拒绝，报错只带字段名`() {
+        val overrides = mapOf(
+            """{"username":"synthetic-user"}""" to "username",
+            """{"Password":"synthetic-password"}""" to "password",
+            """{"password":null}""" to "password",
+            """{"+username":["synthetic-user"]}""" to "username",
+        )
+        for (mode in ConfigBuildMode.entries) for ((json, field) in overrides) {
+            val selected = vless(1, 1).apply { requireBean().customOutboundJson = json }
+            val source = MemoryConfigDataSource(listOf(ProxyGroup(id = 1)), listOf(selected), emptyList())
+            val platform = FakeConfigPlatform()
+            val failure = assertThrows(ProfileBuildException::class.java) { build(selected, source, platform, mode = mode) }
+            assertEquals("vless-1: custom outbound JSON cannot override local SOCKS authentication field: $field", failure.message)
+            assertTrue(platform.ports.isEmpty())
+        }
+    }
+
+    @Test
+    fun `外核的普通覆写与原生 SOCKS 账号照常生效，冲突成员按预检跳过`() {
+        main.requireBean().customOutboundJson = """{"username":"remote-user","password":"remote-password"}"""
+        val bad = vless(2, 1).apply { requireBean().customOutboundJson = """{"username":"synthetic-user"}""" }
+        val good = vless(3, 1).apply { requireBean().customOutboundJson = """{"network":"tcp"}""" }
+        val source = MemoryConfigDataSource(listOf(ProxyGroup(id = 1, isSelector = true)), listOf(main, bad, good), emptyList())
+        val diagnostics = ArrayList<ConfigBuildDiagnostic>()
+        val result = build(main, source, FakeConfigPlatform(), diagnostics = diagnostics)
+        val skipped = diagnostics.single() as ConfigBuildDiagnostic.ProfileSkipped
+        assertEquals(2L, skipped.profileId)
+        assertEquals("vless-2: custom outbound JSON cannot override local SOCKS authentication field: username", skipped.reason)
+        val hop = ExternalRunPlan.from(result).hops.single()
+        assertEquals(3L, hop.profileId)
+        val socks = JsonParser.parseString(result.config).asJsonObject.getAsJsonArray("outbounds")
+            .map { it.asJsonObject }.filter { it.string("type") == "socks" }
+        val local = socks.single { it.string("server") == LOCALHOST }
+        assertEquals("tcp", local.string("network"))
+        assertEquals(hop.requireLocalAuth().username, local.string("username"))
+        assertEquals(hop.requireLocalAuth().password, local.string("password"))
+        assertEquals("remote-user", socks.single { it !== local }.string("username"))
+    }
+
+    @Test
     fun `预检试生成外核配置时建的临时文件构建结束时都已删除`() {
         val platform = FakeConfigPlatform(tempDir = tmp.newFolder())
         val diagnostics = ArrayList<ConfigBuildDiagnostic>()
