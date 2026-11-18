@@ -61,9 +61,9 @@ class ProxyEntityDaoContractTest {
     private fun parseDao(): List<DaoMethod> {
         val source = daoSource()
         val withAnnotation = Regex(
-            """@(Query|Update|Upsert|Insert|Delete|RawQuery)(?:\(((?:"[^"]*"|[^()"]|\([^)]*\))*)\))?\s*fun\s+(\w+)\(([^)]*)\)""",
+            """@(Query|Update|Upsert|Insert|Delete|RawQuery|Transaction)(?:\(((?:"[^"]*"|[^()"]|\([^)]*\))*)\))?\s*fun\s+(\w+)\(([^)]*)\)""",
         ).findAll(source).map { DaoMethod(it.groupValues[1], it.groupValues[2], it.groupValues[3], it.groupValues[4]) }.toList()
-        // 每个 fun 都要带上面这些注解之一：没注解的方法（接口默认实现等）不在契约内
+        // 每个 fun 都要带上面这些注解之一；事务组合方法也必须登记，不能静默漏掉。
         val allNames = Regex("""\bfun\s+(\w+)\(""").findAll(source).map { it.groupValues[1] }.toList()
         assertEquals("有 DAO 方法没有被解析到（缺注解或写法超出解析范围）", allNames.sorted(), withAnnotation.map { it.name }.sorted())
         val reflected = Class.forName("io.nekohasekai.sagernet.database.ProxyEntity\$Dao").declaredMethods

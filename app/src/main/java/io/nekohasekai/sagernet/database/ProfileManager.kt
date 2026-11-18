@@ -114,8 +114,15 @@ object ProfileManager {
     }
 
     suspend fun moveProfile(profileId: Long, groupId: Long): ProxyEntity? {
-        if (SagerDatabase.proxyDao.updateGroup(profileId, groupId) == 0) return null
-        val current = SagerDatabase.proxyDao.getById(profileId) ?: return null
+        val current = SagerDatabase.instance.runInTransaction(Callable {
+            val old = SagerDatabase.proxyDao.getById(profileId) ?: return@Callable null
+            if (old.groupId == groupId) return@Callable old
+            // 分配末尾序号与移动在同一事务内，避免和其它移动或新增取到相同序号。
+            // 只写归属与排序列，不覆盖编辑、流量或测速结果。
+            val order = SagerDatabase.proxyDao.nextOrder(groupId) ?: 1
+            if (SagerDatabase.proxyDao.updateGroupAndOrder(profileId, groupId, order) == 0) return@Callable null
+            SagerDatabase.proxyDao.getById(profileId)
+        }) ?: return null
         iterator { onUpdated(current) }
         return current
     }
@@ -197,51 +204,28 @@ object ProfileManager {
         }
     }
 
-    // Removes the row; false when the profile no longer existed. Listeners are
-    // notified by the callers, which order that against their own fixups —
-    // 清选择也归调用处，整批删完调一次就够，不必每行查一次库
-    private fun deleteProfileRow(profileId: Long): Boolean {
-        return SagerDatabase.proxyDao.deleteById(profileId) != 0
-    }
-
-    // Bulk-delete path: listeners fire per profile, but the expensive fixups
-    // (dangling front/landing proxies, rearrange) run once for the whole batch
-    // instead of per profile. 整批删除与 fixups 包在一个事务里：逐行自动提交
+    // 整批删除与修正包在一个事务里，每个实际受影响的组只整理一次：逐行自动提交
     // 在进程中途死亡时留下删了一半的批次，且 fixups 不会执行，其他分组的
     // front/landingProxy 悬挂残留。监听器通知留在事务提交后
-    suspend fun deleteProfiles(profiles: List<ProxyEntity>) {
-        if (profiles.isEmpty()) return
-        val removed = ArrayList<ProxyEntity>(profiles.size)
+    suspend fun deleteProfiles(profileIds: Collection<Long>) {
+        if (profileIds.isEmpty()) return
+        val removed = ArrayList<ProxyGroupRef>(profileIds.size)
         SagerDatabase.instance.runInTransaction {
-            for (profile in profiles) {
-                if (deleteProfileRow(profile.id)) removed.add(profile)
-            }
+            // 确认框、撤销窗口里的快照可能已过期，按事务内的当前分组整理和通知；
+            // 已不存在的行跳过，通知沿用调用方的顺序。
+            val current = SagerDatabase.proxyDao.getGroupRefs(profileIds.toList()).associateBy { it.id }
+            profileIds.distinct().mapNotNullTo(removed) { current[it] }
+            SagerDatabase.proxyDao.deleteByIds(removed.map { it.id })
             GroupManager.resetDanglingGroupProxies()
-            val groupId = profiles.first().groupId
-            if (SagerDatabase.proxyDao.countByGroup(groupId) > 1) {
-                GroupManager.rearrange(groupId)
+            for (groupId in removed.map { it.groupId }.distinct()) {
+                if (SagerDatabase.proxyDao.countByGroup(groupId) > 1) {
+                    GroupManager.rearrange(groupId)
+                }
             }
         }
         // DataStore 写的是 PublicDatabase，放在 SagerDatabase 事务外
         clearSelectedProxyIfGone()
         for (profile in removed) iterator { onRemoved(profile.groupId, profile.id) }
-    }
-
-    // 同 deleteProfiles：删除与 fixups 一个事务，监听器通知在提交后
-    suspend fun deleteProfile(groupId: Long, profileId: Long) {
-        val deleted = SagerDatabase.instance.runInTransaction(Callable {
-            if (!deleteProfileRow(profileId)) return@Callable false
-            // 节点可能被某个分组当作前置 / 落地代理引用
-            GroupManager.resetDanglingGroupProxies()
-            if (SagerDatabase.proxyDao.countByGroup(groupId) > 1) {
-                GroupManager.rearrange(groupId)
-            }
-            true
-        })
-        if (!deleted) return
-        // DataStore 写的是 PublicDatabase，放在 SagerDatabase 事务外
-        clearSelectedProxyIfGone()
-        iterator { onRemoved(groupId, profileId) }
     }
 
     fun getProfile(profileId: Long): ProxyEntity? {

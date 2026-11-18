@@ -62,14 +62,14 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
 ) : EditorActivity(resId) {
 
     @Parcelize
-    data class ProfileIdArg(val profileId: Long, val groupId: Long) : Parcelable
+    data class ProfileIdArg(val profileId: Long) : Parcelable
     class DeleteConfirmationDialogFragment : AlertDialogFragment<ProfileIdArg, Empty>() {
         override fun AlertDialog.Builder.prepare(listener: DialogInterface.OnClickListener) {
             setTitle(R.string.delete_confirm_prompt)
             setPositiveButton(R.string.yes) { _, _ ->
                 // 进程级：删除落库，页面随即关闭也要删完，不碰界面
                 runOnDefaultDispatcher {
-                    ProfileRepository.deleteProfile(arg.groupId, arg.profileId)
+                    ProfileRepository.deleteProfile(arg.profileId)
                 }
                 requireActivity().finish()
             }
@@ -78,7 +78,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
     }
 
     override fun deleteConfirmationDialog() = DeleteConfirmationDialogFragment().apply {
-        arg(ProfileIdArg(EditorCache.editingId, EditorCache.editingGroup))
+        arg(ProfileIdArg(EditorCache.editingId))
         key()
     }
 

@@ -52,18 +52,19 @@ object ProfileRepository {
     // 返回 false：这一行已不在库里，什么都没写（见 ProfileManager.updateProfile）
     suspend fun updateProfile(profile: ProxyEntity): Boolean = ProfileManager.updateProfile(profile)
 
-    // 返回移动后的行；节点已不存在时返回 null
+    // 跨组时在事务内追加到目标组末尾；同组保留顺序，节点已不存在时返回 null。
+    // 返回移动后的行，沿用 onUpdated 通知；调用方仍负责两组的 postUpdate。
     suspend fun moveProfile(profileId: Long, groupId: Long): ProxyEntity? =
         ProfileManager.moveProfile(profileId, groupId)
 
     fun updateUserOrders(profiles: Collection<ProxyEntity>) =
         ProfileManager.updateUserOrders(profiles)
 
-    suspend fun deleteProfile(groupId: Long, profileId: Long) =
-        ProfileManager.deleteProfile(groupId, profileId)
+    // 只按 id 删除：分组以事务内的当前行为准，调用方手里的快照可能已过期。
+    suspend fun deleteProfile(profileId: Long) = ProfileManager.deleteProfiles(listOf(profileId))
 
     suspend fun deleteProfiles(profiles: List<ProxyEntity>) =
-        ProfileManager.deleteProfiles(profiles)
+        ProfileManager.deleteProfiles(profiles.map { it.id })
 
     suspend fun updateTestResults(results: List<ProxyEntity>) = ProfileManager.updateTestResults(results)
 

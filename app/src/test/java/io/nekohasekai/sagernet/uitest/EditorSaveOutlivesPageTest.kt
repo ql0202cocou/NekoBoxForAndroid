@@ -165,7 +165,7 @@ class EditorSaveOutlivesPageTest : UiTestBase() {
         val alive = ssEditor()
         val aliveActivity = alive.get()
         aliveActivity.editAddress()
-        ui.bg { ProfileRepository.deleteProfile(aliveActivity.proxyEntity!!.groupId, aliveActivity.proxyEntity!!.id) }
+        ui.bg { ProfileRepository.deleteProfile(aliveActivity.proxyEntity!!.id) }
         ShadowToast.reset()
         runOnDefaultDispatcher { aliveActivity.saveAndExit() }
         UiSettle.settle()
@@ -177,7 +177,7 @@ class EditorSaveOutlivesPageTest : UiTestBase() {
         val editor = ssEditor()
         val activity = editor.get()
         activity.editAddress()
-        ui.bg { ProfileRepository.deleteProfile(activity.proxyEntity!!.groupId, activity.proxyEntity!!.id) }
+        ui.bg { ProfileRepository.deleteProfile(activity.proxyEntity!!.id) }
         ShadowToast.reset()
         DbGate().use { gate ->
             runOnDefaultDispatcher { activity.saveAndExit() }

@@ -352,7 +352,7 @@ class GroupPagerDiffTest : UiTestBase() {
 
         // ungrouped 的节点删光：它退出列表，只剩一个分组，tab 条再次隐藏
         val profile = ui.offMain { SagerDatabase.proxyDao.getByGroup(ungrouped.id) }.single()
-        ui.viaWorker { runBlocking { ProfileRepository.deleteProfile(ungrouped.id, profile.id) } }
+        ui.viaWorker { runBlocking { ProfileRepository.deleteProfile(profile.id) } }
         assertEquals(listOf(added.id), s.ids)
         assertEquals(View.GONE, s.tabs.visibility)
         assertEquals(added.id, s.currentId)
