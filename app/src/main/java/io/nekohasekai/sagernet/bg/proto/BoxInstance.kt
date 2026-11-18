@@ -43,6 +43,9 @@ abstract class BoxInstance(
 ) : AbstractInstance {
 
     lateinit var config: ConfigBuildResult
+    // 与 closed 组成双向交接：init 发布 box 后检查 closed，close 先置 closed 再读 box。
+    // 只把 closed 设为原子变量不能发布另一个线程写的 box，两边仍可能都跳过回收。
+    @Volatile
     lateinit var box: BoxInstance
 
     val pluginPath = hashMapOf<String, PluginManager.InitResult>()
