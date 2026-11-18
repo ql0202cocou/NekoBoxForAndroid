@@ -294,6 +294,23 @@ class CoreSelectionTest {
     // ---- uTLS 指纹
 
     @Test
+    fun `四个 PSK 模板仅在 REALITY 组合拒绝且不静默更换指纹或核心`() {
+        val names = listOf("hellochrome_100_psk", "hellochrome_112_psk_shuf", "hellochrome_114_padding_psk_shuf", "hellochrome_115_pq_psk")
+        for (name in names.flatMap { listOf(it, it.uppercase()) }) {
+            for (bean in listOf(vmess {}, vless {}, trojan {})) {
+                bean.utlsFingerprint = name
+                assertSelected(XRAY, decide(bean, CORE_XRAY))
+                bean.reality()
+                assertRejected(decide(bean, CORE_XRAY), CoreConflict.XRAY_REALITY_PSK_FINGERPRINT)
+                assertRejected(decide(bean), CoreConflict.XRAY_REALITY_PSK_FINGERPRINT, SING_BOX_UTLS_FINGERPRINT)
+                bean.security = "none"
+                assertSelected(XRAY, decide(bean, CORE_XRAY))
+                assertEquals(name, bean.utlsFingerprint)
+            }
+        }
+    }
+
+    @Test
     fun `Chrome 155 仅扩展 Xray 能力且手动 sing-box 不回落`() {
         for (fingerprint in listOf("hellochrome_155", "HeLLoChRoMe_155")) {
             for (bean in listOf(vmess {}, vless {}, trojan {})) {

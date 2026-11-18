@@ -217,6 +217,65 @@ class ConfigPrecheckTest {
         assertEquals(setOf(1L), result.profileTagMap.keys)
     }
 
+    @Test
+    fun `REALITY PSK 崩溃组合在三种模式都先拒绝主节点且不分配外核资源`() {
+        for (fingerprint in listOf(
+            "hellochrome_100_psk", "hellochrome_112_psk_shuf",
+            "hellochrome_114_padding_psk_shuf", "hellochrome_115_pq_psk",
+        )) for (mode in ConfigBuildMode.entries) {
+            val selected = vless(1, 1, ProxyEntity.CORE_XRAY).apply {
+                (requireBean() as VMessBean).utlsFingerprint = fingerprint
+            }
+            val source = MemoryConfigDataSource(
+                groups = listOf(ProxyGroup(id = 1)), profiles = listOf(selected), rules = emptyList(),
+            )
+            val platform = FakeConfigPlatform()
+            val diagnostics = ArrayList<ConfigBuildDiagnostic>()
+            val error = assertThrows(ProfileBuildException::class.java) {
+                build(selected, source, platform, diagnostics = diagnostics, mode = mode)
+            }
+            assertTrue(error.message.orEmpty().contains(CoreConflict.XRAY_REALITY_PSK_FINGERPRINT.reason))
+            assertTrue(diagnostics.isEmpty())
+            assertTrue(platform.ports.isEmpty())
+            assertTrue(platform.pluginQueries.isEmpty())
+            assertTrue(platform.tempFiles.isEmpty())
+        }
+    }
+
+    @Test
+    fun `REALITY PSK 坏成员与规则目标按模式跳过且不启动外核`() {
+        val member = vless(2, 1, ProxyEntity.CORE_XRAY).apply {
+            (requireBean() as VMessBean).utlsFingerprint = "hellochrome_100_psk"
+        }
+        val target = vless(7, 2, ProxyEntity.CORE_XRAY).apply {
+            (requireBean() as VMessBean).utlsFingerprint = "hellochrome_115_pq_psk"
+        }
+        val source = MemoryConfigDataSource(
+            groups = listOf(ProxyGroup(id = 1, isSelector = true), ProxyGroup(id = 2)),
+            profiles = listOf(main, member, target), rules = listOf(rule(1, 7)),
+        )
+        for (mode in ConfigBuildMode.entries) {
+            val platform = FakeConfigPlatform()
+            val diagnostics = ArrayList<ConfigBuildDiagnostic>()
+            val result = build(main, source, platform, diagnostics = diagnostics, mode = mode)
+            val skipped = diagnostics.filterIsInstance<ConfigBuildDiagnostic.ProfileSkipped>()
+            assertEquals(when (mode) {
+                ConfigBuildMode.RUN -> listOf(2L, 7L)
+                ConfigBuildMode.TEST -> emptyList()
+                ConfigBuildMode.EXPORT -> listOf(7L)
+            }, skipped.map { it.profileId })
+            assertTrue(skipped.all { it.reason.contains(CoreConflict.XRAY_REALITY_PSK_FINGERPRINT.reason) })
+            assertEquals(if (mode == ConfigBuildMode.TEST) emptyList() else listOf(
+                ConfigBuildDiagnostic.RuleOutboundMissing(1, "rule-1", 7),
+            ), diagnostics.filterIsInstance<ConfigBuildDiagnostic.RuleOutboundMissing>())
+            assertEquals(if (mode == ConfigBuildMode.RUN) setOf(1L) else emptySet<Long>(), result.profileTagMap.keys)
+            assertTrue(ExternalRunPlan.from(result).hops.isEmpty())
+            assertTrue(result.localAuth == null)
+            assertTrue(platform.ports.isEmpty())
+            assertTrue(platform.pluginQueries.isEmpty())
+        }
+    }
+
     // ---- sing-box 试建
 
     // members 按用户填写的顺序：首个是最先拨号的一跳

@@ -34,7 +34,8 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 //     或不设 SSL_CERT_FILE 时不通）；v26.10.10 起默认底座是 Xray 内置的根证书包，tlsSettings.useSystemCa 为真才用
 //     系统库（加载失败也退回内置包），certificates 追加在所选池的副本上，disableSystemRoot 仍是只信任自带证书。
 //     v26.10.10 起的根池来源切换按源码确认，未用 SSL_CERT_FILE 专门重跑新旧默认信任集合的握手对照。
-//  7. fingerprint 的名单（XRAY_UTLS_FINGERPRINTS）、空值的默认（现在是 chrome，v26.11.9 为 Chrome 155）、不认识的名字是否报错；uTLS 下
+//  7. fingerprint 的名单（XRAY_UTLS_FINGERPRINTS）、空值的默认（现在是 chrome，v26.11.9 为 Chrome 155）、不认识的名字是否报错；
+//     REALITY 的四个 PSK 模板会在首次拨号 panic（XRAY_REALITY_PSK_FINGERPRINTS），升级时用真实回环复核，run -test 不足以放行；uTLS 下
 //     alpn 是否生效：预设模板盖掉用户的 alpn，randomized 系列用用户写的 alpn；ws 外层缺省 http/1.1，写
 //     h2,http/1.1 时保留。
 //  8. echConfigList 支持的形式；echForceQuery 已删（写了被静默忽略），查询失败一律不通（用拒绝连接的本机 DoH

@@ -532,6 +532,7 @@
     <string name="core_conflict_sing_box_utls_fingerprint">sing-box 不认识这个 uTLS 指纹</string>
     <string name="core_conflict_xray_utls_fingerprint">Xray 不认识这个 uTLS 指纹</string>
     <string name="core_conflict_xray_reality_utls_fingerprint">Xray 的 REALITY 需要 uTLS 指纹（不能是 unsafe 或 hellogolang）</string>
+    <string name="core_conflict_xray_reality_psk_fingerprint">此 PSK 指纹与 REALITY 组合会导致 Xray 崩溃，请选择其他指纹</string>
     <string name="core_conflict_sing_box_mux_cool">sing-box 没有 Mux.Cool（Xray 的多路复用）</string>
     <string name="core_conflict_xray_sing_mux">Xray 只有 Mux.Cool，没有 sing-mux（h2mux / smux / yamux）</string>
     <string name="core_conflict_xray_packetaddr">Xray 没有 packetaddr 包编码</string>

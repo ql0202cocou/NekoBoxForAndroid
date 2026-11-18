@@ -184,6 +184,10 @@ val COMBINATION_RULES: List<CombinationRule> = listOf(
         DialCore.XRAY, CoreConflict.XRAY_REALITY_UTLS_FINGERPRINT, verifiedAt(DialCore.XRAY),
         "REALITY + fingerprint unsafe / hellogolang",
     ) { it.tls == TlsMode.REALITY && XRAY_REALITY_FORBIDDEN_FINGERPRINTS.accepts(it.utlsFingerprint) },
+    CombinationRule(
+        DialCore.XRAY, CoreConflict.XRAY_REALITY_PSK_FINGERPRINT, verifiedAt(DialCore.XRAY),
+        "REALITY + 会导致首次拨号 panic 的 PSK 模板",
+    ) { it.tls == TlsMode.REALITY && XRAY_REALITY_PSK_FINGERPRINTS.accepts(it.utlsFingerprint) },
     // sing-box 的 common/tls/utls_client.go「Reality is conflict with ECH」，加载配置时报错
     CombinationRule(
         DialCore.SING_BOX, CoreConflict.SING_BOX_REALITY_ECH, verifiedAt(DialCore.SING_BOX),

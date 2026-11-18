@@ -46,6 +46,13 @@ val XRAY_UTLS_FINGERPRINTS = CoreNames(
     ignoreCase = true,
 )
 
+// Xray v26.11.9 在 Android 实测：这些模板的 REALITY 首次拨号在 UClient 中 panic，run -test 却通过。
+// 只拒绝 REALITY 组合；普通 TLS 的名单不变。升级 Xray 时必须重新核实。
+val XRAY_REALITY_PSK_FINGERPRINTS = CoreNames(
+    setOf("hellochrome_100_psk", "hellochrome_112_psk_shuf", "hellochrome_114_padding_psk_shuf", "hellochrome_115_pq_psk"),
+    ignoreCase = true,
+)
+
 // AnyTLS 内部兼容实现明确拒绝的四个 uTLS 指纹。名单冻结自 mihomo v1.19.33 的对照结果，不再跟随上游升级：
 // - chrome_psk、chrome_pq_psk、chrome_padding_psk_shuffle：每次拨号都报 tls: empty psk detected；
 // - randomized：是否失败取决于进程启动时的随机种子。

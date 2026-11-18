@@ -146,6 +146,10 @@ enum class CoreConflict(
         DialCore.XRAY, GapKind.CORE, listOf(ProfileField.UTLS_FINGERPRINT, ProfileField.REALITY_PUBLIC_KEY),
         "Xray REALITY needs a uTLS fingerprint (not unsafe or hellogolang)",
     ),
+    XRAY_REALITY_PSK_FINGERPRINT(
+        DialCore.XRAY, GapKind.CORE, listOf(ProfileField.UTLS_FINGERPRINT, ProfileField.REALITY_PUBLIC_KEY),
+        "This PSK fingerprint crashes Xray with REALITY; choose another fingerprint",
+    ),
     // ---- 多路复用（mux）
     SING_BOX_MUX_COOL(
         DialCore.SING_BOX, GapKind.CORE, listOf(ProfileField.ENABLE_MUX, ProfileField.MUX_TYPE),
