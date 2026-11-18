@@ -117,6 +117,11 @@ func TestGeoIPCacheInvalidation(t *testing.T) {
 	geoipCacheTests.testInvalidation(t, dir, firstCountry(t))
 }
 
+func TestGeoIPCacheReplacementWithPreservedMetadata(t *testing.T) {
+	dir := geoipCacheTests.setup(t)
+	geoipCacheTests.testReplacementWithPreservedMetadata(t, dir, firstCountry(t))
+}
+
 func TestGeoIPCacheConcurrent(t *testing.T) {
 	geoipCacheTests.setup(t)
 	geoipCacheTests.testConcurrent(t, firstCountry(t))

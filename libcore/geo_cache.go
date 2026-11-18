@@ -5,19 +5,13 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/sagernet/sing-box/option"
 )
 
-// Loading one geo rule-set walks the whole database, so repeated loads of the
-// same key (several rule-sets referencing it, box rebuilds on profile switch
-// or URL tests) each paid a full scan plus file open. geoCache keeps one
-// shared resource and the per-key results of keys actually used; only a newly
-// referenced key costs a load. Assets updates replace the database while the
-// process is alive, so everything is keyed to the file's path/size/mtime and
-// rebuilt when it changes. The mutex doubles as singleflight: concurrent
-// first loads of different keys serialize instead of scanning in parallel.
+// geo 规则缓存共享 reader 和已查询键的结果，避免切换节点或测速时反复扫描数据库。
+// 资产发布会原子替换文件；除路径、大小、完整修改时间外，还比较文件身份，避免保留元数据
+// 的替换继续使用旧 reader。锁同时合并首次并发加载，避免重复扫描。
 //
 // The resource is whatever a query needs (a reader); the closer is the handle
 // closed on invalidation, which may be the resource itself or a separate
@@ -36,8 +30,7 @@ type geoCache[T any] struct {
 // dropping it is one assignment instead of a field-by-field reset.
 type geoState[T any] struct {
 	path     string
-	size     int64
-	modTime  time.Time
+	fileInfo os.FileInfo // 大小、修改时间与文件身份都从这次 Stat 比较
 	resource T
 	closer   io.Closer
 	results  map[string][]option.HeadlessRule
@@ -52,8 +45,9 @@ func (c *geoCache[T]) rules(key string) ([]option.HeadlessRule, error) {
 	if err != nil {
 		return nil, err
 	}
-	if c.state.closer == nil || c.state.path != path ||
-		c.state.size != stat.Size() || !c.state.modTime.Equal(stat.ModTime()) {
+	if cached := c.state.fileInfo; c.state.closer == nil || c.state.path != path ||
+		cached.Size() != stat.Size() || !cached.ModTime().Equal(stat.ModTime()) ||
+		!os.SameFile(cached, stat) {
 		if c.state.closer != nil {
 			c.state.closer.Close()
 		}
@@ -64,8 +58,7 @@ func (c *geoCache[T]) rules(key string) ([]option.HeadlessRule, error) {
 		}
 		c.state = geoState[T]{
 			path:     path,
-			size:     stat.Size(),
-			modTime:  stat.ModTime(),
+			fileInfo: stat,
 			resource: resource,
 			closer:   closer,
 			results:  make(map[string][]option.HeadlessRule),

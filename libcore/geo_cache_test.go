@@ -141,6 +141,40 @@ func (d *geoCacheTestDriver[T]) testInvalidation(t *testing.T, dir, key string) 
 	}
 }
 
+// 原子替换即使保留大小和完整修改时间，也不能继续用旧文件的 reader。
+func (d *geoCacheTestDriver[T]) testReplacementWithPreservedMetadata(t *testing.T, dir, key string) {
+	t.Helper()
+	if _, err := d.load(key); err != nil {
+		t.Fatal(err)
+	}
+	before := d.cache.state.resource
+	path := filepath.Join(dir, d.dbName)
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacement := path + ".new"
+	if err := os.WriteFile(replacement, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(replacement, info.ModTime(), info.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(replacement, path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.load(key); err != nil {
+		t.Fatal(err)
+	}
+	if d.cache.state.resource == before {
+		t.Fatal("replacement reused the old file reader")
+	}
+}
+
 // testConcurrent loads the same key from 8 goroutines and checks they all
 // succeed and only one entry is cached.
 func (d *geoCacheTestDriver[T]) testConcurrent(t *testing.T, key string) {

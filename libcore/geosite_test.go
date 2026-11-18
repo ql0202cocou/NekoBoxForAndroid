@@ -58,6 +58,11 @@ func TestGeoSiteCacheInvalidation(t *testing.T) {
 	geositeCacheTests.testInvalidation(t, dir, firstGeositeCode(t))
 }
 
+func TestGeoSiteCacheReplacementWithPreservedMetadata(t *testing.T) {
+	dir := geositeCacheTests.setup(t)
+	geositeCacheTests.testReplacementWithPreservedMetadata(t, dir, firstGeositeCode(t))
+}
+
 func TestGeoSiteCacheConcurrent(t *testing.T) {
 	geositeCacheTests.setup(t)
 	geositeCacheTests.testConcurrent(t, firstGeositeCode(t))
