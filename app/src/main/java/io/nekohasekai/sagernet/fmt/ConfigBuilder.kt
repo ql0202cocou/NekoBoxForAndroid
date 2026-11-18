@@ -287,6 +287,7 @@ private class ConfigBuild(
     val forExport = input.mode == ConfigBuildMode.EXPORT
 
     val trafficMap = HashMap<String, List<ProxyEntity>>()
+    private val trafficMappingInbounds = LinkedHashSet<String>()
     val tagMap = HashMap<Long, String>()
     val globalOutbounds = HashMap<Long, String>()
     val selectorNames = HashSet<String>()
@@ -425,7 +426,7 @@ private class ConfigBuild(
             gson.toJson(configMap),
             externalChains,
             proxy.id,
-            trafficBindingsOf(trafficMap, configMap),
+            trafficBindingsOf(trafficMap, configMap, trafficMappingInbounds),
             tagMap,
             selectorGroup?.id ?: -1L,
             boxIndexNames(configMap),
@@ -566,9 +567,7 @@ private class ConfigBuild(
     private fun MyOptions.commitChain(chainId: Long, plan: ChainPlan): String {
         val entity = plan.entity
         val profileList = plan.hops.map { it.entity }
-        // 按 id 去重并保持顺序：HashSet<ProxyEntity> 会把两个完全相同的实体并成一个
-        // （被并掉的节点的流量写不回数据库），遍历顺序也不定
-        val chainTrafficList = (profileList + entity).distinctBy { it.id }
+        val chainTrafficList = plan.trafficList()
 
         // 与 linkHop 里 existing 的判断相同：全局出站只在最后一跳登记，这条链写到最后一跳之前不会改它
         val reusesLast = globalOutbounds[profileList.last().id] != null
@@ -754,6 +753,7 @@ private class ConfigBuild(
                 })
             }
         })
+        trafficMappingInbounds += inboundTag
         return inboundTag
     }
 
@@ -877,8 +877,17 @@ private class ConfigBuild(
     // 落地）时直接复用那个 g-<id>，重建会让 outbound/inbound tag 重复、sing-box
     // 拒绝整份配置。有前置 / 落地时裸的 g-<id> 不经过它们，要提交整条链：
     // linkHop 会复用已建的 g-<id>，并在外面接上前置 / 落地。链有几跳取规划的结果
-    private fun MyOptions.reuseOrCommitChain(id: Long, plan: ChainPlan): String =
-        globalOutbounds[id]?.takeIf { plan.hops.size == 1 } ?: commitChain(id, plan)
+    private fun MyOptions.reuseOrCommitChain(id: Long, plan: ChainPlan): String {
+        val reused = globalOutbounds[id]?.takeIf { plan.hops.size == 1 } ?: return commitChain(id, plan)
+        // 中间跳成为规则目标或选择器成员时，也需要统计直接路由到它的用户流量。
+        // 映射回流由 tracker 按本次生成的入站集合排除，不会因此重复计数。
+        trafficMap.putIfAbsent(reused, plan.trafficList())
+        return reused
+    }
+
+    // 链上登记流量的节点。按 id 去重并保持顺序：HashSet<ProxyEntity> 会把两个完全相同的实体并成一个
+    // （被并掉的节点的流量写不回数据库），遍历顺序也不定
+    private fun ChainPlan.trafficList() = (hops.map { it.entity } + entity).distinctBy { it.id }
 
     private fun MyOptions.buildOutbounds() {
         // 构建出站

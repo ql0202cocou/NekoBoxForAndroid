@@ -27,12 +27,15 @@ class TrafficBindings(
     tags: Map<String, List<Long>>,
     initial: Map<Long, TrafficTotals>,
     ruleTags: Set<String>,
+    excludedInbounds: Set<String> = emptySet(),
 ) {
     val tags: Map<String, List<Long>> = Collections.unmodifiableMap(
         tags.entries.associateTo(LinkedHashMap()) { (tag, ids) -> tag to Collections.unmodifiableList(ids.toList()) }
     )
     val initial: Map<Long, TrafficTotals> = Collections.unmodifiableMap(LinkedHashMap(initial))
     val ruleTags: Set<String> = Collections.unmodifiableSet(LinkedHashSet(ruleTags))
+    // 只排除本次构建生成且最终配置仍存在的映射入站；这些是已计过的外核连接回流。
+    val excludedInbounds: Set<String> = Collections.unmodifiableSet(LinkedHashSet(excludedInbounds))
 
     init {
         // 缺初始值的节点若从 0 记起，落库会把它的累计清零
@@ -45,18 +48,22 @@ class TrafficBindings(
 // 构建登记的 tag → 节点列表（ConfigBuild.trafficMap）换算成统计关联。列表内容与顺序原样保留；初始累计取每个 id
 // 第一次出现的那份节点（同一 id 的各份取自同一份快照，只有主链里的主节点是外壳交来的那份）。configMap 是最终配置
 // （合并过自定义配置），为 null 时没有规则出站（完整配置节点）
-internal fun trafficBindingsOf(chains: Map<String, List<ProxyEntity>>, configMap: Map<String, Any?>?): TrafficBindings {
+internal fun trafficBindingsOf(
+    chains: Map<String, List<ProxyEntity>>, configMap: Map<String, Any?>?,
+    mappingInbounds: Set<String> = emptySet(),
+): TrafficBindings {
     val initial = LinkedHashMap<Long, TrafficTotals>()
     for (list in chains.values) for (ent in list) initial.getOrPut(ent.id) { TrafficTotals(rx = ent.rx, tx = ent.tx) }
+    val excluded = (configMap?.get("inbounds") as? List<*>)
+        ?.mapNotNull { (it as? Map<*, *>)?.get("tag") as? String }
+        ?.filterTo(LinkedHashSet()) { it in mappingInbounds } ?: emptySet()
     return TrafficBindings(
         chains.mapValues { (_, list) -> list.map { it.id } },
         initial,
-        configMap?.let { ruleTrafficTags(it, chains.keys) } ?: emptySet(),
+        configMap?.let { ruleTrafficTags(it, chains.keys, excluded) } ?: emptySet(),
+        excluded,
     )
 }
-
-// 外核映射入站的 tag（ConfigBuilder.addMappingInbound：<链 tag>-mapping-<节点 id>）
-private val MAPPING_INBOUND_TAG = Regex("c-\\d+-mapping-\\d+")
 
 /**
  * 规则出站：最终配置里 route.rules 以 outbound 直接路由到的、登记了统计（在 [bound] 里）的节点出站，加上 route.final
@@ -65,13 +72,14 @@ private val MAPPING_INBOUND_TAG = Regex("c-\\d+-mapping-\\d+")
  * - 只看最终配置，所以被跳过、没有应用的规则（应用都没装、条件为空、目标被跳过或不存在）不算；规则自带的自定义 JSON
  *   与全局 / 节点自定义配置改出来的出站按改后的算。
  * - 构建为外核链生成的规则（inbound 全是本次构建的映射入站）不是用户规则，不算：它们路由的是同一条连接的第二段，
- *   查询会把同一份字节再记一次。排除只是不因为它们而多查出站：它们指向的出站若本来就要查询（非选择器模式每轮查
- *   全部登记出站，或它同时是用户规则的目标），第二段的字节照样记给那个出站的集合——sing-box 按出站计数，分不开。
+ *   查询没有必要：统计 tracker 已按本次构建的映射入站集合排除回流，即使目标同时有用户规则也只计用户入口。
  * - 指向主节点的规则的出站是 proxy，经 proxy 计；指向当前选中成员自己的出站的规则另记在那个出站上，与 proxy 记给
  *   同一个集合，各算各的字节，不重复。
- * - 没有登记统计的出站（链内的中间跳、复用别的链已建的全局出站）查不到字节，不算。
+ * - 没有登记统计的自定义出站查不到字节，不算；复用全局出站的成员 / 规则目标在构建时补登记。
  */
-internal fun ruleTrafficTags(configMap: Map<String, Any?>, bound: Set<String>): Set<String> {
+internal fun ruleTrafficTags(
+    configMap: Map<String, Any?>, bound: Set<String>, mappingInbounds: Set<String> = emptySet(),
+): Set<String> {
     val route = configMap["route"] as? Map<*, *> ?: return emptySet()
     val targets = LinkedHashSet<String>()
     for (rule in route["rules"] as? List<*> ?: emptyList<Any?>()) {
@@ -82,7 +90,7 @@ internal fun ruleTrafficTags(configMap: Map<String, Any?>, bound: Set<String>): 
             is List<*> -> value
             else -> emptyList()
         }
-        if (inbound.isNotEmpty() && inbound.all { it is String && MAPPING_INBOUND_TAG.matches(it) }) continue
+        if (inbound.isNotEmpty() && inbound.all { it in mappingInbounds }) continue
         targets += outbound
     }
     (route["final"] as? String)?.let { targets += it }

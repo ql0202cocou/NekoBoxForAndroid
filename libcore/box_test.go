@@ -152,7 +152,7 @@ func TestBoxInstanceSetV2rayStatsRace(t *testing.T) {
 			for j := 0; j < 5; j++ {
 				if i%2 == 0 {
 					// only the first call installs; the rest log a duplicate warning
-					instance.SetV2rayStats("direct")
+					instance.SetV2rayStats("direct", "")
 				} else {
 					for k := 0; k < 10; k++ {
 						instance.QueryStats("direct", "uplink")
@@ -179,7 +179,7 @@ func TestBoxInstanceSetV2rayStatsRace(t *testing.T) {
 // 此时 AppendTracker 会与路由并发读 trackers
 func TestBoxInstanceSetV2rayStatsAfterStart(t *testing.T) {
 	instance := newStartedTestBox(t)
-	instance.SetV2rayStats("direct")
+	instance.SetV2rayStats("direct", "")
 	if instance.v2api != nil {
 		t.Fatal("SetV2rayStats installed a tracker on a started instance")
 	}
@@ -196,7 +196,7 @@ func TestBoxInstanceStatsAfterClose(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	instance.SetV2rayStats("direct")
+	instance.SetV2rayStats("direct", "")
 	if instance.v2api != nil {
 		t.Fatal("SetV2rayStats installed a tracker on a closed instance")
 	}

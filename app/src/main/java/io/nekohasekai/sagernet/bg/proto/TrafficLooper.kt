@@ -119,6 +119,10 @@ class TrafficLooper(val data: BaseService.Data) {
         fun statsTags(config: ConfigBuildResult): String =
             (setOf(TAG_PROXY, TAG_BYPASS) + config.traffic.tags.keys).joinToString("\n")
 
+        // 不计入统计的映射入站 tag，与 statsTags 同样按行传给 SetV2rayStats
+        fun ignoredInbounds(config: ConfigBuildResult): String =
+            config.traffic.excludedInbounds.joinToString("\n")
+
         private fun TrafficTotals.toTrafficData(id: Long) = TrafficData(id = id, rx = rx, tx = tx)
 
         private fun Map<Long, TrafficTotals>.toTrafficData() = map { (id, t) -> t.toTrafficData(id) }

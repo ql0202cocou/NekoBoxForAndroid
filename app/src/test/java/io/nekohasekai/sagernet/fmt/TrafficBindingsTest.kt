@@ -11,10 +11,14 @@ class TrafficBindingsTest {
     fun `构造时复制传入的集合；缺初始累计或规则出站不在登记范围内时拒绝`() {
         val ids = mutableListOf(1L, 2)
         val tags = mutableMapOf("proxy" to ids)
-        val b = TrafficBindings(tags, mapOf(1L to TrafficTotals(1, 2), 2L to TrafficTotals(3, 4)), emptySet())
+        val ignored = mutableSetOf("c-1-mapping-2")
+        val b = TrafficBindings(tags, mapOf(1L to TrafficTotals(1, 2), 2L to TrafficTotals(3, 4)), emptySet(), ignored)
         ids += 3
         tags["g-9"] = mutableListOf(9)
+        ignored.clear()
         assertEquals(mapOf("proxy" to listOf(1L, 2)), b.tags)
+        assertEquals(setOf("c-1-mapping-2"), b.excludedInbounds)
+        assertThrows(UnsupportedOperationException::class.java) { (b.excludedInbounds as MutableSet).clear() }
         assertThrows(IllegalArgumentException::class.java) {
             TrafficBindings(mapOf("proxy" to listOf(1L, 2)), mapOf(1L to TrafficTotals(0, 0)), emptySet())
         }
@@ -45,13 +49,14 @@ class TrafficBindingsTest {
             rule("c-3-3", "inbound" to "c-3-mapping-7"),
             // 自定义 JSON 写的规则带别的入站：是用户规则
             rule("m2", "inbound" to listOf("tun-in")),
-            // 没登记统计的出站（链内中间跳、复用的全局出站）：不在 bound 里，不算
+            // 没登记统计的自定义出站：不在 bound 里，不算
             rule("c-5-4", "domain_suffix" to listOf("c.example.org")),
             // 再指向已算过的 g-2：结果里只出现一次
             rule("g-2", "domain_suffix" to listOf("d.example.org")),
             rule(null, "action" to "reject", "ip_cidr" to listOf("224.0.0.0/3")),
         )
-        assertEquals(listOf("g-2", "m2"), ruleTrafficTags(config(rules), bound).toList())
+        assertEquals(listOf("g-2", "m2"), ruleTrafficTags(config(rules), bound,
+            setOf("c-0-mapping-2", "c-4-mapping-4", "c-3-mapping-7")).toList())
     }
 
     @Test
@@ -60,7 +65,9 @@ class TrafficBindingsTest {
             rule("g-2", "inbound" to listOf("tun-in", "c-0-mapping-2")),
             rule("c-3-3", "inbound" to listOf("c-0-mapping-2", "c-3-mapping-7")),
         )
-        assertEquals(setOf("g-2"), ruleTrafficTags(config(rules), bound))
+        assertEquals(setOf("g-2"), ruleTrafficTags(config(rules), bound, setOf("c-0-mapping-2", "c-3-mapping-7")))
+        // 只是名字长得像映射入站的自定义用户入口不能被排除。
+        assertEquals(setOf("g-2", "c-3-3"), ruleTrafficTags(config(rules), bound))
     }
 
     @Test
@@ -68,5 +75,15 @@ class TrafficBindingsTest {
         assertEquals(setOf("c-3-3"), ruleTrafficTags(config(emptyList(), final = "c-3-3"), bound))
         assertEquals(emptySet<String>(), ruleTrafficTags(config(emptyList(), final = "proxy"), bound))
         assertEquals(emptySet<String>(), ruleTrafficTags(mapOf("outbounds" to emptyList<Any>()), bound))
+    }
+
+    @Test
+    fun `映射过滤只含本次生成且在最终配置中仍存在的入站`() {
+        val config = mapOf("inbounds" to listOf(
+            mapOf("tag" to "c-1-mapping-2"), mapOf("tag" to "c-9-mapping-9"), mapOf("tag" to "tun-in"),
+        ))
+        val result = trafficBindingsOf(emptyMap(), config, setOf("c-1-mapping-2", "c-1-mapping-3"))
+        assertEquals(setOf("c-1-mapping-2"), result.excludedInbounds)
+        assertEquals(emptySet<String>(), trafficBindingsOf(emptyMap(), null).excludedInbounds)
     }
 }

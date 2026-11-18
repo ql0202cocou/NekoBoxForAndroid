@@ -4,6 +4,8 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.fmt.ConfigBuildMode
 import io.nekohasekai.sagernet.fmt.ConfigBuildResult
+import io.nekohasekai.sagernet.fmt.ExternalDialTarget
+import io.nekohasekai.sagernet.fmt.ExternalRunPlan
 import io.nekohasekai.sagernet.fmt.LocalSocksAuth
 import io.nekohasekai.sagernet.fmt.TrafficTotals
 import io.nekohasekai.sagernet.fmt.buildConfig
@@ -67,6 +69,13 @@ class GoldenTrafficBindingsTest {
             val trafficMap = expected.getAsJsonObject("build").getAsJsonObject("trafficMap").entrySet()
                 .associate { (tag, ids) -> tag to ids.asJsonArray.map { it.asLong } }
             assertEquals(at, trafficMap, traffic.tags)
+            // 从外核计划的映射端口独立找入站，不能把缺失过滤或前缀猜测纳入基线。
+            val mappedPorts = ExternalRunPlan.from(config).hops.mapNotNull { (it.target as? ExternalDialTarget.Mapped)?.port }.toSet()
+            val inbounds = JsonParser.parseString(config.config).asJsonObject.getAsJsonArray("inbounds")
+            val expectedIgnored = inbounds?.map { it.asJsonObject }?.filter {
+                it["listen_port"]?.asInt in mappedPorts
+            }?.map { it["tag"].asString }?.toSet() ?: emptySet()
+            assertEquals(at, expectedIgnored, traffic.excludedInbounds)
             val ids = traffic.tags.values.flatten().toSet()
             assertEquals(at, ids, traffic.initial.keys)
             for (pid in ids) assertEquals("$at 节点 $pid", TrafficTotals(rx = rx(pid), tx = tx(pid)), traffic.initial[pid])

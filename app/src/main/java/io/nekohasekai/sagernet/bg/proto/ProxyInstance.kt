@@ -65,7 +65,7 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
         box.setAsMain()
         // 流量统计服务在 box.start() 之前装上，见 TrafficLooper.statsTags
         if (TrafficLooper.enabled()) {
-            box.setV2rayStats(TrafficLooper.statsTags(config))
+            box.setV2rayStats(TrafficLooper.statsTags(config), TrafficLooper.ignoredInbounds(config))
         }
         super.launch() // start box
         runOnDefaultDispatcher {

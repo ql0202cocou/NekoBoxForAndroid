@@ -310,23 +310,24 @@ class TrafficScenarioTest {
     }
 
     @Test
-    fun `规则目标复用别的链已建的出站时，那个出站不登记统计：路由到它的字节不计给节点，也不进速度`() {
-        // 规则 → 主链的首跳 2，复用 g-2，不在统计关联里，sing-box 不给它建计数器
+    fun `规则目标复用别的链已建的出站时，直接分流字节计给节点并进入速度`() {
+        // 规则 → 主链的首跳 2，复用 g-2，补登记独立路由到它的用户流量。
         val s = Run(build("chain-2-internal", withRuleTo(2)))
         val sTag = s.ruleTag(2)
-        assertFalse(sTag in s.config.traffic.tags)
-        assertEquals(emptySet<String>(), s.config.traffic.ruleTags)
+        assertEquals(listOf(2L), s.config.traffic.tags[sTag])
+        assertEquals(setOf(sTag), s.config.traffic.ruleTags)
         s.rounds(3, sTag to (7L to 70L))
-        assertEquals(d(3000, 300), s.delta(2))
-        assertEquals(listOf(100L, 1000), s.speed().take(2))
+        assertEquals(d(3210, 321), s.delta(2))
+        assertEquals(listOf(107L, 1070), s.speed().take(2))
 
-        // 选择器 + 前置，规则 → 前置 10（复用 g-10）；10 只经选中成员的集合计 proxy 的字节（旧：10 为 0、速度 0）
+        // 选择器 + 前置：10 同时收到选中链的用户流量和直接分流到它的流量。
         val s2 = Run(build("selector-front-landing") { j -> j.group(1).addProperty("landingProxy", -1); withRuleTo(10)(j) })
         val s2Tag = s2.ruleTag(10)
-        assertFalse(s2Tag in s2.config.traffic.tags)
+        assertEquals(listOf(10L), s2.config.traffic.tags[s2Tag])
+        assertEquals(setOf(s2Tag), s2.config.traffic.ruleTags)
         s2.rounds(3, s2Tag to (7L to 70L))
-        assertEquals(d(3000, 300), s2.delta(10))
-        assertEquals(normalSpeed, s2.speed())
+        assertEquals(d(3210, 321), s2.delta(10))
+        assertEquals(listOf(107L, 1070, 3, 30, 321, 3210), s2.speed())
     }
 
     @Test

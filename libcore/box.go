@@ -69,6 +69,7 @@ type BoxInstance struct {
 	state  int
 
 	v2api        *boxapi.SbV2rayServer
+	statsTracker adapter.ConnectionTracker
 	selector     *group.Selector
 	pauseManager pause.Manager
 }
@@ -232,7 +233,8 @@ func (b *BoxInstance) SetAsMain() {
 
 // SetV2rayStats 装上流量统计服务，只能在 Start 之前调用（ProxyInstance.launch）：
 // 上游 Router.trackers 没有锁，启动后再 AppendTracker 会与路由并发读 trackers
-func (b *BoxInstance) SetV2rayStats(outbounds string) {
+// ignoredInbounds 按行列出映射入站：它们承载外核的第二段连接，不重复计入应用的节点累计与速度。
+func (b *BoxInstance) SetV2rayStats(outbounds string, ignoredInbounds string) {
 	defer device.DeferPanicToError("box.SetV2rayStats", nil)
 
 	if !b.lockIfOpen() {
@@ -255,7 +257,8 @@ func (b *BoxInstance) SetV2rayStats(outbounds string) {
 	// StatsService 在服务未启用时返回 nil；AppendTracker 不拒绝 nil，
 	// 装进去后第一条路由的连接就会 panic
 	if tracker := b.v2api.StatsService(); tracker != nil {
-		b.Box.Router().AppendTracker(tracker)
+		b.statsTracker = newTrafficTracker(tracker, strings.Split(ignoredInbounds, "\n"))
+		b.Box.Router().AppendTracker(b.statsTracker)
 	}
 }
 
@@ -293,6 +296,7 @@ func (b *BoxInstance) newProxyHttpClient() (*http.Client, error) {
 		return nil, errors.New("instance is closed")
 	}
 	defer b.access.Unlock()
+	// HTTP 直拨没有映射入站；boxapi 使用具体统计类型按直拨方向计数，仍传原始 tracker。
 	var connectionTracker adapter.ConnectionTracker
 	if b.v2api != nil {
 		connectionTracker = b.v2api.StatsService()
