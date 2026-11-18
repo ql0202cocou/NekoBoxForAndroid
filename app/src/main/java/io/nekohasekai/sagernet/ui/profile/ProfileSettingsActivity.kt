@@ -251,7 +251,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
             }
         }
         onSaved()
-        onLiveActivity { finish() }
+        finishSaved()
 
     }
 
@@ -442,7 +442,7 @@ abstract class ProfileSettingsActivity<T : AbstractBean>(
                     // confirm like the back guard instead of silently dropping them.
                     MaterialAlertDialogBuilder(activity).setTitle(R.string.unsaved_changes_prompt)
                         .setPositiveButton(R.string.yes) { _, _ ->
-                            // 进程级：移动前先保存，要写完；界面收尾在 saveAndExit 里走 onLiveActivity
+                            // 进程级：移动前先保存，要写完；成功后通知当前页面收尾
                             runOnDefaultDispatcher { activity.saveAndExit() }
                         }
                         .setNegativeButton(R.string.no) { _, _ ->

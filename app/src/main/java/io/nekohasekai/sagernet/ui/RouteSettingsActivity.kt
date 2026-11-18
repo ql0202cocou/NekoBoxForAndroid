@@ -246,7 +246,7 @@ class RouteSettingsActivity(
             }
             RuleRepository.updateRule(entity.apply { serialize() })
         }
-        onLiveActivity { finish() }
+        finishSaved()
 
     }
 

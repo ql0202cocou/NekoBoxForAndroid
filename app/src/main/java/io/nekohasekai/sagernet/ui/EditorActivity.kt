@@ -14,6 +14,7 @@ import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.withStarted
 import androidx.preference.Preference
 import androidx.preference.PreferenceDataStore
@@ -41,6 +42,7 @@ import io.nekohasekai.sagernet.widget.padForSystemBars
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlin.coroutines.CoroutineContext
 
 /**
@@ -59,6 +61,18 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
      * 在 `super.onCreate()` 之前就要用（认领会话），所以不带 SavedStateHandle。
      */
     protected val editor: EditorViewModel by viewModels()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // 保存跨旋转继续，由当前页面收尾；停在后台或重建期间完成时，重新 STARTED 后仍能收到结果。
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                editor.saveCompleted.collect { completed ->
+                    if (completed && !isFinishing) finish()
+                }
+            }
+        }
+    }
 
     /** False once another editor claimed the cache; saving would hit the wrong entity. */
     protected val ownsEditorSession get() = editor.owns
@@ -181,17 +195,28 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
     /**
      * 保存入口：会话不属于本编辑器时不保存、提示并关闭，否则交给 [save]。
      * 保存留在调用方的作用域里跑（不绑页面），页面在保存途中关闭也要写完；
-     * 写完之后的界面收尾（提示、对话框、关闭页面）一律经 [onLiveActivity]，页面已销毁时整段丢弃。
+     * 成功后通过 ViewModel 通知当前页面关闭；其它提示与对话框经 [onLiveActivity]，旧页面已销毁时丢弃。
      */
     suspend fun saveAndExit() {
-        if (!holdsEditorSession(forSave = true)) {
-            onLiveActivity {
-                Toast.makeText(this@EditorActivity, R.string.editor_session_lost, Toast.LENGTH_LONG).show()
-                finish()
+        if (!editor.saveMutex.tryLock()) return
+        try {
+            if (editor.saveCompleted.value) return
+            if (!holdsEditorSession(forSave = true)) {
+                onLiveActivity {
+                    Toast.makeText(this@EditorActivity, R.string.editor_session_lost, Toast.LENGTH_LONG).show()
+                    finish()
+                }
+                return
             }
-            return
+            save()
+        } finally {
+            editor.saveMutex.unlock()
         }
-        save()
+    }
+
+    // 只发布完成状态，不引用旧页面收尾；新实例会收到状态并关闭，也不能重复插入。
+    protected fun finishSaved() {
+        editor.markSaveCompleted()
     }
 
     // 以下是三个编辑器共用的偏好页骨架：R.id.settings 里的 EditorPreferenceFragment、
@@ -271,7 +296,7 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
                 // 在主线程取 activity：点击后对话框马上 detach，
                 // 放到 Default 调度器里再 requireActivity() 会和它竞争
                 val activity = requireActivity() as EditorActivity
-                // 进程级：保存必须写完，页面在保存途中关闭或旋转也不能中断；界面收尾在 saveAndExit 里走 onLiveActivity
+                // 进程级：保存必须写完，页面在保存途中关闭或旋转也不能中断；成功后通知当前页面收尾
                 runOnDefaultDispatcher {
                     activity.saveAndExit()
                 }
@@ -337,7 +362,7 @@ abstract class EditorActivity : ThemedActivity, OnPreferenceDataStoreChangeListe
             }
 
             R.id.action_apply -> {
-                // 进程级：保存必须写完，页面在保存途中关闭或旋转也不能中断；界面收尾在 saveAndExit 里走 onLiveActivity
+                // 进程级：保存必须写完，页面在保存途中关闭或旋转也不能中断；成功后通知当前页面收尾
                 runOnDefaultDispatcher {
                     activity?.saveAndExit()
                 }

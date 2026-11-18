@@ -20,6 +20,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.CoroutineContext
 
@@ -36,6 +37,15 @@ import kotlin.coroutines.CoroutineContext
  * 界面刷新由当前的 Activity 订阅状态（如 [canMoveProfile]）后自己做。
  */
 class EditorViewModel : ViewModel() {
+
+    // 同一编辑会话只提交一次；旋转后的页面共享在途保存与成功标记。校验或写库失败仍可重试。
+    internal val saveMutex = Mutex()
+    private val _saveCompleted = MutableStateFlow(false)
+    internal val saveCompleted: StateFlow<Boolean> get() = _saveCompleted
+
+    internal fun markSaveCompleted() {
+        _saveCompleted.value = true
+    }
 
     // ------------------------------------------------------------- 会话
 

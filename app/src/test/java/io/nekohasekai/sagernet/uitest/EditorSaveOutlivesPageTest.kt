@@ -17,10 +17,12 @@ import io.nekohasekai.sagernet.ui.GroupSettingsActivity
 import io.nekohasekai.sagernet.ui.RouteSettingsActivity
 import io.nekohasekai.sagernet.ui.profile.ShadowsocksSettingsActivity
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.robolectric.android.controller.ActivityController
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.shadows.ShadowDialog
 import org.robolectric.shadows.ShadowToast
 import java.util.concurrent.CountDownLatch
@@ -118,6 +120,24 @@ class EditorSaveOutlivesPageTest : UiTestBase() {
         UiSettle.settle()
         assertEquals("页面销毁后保存没有写完", EDITED, savedAddress(id))
         assertEquals("已销毁的页面上弹了 Toast", 0, ShadowToast.shownToastCount())
+    }
+
+    /** 保存被写库挡住时旋转，完成后应关闭新页面，不能留着让用户继续编辑已提交的草稿。 */
+    @Test
+    fun profileSaveClosesRecreatedPage() {
+        val editor = ssEditor()
+        val activity = editor.get()
+        val id = activity.proxyEntity!!.id
+        activity.editAddress()
+        DbGate().use { gate ->
+            runOnDefaultDispatcher { activity.saveAndExit() }
+            gate.awaitWriterBlocked()
+            rotateWithoutSettling(editor)
+            assertNotSame(activity, editor.get())
+        }
+        UiSettle.settle()
+        assertEquals(EDITED, savedAddress(id))
+        assertTrue("节点保存完成后新页面应自动关闭", editor.get().isFinishing)
     }
 
     /**
@@ -229,6 +249,35 @@ class EditorSaveOutlivesPageTest : UiTestBase() {
         }
         UiSettle.settle()
         assertEquals("页面销毁后规则没有保存", "Renamed rule", ui.bg { RuleRepository.getRule(rule.id)!!.name })
+    }
+
+    @Test
+    fun routeSaveClosesRecreatedPage() {
+        UiFixtures.install()
+        val rule = ui.bg { RuleRepository.getRules().first() }
+        val editor = ui.launch(
+            RouteSettingsActivity::class.java,
+            editIntent(RouteSettingsActivity::class.java, RouteSettingsActivity.EXTRA_ROUTE_ID, rule.id),
+        )
+        val activity = editor.get()
+        EditorCache.routeName = "Rotated rule"
+        EditorCache.dirty = true
+        DbGate().use { gate ->
+            runOnDefaultDispatcher { activity.saveAndExit() }
+            gate.awaitWriterBlocked()
+            rotateWithoutSettling(editor)
+            assertNotSame(activity, editor.get())
+        }
+        UiSettle.settle()
+        assertEquals("Rotated rule", ui.bg { RuleRepository.getRule(rule.id)!!.name })
+        assertTrue("路由保存完成后新页面应自动关闭", editor.get().isFinishing)
+    }
+
+    // 写库仍被门挡住时不能 settle；放行后由用例等待保存和界面收尾。
+    private fun <A : EditorActivity> rotateWithoutSettling(editor: ActivityController<A>) {
+        RuntimeEnvironment.setQualifiers("+land")
+        editor.configurationChange()
+        if (!editor.get().window.decorView.isAttachedToWindow) editor.visible()
     }
 
     /** 新建一条什么都没填的路由：页面活着弹「空路由」对话框（对照），页面已销毁就不弹 */

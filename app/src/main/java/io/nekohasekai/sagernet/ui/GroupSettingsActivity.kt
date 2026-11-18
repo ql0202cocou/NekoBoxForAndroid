@@ -303,7 +303,7 @@ class GroupSettingsActivity(
             )
         }
 
-        onLiveActivity { finish() }
+        finishSaved()
 
     }
 
