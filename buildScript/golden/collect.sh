@@ -87,6 +87,7 @@ if [ "$BUILD" = 1 ]; then
   ./gradlew -q app:assembleOssDebug
 fi
 golden_select_apk
+golden_check_other_session golden-measure.owned
 golden_install_apk "$INSTALL"
 # 打包时 AGP 会 strip 原生库，装进设备的文件与上游二进制不再逐字节相同：取 APK 里那份的
 # sha256 交给采集入口，与设备上实际安装的文件核对

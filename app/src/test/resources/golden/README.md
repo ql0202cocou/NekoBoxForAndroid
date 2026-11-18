@@ -73,6 +73,7 @@ APK 只按 `app/build/outputs/apk/oss/debug/output-metadata.json`（Gradle 每�
   Xray 的校验入口（`run -test`，只加载配置、不监听不连接，见「三种模式」），不启动外核本身。
 - 防误伤：数据库里有不是采集入口建的节点 / 分组 / 规则时拒绝运行，除非带 `--allow-wipe`。采集结束后清空
   节点 / 分组 / 规则三张表，并把 `configuration.db` 的设置恢复成采集前的样子。
+- 已准备或中断的实测持有数据库时，先执行 `measureFinish` 恢复设置，再采集。`--allow-wipe` 只授权替换未知夹具。
 - 环境检查：装了 Trojan-Go / Naive / Mieru / Hysteria 的外部插件 app 时拒绝（结果会变，见下文）；
   设备上的 `libxray.so` 必须就是脚本刚装的 APK 里那份。
 
@@ -416,7 +417,7 @@ ANDROID_SERIAL=emulator-5554 ./run golden measure --xray 8 --out <空目录>   #
 2. 只读地记下设备条件：系统版本与 API 级别、内存、CPU 数、`device_config get activity_manager max_phantom_processes`
    （`null` 为默认 32，全系统合计）、`settings get global settings_enable_monitor_phantom_procs`（`false` 时系统不杀）。
    VPN 模式下把本应用的 `ACTIVATE_VPN` appop 设为 `allow`（等同用户在授权框点了确定），结束时恢复原值。
-3. `am force-stop` → `content call … --method measurePrepare`：防误伤检查，记下原有设置，写入夹具与实测设置 →
+3. 若有上次实测的标记，先 `am force-stop`。随后 `content call … --method measurePrepare`：防误伤检查，记下原有设置，写入夹具与实测设置 →
    再 `am force-stop`，清空应用日志 `cache/neko.log`：主进程与 `:bg` 都按实测设置重新起来（日志等级在进程启动时读）。
 4. `am start -W` 拉起主界面，等 `--settle` 秒，记下启动前全系统进程数，开始在后台收 logcat（main / system / events /
    crash，`-v epoch`）。
@@ -434,7 +435,7 @@ ANDROID_SERIAL=emulator-5554 ./run golden measure --xray 8 --out <空目录>   #
 ### 实测入口的约束
 
 - 与采集入口同一个 provider（`GoldenCollectProvider` 的 `measure*` 方法，实现在 `GoldenMeasure.kt`），只编进 debug 包，
-  只接受 adb shell 与 root 的调用；与采集互斥（同一时刻只跑一个 call）。
+  只接受 adb shell 与 root 的调用；与采集互斥。provider 串行处理调用，准备和结束之间的持久标记在进程重启后继续生效。
 - 防误伤：数据库里有不是实测入口建的节点 / 分组 / 规则时拒绝，除非带 `--allow-wipe`；服务正在运行、或采集被打断留下了
   标记文件时也拒绝。夹具写入前建标记文件 `files/golden-measure.owned`（内容是原有设置表），清理完删除；中途被打断时，
   下次运行据它认出夹具并按它恢复设置。两个工具都先同步临时文件再原子发布标记，重试沿用首份快照；标记损坏即拒绝清理，设置在同一事务内恢复成功后才删除标记。

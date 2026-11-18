@@ -34,7 +34,7 @@ class GoldenCollectProvider : ContentProvider() {
         val uid = Binder.getCallingUid()
         if (uid != SHELL_UID && uid != ROOT_UID) throw SecurityException("golden collect is for adb shell only")
         if (method != METHOD_COLLECT && method !in GoldenMeasure.METHODS) return failure("unknown method $method")
-        if (!running.compareAndSet(false, true)) return failure("a collection or measurement call is already running")
+        if (!running.compareAndSet(false, true)) return failure("refused: a collection or measurement call is already running")
         if (method != METHOD_COLLECT) return try {
             awaitApplicationCreated()
             measure(method, extras ?: Bundle.EMPTY)

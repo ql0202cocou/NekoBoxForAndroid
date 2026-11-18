@@ -99,6 +99,12 @@ object GoldenMeasure {
     fun encode(result: Map<String, Any?>): String =
         Base64.getEncoder().encodeToString(gson.toJson(result).toByteArray())
 
+    private fun requireNoCollection() {
+        if (collectMarker.exists()) throw CollectRefusedException(
+            "an interrupted golden collection left ${collectMarker.name}; run ./run golden collect once to restore first"
+        )
+    }
+
     // ---- prepare ----
 
     private fun prepare(extras: Bundle): Map<String, Any?> {
@@ -115,9 +121,7 @@ object GoldenMeasure {
         val logLevel = count("logLevel", 1)
         val allowWipe = extras.getBoolean("allowWipe", false)
 
-        if (collectMarker.exists()) throw CollectRefusedException(
-            "an interrupted golden collection left ${collectMarker.name}; run ./run golden collect once to restore first"
-        )
+        requireNoCollection()
         val running = runningServices()
         if (running.isNotEmpty()) throw CollectRefusedException(
             "the proxy service is running (${running.joinToString()}); stop it first"
@@ -236,6 +240,7 @@ object GoldenMeasure {
     // ---- start ----
 
     private fun start(): Map<String, Any?> {
+        requireNoCollection()
         GoldenSettingsJournal(ownedMarker).read()
         val service = bind()
         val before = service.stateOrStopped
@@ -335,6 +340,7 @@ object GoldenMeasure {
         SagerDatabase.proxyDao.getAll().isEmpty() && SagerDatabase.rulesDao.allRules().isEmpty()
 
     private fun finish(extras: Bundle): Map<String, Any?> {
+        requireNoCollection()
         if (!ownedMarker.exists()) {
             // 上次已恢复但主机未收到回执时，重复结束应成功；不能停止后来启动的普通服务。
             if (runningServices().isNotEmpty()) throw CollectRefusedException("the running service has no measurement marker")

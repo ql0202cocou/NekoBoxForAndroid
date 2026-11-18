@@ -10,6 +10,7 @@ import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.preference.KeyValuePair
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
+import io.nekohasekai.sagernet.golden.measure.GoldenMeasure
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.utils.PackageCache
@@ -90,6 +91,9 @@ class GoldenCollector(private val args: CollectArgs) {
     private val gson = GsonBuilder().setPrettyPrinting().disableHtmlEscaping().serializeNulls().create()
 
     fun collect(): CollectSummary {
+        if (File(app.filesDir, GoldenMeasure.OWNED_MARKER).exists()) throw CollectRefusedException(
+            "a measurement owns the database; call measureFinish to restore it first"
+        )
         val scenarios = goldenScenarios()
         requireReflectionTargets()
         PackageCache.awaitLoadSync()

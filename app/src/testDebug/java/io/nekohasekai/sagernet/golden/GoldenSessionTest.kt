@@ -4,6 +4,10 @@ import android.database.sqlite.SQLiteException
 import android.os.Bundle
 import io.nekohasekai.sagernet.database.preference.KeyValuePair
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
+import io.nekohasekai.sagernet.golden.collect.CollectArgs
+import io.nekohasekai.sagernet.golden.collect.CoreArgs
+import io.nekohasekai.sagernet.golden.collect.DirtyArgs
+import io.nekohasekai.sagernet.golden.collect.GoldenCollector
 import io.nekohasekai.sagernet.golden.collect.CollectRefusedException
 import io.nekohasekai.sagernet.golden.collect.GoldenSettingsJournal
 import io.nekohasekai.sagernet.golden.measure.GoldenMeasure
@@ -56,5 +60,23 @@ class GoldenSessionTest : UiTestBase() {
         assertThrows(CollectRefusedException::class.java) { GoldenMeasure.call(GoldenMeasure.METHOD_FINISH, Bundle()) }
         assertEquals(before, marker.readText())
         assertEquals("fixture", dao["journal-test"]?.string)
+    }
+
+    @Test
+    fun `持有标记的工具独占数据库，另一入口带 allowWipe 仍拒绝`() = ui.bg {
+        val collect = File(app.filesDir, GoldenCollector.OWNED_MARKER)
+        val args = CollectArgs("test", DirtyArgs(0, emptyList(), 0, emptyList()), CoreArgs("", "", ""), true)
+        marker.writeText("[]")
+        assertTrue(assertThrows(CollectRefusedException::class.java) { GoldenCollector(args).collect() }
+            .message.orEmpty().contains("measureFinish"))
+        assertFalse(collect.exists())
+        assertTrue(marker.renameTo(collect))
+        val wipe = Bundle().apply { putBoolean("allowWipe", true) }
+        for (method in listOf(GoldenMeasure.METHOD_PREPARE, GoldenMeasure.METHOD_FINISH)) {
+            assertTrue(assertThrows(CollectRefusedException::class.java) { GoldenMeasure.call(method, wipe) }
+                .message.orEmpty().contains(collect.name))
+        }
+        assertEquals("[]", collect.readText())
+        assertFalse(marker.exists())
     }
 }

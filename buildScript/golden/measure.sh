@@ -102,6 +102,7 @@ if [ "$BUILD" = 1 ]; then
   ./gradlew -q app:assembleOssDebug
 fi
 golden_select_apk
+golden_check_other_session golden-collect.owned
 golden_install_apk "$INSTALL"
 
 # ---- 与设备交互的小工具 ----
@@ -218,8 +219,11 @@ fi
 # ---- 准备：写夹具与实测设置 ----
 
 echo ">> preparing fixture: xray=$XRAY singbox=$SINGBOX mode=$MODE"
-# 先停掉应用：上次被打断的实测若还留着服务，这里一并结束
-"$ADB" shell am force-stop "$PACKAGE"
+# 仅在本工具留下夹具时恢复冷启动；普通准备交给 provider 在互斥检查后执行。
+if "$ADB" shell run-as "$PACKAGE" test -f files/golden-measure.owned; then
+  golden_check_other_session golden-collect.owned
+  "$ADB" shell am force-stop "$PACKAGE"
+fi
 EXTRAS=(
   --extra "xray:i:$XRAY" --extra "singbox:i:$SINGBOX"
   --extra "mode:s:$MODE" --extra "logLevel:i:$LOG_LEVEL"

@@ -83,6 +83,14 @@ golden_select_apk() {
   echo ">> APK from build manifest: $APK (versionCode $APK_VERSION_CODE)"
 }
 
+# 重新安装也会停止已有进程，先检查另一工具的持久标记；provider 在改库前还会重新核对。
+golden_check_other_session() {
+  if "$ADB" shell run-as "$PACKAGE" test -e "files/$1" > /dev/null 2>&1; then
+    echo "another golden session owns the database ($1); finish its recovery first" >&2
+    return 1
+  fi
+}
+
 # 参数为 1 时安装 golden_select_apk 选出的 APK；无论装没装，都核对设备上实际装的版本号与
 # 清单一致，免得带着别的包的代码去采集 / 实测
 golden_install_apk() {
