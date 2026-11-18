@@ -104,6 +104,10 @@ func (c *ClientBind) connect() (*wireConn, error) {
 }
 
 func (c *ClientBind) Open(port uint16) (fns []conn.ReceiveFunc, actualPort uint16, err error) {
+	// neko：BindUpdate 会等旧接收协程退出，但 Cookie 回复不持有 wireguard-go 的 net 读锁，
+	// 仍可进入 connect；用同一把锁发布新一轮的 done 与拨号上下文。
+	c.connAccess.Lock()
+	defer c.connAccess.Unlock()
 	select {
 	case <-c.done:
 		c.done = make(chan struct{})
