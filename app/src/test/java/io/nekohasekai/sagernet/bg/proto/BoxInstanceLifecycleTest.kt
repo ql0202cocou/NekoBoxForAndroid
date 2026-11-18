@@ -1,10 +1,13 @@
 package io.nekohasekai.sagernet.bg.proto
 
 import io.nekohasekai.sagernet.bg.GuardedProcessPool
+import io.nekohasekai.sagernet.bg.ProxyService
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.ConfigBuildResult
 import io.nekohasekai.sagernet.fmt.LocalSocksAuth
+import io.nekohasekai.sagernet.fmt.TAG_PROXY
 import io.nekohasekai.sagernet.fmt.TrafficBindings
+import io.nekohasekai.sagernet.fmt.TrafficTotals
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.appScope
 import io.nekohasekai.sagernet.uitest.UiTestBase
@@ -50,6 +53,29 @@ class BoxInstanceLifecycleTest : UiTestBase() {
     private fun instance() = object : BoxInstance(profile()) {}
 
     private fun CoreBox.state(): ShadowCoreBox = Shadow.extract(this)
+
+    @Test
+    fun `首轮记账接上本实例最后一次切换，后续两轮都归给该成员`() {
+        val service = ProxyService()
+        val profile = profile()
+        val config = ConfigBuildResult(
+            "{}", emptyList(), profile.id,
+            TrafficBindings((1L..3L).associate { "m$it" to listOf(it) }, (1L..3L).associateWith { TrafficTotals(0, 0) }, emptySet()),
+            (1L..3L).associateWith { "m$it" }, 1L,
+        )
+        val stats = TrafficAccountingTest.FakeStats(listOf(TAG_PROXY))
+        val looper = checkNotNull(ProxyInstance(profile, service, "selector", 0L).looper)
+        ui.bg { looper.selectMain(2); looper.selectMain(3) }
+        val acc = looper.initializeAccounting(config, stats::query, 0L)
+        assertTrue(stats.log.isEmpty())
+        for (i in 1L..2L) {
+            stats.route(TAG_PROXY, 10, 100)
+            val round = acc.sweep(i * 1000)
+            assertEquals(i * 10, round.txSession)
+            assertEquals(i * 100, round.rxSession)
+        }
+        assertEquals(mapOf(1L to TrafficTotals(0, 0), 2L to TrafficTotals(0, 0), 3L to TrafficTotals(200, 20)), acc.snapshot())
+    }
 
     private class Gate : AutoCloseable {
         private val entered = CountDownLatch(1)

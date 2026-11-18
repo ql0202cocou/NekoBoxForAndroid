@@ -26,17 +26,14 @@ import kotlin.coroutines.coroutineContext
 
 class TrafficLooper(val data: BaseService.Data, private val generation: Long) {
 
-    // The loop's own job on appScope (loop() checks its own context, the one
-    // stopLoop's cancel turns inactive). Written by start() on the Default
-    // dispatcher, read by stopLoop() on main; the stopped CAS alone gives that
-    // read no happens-before.
+    // start() 发布后台循环的任务，stopLoop() 在另一线程取消并等待；stopped 的 CAS 不能单独发布 job。
     @Volatile
     private var job: Job? = null
     private val stopped = AtomicBoolean(false)
 
-    // 本次运行的记账，循环第一轮在 Default 上建好后发布。selectMain（NativeInterface 的串行调度器）、
-    // clearStats（BaseService 的 Default）与 flushStats（IO）在别的线程上读；记账自己的锁管互斥，
-    // 建好之前到达的切换与清零照旧丢弃
+    // 首轮建账与早期切换共用这把锁。发布后由记账自己的锁保护计数与 JNI，落库在锁外。
+    private val startupLock = Any()
+    private var earlySelection: Long? = null
     @Volatile
     private var accounting: TrafficAccounting? = null
 
@@ -60,7 +57,7 @@ class TrafficLooper(val data: BaseService.Data, private val generation: Long) {
     // Final counters and UI post. Reads in-memory state and writes the DB, so it needs
     // no live box and must not sit between the loop and box.close().
     suspend fun postFinalTraffic() {
-        if (!DataStore.profileTrafficStatistics) return
+        if (accounting == null || !DataStore.profileTrafficStatistics) return
         val traffic = flushStats()
         data.binder.broadcast { b ->
             for (t in traffic) {
@@ -73,15 +70,15 @@ class TrafficLooper(val data: BaseService.Data, private val generation: Long) {
     // ACTION_SHUTDOWN 直接杀进程、不走 stopRunner，stop() 不会运行：不停循环，先把累计落库。
     // 快照在记账的锁内取，与进行中的一轮互斥；之后的那一轮来不及落库，少一点总好过全丢
     suspend fun persistStats() {
-        if (!DataStore.profileTrafficStatistics) return
+        if (accounting == null || !DataStore.profileTrafficStatistics) return
         flushStats()
     }
 
     // 当前累计的增量写库，每个节点一行、一个事务。写哪些节点仍按当前 data.proxy 的统计关联取（同以前：data.proxy
     // 已置空时不写，已换成新实例时只写两边都有的节点），值取本循环的记账
     private suspend fun flushStats(): List<TrafficData> = withContext(Dispatchers.IO) {
-        val bound = data.proxy?.config?.traffic?.tags ?: return@withContext emptyList()
         val accounting = accounting ?: return@withContext emptyList()
+        val bound = data.proxy?.config?.traffic?.tags ?: return@withContext emptyList()
         // 推给界面的是绝对值，写库的是自上次落库以来的增量（见 TrafficAccounting）
         val rows = TrafficAccounting.rowsToPersist(bound, accounting.snapshot())
         persistIncrements(accounting, rows.keys)
@@ -138,13 +135,23 @@ class TrafficLooper(val data: BaseService.Data, private val generation: Long) {
     // 旧成员，旧成员所在出站的整个集合的增量就在调用方的协程里落库（一个事务），写完才返回。落库是加增量，前后
     // 两次切换写到同一节点（共享的前置 / 落地）也各加各的一段，不会互相覆盖
     suspend fun selectMain(id: Long) {
-        val accounting = accounting ?: return
+        val accounting = synchronized(startupLock) {
+            accounting ?: run {
+                earlySelection = id
+                return
+            }
+        }
         Logs.d("select traffic count $TAG_PROXY to $id")
         val old = accounting.select(id) ?: return
         if (old.isNotEmpty() && DataStore.profileTrafficStatistics) {
             persistIncrements(accounting, old.keys)
         }
     }
+
+    internal fun initializeAccounting(config: ConfigBuildResult, query: (String, String) -> Long, startedAt: Long) =
+        synchronized(startupLock) {
+            TrafficAccounting.of(config, query, startedAt, earlySelection ?: config.mainEntId).also { accounting = it }
+        }
 
     private suspend fun loop() {
         if (!enabled()) return
@@ -159,15 +166,14 @@ class TrafficLooper(val data: BaseService.Data, private val generation: Long) {
 
         // 单轮统计；每条提前 return 都落到下方 while 里的 delay
         suspend fun loopOnce() {
-            val proxy = data.proxy ?: return
+            val proxy = data.proxy?.takeIf { it.looper === this@TrafficLooper } ?: return
 
             val accounting = this@TrafficLooper.accounting ?: run {
                 if (!proxy.isInitialized()) return
                 val config = proxy.config
                 if (Logs.enabled) config.traffic.tags.forEach { (tag, ids) -> Logs.d("traffic count $tag to $ids") }
                 // 这一轮只建记账、不查询：速率按轮间隔算，从这里起算；box 启动以来的字节留在计数器里，下一轮取走
-                this@TrafficLooper.accounting =
-                    TrafficAccounting.of(config, proxy.box::queryStats, SystemClock.elapsedRealtime())
+                initializeAccounting(config, proxy.box::queryStats, SystemClock.elapsedRealtime())
                 return
             }
 

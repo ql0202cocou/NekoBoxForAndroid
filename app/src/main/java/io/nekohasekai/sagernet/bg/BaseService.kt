@@ -475,9 +475,7 @@ class BaseService {
         }
 
         fun persistStats() {
-            // ACTION_SHUTDOWN: the process is killed without stopRunner, so
-            // the looper never persists its counters; block until they are
-            // written. proxy/looper are null when not fully started.
+            // ACTION_SHUTDOWN 直接杀进程，等本次已建立的记账写完。
             val looper = data.proxy?.looper ?: return
             // 该广播在主线程上处理，DB 极端慢时无限阻塞会拖出广播 ANR；超时即放弃
             // ——丢最后一笔统计好过关机时 ANR。写库放到 appScope 上、只对等待加

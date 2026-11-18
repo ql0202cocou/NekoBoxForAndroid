@@ -34,7 +34,7 @@ import io.nekohasekai.sagernet.fmt.TrafficTotals
  *
  * @param selector 选择器模式：构建结果的 profileTagMap（节点 id → 出站 tag，含选择器成员，也含路由规则目标）；
  *   非选择器模式为 null
- * @param selectedId 选择器模式下最初选中的成员（构建结果的主节点）
+ * @param selectedId 选择器模式下最初选中的成员
  * @param startedAt 单调时钟的毫秒数，第一轮速率的间隔从这里算起
  */
 class TrafficAccounting(
@@ -239,13 +239,18 @@ class TrafficAccounting(
 
         /**
          * 按构建结果建一次运行的记账（TrafficLooper 用的就是它）：主节点所在分组是选择器时（selectorGroupId >= 0）
-         * 按 profileTagMap 记 proxy、最初选中构建的主节点，否则是非选择器模式。
+         * 按 profileTagMap 记 proxy；没有早期切换时从构建的主节点开始，否则从最后选中的成员开始。
          */
-        fun of(config: ConfigBuildResult, query: (tag: String, direction: String) -> Long, startedAt: Long) =
+        fun of(
+            config: ConfigBuildResult,
+            query: (tag: String, direction: String) -> Long,
+            startedAt: Long,
+            selectedId: Long = config.mainEntId,
+        ) =
             TrafficAccounting(
                 config.traffic,
                 config.profileTagMap.takeIf { config.selectorGroupId >= 0L },
-                config.mainEntId,
+                selectedId,
                 query,
                 startedAt,
             )

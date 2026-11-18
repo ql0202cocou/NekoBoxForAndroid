@@ -21,10 +21,10 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
     @Volatile
     var displayProfileName = title
 
-    // TrafficLooper：launch() 在 Default 上写入；BaseService.persistStats 在主线程、
-    // close() 在 IO / Default（killProcesses / destroyRunner）上读取
+    // 选择回调可能早于启动后的首次采样。每个实例从构造起接收切换，launch 成功后才启动循环。
     @Volatile
-    var looper: TrafficLooper? = null
+    var looper: TrafficLooper? = TrafficLooper(service.data, generation)
+        private set
 
     internal fun acceptsSelectorCallback(): Boolean = isInitialized() && !isClosed()
 
@@ -70,27 +70,16 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
             box.setV2rayStats(TrafficLooper.statsTags(config), TrafficLooper.ignoredInbounds(config))
         }
         super.launch() // start box
-        runOnDefaultDispatcher {
-            // The service may have stopped before this block runs; creating a
-            // looper now would spin on an already closed box.
-            if (isClosed()) return@runOnDefaultDispatcher
-            val trafficLooper = TrafficLooper(service.data, generation)
-            looper = trafficLooper
-            trafficLooper.start()
-            if (isClosed()) {
-                // close() ran between the check and start(); it saw a null
-                // looper and skipped stopping it, so stop it here.
-                looper = null
-                trafficLooper.stop()
-            }
-        }
+        if (isClosed()) return
+        val trafficLooper = looper ?: return
+        trafficLooper.start()
+        if (isClosed()) trafficLooper.stop()
     }
 
     override fun close() {
         // 顺序契约：调用方（killProcesses / destroyRunner）先挂起等 stopLoop() 再 close()——
         // 进行中的 queryStats 需要存活的 box，close() 不能阻塞等它。
-        // 兜底 launch() 启动块整段落在调用方读 looper 与这里之间的竞态：先置 closed 再读
-        // looper（与启动块「写 looper → 读 closed」相反），两边必有一方看到对方。只停循环
+        // 兜底 launch() 启动循环与关闭并发的情况。只停循环
         // 不做最终推送：重启后 data.proxy 可能已是新实例，flushStats 会把计数写到新实例的
         // 节点上。box 已关时 queryStats 经 lockIfOpen 返回 0
         super.close()
