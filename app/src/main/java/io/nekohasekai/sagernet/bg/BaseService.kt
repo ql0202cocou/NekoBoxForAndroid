@@ -643,8 +643,8 @@ class BaseService {
                 DataStore.currentProfile = profile.id
 
                 proxy.processes = GuardedProcessPool {
-                    Logs.w(it)
-                    stopRunner(false, it.readableMessage)
+                    val reason = proxy.reportServiceError(it)
+                    if (data.proxy === proxy) stopRunner(false, reason)
                 }
 
                 startProcesses()
@@ -655,20 +655,11 @@ class BaseService {
             } catch (_: UnknownHostException) {
                 stopRunner(false, service.getString(R.string.invalid_server))
             } catch (e: PluginManager.PluginNotFoundException) {
-                Toast.makeText(service, e.readableMessage, Toast.LENGTH_SHORT).show()
-                Logs.w(e)
+                Toast.makeText(service, proxy.reportServiceError(e), Toast.LENGTH_SHORT).show()
                 data.binder.missingPlugin(e.plugin)
                 stopRunner(false, null)
             } catch (exc: Throwable) {
-                if (exc.javaClass.name.endsWith("proxyerror")) {
-                    // error from golang
-                    Logs.w(exc.readableMessage)
-                } else {
-                    Logs.w(exc)
-                }
-                stopRunner(
-                    false, service.serviceFailedMessage(exc.readableMessage)
-                )
+                stopRunner(false, service.serviceFailedMessage(proxy.reportServiceError(exc)))
             }
         }
     }

@@ -79,6 +79,23 @@ abstract class BoxInstance(
         if (::config.isInitialized) config.redactErrorText(text, externalProcesses.map { it.config })
         else Util.redactSecrets(text)
 
+    // 异常链与 suppressed 也可能带配置值；传给日志的只有处理过的字符串。
+    internal suspend fun reportServiceError(error: Throwable): String = onIoDispatcher {
+        runCatching {
+            val redact = if (::config.isInitialized) redactExternalOutput else {
+                val values = Util.secretValueRedactor(listOfNotNull(profile.configBean?.config))
+                fun(text: String) = values(Util.redactSecrets(text))
+            }
+            val reason = redact(error.readableMessage)
+            if (Logs.enabled) {
+                Logs.w(if (error.javaClass.name.endsWith("proxyerror")) reason else redact(error.stackTraceToString()))
+            }
+            reason
+        }.getOrElse {
+            "Service error (details unavailable)".also { message -> Logs.w(message) }
+        }
+    }
+
     protected fun initPlugin(name: String): PluginManager.InitResult {
         return pluginPath.getOrPut(name) { PluginManager.init(name)!! }
     }
