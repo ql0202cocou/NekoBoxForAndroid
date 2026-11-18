@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.fmt
 
+import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
@@ -33,6 +34,22 @@ class SelectorGroupTest {
             assertNull(selectorGroupOf(plain, mode))
             assertNull(selectorGroupOf(null, mode))
         }
+    }
+
+    @Test
+    fun `出站按分组顺序排列，同序按 id，默认仍是选中成员`() {
+        val group = ProxyGroup(id = 1, isSelector = true)
+        val selected = socks(1, 1).apply { userOrder = 2 }
+        val first = socks(7, 1).apply { userOrder = 1 }
+        val second = socks(9, 1).apply { userOrder = 1 }
+        val record = ProfileRecord.of(selected)
+        val source = MemoryConfigDataSource(listOf(group), listOf(selected, second, first), emptyList())
+        val result = buildConfig(ConfigInput(ConfigBuildMode.RUN, record, testConfigSettings(),
+            ConfigSnapshot.collect(source, record, ConfigBuildMode.RUN), emptyMap(), FakeConfigPlatform()))
+        val selector = JsonParser.parseString(result.config).asJsonObject.getAsJsonArray("outbounds")
+            .map { it.asJsonObject }.single { it["type"].asString == "selector" }
+        assertEquals(listOf("socks-7", "socks-9", "socks-1"), selector.getAsJsonArray("outbounds").map { it.asString })
+        assertEquals("socks-1", selector["default"].asString)
     }
 
     @Test

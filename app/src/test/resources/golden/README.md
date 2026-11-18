@@ -12,6 +12,7 @@
   凭据；跳实例记录 `localAuth`，凭据登记进 `dynamic.secrets`。四种插件核心的入站不认证，sing-box 接它们的 socks 出站
   也不带凭据。
 - 测某个核心上的特性或合并配置的场景，夹具手动指定原来的核心（自动选核会换核时只改 `input.json` 的 `core`）。
+- 选择器按分组的用户顺序输出成员，同序按节点 id，多个成员共用的标签只列一次。两个 `multi-selector-*-members` 链场景的运行基线调整了成员顺序，选中项仍作默认值。
 - 局部的有意变化：按审查过的差异修改受影响的文件，再在模拟器上重采集、对照一致；不整体替换基线，`manifest.json`
   保持上一次整体采集。逐次的经过见 git 历史。
 - K2（XHTTP）把 StandardV2Ray 层的 Kryo 版本号升到 8，随后在模拟器上局部重采：全部 `input.json` 的 StandardV2Ray 系 bean

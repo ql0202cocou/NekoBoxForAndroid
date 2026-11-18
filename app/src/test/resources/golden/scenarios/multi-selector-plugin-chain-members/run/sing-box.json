@@ -111,9 +111,9 @@
     {
       "default": "golden-multi-sp-chain-a",
       "outbounds": [
-        "golden-multi-sp-chain-a",
         "golden-multi-sp-xray-2",
         "golden-multi-sp-mihomo-2",
+        "golden-multi-sp-chain-a",
         "golden-multi-sp-chain-c"
       ],
       "tag": "proxy",

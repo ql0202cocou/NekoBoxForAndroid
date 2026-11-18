@@ -305,7 +305,7 @@ private class ConfigBuild(
 
     val trafficMap = HashMap<String, List<ProxyEntity>>()
     private val trafficMappingInbounds = LinkedHashSet<String>()
-    val tagMap = HashMap<Long, String>()
+    val tagMap = LinkedHashMap<Long, String>()
     val globalOutbounds = HashMap<Long, String>()
     val selectorNames = HashSet<String>()
     // 配置名若和内置出站标签同名，就会撞名

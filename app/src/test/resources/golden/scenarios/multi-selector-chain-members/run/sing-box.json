@@ -104,8 +104,8 @@
     {
       "default": "golden-multi-sc-chain-a",
       "outbounds": [
-        "golden-multi-sc-chain-a",
         "golden-multi-sc-ss-member",
+        "golden-multi-sc-chain-a",
         "golden-multi-sc-chain-b",
         "golden-multi-sc-chain-c"
       ],
