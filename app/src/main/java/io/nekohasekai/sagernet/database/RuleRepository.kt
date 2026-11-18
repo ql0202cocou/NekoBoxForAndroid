@@ -6,7 +6,7 @@ package io.nekohasekai.sagernet.database
 // 线程：非 suspend 的方法（getRule、outboundProfileNames、updateRuleOrders、updateRuleEnabled）是阻塞调用，
 // 只能在后台线程调用（SagerDatabase 不开 allowMainThreadQueries）；suspend 方法不自行换调度器。
 //
-// 事务：只有 updateRuleOrders 整批一个事务；其余都是单条语句，各自提交。
+// 事务：分配排序号与创建规则、编辑规则、修复旧并列序号和批量拖动分别在事务内完成。
 //
 // 通知：createRule、updateRule、deleteRule、deleteRules、clearRules 写完通知 RuleListener
 // （createRule 的 post=false 除外，仅供默认规则初始化）。updateRuleOrders 与 updateRuleEnabled

@@ -31,7 +31,10 @@ object GroupRepository {
     // 按 id 读一行，不存在返回 null；异常语义见文件头
     fun getGroup(groupId: Long): ProxyGroup? = GroupManager.getGroup(groupId)
 
-    fun getAllGroups(): List<ProxyGroup> = SagerDatabase.groupDao.allGroups()
+    fun getAllGroups(): List<ProxyGroup> = readWithDistinctOrders(SagerDatabase.groupDao::allGroups, ProxyGroup::userOrder) { group, order ->
+        SagerDatabase.groupDao.updateUserOrder(group.id, order)
+        group.userOrder = order
+    }
 
     // 当前选中的分组 id；没有选中时按 currentGroup 回退并写回选择
     fun currentGroupId(): Long = GroupManager.currentGroupId()

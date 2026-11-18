@@ -119,7 +119,7 @@ data class ProxyGroup(
     @androidx.room.Dao
     interface Dao {
 
-        @Query("SELECT * FROM proxy_groups ORDER BY userOrder")
+        @Query("SELECT * FROM proxy_groups ORDER BY userOrder, id")
         fun allGroups(): List<ProxyGroup>
 
         @Query("SELECT * FROM proxy_groups WHERE type = ${GroupType.SUBSCRIPTION}")

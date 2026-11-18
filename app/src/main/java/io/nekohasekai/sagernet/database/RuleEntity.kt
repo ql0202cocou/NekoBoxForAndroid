@@ -66,10 +66,10 @@ data class RuleEntity(
     @androidx.room.Dao
     interface Dao {
 
-        @Query("SELECT * FROM rules ORDER BY userOrder")
+        @Query("SELECT * FROM rules ORDER BY userOrder, id")
         fun allRules(): List<RuleEntity>
 
-        @Query("SELECT * FROM rules WHERE enabled = :enabled ORDER BY userOrder")
+        @Query("SELECT * FROM rules WHERE enabled = :enabled ORDER BY userOrder, id")
         fun enabledRules(enabled: Boolean = true): List<RuleEntity>
 
         @Query("SELECT MAX(userOrder) + 1 FROM rules")

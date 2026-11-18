@@ -247,8 +247,10 @@ object ProfileManager {
     }
 
     suspend fun createRule(rule: RuleEntity, post: Boolean = true): RuleEntity {
-        rule.userOrder = SagerDatabase.rulesDao.nextOrder() ?: 1
-        rule.id = SagerDatabase.rulesDao.createRule(rule)
+        SagerDatabase.instance.runInTransaction {
+            rule.userOrder = SagerDatabase.rulesDao.nextOrder() ?: 1
+            rule.id = SagerDatabase.rulesDao.createRule(rule)
+        }
         if (post) {
             ruleIterator { onAdd(rule) }
         }
@@ -256,8 +258,13 @@ object ProfileManager {
     }
 
     suspend fun updateRule(rule: RuleEntity) {
-        SagerDatabase.rulesDao.updateRule(rule)
-        ruleIterator { onUpdated(rule) }
+        val updated = SagerDatabase.instance.runInTransaction(Callable {
+            val current = SagerDatabase.rulesDao.getById(rule.id) ?: return@Callable false
+            rule.userOrder = current.userOrder
+            SagerDatabase.rulesDao.updateRule(rule)
+            true
+        })
+        if (updated) ruleIterator { onUpdated(rule) }
     }
 
     // 规则版的 updateUserOrders；与下面的开关写入一样不通知 RuleListener
@@ -302,7 +309,10 @@ object ProfileManager {
             // 等锁期间另一个调用可能已全部建完，锁内复查标记避免重复创建
             if (!DataStore.rulesFirstCreate) createDefaultRules()
         }
-        return SagerDatabase.rulesDao.allRules()
+        return readWithDistinctOrders(SagerDatabase.rulesDao::allRules, RuleEntity::userOrder) { rule, order ->
+            SagerDatabase.rulesDao.updateOrder(rule.id, order)
+            rule.userOrder = order
+        }
     }
 
     // 只允许在 defaultRulesMutex 内调用

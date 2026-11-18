@@ -15,6 +15,7 @@ import io.nekohasekai.sagernet.fmt.preserveRemovedMihomoAnyTLSOverride
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import io.nekohasekai.sagernet.fmt.gson.GsonConverters
 import io.nekohasekai.sagernet.ktx.Logs
+import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 
 @Database(
@@ -198,4 +199,23 @@ abstract class SagerDatabase : RoomDatabase() {
     abstract fun rulesDao(): RuleEntity.Dao
     abstract fun dataGenerationDao(): DataGeneration.Dao
 
+}
+
+
+// 旧版并发创建或旧备份可能有相同的排序号。按 DAO 的 userOrder、id 顺序消除并列，
+// 否则拖动两个同号项后写回原排序号，重载时会恢复为拖动前的顺序。
+internal fun <T> readWithDistinctOrders(
+    read: () -> List<T>, order: (T) -> Long, update: (T, Long) -> Unit,
+): List<T> {
+    fun hasTies(rows: List<T>) = (1 until rows.size).any { order(rows[it - 1]) == order(rows[it]) }
+    val rows = read()
+    if (!hasTies(rows)) return rows
+    return SagerDatabase.instance.runInTransaction(Callable {
+        val current = read()
+        if (hasTies(current)) current.forEachIndexed { index, row ->
+            val newOrder = index + 1L
+            if (order(row) != newOrder) update(row, newOrder)
+        }
+        current
+    })
 }

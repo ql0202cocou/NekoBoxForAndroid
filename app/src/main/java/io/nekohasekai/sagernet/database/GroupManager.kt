@@ -108,8 +108,10 @@ object GroupManager {
     }
 
     suspend fun createGroup(group: ProxyGroup): ProxyGroup {
-        group.userOrder = SagerDatabase.groupDao.nextOrder() ?: 1
-        group.id = SagerDatabase.groupDao.createGroup(group.applyDefaultValues())
+        SagerDatabase.instance.runInTransaction {
+            group.userOrder = SagerDatabase.groupDao.nextOrder() ?: 1
+            group.id = SagerDatabase.groupDao.createGroup(group.applyDefaultValues())
+        }
         iterator { groupAdd(group) }
         return group
     }
