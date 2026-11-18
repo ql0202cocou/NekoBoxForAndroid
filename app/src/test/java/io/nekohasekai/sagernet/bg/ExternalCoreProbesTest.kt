@@ -333,6 +333,8 @@ class ExternalCoreProbesTest {
         assertTrue("不等到超时", System.nanoTime() - started < 1_000_000_000)
         assertEquals(255, strict[0].exitCode)
         assertFalse(strict[0].ready)
+        assertTrue(strict[0].abandoned)
+        assertFalse(strict[1].abandoned)
 
         val lenient = awaitLocalPorts(
             listOf(LocalPortTarget(missing, false, null, abandoned(1)), LocalPortTarget(ready, false, null, alive())),
@@ -350,6 +352,7 @@ class ExternalCoreProbesTest {
         assertFalse(status.ready)
         assertNull(status.exitCode)
         assertEquals("process was stopped", status.lastError)
+        assertTrue(status.abandoned)
     }
 
     @Test

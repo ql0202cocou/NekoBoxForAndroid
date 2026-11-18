@@ -118,7 +118,7 @@ class LocalPortTarget(val port: Int, val strict: Boolean, val auth: LocalSocksAu
  * 等待结束时一个端口的状态：ready 就绪；exitCode 非空表示监听它的进程已退出且没有在跑（守护放弃，或到期时仍在重启
  * 之间）；lastError 是最后一次探测失败的原因。
  */
-class LocalPortStatus(val ready: Boolean, val exitCode: Int?, val lastError: String?)
+class LocalPortStatus(val ready: Boolean, val exitCode: Int?, val lastError: String?, val abandoned: Boolean)
 
 internal fun localReadinessSummary(statuses: List<LocalPortStatus>, elapsedMs: Long): String =
     "external cores: ${statuses.count { it.ready }}/${statuses.size} local inbounds ready in $elapsedMs ms"
@@ -157,7 +157,7 @@ suspend fun awaitLocalPorts(
     }
     fun statuses(): List<LocalPortStatus> {
         checkCancelled()
-        return targets.indices.map { LocalPortStatus(ready[it], exitCodes[it], errors[it]) }
+        return targets.indices.map { LocalPortStatus(ready[it], exitCodes[it], errors[it], gaveUp[it]) }
     }
     fun giveUp(i: Int, state: ProcessState) {
         gaveUp[i] = true

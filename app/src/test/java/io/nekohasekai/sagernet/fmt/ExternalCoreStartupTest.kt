@@ -329,6 +329,23 @@ class ExternalCoreStartupTest {
     }
 
     @Test
+    fun `严格进程提前停止不把其余入站报成超时或将继续启动`() {
+        val strict = xrayGroup.hops
+        val pendingPlugin = HopReadiness(plan(naive("pending")).hops.single(), false, false, null, null)
+        for (code in listOf(null, 17)) {
+            val outcome = externalReadyOutcome(listOf(
+                pendingPlugin,
+                HopReadiness(strict[0], true, false, code, null, abandoned = true),
+                HopReadiness(strict[1], true, false, null, null),
+            ), 5000)
+            val expected = if (code == null) "Xray stopped before its local inbounds were ready"
+                else "Xray exited with code 17 before its local inbounds were ready; see the log for details"
+            assertEquals(expected, outcome.failure?.message)
+            assertTrue(outcome.warnings.isEmpty())
+        }
+    }
+
+    @Test
     fun `就绪等待的报错文案里没有凭据`() {
         val texts = listOf(
             externalReadyOutcome(readiness(xrayGroup, true, ready = setOf(0, 2), error = "unexpected SOCKS5 reply 05 ff"), 5000),

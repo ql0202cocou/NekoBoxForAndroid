@@ -144,31 +144,24 @@ class HopReadiness(
     val ready: Boolean,
     val exitCode: Int?,
     val lastError: String?,
+    val abandoned: Boolean = false,
 )
 
 /** 就绪等待的结论：failure 非空就不启动 box；warnings 记日志后照常启动。 */
 class ExternalReadyOutcome(val failure: Exception?, val warnings: List<String>)
 
 fun externalReadyOutcome(results: List<HopReadiness>, timeoutMs: Long): ExternalReadyOutcome {
-    val warnings = ArrayList<String>()
-    for (result in results) {
-        if (result.strict || result.ready) continue
-        val hop = result.hop
-        warnings += if (result.exitCode != null) {
-            "${hop.pluginId} exited with code ${result.exitCode} before ${hop.bean.displayName()} " +
-                "(${localInbound(hop)}) was ready; starting anyway"
-        } else {
-            "${hop.pluginId}: ${hop.bean.displayName()} (${localInbound(hop)}) not ready after $timeoutMs ms" +
-                "${result.lastError?.let { " ($it)" }.orEmpty()}; starting anyway"
-        }
-    }
     val strictFailures = results.filter { it.strict && !it.ready }
     // 进程退出排在前面：它是原因，同组其余跳实例的未就绪只是结果
     strictFailures.firstOrNull { it.exitCode != null }?.let { exited ->
         val core = coreName(exited.hop)
         val message = "$core exited with code ${exited.exitCode} before its local inbounds were ready; " +
             "see the log for details"
-        return ExternalReadyOutcome(IOException(message), warnings)
+        return ExternalReadyOutcome(IOException(message), emptyList())
+    }
+    // 守护提前放弃时其余端口只有当时的快照，不能给它们报超时。
+    strictFailures.firstOrNull { it.abandoned }?.let {
+        return ExternalReadyOutcome(IOException("${coreName(it.hop)} stopped before its local inbounds were ready"), emptyList())
     }
     val failure = when (strictFailures.size) {
         0 -> null
@@ -192,7 +185,22 @@ fun externalReadyOutcome(results: List<HopReadiness>, timeoutMs: Long): External
             )
         }
     }
-    return ExternalReadyOutcome(failure, warnings)
+    if (failure != null) return ExternalReadyOutcome(failure, emptyList())
+    val warnings = ArrayList<String>()
+    for (result in results) {
+        if (result.strict || result.ready) continue
+        val hop = result.hop
+        warnings += if (result.exitCode != null) {
+            "${hop.pluginId} exited with code ${result.exitCode} before ${hop.bean.displayName()} " +
+                "(${localInbound(hop)}) was ready; starting anyway"
+        } else if (result.abandoned) {
+            "${hop.pluginId} stopped before ${hop.bean.displayName()} (${localInbound(hop)}) was ready; starting anyway"
+        } else {
+            "${hop.pluginId}: ${hop.bean.displayName()} (${localInbound(hop)}) not ready after $timeoutMs ms" +
+                "${result.lastError?.let { " ($it)" }.orEmpty()}; starting anyway"
+        }
+    }
+    return ExternalReadyOutcome(null, warnings)
 }
 
 private const val READY_FAILURE_NAMES = 5

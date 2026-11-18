@@ -221,7 +221,7 @@ abstract class BoxInstance(
         val statuses = awaitLocalPorts(targets.map { it.second }, READY_TIMEOUT_MS, ::isClosed)
         val outcome = externalReadyOutcome(
             targets.zip(statuses) { (hop, target), status ->
-                HopReadiness(hop, target.strict, status.ready, status.exitCode, status.lastError)
+                HopReadiness(hop, target.strict, status.ready, status.exitCode, status.lastError, status.abandoned)
             },
             READY_TIMEOUT_MS,
         )
