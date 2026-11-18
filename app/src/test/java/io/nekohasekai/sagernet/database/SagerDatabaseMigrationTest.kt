@@ -63,34 +63,6 @@ class SagerDatabaseMigrationTest {
 
     private fun open(version: Int) = SqliteMemoryDb().also { it.createSchema(Schema.load(version)) }
 
-    private fun SqliteMemoryDb.assertSchema(version: Int) {
-        val problems = schemaDifferences(Schema.load(version))
-        assertTrue("库结构与第 $version 版 schema 不一致：\n${problems.joinToString("\n")}", problems.isEmpty())
-    }
-
-    // ---- 造数据
-
-    private fun Schema.row(table: String, vararg values: Pair<String, Any?>): Map<String, Any?> {
-        val given = values.associate { (key, value) -> key to (if (value is Int) value.toLong() else value) }
-        val fields = table(table).fields
-        val unknown = given.keys - fields.map { it.name }.toSet()
-        require(unknown.isEmpty()) { "第 $version 版 $table 没有列 $unknown" }
-        return fields.associate { field ->
-            field.name to if (field.name in given) given[field.name] else when {
-                !field.notNull -> null
-                field.affinity == "INTEGER" -> 0L
-                field.affinity == "TEXT" -> ""
-                field.affinity == "REAL" -> 0.0
-                else -> blobOf()
-            }
-        }
-    }
-
-    private fun SqliteMemoryDb.insert(table: String, row: Map<String, Any?>) {
-        val columns = row.keys.joinToString(", ") { "`$it`" }
-        execute("INSERT INTO `$table` ($columns) VALUES (${row.keys.joinToString(", ") { "?" }})", row.values.toList())
-    }
-
     // ---- 登记检查
 
     @Test
@@ -212,9 +184,9 @@ class SagerDatabaseMigrationTest {
         }
     }
 
-    // ---- 8 → 9：表结构不变，只按存量标注规则改写 proxy_entities.core（见 LegacyProfileUpgrade.kt）。
-    // 读得出的 bean（VMess / Trojan）要取全局「允许不安全」，那一步读 DataStore，需要 Android 的 Context，JVM 上
-    // 没有，所以这里的行只含 bean 为空或读不出的情形；读得出的 bean 的写回由 LegacyRowMigrationTest 用假表覆盖
+    // ---- 8 → 9：表结构不变，规范 core 列并按需重写 VMess / Trojan bean（见 LegacyProfileUpgrade.kt）。
+    // 本类保持普通 JVM 环境，覆盖 bean 为空或读不出的路径；可读 bean 的真实 SQL 写回与 DataStore 设置读取
+    // 由 SagerDatabaseReadableMigrationTest 在 Robolectric 中覆盖，逐行流程另有 LegacyRowMigrationTest。
 
     @Test
     fun `8 到 9 只规范 core 列，读不出的 bean 原样保留`() {
@@ -438,8 +410,8 @@ class SagerDatabaseMigrationTest {
     }
 
     // ---- 从每个旧版本一路升到最新版：每一级之后都比对 schema，旧数据不丢，新增列取默认值，新增的表为空。
-    // 3 → 8 是 Room 生成的 AutoMigration（实现类只在 SQLiteConnection 入口上执行 ALTER TABLE），8 → 9 因取不到
-    // DataStore 只能带读不出 / 为空的 bean，这里种的行都是 SOCKS 类型、core = 自动，不受 8 → 9 的规范化影响
+    // 3 → 8 是 Room 生成的 AutoMigration（实现类只在 SQLiteConnection 入口上执行 ALTER TABLE）；这里种的行都是
+    // SOCKS 类型、core = 自动，不受 8 → 9 的规范化影响；可读 bean 的逐级升级见 SagerDatabaseReadableMigrationTest。
 
     private fun seed(db: SqliteMemoryDb, schema: Schema): Map<String, List<Map<String, Any?>>> {
         for (table in schema.tables) {

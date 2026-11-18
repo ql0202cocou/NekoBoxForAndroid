@@ -12,6 +12,7 @@ import java.lang.reflect.Proxy
 import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.Types
+import org.junit.Assert.assertTrue
 
 // Room 迁移单测的 JVM 侧设施（SagerDatabaseMigrationTest 用）。官方的 MigrationTestHelper 在这里用不了：
 // Android 变体要仪器（Instrumentation / 框架 SQLite），而 SQLiteDriver 模式下基类 Migration.migrate(SQLiteConnection)
@@ -28,8 +29,40 @@ internal fun blobOf(vararg bytes: Int) = Blob(bytes.joinToString("") { "%02x".fo
 
 internal fun ByteArray.toBlob() = Blob(joinToString("") { "%02x".format(it.toInt() and 0xff) })
 
+// 普通 JVM 与 Robolectric 迁移用例共用同一套造行、写库和 schema 断言。
+internal fun Schema.row(table: String, vararg values: Pair<String, Any?>): Map<String, Any?> {
+    val given = values.associate { (key, value) -> key to (if (value is Int) value.toLong() else value) }
+    val fields = table(table).fields
+    val unknown = given.keys - fields.map { it.name }.toSet()
+    require(unknown.isEmpty()) { "第 $version 版 $table 没有列 $unknown" }
+    return fields.associate { field ->
+        field.name to if (field.name in given) given[field.name] else when {
+            !field.notNull -> null
+            field.affinity == "INTEGER" -> 0L
+            field.affinity == "TEXT" -> ""
+            field.affinity == "REAL" -> 0.0
+            else -> blobOf()
+        }
+    }
+}
+
+internal fun SqliteMemoryDb.insert(table: String, row: Map<String, Any?>) {
+    val columns = row.keys.joinToString(", ") { "`$it`" }
+    execute("INSERT INTO `$table` ($columns) VALUES (${row.keys.joinToString(", ") { "?" }})", row.values.toList())
+}
+
+internal fun SqliteMemoryDb.assertSchema(version: Int) {
+    val problems = schemaDifferences(Schema.load(version))
+    assertTrue("库结构与第 $version 版 schema 不一致：\n${problems.joinToString("\n")}", problems.isEmpty())
+}
+
 internal class SqliteMemoryDb : AutoCloseable {
-    private val jdbc: Connection = DriverManager.getConnection("jdbc:sqlite::memory:")
+    private val jdbc: Connection = run {
+        // DriverManager 的自动发现只执行一次；若先由 Robolectric 沙箱触发，普通 JVM 看不到那个驱动类。
+        // 在当前类加载器里显式初始化，保证两种测试环境任意顺序执行都能注册自己的 SQLite 驱动。
+        Class.forName("org.sqlite.JDBC")
+        DriverManager.getConnection("jdbc:sqlite::memory:")
+    }
 
     fun execute(sql: String, args: List<Any?> = emptyList()) {
         if (args.isEmpty()) {

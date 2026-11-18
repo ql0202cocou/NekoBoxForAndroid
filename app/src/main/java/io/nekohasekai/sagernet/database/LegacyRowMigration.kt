@@ -72,7 +72,7 @@ fun migrateLegacyRows(
                 is LegacyRowUpgrade.Unreadable -> {
                     unreadable++
                     result.core?.let { updates += Update(id, type, it, null) }
-                    warn("database 8 -> 9: profile #$id skipped, bean unreadable (${result.error.javaClass.simpleName})")
+                    warn("database 8 -> 9: profile #$id bean preserved, unreadable (${result.error.javaClass.simpleName})")
                 }
             }
         }

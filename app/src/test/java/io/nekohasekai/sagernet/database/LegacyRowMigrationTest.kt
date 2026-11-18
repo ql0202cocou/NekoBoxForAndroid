@@ -116,7 +116,7 @@ class LegacyRowMigrationTest {
             assertArrayEquals(KryoConverters.serialize(it), writes[0].bytes)
         }
         assertEquals(1, run.warnings.size)
-        assertTrue(run.warnings[0], Regex("""database 8 -> 9: profile #1006 skipped, bean unreadable \(\w+\)""").matches(run.warnings[0]))
+        assertTrue(run.warnings[0], Regex("""database 8 -> 9: profile #1006 bean preserved, unreadable \(\w+\)""").matches(run.warnings[0]))
         assertEquals(listOf("database 8 -> 9: 4 of 7 profiles upgraded, 1 unreadable"), run.infos)
         // 全局「允许不安全」只取一次
         assertEquals(1, run.globalReads)
