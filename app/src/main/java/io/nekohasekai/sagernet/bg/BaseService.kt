@@ -569,8 +569,8 @@ class BaseService {
                 try {
                     val loaded = try {
                         onIoDispatcher {
-                            ProfileManager.getProfile(DataStore.selectedProxy)?.let {
-                                it to ServiceNotification.genTitle(it)
+                            ProfileManager.getProfileForRun(DataStore.selectedProxy)?.let { (profile, generation) ->
+                                Triple(profile, ServiceNotification.genTitle(profile), generation)
                             }
                         }
                     } catch (e: IOException) {
@@ -594,8 +594,8 @@ class BaseService {
                         stopRunner(false, service.getString(R.string.profile_empty))
                         return@runOnMainDispatcher
                     }
-                    val (profile, title) = loaded
-                    startConnecting(data, profile, title)
+                    val (profile, title, generation) = loaded
+                    startConnecting(data, profile, title, generation)
                 } finally {
                     data.connectingJob = null
                 }
@@ -604,8 +604,8 @@ class BaseService {
         }
 
         // onStartCommand 读到节点之后的启动流程，在 connectingJob 里（主线程）运行
-        private suspend fun startConnecting(data: Data, profile: ProxyEntity, title: String) {
-            val proxy = ProxyInstance(profile, this, title)
+        private suspend fun startConnecting(data: Data, profile: ProxyEntity, title: String, generation: Long) {
+            val proxy = ProxyInstance(profile, this, title, generation)
             data.proxy = proxy
             BootReceiver.enabled = DataStore.persistAcrossReboot
             if (!data.closeReceiverRegistered) {

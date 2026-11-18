@@ -13,7 +13,7 @@ import moe.matsuri.nb4a.utils.JavaUtil
 
 // title：ServiceNotification.genTitle(profile) 的结果。它可能查分组名（读库），由调用方在后台算好传进来，
 // 构造本身不查库（BaseService 在 :bg 主线程上构造）
-class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Interface, title: String) :
+class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Interface, title: String, internal val generation: Long) :
     BoxInstance(profile) {
 
     // written on the serial dispatcher (NativeInterface selector callback),
@@ -25,6 +25,8 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
     // close() 在 IO / Default（killProcesses / destroyRunner）上读取
     @Volatile
     var looper: TrafficLooper? = null
+
+    internal fun acceptsSelectorCallback(): Boolean = isInitialized() && !isClosed()
 
     override fun buildConfig() {
         // 构建失败时也先提示已收集的诊断，再照常抛出
@@ -72,7 +74,7 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
             // The service may have stopped before this block runs; creating a
             // looper now would spin on an already closed box.
             if (isClosed()) return@runOnDefaultDispatcher
-            val trafficLooper = TrafficLooper(service.data)
+            val trafficLooper = TrafficLooper(service.data, generation)
             looper = trafficLooper
             trafficLooper.start()
             if (isClosed()) {

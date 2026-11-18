@@ -105,20 +105,22 @@ class NativeInterface : BoxPlatformInterface, NB4AInterface {
         }
         Libcore.resetAllConnections()
         ServiceRegistry.baseService?.apply {
+            val expectedProxy = data.proxy ?: return
             // 串行调度器：快速连续切换（A→B→C）要按事件顺序结算与落库，Default 池可能先跑后到的那个协程。
             // TrafficLooper.selectMain 在本协程里等落库完成才返回，落库的先后由这里的串行保证
             runOnSerialDispatcher {
-                // proxy can be nulled on service stop before this coroutine runs
-                val proxy = data.proxy ?: return@runOnSerialDispatcher
-                val id = proxy.config.profileTagMap
-                    .filterValues { it == tag }.keys.firstOrNull() ?: -1
-                val ent = ProfileManager.getProfile(id) ?: return@runOnSerialDispatcher
+                // 排队期间可能已停止、重启或恢复；旧回调不能切换新实例或按复用 id 改标题。
+                val proxy = data.proxy?.takeIf { it === expectedProxy && it.acceptsSelectorCallback() }
+                    ?: return@runOnSerialDispatcher
+                val id = proxy.config.profileIdForTag(tag, DataStore.selectedProxy) ?: return@runOnSerialDispatcher
+                val (ent, generation) = ProfileManager.getProfileForRun(id) ?: return@runOnSerialDispatcher
+                if (generation != proxy.generation) return@runOnSerialDispatcher
                 // persist here too: the binder broadcast below only reaches a
                 // bound MainActivity, and an unpersisted selection is rolled
                 // back to the stale selectedProxy on the next service reload
                 DataStore.selectedProxy = id
                 // traffic & title
-                data.proxy?.apply {
+                proxy.apply {
                     looper?.selectMain(id)
                     displayProfileName = ServiceNotification.genTitle(ent)
                     data.notification?.postNotificationTitle(displayProfileName)

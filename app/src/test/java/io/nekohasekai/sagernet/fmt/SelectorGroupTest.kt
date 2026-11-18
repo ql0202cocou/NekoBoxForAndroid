@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.fmt
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
+import io.nekohasekai.sagernet.fmt.internal.ChainBean
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -32,6 +33,30 @@ class SelectorGroupTest {
             assertNull(selectorGroupOf(plain, mode))
             assertNull(selectorGroupOf(null, mode))
         }
+    }
+
+    @Test
+    fun `单跳链别名与成员共享 tag 时回调保留已选别名`() {
+        val group = ProxyGroup(id = 1, isSelector = true)
+        val member = socks(1, 1)
+        val chain = ProxyEntity(id = 2, groupId = 1, userOrder = 2).putBean(ChainBean().apply {
+            initializeDefaultValues()
+            proxies = listOf(1L)
+        })
+        val source = MemoryConfigDataSource(listOf(group), listOf(member, chain), emptyList())
+        val main = ProfileRecord.of(chain)
+        val result = buildConfig(ConfigInput(ConfigBuildMode.RUN, main, testConfigSettings(),
+            ConfigSnapshot.collect(source, main, ConfigBuildMode.RUN), emptyMap(), FakeConfigPlatform()))
+        val tag = result.profileTagMap.getValue(1)
+        assertEquals(tag, result.profileTagMap.getValue(2))
+        assertEquals(2L, result.profileIdForTag(tag, 2))
+        assertEquals(1L, result.profileIdForTag(tag, 1))
+        assertEquals(1L, result.profileIdForTag(tag, 999))
+        assertNull(result.profileIdForTag("missing", 1))
+        // 没有匹配别名时也不能由 map 的插入顺序决定。
+        val reversed = ConfigBuildResult(result.config, result.externalChains, result.mainEntId,
+            result.traffic, linkedMapOf(2L to tag, 1L to tag), result.selectorGroupId)
+        assertEquals(1L, reversed.profileIdForTag(tag, 999))
     }
 
     @Test

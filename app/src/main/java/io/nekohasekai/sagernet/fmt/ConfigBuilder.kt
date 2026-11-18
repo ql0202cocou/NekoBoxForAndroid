@@ -122,6 +122,12 @@ class ConfigBuildResult(
     // 本次构建里 REALITY 且跑在 sing-box 上的节点，按提交的次序、每个节点一项；只读，见 withRealityHint
     val realityOnSingBox: List<RealityOnSingBox> = emptyList(),
 ) {
+    // 单跳链与成员可复用同一个出站。核心只回 tag，优先保留用户已选中的别名；
+    // 从外部面板切换且没有匹配别名时，取最小 id，避免依赖 HashMap 的遍历顺序。
+    fun profileIdForTag(tag: String, preferredId: Long): Long? =
+        preferredId.takeIf { profileTagMap[it] == tag }
+            ?: profileTagMap.entries.filter { it.value == tag }.minOfOrNull { it.key }
+
     // 组装与启动外核用的设置；只在有外核跳实例时调用（那时一定有）
     fun requireExternalCoreSettings(): ExternalCoreSettings =
         checkNotNull(externalCoreSettings) { "this config build captured no external core settings" }

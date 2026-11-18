@@ -136,13 +136,22 @@ object ProfileManager {
 
     // 按节点 id 把新增的流量加到库里（运行中的统计不持有节点实体），整批一个事务，同 updateTraffic(List)。
     // 写增量而不是绝对值：界面清零与 :bg 落库互不覆盖，清掉的旧累计不会被写回来
-    suspend fun persistTrafficIncrements(increments: Collection<TrafficIncrement>) {
+    suspend fun persistTrafficIncrements(increments: Collection<TrafficIncrement>, generation: Long) {
         if (increments.isEmpty()) return
         SagerDatabase.instance.runInTransaction {
+            // 恢复会复用节点 id；旧服务的最终结算或排队切换不能给新节点加流量。
+            if (SagerDatabase.dataGeneration() != generation) return@runInTransaction
             for (t in increments) {
                 SagerDatabase.proxyDao.addTraffic(t.id, t.tx, t.rx)
             }
         }
+    }
+
+    // 节点与世代号在同一事务里读取，不能把恢复前的节点配上恢复后的世代号。
+    fun getProfileForRun(id: Long): Pair<ProxyEntity, Long>? = guardedRead(null) {
+        SagerDatabase.instance.runInTransaction(Callable {
+            SagerDatabase.proxyDao.getById(id)?.let { it to SagerDatabase.dataGeneration() }
+        })
     }
 
     // 测速结果落库：逐行核对配置仍是被测时的才写（见 updateTestResult），整批一个事务（同 updateTraffic(List)）。

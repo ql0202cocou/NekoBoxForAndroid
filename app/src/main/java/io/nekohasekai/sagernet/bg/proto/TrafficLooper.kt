@@ -24,7 +24,7 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.coroutineContext
 
-class TrafficLooper(val data: BaseService.Data) {
+class TrafficLooper(val data: BaseService.Data, private val generation: Long) {
 
     // The loop's own job on appScope (loop() checks its own context, the one
     // stopLoop's cancel turns inactive). Written by start() on the Default
@@ -93,7 +93,7 @@ class TrafficLooper(val data: BaseService.Data) {
         val claim = accounting.claim(ids)
         if (claim.increments.isEmpty()) return
         try {
-            ProfileManager.persistTrafficIncrements(claim.increments)
+            ProfileManager.persistTrafficIncrements(claim.increments, generation)
         } catch (e: Throwable) {
             accounting.release(claim)
             throw e
