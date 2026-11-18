@@ -208,6 +208,30 @@ class ClashFieldRecordTest {
     }
 
     @Test
+    fun `WireGuard 密钥和允许范围按 mihomo 键名读取并保留原始路径`() {
+        val base = "name: w, type: wireguard, server: 192.0.2.1, port: 51820"
+        val key = "A".repeat(43) + "="
+        val (node, fields) = imported("{$base, PRIVATE_KEY: $key, PUBLIC_KEY: $key, Pre_Shared_Key: $key, ALLOWED_IPS: [192.0.2.0/24]}")
+        node as WireGuardBean
+        assertEquals(key, node.privateKey)
+        assertEquals(key, node.peerPublicKey)
+        assertEquals(key, node.peerPreSharedKey)
+        assertEquals("192.0.2.0/24", node.peerAllowedIps)
+        for (name in listOf("PRIVATE_KEY", "PUBLIC_KEY", "Pre_Shared_Key")) assertField(fields, name, KEPT)
+        assertField(fields, "ALLOWED_IPS", CONVERTED, ClashFieldReason.LIST_JOINED)
+
+        val canonical = imported("{$base, pre-shared-key: $key, Pre_Shared_Key: ignored}").first as WireGuardBean
+        assertEquals(key, canonical.peerPreSharedKey)
+        for (value in listOf("[192.0.2.0/24, invalid]", "['']", "[null]")) {
+            val bad = parsed("{$base, ALLOWED_IPS: $value}")
+            assertTrue(bad.beans.isEmpty())
+            val failure = bad.nodes.single() as ClashNodeResult.Failed
+            assertEquals(ClashNodeFailure.INVALID_VALUE, failure.failure)
+            assertEquals("ALLOWED_IPS", failure.path)
+        }
+    }
+
+    @Test
     fun `wireguard 全部可转换`() {
         val (bean, fields) = imported(
             "{name: w, type: wireguard, server: 198.51.100.20, port: 51820, ip: 198.51.100.2/32, ipv6: \"2001:db8::2/128\", private-key: pk-placeholder, public-key: pub-placeholder, pre-shared-key: psk-placeholder, reserved: [1, 2, 3], mtu: 1280, persistent-keepalive: 25, allowed-ips: [192.0.2.0/24, \"2001:db8::/32\"], udp: true, workers: 2}"
@@ -352,8 +376,7 @@ class ClashFieldRecordTest {
         assertField(ss, "plugin-opts.mux", IGNORED, ClashFieldReason.SEMANTICS_DIFFER)
         assertField(ss, "udp-over-tcp", KEPT)
 
-        val wireguard = fields("{name: w, type: wireguard, server: 198.51.100.20, port: 51820, private-key: pk-placeholder, allowed-ips: bad-placeholder, remote-dns-resolve: true, dns: [192.0.2.53]}")
-        assertField(wireguard, "allowed-ips", IGNORED, ClashFieldReason.INVALID_DROPPED)
+        val wireguard = fields("{name: w, type: wireguard, server: 198.51.100.20, port: 51820, private-key: pk-placeholder, remote-dns-resolve: true, dns: [192.0.2.53]}")
         assertField(wireguard, "remote-dns-resolve", IGNORED, ClashFieldReason.NOT_SUPPORTED)
         assertField(wireguard, "dns", IGNORED, ClashFieldReason.NOT_READ)
     }

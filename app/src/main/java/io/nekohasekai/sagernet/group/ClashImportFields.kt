@@ -87,7 +87,7 @@ internal fun classifyClashFields(type: String, proxy: Map<String, Any?>, bean: A
         is AnyTLSBean -> fields.anyTLS(bean)
         is HysteriaBean -> fields.hysteria(bean)
         is TuicBean -> fields.tuic(bean)
-        is WireGuardBean -> fields.wireGuard(bean)
+        is WireGuardBean -> fields.wireGuard()
         else -> emptySet<String>() to { _: List<String> -> null }
     }
     fields.finish(table) { path -> inactive(path) ?: fields.smuxInactive(path) }
@@ -1094,8 +1094,17 @@ private fun ClashFields.tuic(bean: TuicBean): Pair<Set<String>, ClashInactive> {
     return TUIC_KEYS to echOptsInactive()
 }
 
-private fun ClashFields.wireGuard(bean: WireGuardBean): Pair<Set<String>, ClashInactive> {
-    kept("server"); kept("port"); kept("private-key"); kept("public-key"); kept("pre-shared-key")
+private fun ClashFields.wireGuard(): Pair<Set<String>, ClashInactive> {
+    kept("server"); kept("port")
+    for (key in listOf("private-key", "public-key", "pre-shared-key", "allowed-ips")) {
+        val entry = proxy.mihomoEntry(key) ?: continue
+        val path = listOf(entry.key as String)
+        if (key == "allowed-ips" && entry.value is List<*>) {
+            recordAt(path, ClashFieldResult.CONVERTED, LIST_JOINED)
+        } else {
+            recordAt(path, ClashFieldResult.KEPT, null)
+        }
+    }
     // 裸 IP 导入时补上前缀（同 mihomo），是同一个地址的另一种写法
     for (key in listOf("ip", "ipv6")) {
         val address = text(key)
@@ -1107,16 +1116,6 @@ private fun ClashFields.wireGuard(bean: WireGuardBean): Pair<Set<String>, ClashI
         is List<*> -> converted(LIST_JOINED, "reserved")
         // 字符串：mihomo 按 base64 解码成字节，本应用要逗号分隔的三个数字（不是就在构建时报错）
         else -> if (reserved.toString().isEmpty()) ignored(DEFAULT_VALUE, "reserved") else ignored(SEMANTICS_DIFFER, "reserved")
-    }
-    if (present("allowed-ips")) {
-        when {
-            // 不是合法的 CIDR 列表，导入时清空（回到放行全部）
-            bean.peerAllowedIps.isNullOrEmpty() && !value("allowed-ips").isFalseOrEmpty() ->
-                ignored(INVALID_DROPPED, "allowed-ips")
-
-            value("allowed-ips") is List<*> -> converted(LIST_JOINED, "allowed-ips")
-            else -> kept("allowed-ips")
-        }
     }
     if (present("remote-dns-resolve")) {
         if (value("remote-dns-resolve").mihomoTrue()) ignored(NOT_SUPPORTED, "remote-dns-resolve")

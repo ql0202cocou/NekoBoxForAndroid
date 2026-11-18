@@ -931,11 +931,6 @@ private fun parseClashWireGuard(proxy: Map<String, Any?>): WireGuardBean {
                     )
                 }
 
-                "private-key" -> bean.privateKey = opt.value.toString()
-                "public-key" -> bean.peerPublicKey = opt.value.toString()
-                "pre-shared-key" -> bean.peerPreSharedKey =
-                    opt.value.toString()
-
                 "mtu" -> bean.mtu =
                     opt.value.toString().toIntOrNull() ?: bean.mtu
 
@@ -949,17 +944,27 @@ private fun parseClashWireGuard(proxy: Map<String, Any?>): WireGuardBean {
                 "persistent-keepalive" -> bean.peerKeepalive =
                     opt.value.toString().toIntOrNull() ?: 0
 
-                // 构建时生效（留空才用默认路由），见 buildSingBoxEndpointWireGuardBean。
-                // 非法值在导入时清空，同 sanitizeImportedAllowedIps（它会写日志，这里由字段记录报告）
-                "allowed-ips" -> {
-                    val raw = (opt.value as? List<*>)?.mapNotNull { it?.toString() }
-                        ?.joinToString(",") ?: opt.value.toString()
-                    bean.peerAllowedIps = if (isWireGuardLocalAddressList(raw)) raw else ""
-                }
-
                 // remote-dns-resolve、amnezia-wg-option 不支持，由字段记录报告
             }
         }
+    }
+    bean.privateKey = proxy.mihomoEntry("private-key")?.value?.toString()
+    bean.peerPublicKey = proxy.mihomoEntry("public-key")?.value?.toString()
+    bean.peerPreSharedKey = proxy.mihomoEntry("pre-shared-key")?.value?.toString()
+    proxy.mihomoEntry("allowed-ips")?.let { entry ->
+        val value = entry.value
+        val raw = when (value) {
+            null -> ""
+            is List<*> -> value.joinToString(",") {
+                if (it !is String || it.isBlank()) throw ClashNodeRejected(ClashNodeFailure.INVALID_VALUE, listOf(entry.key))
+                it
+            }
+            else -> value.toString()
+        }
+        if (!isWireGuardLocalAddressList(raw, allowEmpty = raw.isBlank())) {
+            throw ClashNodeRejected(ClashNodeFailure.INVALID_VALUE, listOf(entry.key))
+        }
+        bean.peerAllowedIps = raw
     }
     bean.localAddress = localAddresses.joinToString("\n")
     return bean
