@@ -318,7 +318,7 @@ private class ConfigBuild(
     private val warn: (String) -> Unit = { platform.warn(it) }
 
     // 一次构建的插件查询，按插件记住结果（见 PluginQueries）
-    private val plugins = PluginQueries(platform)
+    private val plugins = PluginQueries(platform, diagnostics::recordPluginConflict)
 
     // 一次构建的 sing-box 试建，按（种类，JSON）记住结论（见 SingBoxTrials）
     private val trials = SingBoxTrials(platform)

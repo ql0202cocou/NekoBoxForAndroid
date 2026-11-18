@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.fmt
 
+import moe.matsuri.nb4a.plugin.PluginConflictReporter
 import com.google.gson.JsonElement
 import com.google.gson.JsonParser
 import java.io.File
@@ -45,12 +46,12 @@ class FakeConfigPlatform(
         return File.createTempFile(prefix + "_", ".$ext", dir).also { tempFiles += it }
     }
 
-    override fun pluginExternalAuthority(pluginId: String): String? {
+    override fun pluginExternalAuthority(pluginId: String, onConflict: PluginConflictReporter): String? {
         pluginQueries += "pluginExternalAuthority($pluginId)"
         return externalAuthorities[pluginId]
     }
 
-    override fun pluginError(pluginId: String): Exception? {
+    override fun pluginError(pluginId: String, onConflict: PluginConflictReporter): Exception? {
         pluginQueries += "pluginError($pluginId)"
         return pluginErrors[pluginId]
     }

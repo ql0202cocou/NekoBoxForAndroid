@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.fmt
 
+import moe.matsuri.nb4a.plugin.PluginConflictReporter
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.database.RuleEntity
@@ -340,10 +341,10 @@ interface ConfigPlatform {
     fun createTempFile(prefix: String, ext: String): File
 
     /** 外部插件 app 的 provider authority，没有外部插件 app 时为 null。 */
-    fun pluginExternalAuthority(pluginId: String): String?
+    fun pluginExternalAuthority(pluginId: String, onConflict: PluginConflictReporter): String?
 
     /** 插件不可用的原因，可用时为 null。 */
-    fun pluginError(pluginId: String): Exception?
+    fun pluginError(pluginId: String, onConflict: PluginConflictReporter): Exception?
 
     /** 构建中的警告（跳过的成员、缺失的引用等），只记日志。 */
     fun warn(message: String, error: Throwable? = null)

@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.fmt
 
+import moe.matsuri.nb4a.plugin.PluginConflictReporter
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProxyEntity
@@ -96,11 +97,12 @@ private class AndroidConfigPlatform : ConfigPlatform {
     override fun createTempFile(prefix: String, ext: String): File =
         File.createTempFile(prefix + "_", ".$ext", SagerNet.application.cacheDir)
 
-    override fun pluginExternalAuthority(pluginId: String): String? = Plugins.getPluginExternal(pluginId)?.authority
+    override fun pluginExternalAuthority(pluginId: String, onConflict: PluginConflictReporter): String? =
+        Plugins.getPluginExternal(pluginId, onConflict)?.authority
 
     // 缺插件换成普通异常：预检据此跳过成员，消息里写明哪个插件没装
-    override fun pluginError(pluginId: String): Exception? = try {
-        PluginManager.init(pluginId)
+    override fun pluginError(pluginId: String, onConflict: PluginConflictReporter): Exception? = try {
+        PluginManager.init(pluginId, onConflict)
         null
     } catch (_: PluginManager.PluginNotFoundException) {
         IllegalStateException("plugin $pluginId is not installed")

@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.fmt
 
+import moe.matsuri.nb4a.plugin.PluginConflictReporter
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
@@ -22,12 +23,12 @@ class ChainPlanTest {
 
     private val platform = object : ConfigPlatform by FakeConfigPlatform() {
         override fun newPort(): Int = error("规划不能分配端口")
-        override fun pluginExternalAuthority(pluginId: String): String? {
+        override fun pluginExternalAuthority(pluginId: String, onConflict: PluginConflictReporter): String? {
             events += "authority($pluginId)"
             return null
         }
 
-        override fun pluginError(pluginId: String): Exception? = error("规划本身不查插件可用性")
+        override fun pluginError(pluginId: String, onConflict: PluginConflictReporter): Exception? = error("规划本身不查插件可用性")
     }
 
     private val warnings = ArrayList<String>()

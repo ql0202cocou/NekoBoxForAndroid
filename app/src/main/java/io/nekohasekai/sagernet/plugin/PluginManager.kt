@@ -7,6 +7,7 @@ import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.ktx.Logs
 import moe.matsuri.nb4a.plugin.Plugins
+import moe.matsuri.nb4a.plugin.PluginConflictReporter
 import java.io.File
 import java.io.FileNotFoundException
 
@@ -25,12 +26,12 @@ object PluginManager {
     )
 
     @Throws(Throwable::class)
-    fun init(pluginId: String): InitResult? {
+    fun init(pluginId: String, onConflict: PluginConflictReporter): InitResult? {
         if (pluginId.isEmpty()) return null
         var throwable: Throwable? = null
 
         try {
-            val result = initNative(pluginId)
+            val result = initNative(pluginId, onConflict)
             if (result != null) return result
         } catch (t: Throwable) {
             throwable = t
@@ -40,8 +41,8 @@ object PluginManager {
         throw throwable ?: PluginNotFoundException(pluginId)
     }
 
-    private fun initNative(pluginId: String): InitResult? {
-        val info = Plugins.getPlugin(pluginId) ?: return null
+    private fun initNative(pluginId: String, onConflict: PluginConflictReporter): InitResult? {
+        val info = Plugins.getPlugin(pluginId, onConflict) ?: return null
 
         // internal so
         if (info.applicationInfo == null) {

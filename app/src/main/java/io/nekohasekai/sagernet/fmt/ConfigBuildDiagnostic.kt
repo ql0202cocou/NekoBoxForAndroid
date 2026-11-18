@@ -6,6 +6,8 @@ import io.nekohasekai.sagernet.R
 // 提示文案由调用方经 configBuildNotices 生成，新增类型时同步那里
 sealed class ConfigBuildDiagnostic {
 
+    data class PluginConflict(val pluginId: String, val packages: List<String>) : ConfigBuildDiagnostic()
+
     // 选择器成员 / 路由规则目标预检失败，已跳过。reason 是异常的可读消息；
     // reasonNamesProfile 为真表示出错的就是这个节点本身，reason 已以它的名字开头，
     // 否则是链里别的成员出错
@@ -28,6 +30,13 @@ sealed class ConfigBuildDiagnostic {
 
     // 按应用分流的规则只在 VPN 模式下生效
     data class RuleNeedsVpn(val ruleId: Long, val ruleName: String) : ConfigBuildDiagnostic()
+}
+
+// 同一插件可能在映射判断、成员预检和启动组装时被多次解析。
+internal fun MutableList<ConfigBuildDiagnostic>.recordPluginConflict(pluginId: String, packages: List<String>) {
+    if (none { it is ConfigBuildDiagnostic.PluginConflict && it.pluginId == pluginId }) {
+        add(ConfigBuildDiagnostic.PluginConflict(pluginId, packages))
+    }
 }
 
 // 一条提示；long 对应 Toast.LENGTH_LONG，否则 LENGTH_SHORT
@@ -66,5 +75,9 @@ fun configBuildNotices(
             getString(R.string.route_need_vpn_rules, needVpn.joinToString(", ") { it.ruleName }), false
         )
     }
+    val conflicts = diagnostics.filterIsInstance<ConfigBuildDiagnostic.PluginConflict>()
+    if (conflicts.isNotEmpty()) notices += ConfigBuildNotice(
+        conflicts.joinToString("\n") { "Conflicting plugins for ${it.pluginId}: ${it.packages.joinToString()}" }, true
+    )
     return notices
 }

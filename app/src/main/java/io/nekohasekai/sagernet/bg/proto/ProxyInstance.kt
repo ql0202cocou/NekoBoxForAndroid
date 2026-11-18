@@ -31,12 +31,7 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
     internal fun acceptsSelectorCallback(): Boolean = isInitialized() && !isClosed()
 
     override fun buildConfig() {
-        // 构建失败时也先提示已收集的诊断，再照常抛出
-        try {
-            super.buildConfig()
-        } finally {
-            showBuildNotices()
-        }
+        super.buildConfig()
         // 配置里有凭据，写进可导出的日志前脱敏：本次构建的本机 socks 凭据按值遮蔽，其余按键名。
         // 脱敏要对整份配置跑多遍正则，日志关闭时直接跳过
         if (Logs.enabled) Logs.d(config.loggableConfig())
@@ -54,7 +49,12 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
     }
 
     override suspend fun init() {
-        super.init()
+        // 插件冲突也可能在组装外核时发现。即使初始化失败，已收集的诊断也只在运行入口提示一次。
+        try {
+            super.init()
+        } finally {
+            showBuildNotices()
+        }
         // init 跑在 IO 上，destroyRunner 的 close() 可能与它并发：close() 漏掉的 box 与临时文件已由
         // BoxInstance.init 补收，launch() 也会因 isClosed() 直接返回
         if (isClosed()) return

@@ -9,6 +9,7 @@ import io.nekohasekai.sagernet.bg.localReadinessSummary
 import io.nekohasekai.sagernet.bg.probeWrongPassword
 import io.nekohasekai.sagernet.bg.runCheckProcess
 import io.nekohasekai.sagernet.database.ProxyEntity
+import io.nekohasekai.sagernet.fmt.recordPluginConflict
 import io.nekohasekai.sagernet.fmt.ConfigBuildDiagnostic
 import io.nekohasekai.sagernet.fmt.ConfigBuildResult
 import io.nekohasekai.sagernet.fmt.ExternalCheckResult
@@ -97,7 +98,7 @@ abstract class BoxInstance(
     }
 
     protected fun initPlugin(name: String): PluginManager.InitResult {
-        return pluginPath.getOrPut(name) { PluginManager.init(name)!! }
+        return pluginPath.getOrPut(name) { PluginManager.init(name, buildDiagnostics::recordPluginConflict)!! }
     }
 
     // 构建诊断的收集器：构建抛异常时这里仍有已收集的部分。只有运行路径

@@ -7,13 +7,13 @@ import android.content.pm.ProviderInfo
 import android.content.pm.Signature
 import android.net.Uri
 import android.os.Build
-import android.widget.Toast
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.ktx.Logs
-import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
 import io.nekohasekai.sagernet.plugin.PluginManager.loadString
 import io.nekohasekai.sagernet.utils.PackageCache
 import java.security.MessageDigest
+
+typealias PluginConflictReporter = (pluginId: String, packages: List<String>) -> Unit
 
 object Plugins {
     const val AUTHORITIES_PREFIX_SEKAI_EXE = "io.nekohasekai.sagernet.plugin."
@@ -46,46 +46,31 @@ object Plugins {
         }
     }
 
-    fun getPlugin(pluginId: String): ProviderInfo? {
+    fun getPlugin(pluginId: String, onConflict: PluginConflictReporter): ProviderInfo? {
         if (pluginId.isBlank()) return null
-        getPluginExternal(pluginId)?.let { return it }
+        getPluginExternal(pluginId, onConflict)?.let { return it }
         // internal so
         return ProviderInfo().apply { authority = AUTHORITIES_PREFIX_NEKO_EXE }
     }
 
-    fun getPluginExternal(pluginId: String): ProviderInfo? {
+    fun getPluginExternal(pluginId: String, onConflict: PluginConflictReporter = { _, _ -> }): ProviderInfo? {
         if (pluginId.isBlank()) return null
+        val candidates = getExtPluginOld(pluginId).ifEmpty { getExtPluginNew(pluginId) }
+        return selectProvider(pluginId, candidates, ::isTrustedPlugin, onConflict)
+    }
 
-        // try queryIntentContentProviders
-        var providers = getExtPluginOld(pluginId)
-
-        // try PackageCache
-        if (providers.isEmpty()) providers = getExtPluginNew(pluginId)
-
-        // not found
-        if (providers.isEmpty()) return null
-
-        // Never execute binaries from untrusted packages (see isTrustedPlugin).
-        providers = providers.filter { isTrustedPlugin(it.packageName) }
-        if (providers.isEmpty()) return null
-
-        if (providers.size > 1) {
-            val prefer = providers.filter {
-                it.authority.startsWith(preferExePrefix())
-            }
-            if (prefer.size == 1) providers = prefer
-        }
-
-        if (providers.size > 1) {
-            val message =
-                "Conflicting plugins found from: ${providers.joinToString { it.packageName }}"
-            // may run on a Looper-less :bg thread; a Toast must be posted from the main thread
-            runOnMainDispatcher {
-                Toast.makeText(SagerNet.application, message, Toast.LENGTH_LONG).show()
-            }
-        }
-
-        return providers[0]
+    internal fun selectProvider(
+        pluginId: String,
+        candidates: List<ProviderInfo>,
+        isTrusted: (String) -> Boolean,
+        onConflict: PluginConflictReporter,
+    ): ProviderInfo? {
+        // 同一组件可同时响应两个旧入口。去重后只保留签名可信的提供方。
+        val trusted = candidates.distinctBy { it.packageName to it.name }.filter { isTrusted(it.packageName) }
+        if (trusted.size <= 1) return trusted.firstOrNull()
+        trusted.singleOrNull { it.authority.startsWith(preferExePrefix()) }?.let { return it }
+        onConflict(pluginId, trusted.map { it.packageName }.distinct())
+        return trusted.first()
     }
 
     private fun getExtPluginNew(pluginId: String): List<ProviderInfo> {

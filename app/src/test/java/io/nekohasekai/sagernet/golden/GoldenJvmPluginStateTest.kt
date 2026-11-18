@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.golden
 
 import com.google.gson.JsonParser
+import io.nekohasekai.sagernet.fmt.ConfigPlatform
 import io.nekohasekai.sagernet.fmt.ConfigBuildDiagnostic
 import io.nekohasekai.sagernet.fmt.ConfigBuildMode
 import io.nekohasekai.sagernet.fmt.ExternalRunPlan
@@ -10,6 +11,7 @@ import io.nekohasekai.sagernet.fmt.LocalSocksAuth
 import io.nekohasekai.sagernet.fmt.ProfileBuildException
 import io.nekohasekai.sagernet.fmt.TAG_PROXY
 import io.nekohasekai.sagernet.fmt.buildConfig
+import moe.matsuri.nb4a.plugin.PluginConflictReporter
 import moe.matsuri.nb4a.plugin.Plugins
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -29,7 +31,7 @@ class GoldenJvmPluginStateTest {
     private val baseline by lazy { GoldenBaseline.load() }
 
     // 运行模式构建一次（不组装外核配置）
-    private fun build(id: String, platform: FakeConfigPlatform, diagnostics: MutableList<ConfigBuildDiagnostic>) =
+    private fun build(id: String, platform: ConfigPlatform, diagnostics: MutableList<ConfigBuildDiagnostic>) =
         GoldenJvmScenario(baseline.input(id), GoldenAddressCorpus.of(baseline), tmp.root).let { scenario ->
             val source = baseline.input(id).dataSource()
             buildConfig(
@@ -38,6 +40,24 @@ class GoldenJvmPluginStateTest {
         }
 
     private fun corpusParse() = GoldenAddressCorpus.of(baseline)::parse
+
+    @Test
+    fun `映射与可用性两次查询同一冲突只生成一条构建诊断`() {
+        val packages = listOf("example.first", "example.second")
+        val platform = object : ConfigPlatform by FakeConfigPlatform(parse = corpusParse()) {
+            override fun pluginExternalAuthority(pluginId: String, onConflict: PluginConflictReporter): String? {
+                onConflict(pluginId, packages)
+                return Plugins.AUTHORITIES_PREFIX_NEKO_EXE + "hysteria"
+            }
+            override fun pluginError(pluginId: String, onConflict: PluginConflictReporter): Exception? {
+                if (pluginId == "hysteria-plugin") onConflict(pluginId, packages)
+                return null
+            }
+        }
+        val result = build("selector-plugin-members", platform, ArrayList())
+        assertEquals(listOf(ConfigBuildDiagnostic.PluginConflict("hysteria-plugin", packages)), result.diagnostics)
+        assertEquals(6, result.profileTagMap.size)
+    }
 
     @Test
     fun `插件都已安装时选择器成员全部保留并进入选择器`() {

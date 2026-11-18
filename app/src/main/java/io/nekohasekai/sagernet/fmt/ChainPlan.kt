@@ -6,6 +6,7 @@ import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.fmt.internal.ChainBean
 import moe.matsuri.nb4a.SingBoxOptions.CustomSingBoxOption
 import moe.matsuri.nb4a.SingBoxOptions.SingBoxOption
+import moe.matsuri.nb4a.plugin.PluginConflictReporter
 import moe.matsuri.nb4a.plugin.Plugins
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.utils.Util
@@ -168,19 +169,22 @@ internal fun buildInternalOutbound(bean: AbstractBean, globalAllowInsecure: Bool
  * 一次构建的插件查询：ConfigPlatform 的两种查询（外部插件 app、插件可用性）按插件分别记住结果，查不到的也记下。
  * 同一次构建里每个插件每种查询只做一次（在 Android 上每次都是一轮 IPC）；次数与次序由 GoldenJvmPluginStateTest 核对。
  */
-internal class PluginQueries(private val platform: ConfigPlatform) {
+internal class PluginQueries(
+    private val platform: ConfigPlatform,
+    private val onConflict: PluginConflictReporter = { _, _ -> },
+) {
     private val authorities = HashMap<String, String?>()
     private val errors = HashMap<String, Exception?>()
 
     /** 外部插件 app 的 provider authority，没有外部插件 app 时为 null。 */
     fun externalAuthority(pluginId: String): String? {
-        if (pluginId !in authorities) authorities[pluginId] = platform.pluginExternalAuthority(pluginId)
+        if (pluginId !in authorities) authorities[pluginId] = platform.pluginExternalAuthority(pluginId, onConflict)
         return authorities[pluginId]
     }
 
     /** 插件不可用时抛出平台给的原因（同一个插件每次抛同一个异常对象）。 */
     fun requireAvailable(pluginId: String) {
-        if (pluginId !in errors) errors[pluginId] = platform.pluginError(pluginId)
+        if (pluginId !in errors) errors[pluginId] = platform.pluginError(pluginId, onConflict)
         errors[pluginId]?.let { throw it }
     }
 }
