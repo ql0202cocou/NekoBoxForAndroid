@@ -177,7 +177,7 @@ object ProtocolLinkCases {
     private val shadowsocksSpec = LinkSpec(
         "Shadowsocks", TYPE_SS, ShadowsocksBean::class.java, "ss",
         neverInLink = generic() + mapOf(
-            "sUoTVersion" to "ss 链接只有 uot=1 一个开关，没有版本参数；链接导入的节点取默认版本 2（只有 Clash 订阅会写 1）",
+            "sUoTVersion" to "ss 链接只表示 UoT 开关，保存 v1 的节点走 SN 分享；标准链接导入取版本 2",
         ),
         cases = listOf(
             LinkCase("ss-plugin-uot") {

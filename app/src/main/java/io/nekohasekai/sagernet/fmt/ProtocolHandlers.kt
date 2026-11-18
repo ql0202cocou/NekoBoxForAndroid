@@ -399,6 +399,7 @@ fun protocolColorAttr(): Int = com.google.android.material.R.attr.colorOnSurface
 // (was ProxyEntity.haveStandardLink)
 fun hasStandardLink(bean: AbstractBean): Boolean = when (bean) {
     is AnyTLSBean -> bean.certificatePolicy == AnyTLSBean.CERTIFICATE_POLICY_PIN && !bean.hasLocalSocksOverride()
+    is ShadowsocksBean -> bean.sUoTVersion != 1
     is SSHBean -> false
     is WireGuardBean -> false
     is ShadowTLSBean -> false
@@ -423,7 +424,7 @@ fun standardLink(bean: AbstractBean): String {
     return when (bean) {
         is SOCKSBean -> bean.toUri()
         is HttpBean -> bean.toUri()
-        is ShadowsocksBean -> bean.toUri()
+        is ShadowsocksBean -> if (hasStandardLink(bean)) bean.toUri() else bean.toUniversalLink()
         is VMessBean -> bean.toUriVMessVLESSTrojan(false)
         is TrojanBean -> bean.toUriVMessVLESSTrojan(true)
         is TrojanGoBean -> bean.toUri()
