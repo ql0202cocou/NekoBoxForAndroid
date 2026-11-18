@@ -113,8 +113,8 @@ object GoldenMeasure {
         }
         val xray = count("xray", 38)
         val singbox = count("singbox", 2)
-        val total = xray + singbox
-        if (total == 0) throw CollectRefusedException("the selector group needs at least one member")
+        val total = xray.toLong() + singbox
+        if (total == 0L) throw CollectRefusedException("the selector group needs at least one member")
         if (total > MAX_NODES) throw CollectRefusedException("at most $MAX_NODES members")
         val mode = extras.getString("mode") ?: Key.MODE_VPN
         if (mode != Key.MODE_VPN && mode != Key.MODE_PROXY) throw CollectRefusedException("unknown mode $mode")

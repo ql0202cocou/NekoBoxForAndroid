@@ -81,6 +81,11 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
+# 总数在调用 adb（包括可能的安装与强停）前按十进制检查。
+if ! awk -v x="$XRAY" -v s="$SINGBOX" 'BEGIN { exit !(x + s >= 1 && x + s <= 600) }'; then
+  echo "--xray and --singbox must total 1 to 600 members" >&2
+  exit 2
+fi
 [ "$INTERVAL" -gt 0 ] || { echo "--interval must be positive" >&2; exit 2; }
 command -v python3 > /dev/null || { echo "python3 is required to summarize the results" >&2; exit 1; }
 

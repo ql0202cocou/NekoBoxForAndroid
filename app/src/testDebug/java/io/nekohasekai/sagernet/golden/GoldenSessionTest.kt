@@ -79,4 +79,13 @@ class GoldenSessionTest : UiTestBase() {
         assertEquals("[]", collect.readText())
         assertFalse(marker.exists())
     }
+
+    @Test
+    fun `空组、超限及整数溢出均在标记发布前拒绝`() = ui.bg {
+        for ((xray, singbox) in listOf(0 to 0, 600 to 1, Int.MAX_VALUE to 1, -1 to 2)) {
+            val args = Bundle().apply { putInt("xray", xray); putInt("singbox", singbox) }
+            assertThrows(CollectRefusedException::class.java) { GoldenMeasure.call(GoldenMeasure.METHOD_PREPARE, args) }
+            assertFalse(marker.exists())
+        }
+    }
 }

@@ -405,7 +405,7 @@ ANDROID_SERIAL=emulator-5554 ./run golden measure --out <空目录>            #
 ANDROID_SERIAL=emulator-5554 ./run golden measure --xray 8 --out <空目录>   # 低于 32 个上限的对照
 ```
 
-选项：`--xray` / `--singbox <N>`（各类节点个数，默认 38 / 2）、`--duration <秒>`（默认 120）、
+选项：`--xray` / `--singbox <N>`（各类节点个数，默认 38 / 2，两类合计 1 至 600 个）、`--duration <秒>`（默认 120）、
 `--interval <秒>`（取样间隔，默认 3）、`--mem-at <秒>`（第一次记内存，默认 30，结束前再记一次）、
 `--mode vpn|proxy`（默认 vpn）、`--log-level <N>`（默认 1，见下）、`--settle <秒>`（拉起界面后等多久再启动，默认 5）、
 `--out`、`--allow-wipe`、`--no-build`、`--no-install`（与采集相同）。`./run golden measure --help` 列出全部选项。
