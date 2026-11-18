@@ -37,7 +37,6 @@ import moe.matsuri.nb4a.net.LocalResolverImpl
 import moe.matsuri.nb4a.utils.Util
 import java.io.File
 import java.io.IOException
-import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 
 abstract class BoxInstance(
@@ -60,29 +59,11 @@ abstract class BoxInstance(
         private set
     open lateinit var processes: GuardedProcessPool
 
-    // init / launch 在一个线程里写它，而 close() 可能在另一个线程清空它
-    // （TestInstance 被取消时）；普通 ArrayList 在这里可能抛 ConcurrentModificationException，
-    // close() 里的 runCatching 就会把 box.close() 静默跳过。
-    private val cacheFiles = CopyOnWriteArrayList<File>()
-
-    // 并发的 TestInstance 共用这些目录，所以文件名交给文件系统来取——
-    // 用时间戳只能让撞名变少，不能杜绝。
-    private fun newCacheFile(prefix: String, ext: String, dir: File): File {
-        dir.mkdirs()
-        return File.createTempFile(prefix + "_", ".$ext", dir).also { cacheFiles.add(it) }
-    }
-
-    private fun deleteCacheFiles() {
-        cacheFiles.forEach { it.delete() }
-        cacheFiles.clear()
-    }
-
-    // 插件配置单独放一个目录；init() 经 newCacheFile 发出去的文件
-    // （hysteria 的 CA）则直接落在 cacheDir 里。
+    private val cacheFiles = InstanceConfigFiles()
     private val pluginConfigDir = File(app.cacheDir, "tmpcfg")
 
     private fun writeCacheFile(prefix: String, ext: String, content: String): File =
-        newCacheFile(prefix, ext, pluginConfigDir).apply { writeText(content) }
+        cacheFiles.write(pluginConfigDir) { newFile -> newFile(prefix, ext).apply { writeText(content) } }
 
     fun isInitialized(): Boolean {
         return ::config.isInitialized && ::box.isInitialized
@@ -119,11 +100,9 @@ abstract class BoxInstance(
             val plan = ExternalRunPlan.from(config)
             externalPlan = plan
             // 设置用构建时采集的那份
-            externalProcesses = if (plan.hops.isEmpty()) emptyList() else plan.assemble(
-                { prefix, ext -> newCacheFile(prefix, ext, app.cacheDir) },
-                config.requireExternalCoreSettings(),
-                beforeHop = { initPlugin(it.pluginId) },
-            )
+            externalProcesses = if (plan.hops.isEmpty()) emptyList() else cacheFiles.write(app.cacheDir) { newFile ->
+                plan.assemble(newFile, config.requireExternalCoreSettings(), beforeHop = { initPlugin(it.pluginId) })
+            }
             // ProxyInstance / TestInstance 的 loadConfig 都在这里收口
             try {
                 loadConfig()
@@ -132,9 +111,8 @@ abstract class BoxInstance(
             }
             checkExternalCores()
         } finally {
-            // init 期间被关闭（测速取消、destroyRunner）时，close() 看不到此后才建的 box 与临时文件，
-            // 又因只关一次不会再来：不论 init 成功还是中途抛错，都在这里补收（CANDIDATE-002）
-            if (isClosed()) closeAfterLateInit()
+            // close() 可能早于 box 赋值；init 结束时再接手这个较晚创建的核心。
+            if (isClosed() && ::box.isInitialized) runCatching { box.close() }
         }
     }
 
@@ -162,10 +140,7 @@ abstract class BoxInstance(
                 // 进程起不来：启动时同样会失败，照旧交给启动路径报错
                 ExternalCheckResult.Inconclusive("${check.coreName} config check could not run: ${e.readableMessage}")
             } finally {
-                files.forEach {
-                    it.delete()
-                    cacheFiles.remove(it)
-                }
+                files.forEach(cacheFiles::delete)
             }
             onExternalCheck(group, result)
             val elapsed = SystemClock.elapsedRealtime() - startedAt
@@ -186,42 +161,33 @@ abstract class BoxInstance(
         // 此时再启动 box 和插件会泄漏它们，所以直接返回。
         if (isClosed()) return
 
-        try {
-            val targets = ArrayList<Pair<ExternalHop, LocalPortTarget>>()
-            val context = currentCoroutineContext()
-            for (process in externalProcesses) {
-                context.ensureActive()
-                if (isClosed()) return
-                val launch = process.launch(
-                    initPlugin(process.group.pluginId).path, ::writeCacheFile, config.requireExternalCoreSettings()
-                )
-                context.ensureActive()
-                if (isClosed()) return
-                val processState = processes.start(launch.commands, launch.env)
-                val strict = verifiedCheck(process) != null
-                for (hop in process.group.hops) {
-                    targets += hop to LocalPortTarget(hop.localPort, strict, hop.localAuth, processState)
-                }
-            }
-            awaitExternalCores(targets)
-            // 等待刚结束时被关闭：外核进程已由 close() 停掉，不再启动 box
-            if (isClosed()) return
-            checkExternalAuth()
+        val targets = ArrayList<Pair<ExternalHop, LocalPortTarget>>()
+        val context = currentCoroutineContext()
+        for (process in externalProcesses) {
             context.ensureActive()
             if (isClosed()) return
-
-            try {
-                box.start()
-            } catch (e: Exception) {
-                throw config.withBoxErrorProfileName(e)
+            val launch = process.launch(
+                initPlugin(process.group.pluginId).path, ::writeCacheFile, config.requireExternalCoreSettings()
+            )
+            context.ensureActive()
+            if (isClosed()) return
+            val processState = processes.start(launch.commands, launch.env)
+            val strict = verifiedCheck(process) != null
+            for (hop in process.group.hops) {
+                targets += hop to LocalPortTarget(hop.localPort, strict, hop.localAuth, processState)
             }
-        } finally {
-            // 上面的 isClosed() 守卫与 writeCacheFile/processes.start 不是原子的：
-            // TestInstance 的取消落在 launch() 中途时 close() 已清过 cacheFiles，
-            // 之后加进来的插件配置文件无人再删（进程与 box 由 close() 兜底，
-            // 仅 cacheDir/tmpcfg 残留），这里补清一次。放在 finally：那时 box 已被
-            // 关闭，box.start() 会抛错，写在它后面就执行不到
-            if (isClosed()) deleteCacheFiles()
+        }
+        awaitExternalCores(targets)
+        // 等待刚结束时被关闭：外核进程已由 close() 停掉，不再启动 box
+        if (isClosed()) return
+        checkExternalAuth()
+        context.ensureActive()
+        if (isClosed()) return
+
+        try {
+            box.start()
+        } catch (e: Exception) {
+            throw config.withBoxErrorProfileName(e)
         }
     }
 
@@ -268,14 +234,6 @@ abstract class BoxInstance(
         return closed.get()
     }
 
-    // close() 可能在 init() 进行中就跑了（测速取消、destroyRunner）：那时 box 还没赋值、被跳过，
-    // 此后才建的临时文件也不在它删的范围里；close() 的 CAS 又让第二次调用直接返回，
-    // 所以由 init() 发现自己已被关闭时在这里补收
-    private fun closeAfterLateInit() {
-        deleteCacheFiles()
-        if (::box.isInitialized) runCatching { box.close() }
-    }
-
     // 在 close() 之后调用：join 会在守护的收尾逻辑运行期间挂起 Main。
     suspend fun awaitProcessesClosed() {
         if (::processes.isInitialized) processes.coroutineContext[Job]?.join()
@@ -290,9 +248,9 @@ abstract class BoxInstance(
         // 才在 IO 上跑，此刻才不会有 guard 重启一个配置文件已被删掉的插件。
         // processes.close() 只有 OOM 级的抛异常路径，抛了回调没挂上，直接补删
         val deleteAfterClose = ::processes.isInitialized && runCatching {
-            processes.close(appScope + Dispatchers.IO, ::deleteCacheFiles)
+            processes.close(appScope + Dispatchers.IO, cacheFiles::close)
         }.onFailure { Logs.w(it) }.isSuccess
-        if (!deleteAfterClose) deleteCacheFiles()
+        if (!deleteAfterClose) cacheFiles.close()
 
         // gomobile 把 Go 侧错误（DeferPanicToError）转成异常；在
         // stopRunner 的协程里不接住会让 :bg 在关停途中崩溃
