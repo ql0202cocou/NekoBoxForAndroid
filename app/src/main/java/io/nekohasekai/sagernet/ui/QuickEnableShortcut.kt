@@ -37,7 +37,7 @@ class QuickEnableShortcut : Activity(), SagerConnection.Callback {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // bind 被拒时 onServiceConnected 永不到达，无界面 Activity 要自己收尾
-        if (!connection.connect(this, this)) {
+        if (!connection.connect(this, this, SagerConnection.SHORTCUT_CONNECT_TIMEOUT_MS)) {
             finish()
             return
         }
@@ -55,6 +55,8 @@ class QuickEnableShortcut : Activity(), SagerConnection.Callback {
     }
 
     override fun stateChanged(state: BaseService.State, profileName: String?, msg: String?) {}
+
+    override fun onServiceDisconnected() = finish()
 
     override fun onDestroy() {
         connection.disconnect(this)

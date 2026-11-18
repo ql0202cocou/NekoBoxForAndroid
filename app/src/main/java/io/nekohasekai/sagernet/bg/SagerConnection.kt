@@ -4,7 +4,9 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.RemoteException
 import io.nekohasekai.sagernet.Action
 import io.nekohasekai.sagernet.Key
@@ -35,6 +37,8 @@ class SagerConnection(
         const val CONNECTION_ID_MAIN_ACTIVITY_BACKGROUND = 3
         const val CONNECTION_ID_RESTART_BG = 4
 
+        const val SHORTCUT_CONNECT_TIMEOUT_MS = 10_000L
+
         // written on Dispatchers.Default (triggerFullRestart), read on binder threads
         @Volatile
         var restartingApp = false
@@ -62,9 +66,11 @@ class SagerConnection(
 
     private var connectionActive = false
 
-    // binderDied clears these from a binder thread; the main thread reads them
+    // 注册请求失败时远端也可能已执行，断开时仍须尝试注销；binderDied 在 Binder 线程清除此标记。
     @Volatile
-    private var callbackRegistered = false
+    private var callbackRegistrationAttempted = false
+    private val registrationHandler = Handler(Looper.getMainLooper())
+    private val connectionHandler = Handler(Looper.getMainLooper())
     private var callback: Callback? = null
     private val serviceCallback = object : ISagerNetServiceCallback.Stub() {
 
@@ -112,26 +118,41 @@ class SagerConnection(
 
     fun updateConnectionId(id: Int) {
         connectionId = id
+        registerCallback()
+    }
+
+    private fun registerCallback(retryDelayMillis: Long = 1000L) {
+        registrationHandler.removeCallbacksAndMessages(null)
+        val service = service ?: return
+        callbackRegistrationAttempted = true
         try {
-            service?.registerCallback(serviceCallback, id)
+            service.registerCallback(serviceCallback, connectionId)
         } catch (e: Exception) {
-            Logs.w("Failed to update connection id", e)
+            Logs.w("Failed to register service callback", e)
+            // 小请求也可能因 Binder 缓冲区不足而失败，不能只等进程死亡或下次切页。
+            // 注册按 callback binder 幂等；退避至最多 30 秒，每次重试都使用最新前后台状态。
+            // 执行时再核对连接：断开或 binderDied 后入队的重试只会空跑一次。
+            if (e is RemoteException) registrationHandler.postDelayed({
+                if (connectionActive && this.service === service) {
+                    registerCallback((retryDelayMillis * 2).coerceAtMost(30_000L))
+                }
+            }, retryDelayMillis)
         }
     }
 
     override fun onServiceConnected(name: ComponentName?, binder: IBinder) {
+        if (!connectionActive) return
+        connectionHandler.removeCallbacksAndMessages(null)
         this.binder = binder
         val service = ISagerNetService.Stub.asInterface(binder)!!
         this.service = service
         try {
             if (listenForDeath) binder.linkToDeath(this, 0)
-            // a second onServiceConnected without a disconnect in between must not
-            // throw out of a system callback; re-registering is harmless
-            if (callbackRegistered) Logs.w("callback already registered, registering again")
-            service.registerCallback(serviceCallback, connectionId)
-            callbackRegistered = true
+            // 重复回连仍按同一个 callback binder 注册，不新增服务端回调；注册失败由内部退避重试，
+            // 这里只会收到 linkToDeath 的失败（远端已死亡，不再注册）。
+            registerCallback()
         } catch (e: RemoteException) {
-            Logs.w("Failed to register service callback", e)
+            Logs.w("Failed to link to service death", e)
         }
         callback?.onServiceConnected(service)
     }
@@ -145,48 +166,73 @@ class SagerConnection(
 
     override fun binderDied() {
         service = null
-        callbackRegistered = false
+        callbackRegistrationAttempted = false
+        registrationHandler.removeCallbacksAndMessages(null)
         if (!restartingApp) {
             runOnMainDispatcher { callback?.onBinderDied() }
         }
     }
 
     private fun unregisterCallback() {
+        registrationHandler.removeCallbacksAndMessages(null)
         val service = service
-        if (service != null && callbackRegistered) try {
+        if (service != null && callbackRegistrationAttempted) try {
             service.unregisterCallback(serviceCallback)
         } catch (_: RemoteException) {
         }
-        callbackRegistered = false
+        callbackRegistrationAttempted = false
     }
 
-    // 返回 false 表示 bindService 被拒：onServiceConnected 永不到达，
+    // 返回 false 表示绑定被拒或调用失败：不会再收到 onServiceConnected，
     // 无界面的调用方（QuickToggleShortcut）要据此自行收尾
-    fun connect(context: Context, callback: Callback?): Boolean {
+    fun connect(context: Context, callback: Callback?, timeoutMillis: Long = 0): Boolean {
         if (connectionActive) return true
-        connectionActive = true
         check(this.callback == null)
-        this.callback = callback
         val intent = Intent(context, serviceClass).setAction(Action.SERVICE)
-        if (!context.bindService(intent, this, Context.BIND_AUTO_CREATE)) {
-            // bind refused: no onServiceConnected/Disconnected will ever
-            // arrive, so roll back to allow a later retry
+        connectionActive = true
+        this.callback = callback
+        val bound = try {
+            context.bindService(intent, this, Context.BIND_AUTO_CREATE)
+        } catch (e: RuntimeException) {
+            // 系统服务通信失败也会被 ContextImpl 包装成 RuntimeException。
+            Logs.w("Failed to bind service", e)
+            false
+        }
+        if (!bound) {
             connectionActive = false
             this.callback = null
-            // a failed restart connect must not leave this stuck, or every
-            // later binderDied would be swallowed
+            // 重启绑定失败不能继续屏蔽其它连接的 binderDied。
             restartingApp = false
-            return false
+            // 框架先登记 ServiceConnection 再请求系统服务，返回 false 或抛异常也需解绑。
+            try {
+                context.unbindService(this)
+            } catch (_: IllegalArgumentException) {
+                // 异常发生在登记之前时没有可释放的连接。
+            } catch (e: RuntimeException) {
+                // 解绑也可能遇到系统通信失败，不能阻断已完成的本地回滚。
+                Logs.w("Failed to unbind service after bind failure", e)
+            }
+        } else if (timeoutMillis > 0 && service == null) {
+            // 无界面快捷方式不能无限等首次回连；解绑后框架会丢弃该请求的迟到回调。
+            connectionHandler.postDelayed({
+                val waiting = this.callback
+                disconnect(context)
+                waiting?.onServiceDisconnected()
+            }, timeoutMillis)
         }
-        return true
+        return bound
     }
 
     fun disconnect(context: Context) {
+        connectionHandler.removeCallbacksAndMessages(null)
         unregisterCallback()
         if (connectionActive) try {
             context.unbindService(this)
         } catch (_: IllegalArgumentException) {
-        }   // ignore
+            // 连接已由框架释放。
+        } catch (e: RuntimeException) {
+            Logs.w("Failed to unbind service", e)
+        }
         connectionActive = false
         if (listenForDeath) try {
             binder?.unlinkToDeath(this, 0)

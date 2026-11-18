@@ -62,7 +62,7 @@ class QuickToggleShortcut : Activity(), SagerConnection.Callback {
             profileId = intent.getLongExtra("profile", -1L)
             // bind 被拒时 onServiceConnected 永不到达（connect 内部已回滚），
             // 这个无界面 Activity 必须自己收尾，否则永远残留
-            if (!connection.connect(this, this)) {
+            if (!connection.connect(this, this, SagerConnection.SHORTCUT_CONNECT_TIMEOUT_MS)) {
                 finish()
                 return
             }
@@ -98,6 +98,8 @@ class QuickToggleShortcut : Activity(), SagerConnection.Callback {
     }
 
     override fun stateChanged(state: BaseService.State, profileName: String?, msg: String?) {}
+
+    override fun onServiceDisconnected() = finish()
 
     override fun onDestroy() {
         connection.disconnect(this)
