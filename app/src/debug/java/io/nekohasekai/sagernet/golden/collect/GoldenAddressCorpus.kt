@@ -51,6 +51,9 @@ object GoldenAddressCorpus {
         "192.0.2.1:53", "example.com:443", "example.com:", ":53", "127.0.0.1:53", "0.0.0.0:53",
         "udp://127.0.0.1:53", "tls://[::1]", "https://dns.example.net/dns-query", "https://[::1]/dns-query",
         "localhost", "LOCALHOST", "localhost:53", "system", "local", "dhcp://auto",
+        "auto", "dns.example.org", "dns.example.com", "dns.example.net",
+        "2001:db8::53", "2001:db8::54", "[2001:db8::53]",
+        "udp://[2001:db8::53]:53", "tls://[2001:db8::53]:853", "https://[2001:db8::53]/dns-query",
         // CIDR
         "192.0.2.0/24", "2001:db8::/32", "0.0.0.0/0", "::/0", "192.0.2.1/33", "192.0.2.1/032",
         "fe80::/64", "fe80::1%wlan0/64", "::ffff:192.0.2.1/128", "192.0.2.0/24\n2001:db8::/32",

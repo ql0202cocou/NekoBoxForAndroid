@@ -40,14 +40,7 @@ class GoldenAddressCorpus(file: File) {
          * （十六进制，不是数字地址为 null），期望按 bionic inet_pton 的规则写。唯一的名单：GoldenAddressCorpusTest
          * 拿它核对回退实现，GoldenJvmBuildTest 跑完全部场景后核对查到的正好是这些，README 也引用这里。
          */
-        val KNOWN_OUTSIDE: Map<String, String?> = linkedMapOf(
-            "dns.example.org" to null,
-            "dns.example.com" to null,
-            "dns.example.net" to null,
-            "auto" to null,
-            "2001:db8::53" to "20010db8000000000000000000000053",
-            "2001:db8::54" to "20010db8000000000000000000000054",
-        )
+        val KNOWN_OUTSIDE: Map<String, String?> = emptyMap()
 
         fun String.quoted() = "\"" + replace("\\", "\\\\").replace("\n", "\\n").replace("\t", "\\t") + "\""
 

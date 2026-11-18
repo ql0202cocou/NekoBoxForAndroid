@@ -318,6 +318,8 @@ socks 出站与入站都没有；同一份 sing-box 配置里本机凭据只有�
 `Os.inet_pton`、`isWireGuardLocalAddressList` 走 `InetAddress.getByName`，普通 JVM 上不能当对照；
 以后换成纯 Kotlin 实现时，拿这份结果在 JVM 上逐条比对。语料含普通 / 越界 / 缺段 / 多段的 IPv4、带前导零
 的 IPv4、各种写法的 IPv6（含 zone、IPv4 映射、方括号）、host:port、CIDR、域名、空白与非法输入。
+另含 `auto`、DNS 域名及 IPv6 DNS 的裸地址、方括号与 UDP / TLS / HTTPS URI；URI 在这些底层地址助手中
+按原字符串检查，DNS 生成器会另外解析协议，不把这里的 `isServerAddress=false` 当作 DNS 配置无效。
 
 ## 场景与夹具
 
