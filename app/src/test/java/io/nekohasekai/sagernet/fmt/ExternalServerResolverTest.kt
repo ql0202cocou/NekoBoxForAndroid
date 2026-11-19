@@ -191,6 +191,37 @@ class ExternalServerResolverTest {
         assertFalse(configs.getValue(4).has("resolver"))
     }
 
+    @Test
+    fun `两个服务器都是回环地址时，插件出口仍经映射入站转给前一跳`() {
+        val entry = hysteria(2, HysteriaBean.PROTOCOL_WECHAT_VIDEO, server = LOCALHOST)
+        val exit = hysteria(3, HysteriaBean.PROTOCOL_WECHAT_VIDEO, server = LOCALHOST)
+        exit.hysteriaBean!!.serverPorts = "9443-9450,10443"
+        val main = chain(1, 2, 3)
+        for (mode in ConfigBuildMode.entries) {
+            val result = build(main, listOf(main, entry, exit), nameservers, mode)
+            val core = result.json()
+            val mapping = core.array("inbounds").map { it.asJsonObject }.single { it.has("override_port") }
+            assertEquals(LOCALHOST, mapping["override_address"].asString)
+            assertEquals(9443, mapping["override_port"].asInt)
+            val mappedServer = "$LOCALHOST:${mapping["listen_port"].asInt}"
+
+            val plugins = result.hysteriaConfigs()
+            assertEquals(mode.name, "$LOCALHOST:8443", plugins.getValue(2)["server"].asString)
+            assertEquals(mode.name, mappedServer, plugins.getValue(3)["server"].asString)
+            val route = core.array("route", "rules").map { it.asJsonObject }.single {
+                core.inboundOf(it) == listOf(mapping["tag"].asString) && it.has("outbound")
+            }
+            val outbound = core.array("outbounds").map { it.asJsonObject }.single { it["tag"].asString == route["outbound"].asString }
+            assertEquals(plugins.getValue(2).getAsJsonObject("socks5")["listen"].asString,
+                "${outbound["server"].asString}:${outbound["server_port"].asInt}")
+            if (mode == ConfigBuildMode.EXPORT) {
+                val (text, _) = exportConfigText(result, "hy1-chain") { _, _ -> error("no temp files expected") }
+                val servers = text.split("\n\n").drop(1).map { JsonParser.parseString(it).asJsonObject["server"].asString }
+                assertEquals(listOf("$LOCALHOST:8443", mappedServer).sorted(), servers.sorted())
+            }
+        }
+    }
+
     // ---- 运行计划 ----
 
     private fun hysteriaBean() = HysteriaBean().apply {

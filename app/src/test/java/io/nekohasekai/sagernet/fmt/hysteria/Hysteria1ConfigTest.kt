@@ -96,10 +96,12 @@ class Hysteria1ConfigTest {
     }
 
     @Test
-    fun `服务器本身就是本机时不走映射端口`() {
-        val json = bean { serverAddress = "127.0.0.1" }.build(target = Mapped(41234))
-        assertEquals("127.0.0.1:8443", json.str("server"))
+    fun `本机多端口服务器经映射时只拨映射端口，直拨时保留跳跃端口`() {
+        val node = bean { serverAddress = "127.0.0.1"; serverPorts = "8443-8450,9443" }
+        val json = node.build(target = Mapped(41234))
+        assertEquals("127.0.0.1:41234", json.str("server"))
         assertFalse(json.has("server_name"))
+        assertEquals("127.0.0.1:8443-8450,9443", node.build(target = Direct).str("server"))
     }
 
     @Test

@@ -338,14 +338,11 @@ fun HysteriaBean.buildHysteria1Config(
     }
     val ports = parseHysteriaPorts(serverPorts).joinHysteriaPorts()
     val config = LinkedHashMap<String, Any>().apply {
-        // 经映射（链成员）时插件必须拨本机的映射端口，直拨服务器会绕过整条链。不映射时按 serverPorts
-        // 直拨服务器：hysteria 的 serverPort 与 serverPorts 不同步，端口跳跃也只在直拨时可用。
-        // 服务器地址恰是本机时即使经映射也直拨（沿用以前的判断）
-        if (target is ExternalDialTarget.Mapped && serverAddress != LOCALHOST) {
-            put("server", "$LOCALHOST:${target.port}")
-        } else {
-            put("server", "${serverAddress.wrapIPV6Host()}:$ports")
-        }
+        // 经映射的跳一律拨 sing-box 的映射入站；直拨时使用节点的 serverPorts，保留端口跳跃。
+        put("server", when (target) {
+            is ExternalDialTarget.Mapped -> "$LOCALHOST:${target.port}"
+            ExternalDialTarget.Direct -> "${serverAddress.wrapIPV6Host()}:$ports"
+        })
         when (protocol) {
             HysteriaBean.PROTOCOL_FAKETCP -> {
                 put("protocol", "faketcp")
