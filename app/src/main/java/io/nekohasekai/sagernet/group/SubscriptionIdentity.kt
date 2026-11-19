@@ -2,11 +2,9 @@ package io.nekohasekai.sagernet.group
 
 import io.nekohasekai.sagernet.database.SubscriptionBean
 import io.nekohasekai.sagernet.database.ProxyGroup
-import io.nekohasekai.sagernet.ktx.readableMessage
 import java.net.URI
 import java.net.URISyntaxException
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import okhttp3.HttpUrl.Companion.toHttpUrl
 
 /**
  * 订阅更新「下载什么、怎么解析」的身份：下载开始时记下，写库事务开头与分组当前行比对，
@@ -55,7 +53,7 @@ fun isSubscriptionSuperseded(started: SubscriptionIdentity, current: ProxyGroup)
 internal fun needsDisconnectedUpdateConfirmation(subscription: SubscriptionBean): Boolean =
     subscription.updateWhenConnectedOnly == true || subscription.link?.substringBefore(':', "").equals("http", ignoreCase = true)
 
-/** 深链原文交给 Go 下载。要求它本身带有 authority，避免 HTTP 解析器宽松补斜杠后看似可用。 */
+/** 远程订阅原文交给 Go 下载。要求它本身带有 authority，避免 HTTP 解析器宽松补斜杠后看似可用。 */
 fun isHttpSubscriptionLink(link: String): Boolean = try {
     !URI(link).rawAuthority.isNullOrEmpty() && link.toHttpUrlOrNull() != null
 } catch (_: URISyntaxException) {
@@ -68,14 +66,11 @@ fun isHttpSubscriptionLink(link: String): Boolean = try {
  * 返回不能保存的原因，null 表示可以保存。深链导入不接受 content://，仍用 [isHttpSubscriptionLink]
  */
 fun subscriptionLinkError(link: String): String? {
-    if (link.isBlank() || link.startsWith("content://")) return null
-    if (link.contains("\n")) return "Unexpected new line"
-    return try {
-        link.toHttpUrl()
-        null
-    } catch (e: Exception) {
-        e.readableMessage
-    }
+    if (link.isBlank()) return null
+    if ('\n' in link || '\r' in link) return "Unexpected new line"
+    val trimmed = link.trim()
+    if (trimmed.startsWith("content://") || isHttpSubscriptionLink(trimmed)) return null
+    return "Invalid HTTP(S) subscription URL"
 }
 
 fun isEditableSubscriptionLink(link: String): Boolean = subscriptionLinkError(link) == null

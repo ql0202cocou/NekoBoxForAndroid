@@ -117,6 +117,12 @@ class SubscriptionIdentityTest {
         assertTrue(isEditableSubscriptionLink(""))
         assertFalse(isEditableSubscriptionLink("https://a.example/sub\nhttps://b.example/sub"))
         assertFalse(isEditableSubscriptionLink("https://"))
+        for (link in listOf("https:example.org/sub", "https:///example.org/sub", "https:/example.org/sub")) {
+            assertFalse(link, isHttpSubscriptionLink(link))
+            assertFalse(link, isEditableSubscriptionLink(link))
+        }
+        assertTrue(isEditableSubscriptionLink("  HTTP://example.org/sub  "))
+        assertFalse(isEditableSubscriptionLink("https://a.example/\rsub"))
         assertEquals("Unexpected new line", subscriptionLinkError("https://a\nb"))
         assertFalse(isHttpSubscriptionLink("content://docs/x"))
     }
