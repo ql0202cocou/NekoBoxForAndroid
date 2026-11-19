@@ -131,6 +131,7 @@ class GoldenCollectProvider : ContentProvider() {
                 codeTop = paths("codeDirtyTop"),
             ),
             xray = core("xray"),
+            expectedSingBoxVersion = required("singBoxVersion"),
             allowWipe = extras.getBoolean("allowWipe", false),
         )
     }

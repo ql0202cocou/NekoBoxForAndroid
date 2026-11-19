@@ -136,8 +136,8 @@ class GoldenCompareTreeTest {
         assertSame(r)
         assertTrue(r.render(), r.warnings.isEmpty())
         val text = r.render()
-        assertTrue(text, "预期：提交 abc1234，工作区干净，应用 1.8.0-a1，sing-box 1.14.2-neko-1，Xray v26.3.27，系统 API 37（Android 17），采集于 2026-10-04T14:11:54Z\n" in text)
-        assertTrue(text, "实际：提交 def5678，" in text)
+        assertTrue(text, "预期：采集工作区提交 abc1234，工作区干净，应用 1.8.0-a1，sing-box 1.14.2-neko-1，Xray v26.3.27，系统 API 37（Android 17），采集于 2026-10-04T14:11:54Z\n" in text)
+        assertTrue(text, "实际：采集工作区提交 def5678，" in text)
         assertTrue(text, text.endsWith("结论：一致\n"))
     }
 
@@ -162,8 +162,16 @@ class GoldenCompareTreeTest {
     @Test
     fun `旧格式 manifest 的 dirtyPaths 也能打印`() {
         val old = """{"formatVersion": 1, "commit": "abc1234", "dirtyPaths": ["a", "b"], "app": {"versionName": "1.7.8-a1"}}"""
-        assertEquals("预期：提交 abc1234，工作区有 2 处改动（旧格式，未区分代码改动），应用 1.7.8-a1", manifestOf(old))
-        assertEquals("提交 abc1234，工作区干净", manifestOf("""{"commit": "abc1234", "dirtyPaths": []}""").removePrefix("预期："))
+        assertEquals("预期：采集工作区提交 abc1234，工作区有 2 处改动（旧格式，未区分代码改动），应用 1.7.8-a1", manifestOf(old))
+        assertEquals("采集工作区提交 abc1234，工作区干净", manifestOf("""{"commit": "abc1234", "dirtyPaths": []}""").removePrefix("预期："))
+    }
+
+    @Test
+    fun `采集工作区与复用 APK 的来源分别显示且不影响产物比较`() {
+        val sha = "a1".repeat(32)
+        val line = manifestOf("""{"collectorWorkspace":{"commit":"abc","dirty":{"count":0}},
+            "apk":{"mode":"prebuilt","sha256":"$sha"}}""")
+        assertEquals("预期：采集工作区提交 abc，工作区干净，APK prebuilt，SHA-256 $sha", line)
     }
 
     @Test

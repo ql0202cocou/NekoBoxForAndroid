@@ -43,12 +43,13 @@ ANDROID_SERIAL=emulator-5554 ./run golden collect --out <目录> # 写到指定�
 
 脚本（`buildScript/golden/collect.sh`）依次：核对 `app/executableSo/<abi>/` 下的 Xray 与
 `buildScript/lib/plugins.sh` 固定的 sha256 → 构建并安装 oss debug 包（`adb install -r`，保留数据）→
-执行
+核对设备 APK 与本地 APK 的 SHA-256，再执行
 
 ```bash
 adb shell content call --uri content://moe.nb4a.debug.golden --method collect \
   --extra commit:s:<提交> --extra dirtyCount:i:<N> --extra dirtyTop:s:<前若干条> \
   --extra codeDirtyCount:i:<M> --extra codeDirtyTop:s:<前若干条> \
+  --extra singBoxVersion:s:<工作区版本> \
   --extra xrayVersion:s:<…> --extra xrayPinnedSha256:s:<…> --extra xrayPackagedSha256:s:<…> \
   [--extra allowWipe:b:true]
 ```
@@ -63,9 +64,12 @@ adb shell content call --uri content://moe.nb4a.debug.golden --method collect \
 
 APK 只按 `app/build/outputs/apk/oss/debug/output-metadata.json`（Gradle 每次构建写出的清单）选：取设备 ABI 对应的
 那一项，没有就取 universal，文件名以清单为准，不按目录里的文件名猜（目录里常留着旧版本的 APK）。`--no-build` 与
-`--no-install` 同样按清单选（后者只用它核对内置核心的哈希）。安装后、触发采集前，脚本还会核对设备上 debug 包的
-`versionCode` 与清单一致。清单不存在、没有对应条目、清单里的文件不存在、设备上的版本号不一致，都会返回非零并打印原因。
-这套选 APK、安装与核对的逻辑在 `buildScript/golden/lib.sh`，`measure.sh`（见文末「K0 实测」）共用。
+`--no-install` 同样按清单选择 APK。脚本在调用采集入口前核对 versionCode、设备上单个 APK 的 SHA-256
+与本地文件。新采集入口写入夹具前，还核对运行中的 sing-box 版本与工作区 `libcore/sing-box/constant/version.go`。
+新采集入口也在清单中写入进程所用 APK 的实算摘要。主机用 Python 3 标准库复核该摘要及运行版本后才写入目标目录；旧采集入口沿用调用前核对的整包摘要，主机仍会复核运行版本。版本不符时需用
+对应工作区重新编译 libcore 和 APK。历史产物仍可直接用 `golden compare` 对照。
+
+选包、安装及 versionCode 检查与 `measure.sh` 共用；整包摘要和运行版本检查用于 `collect.sh`。
 
 采集入口的约束：
 
@@ -217,8 +221,9 @@ address/corpus.json                                        地址解析语料与
 | 字段 | 内容 |
 | --- | --- |
 | `formatVersion` | 3（K0b 起；v1、v2 见「目录结构」一节末尾） |
-| `commit` | 采集所基于的提交（采集时工作副本的提交，整理历史后可能在 main 里查不到，核对以树哈希为准；对照工具只把它拼进显示文字） |
-| `dirty` | 工作区的改动：`count` 是有改动的路径总数（含未跟踪文件，0 即干净），`top` 是排序后的前 50 条；`codeCount` / `codeTop` 是其中不在 `app/src/debug/`、`app/src/test/`、`buildScript/golden/`、`doc/` 之下的路径，`codeCount` 非 0 说明有可能影响配置输出的代码改动。（旧格式的 manifest 没有 `dirty`，只有全部路径的数组 `dirtyPaths`） |
+| `collectorWorkspace.commit` | 脚本采集时主机的 Git 提交。复用 APK 时，原构建提交可能未知。旧清单用顶层 `commit`。 |
+| `apk` | `sha256` 是设备与本地选中 APK 核对一致的整包摘要。`mode` 为本次 Gradle 构建并安装（`built`）、安装已有文件（`prebuilt`）或复用已安装文件（`installed`）。旧清单没有此字段。 |
+| `collectorWorkspace.dirty` | 采集时主机工作区的改动（旧清单用顶层 `dirty` 或 `dirtyPaths`）：`count` 是有改动的路径总数（含未跟踪文件，0 即干净），`top` 是排序后的前 50 条；`codeCount` / `codeTop` 是其中不在 `app/src/debug/`、`app/src/test/`、`buildScript/golden/`、`doc/` 之下的路径，`codeCount` 非 0 说明有可能影响配置输出的代码改动。 |
 | `app` | applicationId、versionName、versionCode、flavor、buildType |
 | `cores.sing-box` | `Libcore.versionBox()` 的原文（逐行）与其中的版本号 |
 | `cores.xray` | `version`、`pinnedSha256` 取自 `plugins.sh`（上游二进制）；`installedSha256` 是设备上那份文件的实算值（打包时经 AGP strip，与上游文件不同） |
@@ -226,7 +231,7 @@ address/corpus.json                                        地址解析语料与
 | `system` | API 级别（`sdkInt`、`sdkIntFull`）、系统版本、build fingerprint、ABI、页大小、语言 |
 | `scenarios` / `counts` | 场景数与各模式成功 / 失败的数量 |
 | `externalChecks` | run / test 模式里启动前校验的次数（每组 Xray 合并配置一次）：`checked`、`failed`、`inconclusive`（超时、被信号杀掉、进程起不来，照常继续）的总数，`byPlugin` 按插件 id 分开计（另有 `passed`），`problems` 逐条列出没过与没有结论的场景、模式、插件与原因。基线全部场景的合并配置（Xray 217 份）都应被校验且全部通过 |
-| `collectedAt` | 采集时间（UTC）；两次采集之间只有它允许不同 |
+| `collectedAt` | 采集时间（UTC） |
 
 ## input.json
 

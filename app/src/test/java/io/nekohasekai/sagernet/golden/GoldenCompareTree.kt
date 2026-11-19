@@ -509,8 +509,11 @@ object GoldenCompareTree {
         fun int(vararg path: String) = intAt(m, *path)
 
         val parts = ArrayList<String>()
-        text("commit")?.let { parts.add("提交 $it") }
-        dirtyText(m)?.let { parts.add(it) }
+        val workspace = m.fields["collectorWorkspace"] as? GoldenValue.Obj ?: m
+        textAt(workspace, "commit")?.let { parts.add("采集工作区提交 $it") }
+        dirtyText(workspace)?.let { parts.add(it) }
+        text("apk", "mode")?.let { parts.add("APK $it") }
+        text("apk", "sha256")?.let { parts.add("SHA-256 $it") }
         text("app", "versionName")?.let { parts.add("应用 $it") }
         // 旧格式里 cores.<核心> 下是对象，核心版本在其 version 字段
         for ((key, label) in listOf("sing-box" to "sing-box", "xray" to "Xray")) {

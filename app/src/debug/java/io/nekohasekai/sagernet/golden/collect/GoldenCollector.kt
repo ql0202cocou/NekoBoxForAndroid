@@ -38,6 +38,7 @@ class CollectArgs(
     val commit: String,
     val dirty: DirtyArgs,
     val xray: CoreArgs,
+    val expectedSingBoxVersion: String,
     val allowWipe: Boolean,
 )
 
@@ -90,9 +91,17 @@ class GoldenCollector(private val args: CollectArgs) {
 
     private val gson = GsonBuilder().setPrettyPrinting().disableHtmlEscaping().serializeNulls().create()
 
+    private val versionBox by lazy { Libcore.versionBox() }
+    private val singBoxVersion by lazy {
+        versionBox.lineSequence().firstOrNull { it.startsWith("sing-box: ") }?.removePrefix("sing-box: ")
+    }
+
     fun collect(): CollectSummary {
         if (File(app.filesDir, GoldenMeasure.OWNED_MARKER).exists()) throw CollectRefusedException(
             "a measurement owns the database; call measureFinish to restore it first"
+        )
+        if (singBoxVersion != args.expectedSingBoxVersion) throw CollectRefusedException(
+            "installed sing-box $singBoxVersion, workspace expects ${args.expectedSingBoxVersion}; rebuild libcore and the APK"
         )
         val scenarios = goldenScenarios()
         requireReflectionTargets()
@@ -377,9 +386,6 @@ class GoldenCollector(private val args: CollectArgs) {
         checks: CheckStats,
         plugins: Map<String, String>,
     ): Map<String, Any?> {
-        val versionBox = Libcore.versionBox()
-        val singBoxVersion = versionBox.lineSequence().firstOrNull { it.startsWith("sing-box: ") }
-            ?.removePrefix("sing-box: ")
         val nativeDir = File(app.applicationInfo.nativeLibraryDir)
         val system = linkedMapOf<String, Any?>(
             "sdkInt" to Build.VERSION.SDK_INT,
@@ -397,13 +403,16 @@ class GoldenCollector(private val args: CollectArgs) {
         }
         return linkedMapOf(
             "formatVersion" to FORMAT_VERSION,
-            "commit" to args.commit,
-            "dirty" to linkedMapOf(
-                "count" to args.dirty.count,
-                "top" to args.dirty.top,
-                "codeCount" to args.dirty.codeCount,
-                "codeTop" to args.dirty.codeTop,
+            "collectorWorkspace" to linkedMapOf(
+                "commit" to args.commit,
+                "dirty" to linkedMapOf(
+                    "count" to args.dirty.count,
+                    "top" to args.dirty.top,
+                    "codeCount" to args.dirty.codeCount,
+                    "codeTop" to args.dirty.codeTop,
+                ),
             ),
+            "apk" to linkedMapOf("sha256" to sha256(File(app.applicationInfo.sourceDir))),
             "app" to linkedMapOf(
                 "applicationId" to BuildConfig.APPLICATION_ID,
                 "versionName" to BuildConfig.VERSION_NAME,

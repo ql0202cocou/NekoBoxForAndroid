@@ -22,6 +22,20 @@ class GoldenSessionTest : UiTestBase() {
     private val dao get() = PublicDatabase.kvPairDao
     private fun row(value: String) = KeyValuePair().apply { key = "journal-test"; put(value) }
 
+    private fun collectArgs() = CollectArgs(
+        "test", DirtyArgs(0, emptyList(), 0, emptyList()), CoreArgs("", "", ""),
+        expectedSingBoxVersion = "expected", allowWipe = true,
+    )
+
+    @Test
+    fun `核心版本无法验证时在发布标记和写入夹具前拒绝采集`() = ui.bg {
+        dao.put(row("original"))
+        val failure = assertThrows(CollectRefusedException::class.java) { GoldenCollector(collectArgs()).collect() }
+        assertTrue(failure.message.orEmpty().contains("workspace expects expected"))
+        assertEquals("original", dao["journal-test"]?.string)
+        assertFalse(File(app.filesDir, GoldenCollector.OWNED_MARKER).exists())
+    }
+
     @Test
     fun `重试保留第一个快照，恢复失败在真实 Room 回滚后仍可重放`() = ui.bg {
         val journal = GoldenSettingsJournal(marker)
@@ -65,9 +79,8 @@ class GoldenSessionTest : UiTestBase() {
     @Test
     fun `持有标记的工具独占数据库，另一入口带 allowWipe 仍拒绝`() = ui.bg {
         val collect = File(app.filesDir, GoldenCollector.OWNED_MARKER)
-        val args = CollectArgs("test", DirtyArgs(0, emptyList(), 0, emptyList()), CoreArgs("", "", ""), true)
         marker.writeText("[]")
-        assertTrue(assertThrows(CollectRefusedException::class.java) { GoldenCollector(args).collect() }
+        assertTrue(assertThrows(CollectRefusedException::class.java) { GoldenCollector(collectArgs()).collect() }
             .message.orEmpty().contains("measureFinish"))
         assertFalse(collect.exists())
         assertTrue(marker.renameTo(collect))

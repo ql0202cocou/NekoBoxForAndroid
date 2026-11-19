@@ -48,6 +48,7 @@ if [ "$GOLDEN" = 1 ] && [ -n "$DEST" ]; then
   exit 2
 fi
 
+command -v python3 > /dev/null || { echo "python3 is required to verify the collection manifest" >&2; exit 1; }
 source buildScript/golden/lib.sh
 golden_setup_device
 
@@ -62,7 +63,7 @@ for v in XRAY_VERSION XRAY_PINNED; do
 done
 verify_sha256 "app/executableSo/$ABI/libxray.so" "$XRAY_PINNED" || { echo "run ./run lib plugins first" >&2; exit 1; }
 
-# 采集所基于的提交；工作区不干净时记下有改动的路径（含未跟踪文件）。路径可能多达数千条，
+# 采集时主机工作区的提交；工作区不干净时记下有改动的路径（含未跟踪文件）。路径可能多达数千条，
 # 而 content call 的命令行有长度上限，所以只传总数与排序后的前 DIRTY_TOP 条（换行分隔后
 # Base64，"-" 表示没有）。「代码改动」指不在 app/src/debug/、app/src/test/、buildScript/golden/、
 # doc/ 之下的路径：它们才可能影响配置输出
@@ -82,13 +83,30 @@ if [ "$DIRTY_COUNT" != 0 ]; then
   echo ">> working tree is dirty ($DIRTY_COUNT paths, $CODE_COUNT outside the golden tooling), recorded in manifest.json"
 fi
 
+BOX_VERSION=$(sed -n 's/^var Version = "\([A-Za-z0-9._+-]\{1,64\}\)"$/\1/p' libcore/sing-box/constant/version.go)
+[ -n "$BOX_VERSION" ] || { echo "cannot read workspace sing-box version" >&2; exit 1; }
+APK_MODE=prebuilt
 if [ "$BUILD" = 1 ]; then
+  APK_MODE=built
   echo ">> building oss debug APK"
   ./gradlew -q app:assembleOssDebug
 fi
 golden_select_apk
 golden_check_other_session golden-measure.owned
 golden_install_apk "$INSTALL"
+[ "$INSTALL" = 1 ] || APK_MODE=installed
+APK_SHA256=$(shasum -a 256 < "$APK" | awk '{print $1}')
+# ABI 包与 universal 均为单 APK。拒绝额外 split，避免只核对 base.apk 的一部分代码。
+DEVICE_APK=$("$ADB" shell pm path "$PACKAGE" | tr -d '\r')
+if [[ ! "$DEVICE_APK" =~ ^package:(/[^[:space:]]+\.apk)$ ]]; then
+  echo "expected exactly one installed APK for $PACKAGE" >&2
+  exit 1
+fi
+INSTALLED_SHA256=$("$ADB" shell sha256sum "${BASH_REMATCH[1]}" | awk '{print $1}')
+if [ "$INSTALLED_SHA256" != "$APK_SHA256" ]; then
+  echo "installed APK sha256 $INSTALLED_SHA256 differs from $APK ($APK_SHA256); reinstall before collecting" >&2
+  exit 1
+fi
 # 打包时 AGP 会 strip 原生库，装进设备的文件与上游二进制不再逐字节相同：取 APK 里那份的
 # sha256 交给采集入口，与设备上实际安装的文件核对
 XRAY_PACKAGED=$(unzip -p "$APK" "lib/$ABI/libxray.so" | shasum -a 256 | awk '{print $1}')
@@ -108,6 +126,7 @@ EXTRAS=(
   --extra "dirtyTop:s:$DIRTY_TOP_B64"
   --extra "codeDirtyCount:i:$CODE_COUNT"
   --extra "codeDirtyTop:s:$CODE_TOP_B64"
+  --extra "singBoxVersion:s:$BOX_VERSION"
   --extra "xrayVersion:s:$XRAY_VERSION"
   --extra "xrayPinnedSha256:s:$XRAY_PINNED"
   --extra "xrayPackagedSha256:s:$XRAY_PACKAGED"
@@ -134,6 +153,29 @@ trap 'rm -rf "$STAGE"' EXIT
 tar -xf "$STAGE/out.tar" -C "$STAGE"
 [ -f "$STAGE/golden-out/manifest.json" ] || { echo "pulled output has no manifest.json" >&2; exit 1; }
 "$ADB" shell run-as "$PACKAGE" rm -rf files/golden-out
+
+# 旧 APK 的采集入口会忽略新的版本参数。因此发布前始终复核运行时版本，
+# 并把主机的 git 信息与本次实际运行的 APK 分开记录。
+python3 - "$STAGE/golden-out/manifest.json" "$BOX_VERSION" "$APK_MODE" "$APK_SHA256" <<'PYTHON'
+import json
+import sys
+from pathlib import Path
+
+path, expected, mode, sha256 = sys.argv[1:]
+manifest = json.loads(Path(path).read_text(encoding="utf-8"))
+actual = manifest["cores"]["sing-box"]["version"]
+if actual != expected:
+    sys.exit(f"collected sing-box {actual}, workspace expects {expected}; rebuild libcore and the APK")
+if "collectorWorkspace" in manifest:
+    if manifest["apk"]["sha256"] != sha256:
+        sys.exit("the collecting process reported a different APK sha256")
+else:
+    # 旧采集器未自行计算摘要，使用调用前已核对的设备安装包。
+    manifest["collectorWorkspace"] = {"commit": manifest.pop("commit"), "dirty": manifest.pop("dirty")}
+    manifest["apk"] = {"sha256": sha256}
+manifest["apk"]["mode"] = mode
+Path(path).write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+PYTHON
 
 mkdir -p "$DEST"
 if [ "$GOLDEN" = 1 ]; then
