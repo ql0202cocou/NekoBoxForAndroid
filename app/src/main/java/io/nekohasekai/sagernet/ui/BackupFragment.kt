@@ -261,7 +261,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                         // 先校验，文件无效时不打断正在运行的服务。
                         val decoded = BackupRestore.decode(content, profile, rule, setting)
                         if (!stopServiceAndWait()) throw ServiceStopTimeoutException()
-                        val skipped = finishImport(content, decoded, profile, rule, setting)
+                        val skipped = finishImport(content, decoded)
                         if (skipped > 0) {
                             Logs.w("Backup import skipped $skipped invalid record(s)")
                             showSnackbar(app.getString(R.string.backup_import_skipped, skipped))
@@ -335,17 +335,14 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         return (listOf(getString(R.string.backup_broken_title)) + lines).joinToString("\n")
     }
 
-    fun finishImport(
-        content: JSONObject, decoded: BackupRestore.Decoded,
-        profile: Boolean, rule: Boolean, setting: Boolean
-    ): Int {
+    fun finishImport(content: JSONObject, decoded: BackupRestore.Decoded): Int {
         val journal = RestoreJournal.default
         // 暂存、两次提交、清日志整段持日志的跨进程锁：:bg 启动时的重放（completePending）同样在这把锁里
         // 读日志、提交、清日志。不持锁时，重放能在日志刚暂存就读到它，与这里并行提交同一份备份，
         // 或在这里提交失败回滚之后把备份又写一遍，清日志也会互相抢先
         return journal.withLock {
             // 第一次提交之前先暂存：两次数据库提交之间进程被杀时，下次启动会重放这份备份（RestoreJournal）
-            val wasPending = journal.stage(content, profile, rule, setting)
+            val wasPending = journal.stage(content, decoded.profiles != null, decoded.rules != null, decoded.settings != null)
             // 已有中断恢复时，补偿只能退回导入前的混合状态，仍需保留恢复来源。
             if (wasPending) {
                 BackupRestore.commit(decoded, null)

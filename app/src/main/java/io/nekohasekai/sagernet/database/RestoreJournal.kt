@@ -23,6 +23,8 @@ class RestoreJournal(private val dir: File, private val lockFile: File) {
 
     companion object {
         const val MAX_ATTEMPTS = 3
+        private const val MAX_JOURNAL_BYTES = MAX_IMPORT_BYTES + 256
+        private val sections = setOf("profiles", "rules", "settings")
 
         val default by lazy {
             RestoreJournal(File(app.filesDir, "restore"), File(app.filesDir, "restore.lock"))
@@ -47,27 +49,32 @@ class RestoreJournal(private val dir: File, private val lockFile: File) {
             put("settings", setting)
             put("backup", backup)
         }
+        val selected = requireNotNull(payload.selectedSections()) { "Invalid restore sections" }
         if (wasPending) {
-            val required = readPending()?.selectedSections().orEmpty()
-            val selected = payload.selectedSections()
-            if (selected.isEmpty() || !selected.containsAll(required)) {
-                throw IncompleteReplacementException()
-            }
+            // 原日志的范围不明时，只有三项齐全的新备份才覆盖所有可能已经提交的数据。
+            val required = readPending()?.selectedSections() ?: sections
+            if (!selected.containsAll(required)) throw IncompleteReplacementException()
         }
         write(payload)
         legacyFailed.delete()
         return wasPending
     }
 
-    private fun JSONObject.selectedSections(): List<String> {
-        val backup = optJSONObject("backup") ?: return emptyList()
-        return listOf("profiles", "rules", "settings").filter { optBoolean(it) && backup.has(it) }
+    private fun JSONObject.selectedSections(): Set<String>? {
+        val backup = optJSONObject("backup") ?: return null
+        if (backup.optInt("version") != 1 || sections.any { opt(it) !is Boolean }) return null
+        // 老版本可能把隐藏的复选框也记成 true，仅恢复文件实际包含的部分。
+        val selected = sections.filterTo(mutableSetOf()) { getBoolean(it) && backup.has(it) }
+        if (selected.isEmpty() || selected.any { backup.optJSONArray(it) == null }) return null
+        if (getBoolean("profiles") && backup.has("groups") != backup.has("profiles")) return null
+        if ("profiles" in selected && backup.optJSONArray("groups") == null) return null
+        return selected
     }
 
     private fun readPending(): JSONObject? = try {
         // 已通过导入大小与深度检查的备份，在日志里多一层对象及固定的状态字段。
         JSONObject(pending.inputStream().use {
-            it.readBytesLimited(MAX_IMPORT_BYTES + 256).toString(Charsets.UTF_8).checkJsonNesting(65)
+            it.readBytesLimited(MAX_JOURNAL_BYTES).toString(Charsets.UTF_8).checkJsonNesting(65)
         })
     } catch (e: Exception) {
         Logs.w("Restore journal unreadable: ${e.javaClass.simpleName}")
@@ -89,6 +96,7 @@ class RestoreJournal(private val dir: File, private val lockFile: File) {
         return withLock {
             if (!isPending()) return@withLock Result.NONE
             val payload = readPending() ?: return@withLock Result.PENDING
+            val selected = payload.selectedSections() ?: return@withLock Result.PENDING
             // 先计一次尝试再应用：崩溃循环必须能终止。
             val previous = payload.optInt("attempts", 0)
             if (previous >= MAX_ATTEMPTS && !retry) return@withLock Result.PENDING
@@ -100,9 +108,9 @@ class RestoreJournal(private val dir: File, private val lockFile: File) {
                 }
                 apply(
                     payload.getJSONObject("backup"),
-                    payload.optBoolean("profiles"),
-                    payload.optBoolean("rules"),
-                    payload.optBoolean("settings"),
+                    "profiles" in selected,
+                    "rules" in selected,
+                    "settings" in selected,
                 )
                 clear()
             } catch (e: Exception) {
@@ -119,7 +127,9 @@ class RestoreJournal(private val dir: File, private val lockFile: File) {
         val tmp = File(dir, "pending.json.tmp")
         try {
             FileOutputStream(tmp).use {
-                it.write(payload.toString().toByteArray())
+                val bytes = payload.toString().toByteArray()
+                if (bytes.size > MAX_JOURNAL_BYTES) throw IOException("Restore journal exceeds size limit")
+                it.write(bytes)
                 it.fd.sync()
             }
             if (!tmp.renameTo(pending)) throw IOException("Cannot stage restore journal")

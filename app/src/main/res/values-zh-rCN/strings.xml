@@ -562,7 +562,7 @@
     <string name="reality_ech_conflict_error">REALITY 不能与 ECH 同时启用：sing-box 会拒绝该配置，Xray 会忽略 ECH。</string>
     <string name="restore_pending">备份恢复尚未完成，完成后再启动服务。</string>
     <string name="scanner_flashlight">闪光灯</string>
-    <string name="restore_missing_sections">请选中上次恢复所包含的全部项目，或在备份页重试上次恢复。</string>
+    <string name="restore_missing_sections">请选中上次恢复所包含的全部项目，或在备份页重试。若无法读取上次的选区，请使用完整备份并勾选全部三项。</string>
     <string name="retry_restore">重试中断的恢复</string>
     <string name="restore_replay_failed">备份恢复未完成。请在「工具 → 备份」中重试恢复，或重新导入原备份。</string>
 

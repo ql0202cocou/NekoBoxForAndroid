@@ -624,7 +624,7 @@
     <string name="reality_ech_conflict_error">REALITY cannot be combined with ECH: sing-box rejects the profile and Xray ignores ECH.</string>
     <string name="restore_pending">A backup restore has not finished yet. Start the service again after it completes.</string>
     <string name="scanner_flashlight">Flashlight</string>
-    <string name="restore_missing_sections">Select all sections from the interrupted restore, or retry it on the Backup page.</string>
+    <string name="restore_missing_sections">Select all sections from the interrupted restore, or retry it on the Backup page. If its selection cannot be read, select all three sections from a complete backup.</string>
     <string name="retry_restore">Retry interrupted restore</string>
     <string name="restore_replay_failed">Restore incomplete. In Tools → Backup, retry the restore or import the original backup again.</string>
     <string name="more_options">More options</string>
