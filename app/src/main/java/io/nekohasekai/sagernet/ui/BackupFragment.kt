@@ -4,6 +4,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Parcel
 import android.os.Parcelable
+import android.util.JsonWriter
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -23,12 +24,13 @@ import io.nekohasekai.sagernet.databinding.LayoutImportBinding
 import io.nekohasekai.sagernet.databinding.LayoutProgressBinding
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.widget.hostMainScrollable
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import moe.matsuri.nb4a.utils.Util
-import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.StringWriter
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -56,13 +58,11 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                 // Fragment 重建后回调落在新实例上，视图可能还没建好：放在进程级的作用域里写，
                 // writeToDocument 自己处理界面已不在的情况
                 runOnDefaultDispatcher {
-                    val backup = if (scope == null || scope.size != 3) "" else {
-                        runCatching { doBackup(scope[0], scope[1], scope[2]) }
-                            .onFailure { Logs.w(it) }
-                            .getOrDefault("")
+                    if (scope == null || scope.size != 3) {
+                        showSnackbar(R.string.action_export_err)
+                    } else {
+                        exportBackup(scope[0], scope[1], scope[2]) { writeToDocument(data, it) }
                     }
-                    // 空内容由 writeToDocument 拒绝并提示，不会截断选中的文件
-                    writeToDocument(data, backup)
                 }
             }
         }
@@ -104,15 +104,17 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
             val rule = binding.backupRules.isChecked
             val setting = binding.backupSettings.isChecked
             viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
-                val backup = doBackup(profile, rule, setting)
-                // 直接写进分享目录（shareFile 只分享其中的文件），先清掉上次的残留
-                app.deleteSharedBackups()
-                val cacheFile = File(app.shareDir.apply { mkdirs() }, backupFileName())
-                cacheFile.writeText(backup)
-                onMainDispatcher {
-                    requireContext().shareFile(cacheFile, "application/json")
+                exportBackup(profile, rule, setting) { backup ->
+                    app.deleteSharedBackups()
+                    val cacheFile = File(app.shareDir.apply { mkdirs() }, backupFileName())
+                    try {
+                        cacheFile.writeText(backup)
+                        onMainDispatcher { requireContext().shareFile(cacheFile, "application/json") }
+                    } catch (e: Exception) {
+                        cacheFile.delete()
+                        throw e
+                    }
                 }
-
             }
         }
 
@@ -140,45 +142,57 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
         runOnDefaultDispatcher { app.deleteSharedBackups() }
     }
 
-    fun Parcelable.toBase64Str(): String {
-        val parcel = Parcel.obtain()
-        writeToParcel(parcel, 0)
+    internal class BackupTooLargeException : Exception()
+
+    private suspend fun exportBackup(profile: Boolean, rule: Boolean, setting: Boolean, write: suspend (String) -> Unit) {
         try {
-            return Util.b64EncodeUrlSafe(parcel.marshall())
-        } finally {
-            parcel.recycle()
+            write(doBackup(profile, rule, setting))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: BackupTooLargeException) {
+            showSnackbar(app.getString(R.string.backup_too_large, MAX_IMPORT_BYTES / (1024 * 1024)))
+        } catch (e: Exception) {
+            Logs.w("Backup export failed: ${e.javaClass.simpleName}")
+            showSnackbar(R.string.action_export_err)
         }
     }
 
     fun doBackup(profile: Boolean, rule: Boolean, setting: Boolean): String {
-        // 节点、分组、规则在同一个 Room 事务里读完，见 BackupRepository
         val snapshot = BackupRepository.readSnapshot(profile, rule)
-        val out = JSONObject().apply {
-            put("version", 1)
-            if (snapshot?.profiles != null && snapshot.groups != null) {
-                put("profiles", JSONArray().apply {
-                    snapshot.profiles.forEach { put(it.toBase64Str()) }
-                })
-
-                put("groups", JSONArray().apply {
-                    snapshot.groups.forEach { put(it.toBase64Str()) }
-                })
-            }
-            if (snapshot?.rules != null) {
-                put("rules", JSONArray().apply {
-                    snapshot.rules.forEach { put(it.toBase64Str()) }
-                })
-            }
-            if (setting) {
-                put("settings", JSONArray().apply {
-                    // the Clash API secret is per-install (InstallMarker), not a preference
-                    PublicDatabase.kvPairDao.all().filter { it.key != Key.CLASH_API_SECRET && it.key != Key.SETTINGS_RESTORE_GENERATION }.forEach {
-                        put(it.toBase64Str())
+        val output = StringWriter()
+        JsonWriter(output).use { json ->
+            json.setIndent("  ")
+            json.beginObject().name("version").value(1L)
+            fun section(name: String, records: List<Parcelable>) {
+                json.name(name).beginArray()
+                for (record in records) {
+                    val parcel = Parcel.obtain()
+                    try {
+                        record.writeToParcel(parcel, 0)
+                        // 键名和无填充 URL-safe Base64 都是 ASCII，字符数就是 UTF-8 字节数。
+                        // 先检查本条编码长度，避免为已经超限的数据构造大字符串。
+                        val encodedSize = (parcel.dataSize() * 4L + 2) / 3
+                        if (output.buffer.length + encodedSize > MAX_IMPORT_BYTES) throw BackupTooLargeException()
+                        json.value(Util.b64EncodeUrlSafe(parcel.marshall()))
+                    } finally {
+                        parcel.recycle()
                     }
+                }
+                json.endArray()
+            }
+            snapshot?.profiles?.let { section("profiles", it) }
+            snapshot?.groups?.let { section("groups", it) }
+            snapshot?.rules?.let { section("rules", it) }
+            if (setting) {
+                section("settings", PublicDatabase.kvPairDao.all().filter {
+                    it.key != Key.CLASH_API_SECRET && it.key != Key.SETTINGS_RESTORE_GENERATION
                 })
             }
+            json.endObject()
         }
-        return out.toStringPretty()
+        // 最后一条记录后的引号、缩进和结束符也计入导入上限。
+        if (output.buffer.length > MAX_IMPORT_BYTES) throw BackupTooLargeException()
+        return output.toString()
     }
 
     val importFile = registerForActivityResult(ActivityResultContracts.GetContent()) { file ->

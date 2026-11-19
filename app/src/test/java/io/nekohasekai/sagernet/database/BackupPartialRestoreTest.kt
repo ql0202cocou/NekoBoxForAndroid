@@ -2,11 +2,30 @@ package io.nekohasekai.sagernet.database
 
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
 import io.nekohasekai.sagernet.uitest.UiTestBase
+import io.nekohasekai.sagernet.ktx.readBytesLimited
+import io.nekohasekai.sagernet.ui.BackupFragment
+import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 
 /** 部分恢复不推测节点身份、不隐式改写未勾选的表；既有悬空规则由构建跳过。 */
 class BackupPartialRestoreTest : UiTestBase() {
+    @Test
+    fun exportOnlyProducesBackupsWithinTheImportLimit() = ui.bg {
+        val fragment = BackupFragment()
+        val domains = (1..16_000).joinToString("\n") { "subdomain$it.example" }
+        val rules = (1L..100L).map { RuleEntity(id = it, name = "Rule $it", domains = domains) }
+        val dao = SagerDatabase.rulesDao
+        dao.reset()
+        dao.insert(rules.take(1))
+        val json = fragment.doBackup(false, true, false).byteInputStream().use { it.readBytesLimited() }
+        val decoded = BackupRestore.decode(JSONObject(json.toString(Charsets.UTF_8)), false, true, false)
+        assertEquals(rules.take(1), decoded.rules)
+        dao.insert(rules.drop(1))
+        assertThrows(BackupFragment.BackupTooLargeException::class.java) { fragment.doBackup(false, true, false) }
+        Unit
+    }
+
     @Test
     fun `只恢复节点保留本地规则并清除失效的选中节点和分组`() = ui.bg {
         val old = GroupRepository.createGroup(ProxyGroup(name = "Old group"))

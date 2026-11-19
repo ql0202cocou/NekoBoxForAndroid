@@ -47,8 +47,7 @@ object BackupRestore {
         return imported.filterNot { it.key in dropped } + local.filter { it.key in retained }
     }
 
-    // Inverse of BackupFragment.toBase64Str(): null when the record cannot be
-    // decoded, so a single corrupt entry is skipped instead of failing the import.
+    // 逐条解开备份里的 Parcel，单条损坏交给调用方计数。
     private inline fun <T> unmarshal(b64: String, create: (Parcel) -> T): T? = runCatching {
         val data = Util.b64Decode(b64)
         val parcel = Parcel.obtain()
