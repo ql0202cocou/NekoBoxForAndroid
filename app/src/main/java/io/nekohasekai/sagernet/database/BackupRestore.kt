@@ -115,6 +115,7 @@ object BackupRestore {
                 }
             }
         } else null
+        require(profiles != null || rules != null || settings != null) { "No backup sections selected" }
         // 被跳过的损坏记录若被别处引用，恢复出来就是断链（节点成了孤儿、链缺成员等）：整体拒绝，不写库
         val breaks = BackupIntegrity.check(profiles, groups, rules, profilesSkipped)
         if (breaks.isNotEmpty()) throw BackupIntegrityException(breaks)

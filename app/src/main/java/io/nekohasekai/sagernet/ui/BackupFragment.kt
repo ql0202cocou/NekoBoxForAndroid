@@ -91,6 +91,15 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
             }
         }
 
+        val exportOptions = listOf(binding.backupConfigurations, binding.backupRules, binding.backupSettings)
+        fun updateExportButtons() {
+            val selected = exportOptions.any { it.isChecked }
+            binding.actionExport.isEnabled = selected
+            binding.actionShare.isEnabled = selected
+        }
+        exportOptions.forEach { it.setOnCheckedChangeListener { _, _ -> updateExportButtons() } }
+        updateExportButtons()
+
         binding.actionExport.setOnClickListener {
             val profile = binding.backupConfigurations.isChecked
             val rule = binding.backupRules.isChecked
@@ -158,6 +167,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
     }
 
     fun doBackup(profile: Boolean, rule: Boolean, setting: Boolean): String {
+        require(profile || rule || setting) { "No backup sections selected" }
         val snapshot = BackupRepository.readSnapshot(profile, rule)
         val output = StringWriter()
         JsonWriter(output).use { json ->
@@ -232,7 +242,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
             return
         }
         val version = content.optInt("version", 0)
-        if (version < 1 || version > 1) {
+        if (version != 1 || listOf("profiles", "rules", "settings").none(content::has)) {
             invalid()
             return
         }
@@ -241,22 +251,21 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
             // the user may have left while the file was read in the background
             if (!isAdded) return@onMainDispatcher
             val import = LayoutImportBinding.inflate(layoutInflater)
-            if (!content.has("profiles")) {
-                import.backupConfigurations.isVisible = false
+            val options = listOf(
+                import.backupConfigurations to "profiles", import.backupRules to "rules", import.backupSettings to "settings"
+            )
+            for ((box, section) in options) {
+                box.isVisible = content.has(section)
+                box.isChecked = box.isVisible
             }
-            if (!content.has("rules")) {
-                import.backupRules.isVisible = false
-            }
-            if (!content.has("settings")) {
-                import.backupSettings.isVisible = false
-            }
-            MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.backup_import)
+            val dialog = MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.backup_import)
                 .setView(import.root)
                 .setPositiveButton(R.string.backup_import) { _, _ ->
                     // 三个勾选项在点击时（主线程）读完再往后传：后面的进程级协程不碰 CheckBox
                     val profile = import.backupConfigurations.isChecked
                     val rule = import.backupRules.isChecked
                     val setting = import.backupSettings.isChecked
+                    if (!profile && !rule && !setting) return@setPositiveButton
                     runImport {
                         // 先校验，文件无效时不打断正在运行的服务。
                         val decoded = BackupRestore.decode(content, profile, rule, setting)
@@ -270,6 +279,12 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                 }
                 .setNegativeButton(android.R.string.cancel, null)
                 .show()
+            val confirm = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            fun updateConfirm() {
+                confirm.isEnabled = options.any { (box, _) -> box.isVisible && box.isChecked }
+            }
+            options.forEach { (box, _) -> box.setOnCheckedChangeListener { _, _ -> updateConfirm() } }
+            updateConfirm()
         }
     }
 

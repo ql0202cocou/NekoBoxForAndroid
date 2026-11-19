@@ -4,6 +4,7 @@ import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
 import io.nekohasekai.sagernet.uitest.UiTestBase
 import io.nekohasekai.sagernet.ktx.readBytesLimited
 import io.nekohasekai.sagernet.ui.BackupFragment
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
@@ -24,6 +25,14 @@ class BackupPartialRestoreTest : UiTestBase() {
         dao.insert(rules.drop(1))
         assertThrows(BackupFragment.BackupTooLargeException::class.java) { fragment.doBackup(false, true, false) }
         Unit
+    }
+
+    @Test
+    fun unselectedOrMissingSectionsCannotStartARestore() {
+        val backup = JSONObject().put("version", 1).put("rules", JSONArray())
+        assertThrows(IllegalArgumentException::class.java) { BackupRestore.decode(backup, true, false, true) }
+        assertThrows(IllegalArgumentException::class.java) { BackupFragment().doBackup(false, false, false) }
+        assertEquals(emptyList<RuleEntity>(), BackupRestore.decode(backup, false, true, false).rules)
     }
 
     @Test

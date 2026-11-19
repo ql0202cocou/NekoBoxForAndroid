@@ -744,6 +744,14 @@ class UiScenarios(private val ui: UiTestRule) {
         val fragment = BackupFragment()
         main.get().supportFragmentManager.beginTransaction().add(R.id.fragment_holder, fragment).commitNow()
         UiSettle.settle()
+        val exportOptions = listOf(R.id.backup_configurations, R.id.backup_rules, R.id.backup_settings)
+            .map { fragment.requireView().findViewById<CheckBox>(it) }
+        exportOptions.forEach { it.isChecked = false }
+        val exportActions = listOf(R.id.action_export, R.id.action_share)
+            .map { fragment.requireView().findViewById<View>(it) }
+        if (exportActions.any { it.isEnabled }) return Check(false, "空选区仍允许导出或分享")
+        exportOptions[1].isChecked = true
+        if (exportActions.any { !it.isEnabled }) return Check(false, "选中规则后仍无法导出或分享")
         val before = ui.offMain { SagerDatabase.rulesDao.allRules().size }
         if (before == 0) error("前置条件：夹具里没有路由规则")
         val backup = File(app.cacheDir, "b4_backup.json").apply { writeText("{\"version\":1,\"rules\":[]}") }
@@ -755,7 +763,12 @@ class UiScenarios(private val ui: UiTestRule) {
             val boxes = listOf(R.id.backup_configurations, R.id.backup_rules, R.id.backup_settings)
                 .map { dialog.findViewById<CheckBox>(it) ?: error("前置条件：确认框里没有勾选项") }
             if (!boxes[1].isChecked) error("前置条件：规则勾选项默认应勾选")
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+            val confirm = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            boxes[1].isChecked = false
+            if (confirm.isEnabled) return Check(false, "仅有的规则未选中时仍允许导入")
+            boxes[1].isChecked = true
+            if (!confirm.isEnabled) return Check(false, "重新选中规则后无法导入")
+            confirm.performClick()
             // AlertController 把按钮点击转成消息投给主 looper：空转一次，确认框的监听器（读勾选项）才真正执行
             shadowOf(Looper.getMainLooper()).idle()
             boxes.forEach { it.isChecked = false }
