@@ -6,6 +6,7 @@ import io.nekohasekai.sagernet.fmt.SING_BOX_UTLS_FINGERPRINTS
 import io.nekohasekai.sagernet.fmt.buildAnyTLSCompatibilityTLS
 import io.nekohasekai.sagernet.fmt.buildSingBoxOutboundTLS
 import io.nekohasekai.sagernet.fmt.toUniversalLink
+import io.nekohasekai.sagernet.ktx.isScopedIpv6Address
 import io.nekohasekai.sagernet.ktx.linkBuilder
 import io.nekohasekai.sagernet.ktx.toLink
 import io.nekohasekai.sagernet.ktx.urlSafe
@@ -82,6 +83,7 @@ fun AnyTLSBean.toUri(): String {
     // 专属链接无法表达自定义信任策略，用通用链接完整保留，避免接收方按固定解释。
     if (certificatePolicy == AnyTLSBean.CERTIFICATE_POLICY_TRUST || hasLocalSocksOverride()) return toUniversalLink()
     require(certificatePolicy == AnyTLSBean.CERTIFICATE_POLICY_PIN) { "unresolved AnyTLS certificate policy" }
+    if (serverAddress.isScopedIpv6Address()) return toUniversalLink()
     val builder = linkBuilder()
         .host(serverAddress)
         .port(serverPort)

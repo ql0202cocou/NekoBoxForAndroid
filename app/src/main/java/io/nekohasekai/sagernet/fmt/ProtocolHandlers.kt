@@ -56,12 +56,15 @@ import io.nekohasekai.sagernet.fmt.v2ray.buildXrayConfig
 import io.nekohasekai.sagernet.fmt.v2ray.buildXrayOutbound
 import io.nekohasekai.sagernet.fmt.v2ray.effectiveUtlsFingerprint
 import io.nekohasekai.sagernet.fmt.v2ray.isTLS
+import io.nekohasekai.sagernet.fmt.v2ray.isXhttp
 import io.nekohasekai.sagernet.fmt.v2ray.muxProtocolName
+import io.nekohasekai.sagernet.fmt.v2ray.requireXhttpParams
 import io.nekohasekai.sagernet.fmt.v2ray.toUriVMessVLESSTrojan
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import io.nekohasekai.sagernet.fmt.wireguard.buildSingBoxEndpointWireGuardBean
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
+import io.nekohasekai.sagernet.ktx.isScopedIpv6Address
 import moe.matsuri.nb4a.SingBoxOptions.CustomSingBoxOption
 import moe.matsuri.nb4a.SingBoxOptions.MultiplexOptions
 import moe.matsuri.nb4a.SingBoxOptions.SingBoxOption
@@ -395,9 +398,11 @@ fun List<AbstractBean>.filterValidEndpoint(): List<AbstractBean> = filter { bean
 // 协议名不再用主色（避免与选中 / 可用的语义混淆），所有类型统一为次要文字角色
 fun protocolColorAttr(): Int = com.google.android.material.R.attr.colorOnSurfaceVariant
 
-// bean class -> whether a standard (protocol-specific) share link exists
-// (was ProxyEntity.haveStandardLink)
-fun hasStandardLink(bean: AbstractBean): Boolean = when (bean) {
+// VMess 的 v2rayN 链接把地址存在 JSON 里；其余专属链接的 URL 主机无法表示接口标识。
+private fun AbstractBean.needsScopedAddressLink() =
+    serverAddress?.isScopedIpv6Address() == true && !(this is VMessBean && !isVLESS)
+
+fun hasStandardLink(bean: AbstractBean): Boolean = !bean.needsScopedAddressLink() && when (bean) {
     is AnyTLSBean -> bean.certificatePolicy == AnyTLSBean.CERTIFICATE_POLICY_PIN && !bean.hasLocalSocksOverride()
     is ShadowsocksBean -> bean.sUoTVersion != 1
     is MieruBean -> false
@@ -422,10 +427,17 @@ fun standardLink(bean: AbstractBean): String {
             app.getString(R.string.share_invalid_endpoint, bean.displayName()), e
         )
     }
+    // AnyTLS 自己校验证书策略后选分享格式；换成通用链接也须沿用 VLESS / Trojan 的 XHTTP 校验。
+    if (bean !is AnyTLSBean && !hasStandardLink(bean)) {
+        if (bean is StandardV2RayBean && (bean.isVLESS || bean is TrojanBean) && bean.isXhttp()) {
+            bean.requireXhttpParams()
+        }
+        return bean.toUniversalLink()
+    }
     return when (bean) {
         is SOCKSBean -> bean.toUri()
         is HttpBean -> bean.toUri()
-        is ShadowsocksBean -> if (hasStandardLink(bean)) bean.toUri() else bean.toUniversalLink()
+        is ShadowsocksBean -> bean.toUri()
         is VMessBean -> bean.toUriVMessVLESSTrojan(false)
         is TrojanBean -> bean.toUriVMessVLESSTrojan(true)
         is TrojanGoBean -> bean.toUri()
