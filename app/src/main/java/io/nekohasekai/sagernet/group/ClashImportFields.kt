@@ -34,6 +34,7 @@ import io.nekohasekai.sagernet.fmt.tuic.TuicBean
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
+import io.nekohasekai.sagernet.fmt.wireguard.genReservedList
 import io.nekohasekai.sagernet.ktx.blankAsNull
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 
@@ -1024,11 +1025,16 @@ private fun ClashFields.wireGuard(): Pair<Set<String>, ClashInactive> {
         if (!address.isNullOrBlank() && '/' !in address) converted(EQUIVALENT_VALUE, key) else kept(key)
     }
     intField("mtu"); intField("persistent-keepalive")
-    when (val reserved = value("reserved")) {
-        null -> Unit
-        is List<*> -> converted(LIST_JOINED, "reserved")
-        // 字符串：mihomo 按 base64 解码成字节，本应用要逗号分隔的三个数字（不是就在构建时报错）
-        else -> if (reserved.toString().isEmpty()) ignored(DEFAULT_VALUE, "reserved") else ignored(SEMANTICS_DIFFER, "reserved")
+    proxy.mihomoEntry("reserved")?.let { entry ->
+        val path = listOf(entry.key as String)
+        val value = entry.value
+        when {
+            value is List<*> -> recordAt(path, ClashFieldResult.CONVERTED, LIST_JOINED)
+            value == "" -> recordAt(path, ClashFieldResult.IGNORED, DEFAULT_VALUE)
+            value is String && genReservedList(value) != null ->
+                recordAt(path, ClashFieldResult.IGNORED, SEMANTICS_DIFFER)
+            else -> recordAt(path, ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
+        }
     }
     if (present("remote-dns-resolve")) {
         if (value("remote-dns-resolve").mihomoTrue()) ignored(NOT_SUPPORTED, "remote-dns-resolve")

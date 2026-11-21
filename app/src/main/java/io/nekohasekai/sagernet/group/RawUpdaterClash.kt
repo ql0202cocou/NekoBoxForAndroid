@@ -34,10 +34,12 @@ import io.nekohasekai.sagernet.fmt.v2ray.normalizedXhttpPath
 import io.nekohasekai.sagernet.fmt.v2ray.requireXhttpMode
 import io.nekohasekai.sagernet.fmt.v2ray.setTLS
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
+import io.nekohasekai.sagernet.fmt.wireguard.genReservedList
 import io.nekohasekai.sagernet.fmt.wireguard.isWireGuardLocalAddressList
 import io.nekohasekai.sagernet.ktx.isIpAddress
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import org.yaml.snakeyaml.error.YAMLException
+import kotlin.io.encoding.Base64
 
 // clash 订阅的 YAML 根节点。SafeConstructor：远端订阅绝不能实例化任意类
 // （CVE-2022-1471）；它不支持 loadAs(Map)，但 load() 得到的是同样的
@@ -917,6 +919,27 @@ private fun parseClashTuic(proxy: Map<String, Any?>): TuicBean {
     return bean
 }
 
+private fun clashWireGuardReserved(value: Any?): String? {
+    if (value == null) return ""
+    if (value is List<*>) {
+        if (value.isEmpty()) return ""
+        if (value.size != 3) return null
+        return value.map { it?.toString()?.toIntOrNull()?.takeIf { byte -> byte in 0..255 } ?: return null }
+            .joinToString(",")
+    }
+    if (value !is String) return null
+    // 保留旧导入器接受的十进制写法。mihomo 的字符串按标准 Base64 解码，可含 CR / LF。
+    if (',' in value || '\n' in value) genReservedList(value)?.let { return it.joinToString(",") }
+    val encoded = value.replace("\r", "").replace("\n", "")
+    if (encoded.isEmpty()) return ""
+    if (encoded.length != 4 || '=' in encoded) return null
+    return try {
+        Base64.decode(encoded).joinToString(",") { (it.toInt() and 0xff).toString() }
+    } catch (_: IllegalArgumentException) {
+        null
+    }
+}
+
 private fun parseClashWireGuard(proxy: Map<String, Any?>): WireGuardBean {
     // 不做 applyDefaultValues：serverPort 填了默认值后，缺 port 的节点会
     // 瞒过 requireValidEndpoint；归一化统一由调用处尾部完成
@@ -942,13 +965,6 @@ private fun parseClashWireGuard(proxy: Map<String, Any?>): WireGuardBean {
                 "mtu" -> bean.mtu =
                     opt.value.toString().toIntOrNull() ?: bean.mtu
 
-                // mihomo writes the three reserved bytes as a
-                // list; the bean keeps genReservedList's comma form
-                "reserved" -> bean.reserved =
-                    (opt.value as? List<*>)?.joinToString(",") {
-                        it?.toString() ?: ""
-                    } ?: opt.value.toString()
-
                 "persistent-keepalive" -> bean.peerKeepalive =
                     opt.value.toString().toIntOrNull() ?: 0
 
@@ -959,6 +975,10 @@ private fun parseClashWireGuard(proxy: Map<String, Any?>): WireGuardBean {
     bean.privateKey = proxy.mihomoEntry("private-key")?.value?.toString()
     bean.peerPublicKey = proxy.mihomoEntry("public-key")?.value?.toString()
     bean.peerPreSharedKey = proxy.mihomoEntry("pre-shared-key")?.value?.toString()
+    proxy.mihomoEntry("reserved")?.let { entry ->
+        bean.reserved = clashWireGuardReserved(entry.value)
+            ?: throw ClashNodeRejected(ClashNodeFailure.INVALID_VALUE, listOf(entry.key))
+    }
     proxy.mihomoEntry("allowed-ips")?.let { entry ->
         val value = entry.value
         val raw = when (value) {

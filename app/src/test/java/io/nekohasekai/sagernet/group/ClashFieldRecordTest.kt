@@ -19,6 +19,7 @@ import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.fmt.tuic.TuicBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
+import io.nekohasekai.sagernet.fmt.wireguard.buildSingBoxEndpointWireGuardBean
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -801,11 +802,29 @@ class ClashFieldRecordTest {
     }
 
     @Test
-    fun `同名异义：reserved 字符串`() {
-        assertField(
-            fields("{name: w, type: wireguard, server: 198.51.100.20, port: 51820, private-key: pk-placeholder, reserved: AQID}"),
-            "reserved", IGNORED, ClashFieldReason.SEMANTICS_DIFFER,
-        )
+    fun `WireGuard 的 reserved 导入为核心使用的三个无符号字节`() {
+        val base = "name: w, type: wireguard, server: 198.51.100.20, port: 51820"
+        for ((option, bytes) in listOf(
+            "reserved: AQID" to listOf(1, 2, 3),
+            "RESERVED: '/wCA'" to listOf(255, 0, 128),
+            "reserved: [255, 0, 128]" to listOf(255, 0, 128),
+            "reserved: '255,0,128'" to listOf(255, 0, 128),
+            "reserved: AQID, RESERVED: ignored" to listOf(1, 2, 3),
+        )) {
+            val (node, fields) = imported("{$base, $option}")
+            val peer = buildSingBoxEndpointWireGuardBean(node as WireGuardBean).peers.single()
+            assertEquals(option, bytes, peer.reserved)
+            assertTrue(option, fields.containsKey(option.substringBefore(':')))
+        }
+        assertField(fields("{$base, RESERVED: AQID}"), "RESERVED", CONVERTED, ClashFieldReason.EQUIVALENT_VALUE)
+        for (empty in listOf("''", "[]", "null")) {
+            assertEquals("", (imported("{$base, reserved: $empty}").first as WireGuardBean).reserved)
+        }
+        for (invalid in listOf("'AA=='", "'AQIDBA=='", "'?%!!'", "[1, 2]", "[1, -1, 2]", "[1, 2, 256]")) {
+            val failed = parsed("{$base, RESERVED: $invalid}").nodes.single() as ClashNodeResult.Failed
+            assertEquals(ClashNodeFailure.INVALID_VALUE, failed.failure)
+            assertEquals("RESERVED", failed.path)
+        }
     }
 
     @Test
