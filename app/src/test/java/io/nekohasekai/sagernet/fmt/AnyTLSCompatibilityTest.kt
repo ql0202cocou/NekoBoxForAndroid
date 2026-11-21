@@ -23,6 +23,15 @@ class AnyTLSCompatibilityTest {
         compatibilityTest = testing
     })
 
+    @Test
+    fun unknownCompatibilityFingerprintHasATypedRedactedError() {
+        val bean = node().requireBean() as AnyTLSBean
+        bean.utlsFingerprint = "synthetic-unknown-value"
+        val error = assertThrows(UnsupportedSingBoxValueException::class.java) { buildAnyTLSCompatibilityTLS(bean, false) }
+        assertNull(error.value)
+        assertFalse(error.message.orEmpty().contains(bean.utlsFingerprint))
+    }
+
     private fun input(
         nodes: List<ProxyEntity>, mode: ConfigBuildMode, platform: FakeConfigPlatform,
         rules: List<RuleEntity> = emptyList(),

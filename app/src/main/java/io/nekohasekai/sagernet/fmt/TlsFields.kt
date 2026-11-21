@@ -88,7 +88,9 @@ fun buildAnyTLSCompatibilityTLS(bean: AnyTLSBean, globalAllowInsecure: Boolean):
         }
         certificate_fingerprint = fields.certificateFingerprint.blankAsNull()
         fields.utlsFingerprint.blankAsNull()?.let {
-            require(ANYTLS_COMPAT_UTLS_FINGERPRINTS.accepts(it)) { "unsupported compatibility client fingerprint" }
+            if (!ANYTLS_COMPAT_UTLS_FINGERPRINTS.accepts(it)) {
+                throw UnsupportedSingBoxValueException("compatibility uTLS fingerprint", null)
+            }
             utls = OutboundUTLSOptions().apply { enabled = true; fingerprint = it }
         }
     }
