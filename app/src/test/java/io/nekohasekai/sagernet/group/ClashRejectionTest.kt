@@ -50,6 +50,29 @@ class ClashRejectionTest {
     private fun ClashNodeResult.Imported.reason(path: String) = fields.single { it.path == path }.reason
 
     @Test
+    fun `VLESS Vision 与显式启用的 sing-mux 不能同时导入`() {
+        val vision = "$vless, tls: true, flow: xtls-rprx-vision"
+        for ((options, path) in listOf(
+            "$vision, smux: {enabled: true}" to "smux.enabled",
+            "$vless, smux: {Enabled: 1}, Flow: xtls-rprx-vision-udp443, tls: true" to "smux.Enabled",
+            "$vision, smux: {enabled: true, Enabled: false, only-tcp: true}" to "smux.enabled",
+        )) {
+            assertRejected(options, ClashNodeFailure.VISION_WITH_SMUX, path)
+        }
+        for (options in listOf("", ", smux: {}", ", smux: {enabled: false, Enabled: true}", ", SMUX: {enabled: true}")) {
+            val bean = parsed(vision + options).beans.single() as VMessBean
+            assertTrue(bean.isVisionFlow)
+            assertFalse(bean.enableMux)
+        }
+        val mux = parsed("$vless, flow: '', Flow: xtls-rprx-vision, smux: {enabled: true}").beans.single() as VMessBean
+        assertTrue(mux.enableMux)
+        assertFalse(mux.isVisionFlow)
+        val alias = parsed("$vless, Flow: xtls-rprx-vision-udp443, tls: true, smux: {Enabled: 0}")
+        assertTrue((alias.beans.single() as VMessBean).isVisionFlow)
+        assertEquals(ClashFieldReason.EQUIVALENT_VALUE, (alias.nodes.single() as ClashNodeResult.Imported).reason("Flow"))
+    }
+
+    @Test
     fun `SS 插件缺少可用模式时在导入处拒绝`() {
         val base = "name: s, type: ss, server: s.example.com, port: 443, cipher: aes-128-gcm, password: pw"
         for (plugin in listOf("obfs", "v2ray-plugin")) {

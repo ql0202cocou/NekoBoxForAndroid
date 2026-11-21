@@ -107,6 +107,7 @@ enum class ClashNodeFailure(val text: String) {
     CERT_FINGERPRINT_INVALID("fingerprint is not a SHA-256 certificate digest"),
     REALITY_PUBLIC_KEY_MISSING("REALITY options without public-key"),
     VLESS_ENCRYPTION("VLESS encryption is not supported"),
+    VISION_WITH_SMUX("VLESS Vision with sing-mux is not supported"),
     TLS_VARIANT("TLS variant is not supported"),
     EXTRA_ENCRYPTION("extra encryption layer is not supported"),
     REALITY_WITHOUT_TLS("REALITY with TLS turned off"),

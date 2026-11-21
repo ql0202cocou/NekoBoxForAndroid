@@ -227,6 +227,14 @@ private fun clashRejection(type: String, proxy: Map<String, Any?>, bean: Abstrac
                 return ClashNodeRejected(ClashNodeFailure.INVALID_VALUE, listOf(flow.key), flow.value, type)
             }
         }
+        // mihomo 给 Vision 出站再套一层 sing-mux；内置 sing-box 启用 multiplex 时会清掉 flow。
+        // ParseProxy 只读原样的顶层 smux，内部 enabled 则由结构解码器读取。
+        if (bean.isVisionFlow) {
+            val enabled = (proxy["smux"] as? Map<*, *>)?.mihomoEntry("enabled")
+            if (enabled != null && enabled.value.mihomoTrue()) {
+                return rejected(ClashNodeFailure.VISION_WITH_SMUX, "smux", enabled.key)
+            }
+        }
     }
 
     // TLS 层变体（shadow-tls / restls / jls，vmess 另有 tlsmirror），是否生效按 mihomo 判断；anytls 同样支持前三种
@@ -463,17 +471,6 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>): StandardV2RayBean {
             "cipher" -> if (bean is VMessBean && !bean.isVLESS) bean.encryption =
                 (opt.value as? String)?.lowercase()
 
-            // mihomo 的 NewVless：flow 至少 16 个字节时取前 16 个字节，必须恰好是 xtls-rprx-vision，所以以它开头
-            // （如 xtls-rprx-vision-udp443）才是 vision；不足 16 个字节的值被静默忽略。至少 16 个字节却不以它开头的
-            // 值 mihomo 报 unsupported xtls flow type，已在 clashRejection 里拒绝
-            "flow" -> if (bean is VMessBean && bean.isVLESS) {
-                (opt.value as? String)?.let {
-                    if (it.startsWith(StandardV2RayBean.FLOW_VISION)) {
-                        bean.encryption = StandardV2RayBean.FLOW_VISION
-                    }
-                }
-            }
-
             // 不走 packetEncodingType：未知值要显式归 0（覆盖上面 vless 默认的 xudp）。
             // mihomo 把 packet 当作 packetaddr（NewVmess / NewVless 里的 case "packetaddr", "packet"）
             "packet-encoding" -> if (bean is VMessBean) {
@@ -545,6 +542,10 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>): StandardV2RayBean {
                 }
             }
         }
+    }
+    // NewVless 取 flow 的前 16 个字节，因此带 -udp443 后缀的写法也启用 Vision。
+    if (bean.isVLESS && (proxy.mihomoEntry("flow")?.value as? String)?.startsWith(StandardV2RayBean.FLOW_VISION) == true) {
+        bean.encryption = StandardV2RayBean.FLOW_VISION
     }
     if (bean is VMessBean && !bean.isVLESS) {
         proxy.mihomoEntry("alterId")?.let { entry ->

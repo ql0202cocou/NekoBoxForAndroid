@@ -563,16 +563,14 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
             }
         }
     }
-    if (vless) {
-        when (val flow = value("flow")) {
-            null -> Unit
-            !is String -> ignored(INVALID_DROPPED, "flow")
-            "", StandardV2RayBean.FLOW_VISION -> kept("flow")
-            // mihomo 截到 16 个字节后要求恰好是 vision：xtls-rprx-vision-udp443 一样是 vision
-            else -> if (flow.startsWith(StandardV2RayBean.FLOW_VISION)) converted(EQUIVALENT_VALUE, "flow")
-            // 不足 16 个字节的值 mihomo 静默忽略，解析器同样不当作 vision；至少 16 个字节的其它值 mihomo 报错，
-            // 节点已在 clashRejection 里被拒，到不了这里
-            else ignored(UNKNOWN_VALUE, "flow")
+    if (vless) proxy.mihomoEntry("flow")?.let { entry ->
+        val path = listOf(entry.key as String)
+        val flow = entry.value
+        when {
+            flow !is String -> recordAt(path, ClashFieldResult.IGNORED, INVALID_DROPPED)
+            flow.isEmpty() || flow == StandardV2RayBean.FLOW_VISION -> recordAt(path, ClashFieldResult.KEPT, null)
+            bean.isVisionFlow -> recordAt(path, ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
+            else -> recordAt(path, ClashFieldResult.IGNORED, UNKNOWN_VALUE)
         }
     }
     if (vmess || vless) {
@@ -645,8 +643,7 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
     if (smuxInactive(listOf("smux")) == null) {
         open("smux")
         if (bean.enableMux == true) {
-            // vision 流控不用 mux（构建时丢掉，见 ProxyEntity.singMux）
-            if (bean.isVisionFlow) ignored(SEMANTICS_DIFFER, "smux", "enabled") else kept("smux", "enabled")
+            kept("smux", "enabled")
             kept("smux", "max-streams"); kept("smux", "padding")
             when (value("smux", "protocol")?.toString()) {
                 null -> Unit
