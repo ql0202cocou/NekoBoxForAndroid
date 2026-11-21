@@ -92,6 +92,21 @@ if [ "$BUILD" = 1 ]; then
   ./gradlew -q app:assembleOssDebug
 fi
 golden_select_apk
+XRAY_PACKAGED=$(unzip -p "$APK" "lib/$ABI/libxray.so" | shasum -a 256 | awk '{print $1}')
+if [ "$XRAY_PACKAGED" != "$XRAY_PINNED" ]; then
+  if [ "$BUILD" = 1 ]; then
+    echo "packaged Xray for $ABI differs from the pinned binary" >&2
+    exit 1
+  fi
+  # 旧 APK 中的 Xray 经 AGP strip。用已核验的原件重现变换，才能给它记录当前版本。
+  source buildScript/init/env_ndk.sh
+  strip_tools=("$ANDROID_NDK_HOME"/toolchains/llvm/prebuilt/*/bin/llvm-strip)
+  XRAY_STRIPPED=$("${strip_tools[0]}" --strip-unneeded -o - "app/executableSo/$ABI/libxray.so" | shasum -a 256 | awk '{print $1}')
+  if [ "$XRAY_PACKAGED" != "$XRAY_STRIPPED" ]; then
+    echo "packaged Xray for $ABI matches neither the pinned binary nor its stripped form; rebuild the APK" >&2
+    exit 1
+  fi
+fi
 golden_check_other_session golden-measure.owned
 golden_install_apk "$INSTALL"
 [ "$INSTALL" = 1 ] || APK_MODE=installed
@@ -107,9 +122,6 @@ if [ "$INSTALLED_SHA256" != "$APK_SHA256" ]; then
   echo "installed APK sha256 $INSTALLED_SHA256 differs from $APK ($APK_SHA256); reinstall before collecting" >&2
   exit 1
 fi
-# 打包时 AGP 会 strip 原生库，装进设备的文件与上游二进制不再逐字节相同：取 APK 里那份的
-# sha256 交给采集入口，与设备上实际安装的文件核对
-XRAY_PACKAGED=$(unzip -p "$APK" "lib/$ABI/libxray.so" | shasum -a 256 | awk '{print $1}')
 
 if [ "$GOLDEN" = 1 ]; then
   DEST=app/src/test/resources/golden

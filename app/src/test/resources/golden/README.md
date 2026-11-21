@@ -79,7 +79,8 @@ APK 只按 `app/build/outputs/apk/oss/debug/output-metadata.json`（Gradle 每�
   节点 / 分组 / 规则三张表，并把 `configuration.db` 的设置恢复成采集前的样子。
 - 已准备或中断的实测持有数据库时，先执行 `measureFinish` 恢复设置，再采集。`--allow-wipe` 只授权替换未知夹具。
 - 环境检查：Xray / Trojan-Go / Naive / Mieru / Hysteria 任一插件解析到可信外部提供方时拒绝。Xray 须选中 APK 内可执行的
-  `libxray.so`，文件哈希须与脚本使用的 APK 相符。
+  `libxray.so`，文件哈希须与脚本使用的 APK 相符。安装前脚本会按当前 ABI 核对包内 Xray 的上游 SHA-256；
+  复用曾经剥离符号的旧 APK 时，用项目固定的 NDK 对已核验的上游原件执行相同的 strip，再核对摘要。
 
 ## 比较
 
@@ -229,7 +230,7 @@ address/corpus.json                                        地址解析语料与
 | `collectorWorkspace.dirty` | 采集时主机工作区的改动（旧清单用顶层 `dirty` 或 `dirtyPaths`）：`count` 是有改动的路径总数（含未跟踪文件，0 即干净），`top` 是排序后的前 50 条；`codeCount` / `codeTop` 是其中不在 `app/src/debug/`、`app/src/test/`、`buildScript/golden/`、`doc/` 之下的路径，`codeCount` 非 0 说明有可能影响配置输出的代码改动。 |
 | `app` | applicationId、versionName、versionCode、flavor、buildType |
 | `cores.sing-box` | `Libcore.versionBox()` 的原文（逐行）与其中的版本号 |
-| `cores.xray` | `version`、`pinnedSha256` 取自 `plugins.sh`（上游二进制）；`installedSha256` 是设备上那份文件的实算值（打包时经 AGP strip，与上游文件不同） |
+| `cores.xray` | `version`、`pinnedSha256` 取自 `plugins.sh`（上游二进制）；`installedSha256` 是设备文件的实算值。当前包保留上游字节，旧包可能记录 strip 后的摘要。 |
 | `plugins` | 五个外核插件 id 的状态：`builtin`、`missing` 或 `external:<包名>` |
 | `system` | API 级别（`sdkInt`、`sdkIntFull`）、系统版本、build fingerprint、ABI、页大小、语言 |
 | `scenarios` / `counts` | 场景数与各模式成功 / 失败的数量 |

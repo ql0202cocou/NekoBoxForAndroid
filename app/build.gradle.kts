@@ -65,6 +65,8 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = true
+            // Xray 上游已剥离调试符号，保留原始字节才能按发布摘要核对包内核心。
+            keepDebugSymbols += "**/libxray.so"
         }
     }
     androidResources {

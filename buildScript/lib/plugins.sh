@@ -9,7 +9,7 @@ source buildScript/init/verify_sha256.sh
 
 XRAY_VERSION="v26.11.9"
 
-# 解包后原始二进制的 sha256（APK 打包时会剥离符号）。与版本一起更新，防止同一 tag 下的发布资产被替换。
+# 解包后原始二进制的 sha256，同时用于核对包内 Xray。与版本一起更新，防止同一 tag 下的发布资产被替换。
 XRAY_SHA256_arm64_v8a=dbfe83c136ebb58635f5ad4e21d1df077473aa6fc4bfa1b7ee193516d0af8255
 XRAY_SHA256_x86_64=63ba44d391e1bfd4061fad9584ed171671b5928b91128001bf4921e8cb9b46aa
 

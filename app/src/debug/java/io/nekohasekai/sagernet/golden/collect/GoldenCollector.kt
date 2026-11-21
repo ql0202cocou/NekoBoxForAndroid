@@ -27,7 +27,7 @@ import java.util.TimeZone
 
 // 由 collect.sh 经 content call 的 extras 传进来的主机侧信息
 // 内置核心：版本号与上游二进制的 sha256 取自 plugins.sh；packagedSha256 是 collect.sh 从
-// 本次安装的 APK 里取出的同一文件（打包时 AGP 会 strip，与上游文件不再逐字节相同）
+// 本次使用的 APK 取出并与固定上游文件核对，旧包另核对 strip 后的摘要
 class CoreArgs(val version: String, val pinnedSha256: String, val packagedSha256: String)
 
 // 有改动的路径只带总数与排序后的前若干条（命令行长度有限）；code* 是其中不在采集 / 比较工具
@@ -426,7 +426,7 @@ class GoldenCollector(private val args: CollectArgs) {
             "cores" to linkedMapOf(
                 "sing-box" to linkedMapOf("version" to singBoxVersion, "versionBox" to versionBox.lines()),
                 // version / pinnedSha256 取自 plugins.sh（主机侧已核对 app/executableSo 下的源文件）；
-                // installedSha256 是设备上那份文件的实算值（经 AGP strip）
+                // installedSha256 是设备上那份文件的实算值
                 "xray" to coreManifest(args.xray, File(nativeDir, BUILTIN_CORES.getValue("xray-plugin"))),
             ),
             "plugins" to plugins,
