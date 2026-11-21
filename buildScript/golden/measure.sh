@@ -258,7 +258,8 @@ printf '%s' "$RESULT" | decode_result > "$RAW/prepare.json"
 # 从后台启动前台服务受限（Android 12+）：先把主界面拉到前台，由界面所在的主进程发出启动，
 # 与用户点启动按钮时的进程状态一致。VPN 模式另有 ACTIVATE_VPN 的豁免
 "$ADB" shell input keyevent KEYCODE_WAKEUP || true
-"$ADB" shell am start -W -n "$PACKAGE/io.nekohasekai.sagernet.ui.MainActivity" > "$RAW/am-start.txt"
+# 标记实测打开的任务，收尾时从最近任务中移除，避免保留数据重装时系统恢复该界面。
+"$ADB" shell am start -W -a "$PACKAGE.golden.MEASURE" -n "$PACKAGE/io.nekohasekai.sagernet.ui.MainActivity" > "$RAW/am-start.txt"
 sleep "$SETTLE"
 "$ADB" shell dumpsys activity activities | tr -d '\r' | grep -m 1 'topResumedActivity\|mResumedActivity' > "$RAW/top-activity.txt" || true
 

@@ -1,7 +1,10 @@
 package io.nekohasekai.sagernet.golden
 
+import android.app.ActivityManager
+import android.content.Intent
 import android.database.sqlite.SQLiteException
 import android.os.Bundle
+import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.preference.KeyValuePair
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
 import io.nekohasekai.sagernet.golden.collect.CollectArgs
@@ -12,9 +15,12 @@ import io.nekohasekai.sagernet.golden.collect.CollectRefusedException
 import io.nekohasekai.sagernet.golden.collect.GoldenSettingsJournal
 import io.nekohasekai.sagernet.golden.measure.GoldenMeasure
 import io.nekohasekai.sagernet.ktx.app
+import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.uitest.UiTestBase
 import org.junit.Assert.*
 import org.junit.Test
+import org.robolectric.Shadows.shadowOf
+import org.robolectric.shadows.ShadowAppTask
 import java.io.File
 
 class GoldenSessionTest : UiTestBase() {
@@ -26,6 +32,29 @@ class GoldenSessionTest : UiTestBase() {
         "test", DirtyArgs(0, emptyList(), 0, emptyList()), CoreArgs("", "", ""),
         expectedSingBoxVersion = "expected", allowWipe = true,
     )
+
+    @Test
+    fun `实测只移除自己启动的主界面任务，重复收尾保留后开的界面`() = ui.bg {
+        val action = "${app.packageName}.golden.MEASURE"
+        fun task(component: String, launchAction: String): ActivityManager.AppTask {
+            val task = ShadowAppTask.newInstance()
+            shadowOf(task).setTaskInfo(ActivityManager.RecentTaskInfo().apply {
+                baseIntent = Intent(launchAction).setClassName(app, component)
+            })
+            return task
+        }
+        val measured = task(MainActivity::class.java.name, action)
+        val launcher = task(MainActivity::class.java.name, Intent.ACTION_MAIN)
+        val other = task("example.OtherActivity", action)
+        shadowOf(SagerNet.activity).setAppTasks(listOf(measured, launcher, other))
+        // 无持久标记时 finish 是上次调用的重试，不能结束已重新打开的任务。
+        GoldenMeasure.call(GoldenMeasure.METHOD_FINISH, Bundle())
+        assertFalse(shadowOf(measured).isFinishedAndRemoved)
+        GoldenMeasure.finishMeasurementTask()
+        assertTrue(shadowOf(measured).isFinishedAndRemoved)
+        assertFalse(shadowOf(launcher).isFinishedAndRemoved)
+        assertFalse(shadowOf(other).isFinishedAndRemoved)
+    }
 
     @Test
     fun `核心版本无法验证时在发布标记和写入夹具前拒绝采集`() = ui.bg {

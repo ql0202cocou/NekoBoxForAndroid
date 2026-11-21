@@ -436,7 +436,7 @@ ANDROID_SERIAL=emulator-5554 ./run golden measure --xray 8 --out <空目录>   #
 6. 每 `--interval` 秒一次：同一条 `adb shell` 里取设备 uptime 与 `ps -A`，再调 `measureStatus` 取服务状态，直到
    `--duration`。到 `--mem-at` 秒与结束前各记一次内存：经 `run-as` 读主进程、`:bg` 与全部外核子进程的
    `/proc/<pid>/smaps_rollup`。取样结束后读一次 `dumpsys activity processes` 里系统登记的 phantom process。
-7. `measureFinish`：发 `Action.CLOSE` 广播停止服务（与通知栏停止按钮同一路径），等到 `Stopped`（30 秒），再清空节点 /
+7. `measureFinish`：发 `Action.CLOSE` 广播停止服务（与通知栏停止按钮同一路径），等到 `Stopped`（30 秒），移除本次实测标记的主界面任务，再清空节点 /
    分组 / 规则三张表、按标记文件恢复设置。没停下来时不清夹具，脚本 `am force-stop` 后再调一次。脚本退出（含失败、
    Ctrl-C）时总会走这一步。之后再取一次进程表核对外核残留，取回 `neko.log`，汇总。
 

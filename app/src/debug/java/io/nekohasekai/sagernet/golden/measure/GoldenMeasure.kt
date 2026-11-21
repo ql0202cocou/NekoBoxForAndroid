@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.golden.measure
 
 import android.app.ActivityManager
+import android.content.ComponentName
 import android.net.VpnService
 import android.os.Bundle
 import android.os.Process
@@ -33,6 +34,7 @@ import io.nekohasekai.sagernet.golden.collect.vmess
 import io.nekohasekai.sagernet.golden.collect.ws
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
+import io.nekohasekai.sagernet.ui.MainActivity
 import io.nekohasekai.sagernet.utils.PackageCache
 import java.io.File
 import java.util.Base64
@@ -338,6 +340,21 @@ object GoldenMeasure {
 
     // ---- finish ----
 
+    // 主界面留在前台时，保留数据重装会重新打开分组页，在下一次采集中创建默认分组。
+    internal fun finishMeasurementTask() {
+        val main = ComponentName(app, MainActivity::class.java)
+        for (task in SagerNet.activity.appTasks) {
+            try {
+                val intent = task.taskInfo?.baseIntent ?: continue
+                if (intent.component == main && intent.action == "${app.packageName}.golden.MEASURE") {
+                    task.finishAndRemoveTask()
+                }
+            } catch (_: IllegalArgumentException) {
+                // 读取任务列表后，任务可能已经由用户关闭。
+            }
+        }
+    }
+
     private fun tablesEmpty() = SagerDatabase.groupDao.allGroups().isEmpty() &&
         SagerDatabase.proxyDao.getAll().isEmpty() && SagerDatabase.rulesDao.allRules().isEmpty()
 
@@ -385,7 +402,8 @@ object GoldenMeasure {
         requestedAtElapsed = -1L
         requestedAtWall = -1L
 
-        // 2. 清夹具、恢复设置
+        // 2. 先移除实测打开的主界面任务，再清夹具、恢复设置。
+        finishMeasurementTask()
         SagerDatabase.instance.runInTransaction {
             SagerDatabase.rulesDao.reset()
             SagerDatabase.proxyDao.reset()
