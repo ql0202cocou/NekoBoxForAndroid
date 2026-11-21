@@ -25,6 +25,9 @@ import io.nekohasekai.sagernet.databinding.LayoutProgressBinding
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.widget.hostMainScrollable
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import moe.matsuri.nb4a.utils.Util
@@ -290,8 +293,39 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                 .setNegativeButton(android.R.string.cancel, null)
                 .show()
             val confirm = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            val scope = viewLifecycleOwner.lifecycleScope
+            fun preview(profiles: Boolean) = scope.async(Dispatchers.IO, start = CoroutineStart.LAZY) {
+                try {
+                    BackupRepository.missingRuleTargets(BackupRestore.decode(content, profiles, !profiles, false))
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // 损坏的节仍由正式导入入口报告；切换到其它选区可以继续。
+                    null
+                }
+            }
+            val profilePreview = preview(true)
+            val rulePreview = preview(false)
+            var displayPreview: Job? = null
+            dialog.setOnDismissListener {
+                displayPreview?.cancel()
+                profilePreview.cancel()
+                rulePreview.cancel()
+            }
             fun updateConfirm() {
+                displayPreview?.cancel()
+                val partialRouting = import.backupConfigurations.isChecked != import.backupRules.isChecked
+                import.summary.setText(if (partialRouting) R.string.backup_partial_routing else R.string.backup_import_summary)
                 confirm.isEnabled = options.any { (box, _) -> box.isVisible && box.isChecked }
+                if (partialRouting) {
+                    confirm.isEnabled = false
+                    val selected = if (import.backupConfigurations.isChecked) profilePreview else rulePreview
+                    displayPreview = scope.launch {
+                        val missing = selected.await()
+                        if (missing != null) import.summary.append("\n" + getString(R.string.backup_missing_rule_targets, missing))
+                        confirm.isEnabled = true
+                    }
+                }
             }
             options.forEach { (box, _) -> box.setOnCheckedChangeListener { _, _ -> updateConfirm() } }
             updateConfirm()

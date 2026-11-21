@@ -69,6 +69,9 @@ data class RuleEntity(
         @Query("SELECT * FROM rules ORDER BY userOrder, id")
         fun allRules(): List<RuleEntity>
 
+        @Query("SELECT outbound FROM rules WHERE outbound > 0")
+        fun profileTargets(): List<Long>
+
         @Query("SELECT * FROM rules WHERE enabled = :enabled ORDER BY userOrder, id")
         fun enabledRules(enabled: Boolean = true): List<RuleEntity>
 

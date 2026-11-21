@@ -123,7 +123,10 @@ class BackupPartialRestoreTest : UiTestBase() {
             RuleEntity(id = 1, name = "Existing target", outbound = node.id, domains = "example.org"),
             RuleEntity(id = 2, name = "Missing target", outbound = node.id + 100, domains = "example.net"),
         )
-        BackupRestore.commit(BackupRestore.Decoded(null, null, rules, null, 0), null)
+        val restore = BackupRestore.Decoded(null, null, rules, null, 0)
+        assertEquals(1, BackupRepository.missingRuleTargets(restore))
+        BackupRestore.commit(restore, null)
+        assertEquals(2, BackupRepository.missingRuleTargets(BackupRestore.Decoded(emptyList(), listOf(group), null, null, 0)))
         assertEquals(rules, SagerDatabase.rulesDao.allRules())
         assertEquals(listOf(node), SagerDatabase.proxyDao.getAll())
         assertEquals(generation, SagerDatabase.dataGeneration())

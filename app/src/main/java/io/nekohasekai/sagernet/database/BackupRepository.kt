@@ -15,6 +15,16 @@ object BackupRepository {
         val rules: List<RuleEntity>?,
     )
 
+    // 单项恢复按原始 id 匹配，预览只统计确实找不到目标的规则行。
+    internal fun missingRuleTargets(decoded: BackupRestore.Decoded): Int {
+        val profiles = decoded.profiles
+        val rules = decoded.rules
+        require((profiles == null) != (rules == null))
+        val ids = profiles?.mapTo(HashSet()) { it.id } ?: SagerDatabase.proxyDao.allIds().toHashSet()
+        val targets = rules?.map { it.outbound } ?: SagerDatabase.rulesDao.profileTargets()
+        return targets.count { it > 0 && it !in ids }
+    }
+
     // profile 同时决定节点与分组两张表（备份里它们成对出现）；没选的部分为 null。
     // 两项都没选时不开事务，直接返回 null
     fun readSnapshot(profile: Boolean, rule: Boolean): Snapshot? {

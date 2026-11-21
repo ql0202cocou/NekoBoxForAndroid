@@ -417,6 +417,7 @@
     <string name="nat_stun_server_empty">请输入 STUN 服务器（主机:端口）</string>
     <string name="backup_too_large">所选数据超过备份大小上限（%d MiB）。</string>
     <string name="invalid_backup_file">无效的备份文件</string>
+    <string name="backup_partial_routing">将覆盖选中的数据。路由规则按数字 ID 关联节点。单独恢复节点或规则后，规则可能找不到目标，也可能指向另一份库中 ID 相同的节点。</string>
     <string name="backup_import_summary">导入将覆盖现有的数据。</string>
     <string name="backup_importing">正导入…</string>
     <string name="backup_import_skipped">已跳过 %d 条无效记录</string>
@@ -580,4 +581,5 @@
     <string name="core_conflict_v2ray_id_choose_core">该 ID 在两个核心上对应不同身份，请明确选择要使用的核心。</string>
     <string name="core_conflict_xray_id_format">Xray 无法解析此 ID 格式。</string>
     <string name="core_conflict_xray_legacy_vmess_auth">Xray 不支持正 alterId 所指定的旧版 VMess 认证。</string>
+    <string name="backup_missing_rule_targets">按当前选择，找不到目标节点的规则有 %1$d 条。</string>
 </resources>
