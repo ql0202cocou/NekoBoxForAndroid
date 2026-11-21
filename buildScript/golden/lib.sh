@@ -30,56 +30,13 @@ golden_setup_device() {
 golden_pinned() { sed -n "s/^$1=\"\{0,1\}\([^\"]*\)\"\{0,1\}\$/\1/p" buildScript/lib/plugins.sh; }
 
 # 选「本次构建产出的 APK」：只认 Gradle 写的清单，不按文件名猜（目录里常留着旧版本的 APK）。
-# 依赖 output-metadata.json 的格式（AGP 生成）：根对象的 elements 数组里每项是一个对象，含
-# filters（数组，每项 {filterType, value}；universal 包为空数组）、versionCode（数字）、
-# versionName、outputFile（文件名，相对清单所在目录）。不假定字段顺序与缩进：先把
-# { } [ ] , 都拆成独立的行逐个记号扫描，在 element 对象（花括号深度 2）闭合时输出一行
-# 「ABI<TAB>versionCode<TAB>versionName<TAB>outputFile」（无过滤的 ABI 列为空，
-# 有过滤但不是 ABI 的记为 "?"）。字符串值里不能有 , { } [ ]，文件名与版本号满足这一点。
-# 设好 APK、APK_VERSION_CODE
+# 先选单一 ABI 的包，再回退到无过滤的通用包。
 golden_select_apk() {
   local apk_dir=app/build/outputs/apk/oss/debug
-  local metadata="$apk_dir/output-metadata.json"
-  [ -f "$metadata" ] || { echo "$metadata not found: build first (drop --no-build / --no-install)" >&2; exit 1; }
-  local entries entry apk_file
-  entries=$(sed 's/[][{},]/\
-&\
-/g' "$metadata" | awk '
-    function val(line,   v) {
-      v = line
-      sub(/^[^:]*:[ \t]*/, "", v)
-      gsub(/^"|"[ \t]*$/, "", v)
-      return v
-    }
-    { sub(/^[ \t]+/, ""); sub(/[ \t\r]+$/, "") }
-    $0 == "" { next }
-    $0 == "{" {
-      depth++
-      if (depth == 2) { abi = ""; code = ""; name = ""; file = ""; ftype = ""; fval = "" }
-      next
-    }
-    $0 == "}" {
-      if (depth == 3) { if (ftype == "ABI") { abi = fval } else if (abi == "") { abi = "?" } }
-      if (depth == 2) { print abi "\t" code "\t" name "\t" file }
-      depth--
-      next
-    }
-    depth == 3 && /^"filterType"/ { ftype = val($0); next }
-    depth == 3 && /^"value"/ { fval = val($0); next }
-    depth == 2 && /^"versionCode"/ { code = val($0); next }
-    depth == 2 && /^"versionName"/ { name = val($0); next }
-    depth == 2 && /^"outputFile"/ { file = val($0); next }
-  ')
-  # 取设备 ABI 对应的那项，没有就取 universal
-  entry=$(printf '%s\n' "$entries" | awk -F '\t' -v abi="$ABI" '$1 == abi { print; exit }')
-  [ -n "$entry" ] || entry=$(printf '%s\n' "$entries" | awk -F '\t' '$1 == "" && $4 != "" { print; exit }')
-  [ -n "$entry" ] || { echo "$metadata has no entry for ABI $ABI and no universal entry" >&2; exit 1; }
-  APK_VERSION_CODE=$(printf '%s\n' "$entry" | awk -F '\t' '{print $2}')
-  apk_file=$(printf '%s\n' "$entry" | awk -F '\t' '{print $4}')
-  case "$APK_VERSION_CODE" in '' | *[!0-9]*) echo "$metadata: bad versionCode '$APK_VERSION_CODE' for $apk_file" >&2; exit 1 ;; esac
-  [ -n "$apk_file" ] || { echo "$metadata: entry without outputFile" >&2; exit 1; }
-  APK="$apk_dir/$apk_file"
-  [ -f "$APK" ] || { echo "$APK listed in $metadata does not exist: rebuild" >&2; exit 1; }
+  local entry
+  entry=$(python3 buildScript/golden/select_apk.py "$apk_dir/output-metadata.json" "$ABI") || return 1
+  APK_VERSION_CODE=${entry%%$'\n'*}
+  APK=${entry#*$'\n'}
   echo ">> APK from build manifest: $APK (versionCode $APK_VERSION_CODE)"
 }
 
