@@ -45,6 +45,14 @@ enum class CoreConflict(
     val fields: List<ProfileField>,
     val reason: String,
 ) {
+    V2RAY_ID_CHOOSE_CORE(
+        null, GapKind.SEMANTICS, listOf(ProfileField.CORE),
+        "This ID maps to different identities. Select the intended core explicitly.",
+    ),
+    XRAY_ID_FORMAT(
+        DialCore.XRAY, GapKind.CORE, listOf(ProfileField.CORE),
+        "Xray cannot parse this ID format.",
+    ),
     // ---- 协议
     XRAY_ANYTLS(
         DialCore.XRAY, GapKind.CORE, listOf(ProfileField.CORE),

@@ -28,6 +28,27 @@ enum class CoreProtocol { VMESS, VLESS, TROJAN, ANYTLS, OTHER }
 // XHTTP_LOST：xhttp 节点的参数已丢失（旧版本只存了 type，见 xhttpParametersLost），不拿它去匹配核心
 enum class CoreTransport { TCP, HTTP_HEADER, H2, WS, QUIC, GRPC, HTTPUPGRADE, XHTTP, XHTTP_LOST, UNKNOWN }
 
+// 两种核心的 ID 解析结果，只保存类别，避免将凭据带进需求与诊断。
+enum class V2RayIdMapping { COMMON, XRAY_REJECTED, CORE_DEPENDENT }
+
+private val compactId = Regex("[0-9A-Fa-f]{32}")
+private val canonicalId = Regex("[0-9A-Fa-f]{8}(-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}")
+private val xrayIdPrefix = Regex("-?[0-9A-Fa-f]{8}(-?[0-9A-Fa-f]{4}){3}-?[0-9A-Fa-f]{12}")
+
+internal fun v2rayIdMapping(id: String): V2RayIdMapping {
+    // Xray 以 UTF-8 字节计长度，32–36 字节时读取五组十六进制数，忽略剩余尾缀。
+    if (id.length > 36) return V2RayIdMapping.XRAY_REJECTED
+    return when (id.toByteArray(Charsets.UTF_8).size) {
+        in 1..30 -> V2RayIdMapping.COMMON
+        in 32..36 -> when {
+            compactId.matches(id) || canonicalId.matches(id) -> V2RayIdMapping.COMMON
+            xrayIdPrefix.matchAt(id, 0) != null -> V2RayIdMapping.CORE_DEPENDENT
+            else -> V2RayIdMapping.XRAY_REJECTED
+        }
+        else -> V2RayIdMapping.XRAY_REJECTED
+    }
+}
+
 enum class TlsMode { NONE, TLS, REALITY }
 
 enum class EchMode { INLINE, AUTO_QUERY }
@@ -66,6 +87,7 @@ data class CoreRequirements(
     // 只有 VLESS 有；不用 flow 为 null
     val vlessFlow: String? = null,
     val wsEarlyData: WsEarlyDataRequirement? = null,
+    val idMapping: V2RayIdMapping = V2RayIdMapping.COMMON,
 ) {
     // 能力表的行，按 Requirement 的顺序；不能选核的协议没有行
     fun items(): List<RequirementItem> {
@@ -206,6 +228,7 @@ private fun standardRequirements(
         protocol = protocol,
         transport = transport,
         transportName = bean.type,
+        idMapping = if (v2rayFamily) v2rayIdMapping(bean.uuid.orEmpty()) else V2RayIdMapping.COMMON,
         tls = tls,
         mldsa65Verify = bean.realityMldsa65VerifyActive(),
         certificatePin = certificatePin,

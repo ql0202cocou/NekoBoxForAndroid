@@ -167,6 +167,8 @@ class CombinationRule(
 )
 
 val COMBINATION_RULES: List<CombinationRule> = listOf(
+    CombinationRule(DialCore.XRAY, CoreConflict.XRAY_ID_FORMAT, verifiedAt(DialCore.XRAY),
+        "Xray 无法解析此身份格式") { it.idMapping == V2RayIdMapping.XRAY_REJECTED },
     CombinationRule(
         DialCore.SING_BOX, CoreConflict.SING_BOX_ANYTLS_ECH, verifiedAt(DialCore.SING_BOX),
         "内部 AnyTLS 只接受确定可用的 ECH 指纹组合",

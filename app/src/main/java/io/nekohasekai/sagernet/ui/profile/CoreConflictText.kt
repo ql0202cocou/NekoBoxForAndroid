@@ -21,6 +21,8 @@ import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 fun coreConflictReason(id: CoreConflict): Int = when (id) {
     CoreConflict.SING_BOX_ANYTLS_LOCAL_SOCKS_OVERRIDE -> R.string.core_conflict_sing_box_anytls_local_socks_override
     CoreConflict.ANYTLS_CERTIFICATE_POLICY_INVALID -> R.string.core_conflict_anytls_certificate_policy_invalid
+    CoreConflict.V2RAY_ID_CHOOSE_CORE -> R.string.core_conflict_v2ray_id_choose_core
+    CoreConflict.XRAY_ID_FORMAT -> R.string.core_conflict_xray_id_format
     CoreConflict.XRAY_ANYTLS -> R.string.core_conflict_xray_anytls
     CoreConflict.SING_BOX_ANYTLS_UTLS -> R.string.core_conflict_sing_box_anytls_utls
     CoreConflict.SING_BOX_ANYTLS_ECH -> R.string.core_conflict_sing_box_anytls_ech

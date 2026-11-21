@@ -643,4 +643,6 @@
     <string name="anytls_certificate_policy_pin">Pin the first PEM certificate</string>
     <string name="anytls_certificate_policy_trust">Trust PEM certificates (verify name and validity)</string>
     <string name="core_conflict_anytls_certificate_policy_invalid">The AnyTLS certificate policy is unresolved or invalid. Restore the profile or select its certificate policy explicitly.</string>
+    <string name="core_conflict_v2ray_id_choose_core">This ID maps to different identities. Select the intended core explicitly.</string>
+    <string name="core_conflict_xray_id_format">Xray cannot parse this ID format.</string>
 </resources>

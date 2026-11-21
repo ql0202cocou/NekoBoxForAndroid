@@ -153,7 +153,7 @@ class CoreCapabilitiesTest {
         COMBINATION_RULES.forEach { used += it.conflict }
         // 选核本身产生的（CoreSelection.decideCore）
         used += listOf(
-            CoreConflict.CORE_VALUE_UNKNOWN, CoreConflict.CORE_NOT_SELECTABLE,
+            CoreConflict.CORE_VALUE_UNKNOWN, CoreConflict.CORE_NOT_SELECTABLE, CoreConflict.V2RAY_ID_CHOOSE_CORE,
             CoreConflict.PROTOCOL_CERTIFICATE_PIN, CoreConflict.PROTOCOL_MLDSA65_VERIFY,
         )
         assertEquals(CoreConflict.entries.toSet(), used)
@@ -282,7 +282,7 @@ class CoreCapabilitiesTest {
                 KnownDifference.PACKET_ENCODING_NONE to DifferenceDecision.DECIDED,
                 KnownDifference.VMESS_SECURITY_AUTO to DifferenceDecision.DECIDED,
                 KnownDifference.VMESS_SECURITY_NONE_ZERO to DifferenceDecision.DECIDED,
-                KnownDifference.V2RAY_ID_MAPPING to DifferenceDecision.OPEN,
+                KnownDifference.V2RAY_ID_MAPPING to DifferenceDecision.DECIDED,
                 KnownDifference.MUX_COOL_PADDING to DifferenceDecision.DECIDED,
                 KnownDifference.XRAY_MUX_CONCURRENCY to DifferenceDecision.BY_PRINCIPLE,
                 KnownDifference.VISION_MUX to DifferenceDecision.DECIDED,

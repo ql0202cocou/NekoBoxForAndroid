@@ -47,6 +47,7 @@ import io.nekohasekai.sagernet.fmt.v2ray.MUX_COOL
 import io.nekohasekai.sagernet.fmt.v2ray.MUX_H2MUX
 import io.nekohasekai.sagernet.fmt.v2ray.MUX_SMUX
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -54,6 +55,30 @@ import java.util.Random
 
 // 能力表的组合用例：每个用例断言选中的核心，或被拒绝时列出的冲突与字段
 class CoreSelectionTest {
+
+    @Test
+    fun `用户 ID 的字节长度和核心映射参与判定且不回显原值`() {
+        val compact = "0123456789abcdef0123456789abcdef"
+        for (id in listOf("别".repeat(10), compact, CoreTestNodes.UUID)) {
+            assertEquals(V2RayIdMapping.COMMON, v2rayIdMapping(id))
+        }
+        for (id in listOf("", "x".repeat(31), "别".repeat(11), "z".repeat(32), "{$compact}")) {
+            val bean = vless { uuid = id }
+            assertEquals(V2RayIdMapping.XRAY_REJECTED, v2rayIdMapping(id))
+            assertTrue(decide(bean) is CoreDecision.Selected)
+            val error = decide(bean, CORE_XRAY) as CoreDecision.Rejected
+            assertEquals(listOf(CoreConflict.XRAY_ID_FORMAT), error.conflicts.map { it.id })
+        }
+        for (id in listOf("-$compact", compact + "xyz", compact.take(8) + "-" + compact.drop(8))) {
+            assertEquals(V2RayIdMapping.CORE_DEPENDENT, v2rayIdMapping(id))
+            val bean = vless { uuid = id }
+            val error = decide(bean) as CoreDecision.Rejected
+            assertEquals(listOf(CoreConflict.V2RAY_ID_CHOOSE_CORE), error.conflicts.map { it.id })
+            assertFalse(error.message(CORE_AUTO).contains(id))
+            assertTrue(decide(bean, CORE_XRAY) is CoreDecision.Selected)
+            assertTrue(decide(bean, CORE_SING_BOX) is CoreDecision.Selected)
+        }
+    }
 
     private fun decide(bean: AbstractBean, core: Int = CORE_AUTO, global: Boolean = false): CoreDecision {
         val node = CoreTestNodes.node(bean, core, global)

@@ -89,6 +89,9 @@ fun decideCore(requirements: CoreRequirements, core: Int): CoreDecision {
         val conflicts = coreConflicts(dial, requirements)
         return if (conflicts.isEmpty()) CoreDecision.Selected(dial, true) else CoreDecision.Rejected(true, conflicts)
     }
+    if (requirements.idMapping == V2RayIdMapping.CORE_DEPENDENT) {
+        return CoreDecision.Rejected(false, listOf(Conflict(null, CoreConflict.V2RAY_ID_CHOOSE_CORE)))
+    }
     val all = ArrayList<Conflict>()
     for (candidate in preferenceOrder(requirements)) {
         val conflicts = coreConflicts(candidate, requirements)

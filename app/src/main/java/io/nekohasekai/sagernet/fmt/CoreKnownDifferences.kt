@@ -124,14 +124,11 @@ enum class KnownDifference(
             DialCore.XRAY to "id 按 common/uuid ParseString 解析：1–30 字节的非 UUID 串用 UUIDv5（命名空间全零）映射；" +
                 "空串、31 字节以上的非 UUID 串、32–36 字节里的非十六进制字符报错；32–36 字节时逐组读十六进制、" +
                 "每组前的连字符可有可无、读满 32 位后其余字符不看",
-            DialCore.SING_BOX to "id 按 gofrs/uuid FromString 解析（sing-vmess v0.2.8 的 VMess 与 VLESS 客户端）：" +
+            DialCore.SING_BOX to "id 按 gofrs/uuid FromString 解析（固定的 sing-vmess 的 VMess 与 VLESS 客户端）：" +
                 "只认 32 / 36 位与带花括号、urn:uuid: 前缀的写法，其余一律用同样的 UUIDv5 映射，从不报错",
         ),
-        "1–30 字节的串两边映射结果相同；其余写法不同：Xray 报错的（空串、过长、带花括号或 urn 前缀）sing-box 照样能连，" +
-            "Xray 能读出 UUID 的 33–35 字节写法或 36 字节的非标准写法 sing-box 映射成另一个 UUID，换核后静默连不上" +
-            "（本地用两边的解析函数逐例核对；源码：Xray common/uuid/uuid.go:67-83；sing-vmess v0.2.8 " +
-            "client.go:37、vless/client.go:28）。待维护者定",
-        DifferenceDecision.OPEN,
+        "Xray 拒绝的格式只允许 sing-box；两侧都能读却映射成不同身份时须手动选核。标准 UUID 与短别名照常自动选核。",
+        DifferenceDecision.DECIDED,
     ),
     MUX_COOL_PADDING(
         listOf(ProfileField.MUX_PADDING),
