@@ -53,6 +53,10 @@ enum class CoreConflict(
         DialCore.XRAY, GapKind.CORE, listOf(ProfileField.CORE),
         "Xray cannot parse this ID format.",
     ),
+    XRAY_LEGACY_VMESS_AUTH(
+        DialCore.XRAY, GapKind.SEMANTICS, listOf(ProfileField.ALTER_ID),
+        "Xray cannot use legacy VMess authentication with a positive alterId.",
+    ),
     // ---- 协议
     XRAY_ANYTLS(
         DialCore.XRAY, GapKind.CORE, listOf(ProfileField.CORE),

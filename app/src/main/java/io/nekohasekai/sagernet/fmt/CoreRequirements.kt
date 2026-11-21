@@ -88,6 +88,7 @@ data class CoreRequirements(
     val vlessFlow: String? = null,
     val wsEarlyData: WsEarlyDataRequirement? = null,
     val idMapping: V2RayIdMapping = V2RayIdMapping.COMMON,
+    val legacyVmessAuth: Boolean = false,
 ) {
     // 能力表的行，按 Requirement 的顺序；不能选核的协议没有行
     fun items(): List<RequirementItem> {
@@ -229,6 +230,7 @@ private fun standardRequirements(
         transport = transport,
         transportName = bean.type,
         idMapping = if (v2rayFamily) v2rayIdMapping(bean.uuid.orEmpty()) else V2RayIdMapping.COMMON,
+        legacyVmessAuth = protocol == CoreProtocol.VMESS && ((bean as VMessBean).alterId ?: 0) > 0,
         tls = tls,
         mldsa65Verify = bean.realityMldsa65VerifyActive(),
         certificatePin = certificatePin,

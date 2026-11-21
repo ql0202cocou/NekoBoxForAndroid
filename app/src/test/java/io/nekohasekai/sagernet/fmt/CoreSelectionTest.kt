@@ -80,6 +80,14 @@ class CoreSelectionTest {
         }
     }
 
+    @Test
+    fun `正 alterId 需要旧认证`() {
+        val bean = vmess { alterId = 1 }
+        assertEquals(CoreDecision.Selected(DialCore.SING_BOX, false), decide(bean))
+        val rejected = decide(bean, CORE_XRAY) as CoreDecision.Rejected
+        assertEquals(listOf(CoreConflict.XRAY_LEGACY_VMESS_AUTH), rejected.conflicts.map { it.id })
+    }
+
     private fun decide(bean: AbstractBean, core: Int = CORE_AUTO, global: Boolean = false): CoreDecision {
         val node = CoreTestNodes.node(bean, core, global)
         return decideCore(node.type, node.core, node.bean, node.global)

@@ -579,4 +579,5 @@
     <string name="core_conflict_anytls_certificate_policy_invalid">AnyTLS 的证书策略未解析或无效。请恢复节点或明确选择证书策略。</string>
     <string name="core_conflict_v2ray_id_choose_core">该 ID 在两个核心上对应不同身份，请明确选择要使用的核心。</string>
     <string name="core_conflict_xray_id_format">Xray 无法解析此 ID 格式。</string>
+    <string name="core_conflict_xray_legacy_vmess_auth">Xray 不支持正 alterId 所指定的旧版 VMess 认证。</string>
 </resources>

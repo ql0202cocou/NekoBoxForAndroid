@@ -289,7 +289,7 @@ class CoreCapabilitiesTest {
                 KnownDifference.CERTIFICATES_TRUST to DifferenceDecision.DECIDED,
                 KnownDifference.CUSTOM_OUTBOUND_JSON_EXTERNAL to DifferenceDecision.DECIDED,
                 KnownDifference.WS_EARLY_DATA_SIZE to DifferenceDecision.BY_PRINCIPLE,
-                KnownDifference.VMESS_ALTER_ID to DifferenceDecision.OPEN,
+                KnownDifference.VMESS_ALTER_ID to DifferenceDecision.DECIDED,
                 KnownDifference.HTTP_HEADER_CAMOUFLAGE to DifferenceDecision.OPEN,
                 KnownDifference.XUDP_UNDER_VISION to DifferenceDecision.BY_PRINCIPLE,
                 KnownDifference.UTLS_IMPLEMENTATION to DifferenceDecision.BY_PRINCIPLE,

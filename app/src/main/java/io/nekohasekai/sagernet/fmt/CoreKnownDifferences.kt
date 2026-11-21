@@ -193,8 +193,8 @@ enum class KnownDifference(
             DialCore.SING_BOX to "alterId > 0 时用旧版（非 AEAD）认证",
             DialCore.XRAY to "没有 alterId，一律 AEAD",
         ),
-        "多数服务端两种都接受，存量带证书指纹的 VMess 在 Xray 上一直这样跑；只在服务端强制旧版认证时不通，待维护者定",
-        DifferenceDecision.OPEN,
+        "正 alterId 指定旧认证，Xray 忽略该字段。选核须保留所指定的认证方式。",
+        DifferenceDecision.DECIDED,
     ),
     HTTP_HEADER_CAMOUFLAGE(
         listOf(ProfileField.TRANSPORT, ProfileField.HOST, ProfileField.PATH),
