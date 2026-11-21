@@ -95,7 +95,7 @@ private class AndroidConfigPlatform : ConfigPlatform {
     override fun parseNumericAddress(text: String): InetAddress? = text.parseNumericAddress()
 
     override fun createTempFile(prefix: String, ext: String): File =
-        File.createTempFile(prefix + "_", ".$ext", SagerNet.application.cacheDir)
+        File.createTempFile(prefix + "_", ".$ext", SagerNet.application.externalConfigDir)
 
     override fun pluginExternalAuthority(pluginId: String, onConflict: PluginConflictReporter): String? =
         Plugins.getPluginExternal(pluginId, onConflict)?.authority

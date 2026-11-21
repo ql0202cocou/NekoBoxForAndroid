@@ -27,6 +27,7 @@ import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.InstallMarker
 import io.nekohasekai.sagernet.database.RestoreJournal
+import io.nekohasekai.sagernet.bg.proto.prepareExternalConfigDirectory
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
 import io.nekohasekai.sagernet.ktx.deleteSharedBackups
@@ -65,6 +66,11 @@ class SagerNet : Application(),
     private val isMainProcess = process == BuildConfig.APPLICATION_ID
     val isBgProcess = process.endsWith(":bg")
 
+    // 同一进程只清理一次，上次进程死亡留下的配置归该进程回收。
+    internal val externalConfigDir by lazy {
+        prepareExternalConfigDirectory(cacheDir, isBgProcess)
+    }
+
     // CrashHandler deliberately replaces the platform handler: it logs the crash and
     // restarts the process into the log-sharing screen via ProcessPhoenix, which never
     // returns, so there is no point at which the previous handler could be delegated to
@@ -79,6 +85,7 @@ class SagerNet : Application(),
         OkHttp.initialize(this)
 
         if (isMainProcess || isBgProcess) {
+            externalConfigDir
             // Finish a restore interrupted between its two database commits before
             // anything reads either database; the same lock then settles the
             // per-install marker so both processes agree on the Clash secret.

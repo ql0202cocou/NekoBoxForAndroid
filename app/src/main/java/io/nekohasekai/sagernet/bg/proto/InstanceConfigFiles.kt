@@ -3,6 +3,19 @@ package io.nekohasekai.sagernet.bg.proto
 import kotlinx.coroutines.CancellationException
 import java.io.File
 
+// 同一进程第一次使用前回收自己的旧文件；升级后两个进程都已停止使用旧布局。
+internal fun prepareExternalConfigDirectory(cacheDir: File, background: Boolean): File {
+    val dir = File(cacheDir, if (background) "external-config/bg" else "external-config/main")
+    dir.mkdirs()
+    dir.listFiles()?.forEach { if (it.isFile) it.delete() }
+    val legacy = File(cacheDir, "tmpcfg")
+    legacy.listFiles()?.forEach { if (it.isFile) it.delete() }
+    legacy.delete()
+    cacheDir.listFiles { _, name -> name.startsWith("hysteria_") && name.endsWith(".ca") }
+        ?.forEach { if (it.isFile) it.delete() }
+    return dir
+}
+
 /** 写完才把文件交给实例。关闭不等磁盘写入，仍在写的调用负责收回自己的文件。 */
 internal class InstanceConfigFiles : AutoCloseable {
     private val files = mutableSetOf<File>()

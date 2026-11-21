@@ -312,7 +312,7 @@ socks 出站与入站都没有；同一份 sing-box 配置里本机凭据只有�
     `server_port`（按 outbounds 顺序），再是 tag 含 `-mapping-` 的映射入站与 tag 为 `plugin-dns-in` 的本机 DNS
     入站的 `listen_port`（按 inbounds 顺序）；run / test 再补上运行计划里各跳实例的本机端口。
     两次采集同一位置一一对应。
-  - `paths`：临时文件的绝对路径（run / test 来自 `tempFiles`，export 按 cacheDir 前缀从原文里找）。
+  - `paths`：临时文件的绝对路径（run / test 来自 `tempFiles`，export 按外核配置目录前缀从原文里找）。
   - `secrets`：本次构建随机生成的本机 socks 凭据（用户名、密码各一项）。
     run / test 取自构建结果与运行计划，export 按 sing-box 配置的结构找（指向 127.0.0.1 的 socks 出站的 `username` /
     `password`）。比较时按出现次序换成 `SECRET#n`。

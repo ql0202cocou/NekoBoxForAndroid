@@ -62,13 +62,12 @@ abstract class BoxInstance(
     open lateinit var processes: GuardedProcessPool
 
     private val cacheFiles = InstanceConfigFiles()
-    private val pluginConfigDir = File(app.cacheDir, "tmpcfg")
     private val redactExternalOutput by lazy {
         config.externalOutputRedactor(externalProcesses.map { it.config })
     }
 
     private fun writeCacheFile(prefix: String, ext: String, content: String): File =
-        cacheFiles.write(pluginConfigDir) { newFile -> newFile(prefix, ext).apply { writeText(content) } }
+        cacheFiles.write(app.externalConfigDir) { newFile -> newFile(prefix, ext).apply { writeText(content) } }
 
     fun isInitialized(): Boolean {
         return ::config.isInitialized && ::box.isInitialized
@@ -122,7 +121,7 @@ abstract class BoxInstance(
             val plan = ExternalRunPlan.from(config)
             externalPlan = plan
             // 设置用构建时采集的那份
-            externalProcesses = if (plan.hops.isEmpty()) emptyList() else cacheFiles.write(app.cacheDir) { newFile ->
+            externalProcesses = if (plan.hops.isEmpty()) emptyList() else cacheFiles.write(app.externalConfigDir) { newFile ->
                 plan.assemble(newFile, config.requireExternalCoreSettings(), beforeHop = { initPlugin(it.pluginId) })
             }
             // ProxyInstance / TestInstance 的 loadConfig 都在这里收口

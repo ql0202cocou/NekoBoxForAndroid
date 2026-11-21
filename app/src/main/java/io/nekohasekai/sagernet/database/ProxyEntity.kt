@@ -230,7 +230,7 @@ data class ProxyEntity(
         val tempFiles = ArrayList<File>()
         try {
             return exportConfigText(config, name) { prefix, ext ->
-                File.createTempFile(prefix + "_", ".$ext", app.cacheDir).also { tempFiles.add(it) }
+                File.createTempFile(prefix + "_", ".$ext", app.externalConfigDir).also { tempFiles.add(it) }
             }
         } finally {
             tempFiles.forEach { runCatching { it.delete() } }

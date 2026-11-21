@@ -15,6 +15,21 @@ class InstanceConfigFilesTest {
     @get:Rule val tmp = TemporaryFolder()
 
     @Test
+    fun `重启只回收本进程和旧布局的临时配置`() {
+        val dir = tmp.newFolder()
+        val bg = prepareExternalConfigDirectory(dir, true)
+        val main = prepareExternalConfigDirectory(dir, false)
+        val other = File(bg, "running.json").apply { writeText("active") }
+        val stale = File(main, "stale.json").apply { writeText("stale") }
+        val unrelated = File(dir, "user.ca").apply { writeText("keep") }
+        val old = File(dir, "tmpcfg").apply { mkdir() }.resolve("xray_123.json").apply { writeText("old") }
+        val ca = File(dir, "hysteria_123.ca").apply { writeText("old") }
+        prepareExternalConfigDirectory(dir, false)
+        assertFalse(stale.exists() || old.exists() || ca.exists())
+        assertTrue(other.exists() && unrelated.exists())
+    }
+
+    @Test
     fun `写入途中关闭会回收迟到的配置且保留其它测速实例的配置`() {
         val dir = tmp.newFolder()
         val files = InstanceConfigFiles()

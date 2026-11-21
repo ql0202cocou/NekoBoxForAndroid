@@ -97,7 +97,7 @@ fun runBoxMode(profile: ProxyEntity, forTest: Boolean): ModeOutput {
     // link / timeout 只影响测速请求本身，不进配置
     val test = if (forTest) TestInstance(profile, CONNECTION_TEST_URL, 3000) else null
     val instance = GoldenBoxInstance(profile, test)
-    val cacheDir = app.cacheDir
+    val cacheDir = app.externalConfigDir
     val before = cacheFiles(cacheDir)
     try {
         try {
@@ -105,7 +105,7 @@ fun runBoxMode(profile: ProxyEntity, forTest: Boolean): ModeOutput {
         } catch (e: Exception) {
             return errorOutput(e, instance.checks)
         }
-        // 组装外核配置时经 cacheFile 领到的临时文件（hysteria 的 CA）落在 cacheDir 根下，
+        // 组装外核配置时经 cacheFile 领到的临时文件（hysteria 的 CA）落在本进程的外核配置目录，
         // 文件名随机；按「init 前后新增」找出来，再按路径是否出现在配置原文里归到各外核
         val created = (cacheFiles(cacheDir) - before).sorted()
         val config = instance.config
@@ -189,8 +189,8 @@ fun runExportMode(profile: ProxyEntity): ModeOutput {
         return errorOutput(e)
     }
     // 导出路径拿不到构建登记的外核跳数据（externalChains）与运行计划：本机端口与本机 socks 凭据从 sing-box 配置的结构里找，
-    // 临时文件路径（导出时已删除，但路径留在配置里）按 cacheDir 前缀从原文里找
-    val pathPattern = Regex(Regex.escape(app.cacheDir.absolutePath) + "/[A-Za-z0-9_.-]+")
+    // 临时文件路径（导出时已删除，但路径留在配置里）按本进程的外核配置目录前缀从原文里找
+    val pathPattern = Regex(Regex.escape(app.externalConfigDir.absolutePath) + "/[A-Za-z0-9_.-]+")
     val singBox = parseFirstJson(text)
     val result = linkedMapOf<String, Any?>(
         "status" to "ok",
