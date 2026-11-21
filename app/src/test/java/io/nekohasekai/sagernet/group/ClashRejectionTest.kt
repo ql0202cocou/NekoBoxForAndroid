@@ -50,6 +50,24 @@ class ClashRejectionTest {
     private fun ClashNodeResult.Imported.reason(path: String) = fields.single { it.path == path }.reason
 
     @Test
+    fun `SS 插件缺少可用模式时在导入处拒绝`() {
+        val base = "name: s, type: ss, server: s.example.com, port: 443, cipher: aes-128-gcm, password: pw"
+        for (plugin in listOf("obfs", "v2ray-plugin")) {
+            val ss = "$base, plugin: $plugin"
+            assertRejected(ss, ClashNodeFailure.INVALID_VALUE, "plugin-opts.mode")
+            assertRejected("$ss, Plugin_Opts: {}", ClashNodeFailure.INVALID_VALUE, "Plugin_Opts.mode")
+            assertRejected("$ss, Plugin_Opts: oops", ClashNodeFailure.INVALID_VALUE, "Plugin_Opts")
+            for (invalid in listOf("null", "''", "unknown")) {
+                assertRejected("$ss, Plugin_Opts: {Mode: $invalid}", ClashNodeFailure.INVALID_VALUE, "Plugin_Opts.Mode")
+            }
+        }
+        val quic = assertImported("$base, plugin: v2ray-plugin, plugin-opts: {mode: quic, path: /test, mux: true}")
+        assertEquals(ClashFieldReason.SEMANTICS_DIFFER, quic.reason("plugin-opts.mode"))
+        assertEquals(ClashFieldReason.INACTIVE, quic.reason("plugin-opts.path"))
+        assertEquals(ClashFieldReason.INACTIVE, quic.reason("plugin-opts.mux"))
+    }
+
+    @Test
     fun `fingerprint 不是 SHA-256 摘要且 TLS 打开时拒绝`() {
         assertRejected("$trojan, fingerprint: chrome-secret-zq30", CERT_FINGERPRINT_INVALID, "fingerprint")
         assertRejected("$vmess, tls: true, fingerprint: chrome", CERT_FINGERPRINT_INVALID, "fingerprint")

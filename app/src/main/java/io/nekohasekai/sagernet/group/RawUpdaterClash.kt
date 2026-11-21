@@ -355,14 +355,26 @@ private fun parseClashShadowsocks(proxy: Map<String, Any?>): ShadowsocksBean {
     val pluginEntry = proxy.clashSsPlugin()
     val ssPluginName = pluginEntry?.value?.toString()
     if (ssPluginName != null) {
-        // plugin-opts 在 Clash 里可以不写：没有它插件照样用默认选项
         fun opt(name: String) = proxy.clashSsPluginOpt(name)?.value
+        fun mode(vararg supported: String): String {
+            val opts = proxy.clashSsPluginOpts()
+            val parent = opts?.key ?: "plugin-opts"
+            if (opts?.value != null && opts.value !is Map<*, *>) {
+                throw ClashNodeRejected(ClashNodeFailure.INVALID_VALUE, listOf(parent))
+            }
+            val entry = proxy.clashSsPluginOpt("mode")
+            val value = entry?.value
+            if (value !is String || value !in supported) {
+                throw ClashNodeRejected(ClashNodeFailure.INVALID_VALUE, listOf(parent, entry?.key ?: "mode"))
+            }
+            return value
+        }
         val host = opt("host")?.toString() ?: "bing.com"
         when (ssPluginName) {
             "obfs" -> {
                 ssPlugin.apply {
                     add("obfs-local")
-                    add("obfs=" + (opt("mode")?.toString() ?: ""))
+                    add("obfs=" + mode("http", "tls"))
                     add("obfs-host=$host")
                 }
             }
@@ -370,7 +382,8 @@ private fun parseClashShadowsocks(proxy: Map<String, Any?>): ShadowsocksBean {
             "v2ray-plugin" -> {
                 ssPlugin.apply {
                     add("v2ray-plugin")
-                    add("mode=" + (opt("mode")?.toString() ?: ""))
+                    // 保留内置插件已经支持的 quic 扩展；mihomo 只接受 websocket。
+                    add("mode=" + mode("websocket", "quic"))
                     if (opt("tls").mihomoTrue()) add("tls")
                     add("host=$host")
                     add("path=" + (opt("path")?.toString() ?: ""))

@@ -464,7 +464,7 @@ class ClashFieldRecordTest {
         assertEquals(CLASH_VALUE_NOT_SHOWN, failedShown("{name: s, type: ss, server: s.example.com, port: 1, cipher: none, plugin: $bad}"))
         assertEquals(
             CLASH_VALUE_NOT_SHOWN,
-            shown("{name: s, type: ss, server: s.example.com, port: 1, cipher: none, plugin: obfs, plugin-opts: {mode: $bad}}", "plugin-opts.mode"),
+            failedShown("{name: s, type: ss, server: s.example.com, port: 1, cipher: none, plugin: obfs, plugin-opts: {mode: $bad}}"),
         )
         assertEquals(CLASH_VALUE_NOT_SHOWN, shown("{$vless, packet-encoding: $bad}", "packet-encoding"))
         assertEquals(
@@ -979,7 +979,7 @@ class ClashFieldRecordTest {
         // client-fingerprint 只在 shadow-tls / restls / jls 插件里用（NewShadowSocks 传给这些插件），这几种插件整个节点被拒，
         // 其它插件（包括 obfs）和没有插件时它无影响
         assertField(
-            fields("{$s, Plugin: obfs, client-fingerprint: chrome}"), "client-fingerprint", IGNORED, ClashFieldReason.INACTIVE,
+            fields("{$s, Plugin: obfs, plugin-opts: {mode: http}, client-fingerprint: chrome}"), "client-fingerprint", IGNORED, ClashFieldReason.INACTIVE,
         )
         assertField(fields("{$s, client-fingerprint: chrome}"), "client-fingerprint", IGNORED, ClashFieldReason.INACTIVE)
         // v2ray-plugin 的 tls 子键用的解码器不把 _ 当作 -：skip_cert_verify 在 mihomo 里不是 skip-cert-verify
@@ -1069,8 +1069,6 @@ class ClashFieldRecordTest {
         // 子键写成 obfs_host（下划线）：mihomo 不认这个键，解析器也没读它
         val underscore = fields("{$s, plugin: obfs, plugin-opts: {mode: tls, obfs_host: x.example.com}}")
         assertField(underscore, "plugin-opts.obfs_host", IGNORED, ClashFieldReason.UNKNOWN_KEY)
-        // plugin-opts 不是 map
-        assertField(fields("{$s, Plugin: obfs, Plugin-Opts: oops}"), "Plugin-Opts", IGNORED, ClashFieldReason.INVALID_DROPPED)
     }
 
     @Test

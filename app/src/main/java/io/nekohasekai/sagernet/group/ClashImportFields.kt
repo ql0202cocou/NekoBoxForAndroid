@@ -455,21 +455,23 @@ private fun ClashFields.shadowsocks(bean: ShadowsocksBean): Pair<Set<String>, Cl
     var table = SS_KEYS
     val optsEntry = proxy.clashSsPluginOpts()
     val optsPath = pathOf(optsEntry)
-    val opts = optsEntry?.value
-    if (plugin != null && optsPath != null && opts != null) {
-        if (opts !is Map<*, *>) {
-            record(optsPath, ClashFieldResult.IGNORED, INVALID_DROPPED)
+    if (plugin != null && optsPath != null) {
+        openAt(optsPath)
+        fun sub(name: String) = proxy.clashSsPluginOpt(name)?.let { pathOf(optsEntry, it) }
+        val quic = plugin == "v2ray-plugin" && proxy.clashSsPluginOpt("mode")?.value == "quic"
+        if (quic) record(sub("mode"), ClashFieldResult.IGNORED, SEMANTICS_DIFFER)
+        else record(sub("mode"), ClashFieldResult.KEPT)
+        record(sub("host"), ClashFieldResult.KEPT)
+        if (plugin == "obfs") {
+            table = table + SS_OBFS_KEYS
         } else {
-            openAt(optsPath)
-            fun sub(name: String) = proxy.clashSsPluginOpt(name)?.let { pathOf(optsEntry, it) }
-            record(sub("mode"), ClashFieldResult.KEPT)
-            record(sub("host"), ClashFieldResult.KEPT)
-            if (plugin == "obfs") {
-                table = table + SS_OBFS_KEYS
+            table = table + SS_V2RAY_PLUGIN_KEYS
+            record(sub("tls"), ClashFieldResult.KEPT)
+            if (quic) {
+                record(sub("path"), ClashFieldResult.IGNORED, INACTIVE)
+                record(sub("mux"), ClashFieldResult.IGNORED, INACTIVE)
             } else {
-                table = table + SS_V2RAY_PLUGIN_KEYS
                 record(sub("path"), ClashFieldResult.KEPT)
-                record(sub("tls"), ClashFieldResult.KEPT)
                 record(sub("mux"), ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
             }
         }
