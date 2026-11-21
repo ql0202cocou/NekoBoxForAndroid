@@ -83,6 +83,8 @@ APK 只按 `app/build/outputs/apk/oss/debug/output-metadata.json`（Gradle 每�
 
 ## 比较
 
+`./run golden compare` 遇到未使用的动态值或格式外文件会报告警告并返回失败。格式外文件仍逐字节比较。
+
 ```bash
 ./run golden compare <新采集目录> [基线目录]                  # 全部产物，基线默认本目录
 ./run golden compare --sing-box-only <新采集目录> [基线目录]  # 只比 sing-box 一侧

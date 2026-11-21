@@ -31,7 +31,7 @@ class GoldenCompareBaselineTest {
         val text = report.render()
         System.getenv("NEKO_GOLDEN_REPORT")?.takeIf { it.isNotEmpty() }?.let { File(it).writeText(text) }
         println(text)
-        assertTrue(text, report.same)
+        assertTrue(text, report.same && report.warnings.isEmpty())
     }
 
     // Gradle 跑单测时工作目录是 app/；从仓库根目录运行（如 IDE）时再找 app/ 下

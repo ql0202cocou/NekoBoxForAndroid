@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 把新采集的配置产物与基线做结构比较并打印报告；有差异、或没能真正比较时返回非零。
+# 把新采集的配置产物与基线做结构比较并打印报告；有差异、存在未处理的警告或未完成比较时返回非零。
 # 用法：./run golden compare [--sing-box-only | --ignore-local-auth] <新采集目录> [基线目录]
 # 基线默认 app/src/test/resources/golden/。--sing-box-only 只比 sing-box 一侧（input.json、sing-box.json、
 # export.txt 第 0 段、result.json 除 external 之外的部分），用来证明外核一侧的改动没有动到 sing-box 一侧。

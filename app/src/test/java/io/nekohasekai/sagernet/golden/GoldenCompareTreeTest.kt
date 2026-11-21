@@ -266,6 +266,7 @@ class GoldenCompareTreeTest {
     fun `格式之外的文件按字节比较`() {
         val same = compare(sample(first).apply { put("scenarios/broken/run/note.txt", "x") }, sample(second).apply { put("scenarios/broken/run/note.txt", "x") })
         assertSame(same)
+        assertTrue(same.render(), same.render().endsWith("结论：存在待处理警告\n"))
         assertTrue(same.warnings.single().contains("scenarios/broken/run/note.txt 不在产物格式内"))
         assertDiffer(
             compare(sample(first).apply { put("scenarios/broken/run/note.txt", "x") }, sample(second).apply { put("scenarios/broken/run/note.txt", "y") }),

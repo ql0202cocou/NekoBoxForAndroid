@@ -175,7 +175,11 @@ class GoldenTreeReport(
                 if (list.size > maxPerFile) sb.appendLine("    …另有 ${list.size - maxPerFile} 处未列出")
             }
         }
-        sb.appendLine(if (same) "结论：一致" else "结论：不一致（${diffs.size} 处差异）")
+        sb.appendLine(when {
+            !same -> "结论：不一致（${diffs.size} 处差异）"
+            warnings.isNotEmpty() -> "结论：存在待处理警告"
+            else -> "结论：一致"
+        })
         return sb.toString()
     }
 }
