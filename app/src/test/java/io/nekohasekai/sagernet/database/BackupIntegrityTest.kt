@@ -29,8 +29,8 @@ class BackupIntegrityTest {
         val profiles = listOf(node(1), node(2, groupId = 2), chain(3, 1, 2))
         val groups = listOf(group(1, front = 1, landing = 2), group(2))
         val rules = listOf(rule(1, 0), rule(2, -1), rule(3, -2), rule(4, 2))
-        assertTrue(BackupIntegrity.check(profiles, groups, rules, 0).isEmpty())
-        assertTrue(BackupIntegrity.check(profiles, groups, rules, 5).isEmpty())
+        assertTrue(BackupIntegrity.check(profiles, groups, rules, emptySet()).isEmpty())
+        assertTrue(BackupIntegrity.check(profiles, groups, rules, null).isEmpty())
     }
 
     @Test
@@ -38,8 +38,8 @@ class BackupIntegrityTest {
         // 分组 2 的记录损坏被跳过，它的两个节点成了孤儿
         val profiles = listOf(node(1), node(2, groupId = 2), node(3, groupId = 2))
         val groups = listOf(group(1))
-        assertEquals(mapOf(Kind.PROFILE_GROUP to 2), counts(BackupIntegrity.check(profiles, groups, null, 0)))
-        assertEquals(mapOf(Kind.PROFILE_GROUP to 2), counts(BackupIntegrity.check(profiles, groups, null, 1)))
+        assertEquals(mapOf(Kind.PROFILE_GROUP to 2), counts(BackupIntegrity.check(profiles, groups, null, emptySet())))
+        assertEquals(mapOf(Kind.PROFILE_GROUP to 2), counts(BackupIntegrity.check(profiles, groups, null, null)))
     }
 
     @Test
@@ -52,7 +52,7 @@ class BackupIntegrityTest {
             group(3, front = -1, landing = 0),
             group(4, front = -5, landing = -1),
         )
-        val result = counts(BackupIntegrity.check(profiles, groups, null, 0))
+        val result = counts(BackupIntegrity.check(profiles, groups, null, emptySet()))
         assertEquals(mapOf(Kind.GROUP_FRONT_PROXY to 1, Kind.GROUP_LANDING_PROXY to 1), result)
     }
 
@@ -62,9 +62,9 @@ class BackupIntegrityTest {
         val groups = listOf(group(1))
         val rules = listOf(rule(1, 99), rule(2, 1), rule(3, 100))
         // 没丢过记录：失效的 id 是删节点（含订阅更新淘汰节点）留下的老样子，照常恢复
-        assertTrue(BackupIntegrity.check(profiles, groups, rules, 0).isEmpty())
+        assertTrue(BackupIntegrity.check(profiles, groups, rules, emptySet()).isEmpty())
         // 丢过记录：失效的 id 可能正是被丢掉的节点
-        val result = counts(BackupIntegrity.check(profiles, groups, rules, 1))
+        val result = counts(BackupIntegrity.check(profiles, groups, rules, null))
         assertEquals(mapOf(Kind.CHAIN_MEMBER to 2, Kind.RULE_OUTBOUND to 2), result)
     }
 
@@ -73,20 +73,20 @@ class BackupIntegrityTest {
         val profiles = listOf(node(1))
         val groups = listOf(group(1))
         val rules = listOf(rule(1, 0), rule(2, -1), rule(3, -2))
-        assertTrue(BackupIntegrity.check(profiles, groups, rules, 3).isEmpty())
+        assertTrue(BackupIntegrity.check(profiles, groups, rules, null).isEmpty())
     }
 
     @Test
     fun `不恢复节点时没有可对的 id 集合，整体跳过`() {
         // 只恢复规则：出站对着本机现有节点，不属于备份内部的引用
-        assertTrue(BackupIntegrity.check(null, null, listOf(rule(1, 42)), 0).isEmpty())
-        assertTrue(BackupIntegrity.check(null, null, null, 0).isEmpty())
+        assertTrue(BackupIntegrity.check(null, null, listOf(rule(1, 42)), emptySet()).isEmpty())
+        assertTrue(BackupIntegrity.check(null, null, null, emptySet()).isEmpty())
     }
 
     @Test
     fun `不恢复规则时只检查节点与分组`() {
         val profiles = listOf(node(1, groupId = 5), chain(2, 1, 66))
-        val result = counts(BackupIntegrity.check(profiles, listOf(group(1)), null, 1))
+        val result = counts(BackupIntegrity.check(profiles, listOf(group(1)), null, null))
         assertEquals(mapOf(Kind.PROFILE_GROUP to 1, Kind.CHAIN_MEMBER to 1), result)
     }
 
@@ -94,7 +94,7 @@ class BackupIntegrityTest {
     fun `结果按类别声明顺序、每类一项，不带 id`() {
         val profiles = listOf(node(1, groupId = 9), chain(2, 55, groupId = 9))
         val groups = listOf(group(1, front = 40, landing = 41))
-        val breaks = BackupIntegrity.check(profiles, groups, listOf(rule(1, 56)), 1)
+        val breaks = BackupIntegrity.check(profiles, groups, listOf(rule(1, 56)), null)
         assertEquals(
             listOf(
                 Kind.PROFILE_GROUP, Kind.GROUP_FRONT_PROXY, Kind.GROUP_LANDING_PROXY,

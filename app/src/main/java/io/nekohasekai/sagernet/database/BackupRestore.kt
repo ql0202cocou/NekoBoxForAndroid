@@ -48,7 +48,8 @@ object BackupRestore {
     }
 
     // 逐条解开备份里的 Parcel，单条损坏交给调用方计数。
-    private inline fun <T> unmarshal(b64: String, create: (Parcel) -> T): T? = runCatching {
+    private inline fun <T> unmarshal(b64: String?, create: (Parcel) -> T): T? = runCatching {
+        if (b64 == null) return@runCatching null
         val data = Util.b64Decode(b64)
         val parcel = Parcel.obtain()
         try {
@@ -65,17 +66,16 @@ object BackupRestore {
     // 引用断链（BackupIntegrity）抛 BackupIntegrityException，同样发生在写库之前
     fun decode(content: JSONObject, profile: Boolean, rule: Boolean, setting: Boolean): Decoded {
         var skipped = 0
-        var profilesSkipped = 0
+        val skippedProfileIds = mutableSetOf<Long>()
+        var unknownProfileSkipped = false
 
-        fun <T> decodeArray(key: String, decode: (String) -> T?): List<T> {
+        fun <T> decodeArray(key: String, decode: (String?) -> T?): List<T> {
             val result = mutableListOf<T>()
             val array = content.getJSONArray(key)
             for (i in 0 until array.length()) {
-                val encoded = array.get(i)
-                val item = if (encoded is String) decode(encoded) else null
+                val item = decode(array.get(i) as? String)
                 if (item == null) {
                     skipped++
-                    if (key == "profiles") profilesSkipped++
                 } else {
                     result.add(item)
                 }
@@ -88,13 +88,19 @@ object BackupRestore {
 
         val profiles = if (profile && content.has("profiles")) {
             decodeArray("profiles") { encoded ->
-                unmarshal(encoded) {
-                    ProxyEntity.CREATOR.createFromParcel(it).also { entity ->
-                        // 未知类型没有 bean，不能恢复成会让节点列表崩溃的记录。
-                        val bean = entity.requireBean()
-                        // 备份里 xhttp 的 mode / extra 没经过本版本的校验：按当前规则重新规范化
-                        if (bean is StandardV2RayBean && (bean is VMessBean || bean is TrojanBean)) bean.canonicalizeXhttp()
-                    }
+                val entity = unmarshal(encoded, ProxyEntity.CREATOR::createFromParcel)
+                if (entity == null) {
+                    unknownProfileSkipped = true
+                    return@decodeArray null
+                }
+                try {
+                    val bean = entity.requireBean()
+                    if (bean is StandardV2RayBean && (bean is VMessBean || bean is TrojanBean)) bean.canonicalizeXhttp()
+                    entity
+                } catch (_: RuntimeException) {
+                    // 整行已解码，只是配置未通过校验。此时能判定哪些引用确实受损。
+                    if (entity.id > 0) skippedProfileIds.add(entity.id) else unknownProfileSkipped = true
+                    null
                 }
             }
         } else null
@@ -117,7 +123,7 @@ object BackupRestore {
         } else null
         require(profiles != null || rules != null || settings != null) { "No backup sections selected" }
         // 被跳过的损坏记录若被别处引用，恢复出来就是断链（节点成了孤儿、链缺成员等）：整体拒绝，不写库
-        val breaks = BackupIntegrity.check(profiles, groups, rules, profilesSkipped)
+        val breaks = BackupIntegrity.check(profiles, groups, rules, if (unknownProfileSkipped) null else skippedProfileIds)
         if (breaks.isNotEmpty()) throw BackupIntegrityException(breaks)
         // profiles 与 settings 都解出来之后才标注：全局「允许不安全」取哪一份要看这次会不会导入设置。
         // 启动时重放中断的恢复也走这里，结果相同

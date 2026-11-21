@@ -16,8 +16,7 @@ package io.nekohasekai.sagernet.database
 //     别处的前置 / 落地引用，正常的备份里不会有失效。
 //   - 链成员、规则出站：删节点不清理这两处（构建时按成员 / 目标跳过，见 ConfigBuild 的 planOrSkip），
 //     订阅更新换掉节点后留下失效的 id 是常态。
-// 所以后两类只在「解码时丢过节点记录」时才算断链：那时说明失效的 id 可能正是被丢掉的节点（损坏的记录读不出
-// id，无从逐个对），宁可整体拒绝；没丢过节点，失效的 id 就是原来就有的，照常恢复。
+// 后两类只拒绝因丢记录而可能产生的断链。能读出被跳过节点的 id 时，排除无关的旧引用。
 object BackupIntegrity {
 
     enum class Kind {
@@ -49,13 +48,13 @@ object BackupIntegrity {
      *   节点相关的检查整体跳过，规则出站同样跳过（那是对着本机现有节点，不属于备份内部）
      * @param groups 解出的分组
      * @param rules 解出的规则；null 表示这次不恢复规则
-     * @param profileRecordsSkipped 解码节点记录时丢掉的损坏记录数
+     * @param skippedProfileIds 被跳过的节点 id；空集表示没丢记录，null 表示至少有一条无法确定 id。
      */
     fun check(
         profiles: List<ProxyEntity>?,
         groups: List<ProxyGroup>?,
         rules: List<RuleEntity>?,
-        profileRecordsSkipped: Int,
+        skippedProfileIds: Set<Long>?,
     ): List<Break> {
         if (profiles == null || groups == null) return emptyList()
         val profileIds = profiles.mapTo(HashSet()) { it.id }
@@ -72,17 +71,18 @@ object BackupIntegrity {
             if (group.frontProxy > 0 && group.frontProxy !in profileIds) miss(Kind.GROUP_FRONT_PROXY)
             if (group.landingProxy > 0 && group.landingProxy !in profileIds) miss(Kind.GROUP_LANDING_PROXY)
         }
-        if (profileRecordsSkipped > 0) {
+        if (skippedProfileIds == null || skippedProfileIds.isNotEmpty()) {
+            fun possiblyLost(id: Long) = id > 0 && id !in profileIds && (skippedProfileIds == null || id in skippedProfileIds)
             for (profile in profiles) {
                 if (profile.type != ProxyEntity.TYPE_CHAIN) continue
                 val members = profile.chainBean?.proxies ?: continue
                 // 成员 id 只会是正数；0 与负数是编辑器写不出来的值，当作没有引用
                 for (member in members) {
-                    if (member > 0 && member !in profileIds) miss(Kind.CHAIN_MEMBER)
+                    if (possiblyLost(member)) miss(Kind.CHAIN_MEMBER)
                 }
             }
             for (rule in rules.orEmpty()) {
-                if (rule.outbound > 0 && rule.outbound !in profileIds) miss(Kind.RULE_OUTBOUND)
+                if (possiblyLost(rule.outbound)) miss(Kind.RULE_OUTBOUND)
             }
         }
         return Kind.values().mapNotNull { kind -> counts[kind]?.let { Break(kind, it) } }

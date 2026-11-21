@@ -7,6 +7,8 @@ import io.nekohasekai.sagernet.database.BackupIntegrityException
 import io.nekohasekai.sagernet.database.BackupRestore
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
+import io.nekohasekai.sagernet.database.RuleEntity
+import io.nekohasekai.sagernet.fmt.internal.ChainBean
 import io.nekohasekai.sagernet.fmt.putBean
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
@@ -91,6 +93,32 @@ class BackupXhttpImportTest : UiTestBase() {
         }
         assertEquals(BackupIntegrity.Kind.GROUP_FRONT_PROXY, error.breaks.single().kind)
         assertEquals(1, error.breaks.single().count)
+    }
+
+    @Test
+    fun skippedProfileOnlyBreaksReferencesToItsOwnIdWhenKnown() {
+        val invalid = profile(2) { xhttpMode = "invalid-mode" }
+        fun restore(target: Long, unknown: Boolean = false): BackupRestore.Decoded {
+            val chain = ProxyEntity(id = 3, groupId = 1).putBean(ChainBean().apply {
+                initializeDefaultValues()
+                proxies = listOf(1L, target)
+            })
+            val nodes = JSONArray(listOf(profile(1), invalid, chain).map(::encoded))
+            if (unknown) nodes.put(JSONObject.NULL)
+            val backup = JSONObject()
+                .put("profiles", nodes)
+                .put("groups", JSONArray(listOf(encoded(ProxyGroup(id = 1)))))
+                .put("rules", JSONArray(listOf(encoded(RuleEntity(id = 1, outbound = target)))))
+            return BackupRestore.decode(backup, true, true, false)
+        }
+        val decoded = restore(99)
+        assertEquals(1, decoded.skipped)
+        assertEquals(listOf(1L, 99L), decoded.profiles!!.last().chainBean!!.proxies)
+        assertEquals(99L, decoded.rules!!.single().outbound)
+        for (attempt in listOf({ restore(2) }, { restore(99, unknown = true) })) {
+            val error = assertThrows(BackupIntegrityException::class.java) { attempt() }
+            assertEquals(listOf(BackupIntegrity.Kind.CHAIN_MEMBER, BackupIntegrity.Kind.RULE_OUTBOUND), error.breaks.map { it.kind })
+        }
     }
 
     @Test
