@@ -50,6 +50,29 @@ class ClashRejectionTest {
     private fun ClashNodeResult.Imported.reason(path: String) = fields.single { it.path == path }.reason
 
     @Test
+    fun `Hysteria 2 只导入能够原样用于握手的 ALPN`() {
+        for (type in listOf("hysteria2", "hy2")) {
+            val base = "name: h, type: $type, server: h.example.com, port: 443, password: pw"
+            assertImported(base)
+            assertImported("$base, alpn: null")
+            assertEquals(ClashFieldReason.DEFAULT_VALUE, assertImported("$base, ALPN: []").reason("ALPN"))
+            assertEquals(ClashFieldReason.MATCHES_RESULT, assertImported("$base, Alpn: [h3]").reason("Alpn"))
+            assertImported("$base, alpn: [h3], ALPN: [custom]")
+            for (list in listOf("[custom]", "[h3, custom]", "[custom, h3]", "[H3]")) {
+                val failed = node("$base, ALPN: $list") as ClashNodeResult.Failed
+                assertEquals(ClashNodeFailure.HYSTERIA2_ALPN_NOT_SUPPORTED, failed.failure)
+                assertEquals("ALPN", failed.path)
+                assertNull(failed.shownValue)
+            }
+            for (invalid in listOf("h3", "''", "{bad: value}")) {
+                assertRejected("$base, alpn: $invalid", ClashNodeFailure.INVALID_VALUE, "alpn")
+            }
+        }
+        val v1 = parsed("name: h, type: hysteria, server: h.example.com, port: 443, alpn: [custom]")
+        assertEquals("custom", (v1.beans.single() as HysteriaBean).alpn)
+    }
+
+    @Test
     fun `VLESS Vision 与显式启用的 sing-mux 不能同时导入`() {
         val vision = "$vless, tls: true, flow: xtls-rprx-vision"
         for ((options, path) in listOf(

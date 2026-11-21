@@ -115,6 +115,7 @@ enum class ClashNodeFailure(val text: String) {
     TLS_NOT_SUPPORTED("TLS is not supported for this type"),
     CERT_PIN_NOT_SUPPORTED("certificate pinning is not supported"),
     OBFS_NOT_SUPPORTED("obfs type is not supported"),
+    HYSTERIA2_ALPN_NOT_SUPPORTED("Hysteria 2 only supports offering h3 in this client"),
     MISSING_OBFS_PASSWORD("missing obfs password"),
     // VLESS xhttp-opts 的 download-settings 是独立的拨号目标（另一个服务器、端口与 TLS），本应用的链式映射管不到
     DOWNLOAD_SETTINGS_NOT_SUPPORTED("xhttp download-settings is not supported"),

@@ -291,7 +291,7 @@ fun JSONObject.parseHysteria2Json(): HysteriaBean {
             // inline PEM only, like clash "ca-str"; "certificate_path" is a local
             // file and stays unimported
             caText = getStr("certificate")
-            // no "alpn" here: hysteria2 mandates h3 and the sing-box builder hardcodes it
+            // 当前内置核心的 HTTP/3 拨号只发送 h3。
         }
     }
 }
@@ -458,7 +458,7 @@ fun buildSingBoxOutboundHysteriaBean(bean: HysteriaBean, globalAllowInsecure: Bo
                 }
             }
             password = bean.authPayload
-            // hysteria2 mandates h3 whatever the profile's alpn says
+            // 与内置核心的 HTTP/3 拨号使用相同的 ALPN。
             tls = buildSingBoxOutboundTLS(bean, globalAllowInsecure)?.apply { alpn = listOf("h3") }
         }
 

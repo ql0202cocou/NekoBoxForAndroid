@@ -958,11 +958,10 @@ private fun ClashFields.hysteria(bean: HysteriaBean): Pair<Set<String>, ClashIna
             // 没写 obfs 时 mihomo 不混淆，本应用同样不混淆，口令不起作用
             if (obfs.isNullOrEmpty()) ignored(INACTIVE, "obfs-password") else kept("obfs-password")
         }
-        // 构建写死 h3
-        when (val alpn = value("alpn")) {
-            null -> Unit
-            listOf("h3") -> ignored(MATCHES_RESULT, "alpn")
-            else -> if (alpn.isFalseOrEmpty()) ignored(DEFAULT_VALUE, "alpn") else ignored(SEMANTICS_DIFFER, "alpn")
+        proxy.mihomoEntry("alpn")?.let { entry ->
+            val protocols = entry.value as? List<*> ?: return@let
+            val reason = if (protocols.isEmpty()) DEFAULT_VALUE else MATCHES_RESULT
+            recordAt(listOf(entry.key as String), ClashFieldResult.IGNORED, reason)
         }
     }
     return (if (v1) HYSTERIA_KEYS else HYSTERIA2_KEYS) to echOptsInactive()

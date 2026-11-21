@@ -270,6 +270,14 @@ private fun clashRejection(type: String, proxy: Map<String, Any?>, bean: Abstrac
         ) return rejected(ClashNodeFailure.CERT_PIN_NOT_SUPPORTED, proxy.clashSsPluginOpts()!!.key, pluginPin.key)
     }
 
+    // mihomo 在交给 HTTP/3 前用配置的 ALPN 拨 QUIC；内置核心通过 HTTP/3 拨号，只发 h3。
+    if (bean is HysteriaBean && bean.protocolVersion == 2) proxy.mihomoEntry("alpn")?.let { entry ->
+        val protocols = entry.value ?: return@let
+        if (protocols !is List<*>) return rejected(ClashNodeFailure.INVALID_VALUE, entry.key)
+        if (protocols.isNotEmpty() && protocols != listOf("h3")) {
+            return rejected(ClashNodeFailure.HYSTERIA2_ALPN_NOT_SUPPORTED, entry.key)
+        }
+    }
     // hysteria2 的混淆：构建只会写 salamander，gecko 等其它类型本应用没有。只有已知的混淆类型名才显示
     // （CLASH_ENUM_PATHS_BY_TYPE：误写进来的口令不显示；hysteria v1 的 obfs 是口令，从不显示）
     if (bean is HysteriaBean && bean.protocolVersion == 2) proxy.mihomoEntry("obfs")?.let { obfs ->
@@ -842,9 +850,6 @@ private fun parseClashHysteria(proxy: Map<String, Any?>, version: Int): Hysteria
                     "obfs-password" -> obfsPassword = opt.value.toString()
 
                     "password" -> bean.authPayload = opt.value.toString()
-
-                    // no "alpn" here: hysteria2 mandates h3 and the
-                    // sing-box builder hardcodes it
                 }
             }
         }
