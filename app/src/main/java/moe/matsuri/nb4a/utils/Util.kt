@@ -290,6 +290,35 @@ object Util {
     // Xray socks 入站 settings.auth 的取值是认证方式，由生成器写出，不是凭据
     private val SOCKS_AUTH_METHODS = setOf("password", "noauth")
 
+    // 仅在完整外核配置中区分 SOCKS 入站的认证方式和凭据。自由文本仍按键名遮蔽。
+    fun redactExternalConfig(config: String): String {
+        if ("\"inbounds\"" !in config || "\"auth\"" !in config) return redactSecrets(config)
+        fun parse(text: String) = runCatching {
+            JavaUtil.gson.fromJson(text, JsonElement::class.java)
+        }.getOrNull() as? JsonObject
+        val root = parse(config)
+        val inbounds = root?.get("inbounds") as? JsonArray ?: return redactSecrets(config)
+        val modes = inbounds.mapIndexedNotNull { i, entry ->
+            val inbound = entry as? JsonObject ?: return@mapIndexedNotNull null
+            if (inbound["protocol"] != JsonPrimitive("socks")) return@mapIndexedNotNull null
+            val settings = inbound["settings"] as? JsonObject ?: return@mapIndexedNotNull null
+            val auth = settings["auth"] as? JsonPrimitive ?: return@mapIndexedNotNull null
+            auth.asString.takeIf { it in SOCKS_AUTH_METHODS }?.let { i to it }
+        }
+        if (modes.isEmpty()) return redactSecrets(config)
+        // 先规范化转义键，再整份脱敏。只将已确认的两个枚举值写回对应位置。
+        val masked = redactSecrets(JavaUtil.gson.toJson(root))
+        val safe = parse(masked) ?: return masked
+        val safeInbounds = safe["inbounds"] as? JsonArray ?: return masked
+        if (safeInbounds.size() != inbounds.size()) return masked
+        for ((i, mode) in modes) {
+            val entry = safeInbounds[i] as? JsonObject ?: return masked
+            val settings = entry["settings"] as? JsonObject ?: return masked
+            settings.addProperty("auth", mode)
+        }
+        return JavaUtil.gson.toJson(safe)
+    }
+
     private val SENSITIVE_KEY_NAMES = SENSITIVE_KEYS.mapTo(HashSet()) { it.lowercase() }
 
     // 按值遮蔽：sources（本次生成的配置原文，JSON 或 YAML）里敏感键（SENSITIVE_KEYS，连字符当下划线）下的字符串值，

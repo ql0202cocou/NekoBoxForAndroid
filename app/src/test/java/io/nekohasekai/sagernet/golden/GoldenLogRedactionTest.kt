@@ -9,7 +9,7 @@ import java.io.File
 import java.lang.reflect.Modifier
 
 // 日志脱敏的对账：基线里每个场景 run / test 两种模式的 sing-box 配置与外核配置，按写日志的方式脱敏
-// （sing-box 配置走 Util.redactConfig、外核配置走 Util.redactSecrets，同 ConfigBuildResult.loggableConfig /
+// （sing-box 配置走 Util.redactConfig、外核配置走 Util.redactExternalConfig，同 ConfigBuildResult.loggableConfig /
 // loggableExternalConfig；本机 socks 凭据由 redactLocalAuth 按值遮蔽，不在这里查）之后，场景里任何节点的凭据
 // 字段值都不能再出现。SENSITIVE_KEYS 按输出的键名手工维护，生成器写出一个名单里没有的装凭据的键
 // （REALITY 的 short_id / shortId、mieru 的 user.name、naive 的 proxy URL 里的用户名都漏过）时这里失败。
@@ -56,7 +56,7 @@ class GoldenLogRedactionTest {
                     if (singBox.isFile) singBox.readText().let { add(Triple("sing-box.json", it, Util.redactConfig(it))) }
                     for (group in baseline.externalGroups(id, mode)) {
                         val text = File(modeDir, group.file).readText()
-                        add(Triple(group.file, text, Util.redactSecrets(text)))
+                        add(Triple(group.file, text, Util.redactExternalConfig(text)))
                     }
                 }
                 for ((file, raw, redacted) in docs) {

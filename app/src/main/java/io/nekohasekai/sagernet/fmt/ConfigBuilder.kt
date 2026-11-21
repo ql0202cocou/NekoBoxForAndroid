@@ -137,7 +137,7 @@ class ConfigBuildResult(
 
     // 打印配置时先按值遮本机 socks 凭据，再按键名脱敏。
     fun loggableConfig(): String = Util.redactConfig(redactLocalAuth(config))
-    fun loggableExternalConfig(text: String): String = Util.redactSecrets(redactLocalAuth(text))
+    fun loggableExternalConfig(text: String): String = Util.redactExternalConfig(redactLocalAuth(text))
 
     // 运行日志与启动校验在输出离开子进程时脱敏。反查密码只改了真密码的末位，也不能进入日志。
     fun externalOutputRedactor(externalConfigs: List<String>): (String) -> String {

@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.fmt
 
+import com.google.gson.JsonParser
 import moe.matsuri.nb4a.utils.Util
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -176,6 +177,18 @@ class LocalSocksAuthTest {
         assertFalse(safe, auth.withWrongPassword().password in safe)
     }
 
+    @Test
+    fun externalConfigShowsOnlyRecognizedSocksInboundAuthModes() {
+        fun inbound(protocol: String, auth: String) = """{"protocol":"$protocol","settings":{"auth":"$auth","password":"synthetic-account"}}"""
+        val config = """{"inbounds":[${inbound("socks","password")},${inbound("socks","noauth")},${inbound("socks","synthetic-token")},${inbound("custom","password")}],"auth":"noauth"}"""
+        val logged = result.loggableExternalConfig(config)
+        val root = JsonParser.parseString(logged).asJsonObject
+        val modes = root.getAsJsonArray("inbounds").map { it.asJsonObject.getAsJsonObject("settings")["auth"].asString }
+        assertEquals(listOf("password", "noauth", "***", "***"), modes)
+        assertEquals("***", root["auth"].asString)
+        assertFalse(logged, "synthetic-account" in logged || "synthetic-token" in logged)
+    }
+
     private fun plan(): ExternalRunPlan {
         val xray = CoreTestNodes.vless {
             serverAddress = "x.example.com"
@@ -203,7 +216,7 @@ class LocalSocksAuthTest {
         for (process in processes) {
             assertRedacted(process.config)
             // 与 ProxyInstance.init 相同的顺序
-            assertClean(Util.redactSecrets(result.redactLocalAuth(process.config)))
+            assertClean(result.loggableExternalConfig(process.config))
         }
     }
 
