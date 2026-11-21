@@ -293,7 +293,7 @@ class CoreCapabilitiesTest {
                 KnownDifference.HTTP_HEADER_CAMOUFLAGE to DifferenceDecision.DECIDED,
                 KnownDifference.XUDP_UNDER_VISION to DifferenceDecision.BY_PRINCIPLE,
                 KnownDifference.UTLS_IMPLEMENTATION to DifferenceDecision.BY_PRINCIPLE,
-                KnownDifference.SING_BOX_UTLS_RANDOMIZED_SEED to DifferenceDecision.OPEN,
+                KnownDifference.SING_BOX_UTLS_RANDOMIZED_SEED to DifferenceDecision.DECIDED,
                 KnownDifference.CHAIN_MUX to DifferenceDecision.BY_PRINCIPLE,
                 KnownDifference.XRAY_MUX_UDP443 to DifferenceDecision.DECIDED,
             ),

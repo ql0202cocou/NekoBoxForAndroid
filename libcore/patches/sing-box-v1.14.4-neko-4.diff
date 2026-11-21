@@ -515,14 +515,68 @@ diff -ruN --exclude=.git --exclude=NEKO.md a/common/dialer/default_neko_test.go 
 +		t.Fatalf("base control called %d times, want 1", called)
 +	}
 +}
+diff -ruN --exclude=.git --exclude=NEKO.md a/common/tls/utls_client.go b/common/tls/utls_client.go
+--- a/common/tls/utls_client.go	2026-11-21 15:28:48
++++ b/common/tls/utls_client.go	2026-11-21 15:29:20
+@@ -363,6 +363,10 @@
+ 	weights := utls.DefaultWeights
+ 	weights.TLSVersMax_Set_VersionTLS13 = 1
+ 	weights.FirstKeyShare_Set_CurveP256 = 0
++	// uTLS 的随机模板单独抽取支持组和首包密钥，不能在 HRR 里补发 ML-KEM。
++	// 同时声明混合组并发送对应密钥，避免 TLS 1.3 对端选择未携带密钥的混合组。
++	weights.CurveIDs_Append_X25519 = 1
++	weights.KeyShare_Append_RandomGroups = 1
+ 	randomizedFingerprint = utls.HelloRandomized
+ 	randomizedFingerprint.Seed, _ = utls.NewPRNGSeed()
+ 	randomizedFingerprint.Weights = &weights
+diff -ruN --exclude=.git --exclude=NEKO.md a/common/tls/utls_randomized_neko_test.go b/common/tls/utls_randomized_neko_test.go
+--- a/common/tls/utls_randomized_neko_test.go	1970-01-01 07:30:00
++++ b/common/tls/utls_randomized_neko_test.go	2026-11-21 15:29:20
+@@ -0,0 +1,36 @@
++//go:build with_utls
++
++package tls
++
++import (
++	"slices"
++	"testing"
++
++	utls "github.com/metacubex/utls"
++)
++
++func TestRandomizedHybridKeyShare(t *testing.T) {
++	for i := range 64 {
++		id := randomizedFingerprint
++		seed := utls.PRNGSeed{byte(i)}
++		id.Seed = &seed
++		spec, err := utls.UTLSIdToSpec(id)
++		if err != nil {
++			t.Fatal(err)
++		}
++		var group, share bool
++		for _, ext := range spec.Extensions {
++			switch e := ext.(type) {
++			case *utls.SupportedCurvesExtension:
++				group = slices.Contains(e.Curves, utls.X25519MLKEM768)
++			case *utls.KeyShareExtension:
++				share = slices.ContainsFunc(e.KeyShares, func(k utls.KeyShare) bool {
++					return k.Group == utls.X25519MLKEM768
++				})
++			}
++		}
++		if !group || !share {
++			t.Fatalf("seed %d: hybrid group %v, key share %v", i, group, share)
++		}
++	}
++}
 diff -ruN --exclude=.git --exclude=NEKO.md a/constant/version.go b/constant/version.go
---- a/constant/version.go	2026-11-04 15:27:02
-+++ b/constant/version.go	2026-11-18 21:37:58
+--- a/constant/version.go	2026-11-21 15:28:48
++++ b/constant/version.go	2026-11-21 15:29:20
 @@ -1,3 +1,3 @@
  package constant
  
 -var Version = "unknown"
-+var Version = "1.14.4-neko-3"
++var Version = "1.14.4-neko-4"
 diff -ruN --exclude=.git --exclude=NEKO.md a/dns/router.go b/dns/router.go
 --- a/dns/router.go	2026-11-04 15:27:02
 +++ b/dns/router.go	2026-10-24 12:03:49

@@ -9,7 +9,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity.Companion.CORE_XRAY
 // 核实依据是固定版本源码、run -test 与真实核心回环；可复用工具在 experiments/core-probe/。
 // 当前行为及源码位置直接写在本表、组合规则、已知差异和相关测试中。
 // 测试配置生成成功不等于核心回环通过；MISMATCH / ANY 的判读边界见工具 README。
-// sing-box 1.14.4-neko-3 更新压缩库，协议能力沿用 1.14.4。版本以 vendored libcore/sing-box、NEKO.md 与 libcore/go.mod 为准；生成器以 buildSingBoxOutbound*、
+// sing-box 1.14.4-neko-4 修复 randomized uTLS 的混合组密钥共享，协议名单沿用 1.14.4。版本以 vendored libcore/sing-box、NEKO.md 与 libcore/go.mod 为准；生成器以 buildSingBoxOutbound*、
 // buildXrayOutbound 及其测试为准。uTLS 指纹名单、VLESS flow、ws early data 的上游源码位置写在各常量上。
 //
 // 升级任何一个核心都要回到这里逐条复核：DialCore.version 与 buildScript/lib/plugins.sh、vendored sing-box 的版本

@@ -2,7 +2,7 @@
 
 This directory is a vendored copy of upstream
 [SagerNet/sing-box](https://github.com/SagerNet/sing-box) **v1.14.4** plus the
-NekoBox patch set (`1.14.4-neko-3`). The patches originate from
+NekoBox patch set (`1.14.4-neko-4`). The patches originate from
 `MatsuriDayo/sing-box` (`aed32ee3066cdbc7d471e3e0415c5134088962df`,
 `1.12.19-neko-1`); upstream NekoBox is unmaintained, so this fork maintains and
 rebases the patches itself. When rebasing onto a newer upstream sing-box
@@ -208,10 +208,14 @@ Additional patches maintained by this fork (not from MatsuriDayo):
 `TestNekoClientBindReopenResumesTraffic` 覆盖 Dial / Listen 两条路径的旧拨号取消
 及连续重开后的本机 UDP 收发。
 
+## Randomized uTLS (1.14.4-neko-4)
+
+The randomized fingerprint advertises X25519MLKEM768 and sends its key share in the first ClientHello. In uTLS v1.8.8 the independent draws for those extensions could advertise the group without its share, then fail on a TLS 1.3 HelloRetryRequest for the group. Other fingerprint templates retain their existing settings. Recheck these weights and the retry path on uTLS upgrades. The regression in `common/tls/utls_randomized_neko_test.go` exercises deterministic seeds.
+
 ## Replayable patch artifact
 
 The whole patch set is materialized as a single replayable diff,
-`libcore/patches/sing-box-v1.14.4-neko-3.diff`: a clean clone of upstream tag
+`libcore/patches/sing-box-v1.14.4-neko-4.diff`: a clean clone of upstream tag
 v1.14.4 plus this file applied with `patch -p1` reproduces this directory
 exactly. Excluded from the artifact (and from the verification comparison):
 `.git`, the top-level `clients/` git submodule placeholders (not carried here;
@@ -233,7 +237,7 @@ git clone --depth 1 --branch v1.14.4 https://github.com/SagerNet/sing-box "$TMP/
 rm -rf "$TMP/a/clients"
 cp -R libcore/sing-box "$TMP/b"
 (cd "$TMP" && command diff -ruN --exclude=.git --exclude=NEKO.md a b) \
-  > libcore/patches/sing-box-v1.14.4-neko-3.diff
+  > libcore/patches/sing-box-v1.14.4-neko-4.diff
 ```
 
 The `a`/`b` directory names are load-bearing: they keep the diff header paths

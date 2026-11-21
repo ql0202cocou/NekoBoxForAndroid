@@ -217,7 +217,7 @@ enum class KnownDifference(
     UTLS_IMPLEMENTATION(
         listOf(ProfileField.UTLS_FINGERPRINT),
         mapOf(
-            DialCore.SING_BOX to "metacubex/utls v1.8.7；random 从当前常见指纹里选一个",
+            DialCore.SING_BOX to "metacubex/utls v1.8.8；random 从当前常见指纹里选一个",
             DialCore.XRAY to "Xray 自带的 uTLS；random 启动时从 ModernFingerprints 里选一个",
         ),
         "同名指纹都是 uTLS 模板，具体版本与随机取样不同，不影响安全校验",
@@ -226,16 +226,11 @@ enum class KnownDifference(
     SING_BOX_UTLS_RANDOMIZED_SEED(
         listOf(ProfileField.UTLS_FINGERPRINT),
         mapOf(
-            DialCore.SING_BOX to "randomized 每个进程只生成一次随机种子：约 0.71 的进程把 X25519MLKEM768 列进 supported_groups，" +
-                "其中一半不给它 key share；Go 1.24 以上的 TLS 服务端对它发 HelloRetryRequest，uTLS 报 " +
-                "CurvePreferences includes unsupported curve，所以约 0.71×0.5 的进程每次拨号都失败",
-            DialCore.XRAY to "使用 Xray 自带的 uTLS，不经 metacubex/utls 的这个随机种子路径",
+            DialCore.SING_BOX to "randomized 按进程选种子，首包同时提供 X25519MLKEM768 组和密钥",
+            DialCore.XRAY to "采用其自带的 uTLS 随机模板",
         ),
-        "只有源码推断、未实测：vendored common/tls/utls_client.go:353-370 每进程一次种子；utls v1.8.7 " +
-            "u_parrots.go:3058（0.71 的概率列入 X25519MLKEM768）与 :3118（0.5 的概率给 key share）；Go 1.26 " +
-            "crypto/tls/handshake_server_tls13.go:209-243 对客户端支持的 PQ 组发 HRR；utls handshake_client_tls13.go:339-346 " +
-            "报 CurvePreferences includes unsupported curve。待维护者定是否在 sing-box 上也作冲突",
-        DifferenceDecision.OPEN,
+        "固定的 metacubex/utls v1.8.8 不能在 HRR 中补发混合组密钥。sing-box 补丁保证随机模板首次发送。",
+        DifferenceDecision.DECIDED,
     ),
     CHAIN_MUX(
         listOf(ProfileField.ENABLE_MUX),

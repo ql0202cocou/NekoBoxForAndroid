@@ -363,6 +363,10 @@ func init() {
 	weights := utls.DefaultWeights
 	weights.TLSVersMax_Set_VersionTLS13 = 1
 	weights.FirstKeyShare_Set_CurveP256 = 0
+	// uTLS 的随机模板单独抽取支持组和首包密钥，不能在 HRR 里补发 ML-KEM。
+	// 同时声明混合组并发送对应密钥，避免 TLS 1.3 对端选择未携带密钥的混合组。
+	weights.CurveIDs_Append_X25519 = 1
+	weights.KeyShare_Append_RandomGroups = 1
 	randomizedFingerprint = utls.HelloRandomized
 	randomizedFingerprint.Seed, _ = utls.NewPRNGSeed()
 	randomizedFingerprint.Weights = &weights
