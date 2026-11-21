@@ -72,18 +72,16 @@ python3 -m unittest discover -s experiments/core-probe/tests -v
 
 ## 更新输入 / Refresh inputs
 
-`xray/xhttp/genout/` 的 JSON 是从 Kotlin 生成器导出的测试输入，`gen-xhttp.py` 的规范 `extra` 也直接取自这里；样本与用例必须一一对应，缺失或多余时生成器直接报错。修改应用生成器或测试材料后，需要重新导出并审查。`TmpXhttpDump.kt.txt` 保留可重用的 JVM 导出器，输出目录需显式提供：
+`xray/xhttp/genout/` 的 JSON 是从 Kotlin 生成器导出的测试输入，`gen-xhttp.py` 的规范 `extra` 也直接取自这里；样本与用例必须一一对应，缺失或多余时生成器直接报错。修改应用生成器或测试材料后，需要重新导出并审查。`exporter/TmpXhttpDump.kt` 保留可重用的 JVM 导出器，输出目录需显式提供：
 
 The JSON files in `xray/xhttp/genout/` are test inputs exported from the Kotlin generator; `gen-xhttp.py` also takes the canonical `extra` from them and fails if a sample is missing or unused. Re-export and review them after changing the app generator or fixtures. To use the reusable JVM exporter:
 
-1. 临时复制 `xray/xhttp/TmpXhttpDump.kt.txt` 为 `app/src/test/java/io/nekohasekai/sagernet/fmt/v2ray/TmpXhttpDump.kt`，确认该目标不存在。 / Copy the exporter into the test source directory temporarily, ensuring the destination does not exist.
-2. 在仓库根目录执行下列命令，输出到新目录。 / Run from the repository root, exporting to a new directory.
-3. 审查全部输出，再替换 `genout/` 并重新生成探测配置；结束时删除临时测试源文件。 / Review all outputs before replacing `genout/` and regenerating probes; remove the temporary test source afterward.
+在仓库根目录执行下列命令，输出到新目录。审查输出后再替换 `genout/` 并重新生成探测配置。 / Run from the repository root and review the new output before replacing `genout/` and regenerating probes.
 
 ```sh
 CORE_PROBE_DIR="$PWD/experiments/core-probe" \
 CORE_PROBE_GENOUT="/absolute/path/to/new-output" \
-./gradlew app:testOssDebugUnitTest --tests '*TmpXhttpDump' --rerun
+./gradlew -PxhttpProbeExporter app:testOssDebugUnitTest --tests '*TmpXhttpDump' --rerun
 ```
 
 `fixtures/pki/gen-pki.sh` 可重建测试证书，仅保留六个必需输入。更换证书或 REALITY 材料后，必须重新导出 Kotlin 样本并运行全部生成器；导出器从当前材料读取公钥与证书指纹。测试材料只用于本机实验。

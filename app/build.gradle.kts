@@ -21,6 +21,9 @@ val syncRobolectricRuntime = tasks.register<Sync>("syncRobolectricRuntime") {
 }
 
 android {
+    if (providers.gradleProperty("xhttpProbeExporter").isPresent) {
+        sourceSets.getByName("test").kotlin.srcDir(rootProject.file("experiments/core-probe/xray/xhttp/exporter"))
+    }
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
     }

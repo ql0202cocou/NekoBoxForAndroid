@@ -11,7 +11,7 @@ import java.security.cert.CertificateFactory
 
 private const val PROBE_UUID = "64d988ac-52d8-4e06-8fff-a5120f441a72"
 
-// 按 ../../README.md 临时放入 JVM 测试目录，将当前生成器输出导出到显式指定的目录。
+// 启用 xhttpProbeExporter 后，将当前生成器输出导出到显式指定的目录。
 class TmpXhttpDump {
     private val settings = ExternalCoreSettings(logLevel = 2, ipv6Mode = 0, globalAllowInsecure = false)
     private val probeDir = File(checkNotNull(System.getenv("CORE_PROBE_DIR")) { "CORE_PROBE_DIR is required" })
