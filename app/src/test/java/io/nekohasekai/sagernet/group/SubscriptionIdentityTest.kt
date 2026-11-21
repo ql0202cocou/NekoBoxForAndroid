@@ -96,7 +96,7 @@ class SubscriptionIdentityTest {
     @Test
     fun `手动更新沿用订阅原文也能识别明文 HTTP`() {
         val subscription = group().subscription!!.apply { updateWhenConnectedOnly = false }
-        for (link in listOf("http://a.example/sub", "HtTp://a.example/sub")) {
+        for (link in listOf("http://a.example/sub", "HtTp://a.example/sub", "  HTTP://a.example/sub  ")) {
             subscription.link = link
             assertTrue(needsDisconnectedUpdateConfirmation(subscription))
         }

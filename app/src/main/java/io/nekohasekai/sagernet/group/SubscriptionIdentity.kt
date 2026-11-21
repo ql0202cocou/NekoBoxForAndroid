@@ -51,7 +51,7 @@ fun isSubscriptionSuperseded(started: SubscriptionIdentity, current: ProxyGroup)
 
 /** 断开代理时，手动更新明文订阅和指定仅连接时更新的订阅都要确认，包括旧库的混合大小写协议名。 */
 internal fun needsDisconnectedUpdateConfirmation(subscription: SubscriptionBean): Boolean =
-    subscription.updateWhenConnectedOnly == true || subscription.link?.substringBefore(':', "").equals("http", ignoreCase = true)
+    subscription.updateWhenConnectedOnly == true || subscription.link?.trim()?.substringBefore(':', "").equals("http", ignoreCase = true)
 
 /** 远程订阅原文交给 Go 下载。要求它本身带有 authority，避免 HTTP 解析器宽松补斜杠后看似可用。 */
 fun isHttpSubscriptionLink(link: String): Boolean = try {

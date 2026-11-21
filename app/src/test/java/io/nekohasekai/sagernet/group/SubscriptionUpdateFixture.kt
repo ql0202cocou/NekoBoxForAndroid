@@ -35,7 +35,8 @@ internal class SubscriptionUpdateFixture(val format: String, val pattern: String
     fun prepare() {
         val group = ProxyGroup(name = "subscription test", type = GroupType.SUBSCRIPTION,
             subscription = SubscriptionBean().applyDefaultValues().apply {
-                link = FileProvider.getUriForFile(app, "${app.packageName}.cache", file).toString()
+                // 存量订阅可在 URI 首尾带有空白，更新时应与身份比较使用同一地址。
+                link = "  " + FileProvider.getUriForFile(app, "${app.packageName}.cache", file) + "  "
                 deduplication = pattern == "duplicates"
                 forceResolve = false
                 lastUpdated = 123L

@@ -75,7 +75,7 @@ object RawUpdater : GroupUpdater() {
         // 下载开始时的订阅身份：写库事务开头与分组当前行比对，期间被改成别的订阅就放弃整次结果。
         // 必须在下面对 proxyGroup 的任何改写之前取
         val startedIdentity = proxyGroup.subscriptionIdentity()
-        val link = subscription.link
+        val link = subscription.link.trim()
         var proxies: List<AbstractBean>
         var clashRoot: Map<*, *>? = null
         var remoteGroupName: String? = null
@@ -102,7 +102,7 @@ object RawUpdater : GroupUpdater() {
                 if (DataStore.allowInsecureOnRequest) {
                     allowInsecure()
                 }
-                setURL(subscription.link)
+                setURL(link)
                 setUserAgent(subscription.customUserAgent.takeIf { it.isNotBlank() } ?: USER_AGENT)
             }.execute()
             try {
