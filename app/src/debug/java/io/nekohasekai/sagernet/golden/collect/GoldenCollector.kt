@@ -412,7 +412,10 @@ class GoldenCollector(private val args: CollectArgs) {
                     "codeTop" to args.dirty.codeTop,
                 ),
             ),
-            "apk" to linkedMapOf("sha256" to sha256(File(app.applicationInfo.sourceDir))),
+            "apk" to linkedMapOf(
+                "sha256" to sha256(File(app.applicationInfo.sourceDir)),
+                "buildRevision" to BuildConfig.GOLDEN_BUILD_REVISION.ifEmpty { null },
+            ),
             "app" to linkedMapOf(
                 "applicationId" to BuildConfig.APPLICATION_ID,
                 "versionName" to BuildConfig.VERSION_NAME,

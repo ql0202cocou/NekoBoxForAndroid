@@ -665,12 +665,15 @@ stop_block = {
 
 max_phantom = device.get("maxPhantomProcesses")
 monitor = device.get("monitorPhantomProcs")
+fixture = prepare["result"].copy() if prepare and prepare["status"] == "ok" else {"error": (prepare or {}).get("message")}
+build_revision = fixture.pop("buildRevision", None)
 result = {
     "formatVersion": 1,
     "startedAt": host.get("startedAt"),
     "args": {"xray": xray, "singbox": singbox, "durationSec": duration,
              "intervalSec": interval, "memAtSec": mem_at, "mode": mode, "logLevel": log_level, "settleSec": settle},
     "app": {"package": package, "apk": host.get("apk"), "versionCode": as_int(host.get("versionCode")),
+            "buildRevision": build_revision,
             "commit": host.get("commit"), "dirtyCount": as_int(host.get("dirtyCount")),
             "xrayVersion": host.get("xrayVersion")},
     "device": {
@@ -683,7 +686,7 @@ result = {
         "vpnAppopBefore": device.get("vpnAppopBefore"),
         "topActivityAtStart": (read("top-activity.txt") or "").strip() or None,
     },
-    "fixture": prepare["result"] if prepare and prepare["status"] == "ok" else {"error": (prepare or {}).get("message")},
+    "fixture": fixture,
     "start": start_block,
     "processes": {"xray": core_stats("xray", xray),
                   "bgPids": sorted({s["bgPid"] for s in samples if s["bgPid"]}),

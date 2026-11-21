@@ -7,6 +7,7 @@ import android.os.Process
 import android.os.SystemClock
 import androidx.core.content.getSystemService
 import com.google.gson.GsonBuilder
+import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.ISagerNetService
@@ -166,6 +167,7 @@ object GoldenMeasure {
         return linkedMapOf(
             "formatVersion" to FORMAT_VERSION,
             "groupId" to GROUP_ID,
+            "buildRevision" to BuildConfig.GOLDEN_BUILD_REVISION.ifEmpty { null },
             "mainProfileId" to fixture.mainProfileId,
             "members" to linkedMapOf("xray" to xray, "singbox" to singbox),
             "externalIndex" to external,

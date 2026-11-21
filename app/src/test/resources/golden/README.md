@@ -223,7 +223,8 @@ address/corpus.json                                        地址解析语料与
 | 字段 | 内容 |
 | --- | --- |
 | `formatVersion` | 3（K0b 起；v1、v2 见「目录结构」一节末尾） |
-| `collectorWorkspace.commit` | 脚本采集时主机的 Git 提交。复用 APK 时，原构建提交可能未知。旧清单用顶层 `commit`。 |
+| `collectorWorkspace.commit` | 脚本采集时主机的 Git 提交。旧清单用顶层 `commit`。 |
+| `apk.buildRevision` | 调试 APK 构建时的完整 Git HEAD。后缀 `-dirty` 表示当时有已跟踪文件改动。旧 APK 或无 Git 信息的构建，此值缺失或为空。未跟踪文件与预构建核心的内容以产物摘要为准。 |
 | `apk` | `sha256` 是设备与本地选中 APK 核对一致的整包摘要。`mode` 为本次 Gradle 构建并安装（`built`）、安装已有文件（`prebuilt`）或复用已安装文件（`installed`）。旧清单没有此字段。 |
 | `collectorWorkspace.dirty` | 采集时主机工作区的改动（旧清单用顶层 `dirty` 或 `dirtyPaths`）：`count` 是有改动的路径总数（含未跟踪文件，0 即干净），`top` 是排序后的前 50 条；`codeCount` / `codeTop` 是其中不在 `app/src/debug/`、`app/src/test/`、`buildScript/golden/`、`doc/` 之下的路径，`codeCount` 非 0 说明有可能影响配置输出的代码改动。 |
 | `app` | applicationId、versionName、versionCode、flavor、buildType |
@@ -469,7 +470,7 @@ raw/             原始数据：device.txt、host.txt、prepare/start/finish(.tx
 | 字段 | 内容 |
 | --- | --- |
 | `args` | 本次参数 |
-| `app` | 包名、APK、versionCode、提交与工作区改动数、Xray 版本（取自 `plugins.sh`） |
+| `app` | 包名、APK、versionCode、采样时的工作区提交与改动数、APK 的 `buildRevision`（与采集同义）、Xray 版本（取自 `plugins.sh`） |
 | `device` | 系统版本、API 级别、build 类型、fingerprint、型号、ABI、`memTotalKb`、`cpus`；`maxPhantomProcesses` / `monitorPhantomProcs` 的原值与生效值；`processCountBeforeStart`（发出启动前 `ps -A` 的进程数）；`vpnAppopBefore`；`topActivityAtStart`（发出启动时前台的界面） |
 | `fixture` | `measurePrepare` 的返回：各类成员数、选中节点、按生产代码构建出的外核跳实例分布 `externalIndex` 与按运行计划应起的进程数 `externalProcesses`（都按插件 id 计） |
 | `start` | `connectedMs`：从发出启动到服务报 `Connected` 的毫秒数（主进程收到状态回调的时刻）；`transitions`：取样期间收到的全部状态变化（含消息）；没连上时 `failure` 给出状态与原因；请求本身失败时 `error` |

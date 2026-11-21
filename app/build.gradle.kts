@@ -1,5 +1,7 @@
 @file:Suppress("UnstableApiUsage")
 
+import com.android.build.api.variant.BuildConfigField
+
 plugins {
     id("com.android.application")
     id("com.google.devtools.ksp")
@@ -7,6 +9,24 @@ plugins {
 }
 
 setupApp()
+
+// 只给调试采集器标记构建时的 HEAD；源码压缩包、无 Git 环境留空。
+val goldenGitRevision = providers.exec {
+    workingDir(rootProject.projectDir)
+    commandLine("git", "--git-dir=.git", "--work-tree=.", "describe", "--always", "--abbrev=64", "--dirty", "--match", "")
+    isIgnoreExitValue = true
+}.standardOutput.asText
+androidComponents.onVariants(androidComponents.selector().withBuildType("debug")) { variant ->
+    requireNotNull(variant.buildConfigFields).put("GOLDEN_BUILD_REVISION", providers.provider {
+        val revision = try {
+            goldenGitRevision.get().trim()
+        } catch (_: GradleException) {
+            ""
+        }
+        val stamp = revision.takeIf { it.matches(Regex("(?:[0-9a-f]{40}|[0-9a-f]{64})(?:-dirty)?")) }.orEmpty()
+        BuildConfigField("String", "\"$stamp\"", null)
+    })
+}
 
 // Robolectric 的 SDK 35 运行时（约 200 MB）声明成依赖配置：sha256 记在 gradle/verification-metadata.xml，
 // 与其它下载一样被校验。LocalDependencyResolver 要求平铺目录，所以同步一份到 build 下
