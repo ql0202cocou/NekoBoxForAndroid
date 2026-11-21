@@ -357,12 +357,13 @@ private fun parseClashShadowsocks(proxy: Map<String, Any?>): ShadowsocksBean {
     if (ssPluginName != null) {
         // plugin-opts 在 Clash 里可以不写：没有它插件照样用默认选项
         fun opt(name: String) = proxy.clashSsPluginOpt(name)?.value
+        val host = opt("host")?.toString() ?: "bing.com"
         when (ssPluginName) {
             "obfs" -> {
                 ssPlugin.apply {
                     add("obfs-local")
                     add("obfs=" + (opt("mode")?.toString() ?: ""))
-                    add("obfs-host=" + (opt("host")?.toString() ?: ""))
+                    add("obfs-host=$host")
                 }
             }
 
@@ -371,7 +372,7 @@ private fun parseClashShadowsocks(proxy: Map<String, Any?>): ShadowsocksBean {
                     add("v2ray-plugin")
                     add("mode=" + (opt("mode")?.toString() ?: ""))
                     if (opt("tls").mihomoTrue()) add("tls")
-                    add("host=" + (opt("host")?.toString() ?: ""))
+                    add("host=$host")
                     add("path=" + (opt("path")?.toString() ?: ""))
                     proxy.clashSsPluginOpt("mux")?.let { entry ->
                         val value = entry.value ?: return@let

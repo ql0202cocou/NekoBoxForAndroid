@@ -1020,9 +1020,20 @@ class ClashFieldRecordTest {
         assertEquals(obfs, plugin("{$s, Plugin: v2ray-plugin, plugin: obfs, plugin-opts: {mode: tls, host: obfs.example.com}}"))
         assertEquals(obfs, plugin("{$s, plugin: obfs, plugin-opts: {mode: tls, host: obfs.example.com}, Plugin-Opts: {mode: http}}"))
         // 子键不把 _ 当作 -：obfs_host 不是 host，只有 host 才读
-        assertEquals("obfs-local;obfs=tls;obfs-host=", plugin("{$s, plugin: obfs, plugin-opts: {mode: tls, obfs_host: x.example.com}}"))
+        assertEquals("obfs-local;obfs=tls;obfs-host=bing.com", plugin("{$s, plugin: obfs, plugin-opts: {mode: tls, obfs_host: x.example.com}}"))
         // 空白的 plugin 当没有插件
         assertEquals("", plugin("{$s, Plugin: \"\"}"))
+    }
+
+    @Test
+    fun `SS 插件区分默认 host 与显式空值`() {
+        val base = "name: s, type: ss, server: s.example.com, port: 443, cipher: aes-128-gcm, password: pw"
+        for ((id, mode, key) in listOf(Triple("obfs", "http", "obfs-host"), Triple("v2ray-plugin", "websocket", "host"))) {
+            for ((opts, expected) in listOf("" to "bing.com", ", host: null" to "bing.com", ", Host: ''" to "", ", host: cdn.example.com" to "cdn.example.com")) {
+                val bean = imported("{$base, plugin: $id, plugin-opts: {mode: $mode$opts}}").first as ShadowsocksBean
+                assertTrue("$id $opts", "$key=$expected" in bean.plugin.split(';'))
+            }
+        }
     }
 
     @Test
