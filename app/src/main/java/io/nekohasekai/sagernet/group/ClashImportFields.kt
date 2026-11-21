@@ -556,7 +556,9 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
     kept("server"); kept("port")
     if (trojan) kept("password") else kept("uuid")
     if (vmess) {
-        intField("alterId")
+        proxy.mihomoEntry("alterId")?.let { entry ->
+            recordAt(listOf(entry.key as String), ClashFieldResult.KEPT, null)
+        }
         if (present("cipher")) {
             // mihomo 把 cipher 转成小写再用，解析器同样转小写（大小写不同的写法是等价转换）
             val cipher = value("cipher")

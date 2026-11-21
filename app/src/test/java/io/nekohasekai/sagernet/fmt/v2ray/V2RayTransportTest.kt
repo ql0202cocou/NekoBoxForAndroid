@@ -17,6 +17,14 @@ class V2RayTransportTest {
     val logs = SilencedLogs()
 
     @Test
+    fun `v2rayN 不能用负 alterId 将 VMess 转成 VLESS`() {
+        fun read(aid: String) = parseV2RayNJson("""{"v":"2","add":"example.com","port":443,"id":"$uuid","aid":"$aid","net":"tcp"}""")
+        assertThrows(IllegalArgumentException::class.java) { read("-1") }
+        assertThrows(IllegalArgumentException::class.java) { read("99999999999") }
+        assertEquals(1, read("1").alterId)
+    }
+
+    @Test
     fun `已知传输方式原样返回`() {
         for (name in listOf("tcp", "http", "ws", "quic", "grpc", "httpupgrade", "xhttp")) {
             assertEquals(name, requireV2RayTransport(name))

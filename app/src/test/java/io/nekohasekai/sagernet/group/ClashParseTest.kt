@@ -21,6 +21,19 @@ class ClashParseTest {
         parse(yaml).nodes.single() as ClashNodeResult.Failed
 
     @Test
+    fun `VMess 的负 alterId 不能将节点转为 VLESS`() {
+        val result = parse("""proxies:
+            |  - {type: vmess, server: example.org, port: 443, alterId: -1}
+            |  - {type: vmess, server: example.org, port: 443, alterId: 1}
+            |  - {type: vless, server: example.org, port: 443}
+            |""".trimMargin())
+        val failure = result.nodes.first() as ClashNodeResult.Failed
+        assertEquals(ClashNodeFailure.INVALID_VALUE, failure.failure)
+        assertEquals("alterId", failure.path)
+        assertEquals(listOf(false, true), result.beans.map { (it as VMessBean).isVLESS })
+    }
+
+    @Test
     fun `各条目按顺序给出结果，导入的节点补过默认值`() {
         val result = parse(
             """

@@ -75,6 +75,14 @@ fun StandardV2RayBean.setTLS(boolean: Boolean) {
     security = if (boolean) "tls" else ""
 }
 
+// -1 是 bean 内部的 VLESS 标记，只允许由已确定的 VLESS 协议设置。
+private class InvalidVmessAlterId : IllegalArgumentException("invalid VMess alterId")
+
+internal fun importedVmessAlterId(text: String?): Int? {
+    if (text.isNullOrEmpty()) return null
+    return text.toIntOrNull()?.takeIf { it >= 0 } ?: throw InvalidVmessAlterId()
+}
+
 fun parseV2Ray(link: String): StandardV2RayBean {
     // Try parse stupid formats first
 
@@ -84,8 +92,10 @@ fun parseV2Ray(link: String): StandardV2RayBean {
             return parseV2RayN(link)
         } catch (e: UnsupportedTransportException) {
             throw e
+        } catch (e: InvalidVmessAlterId) {
+            throw e
         } catch (e: Exception) {
-            Logs.i("try v2rayN: " + e.readableMessage)
+            Logs.i("try v2rayN: " + e.javaClass.simpleName)
         }
     }
 
@@ -93,8 +103,10 @@ fun parseV2Ray(link: String): StandardV2RayBean {
         return tryResolveVmess4Kitsunebi(link)
     } catch (e: UnsupportedTransportException) {
         throw e
+    } catch (e: InvalidVmessAlterId) {
+        throw e
     } catch (e: Exception) {
-        Logs.i("try Kitsunebi: " + e.readableMessage)
+        Logs.i("try Kitsunebi: " + e.javaClass.simpleName)
     }
 
     // "std" format
@@ -111,7 +123,8 @@ fun parseV2Ray(link: String): StandardV2RayBean {
         bean.name = url.fragment
 
         var protocol = url.username
-        bean.alterId = url.password.substringAfterLast('-').toIntOrNull()
+        require(!bean.isVLESS) { "invalid VLESS user information" }
+        bean.alterId = importedVmessAlterId(url.password.substringAfterLast('-'))
             ?: error("invalid v2ray alterId")
         bean.uuid = url.password.substringBeforeLast('-')
 
@@ -331,7 +344,7 @@ private fun tryResolveVmess4Kitsunebi(server: String): VMessBean {
 
         val url = ("https://localhost/path?" + server.substringAfter("?")).toHttpUrl()
         url.queryParameter("remarks")?.apply { name = this }
-        url.queryParameter("alterId")?.apply { alterId = this.toIntOrNull() ?: 0 }
+        url.queryParameter("alterId")?.apply { alterId = importedVmessAlterId(this) ?: 0 }
         url.queryParameter("path")?.apply { path = this }
         url.queryParameter("tls")?.apply { security = "tls" }
         url.queryParameter("allowInsecure")
@@ -382,7 +395,7 @@ internal fun parseV2RayNJson(result: String): VMessBean {
     bean.serverPort = vmessQRCode.port.toIntOrNull() ?: throw Exception("invalid VmessQRCode port")
     bean.encryption = vmessQRCode.scy
     bean.uuid = vmessQRCode.id
-    bean.alterId = vmessQRCode.aid.toIntOrNull()
+    bean.alterId = importedVmessAlterId(vmessQRCode.aid)
     // v2rayN 把 h2 写作 "h2"，归一化后是 "http"
     bean.type = requireV2RayTransport(vmessQRCode.net)
     bean.host = vmessQRCode.host

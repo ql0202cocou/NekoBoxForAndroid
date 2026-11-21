@@ -27,6 +27,7 @@ import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.fmt.v2ray.UnsupportedTransportException
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.clashNetworkTransport
+import io.nekohasekai.sagernet.fmt.v2ray.importedVmessAlterId
 import io.nekohasekai.sagernet.fmt.v2ray.isTLS
 import io.nekohasekai.sagernet.fmt.v2ray.muxProtocolType
 import io.nekohasekai.sagernet.fmt.v2ray.normalizedXhttpPath
@@ -441,9 +442,6 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>): StandardV2RayBean {
             "uuid" -> if (bean is VMessBean) bean.uuid =
                 opt.value?.toString()
 
-            "alterId" -> if (bean is VMessBean && !bean.isVLESS) bean.alterId =
-                opt.value?.toString()?.toIntOrNull()
-
             // mihomo 的 NewVmess 把 cipher 转成小写再用（strings.ToLower）
             "cipher" -> if (bean is VMessBean && !bean.isVLESS) bean.encryption =
                 (opt.value as? String)?.lowercase()
@@ -534,6 +532,11 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>): StandardV2RayBean {
                     }
                 }
             }
+        }
+    }
+    if (bean is VMessBean && !bean.isVLESS) {
+        proxy.mihomoEntry("alterId")?.let { entry ->
+            bean.alterId = clashKey(entry.key, entry.value) { importedVmessAlterId(entry.value?.toString()) }
         }
     }
     val clashType = proxy["type"] as String
