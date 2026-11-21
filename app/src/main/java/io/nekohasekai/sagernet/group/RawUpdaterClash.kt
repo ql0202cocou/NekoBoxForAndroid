@@ -472,11 +472,6 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>): StandardV2RayBean {
                     if (opt.value.clashBoolean()) "tls" else ""
             }
 
-            "servername", "sni" -> bean.sni = opt.value?.toString()
-
-            "alpn" -> bean.alpn =
-                (opt.value as? List<Any>)?.joinToString("\n")
-
             "skip-cert-verify" -> bean.allowInsecure =
                 opt.value.clashBoolean()
 
@@ -539,6 +534,11 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>): StandardV2RayBean {
             bean.alterId = clashKey(entry.key, entry.value) { importedVmessAlterId(entry.value?.toString()) }
         }
     }
+    val trojan = bean is TrojanBean
+    bean.sni = proxy.mihomoEntry(if (trojan) "sni" else "servername")?.value?.toString()
+    val configuredAlpn = proxy.mihomoEntry("alpn")?.value as? List<*>
+    val fixedAlpn = if (bean.isTLS()) clashTransportAlpn(trojan, network) else null
+    bean.alpn = fixedAlpn ?: configuredAlpn?.joinToString("\n")
     val clashType = proxy["type"] as String
     bean.type = clashV2RayTransport(clashType, network)
     checkClashTransportTls(bean.type, network, bean.isTLS())
@@ -552,6 +552,9 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>): StandardV2RayBean {
             bean.applyClashTransportOpts(optsKey, transportOpts[optsKey])
         }
     ) bean.type = "httpupgrade"
+    if (bean.isTLS() && !trojan && network == "ws" && bean.sni.isNullOrBlank()) {
+        bean.sni = bean.host?.substringBefore('\n')
+    }
     return bean
 }
 
@@ -661,11 +664,13 @@ private fun StandardV2RayBean.applyClashTransportOpts(key: String, value: Any?):
         "http-opts" -> (value as? Map<String, Any?>)?.also {
             for (httpOpt in it) {
                 when (httpOpt.key) {
-                    // a list mihomo picks from at random;
-                    // the builders carry a single path
-                    "path" -> path =
-                        (httpOpt.value as? List<*>)?.firstOrNull()
-                            ?.toString()
+                    "path" -> {
+                        val paths = httpOpt.value as? List<*>
+                        if (paths != null && paths.any { it != paths.first() }) {
+                            throw ClashNodeRejected(ClashNodeFailure.MULTIPLE_HTTP_PATHS, listOf("http-opts", "path"))
+                        }
+                        path = paths?.firstOrNull()?.toString()
+                    }
 
                     "headers" -> {
                         // Map<*, *>: a typed value cast is erased and the
@@ -973,16 +978,8 @@ private fun parseClashWireGuard(proxy: Map<String, Any?>): WireGuardBean {
     return bean
 }
 
-// SNI and uTLS fixups after every node was parsed
 private fun StandardV2RayBean.applyClashFixups() {
-    // 1. SNI; h2-opts/http-opts hosts arrive newline-joined and the
-    // SNI can only carry one of them
-    // xhttp 的 host 只是 Host 头：mihomo 的 SNI 取 servername 再取 server，不取 host，这里同样不补
-    val firstHost = host.substringBefore("\n")
-    if (type != "xhttp" && isTLS() && sni.isNullOrBlank() && firstHost.isNotBlank() && !firstHost.isIpAddress()) {
-        sni = firstHost
-    }
-    // 2. REALITY 必须有 uTLS 指纹，没写时用 chrome（mihomo 对这样的节点报 REALITY is based on uTLS，本应用给默认值让它可用）
+    // REALITY 缺省使用 chrome。
     if (!realityPubKey.isNullOrBlank() && utlsFingerprint.isNullOrBlank()) {
         utlsFingerprint = "chrome"
     }

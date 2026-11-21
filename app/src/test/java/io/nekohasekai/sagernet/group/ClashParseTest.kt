@@ -34,6 +34,19 @@ class ClashParseTest {
     }
 
     @Test
+    fun `SNI 与 ALPN 按协议传输取值，HTTP 多路径不能静默截断`() {
+        val source = "type: vmess, server: a.example, port: 443, tls: true"
+        for (keys in listOf("sni: other.example, servername: tls.example", "servername: tls.example, sni: other.example")) {
+            val bean = parse("proxies: [{$source, $keys, network: ws, alpn: [h2]}]").beans.single() as VMessBean
+            assertEquals("tls.example", bean.sni)
+            assertEquals("http/1.1", bean.alpn)
+        }
+        val error = failure("proxies: [{type: vmess, server: a.example, port: 80, network: http, http-opts: {path: [/a, /b]}}]")
+        assertEquals(ClashNodeFailure.MULTIPLE_HTTP_PATHS, error.failure)
+        assertEquals("http-opts.path", error.path)
+    }
+
+    @Test
     fun `各条目按顺序给出结果，导入的节点补过默认值`() {
         val result = parse(
             """

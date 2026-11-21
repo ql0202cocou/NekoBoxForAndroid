@@ -5,7 +5,6 @@ import io.nekohasekai.sagernet.fmt.ClashFieldReason
 import io.nekohasekai.sagernet.fmt.ClashFieldReason.DEFAULT_VALUE
 import io.nekohasekai.sagernet.fmt.ClashFieldReason.DIAL_ADDRESS
 import io.nekohasekai.sagernet.fmt.ClashFieldReason.EQUIVALENT_VALUE
-import io.nekohasekai.sagernet.fmt.ClashFieldReason.FIRST_ITEM_ONLY
 import io.nekohasekai.sagernet.fmt.ClashFieldReason.INACTIVE
 import io.nekohasekai.sagernet.fmt.ClashFieldReason.INVALID_DROPPED
 import io.nekohasekai.sagernet.fmt.ClashFieldReason.LIST_JOINED
@@ -36,7 +35,6 @@ import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import io.nekohasekai.sagernet.ktx.blankAsNull
-import io.nekohasekai.sagernet.ktx.isIpAddress
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 
 // Clash 节点的字段记录（K3a）：解析完成后，拿输入的 map 与解析出的 bean 对照，给输入里每个非空键
@@ -621,16 +619,19 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
         }
     }
 
-    // vmess / vless 的 SNI 键是 servername，trojan 的是 sni；另一个 mihomo 不读，解析器照读，后写的生效
-    // （另一个键的记录见 sniAndTransport）
+    val network = mihomoValue("network")?.toString()
     val sniKey = if (trojan) "sni" else "servername"
-    keptIfFinal(bean.sni, sniKey)
-    alpnList(bean.alpn)
+    proxy.mihomoEntry(sniKey)?.let { entry -> keptIfFinalAt(listOf(entry.key as String), bean.sni) }
+    ignored(MATCHES_RESULT, if (trojan) "servername" else "sni")
+    val fixedAlpn = clashTransportAlpn(trojan, network)
+    val alpnEntry = proxy.mihomoEntry("alpn")
+    if (alpnEntry != null && fixedAlpn != null) {
+        recordAt(listOf(alpnEntry.key as String), ClashFieldResult.IGNORED, if (tlsOn) MATCHES_RESULT else INACTIVE)
+    } else alpnList(bean.alpn)
     kept("skip-cert-verify")
     fingerprint()
     kept("client-fingerprint")
 
-    val network = mihomoValue("network")?.toString()
     val activeOpts = network(type, network)
     when (activeOpts) {
         "ws-opts" -> wsOpts(bean)
@@ -642,7 +643,6 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
         }
         "xhttp-opts" -> xhttpOpts(bean)
     }
-    sniAndTransport(trojan, bean, network, activeOpts, tlsOn, sniKey)
 
     // smux：只有 enabled 时 mihomo 才套 sing-mux（按 mihomo 的读法判断）。解析器只读原样的 enabled 等键：
     // mihomo 读到 enabled（如 Enabled: true、enabled: 1）而节点没开 mux 时，子键都不记「已导入」，逐个走未读分类
@@ -759,99 +759,12 @@ private fun ClashFields.xhttpOpts(bean: StandardV2RayBean) {
 }
 
 // 解析器从一个 *-opts 对象写进 bean 的值：子键的原始路径，写的是 host（否则是 path），写入的值
-private class ClashOptsWrite(val path: List<String>, val host: Boolean, val value: String?)
-
-// 与 applyClashTransportOpts 同一套规则，按写入顺序
-private fun ClashFields.optsWrites(key: String): List<ClashOptsWrite> {
-    val base = path(key) ?: return emptyList()
-    val opts = valueAt(base) as? Map<*, *> ?: return emptyList()
-    val out = ArrayList<ClashOptsWrite>()
-    // Host 头不区分大小写；http-opts 的列表按行拼接，ws-opts 的原样转成字符串
-    fun hostHeaders(name: String, headers: Any?, joinList: Boolean) {
-        (headers as? Map<*, *>)?.forEach { (header, value) ->
-            if (header !is String || header.lowercase() != "host") return@forEach
-            val text = if (joinList && value is List<*>) value.mapNotNull { it?.toString() }.joinToString("\n")
-            else value?.toString()
-            out += ClashOptsWrite(base + name + header, true, text)
-        }
-    }
-    for ((sub, value) in opts) {
-        val name = sub as? String ?: continue
-        when (key) {
-            "ws-opts" -> when (name) {
-                "headers" -> hostHeaders(name, value, joinList = false)
-                "path" -> out += ClashOptsWrite(base + name, false, value?.toString())
-            }
-
-            "h2-opts" -> when (name) {
-                "host" -> out += ClashOptsWrite(base + name, true, (value as? List<*>)?.joinToString("\n"))
-                "path" -> out += ClashOptsWrite(base + name, false, value?.toString())
-            }
-
-            "http-opts" -> when (name) {
-                "path" -> out += ClashOptsWrite(base + name, false, (value as? List<*>)?.firstOrNull()?.toString())
-                "headers" -> hostHeaders(name, value, joinList = true)
-            }
-
-            "grpc-opts" -> if (name == "grpc-service-name") out += ClashOptsWrite(base + name, false, value?.toString())
-        }
-    }
-    return out
-}
-
-// 当前 network 的 *-opts 记完之后，再按 mihomo 的实际行为改写几类记录（别的 network 的 *-opts 解析器不套用，
-// 与 mihomo 一样不起作用，按整个对象记无影响）：
-// - SNI：本应用的 applyClashFixups 在没写 SNI 时拿第一个 host 补上；mihomo 只有 vmess / vless 的 ws 拿 Host 头，
-//   其余用 server。补出来的 SNI 与 mihomo 不同时，提供 host 的子键记有损。
-// - alpn：mihomo 在 vmess / vless 的 ws（http/1.1）、grpc 与 h2（h2），trojan 的 grpc（h2）上把 ALPN 写死，
-//   不读 alpn；本应用把它交给核心（sing-box 的传输只在它为空时补同样的默认值）。
-// - servername / sni 里 mihomo 不读的那个（vmess / vless 的 sni，trojan 的 servername）：解析器照读，
-//   按两边实际用的 SNI 是否相同判断。
-private fun ClashFields.sniAndTransport(
-    trojan: Boolean, bean: StandardV2RayBean, network: String?, activeOpts: String?, tlsOn: Boolean, sniKey: String,
-) {
-    val active = activeOpts?.let { optsWrites(it) }.orEmpty()
-    val firstHost = bean.host.orEmpty().substringBefore("\n")
-    // xhttp 的 host 只是 Host 头，不当作 SNI（applyClashFixups 同样跳过），与 mihomo 一致
-    val hostSni = tlsOn && bean.sni.isNullOrBlank() && bean.type != "xhttp" && firstHost.isNotBlank() && !firstHost.isIpAddress()
-    val oursSni = bean.sni.blankAsNull() ?: (if (hostSni) firstHost else bean.serverAddress)
-    val mihomoSni = text(sniKey).blankAsNull()
-        ?: (if (!trojan && network == "ws") active.lastOrNull { it.host }?.value.blankAsNull() else null)
-        ?: bean.serverAddress
-
-    if (hostSni && firstHost != mihomoSni) {
-        for (write in active) {
-            if (write.host && write.value.orEmpty() == bean.host.orEmpty()) {
-                recordAt(write.path, ClashFieldResult.IGNORED, SEMANTICS_DIFFER)
-            }
-        }
-    }
-
-    val fixedAlpn = when (network) {
-        "ws" -> if (trojan) null else "http/1.1"
-        "grpc" -> "h2"
-        "h2" -> if (trojan) null else "h2"
-        else -> null
-    }
-    if (fixedAlpn != null && present("alpn")) {
-        when {
-            !tlsOn -> ignored(INACTIVE, "alpn")
-            bean.alpn.isNullOrBlank() || bean.alpn == fixedAlpn -> ignored(MATCHES_RESULT, "alpn")
-            else -> ignored(SEMANTICS_DIFFER, "alpn")
-        }
-    }
-
-    val aliasKey = if (trojan) "servername" else "sni"
-    if (present(aliasKey)) {
-        val alias = text(aliasKey)
-        when {
-            // 被后写的 servername / sni 改写了：结果与不写相同
-            alias != bean.sni -> ignored(MATCHES_RESULT, aliasKey)
-            alias.isNullOrEmpty() && text(sniKey).isNullOrEmpty() -> ignored(DEFAULT_VALUE, aliasKey)
-            oursSni == mihomoSni -> ignored(MATCHES_RESULT, aliasKey)
-            else -> ignored(SEMANTICS_DIFFER, aliasKey)
-        }
-    }
+// mihomo 按传输固定的 ALPN；其它组合由节点的 alpn 决定。
+internal fun clashTransportAlpn(trojan: Boolean, network: String?): String? = when (network) {
+    "ws" -> if (trojan) null else "http/1.1"
+    "grpc" -> "h2"
+    "h2" -> if (trojan) null else "h2"
+    else -> null
 }
 
 private fun ClashFields.wsOpts(bean: StandardV2RayBean) {
@@ -917,8 +830,6 @@ private fun ClashFields.httpOpts(bean: StandardV2RayBean) {
         else -> when {
             path.isEmpty() -> ignored(DEFAULT_VALUE, "http-opts", "path")
             path.first()?.toString() != bean.path -> ignored(OVERRIDDEN, "http-opts", "path")
-            // mihomo 每次随机取一个，这里只能带一个
-            path.size > 1 -> ignored(FIRST_ITEM_ONLY, "http-opts", "path")
             else -> converted(EQUIVALENT_VALUE, "http-opts", "path")
         }
     }

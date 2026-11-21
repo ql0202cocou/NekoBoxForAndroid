@@ -289,10 +289,10 @@ class ClashFieldRecordTest {
     @Test
     fun `http-opts 的多个 path 只导入第一个`() {
         val (bean, fields) = imported(
-            "{name: v, type: vmess, server: v.example.com, port: 80, uuid: $uuid, network: http, http-opts: {path: [/a, /b], method: GET, headers: {Host: [h1.example.com, h2.example.com], Connection: [keep-alive]}}}"
+            "{name: v, type: vmess, server: v.example.com, port: 80, uuid: $uuid, network: http, http-opts: {path: [/a, /a], method: GET, headers: {Host: [h1.example.com, h2.example.com], Connection: [keep-alive]}}}"
         )
         assertEquals("/a", (bean as VMessBean).path)
-        assertField(fields, "http-opts.path", IGNORED, ClashFieldReason.FIRST_ITEM_ONLY)
+        assertField(fields, "http-opts.path", CONVERTED, ClashFieldReason.EQUIVALENT_VALUE)
         assertField(fields, "http-opts.method", IGNORED, ClashFieldReason.MATCHES_RESULT)
         assertField(fields, "http-opts.headers.Host", CONVERTED, ClashFieldReason.LIST_JOINED)
         assertField(fields, "http-opts.headers.Connection", IGNORED, ClashFieldReason.NOT_READ)
@@ -384,9 +384,9 @@ class ClashFieldRecordTest {
     @Test
     fun `按最终值判断：后写的键改写了前面的`() {
         val sni = fields("{name: v, type: vmess, server: v.example.com, port: 443, uuid: $uuid, tls: true, servername: a.example.com, sni: b.example.com}")
-        assertField(sni, "servername", IGNORED, ClashFieldReason.OVERRIDDEN)
+        assertField(sni, "servername", KEPT)
         // mihomo 不读 vmess 的 sni，用的是 servername
-        assertField(sni, "sni", IGNORED, ClashFieldReason.SEMANTICS_DIFFER)
+        assertField(sni, "sni", IGNORED, ClashFieldReason.MATCHES_RESULT)
 
         // 别的 network 的 opts 不套用（见 `只套用当前 network 的 opts`），不会改写当前 network 的值
         val grpc = fields("{name: v, type: vmess, server: v.example.com, port: 443, uuid: $uuid, network: grpc, grpc-opts: {grpc-service-name: svc}, ws-opts: {path: /ws}}")
@@ -522,12 +522,12 @@ class ClashFieldRecordTest {
     }
 
     @Test
-    fun `alpn 按 network 判断：mihomo 写死 ALPN 的传输上与写死值不同记有损`() {
+    fun `alpn 按 network 判断：按 mihomo 的传输固定值导入`() {
         val v = "name: v, type: vmess, server: v.example.com, port: 443, uuid: $uuid, tls: true, servername: v.example.com"
-        assertField(fields("{$v, network: ws, alpn: [h2, http/1.1]}"), "alpn", IGNORED, ClashFieldReason.SEMANTICS_DIFFER)
+        assertField(fields("{$v, network: ws, alpn: [h2, http/1.1]}"), "alpn", IGNORED, ClashFieldReason.MATCHES_RESULT)
         assertField(fields("{$v, network: ws, alpn: [http/1.1]}"), "alpn", IGNORED, ClashFieldReason.MATCHES_RESULT)
         assertField(fields("{$v, network: grpc, alpn: [h2]}"), "alpn", IGNORED, ClashFieldReason.MATCHES_RESULT)
-        assertField(fields("{$v, network: h2, alpn: [http/1.1]}"), "alpn", IGNORED, ClashFieldReason.SEMANTICS_DIFFER)
+        assertField(fields("{$v, network: h2, alpn: [http/1.1]}"), "alpn", IGNORED, ClashFieldReason.MATCHES_RESULT)
         // tcp 两边都用节点写的值
         assertField(fields("{$v, network: tcp, alpn: [h2]}"), "alpn", CONVERTED, ClashFieldReason.LIST_JOINED)
         // TLS 关着时 alpn 不起作用
@@ -537,7 +537,7 @@ class ClashFieldRecordTest {
         )
         // trojan 只有 grpc 写死，ws 用节点写的值
         val t = "name: t, type: trojan, server: t.example.com, port: 443, password: pw-q"
-        assertField(fields("{$t, network: grpc, alpn: [h2, http/1.1]}"), "alpn", IGNORED, ClashFieldReason.SEMANTICS_DIFFER)
+        assertField(fields("{$t, network: grpc, alpn: [h2, http/1.1]}"), "alpn", IGNORED, ClashFieldReason.MATCHES_RESULT)
         assertField(fields("{$t, network: ws, alpn: [h2]}"), "alpn", CONVERTED, ClashFieldReason.LIST_JOINED)
     }
 
@@ -592,12 +592,12 @@ class ClashFieldRecordTest {
     }
 
     @Test
-    fun `host 补出的 SNI 与 mihomo 不同时记有损`() {
+    fun `传输 Host 的导入保留协议的 SNI 默认值`() {
         // trojan 的 ws：mihomo 的 SNI 用 server，不看 Host 头
         val trojan = "name: t, type: trojan, server: t.example.com, port: 443, password: pw-s, network: ws"
         assertField(
             fields("{$trojan, ws-opts: {headers: {Host: cdn.example.com}}}"),
-            "ws-opts.headers.Host", IGNORED, ClashFieldReason.SEMANTICS_DIFFER,
+            "ws-opts.headers.Host", KEPT,
         )
         assertField(fields("{$trojan, ws-opts: {headers: {Host: t.example.com}}}"), "ws-opts.headers.Host", KEPT)
         // vmess 的 ws：mihomo 同样拿 Host 头当 SNI
@@ -609,14 +609,14 @@ class ClashFieldRecordTest {
         val h2 = fields(
             "{name: v, type: vmess, server: v.example.com, port: 443, uuid: $uuid, tls: true, network: h2, h2-opts: {host: [cdn.example.com], path: /h2}}"
         )
-        assertField(h2, "h2-opts.host", IGNORED, ClashFieldReason.SEMANTICS_DIFFER)
+        assertField(h2, "h2-opts.host", CONVERTED, ClashFieldReason.LIST_JOINED)
         assertField(h2, "h2-opts.path", KEPT)
     }
 
     @Test
     fun `mihomo 不读的 SNI 键按两边实际用的 SNI 判断`() {
         val v = "name: v, type: vmess, server: v.example.com, port: 443, uuid: $uuid, tls: true"
-        assertField(fields("{$v, sni: other.example.com}"), "sni", IGNORED, ClashFieldReason.SEMANTICS_DIFFER)
+        assertField(fields("{$v, sni: other.example.com}"), "sni", IGNORED, ClashFieldReason.MATCHES_RESULT)
         assertField(fields("{$v, sni: v.example.com}"), "sni", IGNORED, ClashFieldReason.MATCHES_RESULT)
         // 被后写的 servername 改写：结果与不写相同
         val overridden = fields("{$v, sni: other.example.com, servername: a.example.com}")
@@ -624,7 +624,7 @@ class ClashFieldRecordTest {
         assertField(overridden, "servername", KEPT)
         assertField(
             fields("{name: t, type: trojan, server: t.example.com, port: 443, password: pw-t, servername: other.example.com}"),
-            "servername", IGNORED, ClashFieldReason.SEMANTICS_DIFFER,
+            "servername", IGNORED, ClashFieldReason.MATCHES_RESULT,
         )
     }
 
