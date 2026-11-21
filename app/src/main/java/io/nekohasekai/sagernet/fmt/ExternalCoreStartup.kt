@@ -10,7 +10,7 @@ import java.io.IOException
 
 /**
  * 核心校验报错里的一条失败。tag（Xray 的出站 / 入站 tag）指向出错的跳实例，为 null 表示对不回节点。
- * reason 是给用户看的原因：对得回时保留核心原文，只去掉定位用的前缀与 Go 包路径。
+ * reason 只包含可展示的原因类别。
  */
 class ExternalCheckError(val reason: String, val tag: String? = null)
 
@@ -21,11 +21,11 @@ sealed class ExternalCheckResult {
     /** 校验没能给出结论（超时、被信号杀掉、进程起不来）：照旧启动，由运行时的守护兜底，与没有校验时相同。 */
     class Inconclusive(val reason: String) : ExternalCheckResult()
 
-    /** 配置被核心拒绝：不启动。error 对得回节点时是 ProfileBuildException，否则写明核心与它的原文。 */
+    /** 配置被核心拒绝：不启动。error 对得回节点时是 ProfileBuildException，否则写明核心与安全的原因。 */
     class Failed(val error: Exception) : ExternalCheckResult()
 }
 
-/** 校验没过的原因（核心原文）。对得回节点时作为 ProfileBuildException 的 cause，消息即「节点名: 原因」。 */
+/** 校验没过的原因（安全的类别）。对得回节点时作为 ProfileBuildException 的 cause，消息即「节点名: 原因」。 */
 class ExternalCoreCheckException(message: String) : IllegalArgumentException(message)
 
 /**
@@ -49,6 +49,12 @@ class ExternalCoreCheck(
         writeCacheFile: (String, String, String) -> File,
     ): ExternalCoreLaunch = buildCommand(pluginPath, config, writeCacheFile)
 
+    // 守护进程也可能输出同一种拒绝行；其它运行日志由调用方按配置值脱敏。
+    fun logLine(redacted: String): String {
+        val error = findErrors(redacted).firstOrNull() ?: return redacted
+        return "$coreName: " + listOfNotNull(error.tag, error.reason).joinToString(": ")
+    }
+
     /**
      * 校验进程跑完后的结论。exitCode 为 null 表示超时被杀。退出码 0 即通过；被信号杀掉不算配置的问题；
      * 其余非 0 都按配置被拒绝处理：校验与启动走同一段加载，这里没过，启动时进程也会立刻退出。
@@ -61,7 +67,7 @@ class ExternalCoreCheck(
         }
         val errors = findErrors(output)
         val first = errors.firstOrNull()
-            ?: return ExternalCheckResult.Failed(ExternalCoreCheckException(unrecognized(exitCode, output)))
+            ?: return ExternalCheckResult.Failed(ExternalCoreCheckException("$coreName config check failed with exit code $exitCode"))
         val hop = first.tag?.let { tag -> group.hops.firstOrNull { it.inboundTag == tag || it.outboundTag == tag } }
         return ExternalCheckResult.Failed(
             if (hop != null) {
@@ -72,20 +78,9 @@ class ExternalCoreCheck(
         )
     }
 
-    // 退出码异常、输出里又找不到核心的报错行：带上退出码与输出的最后几行
-    private fun unrecognized(exitCode: Int, output: String): String {
-        val tail = output.lines().map { it.trim() }.filter { it.isNotEmpty() }.takeLast(UNRECOGNIZED_TAIL_LINES)
-        if (tail.isEmpty()) return "$coreName config check failed with exit code $exitCode and no output"
-        val text = tail.joinToString(" / ")
-        val shown = if (text.length > UNRECOGNIZED_TAIL_CHARS) "…" + text.takeLast(UNRECOGNIZED_TAIL_CHARS) else text
-        return "$coreName config check failed with exit code $exitCode: $shown"
-    }
-
     companion object {
         // Process.waitFor() 对被信号杀掉的进程返回 128 + 信号值
         private val SIGNAL_EXIT_CODES = 129..159
-        private const val UNRECOGNIZED_TAIL_LINES = 3
-        private const val UNRECOGNIZED_TAIL_CHARS = 500
     }
 }
 
@@ -94,42 +89,28 @@ class ExternalCoreCheck(
 // with tag out-2 > infra/conf: …」，各层用 " > " 连接、每层前面是 Go 包路径；tag 重复时是
 // 「Failed to start: main: failed to create server > app/proxyman/outbound: existing tag found: out-1」
 private const val XRAY_FAILED = "Failed to start: "
-private val XRAY_TAG = Regex("""(?:\bwith tag|\bexisting tag found:) (\S+)$""")
-private val GO_PACKAGE_PREFIX = Regex("""^(?:main|[\w.-]+(?:/[\w.-]+)+): """)
+private val XRAY_TAG = Regex("""(?:failed to build (?:outbound|inbound) config with tag|existing tag found:) ((?:in|out)-[0-9]{1,10})$""")
 
-// id 不合法时 Xray 把用户填的整串带进报错（common/uuid 的「invalid UUID: <串>」）。id 是凭据，不能进异常消息：
-// 保留前缀让用户知道是 id 的问题，值一律遮成 ***（空串也一样，不暴露长度）。这一句是报错链最里层的原因，
-// 遮到行尾，值里带「 > 」也不会漏到下一层。
-// 32–36 字节、含非十六进制字符的 id，common/uuid 原样返回 hex.Decode 的错误（「encoding/hex: invalid byte: U+0067 'g'」，
-// 带出 id 里的一个字符），同样遮到行尾；有 tag 时这一层和其它层一样去掉 Go 包路径（encoding/hex），
-// 显示为「invalid byte: ***」
-private val XRAY_INVALID_UUID = Regex("""\binvalid UUID:.*$""")
-private val XRAY_INVALID_HEX_BYTE = Regex("""\bencoding/hex: invalid byte:.*$""")
-
-// REALITY 的 shortId 是凭据：infra/conf 构建 REALITY 客户端配置时，过长报「too long "shortId": <值>」、
-// 含非十六进制字符报「invalid "shortId": <值>」，都把用户填的值原样带出（v26.9.30、v26.10.10、v26.10.17、v26.10.21 与 v26.10.31 实测相同）。
-// 同样保留前缀、遮到行尾；publicKey / mldsa65Verify / spiderX 在客户端语义里是服务端公钥、公开校验密钥和路径，不遮
-private val XRAY_INVALID_SHORT_ID = Regex("""\binvalid "shortId":.*$""")
-private val XRAY_TOO_LONG_SHORT_ID = Regex("""\btoo long "shortId":.*$""")
-
+// 核心可在任一层带出用户内容，只提取生成的 tag 和已知原因。未知格式保留拒绝结论。
 fun xrayCheckErrors(output: String): List<ExternalCheckError> = output.lineSequence().mapNotNull { line ->
     val at = line.indexOf(XRAY_FAILED)
     if (at < 0) return@mapNotNull null
-    val text = line.substring(at + XRAY_FAILED.length).trim()
-        .replace(XRAY_INVALID_UUID, "invalid UUID: ***")
-        .replace(XRAY_INVALID_HEX_BYTE, "encoding/hex: invalid byte: ***")
-        .replace(XRAY_INVALID_SHORT_ID, "invalid \"shortId\": ***")
-        .replace(XRAY_TOO_LONG_SHORT_ID, "too long \"shortId\": ***")
-    val layers = text.split(" > ")
-    val tagAt = layers.indexOfFirst { XRAY_TAG.containsMatchIn(it) }
-    // 找不到 tag 的（配置整体解析失败等）对不回节点，原文照给（凭据已遮蔽）
-    if (tagAt < 0) return@mapNotNull ExternalCheckError(text)
-    val tag = XRAY_TAG.find(layers[tagAt])!!.groupValues[1]
-    // 原因取 tag 那一层之后的各层（tag 重复时那一层本身就是原因），去掉每层开头的 Go 包路径；
-    // 之前的各层只是定位（含临时配置文件路径）
-    val reason = layers.drop(tagAt + 1).ifEmpty { listOf(layers[tagAt]) }
-        .joinToString(" > ") { it.replaceFirst(GO_PACKAGE_PREFIX, "") }
-    ExternalCheckError(reason, tag = tag)
+    val layers = line.substring(at + XRAY_FAILED.length).split(" > ")
+    val tag = layers.firstNotNullOfOrNull { XRAY_TAG.find(it)?.groupValues?.get(1) }
+    val reason = layers.firstNotNullOfOrNull { layer ->
+        when {
+            layer.startsWith("common/uuid: invalid UUID:") -> "invalid UUID: ***"
+            layer.startsWith("encoding/hex: invalid byte:") -> "invalid byte: ***"
+            layer.startsWith("infra/conf: invalid \"shortId\":") -> "invalid \"shortId\": ***"
+            layer.startsWith("infra/conf: too long \"shortId\":") -> "too long \"shortId\": ***"
+            layer.startsWith("infra/conf: invalid \"password\":") -> "invalid REALITY password"
+            layer.startsWith("infra/conf: VLESS users: \"flow\" doesn't support") -> "unsupported VLESS flow"
+            layer.contains("existing tag found:") && XRAY_TAG.containsMatchIn(layer) -> "duplicate tag"
+            layer == "unexpected EOF" -> "unexpected EOF"
+            else -> null
+        }
+    } ?: "invalid core configuration"
+    ExternalCheckError(reason, tag)
 }.toList()
 
 /**

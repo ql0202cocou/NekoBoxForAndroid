@@ -72,13 +72,11 @@ class ExternalCoreStartupTest {
         assertEquals(1, errors.size)
         assertEquals("out-2", errors[0].tag)
         assertEquals(
-            "failed to build stream settings for outbound detour > Failed to build REALITY config. > " +
-                "invalid \"password\": not-a-valid-key",
+            "invalid REALITY password",
             errors[0].reason,
         )
         assertEquals(
-            "failed to build outbound handler for protocol vless > VLESS users: \"flow\" doesn't support " +
-                "\"xtls-rprx-bogus\" in this version",
+            "unsupported VLESS flow",
             xrayCheckErrors(xrayFlow).single().reason,
         )
     }
@@ -87,17 +85,16 @@ class ExternalCoreStartupTest {
     fun `Xray 的 tag 重复按那一层定位，原因就是那一层`() {
         xrayCheckErrors(xrayDuplicateOutbound).single().let {
             assertEquals("out-1", it.tag)
-            assertEquals("existing tag found: out-1", it.reason)
+            assertEquals("duplicate tag", it.reason)
         }
         assertEquals("in-0", xrayCheckErrors(xrayDuplicateInbound).single().tag)
     }
 
     @Test
-    fun `Xray 找不到 tag 的报错原文照给`() {
+    fun `Xray 整体配置错误只给出已知原因`() {
         val error = xrayCheckErrors(xraySyntax).single()
         assertNull(error.tag)
-        assertTrue(error.reason, error.reason.startsWith("main: failed to load config files: [xray_1.json] > "))
-        assertTrue(error.reason.endsWith("> unexpected EOF"))
+        assertEquals("unexpected EOF", error.reason)
     }
 
     // v26.9.30 对不合法 id 的真实输出：common/uuid 把整串带进报错
@@ -112,10 +109,10 @@ class ExternalCoreStartupTest {
     fun `Xray 报错里的 id 遮掉，保留 invalid UUID 前缀`() {
         xrayCheckErrors(xrayLongUuid).single().let {
             assertEquals("out-1", it.tag)
-            assertEquals("failed to build outbound handler for protocol vless > invalid UUID: ***", it.reason)
+            assertEquals("invalid UUID: ***", it.reason)
         }
         assertEquals(
-            "failed to build outbound handler for protocol vless > invalid UUID: ***",
+            "invalid UUID: ***",
             xrayCheckErrors(xrayEmptyUuid).single().reason,
         )
         // 值里带「 > 」也遮到行尾，不会当成下一层漏出来
@@ -126,12 +123,12 @@ class ExternalCoreStartupTest {
             assertFalse(it.reason, "def" in it.reason)
             assertTrue(it.reason, it.reason.endsWith("invalid UUID: ***"))
         }
-        // 对不回节点、原文照给的报错同样遮蔽
+        // 对不回节点时同样只给出安全类别
         val unbound = "Failed to start: main: failed to create server > common/uuid: invalid UUID: secret-id-value"
-        assertEquals("main: failed to create server > common/uuid: invalid UUID: ***", xrayCheckErrors(unbound).single().reason)
+        assertEquals("invalid UUID: ***", xrayCheckErrors(unbound).single().reason)
         // 最终给用户的消息里也没有原值
         val error = failure(xray.result(xrayGroup, 23, xrayBanner + "\n" + xrayLongUuid))
-        assertEquals("x1: failed to build outbound handler for protocol vless > invalid UUID: ***", error.message)
+        assertEquals("x1: invalid UUID: ***", error.message)
     }
 
     // 32–36 字节含非十六进制字符的 id：v26.9.30 common/uuid 原样返回 hex.Decode 的错误（按源码构造，未实测）
@@ -144,12 +141,12 @@ class ExternalCoreStartupTest {
         xrayCheckErrors(xrayHexUuid).single().let {
             assertEquals("out-1", it.tag)
             // 原因各层照例去掉开头的包路径（encoding/hex: ），遮掉的部分不回来
-            assertEquals("failed to build outbound handler for protocol vless > invalid byte: ***", it.reason)
+            assertEquals("invalid byte: ***", it.reason)
             assertFalse(it.reason, "'g'" in it.reason || "U+0067" in it.reason)
         }
-        // 对不回节点、原文照给的报错保留完整前缀
+        // 对不回节点时仍能区分十六进制格式错误
         val unbound = "Failed to start: main: failed to create server > encoding/hex: invalid byte: U+0073 's'"
-        assertEquals("main: failed to create server > encoding/hex: invalid byte: ***", xrayCheckErrors(unbound).single().reason)
+        assertEquals("invalid byte: ***", xrayCheckErrors(unbound).single().reason)
     }
 
     // v26.9.30 与 v26.10.10 对不合法 REALITY shortId 的真实输出：infra/conf 把值原样带出
@@ -178,9 +175,9 @@ class ExternalCoreStartupTest {
             assertFalse(it.reason, "def" in it.reason || "abc" in it.reason)
             assertTrue(it.reason, it.reason.endsWith("invalid \"shortId\": ***"))
         }
-        // 对不回节点、原文照给的报错同样遮蔽
+        // 对不回节点时同样只给出安全类别
         val unbound = "Failed to start: main: failed to create server > infra/conf: invalid \"shortId\": secret"
-        assertEquals("main: failed to create server > infra/conf: invalid \"shortId\": ***", xrayCheckErrors(unbound).single().reason)
+        assertEquals("invalid \"shortId\": ***", xrayCheckErrors(unbound).single().reason)
         // 最终给用户的消息里也没有原值
         val message = failure(xray.result(xrayGroup, 23, xrayBanner + "\n" + xrayShortIdNonHex)).message.orEmpty()
         assertTrue(message, message.endsWith("invalid \"shortId\": ***"))
@@ -229,15 +226,14 @@ class ExternalCoreStartupTest {
         assertTrue(xrayError is ProfileBuildException)
         assertEquals("x2", (xrayError as ProfileBuildException).profileName)
         assertEquals(
-            "x2: failed to build stream settings for outbound detour > Failed to build REALITY config. > " +
-                "invalid \"password\": not-a-valid-key",
+            "x2: invalid REALITY password",
             xrayError.message,
         )
         assertTrue(xrayError.cause is ExternalCoreCheckException)
     }
 
     @Test
-    fun `组里没有的 tag 对不回节点，写明核心与原文`() {
+    fun `组里没有的 tag 对不回节点，写明核心与原因`() {
         // 标识只在本组里找：out-5 不在这一组
         val xrayError = failure(
             xray.result(
@@ -246,38 +242,24 @@ class ExternalCoreStartupTest {
             )
         )
         assertTrue(xrayError is ExternalCoreCheckException)
-        assertEquals("Xray config check failed: existing tag found: out-5", xrayError.message)
+        assertEquals("Xray config check failed: duplicate tag", xrayError.message)
         assertEquals(
-            "Xray config check failed: main: failed to load config files: [xray_1.json] > infra/conf/serial: " +
-                "failed to decode config: &{Name:xray_1.json Format:json} > infra/conf/serial: failed to read config " +
-                "file > unexpected EOF",
+            "Xray config check failed: unexpected EOF",
             failure(xray.result(xrayGroup, 23, xraySyntax)).message,
         )
     }
 
     @Test
-    fun `输出为空或认不出时带上退出码与最后几行`() {
-        assertEquals(
-            "Xray config check failed with exit code 23 and no output",
-            failure(xray.result(xrayGroup, 23, "")).message,
-        )
-        // 退出码异常（Go 的 panic 是 2）：不是约定的退出码，同样按没过处理
-        val panic = """
-            panic: runtime error: invalid memory address or nil pointer dereference
-            [signal SIGSEGV: segmentation violation code=0x1 addr=0x0 pc=0x0]
-
-            goroutine 1 [running]:
-            main.main()
-        """.trimIndent()
-        assertEquals(
-            "Xray config check failed with exit code 2: [signal SIGSEGV: segmentation violation code=0x1 addr=0x0 pc=0x0] " +
-                "/ goroutine 1 [running]: / main.main()",
-            failure(xray.result(xrayGroup, 2, panic)).message,
-        )
-        // 很长的输出只留末尾
-        val long = failure(xray.result(xrayGroup, 23, "x".repeat(2000))).message!!
-        assertTrue(long, long.startsWith("Xray config check failed with exit code 23: …"))
-        assertTrue(long.length < 600)
+    fun `未知错误只显示退出码或安全类别`() {
+        for (output in listOf("", "panic: private-value", "internal output\nprivate-value")) {
+            assertEquals("Xray config check failed with exit code 23", failure(xray.result(xrayGroup, 23, output)).message)
+        }
+        val error = failure(xray.result(xrayGroup, 23,
+            "Failed to start: infra/conf: failed to build outbound config with tag out-1 > infra/conf: bad TLS file /private-value"))
+        assertEquals("x1: invalid core configuration", error.message)
+        assertEquals("Xray: out-1: invalid core configuration", xray.logLine(
+            "Failed to start: infra/conf: failed to build outbound config with tag out-1 > infra/conf: bad TLS file /private-value"))
+        assertEquals("ordinary message", xray.logLine("ordinary message"))
     }
 
     // ---- 就绪等待的报错文案
@@ -450,16 +432,16 @@ class ExternalCoreStartupTest {
                 "inbound config with tag in-0 > infra/conf: invalid $creds",
             // 对不回节点
             "Failed to start: main: failed to load config files: [xray_1.json] > infra/conf/serial: $creds",
-            // 认不出的输出，取最后几行
+            // 未知格式的尾行也可能含凭据
             "panic: $creds",
         )
         for (output in outputs) {
-            // 不遮蔽时凭据会进消息：这条用例确实覆盖了回显的情况
+            // 即使误传原文，展示层也只返回已知类别。
             val raw = failure(xray.result(xrayGroup, 23, output)).message!!
-            assertTrue(raw, auth.password in raw)
+            assertFalse(raw, auth.username in raw || auth.password in raw)
             val message = failure(xray.result(xrayGroup, 23, result.redactLocalAuth(output))).message!!
             assertFalse(message, auth.username in message || auth.password in message)
-            assertTrue(message, "***" in message)
+            assertEquals(raw, message)
         }
     }
 }

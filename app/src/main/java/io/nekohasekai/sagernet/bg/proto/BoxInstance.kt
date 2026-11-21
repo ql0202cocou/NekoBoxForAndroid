@@ -191,8 +191,12 @@ abstract class BoxInstance(
             )
             context.ensureActive()
             if (isClosed()) return
-            val processState = processes.start(launch.commands, launch.env, redactExternalOutput)
-            val strict = verifiedCheck(process) != null
+            val check = verifiedCheck(process)
+            val processState = processes.start(launch.commands, launch.env) { line ->
+                val safe = redactExternalOutput(line)
+                check?.logLine(safe) ?: safe
+            }
+            val strict = check != null
             for (hop in process.group.hops) {
                 targets += hop to LocalPortTarget(hop.localPort, strict, hop.localAuth, processState)
             }
