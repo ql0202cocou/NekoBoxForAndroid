@@ -1023,8 +1023,11 @@ private fun ClashFields.wireGuard(): Pair<Set<String>, ClashInactive> {
     }
     // 裸 IP 导入时补上前缀（同 mihomo），是同一个地址的另一种写法
     for (key in listOf("ip", "ipv6")) {
-        val address = text(key)
-        if (!address.isNullOrBlank() && '/' !in address) converted(EQUIVALENT_VALUE, key) else kept(key)
+        val entry = proxy.mihomoEntry(key) ?: continue
+        val path = listOf(entry.key as String)
+        val address = entry.value?.toString()
+        if (!address.isNullOrBlank() && '/' !in address) recordAt(path, ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
+        else recordAt(path, ClashFieldResult.KEPT, null)
     }
     intField("mtu"); intField("persistent-keepalive")
     proxy.mihomoEntry("reserved")?.let { entry ->

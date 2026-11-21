@@ -267,6 +267,13 @@ class ClashFieldRecordTest {
         assertField(mixedFields, "ipv6", KEPT)
         val (v6InIp, _) = imported("{$node, ip: \"2001:db8::2\"}")
         assertEquals("2001:db8::2/32", (v6InIp as WireGuardBean).localAddress)
+
+        val (aliases, aliasFields) = imported("{$node, IPv6: '2001:db8::2/64', IP: 172.16.0.2}")
+        assertEquals("172.16.0.2/32\n2001:db8::2/64", (aliases as WireGuardBean).localAddress)
+        assertField(aliasFields, "IPv6", KEPT)
+        assertField(aliasFields, "IP", CONVERTED, ClashFieldReason.EQUIVALENT_VALUE)
+        val (canonical, _) = imported("{$node, ip: 172.16.0.2, IP: 172.16.0.3}")
+        assertEquals("172.16.0.2/32", (canonical as WireGuardBean).localAddress)
     }
 
     // ---------- 剩余顶层 / 嵌套字段 ----------

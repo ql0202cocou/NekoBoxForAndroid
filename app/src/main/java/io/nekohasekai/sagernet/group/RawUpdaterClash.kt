@@ -952,7 +952,6 @@ private fun parseClashWireGuard(proxy: Map<String, Any?>): WireGuardBean {
     // 不做 applyDefaultValues：serverPort 填了默认值后，缺 port 的节点会
     // 瞒过 requireValidEndpoint；归一化统一由调用处尾部完成
     val bean = WireGuardBean()
-    val localAddresses = mutableListOf<String>()
     for (opt in proxy) {
         if (opt.value == null) continue
         clashKey(opt.key, opt.value) {
@@ -960,16 +959,6 @@ private fun parseClashWireGuard(proxy: Map<String, Any?>): WireGuardBean {
                 "name" -> bean.name = opt.value.toString()
                 "server" -> bean.serverAddress = opt.value.toString()
                 "port" -> bean.serverPort = opt.value.toString().toInt()
-                // sing-box 的 address 要 CIDR，Clash 惯例写裸 IP：照 mihomo（v1.19.32
-                // WireGuardOption.Prefixes）按键补前缀，ip 补 /32、ipv6 补 /128，已带 / 的原样保留
-                "ip", "ipv6" -> {
-                    val address = opt.value.toString()
-                    if (address.isNotBlank()) localAddresses.add(
-                        if ('/' in address) address
-                        else address + if (opt.key == "ip") "/32" else "/128"
-                    )
-                }
-
                 "mtu" -> bean.mtu =
                     opt.value.toString().toIntOrNull() ?: bean.mtu
 
@@ -1002,7 +991,12 @@ private fun parseClashWireGuard(proxy: Map<String, Any?>): WireGuardBean {
         }
         bean.peerAllowedIps = raw
     }
-    bean.localAddress = localAddresses.joinToString("\n")
+    // mihomo 的 WireGuardOption.Prefixes 总是先取 ip，再取 ipv6，按键给裸地址补前缀。
+    bean.localAddress = listOf("ip", "ipv6").mapNotNull { key ->
+        val address = proxy.mihomoEntry(key)?.value?.toString()?.takeIf { it.isNotBlank() }
+            ?: return@mapNotNull null
+        if ('/' in address) address else address + if (key == "ip") "/32" else "/128"
+    }.joinToString("\n")
     return bean
 }
 
