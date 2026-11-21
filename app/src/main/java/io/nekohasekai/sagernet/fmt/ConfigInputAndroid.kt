@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.fmt
 
+import android.os.Looper
 import moe.matsuri.nb4a.plugin.PluginConflictReporter
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
@@ -17,7 +18,6 @@ import moe.matsuri.nb4a.SingBoxOptionsUtil
 import moe.matsuri.nb4a.plugin.Plugins
 import java.io.File
 import java.net.InetAddress
-import java.util.concurrent.Callable
 
 // 配置构建外壳的 Android 一侧：从 DataStore、Room、PackageCache 采集 ConfigInput，并提供每次构建新建的平台适配
 // 对象。纯构建（ConfigBuild）只经 ConfigInput 取这些，不直接碰这里的任何数据源
@@ -25,8 +25,8 @@ import java.util.concurrent.Callable
 /**
  * 按 buildConfig(proxy, …) 的模式采集一次构建的输入，先后次序是契约的一部分：
  * 1. 设置，含 Clash API secret 的生成与写回：它持 RestoreJournal 的跨进程文件锁，必须在 Room 事务之外；
- * 2. 在一个 Room 读取事务里采引用闭包（[ConfigSnapshot.collect]）。库不是 WAL 模式，这个事务独占数据库，
- *    事务里只做 DAO 查询与字节化；
+ * 2. 在同一个非独占事务里采引用闭包（[ConfigSnapshot.collect]）。其它连接仍能查询；
+ *    事务里只做同步 DAO 查询与字节化；
  * 3. 事务结束后，启用的规则带应用时才等 PackageCache（首次可能阻塞），解析这些包名的 UID；
  * 4. 新建本次构建的平台适配对象，插件状态由构建按需查询。
  * 四类输入在不同时刻取得，不是跨数据源的原子快照，与以前构建中逐项读取的语义相同。
@@ -35,15 +35,28 @@ import java.util.concurrent.Callable
 internal fun captureConfigInput(proxy: ProxyEntity, mode: ConfigBuildMode): ConfigInput {
     val settings = ConfigSettings.fromDataStore(mode)
     val main = ProfileRecord.of(proxy)
-    val snapshot = SagerDatabase.instance.runInTransaction(Callable {
+    val snapshot = readConfigSnapshot {
         ConfigSnapshot.collect(RoomConfigDataSource, main, mode)
-    })
+    }
     val packages = packagesToResolve(mode, snapshot)
     val packageUids = if (packages.isEmpty()) emptyMap() else {
         PackageCache.awaitLoadSync()
         packages.associateWith { PackageCache[it] }
     }
     return ConfigInput(mode, main, settings, snapshot, packageUids, AndroidConfigPlatform())
+}
+
+internal fun <T> readConfigSnapshot(read: () -> T): T {
+    check(Looper.myLooper() != Looper.getMainLooper()) { "Cannot collect a config snapshot on the main thread" }
+    val db = SagerDatabase.instance.openHelper.readableDatabase
+    db.beginTransactionNonExclusive()
+    try {
+        val result = read()
+        db.setTransactionSuccessful()
+        return result
+    } finally {
+        db.endTransaction()
+    }
 }
 
 /**
