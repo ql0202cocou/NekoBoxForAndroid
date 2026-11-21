@@ -30,8 +30,8 @@ internal inline fun <T> guardedRead(fallback: T, read: () -> T): T = try {
     fallback
 }
 
-// 流量和订阅只关心节点身份；运行选择还要识别只恢复设置时替换的选中节点。
-data class RunGeneration(val profiles: Long, val settings: Long)
+// 流量和订阅只关心节点世代；启动登记与选择回调还要识别规则或设置的替换。
+data class RunGeneration(val profiles: Long, val config: Long)
 
 object ProfileManager {
 
@@ -166,7 +166,7 @@ object ProfileManager {
 
     fun selectedProfileForRun(): Pair<ProxyEntity, RunGeneration>? = RestoreJournal.default.withLock {
         getProfileForRun(DataStore.selectedProxy)?.let { (profile, generation) ->
-            profile to RunGeneration(generation, DataStore.settingsRestoreGeneration)
+            profile to RunGeneration(generation, DataStore.configRestoreGeneration)
         }
     }
 
@@ -178,7 +178,7 @@ object ProfileManager {
         return journal.withLock {
             if (journal.isPending()) return@withLock null
             val (profile, currentGeneration) = getProfileForRun(id) ?: return@withLock null
-            val storedGeneration = RunGeneration(currentGeneration, DataStore.settingsRestoreGeneration)
+            val storedGeneration = RunGeneration(currentGeneration, DataStore.configRestoreGeneration)
             if (generation != storedGeneration || !isCurrent()) return@withLock null
             val previous = PublicDatabase.instance.runInTransaction(Callable {
                 val previousId = DataStore.currentProfile

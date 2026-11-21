@@ -75,6 +75,20 @@ class BackupPartialRestoreTest : UiTestBase() {
     }
 
     @Test
+    fun rulesOnlyRestoreInvalidatesStartsThatReadTheOldRules() = ui.bg {
+        val group = GroupRepository.createGroup(ProxyGroup(name = "local"))
+        val node = ProfileRepository.createProfile(group.id, SOCKSBean().apply { serverAddress = "example.org" })
+        DataStore.selectedProxy = node.id
+        val before = ProfileManager.selectedProfileForRun()!!.second
+        val rules = listOf(RuleEntity(id = 1, outbound = -2, domains = "example.org"))
+        BackupRestore.commit(BackupRestore.Decoded(null, null, rules, null, 0), null)
+        assertNull(ProfileManager.recordRunningProfile(node.id, before, false) { true })
+        val after = ProfileManager.selectedProfileForRun()!!.second
+        assertEquals(before.profiles, after.profiles)
+        assertNotNull(ProfileManager.recordRunningProfile(node.id, after, false) { true })
+    }
+
+    @Test
     fun `只恢复节点保留本地规则并清除失效的选中节点和分组`() = ui.bg {
         val old = GroupRepository.createGroup(ProxyGroup(name = "Old group"))
         val node = ProfileRepository.createProfile(old.id, SOCKSBean().apply {

@@ -238,22 +238,22 @@ object BackupRestore {
                 PublicDatabase.instance.runInTransaction {
                     val dao = PublicDatabase.kvPairDao
                     // 设置世代与本次替换一起提交，不能从备份带入。
-                    val nextGeneration = DataStore.settingsRestoreGeneration + 1
+                    val nextGeneration = DataStore.configRestoreGeneration + 1
                     val merged = mergeSettings(settings, dao.all(), profiles != null, rules != null)
                     dao.reset()
                     dao.insert(merged)
-                    DataStore.settingsRestoreGeneration = nextGeneration
+                    DataStore.configRestoreGeneration = nextGeneration
                     fixDanglingSelections()
                 }
-            } else if (profiles != null) {
-                // profiles-only 导入同样整表替换了分组与节点，本地选择可能悬挂
-                fixDanglingSelections()
-            }
-            if (rules != null && settings == null) {
-                // rules 表已被导入内容整表替换（权威状态）；旗标留在 false 会让
-                // getRules() 把默认规则再追加一遍。settings 一并导入时旗标随
-                // mergeSettings 走，不在此处理
-                DataStore.rulesFirstCreate = true
+            } else if (profiles != null || rules != null) {
+                PublicDatabase.instance.runInTransaction {
+                    if (profiles != null) fixDanglingSelections()
+                    if (rules != null) {
+                        // 规则已整体替换。阻止追加默认规则，也让按旧规则建好配置的启动失效。
+                        DataStore.rulesFirstCreate = true
+                        DataStore.configRestoreGeneration++
+                    }
+                }
             }
         } catch (failure: Throwable) {
             // Room makes each database transaction atomic. Compensate the
