@@ -18,6 +18,18 @@ class CoreCapabilitiesTest {
     private fun appFile(path: String): File =
         listOf(File(path), File("app/$path")).firstOrNull { it.isFile } ?: error("找不到 app/$path")
 
+    @Test
+    fun `节点导入的 manifest 协议覆盖分享链接解析表`() {
+        val doc = javax.xml.parsers.DocumentBuilderFactory.newInstance().newDocumentBuilder()
+            .parse(appFile("src/main/AndroidManifest.xml"))
+        val filters = doc.getElementsByTagName("intent-filter")
+        val profileFilter = (0 until filters.length).map { filters.item(it) as org.w3c.dom.Element }
+            .single { it.getAttribute("android:label") == "@string/profile_import" }
+        val data = profileFilter.getElementsByTagName("data")
+        val schemes = (0 until data.length).map { (data.item(it) as org.w3c.dom.Element).getAttribute("android:scheme") }
+        assertEquals(io.nekohasekai.sagernet.ktx.profileLinkParsers { false }.keys, schemes.toSet())
+    }
+
     // ---- 核心版本：升级核心不改表，这里就失败
 
     private fun pinnedInPluginsSh(name: String): String {

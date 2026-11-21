@@ -90,6 +90,26 @@ class SubscriptionFoundException(val link: String) : RuntimeException()
 
 private val httpLinkRegex = "(http|https)://.*".toRegex()
 
+internal fun profileLinkParsers(globalAllowInsecure: () -> Boolean): Map<String, (String) -> AbstractBean> = mapOf(
+    "sn" to { link -> parseUniversal(link, globalAllowInsecure) },
+    "socks" to ::parseSOCKS,
+    "socks4" to ::parseSOCKS,
+    "socks4a" to ::parseSOCKS,
+    "socks5" to ::parseSOCKS,
+    "vmess" to ::parseV2Ray,
+    "vless" to ::parseV2Ray,
+    "trojan" to ::parseTrojan,
+    "trojan-go" to ::parseTrojanGo,
+    "ss" to ::parseShadowsocks,
+    "naive+https" to ::parseNaive,
+    "naive+quic" to ::parseNaive,
+    "hysteria" to ::parseHysteria1,
+    "hysteria2" to ::parseHysteria2,
+    "hy2" to ::parseHysteria2,
+    "tuic" to ::parseTuic,
+    "anytls" to ::parseAnytls,
+)
+
 // globalAllowInsecure：全局「允许不安全」，只在遇到 K1 之前生成的通用链接时读一次（标注见 parseUniversal）
 suspend fun parseProxies(
     text: String,
@@ -104,24 +124,7 @@ suspend fun parseProxies(
     var unsupportedTransport: UnsupportedTransportException? = null
 
     val global by lazy(globalAllowInsecure)
-    val linkParsers: List<Triple<String, String, (String) -> AbstractBean>> = listOf(
-        Triple("sn://", "universal") { link -> parseUniversal(link) { global } },
-        Triple("socks://", "socks", ::parseSOCKS),
-        Triple("socks4://", "socks", ::parseSOCKS),
-        Triple("socks4a://", "socks", ::parseSOCKS),
-        Triple("socks5://", "socks", ::parseSOCKS),
-        Triple("vmess://", "v2ray", ::parseV2Ray),
-        Triple("vless://", "vless", ::parseV2Ray),
-        Triple("trojan://", "trojan", ::parseTrojan),
-        Triple("trojan-go://", "trojan-go", ::parseTrojanGo),
-        Triple("ss://", "shadowsocks", ::parseShadowsocks),
-        Triple("naive+", "naive", ::parseNaive),
-        Triple("hysteria://", "hysteria1", ::parseHysteria1),
-        Triple("hysteria2://", "hysteria2", ::parseHysteria2),
-        Triple("hy2://", "hysteria2", ::parseHysteria2),
-        Triple("tuic://", "TUIC", ::parseTuic),
-        Triple("anytls://", "anytls", ::parseAnytls),
-    )
+    val linkParsers = profileLinkParsers { global }
 
     fun String.parseLink(entities: ArrayList<AbstractBean>) {
         if (startsWith("clash://install-config?") || startsWith("sn://subscription?")) {
@@ -145,17 +148,15 @@ suspend fun parseProxies(
             return
         }
 
-        for ((prefix, _, parse) in linkParsers) {
-            if (startsWith(prefix)) {
-                runCatching {
-                    entities.add(parse(this))
-                }.onFailure {
-                    Logs.w("Proxy link rejected: ${it.javaClass.simpleName}")
-                    if (it is UnsupportedTransportException && unsupportedTransport == null) {
-                        unsupportedTransport = it
-                    }
-                }
-                return
+        val separator = indexOf("://")
+        if (separator < 0) return
+        val parse = linkParsers[substring(0, separator)] ?: return
+        runCatching {
+            entities.add(parse(this))
+        }.onFailure {
+            Logs.w("Proxy link rejected: ${it.javaClass.simpleName}")
+            if (it is UnsupportedTransportException && unsupportedTransport == null) {
+                unsupportedTransport = it
             }
         }
     }
