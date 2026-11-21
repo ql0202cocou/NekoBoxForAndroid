@@ -57,11 +57,12 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
         } finally {
             showBuildNotices()
         }
-        // init 跑在 IO 上，destroyRunner 的 close() 可能与它并发：close() 漏掉的 box 与临时文件已由
-        // BoxInstance.init 补收，launch() 也会因 isClosed() 直接返回
-        if (isClosed()) return
-        // 外核配置同样先按值遮蔽本机 socks 凭据，再按键名脱敏
-        if (Logs.enabled) externalProcesses.forEach { Logs.d(config.loggableExternalConfig(it.config)) }
+    }
+
+    override suspend fun loadConfig() {
+        super.loadConfig()
+        // 在外核校验前记录当次组装的配置，校验拒绝时也能用同一份脱敏日志定位。
+        if (Logs.enabled && !isClosed()) externalProcesses.forEach { Logs.d(config.loggableExternalConfig(it.config)) }
     }
 
     override suspend fun launch() {

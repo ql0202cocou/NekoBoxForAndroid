@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.bg.proto
 
+import android.content.pm.ProviderInfo
 import io.nekohasekai.sagernet.database.RunGeneration
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.SagerDatabase
@@ -7,13 +8,16 @@ import io.nekohasekai.sagernet.bg.GuardedProcessPool
 import io.nekohasekai.sagernet.bg.ProxyService
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.ConfigBuildResult
+import io.nekohasekai.sagernet.fmt.ExternalCoreCheckException
 import io.nekohasekai.sagernet.fmt.LocalSocksAuth
 import io.nekohasekai.sagernet.fmt.TAG_PROXY
 import io.nekohasekai.sagernet.fmt.TrafficBindings
 import io.nekohasekai.sagernet.fmt.TrafficIncrement
 import io.nekohasekai.sagernet.fmt.TrafficTotals
+import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.appScope
+import io.nekohasekai.sagernet.plugin.PluginManager
 import io.nekohasekai.sagernet.uitest.UiTestBase
 import io.nekohasekai.sagernet.uitest.UiFixtures
 import kotlinx.coroutines.CoroutineStart
@@ -58,6 +62,39 @@ class BoxInstanceLifecycleTest : UiTestBase() {
     private fun instance() = object : BoxInstance(profile()) {}
 
     private fun CoreBox.state(): ShadowCoreBox = Shadow.extract(this)
+
+    @Test
+    fun rejectedExternalRuntimeConfigIsLoggedOnceWithCredentialsMasked() = ui.bg {
+        val node = ProxyEntity(id = 1, type = ProxyEntity.TYPE_TROJAN, core = ProxyEntity.CORE_XRAY,
+            trojanBean = TrojanBean().apply {
+                initializeDefaultValues()
+                serverAddress = "server.example"
+                password = "synthetic-rejected-secret"
+            })
+        ShadowLifecycleLibcore.create = { CoreBox() }
+        val logs = CopyOnWriteArrayList<String>()
+        ShadowLifecycleLibcore.log = { logs.add(it) }
+        for (logging in listOf(true, false)) {
+            val instance = ProxyInstance(node, ProxyService(), "runtime", RunGeneration(0L, 0L))
+            instance.pluginPath["xray-plugin"] = PluginManager.InitResult("/usr/bin/false", ProviderInfo(), builtin = true)
+            Logs.enabled = logging
+            try {
+                logs.clear()
+                val failure = runCatching { instance.init() }.exceptionOrNull()
+                assertTrue(failure.toString(), failure is ExternalCoreCheckException)
+                val config = instance.config
+                val raw = instance.externalProcesses.single().config
+                val masked = config.loggableExternalConfig(raw)
+                assertTrue(raw.contains(node.trojanBean!!.password))
+                assertEquals(if (logging) 1 else 0, logs.count { it.endsWith(masked) })
+                val auth = checkNotNull(config.localAuth)
+                assertTrue(logs.none { node.trojanBean!!.password in it || auth.username in it || auth.password in it })
+            } finally {
+                instance.close()
+                Logs.enabled = false
+            }
+        }
+    }
 
     @Test
     fun activeServiceUrlTestMasksConfiguredCredentialsBeforeBinderReturns() {
