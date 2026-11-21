@@ -188,23 +188,27 @@ class ClashRejectionTest {
 
     @Test
     fun `reality-opts 的边界：mihomo 不启用 REALITY 的照常导入成普通 TLS`() {
-        assertImported("$vless, reality-opts: {}")
         assertImported("$vless, reality-opts: {public-key: $pbk, short-id: 0123}")
-        // 依据 mihomo adapter/outbound/reality.go：public-key 的 tag 没有 omitempty，缺键时结构解码器报 has unset fields，
-        // 节点在 mihomo 里解码失败，这里仍照常导入，字段记录记 SEMANTICS_DIFFER；显式写成空串 / null 才是「不启用 REALITY」（INACTIVE）
-        for ((opts, reason) in listOf(
-            "{public-key: \"\"}" to ClashFieldReason.INACTIVE,
-            "{short-id: 0123}" to ClashFieldReason.SEMANTICS_DIFFER,
-            "{public-key: ~}" to ClashFieldReason.INACTIVE,
-        )) {
+        for (opts in listOf("{public-key: \"\"}", "{public-key: ~}", "{Public_Key: ~, short-id: 0123}")) {
             val result = parsed("$vless, tls: true, reality-opts: $opts")
             val bean = result.beans.single() as VMessBean
             assertEquals("tls", bean.security)
             assertEquals("", bean.realityPubKey)
-            assertEquals(opts, reason, (result.nodes.single() as ClashNodeResult.Imported).reason("reality-opts"))
+            assertEquals(opts, ClashFieldReason.INACTIVE, (result.nodes.single() as ClashNodeResult.Imported).reason("reality-opts"))
         }
-        // trojan 恒为 TLS
-        assertImported("$trojan, reality-opts: {short-id: 0123}")
+    }
+
+    @Test
+    fun `REALITY 对象缺公钥时拒绝且保留原始键名`() {
+        for (base in listOf("$vmess, tls: true", "$vless, tls: true", trojan)) {
+            assertImported(base)
+            assertImported("$base, reality-opts: null")
+            for (key in listOf("reality-opts", "Reality_Opts")) {
+                for (opts in listOf("{}", "{short-id: 0123}", "{Short_ID: 0123}")) {
+                    assertRejected("$base, $key: $opts", REALITY_PUBLIC_KEY_MISSING, key)
+                }
+            }
+        }
     }
 
     @Test

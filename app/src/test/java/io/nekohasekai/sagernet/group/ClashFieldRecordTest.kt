@@ -957,9 +957,6 @@ class ClashFieldRecordTest {
     fun `没有公钥的 reality-opts 与未生效的 TLS 变体，写法不同时仍是无影响`() {
         val v = "name: v, type: vmess, server: v.example.com, port: 443, uuid: $uuid, tls: true"
         assertField(fields("{$v, Reality-Opts: {public-key: \"\"}}"), "Reality-Opts", IGNORED, ClashFieldReason.INACTIVE)
-        // 缺 public-key 键：mihomo 的 RealityOptions.PublicKey 没有 omitempty，has unset fields，节点解码失败，不是「无影响」
-        assertField(fields("{$v, Reality-Opts: {short-id: ab}}"), "Reality-Opts", IGNORED, ClashFieldReason.SEMANTICS_DIFFER)
-        assertTrue(fields("{$v, reality-opts: {short-id: ab}}").getValue("reality-opts").lossy)
         assertField(fields("{$v, reality-opts: {public-key: \"\", short-id: ab}}"), "reality-opts", IGNORED, ClashFieldReason.INACTIVE)
         assertField(fields("{$v, Shadow-TLS-Opts: {version: 0}}"), "Shadow-TLS-Opts", IGNORED, ClashFieldReason.INACTIVE)
     }

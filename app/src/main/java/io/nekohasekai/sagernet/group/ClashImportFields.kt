@@ -171,15 +171,6 @@ internal class ClashFields(
         if (valueAt(path) is Map<*, *>) opened += path
     }
 
-    // mihomo 不启用 REALITY 的 reality-opts（没有非空公钥）该记什么原因。public-key 显式写成空串或 null：
-    // RealityOptions.Parse 不启用 REALITY，与本应用一致，无影响。缺 public-key 这个键：RealityOptions.PublicKey 的 tag
-    // 没有 omitempty，结构解码器（decodeStructFromMap）报 has unset fields，整个节点在 mihomo 里解码失败，
-    // 而本应用照常导入成普通 TLS：两边结果不同，记 SEMANTICS_DIFFER（有损；不拒绝，不改导入结果）
-    fun realityWithoutKeyReason(): ClashFieldReason {
-        val opts = mihomoValue("reality-opts") as? Map<*, *>
-        return if (opts != null && opts.mihomoEntry("public-key") == null) SEMANTICS_DIFFER else INACTIVE
-    }
-
     fun path(vararg names: String): List<String>? {
         var map: Map<*, *> = proxy
         val out = ArrayList<String>(names.size)
@@ -611,8 +602,8 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
     }
     when {
         reality.isFalseOrEmpty() -> Unit
-        // 没有公钥：mihomo 的 RealityOptions.Parse 不启用 REALITY，本应用同样不用；缺 public-key 键与写成空串不同，见 realityWithoutKeyReason
-        !realityKey -> ignored(realityWithoutKeyReason(), "reality-opts")
+        // 已导入且公钥为空：mihomo 与本应用都关闭 REALITY。
+        !realityKey -> ignored(INACTIVE, "reality-opts")
         else -> {
             kept("reality-opts", "public-key"); kept("reality-opts", "short-id")
             // sing-box 的 REALITY 不提供 X25519MLKEM768（libcore/sing-box/NEKO.md），false 与之相同
@@ -698,8 +689,7 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
             path.size == 2 && path[0] == "ws-opts" && path[1] == "v2ray-http-upgrade-fast-open" &&
                     !mihomoFlag("ws-opts", "v2ray-http-upgrade") -> INACTIVE
 
-            // 没有公钥的 reality-opts：mihomo 的 RealityOptions.Parse 不启用 REALITY（缺键的情形见 realityWithoutKeyReason）
-            path[0] == "reality-opts" && mihomoValue("reality-opts", "public-key")?.toString().isNullOrEmpty() -> realityWithoutKeyReason()
+            path[0] == "reality-opts" && mihomoValue("reality-opts", "public-key")?.toString().isNullOrEmpty() -> INACTIVE
             path[0] == "ech-opts" && !mihomoFlag("ech-opts", "enable") -> INACTIVE
             else -> tlsOffInactive(tlsOn)(path)
         }
