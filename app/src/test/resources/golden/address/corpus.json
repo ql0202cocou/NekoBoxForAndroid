@@ -836,11 +836,11 @@
     {
       "input": "fe80::1%wlan0",
       "results": {
-        "isIpAddress": false,
-        "isIpAddressV6": false,
+        "isIpAddress": true,
+        "isIpAddressV6": true,
         "parseNumericAddress": null,
         "unwrapIPV6Host": "fe80::1%wlan0",
-        "wrapIPV6Host": "fe80::1%wlan0",
+        "wrapIPV6Host": "[fe80::1%wlan0]",
         "splitHostPort": [
           "fe80::1%wlan0",
           null
@@ -856,11 +856,11 @@
     {
       "input": "fe80::1%1",
       "results": {
-        "isIpAddress": false,
-        "isIpAddressV6": false,
+        "isIpAddress": true,
+        "isIpAddressV6": true,
         "parseNumericAddress": null,
         "unwrapIPV6Host": "fe80::1%1",
-        "wrapIPV6Host": "fe80::1%1",
+        "wrapIPV6Host": "[fe80::1%1]",
         "splitHostPort": [
           "fe80::1%1",
           null
@@ -1141,8 +1141,8 @@
     {
       "input": "[fe80::1%wlan0]",
       "results": {
-        "isIpAddress": false,
-        "isIpAddressV6": false,
+        "isIpAddress": true,
+        "isIpAddressV6": true,
         "parseNumericAddress": null,
         "unwrapIPV6Host": "fe80::1%wlan0",
         "wrapIPV6Host": "[fe80::1%wlan0]",

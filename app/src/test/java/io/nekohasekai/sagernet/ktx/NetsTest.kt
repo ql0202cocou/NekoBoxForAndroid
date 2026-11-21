@@ -128,6 +128,20 @@ class NetsTest {
     }
 
     @Test
+    fun `带接口标识的 IPv6 只按地址部分判定且不查本机接口`() {
+        for (addr in listOf("fe80::1%wlan0", "fe80::1%2", "fe80::1%vlan.20")) {
+            assertTrue(addr.isIpAddress())
+            assertTrue("[$addr]".isIpAddressV6())
+            assertEquals("[$addr]", addr.wrapIPV6Host())
+            assertEquals("[$addr]", "[$addr]".wrapIPV6Host())
+        }
+        for (bad in listOf("fe80::1%", "2001::1::2%2", "192.0.2.1%2", "name%eth0",
+            "[fe80::1%2]:443", "[fe80::1%2", "fe80::1%2/64", "fe80::1%a b")) {
+            assertFalse(bad, bad.isIpAddressV6())
+        }
+    }
+
+    @Test
     fun `splitHostPort 域名带端口`() {
         assertEquals("example.com" to "443", "example.com:443".splitHostPort())
     }

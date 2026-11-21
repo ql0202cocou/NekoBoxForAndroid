@@ -82,6 +82,15 @@ class Hysteria1ConfigTest {
     }
 
     @Test
+    fun `带接口标识的 IPv6 直拨保留接口与端口，映射时不用作 SNI`() {
+        for (host in listOf("fe80::1%wlan0", "fe80::1%2")) {
+            val node = bean { serverAddress = host }
+            assertEquals("[$host]:8443", node.build().str("server"))
+            assertFalse(node.build(target = Mapped(40000)).has("server_name"))
+        }
+    }
+
+    @Test
     fun `多端口范围合并输出`() {
         assertEquals(
             "hy1.example.com:20000-20010,443",

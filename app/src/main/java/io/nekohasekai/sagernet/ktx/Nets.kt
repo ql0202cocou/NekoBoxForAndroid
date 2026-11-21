@@ -4,6 +4,7 @@ package io.nekohasekai.sagernet.ktx
 
 import android.net.Network
 import android.os.SystemClock
+import com.google.common.net.InetAddresses
 import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.IPv6Mode
 import io.nekohasekai.sagernet.Key
@@ -61,7 +62,7 @@ fun HttpUrl.Builder.toLink(scheme: String, appendDefaultPort: Boolean = true): S
 }
 
 fun String.isIpAddress(): Boolean {
-    return NGUtil.isIpv4Address(this) || NGUtil.isIpv6Address(this)
+    return NGUtil.isIpv4Address(this) || isIpAddressV6()
 }
 
 // 节点的域名才交给 DNS；含冒号的输入（包括带 zone 的 IPv6）由数值地址解析器处理。
@@ -74,7 +75,18 @@ fun isServerAddress(value: String): Boolean =
     value.isNotBlank() && value.none { it.isWhitespace() || it == '/' }
 
 fun String.isIpAddressV6(): Boolean {
-    return NGUtil.isIpv6Address(this)
+    return if ('%' in this) isScopedIpv6Address() else NGUtil.isIpv6Address(this)
+}
+
+// 接口名和数字索引都属于地址。只验证字面量，生成配置时不查询当前设备的接口。
+internal fun String.isScopedIpv6Address(): Boolean {
+    val host = removeSurrounding("[", "]")
+    val separator = host.indexOf('%')
+    if (separator < 0) return false
+    val address = host.substring(0, separator)
+    val zone = host.substring(separator + 1)
+    return ':' in address && InetAddresses.isInetAddress(address) &&
+        zone.isNotEmpty() && zone.none { it.isWhitespace() || it.isISOControl() || it in "[]/:" }
 }
 
 // [2001:4860:4860::8888] -> 2001:4860:4860::8888
