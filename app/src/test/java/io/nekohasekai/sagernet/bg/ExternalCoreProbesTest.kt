@@ -196,6 +196,40 @@ class ExternalCoreProbesTest {
     // ---- 就绪等待
 
     @Test
+    fun lateHandshakeCannotMakeALocalPortReady() = runBlocking(Dispatchers.IO) {
+        val server = ServerSocket(0, 1, loopback)
+        servers += server
+        thread(isDaemon = true) {
+            server.accept().use { socket ->
+                repeat(expectedHandshake.size) { socket.getInputStream().read() }
+                Thread.sleep(120)
+                runCatching { socket.getOutputStream().write(accepted) }
+            }
+        }
+        val target = LocalPortTarget(server.localPort, true, auth, alive())
+        val status = awaitLocalPorts(listOf(target), 60, { false }).single()
+        assertFalse("超过整次等待时限的握手不能算就绪", status.ready)
+    }
+
+    @Test
+    fun closingDuringFinalAuthReplyCancelsTheCheck() {
+        val closed = AtomicBoolean()
+        val server = ServerSocket(0, 1, loopback)
+        servers += server
+        thread(isDaemon = true) {
+            server.accept().use { socket ->
+                repeat(expectedWrongHandshake.size) { socket.getInputStream().read() }
+                Thread.sleep(15)
+                closed.set(true)
+                socket.getOutputStream().write(accepted)
+            }
+        }
+        assertThrows(CancellationException::class.java) {
+            wrongPasswordProbe(server.localPort, isCancelled = closed::get)
+        }
+    }
+
+    @Test
     fun `握手成功即就绪`() = runBlocking(Dispatchers.IO) {
         val port = listener()
         val started = System.nanoTime()

@@ -141,7 +141,7 @@ suspend fun awaitLocalPorts(
     targets: List<LocalPortTarget>,
     timeoutMs: Long,
     isCancelled: () -> Boolean,
-    probe: (port: Int, auth: LocalSocksAuth?) -> String? = ::probeLocalPort,
+    probe: ((port: Int, auth: LocalSocksAuth?) -> String?)? = null,
 ): List<LocalPortStatus> {
     val ready = BooleanArray(targets.size)
     // 就绪判定时的进程退出代次；之后代次变了，说明就绪的探测可能不属于当前这个进程
@@ -168,6 +168,10 @@ suspend fun awaitLocalPorts(
     }
 
     val deadline = System.nanoTime() + timeoutMs * 1_000_000
+    val checkPort = probe ?: { port, auth ->
+        val probeDeadline = minOf(deadline, System.nanoTime() + PROBE_TIMEOUT_MS * 1_000_000L)
+        probeLocalPort(port, auth, probeDeadline, ::checkCancelled)
+    }
     while (true) {
         var pending = false
         for ((i, target) in targets.withIndex()) {
@@ -186,12 +190,12 @@ suspend fun awaitLocalPorts(
             }
             // 先取代次再探测：探测成功但期间进程退出过，应答可能来自旧进程，不算
             val exits = state.exits
-            val error = probe(target.port, if (target.strict) target.auth else null)
-            if (error == null && state.exits == exits) {
+            val error = checkPort(target.port, if (target.strict) target.auth else null)
+            if (error == null && state.exits == exits && System.nanoTime() - deadline < 0) {
                 ready[i] = true
                 readyExits[i] = exits
             } else {
-                errors[i] = error ?: "process restarted during the probe"
+                errors[i] = error ?: if (state.exits != exits) "process restarted during the probe" else "timed out"
                 pending = true
             }
         }
@@ -233,37 +237,68 @@ private val SOCKS5_AUTH_ACCEPTED = byteArrayOf(5, 2, 1, 0)
  * 端口能连上，不发字节；否则一次写入 [socks5PasswordHandshake]，读满 4 字节，正好是 05 02 01 00 才算就绪，
  * 别的应答、读超时、连接被关闭都不算。
  */
-fun probeLocalPort(port: Int, auth: LocalSocksAuth?): String? = try {
-    Socket().use { socket ->
-        socket.connect(InetSocketAddress(LOOPBACK, port), PROBE_TIMEOUT_MS)
-        if (auth == null) return null
-        socket.soTimeout = PROBE_TIMEOUT_MS
-        socket.getOutputStream().apply {
-            write(socks5PasswordHandshake(auth))
-            flush()
-        }
-        val reply = ByteArray(SOCKS5_AUTH_ACCEPTED.size)
-        val input = socket.getInputStream()
-        var read = 0
-        var ended: String? = null
-        while (read < reply.size) {
-            val n = try {
-                input.read(reply, read, reply.size - read)
-            } catch (_: SocketTimeoutException) {
-                ended = "timed out"
-                break
+fun probeLocalPort(port: Int, auth: LocalSocksAuth?): String? =
+    probeLocalPort(port, auth, System.nanoTime() + PROBE_TIMEOUT_MS * 1_000_000L) {}
+
+private fun probeLocalPort(
+    port: Int,
+    auth: LocalSocksAuth?,
+    deadline: Long,
+    checkCancelled: () -> Unit,
+): String? {
+    val reply = ByteArray(SOCKS5_AUTH_ACCEPTED.size)
+    val error = probeHandshake(port, auth, deadline, checkCancelled, reply)
+    if (error != null || auth == null || reply.contentEquals(SOCKS5_AUTH_ACCEPTED)) return error
+    return unexpectedReply(reply, reply.size, null)
+}
+
+// 就绪和反查共用一次握手的截止时间。分片只用来检查取消，收到部分字节也不延长时限。
+private const val READ_SLICE_MS = 50
+
+private fun probeHandshake(
+    port: Int,
+    auth: LocalSocksAuth?,
+    deadline: Long,
+    checkCancelled: () -> Unit,
+    reply: ByteArray,
+): String? {
+    fun remainingMs(): Int = ((deadline - System.nanoTime() + 999_999L) / 1_000_000L)
+        .coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+
+    checkCancelled()
+    var read = 0
+    val error = try {
+        Socket().use { socket ->
+            val connectMs = minOf(PROBE_TIMEOUT_MS, remainingMs())
+            if (connectMs == 0) return@use unexpectedReply(reply, read, "timed out")
+            socket.connect(InetSocketAddress(LOOPBACK, port), connectMs)
+            if (auth == null) return@use null
+            checkCancelled()
+            socket.getOutputStream().apply {
+                write(socks5PasswordHandshake(auth))
+                flush()
             }
-            if (n < 0) {
-                ended = "connection closed"
-                break
+            val input = socket.getInputStream()
+            while (read < reply.size) {
+                checkCancelled()
+                val slice = minOf(READ_SLICE_MS, remainingMs())
+                if (slice == 0) return@use unexpectedReply(reply, read, "timed out")
+                socket.soTimeout = slice
+                val n = try {
+                    input.read(reply, read, reply.size - read)
+                } catch (_: SocketTimeoutException) {
+                    continue
+                }
+                if (n < 0) return@use unexpectedReply(reply, read, "connection closed")
+                read += n
             }
-            read += n
+            null
         }
-        if (ended == null && reply.contentEquals(SOCKS5_AUTH_ACCEPTED)) return null
-        unexpectedReply(reply, read, ended)
+    } catch (e: IOException) {
+        e.message ?: e.javaClass.simpleName
     }
-} catch (e: IOException) {
-    e.message ?: e.javaClass.simpleName
+    checkCancelled()
+    return if (error == null && System.nanoTime() - deadline >= 0) unexpectedReply(reply, read, "timed out") else error
 }
 
 // 没读到预期应答时的原因：读到的字节（十六进制）加提前结束的原因
@@ -273,9 +308,6 @@ private fun unexpectedReply(reply: ByteArray, read: Int, ended: String?): String
 }
 
 private fun List<Byte>.toHex() = joinToString(" ") { "%02x".format(it) }
-
-// 认证检查按小段读，每段之间看一次关闭与取消
-private const val AUTH_CHECK_READ_SLICE_MS = 50
 
 /**
  * 认证检查的一次握手（结论在 fmt/ExternalCoreStartup.kt 的 externalAuthOutcome）：用 auth 的用户名与
@@ -295,49 +327,16 @@ suspend fun probeWrongPassword(
         if (isCancelled()) throw CancellationException("closed while checking local inbound authentication")
         context.ensureActive()
     }
-    checkCancelled()
-    return try {
-        Socket().use { socket ->
-            socket.connect(InetSocketAddress(LOOPBACK, port), PROBE_TIMEOUT_MS)
-            socket.soTimeout = AUTH_CHECK_READ_SLICE_MS
-            socket.getOutputStream().apply {
-                write(socks5PasswordHandshake(auth.withWrongPassword()))
-                flush()
-            }
-            val reply = ByteArray(SOCKS5_AUTH_ACCEPTED.size)
-            val input = socket.getInputStream()
-            val deadline = System.nanoTime() + timeoutMs * 1_000_000
-            var read = 0
-            var ended: String? = null
-            while (read < reply.size) {
-                checkCancelled()
-                val n = try {
-                    input.read(reply, read, reply.size - read)
-                } catch (_: SocketTimeoutException) {
-                    if (System.nanoTime() - deadline >= 0) {
-                        ended = "timed out"
-                        break
-                    }
-                    continue
-                }
-                if (n < 0) {
-                    ended = "connection closed"
-                    break
-                }
-                read += n
-            }
-            when {
-                ended != null -> WrongPasswordReply.Unclear(unexpectedReply(reply, read, ended))
-                reply.contentEquals(SOCKS5_AUTH_ACCEPTED) -> WrongPasswordReply.Accepted
-                reply[0] == SOCKS5_AUTH_ACCEPTED[0] && reply[1] == SOCKS5_AUTH_ACCEPTED[1] &&
-                    reply[2] == SOCKS5_AUTH_ACCEPTED[2] && reply[3] != 0.toByte() ->
-                    WrongPasswordReply.Rejected(reply.toList().toHex())
-
-                else -> WrongPasswordReply.Unclear(unexpectedReply(reply, read, null))
-            }
-        }
-    } catch (e: IOException) {
-        WrongPasswordReply.Unclear(e.message ?: e.javaClass.simpleName)
+    val deadline = System.nanoTime() + timeoutMs * 1_000_000L
+    val reply = ByteArray(SOCKS5_AUTH_ACCEPTED.size)
+    val error = probeHandshake(port, auth.withWrongPassword(), deadline, ::checkCancelled, reply)
+    return when {
+        error != null -> WrongPasswordReply.Unclear(error)
+        reply.contentEquals(SOCKS5_AUTH_ACCEPTED) -> WrongPasswordReply.Accepted
+        reply[0] == SOCKS5_AUTH_ACCEPTED[0] && reply[1] == SOCKS5_AUTH_ACCEPTED[1] &&
+            reply[2] == SOCKS5_AUTH_ACCEPTED[2] && reply[3] != 0.toByte() ->
+            WrongPasswordReply.Rejected(reply.toList().toHex())
+        else -> WrongPasswordReply.Unclear(unexpectedReply(reply, reply.size, null))
     }
 }
 
