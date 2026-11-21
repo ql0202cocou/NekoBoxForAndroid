@@ -190,7 +190,17 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                 }
                 json.endArray()
             }
-            snapshot?.profiles?.let { section("profiles", it) }
+            snapshot?.profiles?.let { profiles ->
+                // Room 快照独占这些实体；旧测速错误可能含无法再按当前配置遮蔽的凭据。
+                profiles.forEach {
+                    it.error = null
+                    if (it.status > 1) {
+                        it.status = 0
+                        it.ping = 0
+                    }
+                }
+                section("profiles", profiles)
+            }
             snapshot?.groups?.let { section("groups", it) }
             snapshot?.rules?.let { section("rules", it) }
             if (setting) {

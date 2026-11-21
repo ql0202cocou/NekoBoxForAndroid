@@ -28,6 +28,21 @@ class BackupPartialRestoreTest : UiTestBase() {
     }
 
     @Test
+    fun exportOmitsOldProbeErrorsAndPreservesTheDatabase() = ui.bg {
+        val group = GroupRepository.createGroup(ProxyGroup(name = "Group"))
+        val node = ProfileRepository.createProfile(group.id, SOCKSBean().apply {
+            serverAddress = "192.0.2.1"; serverPort = 1080
+        })
+        val oldError = "synthetic diagnostic"
+        SagerDatabase.proxyDao.updateStatus(node.id, 3, 0, oldError)
+        val backup = JSONObject(BackupFragment().doBackup(true, false, false))
+        val decoded = BackupRestore.decode(backup, true, false, false)
+        assertNull(decoded.profiles!!.single().error)
+        assertEquals(0, decoded.profiles.single().status)
+        assertEquals(oldError, SagerDatabase.proxyDao.getAll().single().error)
+    }
+
+    @Test
     fun unselectedOrMissingSectionsCannotStartARestore() {
         val backup = JSONObject().put("version", 1).put("rules", JSONArray())
         assertThrows(IllegalArgumentException::class.java) { BackupRestore.decode(backup, true, false, true) }
