@@ -349,20 +349,23 @@ private val PRECHECK_AUTH = LocalSocksAuth("u" + "0".repeat(16), "p" + "0".repea
 
 /**
  * 试生成一个外核跳的配置（选择器成员 / 路由规则目标的规划检查之一）：经运行时同一个组装入口，给只有这一个跳实例的
- * 计划生成一次，生成的配置丢弃。端口与凭据只是占位，拨号目标一律是「不映射、拨服务器本身」（报错只取决于节点与
- * 外核设置，与这些占位无关），不分配端口、不生成凭据。hysteria 1 会写 CA 临时文件（createTempFile），用完删掉。
+ * 计划生成一次，生成的配置丢弃。按本跳实际映射及 DNS 角色试建，端口与凭据均用占位值。hysteria 1 会写 CA 临时文件（createTempFile），用完删掉。
  */
 internal fun probeExternalHop(
     hop: HopPlan,
     core: ExternalCore,
+    mapped: Boolean,
+    needsResolver: Boolean,
     settings: ExternalCoreSettings,
     createTempFile: (String, String) -> File,
 ) {
     val tempFiles = ArrayList<File>()
     try {
         val probe = ExternalHop(
-            0, 0, hop.entity.id, hop.bean, PRECHECK_PORT, ExternalDialTarget.Direct, core,
+            0, 0, hop.entity.id, hop.bean, PRECHECK_PORT,
+            if (mapped) ExternalDialTarget.Mapped(PRECHECK_PORT + 1) else ExternalDialTarget.Direct, core,
             PRECHECK_AUTH.takeIf { core.inboundAuth },
+            if (needsResolver) ExternalServerResolver("udp", LOCALHOST, PRECHECK_PORT + 2) else null,
         )
         ExternalRunPlan(listOf(probe)).assemble({ prefix, ext ->
             createTempFile(prefix, ext).also { tempFiles.add(it) }

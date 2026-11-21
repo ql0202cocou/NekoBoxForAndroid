@@ -18,8 +18,8 @@ sealed interface ExternalDialTarget {
     data class Mapped(val port: Int) : ExternalDialTarget
 
     /**
-     * 不映射：外核自己拨节点的服务器（hysteria 1 走 Matsuri exe 插件时最先拨号的一跳、不能映射的节点、成员检查
-     * 里 probeExternalHop 的试生成）。地址端口怎么取由各生成器按协议决定，hysteria 1 按 serverPorts 拨号。
+     * 不映射：外核自己拨节点的服务器（hysteria 1 走 Matsuri exe 插件时最先拨号的一跳、不能映射的节点）。
+     * 地址端口怎么取由各生成器按协议决定，hysteria 1 按 serverPorts 拨号。
      */
     data object Direct : ExternalDialTarget
 }
