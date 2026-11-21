@@ -374,7 +374,7 @@ class ClashFieldRecordTest {
         assertField(anytls, "private-key", IGNORED, ClashFieldReason.MTLS_CLIENT_CERT)
 
         val ss = fields("{name: s, type: ss, server: s.example.com, port: 1, cipher: aes-128-gcm, password: pw-m, plugin: v2ray-plugin, plugin-opts: {mode: websocket, mux: false}, udp-over-tcp: true}")
-        assertField(ss, "plugin-opts.mux", IGNORED, ClashFieldReason.SEMANTICS_DIFFER)
+        assertField(ss, "plugin-opts.mux", CONVERTED, ClashFieldReason.EQUIVALENT_VALUE)
         assertField(ss, "udp-over-tcp", KEPT)
 
         val wireguard = fields("{name: w, type: wireguard, server: 198.51.100.20, port: 51820, private-key: pk-placeholder, remote-dns-resolve: true, dns: [192.0.2.53]}")
@@ -1043,16 +1043,30 @@ class ClashFieldRecordTest {
         assertField(v2ray, "plugin_opts.MUX", CONVERTED, ClashFieldReason.EQUIVALENT_VALUE)
         // 解析器没读的子键仍记未导入
         assertField(v2ray, "plugin_opts.Headers", IGNORED, ClashFieldReason.NOT_READ)
-        // mux 写成假值：而 sing-box 的插件不写时默认开
+        // 插件未指定时默认开，显式关闭必须传给核心。
         assertField(
-            fields("{$s, plugin: v2ray-plugin, plugin-opts: {mode: websocket, Mux: 0}}"), "plugin-opts.Mux", IGNORED,
-            ClashFieldReason.SEMANTICS_DIFFER,
+            fields("{$s, plugin: v2ray-plugin, plugin-opts: {mode: websocket, Mux: 0}}"), "plugin-opts.Mux", CONVERTED,
+            ClashFieldReason.EQUIVALENT_VALUE,
         )
         // 子键写成 obfs_host（下划线）：mihomo 不认这个键，解析器也没读它
         val underscore = fields("{$s, plugin: obfs, plugin-opts: {mode: tls, obfs_host: x.example.com}}")
         assertField(underscore, "plugin-opts.obfs_host", IGNORED, ClashFieldReason.UNKNOWN_KEY)
         // plugin-opts 不是 map
         assertField(fields("{$s, Plugin: obfs, Plugin-Opts: oops}"), "Plugin-Opts", IGNORED, ClashFieldReason.INVALID_DROPPED)
+    }
+
+    @Test
+    fun `SS 的 WebSocket 插件保留 mux 的开关和默认值`() {
+        val node = "name: s, type: ss, server: s.example.com, port: 443, cipher: aes-128-gcm, password: pw, plugin: v2ray-plugin"
+        fun plugin(opts: String) = (imported("{$node, Plugin-Opts: {mode: websocket$opts}}").first as ShadowsocksBean)
+            .plugin.split(';').singleOrNull { it.startsWith("mux=") }
+        for (off in listOf("false", "0", "off")) assertEquals(off, "mux=0", plugin(", Mux: $off"))
+        for (on in listOf("true", "2", "on")) assertEquals(on, "mux=8", plugin(", Mux: $on"))
+        assertNull(plugin(""))
+        assertNull(plugin(", Mux: null"))
+        val failed = parsed("{$node, Plugin-Opts: {mode: websocket, Mux: unknown}}").nodes.single() as ClashNodeResult.Failed
+        assertEquals(ClashNodeFailure.INVALID_VALUE, failed.failure)
+        assertEquals("Plugin-Opts.Mux", failed.path)
     }
 
     @Test

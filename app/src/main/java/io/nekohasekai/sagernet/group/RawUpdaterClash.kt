@@ -373,7 +373,14 @@ private fun parseClashShadowsocks(proxy: Map<String, Any?>): ShadowsocksBean {
                     if (opt("tls").mihomoTrue()) add("tls")
                     add("host=" + (opt("host")?.toString() ?: ""))
                     add("path=" + (opt("path")?.toString() ?: ""))
-                    if (opt("mux").mihomoTrue()) add("mux=8")
+                    proxy.clashSsPluginOpt("mux")?.let { entry ->
+                        val value = entry.value ?: return@let
+                        // 两端缺省都开 mux；sing-box 只在显式传 0 时关闭。
+                        val mux = value.mihomoBoolean() ?: throw ClashNodeRejected(
+                            ClashNodeFailure.INVALID_VALUE, listOf(proxy.clashSsPluginOpts()?.key, entry.key)
+                        )
+                        add(if (mux) "mux=8" else "mux=0")
+                    }
                 }
             }
 

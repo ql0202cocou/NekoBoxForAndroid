@@ -115,7 +115,14 @@ internal fun Map<*, *>.mihomoEntry(name: String, underscoreAsDash: Boolean = tru
 
 // mihomo 的布尔解码（WeaklyTypedInput）：true，或不是 0 的整数。本应用的 YAML 把标量都读成字符串，这里按字面判断；
 // yes / on 沿用 clashBoolean 的宽松读法
-internal fun Any?.mihomoTrue(): Boolean = clashBoolean() || this?.toString()?.let { clashInt(it) }.let { it != null && it != 0L }
+internal fun Any?.mihomoBoolean(): Boolean? = when {
+    this == null -> null
+    clashBoolean() -> true
+    toString().lowercase() in setOf("false", "no", "off") -> false
+    else -> clashInt(toString())?.let { it != 0L }
+}
+
+internal fun Any?.mihomoTrue(): Boolean = mihomoBoolean() == true
 
 // YAML 的整数字面（十进制或 0x / 0o / 0b 前缀，可带正负号与 _）；不是整数时为 null
 internal fun clashInt(text: String): Long? {
@@ -463,12 +470,7 @@ private fun ClashFields.shadowsocks(bean: ShadowsocksBean): Pair<Set<String>, Cl
                 table = table + SS_V2RAY_PLUGIN_KEYS
                 record(sub("path"), ClashFieldResult.KEPT)
                 record(sub("tls"), ClashFieldResult.KEPT)
-                // mux: true 写成 mux=8（sing-box 的插件只看是否大于 0）；false 不写，而 sing-box 的插件不写时默认开 mux
-                if (proxy.clashSsPluginOpt("mux")?.value.mihomoTrue()) {
-                    record(sub("mux"), ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
-                } else {
-                    record(sub("mux"), ClashFieldResult.IGNORED, SEMANTICS_DIFFER)
-                }
+                record(sub("mux"), ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
             }
         }
     }
