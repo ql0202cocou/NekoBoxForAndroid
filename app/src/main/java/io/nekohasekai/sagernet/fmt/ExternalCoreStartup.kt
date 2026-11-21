@@ -160,9 +160,11 @@ fun externalReadyOutcome(results: List<HopReadiness>, timeoutMs: Long): External
             val names = strictFailures.map { it.hop.bean.displayName() }
             val shown = names.take(READY_FAILURE_NAMES).joinToString(", ")
             val more = names.size - READY_FAILURE_NAMES
+            val counts = strictFailures.groupingBy { readinessReason(it.lastError) }.eachCount()
+            val reasons = counts.entries.joinToString(", ") { (reason, count) -> "$reason: $count" }
             IOException(
                 "local inbounds of ${names.size} profiles not ready after $timeoutMs ms: $shown" +
-                    if (more > 0) " and $more more" else ""
+                    (if (more > 0) " and $more more" else "") + " ($reasons)"
             )
         }
     }
@@ -182,6 +184,15 @@ fun externalReadyOutcome(results: List<HopReadiness>, timeoutMs: Long): External
         }
     }
     return ExternalReadyOutcome(null, warnings)
+}
+
+private fun readinessReason(error: String?): String = when {
+    error == null -> "not probed"
+    error.contains("refused", ignoreCase = true) || error.contains("ECONNREFUSED") -> "connection refused"
+    error.contains("timed out", ignoreCase = true) -> "timed out"
+    error.contains("SOCKS5 reply") -> "SOCKS5 handshake failed"
+    error == "process restarted during the probe" -> "process restarted"
+    else -> "connection error"
 }
 
 private const val READY_FAILURE_NAMES = 5

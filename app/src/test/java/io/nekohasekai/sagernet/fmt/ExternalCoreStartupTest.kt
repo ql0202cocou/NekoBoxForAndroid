@@ -291,12 +291,19 @@ class ExternalCoreStartupTest {
     @Test
     fun `内置核心多个节点未就绪时列出节点名`() {
         assertEquals(
-            "local inbounds of 2 profiles not ready after 5000 ms: x0, x2",
+            "local inbounds of 2 profiles not ready after 5000 ms: x0, x2 (connection refused: 2)",
             externalReadyOutcome(readiness(xrayGroup, true, ready = setOf(1)), 5000).failure!!.message,
         )
+        val mixed = listOf(
+            HopReadiness(xrayGroup.hops[0], true, false, null, "unexpected SOCKS5 reply 05 ff"),
+            HopReadiness(xrayGroup.hops[1], true, false, null, "unrecognized private diagnostic"),
+        )
+        val mixedMessage = externalReadyOutcome(mixed, 5000).failure!!.message!!
+        assertTrue(mixedMessage, mixedMessage.endsWith("(SOCKS5 handshake failed: 1, connection error: 1)"))
+        assertFalse(mixedMessage, "private" in mixedMessage)
         val many = plan(*Array(8) { vless("n$it") }).groups.single()
         assertEquals(
-            "local inbounds of 8 profiles not ready after 5000 ms: n0, n1, n2, n3, n4 and 3 more",
+            "local inbounds of 8 profiles not ready after 5000 ms: n0, n1, n2, n3, n4 and 3 more (connection refused: 8)",
             externalReadyOutcome(readiness(many, true), 5000).failure!!.message,
         )
     }
