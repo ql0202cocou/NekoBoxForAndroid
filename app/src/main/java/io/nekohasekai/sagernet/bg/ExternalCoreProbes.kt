@@ -16,8 +16,10 @@ import java.io.File
 import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
-import java.net.Socket
 import java.net.SocketTimeoutException
+import java.nio.channels.SelectionKey
+import java.nio.channels.Selector
+import java.nio.channels.SocketChannel
 import kotlin.concurrent.thread
 
 // 外核启动前校验、启动就绪与认证检查里碰进程、套接字的部分，由 BoxInstance 调用；
@@ -252,8 +254,28 @@ private fun probeLocalPort(
     return unexpectedReply(reply, reply.size, null)
 }
 
-// 就绪和反查共用一次握手的截止时间。分片只用来检查取消，收到部分字节也不延长时限。
-private const val READ_SLICE_MS = 50
+// 建连和读取都分段检查取消，共用一次握手的截止时间。
+private const val PROBE_SLICE_MS = 50
+
+private fun remainingMs(deadline: Long): Int = ((deadline - System.nanoTime() + 999_999L) / 1_000_000L)
+    .coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+
+private fun SocketChannel.connectLoopback(port: Int, deadline: Long, checkCancelled: () -> Unit) {
+    configureBlocking(false)
+    if (!connect(InetSocketAddress(LOOPBACK, port)) && !finishConnect()) {
+        Selector.open().use { selector ->
+            register(selector, SelectionKey.OP_CONNECT)
+            while (!finishConnect()) {
+                checkCancelled()
+                val slice = minOf(PROBE_SLICE_MS, remainingMs(deadline))
+                if (slice == 0) throw SocketTimeoutException("Connect timed out")
+                selector.select(slice.toLong())
+                selector.selectedKeys().clear()
+            }
+        }
+    }
+    configureBlocking(true)
+}
 
 private fun probeHandshake(
     port: Int,
@@ -262,18 +284,15 @@ private fun probeHandshake(
     checkCancelled: () -> Unit,
     reply: ByteArray,
 ): String? {
-    fun remainingMs(): Int = ((deadline - System.nanoTime() + 999_999L) / 1_000_000L)
-        .coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
-
     checkCancelled()
     var read = 0
     val error = try {
-        Socket().use { socket ->
-            val connectMs = minOf(PROBE_TIMEOUT_MS, remainingMs())
-            if (connectMs == 0) return@use unexpectedReply(reply, read, "timed out")
-            socket.connect(InetSocketAddress(LOOPBACK, port), connectMs)
+        SocketChannel.open().use { channel ->
+            if (remainingMs(deadline) == 0) return@use unexpectedReply(reply, read, "timed out")
+            channel.connectLoopback(port, minOf(deadline, System.nanoTime() + PROBE_TIMEOUT_MS * 1_000_000L), checkCancelled)
             if (auth == null) return@use null
             checkCancelled()
+            val socket = channel.socket()
             socket.getOutputStream().apply {
                 write(socks5PasswordHandshake(auth))
                 flush()
@@ -281,7 +300,7 @@ private fun probeHandshake(
             val input = socket.getInputStream()
             while (read < reply.size) {
                 checkCancelled()
-                val slice = minOf(READ_SLICE_MS, remainingMs())
+                val slice = minOf(PROBE_SLICE_MS, remainingMs(deadline))
                 if (slice == 0) return@use unexpectedReply(reply, read, "timed out")
                 socket.soTimeout = slice
                 val n = try {

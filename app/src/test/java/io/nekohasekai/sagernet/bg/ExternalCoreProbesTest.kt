@@ -31,6 +31,8 @@ import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
+import java.net.Socket
+import java.net.SocketTimeoutException
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -209,6 +211,34 @@ class ExternalCoreProbesTest {
         val target = LocalPortTarget(server.localPort, true, auth, alive())
         val status = awaitLocalPorts(listOf(target), 60, { false }).single()
         assertFalse("超过整次等待时限的握手不能算就绪", status.ready)
+    }
+
+    @Test
+    fun pendingLocalConnectChecksForInstanceClose() {
+        ServerSocket(0, 1, loopback).use { server ->
+            val address = InetSocketAddress(loopback, server.localPort)
+            val clients = ArrayList<Socket>()
+            try {
+                // 仅用本地监听，把连接留在接收队列里，直到下一次 connect 需要等待。
+                var pending = false
+                for (i in 0 until 8) {
+                    val client = Socket().also { clients.add(it) }
+                    try {
+                        client.connect(address, 100)
+                    } catch (_: SocketTimeoutException) {
+                        pending = true
+                        break
+                    }
+                }
+                assertTrue("应当进入等待连接的路径", pending)
+                var checks = 0
+                assertThrows(CancellationException::class.java) {
+                    wrongPasswordProbe(server.localPort) { ++checks == 3 }
+                }
+            } finally {
+                clients.forEach { it.close() }
+            }
+        }
     }
 
     @Test
