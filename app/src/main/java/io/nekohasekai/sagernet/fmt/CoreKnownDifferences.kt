@@ -202,8 +202,8 @@ enum class KnownDifference(
             DialCore.SING_BOX to "http 传输（不带 TLS 时是 HTTP/1.1）：只发 Host 头，响应必须是 200",
             DialCore.XRAY to "tcp 的 http 头伪装：带一组默认请求头",
         ),
-        "应用一直把 sing-box 的 http 传输当作 tcp 伪 HTTP 头使用；与 Xray 服务端的互通没有实测，待维护者定",
-        DifferenceDecision.OPEN,
+        "固定版本的 VMess 明文 HTTP 在默认和自定义 Host/path 下，两个方向与同核对照均收到目标回包。保留两种实现。",
+        DifferenceDecision.DECIDED,
     ),
     XUDP_UNDER_VISION(
         listOf(ProfileField.PACKET_ENCODING, ProfileField.ENCRYPTION),
