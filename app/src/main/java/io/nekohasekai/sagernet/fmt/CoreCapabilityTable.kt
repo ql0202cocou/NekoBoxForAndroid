@@ -121,7 +121,10 @@ val CAPABILITY_TABLE: Map<Requirement, Map<DialCore, CapabilityCell>> = linkedMa
         unsupported(XR, CoreConflict.XRAY_ECH_AUTO_QUERY),
     ),
     Requirement.MUX_SING_MUX to row(supported(SB), unsupported(XR, CoreConflict.XRAY_SING_MUX)),
-    Requirement.MUX_COOL to row(unsupported(SB, CoreConflict.SING_BOX_MUX_COOL), supported(XR)),
+    Requirement.MUX_COOL to row(
+        unsupported(SB, CoreConflict.SING_BOX_MUX_COOL),
+        supported(XR, "TCP + TLS 回环：Trojan、VMess、VLESS 均可连 Xray 服务端；固定版本 sing-box 服务端仅 VMess、VLESS 通过"),
+    ),
     Requirement.MUX_UNKNOWN to row(
         unsupported(SB, CoreConflict.MUX_TYPE_UNKNOWN), unsupported(XR, CoreConflict.MUX_TYPE_UNKNOWN),
     ),
