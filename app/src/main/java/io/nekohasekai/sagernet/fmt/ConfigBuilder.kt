@@ -150,10 +150,9 @@ class ConfigBuildResult(
         }
     }
 
-    // 存进节点测速结果、显示在界面上的报错文本：核心的报错原文可能带节点凭据且没有键名，先按值遮本机 socks 凭据与
-    // 配置（sing-box 的与 externalConfigs，即按本次构建组装出的各外核配置）里敏感键的值，再按键名脱敏
+    // 测速和进程日志共用脱敏顺序，避免凭据恰与字段名相同时先改写键名，漏掉其值。
     fun redactErrorText(text: String, externalConfigs: List<String>): String =
-        Util.redactSecrets(Util.redactSecretValues(redactLocalAuth(text), listOf(config) + externalConfigs))
+        externalOutputRedactor(externalConfigs)(text)
 }
 
 private val BOX_INDEX_ERROR = Regex("initialize ((?:outbound|endpoint)\\[\\d+])")

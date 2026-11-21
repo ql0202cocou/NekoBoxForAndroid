@@ -57,6 +57,26 @@ class BoxInstanceLifecycleTest : UiTestBase() {
     private fun CoreBox.state(): ShadowCoreBox = Shadow.extract(this)
 
     @Test
+    fun activeServiceUrlTestMasksConfiguredCredentialsBeforeBinderReturns() {
+        val service = ProxyService()
+        val node = profile().apply {
+            configBean!!.config = """{"outbounds":[{"type":"trojan","tag":"proxy","password":"synthetic-profile-secret"}]}"""
+        }
+        val instance = ProxyInstance(node, service, "probe", RunGeneration(0L, 0L))
+        ShadowLifecycleLibcore.create = { CoreBox() }
+        ShadowLifecycleLibcore.test = { error("probe rejected synthetic-profile-secret") }
+        try {
+            ui.bg { instance.init() }
+            service.data.proxy = instance
+            val error = assertThrows(IllegalStateException::class.java) { service.data.binder.urlTest() }
+            assertEquals("probe rejected ***", error.message)
+        } finally {
+            service.data.proxy = null
+            instance.close()
+        }
+    }
+
+    @Test
     fun `首轮记账接上本实例最后一次切换，后续两轮都归给该成员`() {
         val service = ProxyService()
         val profile = profile()

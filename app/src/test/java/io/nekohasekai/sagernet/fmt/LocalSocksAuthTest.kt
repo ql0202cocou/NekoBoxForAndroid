@@ -151,6 +151,16 @@ class LocalSocksAuthTest {
         )
     }
 
+    @Test
+    fun diagnosticFieldNamesAreMaskedBeforeMatchingCredentialValues() {
+        val config = ConfigBuildResult("""{"password":"password"}""", emptyList(), 1L,
+            TrafficBindings(emptyMap(), emptyMap(), emptySet()), emptyMap(), -1L, localAuth = auth)
+        val message = """{"password":"synthetic-other-value"} rejected ${auth.withWrongPassword().password}"""
+        val safe = config.redactErrorText(message, emptyList())
+        assertFalse(safe, "synthetic-other-value" in safe)
+        assertFalse(safe, auth.withWrongPassword().password in safe)
+    }
+
     private fun plan(): ExternalRunPlan {
         val xray = CoreTestNodes.vless {
             serverAddress = "x.example.com"

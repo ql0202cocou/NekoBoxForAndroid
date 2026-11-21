@@ -226,8 +226,9 @@ class BaseService {
                     proxy.box, DataStore.connectionTestURL, 3000
                 )
             } catch (e: Exception) {
-                // REALITY 握手失败时按这次运行的构建结果补一句提示
-                error(Protocols.genFriendlyMsg(proxy.config.withRealityHint(e).readableMessage))
+                // Binder 的错误会进状态栏和界面日志，按本次运行的配置脱敏。
+                val message = proxy.config.withRealityHint(e).readableMessage
+                error(Protocols.genFriendlyMsg(proxy.redactErrorText(message)))
             }
         }
 
