@@ -1,6 +1,8 @@
 package io.nekohasekai.sagernet.bg.proto
 
 import io.nekohasekai.sagernet.database.RunGeneration
+import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.bg.GuardedProcessPool
 import io.nekohasekai.sagernet.bg.ProxyService
 import io.nekohasekai.sagernet.database.ProxyEntity
@@ -13,6 +15,7 @@ import io.nekohasekai.sagernet.fmt.TrafficTotals
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.appScope
 import io.nekohasekai.sagernet.uitest.UiTestBase
+import io.nekohasekai.sagernet.uitest.UiFixtures
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -97,6 +100,38 @@ class BoxInstanceLifecycleTest : UiTestBase() {
             assertEquals(i * 100, round.rxSession)
         }
         assertEquals(mapOf(1L to TrafficTotals(0, 0), 2L to TrafficTotals(0, 0), 3L to TrafficTotals(200, 20)), acc.snapshot())
+    }
+
+    @Test
+    fun selectorChangesSettleEachMemberBeforeFirstSample() = ui.bg {
+        val members = SagerDatabase.proxyDao.getByGroup(UiFixtures.install().normalGroup.id)
+            .filter { it.tx == 0L && it.rx == 0L }.take(3)
+        val tags = members.associate { it.id to "m${it.id}" }
+        val config = ConfigBuildResult("{}", emptyList(), members.first().id,
+            TrafficBindings(tags.entries.associate { (id, tag) -> tag to listOf(id) },
+                members.associate { it.id to TrafficTotals(0, 0) }, emptySet()), tags, members.first().groupId)
+        val instance = ProxyInstance(members.first(), ProxyService(), "selector", RunGeneration(SagerDatabase.dataGeneration(), 0L))
+        instance.config = config
+        val core = CoreBox()
+        instance.box = core
+        val looper = checkNotNull(instance.looper)
+        DataStore.profileTrafficStatistics = true
+        try {
+            // 服务还未发布此实例，定时循环不能采样。三段流量只经切换和停止结算。
+            instance.launch()
+            for ((index, member) in members.withIndex()) {
+                if (index > 0) looper.selectMain(member.id)
+                core.state().stats.route(TAG_PROXY, (index + 1) * 10L, (index + 1) * 100L)
+            }
+            instance.closeWithTraffic()
+            for ((index, member) in members.withIndex()) {
+                val row = SagerDatabase.proxyDao.getById(member.id)!!
+                assertEquals((index + 1) * 10L, row.tx)
+                assertEquals((index + 1) * 100L, row.rx)
+            }
+        } finally {
+            instance.close()
+        }
     }
 
     @Test

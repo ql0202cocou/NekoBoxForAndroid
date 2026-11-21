@@ -30,7 +30,7 @@ class TrafficLooper(private val data: BaseService.Data, private val owner: Proxy
     private var job: Job? = null
     private var stopped = false
 
-    // 首轮建账与早期切换、清零共用这把锁。发布后由记账自己的锁保护计数与 JNI，落库在锁外。
+    // 建账与启动前的切换、清零共用这把锁。发布后由记账自己的锁保护计数与 JNI，落库在锁外。
     private val startupLock = Any()
     private var earlySelection: Long? = null
     private var pendingClears: MutableMap<Long, Long>? = HashMap()
@@ -181,6 +181,8 @@ class TrafficLooper(private val data: BaseService.Data, private val owner: Proxy
 
     internal fun initializeAccounting(config: ConfigBuildResult, query: (String, String) -> Long, startedAt: Long) =
         synchronized(startupLock) {
+            accounting?.let { return@synchronized it }
+            if (Logs.enabled) config.traffic.tags.forEach { (tag, ids) -> Logs.d("traffic count $tag to $ids") }
             TrafficAccounting.of(config, query, startedAt, earlySelection ?: config.mainEntId).also { active ->
                 pendingClears?.let { if (it.isNotEmpty()) active.clear(it) }
                 pendingClears = null
@@ -207,10 +209,7 @@ class TrafficLooper(private val data: BaseService.Data, private val owner: Proxy
 
             val accounting = this@TrafficLooper.accounting ?: run {
                 if (!proxy.isInitialized()) return
-                val config = proxy.config
-                if (Logs.enabled) config.traffic.tags.forEach { (tag, ids) -> Logs.d("traffic count $tag to $ids") }
-                // 首轮建立基线。已收到清零的出站先结算，其余计数留给下一轮采样。
-                initializeAccounting(config, proxy.box::queryStats, SystemClock.elapsedRealtime())
+                initializeAccounting(proxy.config, proxy.box::queryStats, SystemClock.elapsedRealtime())
                 return
             }
 
@@ -258,6 +257,8 @@ class TrafficLooper(private val data: BaseService.Data, private val owner: Proxy
             }
         }
 
+        // 启动时已经建账，仍在经过一个采样间隔后才发布第一轮速率。
+        if (accounting != null) delay(loopDelay)
         while (coroutineContext.isActive) {
             try {
                 loopOnce()

@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.bg.proto
 
+import android.os.SystemClock
 import android.widget.Toast
 import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.bg.BaseService
@@ -68,9 +69,10 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
         // main instance (and start the protect server) on its way out
         if (isClosed()) return
         box.setAsMain()
-        // 流量统计服务在 box.start() 之前装上，见 TrafficLooper.statsTags
+        // 先安装核心计数器并建账。选择器开始接收切换时，就能把已有流量结算给旧成员。
         if (TrafficLooper.enabled()) {
             box.setV2rayStats(TrafficLooper.statsTags(config), TrafficLooper.ignoredInbounds(config))
+            looper?.initializeAccounting(config, box::queryStats, SystemClock.elapsedRealtime())
         }
         super.launch() // start box
         if (isClosed()) return
