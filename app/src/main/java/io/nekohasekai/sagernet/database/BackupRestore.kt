@@ -36,13 +36,18 @@ object BackupRestore {
     // the imported value is dropped and the local one kept.
     private val installationKeys = listOf(Key.CLASH_API_SECRET, Key.LEGACY_ASSETS_MIGRATED)
 
-    // rulesFirstCreate belongs with the rules table, so it only travels together with
-    // the rules; profileCurrent is state of a service that is stopped for the import.
+    // 节点与分组的选中 id 随节点表恢复，规则初始化标记随规则表恢复。服务已停止，不导入运行状态。
     fun mergeSettings(
-        imported: List<KeyValuePair>, local: List<KeyValuePair>, rulesImported: Boolean,
+        imported: List<KeyValuePair>, local: List<KeyValuePair>, profilesImported: Boolean, rulesImported: Boolean,
     ): List<KeyValuePair> {
-        val retained = installationKeys +
-            if (rulesImported) emptyList() else listOf(Key.RULES_FIRST_CREATE)
+        val retained = buildSet {
+            addAll(installationKeys)
+            if (!profilesImported) {
+                add(Key.PROFILE_ID)
+                add(Key.PROFILE_GROUP)
+            }
+            if (!rulesImported) add(Key.RULES_FIRST_CREATE)
+        }
         val dropped = retained + Key.PROFILE_CURRENT + Key.SETTINGS_RESTORE_GENERATION
         return imported.filterNot { it.key in dropped } + local.filter { it.key in retained }
     }
@@ -232,9 +237,9 @@ object BackupRestore {
             if (settings != null) {
                 PublicDatabase.instance.runInTransaction {
                     val dao = PublicDatabase.kvPairDao
-                    // 只恢复设置也会替换选中节点；设置世代与这次替换一起提交，不能从备份带入。
+                    // 设置世代与本次替换一起提交，不能从备份带入。
                     val nextGeneration = DataStore.settingsRestoreGeneration + 1
-                    val merged = mergeSettings(settings, dao.all(), rules != null)
+                    val merged = mergeSettings(settings, dao.all(), profiles != null, rules != null)
                     dao.reset()
                     dao.insert(merged)
                     DataStore.settingsRestoreGeneration = nextGeneration

@@ -51,6 +51,30 @@ class BackupPartialRestoreTest : UiTestBase() {
     }
 
     @Test
+    fun settingsOnlyRestoreKeepsSelectionsWithTheirLocalProfiles() = ui.bg {
+        val groups = listOf("local", "backup").map { GroupRepository.createGroup(ProxyGroup(name = it)) }
+        val nodes = groups.map { group ->
+            ProfileRepository.createProfile(group.id, SOCKSBean().apply { serverAddress = "${group.name}.example" })
+        }
+        DataStore.selectedGroup = groups.last().id
+        DataStore.selectedProxy = nodes.last().id
+        DataStore.showDirectSpeed = false
+        val backup = JSONObject(BackupFragment().doBackup(true, false, true))
+        DataStore.selectedGroup = groups.first().id
+        DataStore.selectedProxy = nodes.first().id
+        DataStore.showDirectSpeed = true
+        nodes.last().requireBean().serverAddress = "different.example"
+        ProfileManager.updateProfile(nodes.last())
+        BackupRestore.commit(BackupRestore.decode(backup, false, false, true), null)
+        assertEquals(nodes.first().id, DataStore.selectedProxy)
+        assertEquals(groups.first().id, DataStore.selectedGroup)
+        assertFalse(DataStore.showDirectSpeed)
+        BackupRestore.commit(BackupRestore.decode(backup, true, false, true), null)
+        assertEquals(nodes.last().id, DataStore.selectedProxy)
+        assertEquals(groups.last().id, DataStore.selectedGroup)
+    }
+
+    @Test
     fun `只恢复节点保留本地规则并清除失效的选中节点和分组`() = ui.bg {
         val old = GroupRepository.createGroup(ProxyGroup(name = "Old group"))
         val node = ProfileRepository.createProfile(old.id, SOCKSBean().apply {
@@ -102,9 +126,8 @@ class BackupPartialRestoreTest : UiTestBase() {
         BackupRestore.commit(BackupRestore.Decoded(null, null, null, emptyList(), 0), null)
         assertEquals(afterProfiles.profiles, SagerDatabase.dataGeneration())
         assertNull(ProfileManager.recordRunningProfile(member.id, afterProfiles, selectorChange = true) { true })
-        assertEquals(0L, DataStore.selectedProxy)
+        assertEquals(member.id, DataStore.selectedProxy)
         assertEquals(0L, DataStore.currentProfile)
-        DataStore.selectedProxy = member.id
         val afterSettings = ProfileManager.selectedProfileForRun()!!.second
         val restored = ProfileManager.recordRunningProfile(member.id, afterSettings, selectorChange = true) { true }
         assertEquals("192.0.2.2", restored!!.first.requireBean().serverAddress)
