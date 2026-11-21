@@ -306,6 +306,22 @@ object Util {
                 else Yaml().load<Any?>(source)
             }.getOrNull()
             collectSecretValues(root, false, values)
+            // DoH 路径可含用户标识，也可能出现在没有字段名的核心报错中。
+            val dns = (root as? Map<*, *>)?.get("dns") as? Map<*, *>
+            val servers = dns?.get("servers") as? List<*> ?: continue
+            for (server in servers) {
+                val path = (server as? Map<*, *>)?.get("path") as? String ?: continue
+                if (path.isNotBlank() && path != "/") {
+                    values.add(path)
+                    // 进程日志先遮 URL 查询参数，仍需识别留在日志里的路径。
+                    values.add(redactSecrets(path))
+                    // HTTP 请求错误也可能使用 URI 编码后的路径，保留字面加号。
+                    runCatching {
+                        val decoded = URLDecoder.decode(path.replace("+", "%2B"), "UTF-8")
+                        URI(null, null, decoded, null).toASCIIString()
+                    }.getOrNull()?.takeIf { it.length > 1 }?.let(values::add)
+                }
+            }
         }
         // 外核可逐行回显多行值，也可能回显配置中的 JSON 转义写法。
         val forms = mutableSetOf<String>()

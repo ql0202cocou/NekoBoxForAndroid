@@ -152,6 +152,21 @@ class LocalSocksAuthTest {
     }
 
     @Test
+    fun dnsServerPathsAreMaskedInErrorsAndProcessOutput() {
+        val config = ConfigBuildResult(
+            """{"dns":{"servers":[{"type":"https","path":"/synthetic-dns-id?token=synthetic-key"},{"type":"h3","path":"/"}]},"outbounds":[{"transport":{"path":"/socket"}}]}""",
+            emptyList(), 1L, TrafficBindings(emptyMap(), emptyMap(), emptySet()), emptyMap(), -1L,
+        )
+        for (path in listOf("/synthetic-dns-id?token=synthetic-key", "/synthetic-dns-id%3Ftoken=synthetic-key")) {
+            val message = "DNS request $path failed, transport /socket, root /"
+            for (safe in listOf(config.redactErrorText(message, emptyList()), config.externalOutputRedactor(emptyList())(message))) {
+                assertFalse(safe, "synthetic-dns-id" in safe || "synthetic-key" in safe)
+                assertTrue(safe, "transport /socket, root /" in safe)
+            }
+        }
+    }
+
+    @Test
     fun diagnosticFieldNamesAreMaskedBeforeMatchingCredentialValues() {
         val config = ConfigBuildResult("""{"password":"password"}""", emptyList(), 1L,
             TrafficBindings(emptyMap(), emptyMap(), emptySet()), emptyMap(), -1L, localAuth = auth)
