@@ -100,12 +100,12 @@ enum class KnownDifference(
         listOf(ProfileField.ENCRYPTION),
         mapOf(
             DialCore.SING_BOX to "带 TLS 时生成器把 auto（或空）写成 aes-128-gcm（vendored sing-box 会把 auto 换成 zero）；" +
-                "不带 TLS 时照写 auto",
-            DialCore.XRAY to "auto 按平台选：有 AES 硬件加速时 AES-128-GCM，否则 ChaCha20-Poly1305",
+                "不带 TLS 时照写 auto，sing-vmess 按架构选择，Android arm64 和 x86_64 均取 AES-128-GCM",
+            DialCore.XRAY to "auto 按 CPU 特性选择：支持 AES-GCM 硬件加速时取 AES-128-GCM，否则取 ChaCha20-Poly1305",
         ),
         "维护者 2026-10-06 定：Xray 服务端自 v26.7.11 起删掉了 none / zero，sing-box 带 TLS 时换出的 " +
             "zero 连这类服务端静默失败（回环实测与 Xray VMess 源码确认），生成器改写 aes-128-gcm 后对新旧服务端都能通；" +
-            "两边只在没有 AES 硬件加速的设备上选的加密不同，不影响连通",
+            "在支持的两个 Android ABI 上，缺少 AES-GCM 硬件加速时两核选择不同，两种加密均能连通",
         DifferenceDecision.DECIDED,
     ),
     VMESS_SECURITY_NONE_ZERO(
