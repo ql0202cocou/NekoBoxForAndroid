@@ -1,6 +1,8 @@
 package io.nekohasekai.sagernet.fmt
 
+import android.os.Build
 import android.os.Looper
+import android.system.Os
 import moe.matsuri.nb4a.plugin.PluginConflictReporter
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
@@ -18,6 +20,8 @@ import moe.matsuri.nb4a.SingBoxOptionsUtil
 import moe.matsuri.nb4a.plugin.Plugins
 import java.io.File
 import java.net.InetAddress
+import java.net.NetworkInterface
+import java.net.SocketException
 
 // 配置构建外壳的 Android 一侧：从 DataStore、Room、PackageCache 采集 ConfigInput，并提供每次构建新建的平台适配
 // 对象。纯构建（ConfigBuild）只经 ConfigInput 取这些，不直接碰这里的任何数据源
@@ -106,6 +110,13 @@ private class AndroidConfigPlatform : ConfigPlatform {
     override fun newPort(): Int = mkPort()
 
     override fun parseNumericAddress(text: String): InetAddress? = text.parseNumericAddress()
+
+    override fun interfaceIndex(name: String): Int? = try {
+        if (Build.VERSION.SDK_INT >= 26) Os.if_nametoindex(name).takeIf { it > 0 }
+        else NetworkInterface.getByName(name)?.index?.takeIf { it > 0 }
+    } catch (_: SocketException) {
+        null
+    }
 
     override fun createTempFile(prefix: String, ext: String): File =
         File.createTempFile(prefix + "_", ".$ext", SagerNet.application.externalConfigDir)

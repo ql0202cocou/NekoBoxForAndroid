@@ -337,7 +337,7 @@ private class ConfigBuild(
     }
 
     // 规划链用的输入（见 planChain）：快照、主分组、设置里的全局「允许不安全」、本次构建的插件查询、sing-box 试建与警告
-    private val planContext = ChainPlanContext(data, proxy.groupId, group, globalAllowInsecure, plugins, trials, warn, forExport)
+    private val planContext = ChainPlanContext(data, proxy.groupId, group, globalAllowInsecure, plugins, trials, warn, forExport, platform::interfaceIndex)
 
     val extraRules = if (forTest) listOf() else data.enabledRules()
 
@@ -709,6 +709,8 @@ private class ConfigBuild(
         // sing-box 1.13 起 wireguard 是端点，它的 tag 照样能当出站引用
         if (currentOutbound is SingBoxOptions.Endpoint) {
             endpoints.add(currentOutbound)
+            // 端点不在 outbounds 中。没指定默认出口时核心会选首个普通出站。
+            if (tagOut == TAG_PROXY) route.final_ = TAG_PROXY
         } else {
             outbounds.add(currentOutbound)
         }

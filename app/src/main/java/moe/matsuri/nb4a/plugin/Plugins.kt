@@ -56,17 +56,17 @@ object Plugins {
     fun getPluginExternal(pluginId: String, onConflict: PluginConflictReporter = { _, _ -> }): ProviderInfo? {
         if (pluginId.isBlank()) return null
         val candidates = getExtPluginOld(pluginId).ifEmpty { getExtPluginNew(pluginId) }
-        return selectProvider(pluginId, candidates, ::isTrustedPlugin, onConflict)
+        return selectProvider(pluginId, candidates, { isTrustedPlugin(pluginId, it) }, onConflict)
     }
 
     internal fun selectProvider(
         pluginId: String,
         candidates: List<ProviderInfo>,
-        isTrusted: (String) -> Boolean,
+        isTrusted: (ProviderInfo) -> Boolean,
         onConflict: PluginConflictReporter,
     ): ProviderInfo? {
         // 同一组件可同时响应两个旧入口。去重后只保留签名可信的提供方。
-        val trusted = candidates.distinctBy { it.packageName to it.name }.filter { isTrusted(it.packageName) }
+        val trusted = candidates.distinctBy { it.packageName to it.name }.filter(isTrusted)
         if (trusted.size <= 1) return trusted.firstOrNull()
         trusted.singleOrNull { it.authority.startsWith(preferExePrefix()) }?.let { return it }
         onConflict(pluginId, trusted.map { it.packageName }.distinct())
@@ -115,23 +115,32 @@ object Plugins {
         TRUSTED_PLUGIN_SIGNATURES + packageSignatureSha256s(SagerNet.application.packageName)
     }
 
-    fun isTrustedPlugin(packageName: String): Boolean {
+    // SagerNet 的 0.10.4 和 0.10.6 官方发行包使用同一证书，只对指定插件和包名核对当前签名。
+    internal fun matchesOfficialTrojanGo(pluginId: String, provider: ProviderInfo, currentSigners: () -> Set<String>): Boolean =
+        pluginId == "trojan-go-plugin" && provider.packageName == "io.nekohasekai.sagernet.plugin.trojan_go" &&
+            provider.loadString(METADATA_KEY_ID) == pluginId &&
+            currentSigners() == setOf("32250a4b5f3a6733df57a3b9ec16c38d2c7fc5f2f693a9636f8f7b3be3549641")
+
+    private fun isTrustedPlugin(pluginId: String, provider: ProviderInfo): Boolean {
+        val packageName = provider.packageName
         val signatures = packageSignatureSha256s(packageName)
-        val trusted = signatures.any { it in trustedSignatures }
+        val trusted = signatures.any { it in trustedSignatures } || matchesOfficialTrojanGo(pluginId, provider) {
+            packageSignatureSha256s(packageName, currentOnly = true)
+        }
         if (!trusted) {
             Logs.w("Rejecting untrusted plugin package $packageName, signatures: $signatures")
         }
         return trusted
     }
 
-    private fun packageSignatureSha256s(packageName: String): Set<String> {
+    private fun packageSignatureSha256s(packageName: String, currentOnly: Boolean = false): Set<String> {
         val pm = SagerNet.application.packageManager
         val signatures: Array<Signature>? = try {
             if (Build.VERSION.SDK_INT >= 28) {
                 val signingInfo = pm.getPackageInfo(
                     packageName, PackageManager.GET_SIGNING_CERTIFICATES
                 ).signingInfo ?: return emptySet()
-                if (signingInfo.hasMultipleSigners()) {
+                if (currentOnly || signingInfo.hasMultipleSigners()) {
                     signingInfo.apkContentsSigners
                 } else {
                     // oldest first; covers key rotation

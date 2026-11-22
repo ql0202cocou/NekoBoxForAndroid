@@ -337,6 +337,9 @@ interface ConfigPlatform {
     /** 数字地址字面量（IPv4 / IPv6）解析成地址，不是数字地址时返回 null；不查 DNS。 */
     fun parseNumericAddress(text: String): InetAddress?
 
+    /** 本机接口名对应的当前索引；未知接口返回 null。 */
+    fun interfaceIndex(name: String): Int?
+
     /** 预检试生成外核配置时要的临时文件（hysteria 1 的 CA），用完即删。 */
     fun createTempFile(prefix: String, ext: String): File
 

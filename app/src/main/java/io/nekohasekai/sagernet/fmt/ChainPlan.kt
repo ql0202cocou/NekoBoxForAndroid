@@ -4,6 +4,7 @@ import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.fmt.internal.ChainBean
+import io.nekohasekai.sagernet.ktx.isScopedIpv6Address
 import moe.matsuri.nb4a.SingBoxOptions.CustomSingBoxOption
 import moe.matsuri.nb4a.SingBoxOptions.SingBoxOption
 import moe.matsuri.nb4a.plugin.PluginConflictReporter
@@ -293,6 +294,7 @@ internal class ChainPlanContext(
     /** 展开链时的警告（缺失的成员、失效的前置 / 落地），只记日志。 */
     val warn: (String) -> Unit,
     val forExport: Boolean,
+    val interfaceIndex: (String) -> Int?,
 )
 
 /** 一条链的规划：entity 是根节点；hops 与 [resolveChain] 一样是倒序（首项是出口，末项是最先拨号的一跳），不为空。 */
@@ -320,10 +322,12 @@ internal fun planChain(entity: ProxyEntity, context: ChainPlanContext, checkHop:
     // 链上已有内部核心跳带了多路复用（见 planHop）
     var muxApplied = false
     val hops = profileList.mapIndexed { index, hopEntity ->
-        val bean = hopEntity.requireBean()
+        val firstDialing = index == profileList.lastIndex
+        val stored = hopEntity.requireBean()
+        val bean = if (firstDialing && !context.forExport) stored.withLocalScope(context.interfaceIndex) else stored
         withProfileName(bean) {
             val hop = planHop(
-                hopEntity, bean, choices[index], index == profileList.lastIndex, muxApplied, globalAllowInsecure,
+                hopEntity, bean, choices[index], firstDialing, muxApplied, globalAllowInsecure,
                 context.plugins, context.trials,
             )
             if ((hop.core as? HopCore.Internal)?.multiplex != null) muxApplied = true
@@ -341,6 +345,18 @@ internal fun planChain(entity: ProxyEntity, context: ChainPlanContext, checkHop:
         }
     }
     return ChainPlan(entity, hops)
+}
+
+// Android 应用进程中的 Go 网络栈不一定能枚举接口。只在本机实际拨号的跳上换成当前索引，
+// 保留快照里的原名，供分享、导出以及可能在另一端拨号的同一节点使用。
+private fun AbstractBean.withLocalScope(interfaceIndex: (String) -> Int?): AbstractBean {
+    val address = serverAddress ?: return this
+    if ('%' !in address || !address.isScopedIpv6Address()) return this
+    val host = address.removeSurrounding("[", "]")
+    val zone = host.substringAfter('%')
+    if (zone.all { it in '0'..'9' }) return this
+    val index = interfaceIndex(zone) ?: return this
+    return clone().also { it.serverAddress = host.substringBefore('%') + "%" + index }
 }
 
 // 试生成外核配置用的占位端口与占位凭据，生成的配置随即丢弃；不为它消耗随机数

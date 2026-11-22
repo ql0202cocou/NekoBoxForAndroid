@@ -81,14 +81,19 @@ object RawUpdater : GroupUpdater() {
         val startedNameserverFromSubscription = subscription.nameserverFromSubscription == true
         val link = subscription.link.trim()
         var proxies: List<AbstractBean>
-        var clashRoot: Map<*, *>? = null
+        var isClash = false
+        var parsedNameserver: String? = null
+        fun readClashDns(root: Map<*, *>) {
+            isClash = true
+            parsedNameserver = parseProxyServerNameserver(root)
+        }
         var remoteGroupName: String? = null
         if (link.startsWith("content://")) {
             val contentText = app.contentResolver.openInputStream(link.toUri())
                 ?.use { it.readBytesLimited().toString(Charsets.UTF_8) }
                 ?: error(app.getString(R.string.no_proxies_found_in_subscription))
 
-            proxies = parseRaw(contentText, onClashYaml = { clashRoot = it })
+            proxies = parseRaw(contentText, onClashYaml = ::readClashDns)
                 ?: error(app.getString(R.string.no_proxies_found_in_subscription))
 
             // 本地文件没有 Subscription-Userinfo 响应头：订阅从 http(s) 改成
@@ -111,7 +116,7 @@ object RawUpdater : GroupUpdater() {
             }.execute()
             try {
                 val responseText = Util.getStringBox(response.contentString)
-                proxies = parseRaw(responseText, onClashYaml = { clashRoot = it })
+                proxies = parseRaw(responseText, onClashYaml = ::readClashDns)
                     ?: error(app.getString(R.string.no_proxies_found))
 
                 subscription.subscriptionUserinfo =
@@ -138,7 +143,7 @@ object RawUpdater : GroupUpdater() {
         // 被这个假节点替换。分组里已有其它类型的节点时，只有这种解析结果按没找到
         // 处理，保住原有节点；新分组或本来就只有无认证 HTTP 节点的分组放行
         val exists = SagerDatabase.proxyDao.getByGroup(proxyGroup.id)
-        if (shouldRejectUnauthHttpOnly(proxies, exists.map { it.requireBean() }, clashRoot != null)) {
+        if (shouldRejectUnauthHttpOnly(proxies, exists.map { it.requireBean() }, isClash)) {
             error(app.getString(R.string.no_proxies_found_in_subscription))
         }
 
@@ -161,8 +166,8 @@ object RawUpdater : GroupUpdater() {
         // 没有此键，不能误清。按是否真的载入了 YAML 根节点判断，而不是看原文：
         // 整段 base64 编码的 YAML 原文里没有 "proxies:"，按原文判断永远清不掉。
         // 只清订阅自己写入的值（nameserverFromSubscription），用户手填的保留
-        val subscriptionNameserver = parseProxyServerNameserver(clashRoot)
-        val clearSubscriptionNameserver = subscriptionNameserver == null && clashRoot != null
+        val subscriptionNameserver = parsedNameserver
+        val clearSubscriptionNameserver = subscriptionNameserver == null && isClash
         if (subscriptionNameserver != null) {
             proxyGroup.proxyServerNameserver = subscriptionNameserver
         } else if (clearSubscriptionNameserver && subscription.nameserverFromSubscription == true) {

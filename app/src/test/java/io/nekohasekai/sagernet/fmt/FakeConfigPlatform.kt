@@ -39,6 +39,8 @@ class FakeConfigPlatform(
 
     override fun newPort(): Int = nextPort++.also { ports += it }
 
+    override fun interfaceIndex(name: String): Int? = null
+
     override fun parseNumericAddress(text: String): InetAddress? = parse(text)
 
     override fun createTempFile(prefix: String, ext: String): File {

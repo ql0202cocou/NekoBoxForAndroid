@@ -108,6 +108,7 @@
       "server": "dns-direct",
       "strategy": "prefer_ipv4"
     },
+    "final": "proxy",
     "rule_set": [],
     "rules": [
       {

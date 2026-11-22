@@ -78,7 +78,7 @@ fun String.isIpAddressV6(): Boolean {
     return if ('%' in this) isScopedIpv6Address() else NGUtil.isIpv6Address(this)
 }
 
-// 接口名和数字索引都属于地址。只验证字面量，生成配置时不查询当前设备的接口。
+// 接口名和数字索引都属于地址。这里只验证字面量，本机拨号时由 ChainPlan 解析接口名。
 internal fun String.isScopedIpv6Address(): Boolean {
     val host = removeSurrounding("[", "]")
     val separator = host.indexOf('%')

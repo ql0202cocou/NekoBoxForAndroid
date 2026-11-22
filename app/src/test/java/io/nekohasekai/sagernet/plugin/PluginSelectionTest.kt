@@ -5,6 +5,7 @@ import io.nekohasekai.sagernet.fmt.ConfigBuildDiagnostic
 import io.nekohasekai.sagernet.fmt.configBuildNotices
 import io.nekohasekai.sagernet.fmt.recordPluginConflict
 import moe.matsuri.nb4a.plugin.Plugins
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -25,7 +26,28 @@ class PluginSelectionTest {
         authority = prefix + pkg
     }
     private fun select(vararg candidates: ProviderInfo) =
-        Plugins.selectProvider("xray-plugin", candidates.toList(), { it != "untrusted" }, diagnostics::recordPluginConflict)
+        Plugins.selectProvider("xray-plugin", candidates.toList(), { it.packageName != "untrusted" }, diagnostics::recordPluginConflict)
+
+    @Test
+    fun officialTrojanGoRequiresMatchingRequestedIdDeclaredIdPackageAndCurrentSigner() {
+        val plugin = "trojan-go-plugin"
+        val pkg = "io.nekohasekai.sagernet.plugin.trojan_go"
+        val cert = "32250a4b5f3a6733df57a3b9ec16c38d2c7fc5f2f693a9636f8f7b3be3549641"
+        val candidate = provider(pkg, Plugins.AUTHORITIES_PREFIX_SEKAI_EXE).apply {
+            metaData = android.os.Bundle().apply { putString(Plugins.METADATA_KEY_ID, plugin) }
+        }
+        fun accepts(id: String, vararg signers: String) =
+            Plugins.matchesOfficialTrojanGo(id, candidate) { signers.toSet() }
+        assertTrue(accepts(plugin, cert))
+        assertFalse(accepts("xray-plugin", cert))
+        assertFalse(accepts(plugin, "another-signer"))
+        assertFalse(accepts(plugin, cert, "another-signer"))
+        candidate.packageName = "different.package"
+        assertFalse(accepts(plugin, cert))
+        candidate.packageName = pkg
+        candidate.metaData.putString(Plugins.METADATA_KEY_ID, "xray-plugin")
+        assertFalse(accepts(plugin, cert))
+    }
 
     @Test
     fun `过滤不可信组件，双入口命中同一组件仍保留唯一首选项`() {

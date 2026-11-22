@@ -60,6 +60,22 @@ class ClashYamlGraphTest {
     }
 
     @Test
+    fun `大文档逐项加载与普通加载保留相同的顶层字段和凭据`() {
+        val fields = """
+            dns: {nameserver: [192.0.2.1]}
+            proxies: [{name: one, password: 0123}, {name: two, password: 'a&b*c'}]
+            extra: {enabled: true, tag: !!str 000, missing: null}
+        """.trimIndent()
+        // 用短注释补足逐项加载的阈值，实际字段在两种加载方式下逐一比较。
+        val padding = "# padding comment\n".repeat(65_536)
+        for (document in listOf(fields, fields + "\nextra: {override: last}",
+            "common: &shared {password: 0123}\nproxies: [{<<: *shared, name: one}]")) {
+            assertEquals(loadClashYaml(document), loadClashYaml(padding + document))
+        }
+        assertThrows(YAMLException::class.java) { loadClashYaml(padding + fields + "\n---\nproxies: []") }
+    }
+
+    @Test
     fun `不用别名的大文档不受展开量限制`() {
         val yaml = buildString {
             append("proxies:\n")

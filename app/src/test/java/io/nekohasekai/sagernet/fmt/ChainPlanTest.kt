@@ -102,6 +102,8 @@ class ChainPlanTest {
     private fun plan(
         profiles: List<ProxyEntity>,
         group: ProxyGroup = ProxyGroup(id = 1),
+        forExport: Boolean = false,
+        interfaceIndex: (String) -> Int? = platform::interfaceIndex,
         checkHop: (HopPlan) -> Unit = {},
     ): ChainPlan {
         val record = ProfileRecord.of(profiles.first())
@@ -111,9 +113,24 @@ class ChainPlanTest {
         val main = record.newEntity()
         val context = ChainPlanContext(
             snapshot, main.groupId, snapshot.group(main.groupId), false, PluginQueries(platform), SingBoxTrials(platform),
-            { warnings += it }, forExport = false,
+            { warnings += it }, forExport, interfaceIndex,
         )
         return planChain(main, context, checkHop)
+    }
+
+    @Test
+    fun `仅本机拨号解析 IPv6 接口名 导出和远端跳保留原名`() {
+        val address = "fe80::1%wlan0"
+        val local = vless(2).apply { requireBean().serverAddress = address }
+        val exit = socks(3).apply { requireBean().serverAddress = address }
+        val profiles = listOf(chain(1, 2, 3), local, exit)
+        val hops = plan(profiles, interfaceIndex = { assertEquals("wlan0", it); 17 }).hops
+        assertEquals(address, hops.first().bean.serverAddress)
+        assertEquals("fe80::1%17", (hops.last().core as HopCore.External).mapping?.address)
+        assertEquals(address, local.requireBean().serverAddress)
+        val exported = plan(profiles, forExport = true, interfaceIndex = { error("导出不能查本机接口") })
+        assertTrue(exported.hops.all { it.bean.serverAddress == address })
+        assertEquals(address, plan(listOf(local), interfaceIndex = { null }).hops.single().bean.serverAddress)
     }
 
     @Test
