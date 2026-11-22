@@ -311,6 +311,9 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                 displayPreview?.cancel()
                 val partialRouting = import.backupConfigurations.isChecked != import.backupRules.isChecked
                 import.summary.setText(if (partialRouting) R.string.backup_partial_routing else R.string.backup_import_summary)
+                if (import.backupConfigurations.isChecked && !import.backupSettings.isChecked) {
+                    import.summary.append("\n" + getString(R.string.backup_partial_selections))
+                }
                 confirm.isEnabled = options.any { (box, _) -> box.isVisible && box.isChecked }
                 if (partialRouting) {
                     confirm.isEnabled = false

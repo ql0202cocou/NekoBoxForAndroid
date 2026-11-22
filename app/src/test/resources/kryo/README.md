@@ -146,7 +146,8 @@ grpc 边界样本（来源提交都在这 12 个之内）直接用 5.2.1 写出�
 
 - StandardV2Ray v0：布局 A（`7d9798c`–`e805fe7^`）没有 ECH 块、grpc 只写 path；布局 B（`e805fe7`–`fb55430^`）grpc 没有
   `break`，落入新加的 httpupgrade 分支，写 path、host、path；布局 C（`fb55430`–`b34c012^`）加了 ECH 块，版本号仍是 0。
-  当前读取对 v0 用预读字节区分有无 ECH 块，A / B / C 的样本都覆盖了这一判断（含 VMess、Trojan、HTTP、ShadowTLS 四个子类）。
+  当前读取结合完整子类尾部区分有无 ECH 块。A / B / C 均有样本。另用 Kryo 5.2.1 和原提交的写入代码，从默认对象分别设置 ShadowTLS version 为 256、Trojan packetEncoding 为 1 且 password 以 U+0000 开头（`9d78e4f2`），以及 VMess 开启 ECH 并让其配置以 U+0000 开头（`680b362b`）。三者的前五字节均会误导旧的布局判断。
+  同一组默认字段下，两个原写入器分别将 Trojan 的 packetEncoding 设为 0、password 设为 U+0000 后接 `xy`（无 ECH 块），以及保持 ECH 关闭、password 设为 `xy`（有 ECH 块），输出的完整字节相同。两种布局都能读通时沿用原读法。
 - StandardV2Ray v3：布局 a（`912a066`–`4326aab^`）grpc 仍落入 httpupgrade 分支；布局 b（`4326aab`–`b39ac9a^`）grpc 已加
   `break`，只写 path，版本号仍是 3。
 - StandardV2Ray v1、v2 的 grpc 一律多写（`e805fe7`–`4326aab^` 之间），v4 起一律只写 path。

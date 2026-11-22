@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.uitest
 
 import android.os.Parcel
+import io.nekohasekai.sagernet.bg.proto.BoxInstanceLifecycleTest.ShadowLifecycleLibcore
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.*
 import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
@@ -8,11 +9,13 @@ import io.nekohasekai.sagernet.fmt.shadowsocks.toUri
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.toV2rayN
 import io.nekohasekai.sagernet.ktx.parseProxies
+import io.nekohasekai.sagernet.ktx.Logs
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.proxy.neko.NekoBean
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
+import org.robolectric.annotation.Config
 
 /** 补普通 JVM 绕过的 Android Base64 / org.json 路径；仍使用已有、独立审查过的字段预期。 */
 class ProtocolAndroidContractTest : UiTestBase() {
@@ -62,6 +65,7 @@ class ProtocolAndroidContractTest : UiTestBase() {
     }
 
     @Test
+    @Config(shadows = [ShadowLifecycleLibcore::class])
     fun `Neko 的 JSON 经实体 Kryo 和 Parcel 深拷贝且损坏 JSON 保持既定降级`() {
         val bean = NekoBean().apply {
             initializeDefaultValues()
@@ -83,6 +87,14 @@ class ProtocolAndroidContractTest : UiTestBase() {
         } finally {
             parcel.recycle()
         }
-        assertEquals(0, NekoBean.tryParseJSON("not json: synthetic secret").length())
+        val previous = Logs.enabled
+        try {
+            Logs.enabled = true
+            ShadowLifecycleLibcore.log = { fail("纯解码不能调用核心日志") }
+            assertEquals(0, NekoBean.tryParseJSON("not json: synthetic secret").length())
+        } finally {
+            Logs.enabled = previous
+            ShadowLifecycleLibcore.reset()
+        }
     }
 }

@@ -1,6 +1,19 @@
 package io.nekohasekai.sagernet.database
 
+import android.net.Uri
+import android.widget.CheckBox
+import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
+import androidx.lifecycle.lifecycleScope
+import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
+import io.nekohasekai.sagernet.ktx.app
+import io.nekohasekai.sagernet.ui.MainActivity
+import io.nekohasekai.sagernet.uitest.UiSettle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import org.robolectric.shadows.ShadowDialog
+import java.io.File
 import io.nekohasekai.sagernet.uitest.UiTestBase
 import io.nekohasekai.sagernet.ktx.readBytesLimited
 import io.nekohasekai.sagernet.ui.BackupFragment
@@ -11,6 +24,29 @@ import org.junit.Test
 
 /** 部分恢复不推测节点身份、不隐式改写未勾选的表；既有悬空规则由构建跳过。 */
 class BackupPartialRestoreTest : UiTestBase() {
+    @Test
+    fun importExplainsSelectionIdsWhenProfilesReplaceLocalRowsWithoutSettings() {
+        val activity = ui.launch<MainActivity>().get()
+        val fragment = BackupFragment()
+        activity.supportFragmentManager.beginTransaction().add(R.id.fragment_holder, fragment).commitNow()
+        val file = File(app.cacheDir, "selection-preview.json")
+        file.writeText("""{"version":1,"profiles":[],"groups":[],"rules":[],"settings":[]}""")
+        fragment.viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Default) { fragment.startImport(Uri.fromFile(file)) }
+        UiSettle.settle()
+        val dialog = ShadowDialog.getLatestDialog() as AlertDialog
+        val summary = dialog.findViewById<TextView>(R.id.summary)!!
+        val warning = fragment.getString(R.string.backup_partial_selections)
+        assertFalse(summary.text.contains(warning))
+        dialog.findViewById<CheckBox>(R.id.backup_settings)!!.isChecked = false
+        assertTrue(summary.text.contains(warning))
+        dialog.findViewById<CheckBox>(R.id.backup_rules)!!.isChecked = false
+        UiSettle.settle()
+        assertTrue(summary.text.contains(warning))
+        dialog.findViewById<CheckBox>(R.id.backup_configurations)!!.isChecked = false
+        assertFalse(summary.text.contains(warning))
+        dialog.dismiss()
+    }
+
     @Test
     fun exportOnlyProducesBackupsWithinTheImportLimit() = ui.bg {
         val fragment = BackupFragment()

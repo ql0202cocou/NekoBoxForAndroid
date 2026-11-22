@@ -7,6 +7,7 @@ import io.nekohasekai.sagernet.fmt.ExternalDialTarget
 import io.nekohasekai.sagernet.fmt.ExternalDialTarget.Direct
 import io.nekohasekai.sagernet.fmt.ExternalDialTarget.Mapped
 import io.nekohasekai.sagernet.fmt.ExternalServerResolver
+import io.nekohasekai.sagernet.fmt.externalCore
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -43,6 +44,22 @@ class Hysteria1ConfigTest {
     ).asJsonObject
 
     private fun JsonObject.str(key: String) = get(key).asString
+
+    @Test
+    fun fakeTcpPreservesPluginAndConfigPathsThroughCommandShell() {
+        val plugin = tmp.newFile("plugin with space")
+        plugin.writeText("#!/bin/sh\nprintf '%s\\n' \"\$@\"\n")
+        assertTrue(plugin.setExecutable(true))
+        val config = tmp.newFile("client's config.json")
+        val core = externalCore(bean { protocol = HysteriaBean.PROTOCOL_FAKETCP })!!
+        val command = core.launch(plugin.absolutePath, "{}", { _, _, _ -> config }, ExternalCoreSettings(2, 0, false)).commands
+        assertEquals(listOf("su", "-c"), command.take(2))
+        // 直接使用非特权 shell，检查 -c 的单个参数实际传到插件的参数边界。
+        val process = ProcessBuilder(listOf("sh") + command.drop(1)).redirectErrorStream(true).start()
+        val received = process.inputStream.bufferedReader().readLines()
+        assertEquals(received.toString(), 0, process.waitFor())
+        assertEquals(listOf("--no-check", "--config", config.absolutePath, "--log-level", "info", "client"), received)
+    }
 
     @Test
     fun `默认值只输出必有的字段且顺序固定`() {

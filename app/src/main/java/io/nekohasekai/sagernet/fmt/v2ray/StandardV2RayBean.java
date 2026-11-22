@@ -292,50 +292,13 @@ public abstract class StandardV2RayBean extends AbstractBean {
                     echConfig = input.readString();
                 }
             }
-        } else if (version == 0) {
-            // fb55430（1.3.0）开始序列化 ECH 字段但 version 仍写 0，b34c012 才把
-            // version 改成 1，因此 version == 0 同时存在「无 ECH 块」「有 ECH 块」
-            // 两种布局。Kryo 的 int 是小端 4 字节、boolean 是单字节 0/1；字符串首字节
-            // 通常非 0（null 写 0x80、空串 0x81，2–32 个 ASCII 字符直接写字符本身、末字节
-            // 或上 0x80，其余先写带 0x80 标志位的 varint 长度），但以 U+0000 开头、长 2–32 的
-            // ASCII 串首字节就是 0，下面两处因此可能误判（实际几乎不会出现）。从当前位置预读 1 字节加 1 个 int
-            // 交叉校验（packetEncoding 仅取 0/1/2，小端高 3 字节恒为 0）：
-            //   有 ECH 块且 enableECH=false：[0][packetEncoding]
-            //     → 预读 int 即 packetEncoding（0/1/2）
-            //   有 ECH 块且 enableECH=true ：[1][pq][drs][echConfig 长度…]
-            //     → 预读 int 低 24 位含 echConfig 的首字节；pq、drs 都为 false 且 echConfig
-            //       以 U+0000 开头时低 24 位为 0，会被误判成无 ECH 块
-            //   无 ECH 块：[packetEncoding][extraVersion=1 / Trojan 的 password]
-            //     → 预读 int 低 24 位恒为 0（高字节是子类的下一个字段：VMess 为
-            //       extraVersion 小端首字节 0x01，Trojan / Http 为 password / username
-            //       的首字节，ShadowTLS 为 version 小端首字节）；该字节为 0（字段以 U+0000
-            //       开头）且 packetEncoding 为 0 / 1 时预读 int 为 0，会被误判成有 ECH 块
-            int position = input.getByteBuffer().position(); // 当前位置
-
-            int head = input.readByte() & 0xFF;
-            int probe = input.readInt();
-
-            input.setPosition(position); // 读后归位
-
-            boolean hasEchBlock;
-            if (head <= 1 && probe >= 0 && probe <= 2) {
-                hasEchBlock = true; // enableECH=false 的 ECH 块
-            } else if ((probe & 0x00FFFFFF) == 0 && probe != 0) {
-                hasEchBlock = false; // 无 ECH 块，预读 int 落在 packetEncoding 尾部
-            } else {
-                // enableECH=true 的 ECH 块；实在无法识别的损坏数据按无 ECH 块
-                // 兜底，后续读取错位抛 KryoException，走 lenient 重置
-                hasEchBlock = head == 1;
+        } else if (version == 0 && v0HasEchBlock(input)) {
+            enableECH = input.readBoolean();
+            if (enableECH) {
+                input.readBoolean();
+                input.readBoolean();
+                echConfig = input.readString();
             }
-
-            if (hasEchBlock) {
-                enableECH = input.readBoolean();
-                if (enableECH) {
-                    input.readBoolean();
-                    input.readBoolean();
-                    echConfig = input.readString();
-                }
-            } // 否则下一位就是 packetEncoding
         }
 
         packetEncoding = input.readInt();
@@ -353,6 +316,24 @@ public abstract class StandardV2RayBean extends AbstractBean {
         if (version >= 6) {
             certificateFingerprint = input.readString();
         }
+    }
+
+    // fb55430 增写 ECH 时仍用版本 0。优先沿用旧的五字节判断，只有完整尾部证实
+    // 它读不通、另一种布局恰好读到末尾才改判。输入是单个 bean 的独立字节。
+    private boolean v0HasEchBlock(ByteBufferInput input) {
+        int start = input.position();
+        int head = input.readByte() & 0xff;
+        int probe = input.readInt();
+        input.setPosition(start);
+        boolean preferred = head <= 1 && probe >= 0 && probe <= 2
+                || head == 1 && (probe & 0x00ffffff) != 0;
+
+        byte[] rest = new byte[input.limit() - start];
+        input.getByteBuffer().duplicate().get(rest);
+        ByteBufferInput tail = KryosKt.byteBuffer(rest);
+        if (transportTailFits(tail, 0, preferred)) return preferred;
+        tail.setPosition(0);
+        return transportTailFits(tail, 0, !preferred) ? !preferred : preferred;
     }
 
     // 旧版本 grpc 节点的两种布局。e805fe7（1.2.9）给 serialize 加 httpupgrade 分支时 grpc 分支没有 break，
@@ -427,6 +408,15 @@ public abstract class StandardV2RayBean extends AbstractBean {
                 in.readString(); // realityPubKey
                 in.readString(); // realityShortId
             }
+            return transportTailFits(in, version, echBlock);
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    // 从 ECH / packetEncoding 开始校验到子类字段和 AbstractBean 尾部，供 v0 ECH 和 grpc 布局共用。
+    private boolean transportTailFits(ByteBufferInput in, int version, boolean echBlock) {
+        try {
             if (version == 3) {
                 if (!readBooleanByte(in)) return false; // enableECH
                 in.readString(); // echConfig
@@ -460,7 +450,7 @@ public abstract class StandardV2RayBean extends AbstractBean {
             in.readString(); // name
             in.readString(); // customOutboundJson
             in.readString(); // customConfigJson
-            return in.position() == rest.length;
+            return in.position() == in.limit();
         } catch (RuntimeException e) {
             return false;
         }

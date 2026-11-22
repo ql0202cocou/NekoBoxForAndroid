@@ -656,7 +656,7 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
         },
         buildLaunch = { settings, pluginPath, config, writeCacheFile ->
             val configFile = writeCacheFile("hysteria", "json", config)
-            val commands = mutableListOf(
+            val commands = listOf(
                 pluginPath,
                 "--no-check",
                 "--config",
@@ -672,9 +672,12 @@ fun externalCore(bean: AbstractBean): ExternalCore? = when (bean) {
                 "client"
             )
             if (bean.protocol == HysteriaBean.PROTOCOL_FAKETCP) {
-                commands.addAll(0, listOf("su", "-c"))
+                // su 把 -c 后的文本交给 shell，只传一条命令并保护路径中的空格与引号。
+                val command = commands.joinToString(" ", prefix = "exec ") { "'" + it.replace("'", "'\\''") + "'" }
+                ExternalCoreLaunch(listOf("su", "-c", command))
+            } else {
+                ExternalCoreLaunch(commands)
             }
-            ExternalCoreLaunch(commands)
         },
         // 插件是静态编译的 Go 程序，Android 上没有 /etc/resolv.conf，默认解析退到 127.0.0.1:53 / [::1]:53，
         // 解析不了服务器域名；不映射时配置的 resolver 指向构建给的本机 DNS 入站

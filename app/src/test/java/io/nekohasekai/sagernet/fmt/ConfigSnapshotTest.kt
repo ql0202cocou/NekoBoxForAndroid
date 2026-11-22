@@ -242,6 +242,7 @@ class ConfigSnapshotTest {
         val brokenMain = ProxyEntity(id = 1, groupId = 1, type = ProxyEntity.TYPE_CHAIN)
         val broken = collect(source, brokenMain, ConfigBuildMode.TEST)
         assertEquals(setOf(-1L), broken.profileIds)
+        assertEquals("Null Chain profile", assertThrows(IllegalStateException::class.java) { brokenMain.requireBean() }.message)
     }
 
     @Test

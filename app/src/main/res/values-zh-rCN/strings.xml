@@ -417,6 +417,7 @@
     <string name="nat_stun_server_empty">请输入 STUN 服务器（主机:端口）</string>
     <string name="backup_too_large">所选数据超过备份大小上限（%d MiB）。</string>
     <string name="invalid_backup_file">无效的备份文件</string>
+    <string name="backup_partial_selections">只恢复节点、不恢复设置时，当前节点和分组按数字 ID 匹配。另一份备份中的相同 ID 可能对应不同的节点或分组。</string>
     <string name="backup_partial_routing">将覆盖选中的数据。路由规则按数字 ID 关联节点。单独恢复节点或规则后，规则可能找不到目标，也可能指向另一份库中 ID 相同的节点。</string>
     <string name="backup_import_summary">导入将覆盖现有的数据。</string>
     <string name="backup_importing">正导入…</string>

@@ -8,7 +8,6 @@ import org.jetbrains.annotations.NotNull;
 import org.json.JSONObject;
 
 import io.nekohasekai.sagernet.fmt.AbstractBean;
-import io.nekohasekai.sagernet.ktx.Logs;
 
 public class NekoBean extends AbstractBean {
 
@@ -43,15 +42,12 @@ public class NekoBean extends AbstractBean {
 
     @NotNull
     public static JSONObject tryParseJSON(String input) {
-        JSONObject ret;
         try {
-            ret = new JSONObject(input);
-        } catch (Exception e) {
-            ret = new JSONObject();
-            // JSONException 的消息带输入全文（可能含节点凭据），只记异常类型
-            Logs.INSTANCE.e("NekoBean: invalid sharedStorage JSON (" + e.getClass().getSimpleName() + ")");
+            return new JSONObject(input);
+        } catch (Exception ignored) {
+            // 旧数据沿用空对象兜底；解码也用于纯构建快照，不依赖日志或 JNI。
+            return new JSONObject();
         }
-        return ret;
     }
 
     public String displayType() {

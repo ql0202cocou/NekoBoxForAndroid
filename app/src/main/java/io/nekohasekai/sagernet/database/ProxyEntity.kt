@@ -223,7 +223,11 @@ data class ProxyEntity(
     fun displayAddress() = requireBean().displayAddress()
 
     fun requireBean(): AbstractBean {
-        return beanForType() ?: error("Null ${displayType()} profile")
+        return beanForType() ?: run {
+            // 链的界面名称依赖 Android 资源；损坏行在纯构建中也要能报告类型。
+            val label = if (type == TYPE_CHAIN) "Chain" else displayType()
+            error("Null $label profile")
+        }
     }
 
     fun haveStandardLink(): Boolean = hasStandardLink(requireBean())

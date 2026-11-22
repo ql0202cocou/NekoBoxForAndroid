@@ -21,6 +21,53 @@ class SubscriptionUpdateTest : UiTestBase() {
     }
 
     @Test
+    fun renamedUniqueProfileKeepsItsSelectionTrafficAndTestResult() = ui.bg {
+        val fixture = SubscriptionUpdateFixture("links", "unique", 2)
+        fixture.prepare()
+        try {
+            fixture.file.writeText(fixture.text())
+            fixture.update()
+            val old = SagerDatabase.proxyDao.getByGroup(fixture.groupId).first()
+            DataStore.selectedProxy = old.id
+            SagerDatabase.proxyDao.updateTraffic(old.id, 123, 456)
+            SagerDatabase.proxyDao.updateStatus(old.id, 1, 42, null)
+            fixture.file.writeText(fixture.text().replace("#node-0", "#renamed"))
+            val report = fixture.update()
+            assertEquals(1, report.updated)
+            assertEquals(0, report.added)
+            assertEquals(0, report.deleted)
+            val current = SagerDatabase.proxyDao.getById(old.id)!!
+            assertEquals("renamed", current.displayName())
+            assertEquals(old.id, DataStore.selectedProxy)
+            assertEquals(42, current.ping)
+            assertEquals(123L, current.tx)
+            assertEquals(456L, current.rx)
+        } finally {
+            fixture.cleanup()
+        }
+    }
+
+    @Test
+    fun ambiguousRenameOrDifferentPasswordGetsNewRows() = ui.bg {
+        val fixture = SubscriptionUpdateFixture("links", "unique", 3)
+        fixture.prepare()
+        try {
+            val input = fixture.text().replace("node-1.example.com", "node-0.example.com")
+            fixture.file.writeText(input)
+            fixture.update()
+            val old = SagerDatabase.proxyDao.getIdsByGroup(fixture.groupId).toSet()
+            fixture.file.writeText(input.replace("#node-", "#renamed-")
+                .replace("scale-test-password@node-2", "another-password@node-2"))
+            val report = fixture.update()
+            assertEquals(3, report.added)
+            assertEquals(3, report.deleted)
+            assertTrue(SagerDatabase.proxyDao.getIdsByGroup(fixture.groupId).none { it in old })
+        } finally {
+            fixture.cleanup()
+        }
+    }
+
+    @Test
     fun queuedUpdateSkipsDeletedOrConvertedGroup() = ui.bg {
         val fixture = SubscriptionUpdateFixture("yaml", "unique", 1)
         fixture.prepare()

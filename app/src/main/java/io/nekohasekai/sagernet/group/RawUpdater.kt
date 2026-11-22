@@ -227,6 +227,7 @@ object RawUpdater : GroupUpdater() {
 
         val toDelete = ArrayList<ProxyEntity>()
         val toReplace = LinkedHashMap<String, ProxyEntity>()
+        val renamedFrom = mutableMapOf<Long, String>()
         for (entity in exists) {
             val name = entity.displayName()
             // toMap() would silently drop same-name duplicates; delete them so
@@ -235,6 +236,22 @@ object RawUpdater : GroupUpdater() {
                 toReplace[name] = entity
             } else {
                 toDelete.add(entity)
+            }
+        }
+
+        // 名字优先。仅当完整配置（AbstractBean 的比较忽略名字）在新旧两组都唯一时，
+        // 才能把消失的名字认成改名。别名、凭据不同或本地覆写无法核实的节点不猜。
+        if (toDelete.isNotEmpty() && toReplace.size < nameMap.size) {
+            val oldCounts = exists.groupingBy { it.requireBean() }.eachCount()
+            val newCounts = proxies.groupingBy { it }.eachCount()
+            val renamed = proxies.filter { it.displayName() !in toReplace && newCounts[it] == 1 }.associateBy { it }
+            toDelete.removeAll { old ->
+                val oldBean = old.requireBean()
+                val replacement = renamed[oldBean]
+                if (oldCounts[oldBean] != 1 || replacement == null) return@removeAll false
+                renamedFrom[old.id] = old.displayName()
+                toReplace[replacement.displayName()] = old
+                true
             }
         }
 
@@ -266,7 +283,7 @@ object RawUpdater : GroupUpdater() {
                 val reordered = entity.userOrder != userOrder
                 entity.userOrder = userOrder
                 when {
-                    existsBean != merged -> {
+                    entity.displayName() != name || existsBean != merged -> {
                         changed++
                         // putBean 之前取旧名：改名节点在报告里显示 旧名 => 新名
                         val oldName = entity.displayName()
@@ -336,9 +353,14 @@ object RawUpdater : GroupUpdater() {
             // 各 bean）与 userOrder
             var updatedCount = 0
             for (entity in toUpdate) {
-                if (entity.id !in inGroup) continue
-                val current = SagerDatabase.proxyDao.getById(entity.id) ?: continue
+                val current = if (entity.id in inGroup) SagerDatabase.proxyDao.getById(entity.id) else null
                 val updatedBean = entity.requireBean()
+                // 改名依赖旧行的身份。期间若有人移动、编辑或删除该节点，回滚本轮更新。
+                val oldName = renamedFrom[entity.id]
+                if (oldName != null && (current == null || current.displayName() != oldName || current.requireBean() != updatedBean)) {
+                    throw SubscriptionSupersededException(proxyGroup.id)
+                }
+                if (current == null) continue
                 val before = ProxyConfigSnapshot(current)
                 // 下载期间用户可能改过覆写与证书策略，合并时再从事务内的新鲜行读取。
                 current.replaceSubscriptionBean(updatedBean)

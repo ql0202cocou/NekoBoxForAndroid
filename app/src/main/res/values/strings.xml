@@ -478,6 +478,7 @@
     <string name="invalid_subscription_url">Invalid subscription URL: only http(s) links can be imported</string>
     <string name="invalid_subscription_link_input">Invalid subscription link: enter an http(s) link, or pick a local file</string>
     <string name="backup_import">Import</string>
+    <string name="backup_partial_selections">Without imported settings, the current node and group are matched by numeric ID. Another backup may use those IDs for a different node or group.</string>
     <string name="backup_partial_routing">The selected data will be replaced. Routing rules match nodes by numeric ID. Restoring nodes or rules separately can leave a rule without a target or point it to a different node with the same ID.</string>
     <string name="backup_import_summary">Importing will overwrite the existing data.</string>
     <string name="backup_importing">Importing…</string>
