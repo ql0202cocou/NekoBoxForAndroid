@@ -47,8 +47,10 @@ object GroupRepository {
 
     suspend fun createGroup(group: ProxyGroup): ProxyGroup = GroupManager.createGroup(group)
 
-    suspend fun updateGroup(group: ProxyGroup, preserveSubscriptionRuntime: Boolean = false) =
-        GroupManager.updateGroup(group, preserveSubscriptionRuntime)
+    suspend fun updateGroup(
+        group: ProxyGroup, preserveSubscriptionRuntime: Boolean = false, editorDefaults: GroupEditorDefaults? = null,
+    ) =
+        GroupManager.updateGroup(group, preserveSubscriptionRuntime, editorDefaults)
 
     suspend fun updateSortOrder(groupId: Long, order: Int) = GroupManager.updateSortOrder(groupId, order)
 

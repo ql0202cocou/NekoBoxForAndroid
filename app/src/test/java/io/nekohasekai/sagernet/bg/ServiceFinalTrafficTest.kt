@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.bg
 
+import io.nekohasekai.sagernet.database.ServiceRestoreLock
 import io.nekohasekai.sagernet.database.RunGeneration
 import io.nekohasekai.sagernet.bg.proto.BoxInstanceLifecycleTest.ShadowCoreBox
 import io.nekohasekai.sagernet.bg.proto.ProxyInstance
@@ -61,6 +62,8 @@ class ServiceFinalTrafficTest : UiTestBase() {
         proxy.config = config
         proxy.box = core
         service.data.proxy = proxy
+        assertTrue(ui.offMain { proxy.acquireRunLease() })
+        assertNull(ui.offMain { ServiceRestoreLock.default.tryAcquire(forService = false) })
         val stats = state.stats
         stats.route(TAG_PROXY, 1024, 80)
         val querying = CountDownLatch(1)
@@ -89,6 +92,7 @@ class ServiceFinalTrafficTest : UiTestBase() {
                 val stop = runOnIoDispatcher { service.killProcesses() }
                 try {
                     assertTrue(querying.await(10, TimeUnit.SECONDS))
+                    assertNull(ui.offMain { ServiceRestoreLock.default.tryAcquire(forService = false) })
                     controller.destroy()
                 } finally {
                     resume.countDown()
@@ -98,6 +102,8 @@ class ServiceFinalTrafficTest : UiTestBase() {
         }
         UiSettle.settle()
         assertNull(service.data.proxy)
+        assertFalse(ui.offMain { proxy.acquireRunLease() })
+        ui.offMain { checkNotNull(ServiceRestoreLock.default.tryAcquire(forService = false)).close() }
         assertEquals(1, state.closes)
         assertEquals(if (sampled) 2 else 1, stats.takeLog().count { it == "$TAG_PROXY/uplink" })
         val saved = ui.offMain { SagerDatabase.proxyDao.getById(profile.id)!! }

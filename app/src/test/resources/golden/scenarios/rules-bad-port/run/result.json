@@ -2,7 +2,7 @@
   "status": "error",
   "error": {
     "class": "java.lang.IllegalStateException",
-    "message": "invalid dst port \"https\" in rule golden-rule-1",
+    "message": "invalid dst port in rule golden-rule-1",
     "causes": []
   },
   "dynamic": {

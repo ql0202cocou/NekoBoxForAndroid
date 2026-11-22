@@ -15,6 +15,18 @@ import org.junit.Test
 import org.robolectric.shadows.ShadowDialog
 
 class SubscriptionDeepLinkTest : UiTestBase() {
+    @Test fun `订阅名称中的换行不能在确认框中另起一行`() {
+        val activity = ui.launchMain().get()
+        val link = "https://example.org/sub"
+        val uri = Uri.parse("sn://subscription").buildUpon()
+            .appendQueryParameter("url", link)
+            .appendQueryParameter("name", "第一行\r\n第二行")
+            .build()
+        runBlocking { activity.importSubscription(uri) }
+        val expected = activity.getString(R.string.subscription_import_message, "第一行⏎第二行")
+        assertEquals("$expected\n\n$link", latestDialogMessage())
+    }
+
     @Test fun `确认之前校验明文和编码订阅`() {
         val activity = ui.launchMain().get()
         val before = ui.bg { SagerDatabase.groupDao.allGroups().size }

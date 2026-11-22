@@ -145,10 +145,10 @@ abstract class GroupUpdater {
                         // 世代号必须先于下面的分组行与 doUpdate 里的节点快照读取：在两次读取之间发生的恢复
                         // 也要让写库时的比对发现，反过来先读快照再读世代号就会漏掉
                         val startedGeneration = SagerDatabase.dataGeneration()
-                        // 调用方传入的可能是界面里的旧对象（或自动更新排队时读的快照）：
-                        // 订阅身份以拿到更新锁后读到的当前行为准，读不到（已删除）时沿用传入的，
-                        // 由写库事务报告分组已删除
-                        val group = SagerDatabase.groupDao.getById(proxyGroup.id) ?: proxyGroup
+                        // 排队期间分组可能已删除或改为普通分组，不能继续用旧地址下载。
+                        val group = SagerDatabase.groupDao.getById(proxyGroup.id)
+                            ?: return@coroutineScope false
+                        if (group.type != GroupType.SUBSCRIPTION) return@coroutineScope false
                         val subscription = group.subscription
                         if (subscription == null) {
                             // a corrupted backup restore can leave a subscription group without one

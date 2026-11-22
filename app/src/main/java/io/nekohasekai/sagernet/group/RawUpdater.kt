@@ -15,6 +15,7 @@ import libcore.Libcore
 import moe.matsuri.nb4a.Protocols
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import moe.matsuri.nb4a.utils.Util
+import java.util.concurrent.Callable
 import org.json.JSONTokener
 import org.yaml.snakeyaml.error.YAMLException
 
@@ -75,6 +76,9 @@ object RawUpdater : GroupUpdater() {
         // 下载开始时的订阅身份：写库事务开头与分组当前行比对，期间被改成别的订阅就放弃整次结果。
         // 必须在下面对 proxyGroup 的任何改写之前取
         val startedIdentity = proxyGroup.subscriptionIdentity()
+        val startedName = proxyGroup.name
+        val startedNameserver = proxyGroup.proxyServerNameserver
+        val startedNameserverFromSubscription = subscription.nameserverFromSubscription == true
         val link = subscription.link.trim()
         var proxies: List<AbstractBean>
         var clashRoot: Map<*, *>? = null
@@ -300,7 +304,7 @@ object RawUpdater : GroupUpdater() {
 
         // 写入整体放在一个事务里：进程在写入中途死亡不会留下新旧两套节点并存。
         // 通知 UI 的回调（finishUpdate / onUpdateSuccess）必须留在事务外
-        SagerDatabase.instance.runInTransaction {
+        val updatedGroup = SagerDatabase.instance.runInTransaction(Callable {
             // 期间恢复过备份就整次放弃（回滚，不写节点也不写 lastUpdated）：恢复按备份原 id 插回，下面按 id 的
             // 删除 / 覆写 / 改序号会落到恢复出的行上。先于分组存在与订阅身份的检查：恢复后这两项的结果都不再有意义
             if (isDataRestoredSince(startedGeneration, SagerDatabase.dataGeneration())) {
@@ -312,7 +316,9 @@ object RawUpdater : GroupUpdater() {
             // 编辑器保存不拿更新锁，自动更新又在另一个进程里跑：只能在事务里比对。
             // 订阅被改过就整次放弃（回滚，不写节点也不写 lastUpdated），否则旧订阅的
             // 节点会写进已改成新订阅的分组，旧的 lastUpdated 还会推迟新订阅的首次自动更新
-            if (isSubscriptionSuperseded(startedIdentity, currentGroup)) {
+            val dnsSourceChanged = (currentGroup.subscription?.nameserverFromSubscription == true) != startedNameserverFromSubscription
+            if (isSubscriptionSuperseded(startedIdentity, currentGroup) ||
+                (clearSubscriptionNameserver && startedIdentity.forceResolve == true && dnsSourceChanged)) {
                 throw SubscriptionSupersededException(proxyGroup.id)
             }
             // toDelete / toUpdate / toReorder 按更新开始时的快照算出，提交时只处理此刻仍在本组的节点。
@@ -359,38 +365,32 @@ object RawUpdater : GroupUpdater() {
             }
 
             subscription.lastUpdated = System.currentTimeMillis() / 1000
-            // 更新期间用户可能改过分组设置：重新读取当前行，只合并本流程负责写的
-            // 字段（远端分组名 / 订阅下发的节点解析 DNS / lastUpdated /
-            // subscriptionUserinfo 及流量字段），分组已被删除时（上面的检查之后）跳过写回
-            SagerDatabase.groupDao.getById(proxyGroup.id)?.also { current ->
-                if (remoteGroupName != null) current.name = remoteGroupName
-                // 来源标记以新鲜行为准：更新期间用户可能手动改过 nameserver
-                val currentSubscription = current.subscription
+            // 写回以事务内的分组为准，下载期间用户手改的名字、DNS 及其来源优先。
+            if (remoteGroupName != null && currentGroup.name == startedName) currentGroup.name = remoteGroupName
+            val currentSubscription = checkNotNull(currentGroup.subscription)
+            if (currentGroup.proxyServerNameserver == startedNameserver && !dnsSourceChanged) {
                 if (subscriptionNameserver != null) {
-                    current.proxyServerNameserver = subscriptionNameserver
-                    currentSubscription?.nameserverFromSubscription = true
-                } else if (clearSubscriptionNameserver && currentSubscription?.nameserverFromSubscription == true) {
-                    current.proxyServerNameserver = ""
+                    currentGroup.proxyServerNameserver = subscriptionNameserver
+                    currentSubscription.nameserverFromSubscription = true
+                } else if (clearSubscriptionNameserver && startedNameserverFromSubscription) {
+                    currentGroup.proxyServerNameserver = ""
                     currentSubscription.nameserverFromSubscription = false
                 }
-                // 传入的 subscription 是更新开始时的旧快照，整体回写会覆盖用户
-                // 期间改的 link/deduplication 等；以新鲜行的 bean 为基础合并
-                currentSubscription?.apply {
-                    lastUpdated = subscription.lastUpdated
-                    subscriptionUserinfo = subscription.subscriptionUserinfo
-                    bytesUsed = subscription.bytesUsed
-                    bytesRemaining = subscription.bytesRemaining
-                    expiryDate = subscription.expiryDate
-                }
-                SagerDatabase.groupDao.updateGroup(current)
             }
-        }
+            currentSubscription.lastUpdated = subscription.lastUpdated
+            currentSubscription.subscriptionUserinfo = subscription.subscriptionUserinfo
+            currentSubscription.bytesUsed = subscription.bytesUsed
+            currentSubscription.bytesRemaining = subscription.bytesRemaining
+            currentSubscription.expiryDate = subscription.expiryDate
+            SagerDatabase.groupDao.updateGroup(currentGroup)
+            currentGroup
+        })
         // DataStore 写的是 PublicDatabase（独立库文件），不加入上面的
         // SagerDatabase 事务；挪到事务成功后执行，避免回滚留下「选择已清、
         // 节点未删」的中间态
         ProfileManager.clearSelectedProxyIfGone()
         userInterface?.onUpdateSuccess(
-            proxyGroup, changed, added, updated, deleted, duplicate, byUser
+            updatedGroup, changed, added, updated, deleted, duplicate, byUser
         )
     }
 

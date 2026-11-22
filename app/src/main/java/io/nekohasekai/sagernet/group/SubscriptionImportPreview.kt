@@ -9,13 +9,16 @@ const val IMPORT_PREVIEW_LINK_MAX = 500
 const val IMPORT_PREVIEW_PRESET_MAX = 200
 
 private const val ELLIPSIS = "…"
+private val lineBreaks = Regex("\r\n|[\r\n\u0085\u2028\u2029]")
+private val layoutControls = Regex("[\u0000-\u001F\u007F-\u009F\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]")
 
-// 超过 max 个字符时截断并加省略号（结果不超过 max + 1 个字符）；不把代理对从中间切开
+// 先限制处理长度并保留完整代理对，再把外部文本的换行和方向控制符显示为可见字符。
 fun truncateForDisplay(text: String, max: Int): String {
-    if (text.length <= max) return text
-    var end = max
-    if (end > 0 && Character.isHighSurrogate(text[end - 1])) end--
-    return text.substring(0, end) + ELLIPSIS
+    val bounded = if (text.length <= max) text else {
+        val end = if (max > 0 && Character.isHighSurrogate(text[max - 1])) max - 1 else max
+        text.substring(0, end) + ELLIPSIS
+    }
+    return bounded.replace(lineBreaks, "⏎").replace(layoutControls, "�")
 }
 
 enum class SubscriptionPreset { PROXY_SERVER_NAMESERVER, FORCE_RESOLVE, CUSTOM_USER_AGENT }

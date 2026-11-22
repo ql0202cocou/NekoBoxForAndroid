@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.nekohasekai.sagernet.GroupType
 import io.nekohasekai.sagernet.database.EditorCache
+import io.nekohasekai.sagernet.database.GroupEditorDefaults
 import io.nekohasekai.sagernet.database.GroupRepository
 import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.ProxyEntity
@@ -37,6 +38,9 @@ import kotlin.coroutines.CoroutineContext
  * 界面刷新由当前的 Activity 订阅状态（如 [canMoveProfile]）后自己做。
  */
 class EditorViewModel : ViewModel() {
+
+    // 订阅可在编辑期间改名或更换 DNS，保存时用初值识别用户编辑过的字段。
+    internal var groupDefaults: GroupEditorDefaults? = null
 
     // 同一编辑会话只提交一次；旋转后的页面共享在途保存与成功标记。校验或写库失败仍可重试。
     internal val saveMutex = Mutex()

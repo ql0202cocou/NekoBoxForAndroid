@@ -230,6 +230,28 @@ class EditorSaveOutlivesPageTest : UiTestBase() {
         assertEquals("已销毁的页面上弹了 Toast", 0, ShadowToast.shownToastCount())
     }
 
+    @Test
+    fun groupRenamePreservesDnsUpdatedSinceOpeningTheEditor() {
+        val groupId = UiFixtures.install().subscriptionGroup.id
+        val editor = ui.launch(
+            GroupSettingsActivity::class.java,
+            editIntent(GroupSettingsActivity::class.java, GroupSettingsActivity.EXTRA_GROUP_ID, groupId),
+        ).get()
+        ui.bg {
+            val group = SagerDatabase.groupDao.getById(groupId)!!
+            group.proxyServerNameserver = "192.0.2.53"
+            group.subscription!!.nameserverFromSubscription = true
+            SagerDatabase.groupDao.updateGroup(group)
+        }
+        EditorCache.groupName = "renamed"
+        EditorCache.dirty = true
+        ui.bg { editor.saveAndExit() }
+        val saved = ui.bg { GroupRepository.getGroup(groupId)!! }
+        assertEquals("renamed", saved.name)
+        assertEquals("192.0.2.53", saved.proxyServerNameserver)
+        assertEquals(true, saved.subscription!!.nameserverFromSubscription)
+    }
+
     /** 路由编辑器：保存途中销毁页面，改名照常写库 */
     @Test
     fun routeSaveCompletesAfterPageDestroyed() {

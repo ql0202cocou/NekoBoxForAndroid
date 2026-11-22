@@ -30,7 +30,7 @@ internal fun migrateLegacyAsset(source: File, target: File, maxBytes: Long = LEG
         source.inputStream().use { input ->
             tmp.outputStream().use { input.copyToLimited(it, maxBytes, LIMIT_MESSAGE) }
         }
-        if (!tmp.renameTo(target)) throw IOException("cannot publish migrated asset")
+        if (target.isDirectory || !tmp.renameTo(target)) throw IOException("cannot publish migrated asset")
         // 源文件的删除失败允许下次重试，不能在未搬完时写迁移完成标记。
         if (!source.delete() && source.exists()) throw IOException("cannot remove migrated source")
     } finally {

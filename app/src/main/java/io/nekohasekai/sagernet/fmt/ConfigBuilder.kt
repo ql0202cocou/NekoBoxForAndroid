@@ -994,15 +994,8 @@ private class ConfigBuild(
 
             if (rule_set != null) generateRuleSet(rule_set, ruleSets)
 
-            // 格式错误的范围本来就会让 box 启动失败（"bad port range"）；
-            // 格式错误的单个端口不能被静默丢弃，否则规则会放宽到所有端口。
-            // 含 ":" 的是端口范围，其余必须是单个端口；返回 (单个端口, 范围)
-            fun parsePorts(text: String, what: String): Pair<List<Int>, List<String>> {
-                val (ranges, singles) = text.listByLineOrComma().partition { it.contains(":") }
-                return singles.map {
-                    it.toIntOrNull() ?: error("invalid $what port \"$it\" in rule ${rule.displayName()}")
-                } to ranges
-            }
+            fun parsePorts(text: String, what: String) = parseRulePorts(text)
+                ?: error("invalid $what port in rule ${rule.displayName()}")
             if (rule.port.isNotBlank()) {
                 parsePorts(rule.port, "dst").let { (p, r) -> port = p; port_range = r }
             }

@@ -20,7 +20,7 @@ import java.util.concurrent.Executors
 
 @Database(
     entities = [ProxyGroup::class, ProxyEntity::class, RuleEntity::class, DataGeneration::class],
-    version = 13,
+    version = 14,
     autoMigrations = [
         AutoMigration(from = 3, to = 4),
         AutoMigration(from = 4, to = 5),
@@ -151,6 +151,14 @@ abstract class SagerDatabase : RoomDatabase() {
             }
         }
 
+        // 旧错误无法用当前节点配置完整脱敏。只清错误与失败状态，保留成功延迟和流量。
+        private val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("UPDATE proxy_entities SET error = NULL, ping = CASE WHEN status > 1 THEN 0 ELSE ping END, " +
+                    "status = CASE WHEN status > 1 THEN 0 ELSE status END WHERE error IS NOT NULL OR status > 1")
+            }
+        }
+
         // 逐行改写 AnyTLS bean：损坏字节保持原样，transform（bean、core 列）返回 false 的行不写回。
         private fun rewriteAnyTLSBeans(db: SupportSQLiteDatabase, where: String, transform: (AnyTLSBean, Int) -> Boolean) {
             db.query("SELECT `id`, `core`, `anyTLSBean` FROM `proxy_entities` WHERE $where").use { cursor ->
@@ -169,7 +177,7 @@ abstract class SagerDatabase : RoomDatabase() {
         val instance by lazy {
             SagerNet.application.getDatabasePath(Key.DB_PROFILE).parentFile?.mkdirs()
             Room.databaseBuilder(SagerNet.application, SagerDatabase::class.java, Key.DB_PROFILE)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_8_9, MIGRATION_10_11, MIGRATION_11_12)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_8_9, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_13_14)
                 .setJournalMode(JournalMode.TRUNCATE)
                 .enableMultiInstanceInvalidation()
                 // 不用 destructive fallback：缺迁移时它会静默丢掉所有配置、分组和规则——

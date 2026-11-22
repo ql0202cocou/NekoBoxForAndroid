@@ -53,6 +53,33 @@ class BackupXhttpImportTest : UiTestBase() {
         )
 
     @Test
+    fun importingOldTestErrorsKeepsSuccessfulMeasurements() {
+        val result = decode(listOf(
+            profile(1).apply { status = 3; ping = 56; error = "historic diagnostic" },
+            profile(2).apply { status = 1; ping = 42; error = "stale diagnostic" },
+        )).profiles!!
+        assertEquals(listOf(null, null), result.map { it.error })
+        assertEquals(listOf(0, 1), result.map { it.status })
+        assertEquals(listOf(0, 42), result.map { it.ping })
+    }
+
+    @Test
+    fun invalidRoutePortsRejectTheSelectedRulesBeforeRestore() {
+        fun restore(port: String, source: String) = BackupRestore.decode(
+            JSONObject().put("rules", JSONArray(listOf(
+                encoded(RuleEntity(id = 1, port = "443")),
+                encoded(RuleEntity(id = 2, port = port, sourcePort = source)),
+            ))), false, true, false,
+        )
+        for (bad in listOf("65536", "-1", ", ,", "443:80", "1:2:3", ":abc", "80,443x")) {
+            assertThrows(IllegalArgumentException::class.java) { restore(bad, "") }
+            assertThrows(IllegalArgumentException::class.java) { restore("", bad) }
+        }
+        val ports = "0, 80, 00100:200, :1024, 65535:, :"
+        assertEquals(ports, restore(ports, "443\n8080").rules!!.last().port)
+    }
+
+    @Test
     fun backupNormalizesXhttpBeforeReturningProfiles() {
         val profiles = listOf(VMessBean(), VMessBean().apply { alterId = -1 }, TrojanBean()).mapIndexed { index, bean ->
             profile(index + 1L, bean) {

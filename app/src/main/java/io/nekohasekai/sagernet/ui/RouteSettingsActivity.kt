@@ -5,11 +5,13 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Parcelable
 import android.view.View
+import android.widget.Toast
 import androidx.activity.result.component1
 import androidx.activity.result.component2
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.LayoutRes
 import androidx.appcompat.app.AlertDialog
+import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceFragmentCompat
 import com.github.shadowsocks.plugin.Empty
 import com.github.shadowsocks.plugin.fragment.AlertDialogFragment
@@ -18,6 +20,8 @@ import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.database.RuleEntity
 import io.nekohasekai.sagernet.database.RuleRepository
+import io.nekohasekai.sagernet.fmt.parseRulePorts
+import io.nekohasekai.sagernet.ui.profile.bindValidatedPreference
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.onLiveActivity
 import io.nekohasekai.sagernet.ktx.runOnDefaultDispatcher
@@ -121,6 +125,11 @@ class RouteSettingsActivity(
     }
 
     override fun PreferenceFragmentCompat.viewCreated(view: View, savedInstanceState: Bundle?) {
+        for (key in listOf(Key.ROUTE_PORT, Key.ROUTE_SOURCE_PORT)) {
+            findPreference<EditTextPreference>(key)!!.bindValidatedPreference(R.string.invalid_route_ports) {
+                parseRulePorts(it) != null
+            }
+        }
         val outbound = findPreference<OutboundPreference>(Key.ROUTE_OUTBOUND)!!
         val apps = findPreference<AppListPreference>(Key.ROUTE_PACKAGES)!!
 
@@ -232,6 +241,12 @@ class RouteSettingsActivity(
             return
         }
 
+        if (needSave() && (parseRulePorts(EditorCache.routePort) == null || parseRulePorts(EditorCache.routeSourcePort) == null)) {
+            onLiveActivity {
+                Toast.makeText(this@RouteSettingsActivity, R.string.invalid_route_ports, Toast.LENGTH_LONG).show()
+            }
+            return
+        }
         if (editingId == 0L) {
             if (intent.hasExtra(EXTRA_PACKAGE_NAME)) {
                 setResult(RESULT_OK, Intent())

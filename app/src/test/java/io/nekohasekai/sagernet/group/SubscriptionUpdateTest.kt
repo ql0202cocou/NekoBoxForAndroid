@@ -1,6 +1,8 @@
 package io.nekohasekai.sagernet.group
 
 import androidx.core.content.FileProvider
+import io.nekohasekai.sagernet.GroupType
+import io.nekohasekai.sagernet.database.GroupManager
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.fmt.ClashImportException
@@ -16,6 +18,50 @@ class SubscriptionUpdateTest : UiTestBase() {
     fun resetFileProviderRoots() {
         // Robolectric 每例换缓存目录，FileProvider 的静态路径缓存却随沙箱复用。
         (FileProvider::class.java.getDeclaredField("sCache").apply { isAccessible = true }.get(null) as MutableMap<*, *>).clear()
+    }
+
+    @Test
+    fun queuedUpdateSkipsDeletedOrConvertedGroup() = ui.bg {
+        val fixture = SubscriptionUpdateFixture("yaml", "unique", 1)
+        fixture.prepare()
+        val previous = GroupManager.userInterface
+        try {
+            GroupManager.userInterface = UpdateReport()
+            fixture.file.writeText(fixture.text())
+            val queued = SagerDatabase.groupDao.getById(fixture.groupId)!!
+            SagerDatabase.groupDao.updateGroup(queued.copy(type = GroupType.BASIC))
+            assertFalse(GroupUpdater.executeUpdate(queued, byUser = true))
+            assertEquals(0L, SagerDatabase.proxyDao.countByGroup(fixture.groupId))
+            SagerDatabase.groupDao.deleteById(fixture.groupId)
+            assertFalse(GroupUpdater.executeUpdate(queued, byUser = true))
+        } finally {
+            GroupManager.userInterface = previous
+            fixture.cleanup()
+        }
+    }
+
+    @Test
+    fun updatePreservesManualDnsChangedDuringDownload() = ui.bg {
+        val fixture = SubscriptionUpdateFixture("yaml", "unique", 1)
+        fixture.prepare()
+        try {
+            val before = SagerDatabase.groupDao.getById(fixture.groupId)!!
+            val edited = SagerDatabase.groupDao.getById(fixture.groupId)!!
+            edited.proxyServerNameserver = "192.0.2.53"
+            SagerDatabase.groupDao.updateGroup(edited)
+            fixture.file.writeText("dns:\n  proxy-server-nameserver: [192.0.2.54]\n" + fixture.text())
+            RawUpdater.doUpdate(before, before.subscription!!, UpdateReport(), false, SagerDatabase.dataGeneration())
+            val after = SagerDatabase.groupDao.getById(fixture.groupId)!!
+            assertEquals("192.0.2.53", after.proxyServerNameserver)
+            assertEquals(false, after.subscription!!.nameserverFromSubscription)
+            fixture.verify(443)
+            fixture.update()
+            val next = SagerDatabase.groupDao.getById(fixture.groupId)!!
+            assertEquals("192.0.2.54", next.proxyServerNameserver)
+            assertEquals(true, next.subscription!!.nameserverFromSubscription)
+        } finally {
+            fixture.cleanup()
+        }
     }
 
     @Test

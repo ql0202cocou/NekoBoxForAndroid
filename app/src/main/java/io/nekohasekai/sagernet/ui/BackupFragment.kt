@@ -29,6 +29,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import moe.matsuri.nb4a.utils.Util
 import org.json.JSONObject
@@ -132,9 +133,10 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
 
         binding.retryRestore.setOnClickListener {
             runImport {
-                if (!stopServiceAndWait()) throw ServiceStopTimeoutException()
-                if (BackupRestore.replayPending(retry = true) == RestoreJournal.Result.PENDING) {
-                    throw ReplayPendingException()
+                withStoppedService {
+                    if (BackupRestore.replayPending(retry = true) == RestoreJournal.Result.PENDING) {
+                        throw ReplayPendingException()
+                    }
                 }
             }
         }
@@ -195,13 +197,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
             }
             snapshot?.profiles?.let { profiles ->
                 // Room 快照独占这些实体；旧测速错误可能含无法再按当前配置遮蔽的凭据。
-                profiles.forEach {
-                    it.error = null
-                    if (it.status > 1) {
-                        it.status = 0
-                        it.ping = 0
-                    }
-                }
+                profiles.forEach { it.clearHistoricalTestError() }
                 section("profiles", profiles)
             }
             snapshot?.groups?.let { section("groups", it) }
@@ -282,8 +278,7 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
                     runImport {
                         // 先校验，文件无效时不打断正在运行的服务。
                         val decoded = BackupRestore.decode(content, profile, rule, setting)
-                        if (!stopServiceAndWait()) throw ServiceStopTimeoutException()
-                        val skipped = finishImport(content, decoded)
+                        val skipped = withStoppedService { finishImport(content, decoded) }
                         if (skipped > 0) {
                             Logs.w("Backup import skipped $skipped invalid record(s)")
                             showSnackbar(app.getString(R.string.backup_import_skipped, skipped))
@@ -366,13 +361,18 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
     private class ReplayPendingException : Exception()
     private class ServiceStopTimeoutException : Exception()
 
-    // 请求停止并等 :bg 报告已停止。:bg 的 stopRunner 在最终流量落库之后才报 Stopped（BaseService.killProcesses），
-    // 所以等到的状态本身就保证了后面的写库不会再被旧服务的收尾覆盖。停止请求总是发：主进程没连上 :bg 时
-    // 状态也是 Idle，服务却可能在跑；服务没在跑时这个广播没人接收，已在 Stopping 的再收一次也是空操作。
-    // 超时返回 false，调用方放弃这次恢复
-    private suspend fun stopServiceAndWait(): Boolean {
-        SagerNet.stopService()
-        return ServiceRegistry.stateFlow.awaitSettled(SERVICE_STOP_TIMEOUT_MS)
+    // 状态回调可能滞后，停止后也可能立刻有新启动。拿到独占锁才允许写库，
+    // 超时只取消等待；一旦开始提交，两库提交与补偿仍按原有日志流程执行。
+    private suspend fun <T> withStoppedService(restore: () -> T): T {
+        val deadline = android.os.SystemClock.elapsedRealtime() + SERVICE_STOP_TIMEOUT_MS
+        do {
+            SagerNet.stopService()
+            val remaining = deadline - android.os.SystemClock.elapsedRealtime()
+            if (remaining <= 0 || !ServiceRegistry.stateFlow.awaitSettled(remaining)) break
+            ServiceRestoreLock.default.tryAcquire(forService = false)?.use { return restore() }
+            delay(100)
+        } while (android.os.SystemClock.elapsedRealtime() < deadline)
+        throw ServiceStopTimeoutException()
     }
 
     // 引用断链只显示类别与数量（BackupIntegrity），不带 id 与字段值

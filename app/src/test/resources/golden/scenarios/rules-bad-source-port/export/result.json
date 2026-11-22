@@ -2,7 +2,7 @@
   "status": "error",
   "error": {
     "class": "java.lang.IllegalStateException",
-    "message": "invalid src port \"golden\" in rule golden-rule-1",
+    "message": "invalid src port in rule golden-rule-1",
     "causes": []
   },
   "dynamic": {

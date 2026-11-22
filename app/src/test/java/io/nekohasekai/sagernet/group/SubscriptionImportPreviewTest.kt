@@ -7,6 +7,12 @@ import org.junit.Test
 class SubscriptionImportPreviewTest {
 
     @Test
+    fun `只替换影响确认框布局的控制字符`() {
+        val input = "عربي\u200D文\u0085A\u2028B\u2029C\tD\u202EE"
+        assertEquals("عربي\u200D文⏎A⏎B⏎C�D�E", truncateForDisplay(input, 100))
+    }
+
+    @Test
     fun `短文本原样返回`() {
         assertEquals("abc", truncateForDisplay("abc", 3))
         assertEquals("", truncateForDisplay("", 3))

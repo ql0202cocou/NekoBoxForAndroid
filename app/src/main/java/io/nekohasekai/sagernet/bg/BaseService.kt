@@ -368,10 +368,7 @@ class BaseService {
 
         suspend fun killProcesses() {
             releaseSubclassResources()
-            data.proxy?.let {
-                it.closeWithTraffic()
-                it.awaitProcessesClosed()
-            }
+            data.proxy?.closeWithTraffic()
             // wakeLock 撑到这里再放：上面的等待期间设备不应休眠
             releaseWakeLockAndNetworkListener()
         }
@@ -621,6 +618,7 @@ class BaseService {
                 // ProxyInstance.init 补收，Go 侧 Start / Close 互斥
                 onIoDispatcher { proxy.init() }
                 val recorded = onIoDispatcher {
+                    if (!proxy.acquireRunLease()) return@onIoDispatcher null
                     ProfileManager.recordRunningProfile(profile.id, generation, selectorChange = false) {
                         data.proxy === proxy && proxy.acceptsSelectorCallback()
                     }

@@ -216,8 +216,10 @@ func (r *httpRequest) doH3Direct() (HTTPResponse, error) {
 		mu.Lock()
 		err := finalErr
 		mu.Unlock()
-		if err == nil {
-			// timed out before any request finished; never return (nil, nil)
+		// 某一路先失败、另一路耗尽总等待时间时，两种原因都要返回。
+		if errors.Is(waitCtx.Err(), context.DeadlineExceeded) {
+			err = errors.Join(err, context.DeadlineExceeded)
+		} else if err == nil {
 			err = waitCtx.Err()
 		}
 		return nil, err

@@ -1,6 +1,7 @@
 package libcore
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -142,5 +143,26 @@ func TestDoH3DirectRacerNames(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "http(s)") || !strings.Contains(err.Error(), "h3") {
 		t.Fatalf("expected both racer names in error, got: %v", err)
+	}
+}
+
+// HTTPS 等待期间，同端口的 UDP 无服务使 H3 先失败；总超时仍应可识别。
+func TestDoH3DirectDeadlineAfterPartialFailure(t *testing.T) {
+	useStubLocalDNSTransport(t)
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+	client := NewHttpClient()
+	defer client.Close()
+	client.TryH3Direct()
+	request := client.NewRequest()
+	request.AllowInsecure()
+	if err := request.SetURL(server.URL); err != nil {
+		t.Fatal(err)
+	}
+	_, err := request.Execute()
+	if !errors.Is(err, context.DeadlineExceeded) || !strings.Contains(err.Error(), "h3:") {
+		t.Fatalf("expected deadline and h3 failure, got %v", err)
 	}
 }

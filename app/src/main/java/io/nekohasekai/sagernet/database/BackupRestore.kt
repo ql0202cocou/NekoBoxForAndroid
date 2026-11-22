@@ -6,6 +6,7 @@ import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.database.preference.KeyValuePair
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
+import io.nekohasekai.sagernet.fmt.parseRulePorts
 import io.nekohasekai.sagernet.fmt.beanForType
 import io.nekohasekai.sagernet.fmt.normalizedLegacyCore
 import io.nekohasekai.sagernet.fmt.preserveLegacyAnyTLSCertificatePolicy
@@ -99,6 +100,7 @@ object BackupRestore {
                     return@decodeArray null
                 }
                 try {
+                    entity.clearHistoricalTestError()
                     val bean = entity.requireBean()
                     if (bean is StandardV2RayBean && (bean is VMessBean || bean is TrojanBean)) bean.canonicalizeXhttp()
                     entity
@@ -116,7 +118,11 @@ object BackupRestore {
         } else null
         val rules = if (rule && content.has("rules")) {
             decodeArray("rules") { encoded ->
-                unmarshal(encoded, ParcelizeBridge::createRule)
+                unmarshal(encoded, ParcelizeBridge::createRule)?.also {
+                    require(parseRulePorts(it.port) != null && parseRulePorts(it.sourcePort) != null) {
+                        "Invalid port in backup routing rule"
+                    }
+                }
             }
         } else null
         val settings = if (setting && content.has("settings")) {

@@ -4,8 +4,9 @@ import android.os.SystemClock
 import android.widget.Toast
 import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.bg.BaseService
-import io.nekohasekai.sagernet.database.RunGeneration
 import io.nekohasekai.sagernet.database.ProxyEntity
+import io.nekohasekai.sagernet.database.RunGeneration
+import io.nekohasekai.sagernet.database.ServiceRestoreLock
 import io.nekohasekai.sagernet.fmt.configBuildNotices
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.app
@@ -14,6 +15,7 @@ import io.nekohasekai.sagernet.ktx.runOnMainDispatcher
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import moe.matsuri.nb4a.utils.JavaUtil
+import java.io.Closeable
 
 // title：ServiceNotification.genTitle(profile) 的结果。它可能查分组名（读库），由调用方在后台算好传进来，
 // 构造本身不查库（BaseService 在 :bg 主线程上构造）
@@ -84,32 +86,55 @@ class ProxyInstance(profile: ProxyEntity, private val service: BaseService.Inter
 
     private val shutdownMutex = Mutex()
 
+    private var runLease: Closeable? = null
+    private var stopping = false
+
+    @Synchronized
+    internal fun acquireRunLease(): Boolean {
+        if (stopping || isClosed()) return false
+        if (runLease == null) runLease = ServiceRestoreLock.default.tryAcquire(forService = true)
+        return runLease != null
+    }
+
+    // 首个关停入口接手文件锁；直接关闭和带流量结算的关闭都可能先到。
+    @Synchronized
+    private fun takeRunLeaseForClose(): Closeable? {
+        stopping = true
+        return runLease.also { runLease = null }
+    }
+
     suspend fun closeWithTraffic(): Unit = onIoDispatcher {
         shutdownMutex.withLock {
-            val traffic = looper ?: return@withLock
-            traffic.stopLoop()
-            try {
-                traffic.collectFinal()
-            } catch (e: Exception) {
-                Logs.w("Final traffic collection failed", e)
-            } finally {
-                close()
-            }
-            // 即使最终查询失败，之前已经采到的增量仍应落库。
-            try {
-                traffic.postFinalTraffic()
-            } catch (e: Exception) {
-                Logs.w("Final traffic persistence failed", e)
+            takeRunLeaseForClose().use {
+                looper?.let { traffic ->
+                    try {
+                        traffic.stopLoop()
+                        traffic.collectFinal()
+                    } catch (e: Exception) {
+                        Logs.w("Final traffic collection failed", e)
+                    } finally {
+                        close()
+                    }
+                    // 最终查询失败时，先前采样的增量仍应在释放恢复锁之前落库。
+                    try {
+                        traffic.postFinalTraffic()
+                    } catch (e: Exception) {
+                        Logs.w("Final traffic persistence failed", e)
+                    }
+                }
+                awaitProcessesClosed()
             }
         }
     }
 
     override fun close() {
         // 服务关停由 closeWithTraffic 等采样完成；直接 close 时也要兜底停止循环。
-        super.close()
-        val trafficLooper = looper ?: return
-        looper = null
-        trafficLooper.stop()
+        takeRunLeaseForClose().use {
+            super.close()
+            val trafficLooper = looper ?: return
+            looper = null
+            trafficLooper.stop()
+        }
     }
 
 }

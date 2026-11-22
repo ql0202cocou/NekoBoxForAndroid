@@ -8,6 +8,7 @@ import androidx.test.core.app.ApplicationProvider
 import io.nekohasekai.sagernet.Key
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.ktx.app
+import io.nekohasekai.sagernet.ui.RouteSettingsActivity
 import io.nekohasekai.sagernet.ui.GroupSettingsActivity
 import io.nekohasekai.sagernet.ui.ValidatedEditTextDialogFragment
 import io.nekohasekai.sagernet.uitest.InlineValidationHarness.DIALOG_TAG
@@ -232,6 +233,22 @@ class InlineValidationTest : UiTestBase() {
         // 兜底：绕过对话框直接走 change 监听器，不合法的值照旧被拒
         assertFalse(editor.pref(Key.SERVER_PORT).callChangeListener("0"))
         assertTrue(editor.pref(Key.SERVER_PORT).callChangeListener("443"))
+    }
+
+    @Test
+    fun routePortsRejectInvalidEntriesInBothFields() {
+        UiFixtures.install()
+        val editor = ui.launch(RouteSettingsActivity::class.java).get()
+        for (key in listOf(Key.ROUTE_PORT, Key.ROUTE_SOURCE_PORT)) {
+            val dialog = editor.openDialog(key)
+            dialog.type("65536,80")
+            assertEquals(app.getString(R.string.invalid_route_ports), dialog.error())
+            assertFalse(dialog.okEnabled())
+            dialog.type(":1024,443,8000:")
+            assertTrue(dialog.okEnabled())
+            dialog.clickOk()
+            assertEquals(":1024,443,8000:", editor.pref(key).text)
+        }
     }
 
     @Test

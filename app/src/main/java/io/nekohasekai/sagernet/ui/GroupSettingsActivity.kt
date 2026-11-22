@@ -52,6 +52,7 @@ class GroupSettingsActivity(
         EditorCache.landingProxy = landingProxy
         EditorCache.frontProxyTmp = if (frontProxy >= 0) 3 else 0
         EditorCache.landingProxyTmp = if (landingProxy >= 0) 3 else 0
+        editor.groupDefaults = GroupEditorDefaults(name?.takeIf { it.isNotBlank() } ?: "My group", proxyServerNameserver.trim())
         EditorCache.proxyServerNameserver = proxyServerNameserver
 
         val subscription = subscription ?: SubscriptionBean().applyDefaultValues()
@@ -74,7 +75,7 @@ class GroupSettingsActivity(
         landingProxy = if (EditorCache.landingProxyTmp == 3) EditorCache.landingProxy else -1
         // 用户改了 nameserver 就不再算订阅写入的，订阅撤下该键时不会被清空
         val nameserver = EditorCache.proxyServerNameserver.trim()
-        val nameserverEdited = nameserver != proxyServerNameserver
+        val nameserverEdited = nameserver != editor.groupDefaults?.nameserver
         proxyServerNameserver = nameserver
 
         val isSubscription = type == GroupType.SUBSCRIPTION
@@ -299,7 +300,8 @@ class GroupSettingsActivity(
                 entity.subscription?.expiryDate = 0L
             }
             GroupRepository.updateGroup(
-                entity.apply { serialize() }, preserveSubscriptionRuntime = keepUserInfo
+                entity.apply { serialize() }, preserveSubscriptionRuntime = keepUserInfo,
+                editorDefaults = editor.groupDefaults,
             )
         }
 

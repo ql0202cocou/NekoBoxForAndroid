@@ -420,6 +420,23 @@ class SagerDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun `13 到 14 清除旧测速诊断，保留成功延迟及累计流量`() {
+        val schema = Schema.load(13)
+        open(13).use { db ->
+            val rows = (0..3).map { status ->
+                schema.row("proxy_entities", "id" to status + 1, "status" to status, "ping" to 42,
+                    "error" to (if (status == 2) null else "synthetic error"), "tx" to 987, "rx" to 654)
+            }
+            rows.forEach { db.insert("proxy_entities", it) }
+            db.migrate(migrationFrom(13))
+            db.assertSchema(14)
+            assertEquals(rows.mapIndexed { status, row ->
+                row + ("error" to null) + if (status > 1) mapOf("status" to 0L, "ping" to 0L) else emptyMap()
+            }, db.table("proxy_entities"))
+        }
+    }
+
     // ---- 从每个旧版本一路升到最新版：每一级之后都比对 schema，旧数据不丢，新增列取默认值，新增的表为空。
     // 3 → 8 是 Room 生成的 AutoMigration（实现类只在 SQLiteConnection 入口上执行 ALTER TABLE）；这里种的行都是
     // SOCKS 类型、core = 自动，不受 8 → 9 的规范化影响；可读 bean 的逐级升级见 SagerDatabaseReadableMigrationTest。
@@ -472,7 +489,12 @@ class SagerDatabaseMigrationTest {
                         continue
                     }
                     val added = table.fields.filter { f -> startTable.fields.none { it.name == f.name } }
-                    val expected = before.getValue(table.name).map { row -> row + added.associate { it.name to addedColumnValue(table, it) } }
+                    val expected = before.getValue(table.name).map { row ->
+                        val migrated = row + added.associate { it.name to addedColumnValue(table, it) }
+                        if (table.name != "proxy_entities") migrated
+                        else if (migrated.getValue("status") as Long > 1) migrated + mapOf("error" to null, "status" to 0L, "ping" to 0L)
+                        else migrated + ("error" to null)
+                    }
                     assertEquals("$start 版出发，${table.name} 的数据", expected, db.table(table.name))
                 }
             }

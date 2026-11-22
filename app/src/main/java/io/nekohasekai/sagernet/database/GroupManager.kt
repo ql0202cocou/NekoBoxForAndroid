@@ -7,6 +7,8 @@ import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import kotlinx.coroutines.CancellationException
 import java.util.concurrent.CopyOnWriteArrayList
 
+data class GroupEditorDefaults(val name: String, val nameserver: String)
+
 object GroupManager {
 
     interface Listener {
@@ -116,7 +118,9 @@ object GroupManager {
         return group
     }
 
-    suspend fun updateGroup(group: ProxyGroup, preserveSubscriptionRuntime: Boolean = false) {
+    suspend fun updateGroup(
+        group: ProxyGroup, preserveSubscriptionRuntime: Boolean = false, editorDefaults: GroupEditorDefaults? = null,
+    ) {
         var updated: ProxyGroup? = null
         SagerDatabase.instance.runInTransaction {
             val current = SagerDatabase.groupDao.getById(group.id) ?: return@runInTransaction
@@ -124,6 +128,13 @@ object GroupManager {
             group.userOrder = current.userOrder
             group.ungrouped = current.ungrouped
             if (preserveSubscriptionRuntime) {
+                if (editorDefaults != null) {
+                    if (group.name == editorDefaults.name) group.name = current.name
+                    if (group.proxyServerNameserver == editorDefaults.nameserver) {
+                        group.proxyServerNameserver = current.proxyServerNameserver
+                        group.subscription?.nameserverFromSubscription = current.subscription?.nameserverFromSubscription == true
+                    }
+                }
                 val currentSubscription = current.subscription
                 group.subscription?.apply {
                     lastUpdated = currentSubscription?.lastUpdated ?: lastUpdated

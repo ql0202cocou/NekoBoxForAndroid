@@ -161,7 +161,8 @@ class SagerDatabaseReadableMigrationTest : UiTestBase() {
             for (version in 9 until Schema.latestVersion()) {
                 db.migrateFrom(version)
                 val expected = if (version >= 12) migrated.map { it + ("trafficEpoch" to 0L) } else migrated
-                assertEquals("$version → ${version + 1}", expected, db.table("proxy_entities"))
+                val rowsAfterCleanup = if (version >= 13) expected.map { it + ("error" to null) } else expected
+                assertEquals("$version → ${version + 1}", rowsAfterCleanup, db.table("proxy_entities"))
                 assertEquals(listOf(group), db.table("proxy_groups"))
                 assertEquals(listOf(rule), db.table("rules"))
             }

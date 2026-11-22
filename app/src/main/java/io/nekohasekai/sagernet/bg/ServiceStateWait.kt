@@ -4,9 +4,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
-// 服务已收尾，可以动它依赖的数据：Stopped 是 stopRunner 走完的终态（killProcesses 里的最终流量落库在
-// 报 Stopped 之前完成，见 BaseService.stopRunner）；Idle 是主进程没连上 :bg 或 :bg 正在退出
-//（没有在跑的服务，也就没有会写库的收尾）。Connecting / Connected / Stopping 都还没收尾
+// Stopped 表示服务报告已收尾，Idle 也可能是主进程尚未绑定 :bg。
+// 备份写库还须独占 ServiceRestoreLock，以排除缓存状态滞后和紧随其后的启动。
 val BaseService.State.isSettled get() = this == BaseService.State.Stopped || this == BaseService.State.Idle
 
 // 挂起到状态收尾为止；超时返回 false。条件是状态本身，不是固定等待：状态已收尾时立即返回

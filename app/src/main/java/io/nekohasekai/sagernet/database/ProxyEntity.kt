@@ -210,6 +210,15 @@ data class ProxyEntity(
     }
 
 
+    // 旧测速诊断可能含当时的凭据，成功的测量值仍可保留。
+    internal fun clearHistoricalTestError() {
+        error = null
+        if (status > 1) {
+            status = 0
+            ping = 0
+        }
+    }
+
     fun displayName() = requireBean().displayName()
     fun displayAddress() = requireBean().displayAddress()
 
