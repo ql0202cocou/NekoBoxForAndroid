@@ -17,7 +17,7 @@
   - `base64`：字节；`current`：是否为 HEAD 写出的当前版本样本。
 - `registry.json`：
   - `layers`：每一层的当前版本号（`current`）、有样本的版本（`sampled`）、没有样本的版本及原因（`unsampled`）；
-  - `classes`：每个类从叶子到根依次写出的版本层；`skippedClasses`：不做的类及原因；
+  - `classes`：每个类从叶子到根依次写出的版本层；`skippedClasses`：不在通用 JVM 测试中运行的类及覆盖位置；
   - `sources`：每个来源提交的 tag、版本名、日期，以及为什么选它。
 
 样例数据全部虚构：地址只用 example.com / example.net / example.org 的子域与 192.0.2.0/24、198.51.100.0/24、
@@ -88,7 +88,7 @@ StandardV2Ray 从 6 升到 7（K1）时字节布局只有版本号变，读取�
    - `NetsKt.wrapIPV6Host` / `unwrapIPV6Host`、`HysteriaFmtKt.isMultiPort`（只在显示地址与旧版本读取分支里用到）、
      `android.os.Parcel` 的方法：抛异常；`Logs` 出错时重新抛出；`android.os.Parcelable`、`androidx.annotation.NonNull`、
      `androidx.room.TypeConverter`：空声明；`GroupType`（历史上从未变过）、`applyDefaultValues`（与 `ktx/Formats.kt` 相同）；
-   - `NekoBean` 换成序列化即抛异常的空壳，只为让 `KryoConverters` 编译；
+   - 生成普通 JVM 样本时，`NekoBean` 用空壳编译。它自己的样本在 Android 上运行原始写入器生成，见下表；
    - `ProxyEntity` / `ProxyGroup` 是 Room 实体，依赖面太大：把该提交里 `serializeToBuffer` 方法**原样抽出**，放进一个字段声明
      相同的宿主类，`requireBean()` 直接返回样本 bean。
    编译用 Kotlin 2.4.20 编译器（`kotlin-compiler-embeddable`，Gradle 缓存里有）和 JDK 17 的 `javac --release 11`，
@@ -132,7 +132,7 @@ grpc 边界样本（来源提交都在这 12 个之内）直接用 5.2.1 写出�
 | AnyTLSBean | 4 | v0 `5d74526b`；v1 `329572d1`；v2 `dd8f56d3`；v3 兼容测试接入样本；v4 证书固定、信任与默认值样本 | — |
 | ChainBean | 1 | v1 `9d78e4f2`、`bbbdf577`（实体内嵌）、HEAD | v0：早于本仓库历史 |
 | ConfigBean | 0 | v0 `9d78e4f2`、HEAD | — |
-| NekoBean | 0 | 不做 | 字段初始化里有 `new JSONObject()`，mockable android.jar 的 org.json 在 JVM 上抛异常，构造不出来；自首个提交以来布局未变 |
+| NekoBean | 0 | v0 `7d9798cc` | Android API 36 上使用该提交的 NekoBean、AbstractBean、KryoConverters 写入方法与 Kryo 5.2.1 生成 `android/NekoBean-v0.bin`。字段赋值见 `NekoBeanKryoTest`，由 Robolectric SDK 35 核对字段与逐字节往返。 |
 | SubscriptionBean | 5 | v1 `9d78e4f2`、`3fac5afe`、`19cb130f`、`629cdae1`；v2 `9220b316`；v4 `3bd39b94`；v5 HEAD | v0：早于本仓库历史；v3：历史上从未写出（57f4507 由 2 直接改为 4） |
 | SubscriptionBean（分享格式） | 0 | v0（每个分组分享格式样本） | — |
 | ProxyEntity | 1 | v0 `9d78e4f2`、`bbbdf577`；v1 `dd8f56d3`（内嵌 Shadowsocks 的是 ShadowsocksBean v2 的旧样本，内嵌链的仍是当前版本样本）、HEAD（内嵌 VMess）；内嵌 Shadowsocks v3 由 ShadowsocksBean 层的当前版本样本覆盖，ProxyEntity 层本身的格式没变 | — |

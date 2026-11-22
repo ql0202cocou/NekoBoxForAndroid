@@ -297,7 +297,7 @@
     ]
   },
   "skippedClasses": {
-    "moe.matsuri.nb4a.proxy.neko.NekoBean": "字段初始化里有 new JSONObject()，mockable android.jar 的 org.json 在 JVM 上抛异常，构造不出来；当前版本 0，自首个提交以来布局未变"
+    "moe.matsuri.nb4a.proxy.neko.NekoBean": "依赖 Android JSONObject，单独由 NekoBeanKryoTest 覆盖 7d9798cc 的 v0 样本和逐字节往返"
   },
   "sources": {
     "9d78e4f2870f3dff06f99425bd93cdf64e637e6e": {
