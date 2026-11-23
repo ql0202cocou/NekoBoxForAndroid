@@ -3,10 +3,21 @@ package io.nekohasekai.sagernet.golden.collect
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonArray
 import com.google.gson.Strictness
+import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.database.preference.KeyValuePair
 import io.nekohasekai.sagernet.database.preference.PublicDatabase
 import java.io.File
 import java.util.Base64
+
+// 采集与实测共用：夹具所在的规则、节点、分组三表在一个事务里清空，then 在同一事务里接着写入
+internal fun resetGoldenTables(then: () -> Unit = {}) {
+    SagerDatabase.instance.runInTransaction {
+        SagerDatabase.rulesDao.reset()
+        SagerDatabase.proxyDao.reset()
+        SagerDatabase.groupDao.reset()
+        then()
+    }
+}
 
 // 两个入口由 provider 串行调用。正式标记发布后才可写夹具，恢复成功前始终保留最初的快照。
 internal class GoldenSettingsJournal(private val marker: File) {

@@ -27,6 +27,7 @@ import io.nekohasekai.sagernet.golden.collect.GoldenCollector
 import io.nekohasekai.sagernet.golden.collect.GoldenSettingsJournal
 import io.nekohasekai.sagernet.golden.collect.ScenarioBuilder
 import io.nekohasekai.sagernet.golden.collect.reality
+import io.nekohasekai.sagernet.golden.collect.resetGoldenTables
 import io.nekohasekai.sagernet.golden.collect.shadowsocks
 import io.nekohasekai.sagernet.golden.collect.tls
 import io.nekohasekai.sagernet.golden.collect.vless
@@ -135,10 +136,7 @@ object GoldenMeasure {
         val savedSettings = GoldenSettingsJournal(ownedMarker).begin()
 
         val fixture = fixture(xray, singbox)
-        SagerDatabase.instance.runInTransaction {
-            SagerDatabase.rulesDao.reset()
-            SagerDatabase.proxyDao.reset()
-            SagerDatabase.groupDao.reset()
+        resetGoldenTables {
             SagerDatabase.groupDao.insert(fixture.groups)
             SagerDatabase.proxyDao.insert(fixture.profiles)
         }
@@ -404,11 +402,7 @@ object GoldenMeasure {
 
         // 2. 先移除实测打开的主界面任务，再清夹具、恢复设置。
         finishMeasurementTask()
-        SagerDatabase.instance.runInTransaction {
-            SagerDatabase.rulesDao.reset()
-            SagerDatabase.proxyDao.reset()
-            SagerDatabase.groupDao.reset()
-        }
+        resetGoldenTables()
         journal.restore(saved)
         result["restoredSettings"] = saved.size
         result["tablesEmpty"] = tablesEmpty()

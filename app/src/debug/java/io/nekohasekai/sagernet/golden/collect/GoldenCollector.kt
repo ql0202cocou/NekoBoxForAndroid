@@ -126,7 +126,7 @@ class GoldenCollector(private val args: CollectArgs) {
             writeJson(File(outDir, "address/corpus.json"), GoldenAddressCorpus.build())
             writeJson(File(outDir, "manifest.json"), manifest(scenarios.size, counts, checks, plugins))
         } finally {
-            clearTables()
+            resetGoldenTables()
             journal.restore(savedSettings)
         }
         return CollectSummary(outDir, scenarios.size, counts)
@@ -185,14 +185,6 @@ class GoldenCollector(private val args: CollectArgs) {
                 "that the collector did not create; collecting replaces all of them. " +
                 "Re-run with --allow-wipe if this device holds nothing worth keeping"
         )
-    }
-
-    private fun clearTables() {
-        SagerDatabase.instance.runInTransaction {
-            SagerDatabase.rulesDao.reset()
-            SagerDatabase.proxyDao.reset()
-            SagerDatabase.groupDao.reset()
-        }
     }
 
     private fun collectScenario(
