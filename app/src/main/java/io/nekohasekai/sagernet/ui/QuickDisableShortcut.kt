@@ -20,46 +20,19 @@
 
 package io.nekohasekai.sagernet.ui
 
-import android.app.Activity
-import android.content.pm.ShortcutManager
-import android.os.Build
 import android.os.Bundle
-import androidx.core.content.getSystemService
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.ISagerNetService
-import io.nekohasekai.sagernet.bg.BaseService
-import io.nekohasekai.sagernet.bg.SagerConnection
 import io.nekohasekai.sagernet.bg.stateOrStopped
 
-class QuickDisableShortcut : Activity(), SagerConnection.Callback {
-    private val connection = SagerConnection(SagerConnection.CONNECTION_ID_SHORTCUT)
-
+class QuickDisableShortcut : ServiceShortcutActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // bind 被拒时 onServiceConnected 永不到达，无界面 Activity 要自己收尾
-        if (!connection.connect(this, this, SagerConnection.SHORTCUT_CONNECT_TIMEOUT_MS)) {
-            finish()
-            return
-        }
-        if (Build.VERSION.SDK_INT >= 25) {
-            getSystemService<ShortcutManager>()!!.reportShortcutUsed("disable")
-        }
+        if (connectOrFinish()) reportShortcutUsed("disable")
     }
 
     override fun onServiceConnected(service: ISagerNetService) {
-        val state = service.stateOrStopped
-        if (state.canStop) {
-            SagerNet.stopService()
-        }
+        if (service.stateOrStopped.canStop) SagerNet.stopService()
         finish()
-    }
-
-    override fun stateChanged(state: BaseService.State, profileName: String?, msg: String?) {}
-
-    override fun onServiceDisconnected() = finish()
-
-    override fun onDestroy() {
-        connection.disconnect(this)
-        super.onDestroy()
     }
 }

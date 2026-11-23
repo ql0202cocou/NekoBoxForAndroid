@@ -184,7 +184,7 @@ class SagerConnection(
     }
 
     // 返回 false 表示绑定被拒或调用失败：不会再收到 onServiceConnected，
-    // 无界面的调用方（QuickToggleShortcut）要据此自行收尾
+    // 无界面的调用方（ServiceShortcutActivity）要据此自行收尾
     fun connect(context: Context, callback: Callback?, timeoutMillis: Long = 0): Boolean {
         if (connectionActive) return true
         check(this.callback == null)

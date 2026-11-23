@@ -20,24 +20,19 @@
 
 package io.nekohasekai.sagernet
 
-import android.app.Activity
 import android.content.Intent
-import android.content.pm.ShortcutManager
-import android.os.Build
 import android.os.Bundle
-import androidx.core.content.getSystemService
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import io.nekohasekai.sagernet.aidl.ISagerNetService
 import io.nekohasekai.sagernet.bg.BaseService
-import io.nekohasekai.sagernet.bg.SagerConnection
 import io.nekohasekai.sagernet.bg.stateOrStopped
 import io.nekohasekai.sagernet.database.DataStore
+import io.nekohasekai.sagernet.ui.ServiceShortcutActivity
 
 @Suppress("DEPRECATION")
-class QuickToggleShortcut : Activity(), SagerConnection.Callback {
-    private val connection = SagerConnection(SagerConnection.CONNECTION_ID_SHORTCUT)
+class QuickToggleShortcut : ServiceShortcutActivity() {
     private var profileId = -1L
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -60,21 +55,14 @@ class QuickToggleShortcut : Activity(), SagerConnection.Callback {
                 return
             }
             profileId = intent.getLongExtra("profile", -1L)
-            // bind 被拒时 onServiceConnected 永不到达（connect 内部已回滚），
-            // 这个无界面 Activity 必须自己收尾，否则永远残留
-            if (!connection.connect(this, this, SagerConnection.SHORTCUT_CONNECT_TIMEOUT_MS)) {
-                finish()
-                return
-            }
+            if (!connectOrFinish()) return
             if (profileId >= 0 && profileId != DataStore.selectedProxy &&
                 ShortcutManagerCompat.getShortcuts(this, ShortcutManagerCompat.FLAG_MATCH_PINNED)
                     .none { it.id == "shortcut-profile-$profileId" }
             ) {
                 profileId = -1L
             }
-            if (Build.VERSION.SDK_INT >= 25) {
-                getSystemService<ShortcutManager>()!!.reportShortcutUsed(if (profileId >= 0) "shortcut-profile-$profileId" else "toggle")
-            }
+            reportShortcutUsed(if (profileId >= 0) "shortcut-profile-$profileId" else "toggle")
         }
     }
 
@@ -95,14 +83,5 @@ class QuickToggleShortcut : Activity(), SagerConnection.Callback {
             }
         }
         finish()
-    }
-
-    override fun stateChanged(state: BaseService.State, profileName: String?, msg: String?) {}
-
-    override fun onServiceDisconnected() = finish()
-
-    override fun onDestroy() {
-        connection.disconnect(this)
-        super.onDestroy()
     }
 }
