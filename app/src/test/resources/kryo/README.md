@@ -46,6 +46,16 @@
 及该提交使用的 Kryo 5.1.0 写出。赋值为地址 `127.0.0.1:1080`、成员 ID `[73, 41]`、名称 `old-chain`。
 该格式在成员后只写名称，缺少 NekoBox 存储格式的 extraVersion 和自定义配置字段，因此未计入注册表的完整存储样本。
 
+`sagernet-protocol-layers.json` 另存 14 个 SagerNet 协议层样本，覆盖 Trojan v0/v1 的 TLS 布局、Shadowsocks v0、
+Hysteria v0–v4、Naive v0/v1、Trojan-Go v0（WebSocket）、Tuic v0 和 WireGuard v0/v1。
+每个样本记录原提交、当时使用的 Kryo 版本、原 `serialize` 输出的字节及字段期望。
+写入时调用该提交中子类和 AbstractBean 的原方法。期望取自赋值，另按已知迁移规则标出 Hysteria 的协议版本、
+端口及 Tuic 的协议版本。当前 `deserialize` 逐字段读取，并核对协议层末尾的位置。
+
+这些样本没有 NekoBox 的存储尾部，完整存储样本仍以注册表为准。SagerNet 同号布局也会变化，例如
+`94be3b77` 的 Trojan v1 在 XTLS 下写 flow，`5cf14e15` 的 Shadowsocks v1 在 plugin 后写旧布尔值，
+`3699b486` 的 SOCKS v0 在密码后写 TLS 和 SNI。版本号相同不足以判定格式。
+
 ## 期望值的来源
 
 `expected` 由生成脚本按下面的规则逐字段写出，规则来自阅读 HEAD 的 `deserialize` / `initializeDefaultValues`，

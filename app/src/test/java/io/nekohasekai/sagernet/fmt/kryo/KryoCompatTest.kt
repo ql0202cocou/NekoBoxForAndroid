@@ -1,6 +1,9 @@
 package io.nekohasekai.sagernet.fmt.kryo
 
+import com.google.gson.Gson
+import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.database.ProxyEntity
+import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.internal.ChainBean
 import io.nekohasekai.sagernet.fmt.kryo.KryoSamples.Sample
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
@@ -40,6 +43,30 @@ class KryoCompatTest {
         assertEquals(listOf(73L, 41L), chain.proxies)
         assertEquals("old-chain", input.readString())
         assertEquals(input.limit(), input.position())
+    }
+
+    @Test
+    fun `SagerNet 历史协议层读出原字段且恰好消耗写入的字节`() {
+        val resource = requireNotNull(javaClass.getResource("/kryo/sagernet-protocol-layers.json"))
+        val samples = resource.openStream().bufferedReader().use { JsonParser.parseReader(it).asJsonArray }
+        assertTrue("没有协议层样本", samples.size() > 0)
+        val gson = Gson()
+        for (entry in samples) {
+            val sample = entry.asJsonObject
+            val className = sample["class"].asString
+            val id = "$className v${sample["version"]} @ ${sample["commit"].asString.take(8)}"
+            val bytes = Base64.getDecoder().decode(sample["base64"].asString)
+            val input = bytes.byteBuffer()
+            assertEquals(id, sample["version"].asInt, input.readInt())
+            input.setPosition(0)
+            val bean = Class.forName(className).getDeclaredConstructor().newInstance() as AbstractBean
+            bean.deserialize(input)
+            assertEquals(id, input.limit(), input.position())
+            val actual = KryoSamples.fieldsOf(bean)
+            for ((field, expected) in sample.getAsJsonObject("fields").entrySet()) {
+                assertEquals("$id $field", expected, gson.toJsonTree(actual.getValue(field)))
+            }
+        }
     }
 
     @Test

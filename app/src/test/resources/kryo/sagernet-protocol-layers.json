@@ -1,0 +1,268 @@
+[
+  {
+    "class": "io.nekohasekai.sagernet.fmt.trojan.TrojanBean",
+    "version": 0,
+    "commit": "7f76ec2ec6cca37518f50679ad06f49e1b404f98",
+    "kryo": "5.1.1",
+    "base64": "AAAAAHJlbGF5LmV4YW1wbOX7IAAAbGVnYWN5LXRlc/R0bPNjZXJ0LmV4YW1wbOVosg==",
+    "fields": {
+      "serverAddress": "relay.example",
+      "serverPort": 8443,
+      "password": "legacy-test",
+      "security": "tls",
+      "sni": "cert.example",
+      "alpn": "h2"
+    }
+  },
+  {
+    "class": "io.nekohasekai.sagernet.fmt.trojan.TrojanBean",
+    "version": 1,
+    "commit": "ff5e1a49841e848ae2742ce05d0e674408dfda5b",
+    "kryo": "5.1.1",
+    "base64": "AQAAAHJlbGF5LmV4YW1wbOX7IAAAbGVnYWN5LXRlc/R0bPNjZXJ0LmV4YW1wbOVosgE=",
+    "fields": {
+      "serverAddress": "relay.example",
+      "serverPort": 8443,
+      "password": "legacy-test",
+      "security": "tls",
+      "sni": "cert.example",
+      "alpn": "h2",
+      "allowInsecure": true
+    }
+  },
+  {
+    "class": "io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean",
+    "version": 0,
+    "commit": "a3c77c9f1a5bdced982c440679d5e8e4fbeb8c19",
+    "kryo": "5.2.0",
+    "base64": "AAAAAHJlbGF5LmV4YW1wbOX7IAAAYWVzLTEyOC1nY+1sZWdhY3ktdGVz9HRlc3QtcGx1Z2nu",
+    "fields": {
+      "serverAddress": "relay.example",
+      "serverPort": 8443,
+      "method": "aes-128-gcm",
+      "password": "legacy-test",
+      "plugin": "test-plugin"
+    }
+  },
+  {
+    "class": "io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean",
+    "version": 0,
+    "commit": "9e49266d5cccf247a149df84c20d20644f40c97d",
+    "kryo": "5.1.1",
+    "base64": "AAAAAHJlbGF5LmV4YW1wbOX7IAAAAQAAAHRlc3QtYXV06HRlc3Qtb2Jm82NlcnQuZXhhbXBs5REAAAArAAAAAQ==",
+    "fields": {
+      "serverAddress": "relay.example",
+      "serverPort": 8443,
+      "authPayloadType": 1,
+      "authPayload": "test-auth",
+      "obfuscation": "test-obfs",
+      "sni": "cert.example",
+      "uploadMbps": 17,
+      "downloadMbps": 43,
+      "allowInsecure": true,
+      "protocolVersion": 1,
+      "serverPorts": "8443"
+    }
+  },
+  {
+    "class": "io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean",
+    "version": 1,
+    "commit": "5a4f687ad6d77c7563fe315c1a4f503c85c641f8",
+    "kryo": "5.2.0",
+    "base64": "AQAAAHJlbGF5LmV4YW1wbOX7IAAAAQAAAHRlc3QtYXV06HRlc3Qtb2Jm82NlcnQuZXhhbXBs5REAAAArAAAAAXRlc3QtY+HpAwAA5QcAAAE=",
+    "fields": {
+      "serverAddress": "relay.example",
+      "serverPort": 8443,
+      "authPayloadType": 1,
+      "authPayload": "test-auth",
+      "obfuscation": "test-obfs",
+      "sni": "cert.example",
+      "uploadMbps": 17,
+      "downloadMbps": 43,
+      "allowInsecure": true,
+      "caText": "test-ca",
+      "streamReceiveWindow": 1001,
+      "connectionReceiveWindow": 2021,
+      "disableMtuDiscovery": true,
+      "protocolVersion": 1,
+      "serverPorts": "8443"
+    }
+  },
+  {
+    "class": "io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean",
+    "version": 2,
+    "commit": "dbab59b7d10e40691cda9ae64d1dcb81134e02cb",
+    "kryo": "5.2.0",
+    "base64": "AgAAAHJlbGF5LmV4YW1wbOX7IAAAAQAAAHRlc3QtYXV06HRlc3Qtb2Jm82NlcnQuZXhhbXBs5WiyEQAAACsAAAABdGVzdC1j4ekDAADlBwAAAQ==",
+    "fields": {
+      "serverAddress": "relay.example",
+      "serverPort": 8443,
+      "authPayloadType": 1,
+      "authPayload": "test-auth",
+      "obfuscation": "test-obfs",
+      "sni": "cert.example",
+      "alpn": "h2",
+      "uploadMbps": 17,
+      "downloadMbps": 43,
+      "allowInsecure": true,
+      "caText": "test-ca",
+      "streamReceiveWindow": 1001,
+      "connectionReceiveWindow": 2021,
+      "disableMtuDiscovery": true,
+      "protocolVersion": 1,
+      "serverPorts": "8443"
+    }
+  },
+  {
+    "class": "io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean",
+    "version": 3,
+    "commit": "76c281a38d9c16ab02f0a4bb62c21e8570c33ea1",
+    "kryo": "5.2.1",
+    "base64": "AwAAAHJlbGF5LmV4YW1wbOX7IAAAAQAAAHRlc3QtYXV06AIAAAB0ZXN0LW9iZvNjZXJ0LmV4YW1wbOVoshEAAAArAAAAAXRlc3QtY+HpAwAA5QcAAAE=",
+    "fields": {
+      "serverAddress": "relay.example",
+      "serverPort": 8443,
+      "authPayloadType": 1,
+      "authPayload": "test-auth",
+      "protocol": 2,
+      "obfuscation": "test-obfs",
+      "sni": "cert.example",
+      "alpn": "h2",
+      "uploadMbps": 17,
+      "downloadMbps": 43,
+      "allowInsecure": true,
+      "caText": "test-ca",
+      "streamReceiveWindow": 1001,
+      "connectionReceiveWindow": 2021,
+      "disableMtuDiscovery": true,
+      "protocolVersion": 1,
+      "serverPorts": "8443"
+    }
+  },
+  {
+    "class": "io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean",
+    "version": 4,
+    "commit": "8ae22625c1c798b48e10903739a95c3008bc0b84",
+    "kryo": "5.2.1",
+    "base64": "BAAAAHJlbGF5LmV4YW1wbOX7IAAAAQAAAHRlc3QtYXV06AIAAAB0ZXN0LW9iZvNjZXJ0LmV4YW1wbOVoshEAAAArAAAAAXRlc3QtY+HpAwAA5QcAAA==",
+    "fields": {
+      "serverAddress": "relay.example",
+      "serverPort": 8443,
+      "authPayloadType": 1,
+      "authPayload": "test-auth",
+      "protocol": 2,
+      "obfuscation": "test-obfs",
+      "sni": "cert.example",
+      "alpn": "h2",
+      "uploadMbps": 17,
+      "downloadMbps": 43,
+      "allowInsecure": true,
+      "caText": "test-ca",
+      "streamReceiveWindow": 1001,
+      "connectionReceiveWindow": 2021,
+      "protocolVersion": 1,
+      "serverPorts": "8443"
+    }
+  },
+  {
+    "class": "io.nekohasekai.sagernet.fmt.naive.NaiveBean",
+    "version": 0,
+    "commit": "a3c77c9f1a5bdced982c440679d5e8e4fbeb8c19",
+    "kryo": "5.2.0",
+    "base64": "AAAAAHJlbGF5LmV4YW1wbOX7IAAAaHR0cPNvbGQtdXNl8mxlZ2FjeS10ZXP0WC1UZXN0OiBvbOQ=",
+    "fields": {
+      "serverAddress": "relay.example",
+      "serverPort": 8443,
+      "proto": "https",
+      "username": "old-user",
+      "password": "legacy-test",
+      "extraHeaders": "X-Test: old"
+    }
+  },
+  {
+    "class": "io.nekohasekai.sagernet.fmt.naive.NaiveBean",
+    "version": 1,
+    "commit": "a6e243f78a6f3a71a52a03fb98d679c142d4a36b",
+    "kryo": "5.2.1",
+    "base64": "AQAAAHJlbGF5LmV4YW1wbOX7IAAAaHR0cPNvbGQtdXNl8mxlZ2FjeS10ZXP0WC1UZXN0OiBvbOQDAAAA",
+    "fields": {
+      "serverAddress": "relay.example",
+      "serverPort": 8443,
+      "proto": "https",
+      "username": "old-user",
+      "password": "legacy-test",
+      "extraHeaders": "X-Test: old",
+      "insecureConcurrency": 3
+    }
+  },
+  {
+    "class": "io.nekohasekai.sagernet.fmt.trojan_go.TrojanGoBean",
+    "version": 0,
+    "commit": "5a4f687ad6d77c7563fe315c1a4f503c85c641f8",
+    "kryo": "5.2.0",
+    "base64": "AAAAAHJlbGF5LmV4YW1wbOX7IAAAbGVnYWN5LXRlc/RjZXJ0LmV4YW1wbOV383dzLmV4YW1wbOUvbGVnYWP5bm9u5XRlc3QtcGx1Z2nu",
+    "fields": {
+      "serverAddress": "relay.example",
+      "serverPort": 8443,
+      "password": "legacy-test",
+      "sni": "cert.example",
+      "type": "ws",
+      "host": "ws.example",
+      "path": "/legacy",
+      "encryption": "none",
+      "plugin": "test-plugin"
+    }
+  },
+  {
+    "class": "io.nekohasekai.sagernet.fmt.tuic.TuicBean",
+    "version": 0,
+    "commit": "6cff8ea8cab41bb74cef36943eba43a4f8cd4a25",
+    "kryo": "5.3.0",
+    "base64": "AAAAAHJlbGF5LmV4YW1wbOX7IAAAdGVzdC10b2tl7nRlc3QtY+FuYXRpduViYvJosgABcAUAAGNlcnQuZXhhbXBs5Q==",
+    "fields": {
+      "serverAddress": "relay.example",
+      "serverPort": 8443,
+      "token": "test-token",
+      "caText": "test-ca",
+      "udpRelayMode": "native",
+      "congestionController": "bbr",
+      "alpn": "h2",
+      "disableSNI": false,
+      "reduceRTT": true,
+      "mtu": 1392,
+      "sni": "cert.example",
+      "protocolVersion": 4
+    }
+  },
+  {
+    "class": "io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean",
+    "version": 0,
+    "commit": "a3c77c9f1a5bdced982c440679d5e8e4fbeb8c19",
+    "kryo": "5.2.0",
+    "base64": "AAAAAHJlbGF5LmV4YW1wbOX7IAAAMTAuMC4wLjgvM7J0ZXN0LXByaXZhdOV0ZXN0LXB1Ymxp43Rlc3Qtc2hhcmXk",
+    "fields": {
+      "serverAddress": "relay.example",
+      "serverPort": 8443,
+      "localAddress": "10.0.0.8/32",
+      "privateKey": "test-private",
+      "peerPublicKey": "test-public",
+      "peerPreSharedKey": "test-shared"
+    }
+  },
+  {
+    "class": "io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean",
+    "version": 1,
+    "commit": "174257e1520933f17f77879692bf7f644b303f89",
+    "kryo": "5.2.1",
+    "base64": "AQAAAHJlbGF5LmV4YW1wbOX7IAAAMTAuMC4wLjgvM7J0ZXN0LXByaXZhdOV0ZXN0LXB1Ymxp43Rlc3Qtc2hhcmXkcAUAAA==",
+    "fields": {
+      "serverAddress": "relay.example",
+      "serverPort": 8443,
+      "localAddress": "10.0.0.8/32",
+      "privateKey": "test-private",
+      "peerPublicKey": "test-public",
+      "peerPreSharedKey": "test-shared",
+      "mtu": 1392
+    }
+  }
+]
