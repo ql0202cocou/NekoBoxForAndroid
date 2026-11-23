@@ -236,6 +236,7 @@ data class ProxyEntity(
     fun haveStandardLink(): Boolean = hasStandardLink(requireBean())
 
     fun toStdLink(): String = standardLink(requireBean())
+    fun toUniversalShareLink(): String = universalShareLink(requireBean())
 
     // 导出的文本与文件名，见 exportConfigText
     fun exportConfig(): Pair<String, String> {

@@ -19,7 +19,6 @@ import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.ProfileRepository
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.fmt.displayType
-import io.nekohasekai.sagernet.fmt.toUniversalLink
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.alert
 import io.nekohasekai.sagernet.ktx.exportToClipboard
@@ -345,10 +344,8 @@ class ConfigurationHolder(
             when (item.itemId) {
                 R.id.action_standard_qr -> showCode(entity.toStdLink())
                 R.id.action_standard_clipboard -> export(entity.toStdLink())
-                R.id.action_universal_qr -> showCode(entity.requireBean().toUniversalLink())
-                R.id.action_universal_clipboard -> export(
-                    entity.requireBean().toUniversalLink()
-                )
+                R.id.action_universal_qr -> showCode(entity.toUniversalShareLink())
+                R.id.action_universal_clipboard -> export(entity.toUniversalShareLink())
 
                 R.id.action_config_export_clipboard -> exportConfig(toFile = false)
                 R.id.action_config_export_file -> exportConfig(toFile = true)

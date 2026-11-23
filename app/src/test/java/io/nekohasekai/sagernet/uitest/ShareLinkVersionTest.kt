@@ -7,6 +7,7 @@ import io.nekohasekai.sagernet.fmt.putBean
 import io.nekohasekai.sagernet.fmt.parseUniversal
 import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
 import io.nekohasekai.sagernet.fmt.shadowsocks.parseShadowsocks
+import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.fmt.v2ray.XhttpParametersLostException
 import io.nekohasekai.sagernet.fmt.v2ray.parseV2RayNJson
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
@@ -41,6 +42,25 @@ class ShareLinkVersionTest : UiTestBase() {
         assertThrows(XhttpParametersLostException::class.java) { ProxyEntity().putBean(incomplete).toStdLink() }
         val unresolved = CoreTestNodes.anytls { serverAddress = host; certificatePolicy = AnyTLSBean.CERTIFICATE_POLICY_LEGACY }
         assertThrows(IllegalArgumentException::class.java) { ProxyEntity().putBean(unresolved).toStdLink() }
+    }
+
+    @Test
+    fun universalMenuRunsTheSameShareChecks() {
+        // 单节点的「通用链接」菜单与专属链接一样拒绝导回来会被拒的节点
+        for (incomplete in listOf(
+            CoreTestNodes.vless { type = "xhttp"; path = "" },
+            CoreTestNodes.vmess { type = "xhttp"; path = "" },
+            CoreTestNodes.trojan { type = "xhttp"; path = "" },
+        )) {
+            assertThrows(XhttpParametersLostException::class.java) { ProxyEntity().putBean(incomplete).toUniversalShareLink() }
+        }
+        val noServer = CoreTestNodes.vless { serverAddress = "" }
+        assertThrows(IllegalArgumentException::class.java) { ProxyEntity().putBean(noServer).toUniversalShareLink() }
+
+        val complete = CoreTestNodes.vless { type = "xhttp"; path = "/x" }
+        val copy = parseUniversal(ProxyEntity().putBean(complete).toUniversalShareLink()) { false }
+        assertEquals(complete.javaClass, copy.javaClass)
+        assertEquals("/x", (copy as StandardV2RayBean).path)
     }
 
     @Test

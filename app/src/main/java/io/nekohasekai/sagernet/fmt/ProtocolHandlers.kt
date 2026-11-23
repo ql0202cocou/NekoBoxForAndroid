@@ -414,26 +414,33 @@ fun hasStandardLink(bean: AbstractBean): Boolean = !bean.needsScopedAddressLink(
     else -> true
 }
 
+// 分享前的检查，专属链接与通用链接共用，规则与导入相同：导回来会被拒的节点直接报错，
+// 不导出一条看似正常的链接。
+// - 端点无效（入口加固前导入、从备份恢复的坏数据）：同 parseProxies 的 filterValidEndpoint，报错带节点名，
+//   分享入口直接拿它提示用户
+// - VMess / VLESS / Trojan 的 XHTTP 参数残缺或 extra 不合格：同 sn:// 导入（universalBean）的
+//   requireXhttpComplete 与 canonicalizeXhttp
+fun AbstractBean.requireShareable() {
+    try {
+        requireValidEndpoint()
+    } catch (e: Exception) {
+        throw IllegalArgumentException(app.getString(R.string.share_invalid_endpoint, displayName()), e)
+    }
+    if (this is StandardV2RayBean && (this is VMessBean || this is TrojanBean) && isXhttp()) requireXhttpParams()
+}
+
+// 单个节点的「通用链接」菜单：与专属链接经过同一个分享检查
+fun universalShareLink(bean: AbstractBean): String {
+    bean.requireShareable()
+    return bean.toUniversalLink()
+}
+
 // bean class -> standard share link, the universal link for the rest
 // (was ProxyEntity.toStdLink)
 fun standardLink(bean: AbstractBean): String {
-    // 与导入同一条规则（parseProxies 的 filterValidEndpoint）：端点无效的坏数据
-    // （入口加固前导入、从备份恢复）直接报错，不能导出一条看似正常、端口却不对、
-    // 导回来也会被拒的链接。报错带节点名，分享入口直接拿它提示用户
-    try {
-        bean.requireValidEndpoint()
-    } catch (e: Exception) {
-        throw IllegalArgumentException(
-            app.getString(R.string.share_invalid_endpoint, bean.displayName()), e
-        )
-    }
-    // AnyTLS 自己校验证书策略后选分享格式；换成通用链接也须沿用 VLESS / Trojan 的 XHTTP 校验。
-    if (bean !is AnyTLSBean && !hasStandardLink(bean)) {
-        if (bean is StandardV2RayBean && (bean.isVLESS || bean is TrojanBean) && bean.isXhttp()) {
-            bean.requireXhttpParams()
-        }
-        return bean.toUniversalLink()
-    }
+    bean.requireShareable()
+    // AnyTLS 自己按证书策略选分享格式
+    if (bean !is AnyTLSBean && !hasStandardLink(bean)) return bean.toUniversalLink()
     return when (bean) {
         is SOCKSBean -> bean.toUri()
         is HttpBean -> bean.toUri()
