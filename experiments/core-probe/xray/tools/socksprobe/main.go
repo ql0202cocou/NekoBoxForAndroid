@@ -3,7 +3,7 @@
 // 子命令：
 //
 //	echo   -listen 127.0.0.1:40053                  UDP 回显服务（回 "ECHO:" + 原文），前台运行
-//	tcpserve -listen 127.0.0.1:40000                TCP 目标：每个连接读到一行后回 TARGET-REPLY-OK 并关闭，前台运行
+//	tcpserve -listen 127.0.0.1:40000                TCP 目标：仅在收到完整的 ping-from-client 行后回 TARGET-REPLY-OK
 //	tcp    -addr 127.0.0.1:31000 [-wait 5s]         连上后发一行，等回复：TCP-REPLY=… 或 TCP-NOREPLY；
 //	                                                对端接受后复位连接时先多打一行 TCP-RESET=dial|write|read（撞上的阶段）
 //	tlshello -listen 127.0.0.1:32000               TLS 服务端（临时自签证书），只打印每个 ClientHello 的 SNI / ALPN / 曲线 / 版本，前台运行
@@ -128,6 +128,20 @@ func runTLSHello(args []string) error {
 	}
 }
 
+const tcpRequest = "ping-from-client\n"
+
+func replyToTCPProbe(r io.Reader, w io.Writer) error {
+	var request [len(tcpRequest)]byte
+	if _, err := io.ReadFull(r, request[:]); err != nil {
+		return err
+	}
+	if string(request[:]) != tcpRequest {
+		return errors.New("unexpected TCP request")
+	}
+	_, err := io.WriteString(w, "TARGET-REPLY-OK\n")
+	return err
+}
+
 func runTCPServe(args []string) error {
 	fs := flag.NewFlagSet("tcpserve", flag.ExitOnError)
 	listen := fs.String("listen", "127.0.0.1:40000", "")
@@ -145,10 +159,11 @@ func runTCPServe(args []string) error {
 		go func(c net.Conn) {
 			defer c.Close()
 			c.SetDeadline(time.Now().Add(20 * time.Second))
-			b := make([]byte, 4096)
-			n, _ := c.Read(b)
-			fmt.Printf("TCP-GOT from=%s len=%d\n", c.RemoteAddr(), n)
-			c.Write([]byte("TARGET-REPLY-OK\n"))
+			if err := replyToTCPProbe(c, c); err != nil {
+				fmt.Printf("TCP-REQUEST-ERROR=%v\n", err)
+				return
+			}
+			fmt.Printf("TCP-GOT from=%s len=%d\n", c.RemoteAddr(), len(tcpRequest))
 		}(c)
 	}
 }
@@ -188,7 +203,7 @@ func resetByPeer(err error, stage string, output io.Writer) bool {
 
 func probeTCP(c net.Conn, wait time.Duration, output io.Writer) error {
 	c.SetDeadline(time.Now().Add(wait))
-	if _, err := c.Write([]byte("ping-from-client\n")); err != nil {
+	if _, err := c.Write([]byte(tcpRequest)); err != nil {
 		if resetByPeer(err, "write", output) {
 			return nil
 		}
@@ -335,14 +350,36 @@ func sendAndWait(uc *net.UDPConn, to *net.UDPAddr, target []byte, payload string
 	uc.SetReadDeadline(time.Now().Add(3 * time.Second))
 	buf := make([]byte, 65535)
 	n, _, err := uc.ReadFromUDP(buf)
-	if err != nil {
+	if errors.Is(err, os.ErrDeadlineExceeded) {
 		return "TIMEOUT"
 	}
-	// 回包是 SOCKS5 UDP 头 + 数据；只取 "ECHO:" 之后的内容
-	if i := bytes.Index(buf[:n], []byte("ECHO:")); i >= 0 {
-		return "REPLY=" + string(buf[i:n])
+	if err != nil {
+		return "READ-ERR=" + err.Error()
 	}
-	return "REPLY-RAW=" + hex.EncodeToString(buf[:n])
+	return checkUDPReply(buf[:n], payload)
+}
+
+func checkUDPReply(packet []byte, payload string) string {
+	// 跳过无分片 SOCKS5 UDP 头，精确核对本轮载荷；迟到或送错端口的回显不能算成功。
+	if len(packet) < 5 || packet[0] != 0 || packet[1] != 0 || packet[2] != 0 {
+		return "REPLY-ERR=invalid UDP header"
+	}
+	var addressLen int
+	switch packet[3] {
+	case 1:
+		addressLen = net.IPv4len
+	case 4:
+		addressLen = net.IPv6len
+	case 3:
+		addressLen = 1 + int(packet[4])
+	default:
+		return "REPLY-ERR=unknown address type"
+	}
+	offset := 4 + addressLen + 2
+	if len(packet) < offset || string(packet[offset:]) != "ECHO:"+payload {
+		return "REPLY-ERR=unexpected UDP echo"
+	}
+	return "REPLY=ECHO:" + payload
 }
 
 func runUDP(args []string) error {

@@ -217,13 +217,14 @@ def tcfg(x, sec="tls", extra_keys=None):
 
 
 t("extra-object-ok", tcfg(cli_xhttp(extra=EXTRA_CANON)), "test", "OK", "6", "规范 extra 对象通过")
-t("extra-string-err", tcfg(cli_xhttp(extra=json.dumps(EXTRA_CANON))), "test", "ERR:", "6", "extra 写成字符串（而不是对象）→ Xray 报错：生成器必须写对象")
+t("extra-string-err", tcfg(cli_xhttp(extra=json.dumps(EXTRA_CANON))), "test", "ERR:cannot unmarshal string into Go value of type conf.SplitHTTPConfig", "6", "extra 写成字符串（而不是对象）→ Xray 报错：生成器必须写对象")
 t("extra-unknown-ok", tcfg(cli_xhttp(extra={"fooBar": 1})), "test", "OK", "6", "extra 未知键：run -test 通过（静默忽略）")
 t("top-unknown-ok", tcfg(cli_xhttp(), extra_keys={"fooBar": 1}), "test", "OK", "6", "xhttpSettings 未知键：通过（静默忽略）")
-t("headers-host-err", tcfg(cli_xhttp(extra={"headers": {"Host": "a.example.com"}})), "test", "ERR:", "6", "headers 含 Host → 报错（校验器也拒绝）")
-t("headers-host-lower-err", tcfg(cli_xhttp(extra={"headers": {"host": "a.example.com"}})), "test", "ERR:", "6", "headers 含小写 host → 同")
-t("xmux-both-err", tcfg(cli_xhttp(extra={"xmux": {"maxConnections": 2, "maxConcurrency": 4}})), "test", "ERR:", "6", "xmux maxConnections 与 maxConcurrency 同时设 → 报错（校验器提前拒绝）")
-t("mode-bad-err", tcfg(cli_xhttp(mode="foo")), "test", "ERR:", "7", "未知 mode → 报错")
+host_error = "ERR:\"headers\" can't contain \"host\""
+t("headers-host-err", tcfg(cli_xhttp(extra={"headers": {"Host": "a.example.com"}})), "test", host_error, "6", "headers 含 Host → 报错（校验器也拒绝）")
+t("headers-host-lower-err", tcfg(cli_xhttp(extra={"headers": {"host": "a.example.com"}})), "test", host_error, "6", "headers 含小写 host → 同")
+t("xmux-both-err", tcfg(cli_xhttp(extra={"xmux": {"maxConnections": 2, "maxConcurrency": 4}})), "test", "ERR:maxConnections cannot be specified together with maxConcurrency", "6", "xmux maxConnections 与 maxConcurrency 同时设 → 报错（校验器提前拒绝）")
+t("mode-bad-err", tcfg(cli_xhttp(mode="foo")), "test", "ERR:unsupported mode: foo", "7", "未知 mode → 报错")
 t("mode-empty-ok", tcfg(cli_xhttp(mode="")), "test", "OK", "7", "空 mode ≈ auto")
 t("mode-upper-err", tcfg(cli_xhttp(mode="Stream-One")), "test", "ERR:unsupported mode: Stream-One", "7", "mode 区分大小写：写 Stream-One 整份配置起不来 → 应用必须写规范小写")
 t("xmux-canon-pb", tcfg(cli_xhttp(extra=EXTRA_CANON)), "pb", 'PB:+"from": 700 && PB:+"to": 800 && PB:+"from": 1900 && PB:+"to": 2900 && PB:+"from": 8 && PB:+"to": 16 && PB:+"X-K2-Probe": "k2-probe-value"', "6", "规范 extra 的每一项都进了 pb（headers、xPaddingBytes、xmux 各字段）")

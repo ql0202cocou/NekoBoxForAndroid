@@ -23,7 +23,8 @@ fd = os.open(os.environ["PID_LOG"], os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o60
 os.write(fd, f"{os.getpid()} {role}\n".encode())
 os.close(fd)
 if role == "sleep":
-    time.sleep(float(sys.argv[1]) / 10)
+    # 给并发启动的 Python 替身留足就绪时间；清理重试仍用短间隔。
+    time.sleep(0.75 if sys.argv[1] == "2" else float(sys.argv[1]) / 10)
     sys.exit(0)
 if "-test" in sys.argv or "convert" in sys.argv:
     print(os.environ.get("CONFIG_OUTPUT", "Configuration OK."), flush=True)
@@ -45,11 +46,14 @@ ready = {
 }
 if os.environ.get("NO_READY_ROLE") != role:
     print(ready[role], flush=True)
-extra = {"tlshello": "HELLO_OUTPUT", "httpdump": "DUMP_OUTPUT", "xray": "CORE_OUTPUT"}.get(role)
+extra = {"tlshello": "HELLO_OUTPUT", "httpdump": "DUMP_OUTPUT", "xray": "CORE_OUTPUT",
+         "singbox": "CLIENT_OUTPUT" if sys.argv[-1].endswith("/sing-box.json") else "SERVER_OUTPUT"}.get(role)
 if extra:
     print(os.environ.get(extra, ""), flush=True)
 if os.environ.get("CRASH_ROLE") == role:
-    time.sleep(0.3)
+    # 等第一轮就绪检查通过、探针开始后再退出，才能测到探测期间的崩溃。
+    while not any(line.endswith(" tcp") for line in Path(os.environ["PID_LOG"]).read_text().splitlines()):
+        time.sleep(0.01)
     sys.exit(1)
 while True:
     signal.pause()
@@ -167,10 +171,9 @@ class RunnersTest(unittest.TestCase):
                                          # 对端接受后复位：探针多报一行撞上的阶段，仍是「无回复」
                                          ("FAIL", "TCP-RESET=dial\nTCP-NOREPLY", "tcp"),
                                          ("UDP:TIMEOUT", "R1 TIMEOUT", "udp"),
-                                         ("UDP:REPLY", "R1 REPLY=ECHO:ok", "udp")):
+                                         ("UDP:REPLY", "R1 REPLY=ECHO:udp-probe", "udp")):
                 with self.subTest(runner=runner, expect=expect):
-                    out = self.run_suite(runner, expect, kind, PROBE_OUTPUT=output,
-                                         CORE_OUTPUT="initialize vision: vision: not a valid supported TLS connection")
+                    out = self.run_suite(runner, expect, kind, PROBE_OUTPUT=output)
                     self.assertIn("] PASS ", out)
             self.assertIn("] MISMATCH ", self.run_suite(runner, "PASS", PROBE_OUTPUT="TCP-REPLY=TARGET-REPLY-OK-extra"))
             self.assertIn("] MISMATCH ", self.run_suite(runner, "PASS", PROBE_OUTPUT="TCP-RESET=write\nTCP-NOREPLY"))
@@ -187,6 +190,40 @@ class RunnersTest(unittest.TestCase):
                                                 CORE_OUTPUT="invalid port"))
         self.assertIn("] PASS ", self.run_suite("xhttp", "dump:+ECHO-GOT && dump:-RAW|", "dumpudp",
                                                 DUMP_OUTPUT="ECHO-GOT from=127.0.0.1"))
+
+    def test_udp_reply_from_previous_round(self):
+        expect = "UDP:REPLY && R2:TIMEOUT && R3:REPLY"
+        output = "R1 REPLY=ECHO:udp-probe\nR2 TIMEOUT\nR3 "
+        for reply, verdict in (("REPLY=ECHO:udp-probe-3", "PASS"), ("REPLY=ECHO:udp-probe-2", "MISMATCH"),
+                               ("REPLY-ERR=unexpected UDP echo", "ERROR")):
+            with self.subTest(reply=reply):
+                self.assertIn(f"] {verdict} ", self.run_suite("general", expect, "udp", PROBE_OUTPUT=output + reply))
+
+    def test_config_error_requires_specific_reason(self):
+        for expect, output, code, verdict in (("ERR:", "failed to open file", 23, "MISMATCH"),
+                                              ("ERR:unsupported mode: foo", "failed to open file", 23, "MISMATCH"),
+                                              ("ERR:unsupported mode: foo", "unsupported mode: foo", 0, "MISMATCH"),
+                                              ("ERR:unsupported mode: foo", "unsupported mode: foo", 23, "PASS")):
+            with self.subTest(expect=expect, output=output, code=code):
+                result = subprocess.check_output([SHELL, "-c",
+                    '. "$1"; eval_expect check_config "$2" "$3" "$4"; echo "$verdict"',
+                    "config-test", str(self.xray / "runner-lib.sh"), expect, output, str(code)], text=True)
+                self.assertEqual(result.strip(), verdict)
+
+    def test_vision_init_failure_requires_client_evidence_and_no_reply(self):
+        reason = "initialize vision: vision: not a valid supported TLS connection"
+        expect = "FAIL:VISION-INIT"
+        script = self.suite("vision", expect)
+        case = self.xray / "vision/transports/VT-01"
+        (case / "xray.json").rename(case / "sing-box-server.json")
+        for env, verdict in (({"CLIENT_OUTPUT": reason}, "PASS"),
+                             ({"CLIENT_OUTPUT": "flow mismatch"}, "MISMATCH"),
+                             ({"SERVER_OUTPUT": reason}, "MISMATCH"),
+                             ({"CLIENT_OUTPUT": reason, "PROBE_OUTPUT": "TCP-REPLY=TARGET-REPLY-OK"}, "MISMATCH")):
+            with self.subTest(env=env):
+                out = subprocess.check_output([SHELL, str(script)], env=dict(self.env, **env), text=True, timeout=12)
+                self.assertIn(f"] {verdict} ", out)
+                self.assert_reaped()
 
     def test_record_modes_do_not_hide_errors(self):
         self.assertIn("] ERROR ", self.run_suite("general", "ANY", FAIL_ROLE="xray"))

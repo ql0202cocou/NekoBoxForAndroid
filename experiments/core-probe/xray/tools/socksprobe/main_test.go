@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"io"
 	"net"
 	"os"
 	"strings"
@@ -11,6 +12,52 @@ import (
 	"testing"
 	"time"
 )
+
+func TestTCPTargetRequest(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		tail string
+		ok   bool
+	}{
+		{"fragmented", "from-client\n", true},
+		{"partial-eof", "", false},
+		{"missing-newline", "from-client", false},
+		{"wrong-content", "xxxx-client\n", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := io.MultiReader(strings.NewReader("ping-"), strings.NewReader(tc.tail))
+			var reply bytes.Buffer
+			err := replyToTCPProbe(r, &reply)
+			want := ""
+			if tc.ok {
+				want = "TARGET-REPLY-OK\n"
+			}
+			if (err == nil) != tc.ok || reply.String() != want {
+				t.Fatalf("reply=%q err=%v", reply.String(), err)
+			}
+		})
+	}
+}
+
+func TestUDPEchoMatchesRound(t *testing.T) {
+	for _, address := range []string{"127.0.0.1:5353", "[::1]:5353", "node.example.com:5353"} {
+		target, err := socksAddr(address)
+		if err != nil {
+			t.Fatal(err)
+		}
+		header := append([]byte{0, 0, 0}, target...)
+		packet := append(header, "ECHO:udp-probe-2"...)
+		if got := checkUDPReply(packet, "udp-probe-2"); got != "REPLY=ECHO:udp-probe-2" {
+			t.Errorf("%s: %s", address, got)
+		}
+		if got := checkUDPReply(packet, "udp-probe-3"); !strings.HasPrefix(got, "REPLY-ERR=") {
+			t.Errorf("%s: stale echo accepted: %s", address, got)
+		}
+		if got := checkUDPReply(append(header, "junkECHO:udp-probe"...), "udp-probe"); !strings.HasPrefix(got, "REPLY-ERR=") {
+			t.Errorf("%s: malformed echo accepted: %s", address, got)
+		}
+	}
+}
 
 func TestTCPReply(t *testing.T) {
 	for _, tc := range []struct {

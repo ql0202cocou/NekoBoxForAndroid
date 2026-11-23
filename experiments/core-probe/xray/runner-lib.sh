@@ -33,6 +33,17 @@ tcp_ok() { # $1 探针输出
   printf '%s\n' "$1" | grep -qxF 'TCP-REPLY=TARGET-REPLY-OK'
 }
 
+udp_observed() { # $1 探针输出 $2 轮次 $3 REPLY / TIMEOUT
+  case "$2:$3" in
+    R1:REPLY) observation='R1 REPLY=ECHO:udp-probe' ;;
+    R2:REPLY) observation='R2 REPLY=ECHO:udp-probe-2' ;;
+    R3:REPLY) observation='R3 REPLY=ECHO:udp-probe-3' ;;
+    R[123]:TIMEOUT) observation="$2 TIMEOUT" ;;
+    *) return 1 ;;
+  esac
+  printf '%s\n' "$1" | grep -qxF "$observation"
+}
+
 # 所有后台进程都由执行器本身持有，不能在命令替换的子 shell 中启动。
 init_children() {
   children=""
@@ -126,7 +137,7 @@ run_probe() { # $1 日志，其余为探针参数；保留退出码，不能用�
   has "$out" 'ERR=' && case_error 'probe reported an error'
   case "$1" in
     tcp) has "$out" 'TCP-REPLY=' || has "$out" 'TCP-NOREPLY' || case_error 'missing TCP observation' ;;
-    udp) has "$out" 'R1 REPLY=' || has "$out" 'R1 TIMEOUT' || case_error 'missing UDP observation' ;;
+    udp) udp_observed "$out" R1 REPLY || udp_observed "$out" R1 TIMEOUT || case_error 'missing UDP observation' ;;
     hs) has "$out" 'HS=' || case_error 'missing handshake observation' ;;
     *) case_error "unknown probe: $1" ;;
   esac
@@ -191,7 +202,7 @@ run_config_cmd() { # $1 cmd $2 配置文件
 check_config() { # $1 子句 $2 输出 $3 退出码
   case "$1" in
     OK) [ "$3" = 0 ] && has "$2" "Configuration OK." ;;
-    ERR:*) [ "$3" = 23 ] && has "$2" "${1#ERR:}" ;;
+    ERR:?*) [ "$3" = 23 ] && has "$2" "${1#ERR:}" ;;
     PB:+*) [ "$3" = 0 ] && has "$2" "${1#PB:+}" ;;
     PB:-*) [ "$3" = 0 ] && ! has "$2" "${1#PB:-}" ;;
     *) return 1 ;;
@@ -221,8 +232,7 @@ check_traffic() { # $1 子句 $2 探针输出 $3 日志文件
   case "$1" in
     PASS) tcp_ok "$2" ;;
     FAIL) { has "$2" 'TCP-NOREPLY' || has "$2" 'TCP-REPLY='; } && ! tcp_ok "$2" ;;
-    UDP:REPLY) has "$2" "R1 REPLY=" ;;
-    UDP:TIMEOUT) has "$2" "R1 TIMEOUT" ;;
+    UDP:*) udp_observed "$2" R1 "${1#UDP:}" ;;
     vision:*) check_vision_log "${1#vision:}" "$3" ;;
     log:+*) has "$(cat "$3")" "${1#log:+}" ;;
     log:-*) ! has "$(cat "$3")" "${1#log:-}" ;;

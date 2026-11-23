@@ -1,6 +1,7 @@
 """用生成清单和实际日志形状验证 Vision 状态断言，避免通用拷贝日志的误判。"""
 
 import csv
+import json
 import os
 from pathlib import Path
 import shutil
@@ -83,6 +84,26 @@ class VisionExpectationsTest(unittest.TestCase):
         self.check(("XV-01", "XV-03"), PADDED, "MISMATCH", probe="TCP-NOREPLY")
         self.check(("XV-02", "XV-04", "XV-05"), TLS13 + SENT_DIRECT + RECEIVED_DIRECT,
                    "MISMATCH", probe="TCP-NOREPLY")
+
+    def test_transport_controls_differ_only_by_flow_on_both_ends(self):
+        vision = Path(self.tmp.name) / "xray/vision"
+        generator = vision / "gen-transports.py"
+        shutil.copyfile(ROOT / "xray/vision" / generator.name, generator)
+        subprocess.run([sys.executable, str(generator)], check=True, capture_output=True)
+        folder = vision / "transports"
+        with (folder / "manifest.tsv").open() as file:
+            cases = {row["id"]: row["expect"] for row in csv.DictReader(file, delimiter="\t")}
+        for i, suffix in ((20, "h2-tls"), (22, "quic-tls"), (24, "httpheader-none")):
+            case = f"VT-{i}-sb-{suffix}"
+            control = f"VT-{i + 1}-sb-{suffix}-noflow"
+            self.assertEqual(cases[case], "FAIL:VISION-INIT")
+            self.assertEqual(cases[control], "PASS")
+            for filename in ("sing-box.json", "sing-box-server.json"):
+                with self.subTest(case=case, filename=filename):
+                    config = json.loads((folder / case / filename).read_text())
+                    user = config["outbounds"][0] if filename == "sing-box.json" else config["inbounds"][0]["users"][0]
+                    self.assertEqual(user.pop("flow"), "xtls-rprx-vision")
+                    self.assertEqual(config, json.loads((folder / control / filename).read_text()))
 
 
 if __name__ == "__main__":

@@ -118,13 +118,15 @@ for core in ("xray", "sb"):
     case(core, "tcp", "tls", True, "UDP:REPLY", "对照：RAW + TLS 的 UDP")
 case("xray", "tcphttp", "tls", False, "-", "Xray 的 tcp http 头伪装 + TLS：只记录实际结果（sing-box 没有这个形状）")
 
-# sing-box 独有的传输（Xray 服务端已不支持）：服务端换成同一个 sing-box 命令行，用户不带 flow，只看客户端 Vision 初始化是否失败。
+# sing-box 独有的传输：两端使用相同的 flow，并从客户端日志确认 Vision 初始化失败。
 # 传输与生成器同形：http 带 TLS 是 h2、不带是 tcp 伪 HTTP 头；quic 必须带 TLS
 SB_NETS = {"h2": ({"type": "http", "path": "/h2"}, "tls"), "quic": ({"type": "quic"}, "tls"), "httpheader": ({"type": "http", "path": "/"}, "none")}
 
 
-def sb_server_cfg(transport, sec):
+def sb_server_cfg(transport, sec, flow=None):
     inb = {"type": "vless", "tag": "in-s", "listen": "127.0.0.1", "listen_port": 32000, "users": [{"uuid": UUID}], "transport": transport}
+    if flow:
+        inb["users"][0]["flow"] = flow
     if sec == "tls":
         inb["tls"] = {"enabled": True, "server_name": SNI, "certificate": LEAF, "key": LEAF_KEY}
     return {"log": {"level": "debug"}, "inbounds": [inb], "outbounds": [{"type": "direct", "tag": "direct"}], "route": {"final": "direct"}}
@@ -133,24 +135,22 @@ def sb_server_cfg(transport, sec):
 for name, (transport, sec) in SB_NETS.items():
     c = sb_cfg("tcp", sec)
     c["outbounds"][0]["transport"] = transport
-    cid = new_case(f"sb-{name}-{sec}", {"sing-box-server": sb_server_cfg(transport, sec), "sing-box": c})
-    # 对照：同一对配置去掉 flow，确认失败只来自 Vision
+    cid = new_case(f"sb-{name}-{sec}", {"sing-box-server": sb_server_cfg(transport, sec, VISION), "sing-box": c})
+    # 对照：客户端和服务端同时去掉 flow，其余条件相同。
     c2 = copy.deepcopy(c)
     del c2["outbounds"][0]["flow"]
     cid2 = new_case(f"sb-{name}-{sec}-noflow", {"sing-box-server": sb_server_cfg(transport, sec), "sing-box": c2})
-    CASES.append((cid, "sb-tcp", "-", "FAIL", f"sing-box 服务端，{name}：Vision 初始化应失败"))
+    CASES.append((cid, "sb-tcp", "-", "FAIL:VISION-INIT", f"sing-box 客户端，{name}：Vision 初始化应失败"))
     CASES.append((cid2, "sb-tcp", "-", "PASS", "对照：同一传输不带 flow"))
 
 # sing-box 客户端配 httpupgrade 时 Vision 初始化不报错（只有 Xray 服务端拒收）：换成 sing-box 服务端、用户带 vision，看两端都是 sing-box 时能否通
-srv = sb_server_cfg(NETS["httpupgrade"][1], "tls")
-srv["inbounds"][0]["users"][0]["flow"] = VISION
+srv = sb_server_cfg(NETS["httpupgrade"][1], "tls", VISION)
 cid = new_case("sb-httpupgrade-tls-sbserver", {"sing-box-server": srv, "sing-box": sb_cfg("httpupgrade", "tls")})
 CASES.append((cid, "sb-tcp", "-", "-", "sing-box 客户端 + sing-box 服务端（带 vision），httpupgrade + TLS：只记录实际结果"))
 
 # 与跨核负例 VT-11 对照：同一 sing-box 客户端改连 sing-box REALITY 服务端，确认 RAW + REALITY 的 Vision 本身可用。
-srv = sb_server_cfg(None, "none")
+srv = sb_server_cfg(None, "none", VISION)
 del srv["inbounds"][0]["transport"]
-srv["inbounds"][0]["users"][0]["flow"] = VISION
 srv["inbounds"][0]["tls"] = {
     "enabled": True, "server_name": SNI,
     "reality": {"enabled": True, "handshake": {"server": "127.0.0.1", "server_port": 32100},

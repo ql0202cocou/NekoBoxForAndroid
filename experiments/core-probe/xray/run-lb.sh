@@ -56,7 +56,7 @@ once() { # $1 file $2 kind $3 args $4 log → 结果写到 out、run_error
 
 check() { # $1 子句 $2 探针输出 $3 日志文件
   case "$1" in
-    R2:*|R3:*) has "$2" "${1%%:*} ${1#*:}" ;;
+    R2:*|R3:*) udp_observed "$2" "${1%%:*}" "${1#*:}" ;;
     HS=*) has "$2" "$1" ;;
     hello:+*) has "$(cat "$3.hello")" "${1#hello:+}" ;;
     hello:-*) ! has "$(cat "$3.hello")" "${1#hello:-}" ;;

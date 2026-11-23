@@ -1,7 +1,8 @@
 #!/bin/sh
 # Vision 跑在各传输上的核实（gen-transports.py 生成的 transports/）。模拟器 mksh：
 #   cd <本目录>; XRAY=<xray> SINGBOX=<sing-box linux/arm64> PROBE=<socksprobe>（均为绝对路径） sh run-transports.sh > transports-results.txt 2>&1
-# 判读：PASS / FAIL = 经 :31000 发一行，收到 / 收不到 TARGET-REPLY-OK；UDP:REPLY = socksprobe 第一次发包有回显；- = 只记录
+# PASS / FAIL 检查 TCP 目标回包，UDP:REPLY 检查第一轮回显；- 仅记录结果。
+# FAIL:VISION-INIT 要求 TCP 没有回复，且本次客户端日志明确指出 Vision 初始化失败。
 . "$(dirname "$0")/../runner-lib.sh"
 require_bins XRAY SINGBOX PROBE
 cd "$(dirname "$0")/transports" || exit 1
@@ -46,8 +47,10 @@ while IFS='	' read -r id kind args expect note <&3; do
   cleanup_children
   if [ -n "$run_error" ]; then got=ERROR
   elif tcp_ok "$out"; then got=PASS
-  elif has "$out" "R1 REPLY="; then got=UDP:REPLY
-  elif has "$out" "R1 TIMEOUT"; then got=UDP:TIMEOUT
+  elif udp_observed "$out" R1 REPLY; then got=UDP:REPLY
+  elif udp_observed "$out" R1 TIMEOUT; then got=UDP:TIMEOUT
+  elif [ "$expect" = FAIL:VISION-INIT ] && [ -n "$s" ] && has "$out" 'TCP-NOREPLY' &&
+       grep -qF 'initialize vision: vision: not a valid supported TLS connection' "$id/sing-box.log"; then got=FAIL:VISION-INIT
   else got=FAIL
   fi
   if [ "$got" = ERROR ]; then verdict=ERROR
