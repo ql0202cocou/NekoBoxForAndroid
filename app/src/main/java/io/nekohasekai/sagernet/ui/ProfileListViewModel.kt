@@ -385,6 +385,16 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
         else -> sourceOrder
     }
 
+    // 更新后的节点仍排在完整列表 index 处的前后两个邻居之间。比较规则以原始顺序收尾、没有并列，
+    // items 是完整列表按搜索过滤的子序列，在完整列表里不动，在 items 里也不动
+    private fun staysInPlace(index: Int, cached: CachedProfile): Boolean {
+        val comparator = profileOrder(listOrder)
+        val before = allProfileIds.getOrNull(index - 1)?.let(configurationList::getValue)
+        val after = allProfileIds.getOrNull(index + 1)?.let(configurationList::getValue)
+        return (before == null || comparator.compare(before, cached) < 0) &&
+            (after == null || comparator.compare(cached, after) < 0)
+    }
+
     private fun insertProfile(cached: CachedProfile, previous: Int) {
         val profile = cached.entity
         configurationList[profile.id] = cached
@@ -435,8 +445,19 @@ class ProfileListViewModel(private val handle: SavedStateHandle) : ListViewModel
             }
             mutateList {
                 cached.sourceOrder = configurationList.getValue(profile.id).sourceOrder
+                val visible = indexOfId(profile.id)
+                // 排序位置与搜索可见性都没变（只改流量、测速等）时原地替换；清零整组会逐行发更新，
+                // 每行都摘下再二分插回是整组平方级的主线程开销
+                if (staysInPlace(index, cached) && (visible >= 0) == matchesQuery(cached)) {
+                    configurationList[profile.id] = cached
+                    if (visible >= 0) {
+                        items[visible] = profile
+                        host?.notifyChanged(visible, PAYLOAD_UPDATED)
+                    }
+                    return@mutateList
+                }
                 allProfileIds.removeAt(index)
-                insertProfile(cached, indexOfId(profile.id))
+                insertProfile(cached, visible)
             }
         }
     }

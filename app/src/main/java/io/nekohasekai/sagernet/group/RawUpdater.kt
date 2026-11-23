@@ -247,13 +247,19 @@ object RawUpdater : GroupUpdater() {
         // 名字优先。仅当完整配置（AbstractBean 的比较忽略名字）在新旧两组都唯一时，
         // 才能把消失的名字认成改名。别名、凭据不同或本地覆写无法核实的节点不猜。
         if (toDelete.isNotEmpty() && toReplace.size < nameMap.size) {
-            val oldCounts = exists.groupingBy { it.requireBean() }.eachCount()
-            val newCounts = proxies.groupingBy { it }.eachCount()
-            val renamed = proxies.filter { it.displayName() !in toReplace && newCounts[it] == 1 }.associateBy { it }
+            // 比较键每个节点只算一次（AbstractBean 的比较要整份序列化）
+            val oldKeys = exists.associate { it.id to it.requireBean().comparisonKey() }
+            val newKeys = proxies.map { it.comparisonKey() }
+            val oldCounts = oldKeys.values.groupingBy { it }.eachCount()
+            val newCounts = newKeys.groupingBy { it }.eachCount()
+            val renamed = HashMap<Any, AbstractBean>()
+            for ((i, bean) in proxies.withIndex()) {
+                if (bean.displayName() !in toReplace && newCounts[newKeys[i]] == 1) renamed[newKeys[i]] = bean
+            }
             toDelete.removeAll { old ->
-                val oldBean = old.requireBean()
-                val replacement = renamed[oldBean]
-                if (oldCounts[oldBean] != 1 || replacement == null) return@removeAll false
+                val oldKey = oldKeys.getValue(old.id)
+                val replacement = renamed[oldKey]
+                if (oldCounts[oldKey] != 1 || replacement == null) return@removeAll false
                 renamedFrom[old.id] = old.displayName()
                 toReplace[replacement.displayName()] = old
                 true

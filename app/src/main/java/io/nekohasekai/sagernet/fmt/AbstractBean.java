@@ -140,6 +140,38 @@ public abstract class AbstractBean extends Serializable {
         return Arrays.hashCode(serializeForComparison());
     }
 
+    // 与 equals / hashCode 同一判定（同类且去掉 name 后的序列化相同）的键，只序列化一次。
+    // 批量分组、计数时用它，免得每次查表都把节点重新序列化一遍
+    @NonNull
+    public final Object comparisonKey() {
+        return new ComparisonKey(getClass(), serializeForComparison());
+    }
+
+    private static final class ComparisonKey {
+        private final Class<?> type;
+        private final byte[] bytes;
+        private final int hash;
+
+        ComparisonKey(Class<?> type, byte[] bytes) {
+            this.type = type;
+            this.bytes = bytes;
+            this.hash = 31 * type.hashCode() + Arrays.hashCode(bytes);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof ComparisonKey)) return false;
+            ComparisonKey other = (ComparisonKey) o;
+            return type == other.type && Arrays.equals(bytes, other.bytes);
+        }
+
+        @Override
+        public int hashCode() {
+            return hash;
+        }
+    }
+
     @NotNull
     @Override
     public String toString() {
