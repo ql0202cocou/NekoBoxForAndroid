@@ -209,6 +209,34 @@ def t(slug, cfg, cmd, expect, item, note=""):
     T.append((slug, cfg, cmd, expect, item, "-", note))
 
 
+# XmuxConfig 的范围字段（config.proto 的 RangeConfig）；hKeepAlivePeriod 是 int64。convert pb -debug 按键名排序输出，
+# 未设的范围字段打印为 {}，int64 为 0 时省略
+XMUX_RANGES = ("maxConcurrency", "maxConnections", "cMaxReuseTimes", "hMaxRequestTimes", "hMaxReusableSecs")
+
+
+def pb_range(value):
+    # 范围写法同 Xray 的 Int32Range：整数即两端相等，"a-b" 按大小排好
+    if isinstance(value, int):
+        return {"from": value, "to": value}
+    low, high = sorted(int(part) for part in value.split("-"))
+    return {"from": low, "to": high}
+
+
+def pb_fragment(key, value):
+    return "PBC:+" + json.dumps({key: value}, separators=(",", ":"), sort_keys=True)[1:-1]
+
+
+def canonical_pb_expect(extra):
+    """按 convert pb -debug 的输出形态逐字段核对（去掉空白后整段比对），不能只搜几个数字。"""
+    xmux = {key: pb_range(extra["xmux"][key]) if key in extra["xmux"] else {} for key in XMUX_RANGES}
+    if extra["xmux"].get("hKeepAlivePeriod"):
+        xmux["hKeepAlivePeriod"] = extra["xmux"]["hKeepAlivePeriod"]
+    unknown = set(extra) - {"headers", "xPaddingBytes", "xmux"} | set(extra["xmux"]) - set(XMUX_RANGES) - {"hKeepAlivePeriod"}
+    assert not unknown, f"规范 extra 有未核对的字段：{sorted(unknown)}"
+    return " && ".join([pb_fragment("headers", extra["headers"]), pb_fragment("xPaddingBytes", pb_range(extra["xPaddingBytes"])),
+                        pb_fragment("xmux", xmux)])
+
+
 def tcfg(x, sec="tls", extra_keys=None):
     c = lb(sec=sec, server=False, cx=x)
     for k, v in (extra_keys or {}).items():
@@ -227,7 +255,8 @@ t("xmux-both-err", tcfg(cli_xhttp(extra={"xmux": {"maxConnections": 2, "maxConcu
 t("mode-bad-err", tcfg(cli_xhttp(mode="foo")), "test", "ERR:unsupported mode: foo", "7", "未知 mode → 报错")
 t("mode-empty-ok", tcfg(cli_xhttp(mode="")), "test", "OK", "7", "空 mode ≈ auto")
 t("mode-upper-err", tcfg(cli_xhttp(mode="Stream-One")), "test", "ERR:unsupported mode: Stream-One", "7", "mode 区分大小写：写 Stream-One 整份配置起不来 → 应用必须写规范小写")
-t("xmux-canon-pb", tcfg(cli_xhttp(extra=EXTRA_CANON)), "pb", 'PB:+"from": 700 && PB:+"to": 800 && PB:+"from": 1900 && PB:+"to": 2900 && PB:+"from": 8 && PB:+"to": 16 && PB:+"X-K2-Probe": "k2-probe-value"', "6", "规范 extra 的每一项都进了 pb（headers、xPaddingBytes、xmux 各字段）")
+t("xmux-canon-pb", tcfg(cli_xhttp(extra=EXTRA_CANON)), "pb", canonical_pb_expect(EXTRA_CANON), "6",
+  "规范 extra 的每一项都按字段路径和值进了 pb（headers、xPaddingBytes、整个 xmux 对象，未设的范围为空）")
 t("outer-wins-pb", tcfg(cli_xhttp(path="/outer", host="outer.example.com", mode="stream-one", extra={"path": "/inner", "host": "inner.example.com", "mode": "packet-up"})), "pb",
   'PB:+"path": "/outer" && PB:-/inner && PB:+"host": "outer.example.com"', "6", "extra 里的 host / path / mode 不生效：以外层为准（校验器因此拒绝它们）")
 t("extra-case-pb", tcfg(cli_xhttp(extra={"XPADDINGBYTES": "300-500", "Headers": {"X-K2": "v"}})), "pb", 'PB:+"from": 300 && PB:+"X-K2"', "6", "extra 键名大小写不敏感")
@@ -279,6 +308,16 @@ for sec in ("none", "tls"):
 for sec in ("tls", "reality"):
     l(f"h2params-client-ignored-{sec}", lb(sec=sec, cx=cli_xhttp(extra={"h2Params": "invalid-type"})),
       "tcp", "PASS", "20", "客户端连不可解码为 HTTP2Config 的 h2Params 也忽略；仅服务端 ListenXH 读取")
+
+# 上面 options-uplink 两条只证明连接成功：去掉 extra 后与普通 packet-up 用例相同。追加编号，不改已有用例。
+# 客户端实际用的上行方法由 httpdump 直接观察。方法只取决于 uplinkHTTPMethod，与安全层无关（Xray v26.11.9
+# transport/internet/splithttp/client.go 的 GetNormalizedUplinkHTTPMethod），明文观察即可；httpdump 不回复，
+# 下行 GET 挂起时上行请求照常发出
+UPLINK = "REQLINE=OPTIONS /xh/", "REQLINE=POST /xh/"
+l("dump-uplink-options", lb(server=False, cx=cli_xhttp(mode="packet-up", extra={"uplinkHTTPMethod": "OPTIONS"})), "dump",
+  f"dump:+{UPLINK[0]} && dump:-{UPLINK[1]}", "20", "uplinkHTTPMethod=OPTIONS：上行请求确实用 OPTIONS，没有 POST")
+l("dump-uplink-post", lb(server=False, cx=cli_xhttp(mode="packet-up")), "dump",
+  f"dump:+{UPLINK[1]} && dump:-{UPLINK[0]}", "20", "对照：不设 uplinkHTTPMethod 时上行是 POST")
 
 write_suite(LBGEN, "XG", LOOPBACK_COLUMNS, G)
 write_suite(TEST, "XT", TEST_COLUMNS, T)

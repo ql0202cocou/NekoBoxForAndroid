@@ -1,5 +1,6 @@
 """用独立临时目录与可控子进程验证执行器，不依赖外核或固定端口。"""
 
+import json
 import os
 from pathlib import Path
 import shutil
@@ -208,6 +209,34 @@ class RunnersTest(unittest.TestCase):
                 result = subprocess.check_output([SHELL, "-c",
                     '. "$1"; eval_expect check_config "$2" "$3" "$4"; echo "$verdict"',
                     "config-test", str(self.xray / "runner-lib.sh"), expect, output, str(code)], text=True)
+                self.assertEqual(result.strip(), verdict)
+
+    def test_canonical_pb_requires_every_field_at_its_path(self):
+        # XT-11 的期望由生成器从规范 extra 推出；输出取自 Xray v26.11.9 的 convert pb -debug 实际形态（键名排序、4 空格缩进）
+        gen = self.root / "gen/xray"
+        shutil.copytree(ROOT, gen, ignore=shutil.ignore_patterns("test", "loopback", "loopback-gen", "transports", "*.log"))
+        shutil.copytree(ROOT.parent / "fixtures", gen.parent / "fixtures")
+        subprocess.run([sys.executable, str(gen / "xhttp/gen-xhttp.py")], check=True, capture_output=True)
+        with (gen / "xhttp/test/manifest.tsv").open() as file:
+            expect = next(line.split("\t")[3] for line in file if line.startswith("XT-11\t"))
+        real = {
+            "headers": {"X-K2-Probe": "k2-probe-value"}, "mode": "auto", "path": "/xh",
+            "xPaddingBytes": {"from": 200, "to": 400},
+            "xmux": {"cMaxReuseTimes": {"from": 64, "to": 64}, "hKeepAlivePeriod": 30,
+                     "hMaxRequestTimes": {"from": 700, "to": 800}, "hMaxReusableSecs": {"from": 1900, "to": 2900},
+                     "maxConcurrency": {"from": 8, "to": 16}, "maxConnections": {}},
+        }
+        # 无关对象承载三对范围数字、保留请求头、删去 cMaxReuseTimes / hKeepAlivePeriod / xPaddingBytes：旧断言判为 PASS
+        decoy = {"headers": {"X-K2-Probe": "k2-probe-value"}, "mode": "auto", "path": "/xh",
+                 "other": [{"from": 700, "to": 800}, {"from": 1900, "to": 2900}, {"from": 8, "to": 16}]}
+        moved = json.loads(json.dumps(real))
+        moved["xmux"]["maxConnections"] = moved["xmux"].pop("maxConcurrency")
+        for settings, verdict in ((real, "PASS"), (decoy, "MISMATCH"), (moved, "MISMATCH")):
+            with self.subTest(settings=settings):
+                output = json.dumps({"settings": settings}, indent=4, sort_keys=True)
+                result = subprocess.check_output([SHELL, "-c",
+                    '. "$1"; eval_expect check_config "$2" "$3" 0; echo "$verdict"',
+                    "pb-test", str(self.xray / "runner-lib.sh"), expect, output], text=True)
                 self.assertEqual(result.strip(), verdict)
 
     def test_vision_init_failure_requires_client_evidence_and_no_reply(self):
