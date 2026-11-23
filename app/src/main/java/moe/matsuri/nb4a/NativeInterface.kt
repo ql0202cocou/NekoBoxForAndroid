@@ -17,6 +17,7 @@ import io.nekohasekai.sagernet.utils.PackageCache
 import libcore.BoxPlatformInterface
 import libcore.Libcore
 import libcore.NB4AInterface
+import kotlinx.coroutines.CancellationException
 import java.net.InetSocketAddress
 import io.nekohasekai.sagernet.bg.ServiceRegistry
 
@@ -109,22 +110,36 @@ class NativeInterface : BoxPlatformInterface, NB4AInterface {
             // 串行调度器：快速连续切换（A→B→C）要按事件顺序结算与落库，Default 池可能先跑后到的那个协程。
             // TrafficLooper.selectMain 在本协程里等落库完成才返回，落库的先后由这里的串行保证
             runOnSerialDispatcher {
-                // 排队期间可能已停止、重启或恢复；旧回调不能切换新实例或按复用 id 改标题。
-                val proxy = data.proxy?.takeIf { it === expectedProxy && it.acceptsSelectorCallback() }
-                    ?: return@runOnSerialDispatcher
-                val id = proxy.config.profileIdForTag(tag, DataStore.selectedProxy) ?: return@runOnSerialDispatcher
-                val (ent, previousId) = ProfileManager.recordRunningProfile(id, proxy.generation, selectorChange = true) {
-                    data.proxy === proxy && proxy.acceptsSelectorCallback()
-                } ?: return@runOnSerialDispatcher
-                // traffic & title
-                proxy.apply {
-                    looper?.selectMain(id)
-                    displayProfileName = ServiceNotification.genTitle(ent)
-                    data.notification?.postNotificationTitle(displayProfileName)
-                }
-                // post binder
-                data.binder.broadcast { b ->
-                    b.cbSelectorUpdate(previousId, id)
+                // appScope 没有异常处理器：登记、落库的异常逃出协程会让 :bg 崩溃重启，这里只放弃这一次切换的收尾
+                try {
+                    // 排队期间可能已停止、重启或恢复；旧回调不能切换新实例或按复用 id 改标题。
+                    val proxy = data.proxy?.takeIf { it === expectedProxy && it.acceptsSelectorCallback() }
+                        ?: return@runOnSerialDispatcher
+                    val id = proxy.config.profileIdForTag(tag, DataStore.selectedProxy) ?: return@runOnSerialDispatcher
+                    val (ent, previousId) = ProfileManager.recordRunningProfile(id, proxy.generation, selectorChange = true) {
+                        data.proxy === proxy && proxy.acceptsSelectorCallback()
+                    } ?: return@runOnSerialDispatcher
+                    // traffic & title
+                    proxy.apply {
+                        try {
+                            looper?.selectMain(id)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            // 落库失败时增量已退回记账，下一次周期落库补写；标题与界面照常切到新节点
+                            Logs.w("Selector traffic persistence failed", e)
+                        }
+                        displayProfileName = ServiceNotification.genTitle(ent)
+                        data.notification?.postNotificationTitle(displayProfileName)
+                    }
+                    // post binder
+                    data.binder.broadcast { b ->
+                        b.cbSelectorUpdate(previousId, id)
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Logs.w("Selector switch handling failed", e)
                 }
             }
         }
