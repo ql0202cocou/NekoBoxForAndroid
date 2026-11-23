@@ -93,7 +93,7 @@ private inline fun tryLenientFormat(name: String, parse: () -> StandardV2RayBean
 }
 
 fun parseV2Ray(link: String): StandardV2RayBean {
-    // Try parse stupid formats first
+    // 先试 v2rayN、Kitsunebi 等非标准格式
     if (!link.contains("?")) tryLenientFormat("v2rayN") { parseV2RayN(link) }?.let { return it }
     tryLenientFormat("Kitsunebi") { tryResolveVmess4Kitsunebi(link) }?.let { return it }
 
