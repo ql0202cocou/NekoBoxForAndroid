@@ -186,15 +186,19 @@ fun externalReadyOutcome(results: List<HopReadiness>, timeoutMs: Long): External
     return ExternalReadyOutcome(null, warnings)
 }
 
-// 就绪探测期间进程重启过（ExternalCoreProbes 写进 lastError），readinessReason 据此归类
+// ExternalCoreProbes 写进 lastError 的进程状态，readinessReason 据此归类：探测期间重启过、
+// 就绪后退出过（到期时又在跑，说明已重启）、被守护放弃
 internal const val PROBE_PROCESS_RESTARTED = "process restarted during the probe"
+internal const val PROBE_PROCESS_EXITED = "process exited after the probe"
+internal const val PROBE_PROCESS_STOPPED = "process was stopped"
 
 private fun readinessReason(error: String?): String = when {
     error == null -> "not probed"
     error.contains("refused", ignoreCase = true) || error.contains("ECONNREFUSED") -> "connection refused"
     error.contains("timed out", ignoreCase = true) -> "timed out"
     error.contains("SOCKS5 reply") -> "SOCKS5 handshake failed"
-    error == PROBE_PROCESS_RESTARTED -> "process restarted"
+    error == PROBE_PROCESS_RESTARTED || error == PROBE_PROCESS_EXITED -> "process restarted"
+    error == PROBE_PROCESS_STOPPED -> "process stopped"
     else -> "connection error"
 }
 

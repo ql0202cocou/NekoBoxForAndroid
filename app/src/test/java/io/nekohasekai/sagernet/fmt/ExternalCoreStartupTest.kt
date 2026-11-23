@@ -301,6 +301,13 @@ class ExternalCoreStartupTest {
         val mixedMessage = externalReadyOutcome(mixed, 5000).failure!!.message!!
         assertTrue(mixedMessage, mixedMessage.endsWith("(SOCKS5 handshake failed: 1, connection error: 1)"))
         assertFalse(mixedMessage, "private" in mixedMessage)
+        // 就绪后退出、到期时已重启的进程按重启归类，不能报成连接问题
+        val restarted = listOf(
+            HopReadiness(xrayGroup.hops[0], true, false, null, PROBE_PROCESS_EXITED),
+            HopReadiness(xrayGroup.hops[1], true, false, null, PROBE_PROCESS_RESTARTED),
+        )
+        val restartedMessage = externalReadyOutcome(restarted, 5000).failure!!.message!!
+        assertTrue(restartedMessage, restartedMessage.endsWith("(process restarted: 2)"))
         val many = plan(*Array(8) { vless("n$it") }).groups.single()
         assertEquals(
             "local inbounds of 8 profiles not ready after 5000 ms: n0, n1, n2, n3, n4 and 3 more (connection refused: 8)",

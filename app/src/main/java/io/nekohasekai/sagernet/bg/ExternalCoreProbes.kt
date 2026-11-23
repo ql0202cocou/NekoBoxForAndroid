@@ -3,7 +3,9 @@ package io.nekohasekai.sagernet.bg
 import android.os.Build
 import io.nekohasekai.sagernet.fmt.ExternalCoreLaunch
 import io.nekohasekai.sagernet.fmt.LocalSocksAuth
+import io.nekohasekai.sagernet.fmt.PROBE_PROCESS_EXITED
 import io.nekohasekai.sagernet.fmt.PROBE_PROCESS_RESTARTED
+import io.nekohasekai.sagernet.fmt.PROBE_PROCESS_STOPPED
 import io.nekohasekai.sagernet.fmt.WrongPasswordReply
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -170,7 +172,7 @@ suspend fun awaitLocalPorts(
         ready[i] = false
         exitCodes[i] = state.exitCode
         // 池关闭时进程可能还没退出，没有退出码可报
-        if (state.exitCode == null) errors[i] = "process was stopped"
+        if (state.exitCode == null) errors[i] = PROBE_PROCESS_STOPPED
     }
 
     val deadline = System.nanoTime() + timeoutMs * 1_000_000
@@ -216,7 +218,7 @@ suspend fun awaitLocalPorts(
             }
             if (!state.running || state.exits != readyExits[i]) {
                 ready[i] = false
-                errors[i] = "process exited after the probe"
+                errors[i] = PROBE_PROCESS_EXITED
                 pending = true
             }
         }
