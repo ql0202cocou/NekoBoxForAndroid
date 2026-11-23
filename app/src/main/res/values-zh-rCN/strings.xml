@@ -152,6 +152,7 @@
     <string name="plugin">插件</string>
     <string name="plugin_configure">设置…</string>
     <string name="plugin_disabled">已停用</string>
+    <string name="plugin_incompatible_page_size">已安装的 %1$s 插件无法在 %2$d KiB 内存页环境中运行。请安装兼容此页大小的插件版本。</string>
     <string name="plugin_unknown">未知插件: %s</string>
     <string name="proxy_cat">服务器设置</string>
     <string name="unsaved_changes_prompt">是否要保存修改？</string>

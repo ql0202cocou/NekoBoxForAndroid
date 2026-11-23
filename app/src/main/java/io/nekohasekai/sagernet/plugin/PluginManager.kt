@@ -8,6 +8,7 @@ import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.ktx.Logs
 import moe.matsuri.nb4a.plugin.Plugins
 import moe.matsuri.nb4a.plugin.PluginConflictReporter
+import libcore.Libcore
 import java.io.File
 import java.io.FileNotFoundException
 
@@ -54,10 +55,18 @@ object PluginManager {
             return null
         }
 
-        try {
-            initNativeFaster(info)?.let { return InitResult(it, info) }
+        val path = try {
+            initNativeFaster(info)
         } catch (t: Throwable) {
             Logs.w("initNativeFaster failed", t)
+            null
+        }
+        if (path != null) {
+            val pageSize = Libcore.incompatibleExecutablePageSize(path)
+            check(pageSize == 0) {
+                SagerNet.application.getString(R.string.plugin_incompatible_page_size, pluginId, pageSize / 1024)
+            }
+            return InitResult(path, info)
         }
 
         Logs.w("Init native returns empty result")

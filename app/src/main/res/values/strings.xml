@@ -318,6 +318,7 @@
     <string name="plugin">Plugin</string>
     <string name="plugin_configure">Configure…</string>
     <string name="plugin_disabled">Disabled</string>
+    <string name="plugin_incompatible_page_size">Installed plugin %1$s cannot run with %2$d KiB memory pages. Install a compatible plugin build.</string>
     <string name="plugin_unknown">Unknown plugin %s</string>
     <string name="proxy_cat">Server Settings</string>
     <string name="ss_cat">Shadowsocks Settings</string>

@@ -1,13 +1,17 @@
 package io.nekohasekai.sagernet.bg
 
+import android.os.Build
+import android.os.ParcelFileDescriptor
 import android.os.Process
 import android.system.ErrnoException
 import android.system.Os
 import android.system.OsConstants
-import io.nekohasekai.sagernet.ktx.Logs
-import java.io.File
-import java.io.IOException
 import androidx.core.text.isDigitsOnly
+import io.nekohasekai.sagernet.ktx.Logs
+import libcore.Libcore
+import java.io.File
+import java.io.FileNotFoundException
+import java.io.IOException
 
 object Executable {
     private val EXECUTABLES = setOf(
@@ -35,16 +39,34 @@ object Executable {
     fun killAll() {
         val myPid = Process.myPid()
         for (process in File("/proc").listFiles { _, name -> name.isDigitsOnly() } ?: return) {
-            val exe = childExecutable(process, myPid) ?: continue
             try {
+                if (Build.VERSION.SDK_INT >= 31 && killThroughHandle(process, myPid)) continue
+                val exe = childExecutable(process, myPid) ?: continue
                 Os.kill(process.name.toInt(), OsConstants.SIGKILL)
                 Logs.w("SIGKILL ${exe.name} (${process.name}) succeed")
+            } catch (_: FileNotFoundException) {
+                // 枚举后进程可能已经退出，也可能无权打开其 proc 目录。
             } catch (e: ErrnoException) {
                 if (e.errno != OsConstants.ESRCH) {
-                    Logs.w("SIGKILL ${exe.absolutePath} (${process.name}) failed")
+                    Logs.w("SIGKILL (${process.name}) failed")
                     Logs.w(e)
                 }
             }
         }
     }
+
+    // 在同一个 proc 目录句柄上检查身份和发送信号。仅旧内核确实缺少系统调用时才按 PID 重查。
+    private fun killThroughHandle(process: File, servicePid: Int): Boolean =
+        ParcelFileDescriptor.open(process, ParcelFileDescriptor.MODE_READ_ONLY).use { dir ->
+            val exe = childExecutable(File("/proc/self/fd/${dir.fd}"), servicePid) ?: return@use true
+            when (val errno = Libcore.killProcessByProcFD(dir.fd)) {
+                0 -> {
+                    Logs.w("SIGKILL ${exe.name} (${process.name}) succeed")
+                    true
+                }
+                OsConstants.ESRCH -> true
+                OsConstants.ENOSYS -> false
+                else -> throw ErrnoException("pidfd_send_signal", errno)
+            }
+        }
 }
