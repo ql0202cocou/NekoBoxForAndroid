@@ -62,6 +62,7 @@ abstract class BoxInstance(
     open lateinit var processes: GuardedProcessPool
 
     private val cacheFiles = InstanceConfigFiles()
+    // 首次读取时定下外核配置：正常路径都在 init 组装外核之后；组装前出错时读到空列表，实例随即作废
     private val redactExternalOutput by lazy {
         config.externalOutputRedactor(externalProcesses.map { it.config })
     }
@@ -73,10 +74,10 @@ abstract class BoxInstance(
         return ::config.isInitialized && ::box.isInitialized
     }
 
-    // 报错文本按本次构建的凭据脱敏（ConfigBuildResult.redactErrorText，外核配置取已组装的这几份）；
+    // 报错文本按本次构建的凭据脱敏（与外核输出同一个 redactExternalOutput，外核配置取已组装的这几份）；
     // 构建没完成时没有可按值遮的配置，只按键名脱敏
     fun redactErrorText(text: String): String =
-        if (::config.isInitialized) config.redactErrorText(text, externalProcesses.map { it.config })
+        if (::config.isInitialized) redactExternalOutput(text)
         else Util.redactSecrets(text)
 
     // 异常链与 suppressed 也可能带配置值；传给日志的只有处理过的字符串。

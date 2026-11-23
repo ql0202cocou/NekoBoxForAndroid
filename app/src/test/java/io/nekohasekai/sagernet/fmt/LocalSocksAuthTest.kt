@@ -144,7 +144,7 @@ class LocalSocksAuthTest {
         )
         val error = "socks ${auth.username}:${auth.password} failed; trojan-pass-1 rejected; vless-id-0001 unknown; " +
             "{\"uuid\": \"not-in-config\"}"
-        val redacted = withConfig.redactErrorText(error, listOf(xray))
+        val redacted = withConfig.externalOutputRedactor(listOf(xray))(error)
         assertClean(redacted)
         assertEquals(
             "socks ***:*** failed; *** rejected; *** unknown; {\"uuid\": \"***\"}",
@@ -160,10 +160,9 @@ class LocalSocksAuthTest {
         )
         for (path in listOf("/synthetic-dns-id?token=synthetic-key", "/synthetic-dns-id%3Ftoken=synthetic-key")) {
             val message = "DNS request $path failed, transport /socket, root /"
-            for (safe in listOf(config.redactErrorText(message, emptyList()), config.externalOutputRedactor(emptyList())(message))) {
-                assertFalse(safe, "synthetic-dns-id" in safe || "synthetic-key" in safe)
-                assertTrue(safe, "transport /socket, root /" in safe)
-            }
+            val safe = config.externalOutputRedactor(emptyList())(message)
+            assertFalse(safe, "synthetic-dns-id" in safe || "synthetic-key" in safe)
+            assertTrue(safe, "transport /socket, root /" in safe)
         }
     }
 
@@ -172,7 +171,7 @@ class LocalSocksAuthTest {
         val config = ConfigBuildResult("""{"password":"password"}""", emptyList(), 1L,
             TrafficBindings(emptyMap(), emptyMap(), emptySet()), emptyMap(), -1L, localAuth = auth)
         val message = """{"password":"synthetic-other-value"} rejected ${auth.withWrongPassword().password}"""
-        val safe = config.redactErrorText(message, emptyList())
+        val safe = config.externalOutputRedactor(emptyList())(message)
         assertFalse(safe, "synthetic-other-value" in safe)
         assertFalse(safe, auth.withWrongPassword().password in safe)
     }

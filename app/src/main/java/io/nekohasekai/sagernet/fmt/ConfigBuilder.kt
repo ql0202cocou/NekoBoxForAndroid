@@ -141,7 +141,8 @@ class ConfigBuildResult(
     fun loggableConfig(): String = Util.redactConfig(redactLocalAuth(config))
     fun loggableExternalConfig(text: String): String = Util.redactExternalConfig(redactLocalAuth(text))
 
-    // 运行日志与启动校验在输出离开子进程时脱敏。反查密码只改了真密码的末位，也不能进入日志。
+    // 运行日志、启动校验与测速报错共用的脱敏：输出离开子进程时、报错存进测速结果前都走这里。先按值遮本机凭据，
+    // 避免凭据恰与字段名相同时先改写键名、漏掉其值；反查密码只改了真密码的末位，也不能进入日志。
     fun externalOutputRedactor(externalConfigs: List<String>): (String) -> String {
         val values = Util.secretValueRedactor(listOf(config) + externalConfigs)
         val auth = localAuth
@@ -151,10 +152,6 @@ class ConfigBuildResult(
             values(Util.redactSecrets(masked))
         }
     }
-
-    // 测速和进程日志共用脱敏顺序，避免凭据恰与字段名相同时先改写键名，漏掉其值。
-    fun redactErrorText(text: String, externalConfigs: List<String>): String =
-        externalOutputRedactor(externalConfigs)(text)
 }
 
 private val BOX_INDEX_ERROR = Regex("initialize ((?:outbound|endpoint)\\[\\d+])")

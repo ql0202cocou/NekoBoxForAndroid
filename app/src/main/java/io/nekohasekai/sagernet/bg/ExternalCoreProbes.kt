@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.bg
 import android.os.Build
 import io.nekohasekai.sagernet.fmt.ExternalCoreLaunch
 import io.nekohasekai.sagernet.fmt.LocalSocksAuth
+import io.nekohasekai.sagernet.fmt.PROBE_PROCESS_RESTARTED
 import io.nekohasekai.sagernet.fmt.WrongPasswordReply
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -35,6 +36,15 @@ private const val CHECK_OUTPUT_LINE_CHARS = 8192
 private const val CHECK_DRAIN_MS = 1000L
 private const val CHECK_KILL_GRACE_MS = 1000L
 
+// 等待中的取消检查：协程被取消或 isCancelled 为真（实例已关闭）时抛 CancellationException
+private suspend fun cancellationCheck(isCancelled: () -> Boolean, message: String): () -> Unit {
+    val context = currentCoroutineContext()
+    return {
+        context.ensureActive()
+        if (isCancelled()) throw CancellationException(message)
+    }
+}
+
 /**
  * 跑一次校验进程直到退出、超时或被取消。超时返回 exitCode 为 null 的结果；isCancelled 为真或协程被取消时
  * 抛 CancellationException。没退出就返回或抛出时先 SIGTERM 并最多等 1 秒，
@@ -47,11 +57,7 @@ suspend fun runCheckProcess(
     isCancelled: () -> Boolean,
     redactOutput: (String) -> String = { it },
 ): CheckProcessResult {
-    val context = currentCoroutineContext()
-    fun checkCancelled() {
-        context.ensureActive()
-        if (isCancelled()) throw CancellationException("external core check cancelled")
-    }
+    val checkCancelled = cancellationCheck(isCancelled, "external core check cancelled")
     checkCancelled()
     val process = ProcessBuilder(launch.commands).directory(workDir).redirectErrorStream(true).apply {
         environment().putAll(launch.env)
@@ -128,6 +134,8 @@ internal fun localReadinessSummary(statuses: List<LocalPortStatus>, elapsedMs: L
 private const val READY_POLL_MS = 20L
 private const val PROBE_TIMEOUT_MS = 200
 
+private fun probeDeadline() = System.nanoTime() + PROBE_TIMEOUT_MS * 1_000_000L
+
 /**
  * 逐个端口确认就绪（合并外核的多个监听并发启动，最后一个能连上不代表前面的都好了）。直到每个端口都就绪或其
  * 进程被守护放弃、或超时为止；不解析日志，也不访问远端。返回与 targets 一一对应。
@@ -152,11 +160,7 @@ suspend fun awaitLocalPorts(
     val gaveUp = BooleanArray(targets.size)
     val exitCodes = arrayOfNulls<Int>(targets.size)
     val errors = arrayOfNulls<String>(targets.size)
-    val context = currentCoroutineContext()
-    fun checkCancelled() {
-        context.ensureActive()
-        if (isCancelled()) throw CancellationException("closed while waiting for external cores")
-    }
+    val checkCancelled = cancellationCheck(isCancelled, "closed while waiting for external cores")
     fun statuses(): List<LocalPortStatus> {
         checkCancelled()
         return targets.indices.map { LocalPortStatus(ready[it], exitCodes[it], errors[it], gaveUp[it]) }
@@ -171,8 +175,7 @@ suspend fun awaitLocalPorts(
 
     val deadline = System.nanoTime() + timeoutMs * 1_000_000
     val checkPort = probe ?: { port, auth ->
-        val probeDeadline = minOf(deadline, System.nanoTime() + PROBE_TIMEOUT_MS * 1_000_000L)
-        probeLocalPort(port, auth, probeDeadline, ::checkCancelled)
+        probeLocalPort(port, auth, minOf(deadline, probeDeadline()), checkCancelled)
     }
     while (true) {
         var pending = false
@@ -197,7 +200,7 @@ suspend fun awaitLocalPorts(
                 ready[i] = true
                 readyExits[i] = exits
             } else {
-                errors[i] = error ?: if (state.exits != exits) "process restarted during the probe" else "timed out"
+                errors[i] = error ?: if (state.exits != exits) PROBE_PROCESS_RESTARTED else "timed out"
                 pending = true
             }
         }
@@ -240,7 +243,7 @@ private val SOCKS5_AUTH_ACCEPTED = byteArrayOf(5, 2, 1, 0)
  * 别的应答、读超时、连接被关闭都不算。
  */
 fun probeLocalPort(port: Int, auth: LocalSocksAuth?): String? =
-    probeLocalPort(port, auth, System.nanoTime() + PROBE_TIMEOUT_MS * 1_000_000L) {}
+    probeLocalPort(port, auth, probeDeadline()) {}
 
 private fun probeLocalPort(
     port: Int,
@@ -291,7 +294,7 @@ private fun probeHandshake(
     val error = try {
         SocketChannel.open().use { channel ->
             if (remainingMs(deadline) == 0) return@use unexpectedReply(reply, read, "timed out")
-            channel.connectLoopback(port, minOf(deadline, System.nanoTime() + PROBE_TIMEOUT_MS * 1_000_000L), checkCancelled)
+            channel.connectLoopback(port, minOf(deadline, probeDeadline()), checkCancelled)
             if (auth == null) return@use null
             checkCancelled()
             val socket = channel.socket()
@@ -344,14 +347,10 @@ suspend fun probeWrongPassword(
     timeoutMs: Long,
     isCancelled: () -> Boolean,
 ): WrongPasswordReply {
-    val context = currentCoroutineContext()
-    fun checkCancelled() {
-        if (isCancelled()) throw CancellationException("closed while checking local inbound authentication")
-        context.ensureActive()
-    }
+    val checkCancelled = cancellationCheck(isCancelled, "closed while checking local inbound authentication")
     val deadline = System.nanoTime() + timeoutMs * 1_000_000L
     val reply = ByteArray(SOCKS5_AUTH_ACCEPTED.size)
-    val error = probeHandshake(port, auth.withWrongPassword(), deadline, ::checkCancelled, reply)
+    val error = probeHandshake(port, auth.withWrongPassword(), deadline, checkCancelled, reply)
     return when {
         error != null -> WrongPasswordReply.Unclear(error)
         reply.contentEquals(SOCKS5_AUTH_ACCEPTED) -> WrongPasswordReply.Accepted
