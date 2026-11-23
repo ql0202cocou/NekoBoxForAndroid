@@ -67,7 +67,8 @@ class MainImporter(private val activity: MainActivity) {
 
         // 两种形态（?url= 明文与编码的分组）汇合后统一校验：深链由外部网页 / 应用
         // 发起，订阅地址只接受 http(s)。content:// 等本地来源只供用户在应用内自己
-        // 选择的文件使用，不能由外部链接指定
+        // 选择的文件使用，不能由外部链接指定。首尾空白与编辑器保存时一样先去掉
+        group.subscription?.let { it.link = it.link?.trim() }
         val link = group.subscription?.link
         if (group.type != GroupType.SUBSCRIPTION || link.isNullOrBlank() || !isHttpSubscriptionLink(link)) {
             activity.onLiveActivity {

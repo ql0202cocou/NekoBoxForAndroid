@@ -10,6 +10,7 @@ import io.nekohasekai.sagernet.database.SubscriptionBean
 import io.nekohasekai.sagernet.fmt.toUniversalLink
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.robolectric.shadows.ShadowDialog
@@ -51,6 +52,26 @@ class SubscriptionDeepLinkTest : UiTestBase() {
         for (uri in listOf(plain(valid), encoded(GroupType.SUBSCRIPTION, valid))) {
             runBlocking { activity.importSubscription(uri) }
             assertTrue(latestDialogMessage().contains(valid))
+            ShadowDialog.getLatestDialog().dismiss()
+        }
+    }
+
+    @Test fun `订阅地址首尾空白与编辑器一样去掉后导入`() {
+        val activity = ui.launchMain().get()
+        val link = "https://example.org/sub"
+        fun encoded(text: String) = Uri.parse(ProxyGroup(
+            name = "Shared group", type = GroupType.SUBSCRIPTION, subscription = SubscriptionBean().apply {
+                initializeDefaultValues()
+                this.link = text
+            },
+        ).toUniversalLink())
+        fun plain(text: String) = Uri.parse("sn://subscription").buildUpon()
+            .appendQueryParameter("url", text).build()
+        for (uri in listOf(plain(" $link "), plain("$link "), encoded("  $link\t"))) {
+            runBlocking { activity.importSubscription(uri) }
+            val message = latestDialogMessage()
+            assertNotEquals(activity.getString(R.string.invalid_subscription_url), message)
+            assertTrue(message, message.endsWith("\n\n$link"))
             ShadowDialog.getLatestDialog().dismiss()
         }
     }
