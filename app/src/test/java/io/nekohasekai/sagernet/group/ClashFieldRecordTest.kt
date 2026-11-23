@@ -106,6 +106,14 @@ class ClashFieldRecordTest {
     }
 
     @Test
+    fun `Trojan TCP 按实际 ALPN 键名记录列表转换`() {
+        val (bean, fields) = imported("{type: trojan, server: t.example, port: 443, password: pw, ALPN: [h2]}")
+        assertEquals("h2", (bean as TrojanBean).alpn)
+        assertField(fields, "ALPN", CONVERTED, ClashFieldReason.LIST_JOINED)
+        assertNoLoss(fields)
+    }
+
+    @Test
     fun `vmess 全部可转换`() {
         val (bean, fields) = imported(
             "{name: v, type: vmess, server: v.example.com, port: 443, uuid: $uuid, alterId: 0, cipher: auto, udp: true, tls: true, servername: sni.example.com, skip-cert-verify: false, client-fingerprint: chrome, alpn: [http/1.1], network: ws, ws-opts: {path: /ws, headers: {Host: cdn.example.com}, max-early-data: 2048, early-data-header-name: Sec-WebSocket-Protocol}}"

@@ -48,6 +48,37 @@ class SubscriptionUpdateTest : UiTestBase() {
     }
 
     @Test
+    fun `更新删除本组引用的节点后前置与落地保持清除`() = ui.bg {
+        val fixture = SubscriptionUpdateFixture("links", "unique", 3)
+        fixture.prepare()
+        try {
+            val links = fixture.text().trimEnd().lines()
+            fixture.file.writeText(links.joinToString("\n"))
+            fixture.update()
+            val rows = SagerDatabase.proxyDao.getByGroup(fixture.groupId)
+            val group = SagerDatabase.groupDao.getById(fixture.groupId)!!
+            group.frontProxy = rows[1].id
+            group.landingProxy = rows[2].id
+            SagerDatabase.groupDao.updateGroup(group)
+            fixture.file.writeText(links.first())
+            assertEquals(2, fixture.update().deleted)
+            val updated = SagerDatabase.groupDao.getById(fixture.groupId)!!
+            assertEquals(-1L, updated.frontProxy)
+            assertEquals(-1L, updated.landingProxy)
+            // 旧版可能已经写回失效引用。再次更新没有删除项时也能修复，同时保留有效引用。
+            updated.frontProxy = rows[1].id
+            updated.landingProxy = rows[0].id
+            SagerDatabase.groupDao.updateGroup(updated)
+            assertEquals(0, fixture.update().deleted)
+            val repaired = SagerDatabase.groupDao.getById(fixture.groupId)!!
+            assertEquals(-1L, repaired.frontProxy)
+            assertEquals(rows[0].id, repaired.landingProxy)
+        } finally {
+            fixture.cleanup()
+        }
+    }
+
+    @Test
     fun ambiguousRenameOrDifferentPasswordGetsNewRows() = ui.bg {
         val fixture = SubscriptionUpdateFixture("links", "unique", 3)
         fixture.prepare()

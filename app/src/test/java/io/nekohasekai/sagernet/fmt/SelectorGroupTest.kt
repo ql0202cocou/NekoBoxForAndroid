@@ -3,6 +3,7 @@ package io.nekohasekai.sagernet.fmt
 import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.database.ProxyEntity
 import io.nekohasekai.sagernet.database.ProxyGroup
+import io.nekohasekai.sagernet.database.RuleEntity
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
 import io.nekohasekai.sagernet.fmt.internal.ChainBean
 import org.junit.Assert.assertEquals
@@ -72,8 +73,30 @@ class SelectorGroupTest {
         assertNull(result.profileIdForTag("missing", 1))
         // 没有匹配别名时也不能由 map 的插入顺序决定。
         val reversed = ConfigBuildResult(result.config, result.externalChains, result.mainEntId,
-            result.traffic, linkedMapOf(2L to tag, 1L to tag), result.selectorGroupId)
+            result.traffic, result.profileTagMap, result.selectorGroupId,
+            selectorMemberTags = linkedMapOf(2L to tag, 1L to tag))
         assertEquals(1L, reversed.profileIdForTag(tag, 999))
+    }
+
+    @Test
+    fun `选择器回调只匹配本组成员，即使组外规则目标共用标签`() {
+        val group = ProxyGroup(id = 1, isSelector = true)
+        val selected = socks(7, 1)
+        val target = socks(1, 2)
+        val chain = ProxyEntity(id = 16, groupId = 1, userOrder = 2).putBean(ChainBean().apply {
+            initializeDefaultValues()
+            proxies = listOf(target.id)
+        })
+        val rule = RuleEntity(id = 1, enabled = true, domains = "example.org", outbound = target.id)
+        val source = MemoryConfigDataSource(listOf(group, ProxyGroup(id = 2)), listOf(selected, chain, target), listOf(rule))
+        val main = ProfileRecord.of(selected)
+        val result = buildConfig(ConfigInput(ConfigBuildMode.RUN, main, testConfigSettings(),
+            ConfigSnapshot.collect(source, main, ConfigBuildMode.RUN), emptyMap(), FakeConfigPlatform()))
+        val tag = result.profileTagMap.getValue(target.id)
+        assertEquals(tag, result.selectorMemberTags.getValue(chain.id))
+        assertNull(result.selectorMemberTags[target.id])
+        assertEquals(chain.id, result.profileIdForTag(tag, selected.id))
+        assertEquals(chain.id, result.profileIdForTag(tag, target.id))
     }
 
     @Test

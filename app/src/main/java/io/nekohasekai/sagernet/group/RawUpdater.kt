@@ -333,13 +333,13 @@ object RawUpdater : GroupUpdater() {
                 throw DataRestoredDuringUpdateException(proxyGroup.id)
             }
             // 下载期间分组可能已被删除，继续写入会留下指向不存在分组的孤儿节点
-            val currentGroup = SagerDatabase.groupDao.getById(proxyGroup.id)
+            val checkedGroup = SagerDatabase.groupDao.getById(proxyGroup.id)
                 ?: error("Group ${proxyGroup.id} was deleted during the update")
             // 编辑器保存不拿更新锁，自动更新又在另一个进程里跑：只能在事务里比对。
             // 订阅被改过就整次放弃（回滚，不写节点也不写 lastUpdated），否则旧订阅的
             // 节点会写进已改成新订阅的分组，旧的 lastUpdated 还会推迟新订阅的首次自动更新
-            val dnsSourceChanged = (currentGroup.subscription?.nameserverFromSubscription == true) != startedNameserverFromSubscription
-            if (isSubscriptionSuperseded(startedIdentity, currentGroup) ||
+            val dnsSourceChanged = (checkedGroup.subscription?.nameserverFromSubscription == true) != startedNameserverFromSubscription
+            if (isSubscriptionSuperseded(startedIdentity, checkedGroup) ||
                 (clearSubscriptionNameserver && startedIdentity.forceResolve == true && dnsSourceChanged)) {
                 throw SubscriptionSupersededException(proxyGroup.id)
             }
@@ -382,8 +382,12 @@ object RawUpdater : GroupUpdater() {
             SagerDatabase.proxyDao.deleteProxy(deletable).also {
                 Logs.d("Deleted profiles: $it")
             }
-            // 被删节点可能是其他分组的 frontProxy/landingProxy，清理悬挂引用
-            if (deletable.isNotEmpty()) GroupManager.resetDanglingGroupProxies()
+            // 本组可能引用刚删除的节点，也可能留有旧版写回的悬空引用。以清理后的行完成更新。
+            val hasGroupProxy = checkedGroup.frontProxy > 0 || checkedGroup.landingProxy > 0
+            val currentGroup = if (deletable.isNotEmpty() || hasGroupProxy) {
+                GroupManager.resetDanglingGroupProxies()
+                checkNotNull(SagerDatabase.groupDao.getById(proxyGroup.id))
+            } else checkedGroup
 
             val existCount = SagerDatabase.proxyDao.countByGroup(proxyGroup.id).toInt()
 

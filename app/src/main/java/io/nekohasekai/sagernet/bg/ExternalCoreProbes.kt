@@ -250,7 +250,9 @@ private fun probeLocalPort(
 ): String? {
     val reply = ByteArray(SOCKS5_AUTH_ACCEPTED.size)
     val error = probeHandshake(port, auth, deadline, checkCancelled, reply)
-    if (error != null || auth == null || reply.contentEquals(SOCKS5_AUTH_ACCEPTED)) return error
+    if (error != null) return error
+    if (System.nanoTime() - deadline >= 0) return unexpectedReply(reply, if (auth == null) 0 else reply.size, "timed out")
+    if (auth == null || reply.contentEquals(SOCKS5_AUTH_ACCEPTED)) return null
     return unexpectedReply(reply, reply.size, null)
 }
 
@@ -317,7 +319,8 @@ private fun probeHandshake(
         e.message ?: e.javaClass.simpleName
     }
     checkCancelled()
-    return if (error == null && System.nanoTime() - deadline >= 0) unexpectedReply(reply, read, "timed out") else error
+    // 完整的认证应答仍是有效证据；就绪探测另行检查自己的截止时间。
+    return error
 }
 
 // 没读到预期应答时的原因：读到的字节（十六进制）加提前结束的原因

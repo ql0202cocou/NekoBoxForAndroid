@@ -124,17 +124,22 @@ internal fun Any?.mihomoBoolean(): Boolean? = when {
 
 internal fun Any?.mihomoTrue(): Boolean = mihomoBoolean() == true
 
-// YAML 的整数字面（十进制或 0x / 0o / 0b 前缀，可带正负号与 _）；不是整数时为 null
+// YAML 整数支持进制前缀、旧式八进制、正负号与数字分隔符。
 internal fun clashInt(text: String): Long? {
+    if (text.firstOrNull() !in '0'..'9' && !text.startsWith('+') && !text.startsWith('-')) return null
     var digits = text.replace("_", "")
     val negative = digits.startsWith("-")
     if (negative || digits.startsWith("+")) digits = digits.substring(1)
-    val value = when {
-        digits.startsWith("0x", ignoreCase = true) -> digits.substring(2).toLongOrNull(16)
-        digits.startsWith("0o", ignoreCase = true) -> digits.substring(2).toLongOrNull(8)
-        digits.startsWith("0b", ignoreCase = true) -> digits.substring(2).toLongOrNull(2)
-        else -> digits.toLongOrNull()
-    } ?: return null
+    val radix = when {
+        digits.startsWith("0x", ignoreCase = true) -> 16
+        digits.startsWith("0o", ignoreCase = true) -> 8
+        digits.startsWith("0b", ignoreCase = true) -> 2
+        else -> 10
+    }
+    if (radix != 10) digits = digits.substring(2)
+    if (digits.startsWith('-') || digits.startsWith('+')) return null
+    val legacyOctal = radix == 10 && digits.startsWith('0') && digits.all { it in '0'..'7' }
+    val value = digits.toLongOrNull(if (legacyOctal) 8 else radix) ?: return null
     return if (negative) -value else value
 }
 
@@ -407,9 +412,9 @@ private fun ClashFields.fingerprint(pinSupported: Boolean = true) {
 }
 
 // alpn 列表按行保存；不是列表时解析器读不出来
-private fun ClashFields.alpnList(final: String?) {
-    val value = value("alpn") ?: return
-    if (value is List<*> && final != null) converted(LIST_JOINED, "alpn") else ignored(INVALID_DROPPED, "alpn")
+private fun ClashFields.alpnList(final: String?, key: String = "alpn") {
+    val value = value(key) ?: return
+    if (value is List<*> && final != null) converted(LIST_JOINED, key) else ignored(INVALID_DROPPED, key)
 }
 
 private fun ClashFields.socks(): Pair<Set<String>, ClashInactive> {
@@ -619,9 +624,11 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
     ignored(MATCHES_RESULT, if (trojan) "servername" else "sni")
     val fixedAlpn = clashTransportAlpn(trojan, network)
     val alpnEntry = proxy.mihomoEntry("alpn")
-    if (alpnEntry != null && fixedAlpn != null) {
-        recordAt(listOf(alpnEntry.key as String), ClashFieldResult.IGNORED, if (tlsOn) MATCHES_RESULT else INACTIVE)
-    } else alpnList(bean.alpn)
+    if (alpnEntry != null) {
+        val key = alpnEntry.key as String
+        if (fixedAlpn == null) alpnList(bean.alpn, key)
+        else recordAt(listOf(key), ClashFieldResult.IGNORED, if (tlsOn) MATCHES_RESULT else INACTIVE)
+    }
     kept("skip-cert-verify")
     fingerprint()
     kept("client-fingerprint")

@@ -94,6 +94,18 @@ class SubscriptionIdentityTest {
     }
 
     @Test
+    fun `订阅过滤器保留原始查询串且拒绝控制字符`() {
+        val link = "https://a.example/sub?include=HK|JP"
+        assertTrue(isHttpSubscriptionLink(link))
+        assertTrue(isEditableSubscriptionLink(link))
+        assertTrue(isHttpSubscriptionLink("$link#list"))
+        assertFalse(isHttpSubscriptionLink("$link#%zz"))
+        assertFalse(isHttpSubscriptionLink("https://?include=HK|JP"))
+        assertFalse(isHttpSubscriptionLink("https:///sub?include=HK|JP"))
+        assertFalse(isHttpSubscriptionLink("https://a.example/sub?include=HK\tJP"))
+    }
+
+    @Test
     fun `手动更新沿用订阅原文也能识别明文 HTTP`() {
         val subscription = group().subscription!!.apply { updateWhenConnectedOnly = false }
         for (link in listOf("http://a.example/sub", "HtTp://a.example/sub", "  HTTP://a.example/sub  ")) {

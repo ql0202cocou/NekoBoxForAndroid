@@ -27,7 +27,6 @@ import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.fmt.v2ray.UnsupportedTransportException
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.clashNetworkTransport
-import io.nekohasekai.sagernet.fmt.v2ray.importedVmessAlterId
 import io.nekohasekai.sagernet.fmt.v2ray.isTLS
 import io.nekohasekai.sagernet.fmt.v2ray.muxProtocolType
 import io.nekohasekai.sagernet.fmt.v2ray.normalizedXhttpPath
@@ -557,7 +556,14 @@ private fun parseClashV2Ray(proxy: Map<String, Any?>): StandardV2RayBean {
     }
     if (bean is VMessBean && !bean.isVLESS) {
         proxy.mihomoEntry("alterId")?.let { entry ->
-            bean.alterId = clashKey(entry.key, entry.value) { importedVmessAlterId(entry.value?.toString()) }
+            bean.alterId = clashKey(entry.key, entry.value) {
+                val text = entry.value?.toString()
+                if (text.isNullOrEmpty()) null else {
+                    val value = clashInt(text)
+                    require(value != null && value in 0L..Int.MAX_VALUE.toLong())
+                    value.toInt()
+                }
+            }
         }
     }
     val trojan = bean is TrojanBean

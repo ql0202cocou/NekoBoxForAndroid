@@ -55,7 +55,12 @@ internal fun needsDisconnectedUpdateConfirmation(subscription: SubscriptionBean)
 
 /** 远程订阅原文交给 Go 下载。要求它本身带有 authority，避免 HTTP 解析器宽松补斜杠后看似可用。 */
 fun isHttpSubscriptionLink(link: String): Boolean = try {
-    !URI(link).rawAuthority.isNullOrEmpty() && link.toHttpUrlOrNull() != null
+    // Go 保留原始查询串（订阅过滤器可含 |），但拒绝原文里的控制字符。
+    val queryStart = link.indexOf('?')
+    val queryEnd = link.indexOf('#').let { if (it < 0) link.length else it }
+    val withoutQuery = if (queryStart in 0 until queryEnd) link.removeRange(queryStart, queryEnd) else link
+    link.none { it.code < 0x20 || it.code == 0x7f } &&
+        !URI(withoutQuery).rawAuthority.isNullOrEmpty() && link.toHttpUrlOrNull() != null
 } catch (_: URISyntaxException) {
     false
 }

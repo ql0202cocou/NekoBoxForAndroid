@@ -6,6 +6,8 @@ import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
+import io.nekohasekai.sagernet.fmt.v2ray.parseV2RayNJson
+import io.nekohasekai.sagernet.fmt.v2ray.toV2rayNJson
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -31,6 +33,32 @@ class ClashParseTest {
         assertEquals(ClashNodeFailure.INVALID_VALUE, failure.failure)
         assertEquals("alterId", failure.path)
         assertEquals(listOf(false, true), result.beans.map { (it as VMessBean).isVLESS })
+    }
+
+    @Test
+    fun `Clash VMess 接受 YAML 非负整数形式并拒绝越界值`() {
+        fun yaml(value: String) = "proxies: [{type: vmess, server: a.example, port: 443, alterId: $value}]"
+        for ((value, expected) in mapOf("0x0" to 0, "0X2a" to 42, "0o12" to 10, "012" to 10,
+            "0b1_001" to 9, "+42" to 42, "0x7fff_ffff" to Int.MAX_VALUE)) {
+            assertEquals(value, expected, (parse(yaml(value)).beans.single() as VMessBean).alterId)
+        }
+        for (value in listOf("-0x1", "0x80000000", "0x-1", "--1", "invalid")) {
+            assertEquals(value, ClashNodeFailure.INVALID_VALUE, failure(yaml(value)).failure)
+        }
+    }
+
+    @Test
+    fun `Clash VMess H2 分享往返保留证书域名和 HTTP 主机`() {
+        val node = "type: vmess, server: edge.example, port: 443, uuid: 00000000-0000-0000-0000-000000000001, " +
+            "tls: true, network: h2, h2-opts: {host: [origin.example]}"
+        for (sni in listOf("", "cert.example")) {
+            val servername = if (sni.isEmpty()) "" else ", servername: $sni"
+            val bean = parse("proxies: [{$node$servername}]").beans.single() as VMessBean
+            assertEquals(sni, bean.sni)
+            val shared = parseV2RayNJson(bean.toV2rayNJson())
+            assertEquals(sni.ifEmpty { bean.serverAddress }, shared.sni)
+            assertEquals("origin.example", shared.host)
+        }
     }
 
     @Test

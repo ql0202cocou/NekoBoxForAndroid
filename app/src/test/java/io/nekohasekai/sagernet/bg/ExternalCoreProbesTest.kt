@@ -26,6 +26,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.ByteArrayOutputStream
+import java.io.DataInputStream
 import java.io.File
 import java.io.IOException
 import java.net.InetAddress
@@ -34,6 +35,8 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketTimeoutException
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
@@ -533,6 +536,32 @@ class ExternalCoreProbesTest {
         assertSame(WrongPasswordReply.Accepted, wrongPasswordProbe(port))
         // 连接上收到的全部字节正好是握手，没有别的请求
         assertArrayEquals(expectedWrongHandshake, awaitReceived(received))
+    }
+
+    @Test
+    fun `错误密码被接受后调度延迟不覆盖完整应答`() {
+        val server = ServerSocket(0, 1, loopback)
+        servers += server
+        val clientClosed = CountDownLatch(1)
+        thread(isDaemon = true) {
+            server.accept().use { socket ->
+                val input = DataInputStream(socket.getInputStream())
+                input.readFully(ByteArray(expectedWrongHandshake.size))
+                socket.getOutputStream().write(accepted)
+                if (input.read() == -1) clientClosed.countDown()
+            }
+        }
+        var delayed = false
+        val reply = wrongPasswordProbe(server.localPort, timeoutMs = 1000) {
+            // 对端看到 EOF 时客户端已读完应答并关闭套接字，只推迟最后一次取消检查。
+            if (clientClosed.await(50, TimeUnit.MILLISECONDS)) {
+                Thread.sleep(1000)
+                delayed = true
+            }
+            false
+        }
+        assertTrue(delayed)
+        assertSame(WrongPasswordReply.Accepted, reply)
     }
 
     @Test

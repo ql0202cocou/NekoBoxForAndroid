@@ -276,7 +276,7 @@ class BaseService {
                 if (!fullRestart) try {
                     val ent = ProfileManager.getProfile(DataStore.selectedProxy)
                     if (ent != null && canReloadSelector(ent)) {
-                        val tag = data.proxy?.config?.profileTagMap?.get(ent.id) ?: ""
+                        val tag = data.proxy?.config?.selectorMemberTags?.get(ent.id) ?: ""
                         if (tag.isNotBlank()) {
                             // 界面选择走这里；webui 上的选择走 selector_OnProxySelected。
                             // 返回 false 是选择器里没有这个 tag，同样回落重启，不能静默

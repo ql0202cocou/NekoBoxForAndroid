@@ -121,12 +121,14 @@ class ConfigBuildResult(
     val needsRootUidBypass: Boolean = false,
     // 本次构建里 REALITY 且跑在 sing-box 上的节点，按提交的次序、每个节点一项；只读，见 withRealityHint
     val realityOnSingBox: List<RealityOnSingBox> = emptyList(),
+    // 只含实际加入选择器的成员；路由目标可与成员共用标签，但不能成为当前节点。
+    val selectorMemberTags: Map<Long, String> = emptyMap(),
 ) {
     // 单跳链与成员可复用同一个出站。核心只回 tag，优先保留用户已选中的别名；
     // 从外部面板切换且没有匹配别名时，取最小 id，避免依赖 HashMap 的遍历顺序。
     fun profileIdForTag(tag: String, preferredId: Long): Long? =
-        preferredId.takeIf { profileTagMap[it] == tag }
-            ?: profileTagMap.entries.filter { it.value == tag }.minOfOrNull { it.key }
+        preferredId.takeIf { selectorMemberTags[it] == tag }
+            ?: selectorMemberTags.asSequence().filter { it.value == tag }.minOfOrNull { it.key }
 
     // 组装与启动外核用的设置；只在有外核跳实例时调用（那时一定有）
     fun requireExternalCoreSettings(): ExternalCoreSettings =
@@ -305,6 +307,7 @@ private class ConfigBuild(
     val trafficMap = HashMap<String, List<ProxyEntity>>()
     private val trafficMappingInbounds = LinkedHashSet<String>()
     val tagMap = LinkedHashMap<Long, String>()
+    private var selectorMemberTags: Map<Long, String> = emptyMap()
     val globalOutbounds = HashMap<Long, String>()
     val selectorNames = HashSet<String>()
     // 配置名若和内置出站标签同名，就会撞名
@@ -452,6 +455,7 @@ private class ConfigBuild(
             settings.externalCore,
             needsRootUidBypass = needsRootUidBypass(trafficMap),
             realityOnSingBox = realityOnSingBox.values.toList(),
+            selectorMemberTags = selectorMemberTags,
         )
     }
 
@@ -925,13 +929,14 @@ private class ConfigBuild(
                 // 照常单独建一个全局 outbound，让它仍可选、可被路由规则引用
                 tagMap[it.id] = reuseOrCommitChain(it.id, plan)
             }
+            selectorMemberTags = tagMap.toMap()
             outbounds.add(0, Outbound_SelectorOptions().apply {
                 type = "selector"
                 tag = TAG_PROXY
-                default_ = tagMap[proxy.id]
+                default_ = selectorMemberTags[proxy.id]
                 // 出口节点同时也是分组成员的链，经 globalOutbounds 去重后映射到
                 // 该成员的标签——只列一次
-                outbounds = tagMap.values.distinct()
+                outbounds = selectorMemberTags.values.distinct()
             })
         } else {
             commitChain(0, planChain(proxy, planContext))

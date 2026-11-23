@@ -552,7 +552,8 @@ internal fun VMessBean.toV2rayNJson(): String {
         }
 
         scy = bean.encryption
-        sni = bean.sni
+        // v2rayN 的空 SNI 会回退到 Host；请求主机可以与 TLS 使用的服务器地址不同。
+        sni = if (isTLS() && bean.host.isNotBlank() && bean.sni.isNullOrBlank()) bean.serverAddress else bean.sni
         alpn = bean.alpn.replace("\n", ",")
         fp = bean.utlsFingerprint
         verify_cert = !bean.allowInsecure
