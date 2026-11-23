@@ -4,6 +4,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Parcel
 import android.os.Parcelable
+import android.os.SystemClock
 import android.util.JsonWriter
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
@@ -367,14 +368,14 @@ class BackupFragment : NamedFragment(R.layout.layout_backup) {
     // 状态回调可能滞后，停止后也可能立刻有新启动。拿到独占锁才允许写库，
     // 超时只取消等待；一旦开始提交，两库提交与补偿仍按原有日志流程执行。
     private suspend fun <T> withStoppedService(restore: () -> T): T {
-        val deadline = android.os.SystemClock.elapsedRealtime() + SERVICE_STOP_TIMEOUT_MS
+        val deadline = SystemClock.elapsedRealtime() + SERVICE_STOP_TIMEOUT_MS
         do {
             SagerNet.stopService()
-            val remaining = deadline - android.os.SystemClock.elapsedRealtime()
+            val remaining = deadline - SystemClock.elapsedRealtime()
             if (remaining <= 0 || !ServiceRegistry.stateFlow.awaitSettled(remaining)) break
             ServiceRestoreLock.default.tryAcquire(forService = false)?.use { return restore() }
             delay(100)
-        } while (android.os.SystemClock.elapsedRealtime() < deadline)
+        } while (SystemClock.elapsedRealtime() < deadline)
         throw ServiceStopTimeoutException()
     }
 

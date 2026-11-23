@@ -135,8 +135,7 @@ object ProfileManager {
     // start, so only the columns this caller owns go back to the DB.
 
     private fun readTrafficEpochs(ids: Collection<Long>): Map<Long, Long> =
-        ids.chunked(999).flatMap { SagerDatabase.proxyDao.getTrafficEpochs(it) }
-            .associate { it.id to it.trafficEpoch }
+        SagerDatabase.proxyDao.getTrafficEpochs(ids.toList()).associate { it.id to it.trafficEpoch }
 
     // 广播只提示哪些节点需要同步。延迟、重复或恢复前发出的广播都以当前库为准。
     fun trafficClearEpochs(ids: LongArray, generation: Long): Map<Long, Long> =

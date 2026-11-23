@@ -25,6 +25,9 @@ import moe.matsuri.nb4a.proxy.config.ConfigBean
 import moe.matsuri.nb4a.proxy.neko.*
 import java.io.File
 
+// 旧版 SQLite 单条语句的参数上限；IN (:ids) 的批量查询按它分批
+internal const val SQLITE_MAX_VARIABLES = 999
+
 // 删除只需整理分组与通知，按这两列投影读取，不解码节点内容。
 data class ProxyGroupRef(val id: Long, val groupId: Long)
 
@@ -270,12 +273,12 @@ data class ProxyEntity(
         @Query("SELECT id FROM proxy_entities WHERE groupId = :groupId")
         fun getIdsByGroup(groupId: Long): List<Long>
 
-        // Room 会把每个 id 展开成一个参数；按旧版 SQLite 的 999 上限分批，并在同一事务中读取。
+        // Room 会把每个 id 展开成一个参数；按旧版 SQLite 的 999 上限（SQLITE_MAX_VARIABLES）分批，并在同一事务中读取。
         // IN 原本只返回唯一行且按主键遍历；先去重、排序再分批，保持跨批次的结果语义。
         // 链成员的顺序和重复引用由调用方按原始 id 列表重建，不能在这里展开。
         @Transaction
         fun getEntities(proxyIds: List<Long>): List<ProxyEntity> =
-            proxyIds.distinct().sorted().chunked(999).flatMap(::getEntitiesBatch)
+            proxyIds.distinct().sorted().chunked(SQLITE_MAX_VARIABLES).flatMap(::getEntitiesBatch)
 
         @Query("SELECT * FROM proxy_entities WHERE id IN (:proxyIds) ORDER BY id")
         fun getEntitiesBatch(proxyIds: List<Long>): List<ProxyEntity>
@@ -292,16 +295,16 @@ data class ProxyEntity(
         @Query("DELETE FROM proxy_entities WHERE id IN (:proxyId)")
         fun deleteById(proxyId: Long): Int
 
-        // 与 getEntities 相同，按 999 个参数分批；结果顺序不保证，调用方按自己的 id 顺序重建。
+        // 与 getEntities 相同，按 SQLITE_MAX_VARIABLES 个参数分批；结果顺序不保证，调用方按自己的 id 顺序重建。
         @Transaction
         fun getGroupRefs(proxyIds: List<Long>): List<ProxyGroupRef> =
-            proxyIds.distinct().chunked(999).flatMap(::getGroupRefsBatch)
+            proxyIds.distinct().chunked(SQLITE_MAX_VARIABLES).flatMap(::getGroupRefsBatch)
 
         @Query("SELECT id, groupId FROM proxy_entities WHERE id IN (:proxyIds)")
         fun getGroupRefsBatch(proxyIds: List<Long>): List<ProxyGroupRef>
 
         @Transaction
-        fun deleteByIds(proxyIds: List<Long>): Int = proxyIds.chunked(999).sumOf(::deleteByIdsBatch)
+        fun deleteByIds(proxyIds: List<Long>): Int = proxyIds.chunked(SQLITE_MAX_VARIABLES).sumOf(::deleteByIdsBatch)
 
         @Query("DELETE FROM proxy_entities WHERE id IN (:proxyIds)")
         fun deleteByIdsBatch(proxyIds: List<Long>): Int
@@ -332,8 +335,12 @@ data class ProxyEntity(
         @Query("UPDATE proxy_entities SET tx = :tx, rx = :rx WHERE id = :id")
         fun updateTraffic(id: Long, tx: Long, rx: Long)
 
+        @Transaction
+        fun getTrafficEpochs(ids: List<Long>): List<TrafficClearEpoch> =
+            ids.chunked(SQLITE_MAX_VARIABLES).flatMap(::getTrafficEpochsBatch)
+
         @Query("SELECT id, trafficEpoch FROM proxy_entities WHERE id IN (:ids)")
-        fun getTrafficEpochs(ids: List<Long>): List<TrafficClearEpoch>
+        fun getTrafficEpochsBatch(ids: List<Long>): List<TrafficClearEpoch>
 
         // 只有同一清零版本的增量可以入账，已取走但晚于清零提交的旧增量直接失效。
         @Query("UPDATE proxy_entities SET tx = tx + :dtx, rx = rx + :drx WHERE id = :id AND trafficEpoch = :epoch")

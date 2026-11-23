@@ -326,6 +326,9 @@ object Util {
     // redactSecrets 只认「键: 值」的写法。长的值先换，免得短值先截断它；解析不了的原文跳过
     fun redactSecretValues(text: String, sources: List<String>): String = secretValueRedactor(sources)(text)
 
+    // URI 解码，但保留字面加号（不当作空格）
+    private fun decodeKeepingPlus(text: String): String = URLDecoder.decode(text.replace("+", "%2B"), "UTF-8")
+
     // 外核的两个输出流以及重启后的进程复用同一份只读表，不逐行解析配置或编译正则。
     fun secretValueRedactor(sources: List<String>): (String) -> String {
         val values = HashSet<String>()
@@ -346,7 +349,7 @@ object Util {
                     values.add(redactSecrets(path))
                     // HTTP 请求错误也可能使用 URI 编码后的路径，保留字面加号。
                     runCatching {
-                        val decoded = URLDecoder.decode(path.replace("+", "%2B"), "UTF-8")
+                        val decoded = decodeKeepingPlus(path)
                         URI(null, null, decoded, null).toASCIIString()
                     }.getOrNull()?.takeIf { it.length > 1 }?.let(values::add)
                 }
@@ -386,7 +389,7 @@ object Util {
                         val userInfo = runCatching { URI(value).rawUserInfo }.getOrNull()
                         userInfo?.split(':', limit = 2)?.forEach {
                             out += it
-                            out += URLDecoder.decode(it.replace("+", "%2B"), "UTF-8")
+                            out += decodeKeepingPlus(it)
                         }
                     } else if (!sensitive && name == "extra_headers" && value is String) {
                         value.lineSequence().filter { ':' in it && !it.substringBefore(':').trim().equals("Host", true) }

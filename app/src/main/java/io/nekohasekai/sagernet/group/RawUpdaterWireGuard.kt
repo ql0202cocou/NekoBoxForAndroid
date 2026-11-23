@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.group
 
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
+import io.nekohasekai.sagernet.fmt.wireguard.isImportedAllowedIps
 import io.nekohasekai.sagernet.fmt.wireguard.isWireGuardKey
 import io.nekohasekai.sagernet.fmt.wireguard.isWireGuardLocalAddressList
 import io.nekohasekai.sagernet.ktx.*
@@ -52,7 +53,7 @@ fun parseWireGuard(conf: String): List<WireGuardBean> {
         }
         peerBean.peerKeepalive = peer["PersistentKeepalive"]?.toIntOrNull() ?: 0
         peerBean.peerAllowedIps = peer.getAll("AllowedIPs").joinToString(",")
-        if (!isWireGuardLocalAddressList(peerBean.peerAllowedIps, allowEmpty = peerBean.peerAllowedIps.isBlank())) {
+        if (!isImportedAllowedIps(peerBean.peerAllowedIps)) {
             Logs.w("WireGuard peer skipped: invalid AllowedIPs")
             continue
         }

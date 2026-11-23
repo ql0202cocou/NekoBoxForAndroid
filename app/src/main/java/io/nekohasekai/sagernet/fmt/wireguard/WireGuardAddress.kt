@@ -3,6 +3,9 @@ package io.nekohasekai.sagernet.fmt.wireguard
 import moe.matsuri.nb4a.utils.listByLineOrComma
 import java.net.InetAddress
 
+// 导入的 AllowedIPs：空串可以（不写），只有分隔符、没有条目的写法不行
+fun isImportedAllowedIps(value: String): Boolean = isWireGuardLocalAddressList(value, allowEmpty = value.isBlank())
+
 fun isWireGuardLocalAddressList(value: String, allowEmpty: Boolean = true): Boolean {
     val entries = value.listByLineOrComma()
     return (allowEmpty || entries.isNotEmpty()) && entries.all { entry ->

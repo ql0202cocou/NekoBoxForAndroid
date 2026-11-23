@@ -83,31 +83,19 @@ internal fun importedVmessAlterId(text: String?): Int? {
     return text.toIntOrNull()?.takeIf { it >= 0 } ?: throw InvalidVmessAlterId()
 }
 
+// 传输方式不认识、alterId 无效时格式已经认准，直接报错；继续试下一种格式只会换成无关的报错
+private inline fun tryLenientFormat(name: String, parse: () -> StandardV2RayBean): StandardV2RayBean? = try {
+    parse()
+} catch (e: Exception) {
+    if (e is UnsupportedTransportException || e is InvalidVmessAlterId) throw e
+    Logs.i("try $name: " + e.javaClass.simpleName)
+    null
+}
+
 fun parseV2Ray(link: String): StandardV2RayBean {
     // Try parse stupid formats first
-
-    // 传输方式不认识时格式已经认准，直接报错；继续试下一种格式只会换成无关的报错
-    if (!link.contains("?")) {
-        try {
-            return parseV2RayN(link)
-        } catch (e: UnsupportedTransportException) {
-            throw e
-        } catch (e: InvalidVmessAlterId) {
-            throw e
-        } catch (e: Exception) {
-            Logs.i("try v2rayN: " + e.javaClass.simpleName)
-        }
-    }
-
-    try {
-        return tryResolveVmess4Kitsunebi(link)
-    } catch (e: UnsupportedTransportException) {
-        throw e
-    } catch (e: InvalidVmessAlterId) {
-        throw e
-    } catch (e: Exception) {
-        Logs.i("try Kitsunebi: " + e.javaClass.simpleName)
-    }
+    if (!link.contains("?")) tryLenientFormat("v2rayN") { parseV2RayN(link) }?.let { return it }
+    tryLenientFormat("Kitsunebi") { tryResolveVmess4Kitsunebi(link) }?.let { return it }
 
     // "std" format
 

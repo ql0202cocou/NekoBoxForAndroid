@@ -34,7 +34,7 @@ import io.nekohasekai.sagernet.fmt.v2ray.requireXhttpMode
 import io.nekohasekai.sagernet.fmt.v2ray.setTLS
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import io.nekohasekai.sagernet.fmt.wireguard.genReservedList
-import io.nekohasekai.sagernet.fmt.wireguard.isWireGuardLocalAddressList
+import io.nekohasekai.sagernet.fmt.wireguard.isImportedAllowedIps
 import io.nekohasekai.sagernet.ktx.isIpAddress
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean
 import org.yaml.snakeyaml.error.YAMLException
@@ -1005,7 +1005,7 @@ private fun parseClashWireGuard(proxy: Map<String, Any?>): WireGuardBean {
             }
             else -> value.toString()
         }
-        if (!isWireGuardLocalAddressList(raw, allowEmpty = raw.isBlank())) {
+        if (!isImportedAllowedIps(raw)) {
             throw ClashNodeRejected(ClashNodeFailure.INVALID_VALUE, listOf(entry.key))
         }
         bean.peerAllowedIps = raw
