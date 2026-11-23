@@ -203,7 +203,11 @@ internal class ClashFields(
         return clashShownValueAt(type, normalized, value)
     }
 
-    fun recordAt(path: List<String>, result: ClashFieldResult, reason: ClashFieldReason?) {
+    // mihomo 读法找到的顶层键（mihomoEntry），路径用节点里的原始键名；mihomoEntry 只返回字符串键
+    fun mihomoPath(name: String): List<String>? = proxy.mihomoEntry(name)?.let { listOf(it.key as String) }
+
+    fun recordAt(path: List<String>?, result: ClashFieldResult, reason: ClashFieldReason? = null) {
+        if (path == null) return
         val value = valueAt(path) ?: return
         records[path] = ClashFieldRecord(shownKeyPath(path), result, reason, shownValue(path, value))
         // 子键有记录时，父对象按「已展开」处理
@@ -437,16 +441,13 @@ private fun ClashFields.shadowsocks(bean: ShadowsocksBean): Pair<Set<String>, Cl
     // plugin、plugin-opts 及其子键、udp-over-tcp：读键规则与解析器、clashRejection 共用（clashSsPlugin*，mihomo 的读法，
     // plugin-opts 的子键不把 _ 当作 -），记录用节点里的原始键名；不是字符串的键不记
     fun pathOf(vararg entries: Map.Entry<*, *>?): List<String>? = entries.map { it?.key as? String ?: return null }
-    fun record(path: List<String>?, result: ClashFieldResult, reason: ClashFieldReason? = null) {
-        if (path != null) recordAt(path, result, reason)
-    }
     // 未支持的插件整个节点被拒，到不了这里
-    val pluginPath = pathOf(proxy.mihomoEntry("plugin"))
+    val pluginPath = mihomoPath("plugin")
     val plugin = proxy.clashSsPlugin()?.value?.toString()
     when (plugin) {
         // 写成 sip003 的 obfs-local
-        "obfs" -> record(pluginPath, ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
-        else -> record(pluginPath, ClashFieldResult.KEPT)
+        "obfs" -> recordAt(pluginPath, ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
+        else -> recordAt(pluginPath, ClashFieldResult.KEPT)
     }
     var table = SS_KEYS
     val optsEntry = proxy.clashSsPluginOpts()
@@ -455,31 +456,31 @@ private fun ClashFields.shadowsocks(bean: ShadowsocksBean): Pair<Set<String>, Cl
         openAt(optsPath)
         fun sub(name: String) = proxy.clashSsPluginOpt(name)?.let { pathOf(optsEntry, it) }
         val quic = plugin == "v2ray-plugin" && proxy.clashSsPluginOpt("mode")?.value == "quic"
-        if (quic) record(sub("mode"), ClashFieldResult.IGNORED, SEMANTICS_DIFFER)
-        else record(sub("mode"), ClashFieldResult.KEPT)
-        record(sub("host"), ClashFieldResult.KEPT)
+        if (quic) recordAt(sub("mode"), ClashFieldResult.IGNORED, SEMANTICS_DIFFER)
+        else recordAt(sub("mode"), ClashFieldResult.KEPT)
+        recordAt(sub("host"), ClashFieldResult.KEPT)
         if (plugin == "obfs") {
             table = table + SS_OBFS_KEYS
         } else {
             table = table + SS_V2RAY_PLUGIN_KEYS
-            record(sub("tls"), ClashFieldResult.KEPT)
+            recordAt(sub("tls"), ClashFieldResult.KEPT)
             if (quic) {
-                record(sub("path"), ClashFieldResult.IGNORED, INACTIVE)
-                record(sub("mux"), ClashFieldResult.IGNORED, INACTIVE)
+                recordAt(sub("path"), ClashFieldResult.IGNORED, INACTIVE)
+                recordAt(sub("mux"), ClashFieldResult.IGNORED, INACTIVE)
             } else {
-                record(sub("path"), ClashFieldResult.KEPT)
-                record(sub("mux"), ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
+                recordAt(sub("path"), ClashFieldResult.KEPT)
+                recordAt(sub("mux"), ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
             }
         }
     }
     // udp-over-tcp：版本按 mihomo 的规则写进 bean（不写或 0 是 1，2 是 2，见 clashUdpOverTcpVersion），
     // sing-box 一侧只在版本是 1 时写出来。键与布尔值的读法同 mihomo，解析器读到的与它一致
     val uot = bean.sUoT == true
-    record(pathOf(proxy.mihomoEntry("udp-over-tcp")), ClashFieldResult.KEPT)
+    recordAt(mihomoPath("udp-over-tcp"), ClashFieldResult.KEPT)
     if (uot) {
         proxy.mihomoEntry("udp-over-tcp-version")?.let { version ->
-            if (version.value?.toString() == "0") record(pathOf(version), ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
-            else record(pathOf(version), ClashFieldResult.KEPT)
+            if (version.value?.toString() == "0") recordAt(pathOf(version), ClashFieldResult.CONVERTED, EQUIVALENT_VALUE)
+            else recordAt(pathOf(version), ClashFieldResult.KEPT)
         }
     }
     // 下面几处同样按解析器的读法判断（plugin 与 udp-over-tcp 在 mihomo 里不区分键名大小写；空白的 plugin 视为没有插件）
@@ -555,9 +556,7 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
     kept("server"); kept("port")
     if (trojan) kept("password") else kept("uuid")
     if (vmess) {
-        proxy.mihomoEntry("alterId")?.let { entry ->
-            recordAt(listOf(entry.key as String), ClashFieldResult.KEPT, null)
-        }
+        recordAt(mihomoPath("alterId"), ClashFieldResult.KEPT)
         if (present("cipher")) {
             // mihomo 把 cipher 转成小写再用，解析器同样转小写（大小写不同的写法是等价转换）
             val cipher = value("cipher")
@@ -620,14 +619,12 @@ private fun ClashFields.v2ray(type: String, bean: StandardV2RayBean): Pair<Set<S
 
     val network = mihomoValue("network")?.toString()
     val sniKey = if (trojan) "sni" else "servername"
-    proxy.mihomoEntry(sniKey)?.let { entry -> keptIfFinalAt(listOf(entry.key as String), bean.sni) }
+    mihomoPath(sniKey)?.let { keptIfFinalAt(it, bean.sni) }
     ignored(MATCHES_RESULT, if (trojan) "servername" else "sni")
     val fixedAlpn = clashTransportAlpn(trojan, network)
-    val alpnEntry = proxy.mihomoEntry("alpn")
-    if (alpnEntry != null) {
-        val key = alpnEntry.key as String
-        if (fixedAlpn == null) alpnList(bean.alpn, key)
-        else recordAt(listOf(key), ClashFieldResult.IGNORED, if (tlsOn) MATCHES_RESULT else INACTIVE)
+    mihomoPath("alpn")?.let { path ->
+        if (fixedAlpn == null) alpnList(bean.alpn, path[0])
+        else recordAt(path, ClashFieldResult.IGNORED, if (tlsOn) MATCHES_RESULT else INACTIVE)
     }
     kept("skip-cert-verify")
     fingerprint()
