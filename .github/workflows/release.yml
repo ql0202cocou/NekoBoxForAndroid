@@ -27,6 +27,18 @@ jobs:
     name: Validate tag
     runs-on: ubuntu-24.04
     steps:
+      - name: Check workflow ref matches the tag
+        # 工作流定义（本文件与 libcore.yml、build-apk.yml）必须与构建的代码取自同一个 tag。
+        # 不带 --ref 时工作流来自默认分支，重发旧 tag 会让新工作流去跑旧代码（元数据路径、
+        # 检查脚本对不上）。输入同样只经 env 传入
+        env:
+          TAG: ${{ inputs.tag }}
+          REF: ${{ github.ref }}
+        run: |
+          if [ "$REF" != "refs/tags/$TAG" ]; then
+            echo "::error::dispatch from the tag itself: gh workflow run release.yml --ref $TAG -f tag=$TAG (got ref $REF)"
+            exit 1
+          fi
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
