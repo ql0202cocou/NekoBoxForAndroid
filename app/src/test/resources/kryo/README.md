@@ -41,6 +41,11 @@
   - `KryoConverters` 里每个返回具体 bean 的转换函数、加上 `ProxyEntity` / `ProxyGroup`，都已登记（或列入 `skippedClasses`），
     且各有旧实现写出的样本和当前版本样本。
 
+另有一条仅覆盖 `ChainBean.deserialize` 的 v0 测试。字节由 SagerNet 提交
+`706a37c01fac403f4db13cbf28a5c236d70f30a7` 的 `AbstractBean.serializeFull`、`ChainBean.serialize`
+及该提交使用的 Kryo 5.1.0 写出。赋值为地址 `127.0.0.1:1080`、成员 ID `[73, 41]`、名称 `old-chain`。
+该格式在成员后只写名称，缺少 NekoBox 存储格式的 extraVersion 和自定义配置字段，因此未计入注册表的完整存储样本。
+
 ## 期望值的来源
 
 `expected` 由生成脚本按下面的规则逐字段写出，规则来自阅读 HEAD 的 `deserialize` / `initializeDefaultValues`，

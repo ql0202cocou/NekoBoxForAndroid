@@ -1,11 +1,15 @@
 package io.nekohasekai.sagernet.fmt.kryo
 
 import io.nekohasekai.sagernet.database.ProxyEntity
+import io.nekohasekai.sagernet.fmt.internal.ChainBean
 import io.nekohasekai.sagernet.fmt.kryo.KryoSamples.Sample
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
+import io.nekohasekai.sagernet.ktx.byteBuffer
 import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Base64
 
 // Kryo bean 格式的兼容测试：样本是历史提交的实现写出的真实字节（来源见各样本的 source 与
 // kryo/README.md），不是当前实现自己写出再读回。期望值逐字段写在样本的 expected 里
@@ -24,6 +28,18 @@ class KryoCompatTest {
     @Test
     fun `有样本`() {
         assertTrue("没有读到任何样本", KryoSamples.samples.size > 100)
+    }
+
+    @Test
+    fun `ChainBean v0 按原顺序读出成员并停在旧名称之前`() {
+        // SagerNet 706a37c0 的 serializeFull 写出的完整记录。其外层只有名称，本用例覆盖链成员层。
+        val bytes = Base64.getDecoder().decode("AAAAADEyNy4wLjAusTgEAAACAAAASQAAAAAAAAApAAAAAAAAAG9sZC1jaGFp7g==")
+        val input = bytes.byteBuffer()
+        val chain = ChainBean()
+        chain.deserialize(input)
+        assertEquals(listOf(73L, 41L), chain.proxies)
+        assertEquals("old-chain", input.readString())
+        assertEquals(input.limit(), input.position())
     }
 
     @Test
