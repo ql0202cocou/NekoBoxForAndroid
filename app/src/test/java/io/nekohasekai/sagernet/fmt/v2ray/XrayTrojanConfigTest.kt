@@ -3,12 +3,17 @@ package io.nekohasekai.sagernet.fmt.v2ray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import io.nekohasekai.sagernet.database.ProxyEntity
+import io.nekohasekai.sagernet.fmt.CoreDecision
+import io.nekohasekai.sagernet.fmt.DialCore
 import io.nekohasekai.sagernet.fmt.ExternalCoreSettings
 import io.nekohasekai.sagernet.fmt.ExternalDialTarget
 import io.nekohasekai.sagernet.fmt.ExternalHop
 import io.nekohasekai.sagernet.fmt.ExternalRunPlan
+import io.nekohasekai.sagernet.fmt.KryoConverters
 import io.nekohasekai.sagernet.fmt.LocalSocksAuth
 import io.nekohasekai.sagernet.fmt.externalCore
+import io.nekohasekai.sagernet.fmt.putBean
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import moe.matsuri.nb4a.utils.JavaUtil.gson
 import org.junit.Assert.assertEquals
@@ -217,6 +222,21 @@ class XrayTrojanConfigTest {
         // trojan:// 链接带进来的 xudp 不开 mux
         val xudpOnly = build(trojan { packetEncoding = 2 })
         assertEquals(listOf("protocol", "settings", "streamSettings"), xudpOnly.keySet().toList())
+    }
+
+    @Test
+    fun `手动 Xray 的 Trojan 开关多路复用后恢复节点仍按保存的设置生成出站`() {
+        val bean = trojan { muxType = MUX_COOL }
+        val profile = ProxyEntity(core = ProxyEntity.CORE_XRAY).putBean(bean)
+        for (enabled in listOf(true, false)) {
+            bean.enableMux = enabled
+            val restored = KryoConverters.deserialize(ProxyEntity(), KryoConverters.serialize(profile))
+            assertEquals(CoreDecision.Selected(DialCore.XRAY, manual = true), restored.coreDecision(false))
+            val saved = requireNotNull(restored.trojanBean)
+            assertEquals(MUX_COOL, saved.muxType)
+            assertEquals(enabled, saved.enableMux)
+            assertEquals(enabled, build(saved).has("mux"))
+        }
     }
 
     private fun buildError(bean: TrojanBean, settings: ExternalCoreSettings = this.settings): String? =

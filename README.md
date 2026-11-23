@@ -31,6 +31,10 @@ Trojan-Go、NaïveProxy、Mieru 分别需要安装 `trojan-go-plugin`、`naive-p
 
 VMess / VLESS / Trojan 可手动指定核心；若所选核心不支持节点设置，会列出冲突字段，不自动回落到其他核心。
 
+Mux.Cool 由 Xray 处理。对于 Trojan TCP + TLS，实测 Xray v26.11.9 对端支持 Mux.Cool。连接本项目实测的 sing-box 1.14.4-neko-4 对端时，可在节点编辑页选择 Xray 并关闭多路复用，TCP 和 UDP 均可用。
+
+Xray handles Mux.Cool. For Trojan over TCP and TLS, an Xray v26.11.9 server supports it. With the tested sing-box 1.14.4-neko-4 server, select Xray in the profile editor and turn multiplexing off to use both TCP and UDP.
+
 AnyTLS 支持整证书固定、独立证书信任策略、uTLS 和 ECH。升级迁移、分享链接、订阅更新及导出限制见 [AnyTLS 支持说明](libcore/anytlscompat/README.md)。
 
 ## 构建
